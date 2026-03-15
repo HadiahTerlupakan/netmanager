@@ -699,347 +699,803 @@ CREATE INDEX IF NOT EXISTS "employee_loans_tenantId_idx" ON "employee_loans"("te
 CREATE INDEX IF NOT EXISTS "loan_payments_tenantId_idx" ON "loan_payments"("tenantId");
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ARAgingSnapshot_tenantId_fkey') THEN
 ALTER TABLE "ARAgingSnapshot" ADD CONSTRAINT "ARAgingSnapshot_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Announcement_tenantId_fkey') THEN
 ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AnnouncementRead_tenantId_fkey') THEN
 ALTER TABLE "AnnouncementRead" ADD CONSTRAINT "AnnouncementRead_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Attendance_tenantId_fkey') THEN
 ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employee_locations_tenantId_fkey') THEN
 ALTER TABLE "employee_locations" ADD CONSTRAINT "employee_locations_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Bandwidth_tenantId_fkey') THEN
 ALTER TABLE "Bandwidth" ADD CONSTRAINT "Bandwidth_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Coupon_tenantId_fkey') THEN
 ALTER TABLE "Coupon" ADD CONSTRAINT "Coupon_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CouponUsage_tenantId_fkey') THEN
 ALTER TABLE "CouponUsage" ADD CONSTRAINT "CouponUsage_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CustomerCohort_tenantId_fkey') THEN
 ALTER TABLE "CustomerCohort" ADD CONSTRAINT "CustomerCohort_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ExpenseCategory_tenantId_fkey') THEN
 ALTER TABLE "ExpenseCategory" ADD CONSTRAINT "ExpenseCategory_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Expense_tenantId_fkey') THEN
 ALTER TABLE "Expense" ADD CONSTRAINT "Expense_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'HargaPaket_tenantId_fkey') THEN
 ALTER TABLE "HargaPaket" ADD CONSTRAINT "HargaPaket_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Investor_tenantId_fkey') THEN
 ALTER TABLE "Investor" ADD CONSTRAINT "Investor_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'InvestorPayout_tenantId_fkey') THEN
 ALTER TABLE "InvestorPayout" ADD CONSTRAINT "InvestorPayout_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'RabInvestor_tenantId_fkey') THEN
 ALTER TABLE "RabInvestor" ADD CONSTRAINT "RabInvestor_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Holiday_tenantId_fkey') THEN
 ALTER TABLE "Holiday" ADD CONSTRAINT "Holiday_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Joinbox_tenantId_fkey') THEN
 ALTER TABLE "Joinbox" ADD CONSTRAINT "Joinbox_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'JoinboxInput_tenantId_fkey') THEN
 ALTER TABLE "JoinboxInput" ADD CONSTRAINT "JoinboxInput_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'JoinboxOutput_tenantId_fkey') THEN
 ALTER TABLE "JoinboxOutput" ADD CONSTRAINT "JoinboxOutput_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'KmzFile_tenantId_fkey') THEN
 ALTER TABLE "KmzFile" ADD CONSTRAINT "KmzFile_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LeaveRequest_tenantId_fkey') THEN
 ALTER TABLE "LeaveRequest" ADD CONSTRAINT "LeaveRequest_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LeaveBalance_tenantId_fkey') THEN
 ALTER TABLE "LeaveBalance" ADD CONSTRAINT "LeaveBalance_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MRRMovement_tenantId_fkey') THEN
 ALTER TABLE "MRRMovement" ADD CONSTRAINT "MRRMovement_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MikroTikRouter_tenantId_fkey') THEN
 ALTER TABLE "MikroTikRouter" ADD CONSTRAINT "MikroTikRouter_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Odc_tenantId_fkey') THEN
 ALTER TABLE "Odc" ADD CONSTRAINT "Odc_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OdcOutput_tenantId_fkey') THEN
 ALTER TABLE "OdcOutput" ADD CONSTRAINT "OdcOutput_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Odp_tenantId_fkey') THEN
 ALTER TABLE "Odp" ADD CONSTRAINT "Odp_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OdpOutput_tenantId_fkey') THEN
 ALTER TABLE "OdpOutput" ADD CONSTRAINT "OdpOutput_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Otb_tenantId_fkey') THEN
 ALTER TABLE "Otb" ADD CONSTRAINT "Otb_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OtbCore_tenantId_fkey') THEN
 ALTER TABLE "OtbCore" ADD CONSTRAINT "OtbCore_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Overtime_tenantId_fkey') THEN
 ALTER TABLE "Overtime" ADD CONSTRAINT "Overtime_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Pelanggan_tenantId_fkey') THEN
 ALTER TABLE "Pelanggan" ADD CONSTRAINT "Pelanggan_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Permission_tenantId_fkey') THEN
 ALTER TABLE "Permission" ADD CONSTRAINT "Permission_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Pole_tenantId_fkey') THEN
 ALTER TABLE "Pole" ADD CONSTRAINT "Pole_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ProfilePPP_tenantId_fkey') THEN
 ALTER TABLE "ProfilePPP" ADD CONSTRAINT "ProfilePPP_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ReminderLog_tenantId_fkey') THEN
 ALTER TABLE "ReminderLog" ADD CONSTRAINT "ReminderLog_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'RevenueSnapshot_tenantId_fkey') THEN
 ALTER TABLE "RevenueSnapshot" ADD CONSTRAINT "RevenueSnapshot_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'roles_tenantId_fkey') THEN
 ALTER TABLE "roles" ADD CONSTRAINT "roles_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Settings_tenantId_fkey') THEN
 ALTER TABLE "Settings" ADD CONSTRAINT "Settings_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'SystemLog_tenantId_fkey') THEN
 ALTER TABLE "SystemLog" ADD CONSTRAINT "SystemLog_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_tenantId_fkey') THEN
 ALTER TABLE "User" ADD CONSTRAINT "User_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_sites_tenantId_fkey') THEN
 ALTER TABLE "user_sites" ADD CONSTRAINT "user_sites_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'barang_tenantId_fkey') THEN
 ALTER TABLE "barang" ADD CONSTRAINT "barang_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'barang_gudang_tenantId_fkey') THEN
 ALTER TABLE "barang_gudang" ADD CONSTRAINT "barang_gudang_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'barang_keluar_tenantId_fkey') THEN
 ALTER TABLE "barang_keluar" ADD CONSTRAINT "barang_keluar_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'barang_masuk_tenantId_fkey') THEN
 ALTER TABLE "barang_masuk" ADD CONSTRAINT "barang_masuk_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'configuration_restores_tenantId_fkey') THEN
 ALTER TABLE "configuration_restores" ADD CONSTRAINT "configuration_restores_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'customer_usage_tenantId_fkey') THEN
 ALTER TABLE "customer_usage" ADD CONSTRAINT "customer_usage_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'departments_tenantId_fkey') THEN
 ALTER TABLE "departments" ADD CONSTRAINT "departments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'device_backups_tenantId_fkey') THEN
 ALTER TABLE "device_backups" ADD CONSTRAINT "device_backups_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'gudang_tenantId_fkey') THEN
 ALTER TABLE "gudang" ADD CONSTRAINT "gudang_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'network_alerts_tenantId_fkey') THEN
 ALTER TABLE "network_alerts" ADD CONSTRAINT "network_alerts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'network_performance_tenantId_fkey') THEN
 ALTER TABLE "network_performance" ADD CONSTRAINT "network_performance_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'notifications_tenantId_fkey') THEN
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
 ALTER TABLE "oauth_provider_configs" ADD CONSTRAINT "oauth_provider_configs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'positions_tenantId_fkey') THEN
 ALTER TABLE "positions" ADD CONSTRAINT "positions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'push_subscriptions_tenantId_fkey') THEN
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'registrations_tenantId_fkey') THEN
 ALTER TABLE "registrations" ADD CONSTRAINT "registrations_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'restock_alerts_tenantId_fkey') THEN
 ALTER TABLE "restock_alerts" ADD CONSTRAINT "restock_alerts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'restock_settings_tenantId_fkey') THEN
 ALTER TABLE "restock_settings" ADD CONSTRAINT "restock_settings_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'service_suspension_tenantId_fkey') THEN
 ALTER TABLE "service_suspension" ADD CONSTRAINT "service_suspension_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sites_tenantId_fkey') THEN
 ALTER TABLE "sites" ADD CONSTRAINT "sites_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sla_tenantId_fkey') THEN
 ALTER TABLE "sla" ADD CONSTRAINT "sla_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'stock_opname_tenantId_fkey') THEN
 ALTER TABLE "stock_opname" ADD CONSTRAINT "stock_opname_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'support_tickets_tenantId_fkey') THEN
 ALTER TABLE "support_tickets" ADD CONSTRAINT "support_tickets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ticket_replies_tenantId_fkey') THEN
 ALTER TABLE "ticket_replies" ADD CONSTRAINT "ticket_replies_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'transfer_antar_gudang_tenantId_fkey') THEN
 ALTER TABLE "transfer_antar_gudang" ADD CONSTRAINT "transfer_antar_gudang_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_analytics_tenantId_fkey') THEN
 ALTER TABLE "usage_analytics" ADD CONSTRAINT "usage_analytics_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_assignments_tenantId_fkey') THEN
 ALTER TABLE "work_order_assignments" ADD CONSTRAINT "work_order_assignments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_attachments_tenantId_fkey') THEN
 ALTER TABLE "work_order_attachments" ADD CONSTRAINT "work_order_attachments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_escalations_tenantId_fkey') THEN
 ALTER TABLE "work_order_escalations" ADD CONSTRAINT "work_order_escalations_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_tasks_tenantId_fkey') THEN
 ALTER TABLE "work_order_tasks" ADD CONSTRAINT "work_order_tasks_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_templates_tenantId_fkey') THEN
 ALTER TABLE "work_order_templates" ADD CONSTRAINT "work_order_templates_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_updates_tenantId_fkey') THEN
 ALTER TABLE "work_order_updates" ADD CONSTRAINT "work_order_updates_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_orders_tenantId_fkey') THEN
 ALTER TABLE "work_orders" ADD CONSTRAINT "work_orders_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_material_returns_tenantId_fkey') THEN
 ALTER TABLE "work_order_material_returns" ADD CONSTRAINT "work_order_material_returns_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Conversation_tenantId_fkey') THEN
 ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ConversationParticipant_tenantId_fkey') THEN
 ALTER TABLE "ConversationParticipant" ADD CONSTRAINT "ConversationParticipant_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Message_tenantId_fkey') THEN
 ALTER TABLE "Message" ADD CONSTRAINT "Message_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'app_versions_tenantId_fkey') THEN
 ALTER TABLE "app_versions" ADD CONSTRAINT "app_versions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Shift_tenantId_fkey') THEN
 ALTER TABLE "Shift" ADD CONSTRAINT "Shift_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'canvasing_tenantId_fkey') THEN
 ALTER TABLE "canvasing" ADD CONSTRAINT "canvasing_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'point_claims_tenantId_fkey') THEN
 ALTER TABLE "point_claims" ADD CONSTRAINT "point_claims_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'purchase_requests_tenantId_fkey') THEN
 ALTER TABLE "purchase_requests" ADD CONSTRAINT "purchase_requests_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'purchase_request_items_tenantId_fkey') THEN
 ALTER TABLE "purchase_request_items" ADD CONSTRAINT "purchase_request_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'suppliers_tenantId_fkey') THEN
 ALTER TABLE "suppliers" ADD CONSTRAINT "suppliers_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'purchase_orders_tenantId_fkey') THEN
 ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'purchase_order_items_tenantId_fkey') THEN
 ALTER TABLE "purchase_order_items" ADD CONSTRAINT "purchase_order_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'financial_accounts_tenantId_fkey') THEN
 ALTER TABLE "financial_accounts" ADD CONSTRAINT "financial_accounts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'assets_tenantId_fkey') THEN
 ALTER TABLE "assets" ADD CONSTRAINT "assets_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'asset_depreciation_logs_tenantId_fkey') THEN
 ALTER TABLE "asset_depreciation_logs" ADD CONSTRAINT "asset_depreciation_logs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'salaries_tenantId_fkey') THEN
 ALTER TABLE "salaries" ADD CONSTRAINT "salaries_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'salary_components_tenantId_fkey') THEN
 ALTER TABLE "salary_components" ADD CONSTRAINT "salary_components_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'salary_details_tenantId_fkey') THEN
 ALTER TABLE "salary_details" ADD CONSTRAINT "salary_details_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'salary_revisions_tenantId_fkey') THEN
 ALTER TABLE "salary_revisions" ADD CONSTRAINT "salary_revisions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_salary_components_tenantId_fkey') THEN
 ALTER TABLE "user_salary_components" ADD CONSTRAINT "user_salary_components_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_materials_tenantId_fkey') THEN
 ALTER TABLE "work_order_materials" ADD CONSTRAINT "work_order_materials_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_template_items_tenantId_fkey') THEN
 ALTER TABLE "work_order_template_items" ADD CONSTRAINT "work_order_template_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mapping_nodes_tenantId_fkey') THEN
 ALTER TABLE "mapping_nodes" ADD CONSTRAINT "mapping_nodes_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'mapping_edges_tenantId_fkey') THEN
 ALTER TABLE "mapping_edges" ADD CONSTRAINT "mapping_edges_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'map_settings_tenantId_fkey') THEN
 ALTER TABLE "map_settings" ADD CONSTRAINT "map_settings_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_projects_tenantId_fkey') THEN
 ALTER TABLE "rab_projects" ADD CONSTRAINT "rab_projects_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_revisions_tenantId_fkey') THEN
 ALTER TABLE "rab_revisions" ADD CONSTRAINT "rab_revisions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_revision_approvals_tenantId_fkey') THEN
 ALTER TABLE "rab_revision_approvals" ADD CONSTRAINT "rab_revision_approvals_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_revision_items_tenantId_fkey') THEN
 ALTER TABLE "rab_revision_items" ADD CONSTRAINT "rab_revision_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_approvals_tenantId_fkey') THEN
 ALTER TABLE "rab_approvals" ADD CONSTRAINT "rab_approvals_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_items_tenantId_fkey') THEN
 ALTER TABLE "rab_items" ADD CONSTRAINT "rab_items_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_wbs_tenantId_fkey') THEN
 ALTER TABLE "rab_wbs" ADD CONSTRAINT "rab_wbs_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_disbursements_tenantId_fkey') THEN
 ALTER TABLE "rab_disbursements" ADD CONSTRAINT "rab_disbursements_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'acs_vendors_tenantId_fkey') THEN
 ALTER TABLE "acs_vendors" ADD CONSTRAINT "acs_vendors_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'acs_wifi_security_tenantId_fkey') THEN
 ALTER TABLE "acs_wifi_security" ADD CONSTRAINT "acs_wifi_security_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'company_bank_accounts_tenantId_fkey') THEN
 ALTER TABLE "company_bank_accounts" ADD CONSTRAINT "company_bank_accounts_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rab_actual_achievements_tenantId_fkey') THEN
 ALTER TABLE "rab_actual_achievements" ADD CONSTRAINT "rab_actual_achievements_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employee_loans_tenantId_fkey') THEN
 ALTER TABLE "employee_loans" ADD CONSTRAINT "employee_loans_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
 -- AddForeignKey
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'loan_payments_tenantId_fkey') THEN
 ALTER TABLE "loan_payments" ADD CONSTRAINT "loan_payments_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+END IF;
+END $$;
 
