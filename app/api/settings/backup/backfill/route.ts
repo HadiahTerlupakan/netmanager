@@ -16,7 +16,7 @@ function findTsxCommand(): string {
     return 'npx tsx'
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function POST(_req: NextRequest): Promise<NextResponse> {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
         return ApiErrors.unauthorized('Session tidak valid')
@@ -55,8 +55,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             message: 'Sinkronisasi berhasil dijalankan. Data telah dihubungkan dengan Tenant yang benar.',
             log: stdout
         })
-    } catch (error: any) {
-        console.error('[backup:backfill] Gagal menjalankan sinkronisasi:', error)
-        return ApiErrors.internalError(`Gagal menjalankan sinkronisasi: ${error.message || String(error)}`)
+    } catch (error: unknown) {
+        const err = error as Error
+        console.error('[backup:backfill] Gagal menjalankan sinkronisasi:', err)
+        return ApiErrors.internalError(`Gagal menjalankan sinkronisasi: ${err.message || String(err)}`)
     }
 }
