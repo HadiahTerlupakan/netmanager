@@ -24,6 +24,8 @@ const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter } as unknown)
 
+const MAIN_TENANT_ID = '11111111-1111-1111-1111-111111111111'
+
 // ====== ROLE DEFINITIONS ======
 interface RoleDefinition {
   name: string
@@ -189,14 +191,23 @@ async function main() {
               const [resource, action] = perm.split(':')
               if (!resource) return { id: 'nonexistent' } // Should not happen with valid config
               if (!action) return { resource }
-              return { resource, action }
+              return { 
+                resource, 
+                action, 
+                tenantId: MAIN_TENANT_ID 
+              }
             })
           : [{ id: 'nonexistent' }]
       },
     })
 
     const role = await prisma.role.upsert({
-      where: { name: roleDef.name },
+      where: { 
+        name_tenantId: {
+          name: roleDef.name,
+          tenantId: MAIN_TENANT_ID
+        }
+      },
       update: {
         description: roleDef.description,
         accessAdminPanel: roleDef.accessAdminPanel,
@@ -210,6 +221,7 @@ async function main() {
         id: randomUUID(),
         updatedAt: new Date(),
         name: roleDef.name,
+        tenantId: MAIN_TENANT_ID,
         description: roleDef.description,
         accessAdminPanel: roleDef.accessAdminPanel,
         accessEmployeePanel: roleDef.accessEmployeePanel,

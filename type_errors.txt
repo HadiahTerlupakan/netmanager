@@ -1,0 +1,47 @@
+app/api/admin/settings/email/route.ts(75,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/admin/settings/whatsapp/route.ts(78,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/integrations/mixradius/fees/route.ts(19,9): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/integrations/mixradius/fees/route.ts(38,9): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/ktp-ocr/route.ts(42,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/acs/route.ts(99,9): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(66,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(86,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(102,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(117,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(133,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(148,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(163,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/api/route.ts(178,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/captcha/route.ts(34,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/captcha/route.ts(39,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/captcha/route.ts(44,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/general/route.ts(335,9): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/logo/route.ts(66,5): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/logo/route.ts(93,5): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/logo/route.ts(160,5): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+app/api/settings/logo/route.ts(165,5): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+lib/services/receipt-ocr.ts(41,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+lib/utils/get-timezone.ts(28,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/finance/services/AutomaticBillingService.ts(41,17): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/finance/services/AutomaticBillingService.ts(163,17): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/finance/services/AutomaticBillingService.ts(396,17): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/finance/services/AutomaticIsolationService.ts(21,17): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/mitra/services/MitraWithdrawService.ts(24,17): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/network/services/radius-sync-service.ts(38,17): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/registration/services/RegistrationService.ts(114,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/registration/services/RegistrationService.ts(132,13): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+modules/roles/repositories/RoleRepository.ts(91,13): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/add-timezone-setting.ts(21,5): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+prisma/add-timezone-setting.ts(35,5): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+prisma/seed-qa-users.ts(199,7): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/seed.ts(38,11): error TS2353: Object literal may only specify known properties, and 'resource_action' does not exist in type 'PermissionWhereUniqueInput'.
+prisma/seed.ts(79,9): error TS2353: Object literal may only specify known properties, and 'resource_action' does not exist in type 'PermissionWhereUniqueInput'.
+prisma/seed.ts(107,5): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/seed.ts(134,5): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/seed.ts(163,5): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/seed.ts(190,5): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/seed.ts(239,5): error TS2322: Type '{ name: string; }' is not assignable to type 'RoleWhereUniqueInput'.
+prisma/seed.ts(520,7): error TS2322: Type '{ key: string; }' is not assignable to type 'SettingsWhereUniqueInput'.
+scripts/add-chat-permissions.ts(37,17): error TS2353: Object literal may only specify known properties, and 'resource_action' does not exist in type 'PermissionWhereUniqueInput'.
+scripts/add-chat-permissions.ts(73,21): error TS2353: Object literal may only specify known properties, and 'resource_action' does not exist in type 'PermissionWhereUniqueInput'.
+scripts/add-ringtone-permission.ts(23,17): error TS2353: Object literal may only specify known properties, and 'resource_action' does not exist in type 'PermissionWhereUniqueInput'.

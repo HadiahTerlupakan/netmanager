@@ -117,7 +117,7 @@ export class DepartmentService {
             }
 
             // Check if name already exists
-            const existing = await prisma.departments.findUnique({
+            const existing = await prisma.departments.findFirst({
                 where: { name: data.name },
             })
 
@@ -164,9 +164,9 @@ export class DepartmentService {
 
             // Check for duplicate name
             if (data.name && data.name !== existing.name) {
-                const duplicate = await prisma.departments.findUnique({
+                const duplicate = await prisma.departments.findFirst({
                     where: { name: data.name },
-                })
+                });
 
                 if (duplicate) {
                     return { success: false, error: 'Nama departemen sudah digunakan', code: 'DUPLICATE_NAME' }

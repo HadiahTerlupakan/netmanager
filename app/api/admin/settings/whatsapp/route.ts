@@ -72,18 +72,26 @@ export const PUT = createHandler({ auth: true }, async (req, _ctx) => {
         settingsToSave.push({ key: 'WABLAS_DOMAIN', value: whatsappDomain.trim() })
     }
 
-    // Save all settings using upsert
+    // Save all settings using findFirst + create/update
     for (const setting of settingsToSave) {
-        await prisma.settings.upsert({
-            where: { key: setting.key },
-            update: { value: setting.value, updatedAt: new Date() },
-            create: {
-                id: randomUUID(),
-                key: setting.key,
-                value: setting.value,
-                updatedAt: new Date()
-            }
+        const existing = await prisma.settings.findFirst({
+            where: { key: setting.key }
         })
+        if (existing) {
+            await prisma.settings.update({
+                where: { id: existing.id },
+                data: { value: setting.value, updatedAt: new Date() }
+            })
+        } else {
+            await prisma.settings.create({
+                data: {
+                    id: randomUUID(),
+                    key: setting.key,
+                    value: setting.value,
+                    updatedAt: new Date()
+                }
+            })
+        }
     }
 
     return apiSuccess(null, { message: 'Pengaturan WhatsApp berhasil disimpan' })

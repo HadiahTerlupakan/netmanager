@@ -37,8 +37,7 @@ export async function analyzeReceiptWithOCR(
         let apiKey = process.env.GOOGLE_GEMINI_API_KEY
 
         // Cek di database terlebih dahulu
-        const settings = await prisma.settings.findUnique({
-            where: { key: 'GOOGLE_GEMINI_API_KEY' },
+        const settings = await prisma.settings.findFirst({ where: { key: 'GOOGLE_GEMINI_API_KEY' },
         })
 
         if (settings?.value) {

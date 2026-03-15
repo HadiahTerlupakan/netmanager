@@ -31,7 +31,7 @@ export class DepartmentRepository implements IDepartmentRepository {
     }
 
     async findByName(name: string): Promise<DepartmentPublic | null> {
-        const department = await prisma.departments.findUnique({
+        const department = await prisma.departments.findFirst({
             where: { name },
         })
 

@@ -20,8 +20,7 @@ export class MitraWithdrawService {
      */
     private async getMinWithdraw(): Promise<number> {
         try {
-            const setting = await prisma.settings.findUnique({
-                where: { key: 'mitra_min_withdraw' },
+            const setting = await prisma.settings.findFirst({ where: { key: 'mitra_min_withdraw' },
             })
             return setting?.value ? parseFloat(setting.value) : DEFAULT_MIN_WITHDRAW
         } catch {

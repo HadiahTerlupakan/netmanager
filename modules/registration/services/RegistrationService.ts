@@ -110,8 +110,7 @@ export class RegistrationService {
         ipAddress?: string
     ): Promise<RegistrationResult> {
         // Cek apakah captcha diaktifkan
-        const captchaEnabledSetting = await prisma.settings.findUnique({
-            where: { key: 'captcha_enabled' }
+        const captchaEnabledSetting = await prisma.settings.findFirst({ where: { key: 'captcha_enabled' }
         })
         const captchaEnabled = captchaEnabledSetting?.value === 'true'
 
@@ -128,8 +127,7 @@ export class RegistrationService {
         }
 
         // Ambil secret key
-        const captchaSecretSetting = await prisma.settings.findUnique({
-            where: { key: 'captcha_secret_key' }
+        const captchaSecretSetting = await prisma.settings.findFirst({ where: { key: 'captcha_secret_key' }
         })
         const secretKey = captchaSecretSetting?.value
 

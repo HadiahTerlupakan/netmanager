@@ -11,7 +11,7 @@ async function main() {
   console.log('🔧 Fixing tenant provisioning for existing tenants...\n')
 
   // Find all tenants except main
-  const tenants = await (prismaAuth as any).tenant.findMany({
+  const tenants = await prismaAuth.tenant.findMany({
     where: { id: { not: MAIN_TENANT_ID } }
   })
 
@@ -21,7 +21,7 @@ async function main() {
     console.log(`\n━━━ Tenant: ${tenant.name} (${tenant.id}) ━━━`)
 
     // Check if already provisioned
-    const existingRoles = await (prismaAuth as any).role.count({
+    const existingRoles = await prismaAuth.role.count({
       where: { tenantId: tenant.id }
     })
 
@@ -43,7 +43,7 @@ async function main() {
       if (!user.roleId) continue
 
       // Check if user's role belongs to a different tenant
-      const userRole = await (prismaAuth as any).role.findUnique({
+      const userRole = await prismaAuth.role.findUnique({
         where: { id: user.roleId },
         select: { id: true, name: true, tenantId: true }
       })
@@ -52,7 +52,7 @@ async function main() {
         console.log(`  🔄 User "${user.name}" points to role "${userRole.name}" from tenant ${userRole.tenantId}`)
         
         // Find the equivalent role in this tenant
-        const correctRole = await (prismaAuth as any).role.findFirst({
+        const correctRole = await prismaAuth.role.findFirst({
           where: { name: userRole.name, tenantId: tenant.id },
           select: { id: true }
         })

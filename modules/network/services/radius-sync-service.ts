@@ -34,8 +34,7 @@ export class RadiusSyncService {
      */
     async getConnectionMode(): Promise<ConnectionMode> {
         try {
-            const setting = await this.prisma.settings.findUnique({
-                where: { key: 'PPP_CONNECTION_MODE' }
+            const setting = await this.prisma.settings.findFirst({ where: { key: 'PPP_CONNECTION_MODE' }
             });
             if (setting?.value === 'MIKROTIK_API') {
                 return 'MIKROTIK_API';

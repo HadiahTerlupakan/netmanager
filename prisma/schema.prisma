@@ -143,7 +143,7 @@ model EmployeeLocation {
 
 model Bandwidth {
   id                     String       @id
-  name                   String       @unique
+  name                   String
   maxLimitDownload       String
   maxLimitUpload         String
   burstLimitDownload     String?
@@ -167,6 +167,7 @@ model Bandwidth {
   tenant                 Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   hargaPaket             HargaPaket[]
 
+  @@unique([name, tenantId], name: "name_tenantId")
   @@index([siteId])
   @@index([tenantId])
 }
@@ -833,7 +834,7 @@ model Permission {
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   role        Role[]   @relation("PermissionToRole")
 
-  @@unique([resource, action, tenantId])
+  @@unique([resource, action, tenantId], name: "resource_action_tenantId")
   @@index([resource])
   @@index([action])
   @@index([tenantId])
@@ -882,6 +883,7 @@ model ProfilePPP {
 
   @@index([mikroTikRouterId])
   @@index([siteId])
+  @@unique([name, tenantId], name: "name_tenantId")
   @@index([tenantId])
 }
 
@@ -949,7 +951,7 @@ model Role {
   tenant              Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   permission          Permission[] @relation("PermissionToRole")
 
-  @@unique([name, tenantId])
+  @@unique([name, tenantId], name: "name_tenantId")
   @@index([accessAdminPanel])
   @@index([accessEmployeePanel])
   @@index([isRestricted])
@@ -976,7 +978,7 @@ model Settings {
   tenantId    String?
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  @@unique([key, tenantId])
+  @@unique([key, tenantId], name: "key_tenantId")
   @@index([key])
   @@index([tenantId])
 }
@@ -1340,7 +1342,7 @@ model CustomerUsage {
 
 model Departments {
   id                     String                 @id
-  name                   String                 @unique
+  name                   String
   description            String?
   jobDescription         String?
   createdAt              DateTime               @default(now())
@@ -1357,6 +1359,7 @@ model Departments {
   work_order_templates   WorkOrderTemplates[]
   work_orders            WorkOrders[]
 
+  @@unique([name, tenantId], name: "name_tenantId")
   @@index([tenantId])
   @@map("departments")
 }

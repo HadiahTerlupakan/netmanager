@@ -1,3 +1,4 @@
+import { MAIN_TENANT_ID } from '../lib/tenant-constants'
 // Jalankan: npx tsx scripts/add-chat-permissions.ts
  
 import { prisma } from '../lib/prisma'
@@ -34,9 +35,10 @@ async function main() {
     for (const perm of permissions) {
         await prisma.permission.upsert({
             where: {
-                resource_action: {
+                resource_action_tenantId: {
                     resource: perm.resource,
-                    action: perm.action
+                    action: perm.action,
+                    tenantId: MAIN_TENANT_ID
                 }
             },
             update: {
@@ -58,7 +60,7 @@ async function main() {
 
     // Assign permissions to SUPER_ADMIN role
     const superAdminRole = await prisma.role.findFirst({
-        where: { name: 'SUPER_ADMIN' }
+        where: { name: 'SUPER_ADMIN', tenantId: MAIN_TENANT_ID }
     })
 
     if (superAdminRole) {
@@ -68,12 +70,11 @@ async function main() {
         
         // Let's iterate and connect individually to be safe
         for (const perm of permissions) {
-            const dbPerm = await prisma.permission.findUnique({
+            const dbPerm = await prisma.permission.findFirst({
                 where: {
-                    resource_action: {
-                        resource: perm.resource,
-                        action: perm.action
-                    }
+                    resource: perm.resource,
+                    action: perm.action,
+                    tenantId: MAIN_TENANT_ID
                 }
             })
             

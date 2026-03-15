@@ -5,6 +5,7 @@ import { prismaBilling } from '../lib/prisma-billing'
 import { prismaRadius } from '../lib/prisma-radius'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
+import { MAIN_TENANT_ID } from '../lib/tenant-constants'
 
 
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS, getAllGranularPermissions } from '../lib/permission-config'
@@ -33,23 +34,22 @@ async function main() {
   // 1.1 Standard Permissions (resource:action combinations)
   for (const resource of ALL_RESOURCES) {
     for (const action of ACTIONS) {
-      const permission = await prisma.permission.upsert({
-        where: {
-          resource_action: {
+      let permission = await prisma.permission.findFirst({
+        where: { resource, action, tenantId: MAIN_TENANT_ID }
+      })
+      if (!permission) {
+        permission = await prisma.permission.create({
+          data: {
+            id: randomUUID(),
+            updatedAt: new Date(),
+            name: `${action.charAt(0).toUpperCase() + action.slice(1)} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
             resource,
             action,
+            tenantId: MAIN_TENANT_ID,
+            description: `Allow ${action} on ${resource}`,
           },
-        },
-        update: {},
-        create: {
-          id: randomUUID(),
-          updatedAt: new Date(),
-          name: `${action.charAt(0).toUpperCase() + action.slice(1)} ${resource.charAt(0).toUpperCase() + resource.slice(1)}`,
-          resource,
-          action,
-          description: `Allow ${action} on ${resource}`,
-        },
-      })
+        })
+      }
       permissions.push(permission)
 
       // Track mobile permissions separately
@@ -76,9 +76,10 @@ async function main() {
 
     const permission = await prisma.permission.upsert({
       where: {
-        resource_action: {
+        resource_action_tenantId: {
           resource,
           action,
+          tenantId: MAIN_TENANT_ID,
         },
       },
       update: {},
@@ -104,7 +105,12 @@ async function main() {
 
   // 2.1 SUPER_ADMIN Role - Full access to everything
   const superAdminRole = await prisma.role.upsert({
-    where: { name: 'SUPER_ADMIN' },
+    where: { 
+      name_tenantId: {
+        name: 'SUPER_ADMIN',
+        tenantId: MAIN_TENANT_ID
+      }
+    },
     update: {
       accessAdminPanel: true,
       accessEmployeePanel: true,
@@ -118,6 +124,7 @@ async function main() {
       id: randomUUID(),
       updatedAt: new Date(),
       name: 'SUPER_ADMIN',
+      tenantId: MAIN_TENANT_ID,
       description: 'Super Administrator with full access to everything',
       accessAdminPanel: true,
       accessEmployeePanel: true,
@@ -131,7 +138,7 @@ async function main() {
 
   // 2.2 ADMIN Role - Admin panel only (no mobile permissions)
   const adminRole = await prisma.role.upsert({
-    where: { name: 'ADMIN' },
+    where: { name_tenantId: { name: 'ADMIN', tenantId: MAIN_TENANT_ID } },
     update: {
       accessAdminPanel: true,
       accessEmployeePanel: false,
@@ -160,7 +167,12 @@ async function main() {
 
   // 2.3 TEKNISI Role - Employee panel only (mobile permissions)
   const teknisiRole = await prisma.role.upsert({
-    where: { name: 'TEKNISI' },
+    where: { 
+      name_tenantId: {
+        name: 'TEKNISI',
+        tenantId: MAIN_TENANT_ID
+      }
+    },
     update: {
       accessAdminPanel: false,
       accessEmployeePanel: true,
@@ -187,7 +199,12 @@ async function main() {
 
   // 2.4 SALES Role - Employee panel only (marketing permissions)
   const salesRole = await prisma.role.upsert({
-    where: { name: 'SALES' },
+    where: { 
+      name_tenantId: {
+        name: 'SALES',
+        tenantId: MAIN_TENANT_ID
+      }
+    },
     update: {
       accessAdminPanel: false,
       accessEmployeePanel: true,
@@ -236,7 +253,12 @@ async function main() {
   )
 
   const financeRole = await prisma.role.upsert({
-    where: { name: 'FINANCE' },
+    where: { 
+      name_tenantId: {
+        name: 'FINANCE',
+        tenantId: MAIN_TENANT_ID
+      }
+    },
     update: {
       accessAdminPanel: true,
       accessEmployeePanel: false,
@@ -265,7 +287,7 @@ async function main() {
   console.log('\n🏢 STEP 3: Creating Departments...')
 
   const technicalDept = await prisma.departments.upsert({
-    where: { name: 'Technical' },
+    where: { name_tenantId: { name: 'Technical', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
@@ -278,7 +300,7 @@ async function main() {
   console.log('   ✅ Department: Technical')
 
   await prisma.departments.upsert({
-    where: { name: 'Customer Service' },
+    where: { name_tenantId: { name: 'Customer Service', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
@@ -291,7 +313,7 @@ async function main() {
   console.log('   ✅ Department: Customer Service')
 
   const operationsDept = await prisma.departments.upsert({
-    where: { name: 'Operations' },
+    where: { name_tenantId: { name: 'Operations', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
@@ -304,7 +326,7 @@ async function main() {
   console.log('   ✅ Department: Operations')
 
   const financeDept = await prisma.departments.upsert({
-    where: { name: 'Finance' },
+    where: { name_tenantId: { name: 'Finance', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
@@ -317,7 +339,7 @@ async function main() {
   console.log('   ✅ Department: Finance')
 
   const marketingDept = await prisma.departments.upsert({
-    where: { name: 'Marketing' },
+    where: { name_tenantId: { name: 'Marketing', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
@@ -330,7 +352,7 @@ async function main() {
   console.log('   ✅ Department: Marketing')
 
   await prisma.departments.upsert({
-    where: { name: 'HR' },
+    where: { name_tenantId: { name: 'HR', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
@@ -517,7 +539,7 @@ async function main() {
 
   for (const setting of settingsData) {
     await prisma.settings.upsert({
-      where: { key: setting.key },
+      where: { key_tenantId: { key: setting.key, tenantId: MAIN_TENANT_ID } },
       update: {},
       create: {
         id: randomUUID(),
@@ -918,7 +940,7 @@ async function main() {
     updatedAt: new Date(),
   }
   const band10Mbps = await prisma.bandwidth.upsert({
-    where: { name: '10 Mbps' },
+    where: { name_tenantId: { name: '10 Mbps', tenantId: MAIN_TENANT_ID } },
     update: band10Data,
     create: { id: randomUUID(), name: '10 Mbps', ...band10Data }
   })
@@ -944,7 +966,7 @@ async function main() {
     updatedAt: new Date(),
   }
   const band20Mbps = await prisma.bandwidth.upsert({
-    where: { name: '20 Mbps' },
+    where: { name_tenantId: { name: '20 Mbps', tenantId: MAIN_TENANT_ID } },
     update: band20Data,
     create: { id: randomUUID(), name: '20 Mbps', ...band20Data }
   })
@@ -970,7 +992,7 @@ async function main() {
     updatedAt: new Date(),
   }
   const band50Mbps = await prisma.bandwidth.upsert({
-    where: { name: '50 Mbps' },
+    where: { name_tenantId: { name: '50 Mbps', tenantId: MAIN_TENANT_ID } },
     update: band50Data,
     create: { id: randomUUID(), name: '50 Mbps', ...band50Data }
   })
@@ -989,7 +1011,7 @@ async function main() {
     updatedAt: new Date(),
   }
   const pppBasic = await prisma.profilePPP.upsert({
-    where: { name: 'Profile-Basic' },
+    where: { name_tenantId: { name: 'Profile-Basic', tenantId: MAIN_TENANT_ID } },
     update: pppBasicData,
     create: { id: randomUUID(), name: 'Profile-Basic', ...pppBasicData }
   })
@@ -1007,7 +1029,7 @@ async function main() {
     updatedAt: new Date(),
   }
   const pppStandard = await prisma.profilePPP.upsert({
-    where: { name: 'Profile-Standard' },
+    where: { name_tenantId: { name: 'Profile-Standard', tenantId: MAIN_TENANT_ID } },
     update: pppStandardData,
     create: { id: randomUUID(), name: 'Profile-Standard', ...pppStandardData }
   })
@@ -1025,7 +1047,7 @@ async function main() {
     updatedAt: new Date(),
   }
   const pppPremium = await prisma.profilePPP.upsert({
-    where: { name: 'Profile-Premium' },
+    where: { name_tenantId: { name: 'Profile-Premium', tenantId: MAIN_TENANT_ID } },
     update: pppPremiumData,
     create: { id: randomUUID(), name: 'Profile-Premium', ...pppPremiumData }
   })

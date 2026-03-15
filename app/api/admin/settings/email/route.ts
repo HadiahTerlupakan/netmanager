@@ -71,22 +71,30 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     for (const setting of settingsToSave) {
-        await prisma.settings.upsert({
-            where: { key: setting.key },
-            create: {
-                id: randomUUID(),
-                key: setting.key,
-                value: setting.value,
-                encrypted: setting.encrypted,
-                description: `Email configuration: ${setting.key}`,
-                updatedAt: new Date()
-            },
-            update: {
-                value: setting.value,
-                encrypted: setting.encrypted,
-                updatedAt: new Date()
-            }
+        const existing = await prisma.settings.findFirst({
+            where: { key: setting.key }
         })
+        if (existing) {
+            await prisma.settings.update({
+                where: { id: existing.id },
+                data: {
+                    value: setting.value,
+                    encrypted: setting.encrypted,
+                    updatedAt: new Date()
+                }
+            })
+        } else {
+            await prisma.settings.create({
+                data: {
+                    id: randomUUID(),
+                    key: setting.key,
+                    value: setting.value,
+                    encrypted: setting.encrypted,
+                    description: `Email configuration: ${setting.key}`,
+                    updatedAt: new Date()
+                }
+            })
+        }
     }
 
     await logger.logActivity({

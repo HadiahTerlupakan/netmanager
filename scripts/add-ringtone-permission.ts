@@ -1,3 +1,4 @@
+import { MAIN_TENANT_ID } from '../lib/tenant-constants'
 
 import { prisma } from '../lib/prisma'
 
@@ -20,9 +21,10 @@ async function main() {
         // Using compound unique key pattern from existing codebase
         const permission = await prisma.permission.upsert({
             where: {
-                resource_action: {
+                resource_action_tenantId: {
                     resource: perm.resource,
-                    action: perm.action
+                    action: perm.action,
+                    tenantId: MAIN_TENANT_ID
                 }
             },
             update: {},
@@ -39,7 +41,7 @@ async function main() {
 
         // Assign to Super Admin
         const superAdminRole = await prisma.role.findFirst({
-            where: { name: 'SUPER_ADMIN' }
+            where: { name: 'SUPER_ADMIN', tenantId: MAIN_TENANT_ID }
         })
 
         if (superAdminRole) {
@@ -62,13 +64,13 @@ async function main() {
         // Check if error is due to field name mismatch (permissions vs permission)
         if (error.message?.includes('Unknown arg')) {
             console.log('Retrying with different relation field name...')
-            const superAdminRole = await prisma.role.findFirst({ where: { name: 'SUPER_ADMIN' } })
+            const superAdminRole = await prisma.role.findFirst({ where: { name: 'SUPER_ADMIN', tenantId: MAIN_TENANT_ID } })
             if (superAdminRole) {
                  await prisma.role.update({
                     where: { id: superAdminRole.id },
                     data: {
-                        permission: { // Try singular as fallback
-                            connect: { id: (await prisma.permission.findFirst({where: {resource: 'nada_dering', action: 'read'}}))?.id }
+                        permission: {
+                            connect: { id: (await prisma.permission.findFirst({where: {resource: 'nada_dering', action: 'read', tenantId: MAIN_TENANT_ID}}))?.id }
                         }
                     }
                 })

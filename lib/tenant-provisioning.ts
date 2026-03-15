@@ -13,11 +13,8 @@ export async function provisionTenantData(
   prismaClient: PrismaClient,
   tenantId: string
 ): Promise<{ rolesCreated: number; permissionsCreated: number; settingsCreated: number }> {
-  const client = prismaClient as unknown as Record<string, unknown>
-  const db = client as unknown as PrismaClient
-
   // ── 1. Clone Roles ──────────────────────────────────────────────────
-  const mainRoles = await (db as any).role.findMany({
+  const mainRoles = await prismaClient.role.findMany({
     where: { tenantId: MAIN_TENANT_ID },
     include: {
       permission: { select: { id: true, name: true, action: true, resource: true, description: true } }
@@ -36,12 +33,12 @@ export async function provisionTenantData(
     const newPermissionIds: string[] = []
     for (const perm of role.permission) {
       // Try to find existing permission for this tenant
-      let existingPerm = await (db as any).permission.findFirst({
+      let existingPerm = await prismaClient.permission.findFirst({
         where: { resource: perm.resource, action: perm.action, tenantId }
       })
 
       if (!existingPerm) {
-        existingPerm = await (db as any).permission.create({
+        existingPerm = await prismaClient.permission.create({
           data: {
             id: randomUUID(),
             name: perm.name,
@@ -58,7 +55,7 @@ export async function provisionTenantData(
     }
 
     // Create the role for the new tenant
-    await (db as any).role.create({
+    await prismaClient.role.create({
       data: {
         id: newRoleId,
         name: role.name,
@@ -79,7 +76,7 @@ export async function provisionTenantData(
   }
 
   // ── 2. Clone Settings (non-encrypted only) ──────────────────────────
-  const mainSettings = await (db as any).settings.findMany({
+  const mainSettings = await prismaClient.settings.findMany({
     where: { tenantId: MAIN_TENANT_ID, encrypted: false }
   })
 
@@ -93,12 +90,12 @@ export async function provisionTenantData(
   for (const setting of mainSettings) {
     if (sensitiveKeys.includes(setting.key)) continue
 
-    const existing = await (db as any).settings.findFirst({
+    const existing = await prismaClient.settings.findFirst({
       where: { key: setting.key, tenantId }
     })
 
     if (!existing) {
-      await (db as any).settings.create({
+      await prismaClient.settings.create({
         data: {
           id: randomUUID(),
           key: setting.key,
@@ -130,19 +127,18 @@ export async function getTenantAdminRoleId(
   prismaClient: PrismaClient,
   tenantId: string
 ): Promise<string | null> {
-  const db = prismaClient as any
-
   // Prefer SUPER_ADMIN role
-  const superAdminRole = await db.role.findFirst({
+  const superAdminRole = await prismaClient.role.findFirst({
     where: { tenantId, isSuperAdmin: true },
     select: { id: true }
   })
   if (superAdminRole) return superAdminRole.id
 
   // Fallback to any admin role
-  const adminRole = await db.role.findFirst({
+  const adminRole = await prismaClient.role.findFirst({
     where: { tenantId, accessAdminPanel: true },
     select: { id: true }
   })
   return adminRole?.id || null
 }
+

@@ -62,8 +62,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   // Ambil logo lama untuk dihapus nanti
   const settingKey = type === 'invoice' ? 'LOGO_INVOICE' : 'LOGO_APLIKASI'
-  const oldSetting = await prisma.settings.findUnique({
-    where: { key: settingKey },
+  const oldSetting = await prisma.settings.findFirst({ where: { key: settingKey },
   })
 
   // Konversi dan simpan gambar
@@ -89,22 +88,30 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   // Simpan path ke database
-  await prisma.settings.upsert({
-    where: { key: settingKey },
-    update: {
-      value: normalizedPath,
-      description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo untuk aplikasi',
-      updatedAt: new Date(),
-    },
-    create: {
-      id: randomUUID(),
-      key: settingKey,
-      value: normalizedPath,
-      description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo utama aplikasi',
-      encrypted: false,
-      updatedAt: new Date()
-    },
-  })
+  {
+    const existing = await prisma.settings.findFirst({ where: { key: settingKey } })
+    if (existing) {
+      await prisma.settings.update({ 
+        where: { id: existing.id }, 
+        data: {
+          value: normalizedPath,
+          description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo untuk aplikasi',
+          updatedAt: new Date(),
+        } 
+      })
+    } else {
+      await prisma.settings.create({ 
+        data: {
+          id: randomUUID(),
+          key: settingKey,
+          value: normalizedPath,
+          description: type === 'invoice' ? 'Logo untuk invoice' : 'Logo utama aplikasi',
+          encrypted: false,
+          updatedAt: new Date()
+        } 
+      })
+    }
+  }
 
   // System Log
   if (ctx.session?.user?.id) {
@@ -156,12 +163,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const settingKey = type === 'invoice' ? 'LOGO_INVOICE' : 'LOGO_APLIKASI'
 
   // Ambil logo lama untuk dihapus
-  const oldSetting = await prisma.settings.findUnique({
-    where: { key: settingKey },
+  const oldSetting = await prisma.settings.findFirst({ where: { key: settingKey },
   })
 
   // Hapus dari database
-  await prisma.settings.delete({
+  await prisma.settings.deleteMany({
     where: { key: settingKey },
   })
 

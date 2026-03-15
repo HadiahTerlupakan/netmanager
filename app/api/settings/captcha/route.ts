@@ -28,24 +28,35 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     const body = await req.json()
     const { enabled, siteKey, secretKey } = body
 
-    // Upsert settings
-    await prisma.$transaction([
-        prisma.settings.upsert({
-            where: { key: 'captcha_enabled' },
-            update: { value: String(enabled), updatedAt: new Date() },
-            create: { id: randomUUID(), key: 'captcha_enabled', value: String(enabled), description: 'Enable/Disable Cloudflare Turnstile', updatedAt: new Date() }
-        }),
-        prisma.settings.upsert({
-            where: { key: 'captcha_site_key' },
-            update: { value: siteKey, updatedAt: new Date() },
-            create: { id: randomUUID(), key: 'captcha_site_key', value: siteKey, description: 'Cloudflare Turnstile Site Key', updatedAt: new Date() }
-        }),
-        prisma.settings.upsert({
-            where: { key: 'captcha_secret_key' },
-            update: { value: secretKey, updatedAt: new Date() },
-            create: { id: randomUUID(), key: 'captcha_secret_key', value: secretKey, description: 'Cloudflare Turnstile Secret Key', encrypted: true, updatedAt: new Date() } // Marking as encrypted for semantics, though we store plain for now
+    // Update settings one by one for simplicity and safety
+    const settingsToSave = [
+        { key: 'captcha_enabled', value: String(enabled), description: 'Enable/Disable Cloudflare Turnstile', encrypted: false },
+        { key: 'captcha_site_key', value: siteKey, description: 'Cloudflare Turnstile Site Key', encrypted: false },
+        { key: 'captcha_secret_key', value: secretKey, description: 'Cloudflare Turnstile Secret Key', encrypted: true }
+    ]
+
+    for (const setting of settingsToSave) {
+        const existing = await prisma.settings.findFirst({
+            where: { key: setting.key }
         })
-    ])
+        if (existing) {
+            await prisma.settings.update({
+                where: { id: existing.id },
+                data: { value: setting.value, updatedAt: new Date() }
+            })
+        } else {
+            await prisma.settings.create({
+                data: {
+                    id: randomUUID(),
+                    key: setting.key,
+                    value: setting.value,
+                    description: setting.description,
+                    encrypted: setting.encrypted,
+                    updatedAt: new Date()
+                }
+            })
+        }
+    }
 
     return apiSuccess({ message: 'Settings saved successfully' })
 })

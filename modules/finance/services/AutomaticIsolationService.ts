@@ -17,8 +17,7 @@ export class AutomaticIsolationService {
             // console.log('[AutoIsolation] Starting daily isolation check...');
 
             // 1. Check if feature is enabled
-            const enabledSetting = await prisma.settings.findUnique({
-                where: { key: 'GENERAL_AUTO_ISOLASI_ENABLED' }
+            const enabledSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_AUTO_ISOLASI_ENABLED' }
             });
 
             // Default to enabled if not set, or check specific value 'false'

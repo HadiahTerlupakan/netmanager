@@ -87,7 +87,7 @@ export class RoleRepository {
     }
 
     async findByName(name: string): Promise<Role | null> {
-        return prisma.role.findUnique({
+        return prisma.role.findFirst({
             where: { name }
         })
     }

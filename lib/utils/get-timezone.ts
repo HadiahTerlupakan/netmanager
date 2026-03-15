@@ -24,8 +24,7 @@ export async function getTimezone(): Promise<string> {
     }
 
     try {
-        const setting = await prisma.settings.findUnique({
-            where: { key: 'GENERAL_TIMEZONE' },
+        const setting = await prisma.settings.findFirst({ where: { key: 'GENERAL_TIMEZONE' },
             select: { value: true },
         })
 

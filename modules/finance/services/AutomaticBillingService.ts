@@ -37,8 +37,7 @@ export class AutomaticBillingService {
             // console.log('[Billing] Starting automatic invoice generation...');
 
             // 1. Get settings
-            const invoiceOtomatisSetting = await prisma.settings.findUnique({
-                where: { key: 'GENERAL_INVOICE_OTOMATIS' },
+            const invoiceOtomatisSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_INVOICE_OTOMATIS' },
             });
 
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
@@ -159,8 +158,7 @@ export class AutomaticBillingService {
     static async checkAndGenerateRealtimeInvoice(pelangganId: string) {
         try {
             // 1. Get settings for daysBeforeDue
-            const invoiceOtomatisSetting = await prisma.settings.findUnique({
-                where: { key: 'GENERAL_INVOICE_OTOMATIS' },
+            const invoiceOtomatisSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_INVOICE_OTOMATIS' },
             });
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
@@ -392,8 +390,7 @@ export class AutomaticBillingService {
 
         // 5.5 Send Push Notification
         try {
-            const notifAppSetting = await prisma.settings.findUnique({
-                where: { key: 'GENERAL_NOTIF_APP' }
+            const notifAppSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_NOTIF_APP' }
             });
             const isPushEnabled = notifAppSetting?.value !== 'false';
 

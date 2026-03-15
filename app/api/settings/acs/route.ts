@@ -94,13 +94,21 @@ export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, a
   ]
 
   await Promise.all(
-    settingsToSave.map(({ key, value }) =>
-      prisma.settings.upsert({
-        where: { key },
-        update: { value, updatedAt: new Date() },
-        create: { key, value, encrypted: false, updatedAt: new Date(), id: randomUUID() },
+    settingsToSave.map(async ({ key, value }) => {
+      const existing = await prisma.settings.findFirst({
+        where: { key }
       })
-    )
+      if (existing) {
+        return prisma.settings.update({
+          where: { id: existing.id },
+          data: { value, updatedAt: new Date() }
+        })
+      } else {
+        return prisma.settings.create({
+          data: { id: randomUUID(), key, value, encrypted: false, updatedAt: new Date() }
+        })
+      }
+    })
   )
 
   if (ctx.session?.user?.id) {

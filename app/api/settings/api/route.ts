@@ -62,130 +62,136 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   // Upsert Google Gemini API Key
   if (googleGeminiApiKey !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'GOOGLE_GEMINI_API_KEY' },
-      update: {
-        value: googleGeminiApiKey.trim() || null,
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'GOOGLE_GEMINI_API_KEY' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: googleGeminiApiKey.trim() || null,
         description: 'Google Gemini API Key untuk OCR KTP',
-        updatedAt: new Date(),
-      },
-      create: {
-        id: randomUUID(),
+        updatedAt: new Date(),} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'GOOGLE_GEMINI_API_KEY',
         value: googleGeminiApiKey.trim() || null,
         description: 'Google Gemini API Key untuk OCR KTP',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   // Upsert Gemini Enabled
   if (geminiEnabled !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'GEMINI_ENABLED' },
-      update: { value: geminiEnabled ? 'true' : 'false', updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'GEMINI_ENABLED' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: geminiEnabled ? 'true' : 'false', updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'GEMINI_ENABLED',
         value: geminiEnabled ? 'true' : 'false',
         description: 'Enable Google Gemini API for OCR',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   // Upsert R2 Settings
   if (r2AccountId !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'R2_ACCOUNT_ID' },
-      update: { value: r2AccountId.trim() || null, updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'R2_ACCOUNT_ID' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: r2AccountId.trim() || null, updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'R2_ACCOUNT_ID',
         value: r2AccountId.trim() || null,
         description: 'Cloudflare Account ID',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   if (r2AccessKeyId !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'R2_ACCESS_KEY_ID' },
-      update: { value: r2AccessKeyId.trim() || null, updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'R2_ACCESS_KEY_ID' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: r2AccessKeyId.trim() || null, updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'R2_ACCESS_KEY_ID',
         value: r2AccessKeyId.trim() || null,
         description: 'Cloudflare R2 Access Key ID',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   // Upsert secret key
   if (r2SecretAccessKey !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'R2_SECRET_ACCESS_KEY' },
-      update: { value: r2SecretAccessKey.trim() || null, updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'R2_SECRET_ACCESS_KEY' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: r2SecretAccessKey.trim() || null, updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'R2_SECRET_ACCESS_KEY',
         value: r2SecretAccessKey.trim() || null,
         description: 'Cloudflare R2 Secret Access Key',
         encrypted: true,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   if (r2BucketName !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'R2_BUCKET_NAME' },
-      update: { value: r2BucketName.trim() || null, updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'R2_BUCKET_NAME' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: r2BucketName.trim() || null, updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'R2_BUCKET_NAME',
         value: r2BucketName.trim() || null,
         description: 'Cloudflare R2 Bucket Name',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   if (r2PublicUrl !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'R2_PUBLIC_URL' },
-      update: { value: r2PublicUrl.trim() || null, updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'R2_PUBLIC_URL' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: r2PublicUrl.trim() || null, updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'R2_PUBLIC_URL',
         value: r2PublicUrl.trim() || null,
         description: 'Cloudflare R2 Public URL (custom domain atau R2.dev)',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   if (r2Enabled !== undefined) {
-    await prisma.settings.upsert({
-      where: { key: 'R2_ENABLED' },
-      update: { value: r2Enabled ? 'true' : 'false', updatedAt: new Date() },
-      create: {
-        id: randomUUID(),
+    {
+    const existing = await prisma.settings.findFirst({ where: { key: 'R2_ENABLED' } })
+    if (existing) {
+      await prisma.settings.update({ where: { id: existing.id }, data: {value: r2Enabled ? 'true' : 'false', updatedAt: new Date()} })
+    } else {
+      await prisma.settings.create({ data: {id: randomUUID(),
         key: 'R2_ENABLED',
         value: r2Enabled ? 'true' : 'false',
         description: 'Enable Cloudflare R2 Storage',
         encrypted: false,
-        updatedAt: new Date()
-      },
-    })
+        updatedAt: new Date()} })
+    }
+  }
   }
 
   // Clear R2 settings cache

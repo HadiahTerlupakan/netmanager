@@ -330,13 +330,21 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   ]
 
   await Promise.all(
-    settingsToSave.map(({ key, value, description }) =>
-      prisma.settings.upsert({
-        where: { key },
-        update: { value, description, updatedAt: new Date() },
-        create: { key, value, description, encrypted: false, updatedAt: new Date(), id: randomUUID() },
+    settingsToSave.map(async ({ key, value, description }) => {
+      const existing = await prisma.settings.findFirst({
+        where: { key }
       })
-    )
+      if (existing) {
+        return prisma.settings.update({
+          where: { id: existing.id },
+          data: { value, description, updatedAt: new Date() }
+        })
+      } else {
+        return prisma.settings.create({
+          data: { id: randomUUID(), key, value, description, encrypted: false, updatedAt: new Date() }
+        })
+      }
+    })
   )
 
   // Invalidate timezone cache agar cron jobs menggunakan timezone baru

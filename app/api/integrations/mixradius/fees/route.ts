@@ -15,8 +15,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     
     if (!hasAccess) return ApiErrors.forbidden()
 
-    const setting = await prisma.settings.findUnique({
-        where: { key: SETTINGS_KEY }
+    const setting = await prisma.settings.findFirst({ where: { key: SETTINGS_KEY }
     })
 
     const config = setting?.value ? JSON.parse(setting.value) : {}
@@ -34,21 +33,31 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
     const body = await req.json()
 
-    const setting = await prisma.settings.upsert({
-        where: { key: SETTINGS_KEY },
-        update: {
-            value: JSON.stringify(body),
-            updatedAt: new Date()
-        },
-        create: {
-            id: crypto.randomUUID(),
-            key: SETTINGS_KEY,
-            value: JSON.stringify(body),
-            description: 'Konfigurasi Fee Transaksi MixRadius (Payment Gateway)',
-            encrypted: false,
-            updatedAt: new Date()
-        }
+    const existing = await prisma.settings.findFirst({
+        where: { key: SETTINGS_KEY }
     })
+    
+    let setting
+    if (existing) {
+        setting = await prisma.settings.update({
+            where: { id: existing.id },
+            data: {
+                value: JSON.stringify(body),
+                updatedAt: new Date()
+            }
+        })
+    } else {
+        setting = await prisma.settings.create({
+            data: {
+                id: crypto.randomUUID(),
+                key: SETTINGS_KEY,
+                value: JSON.stringify(body),
+                description: 'Konfigurasi Fee Transaksi MixRadius (Payment Gateway)',
+                encrypted: false,
+                updatedAt: new Date()
+            }
+        })
+    }
 
     return apiSuccess(JSON.parse(setting.value || '{}'), { message: 'Konfigurasi fee berhasil disimpan' })
 })
