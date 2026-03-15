@@ -84,6 +84,7 @@ async function main() {
   } finally {
     await prisma.$disconnect()
     await pool.end()
+    process.exit(0)
   }
 }
 
