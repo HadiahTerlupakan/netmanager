@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prismaAuth } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
 import { SignJWT } from 'jose'
 import { checkRateLimit } from '@/lib/redis'
@@ -32,11 +32,17 @@ export async function POST(request: Request) {
         }
 
         // Find investor
-        const investor = await prisma.investor.findUnique({
-            where: { username }
+        const investor = await prismaAuth.investor.findFirst({
+            where: { 
+                username: {
+                    equals: username,
+                    mode: 'insensitive'
+                }
+            }
         })
 
         if (!investor) {
+            console.log(`[INVESTOR_LOGIN] Investor not found for username: ${username}`)
             return NextResponse.json(
                 { message: 'Username atau Password salah' },
                 { status: 401 }
@@ -60,18 +66,22 @@ export async function POST(request: Request) {
         }
 
         if (!isValid) {
+            console.log(`[INVESTOR_LOGIN] Invalid password for username: ${username}`)
             return NextResponse.json(
                 { message: 'Username atau Password salah' },
                 { status: 401 }
             )
         }
 
+        console.log(`[INVESTOR_LOGIN] Login successful for: ${username}, tenantId: ${investor.tenantId}`)
+
         // Generate JWT Token
         const payload = {
             id: investor.id,
             username: investor.username,
             namaLengkap: investor.namaLengkap,
-            role: 'INVESTOR'
+            role: 'INVESTOR',
+            tenantId: investor.tenantId
         }
 
         const token = await new SignJWT(payload)

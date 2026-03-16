@@ -19,13 +19,13 @@ export class MitraWalletService {
         totalWithdrawn: number
     }>> {
         try {
-            let wallet = await prismaMitra.mitraWallet.findUnique({
+            let wallet = await prismaMitra.mitraWallet.findFirst({
                 where: { mitraId: userId },
             })
 
             // Auto-create wallet if user is mitra but doesn't have one
             if (!wallet) {
-                const user = await prismaMitra.mitra.findUnique({
+                const user = await prismaMitra.mitra.findFirst({
                     where: { id: userId },
                     select: { mitraType: true },
                 })
@@ -70,7 +70,7 @@ export class MitraWalletService {
 
             await prismaMitra.$transaction(async (tx) => {
                 // Ensure wallet exists
-                let wallet = await tx.mitraWallet.findUnique({
+                let wallet = await tx.mitraWallet.findFirst({
                     where: { mitraId: userId },
                 })
 
@@ -138,7 +138,7 @@ export class MitraWalletService {
 
             await prismaMitra.$transaction(async (tx) => {
                 // Ensure wallet exists
-                let wallet = await tx.mitraWallet.findUnique({
+                let wallet = await tx.mitraWallet.findFirst({
                     where: { mitraId: userId },
                 })
 
@@ -199,7 +199,7 @@ export class MitraWalletService {
     ): Promise<ServiceResult> {
         try {
             await prismaMitra.$transaction(async (tx) => {
-                const wallet = await tx.mitraWallet.findUnique({
+                const wallet = await tx.mitraWallet.findFirst({
                     where: { mitraId: userId },
                 })
 
@@ -246,7 +246,7 @@ export class MitraWalletService {
      */
     async getTransactions(userId: string, page: number = 1, limit: number = 20) {
         try {
-            const wallet = await prismaMitra.mitraWallet.findUnique({
+            const wallet = await prismaMitra.mitraWallet.findFirst({
                 where: { mitraId: userId },
             })
 
@@ -286,7 +286,7 @@ export class MitraWalletService {
      */
     async getEarningsSummary(userId: string, month?: number, year?: number) {
         try {
-            const wallet = await prismaMitra.mitraWallet.findUnique({
+            const wallet = await prismaMitra.mitraWallet.findFirst({
                 where: { mitraId: userId },
             })
 

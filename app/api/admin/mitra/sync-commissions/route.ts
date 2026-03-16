@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         // 2. Add transaction to wallet
         await prismaMitra.$transaction(async (tx) => {
             // Find wallet
-            const wallet = await tx.mitraWallet.findUnique({
+            const wallet = await tx.mitraWallet.findFirst({
                 where: { mitraId }
             })
 

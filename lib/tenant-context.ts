@@ -1,5 +1,6 @@
 import { getToken } from 'next-auth/jwt'
 import { verifyMobileToken } from '@/lib/mobile-auth'
+import { jwtVerify } from 'jose'
 
 /**
  * Safely get tenant context from request headers/cookies.
@@ -57,6 +58,7 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
     // 2. Web App NextAuth Session Token
     if (cookieStore) {
       try {
+        // 2a. Check for regular NextAuth session
         const { NextRequest } = await import('next/server');
         const mockReq = new NextRequest('http://localhost', { headers: new Headers(cookieStore as HeadersInit) });
         
@@ -71,6 +73,27 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
             tenantId: (token.tenantId as string) || null,
             isSuperAdmin
           };
+        }
+
+        // 2b. Check for Investor Auth Cookie
+        const { cookies } = await import('next/headers')
+        const cs = await cookies()
+        const investorToken = cs.get('investor_auth_token')?.value
+        if (investorToken) {
+          console.log('[TENANT_CONTEXT] Investor token found in cookies')
+          const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev')
+          try {
+            const { payload } = await jwtVerify(investorToken, secret)
+            if (payload && payload.tenantId) {
+              console.log(`[TENANT_CONTEXT] Investor tenantId detected: ${payload.tenantId}`)
+              return { 
+                tenantId: payload.tenantId as string,
+                isSuperAdmin: false 
+              }
+            }
+          } catch (err) {
+            console.error('[TENANT_CONTEXT] Investor token verification failed:', err instanceof Error ? err.message : err)
+          }
         }
       } catch {
         // NextRequest or getToken failed (probably non-next context)

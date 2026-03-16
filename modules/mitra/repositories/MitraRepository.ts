@@ -84,7 +84,7 @@ export class MitraRepository {
      * Get single mitra by ID
      */
     async findById(id: string) {
-        return prismaMitra.mitra.findUnique({
+        return prismaMitra.mitra.findFirst({
             where: { id },
             include: {
                 // sites: { select: { id: true, name: true } }, // Cross-DB relation removed
@@ -136,7 +136,7 @@ export class MitraRepository {
      * Get wallet by mitra ID
      */
     async getWalletByUserId(mitraId: string) {
-        return prismaMitra.mitraWallet.findUnique({
+        return prismaMitra.mitraWallet.findFirst({
             where: { mitraId },
             include: {
                 transactions: {

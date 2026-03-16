@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
-        const mitra = await prismaMitra.mitra.findUnique({
+        const mitra = await prismaMitra.mitra.findFirst({
             where: { id: session.id },
             select: {
                 id: true,

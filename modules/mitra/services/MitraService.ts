@@ -106,9 +106,12 @@ export class MitraService {
                 })
 
                 // Create wallet automatically
-                await tx.mitraWallet.create({
-                    data: { mitraId: id },
+                const wallet = await tx.mitraWallet.findFirst({
+                    where: { mitraId: id },
                 })
+                if (!wallet) {
+                    await tx.mitraWallet.create({ data: { mitraId: id } })
+                }
             })
 
             logActivitySafe({
@@ -130,7 +133,7 @@ export class MitraService {
      */
     async updateMitra(id: string, data: UpdateMitraDTO, updatedById: string): Promise<ServiceResult> {
         try {
-            const existing = await prismaMitra.mitra.findUnique({ where: { id } })
+            const existing = await prismaMitra.mitra.findFirst({ where: { id } })
             if (!existing) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }
@@ -189,7 +192,9 @@ export class MitraService {
             })
 
             // Ensure wallet exists
-            const wallet = await prismaMitra.mitraWallet.findUnique({ where: { mitraId: id } })
+            const wallet = await prismaMitra.mitraWallet.findFirst({
+                where: { mitraId: id },
+            })
             if (!wallet) {
                 await prismaMitra.mitraWallet.create({ data: { mitraId: id } })
             }
@@ -245,7 +250,7 @@ export class MitraService {
      */
     async getFaceVerificationLogs(mitraId: string, page: number = 1, limit: number = 20) {
         try {
-            const mitra = await prismaMitra.mitra.findUnique({ where: { id: mitraId }, select: { id: true } })
+            const mitra = await prismaMitra.mitra.findFirst({ where: { id: mitraId }, select: { id: true } })
             if (!mitra) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }
