@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest) {
     // Fungsi untuk cek apakah ID sudah ada di database
     const isIdExists = async (id: string): Promise<boolean> => {
       try {
-        const pelanggan = await prisma.pelanggan.findUnique({
+        const pelanggan = await prisma.pelanggan.findFirst({
           where: { idPelanggan: id }
         })
         return pelanggan !== null

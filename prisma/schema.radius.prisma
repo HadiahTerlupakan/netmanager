@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/@prisma/client-radius"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../node_modules/@prisma/client-radius"
 }
 
 datasource db {
@@ -66,6 +67,7 @@ model radcheck {
   value     String  @default("") @db.VarChar(253)
   tenantId  String?
 
+  @@unique([username, attribute, tenantId])
   @@index([username], map: "radcheck_username_idx")
   @@index([tenantId])
 }
@@ -102,6 +104,7 @@ model radreply {
   value     String  @default("") @db.VarChar(253)
   tenantId  String?
 
+  @@unique([username, attribute, tenantId])
   @@index([username], map: "radreply_username_idx")
   @@index([tenantId])
 }
@@ -143,6 +146,7 @@ model nas {
   description String? @db.VarChar(200)
   tenantId    String?
 
+  @@unique([nasname, tenantId])
   @@index([nasname], map: "nas_nasname_idx")
   @@index([tenantId])
 }
@@ -159,6 +163,7 @@ model radippool {
   pool_key         String    @db.VarChar(30)
   tenantId         String?
 
+  @@unique([framedipaddress, pool_name, tenantId])
   @@index([framedipaddress], map: "radippool_framedipaddress_idx")
   @@index([pool_name, expiry_time], map: "radippool_poolname_expire_idx")
   @@index([pool_name, pool_key, framedipaddress], map: "radippool_poolname_poolkey_ipaddress_idx")

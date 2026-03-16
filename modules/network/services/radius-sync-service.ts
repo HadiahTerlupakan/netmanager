@@ -17,14 +17,16 @@ import { prisma as defaultPrisma } from '@/lib/prisma';
 type PrismaInstance = typeof defaultPrisma;
 
 // Connection mode types
+import { prismaRadius } from '@/lib/prisma-radius';
+
 export type ConnectionMode = 'RADIUS' | 'MIKROTIK_API';
 
 export class RadiusSyncService {
     private radiusRepo: RadiusRepository;
     private pppSecretService: MikroTikPPPSecretService;
 
-    constructor(private prisma: PrismaInstance = defaultPrisma) {
-        this.radiusRepo = new RadiusRepository(prisma);
+    constructor(private prisma: PrismaInstance = defaultPrisma, radiusClient?: typeof prismaRadius) {
+        this.radiusRepo = new RadiusRepository(prisma, radiusClient);
         this.pppSecretService = new MikroTikPPPSecretService(prisma);
     }
 

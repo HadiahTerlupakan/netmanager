@@ -57,7 +57,7 @@ export class MixRadiusSyncService {
 
       // 2. Fallback: Find by username (corresponding to idPelanggan)
       if (!pelanggan) {
-        pelanggan = await prisma.pelanggan.findUnique({
+        pelanggan = await prisma.pelanggan.findFirst({
           where: { idPelanggan: data.username }
         })
       }

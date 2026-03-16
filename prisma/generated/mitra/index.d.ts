@@ -8205,12 +8205,13 @@ export namespace Prisma {
 
   export type MitraWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    email?: string
-    nik?: string
+    tenantId_email?: MitraTenantIdEmailCompoundUniqueInput
+    tenantId_nik?: MitraTenantIdNikCompoundUniqueInput
     AND?: MitraWhereInput | MitraWhereInput[]
     OR?: MitraWhereInput[]
     NOT?: MitraWhereInput | MitraWhereInput[]
     name?: StringFilter<"Mitra"> | string
+    email?: StringFilter<"Mitra"> | string
     passwordHash?: StringNullableFilter<"Mitra"> | string | null
     phone?: StringNullableFilter<"Mitra"> | string | null
     isActive?: BoolFilter<"Mitra"> | boolean
@@ -8233,6 +8234,7 @@ export namespace Prisma {
     targetHarian?: IntNullableFilter<"Mitra"> | number | null
     minWithdrawal?: IntNullableFilter<"Mitra"> | number | null
     mixradiusOwnerNames?: StringNullableListFilter<"Mitra">
+    nik?: StringNullableFilter<"Mitra"> | string | null
     tempatLahir?: StringNullableFilter<"Mitra"> | string | null
     tanggalLahir?: DateTimeNullableFilter<"Mitra"> | Date | string | null
     alamat?: StringNullableFilter<"Mitra"> | string | null
@@ -8254,7 +8256,7 @@ export namespace Prisma {
     mitraWallet?: XOR<MitraWalletNullableScalarRelationFilter, MitraWalletWhereInput> | null
     withdrawalsRequested?: WithdrawRequestListRelationFilter
     faceVerificationLogs?: FaceVerificationLogListRelationFilter
-  }, "id" | "email" | "nik">
+  }, "id" | "tenantId_email" | "tenantId_nik">
 
   export type MitraOrderByWithAggregationInput = {
     id?: SortOrder
@@ -9549,6 +9551,16 @@ export namespace Prisma {
 
   export type FaceVerificationLogOrderByRelationAggregateInput = {
     _count?: SortOrder
+  }
+
+  export type MitraTenantIdEmailCompoundUniqueInput = {
+    tenantId: string
+    email: string
+  }
+
+  export type MitraTenantIdNikCompoundUniqueInput = {
+    tenantId: string
+    nik: string
   }
 
   export type MitraCountOrderByAggregateInput = {

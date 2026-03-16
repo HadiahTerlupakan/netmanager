@@ -1,6 +1,7 @@
 generator client_billing {
-  provider = "prisma-client-js"
-  output   = "./generated/billing"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "./generated/billing"
 }
 
 datasource db {
@@ -91,7 +92,7 @@ model Payment {
 
 model PaymentGatewayConfig {
   id           String    @id
-  provider     String    @unique
+  provider     String
   providerName String
   isEnabled    Boolean   @default(false)
   isProduction Boolean   @default(false)
@@ -110,6 +111,7 @@ model PaymentGatewayConfig {
   createdBy    String?
   tenantId     String?
 
+  @@unique([provider, tenantId])
   @@index([isEnabled])
   @@index([priority])
   @@index([provider])

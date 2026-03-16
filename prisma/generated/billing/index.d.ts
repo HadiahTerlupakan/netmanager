@@ -14355,10 +14355,11 @@ export namespace Prisma {
 
   export type PaymentGatewayConfigWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    provider?: string
+    provider_tenantId?: PaymentGatewayConfigProviderTenantIdCompoundUniqueInput
     AND?: PaymentGatewayConfigWhereInput | PaymentGatewayConfigWhereInput[]
     OR?: PaymentGatewayConfigWhereInput[]
     NOT?: PaymentGatewayConfigWhereInput | PaymentGatewayConfigWhereInput[]
+    provider?: StringFilter<"PaymentGatewayConfig"> | string
     providerName?: StringFilter<"PaymentGatewayConfig"> | string
     isEnabled?: BoolFilter<"PaymentGatewayConfig"> | boolean
     isProduction?: BoolFilter<"PaymentGatewayConfig"> | boolean
@@ -14376,7 +14377,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"PaymentGatewayConfig"> | Date | string
     createdBy?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
     tenantId?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
-  }, "id" | "provider">
+  }, "id" | "provider_tenantId">
 
   export type PaymentGatewayConfigOrderByWithAggregationInput = {
     id?: SortOrder
@@ -16660,6 +16661,11 @@ export namespace Prisma {
     gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+  }
+
+  export type PaymentGatewayConfigProviderTenantIdCompoundUniqueInput = {
+    provider: string
+    tenantId: string
   }
 
   export type PaymentGatewayConfigCountOrderByAggregateInput = {

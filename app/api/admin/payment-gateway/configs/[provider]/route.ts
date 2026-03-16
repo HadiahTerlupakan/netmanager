@@ -4,10 +4,16 @@ import { encryptApiKey } from '@/lib/utils/encryption'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { logActivitySafe } from '@/lib/logger'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     if (!await hasPermission('payment_gateway:update')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah payment gateway');
+    }
+
+    const { tenantId } = await getTenantIdFromContext();
+    if (!tenantId) {
+        return ApiErrors.badRequest('Tenant ID tidak ditemukan');
     }
 
     const { provider } = ctx.params;
@@ -30,10 +36,16 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
     // Upsert configuration
     const config = await prismaBilling.paymentGatewayConfig.upsert({
-        where: { provider },
+        where: { 
+            provider_tenantId: {
+                provider,
+                tenantId
+            }
+        },
         create: {
             id: randomUUID(),
             provider,
+            tenantId,
             providerName: provider.charAt(0) + provider.slice(1).toLowerCase(),
             isEnabled: isEnabled || false,
             isProduction: isProduction || false,

@@ -322,7 +322,7 @@ model HargaPaket {
   tenant               Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   pelanggan            Pelanggan[]
 
-  @@unique([name, siteId])
+  @@unique([tenantId, name, siteId])
   @@index([bandwidthId])
   @@index([featured])
   @@index([profilePPPId])
@@ -544,7 +544,7 @@ model MRRMovement {
 model MikroTikRouter {
   id                     String                  @id
   name                   String
-  ipAddress              String                  @unique
+  ipAddress              String
   timezone               String                  @default("+07:00 Asia/Jakarta")
   apiPort                Int                     @default(8728)
   apiUsername            String
@@ -572,6 +572,7 @@ model MikroTikRouter {
 
   @@index([pingStatus])
   @@index([siteId])
+  @@unique([tenantId, ipAddress])
   @@index([tenantId])
 }
 
@@ -737,7 +738,7 @@ model Overtime {
 
 model Pelanggan {
   id                            String              @id
-  idPelanggan                   String              @unique
+  idPelanggan                   String
   nama                          String
   username                      String
   password                      String
@@ -819,6 +820,7 @@ model Pelanggan {
   @@index([status])
   @@index([tanggalAktif])
   @@index([tipe])
+  @@unique([tenantId, idPelanggan])
   @@index([tenantId])
 }
 

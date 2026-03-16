@@ -44,14 +44,19 @@ export class PaymentGatewayManager {
     /**
      * Get provider instance with decrypted config
      */
-    async getProviderInstance(providerType: string): Promise<PaymentProvider> {
-        // Get config from database
-        const config = await prismaBilling.paymentGatewayConfig.findUnique({
-            where: { provider: providerType }
+    async getProviderInstance(providerType: string, tenantId?: string): Promise<PaymentProvider> {
+        // Get config from database using UN-ISOLATED client to support webhook/system context
+        const { prismaBillingAuth } = await import('@/lib/prisma-billing');
+        
+        const config = await prismaBillingAuth.paymentGatewayConfig.findFirst({
+            where: { 
+                provider: providerType,
+                ...(tenantId ? { tenantId } : {})
+            }
         })
 
         if (!config) {
-            throw new Error(`Provider ${providerType} not configured`)
+            throw new Error(`Provider ${providerType} not configured${tenantId ? ' for tenant ' + tenantId : ''}`)
         }
 
         if (!config.isEnabled) {
@@ -80,12 +85,20 @@ export class PaymentGatewayManager {
      * Create payment with automatic provider selection
      */
     async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
-        // Get best provider
-        const providerConfig = await this.getBestProvider()
+        // Use regular isolated client for creation as it happens in user context
+        const providers = await prismaBilling.paymentGatewayConfig.findMany({
+            where: { isEnabled: true },
+            orderBy: { priority: 'desc' }
+        })
+        const providerConfig = providers[0]
+
+        if (!providerConfig) {
+            throw new Error('No payment gateway enabled.')
+        }
 
         try {
-            // Get provider instance
-            const provider = await this.getProviderInstance(providerConfig.provider)
+            // Get provider instance (passing tenantId if available from params)
+            const provider = await this.getProviderInstance(providerConfig.provider, params.tenantId)
 
             // Create payment
             const result = await provider.createPayment(params)
@@ -94,19 +107,14 @@ export class PaymentGatewayManager {
         } catch (error: unknown) {
             console.error(`Payment creation failed with ${providerConfig.provider}:`, error)
 
-            // Try fallback to remaining providers in priority order
-            const allProviders = await this.getEnabledProviders()
-            const fallbackProviders = allProviders.filter(p => p.provider !== providerConfig.provider)
+            // Try fallback
+            const fallbackProviders = providers.filter(p => p.provider !== providerConfig.provider)
 
             for (const fallback of fallbackProviders) {
-                // console.log(`Trying fallback provider: ${fallback.provider}`)
-
                 try {
-                    const provider = await this.getProviderInstance(fallback.provider)
+                    const provider = await this.getProviderInstance(fallback.provider, params.tenantId)
                     return await provider.createPayment(params)
-                } catch (fallbackError: unknown) {
-                    const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
-                    console.error(`Fallback provider ${fallback.provider} failed: ${fallbackMessage}`)
+                } catch (_fallbackError: unknown) {
                     continue
                 }
             }
@@ -122,31 +130,23 @@ export class PaymentGatewayManager {
         providerType: string,
         params: CreatePaymentParams
     ): Promise<PaymentResult> {
-        const provider = await this.getProviderInstance(providerType)
+        const provider = await this.getProviderInstance(providerType, params.tenantId)
         return provider.createPayment(params)
     }
 
     /**
      * Check payment status
      */
-    async checkPaymentStatus(providerType: string, orderId: string) {
-        const provider = await this.getProviderInstance(providerType)
+    async checkPaymentStatus(providerType: string, orderId: string, tenantId?: string) {
+        const provider = await this.getProviderInstance(providerType, tenantId)
         return provider.checkStatus(orderId)
     }
 
     /**
      * Process webhook from any provider
      */
-    async processWebhook(providerType: string, payload: Record<string, unknown>, signature?: string, rawBody?: string) {
-        const config = await prismaBilling.paymentGatewayConfig.findUnique({
-            where: { provider: providerType }
-        })
-
-        if (!config || !config.isEnabled) {
-            throw new Error('Provider not enabled')
-        }
-
-        const provider = await this.getProviderInstance(providerType)
+    async processWebhook(providerType: string, payload: Record<string, unknown>, signature?: string, rawBody?: string, tenantId?: string) {
+        const provider = await this.getProviderInstance(providerType, tenantId)
 
         // Verify webhook signature
         const isValid = provider.verifyWebhook(payload, signature, rawBody)

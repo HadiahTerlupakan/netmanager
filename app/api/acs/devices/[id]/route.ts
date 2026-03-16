@@ -1,5 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 import axios from 'axios'
 
 export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async (req, ctx) => {
@@ -10,6 +11,8 @@ export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, asyn
   }
 
   try {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+    
     const settingsKeys = [
       'ACS_GENIEACS_URL',
       'ACS_VP_PPPOE_USERNAME',
@@ -72,7 +75,13 @@ export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, asyn
       'InternetGatewayDevice.LANDevice.1.Hosts.Host'
     ]
 
-    const query = JSON.stringify({ _id: deviceId })
+    // Multi-tenant isolation for GenieACS: Filter by ID and tenant tag
+    const queryCond: Record<string, string> = { _id: deviceId }
+    if (!isSuperAdmin && tenantId) {
+      queryCond._tags = `tenant:${tenantId}`
+    }
+
+    const query = JSON.stringify(queryCond)
     const apiUrl = `${baseUrl}?query=${encodeURIComponent(query)}&projection=${encodeURIComponent(projection.join(','))}`
 
     const response = await axios.get(apiUrl, {

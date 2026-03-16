@@ -528,7 +528,7 @@ export async function PUT(
       console.log('[PUT Pelanggan] Pelanggan dengan ID mirip:', similarPelanggans)
 
       // Cek juga dengan idPelanggan jika ID yang dikirim adalah idPelanggan
-      const pelangganByIdPelanggan = await prisma.pelanggan.findUnique({
+      const pelangganByIdPelanggan = await prisma.pelanggan.findFirst({
         where: { idPelanggan: id },
         select: { id: true, idPelanggan: true, nama: true },
       })
@@ -1095,7 +1095,7 @@ export async function DELETE(
       console.log('[DELETE Pelanggan] Pelanggan dengan ID mirip:', similarPelanggans)
 
       // Cek juga dengan idPelanggan jika ID yang dikirim adalah idPelanggan
-      const pelangganByIdPelanggan = await prisma.pelanggan.findUnique({
+      const pelangganByIdPelanggan = await prisma.pelanggan.findFirst({
         where: { idPelanggan: id },
         select: { id: true, idPelanggan: true, nama: true },
       })

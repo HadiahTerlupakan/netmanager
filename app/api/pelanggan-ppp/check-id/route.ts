@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
     // Cek apakah ID sudah ada di database
     try {
-      const pelanggan = await prisma.pelanggan.findUnique({
+      const pelanggan = await prisma.pelanggan.findFirst({
         where: { idPelanggan: idPelanggan.trim() },
         select: { id: true }
       })

@@ -145,7 +145,7 @@ export class PelangganRepository {
     }
 
     async findByIdPelanggan(idPelanggan: string): Promise<Pelanggan | null> {
-        return prisma.pelanggan.findUnique({
+        return prisma.pelanggan.findFirst({
             where: { idPelanggan }
         })
     }

@@ -1,6 +1,7 @@
 generator client_mitra {
-  provider = "prisma-client-js"
-  output   = "./generated/mitra"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "./generated/mitra"
 }
 
 datasource db {
@@ -15,7 +16,7 @@ enum MitraType {
 model Mitra {
   id           String    @id @default(cuid())
   name         String
-  email        String    @unique
+  email        String
   passwordHash String?
   phone        String?
   isActive     Boolean   @default(true)
@@ -45,7 +46,7 @@ model Mitra {
   mixradiusOwnerNames String[] @default([]) // Array of MixRadius Owner Names for computing fees
 
   // KYC & Data Diri
-  nik            String?   @unique
+  nik            String?
   tempatLahir    String?
   tanggalLahir   DateTime?
   alamat         String?
@@ -80,6 +81,8 @@ model Mitra {
   @@index([siteId])
   @@index([mitraType])
   @@index([isActive])
+  @@unique([tenantId, email])
+  @@unique([tenantId, nik])
   @@index([tenantId])
 }
 

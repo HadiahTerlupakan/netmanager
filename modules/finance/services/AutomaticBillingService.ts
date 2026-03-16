@@ -426,7 +426,8 @@ export class AutomaticBillingService {
      * Call this from webhook or manual payment handlers.
      */
     static async handleInvoicePaid(invoiceId: string) {
-        const invoice = await prismaBilling.invoice.findUnique({
+        const { prismaBillingAuth } = await import('@/lib/prisma-billing');
+        const invoice = await prismaBillingAuth.invoice.findUnique({
             where: { id: invoiceId },
             include: { /* pelanggan: true removed */ }
         });
@@ -434,7 +435,7 @@ export class AutomaticBillingService {
         if (!invoice || invoice.status !== 'PAID') return;
 
 
-        const { prisma: mainDb } = await import("@/lib/prisma");
+        const { prismaAuth: mainDb } = await import("@/lib/prisma");
         const customer = await mainDb.pelanggan.findUnique({ where: { id: invoice.pelangganId } });
         if (!customer) return;
 
@@ -496,7 +497,8 @@ export class AutomaticBillingService {
 
         if (shouldActivate) {
             const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
-            const radiusService = new RadiusSyncService(mainDb);
+            const { prismaRadiusAuth } = await import('@/lib/prisma-radius');
+            const radiusService = new RadiusSyncService(mainDb, prismaRadiusAuth);
             await radiusService.handleStatusChange(customer.id, 'AKTIF');
         }
     }

@@ -1,9 +1,12 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 import axios from 'axios'
 
 export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async () => {
   try {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+    
     const settingsKeys = [
       'ACS_GENIEACS_URL',
       'ACS_DEVICE_ONLINE_THRESHOLD',
@@ -36,8 +39,16 @@ export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, asyn
     const thresholdAgo = new Date(Date.now() - (onlineThresholdMinutes * 60 * 1000))
     const vpRxPower = config['ACS_VP_RX_POWER'] || 'VirtualParameters.RXPower'
 
+    // Multi-tenant isolation for GenieACS: Filter by tenant tag
+    const queryCond: Record<string, string> = {}
+    if (!isSuperAdmin && tenantId) {
+      queryCond._tags = `tenant:${tenantId}`
+    }
+
     // 1. Fetch total devices
-    const devicesRes = await axios.get(`${baseUrl}/devices?projection=_id,_deviceId._ProductClass,_lastInform,${vpRxPower}`, {
+    const apiUrl = `${baseUrl}/devices?query=${encodeURIComponent(JSON.stringify(queryCond))}&projection=_id,_deviceId._ProductClass,_lastInform,${vpRxPower}`
+    
+    const devicesRes = await axios.get(apiUrl, {
       timeout: 10000,
       headers: { 'Accept': 'application/json' }
     })

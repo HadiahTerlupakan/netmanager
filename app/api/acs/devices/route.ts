@@ -1,9 +1,12 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 import axios from 'axios'
 
 export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async () => {
   try {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
+    
     // 1. Ambil pengaturan ACS dari database
     const settingsKeys = [
       'ACS_GENIEACS_URL',
@@ -57,7 +60,13 @@ export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, asyn
       '_lastInform'
     ]
 
-    const apiUrl = `${baseUrl}?projection=${encodeURIComponent(projection.join(','))}`
+    // Multi-tenant isolation for GenieACS: Filter by tenant tag
+    const queryCond: Record<string, string> = {}
+    if (!isSuperAdmin && tenantId) {
+      queryCond._tags = `tenant:${tenantId}`
+    }
+
+    const apiUrl = `${baseUrl}?query=${encodeURIComponent(JSON.stringify(queryCond))}&projection=${encodeURIComponent(projection.join(','))}`
 
     const response = await axios.get(apiUrl, {
       timeout: 15000,

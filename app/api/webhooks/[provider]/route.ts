@@ -83,17 +83,45 @@ export async function POST(
             ? (request.headers.get(signatureHeader) ?? undefined)
             : undefined
 
-        // Process webhook through gateway manager
+        // Find Payment record using UN-ISOLATED client to discover tenantId from orderId/amount
+        // This is necessary because webhooks don't have user context/headers
+        const { prismaBillingAuth } = await import('@/lib/prisma-billing');
+        let payment = null;
+
+        // Peak into body for orderId to find tenant early (required for signature verification config)
+        let earlyOrderId: string | undefined;
+        if (providerType === 'MIDTRANS') earlyOrderId = (payload.order_id as string);
+        else if (providerType === 'XENDIT') earlyOrderId = (payload.external_id as string);
+        else if (providerType === 'TRIPAY') earlyOrderId = (payload.merchant_ref as string);
+        else if (providerType === 'DUITKU') earlyOrderId = (payload.merchantOrderId as string);
+        else if (providerType === 'BRI') earlyOrderId = (payload.custCode as string) || (payload.brivaNo as string);
+        else if (providerType === 'BCA') earlyOrderId = (payload.CustomerID as string) || (payload.TransactionID as string);
+        else if (providerType === 'DANA') earlyOrderId = (payload.merchantOrderId as string) || (payload.orderId as string);
+
+        if (earlyOrderId) {
+            payment = await prismaBillingAuth.payment.findFirst({
+                where: { reference: earlyOrderId },
+            })
+        }
+
+        // Process webhook through gateway manager (passing tenantId discovered from payment)
         const gatewayManager = new PaymentGatewayManager(prisma as unknown as PrismaClient)
-        const webhookResult = await gatewayManager.processWebhook(providerType, payload, signature, rawBody)
+        const webhookResult = await gatewayManager.processWebhook(
+            providerType, 
+            payload, 
+            signature, 
+            rawBody, 
+            payment?.tenantId || undefined
+        )
 
         console.log(`[Webhook] ${providerType} processed:`, {
             orderId: webhookResult.orderId,
             status: webhookResult.status,
             transactionId: webhookResult.transactionId,
+            tenantId: payment?.tenantId
         })
 
-        // Map webhook status to GatewayPaymentStatus enum
+        // Map webhook status 
         const gatewayStatusMap: Record<string, string> = {
             PAID: 'PAID',
             PENDING: 'PENDING',
@@ -103,32 +131,20 @@ export async function POST(
         }
         const gatewayStatus = gatewayStatusMap[webhookResult.status] || 'FAILED'
 
-        // Find Payment record
-        let payment = null;
-
-        if (providerType === 'MOOTA' && webhookResult.amount) {
-            // For Moota, find PENDING payment with matching exact amount
-            console.log(`[Webhook] Looking for PENDING payment with amount: ${webhookResult.amount}`)
-            // Parse amount to number (handling string or Decimal)
-            const amountVal = Number(webhookResult.amount)
-
-            payment = await prismaBilling.payment.findFirst({
-                where: {
-                    amount: amountVal,
-                    // gatewayStatus: { in: ['PENDING', 'FAILED'] } // Ideally only pending, but maybe failed retry
-                },
-                orderBy: { createdAt: 'desc' } // Get the most recent one
-            })
-
-            if (payment) {
-                // Attach the found reference to webhookResult so logs are accurate
-                webhookResult.orderId = payment.reference || payment.id
+        // If payment wasn't found early (e.g. Moota by amount), find it now with webhookResult
+        if (!payment) {
+            if (providerType === 'MOOTA' && webhookResult.amount) {
+                const amountVal = Number(webhookResult.amount)
+                payment = await prismaBillingAuth.payment.findFirst({
+                    where: { amount: amountVal },
+                    orderBy: { createdAt: 'desc' }
+                })
+                if (payment) webhookResult.orderId = payment.reference || payment.id
+            } else {
+                payment = await prismaBillingAuth.payment.findFirst({
+                    where: { reference: webhookResult.orderId },
+                })
             }
-        } else {
-            // Standard flow by orderId for Xendit, Midtrans etc
-            payment = await prismaBilling.payment.findFirst({
-                where: { reference: webhookResult.orderId },
-            })
         }
 
         if (!payment) {
@@ -172,17 +188,18 @@ export async function POST(
             return NextResponse.json({ status: 'ok', message: 'Already processed' })
         }
 
-        // Execute update in a transaction to prevent race conditions during concurrent webhook/manual payments
-        await prismaBilling.$transaction(async (tx) => {
+        // Execute update in a transaction using UN-ISOLATED client
+        // to bypass the requirement for X-Tenant-Id headers in the webhook POST request
+        await prismaBillingAuth.$transaction(async (tx) => {
             // Double check inside transaction for concurrency safety
-            const currentPayment = await tx.payment.findUnique({ where: { id: payment.id! } });
+            const currentPayment = await tx.payment.findUnique({ where: { id: payment!.id } });
             if (currentPayment && currentPayment.gatewayStatus === 'PAID') {
                 return;
             }
 
             // Update Payment record with gateway response
             await tx.payment.update({
-                where: { id: payment.id },
+                where: { id: payment!.id },
                 data: {
                     gatewayStatus: gatewayStatus as unknown,
                     transactionId: webhookResult.transactionId || null,
@@ -194,7 +211,7 @@ export async function POST(
 
             // If payment is confirmed (PAID), update linked invoices transactionally
             if (gatewayStatus === 'PAID') {
-                await updateInvoicesOnPaymentTx(tx, payment.id, payment.notes)
+                await updateInvoicesOnPaymentTx(tx as unknown as Parameters<typeof updateInvoicesOnPaymentTx>[0], payment!.id, payment!.notes)
             }
         })
 
@@ -205,7 +222,7 @@ export async function POST(
 
         // Handle side-effects that require the new state and should happen outside the database transaction
         if (gatewayStatus === 'PAID') {
-            // Re-fetch invoices linked to payment to trigger any external side-effects (e.g., AutomaticBillingService)
+            // Re-fetch invoices linked to payment using un-isolated client
             let invoiceIds: string[] = [];
             try {
                 if (payment.notes) {
@@ -217,8 +234,10 @@ export async function POST(
                 invoiceIds = [payment.invoiceId];
             }
             for (const invId of invoiceIds) {
-                const inv = await prismaBilling.invoice.findUnique({ where: { id: invId } });
+                const inv = await prismaBillingAuth.invoice.findUnique({ where: { id: invId } });
                 if (inv?.status === 'PAID') {
+                    // Trigger side-effects (service should handle its own isolation if needed, 
+                    // or we might need to mock headers if it uses isolated clients internally)
                     await AutomaticBillingService.handleInvoicePaid(invId).catch(err => 
                         console.error(`[Webhook] Error triggering side-effects for invoice ${invId}:`, err)
                     );

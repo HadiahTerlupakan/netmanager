@@ -719,7 +719,12 @@ async function main() {
 
   const mitraTeknisiHash = await hash('mitratech123', 10)
   await prismaMitra.mitra.upsert({
-    where: { email: 'mitrateknisi@example.com' },
+    where: { 
+      tenantId_email: {
+        tenantId: MAIN_TENANT_ID,
+        email: 'mitrateknisi@example.com'
+      }
+    },
     update: {},
     create: {
       name: 'Budi Mitra Teknisi',
@@ -734,10 +739,12 @@ async function main() {
       bankName: 'BCA',
       bankAccountNo: '1234567890',
       bankAccountName: 'Budi Mitra Teknisi',
+      tenantId: MAIN_TENANT_ID,
       mitraWallet: {
         create: {
           balance: 0,
-          currency: 'IDR'
+          currency: 'IDR',
+          tenantId: MAIN_TENANT_ID,
         }
       }
     }
@@ -746,7 +753,12 @@ async function main() {
 
   const mitraSalesHash = await hash('mitrasales123', 10)
   await prismaMitra.mitra.upsert({
-    where: { email: 'mitrasales@example.com' },
+    where: {
+      tenantId_email: {
+        tenantId: MAIN_TENANT_ID,
+        email: 'mitrasales@example.com'
+      }
+    },
     update: {},
     create: {
       name: 'Andi Mitra Sales',
@@ -760,10 +772,12 @@ async function main() {
       bankName: 'Mandiri',
       bankAccountNo: '0987654321',
       bankAccountName: 'Andi Mitra Sales',
+      tenantId: MAIN_TENANT_ID,
       mitraWallet: {
         create: {
           balance: 0,
-          currency: 'IDR'
+          currency: 'IDR',
+          tenantId: MAIN_TENANT_ID,
         }
       }
     }
@@ -1109,7 +1123,7 @@ async function main() {
     updatedAt: new Date(),
   }
   await prisma.hargaPaket.upsert({
-    where: { name_siteId: { name: 'Paket Basic 10 Mbps', siteId: hqSite.id } },
+    where: { tenantId_name_siteId: { tenantId: MAIN_TENANT_ID, name: 'Paket Basic 10 Mbps', siteId: hqSite.id } },
     update: pkgBasicData,
     create: {
       id: randomUUID(),
@@ -1134,7 +1148,7 @@ async function main() {
     updatedAt: new Date(),
   }
   await prisma.hargaPaket.upsert({
-    where: { name_siteId: { name: 'Paket Standard 20 Mbps', siteId: hqSite.id } },
+    where: { tenantId_name_siteId: { tenantId: MAIN_TENANT_ID, name: 'Paket Standard 20 Mbps', siteId: hqSite.id } },
     update: pkgStandardData,
     create: {
       id: randomUUID(),
@@ -1159,7 +1173,7 @@ async function main() {
     updatedAt: new Date(),
   }
   await prisma.hargaPaket.upsert({
-    where: { name_siteId: { name: 'Paket Premium 50 Mbps', siteId: hqSite.id } },
+    where: { tenantId_name_siteId: { tenantId: MAIN_TENANT_ID, name: 'Paket Premium 50 Mbps', siteId: hqSite.id } },
     update: pkgPremiumData,
     create: {
       id: randomUUID(),
@@ -1272,11 +1286,12 @@ async function main() {
   // melalui Admin Panel -> Integrasi -> MixRadius -> Akun MixRadius
 
   await prismaBilling.paymentGatewayConfig.upsert({
-    where: { provider: 'MIDTRANS' },
+    where: { provider_tenantId: { provider: 'MIDTRANS', tenantId: MAIN_TENANT_ID } },
     update: {},
     create: {
       id: randomUUID(),
       provider: 'MIDTRANS',
+      tenantId: MAIN_TENANT_ID,
       providerName: 'Midtrans Payment Gateway',
       isEnabled: true,
       isProduction: false,

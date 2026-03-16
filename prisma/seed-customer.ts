@@ -71,27 +71,36 @@ async function main() {
   const passwordHash = await hash(plainPassword, 12)
 
   // 4. Upsert Pelanggan
-  const pelanggan = await prisma.pelanggan.upsert({
-    where: { idPelanggan },
-    update: {
-      passwordHash: passwordHash,
-      status: 'AKTIF'
-    },
-    create: {
-      id: randomUUID(),
-      idPelanggan,
-      nama: 'Test Customer',
-      username: 'testcustomer',
-      password: plainPassword, // This is often used for PPP password
-      passwordHash: passwordHash,
-      hargaPaketId: hargaPaket.id,
-      siteId: site.id,
-      status: 'AKTIF',
-      tanggalAktif: new Date(),
-      jatuhTempo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      updatedAt: new Date()
-    }
+  let pelanggan = await prisma.pelanggan.findFirst({
+    where: { idPelanggan }
   })
+
+  if (pelanggan) {
+    pelanggan = await prisma.pelanggan.update({
+      where: { id: pelanggan.id },
+      data: {
+        passwordHash: passwordHash,
+        status: 'AKTIF'
+      }
+    })
+  } else {
+    pelanggan = await prisma.pelanggan.create({
+      data: {
+        id: randomUUID(),
+        idPelanggan,
+        nama: 'Test Customer',
+        username: 'testcustomer',
+        password: plainPassword, // This is often used for PPP password
+        passwordHash: passwordHash,
+        hargaPaketId: hargaPaket.id,
+        siteId: site.id,
+        status: 'AKTIF',
+        tanggalAktif: new Date(),
+        jatuhTempo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date()
+      }
+    })
+  }
 
   console.log('✅ Pelanggan seeded:', pelanggan.idPelanggan)
 }

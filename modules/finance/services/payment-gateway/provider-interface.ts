@@ -45,6 +45,7 @@ export interface CreatePaymentParams {
     description: string
     expiryHours?: number
     paymentMethods?: string[] // ["bank_transfer", "ewallet", "credit_card"]
+    tenantId?: string
 }
 
 // Payment Creation Result

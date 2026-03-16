@@ -16,14 +16,17 @@ import type {
 type PrismaInstance = typeof defaultPrisma;
 
 export class RadiusRepository implements IRadiusRepository {
-    constructor(private prisma: PrismaInstance = defaultPrisma) { }
+    private radiusClient: typeof prismaRadius;
+    constructor(private prisma: PrismaInstance = defaultPrisma, radiusClient?: typeof prismaRadius) {
+        this.radiusClient = radiusClient || prismaRadius;
+     }
 
     /**
      * Create RADIUS user with authentication credentials
      */
     async createRadiusUser(data: IRadiusUser): Promise<void> {
         // Create authentication entry in radcheck
-        await prismaRadius.radcheck.create({
+        await this.radiusClient.radcheck.create({
             data: {
                 username: data.username,
                 attribute: 'Cleartext-Password',
@@ -43,7 +46,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Update user password
      */
     async updateRadiusPassword(username: string, password: string): Promise<void> {
-        await prismaRadius.radcheck.updateMany({
+        await this.radiusClient.radcheck.updateMany({
             where: {
                 username,
                 attribute: 'Cleartext-Password',
@@ -59,10 +62,10 @@ export class RadiusRepository implements IRadiusRepository {
      * Delete RADIUS user and all related records
      */
     async deleteRadiusUser(username: string): Promise<void> {
-        await prismaRadius.$transaction([
-            prismaRadius.radcheck.deleteMany({ where: { username } }),
-            prismaRadius.radreply.deleteMany({ where: { username } }),
-            prismaRadius.radusergroup.deleteMany({ where: { username } }),
+        await this.radiusClient.$transaction([
+            this.radiusClient.radcheck.deleteMany({ where: { username } }),
+            this.radiusClient.radreply.deleteMany({ where: { username } }),
+            this.radiusClient.radusergroup.deleteMany({ where: { username } }),
         ]);
     }
 
@@ -70,7 +73,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Check if user exists in RADIUS
      */
     async userExists(username: string): Promise<boolean> {
-        const count = await prismaRadius.radcheck.count({
+        const count = await this.radiusClient.radcheck.count({
             where: {
                 username,
                 attribute: 'Cleartext-Password',
@@ -89,7 +92,7 @@ export class RadiusRepository implements IRadiusRepository {
         const rateLimit = `${uploadBps}/${downloadBps}`;
 
         // Delete existing bandwidth entries
-        await prismaRadius.radreply.deleteMany({
+        await this.radiusClient.radreply.deleteMany({
             where: {
                 username,
                 attribute: 'Mikrotik-Rate-Limit',
@@ -97,7 +100,7 @@ export class RadiusRepository implements IRadiusRepository {
         });
 
         // Create new bandwidth entry
-        await prismaRadius.radreply.create({
+        await this.radiusClient.radreply.create({
             data: {
                 username,
                 attribute: 'Mikrotik-Rate-Limit',
@@ -112,7 +115,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get user bandwidth settings
      */
     async getUserBandwidth(username: string): Promise<IRadiusBandwidth | null> {
-        const reply = await prismaRadius.radreply.findFirst({
+        const reply = await this.radiusClient.radreply.findFirst({
             where: {
                 username,
                 attribute: 'Mikrotik-Rate-Limit',
@@ -136,16 +139,16 @@ export class RadiusRepository implements IRadiusRepository {
      * Assign user to a group
      */
     async assignUserToGroup(username: string, groupname: string, priority = 0): Promise<void> {
-        const existing = await prismaRadius.radusergroup.findFirst({
+        const existing = await this.radiusClient.radusergroup.findFirst({
             where: { username, groupname }
         });
         if (existing) {
-            await prismaRadius.radusergroup.update({
+            await this.radiusClient.radusergroup.update({
                 where: { id: existing.id },
                 data: { priority }
             });
         } else {
-            await prismaRadius.radusergroup.create({
+            await this.radiusClient.radusergroup.create({
                 data: { username, groupname, priority }
             });
         }
@@ -155,7 +158,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Remove user from group
      */
     async removeUserFromGroup(username: string, groupname: string): Promise<void> {
-        await prismaRadius.radusergroup.deleteMany({
+        await this.radiusClient.radusergroup.deleteMany({
             where: { username, groupname }
         });
     }
@@ -164,7 +167,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get all groups assigned to user
      */
     async getUserGroups(username: string): Promise<string[]> {
-        const groups = await prismaRadius.radusergroup.findMany({
+        const groups = await this.radiusClient.radusergroup.findMany({
             where: { username },
             orderBy: { priority: 'asc' },
         });
@@ -175,7 +178,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get active sessions (acctstoptime is null)
      */
     async getActiveSessions(username?: string): Promise<IRadiusSession[]> {
-        const sessions = await prismaRadius.radacct.findMany({
+        const sessions = await this.radiusClient.radacct.findMany({
             where: {
                 acctstoptime: null,
                 ...(username && { username }),
@@ -196,7 +199,7 @@ export class RadiusRepository implements IRadiusRepository {
         startDate?: Date,
         endDate?: Date
     ): Promise<IRadiusSession[]> {
-        const sessions = await prismaRadius.radacct.findMany({
+        const sessions = await this.radiusClient.radacct.findMany({
             where: {
                 username,
                 ...(startDate && {
@@ -369,7 +372,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Create new NAS (Network Access Server)
      */
     async createNas(nas: INas): Promise<INas> {
-        const created = await prismaRadius.nas.create({
+        const created = await this.radiusClient.nas.create({
             data: {
                 nasname: nas.nasname,
                 shortname: nas.shortname ?? null,
@@ -398,7 +401,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Update NAS configuration
      */
     async updateNas(id: number, nas: Partial<INas>): Promise<INas> {
-        const updated = await prismaRadius.nas.update({
+        const updated = await this.radiusClient.nas.update({
             where: { id },
             data: {
                 ...(nas.nasname !== undefined ? { nasname: nas.nasname } : {}),
@@ -428,7 +431,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Delete NAS
      */
     async deleteNas(id: number): Promise<void> {
-        await prismaRadius.nas.delete({
+        await this.radiusClient.nas.delete({
             where: { id },
         });
     }
@@ -437,7 +440,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get NAS by ID
      */
     async getNasById(id: number): Promise<INas | null> {
-        const nas = await prismaRadius.nas.findFirst({
+        const nas = await this.radiusClient.nas.findFirst({
             where: { id },
         });
 
@@ -459,7 +462,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get all NAS
      */
     async getAllNas(): Promise<INas[]> {
-        const nasList = await prismaRadius.nas.findMany({
+        const nasList = await this.radiusClient.nas.findMany({
             orderBy: { nasname: 'asc' },
         });
 
@@ -479,7 +482,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get NAS by IP address
      */
     async getNasByIp(ip: string): Promise<INas | null> {
-        const nas = await prismaRadius.nas.findFirst({
+        const nas = await this.radiusClient.nas.findFirst({
             where: { nasname: ip },
         });
 
@@ -501,7 +504,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Add IP to pool
      */
     async addToIpPool(pool: IRadIpPool): Promise<IRadIpPool> {
-        const created = await prismaRadius.radippool.create({
+        const created = await this.radiusClient.radippool.create({
             data: {
                 pool_name: pool.poolName,
                 framedipaddress: pool.framedIpAddress,
@@ -526,7 +529,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Remove IP from pool
      */
     async removeFromIpPool(ipAddress: string): Promise<void> {
-        await prismaRadius.radippool.deleteMany({
+        await this.radiusClient.radippool.deleteMany({
             where: { framedipaddress: ipAddress },
         });
     }
@@ -535,7 +538,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get available IP from pool
      */
     async getIpFromPool(poolName: string, nasipaddress?: string): Promise<string | null> {
-        const availableIp = await prismaRadius.radippool.findFirst({
+        const availableIp = await this.radiusClient.radippool.findFirst({
             where: {
                 pool_name: poolName,
                 nasipaddress: nasipaddress || null,
@@ -552,7 +555,7 @@ export class RadiusRepository implements IRadiusRepository {
     async returnIpToPool(ipAddress: string): Promise<void> {
         // In a real implementation, you might clear the poolKey or nasipaddress
         // to mark the IP as available again
-        await prismaRadius.radippool.updateMany({
+        await this.radiusClient.radippool.updateMany({
             where: { framedipaddress: ipAddress },
             data: {
                 nasipaddress: null,
@@ -568,11 +571,11 @@ export class RadiusRepository implements IRadiusRepository {
     async getIpPoolStats(poolName?: string): Promise<{ total: number; used: number; available: number }> {
         const whereClause = poolName ? { pool_name: poolName } : {};
 
-        const total = await prismaRadius.radippool.count({
+        const total = await this.radiusClient.radippool.count({
             where: whereClause,
         });
 
-        const used = await prismaRadius.radippool.count({
+        const used = await this.radiusClient.radippool.count({
             where: {
                 ...whereClause,
                 nasipaddress: { not: null },
@@ -590,7 +593,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Get all IP pools
      */
     async getAllIpPools(): Promise<IRadIpPool[]> {
-        const pools = await prismaRadius.radippool.findMany({
+        const pools = await this.radiusClient.radippool.findMany({
             orderBy: [{ pool_name: 'asc' }, { framedipaddress: 'asc' }],
         });
 
@@ -608,7 +611,7 @@ export class RadiusRepository implements IRadiusRepository {
      */
     async getDashboardStats(): Promise<IDashboardStats> {
         // Get unique usernames (since one user might have multiple radcheck entries)
-        const uniqueUsers = await prismaRadius.radcheck.groupBy({
+        const uniqueUsers = await this.radiusClient.radcheck.groupBy({
             by: ['username'],
             where: {
                 attribute: 'Cleartext-Password',
@@ -616,7 +619,7 @@ export class RadiusRepository implements IRadiusRepository {
         });
 
         // Get online users (active sessions)
-        const onlineSessions = await prismaRadius.radacct.findMany({
+        const onlineSessions = await this.radiusClient.radacct.findMany({
             where: {
                 acctstoptime: null,
             },
@@ -630,7 +633,7 @@ export class RadiusRepository implements IRadiusRepository {
         const today = new Date();
         today.setTime(toStartOfDay(today).getTime());
 
-        const todaySessions = await prismaRadius.radacct.findMany({
+        const todaySessions = await this.radiusClient.radacct.findMany({
             where: {
                 acctstarttime: {
                     gte: today,
@@ -694,9 +697,9 @@ export class RadiusRepository implements IRadiusRepository {
             where.acctstoptime = null;
         }
 
-        const total = await prismaRadius.radacct.count({ where });
+        const total = await this.radiusClient.radacct.count({ where });
 
-        const sessions = await prismaRadius.radacct.findMany({
+        const sessions = await this.radiusClient.radacct.findMany({
             where,
             orderBy: {
                 acctstarttime: 'desc',
