@@ -88,13 +88,13 @@ export async function ClientComponent() {
 
       {/* Module Overview Grid */}
       <div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
             Overview Modul
-            <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">Real-time</span>
+            <span className="text-xs font-normal text-gray-500 bg-gray-100 dark:bg-gray-800/50 px-2 py-0.5 rounded-full border border-gray-200 dark:border-gray-700">Real-time</span>
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* 1. Kehadiran (Attendance) */}
-            <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-blue-300 transition-colors">
+            <div className="bg-surface dark:bg-surface p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-blue-300 transition-colors">
                 <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <HiOutlineClock className="w-20 h-20 text-blue-600" />
                 </div>
@@ -102,7 +102,7 @@ export async function ClientComponent() {
                     <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg">
                         <HiOutlineClock className="w-5 h-5" />
                     </div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">Kehadiran Hari Ini</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Kehadiran Hari Ini</h4>
                 </div>
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
@@ -121,7 +121,7 @@ export async function ClientComponent() {
             </div>
 
             {/* 2. Work Order */}
-            <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-purple-300 transition-colors">
+            <div className="bg-surface dark:bg-surface p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-purple-300 transition-colors">
                 <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <HiOutlineClipboardDocumentList className="w-20 h-20 text-purple-600" />
                 </div>
@@ -129,7 +129,7 @@ export async function ClientComponent() {
                     <div className="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-lg">
                         <HiOutlineClipboardDocumentList className="w-5 h-5" />
                     </div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">Tiket & WO (30 Hari)</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Tiket & WO (30 Hari)</h4>
                 </div>
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
@@ -148,7 +148,7 @@ export async function ClientComponent() {
             </div>
 
             {/* 3. Marketing */}
-            <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-pink-300 transition-colors">
+            <div className="bg-surface dark:bg-surface p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-pink-300 transition-colors">
                 <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <HiOutlineMegaphone className="w-20 h-20 text-pink-600" />
                 </div>
@@ -156,7 +156,7 @@ export async function ClientComponent() {
                     <div className="p-2 bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 rounded-lg">
                         <HiOutlineMegaphone className="w-5 h-5" />
                     </div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">Marketing & Sales</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Marketing & Sales</h4>
                 </div>
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
@@ -175,7 +175,7 @@ export async function ClientComponent() {
             </div>
 
             {/* 4. Inventory */}
-            <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-emerald-300 transition-colors">
+            <div className="bg-surface dark:bg-surface p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden group hover:border-emerald-300 transition-colors">
                 <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <HiOutlineCube className="w-20 h-20 text-emerald-600" />
                 </div>
@@ -183,7 +183,7 @@ export async function ClientComponent() {
                     <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
                         <HiOutlineCube className="w-5 h-5" />
                     </div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">Inventaris Barang</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">Inventaris Barang</h4>
                 </div>
                 <div className="flex flex-col justify-center h-20">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Jenis Barang</p>
@@ -199,11 +199,11 @@ export async function ClientComponent() {
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {/* Total Active Users (Internet) */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
+        <div className="group relative overflow-hidden rounded-2xl bg-surface dark:bg-surface p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Active Sessions</p>
-              <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{routerStats.totalUserOnline}</h3>
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">{routerStats.totalUserOnline}</h3>
               <div className="mt-2 flex items-center text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 w-fit px-2 py-0.5 rounded-full">
                 <HiArrowTrendingUp className="w-3 h-3 mr-1" />
                 Live Users
@@ -216,11 +216,11 @@ export async function ClientComponent() {
         </div>
 
         {/* Total Routers */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
+        <div className="group relative overflow-hidden rounded-2xl bg-surface dark:bg-surface p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Routers</p>
-              <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{routerStats.total}</h3>
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">{routerStats.total}</h3>
                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Perangkat terdaftar</p>
             </div>
             <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300">
@@ -230,7 +230,7 @@ export async function ClientComponent() {
         </div>
 
         {/* Router Online */}
-        <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
+        <div className="group relative overflow-hidden rounded-2xl bg-surface dark:bg-surface p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Router Online</p>
@@ -244,7 +244,7 @@ export async function ClientComponent() {
         </div>
 
          {/* Router Offline */}
-         <div className="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
+         <div className="group relative overflow-hidden rounded-2xl bg-surface dark:bg-surface p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Router Offline</p>
@@ -263,34 +263,34 @@ export async function ClientComponent() {
 
         {/* Left Column: Top Employees (Leaderboard) */}
         <div className="xl:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden h-full">
-                <div className="p-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50">
+            <div className="bg-surface dark:bg-surface rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden h-full">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-800/20">
                     <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-yellow-100 text-yellow-600 rounded-lg dark:bg-yellow-900/30 dark:text-yellow-400">
                             <HiOutlineTrophy className="w-5 h-5" />
                         </div>
-                        <h3 className="font-bold text-gray-900 dark:text-white">Top 5 Karyawan</h3>
+                        <h3 className="font-bold text-gray-900 dark:text-gray-100">Top 5 Karyawan</h3>
                     </div>
                 </div>
                 <div className="p-2">
                     {topEmployees.map((employee, index) => (
-                        <div key={employee.userId} className="relative flex items-center justify-between p-3 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors group">
+                        <div key={employee.userId} className="relative flex items-center justify-between p-3 mb-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors group">
                              {/* Rank Number */}
                              <div className={`absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-lg ${
                                  index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-400' : 'bg-transparent'
                              }`}></div>
 
                              <div className="flex items-center gap-4 pl-2">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
+                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
                                     index === 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 ring-2 ring-yellow-200 dark:ring-yellow-800' :
                                     index === 1 ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 ring-2 ring-gray-200 dark:ring-gray-700' :
                                     index === 2 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 ring-2 ring-orange-200 dark:ring-orange-800' :
-                                    'bg-slate-50 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400'
+                                    'bg-slate-50 text-slate-500 dark:bg-gray-800/50 dark:text-slate-400'
                                 }`}>
                                     {index + 1}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">{employee.name}</p>
+                                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1">{employee.name}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
                                         {employee.site || 'General'}
                                     </p>
@@ -315,15 +315,15 @@ export async function ClientComponent() {
         <div className="xl:col-span-2 space-y-6">
 
             {/* Row 1: Problematic Sites */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-surface dark:bg-surface rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                          <div className="p-1.5 bg-red-100 text-red-600 rounded-lg dark:bg-red-900/30 dark:text-red-400">
                              <HiOutlineWrench className="w-5 h-5" />
                          </div>
                          <div>
-                            <h3 className="font-bold text-gray-900 dark:text-white">Site Bermasalah (Troubled)</h3>
-                            <p className="text-xs text-gray-500">Berdasarkan jumlah tiket gangguan</p>
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100">Site Bermasalah (Troubled)</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Berdasarkan jumlah tiket gangguan</p>
                          </div>
                     </div>
                 </div>
@@ -339,9 +339,9 @@ export async function ClientComponent() {
             {/* Row 2: Operations (Split Grid for Dismantle & Install) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  {/* New Installation */}
-                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                 <div className="bg-surface dark:bg-surface rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-green-50/50 dark:bg-green-900/10">
-                        <h3 className="font-bold text-gray-900 dark:text-white text-sm">Pemasangan Baru</h3>
+                        <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Pemasangan Baru</h3>
                     </div>
                     <DashboardSiteTable
                         data={topInstallationSites}
@@ -351,9 +351,9 @@ export async function ClientComponent() {
                  </div>
 
                  {/* Dismantle */}
-                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                 <div className="bg-surface dark:bg-surface rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-orange-50/50 dark:bg-orange-900/10">
-                         <h3 className="font-bold text-gray-900 dark:text-white text-sm">Site Dismantle</h3>
+                         <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Site Dismantle</h3>
                     </div>
                     <DashboardSiteTable
                         data={topDismantleSites}

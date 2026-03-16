@@ -633,6 +633,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     priority: true,
                     scheduledDate: true,
                     contactName: true,
+                    isInternal: true,
+                    requestedById: true,
                     createdAt: true,
                     startedAt: true,
                     completedAt: true,
@@ -1557,6 +1559,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         id: true,
                         idPelanggan: true,
                         nama: true,
+                        email: true,
+                        noTelp: true,
                     },
                 },
                 site: {
@@ -1576,12 +1580,43 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                     select: {
                         id: true,
                         name: true,
+                        email: true,
+                    },
+                },
+                requestedBy: {
+                    select: {
+                        id: true,
+                        name: true,
                     },
                 },
                 tasks: true,
-                assignments: true,
-                updates: true,
+                assignments: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
+                updates: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
                 attachments: true,
+                createdBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: 'desc',

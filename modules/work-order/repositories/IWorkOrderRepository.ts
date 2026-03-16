@@ -202,6 +202,8 @@ export interface WorkOrderListItem {
     priority: WorkOrderPriority;
     scheduledDate: Date | null;
     contactName: string | null;
+    isInternal: boolean;
+    requestedById: string | null;
     createdAt: Date;
     pelanggan: {
         id: string;

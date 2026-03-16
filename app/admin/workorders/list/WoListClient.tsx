@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/badge'
 import { usePermission } from '@/hooks/use-permission'
 
 interface WorkOrder {
@@ -32,6 +33,8 @@ interface WorkOrder {
     priority: string
     scheduledDate: string | null
     contactName?: string | null
+    isInternal: boolean
+    requestedById: string | null // Added requestedById
     pelanggan?: {
         nama: string
         idPelanggan: string
@@ -518,7 +521,21 @@ export function ClientComponent() {
                         <div>
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-900 dark:text-white">{wo.contactName}</span>
-                                <span className="inline-flex px-1.5 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">Internal</span>
+                                            {/* Internal / Customer Badge */}
+                                            {wo.isInternal && (
+                                                <Badge className="bg-orange-100 text-orange-800 border-none text-[10px] h-4 font-medium">
+                                                    Internal
+                                                </Badge>
+                                            )}
+                                            {wo.requestedById ? (
+                                                <Badge className="bg-indigo-100 text-indigo-700 border-none text-[10px] h-4 font-medium">
+                                                    Mobile
+                                                </Badge>
+                                            ) : (
+                                                <Badge className="bg-slate-100 text-slate-700 border-none text-[10px] h-4 font-medium">
+                                                    Admin
+                                                </Badge>
+                                            )}
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">{wo.department.name}</div>
                         </div>
