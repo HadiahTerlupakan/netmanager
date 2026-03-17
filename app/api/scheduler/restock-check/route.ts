@@ -21,7 +21,43 @@ export async function POST(req: NextRequest) {
   try {
     const dbStart = Date.now()
 
-    // 2. Fetch Active Settings
+    // 2. Fetch Active Settings and All Eligible Recipients for Notifications
+    const [settings, recipients] = await Promise.all([
+      prisma.restockSettings.findMany({
+        where: { isActive: true },
+        include: {
+          barang: {
+            select: {
+              id: true,
+              kode: true,
+              nama: true,
+              satuan: true
+            }
+          },
+          gudang: {
+            select: {
+              id: true,
+              kode: true,
+              nama: true
+            }
+          }
+        }
+      }),
+      prisma.user.findMany({
+        where: {
+          isActive: true,
+          role: {
+            permission: {
+              some: {
+                resource: 'restock',
+                action: 'read'
+              }
+            }
+          }
+        },
+        select: { id: true, email: true }
+      })
+    ])
     const settings = await prisma.restockSettings.findMany({
       where: { isActive: true },
       include: {
@@ -113,63 +149,50 @@ export async function POST(req: NextRequest) {
             })
             newAlerts.push(newAlert)
 
-            // Critical/High Urgency -> Send Notification
+            // Critical/High Urgency -> Create Notifications in Batch
             if (urgency === 'CRITICAL' || urgency === 'HIGH') {
-              const recipients = await prisma.user.findMany({
-                  where: {
-                      isActive: true,
-                      role: {
-                          permission: {
-                              some: {
-                                  resource: 'restock',
-                                  action: 'read'
-                              }
-                          }
-                      }
-                  },
-                  select: { id: true, email: true }
-              })
-
-              await Promise.all(recipients.map(async (recipient) => {
-                  await createNotification({
-                      type: 'ALERT',
-                      priority: urgency === 'CRITICAL' ? 'HIGH' : 'NORMAL',
-                      title: urgency === 'CRITICAL' ? '🚨 STOK HABIS' : '⚠️ Stok Menipis',
-                      message,
-                      userId: recipient.id,
-                      sourceType: 'INVENTORY',
-                      link: '/admin/inventory/restock',
-                      sourceId: alertId
-                  })
+              const notificationData = recipients.map(recipient => ({
+                id: crypto.randomUUID(),
+                type: 'ALERT' as const,
+                priority: (urgency === 'CRITICAL' ? 'HIGH' : 'NORMAL') as any,
+                title: urgency === 'CRITICAL' ? '🚨 STOK HABIS' : '⚠️ Stok Menipis',
+                message,
+                userId: recipient.id,
+                sourceType: 'INVENTORY',
+                link: '/admin/inventory/restock',
+                sourceId: alertId,
+                tenantId: setting.tenantId
               }))
 
-              notificationsSent += recipients.length
+              if (notificationData.length > 0) {
+                await prisma.notifications.createMany({ data: notificationData })
+                notificationsSent += notificationData.length
+              }
 
-              // 2. Email Notification (for CRITICAL only)
+              // 2. Email Notification (for CRITICAL only) - optimized but keep as separate calls for individual failure safety if needed
               if (urgency === 'CRITICAL') {
-                  for (const recipient of recipients) {
-                      if (recipient.email) {
-                          await emailService.sendEmail({
-                              to: recipient.email,
-                              subject: `[CRITICAL] Stock Alert: ${setting.barang.nama}`,
-                              html: `
-                                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-                                    <h2 style="color: #dc2626;">🚨 Stok Habis: ${setting.barang.nama}</h2>
-                                    <p>Barang <strong>${setting.barang.nama}</strong> di gudang <strong>${setting.gudang.nama}</strong> telah habis.</p>
-                                    <div style="background-color: #f3f4f6; padding: 10px; border-radius: 4px; margin: 15px 0;">
-                                        <p style="margin: 5px 0;"><strong>Current Stock:</strong> ${currentStock.stok} ${setting.barang.satuan}</p>
-                                        <p style="margin: 5px 0;"><strong>Min Stock:</strong> ${setting.minStok}</p>
-                                        <p style="margin: 5px 0;"><strong>Recommended Order:</strong> ${recommendedOrder}</p>
-                                    </div>
-                                    <p>Mohon segera lakukan restock atau buat Purchase Request melalui dashboard.</p>
-                                    <a href="${process.env.NEXTAUTH_URL}/admin/inventory/restock" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Buka Dashboard Restock</a>
-                                </div>
-                              `
-                          }).catch(err => logger.error(`Failed to send email to ${recipient.email}`, err))
-                      }
-                  }
+                await Promise.all(recipients.filter(r => r.email).map(recipient => 				  emailService.sendEmail({
+					to: recipient.email!,
+					subject: `[CRITICAL] Stock Alert: ${setting.barang.nama}`,
+					html: `
+					  <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+						  <h2 style="color: #dc2626;">🚨 Stok Habis: ${setting.barang.nama}</h2>
+						  <p>Barang <strong>${setting.barang.nama}</strong> di gudang <strong>${setting.gudang.nama}</strong> telah habis.</p>
+						  <div style="background-color: #f3f4f6; padding: 10px; border-radius: 4px; margin: 15px 0;">
+							  <p style="margin: 5px 0;"><strong>Current Stock:</strong> ${currentStock.stok} ${setting.barang.satuan}</p>
+							  <p style="margin: 5px 0;"><strong>Min Stock:</strong> ${setting.minStok}</p>
+							  <p style="margin: 5px 0;"><strong>Recommended Order:</strong> ${recommendedOrder}</p>
+						  </div>
+						  <p>Mohon segera lakukan restock atau buat Purchase Request melalui dashboard.</p>
+						  <a href="${process.env.NEXTAUTH_URL}/admin/inventory/restock" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Buka Dashboard Restock</a>
+					  </div>
+					`
+				  }).catch(err => logger.error(`Failed to send email to ${recipient.email}`, err))
+                ))
               }
             }
+          }
+        }
           }
         }
       }
