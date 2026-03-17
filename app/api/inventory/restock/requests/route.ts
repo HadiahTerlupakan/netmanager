@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     gudangId: body.gudangId,
     keterangan: body.keterangan,
     requesterId: session.user.id as string,
+    tenantId: session.user.tenantId,
     apiPath: '/api/inventory/restock/requests',
   })
 }

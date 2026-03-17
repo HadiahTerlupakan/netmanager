@@ -260,7 +260,14 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
 
         // Prisma errors
         if (error.message.includes('Unique constraint')) {
-            return ApiErrors.conflict('Data sudah ada')
+            // Extract field name if possible from Prisma error message
+            // Prisma P2002 error usually contains field names in meta
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const target = (error as any).meta?.target
+            const field = Array.isArray(target) ? target[target.length - 1] : target
+            
+            const fieldName = field ? ` (${field})` : ''
+            return ApiErrors.conflict(`Data sudah ada${fieldName}. Silakan gunakan nilai lain.`)
         }
         if (error.message.includes('Record to update not found')) {
             return ApiErrors.notFound('Data tidak ditemukan')

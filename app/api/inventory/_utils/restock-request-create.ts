@@ -13,6 +13,7 @@ interface CreateRestockRequestInput {
   gudangId: string
   keterangan?: string
   requesterId: string
+  tenantId?: string | null
   apiPath: string
 }
 
@@ -21,6 +22,7 @@ export async function createRestockRequest({
   gudangId,
   keterangan,
   requesterId,
+  tenantId,
   apiPath,
 }: CreateRestockRequestInput) {
   const startTime = Date.now()
@@ -39,7 +41,10 @@ export async function createRestockRequest({
     const prefix = `PR-${dateStr}-`
 
     const lastPR = await prisma.purchaseRequest.findFirst({
-      where: { nomorRequest: { startsWith: prefix } },
+      where: { 
+        tenantId: tenantId,
+        nomorRequest: { startsWith: prefix } 
+      },
       orderBy: { nomorRequest: 'desc' },
     })
 
@@ -59,6 +64,7 @@ export async function createRestockRequest({
         data: {
           id: crypto.randomUUID(),
           nomorRequest,
+          tenantId,
           requesterId,
           gudangId,
           keterangan,

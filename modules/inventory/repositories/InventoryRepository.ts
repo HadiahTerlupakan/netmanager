@@ -97,7 +97,7 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async findBarangByKode(kode: string): Promise<BarangWithStock | null> {
-        return this.db.barang.findUnique({
+        return this.db.barang.findFirst({
             where: { kode },
             include: {
                 barangGudang: {
@@ -446,7 +446,7 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async findGudangByKode(kode: string): Promise<Gudang | null> {
-        return this.db.gudang.findUnique({
+        return this.db.gudang.findFirst({
             where: { kode }
         })
     }

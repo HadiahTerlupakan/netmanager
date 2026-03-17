@@ -8,16 +8,22 @@ export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, asyn
   return apiSuccess(configs)
 })
 
-export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, async (req) => {
+export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
   const body = await req.json()
   const { productClass, parameterPath, wpaTypes, encryptTypes } = body
+  const tenantId = ctx.session?.user.tenantId
 
   if (!productClass || !parameterPath) {
     return ApiErrors.badRequest('Product Class dan Parameter Path harus diisi')
   }
 
   const newConfig = await prisma.acsWifiSecurity.upsert({
-    where: { productClass },
+    where: { 
+      tenantId_productClass: {
+        tenantId: tenantId || '',
+        productClass
+      }
+    },
     update: {
       parameterPath,
       wpaTypes,
@@ -27,7 +33,8 @@ export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, a
       productClass,
       parameterPath,
       wpaTypes,
-      encryptTypes
+      encryptTypes,
+      tenantId
     }
   })
 

@@ -10,7 +10,7 @@ datasource db {
 
 model Invoice {
   id             String        @id
-  invoiceNumber  String        @unique
+  invoiceNumber  String
   pelangganId    String
   issueDate      DateTime      @default(now())
   dueDate        DateTime
@@ -38,6 +38,7 @@ model Invoice {
   @@index([pelangganId])
   @@index([status])
   @@index([siteId])
+  @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
 }
 
@@ -156,7 +157,7 @@ enum UnmatchedStatus {
 
 model MixRadiusInvoice {
   id            String    @id @default(cuid())
-  invoiceNumber String    @unique
+  invoiceNumber String
   mixRadiusId   String? // The internal ID from MixRadius
   username      String
   fullName      String?
@@ -175,6 +176,7 @@ model MixRadiusInvoice {
   @@index([username])
   @@index([ownerName])
   @@index([dueDate])
+  @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
   @@map("mix_radius_invoices")
 }
@@ -243,8 +245,8 @@ enum GatewayPaymentStatus {
 
 model MixRadiusCustomer {
   id           String    @id
-  mixRadiusId  String    @unique
-  username     String    @unique
+  mixRadiusId  String
+  username     String
   fullName     String?
   address      String?
   phoneNumber  String?
@@ -257,6 +259,8 @@ model MixRadiusCustomer {
   updatedAt    DateTime  @updatedAt
   tenantId     String?
 
+  @@unique([tenantId, mixRadiusId])
+  @@unique([tenantId, username])
   @@index([tenantId])
   @@map("mix_radius_customers")
 }

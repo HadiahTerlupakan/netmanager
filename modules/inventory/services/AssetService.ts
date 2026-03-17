@@ -125,6 +125,7 @@ export class AssetService {
         // Find or create "Depreciation" category under ExpenseCategory
         const depCategory = await prisma.expenseCategory.findFirst({
             where: {
+                tenantId: asset.tenantId,
                 OR: [
                     { name: { contains: 'penyusutan', mode: 'insensitive' } },
                     { name: { contains: 'depreciation', mode: 'insensitive' } }

@@ -16,7 +16,7 @@ export class MixRadiusSyncService {
    *    - If not found, pick the first available active package as fallback.
    * 4. Upsert (Create or Update) the Pelanggan record.
    */
-  async syncCustomer(data: MixRadiusCustomerDetail) {
+  async syncCustomer(data: MixRadiusCustomerDetail, tenantId?: string) {
     if (!data.username) {
       throw new Error("Username diperlukan untuk sinkronisasi")
     }
@@ -39,11 +39,17 @@ export class MixRadiusSyncService {
 
     // Upsert into MixRadiusCustomer using mixRadiusId as the unique key
     const result = await prismaBilling.mixRadiusCustomer.upsert({
-      where: { mixRadiusId: data.id },
+      where: {
+        tenantId_mixRadiusId: {
+          tenantId: tenantId || null,
+          mixRadiusId: data.id
+        }
+      },
       update: customerData,
       create: {
         id: randomUUID(),
-        ...customerData
+        ...customerData,
+        tenantId: tenantId || null
       }
     })
 
@@ -114,7 +120,12 @@ export class MixRadiusSyncService {
         }
 
         await prismaBilling.mixRadiusCustomer.upsert({
-          where: { mixRadiusId: customer.id }, // Use mixRadiusId for reliability
+          where: {
+            tenantId_mixRadiusId: {
+              tenantId: null, // Global sync usually doesn't have a specific tenant, but we should handle this
+              mixRadiusId: customer.id
+            }
+          },
           update: customerData,
           create: {
             id: randomUUID(),
@@ -180,7 +191,7 @@ export class MixRadiusSyncService {
       let syncCount = 0
       for (const record of response.data) {
         try {
-          await this.upsertInvoice(record)
+          await this.upsertInvoice(record, undefined) // TODO: handle tenantId if needed for batch sync
           syncCount++
         } catch (err) {
           console.error(`[MixRadiusSync] Failed to sync invoice ${record.invoice}:`, err)
@@ -200,13 +211,18 @@ export class MixRadiusSyncService {
     }
   }
 
-  private async upsertInvoice(record: MixRadiusIncomePeriodRecord) {
+  private async upsertInvoice(record: MixRadiusIncomePeriodRecord, tenantId?: string) {
     const mixRadiusId = record.customer_id || record.username;
 
     // Ensure customer exists to satisfy foreign key constraint
     // Use mixRadiusId as primary key for upsert to handle username changes
     await prismaBilling.mixRadiusCustomer.upsert({
-      where: { mixRadiusId: mixRadiusId },
+      where: {
+        tenantId_mixRadiusId: {
+          tenantId: tenantId || null,
+          mixRadiusId: mixRadiusId
+        }
+      },
       update: {
         username: record.username,
         fullName: record.fullname,
@@ -222,7 +238,8 @@ export class MixRadiusSyncService {
         address: record.address,
         phoneNumber: record.phonenumber,
         planName: record.plan_name,
-        lastSyncedAt: new Date()
+        lastSyncedAt: new Date(),
+        tenantId: tenantId || null
       }
     })
 
@@ -247,12 +264,18 @@ export class MixRadiusSyncService {
     }
 
     return await prismaBilling.mixRadiusInvoice.upsert({
-      where: { invoiceNumber: record.invoice },
+      where: {
+        tenantId_invoiceNumber: {
+          tenantId: tenantId || null,
+          invoiceNumber: record.invoice
+        }
+      },
       update: invoiceData,
       create: {
         id: randomUUID(),
         invoiceNumber: record.invoice,
-        ...invoiceData
+        ...invoiceData,
+        tenantId: tenantId || null
       }
     })
   }

@@ -509,7 +509,7 @@ async function main() {
   console.log('\n📦 STEP 6: Creating Gudang...')
 
   const gudangPusat = await prisma.gudang.upsert({
-    where: { kode: 'GDG-PUSAT' },
+    where: { tenantId_kode: { tenantId: MAIN_TENANT_ID, kode: 'GDG-PUSAT' } },
     update: {},
     create: {
       id: randomUUID(),
@@ -529,7 +529,7 @@ async function main() {
   console.log('   ✅ Gudang: GDG-PUSAT (Gudang Pusat)')
 
   const gudangJkt01 = await prisma.gudang.upsert({
-    where: { kode: 'GDG-JKT01' },
+    where: { tenantId_kode: { tenantId: MAIN_TENANT_ID, kode: 'GDG-JKT01' } },
     update: {},
     create: {
       id: randomUUID(),

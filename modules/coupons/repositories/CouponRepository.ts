@@ -30,7 +30,7 @@ export class CouponRepository implements ICouponRepository {
     }
 
     async findByCode(code: string): Promise<Coupon | null> {
-        return this.db.coupon.findUnique({ where: { code } })
+        return this.db.coupon.findFirst({ where: { code } })
     }
 
     async create(data: CreateCouponInput): Promise<Coupon> {

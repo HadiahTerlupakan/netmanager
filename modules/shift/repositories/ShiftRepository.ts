@@ -33,7 +33,7 @@ export class ShiftRepository {
   }
 
   async findByCode(code: string): Promise<Shift | null> {
-    return prisma.shift.findUnique({
+    return prisma.shift.findFirst({
       where: { code }
     })
   }

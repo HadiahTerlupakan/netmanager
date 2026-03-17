@@ -28,7 +28,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         )
     }
 
-    const result = await syncService.syncCustomer(customerData)
+    const result = await syncService.syncCustomer(customerData, user.tenantId)
 
     return apiSuccess({
         action: result.action,

@@ -14014,10 +14014,11 @@ export namespace Prisma {
 
   export type InvoiceWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    invoiceNumber?: string
+    tenantId_invoiceNumber?: InvoiceTenantIdInvoiceNumberCompoundUniqueInput
     AND?: InvoiceWhereInput | InvoiceWhereInput[]
     OR?: InvoiceWhereInput[]
     NOT?: InvoiceWhereInput | InvoiceWhereInput[]
+    invoiceNumber?: StringFilter<"Invoice"> | string
     pelangganId?: StringFilter<"Invoice"> | string
     issueDate?: DateTimeFilter<"Invoice"> | Date | string
     dueDate?: DateTimeFilter<"Invoice"> | Date | string
@@ -14038,7 +14039,7 @@ export namespace Prisma {
     tenantId?: StringNullableFilter<"Invoice"> | string | null
     invoiceItem?: InvoiceItemListRelationFilter
     payment?: PaymentListRelationFilter
-  }, "id" | "invoiceNumber">
+  }, "id" | "tenantId_invoiceNumber">
 
   export type InvoiceOrderByWithAggregationInput = {
     id?: SortOrder
@@ -14584,10 +14585,11 @@ export namespace Prisma {
 
   export type MixRadiusInvoiceWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    invoiceNumber?: string
+    tenantId_invoiceNumber?: MixRadiusInvoiceTenantIdInvoiceNumberCompoundUniqueInput
     AND?: MixRadiusInvoiceWhereInput | MixRadiusInvoiceWhereInput[]
     OR?: MixRadiusInvoiceWhereInput[]
     NOT?: MixRadiusInvoiceWhereInput | MixRadiusInvoiceWhereInput[]
+    invoiceNumber?: StringFilter<"MixRadiusInvoice"> | string
     mixRadiusId?: StringNullableFilter<"MixRadiusInvoice"> | string | null
     username?: StringFilter<"MixRadiusInvoice"> | string
     fullName?: StringNullableFilter<"MixRadiusInvoice"> | string | null
@@ -14601,7 +14603,7 @@ export namespace Prisma {
     expiredOn?: DateTimeNullableFilter<"MixRadiusInvoice"> | Date | string | null
     syncedAt?: DateTimeFilter<"MixRadiusInvoice"> | Date | string
     tenantId?: StringNullableFilter<"MixRadiusInvoice"> | string | null
-  }, "id" | "invoiceNumber">
+  }, "id" | "tenantId_invoiceNumber">
 
   export type MixRadiusInvoiceOrderByWithAggregationInput = {
     id?: SortOrder
@@ -14686,11 +14688,13 @@ export namespace Prisma {
 
   export type MixRadiusCustomerWhereUniqueInput = Prisma.AtLeast<{
     id?: string
-    mixRadiusId?: string
-    username?: string
+    tenantId_mixRadiusId?: MixRadiusCustomerTenantIdMixRadiusIdCompoundUniqueInput
+    tenantId_username?: MixRadiusCustomerTenantIdUsernameCompoundUniqueInput
     AND?: MixRadiusCustomerWhereInput | MixRadiusCustomerWhereInput[]
     OR?: MixRadiusCustomerWhereInput[]
     NOT?: MixRadiusCustomerWhereInput | MixRadiusCustomerWhereInput[]
+    mixRadiusId?: StringFilter<"MixRadiusCustomer"> | string
+    username?: StringFilter<"MixRadiusCustomer"> | string
     fullName?: StringNullableFilter<"MixRadiusCustomer"> | string | null
     address?: StringNullableFilter<"MixRadiusCustomer"> | string | null
     phoneNumber?: StringNullableFilter<"MixRadiusCustomer"> | string | null
@@ -14702,7 +14706,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
     updatedAt?: DateTimeFilter<"MixRadiusCustomer"> | Date | string
     tenantId?: StringNullableFilter<"MixRadiusCustomer"> | string | null
-  }, "id" | "mixRadiusId" | "username">
+  }, "id" | "tenantId_mixRadiusId" | "tenantId_username">
 
   export type MixRadiusCustomerOrderByWithAggregationInput = {
     id?: SortOrder
@@ -16242,6 +16246,11 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type InvoiceTenantIdInvoiceNumberCompoundUniqueInput = {
+    tenantId: string
+    invoiceNumber: string
+  }
+
   export type InvoiceCountOrderByAggregateInput = {
     id?: SortOrder
     invoiceNumber?: SortOrder
@@ -16886,6 +16895,11 @@ export namespace Prisma {
     _max?: NestedEnumUnmatchedStatusFilter<$PrismaModel>
   }
 
+  export type MixRadiusInvoiceTenantIdInvoiceNumberCompoundUniqueInput = {
+    tenantId: string
+    invoiceNumber: string
+  }
+
   export type MixRadiusInvoiceCountOrderByAggregateInput = {
     id?: SortOrder
     invoiceNumber?: SortOrder
@@ -16946,6 +16960,16 @@ export namespace Prisma {
 
   export type MixRadiusInvoiceSumOrderByAggregateInput = {
     amount?: SortOrder
+  }
+
+  export type MixRadiusCustomerTenantIdMixRadiusIdCompoundUniqueInput = {
+    tenantId: string
+    mixRadiusId: string
+  }
+
+  export type MixRadiusCustomerTenantIdUsernameCompoundUniqueInput = {
+    tenantId: string
+    username: string
   }
 
   export type MixRadiusCustomerCountOrderByAggregateInput = {

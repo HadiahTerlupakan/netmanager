@@ -38,7 +38,7 @@ export class SalaryComponentRepository {
      * Find component by name
      */
     async findByName(name: string): Promise<SalaryComponent | null> {
-        return prisma.salaryComponent.findUnique({
+        return prisma.salaryComponent.findFirst({
             where: { name }
         })
     }

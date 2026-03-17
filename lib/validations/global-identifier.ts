@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 
 export type RoleToExclude = 'EMPLOYEE' | 'CUSTOMER' | 'MITRA'
@@ -44,7 +44,8 @@ export async function checkGlobalIdentifier(
 
     // 2. Check User (Karyawan)
     if (excludeRole !== 'EMPLOYEE') {
-        const user = await prisma.user.findFirst({
+        // Use prismaAuth (un-isolated) because email is global unique
+        const user = await prismaAuth.user.findFirst({
             where: {
                 email: { equals: idLower, mode: 'insensitive' },
                 ...(excludeId ? { id: { not: excludeId } } : {})

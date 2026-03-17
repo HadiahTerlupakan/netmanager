@@ -16,7 +16,7 @@ import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
 import { validateStatusTransition } from '../utils/status-transitions';
 import { randomUUID } from 'crypto';
 import { socketEmitter } from '@/lib/websocket/emitter';
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/datetime'
 
 import { prisma as defaultPrisma } from '@/lib/prisma'
 import { getTenantIdFromContext } from '@/lib/tenant-context'
@@ -25,19 +25,22 @@ type PrismaInstance = typeof defaultPrisma
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaInstance = defaultPrisma) { }
 
-    async generateWorkOrderNumber(): Promise<string> {
+    async generateWorkOrderNumber(tenantId?: string): Promise<string> {
         const now = new Date();
         const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
 
-        const startOfDay = new Date(now);
-        startOfDay.setTime(toStartOfDay(startOfDay).getTime());
-        const endOfDay = new Date(now);
-        endOfDay.setTime(toEndOfDay(endOfDay).getTime());
+        // Get tenantId from context if not provided
+        let effectiveTenantId = tenantId;
+        if (!effectiveTenantId) {
+            const context = await getTenantIdFromContext();
+            effectiveTenantId = context.tenantId || undefined;
+        }
 
         // Get the highest sequence number for today instead of just count
         // This handles deleted records and race conditions better
         const lastWo = await this.prisma.workOrders.findFirst({
             where: {
+                tenantId: effectiveTenantId,
                 workOrderNumber: {
                     startsWith: `WO-${dateStr}-`,
                 },
@@ -72,7 +75,15 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
-                const workOrderNumber = await this.generateWorkOrderNumber();
+                // Determine tenantId for generation
+                const { tenantId: dataTenantId } = data as { tenantId?: string };
+                let generationTenantId = dataTenantId;
+                if (!generationTenantId) {
+                    const context = await getTenantIdFromContext();
+                    generationTenantId = context.tenantId || undefined;
+                }
+
+                const workOrderNumber = await this.generateWorkOrderNumber(generationTenantId);
 
                 // Destructure pelangganId to handle it separately
                 const { pelangganId, ...restData } = data;
@@ -233,7 +244,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async findByWorkOrderNumber(workOrderNumber: string): Promise<WorkOrderWithRelations | null> {
-        return this.prisma.workOrders.findUnique({
+        return this.prisma.workOrders.findFirst({
             where: { workOrderNumber },
             include: {
                 pelanggan: {

@@ -174,7 +174,7 @@ model Bandwidth {
 
 model Coupon {
   id             String        @id
-  code           String        @unique
+  code           String
   description    String?
   discountType   DiscountType
   discountValue  Float
@@ -186,11 +186,12 @@ model Coupon {
   usedCount      Int           @default(0)
   isActive       Boolean       @default(true)
   createdAt      DateTime      @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime      @updatedAt
   tenantId       String?
   tenant         Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   couponUsage    CouponUsage[]
 
+  @@unique([tenantId, code], name: "tenantId_code")
   @@index([tenantId])
 }
 
@@ -250,6 +251,7 @@ model ExpenseCategory {
   tenant    Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   rabItems  RabItem[]
 
+  @@unique([tenantId, name], name: "tenantId_name")
   @@index([type])
   @@index([parentId])
   @@index([tenantId])
@@ -322,7 +324,7 @@ model HargaPaket {
   tenant               Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   pelanggan            Pelanggan[]
 
-  @@unique([tenantId, name, siteId])
+  @@unique([tenantId, name, siteId], name: "tenantId_name_siteId")
   @@index([bandwidthId])
   @@index([featured])
   @@index([profilePPPId])
@@ -820,7 +822,7 @@ model Pelanggan {
   @@index([status])
   @@index([tanggalAktif])
   @@index([tipe])
-  @@unique([tenantId, idPelanggan])
+  @@unique([tenantId, idPelanggan], name: "tenantId_idPelanggan")
   @@index([tenantId])
 }
 
@@ -1151,7 +1153,7 @@ model VerificationToken {
 
 model Barang {
   id                   String                @id
-  kode                 String                @unique
+  kode                 String
   nama                 String
   satuan               String
   createdAt            DateTime              @default(now())
@@ -1173,6 +1175,8 @@ model Barang {
   restockSettings      RestockSettings[]
   stockOpname          StockOpname[]
   transferAntarGudang  TransferAntarGudang[]
+
+  @@unique([tenantId, kode], name: "tenantId_kode")
   usageAnalytics       UsageAnalytics[]
   workOrderMaterials   WorkOrderMaterial[]
 
@@ -1404,7 +1408,7 @@ model DeviceBackups {
 
 model Gudang {
   id                      String                @id
-  kode                    String                @unique
+  kode                    String
   nama                    String
   lokasi                  String?
   isActive                Boolean               @default(true)
@@ -1423,6 +1427,8 @@ model Gudang {
   transferAntarGudangKe   TransferAntarGudang[] @relation("transfer_antar_gudang_keGudangIdTogudang")
   usageAnalytics          UsageAnalytics[]
   sites                   Sites[]               @relation("GudangToSite")
+
+  @@unique([tenantId, kode], name: "tenantId_kode")
 
   @@index([tenantId])
   @@map("gudang")
@@ -1811,7 +1817,7 @@ model StockOpname {
 
 model SupportTickets {
   id           String          @id
-  ticketNumber String          @unique
+  ticketNumber String
   pelangganId  String
   category     TicketCategory
   priority     TicketPriority  @default(MEDIUM)
@@ -1830,12 +1836,12 @@ model SupportTickets {
   replies      TicketReplies[]
   workOrders   WorkOrders[]
 
+  @@unique([tenantId, ticketNumber], name: "tenantId_ticketNumber")
   @@index([category])
   @@index([createdAt])
   @@index([pelangganId])
   @@index([priority])
   @@index([status])
-  @@index([ticketNumber])
   @@index([tenantId])
   @@map("support_tickets")
 }
@@ -2073,7 +2079,7 @@ model WorkOrderUpdates {
 
 model WorkOrders {
   id                       String                    @id
-  workOrderNumber          String                    @unique
+  workOrderNumber          String
   pelangganId              String?
   siteId                   String?
   type                     WorkOrderType
@@ -2158,7 +2164,7 @@ model WorkOrders {
   @@index([templateId])
   @@index([ticketId])
   @@index([type])
-  @@index([workOrderNumber])
+  @@unique([tenantId, workOrderNumber], name: "tenantId_workOrderNumber")
   @@index([status, priority])
   @@index([status, createdAt])
   @@index([status, departmentId])
@@ -2274,7 +2280,7 @@ model AppVersion {
 model Shift {
   id          String   @id @default(uuid())
   name        String
-  code        String?  @unique
+  code        String?
   startTime   String
   endTime     String
   description String?
@@ -2285,6 +2291,7 @@ model Shift {
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   users       User[]
 
+  @@unique([tenantId, code], name: "tenantId_code")
   @@index([isActive])
   @@index([tenantId])
 }
@@ -2357,7 +2364,7 @@ model PointClaim {
 
 model PurchaseRequest {
   id              String                @id
-  nomorRequest    String                @unique
+  nomorRequest    String
   tanggal         DateTime              @default(now())
   status          PurchaseRequestStatus @default(DRAFT)
   prioritas       String                @default("NORMAL")
@@ -2376,6 +2383,8 @@ model PurchaseRequest {
   purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
   requester       User                  @relation("Requester", fields: [requesterId], references: [id])
   tenant          Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, nomorRequest], name: "tenantId_nomorRequest")
 
   @@index([tenantId])
   @@map("purchase_requests")
@@ -2419,7 +2428,7 @@ model Supplier {
 
 model PurchaseOrder {
   id                String              @id @default(uuid())
-  poNumber          String              @unique
+  poNumber          String
   supplierId        String?
   status            PurchaseOrderStatus @default(DRAFT)
   totalAmount       Float
@@ -2446,6 +2455,7 @@ model PurchaseOrder {
   tenant            Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseRequests  PurchaseRequest[]
 
+  @@unique([tenantId, poNumber], name: "tenantId_poNumber")
   @@index([tenantId])
   @@map("purchase_orders")
 }
@@ -2488,7 +2498,7 @@ model FinancialAccount {
 model Asset {
   id               String                 @id @default(uuid())
   barangId         String
-  kodeAsset        String                 @unique
+  kodeAsset        String
   purchaseDate     DateTime
   purchasePrice    Decimal                @db.Decimal(19, 2)
   currentValue     Decimal                @db.Decimal(19, 2)
@@ -2505,6 +2515,7 @@ model Asset {
   barang           Barang                 @relation(fields: [barangId], references: [id])
   tenant           Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@unique([tenantId, kodeAsset], name: "tenantId_kodeAsset")
   @@index([barangId])
   @@index([status])
   @@index([assignedTo])
@@ -2564,7 +2575,7 @@ model Salary {
 
 model SalaryComponent {
   id             String                @id @default(uuid())
-  name           String                @unique
+  name           String
   type           SalaryComponentType
   rateType       RateType              @default(FIXED)
   defaultAmount  Float?
@@ -2578,6 +2589,7 @@ model SalaryComponent {
   details        SalaryDetail[]
   userComponents UserSalaryComponent[]
 
+  @@unique([tenantId, name], name: "tenantId_name")
   @@index([tenantId])
   @@map("salary_components")
 }
@@ -2969,7 +2981,7 @@ model AcsVendor {
 
 model AcsWifiSecurity {
   id            String   @id @default(cuid())
-  productClass  String   @unique
+  productClass  String
   parameterPath String
   wpaTypes      String?
   encryptTypes  String?
@@ -2978,6 +2990,7 @@ model AcsWifiSecurity {
   tenantId      String?
   tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@unique([tenantId, productClass], name: "tenantId_productClass")
   @@index([tenantId])
   @@map("acs_wifi_security")
 }

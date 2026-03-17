@@ -55,7 +55,9 @@ export class ProcurementService {
         const results = [];
         
         for (const [key, groupPrs] of prsBySupplier) {
-            const poNumber = await this.generatePONumber();
+            // All PRs in this group should have the same tenantId
+            const tenantId = groupPrs[0]?.tenantId;
+            const poNumber = await this.generatePONumber(tenantId);
             const realSupplierId = key === 'NO_SUPPLIER' ? null : key;
             
             // Consolidate Items
@@ -118,7 +120,7 @@ export class ProcurementService {
         return results;
     }
 
-    private async generatePONumber(): Promise<string> {
+    private async generatePONumber(tenantId?: string): Promise<string> {
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -126,7 +128,10 @@ export class ProcurementService {
         
         // Find last PO info
         const lastPO = await prisma.purchaseOrder.findFirst({
-            where: { poNumber: { startsWith: prefix } },
+            where: { 
+                tenantId: tenantId,
+                poNumber: { startsWith: prefix } 
+            },
             orderBy: { poNumber: 'desc' }
         });
 

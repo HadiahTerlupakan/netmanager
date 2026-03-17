@@ -27,8 +27,9 @@ export class SupportTicketFactory {
         subject: string
         description: string
         invoiceNumber?: string
+        tenantId?: string
     }): Promise<CreateTicketInput> {
-        const ticketNumber = await this.generateTicketNumber()
+        const ticketNumber = await this.generateTicketNumber(dto.tenantId)
 
         let desc = dto.description
         if (dto.invoiceNumber) {
@@ -53,8 +54,9 @@ export class SupportTicketFactory {
         subject: string
         description: string
         isUrgent?: boolean
+        tenantId?: string
     }): Promise<CreateTicketInput> {
-        const ticketNumber = await this.generateTicketNumber()
+        const ticketNumber = await this.generateTicketNumber(dto.tenantId)
 
         return {
             pelangganId: dto.pelangganId,
@@ -73,8 +75,9 @@ export class SupportTicketFactory {
         pelangganId: string
         subject: string
         description: string
+        tenantId?: string
     }): Promise<CreateTicketInput> {
-        const ticketNumber = await this.generateTicketNumber()
+        const ticketNumber = await this.generateTicketNumber(dto.tenantId)
 
         return {
             pelangganId: dto.pelangganId,
@@ -93,8 +96,9 @@ export class SupportTicketFactory {
         pelangganId: string
         subject: string
         description: string
+        tenantId?: string
     }): Promise<CreateTicketInput> {
-        const ticketNumber = await this.generateTicketNumber()
+        const ticketNumber = await this.generateTicketNumber(dto.tenantId)
 
         return {
             pelangganId: dto.pelangganId,
@@ -109,7 +113,7 @@ export class SupportTicketFactory {
     /**
      * Generate ticket number: TKT-YYYYMMDD-XXXXX
      */
-    static async generateTicketNumber(): Promise<string> {
+    static async generateTicketNumber(tenantId?: string): Promise<string> {
         const today = new Date()
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
 
@@ -118,6 +122,7 @@ export class SupportTicketFactory {
 
         const count = await prisma.supportTickets.count({
             where: {
+                tenantId: tenantId,
                 createdAt: {
                     gte: startOfDay,
                     lte: endOfDay,
