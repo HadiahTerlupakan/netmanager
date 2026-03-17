@@ -160,6 +160,11 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL('/karyawan/login', request.url))
       }
     }
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/customer')) {
+      if (token?.role !== 'CUSTOMER' && token?.role !== 'SUPER_ADMIN' && !pathname.includes('/login')) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+    }
 
     response = NextResponse.next()
   }
