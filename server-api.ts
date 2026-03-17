@@ -17,7 +17,22 @@ import Redis from 'ioredis'
 import { initializeSocketServer } from './lib/websocket/server'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
-import honoApp from './app/api/[[...route]]/route'
+import { Hono } from 'hono'
+import { AppError } from './lib/errors'
+
+// Standalone Hono app for custom server (separate from Next.js App Router route)
+const honoApp = new Hono().basePath('/api')
+
+honoApp.onError((err, c) => {
+  console.error(err)
+  if (err instanceof AppError) {
+    return c.json(
+      { error: err.message, code: err.code, ...((err.details as Record<string, unknown>) ?? {}) },
+      err.statusCode as any
+    )
+  }
+  return c.json({ error: err.message || 'Internal Server Error' }, 500)
+})
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
