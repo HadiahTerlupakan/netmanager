@@ -99,6 +99,17 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Redirect unauthorized access to Customer Subdomain
+  if (subdomain === 'pelanggan') {
+    if (!pathname.includes('/login')) {
+      if (token?.role !== 'CUSTOMER' && token?.role !== 'SUPER_ADMIN') {
+        const loginUrl = new URL('/login', request.url)
+        loginUrl.searchParams.set('error', 'AccessDenied')
+        return NextResponse.redirect(loginUrl)
+      }
+    }
+  }
+
   // ----------------------------------------------------------------------------
   // 5. REWRITE EXECUTION
   // ----------------------------------------------------------------------------
