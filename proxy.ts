@@ -139,6 +139,14 @@ export async function proxy(request: NextRequest) {
     const newUrl = new URL(rewritePath, request.url)
     newUrl.search = url.search
     response = NextResponse.rewrite(newUrl)
+  } else if (subdomain === 'pelanggan') {
+    let rewritePath = pathname
+    if (rewritePath === '/') {
+      rewritePath = '/dashboard'
+    }
+    const newUrl = new URL(rewritePath, request.url)
+    newUrl.search = url.search
+    response = NextResponse.rewrite(newUrl)
   } else {
     // Root domain logic
     // Protect direct access to /admin or /karyawan paths on root domain
