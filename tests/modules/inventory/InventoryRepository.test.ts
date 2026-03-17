@@ -40,7 +40,7 @@ describe('InventoryRepository', () => {
   })
 
   describe('findBarangByKode', () => {
-    it('should find barang by kode using findUnique', async () => {
+    it('should find barang by kode using findFirst', async () => {
       const mockBarang = {
         id: 'barang-1',
         kode: 'BRG-001',
@@ -48,7 +48,7 @@ describe('InventoryRepository', () => {
         barangGudang: [] as unknown as BarangGudang[]
       }
 
-      prismaMock.barang.findUnique.mockResolvedValueOnce(mockBarang as unknown as Barang)
+      prismaMock.barang.findFirst.mockResolvedValueOnce(mockBarang as unknown as Barang)
 
       const result = await repository.findBarangByKode('BRG-001')
 
@@ -57,7 +57,7 @@ describe('InventoryRepository', () => {
     })
 
     it('should return null if barang not found', async () => {
-      prismaMock.barang.findUnique.mockResolvedValueOnce(null)
+      prismaMock.barang.findFirst.mockResolvedValueOnce(null)
 
       const result = await repository.findBarangByKode('NONEXISTENT')
 
