@@ -1,3 +1,4 @@
+import { RadiusConnectionError } from '../errors';
 /**
  * Service untuk mengelola Profile PPP di MikroTik Router
  */
@@ -48,7 +49,7 @@ async function checkIPPoolExists(conn: RouterOSAPI, poolName: string): Promise<b
     return pools && pools.length > 0
   } catch (error) {
     console.error('[MikroTik IP Pool] Error checking pool:', error)
-    return false
+    throw new RadiusConnectionError("Gagal terhubung ke router: " + (error instanceof Error ? error.message : String(error)))
   }
 }
 
@@ -182,7 +183,7 @@ export async function getRateLimitFromBandwidth(
     return rateLimit
   } catch (error) {
     console.error('[MikroTik PPP] Error getting rate limit from bandwidth:', error)
-    return null
+    throw new RadiusConnectionError("Gagal terhubung ke router: " + (error instanceof Error ? error.message : String(error)))
   }
 }
 

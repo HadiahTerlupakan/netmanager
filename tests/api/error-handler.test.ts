@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { AppError } from '@/lib/errors'
 
 describe('Global Error Handler', () => {
@@ -10,7 +11,7 @@ describe('Global Error Handler', () => {
     if (err instanceof AppError) {
       return c.json(
         { error: err.message, code: err.code, ...((err.details as Record<string, unknown>) ?? {}) },
-        err.statusCode as any
+        err.statusCode as ContentfulStatusCode
       )
     }
     return c.json({ error: err.message || 'Internal Server Error' }, 500)

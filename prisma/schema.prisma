@@ -742,7 +742,7 @@ model Pelanggan {
   id                            String              @id
   idPelanggan                   String
   nama                          String
-  username                      String
+  username                      String              @unique
   password                      String
   hargaPaketId                  String
   tipe                          TipePelanggan       @default(REGULER)
@@ -827,6 +827,7 @@ model Pelanggan {
   @@index([userId])
   @@index([odpId])
   @@index([syncStatus])
+  @@index([tenantId, username])
 }
 
 model Permission {
@@ -972,6 +973,7 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([expires])
 }
 
 model Settings {

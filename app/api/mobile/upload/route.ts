@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { convertAndSaveImage, isImageFile } from '@/lib/utils/image-upload';
 import type { UploadType } from '@/lib/utils/image-upload';
@@ -32,18 +33,18 @@ export async function POST(request: NextRequest) {
 
         // Validate required fields
         if (!file) {
-            return NextResponse.json({ error: 'File wajib diisi' }, { status: 400 });
+            return apiError('File wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Validate file is an image
         if (!isImageFile(file)) {
-            return NextResponse.json({ error: 'Hanya file gambar yang diperbolehkan' }, { status: 400 });
+            return apiError('Hanya file gambar yang diperbolehkan', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Validate file size (max 10MB)
         const maxSize = 10 * 1024 * 1024; // 10MB
         if (file.size > maxSize) {
-            return NextResponse.json({ error: 'Ukuran file melebihi batas 10MB' }, { status: 400 });
+            return apiError('Ukuran file melebihi batas 10MB', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Generate filename
@@ -97,17 +98,13 @@ export async function POST(request: NextRequest) {
         const baseUrl = `${protocol}://${host}`;
         const absoluteUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             url: absoluteUrl,
             fileName: `${fileName}.webp`
         });
 
     } catch (error: unknown) {
         console.error('Mobile upload error:', error);
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to upload file' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to upload file', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

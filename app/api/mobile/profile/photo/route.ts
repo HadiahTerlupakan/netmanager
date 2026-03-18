@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
@@ -16,16 +17,16 @@ export async function POST(request: Request) {
         const photo = formData.get('photo') as File
 
         if (!photo) {
-            return NextResponse.json({ error: 'Foto wajib diisi' }, { status: 400 })
+            return apiError('Foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         if (!photo.type.startsWith('image/')) {
-            return NextResponse.json({ error: 'File harus berupa gambar' }, { status: 400 })
+            return apiError('File harus berupa gambar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const MAX_SIZE = 5 * 1024 * 1024 // 5MB
         if (photo.size > MAX_SIZE) {
-            return NextResponse.json({ error: 'Ukuran foto maksimal 5MB' }, { status: 400 })
+            return apiError('Ukuran foto maksimal 5MB', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const uploadDir = 'public/uploads/profiles'
@@ -49,10 +50,10 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({ success: true, data: updated })
+        return apiSuccess(updated)
     } catch (error: unknown) {
         console.error('Profile photo upload error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+        return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

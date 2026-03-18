@@ -17,7 +17,7 @@ import {
 } from 'react-icons/hi2'
 import { DashboardSocketUpdate } from '@/components/dashboard/DashboardSocketUpdate'
 import DashboardSiteTable from '@/components/dashboard/DashboardSiteTable'
-import { getDashboardService } from '@/modules/admin/services/DashboardService'
+import { getDashboardService } from '@/modules/admin'
 
 
 // Force dynamic rendering to avoid database queries during build

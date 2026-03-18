@@ -1,0 +1,9 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: jenkins-auth
+  namespace: netmanager-staging
+spec:
+  basicAuth:
+    secret: jenkins-auth-secret
+    removeHeader: true

@@ -1,5 +1,19 @@
 import { redis } from '@/lib/redis'
+import type { Redis } from 'ioredis'
 
+/**
+ * Iterate all keys matching a pattern using SCAN cursor to avoid blocking Redis.
+ */
+async function scanKeys(client: Redis, pattern: string): Promise<string[]> {
+    const keys: string[] = []
+    let cursor = '0'
+    do {
+        const [nextCursor, batch] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+        cursor = nextCursor
+        keys.push(...batch)
+    } while (cursor !== '0')
+    return keys
+}
 /**
  * Work Order Cache Service
  * 
@@ -157,7 +171,7 @@ export class WorkOrderCacheService {
     async invalidateAllCaches(): Promise<void> {
         try {
             const pattern = `${CACHE_PREFIX}*`;
-            const keys = await redis.keys(pattern);
+            const keys = await scanKeys(redis, pattern);
 
             if (keys.length > 0) {
                 await redis.del(...keys);
@@ -174,7 +188,7 @@ export class WorkOrderCacheService {
     async invalidateDashboardCaches(): Promise<void> {
         try {
             const pattern = `${CACHE_PREFIX}dashboard:*`;
-            const keys = await redis.keys(pattern);
+            const keys = await scanKeys(redis, pattern);
 
             if (keys.length > 0) {
                 await redis.del(...keys);
@@ -191,7 +205,7 @@ export class WorkOrderCacheService {
     async invalidateListCaches(): Promise<void> {
         try {
             const pattern = `${CACHE_PREFIX}list:*`;
-            const keys = await redis.keys(pattern);
+            const keys = await scanKeys(redis, pattern);
 
             if (keys.length > 0) {
                 await redis.del(...keys);
@@ -208,7 +222,7 @@ export class WorkOrderCacheService {
     async invalidateStatsCaches(): Promise<void> {
         try {
             const pattern = `${CACHE_PREFIX}stats:*`;
-            const keys = await redis.keys(pattern);
+            const keys = await scanKeys(redis, pattern);
 
             if (keys.length > 0) {
                 await redis.del(...keys);

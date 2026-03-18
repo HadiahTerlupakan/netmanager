@@ -1,9 +1,5 @@
-import { NextResponse } from 'next/server';
+import { apiSuccess } from '@/lib/api-response';
 
 export async function GET() {
-    return NextResponse.json({ 
-        success: true, 
-        message: 'pong',
-        timestamp: Date.now() 
-    });
+    return apiSuccess({ timestamp: Date.now() }, { message: 'pong' });
 }

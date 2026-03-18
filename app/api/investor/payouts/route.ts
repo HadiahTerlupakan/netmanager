@@ -3,9 +3,11 @@ import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { prisma } from '@/lib/prisma'
 
-const secret = new TextEncoder().encode(
-    process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
-)
+function getSecret(): Uint8Array {
+    const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+    if (!raw) throw new Error('NEXTAUTH_SECRET environment variable is required')
+    return new TextEncoder().encode(raw)
+}
 
 export async function GET(request: Request) {
     try {
@@ -16,7 +18,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
 
-        const { payload } = await jwtVerify(token, secret)
+        const { payload } = await jwtVerify(token, getSecret())
         const investorId = payload.id as string
 
         const { searchParams } = new URL(request.url)

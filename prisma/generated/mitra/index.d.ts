@@ -3081,23 +3081,23 @@ export namespace Prisma {
   }
 
   export type MitraWalletAvgAggregateOutputType = {
-    balance: number | null
-    totalEarnings: number | null
-    totalWithdrawn: number | null
+    balance: Decimal | null
+    totalEarnings: Decimal | null
+    totalWithdrawn: Decimal | null
   }
 
   export type MitraWalletSumAggregateOutputType = {
-    balance: number | null
-    totalEarnings: number | null
-    totalWithdrawn: number | null
+    balance: Decimal | null
+    totalEarnings: Decimal | null
+    totalWithdrawn: Decimal | null
   }
 
   export type MitraWalletMinAggregateOutputType = {
     id: string | null
     mitraId: string | null
-    balance: number | null
-    totalEarnings: number | null
-    totalWithdrawn: number | null
+    balance: Decimal | null
+    totalEarnings: Decimal | null
+    totalWithdrawn: Decimal | null
     currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -3107,9 +3107,9 @@ export namespace Prisma {
   export type MitraWalletMaxAggregateOutputType = {
     id: string | null
     mitraId: string | null
-    balance: number | null
-    totalEarnings: number | null
-    totalWithdrawn: number | null
+    balance: Decimal | null
+    totalEarnings: Decimal | null
+    totalWithdrawn: Decimal | null
     currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
@@ -3268,9 +3268,9 @@ export namespace Prisma {
   export type MitraWalletGroupByOutputType = {
     id: string
     mitraId: string
-    balance: number
-    totalEarnings: number
-    totalWithdrawn: number
+    balance: Decimal
+    totalEarnings: Decimal
+    totalWithdrawn: Decimal
     currency: string
     createdAt: Date
     updatedAt: Date
@@ -3374,9 +3374,9 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: string
       mitraId: string
-      balance: number
-      totalEarnings: number
-      totalWithdrawn: number
+      balance: Prisma.Decimal
+      totalEarnings: Prisma.Decimal
+      totalWithdrawn: Prisma.Decimal
       currency: string
       createdAt: Date
       updatedAt: Date
@@ -3809,9 +3809,9 @@ export namespace Prisma {
   interface MitraWalletFieldRefs {
     readonly id: FieldRef<"MitraWallet", 'String'>
     readonly mitraId: FieldRef<"MitraWallet", 'String'>
-    readonly balance: FieldRef<"MitraWallet", 'Float'>
-    readonly totalEarnings: FieldRef<"MitraWallet", 'Float'>
-    readonly totalWithdrawn: FieldRef<"MitraWallet", 'Float'>
+    readonly balance: FieldRef<"MitraWallet", 'Decimal'>
+    readonly totalEarnings: FieldRef<"MitraWallet", 'Decimal'>
+    readonly totalWithdrawn: FieldRef<"MitraWallet", 'Decimal'>
     readonly currency: FieldRef<"MitraWallet", 'String'>
     readonly createdAt: FieldRef<"MitraWallet", 'DateTime'>
     readonly updatedAt: FieldRef<"MitraWallet", 'DateTime'>
@@ -4291,17 +4291,17 @@ export namespace Prisma {
   }
 
   export type MitraTransactionAvgAggregateOutputType = {
-    amount: number | null
+    amount: Decimal | null
   }
 
   export type MitraTransactionSumAggregateOutputType = {
-    amount: number | null
+    amount: Decimal | null
   }
 
   export type MitraTransactionMinAggregateOutputType = {
     id: string | null
     walletId: string | null
-    amount: number | null
+    amount: Decimal | null
     type: $Enums.MitraTransactionType | null
     description: string | null
     referenceId: string | null
@@ -4313,7 +4313,7 @@ export namespace Prisma {
   export type MitraTransactionMaxAggregateOutputType = {
     id: string | null
     walletId: string | null
-    amount: number | null
+    amount: Decimal | null
     type: $Enums.MitraTransactionType | null
     description: string | null
     referenceId: string | null
@@ -4470,7 +4470,7 @@ export namespace Prisma {
   export type MitraTransactionGroupByOutputType = {
     id: string
     walletId: string
-    amount: number
+    amount: Decimal
     type: $Enums.MitraTransactionType
     description: string
     referenceId: string | null
@@ -4568,7 +4568,7 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: string
       walletId: string
-      amount: number
+      amount: Prisma.Decimal
       type: $Enums.MitraTransactionType
       description: string
       referenceId: string | null
@@ -5001,7 +5001,7 @@ export namespace Prisma {
   interface MitraTransactionFieldRefs {
     readonly id: FieldRef<"MitraTransaction", 'String'>
     readonly walletId: FieldRef<"MitraTransaction", 'String'>
-    readonly amount: FieldRef<"MitraTransaction", 'Float'>
+    readonly amount: FieldRef<"MitraTransaction", 'Decimal'>
     readonly type: FieldRef<"MitraTransaction", 'MitraTransactionType'>
     readonly description: FieldRef<"MitraTransaction", 'String'>
     readonly referenceId: FieldRef<"MitraTransaction", 'String'>
@@ -8056,6 +8056,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'Decimal'
+   */
+  export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+  /**
+   * Reference to a field of type 'Decimal[]'
+   */
+  export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+  /**
    * Reference to a field of type 'MitraTransactionType'
    */
   export type EnumMitraTransactionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MitraTransactionType'>
@@ -8366,9 +8380,9 @@ export namespace Prisma {
     NOT?: MitraWalletWhereInput | MitraWalletWhereInput[]
     id?: StringFilter<"MitraWallet"> | string
     mitraId?: StringFilter<"MitraWallet"> | string
-    balance?: FloatFilter<"MitraWallet"> | number
-    totalEarnings?: FloatFilter<"MitraWallet"> | number
-    totalWithdrawn?: FloatFilter<"MitraWallet"> | number
+    balance?: DecimalFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
     currency?: StringFilter<"MitraWallet"> | string
     createdAt?: DateTimeFilter<"MitraWallet"> | Date | string
     updatedAt?: DateTimeFilter<"MitraWallet"> | Date | string
@@ -8399,9 +8413,9 @@ export namespace Prisma {
     AND?: MitraWalletWhereInput | MitraWalletWhereInput[]
     OR?: MitraWalletWhereInput[]
     NOT?: MitraWalletWhereInput | MitraWalletWhereInput[]
-    balance?: FloatFilter<"MitraWallet"> | number
-    totalEarnings?: FloatFilter<"MitraWallet"> | number
-    totalWithdrawn?: FloatFilter<"MitraWallet"> | number
+    balance?: DecimalFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
     currency?: StringFilter<"MitraWallet"> | string
     createdAt?: DateTimeFilter<"MitraWallet"> | Date | string
     updatedAt?: DateTimeFilter<"MitraWallet"> | Date | string
@@ -8434,9 +8448,9 @@ export namespace Prisma {
     NOT?: MitraWalletScalarWhereWithAggregatesInput | MitraWalletScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"MitraWallet"> | string
     mitraId?: StringWithAggregatesFilter<"MitraWallet"> | string
-    balance?: FloatWithAggregatesFilter<"MitraWallet"> | number
-    totalEarnings?: FloatWithAggregatesFilter<"MitraWallet"> | number
-    totalWithdrawn?: FloatWithAggregatesFilter<"MitraWallet"> | number
+    balance?: DecimalWithAggregatesFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalWithAggregatesFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalWithAggregatesFilter<"MitraWallet"> | Decimal | DecimalJsLike | number | string
     currency?: StringWithAggregatesFilter<"MitraWallet"> | string
     createdAt?: DateTimeWithAggregatesFilter<"MitraWallet"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"MitraWallet"> | Date | string
@@ -8449,7 +8463,7 @@ export namespace Prisma {
     NOT?: MitraTransactionWhereInput | MitraTransactionWhereInput[]
     id?: StringFilter<"MitraTransaction"> | string
     walletId?: StringFilter<"MitraTransaction"> | string
-    amount?: FloatFilter<"MitraTransaction"> | number
+    amount?: DecimalFilter<"MitraTransaction"> | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFilter<"MitraTransaction"> | $Enums.MitraTransactionType
     description?: StringFilter<"MitraTransaction"> | string
     referenceId?: StringNullableFilter<"MitraTransaction"> | string | null
@@ -8478,7 +8492,7 @@ export namespace Prisma {
     OR?: MitraTransactionWhereInput[]
     NOT?: MitraTransactionWhereInput | MitraTransactionWhereInput[]
     walletId?: StringFilter<"MitraTransaction"> | string
-    amount?: FloatFilter<"MitraTransaction"> | number
+    amount?: DecimalFilter<"MitraTransaction"> | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFilter<"MitraTransaction"> | $Enums.MitraTransactionType
     description?: StringFilter<"MitraTransaction"> | string
     referenceId?: StringNullableFilter<"MitraTransaction"> | string | null
@@ -8511,7 +8525,7 @@ export namespace Prisma {
     NOT?: MitraTransactionScalarWhereWithAggregatesInput | MitraTransactionScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"MitraTransaction"> | string
     walletId?: StringWithAggregatesFilter<"MitraTransaction"> | string
-    amount?: FloatWithAggregatesFilter<"MitraTransaction"> | number
+    amount?: DecimalWithAggregatesFilter<"MitraTransaction"> | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeWithAggregatesFilter<"MitraTransaction"> | $Enums.MitraTransactionType
     description?: StringWithAggregatesFilter<"MitraTransaction"> | string
     referenceId?: StringNullableWithAggregatesFilter<"MitraTransaction"> | string | null
@@ -9050,9 +9064,9 @@ export namespace Prisma {
 
   export type MitraWalletCreateInput = {
     id?: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -9065,9 +9079,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedCreateInput = {
     id?: string
     mitraId: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -9078,9 +9092,9 @@ export namespace Prisma {
 
   export type MitraWalletUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -9093,9 +9107,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     mitraId?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -9107,9 +9121,9 @@ export namespace Prisma {
   export type MitraWalletCreateManyInput = {
     id?: string
     mitraId: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -9118,9 +9132,9 @@ export namespace Prisma {
 
   export type MitraWalletUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -9130,9 +9144,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     mitraId?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -9141,7 +9155,7 @@ export namespace Prisma {
 
   export type MitraTransactionCreateInput = {
     id?: string
-    amount: number
+    amount: Decimal | DecimalJsLike | number | string
     type: $Enums.MitraTransactionType
     description: string
     referenceId?: string | null
@@ -9154,7 +9168,7 @@ export namespace Prisma {
   export type MitraTransactionUncheckedCreateInput = {
     id?: string
     walletId: string
-    amount: number
+    amount: Decimal | DecimalJsLike | number | string
     type: $Enums.MitraTransactionType
     description: string
     referenceId?: string | null
@@ -9165,7 +9179,7 @@ export namespace Prisma {
 
   export type MitraTransactionUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -9178,7 +9192,7 @@ export namespace Prisma {
   export type MitraTransactionUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     walletId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -9190,7 +9204,7 @@ export namespace Prisma {
   export type MitraTransactionCreateManyInput = {
     id?: string
     walletId: string
-    amount: number
+    amount: Decimal | DecimalJsLike | number | string
     type: $Enums.MitraTransactionType
     description: string
     referenceId?: string | null
@@ -9201,7 +9215,7 @@ export namespace Prisma {
 
   export type MitraTransactionUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -9213,7 +9227,7 @@ export namespace Prisma {
   export type MitraTransactionUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     walletId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -9846,15 +9860,15 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
-  export type FloatFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatFilter<$PrismaModel> | number
+  export type DecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
   }
 
   export type MitraScalarRelationFilter = {
@@ -9920,20 +9934,20 @@ export namespace Prisma {
     totalWithdrawn?: SortOrder
   }
 
-  export type FloatWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+  export type DecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
     _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedFloatFilter<$PrismaModel>
-    _min?: NestedFloatFilter<$PrismaModel>
-    _max?: NestedFloatFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type EnumMitraTransactionTypeFilter<$PrismaModel = never> = {
@@ -10000,6 +10014,17 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumMitraTransactionTypeFilter<$PrismaModel>
     _max?: NestedEnumMitraTransactionTypeFilter<$PrismaModel>
+  }
+
+  export type FloatFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatFilter<$PrismaModel> | number
   }
 
   export type EnumWithdrawStatusFilter<$PrismaModel = never> = {
@@ -10079,6 +10104,22 @@ export namespace Prisma {
 
   export type WithdrawRequestSumOrderByAggregateInput = {
     amount?: SortOrder
+  }
+
+  export type FloatWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedFloatFilter<$PrismaModel>
+    _min?: NestedFloatFilter<$PrismaModel>
+    _max?: NestedFloatFilter<$PrismaModel>
   }
 
   export type EnumWithdrawStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -10352,12 +10393,12 @@ export namespace Prisma {
     connect?: WithdrawRequestWhereUniqueInput | WithdrawRequestWhereUniqueInput[]
   }
 
-  export type FloatFieldUpdateOperationsInput = {
-    set?: number
-    increment?: number
-    decrement?: number
-    multiply?: number
-    divide?: number
+  export type DecimalFieldUpdateOperationsInput = {
+    set?: Decimal | DecimalJsLike | number | string
+    increment?: Decimal | DecimalJsLike | number | string
+    decrement?: Decimal | DecimalJsLike | number | string
+    multiply?: Decimal | DecimalJsLike | number | string
+    divide?: Decimal | DecimalJsLike | number | string
   }
 
   export type MitraUpdateOneRequiredWithoutMitraWalletNestedInput = {
@@ -10452,6 +10493,14 @@ export namespace Prisma {
     create?: XOR<MitraWalletCreateWithoutWithdrawalsInput, MitraWalletUncheckedCreateWithoutWithdrawalsInput>
     connectOrCreate?: MitraWalletCreateOrConnectWithoutWithdrawalsInput
     connect?: MitraWalletWhereUniqueInput
+  }
+
+  export type FloatFieldUpdateOperationsInput = {
+    set?: number
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
   }
 
   export type EnumWithdrawStatusFieldUpdateOperationsInput = {
@@ -10701,31 +10750,31 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
-  export type NestedFloatFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatFilter<$PrismaModel> | number
+  export type NestedDecimalFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
   }
 
-  export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: number | FloatFieldRefInput<$PrismaModel>
-    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
-    lt?: number | FloatFieldRefInput<$PrismaModel>
-    lte?: number | FloatFieldRefInput<$PrismaModel>
-    gt?: number | FloatFieldRefInput<$PrismaModel>
-    gte?: number | FloatFieldRefInput<$PrismaModel>
-    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+  export type NestedDecimalWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    in?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    notIn?: Decimal[] | DecimalJsLike[] | number[] | string[] | ListDecimalFieldRefInput<$PrismaModel>
+    lt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    lte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gt?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    gte?: Decimal | DecimalJsLike | number | string | DecimalFieldRefInput<$PrismaModel>
+    not?: NestedDecimalWithAggregatesFilter<$PrismaModel> | Decimal | DecimalJsLike | number | string
     _count?: NestedIntFilter<$PrismaModel>
-    _avg?: NestedFloatFilter<$PrismaModel>
-    _sum?: NestedFloatFilter<$PrismaModel>
-    _min?: NestedFloatFilter<$PrismaModel>
-    _max?: NestedFloatFilter<$PrismaModel>
+    _avg?: NestedDecimalFilter<$PrismaModel>
+    _sum?: NestedDecimalFilter<$PrismaModel>
+    _min?: NestedDecimalFilter<$PrismaModel>
+    _max?: NestedDecimalFilter<$PrismaModel>
   }
 
   export type NestedEnumMitraTransactionTypeFilter<$PrismaModel = never> = {
@@ -10745,6 +10794,17 @@ export namespace Prisma {
     _max?: NestedEnumMitraTransactionTypeFilter<$PrismaModel>
   }
 
+  export type NestedFloatFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatFilter<$PrismaModel> | number
+  }
+
   export type NestedEnumWithdrawStatusFilter<$PrismaModel = never> = {
     equals?: $Enums.WithdrawStatus | EnumWithdrawStatusFieldRefInput<$PrismaModel>
     in?: $Enums.WithdrawStatus[] | ListEnumWithdrawStatusFieldRefInput<$PrismaModel>
@@ -10757,6 +10817,22 @@ export namespace Prisma {
     in?: $Enums.WithdrawMethod[] | ListEnumWithdrawMethodFieldRefInput<$PrismaModel>
     notIn?: $Enums.WithdrawMethod[] | ListEnumWithdrawMethodFieldRefInput<$PrismaModel>
     not?: NestedEnumWithdrawMethodFilter<$PrismaModel> | $Enums.WithdrawMethod
+  }
+
+  export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedFloatFilter<$PrismaModel>
+    _min?: NestedFloatFilter<$PrismaModel>
+    _max?: NestedFloatFilter<$PrismaModel>
   }
 
   export type NestedEnumWithdrawStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -10781,9 +10857,9 @@ export namespace Prisma {
 
   export type MitraWalletCreateWithoutMitraInput = {
     id?: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -10794,9 +10870,9 @@ export namespace Prisma {
 
   export type MitraWalletUncheckedCreateWithoutMitraInput = {
     id?: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -10899,9 +10975,9 @@ export namespace Prisma {
 
   export type MitraWalletUpdateWithoutMitraInput = {
     id?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -10912,9 +10988,9 @@ export namespace Prisma {
 
   export type MitraWalletUncheckedUpdateWithoutMitraInput = {
     id?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11096,7 +11172,7 @@ export namespace Prisma {
 
   export type MitraTransactionCreateWithoutWalletInput = {
     id?: string
-    amount: number
+    amount: Decimal | DecimalJsLike | number | string
     type: $Enums.MitraTransactionType
     description: string
     referenceId?: string | null
@@ -11107,7 +11183,7 @@ export namespace Prisma {
 
   export type MitraTransactionUncheckedCreateWithoutWalletInput = {
     id?: string
-    amount: number
+    amount: Decimal | DecimalJsLike | number | string
     type: $Enums.MitraTransactionType
     description: string
     referenceId?: string | null
@@ -11303,7 +11379,7 @@ export namespace Prisma {
     NOT?: MitraTransactionScalarWhereInput | MitraTransactionScalarWhereInput[]
     id?: StringFilter<"MitraTransaction"> | string
     walletId?: StringFilter<"MitraTransaction"> | string
-    amount?: FloatFilter<"MitraTransaction"> | number
+    amount?: DecimalFilter<"MitraTransaction"> | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFilter<"MitraTransaction"> | $Enums.MitraTransactionType
     description?: StringFilter<"MitraTransaction"> | string
     referenceId?: StringNullableFilter<"MitraTransaction"> | string | null
@@ -11330,9 +11406,9 @@ export namespace Prisma {
 
   export type MitraWalletCreateWithoutTransactionsInput = {
     id?: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -11344,9 +11420,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedCreateWithoutTransactionsInput = {
     id?: string
     mitraId: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -11372,9 +11448,9 @@ export namespace Prisma {
 
   export type MitraWalletUpdateWithoutTransactionsInput = {
     id?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11386,9 +11462,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedUpdateWithoutTransactionsInput = {
     id?: StringFieldUpdateOperationsInput | string
     mitraId?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11501,9 +11577,9 @@ export namespace Prisma {
 
   export type MitraWalletCreateWithoutWithdrawalsInput = {
     id?: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -11515,9 +11591,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedCreateWithoutWithdrawalsInput = {
     id?: string
     mitraId: string
-    balance?: number
-    totalEarnings?: number
-    totalWithdrawn?: number
+    balance?: Decimal | DecimalJsLike | number | string
+    totalEarnings?: Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: Decimal | DecimalJsLike | number | string
     currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -11652,9 +11728,9 @@ export namespace Prisma {
 
   export type MitraWalletUpdateWithoutWithdrawalsInput = {
     id?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -11666,9 +11742,9 @@ export namespace Prisma {
   export type MitraWalletUncheckedUpdateWithoutWithdrawalsInput = {
     id?: StringFieldUpdateOperationsInput | string
     mitraId?: StringFieldUpdateOperationsInput | string
-    balance?: FloatFieldUpdateOperationsInput | number
-    totalEarnings?: FloatFieldUpdateOperationsInput | number
-    totalWithdrawn?: FloatFieldUpdateOperationsInput | number
+    balance?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalEarnings?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    totalWithdrawn?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -12002,7 +12078,7 @@ export namespace Prisma {
 
   export type MitraTransactionCreateManyWalletInput = {
     id?: string
-    amount: number
+    amount: Decimal | DecimalJsLike | number | string
     type: $Enums.MitraTransactionType
     description: string
     referenceId?: string | null
@@ -12031,7 +12107,7 @@ export namespace Prisma {
 
   export type MitraTransactionUpdateWithoutWalletInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12042,7 +12118,7 @@ export namespace Prisma {
 
   export type MitraTransactionUncheckedUpdateWithoutWalletInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12053,7 +12129,7 @@ export namespace Prisma {
 
   export type MitraTransactionUncheckedUpdateManyWithoutWalletInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    amount?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
     type?: EnumMitraTransactionTypeFieldUpdateOperationsInput | $Enums.MitraTransactionType
     description?: StringFieldUpdateOperationsInput | string
     referenceId?: NullableStringFieldUpdateOperationsInput | string | null

@@ -18,6 +18,7 @@ import { initializeSocketServer } from './lib/websocket/server'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { AppError } from './lib/errors'
 
 // Standalone Hono app for custom server (separate from Next.js App Router route)
@@ -28,7 +29,7 @@ honoApp.onError((err, c) => {
   if (err instanceof AppError) {
     return c.json(
       { error: err.message, code: err.code, ...((err.details as Record<string, unknown>) ?? {}) },
-      err.statusCode as any
+      err.statusCode as ContentfulStatusCode
     )
   }
   return c.json({ error: err.message || 'Internal Server Error' }, 500)
@@ -45,8 +46,7 @@ let mikroTikMonitorRef: { stop: () => void; setSocketServer: (io: SocketIOServer
 
 // Initialize Hono Server
 const server = serve({
-    fetch: async (...args: unknown[]) => {
-        const req = args[0] as Request
+    fetch: async (req: Request, env?: unknown, executionCtx?: unknown) => {
         const url = new URL(req.url)
         
         // Internal endpoint for emitting WebSocket events from API routes
@@ -85,7 +85,7 @@ const server = serve({
             }
         }
         
-        return honoApp.fetch(args[0] as Request, args[1] as any, args[2] as any)
+        return honoApp.fetch(req, env as Parameters<typeof honoApp.fetch>[1], executionCtx as Parameters<typeof honoApp.fetch>[2])
     },
     port,
     hostname,
@@ -96,10 +96,19 @@ const server = serve({
 }) as unknown as import('http').Server
 
 // Initialize Socket.io server
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : [process.env.NEXTAUTH_URL || 'http://localhost:3000']
 const io = new SocketIOServer(server, {
     path: '/api/socket',
     cors: {
-        origin: (_origin, callback) => callback(null, true),
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true)
+            } else {
+                callback(new Error('CORS: origin not allowed'))
+            }
+        },
         methods: ['GET', 'POST'],
         credentials: true,
     },

@@ -5,9 +5,11 @@ import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 
-const secret = new TextEncoder().encode(
-    process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
-)
+function getSecret(): Uint8Array {
+    const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+    if (!raw) throw new Error('NEXTAUTH_SECRET environment variable is required')
+    return new TextEncoder().encode(raw)
+}
 
 export async function GET() {
     try {
@@ -18,7 +20,7 @@ export async function GET() {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
 
-        const { payload } = await jwtVerify(token, secret)
+        const { payload } = await jwtVerify(token, getSecret())
         const investorId = payload.id as string
 
         // Fetch projects where investor is involved

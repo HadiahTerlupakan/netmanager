@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/lib/prisma'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
@@ -68,24 +69,15 @@ export async function POST(request: NextRequest) {
 
                 // Validate coordinates
                 if (isNaN(lat) || isNaN(lng)) {
-                    return NextResponse.json({
-                        error: 'Koordinat tidak valid',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError('Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 }
 
                 if (lat < -90 || lat > 90) {
-                    return NextResponse.json({
-                        error: 'Latitude harus antara -90 dan 90',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError('Latitude harus antara -90 dan 90', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 }
 
                 if (lng < -180 || lng > 180) {
-                    return NextResponse.json({
-                        error: 'Longitude harus antara -180 dan 180',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError('Longitude harus antara -180 dan 180', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 }
 
                 latitude = lat
@@ -111,16 +103,10 @@ export async function POST(request: NextRequest) {
                                     longitude
                                 }
                                 if (!verifySignature(dataToVerify, meta.signature)) {
-                                    return NextResponse.json({
-                                        error: 'Tanda tangan data offline tidak valid',
-                                        code: 'VALIDATION_ERROR'
-                                    }, { status: 400 })
+                                    return apiError('Tanda tangan data offline tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                                 }
                             } else {
-                                return NextResponse.json({
-                                    error: 'Data offline harus ditandatangani',
-                                    code: 'VALIDATION_ERROR'
-                                }, { status: 400 })
+                                return apiError('Data offline harus ditandatangani', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                             }
                         }
                     }
@@ -135,10 +121,7 @@ export async function POST(request: NextRequest) {
                 try {
                     photoUrl = await photoService.processPhoto(photo, userId, 'checkin')
                 } catch (error: unknown) {
-                    return NextResponse.json({
-                        error: error instanceof Error ? error.message : 'Unknown photo processing error',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError(error instanceof Error ? error.message : 'Unknown photo processing error', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                 }
             }
         } else if (contentType.includes('application/json')) {
@@ -162,10 +145,7 @@ export async function POST(request: NextRequest) {
                 const coordValidation = validateCoordinates(body.latitude, body.longitude)
 
                 if (!coordValidation.valid) {
-                    return NextResponse.json({
-                        error: coordValidation.error,
-                        code: coordValidation.code
-                    }, { status: 400 })
+                    return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 }
 
                 latitude = coordValidation.latitude!
@@ -230,17 +210,11 @@ export async function POST(request: NextRequest) {
                         } else {
                             // External URL not trusted - log warning but don't expose URL in log
                             logger.warn(`[SECURITY] Untrusted photoUrl rejected for user ${userId}`)
-                            return NextResponse.json({
-                                error: 'Photo URL tidak valid. Upload foto melalui endpoint yang benar.',
-                                code: 'UNTRUSTED_PHOTO_URL'
-                            }, { status: 400 })
+                            return apiError('Photo URL tidak valid. Upload foto melalui endpoint yang benar.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                         }
                     } catch {
                         // Invalid URL format
-                        return NextResponse.json({
-                            error: 'Format Photo URL tidak valid',
-                            code: 'INVALID_PHOTO_URL'
-                        }, { status: 400 })
+                        return apiError('Format Photo URL tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                     }
                 }
             }
@@ -253,10 +227,7 @@ export async function POST(request: NextRequest) {
 
                     // Verify Signature - Enforce for all offline data
                     if (!body._offline_meta.signature) {
-                        return NextResponse.json({
-                            error: 'Data offline harus ditandatangani',
-                            code: 'VALIDATION_ERROR'
-                        }, { status: 400 })
+                        return apiError('Data offline harus ditandatangani', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                     }
 
                     const dataToVerify = {
@@ -266,10 +237,7 @@ export async function POST(request: NextRequest) {
                         longitude: longitude
                     }
                     if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
-                        return NextResponse.json({
-                            error: 'Tanda tangan data offline tidak valid',
-                            code: 'VALIDATION_ERROR'
-                        }, { status: 400 })
+                    return apiError('Tanda tangan data offline tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                     }
                 }
             } else if (body.capturedAt) {
@@ -311,24 +279,18 @@ export async function POST(request: NextRequest) {
                 )
 
                 if (replayPayload) {
-                    return NextResponse.json(replayPayload, {
+                    return apiSuccess(replayPayload, {
                         headers: { 'X-Idempotent-Replay': 'true' }
                     })
                 }
             }
 
             if (beginState === 'hash-mismatch') {
-                return NextResponse.json({
-                    error: 'Idempotency key sudah digunakan untuk payload berbeda',
-                    code: 'IDEMPOTENCY_KEY_REUSED'
-                }, { status: 409 })
+                return apiError('Idempotency key sudah digunakan untuk payload berbeda', ErrorCodes.CONFLICT, { status: 409 })
             }
 
             if (beginState === 'in-progress') {
-                return NextResponse.json({
-                    error: 'Permintaan check-in sedang diproses',
-                    code: 'REQUEST_IN_PROGRESS'
-                }, { status: 409 })
+                return apiError('Permintaan check-in sedang diproses', ErrorCodes.CONFLICT, { status: 409 })
             }
         }
 
@@ -373,7 +335,7 @@ export async function POST(request: NextRequest) {
             await idempotencyService.complete(userId, 'check-in', resolvedRequestId, payloadHash, responsePayload)
         }
 
-        return NextResponse.json(responsePayload)
+        return apiSuccess(attendance)
 
     } catch (error: unknown) {
         if (userId && resolvedRequestId) {
@@ -383,31 +345,18 @@ export async function POST(request: NextRequest) {
 
         if (error instanceof Error) {
             if (error.message === 'OUTSIDE_GEOFENCE') {
-                return NextResponse.json({
-                    error: 'Anda berada di luar area absensi yang diizinkan',
-                    code: 'OUTSIDE_GEOFENCE'
-                }, { status: 400 })
+                return apiError('Anda berada di luar area absensi yang diizinkan', ErrorCodes.OUTSIDE_GEOFENCE, { status: 400 })
             }
             if (error.message === 'DUPLICATE_ENTRY') {
-                return NextResponse.json({
-                    error: 'Anda sudah melakukan check-in hari ini',
-                    code: 'DUPLICATE_ENTRY'
-                }, { status: 400 })
+                return apiError('Anda sudah melakukan check-in hari ini', ErrorCodes.ALREADY_CHECKED_IN, { status: 400 })
             }
             if (error.message.startsWith('CHECKIN_REJECTED:')) {
                 const reason = error.message.split(':')[1]
-                return NextResponse.json({
-                    error: `Check-in ditolak: ${reason}`,
-                    code: 'VALIDATION_ERROR',
-                    details: { reason }
-                }, { status: 400 })
+                return apiError(`Check-in ditolak: ${reason}`, ErrorCodes.VALIDATION_ERROR, { status: 400, details: { reason } })
             }
         }
 
         logger.error('Error in mobile check-in', error as Error)
-        return NextResponse.json({
-            error: 'Terjadi kesalahan server',
-            code: 'INTERNAL_ERROR'
-        }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

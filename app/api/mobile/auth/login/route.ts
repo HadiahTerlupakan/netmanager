@@ -47,10 +47,7 @@ export async function POST(req: Request) {
         console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`)
 
         if (!email || !password) {
-            return NextResponse.json({
-                success: false,
-                error: 'Email/Username dan password harus diisi'
-            }, { status: 400 })
+            return apiError('Email/Username dan password harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // SMART LOGIN - AUTO DETECT
@@ -96,10 +93,15 @@ export async function POST(req: Request) {
             if (!customer) return { found: false }
 
             // User found, check password
+            // Prefer bcrypt hash comparison; fall back to legacy plaintext if hash not yet set
             let isPasswordValid = false
-            if (customer.password && customer.password === password) isPasswordValid = true
-            if (!isPasswordValid && customer.passwordHash) {
+            if (customer.passwordHash) {
                 isPasswordValid = await compare(password, customer.passwordHash)
+            } else {
+                // Legacy fallback: passwordHash not yet set, compare plaintext
+                // TODO: migrate this customer's password to bcrypt hash
+                console.warn(`[MobileAuth] WARNING: Customer ${customer.id} is using legacy plaintext password. Please migrate to bcrypt hash.`)
+                isPasswordValid = customer.password === password
             }
 
             if (!isPasswordValid) return { found: true, success: false, error: 'Password salah' }
@@ -307,7 +309,7 @@ export async function POST(req: Request) {
 
         // Final Response Handler
         if (!result.found) {
-            return NextResponse.json({ success: false, error: 'Email/ID tidak ditemukan' }, { status: 401 })
+            return apiError('Email/ID tidak ditemukan', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         if (!result.success) {
@@ -315,7 +317,7 @@ export async function POST(req: Request) {
             if (failedResult.response) {
                 return failedResult.response
             }
-            return NextResponse.json({ success: false, error: failedResult.error }, { status: failedResult.status || 401 })
+            return apiError(failedResult.error ?? 'Login gagal', ErrorCodes.UNAUTHORIZED, { status: failedResult.status || 401 })
         }
 
         return NextResponse.json({
@@ -325,9 +327,6 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error('Mobile Login Error:', error)
-        return NextResponse.json({
-            success: false,
-            error: 'Terjadi kesalahan server. Silakan coba lagi.'
-        }, { status: 500 })
+        return apiError('Terjadi kesalahan server. Silakan coba lagi.', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

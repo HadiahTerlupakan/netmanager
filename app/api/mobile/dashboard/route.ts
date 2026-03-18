@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 
             if (mitra.mitraType === 'MITRA_SALES') {
                 targetHarian = mitra.targetHarian || 0;
-                saldoKomisi = mitra.mitraWallet?.balance || 0;
+                saldoKomisi = mitra.mitraWallet?.balance?.toNumber() || 0;
 
                 suksesClosingMonth = await prisma.canvasing.count({
                     where: {

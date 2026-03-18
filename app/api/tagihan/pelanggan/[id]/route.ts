@@ -1,13 +1,22 @@
 import { prismaBilling } from '@/lib/prisma-billing';
-import { apiSuccess, createHandler } from '@/lib/api'
+import { apiSuccess, createHandler, ApiErrors } from '@/lib/api'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { id: pelangganId } = ctx.params
+    const tenantId = ctx.session!.user.tenantId
 
-    // Fetch invoices for this customer
+    // Tenant isolation: non-superAdmin users must have a tenantId
+    if (!tenantId && !ctx.session!.user.isSuperAdmin) {
+        return ApiErrors.forbidden('Akses ditolak: tenant tidak teridentifikasi')
+    }
+
+    // Fetch invoices for this customer, scoped to the caller's tenant.
+    // Restrict by tenantId to prevent IDOR cross-tenant access.
+    // SuperAdmin (no tenantId) is exempt and can access all tenants.
     const invoices = await prismaBilling.invoice.findMany({
         where: {
-            pelangganId: pelangganId
+            pelangganId: pelangganId,
+            ...(tenantId ? { tenantId } : {}),
         },
         include: {
             payment: true

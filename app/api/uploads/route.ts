@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
+import { getServerSession } from 'next-auth'
 import { v4 as uuidv4 } from 'uuid'
+import { authConfig } from '@/lib/auth'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 
 // Limit file size to 5MB
@@ -8,29 +11,26 @@ const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'
 
 export async function POST(request: NextRequest) {
     try {
+        const session = await getServerSession(authConfig)
+
+        if (!session?.user?.id) {
+            return apiError('Unauthorized', ErrorCodes.UNAUTHORIZED, { status: 401 })
+        }
+
         const formData = await request.formData()
         const file = formData.get('file') as File | null
 
         if (!file) {
-            return NextResponse.json(
-                { error: 'No file uploaded' },
-                { status: 400 }
-            )
+            return apiError('No file uploaded', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Validate request type
         if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-            return NextResponse.json(
-                { error: 'Invalid file type. Only JPG, PNG, WEBP, and GIF are allowed.' },
-                { status: 400 }
-            )
+            return apiError('Invalid file type. Only JPG, PNG, WEBP, and GIF are allowed.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         if (file.size > MAX_FILE_SIZE) {
-            return NextResponse.json(
-                { error: 'File size exceeds 5MB limit.' },
-                { status: 400 }
-            )
+            return apiError('File size exceeds 5MB limit.', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Use convertAndSaveImage which handles both Local and R2 storage
@@ -49,8 +49,7 @@ export async function POST(request: NextRequest) {
             'tickets'
         )
 
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             url: publicUrl,
             fileName: `${uniqueId}.webp`,
             originalName: file.name
@@ -58,10 +57,7 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('Upload error:', error)
-        return NextResponse.json(
-            { error: 'Failed to upload file' },
-            { status: 500 }
-        )
+        return apiError('Failed to upload file', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }
 

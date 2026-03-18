@@ -81,7 +81,9 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
         const investorToken = cs.get('investor_auth_token')?.value
         if (investorToken) {
           console.log('[TENANT_CONTEXT] Investor token found in cookies')
-          const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev')
+          const rawSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+          if (!rawSecret) throw new Error('NEXTAUTH_SECRET environment variable is required')
+          const secret = new TextEncoder().encode(rawSecret)
           try {
             const { payload } = await jwtVerify(investorToken, secret)
             if (payload && payload.tenantId) {

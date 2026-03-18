@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
@@ -21,10 +22,7 @@ export async function POST(request: NextRequest) {
         let bodyRequestId: string | undefined
 
         if (!userId) {
-            return NextResponse.json({
-                error: 'Struktur token tidak valid',
-                code: 'UNAUTHORIZED'
-            }, { status: 401 })
+            return apiError('Struktur token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         let photoUrl: string | null = null
@@ -77,10 +75,7 @@ export async function POST(request: NextRequest) {
             if (body.latitude !== undefined && body.longitude !== undefined) {
                 const coordValidation = validateCoordinates(body.latitude, body.longitude)
                 if (!coordValidation.valid) {
-                    return NextResponse.json({
-                        error: coordValidation.error,
-                        code: coordValidation.code
-                    }, { status: 400 })
+                    return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 }
                 latitude = coordValidation.latitude
                 longitude = coordValidation.longitude
@@ -89,10 +84,7 @@ export async function POST(request: NextRequest) {
             // Signature verification for offline data
             if (body._offline_meta?.capturedAt) {
                 if (!body._offline_meta.signature) {
-                    return NextResponse.json({
-                        error: 'Data offline harus ditandatangani',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError('Data offline harus ditandatangani', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                 }
 
                 const dataToVerify = {
@@ -102,10 +94,7 @@ export async function POST(request: NextRequest) {
                     longitude
                 }
                 if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
-                    return NextResponse.json({
-                        error: 'Tanda tangan data offline tidak valid',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError('Tanda tangan data offline tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                 }
 
                 const dt = new Date(body._offline_meta.capturedAt)
@@ -130,10 +119,7 @@ export async function POST(request: NextRequest) {
                 try {
                     photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
                 } catch (error: unknown) {
-                    return NextResponse.json({
-                        error: error instanceof Error ? error.message : 'Unknown photo processing error',
-                        code: 'VALIDATION_ERROR'
-                    }, { status: 400 })
+                    return apiError(error instanceof Error ? error.message : 'Unknown photo processing error', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                 }
             }
 
@@ -143,10 +129,7 @@ export async function POST(request: NextRequest) {
             if (latStr && lngStr) {
                 const coordValidation = validateCoordinates(latStr, lngStr)
                 if (!coordValidation.valid) {
-                    return NextResponse.json({
-                        error: coordValidation.error,
-                        code: coordValidation.code
-                    }, { status: 400 })
+                    return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 }
                 latitude = coordValidation.latitude
                 longitude = coordValidation.longitude
@@ -184,24 +167,18 @@ export async function POST(request: NextRequest) {
                 )
 
                 if (replayPayload) {
-                    return NextResponse.json(replayPayload, {
+                    return apiSuccess(replayPayload, {
                         headers: { 'X-Idempotent-Replay': 'true' }
                     })
                 }
             }
 
             if (beginState === 'hash-mismatch') {
-                return NextResponse.json({
-                    error: 'Idempotency key sudah digunakan untuk payload berbeda',
-                    code: 'IDEMPOTENCY_KEY_REUSED'
-                }, { status: 409 })
+                return apiError('Idempotency key sudah digunakan untuk payload berbeda', ErrorCodes.CONFLICT, { status: 409 })
             }
 
             if (beginState === 'in-progress') {
-                return NextResponse.json({
-                    error: 'Permintaan check-out sedang diproses',
-                    code: 'REQUEST_IN_PROGRESS'
-                }, { status: 409 })
+                return apiError('Permintaan check-out sedang diproses', ErrorCodes.CONFLICT, { status: 409 })
             }
         }
 
@@ -248,19 +225,13 @@ export async function POST(request: NextRequest) {
                 await idempotencyService.complete(userId, 'check-out', resolvedRequestId, payloadHash, responsePayload)
             }
 
-            return NextResponse.json(responsePayload)
+            return apiSuccess(result.attendance, result.warning ? { message: result.warning } : undefined)
         } catch (error: unknown) {
             if (error instanceof Error && error.message === 'OUTSIDE_GEOFENCE') {
-                return NextResponse.json({
-                    error: 'Anda berada di luar area absensi yang diizinkan',
-                    code: 'OUTSIDE_GEOFENCE'
-                }, { status: 400 })
+                return apiError('Anda berada di luar area absensi yang diizinkan', ErrorCodes.OUTSIDE_GEOFENCE, { status: 400 })
             }
             if (error instanceof Error && error.message === 'NO_ACTIVE_SESSION') {
-                return NextResponse.json({
-                    error: 'Anda belum melakukan check-in atau sudah check-out hari ini',
-                    code: 'NO_ACTIVE_SESSION'
-                }, { status: 400 })
+                return apiError('Anda belum melakukan check-in atau sudah check-out hari ini', ErrorCodes.NO_ACTIVE_SESSION, { status: 400 })
             }
             throw error
         }
@@ -272,9 +243,6 @@ export async function POST(request: NextRequest) {
         }
 
         logger.error('Error in mobile check-out', error as Error)
-        return NextResponse.json({
-            error: 'Terjadi kesalahan server',
-            code: 'INTERNAL_ERROR'
-        }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

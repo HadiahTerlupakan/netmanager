@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { requireCustomerAuth, getCustomerById } from '@/lib/customer-auth'
 
 export async function GET(request: NextRequest) {
@@ -22,15 +23,11 @@ export async function GET(request: NextRequest) {
         })
 
         if (!customer) {
-            return NextResponse.json(
-                { error: 'Data pelanggan tidak ditemukan' },
-                { status: 404 }
-            )
+            return apiError('Data pelanggan tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         // Return customer profile
-        return NextResponse.json({
-            success: true,
+        return apiSuccess({
             customer: {
                 id: customer.id,
                 idPelanggan: customer.idPelanggan,
@@ -61,9 +58,6 @@ export async function GET(request: NextRequest) {
         })
     } catch (error) {
         console.error('[Customer Me Error]:', error)
-        return NextResponse.json(
-            { error: 'Terjadi kesalahan server' },
-            { status: 500 }
-        )
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

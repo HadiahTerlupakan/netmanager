@@ -1,12 +1,15 @@
-import { NextResponse } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
+
 import { prismaAuth } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
 import { SignJWT } from 'jose'
 import { checkRateLimit } from '@/lib/redis'
 
-const secret = new TextEncoder().encode(
-    process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
-)
+function getSecret(): Uint8Array {
+    const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+    if (!raw) throw new Error('NEXTAUTH_SECRET environment variable is required')
+    return new TextEncoder().encode(raw)
+}
 
 export async function POST(request: Request) {
     try {
@@ -14,20 +17,14 @@ export async function POST(request: Request) {
         const { username, password } = body
 
         if (!username || !password) {
-            return NextResponse.json(
-                { message: 'Username dan Password wajib diisi' },
-                { status: 400 }
-            )
+            return apiError('Username dan Password wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Rate limiting
         if (process.env.NODE_ENV === 'production' && process.env.ENABLE_RATE_LIMIT === 'true') {
             const allowed = await checkRateLimit(`investor-login:${username}`, 50, 300)
             if (!allowed) {
-                return NextResponse.json(
-                    { message: 'Terlalu banyak percobaan. Coba lagi nanti.' },
-                    { status: 429 }
-                )
+                return apiError('Terlalu banyak percobaan. Coba lagi nanti.', ErrorCodes.VALIDATION_ERROR, { status: 429 })
             }
         }
 
@@ -43,17 +40,11 @@ export async function POST(request: Request) {
 
         if (!investor) {
             console.log(`[INVESTOR_LOGIN] Investor not found for username: ${username}`)
-            return NextResponse.json(
-                { message: 'Username atau Password salah' },
-                { status: 401 }
-            )
+            return apiError('Username atau Password salah', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         if (!investor.isActive) {
-            return NextResponse.json(
-                { message: 'Akun dinonaktifkan. Silakan hubungi Admin.' },
-                { status: 403 }
-            )
+            return apiError('Akun dinonaktifkan. Silakan hubungi Admin.', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         // Verify password
@@ -61,16 +52,14 @@ export async function POST(request: Request) {
         if (investor.passwordHash) {
             isValid = await compare(password, investor.passwordHash)
         } else {
-            // Fallback for plain text password if hash not yet generated
+            // Legacy fallback: passwordHash not yet set, compare plaintext
+            // TODO: migrate this investor's password to bcrypt hash
+            console.warn(`[INVESTOR_LOGIN] WARNING: Investor ${investor.id} is using legacy plaintext password. Please migrate to bcrypt hash.`)
             isValid = investor.password === password
         }
-
         if (!isValid) {
             console.log(`[INVESTOR_LOGIN] Invalid password for username: ${username}`)
-            return NextResponse.json(
-                { message: 'Username atau Password salah' },
-                { status: 401 }
-            )
+            return apiError('Username atau Password salah', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         console.log(`[INVESTOR_LOGIN] Login successful for: ${username}, tenantId: ${investor.tenantId}`)
@@ -88,16 +77,10 @@ export async function POST(request: Request) {
             .setProtectedHeader({ alg: 'HS256' })
             .setIssuedAt()
             .setExpirationTime('7d')
-            .sign(secret)
+            .sign(getSecret())
 
         // Set HTTP-only cookie
-        const response = NextResponse.json(
-            {
-                message: 'Login berhasil',
-                user: payload
-            },
-            { status: 200 }
-        )
+        const response = apiSuccess({ user: payload }, { message: 'Login berhasil' })
 
         response.cookies.set({
             name: 'investor_auth_token',
@@ -112,9 +95,6 @@ export async function POST(request: Request) {
         return response
     } catch (error) {
         console.error('[INVESTOR_LOGIN] Error:', error)
-        return NextResponse.json(
-            { message: 'Terjadi kesalahan pada server' },
-            { status: 500 }
-        )
+        return apiError('Terjadi kesalahan pada server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

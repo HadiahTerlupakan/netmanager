@@ -61,7 +61,7 @@ export class MitraWithdrawService {
                 return { success: false, error: 'Wallet tidak ditemukan' }
             }
 
-            if (wallet.balance < data.amount) {
+            if (wallet.balance.toNumber() < data.amount) {
                 return { success: false, error: 'Saldo tidak cukup' }
             }
 
@@ -120,7 +120,7 @@ export class MitraWithdrawService {
             }
 
             // Check wallet balance
-            if (request.mitraWallet.balance < request.amount) {
+            if (request.mitraWallet.balance.toNumber() < request.amount) {
                 return { success: false, error: 'Saldo mitra tidak cukup' }
             }
 
@@ -206,7 +206,7 @@ export class MitraWithdrawService {
                 return { success: false, error: 'Request belum disetujui' }
             }
 
-            if (request.mitraWallet.balance < request.amount) {
+            if (request.mitraWallet.balance.toNumber() < request.amount) {
                 return { success: false, error: 'Saldo mitra tidak cukup' }
             }
 

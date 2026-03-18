@@ -89,9 +89,9 @@ model Mitra {
 model MitraWallet {
   id             String             @id @default(uuid())
   mitraId        String             @unique
-  balance        Float              @default(0)
-  totalEarnings  Float              @default(0)
-  totalWithdrawn Float              @default(0)
+  balance        Decimal            @default(0) @db.Decimal(15, 2)
+  totalEarnings  Decimal            @default(0) @db.Decimal(15, 2)
+  totalWithdrawn Decimal            @default(0) @db.Decimal(15, 2)
   currency       String             @default("IDR")
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -108,7 +108,7 @@ model MitraWallet {
 model MitraTransaction {
   id            String               @id @default(uuid())
   walletId      String
-  amount        Float
+  amount        Decimal              @db.Decimal(15, 2)
   type          MitraTransactionType
   description   String
   referenceId   String? // WO ID atau Canvasing ID

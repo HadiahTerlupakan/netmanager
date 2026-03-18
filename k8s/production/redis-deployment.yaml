@@ -16,7 +16,8 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+          command: ["redis-server"]
+          args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes", "--appendfsync", "everysec"]
           env:
             - name: REDIS_PASSWORD
               valueFrom:
@@ -25,6 +26,13 @@ spec:
                   key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-pvc
 ---
 apiVersion: v1
 kind: Service

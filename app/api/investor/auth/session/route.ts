@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 
-const secret = new TextEncoder().encode(
-    process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
-)
+function getSecret(): Uint8Array {
+    const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+    if (!raw) throw new Error('NEXTAUTH_SECRET environment variable is required')
+    return new TextEncoder().encode(raw)
+}
 
 export async function GET() {
     try {
@@ -12,12 +14,12 @@ export async function GET() {
         const token = cookieStore.get('investor_auth_token')?.value
 
         if (!token) {
-            return NextResponse.json({ authenticated: false }, { status: 401 })
+            return apiError('Tidak terautentikasi', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
-        const { payload } = await jwtVerify(token, secret)
+        const { payload } = await jwtVerify(token, getSecret())
 
-        return NextResponse.json({
+        return apiSuccess({
             authenticated: true,
             user: {
                 id: payload.id,
@@ -25,9 +27,9 @@ export async function GET() {
                 namaLengkap: payload.namaLengkap,
                 role: payload.role
             }
-        }, { status: 200 })
+        })
 
     } catch {
-        return NextResponse.json({ authenticated: false }, { status: 401 })
+        return apiError('Tidak terautentikasi', ErrorCodes.UNAUTHORIZED, { status: 401 })
     }
 }

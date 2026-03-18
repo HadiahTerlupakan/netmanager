@@ -5,6 +5,11 @@ metadata:
   namespace: netmanager-staging
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: netmanager-app
@@ -13,8 +18,21 @@ spec:
       labels:
         app: netmanager-app
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - netmanager-app
+                topologyKey: kubernetes.io/hostname
       securityContext:
         fsGroup: 1001
+      terminationGracePeriodSeconds: 30
       containers:
         - name: app
           image: netmanager-app:staging
@@ -90,23 +108,33 @@ spec:
               mountPath: /app/public/uploads
           resources:
             requests:
-              cpu: "500m"
-              memory: "1Gi"
+              cpu: "188m"
+              memory: "384Mi"
             limits:
-              cpu: "1000m"
-              memory: "2Gi"
+              cpu: "1125m"
+              memory: "1152Mi"
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/health
               port: 3000
-            initialDelaySeconds: 120
+            initialDelaySeconds: 0
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /api/health
               port: 3000
-            initialDelaySeconds: 120
-            periodSeconds: 30
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       volumes:
         - name: uploads-volume
           persistentVolumeClaim:

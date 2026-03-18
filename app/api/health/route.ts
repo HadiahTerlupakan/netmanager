@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess } from '@/lib/api-response'
 import { prisma } from '@/lib/prisma'
 import { redis } from '@/lib/redis'
 
@@ -23,7 +24,7 @@ import { redis } from '@/lib/redis'
  *             schema:
  *               $ref: '#/components/schemas/Health'
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -87,6 +88,19 @@ export async function GET() {
   // Jika database unhealthy, return 503
   const statusCode = health.status === 'healthy' ? 200 : 503
 
-  return NextResponse.json(health, { status: statusCode })
+  // Check if this is an internal request with valid secret
+  const internalSecret = request.headers.get('x-internal-request')
+  const expectedSecret = process.env.INTERNAL_HEALTH_SECRET
+
+  if (expectedSecret && internalSecret === expectedSecret) {
+    // Authenticated internal request: return full details
+    return apiSuccess(health, { status: statusCode })
+  }
+
+  // Public request: return minimal status only
+  return apiSuccess(
+    { status: health.status === 'healthy' ? 'ok' : 'error', timestamp: new Date().toISOString() },
+    { status: statusCode }
+  )
 }
 

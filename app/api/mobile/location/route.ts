@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
 import { z } from 'zod'
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
         const userId = authResult.userId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid atau kadaluarsa' }, { status: 401 })
+            return apiError('Token tidak valid atau kadaluarsa', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
         const body = await request.json()
 
@@ -45,18 +46,14 @@ export async function POST(request: NextRequest) {
         const isCheckedIn = await locationService.isUserCurrentlyCheckedIn(userId)
 
         if (!isCheckedIn) {
-            return NextResponse.json({
-                success: false,
-                message: 'User belum melakukan check-in',
-                shouldStopTracking: true
-            })
+            return apiSuccess({ shouldStopTracking: true }, { message: 'User belum melakukan check-in' })
         }
 
         // Handle batch locations (offline sync)
         if (Array.isArray(body.locations)) {
             const parsed = batchLocationSchema.safeParse(body)
             if (!parsed.success) {
-                return NextResponse.json({ error: 'Data lokasi tidak valid', details: parsed.error.format() }, { status: 400 })
+                return apiError('Data lokasi tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400, details: parsed.error.format() as Record<string, unknown> })
             }
 
             const count = await locationService.saveLocations(userId, parsed.data.locations.map(loc => ({
@@ -64,17 +61,13 @@ export async function POST(request: NextRequest) {
                 recordedAt: loc.recordedAt ? new Date(loc.recordedAt) : new Date()
             })))
 
-            return NextResponse.json({ 
-                success: true, 
-                message: `Saved ${count} locations`,
-                count
-            })
+            return apiSuccess({ count }, { message: `Saved ${count} locations` })
         }
 
         // Handle single location
         const parsed = locationSchema.safeParse(body)
         if (!parsed.success) {
-            return NextResponse.json({ error: 'Data lokasi tidak valid', details: parsed.error.format() }, { status: 400 })
+            return apiError('Data lokasi tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400, details: parsed.error.format() as Record<string, unknown> })
         }
 
         await locationService.saveLocation(userId, {
@@ -82,10 +75,10 @@ export async function POST(request: NextRequest) {
             recordedAt: parsed.data.recordedAt ? new Date(parsed.data.recordedAt) : new Date()
         })
 
-        return NextResponse.json({ success: true, message: 'Lokasi tersimpan' })
+        return apiSuccess(null, { message: 'Lokasi tersimpan' })
 
     } catch (error: unknown) {
         console.error(`[API][${timestamp}] ❌ Error saving location:`, error)
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

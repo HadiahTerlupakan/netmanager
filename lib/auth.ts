@@ -133,9 +133,9 @@ export const authConfig: NextAuthOptions = {
           }
 
           // Validate Redis connection for rate limiting
-          // SKIP RATE LIMITING FOR TESTING
-          // Only apply rate limiting in production or if explicitly enabled
-          if (process.env.NODE_ENV === 'production' && process.env.ENABLE_RATE_LIMIT === 'true') {
+          // Only apply rate limiting in production (opt-out via DISABLE_RATE_LIMIT=true)
+          const rateLimitEnabled = process.env.NODE_ENV !== 'production' ? false : process.env.DISABLE_RATE_LIMIT !== 'true'
+          if (rateLimitEnabled) {
             const redisConnected = await validateRedisConnection()
             if (redisConnected) {
               // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)

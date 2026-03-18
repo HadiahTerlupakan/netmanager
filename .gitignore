@@ -143,3 +143,14 @@ MEMORY.md
 
 # Worktrees
 .worktrees/
+
+# Firebase / GCP Service Account Keys
+firebase-adminsdk.json
+firebase-adminsdk*.json
+*-adminsdk*.json
+*.adminsdk.json
+service-account*.json
+
+# Debug scripts with credentials
+scripts/debug-password.ts
+*service-account*.json

@@ -42,9 +42,9 @@ export class MitraWalletService {
             return {
                 success: true,
                 data: {
-                    balance: wallet.balance,
-                    totalEarnings: wallet.totalEarnings,
-                    totalWithdrawn: wallet.totalWithdrawn,
+                    balance: wallet.balance.toNumber(),
+                    totalEarnings: wallet.totalEarnings.toNumber(),
+                    totalWithdrawn: wallet.totalWithdrawn.toNumber(),
                 },
             }
         } catch (error) {
@@ -208,7 +208,7 @@ export class MitraWalletService {
                 }
 
                 // If negative adjustment, check balance
-                if (amount < 0 && (wallet.balance + amount) < 0) {
+                if (amount < 0 && (wallet.balance.toNumber() + amount) < 0) {
                     throw new Error('Saldo tidak cukup untuk penyesuaian ini')
                 }
 

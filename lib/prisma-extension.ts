@@ -14,20 +14,23 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             return query(args)
           }
 
-          let ctx = { tenantId: null as string | null, isSuperAdmin: false }
+          let ctx: { tenantId: string | null; isSuperAdmin: boolean }
           try {
             ctx = await getTenantIdFromContext()
-          } catch (_e) {
-            // Silently ignore if tenant context isn't available
+          } catch (err) {
+            throw new Error(`Tenant context not available: ${err}`)
           }
 
           const { tenantId, isSuperAdmin } = ctx
 
-          // PROTECTIVE FALLBACK: 
+          // PROTECTIVE FALLBACK:
           // If we are NOT a superadmin and NO tenantId was detected from context,
-          // we must restrict the query to an "impossible" tenantId to prevent leakage.
-          // This forces developers to ensure context is correctly passed.
-          const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+          // this means the request is missing proper tenant identity.
+          // Rather than silently scoping to an impossible ID, throw early.
+          if (!isSuperAdmin && !tenantId) {
+            throw new Error('Tenant context is missing: tenantId could not be resolved. Ensure the request is made in a valid tenant context.')
+          }
+          const effectiveTenantId = tenantId
 
           if (effectiveTenantId && !isSuperAdmin) {
             const isWhereOp = [

@@ -1,4 +1,4 @@
-import { CouponService } from '@/modules/coupons/services/CouponService'
+import { CouponService } from '@/modules/coupons'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 const couponService = new CouponService()

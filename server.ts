@@ -21,6 +21,7 @@ import Redis from 'ioredis'
 import { initializeSocketServer } from './lib/websocket/server'
 import cron from 'node-cron'
 import type { ScheduledTask } from 'node-cron'
+import { acquireCronLock } from './lib/cron-lock'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { prisma } from './lib/prisma'
@@ -300,9 +301,9 @@ app.prepare().then(() => {
                 return
             }
 
-            // Check if file exists (single statSync call instead of double)
+            // Check if file exists (async stat instead of blocking statSync)
             try {
-                const stat = fs.statSync(requestedPath)
+                const stat = await fs.promises.stat(requestedPath)
                 if (stat.isFile()) {
                     res.writeHead(200, {
                         'Content-Type': getMimeType(requestedPath),
@@ -322,12 +323,18 @@ app.prepare().then(() => {
     })
 
     // Initialize Socket.io server
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+        : [process.env.NEXTAUTH_URL || 'http://localhost:3000']
     const io = new SocketIOServer(server, {
         path: '/api/socket',
         cors: {
             origin: (origin, callback) => {
-                // Safely allow all origins but preserve credentials
-                callback(null, true)
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true)
+                } else {
+                    callback(new Error('CORS: origin not allowed'))
+                }
             },
             methods: ['GET', 'POST'],
             credentials: true,
@@ -388,13 +395,15 @@ app.prepare().then(() => {
 
     // Start Automatic Billing Service (Daily at 01:00 AM)
     import('./modules/finance/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
-        billingCronTask = cron.schedule('0 1 * * *', () => {
+        billingCronTask = cron.schedule('0 1 * * *', async () => {
+            if (!await acquireCronLock('billing', 82800)) return
             console.log('[Cron] Running daily billing check')
             AutomaticBillingService.generateDailyInvoices()
         })
         console.log('[Server] Automatic billing cron scheduled')
 
-        reminderCronTask = cron.schedule('* * * * *', () => {
+        reminderCronTask = cron.schedule('* * * * *', async () => {
+            if (!await acquireCronLock('reminder', 55)) return
             AutomaticBillingService.sendDailyReminders()
         })
         console.log('[Server] Automatic reminder check cron scheduled (Every minute)')
@@ -402,7 +411,8 @@ app.prepare().then(() => {
 
     // Start Automatic Isolation Service (Daily at 00:00 AM)
     import('./modules/finance/services/AutomaticIsolationService').then(({ AutomaticIsolationService }) => {
-        cron.schedule('0 0 * * *', () => {
+        cron.schedule('0 0 * * *', async () => {
+            if (!await acquireCronLock('isolation', 82800)) return
             console.log('[Cron] Running daily isolation check')
             AutomaticIsolationService.runDailyCheck()
         })
@@ -411,7 +421,8 @@ app.prepare().then(() => {
 
     // Start Auto Checkout Service (Daily at 23:59)
     import('./modules/attendance/services/AutoCheckoutService').then(({ AutoCheckoutService }) => {
-        cron.schedule('59 23 * * *', () => {
+        cron.schedule('59 23 * * *', async () => {
+            if (!await acquireCronLock('autoCheckout', 82800)) return
             console.log('[Cron] Running daily auto-checkout')
             AutoCheckoutService.runAutoCheckout()
         })
@@ -420,7 +431,8 @@ app.prepare().then(() => {
 
     // Start Location Cleanup Service (Daily at 02:00 AM)
     import('./modules/attendance/services/LocationTrackingService').then(({ LocationTrackingService }) => {
-        cron.schedule('0 2 * * *', () => {
+        cron.schedule('0 2 * * *', async () => {
+            if (!await acquireCronLock('locationCleanup', 82800)) return
             console.log('[Cron] Running daily location cleanup')
             const service = new LocationTrackingService()
             service.cleanupOldLocations().catch(err => console.error('[Cron] Location cleanup failed:', err))
@@ -431,6 +443,7 @@ app.prepare().then(() => {
     // Start Monthly Asset Depreciation Service (Monthly on 1st at 02:00 AM)
     import('./modules/inventory/services/AssetService').then(({ AssetService }) => {
         cron.schedule('0 2 1 * *', async () => {
+            if (!await acquireCronLock('assetDepreciation', 2505600)) return
             console.log('[Cron] Running monthly asset depreciation')
             try {
                 // Fetch System Admin for context
@@ -454,13 +467,15 @@ app.prepare().then(() => {
 
     // Start MixRadius Invoice Sync Service (Hourly at minute 0)
     import('./modules/integrations/services/MixRadiusSyncService').then(({ syncService }) => {
-        cron.schedule('0 * * * *', () => {
+        cron.schedule('0 * * * *', async () => {
+            if (!await acquireCronLock('mixRadiusInvoiceSync', 3540)) return
             console.log('[Cron] Running hourly MixRadius invoice sync')
             syncService.syncInvoices()
         })
         console.log('[Server] MixRadius invoice sync cron scheduled (Hourly)')
 
-        cron.schedule('5 0 * * *', () => {
+        cron.schedule('5 0 * * *', async () => {
+            if (!await acquireCronLock('mixRadiusSettlementSync', 82800)) return
             console.log('[Cron] Running daily MixRadius settlement sync (T-1)')
             syncService.syncYesterdaySettlement()
         })
@@ -469,6 +484,7 @@ app.prepare().then(() => {
 
     // Start RAB Status Evaluation Service (Daily at 01:00 AM)
     cron.schedule('0 1 * * *', async () => {
+        if (!await acquireCronLock('rabStatusEvaluation', 82800)) return
         console.log('[Cron] Running daily RAB status evaluation')
         try {
             const res = await fetch(`http://localhost:${port}/api/cron/rab-status-eval`, {

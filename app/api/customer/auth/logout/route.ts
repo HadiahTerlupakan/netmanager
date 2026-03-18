@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiSuccess } from '@/lib/api-response'
 import { clearCustomerAuthCookies, getCustomerSession } from '@/lib/customer-auth'
 import { invalidatePelangganRefreshTokens } from '@/lib/jwt'
 
@@ -12,10 +13,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create response
-        const response = NextResponse.json({
-            success: true,
-            message: 'Logout berhasil',
-        })
+        const response = apiSuccess(null, { message: 'Logout berhasil' })
 
         // Clear auth cookies
         clearCustomerAuthCookies(response)
@@ -25,10 +23,7 @@ export async function POST(request: NextRequest) {
         console.error('[Customer Logout Error]:', error)
 
         // Still clear cookies even on error
-        const response = NextResponse.json({
-            success: true,
-            message: 'Logout berhasil',
-        })
+        const response = apiSuccess(null, { message: 'Logout berhasil' })
         clearCustomerAuthCookies(response)
 
         return response

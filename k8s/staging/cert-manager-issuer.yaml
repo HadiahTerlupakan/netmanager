@@ -6,7 +6,7 @@ spec:
   acme:
     # Ganti dengan email Anda untuk notifikasi sertifikat
     email: admin@radpro.id
-    server: https://acme-v02.api.letsencrypt.org/directory
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-staging-key
     solvers:

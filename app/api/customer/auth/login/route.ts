@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { setCustomerAuthCookies } from '@/lib/customer-auth'
 import { CustomerAuthService } from '@/modules/pelanggan/services/CustomerAuthService'
 
@@ -22,20 +23,11 @@ export async function POST(request: NextRequest) {
             if (result.error?.includes('Terlalu banyak')) statusCode = 429
             if (result.error?.includes('belum diaktifkan') || result.error?.includes('tidak aktif')) statusCode = 403
 
-            return NextResponse.json(
-                { error: result.error, message: result.message },
-                { status: statusCode }
-            )
+            return apiError(result.error ?? 'Login gagal', ErrorCodes.UNAUTHORIZED, { status: statusCode })
         }
 
         // Success response
-        const responseData = {
-            success: true,
-            message: 'Login berhasil',
-            customer: result.customer,
-        }
-
-        const response = NextResponse.json(responseData)
+        const response = apiSuccess({ customer: result.customer }, { message: 'Login berhasil' })
 
         // Set auth cookies
         if (result.tokens) {
@@ -45,9 +37,6 @@ export async function POST(request: NextRequest) {
         return response
     } catch (error) {
         console.error('[Customer Login Error]:', error)
-        return NextResponse.json(
-            { error: 'Terjadi kesalahan server' },
-            { status: 500 }
-        )
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

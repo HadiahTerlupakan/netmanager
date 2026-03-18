@@ -13,6 +13,7 @@ spec:
       labels:
         app: netmanager-cron
     spec:
+      terminationGracePeriodSeconds: 60
       containers:
         - name: cron
           image: netmanager-cron:staging
@@ -29,8 +30,14 @@ spec:
               value: "Asia/Jakarta"
           resources:
             requests:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "75m"
+              memory: "192Mi"
             limits:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "375m"
+              memory: "384Mi"
+          livenessProbe:
+            exec:
+              command: ["pgrep", "-f", "node"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            failureThreshold: 3

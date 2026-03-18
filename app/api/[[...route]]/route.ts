@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { handle } from 'hono/vercel'
 import { AppError } from '@/lib/errors'
 
@@ -9,7 +10,7 @@ app.onError((err, c) => {
   if (err instanceof AppError) {
     return c.json(
       { error: err.message, code: err.code, ...((err.details as Record<string, unknown>) ?? {}) },
-      err.statusCode as any
+      err.statusCode as ContentfulStatusCode
     )
   }
   return c.json({ error: err.message || 'Internal Server Error' }, 500)

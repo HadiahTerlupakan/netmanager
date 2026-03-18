@@ -14,20 +14,36 @@ export async function GET(
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
 
+        const tenantId = session.user.tenantId
+        const isSuperAdmin = session.user.isSuperAdmin
+
+        // Tenant isolation: non-superAdmin users must have a tenantId
+        if (!tenantId && !isSuperAdmin) {
+            return NextResponse.json({ success: false, error: 'Akses ditolak: tenant tidak teridentifikasi' }, { status: 403 })
+        }
+
         const { id: pelangganId } = await params
 
-        // Verify customer exists
+        // Verify customer exists and belongs to the caller's tenant
         const customer = await prisma.pelanggan.findUnique({
-            where: { id: pelangganId }
+            where: {
+                id: pelangganId,
+                // Restrict to caller's tenant to prevent IDOR cross-tenant access.
+                // SuperAdmin (no tenantId) is exempt and can access all tenants.
+                ...(tenantId ? { tenantId } : {}),
+            }
         })
 
         if (!customer) {
             return NextResponse.json({ success: false, error: 'Customer not found' }, { status: 404 })
         }
 
-        // Fetch invoices and their payments
+        // Fetch invoices and their payments, scoped to caller's tenant
         const invoices = await prismaBilling.invoice.findMany({
-            where: { pelangganId },
+            where: {
+                pelangganId,
+                ...(tenantId ? { tenantId } : {}),
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 payment: {

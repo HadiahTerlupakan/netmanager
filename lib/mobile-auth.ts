@@ -3,9 +3,11 @@ import { getAppVersionService, type VersionAccessResult } from '@/modules/app-ve
 import { prismaAuth } from '@/lib/prisma'
 import { prismaMitraAuth } from '@/lib/prisma-mitra'
 
-const secret = new TextEncoder().encode(
-    process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'fallback-secret-for-dev'
-)
+function getSecret(): Uint8Array {
+    const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+    if (!raw) throw new Error('NEXTAUTH_SECRET environment variable is required')
+    return new TextEncoder().encode(raw)
+}
 
 export async function signMobileToken(payload: Record<string, unknown>) {
     // Fetch current tokenVersion from database
@@ -37,7 +39,7 @@ export async function signMobileToken(payload: Record<string, unknown>) {
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime('7d')
-        .sign(secret)
+        .sign(getSecret())
 }
 
 export interface MobileTokenPayload {
@@ -75,7 +77,7 @@ function resolveVersionCode(payload: MobileTokenPayload, versionCodeOverride?: n
 
 export async function getMobileTokenDetails(token: string, versionCodeOverride?: number | null): Promise<MobileTokenDetails | null> {
     try {
-        const { payload } = await jwtVerify(token, secret)
+        const { payload } = await jwtVerify(token, getSecret())
         const mobilePayload = payload as MobileTokenPayload
         const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride)
         const versionAccess = await getAppVersionService().evaluateVersionAccess(versionCode)

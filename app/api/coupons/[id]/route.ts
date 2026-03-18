@@ -1,4 +1,4 @@
-import { CouponService } from '@/modules/coupons/services/CouponService'
+import { CouponService } from '@/modules/coupons'
 import { hasPermission } from '@/lib/rbac'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, apiError, ErrorCodes, createHandler } from '@/lib/api'

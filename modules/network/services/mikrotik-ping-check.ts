@@ -1,3 +1,4 @@
+import { RadiusConnectionError } from '../errors';
 /**
  * Service untuk mengecek status API connection semua MikroTik Router
  * Digunakan oleh scheduler untuk update status secara berkala
@@ -163,7 +164,7 @@ export async function checkSingleMikroTikRouterStatus(id: string): Promise<boole
     return apiResult.success
   } catch (error: unknown) {
     console.error(`Error checking single router ${id}:`, error)
-    return false
+    throw new RadiusConnectionError("Gagal terhubung ke router: " + (error instanceof Error ? error.message : String(error)))
   }
 }
 

@@ -35,13 +35,6 @@ const createPrismaClientBase = (): PrismaClient => {
 export const prismaAuth = globalForPrismaAuth.prismaAuth ?? createPrismaClientBase()
 export const prisma = globalForPrisma.prisma ?? prismaAuth.$extends(withTenantIsolation(ignoreModels)) as unknown as PrismaClient
 
-// Fix for BigInt serialization in JSON for React 19
-if (typeof BigInt !== 'undefined') {
-  // @ts-expect-error - Adding toJSON method to BigInt prototype for Next.js serialization
-  BigInt.prototype.toJSON = function () {
-    return this.toString()
-  }
-}
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
