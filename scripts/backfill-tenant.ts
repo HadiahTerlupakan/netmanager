@@ -1,7 +1,7 @@
 process.env.IS_SEEDING = 'true'
 import { Prisma } from '@prisma/client'
 import { prismaAuth as prisma } from '../lib/prisma'
-import { MAIN_TENANT_NAME, MAIN_TENANT_ID } from '../lib/tenant-constants'
+import { MAIN_TENANT_NAME, MAIN_TENANT_ID } from '../modules/mitra/services/tenant-constants'
 
 /**
  * Script ini bersifat IDEMPOTENT.

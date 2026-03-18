@@ -128,7 +128,7 @@ export async function ensureAnyPermission(requiredPermissions: string[], redirec
  */
 export async function ensureMainTenant(redirectTo: string = '/admin/forbidden') {
     const session = await getServerSession(authConfig)
-    const { MAIN_TENANT_ID } = await import('@/lib/tenant-constants')
+    const { MAIN_TENANT_ID } = await import('@/modules/mitra/services/tenant-constants')
 
     if (session?.user?.tenantId !== MAIN_TENANT_ID) {
         const { redirect } = await import('next/navigation')

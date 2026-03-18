@@ -1,5 +1,5 @@
 import { prismaAuth as prisma } from '../lib/prisma'
-import { MAIN_TENANT_ID, MAIN_TENANT_NAME } from '../lib/tenant-constants'
+import { MAIN_TENANT_ID, MAIN_TENANT_NAME } from '../modules/mitra/services/tenant-constants'
 
 async function main() {
   console.log('Memeriksa tenant saat ini...')

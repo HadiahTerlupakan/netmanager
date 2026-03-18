@@ -3,7 +3,7 @@ import type { Session } from 'next-auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { validateGudangAccess } from '@/lib/inventory-validation'
+import { validateGudangAccess } from '@/modules/inventory/validation'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**

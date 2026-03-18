@@ -7,7 +7,7 @@ import {
   calculateRevisionTotals,
   normalizeRevisionSnapshotItems,
   serializeRabRevision,
-} from "@/lib/finance/rab-revisions";
+} from "@/modules/finance/rab-revisions";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 

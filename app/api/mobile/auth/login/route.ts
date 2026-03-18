@@ -189,7 +189,7 @@ export async function POST(req: Request) {
                 isSuperAdmin: user.role?.isSuperAdmin ?? false
             }
             const token = await signMobileToken(tokenPayload)
-            const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
+            const { getUserFeaturesWithCanvasing } = await import('@/modules/marketing/services/CanvasingAccessService')
             const features = await getUserFeaturesWithCanvasing(user.id)
 
             return {

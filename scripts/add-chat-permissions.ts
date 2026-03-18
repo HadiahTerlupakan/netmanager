@@ -1,4 +1,4 @@
-import { MAIN_TENANT_ID } from '../lib/tenant-constants'
+import { MAIN_TENANT_ID } from '../modules/mitra/services/tenant-constants'
 // Jalankan: npx tsx scripts/add-chat-permissions.ts
  
 import { prisma } from '../lib/prisma'

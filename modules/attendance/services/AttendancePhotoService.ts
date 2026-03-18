@@ -5,7 +5,7 @@
  */
 
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
-import { ATTENDANCE_CONSTANTS } from '@/lib/attendance-constants'
+import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
 
 export class AttendancePhotoService {
   /**

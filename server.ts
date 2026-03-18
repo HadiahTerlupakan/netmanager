@@ -19,9 +19,7 @@ import { Server as SocketIOServer } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
 import { initializeSocketServer } from './lib/websocket/server'
-import cron from 'node-cron'
-import type { ScheduledTask } from 'node-cron'
-import { acquireCronLock } from './lib/cron-lock'
+import { cronRegistry } from './lib/cron-registry'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { prisma } from './lib/prisma'
@@ -36,12 +34,8 @@ const handle = app.getRequestHandler()
 app.prepare().then(() => {
     // Keep reference to io for the internal emit endpoint
     let ioRef: SocketIOServer | null = null
-    // Keep reference to billing cron task to stop it later
-    let billingCronTask: ScheduledTask | null = null
-    let reminderCronTask: ScheduledTask | null = null
     // Keep reference to MikroTik monitor to stop it later
     let mikroTikMonitorRef: { stop: () => void; setSocketServer: (io: SocketIOServer) => void; start: () => void } | null = null
-
     const server = createServer(async (req, res) => {
         const parsedUrl = parse(req.url!, true)
 
@@ -377,8 +371,11 @@ app.prepare().then(() => {
     // Initialize WebSocket handlers
     initializeSocketServer(io)
 
-    // Start Push Notification Retry Processor
+    // Start Background Services
     startPushRetryProcessor()
+
+    // Start all cron jobs
+    cronRegistry.startAll()
 
     // Start Radius Monitoring Service
     // Dynamic import to avoid issues if module dependencies aren't ready
@@ -392,114 +389,6 @@ app.prepare().then(() => {
         mikroTikMonitor.setSocketServer(io)
         mikroTikMonitor.start()
     }).catch(err => console.error('[Server] Failed to start MikroTik monitoring:', err))
-
-    // Start Automatic Billing Service (Daily at 01:00 AM)
-    import('./modules/finance/services/AutomaticBillingService').then(({ AutomaticBillingService }) => {
-        billingCronTask = cron.schedule('0 1 * * *', async () => {
-            if (!await acquireCronLock('billing', 82800)) return
-            console.log('[Cron] Running daily billing check')
-            AutomaticBillingService.generateDailyInvoices()
-        })
-        console.log('[Server] Automatic billing cron scheduled')
-
-        reminderCronTask = cron.schedule('* * * * *', async () => {
-            if (!await acquireCronLock('reminder', 55)) return
-            AutomaticBillingService.sendDailyReminders()
-        })
-        console.log('[Server] Automatic reminder check cron scheduled (Every minute)')
-    }).catch(err => console.error('[Server] Failed to start Automatic Billing Service:', err))
-
-    // Start Automatic Isolation Service (Daily at 00:00 AM)
-    import('./modules/finance/services/AutomaticIsolationService').then(({ AutomaticIsolationService }) => {
-        cron.schedule('0 0 * * *', async () => {
-            if (!await acquireCronLock('isolation', 82800)) return
-            console.log('[Cron] Running daily isolation check')
-            AutomaticIsolationService.runDailyCheck()
-        })
-        console.log('[Server] Automatic isolation cron scheduled (00:00)')
-    }).catch(err => console.error('[Server] Failed to start Automatic Isolation Service:', err))
-
-    // Start Auto Checkout Service (Daily at 23:59)
-    import('./modules/attendance/services/AutoCheckoutService').then(({ AutoCheckoutService }) => {
-        cron.schedule('59 23 * * *', async () => {
-            if (!await acquireCronLock('autoCheckout', 82800)) return
-            console.log('[Cron] Running daily auto-checkout')
-            AutoCheckoutService.runAutoCheckout()
-        })
-        console.log('[Server] Auto checkout cron scheduled (23:59)')
-    }).catch(err => console.error('[Server] Failed to start Auto Checkout Service:', err))
-
-    // Start Location Cleanup Service (Daily at 02:00 AM)
-    import('./modules/attendance/services/LocationTrackingService').then(({ LocationTrackingService }) => {
-        cron.schedule('0 2 * * *', async () => {
-            if (!await acquireCronLock('locationCleanup', 82800)) return
-            console.log('[Cron] Running daily location cleanup')
-            const service = new LocationTrackingService()
-            service.cleanupOldLocations().catch(err => console.error('[Cron] Location cleanup failed:', err))
-        })
-        console.log('[Server] Location cleanup cron scheduled (02:00)')
-    }).catch(err => console.error('[Server] Failed to start Location Tracking Service for cleanup:', err))
-
-    // Start Monthly Asset Depreciation Service (Monthly on 1st at 02:00 AM)
-    import('./modules/inventory/services/AssetService').then(({ AssetService }) => {
-        cron.schedule('0 2 1 * *', async () => {
-            if (!await acquireCronLock('assetDepreciation', 2505600)) return
-            console.log('[Cron] Running monthly asset depreciation')
-            try {
-                // Fetch System Admin for context
-                const systemUser = await prisma.user.findFirst({
-                    where: { role: { name: 'SUPER_ADMIN' } }
-                }) || await prisma.user.findFirst()
-
-                if (systemUser) {
-                    const assetService = new AssetService()
-                    const results = await assetService.runMonthlyDepreciationCycle(systemUser.id)
-                    console.log(`[Cron] Depreciation complete. Processed ${results.length} assets.`)
-                } else {
-                    console.error('[Cron] Failed to run depreciation: No system user found')
-                }
-            } catch (err) {
-                console.error('[Cron] Depreciation cycle failed:', err)
-            }
-        })
-        console.log('[Server] Asset depreciation cron scheduled (Monthly 1st 02:00)')
-    }).catch(err => console.error('[Server] Failed to start Asset Service:', err))
-
-    // Start MixRadius Invoice Sync Service (Hourly at minute 0)
-    import('./modules/integrations/services/MixRadiusSyncService').then(({ syncService }) => {
-        cron.schedule('0 * * * *', async () => {
-            if (!await acquireCronLock('mixRadiusInvoiceSync', 3540)) return
-            console.log('[Cron] Running hourly MixRadius invoice sync')
-            syncService.syncInvoices()
-        })
-        console.log('[Server] MixRadius invoice sync cron scheduled (Hourly)')
-
-        cron.schedule('5 0 * * *', async () => {
-            if (!await acquireCronLock('mixRadiusSettlementSync', 82800)) return
-            console.log('[Cron] Running daily MixRadius settlement sync (T-1)')
-            syncService.syncYesterdaySettlement()
-        })
-        console.log('[Server] MixRadius settlement sync cron scheduled (00:05)')
-    }).catch(err => console.error('[Server] Failed to start MixRadius Sync Service:', err))
-
-    // Start RAB Status Evaluation Service (Daily at 01:00 AM)
-    cron.schedule('0 1 * * *', async () => {
-        if (!await acquireCronLock('rabStatusEvaluation', 82800)) return
-        console.log('[Cron] Running daily RAB status evaluation')
-        try {
-            const res = await fetch(`http://localhost:${port}/api/cron/rab-status-eval`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${process.env.CRON_SECRET}`
-                }
-            })
-            const data = await res.json()
-            console.log('[Cron] RAB status evaluation result:', data)
-        } catch (err) {
-            console.error('[Cron] Failed to run RAB status evaluation:', err)
-        }
-    })
-    console.log('[Server] RAB status evaluation cron scheduled (01:00)')
 
 
     // Log connections count periodically in development
@@ -525,14 +414,7 @@ app.prepare().then(() => {
         console.log(`[Server] ${signal} received, shutting down gracefully`)
 
         // 1. Stop Cron Jobs
-        if (billingCronTask) {
-            billingCronTask.stop()
-            console.log('[Cron] Billing task stopped')
-        }
-        if (reminderCronTask) {
-            reminderCronTask.stop()
-            console.log('[Cron] Reminder task stopped')
-        }
+        cronRegistry.stopAll()
 
         // 2. Stop Monitoring Services
         try {

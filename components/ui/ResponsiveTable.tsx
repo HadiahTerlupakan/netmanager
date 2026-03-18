@@ -447,7 +447,7 @@ export function ResponsiveTable<T>({
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3 p-2">
-        {data.map((item, index) => (
+        {safeData.map((item, index) => (
           <React.Fragment key={String(item[keyField])}>
             {renderMobileCard ? (
               renderMobileCard(item, columns)

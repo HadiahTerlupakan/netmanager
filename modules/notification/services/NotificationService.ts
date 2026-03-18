@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { randomUUID } from 'crypto';
-import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/lib/notification-constants';
+import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/modules/notification/constants';
 import { getTenantIdFromContext } from '@/lib/tenant-context';
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT' | 'ANNOUNCEMENT';
@@ -736,7 +736,7 @@ export async function unsubscribeDevice(endpoint: string) {
     });
 }
 
-// Helper functions imported from @/lib/notification-constants
+// Helper functions imported from @/modules/notification/constants
 
 // ============================================
 // CANVASING NOTIFICATIONS

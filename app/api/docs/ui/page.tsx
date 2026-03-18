@@ -1,12 +1,14 @@
 'use client'
+export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
+import nextDynamic from 'next/dynamic'
 import 'swagger-ui-react/swagger-ui.css'
 import { Button } from '@/components/ui/Button'
 
 // Dynamic import to prevent SSR issues
-const SwaggerUI = dynamic(() => import('swagger-ui-react'), {
+const SwaggerUI = nextDynamic(() => import('swagger-ui-react'), { 
+
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-900">

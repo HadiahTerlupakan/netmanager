@@ -2,7 +2,7 @@ import { PrismaClient, Prisma } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import 'dotenv/config'
-import { MAIN_TENANT_NAME } from '../lib/tenant-constants'
+import { MAIN_TENANT_NAME } from '../modules/mitra/services/tenant-constants'
 
 /**
  * Script ini bersifat IDEMPOTENT (aman dijalankan berkali-kali).

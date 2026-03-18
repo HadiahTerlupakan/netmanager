@@ -5,7 +5,7 @@ import {
   buildExpensePayloadHash,
   completeExpenseMutation,
   __resetExpenseIdempotencyStoreForTests,
-} from '@/lib/finance/expense-idempotency'
+} from '@/modules/finance/expense-idempotency'
 
 describe('expense idempotency', () => {
   it('returns replay when same key and same payload is completed', () => {

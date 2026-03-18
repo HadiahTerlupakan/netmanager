@@ -68,7 +68,7 @@ export function IzinClient() {
     const [searchTerm, setSearchTerm] = useState('')
     const [showDropdown, setShowDropdown] = useState(false)
 
-    const filteredUsers = users.filter(u =>
+    const filteredUsers = (users || []).filter(u =>
         (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
     )
@@ -538,7 +538,7 @@ export function IzinClient() {
                             />
                             {showDropdown && searchTerm && (
                                 <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-xl">
-                                    {filteredUsers.map(u => (
+                                    {filteredUsers?.map(u => (
                                         <div
                                             key={u.id}
                                             className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer text-gray-900 dark:text-gray-200 border-b border-gray-50 dark:border-gray-700 last:border-0"
@@ -552,7 +552,7 @@ export function IzinClient() {
                                             <div className="text-xs text-gray-500">{u.email}</div>
                                         </div>
                                     ))}
-                                    {filteredUsers.length === 0 && (
+                                    {(filteredUsers?.length === 0) && (
                                         <div className="p-4 text-gray-500 text-sm text-center">Karyawan tidak ditemukan</div>
                                     )}
                                 </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildDailyExpenseIndicators } from '@/lib/finance/daily-expense-indicators'
+import { buildDailyExpenseIndicators } from '@/modules/finance/daily-expense-indicators'
 
 describe('daily expense indicators', () => {
   it('counts suspected duplicates based on stable composite key', () => {

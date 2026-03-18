@@ -4,6 +4,8 @@ import { Inter } from 'next/font/google'
 import { Providers } from '@/components/providers/session-provider'
 import ConsoleWarning from '@/components/security/ConsoleWarning'
 
+export const dynamic = 'force-dynamic'
+
 // Optimized font loading with next/font - eliminates render-blocking
 const inter = Inter({
   subsets: ['latin'],

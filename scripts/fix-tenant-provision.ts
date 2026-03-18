@@ -4,8 +4,8 @@
  * Usage: npx tsx scripts/fix-tenant-provision.ts
  */
 import { prismaAuth } from '../lib/prisma'
-import { provisionTenantData, getTenantAdminRoleId } from '../lib/tenant-provisioning'
-import { MAIN_TENANT_ID } from '../lib/tenant-constants'
+import { provisionTenantData, getTenantAdminRoleId } from '../modules/mitra/services/TenantProvisioningService'
+import { MAIN_TENANT_ID } from '../modules/mitra/services/tenant-constants'
 
 async function main() {
   console.log('🔧 Fixing tenant provisioning for existing tenants...\n')

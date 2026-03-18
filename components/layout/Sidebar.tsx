@@ -72,7 +72,7 @@ import {
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
 import { useSession, signOut } from 'next-auth/react'
-import { isMainTenant } from '@/lib/tenant-constants'
+import { isMainTenant } from '@/modules/mitra/services/tenant-constants'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -171,88 +171,90 @@ export default function Sidebar() {
 
   const { hasPermission } = usePermission()
 
-  // Filter menu items based on permissions
-  const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
-    let filteredChildren: MenuConfig[] | undefined = undefined
+    // Filter menu items based on permissions
+    const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
+      if (!item) return null;
+      let filteredChildren: MenuConfig[] | undefined = undefined
 
-    if (item.children) {
-      filteredChildren = item.children
-        .map(filterNavItem)
-        .filter((child): child is MenuConfig => child !== null)
-    }
-
-    // RESTRICTION: Hide certain menus for non-main tenants
-    const restrictedCodes = ['TENANT', 'PENGATURAN.APP_VERSION', 'PENGATURAN.BACKUP_DATABASE']
-    const isMain = isMainTenant(session?.user?.tenantId)
-
-    if (!isMain && restrictedCodes.includes(item.code)) {
-      return null
-    }
-
-    // Check strict permission for the item itself
-    // Use the last part of the code (e.g. "NETWORK.MIKROTIK" -> "MIKROTIK")
-    const permissionResource = item.code
-      ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
-      : ''
-
-    const hasItemPermission = permissionResource
-      ? hasPermission(`${permissionResource.toLowerCase()}:read`)
-      : true
-
-    // If it has children, and some are visible, we should show this parent 
-    // EVEN IF the parent permission itself is false. 
-    // (This allows "NETWORK.MIKROTIK" access to implicitly show "Network" menu)
-    if (filteredChildren && filteredChildren.length > 0) {
-      return { ...item, children: filteredChildren }
-    }
-
-    // If no children (or no visible children), strictly respect the item's own permission
-    if (!hasItemPermission) {
-      return null
-    }
-
-    return { ...item, children: filteredChildren }
-  }, [hasPermission, session?.user?.tenantId])
-
-  const allNavItems = ADMIN_MENU_CONFIG
-
-  const navItems = useMemo(() => {
-    return allNavItems
-      .map(filterNavItem)
-      .filter((item): item is MenuConfig => item !== null)
-  }, [allNavItems, filterNavItem])
-
-  // Auto-expand menu
-  useEffect(() => {
-    const menusToExpand: string[] = []
-    navItems.forEach((item) => {
-      if (item.children) {
-        // Parent is active if any child is active
-        const hasActiveChild = item.children.some(
-          (child) => {
-            const childPath = child.path || ''
-            if (child.exact) {
-              return pathname === childPath
-            }
-            return pathname === childPath || pathname?.startsWith(childPath + '/')
-          }
-        )
-        // Use item.code as key for expansion tracking since path might be null for parents
-        if (hasActiveChild && !expandedMenus.has(item.code)) {
-          menusToExpand.push(item.code)
-        }
+      if (item.children && Array.isArray(item.children)) {
+        filteredChildren = item.children
+          .map(filterNavItem)
+          .filter((child): child is MenuConfig => child !== null)
       }
-    })
 
-    if (menusToExpand.length > 0) {
-      setExpandedMenus((prev) => {
-        const newSet = new Set(prev)
-        menusToExpand.forEach(code => newSet.add(code))
-        return newSet
+      // RESTRICTION: Hide certain menus for non-main tenants
+      const restrictedCodes = ['TENANT', 'PENGATURAN.APP_VERSION', 'PENGATURAN.BACKUP_DATABASE']
+      const isMain = isMainTenant(session?.user?.tenantId)
+
+      if (!isMain && restrictedCodes.includes(item.code)) {
+        return null
+      }
+
+      // Check strict permission for the item itself
+      // Use the last part of the code (e.g. "NETWORK.MIKROTIK" -> "MIKROTIK")
+      const permissionResource = item.code
+        ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
+        : ''
+
+      const hasItemPermission = permissionResource
+        ? hasPermission(`${permissionResource.toLowerCase()}:read`)
+        : true
+
+      // If it has children, and some are visible, we should show this parent 
+      // EVEN IF the parent permission itself is false. 
+      // (This allows "NETWORK.MIKROTIK" access to implicitly show "Network" menu)
+      if (filteredChildren && filteredChildren.length > 0) {
+        return { ...item, children: filteredChildren }
+      }
+
+      // If no children (or no visible children), strictly respect the item's own permission
+      if (!hasItemPermission) {
+        return null
+      }
+
+      return { ...item, children: filteredChildren }
+    }, [hasPermission, session?.user?.tenantId])
+
+    const allNavItems = ADMIN_MENU_CONFIG
+
+    const navItems = useMemo(() => {
+      if (!allNavItems || !Array.isArray(allNavItems)) return [];
+      return allNavItems
+        .map(filterNavItem)
+        .filter((item): item is MenuConfig => item !== null)
+    }, [allNavItems, filterNavItem])
+
+    // Auto-expand menu
+    useEffect(() => {
+      const menusToExpand: string[] = []
+      navItems?.forEach((item) => {
+        if (item.children) {
+          // Parent is active if any child is active
+          const hasActiveChild = item.children.some(
+            (child) => {
+              const childPath = child.path || ''
+              if (child.exact) {
+                return pathname === childPath
+              }
+              return pathname === childPath || pathname?.startsWith(childPath + '/')
+            }
+          )
+          // Use item.code as key for expansion tracking since path might be null for parents
+          if (hasActiveChild && !expandedMenus.has(item.code)) {
+            menusToExpand.push(item.code)
+          }
+        }
       })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+
+      if (menusToExpand.length > 0) {
+        setExpandedMenus((prev) => {
+          const newSet = new Set(prev)
+          menusToExpand.forEach(code => newSet.add(code))
+          return newSet
+        })
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname])
 
   const toggleMenu = (code: string) => {
     setExpandedMenus((prev) => {
@@ -341,7 +343,7 @@ export default function Sidebar() {
           {/* Scrollable Navigation Area */}
           <nav className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800 scrollbar-track-transparent hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-gray-700">
             <div className="space-y-1">
-              {navItems.map((item, index) => {
+              {navItems?.map((item, index) => {
                 // Render section header if this item starts a new section
                 const prevItem = index > 0 ? navItems[index - 1] : null
                 const showSectionHeader = item.section && item.section !== prevItem?.section
@@ -352,7 +354,7 @@ export default function Sidebar() {
 
                 const hasChildren = item.children && item.children.length > 0
                 const isExpanded = hasChildren ? isMenuExpanded(item.code) : false
-                const hasActiveChild = hasChildren && item.children!.some(
+                const hasActiveChild = hasChildren && item.children?.some(
                   (child) => {
                     const childPath = child.path || ''
                     if (child.exact) return pathname === childPath
@@ -402,7 +404,7 @@ export default function Sidebar() {
                         >
                           <div className="overflow-hidden">
                             <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-6 my-1 pl-3 space-y-1">
-                              {item.children!.map((child) => {
+                              {item.children?.map((child) => {
                                 const childPath = child.path || '#'
                                 const isChildActive = child.exact
                                   ? pathname === childPath

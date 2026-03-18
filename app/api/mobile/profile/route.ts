@@ -114,7 +114,7 @@ export async function GET(request: Request) {
         }
 
         // Extract features with canvasing override logic
-        const { getUserFeaturesWithCanvasing } = await import('@/lib/canvasing-access')
+        const { getUserFeaturesWithCanvasing } = await import('@/modules/marketing/services/CanvasingAccessService')
         const features = await getUserFeaturesWithCanvasing(profile.id)
 
         // Check for active leave

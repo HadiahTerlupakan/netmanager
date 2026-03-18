@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { prisma, prismaAuth } from '@/lib/prisma'
 import { apiError, ErrorCodes } from '@/lib/api-response'
-import { provisionTenantData } from '@/lib/tenant-provisioning'
+import { provisionTenantData } from '@/modules/mitra/services/TenantProvisioningService'
 
 export async function GET(request: Request) {
     try {

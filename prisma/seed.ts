@@ -5,7 +5,7 @@ import { prismaBilling } from '../lib/prisma-billing'
 import { prismaRadius } from '../lib/prisma-radius'
 import { hash } from 'bcryptjs'
 import { randomUUID } from 'crypto'
-import { MAIN_TENANT_ID, MAIN_TENANT_NAME } from '../lib/tenant-constants'
+import { MAIN_TENANT_ID, MAIN_TENANT_NAME } from '../modules/mitra/services/tenant-constants'
 
 
 import { PERMISSION_GROUPS, PERMISSION_GROUPS_MOBILE, ACTIONS, getAllGranularPermissions } from '../lib/permission-config'

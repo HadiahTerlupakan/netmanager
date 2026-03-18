@@ -1,4 +1,4 @@
-import { MAIN_TENANT_ID } from '../lib/tenant-constants'
+import { MAIN_TENANT_ID } from '../modules/mitra/services/tenant-constants'
 
 import { prisma } from '../lib/prisma'
 

@@ -84,7 +84,7 @@ Create `tests/lib/finance/rab-revision-variance.test.ts`.
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import { buildRabRevisionVarianceSummary } from '@/lib/finance/rab-revision-variance';
+import { buildRabRevisionVarianceSummary } from '@/modules/finance/rab-revision-variance';
 
 describe('buildRabRevisionVarianceSummary', () => {
   it('marks a project as untung when actual is below the final approved revision', () => {
