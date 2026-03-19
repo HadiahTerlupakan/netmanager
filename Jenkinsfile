@@ -247,8 +247,11 @@ spec:
                 container('kubectl') {
                     script {
                         echo "Deploying to Kubernetes namespace ${NAMESPACE} using ${K8S_DIR}..."
-                        // Apply all manifests (termasuk Deployment aplikasi yang baru)
-                        sh "kubectl apply -f ${K8S_DIR}/ --namespace=${NAMESPACE}"
+                        // Implementasi Opsi A: Terapkan semua file KECUALI secrets.yaml
+                        // Ini agar secret di server tidak tertimpa nilai dummy dari Git
+                        sh """
+                        find ${K8S_DIR}/ -name "*.yaml" ! -name "secrets.yaml" | xargs -I {} kubectl apply -f {} --namespace=${NAMESPACE}
+                        """
                         
                         // Force rollout restart with a slight delay.
                         sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
