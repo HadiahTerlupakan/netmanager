@@ -177,17 +177,25 @@ spec:
 
               # =============================================
               # STEP 3: Resolve squashed baseline + Deploy
-              # Mark init_squashed as already applied (it represents
-              # the existing DB state), then deploy new_features.
+              # Only resolve if the migrations table already exists (not a fresh DB)
               # =============================================
               echo ""
               echo "======================================"
               echo "Running netmanager migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --rolled-back 20260314015651_init_tenant_schema 2>&1 || true
-              npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
-              npx prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
+              # Check if it's a fresh database by checking for a known table
+              IS_FRESH=$(psql "$DATABASE_URL" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'User')")
+
+              if [ "$IS_FRESH" = "f" ]; then
+                echo "🌱 Fresh database detected. Running all migrations from scratch..."
+              else
+                echo "🔄 Existing database detected. Applying baseline resolutions..."
+                npx prisma migrate resolve --rolled-back 20260314015651_init_tenant_schema 2>&1 || true
+                npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
+                npx prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
+              fi
+              
               npx prisma migrate deploy
 
               echo ""
@@ -195,8 +203,10 @@ spec:
               echo "Running radius migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --rolled-back 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
-              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
+              if [ "$IS_FRESH" != "f" ]; then
+                npx prisma migrate resolve --rolled-back 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
+                npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
+              fi
               npx prisma migrate deploy --config=prisma.radius.config.ts
 
               echo ""
@@ -204,8 +214,10 @@ spec:
               echo "Running billing migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --rolled-back 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
-              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
+              if [ "$IS_FRESH" != "f" ]; then
+                npx prisma migrate resolve --rolled-back 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
+                npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
+              fi
               npx prisma migrate deploy --config=prisma.billing.config.ts
 
               echo ""
@@ -213,8 +225,10 @@ spec:
               echo "Running mitra migrations"
               echo "======================================"
 
-              npx prisma migrate resolve --rolled-back 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
-              npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
+              if [ "$IS_FRESH" != "f" ]; then
+                npx prisma migrate resolve --rolled-back 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
+                npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
+              fi
               npx prisma migrate deploy --config=prisma.mitra.config.ts
 
               # =============================================
