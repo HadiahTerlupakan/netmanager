@@ -212,11 +212,11 @@ spec:
                                 echo "Menunggu Kubernetes Job netmanager-migration-job..."
                                 # Tunggu sampai job selesai (Complete) atau gagal (Failed)
                                 for i in \$(seq 1 60); do
-                                    STATUS=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "Waiting")
-                                    if [ "\$STATUS" = "Complete" ]; then
+                                    STATUS=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.status=="True")].type}' 2>/dev/null || echo "Waiting")
+                                    if echo "\$STATUS" | grep -q "Complete"; then
                                         echo "✅ Job Selesai Sukses!"
                                         exit 0
-                                    elif [ "\$STATUS" = "Failed" ]; then
+                                    elif echo "\$STATUS" | grep -q "Failed"; then
                                         echo "❌ Job Gagal!"
                                         exit 1
                                     fi
