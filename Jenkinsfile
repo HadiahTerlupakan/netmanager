@@ -17,7 +17,7 @@ spec:
     image: jenkins/inbound-agent:latest
     imagePullPolicy: IfNotPresent
   - name: node
-    image: node:20-alpine
+    image: node:24-alpine
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
