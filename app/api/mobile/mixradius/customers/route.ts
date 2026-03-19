@@ -68,10 +68,7 @@ export async function GET(request: NextRequest) {
         console.error('Error searching MixRadius customers:', error);
 
         if (error instanceof MixRadiusConfigError || (error instanceof Error && error.name === 'MixRadiusConfigError')) {
-            return NextResponse.json(
-                { error: error.message, code: 'MIXRADIUS_CONFIG_ERROR' },
-                { status: 503 }
-            );
+            return apiError(error.message, 'MIXRADIUS_CONFIG_ERROR', { status: 503 });
         }
 
         return apiError('Gagal mencari pelanggan', ErrorCodes.INTERNAL_ERROR, { status: 500 });

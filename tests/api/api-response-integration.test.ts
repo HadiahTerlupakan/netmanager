@@ -49,8 +49,8 @@ describe.skipIf(!await isServerRunning())('API Response Format Integration Tests
       const json = await res.json()
       
       expect(res.status).toBe(200)
-      expect(json).toHaveProperty('status')
-      expect(json).toHaveProperty('services')
+      expect(json).toHaveProperty('success', true)
+      expect(json.data).toHaveProperty('status')
     })
 
     it('GET /api/health/memory should return memory metrics', async () => {

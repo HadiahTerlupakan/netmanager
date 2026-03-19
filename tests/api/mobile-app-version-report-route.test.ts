@@ -28,7 +28,11 @@ describe('POST /api/mobile/app-version/report', () => {
     const body = await response.json()
 
     expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'versionCode harus berupa angka bulat positif' })
+    expect(body).toEqual({
+      success: false,
+      error: 'versionCode harus berupa angka bulat positif',
+      code: 'VALIDATION_ERROR'
+    })
     expect(prismaMock.mitra.update).not.toHaveBeenCalled()
     expect(prismaMock.user.update).not.toHaveBeenCalled()
     expect(prismaMock.pelanggan.update).not.toHaveBeenCalled()

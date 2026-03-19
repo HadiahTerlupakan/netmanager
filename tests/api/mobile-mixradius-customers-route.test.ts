@@ -52,6 +52,7 @@ describe('GET /api/mobile/mixradius/customers', () => {
 
     expect(response.status).toBe(503)
     expect(json).toEqual({
+      success: false,
       error: 'Integrasi MixRadius belum dikonfigurasi',
       code: 'MIXRADIUS_CONFIG_ERROR',
     })
@@ -66,6 +67,10 @@ describe('GET /api/mobile/mixradius/customers', () => {
     const json = await response.json()
 
     expect(response.status).toBe(500)
-    expect(json).toEqual({ error: 'Gagal mencari pelanggan' })
+    expect(json).toEqual({
+      success: false,
+      error: 'Gagal mencari pelanggan',
+      code: 'INTERNAL_ERROR'
+    })
   })
 })

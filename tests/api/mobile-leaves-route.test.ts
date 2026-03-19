@@ -43,13 +43,13 @@ import { POST } from '@/app/api/mobile/leaves/route'
 describe('mobile leaves route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFns.getMobileAuthPayload.mockResolvedValue({ userId: 'user-1' })
+    mockFns.getMobileAuthPayload.mockResolvedValue({ id: 'user-1', tenantId: 'tenant-1' })
     mockFns.hasEnoughDays.mockResolvedValue(true)
     mockFns.repoCreate.mockResolvedValue({ id: 'leave-1' })
   })
 
   it('scopes admin leave notifications to the requester site', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       workingHourMode: 'REGULAR',
       workDays: 'Mon,Tue,Wed,Thu,Fri',
       name: 'Budi',
@@ -72,6 +72,7 @@ describe('mobile leaves route', () => {
     expect(response.status).toBe(201)
     expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
+        tenantId: 'tenant-1',
         OR: expect.arrayContaining([
           { role: { name: { in: ['SUPER_ADMIN', 'Super Admin'] } } },
           expect.objectContaining({
@@ -102,11 +103,12 @@ describe('mobile leaves route', () => {
       userId: 'admin-1',
       sourceType: 'LEAVE',
       sourceId: 'leave-1',
+      tenantId: 'tenant-1',
     }))
   })
 
   it('uses working-day calculation for leave quota checks', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       workingHourMode: 'REGULAR',
       workDays: 'Mon,Tue,Wed,Thu,Fri',
       name: 'Budi',
@@ -128,6 +130,6 @@ describe('mobile leaves route', () => {
     }))
 
     expect(response.status).toBe(201)
-    expect(mockFns.hasEnoughDays).toHaveBeenCalledWith('user-1', 2026, 'CUTI', 1)
+    expect(mockFns.hasEnoughDays).toHaveBeenCalledWith('user-1', 2026, 'CUTI', 1, 'tenant-1')
   })
 })

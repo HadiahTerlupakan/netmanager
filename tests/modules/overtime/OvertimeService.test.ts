@@ -71,19 +71,22 @@ describe('OvertimeService', () => {
 
       // Mock user and admins for notification
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      prismaMock.user.findUnique.mockResolvedValue({ name: 'Test User', siteId: 'site-1' } as any)
+      prismaMock.user.findFirst.mockResolvedValue({ name: 'Test User', siteId: 'site-1' } as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       prismaMock.user.findMany.mockResolvedValue([{ id: 'admin-1' }] as any)
 
       const result = await service.createRequest('user-1', {
         date: new Date(),
-        reason: 'Project deadline'
+        reason: 'Project deadline',
+        tenantId: 'tenant-1'
       })
 
       expect(result).toBeDefined()
       expect(result.status).toBe(OvertimeStatus.PENDING)
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        select: { id: true },
         where: expect.objectContaining({
+          tenantId: 'tenant-1',
           OR: expect.arrayContaining([
             { role: { name: 'SUPER_ADMIN' } },
             expect.objectContaining({
