@@ -47,8 +47,6 @@ spec:
               command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
             initialDelaySeconds: 15
             periodSeconds: 20
-          securityContext:
-            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -121,8 +119,6 @@ spec:
               command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
             initialDelaySeconds: 15
             periodSeconds: 20
-          securityContext:
-            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -195,8 +191,6 @@ spec:
               command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
             initialDelaySeconds: 15
             periodSeconds: 20
-          securityContext:
-            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -269,8 +263,6 @@ spec:
               command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
             initialDelaySeconds: 15
             periodSeconds: 20
-          securityContext:
-            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data

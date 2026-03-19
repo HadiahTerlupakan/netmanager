@@ -58,8 +58,6 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
             { code: 'NETWORK.MAP', name: 'Topology Map', path: '/admin/map', icon: 'HiOutlineMap' },
             { code: 'NETWORK.MIKROTIK', name: 'MikroTik', path: '/admin/network/mikrotik', icon: 'HiOutlineServer' },
             { code: 'NETWORK.RADIUS', name: 'RADIUS', path: '/admin/network/radius', icon: 'HiOutlineKey' },
-            { code: 'NETWORK.ACS_DASHBOARD', name: 'ACS Dashboard', path: '/admin/network/acs', icon: 'HiOutlineChartPie' },
-            { code: 'NETWORK.ACS_MAPPING', name: 'Pemetaan ONT', path: '/admin/network/acs/mapping', icon: 'HiOutlineMap' },
             { code: 'NETWORK.ACS_DEVICES', name: 'ONT Devices', path: '/admin/network/acs/devices', icon: 'HiOutlineWifi' },
         ],
     },

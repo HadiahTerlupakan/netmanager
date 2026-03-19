@@ -43,8 +43,6 @@ spec:
               command: ["redis-cli", "ping"]
             initialDelaySeconds: 15
             periodSeconds: 20
-          securityContext:
-            runAsNonRoot: true
           volumeMounts:
             - name: redis-data
               mountPath: /data

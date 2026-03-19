@@ -22,19 +22,34 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Generate Prisma and Build
-# Environment variables required for build-time validation are set here as dummies
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-ENV NEXTAUTH_URL="http://localhost:3000"
-ENV NEXTAUTH_SECRET="build-time-secret-will-be-replaced"
-ENV AUTH_SECRET="build-time-secret-will-be-replaced"
-ENV AUTH_URL="http://localhost:3000"
-ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
-ENV DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing"
-ENV DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra"
-ENV RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius"
-ENV REDIS_URL="redis://localhost:6379"
-ENV OAUTH_ENCRYPTION_KEY="build-time-key-will-be-replaced-at-runtime"
+# Use ARG instead of ENV for build-time only configuration
+# This prevents sensitive keys from being baked into the image metadata
+ARG NEXT_TELEMETRY_DISABLED=1
+ARG NODE_OPTIONS="--max-old-space-size=4096"
+ARG NEXTAUTH_URL="http://localhost:3000"
+ARG NEXTAUTH_SECRET="build-time-dummy"
+ARG AUTH_SECRET="build-time-dummy"
+ARG AUTH_URL="http://localhost:3000"
+ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+ARG DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing"
+ARG DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra"
+ARG RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius"
+ARG REDIS_URL="redis://localhost:6379"
+ARG OAUTH_ENCRYPTION_KEY="build-time-dummy"
+
+# Re-export as ENV only within the builder stage if needed by 'npm run build'
+ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
+ENV NODE_OPTIONS=$NODE_OPTIONS
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
+ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+ENV AUTH_SECRET=$AUTH_SECRET
+ENV AUTH_URL=$AUTH_URL
+ENV DATABASE_URL=$DATABASE_URL
+ENV DATABASE_URL_BILLING=$DATABASE_URL_BILLING
+ENV DATABASE_URL_MITRA=$DATABASE_URL_MITRA
+ENV RADIUS_DATABASE_URL=$RADIUS_DATABASE_URL
+ENV REDIS_URL=$REDIS_URL
+ENV OAUTH_ENCRYPTION_KEY=$OAUTH_ENCRYPTION_KEY
 
 RUN npm run prisma:generate
 RUN npm run build
