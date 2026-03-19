@@ -316,8 +316,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 7.4.2
-   * Query Engine version: 94a226be1cf2967af2541cca5529f0f7ba866919
+   * Prisma Client JS version: 7.5.0
+   * Query Engine version: 280c870be64f457428992c43c1f6d557fab6e29e
    */
   export type PrismaVersion = {
     client: string
@@ -2791,6 +2791,11 @@ export namespace Prisma {
      * Skip the first `n` Mitras.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Mitras.
+     */
     distinct?: MitraScalarFieldEnum | MitraScalarFieldEnum[]
   }
 
@@ -4012,6 +4017,11 @@ export namespace Prisma {
      * Skip the first `n` MitraWallets.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MitraWallets.
+     */
     distinct?: MitraWalletScalarFieldEnum | MitraWalletScalarFieldEnum[]
   }
 
@@ -5204,6 +5214,11 @@ export namespace Prisma {
      * Skip the first `n` MitraTransactions.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MitraTransactions.
+     */
     distinct?: MitraTransactionScalarFieldEnum | MitraTransactionScalarFieldEnum[]
   }
 
@@ -6447,6 +6462,11 @@ export namespace Prisma {
      * Skip the first `n` WithdrawRequests.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of WithdrawRequests.
+     */
     distinct?: WithdrawRequestScalarFieldEnum | WithdrawRequestScalarFieldEnum[]
   }
 
@@ -7601,6 +7621,11 @@ export namespace Prisma {
      * Skip the first `n` FaceVerificationLogs.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of FaceVerificationLogs.
+     */
     distinct?: FaceVerificationLogScalarFieldEnum | FaceVerificationLogScalarFieldEnum[]
   }
 

@@ -17,7 +17,7 @@ spec:
       containers:
         - name: cron
           image: netmanager-cron:production
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           env:
             - name: APP_URL
               value: "http://netmanager-app"

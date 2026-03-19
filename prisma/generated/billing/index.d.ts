@@ -470,8 +470,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 7.4.2
-   * Query Engine version: 94a226be1cf2967af2541cca5529f0f7ba866919
+   * Prisma Client JS version: 7.5.0
+   * Query Engine version: 280c870be64f457428992c43c1f6d557fab6e29e
    */
   export type PrismaVersion = {
     client: string
@@ -2945,6 +2945,11 @@ export namespace Prisma {
      * Skip the first `n` Invoices.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Invoices.
+     */
     distinct?: InvoiceScalarFieldEnum | InvoiceScalarFieldEnum[]
   }
 
@@ -4124,6 +4129,11 @@ export namespace Prisma {
      * Skip the first `n` InvoiceItems.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of InvoiceItems.
+     */
     distinct?: InvoiceItemScalarFieldEnum | InvoiceItemScalarFieldEnum[]
   }
 
@@ -5432,6 +5442,11 @@ export namespace Prisma {
      * Skip the first `n` Payments.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Payments.
+     */
     distinct?: PaymentScalarFieldEnum | PaymentScalarFieldEnum[]
   }
 
@@ -6705,6 +6720,11 @@ export namespace Prisma {
      * Skip the first `n` PaymentGatewayConfigs.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of PaymentGatewayConfigs.
+     */
     distinct?: PaymentGatewayConfigScalarFieldEnum | PaymentGatewayConfigScalarFieldEnum[]
   }
 
@@ -7902,6 +7922,11 @@ export namespace Prisma {
      * Skip the first `n` UnmatchedMutations.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of UnmatchedMutations.
+     */
     distinct?: UnmatchedMutationScalarFieldEnum | UnmatchedMutationScalarFieldEnum[]
   }
 
@@ -9100,6 +9125,11 @@ export namespace Prisma {
      * Skip the first `n` MixRadiusInvoices.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusInvoices.
+     */
     distinct?: MixRadiusInvoiceScalarFieldEnum | MixRadiusInvoiceScalarFieldEnum[]
   }
 
@@ -10212,6 +10242,11 @@ export namespace Prisma {
      * Skip the first `n` MixRadiusCustomers.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusCustomers.
+     */
     distinct?: MixRadiusCustomerScalarFieldEnum | MixRadiusCustomerScalarFieldEnum[]
   }
 
@@ -11242,6 +11277,11 @@ export namespace Prisma {
      * Skip the first `n` MixRadiusOwnerGroups.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusOwnerGroups.
+     */
     distinct?: MixRadiusOwnerGroupScalarFieldEnum | MixRadiusOwnerGroupScalarFieldEnum[]
   }
 
@@ -12259,6 +12299,11 @@ export namespace Prisma {
      * Skip the first `n` MixRadiusInvestorSites.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusInvestorSites.
+     */
     distinct?: MixRadiusInvestorSiteScalarFieldEnum | MixRadiusInvestorSiteScalarFieldEnum[]
   }
 
@@ -13332,6 +13377,11 @@ export namespace Prisma {
      * Skip the first `n` MixRadiusConfigs.
      */
     skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MixRadiusConfigs.
+     */
     distinct?: MixRadiusConfigScalarFieldEnum | MixRadiusConfigScalarFieldEnum[]
   }
 

@@ -11,13 +11,9 @@ export function Providers({
 }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true} enableColorScheme={false}>
-      {typeof window !== 'undefined' ? (
-        <SessionProvider>
-          {children}
-        </SessionProvider>
-      ) : (
-        children
-      )}
+      <SessionProvider>
+        {children}
+      </SessionProvider>
       <Toaster position="top-right" />
     </ThemeProvider>
   )

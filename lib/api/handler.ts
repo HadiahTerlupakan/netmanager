@@ -59,6 +59,7 @@ export interface HandlerContext<T = unknown> {
             name?: string
             role?: string
             tenantId?: string
+            siteId?: string
             isSuperAdmin?: boolean
         }
     } | null
@@ -122,6 +123,7 @@ export function createHandler<T = unknown>(
                             name: session.user.name,
                             role: session.user.role,
                             tenantId: session.user.tenantId,
+                            siteId: (session.user as { siteId?: string }).siteId,
                             isSuperAdmin: session.user.isSuperAdmin,
                         }
                     }

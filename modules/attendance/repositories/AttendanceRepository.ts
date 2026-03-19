@@ -22,20 +22,31 @@ export class AttendanceRepository {
 
     async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
         // 1. Status Counts
-        // Use raw query to ensure we capture filtering correctly if it wasn't working before with Prisma types
-        // But Prisma groupBy supports relations in where clause usually.
-        // Let's stick to Prisma for simple counts if it works, BUT we need consistency.
-        // If we switch to raw for AVG, might as well use raw for everything to avoid mixing logic or just use raw for AVG.
-        // Let's use raw for AVG only as it is the heavy part.
+        // Use user ID filtering instead of JOIN to User table
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            
+            // Short-circuit if no users match filters
+            if (userIds.length === 0) {
+                return {
+                    total: 0,
+                    avgDurationMinutes: 0,
+                    statusCounts: {}
+                }
+            }
+        }
 
         const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate }
-        }
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+            checkIn: { gte: startDate, lte: endDate },
+            ...(userIds !== undefined && { userId: { in: userIds } })
         }
 
         const statusCounts = await prisma.attendance.groupBy({
@@ -54,13 +65,6 @@ export class AttendanceRepository {
             SELECT
                 AVG(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "avgDuration"
             FROM "Attendance" a
-        `
-
-        if (siteId || departmentId) {
-            query = Prisma.sql`${query} JOIN "User" u ON a."userId" = u.id`
-        }
-
-        query = Prisma.sql`${query} 
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
             AND a."checkOut" IS NOT NULL
@@ -70,11 +74,8 @@ export class AttendanceRepository {
             query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`
         }
 
-        if (siteId) {
-            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
-        }
-        if (departmentId) {
-            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        if (userIds !== undefined) {
+            query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`
         }
 
         const avgResult = await prisma.$queryRaw<{ avgDuration: number }[]>(query)
@@ -96,19 +97,29 @@ export class AttendanceRepository {
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            
+            // Short-circuit if no users match filters
+            if (userIds.length === 0) {
+                return []
+            }
+        }
+
         let query = Prisma.sql`
             SELECT
                 TO_CHAR(a."checkIn", 'YYYY-MM-DD') as date,
                 COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
                 COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late
             FROM "Attendance" a
-        `
-
-        if (siteId || departmentId) {
-            query = Prisma.sql`${query} JOIN "User" u ON a."userId" = u.id`
-        }
-
-        query = Prisma.sql`${query} 
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
         `
@@ -117,11 +128,8 @@ export class AttendanceRepository {
             query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`
         }
 
-        if (siteId) {
-            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
-        }
-        if (departmentId) {
-            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        if (userIds !== undefined) {
+            query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`
         }
 
         query = Prisma.sql`${query} GROUP BY TO_CHAR(a."checkIn", 'YYYY-MM-DD')`
@@ -129,31 +137,21 @@ export class AttendanceRepository {
         const attendanceStats = await prisma.$queryRaw<{ date: string, present: number, late: number }[]>(query)
 
         // 2. Get Leave Stats
-        // Note: Leaves can span multiple days, so simple group by start date isn't enough for daily stats if we want to show "people on leave today"
-        // But for "Daily Stats" chart usually we just count new leaves starting that day OR expanding ranges.
-        // Expanding ranges in SQL is complex (generate_series).
-        // For now, let's keep the existing logic for leaves (JS expansion) as it's usually lower volume than attendance.
-        // Or we can optimize if needed. Let's stick to hybrid: Optimized Attendance (High Vol) + JS Leave (Low Vol).
-
-        // Fetch Holidays (Low Vol)
+        // ... (rest of the method stays mostly same, but update leaveWhere)
         const holidayRepo = new HolidayRepository()
         const holidays = await holidayRepo.findMany({
             where: { date: { gte: startDate, lte: endDate } }
         })
         const holidaySet = new Set<string>(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
 
-        // Fetch Leaves (Low/Med Vol)
+        // Fetch Leaves
         const leaveWhere: Prisma.LeaveRequestWhereInput = {
             status: 'APPROVED',
             startDate: { lte: endDate },
-            endDate: { gte: startDate }
+            endDate: { gte: startDate },
+            ...(userIds !== undefined && { userId: { in: userIds } })
         }
-        if (siteId || departmentId) {
-            leaveWhere.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
-        }
+        
         const leaves = await prisma.leaveRequest.findMany({
             where: leaveWhere,
             select: { startDate: true, endDate: true, type: true }
@@ -211,106 +209,129 @@ export class AttendanceRepository {
         endDate: Date,
         groupBy: 'department' | 'site'
     ) {
-        let groupByColumn = Prisma.sql``
-        let groupByNameColumn = Prisma.sql``
-        let joinTable = Prisma.sql``
-
-        if (groupBy === 'site') {
-            groupByColumn = Prisma.sql`u."siteId"`
-            joinTable = Prisma.sql`JOIN "sites" s ON u."siteId" = s.id`
-            groupByNameColumn = Prisma.sql`s.name`
-        } else {
-            groupByColumn = Prisma.sql`u."departmentId"`
-            joinTable = Prisma.sql`JOIN "departments" d ON u."departmentId" = d.id`
-            groupByNameColumn = Prisma.sql`d.name`
-        }
-
-        // Raw query to aggregate by joined table
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
+        // 1. Get attendance stats grouped by userId
         const query = Prisma.sql`
             SELECT
-                ${groupByColumn} as id,
-                ${groupByNameColumn} as name,
+                a."userId",
                 COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
                 COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late,
                 COUNT(*)::int as total
             FROM "Attendance" a
-            JOIN "User" u ON a."userId" = u.id
-            ${joinTable}
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
             ${!isSuperAdmin ? Prisma.sql`AND a."tenantId" = ${effectiveTenantId}` : Prisma.empty}
-            GROUP BY ${groupByColumn}, ${groupByNameColumn}
+            GROUP BY a."userId"
         `
 
-        const stats = await prisma.$queryRaw<{ id: string, name: string, present: number, late: number, total: number }[]>(query)
+        const userStats = await prisma.$queryRaw<{ userId: string, present: number, late: number, total: number }[]>(query)
 
-        return stats
+        if (userStats.length === 0) return []
+
+        // 2. Fetch Users with their site or department info
+        const users = await prisma.user.findMany({
+            where: { id: { in: userStats.map(s => s.userId) } },
+            select: {
+                id: true,
+                siteId: true,
+                departmentId: true,
+                sites: { select: { name: true } },
+                departments: { select: { name: true } }
+            }
+        })
+
+        // 3. Aggregate in memory
+        const groupMap = new Map<string, { id: string, name: string, present: number, late: number, total: number }>()
+
+        userStats.forEach(stat => {
+            const user = users.find(u => u.id === stat.userId)
+            if (!user) return
+
+            const groupId = groupBy === 'site' ? user.siteId : user.departmentId
+            const groupName = groupBy === 'site' ? user.sites?.name : user.departments?.name
+
+            if (!groupId) return
+
+            if (!groupMap.has(groupId)) {
+                groupMap.set(groupId, { id: groupId, name: groupName || 'Unknown', present: 0, late: 0, total: 0 })
+            }
+
+            const g = groupMap.get(groupId)!
+            g.present += stat.present
+            g.late += stat.late
+            g.total += stat.total
+        })
+
+        return Array.from(groupMap.values())
     }
 
     async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            status: { in: ['ON_TIME', 'LATE'] } // Count present days
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            if (userIds.length === 0) return []
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: { in: ['ON_TIME', 'LATE'] },
+            ...(userIds !== undefined && { userId: { in: userIds } })
         }
 
         // Group by User
         const groups = await prisma.attendance.groupBy({
             by: ['userId'],
             where,
-            _count: { _all: true },
-            orderBy: {
-                _count: {
-                    userId: 'desc' // Initial sort, but we need count desc. Prisma groupBy orderBy count is supported in newer versions.
-                    // Fallback: fetch and sort in memory if needed, but let's try Prisma way or just raw count.
-                }
-            }
+            _count: { _all: true }
         })
 
-        // Prisma groupBy sorting by aggregation might be tricky in older versions or specific DBs without preview features.
-        // Safer approach: Fetch aggregated, then sort js, then populate user info.
-
         // Sort by count desc
-        groups.sort((a: { _count: { _all: number } }, b: { _count: { _all: number } }) => b._count._all - a._count._all)
+        groups.sort((a, b) => b._count._all - a._count._all)
         const topIds = groups.slice(0, limit)
+
+        if (topIds.length === 0) return []
 
         // Fetch User Details
         const users = await prisma.user.findMany({
-            where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
+            where: { id: { in: topIds.map(g => g.userId) } },
             select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
-        return topIds.map((g: { userId: string, _count: { _all: number } }) => {
-            const user = users.find((u: { id: string }) => u.id === g.userId)
+        return topIds.map(g => {
+            const user = users.find(u => u.id === g.userId)
             return {
                 user,
                 count: g._count._all
             }
-        }).filter((item: { user: { id: string } | undefined }) => item.user != null)
+        }).filter(item => item.user != null)
     }
 
     async getTopAbsentees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
-        // Build user filter - always exclude FLEXIBLE
-        const userFilter: Prisma.UserWhereInput = {
-            workingHourMode: { not: 'FLEXIBLE' },
-            ...(siteId && { siteId }),
-            ...(departmentId && { departmentId })
-        }
+        let userIds: string[] | undefined = undefined
+        const usersMatch = await prisma.user.findMany({
+            where: {
+                workingHourMode: { not: 'FLEXIBLE' },
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            },
+            select: { id: true }
+        })
+        userIds = usersMatch.map(u => u.id)
+        if (userIds.length === 0) return []
 
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
             status: 'ALPHA',
-            // IMPORTANT: Exclude FLEXIBLE users - they should never have ALPHA status
-            user: userFilter
+            userId: { in: userIds }
         }
 
         const groups = await prisma.attendance.groupBy({
@@ -320,34 +341,43 @@ export class AttendanceRepository {
         })
 
         // Sort by count desc
-        groups.sort((a: { _count: { _all: number } }, b: { _count: { _all: number } }) => b._count._all - a._count._all)
+        groups.sort((a, b) => b._count._all - a._count._all)
         const topIds = groups.slice(0, limit)
 
+        if (topIds.length === 0) return []
+
         const users = await prisma.user.findMany({
-            where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
+            where: { id: { in: topIds.map(g => g.userId) } },
             select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
         })
 
-        return topIds.map((g: { userId: string, _count: { _all: number } }) => {
-            const user = users.find((u: { id: string }) => u.id === g.userId)
+        return topIds.map(g => {
+            const user = users.find(u => u.id === g.userId)
             return {
                 user,
                 count: g._count._all
             }
-        }).filter((item: { user: { id: string } | undefined }) => item.user != null)
+        }).filter(item => item.user != null)
     }
 
     async getUserAttendanceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            status: { in: ['ON_TIME', 'LATE'] }
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            if (userIds.length === 0) return []
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: { in: ['ON_TIME', 'LATE'] },
+            ...(userIds !== undefined && { userId: { in: userIds } })
         }
 
         return prisma.attendance.groupBy({
@@ -358,18 +388,21 @@ export class AttendanceRepository {
     }
 
     async getUserAbsenceStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        // Build user filter - always exclude FLEXIBLE
-        const userFilter: Prisma.UserWhereInput = {
-            workingHourMode: { not: 'FLEXIBLE' },
-            ...(siteId && { siteId }),
-            ...(departmentId && { departmentId })
-        }
+        const usersMatch = await prisma.user.findMany({
+            where: {
+                workingHourMode: { not: 'FLEXIBLE' },
+                ...(siteId && { siteId }),
+                ...(departmentId && { departmentId })
+            },
+            select: { id: true }
+        })
+        const userIds = usersMatch.map(u => u.id)
+        if (userIds.length === 0) return []
 
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
             status: 'ALPHA',
-            // IMPORTANT: Exclude FLEXIBLE users - they should never have ALPHA status
-            user: userFilter
+            userId: { in: userIds }
         }
 
         return prisma.attendance.groupBy({
@@ -380,16 +413,23 @@ export class AttendanceRepository {
     }
 
     async getUserAttendanceRecords(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            status: { in: ['ON_TIME', 'LATE'] }
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            if (userIds.length === 0) return []
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: { in: ['ON_TIME', 'LATE'] },
+            ...(userIds !== undefined && { userId: { in: userIds } })
         }
 
         return prisma.attendance.findMany({
@@ -406,18 +446,24 @@ export class AttendanceRepository {
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            if (userIds.length === 0) return new Map<string, number>()
+        }
+
         let query = Prisma.sql`
             SELECT
                 a."userId",
                 SUM(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "totalMinutes"
             FROM "Attendance" a
-        `
-
-        if (siteId || departmentId) {
-            query = Prisma.sql`${query} JOIN "User" u ON a."userId" = u.id`
-        }
-
-        query = Prisma.sql`${query} 
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
             AND a."checkOut" IS NOT NULL
@@ -428,11 +474,8 @@ export class AttendanceRepository {
             query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`
         }
 
-        if (siteId) {
-            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
-        }
-        if (departmentId) {
-            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
+        if (userIds !== undefined) {
+            query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`
         }
 
         query = Prisma.sql`${query} GROUP BY a."userId"`
@@ -448,16 +491,23 @@ export class AttendanceRepository {
     }
 
     async getUserLateStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.AttendanceWhereInput = {
-            checkIn: { gte: startDate, lte: endDate },
-            status: 'LATE'
+        let userIds: string[] | undefined = undefined
+        if (siteId || departmentId) {
+            const users = await prisma.user.findMany({
+                where: {
+                    ...(siteId && { siteId }),
+                    ...(departmentId && { departmentId })
+                },
+                select: { id: true }
+            })
+            userIds = users.map(u => u.id)
+            if (userIds.length === 0) return []
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const where: Prisma.AttendanceWhereInput = {
+            checkIn: { gte: startDate, lte: endDate },
+            status: 'LATE',
+            ...(userIds !== undefined && { userId: { in: userIds } })
         }
 
         return prisma.attendance.groupBy({

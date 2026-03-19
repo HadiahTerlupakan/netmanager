@@ -16,21 +16,33 @@ const calculateSalarySchema = z.object({
     employeeType: z.nativeEnum(EmployeeType).optional(),
 })
 
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // Permission check
     if (!await hasPermission('salary:read')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data gaji')
     }
 
     const { searchParams } = req.nextUrl
+    const sessionUser = ctx.session!.user
 
     const monthStr = searchParams.get('month')
     const yearStr = searchParams.get('year')
     const status = searchParams.get('status') as SalaryStatus | undefined
     const userId = searchParams.get('userId') || undefined
     const departmentId = searchParams.get('departmentId') || undefined
-    const siteId = searchParams.get('siteId') || undefined
     const employeeType = searchParams.get('employeeType') || undefined
+    
+    // Site-level isolation logic
+    let siteId = searchParams.get('siteId') || undefined
+    const isSiteOnly = await hasPermission('salary:site_only')
+
+    if (isSiteOnly && !sessionUser.isSuperAdmin) {
+        // Jika user dibatasi site_only, mereka hanya boleh melihat site mereka sendiri
+        if (siteId && siteId !== sessionUser.siteId) {
+            return ApiErrors.forbidden('Anda hanya diperbolehkan melihat data gaji di site Anda sendiri')
+        }
+        siteId = sessionUser.siteId as string
+    }
 
     const filters = {
         ...(monthStr ? { month: parseInt(monthStr) } : {}),
@@ -69,8 +81,20 @@ export const POST = createHandler({
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat gaji')
     }
 
-    const { action, userId, month, year, departmentId, siteId, employeeType } = ctx.validated
-    const sessionUserId = ctx.session!.user.id
+    const { action, userId, month, year, departmentId, employeeType } = ctx.validated
+    const sessionUser = ctx.session!.user
+    const sessionUserId = sessionUser.id
+    
+    // Site-level isolation logic
+    let siteId = ctx.validated.siteId || undefined
+    const isSiteOnly = await hasPermission('salary:site_only')
+
+    if (isSiteOnly && !sessionUser.isSuperAdmin) {
+        if (siteId && siteId !== sessionUser.siteId) {
+            return ApiErrors.forbidden('Anda hanya diperbolehkan mengolah data gaji di site Anda sendiri')
+        }
+        siteId = sessionUser.siteId as string
+    }
 
     if (action === 'calculate-single' && userId) {
         // Calculate for single user

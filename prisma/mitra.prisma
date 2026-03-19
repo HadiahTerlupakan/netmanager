@@ -1,4 +1,4 @@
-generator client_mitra {
+generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
   output          = "./generated/mitra"

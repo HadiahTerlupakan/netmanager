@@ -57,7 +57,18 @@ export class InventoryRepository implements IInventoryRepository {
 
         const queryOptions: Prisma.BarangFindManyArgs = {
             where,
-            include: {
+            select: {
+                id: true,
+                kode: true,
+                nama: true,
+                satuan: true,
+                isWorkOrderMaterial: true,
+                jenis: true,
+                kategoriAset: true,
+                createdAt: true,
+                tenantId: true,
+                updatedAt: true,
+                supplierId: true,
                 barangGudang: {
                     where: {
                         AND: [
@@ -65,8 +76,19 @@ export class InventoryRepository implements IInventoryRepository {
                             siteId ? { gudang: { sites: { some: { id: siteId } } } } : {}
                         ]
                     },
-                    include: {
-                        gudang: true
+                    select: {
+                        id: true,
+                        stok: true,
+                        stokBaru: true,
+                        stokBekas: true,
+                        stokRusak: true,
+                        gudang: {
+                            select: {
+                                id: true,
+                                nama: true,
+                                kode: true
+                            }
+                        }
                     }
                 }
             },
@@ -88,7 +110,9 @@ export class InventoryRepository implements IInventoryRepository {
                 barangGudang: {
                     include: {
                         gudang: {
-                            include: { sites: true }
+                            include: {
+                                sites: true
+                            }
                         }
                     }
                 }
@@ -103,7 +127,9 @@ export class InventoryRepository implements IInventoryRepository {
                 barangGudang: {
                     include: {
                         gudang: {
-                            include: { sites: true }
+                            include: {
+                                sites: true
+                            }
                         }
                     }
                 }
@@ -141,26 +167,76 @@ export class InventoryRepository implements IInventoryRepository {
     async findBarangDetail(id: string): Promise<BarangDetail | null> {
         const result = await this.db.barang.findUnique({
             where: { id },
-            include: {
+            select: {
+                id: true,
+                kode: true,
+                nama: true,
+                satuan: true,
+                isWorkOrderMaterial: true,
+                jenis: true,
+                kategoriAset: true,
+                createdAt: true,
+                tenantId: true,
+                updatedAt: true,
+                supplierId: true,
                 barangGudang: {
-                    include: {
+                    select: {
+                        id: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        tenantId: true,
+                        barangId: true,
+                        gudangId: true,
+                        stok: true,
+                        stokBaru: true,
+                        stokBekas: true,
+                        stokRusak: true,
                         gudang: {
-                            include: { sites: true }
+                            select: {
+                                id: true,
+                                kode: true,
+                                nama: true,
+                                sites: { select: { id: true, name: true } }
+                            }
                         }
                     }
                 },
                 barang_masuk: {
-                    include: { gudang: true, user: { select: { id: true, name: true } } },
+                    select: {
+                        id: true,
+                        tanggal: true,
+                        jumlah: true,
+                        kondisi: true,
+                        keterangan: true,
+                        gudang: { select: { id: true, nama: true } },
+                        user: { select: { id: true, name: true } }
+                    },
                     orderBy: { tanggal: 'desc' },
                     take: 10
                 },
                 barang_keluar: {
-                    include: { gudang: true, user: { select: { id: true, name: true } } },
+                    select: {
+                        id: true,
+                        tanggal: true,
+                        jumlah: true,
+                        kondisi: true,
+                        keterangan: true,
+                        gudang: { select: { id: true, nama: true } },
+                        user: { select: { id: true, name: true } }
+                    },
                     orderBy: { tanggal: 'desc' },
                     take: 10
                 },
                 stockOpname: {
-                    include: { gudang: true },
+                    select: {
+                        id: true,
+                        tanggal: true,
+                        stokFisik: true,
+                        stokSistem: true,
+                        selisih: true,
+                        keterangan: true,
+                        gudang: { select: { id: true, nama: true } }
+                    },
                     orderBy: { tanggal: 'desc' },
                     take: 10
                 }

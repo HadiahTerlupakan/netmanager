@@ -120,104 +120,116 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
-exports.Prisma.MitraScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  email: 'email',
-  passwordHash: 'passwordHash',
-  phone: 'phone',
-  isActive: 'isActive',
-  siteId: 'siteId',
-  mitraType: 'mitraType',
-  pushToken: 'pushToken',
-  pushTokenUpdatedAt: 'pushTokenUpdatedAt',
-  fcmTokens: 'fcmTokens',
-  lastVersionCode: 'lastVersionCode',
-  lastVersionName: 'lastVersionName',
-  lastVersionUpdate: 'lastVersionUpdate',
-  mitraRateWoPsb: 'mitraRateWoPsb',
-  mitraRateWoMaintenance: 'mitraRateWoMaintenance',
-  mitraRateCanvasing: 'mitraRateCanvasing',
-  mitraRateFeePelanggan: 'mitraRateFeePelanggan',
-  enableFeePelanggan: 'enableFeePelanggan',
-  bankName: 'bankName',
-  bankAccountNo: 'bankAccountNo',
-  bankAccountName: 'bankAccountName',
-  targetHarian: 'targetHarian',
-  minWithdrawal: 'minWithdrawal',
-  mixradiusOwnerNames: 'mixradiusOwnerNames',
-  nik: 'nik',
-  tempatLahir: 'tempatLahir',
-  tanggalLahir: 'tanggalLahir',
-  alamat: 'alamat',
-  latitudeRumah: 'latitudeRumah',
-  longitudeRumah: 'longitudeRumah',
-  fotoDiri: 'fotoDiri',
-  fotoKtp: 'fotoKtp',
-  fotoSim: 'fotoSim',
-  fotoKk: 'fotoKk',
-  requiresFaceVerification: 'requiresFaceVerification',
-  lastFaceVerification: 'lastFaceVerification',
-  garansiHari: 'garansiHari',
-  slaGaransiJam: 'slaGaransiJam',
-  penaltyPsb: 'penaltyPsb',
-  penaltyMaintenance: 'penaltyMaintenance',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
+exports.Prisma.RadacctScalarFieldEnum = {
+  radacctid: 'radacctid',
+  acctsessionid: 'acctsessionid',
+  acctuniqueid: 'acctuniqueid',
+  username: 'username',
+  realm: 'realm',
+  nasipaddress: 'nasipaddress',
+  nasportid: 'nasportid',
+  nasporttype: 'nasporttype',
+  acctstarttime: 'acctstarttime',
+  acctupdatetime: 'acctupdatetime',
+  acctstoptime: 'acctstoptime',
+  acctinterval: 'acctinterval',
+  acctsessiontime: 'acctsessiontime',
+  acctauthentic: 'acctauthentic',
+  connectinfo_start: 'connectinfo_start',
+  connectinfo_stop: 'connectinfo_stop',
+  acctinputoctets: 'acctinputoctets',
+  acctoutputoctets: 'acctoutputoctets',
+  calledstationid: 'calledstationid',
+  callingstationid: 'callingstationid',
+  acctterminatecause: 'acctterminatecause',
+  servicetype: 'servicetype',
+  framedprotocol: 'framedprotocol',
+  framedipaddress: 'framedipaddress',
+  framedipv6address: 'framedipv6address',
+  framedipv6prefix: 'framedipv6prefix',
+  framedinterfaceid: 'framedinterfaceid',
+  delegatedipv6prefix: 'delegatedipv6prefix',
+  class: 'class',
   tenantId: 'tenantId'
 };
 
-exports.Prisma.MitraWalletScalarFieldEnum = {
+exports.Prisma.RadcheckScalarFieldEnum = {
   id: 'id',
-  mitraId: 'mitraId',
-  balance: 'balance',
-  totalEarnings: 'totalEarnings',
-  totalWithdrawn: 'totalWithdrawn',
-  currency: 'currency',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
+  username: 'username',
+  attribute: 'attribute',
+  op: 'op',
+  value: 'value',
   tenantId: 'tenantId'
 };
 
-exports.Prisma.MitraTransactionScalarFieldEnum = {
+exports.Prisma.RadgroupcheckScalarFieldEnum = {
   id: 'id',
-  walletId: 'walletId',
-  amount: 'amount',
+  groupname: 'groupname',
+  attribute: 'attribute',
+  op: 'op',
+  value: 'value',
+  tenantId: 'tenantId'
+};
+
+exports.Prisma.RadgroupreplyScalarFieldEnum = {
+  id: 'id',
+  groupname: 'groupname',
+  attribute: 'attribute',
+  op: 'op',
+  value: 'value',
+  tenantId: 'tenantId'
+};
+
+exports.Prisma.RadreplyScalarFieldEnum = {
+  id: 'id',
+  username: 'username',
+  attribute: 'attribute',
+  op: 'op',
+  value: 'value',
+  tenantId: 'tenantId'
+};
+
+exports.Prisma.RadusergroupScalarFieldEnum = {
+  id: 'id',
+  username: 'username',
+  groupname: 'groupname',
+  priority: 'priority',
+  tenantId: 'tenantId'
+};
+
+exports.Prisma.RadpostauthScalarFieldEnum = {
+  id: 'id',
+  username: 'username',
+  pass: 'pass',
+  reply: 'reply',
+  authdate: 'authdate',
+  class: 'class',
+  tenantId: 'tenantId'
+};
+
+exports.Prisma.NasScalarFieldEnum = {
+  id: 'id',
+  nasname: 'nasname',
+  shortname: 'shortname',
   type: 'type',
+  ports: 'ports',
+  secret: 'secret',
+  server: 'server',
+  community: 'community',
   description: 'description',
-  referenceId: 'referenceId',
-  referenceType: 'referenceType',
-  createdAt: 'createdAt',
   tenantId: 'tenantId'
 };
 
-exports.Prisma.WithdrawRequestScalarFieldEnum = {
+exports.Prisma.RadippoolScalarFieldEnum = {
   id: 'id',
-  mitraId: 'mitraId',
-  amount: 'amount',
-  bankName: 'bankName',
-  bankAccountNo: 'bankAccountNo',
-  bankAccountName: 'bankAccountName',
-  status: 'status',
-  method: 'method',
-  notes: 'notes',
-  processedById: 'processedById',
-  processedAt: 'processedAt',
-  rejectionReason: 'rejectionReason',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  mitraWalletId: 'mitraWalletId',
-  tenantId: 'tenantId'
-};
-
-exports.Prisma.FaceVerificationLogScalarFieldEnum = {
-  id: 'id',
-  mitraId: 'mitraId',
-  photoUrl: 'photoUrl',
-  latitude: 'latitude',
-  longitude: 'longitude',
-  deviceInfo: 'deviceInfo',
-  createdAt: 'createdAt',
+  pool_name: 'pool_name',
+  framedipaddress: 'framedipaddress',
+  nasipaddress: 'nasipaddress',
+  calledstationid: 'calledstationid',
+  callingstationid: 'callingstationid',
+  expiry_time: 'expiry_time',
+  username: 'username',
+  pool_key: 'pool_key',
   tenantId: 'tenantId'
 };
 
@@ -235,36 +247,18 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
-exports.MitraType = exports.$Enums.MitraType = {
-  MITRA_SALES: 'MITRA_SALES',
-  MITRA_TEKNISI: 'MITRA_TEKNISI'
-};
 
-exports.MitraTransactionType = exports.$Enums.MitraTransactionType = {
-  EARNING: 'EARNING',
-  WITHDRAW: 'WITHDRAW',
-  ADJUSTMENT: 'ADJUSTMENT'
-};
-
-exports.WithdrawStatus = exports.$Enums.WithdrawStatus = {
-  PENDING: 'PENDING',
-  APPROVED: 'APPROVED',
-  PROCESSING: 'PROCESSING',
-  COMPLETED: 'COMPLETED',
-  REJECTED: 'REJECTED'
-};
-
-exports.WithdrawMethod = exports.$Enums.WithdrawMethod = {
-  TRANSFER: 'TRANSFER',
-  CASH: 'CASH'
-};
 
 exports.Prisma.ModelName = {
-  Mitra: 'Mitra',
-  MitraWallet: 'MitraWallet',
-  MitraTransaction: 'MitraTransaction',
-  WithdrawRequest: 'WithdrawRequest',
-  FaceVerificationLog: 'FaceVerificationLog'
+  radacct: 'radacct',
+  radcheck: 'radcheck',
+  radgroupcheck: 'radgroupcheck',
+  radgroupreply: 'radgroupreply',
+  radreply: 'radreply',
+  radusergroup: 'radusergroup',
+  radpostauth: 'radpostauth',
+  nas: 'nas',
+  radippool: 'radippool'
 };
 
 /**

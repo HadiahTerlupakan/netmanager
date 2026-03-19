@@ -30,6 +30,25 @@ spec:
           ports:
             - containerPort: 5432
               name: postgres
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -85,6 +104,25 @@ spec:
           ports:
             - containerPort: 5432
               name: postgres
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -140,6 +178,25 @@ spec:
           ports:
             - containerPort: 5432
               name: postgres
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data
@@ -195,6 +252,25 @@ spec:
           ports:
             - containerPort: 5432
               name: postgres
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
           volumeMounts:
             - name: db-data
               mountPath: /var/lib/postgresql/data

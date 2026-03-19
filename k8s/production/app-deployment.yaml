@@ -36,7 +36,7 @@ spec:
       containers:
         - name: app
           image: netmanager-app:production
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           envFrom:
