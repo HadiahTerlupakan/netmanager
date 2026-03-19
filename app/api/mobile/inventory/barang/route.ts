@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { Prisma } from '@prisma/client'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - Get barang list for mobile
 // Query params:
@@ -19,18 +20,19 @@ export async function GET(req: NextRequest) {
 
         const decoded = authResult
         const userId = decoded.id as string
+        const tenantId = decoded.tenantId as string
 
         const { searchParams } = new URL(req.url)
         const gudangId = searchParams.get('gudangId')
         const mode = searchParams.get('mode') || 'keluar' // Default to 'keluar' for backward compatibility
 
         if (!gudangId && mode !== 'masuk') {
-            return NextResponse.json({ error: 'gudangId required' }, { status: 400 })
+            return apiError('gudangId required', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Fetch user to check permissions
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             include: {
                 role: { include: { permission: true } },
                 sites: true
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
         }) : null
 
         if (!user && !mitra) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
+            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         // Check for Site-Based Restriction Policy (only for User, not Mitra)
@@ -55,7 +57,7 @@ export async function GET(req: NextRequest) {
 
         // MODE: MASUK - Return ALL master barang (for receiving new stock)
         if (mode === 'masuk') {
-            const barangWhere: Prisma.BarangWhereInput = {}
+            const barangWhere: Prisma.BarangWhereInput = { tenantId }
 
             if (isSiteRestricted && user.sites?.id) {
                 // Filter barang that have been at least once in the user's site warehouses
@@ -102,7 +104,8 @@ export async function GET(req: NextRequest) {
 
         // MODE: KELUAR (default) - Return only barang with existing stock in gudang
         const whereClause: Record<string, unknown> = {
-            gudangId
+            gudangId,
+            tenantId
         }
 
         if (isSiteRestricted) {
@@ -154,6 +157,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ barangList })
     } catch (error) {
         console.error('Error fetching barangs (mobile):', error)
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

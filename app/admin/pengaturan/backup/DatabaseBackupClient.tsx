@@ -1,18 +1,11 @@
-'use client'
+"use client"
 
 import { useRef, useState } from 'react'
-import {
-    HiArrowPath,
-    HiCheckCircle,
-    HiCloudArrowDown,
-    HiCloudArrowUp,
-    HiExclamationCircle,
-    HiExclamationTriangle,
-    HiInformationCircle,
-    HiXCircle,
-} from 'react-icons/hi2'
 import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
+import { ExportBackup } from '@/components/admin/settings/ExportBackup'
+import { ImportBackup } from '@/components/admin/settings/ImportBackup'
+import { ResetDatabase } from '@/components/admin/settings/ResetDatabase'
 
 type ImportResult = {
     database: string
@@ -185,354 +178,45 @@ export function ClientComponent({ canResetDatabase }: { canResetDatabase: boolea
     return (
         <div className="w-full space-y-6">
             {/* Header */}
-            <div className="mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Backup Database</h2>
+            <div className="mb-4 text-center md:text-left">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Backup & Pemulihan</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Export dan import semua database aplikasi (NetManager, RADIUS, Billing, Mitra)
+                    Export, import, dan kelola integritas database aplikasi Anda
                 </p>
             </div>
 
-            {/* Info Banner */}
-            <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <HiInformationCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
-                    <p className="font-medium">Informasi Backup</p>
-                    <ul className="list-disc list-inside space-y-0.5 text-blue-700 dark:text-blue-400">
-                        <li>Export akan menghasilkan satu file <code className="text-xs bg-blue-100 dark:bg-blue-900 px-1 rounded">.tar.gz</code> berisi semua database</li>
-                        <li>Import menggunakan file hasil export yang sama — tidak perlu extract manual</li>
-                        <li>Data yang sudah ada <strong>tidak akan dihapus</strong> saat import, hanya data baru yang ditambahkan</li>
-                    </ul>
-                </div>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* ─── EXPORT SECTION ─── */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-                            <HiCloudArrowDown className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Export Backup</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Download semua database sekaligus</p>
-                        </div>
-                    </div>
+                <ExportBackup 
+                    exporting={exporting}
+                    exportSuccess={exportSuccess}
+                    exportError={exportError}
+                    handleExport={handleExport}
+                    databaseLabels={DATABASE_LABELS}
+                />
 
-                    {/* Database list */}
-                    <div className="space-y-2 mb-5">
-                        <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                            Database yang akan di-backup:
-                        </p>
-                        {Object.entries(DATABASE_LABELS).map(([key, label]) => (
-                            <div
-                                key={key}
-                                className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                            >
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
-                                <code className="ml-auto text-xs text-gray-400 dark:text-gray-500">{key}</code>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Export Button */}
-                    <button
-                        type="button"
-                        onClick={handleExport}
-                        disabled={exporting}
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
-                    >
-                        {exporting ? (
-                            <>
-                                <HiArrowPath className="w-4 h-4 animate-spin" />
-                                Sedang Membuat Backup...
-                            </>
-                        ) : (
-                            <>
-                                <HiCloudArrowDown className="w-4 h-4" />
-                                Download Backup
-                            </>
-                        )}
-                    </button>
-
-                    {/* Export feedback */}
-                    {exportSuccess && (
-                        <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <HiCheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
-                            <p className="text-sm text-green-800 dark:text-green-400">
-                                Backup berhasil di-download!
-                            </p>
-                        </div>
-                    )}
-
-                    {exportError && (
-                        <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                            <HiXCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                            <p className="text-sm text-red-800 dark:text-red-400">{exportError}</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* ─── IMPORT SECTION ─── */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="p-2.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
-                            <HiCloudArrowUp className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Import Backup</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Restore dari file backup yang sudah di-download</p>
-                        </div>
-                    </div>
-
-                    {/* Warning */}
-                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-5">
-                        <HiExclamationTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-800 dark:text-amber-400">
-                            Data yang sudah ada <strong>tidak akan dihapus</strong>. Hanya data baru yang akan ditambahkan.
-                        </p>
-                    </div>
-
-                    {/* File Upload Area */}
-                    {!importResult && !importing && (
-                        <>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".tar.gz,.tgz,application/gzip,application/x-gzip,application/tar+gzip"
-                                onChange={handleFileChange}
-                                className="hidden"
-                                id="backup-file-input"
-                            />
-                            <button
-                                type="button"
-                                className="relative w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer"
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <HiCloudArrowUp className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                                {selectedFile ? (
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate px-2">
-                                            {selectedFile.name}
-                                        </p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            Klik untuk pilih file backup
-                                        </p>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Format: .tar.gz</p>
-                                    </div>
-                                )}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={handleImport}
-                                disabled={!selectedFile || importing}
-                                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 dark:disabled:text-gray-500 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
-                            >
-                                <HiCloudArrowUp className="w-4 h-4" />
-                                Mulai Import
-                            </button>
-
-                            {importError && (
-                                <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                    <HiXCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                                    <p className="text-sm text-red-800 dark:text-red-400">{importError}</p>
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {importing && (
-                        <div className="flex flex-col items-center justify-center py-10 px-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg text-center animate-in fade-in zoom-in duration-300">
-                            <HiArrowPath className="w-12 h-12 text-amber-500 animate-spin mb-4" />
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Mereset dan Mengimport Database...</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mb-6 mx-auto leading-relaxed">
-                                Proses ini menyedot file backup ke dalam 4 database secara paralel. Harap tunggu dan jangan tutup halaman ini.
-                            </p>
-                            <div className="w-full max-w-sm space-y-3">
-                                <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
-                                    <div className="h-full bg-amber-500 rounded-full w-full animate-pulse opacity-80"></div>
-                                </div>
-                                <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                                    <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" /> Memproses...</span>
-                                    <span>Menyalin tabel...</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {importResult && !importing && (
-                        /* Import Results */
-                        <div className="space-y-4">
-                            {/* Summary */}
-                            <div
-                                className={`flex items-start gap-3 p-4 rounded-lg border ${importResult.success
-                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                                    }`}
-                            >
-                                {importResult.success ? (
-                                    <HiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                                ) : (
-                                    <HiExclamationCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                )}
-                                <p
-                                    className={`text-sm font-medium ${importResult.success
-                                        ? 'text-green-800 dark:text-green-400'
-                                        : 'text-amber-800 dark:text-amber-400'
-                                        }`}
-                                >
-                                    {importResult.message}
-                                </p>
-                            </div>
-
-                            {/* Per-database results */}
-                            <div className="space-y-2">
-                                {importResult.results.map((r) => (
-                                    <div
-                                        key={r.database}
-                                        className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                                    >
-                                        {r.status === 'success' ? (
-                                            <HiCheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                                        ) : r.status === 'skipped' ? (
-                                            <HiExclamationTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
-                                        ) : (
-                                            <HiXCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                                                {DATABASE_LABELS[r.database] || r.database}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{r.message}</p>
-                                        </div>
-                                        <span
-                                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${r.status === 'success'
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-                                                : r.status === 'skipped'
-                                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400'
-                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-                                                }`}
-                                        >
-                                            {r.status === 'success' ? 'Berhasil' : r.status === 'skipped' ? 'Dilewati' : 'Error'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={resetImport}
-                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                Import File Lain
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <ImportBackup 
+                    importing={importing}
+                    importResult={importResult}
+                    importError={importError}
+                    selectedFile={selectedFile}
+                    fileInputRef={fileInputRef}
+                    handleFileChange={handleFileChange}
+                    handleImport={handleImport}
+                    resetImport={resetImport}
+                    databaseLabels={DATABASE_LABELS}
+                />
             </div>
 
 
             {canResetDatabase && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-red-200 dark:border-red-800 p-6">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="p-2.5 bg-red-50 dark:bg-red-900/30 rounded-lg">
-                            <HiExclamationTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Reset Database (Danger Zone)</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Hapus semua data dan kembalikan struktur database kosong</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-5">
-                        <HiExclamationTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                        <div className="text-xs text-red-800 dark:text-red-400 space-y-1">
-                            <p className="font-semibold">Sangat berisiko dan tidak bisa di-undo.</p>
-                            <ul className="list-disc list-inside space-y-0.5">
-                                <li>Semua data di 4 database akan dihapus permanen.</li>
-                                <li>Anda kemungkinan ter-logout karena data user ikut terhapus.</li>
-                                <li>Hanya jalankan jika Anda sudah memiliki file backup terbaru.</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setResetError(null)
-                            setResetModalOpen(true)
-                        }}
-                        disabled={resetting}
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:cursor-not-allowed"
-                    >
-                        {resetting ? (
-                            <>
-                                <HiArrowPath className="w-4 h-4 animate-spin" />
-                                Sedang Reset Database...
-                            </>
-                        ) : (
-                            <>
-                                <HiExclamationTriangle className="w-4 h-4" />
-                                Reset Semua Database
-                            </>
-                        )}
-                    </button>
-
-                    {resetError && (
-                        <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                            <HiXCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                            <p className="text-sm text-red-800 dark:text-red-400">{resetError}</p>
-                        </div>
-                    )}
-
-                    {resetResult && (
-                        <div className="mt-4 space-y-3">
-                            <div
-                                className={`flex items-start gap-2 p-3 rounded-lg border ${resetResult.success
-                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                                    }`}
-                            >
-                                {resetResult.success ? (
-                                    <HiCheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                                ) : (
-                                    <HiExclamationCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                                )}
-                                <p className="text-sm text-gray-800 dark:text-gray-200">{resetResult.message}</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                {resetResult.results.map((r) => (
-                                    <div
-                                        key={`reset-${r.database}`}
-                                        className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                                    >
-                                        {r.status === 'success' ? (
-                                            <HiCheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                                        ) : r.status === 'skipped' ? (
-                                            <HiExclamationTriangle className="w-4 h-4 text-yellow-500 shrink-0" />
-                                        ) : (
-                                            <HiXCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                                                {DATABASE_LABELS[r.database] || r.database}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{r.message}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <ResetDatabase 
+                    resetting={resetting}
+                    resetResult={resetResult}
+                    resetError={resetError}
+                    databaseLabels={DATABASE_LABELS}
+                    setResetModalOpen={setResetModalOpen}
+                    setResetError={setResetError}
+                />
             )}
 
             <Modal

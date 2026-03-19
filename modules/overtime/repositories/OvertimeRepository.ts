@@ -6,9 +6,9 @@ import { randomUUID } from 'crypto'
 import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 export class OvertimeRepository implements IOvertimeRepository {
-    async findById(id: string): Promise<Overtime | null> {
-        return prisma.overtime.findUnique({
-            where: { id },
+    async findById(id: string, tenantId?: string): Promise<Overtime | null> {
+        return prisma.overtime.findFirst({
+            where: { id, tenantId },
             include: {
                 user: true,
                 attendance: true,
@@ -26,8 +26,9 @@ export class OvertimeRepository implements IOvertimeRepository {
         holidayType?: string
         skip?: number
         take?: number
+        tenantId?: string
     }): Promise<Overtime[]> {
-        const where: Prisma.OvertimeWhereInput = {}
+        const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId }
 
         if (filters?.userId) where.userId = filters.userId
         if (filters?.status) where.status = filters.status
@@ -101,8 +102,9 @@ export class OvertimeRepository implements IOvertimeRepository {
         siteId?: string
         departmentId?: string
         holidayType?: string
+        tenantId?: string
     }): Promise<number> {
-        const where: Prisma.OvertimeWhereInput = {}
+        const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId }
 
         if (filters?.userId) where.userId = filters.userId
         if (filters?.status) where.status = filters.status
@@ -154,8 +156,9 @@ export class OvertimeRepository implements IOvertimeRepository {
         endDate?: Date,
         siteId?: string,
         departmentId?: string
+        tenantId?: string
     }) {
-        const where: Prisma.OvertimeWhereInput = {}
+        const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId }
 
         if (filters?.userId) where.userId = filters.userId
         if (filters?.startDate && filters?.endDate) {
@@ -206,12 +209,13 @@ export class OvertimeRepository implements IOvertimeRepository {
         })
     }
 
-    async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+    async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string, tenantId?: string) {
         const where: Prisma.OvertimeWhereInput = {
             createdAt: {
                 gte: startDate,
                 lte: endDate
-            }
+            },
+            tenantId
         }
 
         if (siteId || departmentId) {

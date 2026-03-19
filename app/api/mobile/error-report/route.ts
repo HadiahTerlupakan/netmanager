@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger'
 import { authenticateMobileRequest } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { validateRequired } from '@/lib/validation-utils'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 type MobileErrorReportPayload = {
   message?: unknown
@@ -135,6 +136,6 @@ export async function POST(request: NextRequest) {
       route: '/api/mobile/error-report',
     })
 
-    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+    return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
   }
 }

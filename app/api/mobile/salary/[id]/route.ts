@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -14,20 +15,21 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         }
 
         const payload = authResult
+        const tenantId = payload.tenantId as string
 
         // Check Permission
         const permissions = payload.permissions || []
         if (!permissions.includes('m_salary:read')) {
-            return NextResponse.json({ error: 'Dilarang: Memerlukan izin m_salary:read' }, { status: 403 })
+            return apiError('Dilarang: Memerlukan izin m_salary:read', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         const { id } = await params
-        const salary = await prisma.salary.findUnique({
+        const salary = await prisma.salary.findFirst({
             where: {
                 id,
                 userId: payload.id as string, // Security check: Must belong to user
                 status: 'PAID' // Security check: Must be PAID
-            },
+            , tenantId },
             include: {
                 details: {
                     orderBy: { type: 'asc' }
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         })
 
         if (!salary) {
-            return NextResponse.json({ error: 'Gaji tidak ditemukan atau tidak tersedia' }, { status: 404 })
+            return apiError('Gaji tidak ditemukan atau tidak tersedia', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         const earnings = salary.details.filter(d => d.type === 'EARNING')
@@ -68,9 +70,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         })
     } catch (error) {
         console.error('Error fetching mobile salary detail:', error)
-        return NextResponse.json(
-            { error: 'Gagal mengambil detail gaji' },
-            { status: 500 }
-        )
+        return apiError('Gagal mengambil detail gaji', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

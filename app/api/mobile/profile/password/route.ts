@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { logger } from '@/lib/logger'
 import bcrypt from 'bcryptjs'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function POST(request: Request) {
     try {
@@ -12,64 +13,59 @@ export async function POST(request: Request) {
             return authResult
         }
 
-        const user = authResult
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
 
         const body = await request.json()
         const { currentPassword, newPassword, confirmPassword } = body
 
         if (!currentPassword || !newPassword || !confirmPassword) {
-            return NextResponse.json({
-                error: 'Password lama, password baru, dan konfirmasi password wajib diisi'
-            }, { status: 400 })
+            return apiError('Password lama, password baru, dan konfirmasi password wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         if (newPassword !== confirmPassword) {
-            return NextResponse.json({
-                error: 'Password baru dan konfirmasi password tidak cocok'
-            }, { status: 400 })
+            return apiError('Password baru dan konfirmasi password tidak cocok', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         if (newPassword.length < 6) {
-            return NextResponse.json({
-                error: 'Password harus minimal 6 karakter'
-            }, { status: 400 })
+            return apiError('Password harus minimal 6 karakter', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
-        const role = user.role as string | undefined
+        const role = authResult.role as string | undefined
 
         // Pengecekan current password bergantung pada role
         let dbUserPasswordHash: string | null = null
 
         if (role === 'MITRA') {
             const dbMitra = await prismaMitra.mitra.findUnique({
-                where: { id: user.id as string },
+                where: { id: userId },
                 select: { passwordHash: true }
             })
-            if (!dbMitra) return NextResponse.json({ error: 'User Mitra tidak ditemukan' }, { status: 404 })
+            if (!dbMitra) return apiError('User Mitra tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
             dbUserPasswordHash = dbMitra.passwordHash
         } else if (role === 'CUSTOMER') {
-            const dbCustomer = await prisma.pelanggan.findUnique({
-                where: { id: user.id as string },
+            const dbCustomer = await prisma.pelanggan.findFirst({
+                where: { id: userId, tenantId },
                 select: { passwordHash: true }
             })
-            if (!dbCustomer) return NextResponse.json({ error: 'User Pelanggan tidak ditemukan' }, { status: 404 })
+            if (!dbCustomer) return apiError('User Pelanggan tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
             dbUserPasswordHash = dbCustomer.passwordHash
         } else {
-            const dbUser = await prisma.user.findUnique({
-                where: { id: user.id as string },
+            const dbUser = await prisma.user.findFirst({
+                where: { id: userId, tenantId },
                 select: { passwordHash: true }
             })
-            if (!dbUser) return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
+            if (!dbUser) return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
             dbUserPasswordHash = dbUser.passwordHash
         }
 
         if (!dbUserPasswordHash) {
-            return NextResponse.json({ error: 'Password belum diatur, silakan hubungi admin' }, { status: 400 })
+            return apiError('Password belum diatur, silakan hubungi admin', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const isValidPassword = await bcrypt.compare(currentPassword, dbUserPasswordHash)
         if (!isValidPassword) {
-            return NextResponse.json({ error: 'Password lama salah' }, { status: 400 })
+            return apiError('Password lama salah', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, 10)
@@ -77,17 +73,17 @@ export async function POST(request: Request) {
         // Update password bergantung pada role
         if (role === 'MITRA') {
             await prismaMitra.mitra.update({
-                where: { id: user.id as string },
+                where: { id: userId },
                 data: { passwordHash: newPasswordHash }
             })
         } else if (role === 'CUSTOMER') {
             await prisma.pelanggan.update({
-                where: { id: user.id as string },
+                where: { id: userId, tenantId },
                 data: { passwordHash: newPasswordHash }
             })
         } else {
             await prisma.user.update({
-                where: { id: user.id as string },
+                where: { id: userId, tenantId },
                 data: { passwordHash: newPasswordHash }
             })
         }
@@ -100,7 +96,8 @@ export async function POST(request: Request) {
                 role: role || 'USER',
                 timestamp: new Date().toISOString()
             },
-            userId: user.id as string
+            userId,
+            tenantId
         })
 
         return NextResponse.json({ success: true, message: 'Password berhasil diubah' })

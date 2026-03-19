@@ -1,0 +1,18 @@
+{
+  "primary_root": ".",
+  "lanes": [
+    {
+      "id": "audit-settings",
+      "path": ".",
+      "owner": "omg-director",
+      "purpose": "Audit menyeluruh menu pengaturan admin",
+      "health": {
+        "cleanliness": "clean",
+        "trusted": "trusted",
+        "handoff": "ready"
+      }
+    }
+  ],
+  "cross_lane_policy": "explicit-handoff",
+  "source": "omg:workspace"
+}

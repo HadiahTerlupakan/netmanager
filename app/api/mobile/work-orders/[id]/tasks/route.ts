@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // PATCH - Update Task Status
 export async function PATCH(
@@ -18,21 +19,23 @@ export async function PATCH(
             return authResult;
         }
 
-        const user = authResult;
+        const userId = authResult.id as string;
+        const userName = authResult.name as string || 'Unknown';
+        const tenantId = authResult.tenantId as string;
 
         const workOrderId = params.id;
         const body = await request.json();
         const { taskId, isCompleted } = body;
 
         if (!taskId) {
-            return NextResponse.json({ error: 'Task ID wajib diisi' }, { status: 400 });
+            return apiError('Task ID wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         const repository = new WorkOrderRepository(prisma);
 
         // Get task info before update for notification message
-        const task = await prisma.workOrderTasks.findUnique({
-            where: { id: taskId },
+        const task = await prisma.workOrderTasks.findFirst({
+            where: { id: taskId, tenantId },
             select: { title: true }
         });
 
@@ -42,7 +45,7 @@ export async function PATCH(
 
         await repository.updateTask(taskId, {
             status: isCompleted ? 'COMPLETED' : 'PENDING',
-            completedById: isCompleted ? user.id : undefined
+            completedById: isCompleted ? userId : undefined
         });
 
         // Fetch updated work order for socket payload
@@ -61,8 +64,8 @@ export async function PATCH(
                 actionMessage: isCompleted
                     ? `Menyelesaikan task: ${task?.title || 'Unknown'}`
                     : `Membatalkan task: ${task?.title || 'Unknown'}`,
-                triggeredByUserId: user.id,
-                triggeredByName: user.name || 'Unknown',
+                triggeredByUserId: userId,
+                triggeredByName: userName,
                 ...(updatedWO.departmentId && { departmentId: updatedWO.departmentId }),
                 ...(updatedWO.siteId && { siteId: updatedWO.siteId })
             }).catch(err => console.error('[TaskNotify] Error:', err));
@@ -76,6 +79,6 @@ export async function PATCH(
 
     } catch (error) {
         console.error('Task Update Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

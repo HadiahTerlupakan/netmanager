@@ -7,6 +7,7 @@ import { createNotification } from '@/modules/notification/services/Notification
 import { prisma } from '@/lib/prisma'
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
 import { calculateWorkingDays } from '@/modules/attendance/utils/calculateWorkingDays'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 const repo = new LeaveRepository()
 const leaveBalanceRepo = new LeaveBalanceRepository()
@@ -19,9 +20,10 @@ export async function GET(request: NextRequest) {
         }
 
         const payload = authResult
-        const userId = payload.userId as string
+        const userId = payload.id as string
+        const tenantId = payload.tenantId as string
 
-        const leaves = await repo.findAll({ userId })
+        const leaves = await repo.findAll({ userId, tenantId })
         return NextResponse.json({ success: true, data: leaves })
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan';
@@ -37,17 +39,18 @@ export async function POST(request: NextRequest) {
         }
 
         const payload = authResult
-        const userId = payload.userId as string
+        const tenantId = payload.tenantId as string
+        const userId = payload.id as string
 
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         const body = await request.json()
         const { type, startDate, endDate, reason, photos, replacementDate } = body
 
         if (!type || !startDate || !endDate || !reason) {
-            return NextResponse.json({ error: 'Field wajib tidak lengkap' }, { status: 400 })
+            return apiError('Field wajib tidak lengkap', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const start = new Date(startDate)
@@ -55,8 +58,8 @@ export async function POST(request: NextRequest) {
         const currentYear = start.getFullYear()
 
         // Check user's working hour mode - FLEXIBLE users don't have leave quotas
-        const userData = await prisma.user.findUnique({
-            where: { id: userId },
+        const userData = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { workingHourMode: true, workDays: true, name: true, siteId: true }
         })
 
@@ -64,9 +67,9 @@ export async function POST(request: NextRequest) {
 
         // Validate leave quota (skip for FLEXIBLE users and TUKAR_LIBUR type)
         if (userData?.workingHourMode !== 'FLEXIBLE' && type !== 'TUKAR_LIBUR') {
-            const hasEnough = await leaveBalanceRepo.hasEnoughDays(userId, currentYear, type as LeaveType, leaveDays)
+            const hasEnough = await leaveBalanceRepo.hasEnoughDays(userId, currentYear, type as LeaveType, leaveDays, tenantId)
             if (!hasEnough) {
-                const remaining = await leaveBalanceRepo.getRemainingDays(userId, currentYear, type as LeaveType)
+                const remaining = await leaveBalanceRepo.getRemainingDays(userId, currentYear, type as LeaveType, tenantId)
                 return NextResponse.json({ 
                     error: `Kuota ${type} tidak cukup. Sisa: ${remaining} hari, Dibutuhkan: ${leaveDays} hari.`
                 }, { status: 400 })
@@ -75,13 +78,13 @@ export async function POST(request: NextRequest) {
 
         // Validate attachment for non-CUTI types
         if (type !== 'CUTI' && type !== 'TUKAR_LIBUR' && (!photos || photos.length === 0)) {
-            return NextResponse.json({ error: 'Foto bukti wajib diupload' }, { status: 400 })
+            return apiError('Foto bukti wajib diupload', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Validate replacementDate for TUKAR_LIBUR
         if (type === 'TUKAR_LIBUR') {
             if (!replacementDate) {
-                return NextResponse.json({ error: 'Tanggal pengganti wajib diisi untuk Tukar Libur' }, { status: 400 })
+                return apiError('Tanggal pengganti wajib diisi untuk Tukar Libur', ErrorCodes.VALIDATION_ERROR, { status: 400 })
             }
 
             if (userData?.workDays) {
@@ -110,8 +113,11 @@ export async function POST(request: NextRequest) {
 
                 // Check if it's a Holiday
                 const formattedReplacementDate = formatDate(replacement);
-                const holiday = formattedReplacementDate ? await prisma.holiday.findUnique({
-                    where: { date: new Date(formattedReplacementDate) }
+                const holiday = formattedReplacementDate ? await prisma.holiday.findFirst({
+                    where: {
+                        date: new Date(formattedReplacementDate),
+                        tenantId
+                    }
                 }) : null;
 
                 if (!isOffDay && !holiday) {
@@ -156,7 +162,8 @@ export async function POST(request: NextRequest) {
             replacementDate: replacementDate ? new Date(replacementDate) : null,
             reason,
             attachments: attachments,
-            status: LeaveStatus.PENDING
+            status: LeaveStatus.PENDING,
+            tenantId
         }
 
         if (attachments.length > 0) {
@@ -170,6 +177,7 @@ export async function POST(request: NextRequest) {
             const admins = await prisma.user.findMany({
                 where: {
                     isActive: true, // Only notify active admins
+                    tenantId,
                     OR: [
                         { role: { name: { in: ['SUPER_ADMIN', 'Super Admin'] } } },
                         {
@@ -207,7 +215,8 @@ export async function POST(request: NextRequest) {
                     link: '/admin/kehadiran/izin',
                     userId: admin.id,
                     sourceType: 'LEAVE',
-                    sourceId: requestData.id
+                    sourceId: requestData.id,
+                    tenantId
                 })
             }
         } catch (error) {

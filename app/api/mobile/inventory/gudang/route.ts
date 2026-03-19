@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { isSuperAdmin } from '@/lib/auth'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - Get gudang list for mobile
 export async function GET(req: NextRequest) {
@@ -14,10 +15,11 @@ export async function GET(req: NextRequest) {
 
         const decoded = authResult
         const userId = decoded.id as string
+        const tenantId = decoded.tenantId as string
 
         // Fetch user to check permissions and site access (Multi-site support)
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             include: {
                 role: { include: { permission: true } },
                 sites: true,
@@ -34,10 +36,10 @@ export async function GET(req: NextRequest) {
         }) : null
 
         if (!user && !mitra) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
+            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
-        const whereClause: Record<string, unknown> = { isActive: true }
+        const whereClause: Record<string, unknown> = { isActive: true, tenantId }
 
         if (mitra) {
             // Mitra: always site-restricted based on their siteId + WO's siteId
@@ -47,8 +49,8 @@ export async function GET(req: NextRequest) {
             const { searchParams } = new URL(req.url)
             const workOrderId = searchParams.get('workOrderId')
             if (workOrderId) {
-                const wo = await prisma.workOrders.findUnique({
-                    where: { id: workOrderId },
+                const wo = await prisma.workOrders.findFirst({
+                    where: { id: workOrderId, tenantId },
                     select: { siteId: true }
                 })
                 if (wo?.siteId && !allowedSiteIds.includes(wo.siteId)) {
@@ -80,8 +82,8 @@ export async function GET(req: NextRequest) {
                 }
 
                 if (workOrderId) {
-                    const wo = await prisma.workOrders.findUnique({
-                        where: { id: workOrderId },
+                    const wo = await prisma.workOrders.findFirst({
+                        where: { id: workOrderId, tenantId },
                         select: { siteId: true }
                     })
                     if (wo?.siteId && !allowedSiteIds.includes(wo.siteId)) {
@@ -128,6 +130,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ gudangList: gudangs })
     } catch (error) {
         console.error('Error fetching gudangs (mobile):', error)
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

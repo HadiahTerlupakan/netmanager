@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAppVersionService } from '@/modules/app-version'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET /api/mobile/app-version/check - Check for updates (Public endpoint)
 export async function GET(request: NextRequest) {
@@ -9,10 +10,7 @@ export async function GET(request: NextRequest) {
         const platform = searchParams.get('platform') || 'android'
 
         if (!currentVersionCode) {
-            return NextResponse.json(
-                { error: 'versionCode wajib diisi' },
-                { status: 400 }
-            )
+            return apiError('versionCode wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         const service = getAppVersionService()

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
+import { apiError, ErrorCodes } from '@/lib/api-response';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import type { CreateWorkOrderData } from '@/modules/work-order/repositories/IWorkOrderRepository';
 import { createNotification } from '@/modules/notification';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 import { logActivitySafe } from '@/lib/logger';
@@ -25,23 +27,24 @@ export async function POST(request: NextRequest) {
 
         const userId = payload.id as string;
         const userName = payload.name as string;
+        const tenantId = payload.tenantId;
 
         const body = await request.json();
 
         // Validation
         if (!body.type || !body.title || !body.description) {
-            return NextResponse.json(
-                { error: 'Tipe, judul, dan deskripsi wajib diisi' },
-                { status: 400 }
-            );
+            return apiError('Tipe, judul, dan deskripsi wajib diisi', ErrorCodes.BAD_REQUEST, { status: 400 });
         }
 
         // Get departmentId: from body, user's department, or first available
         let departmentId = body.departmentId;
         if (!departmentId) {
             // Try to get from user's department
-            const user = await prisma.user.findUnique({
-                where: { id: userId },
+            const user = await prisma.user.findFirst({
+                where: { 
+                    id: userId,
+                    tenantId: tenantId
+                },
                 select: { departmentId: true }
             });
             departmentId = user?.departmentId;
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
         if (!departmentId) {
             // Fallback to first department
             const firstDept = await prisma.departments.findFirst({
+                where: { tenantId: tenantId },
                 select: { id: true }
             });
             departmentId = firstDept?.id;
@@ -70,7 +74,8 @@ export async function POST(request: NextRequest) {
             ...(body.longitude && { locationLng: parseFloat(body.longitude) }),
             internalNotes: body.notes,
             requestedById: userId,
-        });
+            tenantId: tenantId, // Pass tenantId
+        } as CreateWorkOrderData & { requestedById: string });
 
         // WebSocket broadcast to portal admin for realtime update
         try {
@@ -103,7 +108,8 @@ export async function POST(request: NextRequest) {
                         permission: {
                             some: {
                                 resource: 'workorders',
-                                action: { in: ['approve_request', 'read', 'create'] }
+                                action: { in: ['approve_request', 'read', 'create'] },
+                                tenantId
                             }
                         }
                     }
@@ -166,9 +172,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('Error creating work order request:', error);
-        return NextResponse.json(
-            { error: 'Gagal membuat permintaan work order' },
-            { status: 500 }
-        );
+        return apiError('Gagal membuat permintaan work order', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

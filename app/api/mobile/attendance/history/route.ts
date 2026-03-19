@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
         const payload = authResult
         const userId = payload.id as string
+        const tenantId = payload.tenantId as string
 
         const { searchParams } = new URL(request.url)
         const page = parseInt(searchParams.get('page') || '1')
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
 
         const [attendances, total] = await Promise.all([
             prisma.attendance.findMany({
-                where: { userId },
+                where: { userId, tenantId },
                 orderBy: { checkIn: 'desc' },
                 take: limit,
                 skip,
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
                     }
                 }
             }),
-            prisma.attendance.count({ where: { userId } })
+            prisma.attendance.count({ where: { userId, tenantId } })
         ])
 
         const now = new Date()
@@ -68,8 +70,8 @@ export async function GET(request: NextRequest) {
         const { isHoliday, holiday } = await holidayRepo.isHoliday(new Date())
 
         // Check Off Day for Today (based on user's workDays)
-        const userData = await prisma.user.findUnique({
-            where: { id: userId },
+        const userData = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { workDays: true, workingHourMode: true }
         })
 
@@ -85,6 +87,7 @@ export async function GET(request: NextRequest) {
         const approvedTukarLibur = await prisma.leaveRequest.findFirst({
             where: {
                 userId,
+                tenantId,
                 type: 'TUKAR_LIBUR',
                 status: 'APPROVED',
                 OR: [
@@ -172,7 +175,9 @@ export async function GET(request: NextRequest) {
             }
         })
 
-    } catch (_error: unknown) {
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+    } catch (error: unknown) {
+        console.error('Attendance History Error:', error)
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }
+

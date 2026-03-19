@@ -1,6 +1,7 @@
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 const GLOBAL_CHAT_NAME = 'Global Chat'
 
@@ -12,14 +13,15 @@ export async function GET(request: NextRequest) {
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         // Find or create global chat
         let globalChat = await prisma.conversation.findFirst({
-            where: { isGlobal: true }
+            where: { isGlobal: true, tenantId }
         })
 
         if (!globalChat) {
@@ -27,28 +29,28 @@ export async function GET(request: NextRequest) {
             globalChat = await prisma.conversation.create({
                 data: {
                     name: GLOBAL_CHAT_NAME,
-                    isGlobal: true
+                    isGlobal: true,
+                    tenantId
                 }
             })
         }
 
         // Ensure user is in the User table (Mitra and Customer cannot join)
-        const dbUser = await prisma.user.findUnique({
-            where: { id: userId },
+        const dbUser = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { id: true }
         })
 
         if (!dbUser) {
-            return NextResponse.json({ error: 'Fitur chat hanya tersedia untuk karyawan.' }, { status: 403 })
+            return apiError('Fitur chat hanya tersedia untuk karyawan.', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         // Ensure user is a participant
-        const isParticipant = await prisma.conversationParticipant.findUnique({
+        const isParticipant = await prisma.conversationParticipant.findFirst({
             where: {
-                conversationId_userId: {
-                    conversationId: globalChat.id,
-                userId
-                }
+                conversationId: globalChat.id,
+                userId,
+                tenantId
             }
         })
 
@@ -56,14 +58,15 @@ export async function GET(request: NextRequest) {
             await prisma.conversationParticipant.create({
                 data: {
                     conversationId: globalChat.id,
-                    userId
+                    userId,
+                    tenantId
                 }
             })
         }
 
         // Get participant count
         const participantCount = await prisma.conversationParticipant.count({
-            where: { conversationId: globalChat.id }
+            where: { conversationId: globalChat.id, tenantId }
         })
 
         return NextResponse.json({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 /**
  * POST /api/mobile/work-orders/[id]/partners
@@ -14,11 +15,12 @@ export async function POST(
   try {
     // Autentikasi user
     const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof Response) {
+    if (authResult instanceof NextResponse) {
       return authResult;
     }
 
-    const user = authResult;
+    const userId = authResult.id as string;
+    const tenantId = authResult.tenantId as string;
 
     const { id: workOrderId } = await params;
 
@@ -32,29 +34,23 @@ export async function POST(
     const validatedData = bodySchema.parse(body);
 
     // Validasi: Work order exists
-    const workOrder = await prisma.workOrders.findUnique({
-      where: { id: workOrderId },
+    const workOrder = await prisma.workOrders.findFirst({
+      where: { id: workOrderId, tenantId },
       select: { id: true, workOrderNumber: true, status: true },
     });
 
     if (!workOrder) {
-      return NextResponse.json(
-        { error: 'Work order tidak ditemukan' },
-        { status: 404 }
-      );
+      return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
     }
 
     // Validasi: User yang akan diassign exists
-    const targetUser = await prisma.user.findUnique({
-      where: { id: validatedData.userId },
+    const targetUser = await prisma.user.findFirst({
+      where: { id: validatedData.userId, tenantId },
       select: { id: true, name: true, email: true },
     });
 
     if (!targetUser) {
-      return NextResponse.json(
-        { error: 'User tidak ditemukan' },
-        { status: 404 }
-      );
+      return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
     }
 
     // Validasi: User belum assigned sebagai partner di WO ini
@@ -63,14 +59,12 @@ export async function POST(
         workOrderId: workOrderId,
         userId: validatedData.userId,
         role: 'PARTNER',
+        tenantId
       },
     });
 
     if (existingAssignment) {
-      return NextResponse.json(
-        { error: 'User sudah ditambahkan sebagai partner di work order ini' },
-        { status: 400 }
-      );
+      return apiError('User sudah ditambahkan sebagai partner di work order ini', ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
     // Buat assignment baru
@@ -82,7 +76,8 @@ export async function POST(
         role: validatedData.role,
         status: 'PENDING',
         assignedAt: new Date(),
-        assignedById: user.id,
+        assignedById: userId,
+        tenantId
       },
       include: {
         user: {
@@ -125,10 +120,7 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    );
+    return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
   }
 }
 
@@ -143,26 +135,24 @@ export async function DELETE(
   try {
     // Autentikasi user
     const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof Response) {
+    if (authResult instanceof NextResponse) {
       return authResult;
     }
 
-    const user = authResult;
+    const userId = authResult.id as string;
+    const tenantId = authResult.tenantId as string;
 
     const { id: workOrderId } = await params;
     const { searchParams } = new URL(request.url);
     const assignmentId = searchParams.get('assignmentId');
 
     if (!assignmentId) {
-      return NextResponse.json(
-        { error: 'Assignment ID wajib diisi' },
-        { status: 400 }
-      );
+      return apiError('Assignment ID wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
     // Validasi: Assignment exists
-    const assignment = await prisma.workOrderAssignments.findUnique({
-      where: { id: assignmentId },
+    const assignment = await prisma.workOrderAssignments.findFirst({
+      where: { id: assignmentId, tenantId },
       include: {
         workOrders: {
           select: {
@@ -175,27 +165,21 @@ export async function DELETE(
     });
 
     if (!assignment) {
-      return NextResponse.json(
-        { error: 'Assignment tidak ditemukan' },
-        { status: 404 }
-      );
+      return apiError('Assignment tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
     }
 
     if (assignment.workOrderId !== workOrderId) {
-      return NextResponse.json(
-        { error: 'Assignment tidak sesuai dengan work order' },
-        { status: 400 }
-      );
+      return apiError('Assignment tidak sesuai dengan work order', ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
     // Validasi: User authorized (yang assign, lead technician, atau admin)
-    const isAssigner = assignment.assignedById === user.id;
-    const isCreator = assignment.workOrders.createdById === user.id;
-    const isLeadTech = assignment.workOrders.assignedToId === user.id;
+    const isAssigner = assignment.assignedById === userId;
+    const isCreator = assignment.workOrders.createdById === userId;
+    const isLeadTech = assignment.workOrders.assignedToId === userId;
     
     // Check if user is admin (has accessAdminPanel)
-    const userWithRole = await prisma.user.findUnique({
-      where: { id: user.id },
+    const userWithRole = await prisma.user.findFirst({
+      where: { id: userId, tenantId },
       include: {
         role: {
           select: {
@@ -209,15 +193,12 @@ export async function DELETE(
     const isAdmin = userWithRole?.role?.accessAdminPanel || userWithRole?.role?.isSuperAdmin || false;
 
     if (!isAssigner && !isCreator && !isLeadTech && !isAdmin) {
-      return NextResponse.json(
-        { error: 'Anda tidak memiliki akses untuk menghapus partner ini' },
-        { status: 403 }
-      );
+      return apiError('Anda tidak memiliki akses untuk menghapus partner ini', ErrorCodes.FORBIDDEN, { status: 403 });
     }
 
     // Hapus assignment
     await prisma.workOrderAssignments.delete({
-      where: { id: assignmentId },
+      where: { id: assignmentId, tenantId },
     });
 
     return NextResponse.json({
@@ -227,9 +208,6 @@ export async function DELETE(
   } catch (error) {
     console.error('[API] Error removing partner from work order:', error);
 
-    return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    );
+    return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
   }
 }

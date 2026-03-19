@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {
     try {
@@ -10,18 +11,19 @@ export async function GET(req: NextRequest) {
         }
 
         const payload = authResult
+        const tenantId = payload.tenantId as string
 
         // Check Permission
         const permissions = payload.permissions || []
         if (!permissions.includes('m_salary:read')) {
-            return NextResponse.json({ error: 'Akses ditolak: Memerlukan izin m_salary:read' }, { status: 403 })
+            return apiError('Akses ditolak: Memerlukan izin m_salary:read', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         const salaries = await prisma.salary.findMany({
             where: {
                 userId: payload.id as string,
                 status: 'PAID' // Only show paid salaries
-            },
+            , tenantId },
             select: {
                 id: true,
                 month: true,
@@ -48,9 +50,6 @@ export async function GET(req: NextRequest) {
         })
     } catch (error) {
         console.error('Error fetching mobile salaries:', error)
-        return NextResponse.json(
-            { error: 'Gagal mengambil data gaji' },
-            { status: 500 }
-        )
+        return apiError('Gagal mengambil data gaji', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

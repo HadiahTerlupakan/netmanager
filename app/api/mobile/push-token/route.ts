@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // POST - Register push token
 export async function POST(request: NextRequest) {
@@ -11,10 +12,11 @@ export async function POST(request: NextRequest) {
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         const userRole = authResult.role as string | undefined
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         const body = await request.json()
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest) {
 
 
         if (!pushToken) {
-            return NextResponse.json({ error: 'Push token wajib diisi' }, { status: 400 })
+            return apiError('Push token wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Unique Token Enforcement: Remove this token from any other users/customers
@@ -30,7 +32,8 @@ export async function POST(request: NextRequest) {
         await prisma.user.updateMany({
             where: {
                 pushToken: pushToken,
-                id: { not: userId }
+                id: { not: userId },
+                tenantId
             },
             data: {
                 pushToken: null,
@@ -40,7 +43,8 @@ export async function POST(request: NextRequest) {
         await prisma.pelanggan.updateMany({
             where: {
                 pushToken: pushToken,
-                id: { not: userId }
+                id: { not: userId },
+                tenantId
             },
             data: {
                 pushToken: null,
@@ -61,7 +65,7 @@ export async function POST(request: NextRequest) {
         // Update user (or customer) with push token
         if (userRole === 'CUSTOMER') {
             await prisma.pelanggan.update({
-                where: { id: userId },
+                where: { id: userId, tenantId },
                 data: {
                     pushToken: pushToken,
                     pushTokenUpdatedAt: new Date()
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
         } else {
             // Update User Table (Employees)
             await prisma.user.update({
-                where: { id: userId },
+                where: { id: userId, tenantId },
                 data: {
                     pushToken: pushToken,
                     pushTokenUpdatedAt: new Date()
@@ -103,16 +107,17 @@ export async function DELETE(request: NextRequest) {
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         const userRole = authResult.role as string | undefined
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         // Remove push token from correct table
         if (userRole === 'CUSTOMER') {
             await prisma.pelanggan.update({
-                where: { id: userId },
+                where: { id: userId, tenantId },
                 data: {
                     pushToken: null,
                     pushTokenUpdatedAt: null
@@ -128,7 +133,7 @@ export async function DELETE(request: NextRequest) {
             })
         } else {
             await prisma.user.update({
-                where: { id: userId },
+                where: { id: userId, tenantId },
                 data: {
                     pushToken: null,
                     pushTokenUpdatedAt: null

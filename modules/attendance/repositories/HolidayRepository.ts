@@ -40,9 +40,10 @@ export class HolidayRepository {
         return prisma.holiday.findMany(params)
     }
 
-    async isHoliday(date: Date): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
+    async isHoliday(date: Date, tenantId?: string): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
         // Check cache first (24h TTL)
-        const cacheKey = `holiday:${date.toISOString().split('T')[0]}`
+        const dateStr = date.toISOString().split('T')[0]
+        const cacheKey = `holiday:${tenantId || 'global'}:${dateStr}`
         const cached = cache.get<{ isHoliday: boolean, holiday?: Holiday | null }>(cacheKey)
 
         if (cached) return cached
@@ -59,7 +60,8 @@ export class HolidayRepository {
                 date: {
                     gte: startOfDay,
                     lte: endOfDay
-                }
+                },
+                tenantId
             }
         })
 
@@ -74,9 +76,9 @@ export class HolidayRepository {
         return result
     }
 
-    async getHolidaysByYear(year: number): Promise<Holiday[]> {
+    async getHolidaysByYear(year: number, tenantId?: string): Promise<Holiday[]> {
         // Check cache first (24h TTL)
-        const cacheKey = `holidays:year:${year}`
+        const cacheKey = `holidays:year:${year}:${tenantId || 'global'}`
         const cached = cache.get<Holiday[]>(cacheKey)
 
         if (cached) return cached
@@ -89,7 +91,8 @@ export class HolidayRepository {
                 date: {
                     gte: startDate,
                     lte: endDate
-                }
+                },
+                tenantId
             },
             orderBy: {
                 date: 'asc'

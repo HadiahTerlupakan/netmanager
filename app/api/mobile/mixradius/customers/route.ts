@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { MixRadiusConfigError, MixRadiusService } from '@/modules/integrations';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 /**
  * GET /api/mobile/mixradius/customers
@@ -13,12 +14,12 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
 
         // Check Permission
         const permissions = payload.permissions || [];
         if (!permissions.includes('m_mixradius:read')) {
-            return NextResponse.json({ error: 'Dilarang: Memerlukan izin m_mixradius:read' }, { status: 403 });
+            return apiError('Dilarang: Memerlukan izin m_mixradius:read', ErrorCodes.FORBIDDEN, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -73,9 +74,6 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        return NextResponse.json(
-            { error: 'Gagal mencari pelanggan' },
-            { status: 500 }
-        );
+        return apiError('Gagal mencari pelanggan', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

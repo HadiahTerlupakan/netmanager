@@ -5,7 +5,9 @@ import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { logger } from '@/lib/logger'
 
-export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+    const tenantId = ctx.session!.user.tenantId
+
     // Permission check
     if (!await hasPermission('email:read')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan email')
@@ -14,6 +16,7 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
     // Get email settings from Settings table
     const settings = await prisma.settings.findMany({
         where: {
+            tenantId,
             key: {
                 in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_NAME', 'FROM_EMAIL']
             }
@@ -22,7 +25,7 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
 
     const settingsMap: Record<string, string> = {}
     for (const setting of settings) {
-        if (setting.key === 'SMTP_PASS' && setting.value) {
+        if (setting.key === 'SMTP_PASS' && setting.value && setting.encrypted) {
             try {
                 const decryptedPass = decryptApiKey(setting.value)
                 settingsMap[setting.key] = decryptedPass
@@ -46,6 +49,8 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
 })
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
+    const tenantId = ctx.session!.user.tenantId
+
     // Permission check
     if (!await hasPermission('email:update')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah pengaturan email')
@@ -72,7 +77,10 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
     for (const setting of settingsToSave) {
         const existing = await prisma.settings.findFirst({
-            where: { key: setting.key }
+            where: {
+                key: setting.key,
+                tenantId
+            }
         })
         if (existing) {
             await prisma.settings.update({
@@ -90,6 +98,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
                     key: setting.key,
                     value: setting.value,
                     encrypted: setting.encrypted,
+                    tenantId,
                     description: `Email configuration: ${setting.key}`,
                     updatedAt: new Date()
                 }

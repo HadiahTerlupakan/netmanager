@@ -5,6 +5,7 @@ import { prismaMitra } from '@/lib/prisma-mitra';
 import { randomUUID } from 'crypto';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 import { logActivitySafe } from '@/lib/logger';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - List available work orders (PENDING status, not assigned)
 export async function GET(request: NextRequest) {
@@ -15,14 +16,15 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
 
         const userId = payload.id as string;
 
         // Fetch user to get department, site(s) and name
         // Multi-site: Include userSites
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             select: {
                 departmentId: true,
                 siteId: true,
@@ -154,7 +156,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching available work orders:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }
 
@@ -167,19 +169,20 @@ export async function POST(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
 
         const userId = payload.id as string;
         const body = await request.json();
         const { workOrderId } = body;
 
         if (!workOrderId) {
-            return NextResponse.json({ error: 'workOrderId wajib diisi' }, { status: 400 });
+            return apiError('workOrderId wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Fetch User to check permissions (Multi-site support)
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             select: {
                 departmentId: true,
                 siteId: true,
@@ -199,20 +202,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if work order exists and is available
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id: workOrderId }
-        });
+        const workOrder = await prisma.workOrders.findFirst({ where: {  id: workOrderId , tenantId }
+         });
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work order tidak ditemukan' }, { status: 404 });
+            return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         if (workOrder.status !== 'PENDING') {
-            return NextResponse.json({ error: 'Work order sudah tidak tersedia' }, { status: 400 });
+            return apiError('Work order sudah tidak tersedia', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         if (workOrder.assignedToId || workOrder.assignedMitraId) {
-            return NextResponse.json({ error: 'Work order sudah diambil orang lain' }, { status: 400 });
+            return apiError('Work order sudah diambil orang lain', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         let updatedWorkOrder;
@@ -231,12 +233,12 @@ export async function POST(request: NextRequest) {
             // Check Site
             const isSiteValid = !workOrder.siteId || mitraSiteId === workOrder.siteId;
             if (!isSiteValid) {
-                return NextResponse.json({ error: 'Anda tidak memiliki akses ke Work Order ini (Beda Site)' }, { status: 403 });
+                return apiError('Anda tidak memiliki akses ke Work Order ini (Beda Site)', ErrorCodes.FORBIDDEN, { status: 403 });
             }
 
             // Assign work order to Mitra
             updatedWorkOrder = await prisma.workOrders.update({
-                where: { id: workOrderId },
+                where: { id: workOrderId , tenantId },
                 data: {
                     assignedMitraId: mitraId,
                     status: 'ASSIGNED',
@@ -277,7 +279,7 @@ export async function POST(request: NextRequest) {
 
             // Assign work order to Internal user
             updatedWorkOrder = await prisma.workOrders.update({
-                where: { id: workOrderId },
+                where: { id: workOrderId , tenantId },
                 data: {
                     assignedToId: userId,
                     status: 'ASSIGNED',
@@ -336,6 +338,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, workOrder: updatedWorkOrder });
     } catch (error) {
         console.error('Error taking work order:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

@@ -37,8 +37,9 @@ export class LeaveRepository {
         siteId?: string
         skip?: number
         take?: number
+        tenantId?: string
     }) {
-        const where: Prisma.LeaveRequestWhereInput = {}
+        const where: Prisma.LeaveRequestWhereInput = { tenantId: filters?.tenantId }
 
         if (filters?.userId) where.userId = filters.userId
         if (filters?.status) where.status = filters.status
@@ -70,8 +71,9 @@ export class LeaveRepository {
         status?: LeaveStatus
         departmentId?: string
         siteId?: string
+        tenantId?: string
     }) {
-        const where: Prisma.LeaveRequestWhereInput = {}
+        const where: Prisma.LeaveRequestWhereInput = { tenantId: filters?.tenantId }
 
         if (filters?.userId) where.userId = filters.userId
         if (filters?.status) where.status = filters.status
@@ -85,11 +87,12 @@ export class LeaveRepository {
         return prisma.leaveRequest.count({ where })
     }
 
-    async getUserLeaveStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
+    async getUserLeaveStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string, tenantId?: string) {
         const where: Prisma.LeaveRequestWhereInput = {
             status: 'APPROVED',
             startDate: { lte: endDate },
-            endDate: { gte: startDate }
+            endDate: { gte: startDate },
+            tenantId
         }
 
         if (siteId || departmentId) {

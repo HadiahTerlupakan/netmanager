@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
 import { toStartOfDay } from '@/lib/utils/datetime'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 
 const mixRadiusService = getMixRadiusService()
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
         }
 
         const payload = authResult
+        const tenantId = payload.tenantId as string
         const userId = payload.id as string
 
         // Handle Mitra users - they are in a separate table
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
             })
 
             if (!mitra) {
-                return NextResponse.json({ error: 'Mitra tidak ditemukan' }, { status: 404 })
+                return apiError('Mitra tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
             }
 
             const now = new Date()
@@ -52,6 +54,7 @@ export async function GET(req: NextRequest) {
             const workOrdersAssigned = await prisma.workOrderAssignments.count({
                 where: {
                     mitraId: userId,
+                    tenantId,
                     workOrders: { status: { in: ['ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'] } }
                 }
             })
@@ -59,6 +62,7 @@ export async function GET(req: NextRequest) {
             const woCompletedToday = await prisma.workOrderAssignments.count({
                 where: {
                     mitraId: userId,
+                    tenantId,
                     workOrders: {
                         status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
                         completedAt: { gte: today }
@@ -69,6 +73,7 @@ export async function GET(req: NextRequest) {
             const woCompletedWeek = await prisma.workOrderAssignments.count({
                 where: {
                     mitraId: userId,
+                    tenantId,
                     workOrders: {
                         status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
                         completedAt: { gte: weekStart }
@@ -79,6 +84,7 @@ export async function GET(req: NextRequest) {
             const woCompletedMonth = await prisma.workOrderAssignments.count({
                 where: {
                     mitraId: userId,
+                    tenantId,
                     workOrders: {
                         status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
                         completedAt: { gte: monthStart }
@@ -100,7 +106,8 @@ export async function GET(req: NextRequest) {
                     where: {
                         mitraId: userId,
                         status: 'APPROVED',
-                        createdAt: { gte: monthStart }
+                        createdAt: { gte: monthStart },
+                        tenantId
                     }
                 })
 
@@ -170,8 +177,8 @@ export async function GET(req: NextRequest) {
         }
 
         // Handle regular User (Karyawan)
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             select: {
                 siteId: true,
                 departmentId: true,
@@ -182,7 +189,7 @@ export async function GET(req: NextRequest) {
         })
 
         if (!user) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
+            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         const userSiteIds: string[] = [];
@@ -213,7 +220,8 @@ export async function GET(req: NextRequest) {
         const workOrdersAssigned = await prisma.workOrders.count({
             where: {
                 assignedToId: userId,
-                status: { in: ['ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'] }
+                status: { in: ['ASSIGNED', 'IN_PROGRESS', 'ON_HOLD'] },
+                tenantId
             }
         })
 
@@ -223,6 +231,7 @@ export async function GET(req: NextRequest) {
             where: {
                 status: 'PENDING',
                 assignedToId: null,
+                tenantId,
                 AND: [
                     user.departmentId
                         ? { OR: [{ departmentId: null }, { departmentId: user.departmentId }] }
@@ -239,7 +248,8 @@ export async function GET(req: NextRequest) {
             where: {
                 assignedToId: userId,
                 status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
-                completedAt: { gte: today }
+                completedAt: { gte: today },
+                tenantId
             }
         })
 
@@ -248,7 +258,8 @@ export async function GET(req: NextRequest) {
             where: {
                 assignedToId: userId,
                 status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
-                completedAt: { gte: weekStart }
+                completedAt: { gte: weekStart },
+                tenantId
             }
         })
 
@@ -257,7 +268,8 @@ export async function GET(req: NextRequest) {
             where: {
                 assignedToId: userId,
                 status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] },
-                completedAt: { gte: monthStart }
+                completedAt: { gte: monthStart },
+                tenantId
             }
         })
 
@@ -265,7 +277,8 @@ export async function GET(req: NextRequest) {
         const barangKeluarToday = await prisma.barangKeluar.count({
             where: {
                 userId,
-                tanggal: { gte: today }
+                tanggal: { gte: today },
+                tenantId
             }
         })
 
@@ -273,13 +286,14 @@ export async function GET(req: NextRequest) {
         const barangMasukToday = await prisma.barangMasuk.count({
             where: {
                 userId,
-                tanggal: { gte: today }
+                tanggal: { gte: today },
+                tenantId
             }
         })
 
         // Ensure to fetch canvasingTarget and targetSchema from user
-        const userDetails = await prisma.user.findUnique({
-            where: { id: userId },
+        const userDetails = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { canvasingTarget: true, targetSchema: true }
         })
         const canvasingTarget = userDetails?.canvasingTarget || 30
@@ -293,7 +307,8 @@ export async function GET(req: NextRequest) {
                 where: {
                     salesId: userId,
                     status: 'APPROVED',
-                    isCashedOut: false
+                    isCashedOut: false,
+                    tenantId
                 }
             })
         } else {
@@ -304,7 +319,8 @@ export async function GET(req: NextRequest) {
                     status: 'APPROVED',
                     createdAt: {
                         gte: monthStart
-                    }
+                    },
+                    tenantId
                 }
             })
         }
@@ -323,6 +339,6 @@ export async function GET(req: NextRequest) {
         })
     } catch (error) {
         console.error('Error fetching mobile dashboard stats:', error)
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

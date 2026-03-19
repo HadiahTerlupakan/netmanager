@@ -3,6 +3,7 @@ import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { WorkOrderStatus } from '@prisma/client';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
 
         const userId = payload.id as string;
         const searchParams = request.nextUrl.searchParams;
@@ -53,6 +54,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('Mobile Work Order List Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

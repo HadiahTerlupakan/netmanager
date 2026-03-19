@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 /**
  * POST /api/mobile/work-orders/[id]/partner-response
@@ -14,11 +15,12 @@ export async function POST(
   try {
     // Autentikasi user
     const authResult = await getMobileAuthPayload(request);
-    if (authResult instanceof Response) {
+    if (authResult instanceof NextResponse) {
       return authResult;
     }
 
-    const user = authResult;
+    const userId = authResult.id as string;
+    const tenantId = authResult.tenantId as string;
 
     const { id: workOrderId } = await params;
 
@@ -33,8 +35,8 @@ export async function POST(
     const validatedData = bodySchema.parse(body);
 
     // Validasi: Work order exists
-    const workOrder = await prisma.workOrders.findUnique({
-      where: { id: workOrderId },
+    const workOrder = await prisma.workOrders.findFirst({
+      where: { id: workOrderId, tenantId },
       select: { 
         id: true, 
         workOrderNumber: true, 
@@ -44,18 +46,16 @@ export async function POST(
     });
 
     if (!workOrder) {
-      return NextResponse.json(
-        { error: 'Work order tidak ditemukan' },
-        { status: 404 }
-      );
+      return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
     }
 
     // Cari assignment berdasarkan workOrderId dan userId dari session
     const assignment = await prisma.workOrderAssignments.findFirst({
       where: {
         workOrderId: workOrderId,
-        userId: user.id,
+        userId: userId,
         role: 'PARTNER',
+        tenantId
       },
       include: {
         user: {
@@ -70,10 +70,7 @@ export async function POST(
     });
 
     if (!assignment) {
-      return NextResponse.json(
-        { error: 'Anda tidak diundang sebagai partner di work order ini' },
-        { status: 404 }
-      );
+      return apiError('Anda tidak diundang sebagai partner di work order ini', ErrorCodes.NOT_FOUND, { status: 404 });
     }
 
     // Validasi: Assignment masih PENDING
@@ -89,7 +86,7 @@ export async function POST(
 
     // Update status assignment
     const updatedAssignment = await prisma.workOrderAssignments.update({
-      where: { id: assignment.id },
+      where: { id: assignment.id, tenantId },
       data: {
         status: validatedData.response,
         respondedAt: new Date(),
@@ -152,9 +149,6 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    );
+    return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
   }
 }

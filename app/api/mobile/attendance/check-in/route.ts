@@ -19,15 +19,16 @@ export async function POST(request: NextRequest) {
         }
 
         userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         let bodyRequestId: string | undefined
 
         // Fetch Settings first to determine Timezone
         const [toleranceSetting, timezoneSetting] = await Promise.all([
             prisma.settings.findFirst({
-                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+                where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' , tenantId }
             }),
             prisma.settings.findFirst({
-                where: { key: 'GENERAL_TIMEZONE' }
+                where: { key: 'GENERAL_TIMEZONE' , tenantId }
             })
         ])
 

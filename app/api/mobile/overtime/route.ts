@@ -4,6 +4,7 @@ import { OvertimeService } from '@/modules/overtime';
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload';
 import { prisma } from '@/lib/prisma';
 import { toStartOfDay } from '@/lib/utils/datetime'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 
 // GET - Get user's overtime history
@@ -14,12 +15,13 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
-        const userId = authResult.userId as string;
+        const userId = authResult.id as string;
+        const tenantId = authResult.tenantId as string;
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 });
         }
         const service = new OvertimeService();
-        const history = await service.getHistory(userId);
+        const history = await service.getHistory(userId, tenantId);
 
         // Check if user has checked out today (for start validation)
         const today = new Date();
@@ -30,6 +32,7 @@ export async function GET(request: NextRequest) {
         const todayAttendance = await prisma.attendance.findFirst({
             where: {
                 userId,
+                tenantId,
                 checkIn: { gte: today, lt: tomorrow }
             }
         });
@@ -39,7 +42,8 @@ export async function GET(request: NextRequest) {
         // Check if today is a holiday
         const holidayRecord = await prisma.holiday.findFirst({
             where: {
-                date: { gte: today, lt: tomorrow }
+                date: { gte: today, lt: tomorrow },
+                tenantId
             }
         });
 
@@ -65,9 +69,10 @@ export async function POST(request: NextRequest) {
             return authResult;
         }
 
-        const userId = authResult.userId as string;
+        const userId = authResult.id as string;
+        const tenantId = authResult.tenantId as string;
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 });
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 });
         }
         const body = await request.json();
         const { action } = body; // 'request' | 'start' | 'stop'
@@ -77,12 +82,13 @@ export async function POST(request: NextRequest) {
         if (!action || action === 'request') {
             const { date, reason } = body;
             if (!date || !reason) {
-                return NextResponse.json({ error: 'Tanggal dan alasan wajib diisi' }, { status: 400 });
+                return apiError('Tanggal dan alasan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }
 
             const result = await service.createRequest(userId, {
                 date: new Date(date),
-                reason
+                reason,
+                tenantId
             });
             return NextResponse.json(result, { status: 201 });
         }
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
         if (action === 'start') {
             const { overtimeId, photo, location, timestamp } = body;
             if (!overtimeId || !photo) {
-                return NextResponse.json({ error: 'ID dan foto wajib diisi' }, { status: 400 });
+                return apiError('ID dan foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }
 
             // Convert Base64 photo to file/url if needed
@@ -110,9 +116,10 @@ export async function POST(request: NextRequest) {
                  );
             }
 
-            const startParams: { photo: string; location?: string; timestamp?: Date } = {
+            const startParams: { photo: string; location?: string; timestamp?: Date; tenantId?: string } = {
                 photo: photoUrl,
                 location: location as string,
+                tenantId
             };
             if (timestamp) {
                 startParams.timestamp = new Date(timestamp);
@@ -126,7 +133,7 @@ export async function POST(request: NextRequest) {
         if (action === 'stop') {
             const { overtimeId, photo, location, timestamp } = body;
             if (!overtimeId || !photo) {
-                return NextResponse.json({ error: 'ID dan foto wajib diisi' }, { status: 400 });
+                return apiError('ID dan foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }
 
             // Convert Base64 photo to file/url if needed
@@ -145,9 +152,10 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            const stopParams: { photo: string; location?: string; timestamp?: Date } = {
+            const stopParams: { photo: string; location?: string; timestamp?: Date; tenantId?: string } = {
                 photo: photoUrl,
                 location: location as string,
+                tenantId
             };
             if (timestamp) {
                 stopParams.timestamp = new Date(timestamp);
@@ -157,7 +165,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(result);
         }
 
-        return NextResponse.json({ error: 'Aksi tidak valid' }, { status: 400 });
+        return apiError('Aksi tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
 
     } catch (error: unknown) {
         console.error('Mobile Overtime POST Error:', error);

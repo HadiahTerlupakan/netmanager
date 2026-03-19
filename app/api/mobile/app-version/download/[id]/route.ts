@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAppVersionService } from '@/modules/app-version'
 import fs from 'fs/promises'
 import path from 'path'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const apkInfo = await service.getApkForDownload(id)
 
         if (!apkInfo) {
-            return NextResponse.json({ error: 'APK tidak ditemukan' }, { status: 404 })
+            return apiError('APK tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         const apkUrl = apkInfo.url
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
                 if (!r2Response.ok) {
                     console.error('Error fetching APK from R2:', r2Response.status, r2Response.statusText)
-                    return NextResponse.json({ error: 'Gagal mengunduh APK dari storage' }, { status: 502 })
+                    return apiError('Gagal mengunduh APK dari storage', ErrorCodes.INTERNAL_ERROR, { status: 502 })
                 }
 
                 const apkBuffer = await r2Response.arrayBuffer()
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 })
             } catch (fetchError) {
                 console.error('Error proxying APK from R2:', fetchError)
-                return NextResponse.json({ error: 'Gagal mengunduh APK dari storage' }, { status: 502 })
+                return apiError('Gagal mengunduh APK dari storage', ErrorCodes.INTERNAL_ERROR, { status: 502 })
             }
         } else {
             // Local file - stream it
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 })
             } catch (fileError) {
                 console.error('Error reading APK file:', fileError)
-                return NextResponse.json({ error: 'APK file tidak ditemukan di server' }, { status: 404 })
+                return apiError('APK file tidak ditemukan di server', ErrorCodes.NOT_FOUND, { status: 404 })
             }
         }
     } catch (error: unknown) {

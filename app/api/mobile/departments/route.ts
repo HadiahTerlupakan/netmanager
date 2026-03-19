@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 /**
  * GET /api/mobile/departments
@@ -13,10 +14,13 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
+        const { tenantId } = authResult;
+
         // Fetch departments enabled for mobile WO request
         const departments = await prisma.departments.findMany({
             where: {
                 showInMobileWO: true, // Only show departments enabled for mobile WO
+                tenantId
             },
             select: {
                 id: true,
@@ -33,9 +37,6 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching departments:', error);
-        return NextResponse.json(
-            { error: 'Gagal mengambil daftar departemen' },
-            { status: 500 }
-        );
+        return apiError('Gagal mengambil daftar departemen', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

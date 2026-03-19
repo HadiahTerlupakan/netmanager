@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - Get transaction history for mobile (Optimized)
 export async function GET(request: NextRequest) {
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
         const userId = payload.id as string;
         const searchParams = request.nextUrl.searchParams;
         const filterType = searchParams.get('type'); // 'masuk' | 'keluar' | 'all'
@@ -27,8 +29,8 @@ export async function GET(request: NextRequest) {
         const limit = 20; // Default limit
 
         // Fetch user to check permissions
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             include: { 
                 role: { include: { permission: true } },
                 sites: true
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (!user) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         // Check for Site-Based Restriction Policy
@@ -201,6 +203,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('Mobile Inventory History Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

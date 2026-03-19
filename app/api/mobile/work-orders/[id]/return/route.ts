@@ -5,6 +5,7 @@ import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { randomUUID } from 'crypto'
 import { notifyAdminsAboutMobileAction } from '@/modules/notification'
 import { logger } from '@/lib/logger'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 interface ReturnedMaterial {
     id: string;
@@ -29,10 +30,11 @@ export async function POST(
 
         const decoded = authResult
         const userId = decoded.id as string
+        const tenantId = decoded.tenantId as string
 
         // Fetch user to get name (for accurate notifications)
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { name: true }
         })
 
@@ -41,18 +43,18 @@ export async function POST(
         const { items } = body
 
         if (!items || !Array.isArray(items) || items.length === 0) {
-            return NextResponse.json({ error: 'Items wajib diisi' }, { status: 400 })
+            return apiError('Items wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id },
+        const workOrder = await prisma.workOrders.findFirst({
+            where: { id, tenantId },
             include: {
                 assignments: { select: { userId: true, status: true } }
             }
         })
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work order tidak ditemukan' }, { status: 404 })
+            return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         // Check if user is authorized (lead technician OR approved partner)
@@ -62,15 +64,13 @@ export async function POST(
         )
 
         if (!isAssignedTo && !isApprovedPartner) {
-            return NextResponse.json({ error: 'Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.' }, { status: 403 })
+            return apiError('Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         // Allow material return for DISCONNECTION and RELOCATION types
         // Also allow for any work order that is IN_PROGRESS or COMPLETED (for flexibility)
         if (!['ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].includes(workOrder.status)) {
-            return NextResponse.json({ 
-                error: 'Work order harus dalam status ASSIGNED, IN_PROGRESS, atau COMPLETED untuk mengembalikan barang' 
-            }, { status: 400 })
+            return apiError('Work order harus dalam status ASSIGNED, IN_PROGRESS, atau COMPLETED untuk mengembalikan barang', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Process each item - create barang masuk and update stock
@@ -87,8 +87,8 @@ export async function POST(
                 }
 
                 // Fetch barang info
-                const barang = await tx.barang.findUnique({
-                    where: { id: barangId }
+                const barang = await tx.barang.findFirst({
+                    where: { id: barangId, tenantId }
                 })
 
                 if (!barang) {
@@ -104,15 +104,18 @@ export async function POST(
                         jumlah,
                         kondisi: kondisi || 'BEKAS',
                         userId: userId,
-                        keterangan: `Pengembalian dari Work Order ${workOrder.workOrderNumber} - ${workOrder.title}`
+                        keterangan: `Pengembalian dari Work Order ${workOrder.workOrderNumber} - ${workOrder.title}`,
+                        tenantId
                     },
                     include: { barang: true }
                 })
 
                 // Update or create stock in gudang
-                const existingStock = await tx.barangGudang.findUnique({
+                const existingStock = await tx.barangGudang.findFirst({
                     where: {
-                        barangId_gudangId: { barangId, gudangId }
+                        barangId,
+                        gudangId,
+                        tenantId
                     }
                 })
 
@@ -128,25 +131,22 @@ export async function POST(
                     else if (kondisi === 'RUSAK') updateData.stokRusak = { increment: jumlah }
 
                     await tx.barangGudang.update({
-                        where: {
-                            barangId_gudangId: { barangId, gudangId }
-                        },
+                        where: { id: existingStock.id },
                         data: updateData
                     })
                 } else {
                     // Create new stock record
-
-
                     await tx.barangGudang.create({
                         data: {
                             id: randomUUID(),
-                            barang: { connect: { id: barangId } },
-                            gudang: { connect: { id: gudangId } },
+                            barangId,
+                            gudangId,
                             stok: jumlah,
                             stokBaru: kondisi === 'BARU' ? jumlah : 0,
                             stokBekas: kondisi === 'BEKAS' ? jumlah : 0,
                             stokRusak: kondisi === 'RUSAK' ? jumlah : 0,
-                            updatedAt: new Date()
+                            updatedAt: new Date(),
+                            tenantId
                         }
                     })
                 }
@@ -165,7 +165,7 @@ export async function POST(
             // Update work order returnedMaterials
             const existingReturned = (workOrder.returnedMaterials as unknown as ReturnedMaterial[]) || []
             await tx.workOrders.update({
-                where: { id },
+                where: { id, tenantId },
                 data: {
                     returnedMaterials: [...existingReturned, ...createdItems]
                 }
@@ -181,7 +181,8 @@ export async function POST(
                     updateType: 'MATERIAL_RETURN',
                     message: `Mengembalikan barang: ${materialList}`,
                     oldStatus: workOrder.status,
-                    newStatus: workOrder.status
+                    newStatus: workOrder.status,
+                    tenantId
                 }
             })
 
@@ -207,6 +208,7 @@ export async function POST(
             action: 'CREATE',
             subject: 'MaterialReturn',
             userId,
+            tenantId,
             details: { 
                 workOrderId: id, 
                 workOrderNumber: workOrder.workOrderNumber,

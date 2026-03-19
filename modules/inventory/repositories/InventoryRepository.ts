@@ -32,10 +32,11 @@ export class InventoryRepository implements IInventoryRepository {
         gudangId?: string
         isWorkOrderMaterial?: boolean
         siteId?: string
+        tenantId?: string
     }): Promise<{ items: BarangWithStock[]; total: number }> {
-        const { skip, take, search, gudangId, isWorkOrderMaterial, siteId } = params || {}
+        const { skip, take, search, gudangId, isWorkOrderMaterial, siteId, tenantId } = params || {}
 
-        const where: Prisma.BarangWhereInput = {}
+        const where: Prisma.BarangWhereInput = { tenantId }
 
         if (search) {
             where.OR = [
@@ -47,10 +48,6 @@ export class InventoryRepository implements IInventoryRepository {
         if (isWorkOrderMaterial !== undefined) {
             (where as Record<string, unknown>).isWorkOrderMaterial = isWorkOrderMaterial
         }
-
-        // REMOVED SITE RESTRICTION ON ITEM LIST: 
-        // We want all items to be visible in the search/catalog even if they don't have stock in the current site yet.
-        // The site restriction should only apply to stocks calculation (barangGudang include), not the item's existence.
 
         // Count total matches
         const total = await this.db.barang.count({ where })
@@ -110,14 +107,16 @@ export class InventoryRepository implements IInventoryRepository {
                 barangGudang: {
                     include: {
                         gudang: {
-                            include: {
-                                sites: true
+                            select: {
+                                id: true,
+                                nama: true,
+                                kode: true
                             }
                         }
                     }
                 }
             }
-        }) as Promise<BarangWithStock | null>
+        }) as unknown as Promise<BarangWithStock | null>
     }
 
     async findBarangByKode(kode: string): Promise<BarangWithStock | null> {
@@ -127,14 +126,16 @@ export class InventoryRepository implements IInventoryRepository {
                 barangGudang: {
                     include: {
                         gudang: {
-                            include: {
-                                sites: true
+                            select: {
+                                id: true,
+                                nama: true,
+                                kode: true
                             }
                         }
                     }
                 }
             }
-        }) as Promise<BarangWithStock | null>
+        }) as unknown as Promise<BarangWithStock | null>
     }
 
     async existsBarangByKode(kode: string): Promise<boolean> {
@@ -149,65 +150,30 @@ export class InventoryRepository implements IInventoryRepository {
             data: {
                 id: crypto.randomUUID(),
                 ...data,
-                updatedAt: new Date(),
-                isWorkOrderMaterial: data.isWorkOrderMaterial || false,
-                jenis: data.jenis, // Optional: defaults to HABIS_PAKAI in DB if undefined, or explicit
-                kategoriAset: data.kategoriAset
-            } as Prisma.BarangCreateInput
+                updatedAt: new Date()
+            }
         })
     }
 
     async updateBarang(id: string, data: UpdateBarangInput): Promise<Barang> {
         return this.db.barang.update({
             where: { id },
-            data
+            data: {
+                ...data,
+                updatedAt: new Date()
+            }
         })
     }
 
     async findBarangDetail(id: string): Promise<BarangDetail | null> {
         const result = await this.db.barang.findUnique({
             where: { id },
-            select: {
-                id: true,
-                kode: true,
-                nama: true,
-                satuan: true,
-                isWorkOrderMaterial: true,
-                jenis: true,
-                kategoriAset: true,
-                createdAt: true,
-                tenantId: true,
-                updatedAt: true,
-                supplierId: true,
+            include: {
                 barangGudang: {
-                    select: {
-                        id: true,
-                        createdAt: true,
-                        updatedAt: true,
-                        tenantId: true,
-                        barangId: true,
-                        gudangId: true,
-                        stok: true,
-                        stokBaru: true,
-                        stokBekas: true,
-                        stokRusak: true,
-                        gudang: {
-                            select: {
-                                id: true,
-                                kode: true,
-                                nama: true,
-                                sites: { select: { id: true, name: true } }
-                            }
-                        }
-                    }
+                    include: { gudang: true }
                 },
                 barang_masuk: {
-                    select: {
-                        id: true,
-                        tanggal: true,
-                        jumlah: true,
-                        kondisi: true,
-                        keterangan: true,
+                    include: {
                         gudang: { select: { id: true, nama: true } },
                         user: { select: { id: true, name: true } }
                     },
@@ -215,12 +181,7 @@ export class InventoryRepository implements IInventoryRepository {
                     take: 10
                 },
                 barang_keluar: {
-                    select: {
-                        id: true,
-                        tanggal: true,
-                        jumlah: true,
-                        kondisi: true,
-                        keterangan: true,
+                    include: {
                         gudang: { select: { id: true, nama: true } },
                         user: { select: { id: true, name: true } }
                     },
@@ -228,13 +189,7 @@ export class InventoryRepository implements IInventoryRepository {
                     take: 10
                 },
                 stockOpname: {
-                    select: {
-                        id: true,
-                        tanggal: true,
-                        stokFisik: true,
-                        stokSistem: true,
-                        selisih: true,
-                        keterangan: true,
+                    include: {
                         gudang: { select: { id: true, nama: true } }
                     },
                     orderBy: { tanggal: 'desc' },
@@ -255,35 +210,18 @@ export class InventoryRepository implements IInventoryRepository {
 
     async deleteBarang(id: string): Promise<void> {
         await this.db.$transaction(async (tx) => {
-            // Delete all related records in correct order
-            await tx.barangMasuk.deleteMany({
-                where: { barangId: id }
-            })
-
-            await tx.barangKeluar.deleteMany({
-                where: { barangId: id }
-            })
-
-            // Note: If you have StockOpname, include deletion here.
-            // Using structural type cast for tx if models are missing from standard context but exist in DB
+            await tx.barangMasuk.deleteMany({ where: { barangId: id } })
+            await tx.barangKeluar.deleteMany({ where: { barangId: id } })
             await (tx as unknown as { stockOpname: { deleteMany: (args: { where: { barangId: string } }) => Promise<unknown> } }).stockOpname.deleteMany({
                 where: { barangId: id }
             })
-
-            await tx.barangGudang.deleteMany({
-                where: { barangId: id }
-            })
-
-            // Finally delete the barang
-            await tx.barang.delete({
-                where: { id }
-            })
+            await tx.barangGudang.deleteMany({ where: { barangId: id } })
+            await tx.barang.delete({ where: { id } })
         })
     }
 
     async addStock(data: CreateBarangMasukInput): Promise<BarangMasuk> {
         return this.db.$transaction(async (tx) => {
-            // 1. Create BarangMasuk record
             const masuk = await tx.barangMasuk.create({
                 data: {
                     id: crypto.randomUUID(),
@@ -296,28 +234,23 @@ export class InventoryRepository implements IInventoryRepository {
                     userId: data.userId || null,
                     tanggal: data.tanggal || new Date(),
                     fotoBukti: data.fotoBukti || [],
-                    fotoMetadata: (data.fotoMetadata as unknown as Prisma.InputJsonValue) || Prisma.JsonNull
+                    fotoMetadata: (data.fotoMetadata as unknown as Prisma.InputJsonValue) || Prisma.JsonNull,
+                    tenantId: data.tenantId || null
                 },
                 include: {
                     barang: true,
                     gudang: true,
-                    user: {
-                        select: { id: true, name: true }
-                    }
+                    user: { select: { id: true, name: true } }
                 }
             })
 
-            // 1.5. If Item is Fixed Asset, Auto-generate Asset Records
-            // Using logic validation since Typescript might complain about relations on 'masuk' if not inferred correctly
-            if (masuk.barang && masuk.barang.jenis === 'ASET') {
-                // Use constant for useful life mapping
+            if (masuk.barang && (masuk.barang as unknown as { jenis: string }).jenis === 'ASET') {
                 const kategori = (masuk.barang as unknown as { kategoriAset: keyof typeof USEFUL_LIFE_MONTHS }).kategoriAset
                 const usefulLife = USEFUL_LIFE_MONTHS[kategori] || USEFUL_LIFE_MONTHS.LAINNYA
-
                 const assetsToCreate = []
                 const prefix = `AST-${masuk.barang.kode}`
-                const dateCode = new Date().toISOString().slice(2,7).replace('-','') // YYMM
-                const timestamp = Date.now().toString(36).toUpperCase() // Base36 timestamp for uniqueness
+                const dateCode = new Date().toISOString().slice(2,7).replace('-','')
+                const timestamp = Date.now().toString(36).toUpperCase()
 
                 for (let i = 0; i < data.jumlah; i++) {
                     const uniqueSuffix = `${timestamp}${i.toString().padStart(3, '0')}`
@@ -330,32 +263,24 @@ export class InventoryRepository implements IInventoryRepository {
                         usefulLife: usefulLife,
                         residualValue: 0,
                         status: 'ACTIVE' as const,
-                        location: masuk.gudang?.nama || 'Gudang Utama',
-                        assignedTo: null
+                        location: (masuk as unknown as { gudang: { nama: string } | null }).gudang?.nama || 'Gudang Utama',
+                        assignedTo: null,
+                        tenantId: data.tenantId || null
                     })
                 }
 
                 if (assetsToCreate.length > 0) {
                      await tx.asset.createMany({
-                        data: assetsToCreate.map(a => ({
-                            id: crypto.randomUUID(),
-                            ...a
-                        }))
+                        data: assetsToCreate.map(a => ({ id: crypto.randomUUID(), ...a }))
                      })
                 }
             }
 
-            // 2. Update or Create Stock in BarangGudang using UPSERT (atomic operation)
             const kondisi = data.kondisi || DEFAULT_KONDISI
             const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
 
             await tx.barangGudang.upsert({
-                where: {
-                    barangId_gudangId: {
-                        barangId: data.barangId,
-                        gudangId: data.gudangId
-                    }
-                },
+                where: { barangId_gudangId: { barangId: data.barangId, gudangId: data.gudangId } },
                 create: {
                     id: crypto.randomUUID(),
                     barangId: data.barangId,
@@ -364,7 +289,8 @@ export class InventoryRepository implements IInventoryRepository {
                     stokBaru: kondisi === 'BARU' ? data.jumlah : 0,
                     stokBekas: kondisi === 'BEKAS' ? data.jumlah : 0,
                     stokRusak: kondisi === 'RUSAK' ? data.jumlah : 0,
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    tenantId: data.tenantId || null
                 },
                 update: {
                     stok: { increment: data.jumlah },
@@ -379,36 +305,19 @@ export class InventoryRepository implements IInventoryRepository {
 
     async removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar> {
         return this.db.$transaction(async (tx) => {
-            // 1. Check current stock
             const currentStock = await tx.barangGudang.findUnique({
-                where: {
-                    barangId_gudangId: {
-                        barangId: data.barangId,
-                        gudangId: data.gudangId
-                    }
-                }
+                where: { barangId_gudangId: { barangId: data.barangId, gudangId: data.gudangId } }
             })
 
-            if (!currentStock) {
-                throw new Error('Stok tidak ditemukan')
-            }
-
-            if (currentStock.stok < data.jumlah) {
-                throw new Error('Total stok tidak mencukupi')
-            }
+            if (!currentStock) throw new Error('Stok tidak ditemukan')
+            if (currentStock.stok < data.jumlah) throw new Error('Total stok tidak mencukupi')
 
             const kondisi = data.kondisi || DEFAULT_KONDISI
             const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
-
             const stokByKondisi = currentStock[stockField as keyof typeof currentStock] as number
 
-            if (typeof stokByKondisi !== 'number' || isNaN(stokByKondisi)) {
-                throw new Error(`Data stok tidak valid untuk kondisi ${kondisi}`)
-            }
-
-            if (stokByKondisi < data.jumlah) {
-                throw new Error(`Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`)
-            }
+            if (typeof stokByKondisi !== 'number' || isNaN(stokByKondisi)) throw new Error(`Data stok tidak valid untuk kondisi ${kondisi}`)
+            if (stokByKondisi < data.jumlah) throw new Error(`Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`)
 
             const updateData = {
                 stok: { decrement: data.jumlah },
@@ -416,19 +325,12 @@ export class InventoryRepository implements IInventoryRepository {
             } as Prisma.BarangGudangUpdateInput
 
             const updated = await tx.barangGudang.updateMany({
-                where: {
-                    id: currentStock.id,
-                    stok: { gte: data.jumlah },
-                    [stockField]: { gte: data.jumlah }
-                },
+                where: { id: currentStock.id, stok: { gte: data.jumlah }, [stockField]: { gte: data.jumlah } },
                 data: updateData
             })
 
-            if (updated.count === 0) {
-                throw new Error(`Stok ${kondisi} tidak mencukupi atau telah berubah (Tersedia: ${stokByKondisi})`)
-            }
+            if (updated.count === 0) throw new Error(`Stok ${kondisi} tidak mencukupi atau telah berubah (Tersedia: ${stokByKondisi})`)
 
-            // 2. Create BarangKeluar record
             const keluar = await tx.barangKeluar.create({
                 data: {
                     id: crypto.randomUUID(),
@@ -442,36 +344,22 @@ export class InventoryRepository implements IInventoryRepository {
                     userId: data.userId || null,
                     tanggal: data.tanggal || new Date(),
                     fotoBukti: data.fotoBukti || [],
-                    fotoMetadata: (data.fotoMetadata as unknown as Prisma.InputJsonValue) || Prisma.JsonNull
+                    fotoMetadata: (data.fotoMetadata as unknown as Prisma.InputJsonValue) || Prisma.JsonNull,
+                    tenantId: data.tenantId || null
                 },
-                include: {
-                    barang: true,
-                    gudang: true,
-                    user: {
-                        select: { id: true, name: true }
-                    }
-                }
+                include: { barang: true, gudang: true }
             })
 
-            // 2.5. FIFO Asset Allocation (If Item is ASET)
             const keluarWithRelations = keluar as unknown as { barang: { jenis: string }; gudang: { nama: string }; keterangan: string | null }
             if (keluarWithRelations.barang?.jenis === 'ASET' && !data.isHilang) {
                 const assetsToAllocate = await tx.asset.findMany({
-                    where: {
-                        barangId: data.barangId,
-                        status: 'ACTIVE',
-                        location: keluarWithRelations.gudang?.nama
-                    },
-                    orderBy: [
-                        { purchaseDate: 'asc' },
-                        { createdAt: 'asc' }
-                    ],
+                    where: { barangId: data.barangId, status: 'ACTIVE', location: keluarWithRelations.gudang?.nama },
+                    orderBy: [{ purchaseDate: 'asc' }, { createdAt: 'asc' }],
                     take: data.jumlah
                 })
 
                 if (assetsToAllocate.length > 0) {
                     const assetIds = assetsToAllocate.map(a => a.id)
-
                     await tx.asset.updateMany({
                         where: { id: { in: assetIds } },
                         data: {
@@ -489,113 +377,56 @@ export class InventoryRepository implements IInventoryRepository {
 
     async getStockLevel(barangId: string, gudangId: string): Promise<number> {
         const record = await this.db.barangGudang.findUnique({
-            where: {
-                barangId_gudangId: { barangId, gudangId }
-            }
+            where: { barangId_gudangId: { barangId, gudangId } }
         })
         return record?.stok || 0
     }
 
-    async getAllGudang(params?: { siteId?: string }): Promise<Gudang[]> {
-        const { siteId } = params || {}
-        const where: Prisma.GudangWhereInput = { isActive: true }
-
-        if (siteId) {
-            (where as Record<string, unknown>).sites = { some: { id: siteId } }
-        }
-
-        return this.db.gudang.findMany({
-            where,
-            orderBy: { nama: 'asc' }
-        })
+    async getAllGudang(params?: { siteId?: string; tenantId?: string }): Promise<Gudang[]> {
+        const { siteId, tenantId } = params || {}
+        const where: Prisma.GudangWhereInput = { isActive: true, tenantId }
+        if (siteId) (where as Record<string, unknown>).sites = { some: { id: siteId } }
+        return this.db.gudang.findMany({ where, orderBy: { nama: 'asc' } })
     }
 
     async findGudangById(id: string): Promise<Gudang | null> {
         return this.db.gudang.findUnique({
             where: { id },
-            include: {
-                barangGudang: {
-                    include: { barang: true }
-                }
-            }
+            include: { barangGudang: { include: { barang: true } } }
         }) as unknown as Promise<Gudang | null>
     }
 
     async findGudangByKode(kode: string): Promise<Gudang | null> {
-        return this.db.gudang.findFirst({
-            where: { kode }
-        })
+        return this.db.gudang.findFirst({ where: { kode } })
     }
 
     async createGudang(data: CreateGudangInput): Promise<Gudang> {
         const { siteIds, ...gudangData } = data
-        const createData: Prisma.GudangCreateInput = {
-            id: crypto.randomUUID(),
-            ...gudangData,
-            updatedAt: new Date(),
-        }
-
-        if (siteIds && siteIds.length > 0) {
-            createData.sites = {
-                connect: siteIds.map(id => ({ id }))
-            }
-        }
-
-        return this.db.gudang.create({
-            data: createData,
-            include: {
-                sites: { select: { id: true, name: true, code: true } }
-            }
-        }) as unknown as Promise<Gudang>
+        const createData: Prisma.GudangCreateInput = { id: crypto.randomUUID(), ...gudangData, updatedAt: new Date() }
+        if (siteIds && siteIds.length > 0) createData.sites = { connect: siteIds.map(id => ({ id })) }
+        return this.db.gudang.create({ data: createData, include: { sites: { select: { id: true, name: true, code: true } } } }) as unknown as Promise<Gudang>
     }
 
     async updateGudang(id: string, data: UpdateGudangInput): Promise<Gudang> {
-        return this.db.gudang.update({
-            where: { id },
-            data: {
-                ...data,
-                updatedAt: new Date()
-            }
-        })
+        return this.db.gudang.update({ where: { id }, data: { ...data, updatedAt: new Date() } })
     }
 
     async deleteGudang(id: string): Promise<void> {
-        // Hard delete implementation
-        await this.db.gudang.delete({
-            where: { id }
-        })
+        await this.db.gudang.delete({ where: { id } })
     }
 
     async hasStockInGudang(id: string): Promise<boolean> {
-        const count = await this.db.barangGudang.count({
-            where: { gudangId: id, stok: { gt: 0 } }
-        })
+        const count = await this.db.barangGudang.count({ where: { gudangId: id, stok: { gt: 0 } } })
         return count > 0
     }
 
-    // Transfer Implementation
-    async findAllTransfers(params?: {
-        skip?: number
-        take?: number
-        barangId?: string
-        dariGudangId?: string
-        keGudangId?: string
-        siteId?: string
-    }): Promise<{ items: Record<string, unknown>[]; total: number }> {
-        const { skip, take, barangId, dariGudangId, keGudangId, siteId } = params || {}
-        const where: Prisma.TransferAntarGudangWhereInput = {}
-
+    async findAllTransfers(params?: { skip?: number; take?: number; barangId?: string; dariGudangId?: string; keGudangId?: string; siteId?: string; tenantId?: string }): Promise<{ items: Record<string, unknown>[]; total: number }> {
+        const { skip, take, barangId, dariGudangId, keGudangId, siteId, tenantId } = params || {}
+        const where: Prisma.TransferAntarGudangWhereInput = { tenantId }
         if (barangId) where.barangId = barangId
         if (dariGudangId) where.dariGudangId = dariGudangId
         if (keGudangId) where.keGudangId = keGudangId
-
-        if (siteId) {
-            where.OR = [
-                { gudangDari: { sites: { some: { id: siteId } } } },
-                { gudangKe: { sites: { some: { id: siteId } } } }
-            ]
-        }
-
+        if (siteId) where.OR = [{ gudangDari: { sites: { some: { id: siteId } } } }, { gudangKe: { sites: { some: { id: siteId } } } }]
         const queryOptions: Prisma.TransferAntarGudangFindManyArgs = {
             where,
             include: {
@@ -606,24 +437,11 @@ export class InventoryRepository implements IInventoryRepository {
             },
             orderBy: { tanggal: 'desc' }
         }
-
         if (skip !== undefined) queryOptions.skip = skip
         if (take !== undefined) queryOptions.take = take
-
-        const [rawItems, total] = await Promise.all([
-            this.db.transferAntarGudang.findMany(queryOptions),
-            this.db.transferAntarGudang.count({ where })
-        ])
-
+        const [rawItems, total] = await Promise.all([this.db.transferAntarGudang.findMany(queryOptions), this.db.transferAntarGudang.count({ where })])
         const typedRawItems = rawItems as unknown as Array<{ gudangDari: unknown; gudangKe: unknown }>
-
-        // Map to match frontend property names
-        const items = typedRawItems.map(item => ({
-            ...item,
-            dariGudang: item.gudangDari,
-            keGudang: item.gudangKe
-        }))
-
+        const items = typedRawItems.map(item => ({ ...item, dariGudang: item.gudangDari, keGudang: item.gudangKe }))
         return { items, total }
     }
 
@@ -642,198 +460,53 @@ export class InventoryRepository implements IInventoryRepository {
 
     async createTransfer(data: CreateTransferInput): Promise<Record<string, unknown>> {
         return this.db.$transaction(async (tx) => {
-            const { barangId, dariGudangId, keGudangId, jumlah, kondisi = 'BARU' } = data
-
-            // Check Barang
+            const { barangId, dariGudangId, keGudangId, jumlah, kondisi = 'BARU', tenantId } = data
             const barang = await tx.barang.findUnique({ where: { id: barangId } })
             if (!barang) throw new Error('Barang tidak ditemukan')
-
-            // Check Warehouses
-            const [dariGudang, keGudang] = await Promise.all([
-                tx.gudang.findUnique({ where: { id: dariGudangId, isActive: true } }),
-                tx.gudang.findUnique({ where: { id: keGudangId, isActive: true } })
-            ])
+            const [dariGudang, keGudang] = await Promise.all([tx.gudang.findUnique({ where: { id: dariGudangId, isActive: true } }), tx.gudang.findUnique({ where: { id: keGudangId, isActive: true } })])
             if (!dariGudang) throw new Error('Gudang sumber tidak ditemukan atau tidak aktif')
             if (!keGudang) throw new Error('Gudang tujuan tidak ditemukan atau tidak aktif')
-            if (dariGudangId === keGudangId) throw new Error('Gudang sumber dan tujuan tidak boleh sama')
-
-            // Determine which stock field to check and update based on kondisi
             const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
-
-            // Atomic decrement from Source using updateMany to prevent race conditions
             const updatedSumber = await tx.barangGudang.updateMany({
-                where: {
-                    barangId,
-                    gudangId: dariGudangId,
-                    stok: { gte: jumlah },
-                    [stockField]: { gte: jumlah }
-                },
-                data: {
-                    stok: { decrement: jumlah },
-                    [stockField]: { decrement: jumlah },
-                    updatedAt: new Date()
-                } as Prisma.BarangGudangUpdateInput
+                where: { barangId, gudangId: dariGudangId, stok: { gte: jumlah }, [stockField]: { gte: jumlah } },
+                data: { stok: { decrement: jumlah }, [stockField]: { decrement: jumlah }, updatedAt: new Date() } as Prisma.BarangGudangUpdateInput
             })
-
-            if (updatedSumber.count === 0) {
-                throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi di gudang sumber atau telah berubah`)
-            }
-
-            // Create Transfer Record with unique code validation
-            let transferCode = `TRF${Date.now()}`
-
-            // Check for duplicate transfer code (rare but possible with concurrent requests)
-            const existingTransfer = await tx.transferAntarGudang.findFirst({
-                where: { kodeTransfer: transferCode }
-            })
-
-            // If duplicate exists, add random suffix
-            if (existingTransfer) {
-                transferCode = `TRF${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-            }
-
+            if (updatedSumber.count === 0) throw new Error(`Stok ${kondisi.toLowerCase()} tidak mencukupi`)
+            const transferCode = `TRF${Date.now()}`
             const transfer = await tx.transferAntarGudang.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    kodeTransfer: transferCode,
-                    barangId,
-                    dariGudangId,
-                    keGudangId,
-                    jumlah,
-                    kondisi,
-                    keterangan: data.keterangan || null,
-                    createdById: data.userId,
-                    fotoBukti: data.fotoBukti || [],
-                    fotoMetadata: (data.fotoMetadata as unknown as Prisma.InputJsonValue) || Prisma.JsonNull
-                }
+                data: { id: crypto.randomUUID(), kodeTransfer: transferCode, barangId, dariGudangId, keGudangId, jumlah, kondisi, keterangan: data.keterangan || null, createdById: data.userId, fotoBukti: data.fotoBukti || [], fotoMetadata: (data.fotoMetadata as unknown as Prisma.InputJsonValue) || Prisma.JsonNull, tenantId }
             })
-
-            // Create Keluar record for source
-            await tx.barangKeluar.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    barangId,
-                    gudangId: dariGudangId,
-                    transferId: transfer.id,
-                    jumlah,
-                    kondisi,
-                    keterangan: `Transfer ke ${keGudang.nama} (${keGudang.kode})${data.keterangan ? ` - ${data.keterangan}` : ''}`,
-                    userId: data.userId,
-                    isHilang: false
-                }
-            })
-
-            // Add to Dest (Create Masuk + Update/Create BarangGudang)
-            await tx.barangMasuk.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    barangId,
-                    gudangId: keGudangId,
-                    transferId: transfer.id,
-                    jumlah,
-                    kondisi,
-                    keterangan: `Transfer dari ${dariGudang.nama} (${dariGudang.kode})${data.keterangan ? ` - ${data.keterangan}` : ''}`,
-                    userId: data.userId
-                }
-            })
-
-            // const stockTujuan = await tx.barangGudang.findUnique({
-            //     where: { barangId_gudangId: { barangId, gudangId: keGudangId } }
-            // })
-
-            // Use upsert for atomic operation
+            await tx.barangKeluar.create({ data: { id: crypto.randomUUID(), barangId, gudangId: dariGudangId, transferId: transfer.id, jumlah, kondisi, keterangan: `Transfer ke ${keGudang.nama}`, userId: data.userId, tenantId } })
+            await tx.barangMasuk.create({ data: { id: crypto.randomUUID(), barangId, gudangId: keGudangId, transferId: transfer.id, jumlah, kondisi, keterangan: `Transfer dari ${dariGudang.nama}`, userId: data.userId, tenantId } })
             await tx.barangGudang.upsert({
-                where: {
-                    barangId_gudangId: { barangId, gudangId: keGudangId }
-                },
-                create: {
-                    id: crypto.randomUUID(),
-                    barangId,
-                    gudangId: keGudangId,
-                    stok: jumlah,
-                    stokBaru: kondisi === 'BARU' ? jumlah : 0,
-                    stokBekas: kondisi === 'BEKAS' ? jumlah : 0,
-                    stokRusak: kondisi === 'RUSAK' ? jumlah : 0,
-                    updatedAt: new Date()
-                },
-                update: {
-                    stok: { increment: jumlah },
-                    [stockField]: { increment: jumlah },
-                    updatedAt: new Date()
-                } as Prisma.BarangGudangUpdateInput
+                where: { barangId_gudangId: { barangId, gudangId: keGudangId } },
+                create: { id: crypto.randomUUID(), barangId, gudangId: keGudangId, stok: jumlah, stokBaru: kondisi === 'BARU' ? jumlah : 0, stokBekas: kondisi === 'BEKAS' ? jumlah : 0, stokRusak: kondisi === 'RUSAK' ? jumlah : 0, updatedAt: new Date(), tenantId },
+                update: { stok: { increment: jumlah }, [stockField]: { increment: jumlah }, updatedAt: new Date() } as Prisma.BarangGudangUpdateInput
             })
-
             return transfer
         })
     }
 
     async updateTransfer(id: string, data: { keterangan?: string }): Promise<Record<string, unknown>> {
-        return this.db.transferAntarGudang.update({
-            where: { id },
-            data,
-            include: {
-                barang: { select: { id: true, kode: true, nama: true } },
-                gudangDari: { select: { id: true, kode: true, nama: true } },
-                gudangKe: { select: { id: true, kode: true, nama: true } }
-            }
-        }) as unknown as Promise<Record<string, unknown>>
+        return this.db.transferAntarGudang.update({ where: { id }, data, include: { barang: { select: { id: true, kode: true, nama: true } }, gudangDari: { select: { id: true, kode: true, nama: true } }, gudangKe: { select: { id: true, kode: true, nama: true } } } }) as unknown as Promise<Record<string, unknown>>
     }
 
     async deleteTransfer(id: string): Promise<void> {
         await this.db.$transaction(async (tx) => {
-            const transfer = await tx.transferAntarGudang.findUnique({
-                where: { id },
-                include: { barangMasuk: true, barangKeluar: true }
-            })
+            const transfer = await tx.transferAntarGudang.findUnique({ where: { id }, include: { barangMasuk: true, barangKeluar: true } })
             if (!transfer) throw new Error('Record transfer tidak ditemukan')
-
-            // Logic to revert:
-            // 1. Reduce Dest Stock with proper breakdown update (Atomic check & decrement)
             const stockFieldDel = STOCK_FIELD_MAP[transfer.kondisi] || 'stokBaru'
-
             const updatedTujuan = await tx.barangGudang.updateMany({
-                where: {
-                    barangId: transfer.barangId,
-                    gudangId: transfer.keGudangId,
-                    stok: { gte: transfer.jumlah },
-                    [stockFieldDel]: { gte: transfer.jumlah }
-                },
-                data: {
-                    stok: { decrement: transfer.jumlah },
-                    [stockFieldDel]: { decrement: transfer.jumlah },
-                    updatedAt: new Date()
-                } as Prisma.BarangGudangUpdateInput
+                where: { barangId: transfer.barangId, gudangId: transfer.keGudangId, stok: { gte: transfer.jumlah }, [stockFieldDel]: { gte: transfer.jumlah } },
+                data: { stok: { decrement: transfer.jumlah }, [stockFieldDel]: { decrement: transfer.jumlah }, updatedAt: new Date() } as Prisma.BarangGudangUpdateInput
             })
-
-            if (updatedTujuan.count === 0) {
-                throw new Error('Stok di gudang tujuan tidak mencukupi untuk pembatalan transfer atau telah berubah')
-            }
-
-            // 2. Add back to Source Stock with proper breakdown update (Atomic upsert)
+            if (updatedTujuan.count === 0) throw new Error('Stok di gudang tujuan tidak mencukupi')
             const stockFieldAdd = STOCK_FIELD_MAP[transfer.kondisi] || 'stokBaru'
-
             await tx.barangGudang.upsert({
-                where: {
-                    barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.dariGudangId }
-                },
-                create: {
-                    id: crypto.randomUUID(),
-                    barangId: transfer.barangId,
-                    gudangId: transfer.dariGudangId,
-                    stok: transfer.jumlah,
-                    stokBaru: transfer.kondisi === 'BARU' ? transfer.jumlah : 0,
-                    stokBekas: transfer.kondisi === 'BEKAS' ? transfer.jumlah : 0,
-                    stokRusak: transfer.kondisi === 'RUSAK' ? transfer.jumlah : 0,
-                    updatedAt: new Date()
-                },
-                update: {
-                    stok: { increment: transfer.jumlah },
-                    [stockFieldAdd]: { increment: transfer.jumlah },
-                    updatedAt: new Date()
-                } as Prisma.BarangGudangUpdateInput
+                where: { barangId_gudangId: { barangId: transfer.barangId, gudangId: transfer.dariGudangId } },
+                create: { id: crypto.randomUUID(), barangId: transfer.barangId, gudangId: transfer.dariGudangId, stok: transfer.jumlah, stokBaru: transfer.kondisi === 'BARU' ? transfer.jumlah : 0, stokBekas: transfer.kondisi === 'BEKAS' ? transfer.jumlah : 0, stokRusak: transfer.kondisi === 'RUSAK' ? transfer.jumlah : 0, updatedAt: new Date(), tenantId: transfer.tenantId },
+                update: { stok: { increment: transfer.jumlah }, [stockFieldAdd]: { increment: transfer.jumlah }, updatedAt: new Date() } as Prisma.BarangGudangUpdateInput
             })
-
-            // 3. Delete Masuk/Keluar/Transfer
             await tx.barangMasuk.deleteMany({ where: { transferId: id } })
             await tx.barangKeluar.deleteMany({ where: { transferId: id } })
             await tx.transferAntarGudang.delete({ where: { id } })
@@ -841,154 +514,40 @@ export class InventoryRepository implements IInventoryRepository {
     }
 
     async getStockBreakdown(barangId: string, gudangId: string): Promise<{ baru: number, bekas: number, rusak: number, total: number }> {
-        // Optimized: Use pre-calculated stock from BarangGudang instead of iterating all transactions
-        const stock = await this.db.barangGudang.findUnique({
-            where: {
-                barangId_gudangId: { barangId, gudangId }
-            },
-            select: {
-                stokBaru: true,
-                stokBekas: true,
-                stokRusak: true,
-                stok: true
-            }
-        })
-
-        if (!stock) {
-            return { baru: 0, bekas: 0, rusak: 0, total: 0 }
-        }
-
-        return {
-            baru: stock.stokBaru,
-            bekas: stock.stokBekas,
-            rusak: stock.stokRusak,
-            total: stock.stok
-        }
+        const stock = await this.db.barangGudang.findUnique({ where: { barangId_gudangId: { barangId, gudangId } }, select: { stokBaru: true, stokBekas: true, stokRusak: true, stok: true } })
+        if (!stock) return { baru: 0, bekas: 0, rusak: 0, total: 0 }
+        return { baru: stock.stokBaru, bekas: stock.stokBekas, rusak: stock.stokRusak, total: stock.stok }
     }
 
-
-    async getHistoryMasuk(params?: {
-        skip?: number
-        take?: number
-        barangId?: string
-        gudangId?: string
-        startDate?: Date
-        endDate?: Date
-        search?: string
-        siteId?: string
-    }): Promise<{ items: BarangMasukWithRelations[]; total: number }> {
-        const { skip, take, barangId, gudangId, startDate, endDate, search, siteId } = params || {}
-
-        const where: Prisma.BarangMasukWhereInput = {}
-
+    async getHistoryMasuk(params?: { skip?: number; take?: number; barangId?: string; gudangId?: string; startDate?: Date; endDate?: Date; search?: string; siteId?: string; tenantId?: string }): Promise<{ items: BarangMasukWithRelations[]; total: number }> {
+        const { skip, take, barangId, gudangId, startDate, endDate, search, siteId, tenantId } = params || {}
+        const where: Prisma.BarangMasukWhereInput = { tenantId }
         if (barangId) where.barangId = barangId
         if (gudangId) where.gudangId = gudangId
-
-        if (siteId) {
-            where.gudang = {
-                sites: {
-                    some: {
-                        id: siteId
-                    }
-                }
-            }
-        }
-
-        if (search) {
-            where.OR = [
-                { barang: { nama: { contains: search, mode: 'insensitive' } } },
-                { barang: { kode: { contains: search, mode: 'insensitive' } } },
-                { gudang: { nama: { contains: search, mode: 'insensitive' } } },
-                { user: { name: { contains: search, mode: 'insensitive' } } }
-            ]
-        }
-
-        if (startDate || endDate) {
-            where.tanggal = {}
-            if (startDate) where.tanggal.gte = startDate
-            if (endDate) where.tanggal.lte = endDate
-        }
-
+        if (siteId) where.gudang = { sites: { some: { id: siteId } } }
+        if (search) where.OR = [{ barang: { nama: { contains: search, mode: 'insensitive' } } }, { barang: { kode: { contains: search, mode: 'insensitive' } } }, { gudang: { nama: { contains: search, mode: 'insensitive' } } }, { user: { name: { contains: search, mode: 'insensitive' } } }]
+        if (startDate || endDate) { where.tanggal = {}; if (startDate) where.tanggal.gte = startDate; if (endDate) where.tanggal.lte = endDate }
         const total = await this.db.barangMasuk.count({ where })
-
-        const queryOptions: Prisma.BarangMasukFindManyArgs = {
-            where,
-            include: {
-                barang: true,
-                gudang: true,
-                user: { select: { id: true, name: true } }
-            },
-            orderBy: { tanggal: 'desc' }
-        }
-
+        const queryOptions: Prisma.BarangMasukFindManyArgs = { where, include: { barang: true, gudang: true, user: { select: { id: true, name: true } } }, orderBy: { tanggal: 'desc' } }
         if (skip !== undefined) queryOptions.skip = skip
         if (take !== undefined) queryOptions.take = take
-
-        const items = await this.db.barangMasuk.findMany(queryOptions) as BarangMasukWithRelations[] // Cast usually safe here due to structure match
-
+        const items = await this.db.barangMasuk.findMany(queryOptions) as BarangMasukWithRelations[]
         return { items, total }
     }
 
-
-    async getHistoryKeluar(params?: {
-        skip?: number
-        take?: number
-        barangId?: string
-        gudangId?: string
-        startDate?: Date
-        endDate?: Date
-        search?: string
-        siteId?: string
-    }): Promise<{ items: BarangKeluarWithRelations[]; total: number }> {
-        const { skip, take, barangId, gudangId, startDate, endDate, search, siteId } = params || {}
-
-        const where: Prisma.BarangKeluarWhereInput = {}
-
+    async getHistoryKeluar(params?: { skip?: number; take?: number; barangId?: string; gudangId?: string; startDate?: Date; endDate?: Date; search?: string; siteId?: string; tenantId?: string }): Promise<{ items: BarangKeluarWithRelations[]; total: number }> {
+        const { skip, take, barangId, gudangId, startDate, endDate, search, siteId, tenantId } = params || {}
+        const where: Prisma.BarangKeluarWhereInput = { tenantId }
         if (barangId) where.barangId = barangId
         if (gudangId) where.gudangId = gudangId
-
-        if (siteId) {
-            where.gudang = {
-                sites: {
-                    some: {
-                        id: siteId
-                    }
-                }
-            }
-        }
-
-        if (search) {
-            where.OR = [
-                { barang: { nama: { contains: search, mode: 'insensitive' } } },
-                { barang: { kode: { contains: search, mode: 'insensitive' } } },
-                { gudang: { nama: { contains: search, mode: 'insensitive' } } },
-                { user: { name: { contains: search, mode: 'insensitive' } } }
-            ]
-        }
-
-        if (startDate || endDate) {
-            where.tanggal = {}
-            if (startDate) where.tanggal.gte = startDate
-            if (endDate) where.tanggal.lte = endDate
-        }
-
+        if (siteId) where.gudang = { sites: { some: { id: siteId } } }
+        if (search) where.OR = [{ barang: { nama: { contains: search, mode: 'insensitive' } } }, { barang: { kode: { contains: search, mode: 'insensitive' } } }, { gudang: { nama: { contains: search, mode: 'insensitive' } } }, { user: { name: { contains: search, mode: 'insensitive' } } }]
+        if (startDate || endDate) { where.tanggal = {}; if (startDate) where.tanggal.gte = startDate; if (endDate) where.tanggal.lte = endDate }
         const total = await this.db.barangKeluar.count({ where })
-
-        const queryOptions: Prisma.BarangKeluarFindManyArgs = {
-            where,
-            include: {
-                barang: true,
-                gudang: true,
-                user: { select: { id: true, name: true } }
-            },
-            orderBy: { tanggal: 'desc' }
-        }
-
+        const queryOptions: Prisma.BarangKeluarFindManyArgs = { where, include: { barang: true, gudang: true, user: { select: { id: true, name: true } } }, orderBy: { tanggal: 'desc' } }
         if (skip !== undefined) queryOptions.skip = skip
         if (take !== undefined) queryOptions.take = take
-
         const items = await this.db.barangKeluar.findMany(queryOptions) as BarangKeluarWithRelations[]
-
         return { items, total }
     }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { getNotificationsForUser, getReadableNotificationForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - Get notifications for current user
 export async function GET(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
 
         const userId = authResult.userId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         const limitParam = Number.parseInt(request.nextUrl.searchParams.get('limit') || '15', 10)
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
 
         const userId = authResult.userId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         const body = await request.json()
@@ -110,14 +111,14 @@ export async function POST(request: NextRequest) {
 
             const notification = await getReadableNotificationForUser(notificationId, userId, { siteId })
             if (!notification) {
-                return NextResponse.json({ error: 'Notifikasi tidak ditemukan' }, { status: 404 })
+                return apiError('Notifikasi tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
             }
 
             await markAsRead(notificationId)
             return NextResponse.json({ success: true, message: 'Notifikasi ditandai sudah dibaca' })
         }
 
-        return NextResponse.json({ error: 'Aksi tidak valid' }, { status: 400 })
+        return apiError('Aksi tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     } catch (error: unknown) {
         console.error('Error updating notifications:', error)
         const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'

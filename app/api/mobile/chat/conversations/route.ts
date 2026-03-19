@@ -1,6 +1,7 @@
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - Get all conversations for current user
 export async function GET(request: NextRequest) {
@@ -10,9 +11,10 @@ export async function GET(request: NextRequest) {
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         // Get all conversations where user is a participant
@@ -20,7 +22,8 @@ export async function GET(request: NextRequest) {
             where: {
                 participants: {
                     some: {
-                        userId
+                        userId,
+                        tenantId
                     }
                 }
             },
@@ -103,26 +106,27 @@ export async function POST(request: NextRequest) {
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         // Validate that user exists in the User table (Mitra and Customer cannot create conversations)
-        const dbUser = await prisma.user.findUnique({
-            where: { id: userId },
+        const dbUser = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { id: true }
         })
 
         if (!dbUser) {
-            return NextResponse.json({ error: 'Fitur chat hanya tersedia untuk karyawan.' }, { status: 403 })
+            return apiError('Fitur chat hanya tersedia untuk karyawan.', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         const body = await request.json()
         const { participantIds, name } = body
 
         if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
-            return NextResponse.json({ error: 'participantIds is required' }, { status: 400 })
+            return apiError('participantIds is required', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Include current user in participants
@@ -133,6 +137,7 @@ export async function POST(request: NextRequest) {
             const existingConversation = await prisma.conversation.findFirst({
                 where: {
                     isGlobal: false,
+                    tenantId,
                     participants: {
                         every: {
                             userId: { in: allParticipantIds }
@@ -173,9 +178,11 @@ export async function POST(request: NextRequest) {
             data: {
                 name: name || null,
                 isGlobal: false,
+                tenantId,
                 participants: {
                     create: allParticipantIds.map(id => ({
-                        userId: id
+                        userId: id,
+                        tenantId
                     }))
                 }
             }

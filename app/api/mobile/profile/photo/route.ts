@@ -11,7 +11,8 @@ export async function POST(request: Request) {
             return authResult
         }
 
-        const user = authResult
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
 
         const formData = await request.formData()
         const photo = formData.get('photo') as File
@@ -30,18 +31,18 @@ export async function POST(request: Request) {
         }
 
         const uploadDir = 'public/uploads/profiles'
-        const fileName = `${user.id}_${Date.now()}`
+        const fileName = `${userId}_${Date.now()}`
 
         const imageUrl = await convertAndSaveImage(
             photo,
             uploadDir,
             fileName,
             'user-profile',
-            user.id as string
+            userId
         )
 
         const updated = await prisma.user.update({
-            where: { id: user.id as string },
+            where: { id: userId, tenantId },
             data: { image: imageUrl },
             select: {
                 id: true,

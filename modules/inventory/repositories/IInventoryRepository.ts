@@ -36,6 +36,7 @@ export interface CreateBarangInput {
     isWorkOrderMaterial?: boolean
     jenis?: JenisBarang
     kategoriAset?: KategoriAset
+    tenantId?: string
 }
 
 export interface UpdateBarangInput {
@@ -45,6 +46,7 @@ export interface UpdateBarangInput {
     isWorkOrderMaterial?: boolean
     jenis?: JenisBarang
     kategoriAset?: KategoriAset
+    tenantId?: string
 }
 
 export interface CreateBarangMasukInput {
@@ -58,6 +60,7 @@ export interface CreateBarangMasukInput {
     fotoMetadata?: Record<string, unknown>
     userId?: string
     tanggal?: Date
+    tenantId?: string
 }
 
 export interface CreateBarangKeluarInput {
@@ -72,6 +75,7 @@ export interface CreateBarangKeluarInput {
     fotoBukti?: string[]
     fotoMetadata?: Record<string, unknown>
     tanggal?: Date
+    tenantId?: string
 }
 
 // Extended detailed type
@@ -89,6 +93,7 @@ export interface CreateGudangInput {
     lokasi?: string | null
     isActive?: boolean
     siteIds?: string[]  // Array of site IDs to connect
+    tenantId?: string
 }
 
 export interface UpdateGudangInput {
@@ -96,6 +101,7 @@ export interface UpdateGudangInput {
     nama?: string
     lokasi?: string | null
     isActive?: boolean
+    tenantId?: string
 }
 
 // ... existing inputs ...
@@ -111,6 +117,7 @@ export interface CreateTransferInput {
     userId: string
     fotoBukti?: string[]
     fotoMetadata?: Record<string, unknown>
+    tenantId?: string
 }
 
 export interface UpdateTransferInput {

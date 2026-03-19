@@ -76,6 +76,7 @@ export interface CreateWorkOrderData {
     createdById?: string;
     ticketId?: string;
     isInternal?: boolean; // true = Internal FOC, false = Customer/Guest
+    tenantId?: string;
 }
 
 export interface UpdateWorkOrderData {
@@ -100,13 +101,13 @@ export interface UpdateWorkOrderData {
     estimatedCost?: number;
     actualCost?: number;
     requiredMaterials?: unknown;
-    usedMaterials?: unknown;
     returnedMaterials?: unknown;
     internalNotes?: string;
     resolutionNotes?: string;
     customerFeedback?: string;
     rating?: number;
     disconnectionReason?: string;
+    tenantId?: string;
 }
 
 export interface CreateTaskData {

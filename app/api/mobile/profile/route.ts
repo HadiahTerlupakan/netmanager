@@ -15,8 +15,11 @@ export async function GET(request: Request) {
 
         // Handle Mitra users - separate table
         if (user.role === 'MITRA') {
-            const mitra = await prismaMitra.mitra.findUnique({
-                where: { id: user.id as string },
+            const mitra = await prismaMitra.mitra.findFirst({
+                where: { 
+                    id: user.id as string,
+                    tenantId: user.tenantId
+                },
                 select: {
                     id: true,
                     name: true,
@@ -37,8 +40,11 @@ export async function GET(request: Request) {
             }
 
             // Fetch site from main DB
-            const sites = mitra.siteId ? await prisma.sites.findUnique({
-                where: { id: mitra.siteId },
+            const sites = mitra.siteId ? await prisma.sites.findFirst({
+                where: { 
+                    id: mitra.siteId,
+                    tenantId: user.tenantId
+                },
                 select: { id: true, name: true }
             }) : null
 
@@ -74,8 +80,11 @@ export async function GET(request: Request) {
         }
 
         // Handle regular User (Karyawan)
-        const profile = await prisma.user.findUnique({
-            where: { id: user.id as string },
+        const profile = await prisma.user.findFirst({
+            where: { 
+                id: user.id as string,
+                tenantId: user.tenantId
+            },
             select: {
                 id: true,
                 name: true,
@@ -123,6 +132,7 @@ export async function GET(request: Request) {
             where: {
                 userId: user.id as string,
                 status: 'APPROVED',
+                tenantId: user.tenantId,
                 startDate: { lte: now },
                 endDate: { gte: startOfToday }
             }
@@ -162,7 +172,10 @@ export async function PATCH(request: Request) {
         }
 
         const updated = await prisma.user.update({
-            where: { id: user.id as string },
+            where: { 
+                id: user.id as string,
+                tenantId: user.tenantId
+            },
             data: updateData,
             select: {
                 id: true,

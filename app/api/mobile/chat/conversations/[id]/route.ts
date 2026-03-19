@@ -2,6 +2,7 @@ import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -18,9 +19,10 @@ export async function GET(
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         const { id: conversationId } = await params
@@ -29,22 +31,21 @@ export async function GET(
         const limit = parseInt(searchParams.get('limit') || '50')
 
         // Check if user is participant of this conversation
-        const participant = await prisma.conversationParticipant.findUnique({
+        const participant = await prisma.conversationParticipant.findFirst({
             where: {
-                conversationId_userId: {
-                    conversationId,
-                    userId
-                }
+                conversationId,
+                userId,
+                tenantId
             }
         })
 
         if (!participant) {
-            return NextResponse.json({ error: 'Not a participant' }, { status: 403 })
+            return apiError('Not a participant', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         // Get messages with pagination
         const messages = await prisma.message.findMany({
-            where: { conversationId },
+            where: { conversationId, tenantId },
             orderBy: { createdAt: 'desc' },
             take: limit + 1,
             ...(cursor && {
@@ -67,19 +68,18 @@ export async function GET(
         const displayMessages = hasMore ? messages.slice(0, -1) : messages
 
         // Update last read timestamp
-        await prisma.conversationParticipant.update({
+        await prisma.conversationParticipant.updateMany({
             where: {
-                conversationId_userId: {
-                    conversationId,
-                    userId
-                }
+                conversationId,
+                userId,
+                tenantId
             },
             data: { lastReadAt: new Date() }
         })
 
         // Get conversation info
-        const conversation = await prisma.conversation.findUnique({
-            where: { id: conversationId },
+        const conversation = await prisma.conversation.findFirst({
+            where: { id: conversationId, tenantId },
             include: {
                 participants: {
                     include: {
@@ -136,10 +136,11 @@ export async function POST(
             return authResult
         }
 
-        const userId = authResult.userId as string
+        const userId = authResult.id as string
         const userName = authResult.name as string | undefined
+        const tenantId = authResult.tenantId as string
         if (!userId) {
-            return NextResponse.json({ error: 'Token tidak valid' }, { status: 401 })
+            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 
         const { id: conversationId } = await params
@@ -147,21 +148,20 @@ export async function POST(
         const { content, imageUrl } = body
 
         if ((!content || typeof content !== 'string' || content.trim().length === 0) && !imageUrl) {
-            return NextResponse.json({ error: 'Message content or image is required' }, { status: 400 })
+            return apiError('Message content or image is required', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Check if user is participant
-        const participant = await prisma.conversationParticipant.findUnique({
+        const participant = await prisma.conversationParticipant.findFirst({
             where: {
-                conversationId_userId: {
-                    conversationId,
-                    userId
-                }
+                conversationId,
+                userId,
+                tenantId
             }
         })
 
         if (!participant) {
-            return NextResponse.json({ error: 'Not a participant' }, { status: 403 })
+            return apiError('Not a participant', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         // Create message
@@ -170,7 +170,8 @@ export async function POST(
                 conversationId,
                 senderId: userId,
                 content: content?.trim() || null,
-                imageUrl: imageUrl || null
+                imageUrl: imageUrl || null,
+                tenantId
             },
             include: {
                 sender: {
@@ -185,7 +186,7 @@ export async function POST(
 
         // Update conversation timestamp
         await prisma.conversation.update({
-            where: { id: conversationId },
+            where: { id: conversationId, tenantId },
             data: { updatedAt: new Date() }
         })
 
@@ -207,6 +208,7 @@ export async function POST(
                 const otherParticipants = await prisma.conversationParticipant.findMany({
                     where: {
                         conversationId,
+                        tenantId,
                         userId: { not: userId }
                     },
                     select: { userId: true }
@@ -216,8 +218,8 @@ export async function POST(
                     const otherUserIds = otherParticipants.map(p => p.userId)
                     
                     // Get conversation name for notification
-                    const conversation = await prisma.conversation.findUnique({
-                        where: { id: conversationId },
+                    const conversation = await prisma.conversation.findFirst({
+                        where: { id: conversationId, tenantId },
                         select: { name: true, isGlobal: true }
                     })
                     

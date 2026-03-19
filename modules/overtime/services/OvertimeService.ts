@@ -21,6 +21,7 @@ export class OvertimeService {
         data: {
             date: Date
             reason: string
+            tenantId?: string
         }
     ) {
         const startOfDay = new Date(data.date)
@@ -29,10 +30,13 @@ export class OvertimeService {
         const endOfDay = new Date(data.date)
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
+        const tenantId = data.tenantId
+
         // Cek apakah sudah ada request PENDING/APPROVED/IN_PROGRESS hari ini
         const existing = await prisma.overtime.findFirst({
             where: {
                 userId: userId,
+                tenantId,
                 createdAt: {
                     gte: startOfDay,
                     lte: endOfDay,
@@ -52,13 +56,15 @@ export class OvertimeService {
             user: { connect: { id: userId } },
             reason: data.reason,
             status: OvertimeStatus.PENDING,
+            tenant: tenantId ? { connect: { id: tenantId } } : undefined
         })
 
         // Notify Admins
         try {
-            const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, siteId: true } })
+            const user = await prisma.user.findFirst({ where: { id: userId, tenantId }, select: { name: true, siteId: true } })
             const admins = await prisma.user.findMany({
                 where: {
+                    tenantId,
                     OR: [
                         { role: { name: 'SUPER_ADMIN' } },
                         {
@@ -96,7 +102,8 @@ export class OvertimeService {
                     link: '/admin/lembur',
                     userId: admin.id,
                     sourceType: 'OVERTIME',
-                    sourceId: request.id
+                    sourceId: request.id,
+                    tenantId
                 })
             }
         } catch (error) {
@@ -105,7 +112,8 @@ export class OvertimeService {
 
         return request
     }
-    async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date }) {
+    async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date, tenantId?: string }) {
+        const { tenantId } = data
         const overtime = await this.repository.findById(overtimeId)
 
         if (!overtime) throw new Error('Data lembur tidak ditemukan')
@@ -117,7 +125,7 @@ export class OvertimeService {
 
         // Cek apakah hari ini libur (dari tabel Holiday)
         const today = new Date()
-        const { isHoliday, holiday } = await this.holidayRepository.isHoliday(today)
+        const { isHoliday, holiday } = await this.holidayRepository.isHoliday(today, tenantId)
 
         // Cari attendance hari ini (tidak wajib checkout)
         const startOfDay = new Date()
@@ -128,6 +136,7 @@ export class OvertimeService {
         const attendance = await prisma.attendance.findFirst({
             where: {
                 userId: userId,
+                tenantId,
                 checkIn: {
                     gte: startOfDay,
                     lte: endOfDay,
@@ -241,8 +250,8 @@ export class OvertimeService {
         })
     }
 
-    async getHistory(userId: string) {
-        return this.repository.findAll({ userId })
+    async getHistory(userId: string, tenantId?: string) {
+        return this.repository.findAll({ userId, tenantId })
     }
 
     async getAllRequests(filters?: {
@@ -254,6 +263,7 @@ export class OvertimeService {
         holidayType?: string
         skip?: number
         take?: number
+        tenantId?: string
     }) {
         const [data, total, summary] = await Promise.all([
             this.repository.findAll(filters),
@@ -261,6 +271,8 @@ export class OvertimeService {
             this.repository.countByStatus(filters)
         ])
         
+        const tenantId = filters?.tenantId
+
         // Enrich with holiday info on-the-fly (untuk data lama yang belum punya flag)
         const enrichedData = await Promise.all(data.map(async (item: unknown) => {
             const overtimeItem = item as {
@@ -280,7 +292,7 @@ export class OvertimeService {
 
             // Cross-check dengan Holiday table berdasarkan createdAt
             const overtimeDate = new Date(overtimeItem.createdAt)
-            const { isHoliday, holiday } = await this.holidayRepository.isHoliday(overtimeDate)
+            const { isHoliday, holiday } = await this.holidayRepository.isHoliday(overtimeDate, tenantId)
 
             // Cek user workDays jika ada user data
             let isOffDay = false
@@ -333,7 +345,8 @@ export class OvertimeService {
                 link: '/karyawan/lembur',
                 userId: result.userId,
                 sourceType: 'OVERTIME',
-                sourceId: result.id
+                sourceId: result.id,
+                tenantId: result.tenantId || undefined
             })
         } catch (error) {
             console.error('Failed to send notification:', error)
@@ -366,7 +379,8 @@ export class OvertimeService {
                 link: '/karyawan/lembur',
                 userId: result.userId,
                 sourceType: 'OVERTIME',
-                sourceId: result.id
+                sourceId: result.id,
+                tenantId: result.tenantId || undefined
             })
         } catch (error) {
             console.error('Failed to send notification:', error)

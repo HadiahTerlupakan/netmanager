@@ -3,6 +3,7 @@ import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prismaMitra } from '@/lib/prisma-mitra';
 import fs from 'fs';
 import path from 'path';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function POST(request: NextRequest) {
     try {
@@ -11,10 +12,10 @@ export async function POST(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
 
         if (payload.role !== 'MITRA') {
-            return NextResponse.json({ error: 'Akses ditolak. Fitur ini hanya untuk Mitra.' }, { status: 403 });
+            return apiError('Akses ditolak. Fitur ini hanya untuk Mitra.', ErrorCodes.FORBIDDEN, { status: 403 });
         }
 
         // 2. Parse Multipart form data
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
         const photo = formData.get('photo') as File | null;
 
         if (!photo) {
-            return NextResponse.json({ error: 'Foto tidak ditemukan' }, { status: 400 });
+            return apiError('Foto tidak ditemukan', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // 3. Save the photo
@@ -74,6 +75,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('Face Verification Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan sistem.' }, { status: 500 });
+        return apiError('Terjadi kesalahan sistem.', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

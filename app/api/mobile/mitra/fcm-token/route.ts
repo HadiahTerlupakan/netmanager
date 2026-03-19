@@ -19,13 +19,22 @@ export async function POST(req: NextRequest) {
         if (!fcmToken) return ApiErrors.badRequest('fcmToken wajib diisi')
 
         const userId = session.userId as string
+        const tenantId = session.tenantId
 
-        const mitra = await prismaMitra.mitra.findUnique({ where: { id: userId } })
+        const mitra = await prismaMitra.mitra.findFirst({
+            where: { 
+                id: userId,
+                tenantId: tenantId
+            }
+        })
         if (!mitra) return ApiErrors.notFound('Mitra tidak ditemukan')
 
         if (action === 'remove') {
             await prismaMitra.mitra.update({
-                where: { id: userId },
+                where: { 
+                    id: userId,
+                    tenantId: tenantId
+                },
                 data: {
                     fcmTokens: {
                         set: mitra.fcmTokens.filter(t => t !== fcmToken)
@@ -37,7 +46,10 @@ export async function POST(req: NextRequest) {
 
         if (!mitra.fcmTokens.includes(fcmToken)) {
             await prismaMitra.mitra.update({
-                where: { id: userId },
+                where: { 
+                    id: userId,
+                    tenantId: tenantId
+                },
                 data: {
                     fcmTokens: {
                         push: fcmToken

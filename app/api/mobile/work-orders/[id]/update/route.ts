@@ -7,6 +7,7 @@ import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 import { logger } from '@/lib/logger';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // Valid status transitions
 const _VALID_TRANSITIONS: Record<string, string[]> = {
@@ -34,7 +35,8 @@ export async function POST(
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
 
         const userId = payload.id as string;
         const workOrderId = params.id;
@@ -42,8 +44,8 @@ export async function POST(
 
         // Fetch User to get Name (for notifications)
         // NOTE: Mitra users do NOT exist in the User table, so user will be null
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             select: { name: true }
         });
 
@@ -54,8 +56,8 @@ export async function POST(
         // ============================================
         // 2. FETCH WORK ORDER & AUTHORIZATION CHECK
         // ============================================
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id: workOrderId },
+        const workOrder = await prisma.workOrders.findFirst({
+            where: { id: workOrderId , tenantId },
             include: {
                 ticket: { select: { ticketNumber: true } },
                 assignments: { select: { userId: true, status: true } },
@@ -65,7 +67,7 @@ export async function POST(
         });
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work Order tidak ditemukan' }, { status: 404 });
+            return apiError('Work Order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         // Check if user is authorized to update this WO
@@ -77,10 +79,7 @@ export async function POST(
         const isCreator = workOrder.createdById === userId;
 
         if (!isAssignedTo && !isAssignedMitra && !isAssignmentMember && !isCreator) {
-            return NextResponse.json(
-                { error: 'Anda tidak memiliki akses untuk mengubah Work Order ini' },
-                { status: 403 }
-            );
+            return apiError('Anda tidak memiliki akses untuk mengubah Work Order ini', ErrorCodes.FORBIDDEN, { status: 403 });
         }
 
         // ============================================
@@ -153,7 +152,7 @@ export async function POST(
         // 5. VALIDATE ACTION
         // ============================================
         if (!action) {
-            return NextResponse.json({ error: 'Action wajib diisi' }, { status: 400 });
+            return apiError('Action wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // ============================================
@@ -255,7 +254,7 @@ export async function POST(
             }
             // Handle photos from FormData (need processing)
             else if (photos.length > 0) {
-                const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+                const user = await prisma.user.findFirst({ where: { id: userId , tenantId }, select: { name: true } });
 
                 for (let i = 0; i < photos.length; i++) {
                     const p = photos[i];
@@ -458,7 +457,7 @@ export async function POST(
 
         } else if (action === 'COMMENT') {
             if (!notes && !photo && !photoUrl) {
-                return NextResponse.json({ error: 'Teks komentar atau foto wajib diisi' }, { status: 400 });
+                return apiError('Teks komentar atau foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }
 
             // Handle photo from JSON URL
@@ -475,7 +474,7 @@ export async function POST(
             }
             // Handle photo from FormData
             else if (photo instanceof File) {
-                const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+                const user = await prisma.user.findFirst({ where: { id: userId , tenantId }, select: { name: true } });
                 const watermarkLines = [
                     format(new Date(), 'dd MMM yyyy HH:mm'),
                     `#${ticketNumber}`,
@@ -541,7 +540,7 @@ export async function POST(
 
         } else if (action === 'NOTE') {
             if (!notes && !photo && !photoUrl) {
-                return NextResponse.json({ error: 'Catatan atau foto wajib diisi' }, { status: 400 });
+                return apiError('Catatan atau foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
             }
 
             // Handle photo from JSON URL
@@ -558,7 +557,7 @@ export async function POST(
             }
             // Handle photo from FormData
             else if (photo instanceof File) {
-                const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+                const user = await prisma.user.findFirst({ where: { id: userId , tenantId }, select: { name: true } });
                 const watermarkLines = [
                     format(new Date(), 'dd MMM yyyy HH:mm'),
                     `#${ticketNumber}`,
@@ -620,7 +619,7 @@ export async function POST(
             return NextResponse.json({ success: true, message: 'Note added' });
         }
 
-        return NextResponse.json({ error: 'Action tidak valid' }, { status: 400 });
+        return apiError('Action tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
 
     } catch (error: unknown) {
         console.error('Mobile WO Update Error:', error);

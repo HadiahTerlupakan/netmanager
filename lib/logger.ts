@@ -205,7 +205,7 @@ class Logger {
   }
 
   // Database Logging Methods
-  async logActivity(data: { action: string; subject: string; details?: Record<string, unknown>; userId?: string; ipAddress?: string; userAgent?: string }) {
+  async logActivity(data: { action: string; subject: string; details?: Record<string, unknown>; userId?: string; ipAddress?: string; userAgent?: string; tenantId?: string }) {
     this.info(`[ACTIVITY] ${data.action} ${data.subject}`, data as unknown as LogContext)
     try {
       // Dynamic import to avoid circular dependency if any, though prisma is safe here
@@ -221,6 +221,7 @@ class Logger {
           userId: data.userId || null,
           ipAddress: data.ipAddress || null,
           userAgent: data.userAgent || null,
+          tenantId: data.tenantId || null
         }
       })
     } catch (error) {
@@ -228,7 +229,7 @@ class Logger {
     }
   }
 
-  async logAuth(data: { action: string; userId?: string; details?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
+  async logAuth(data: { action: string; userId?: string; details?: Record<string, unknown>; ipAddress?: string; userAgent?: string; tenantId?: string }) {
     this.info(`[AUTH] ${data.action}`, data as unknown as LogContext)
     try {
       const { prisma } = await import('@/lib/prisma')
@@ -243,6 +244,7 @@ class Logger {
           userId: data.userId || null,
           ipAddress: data.ipAddress || null,
           userAgent: data.userAgent || null,
+          tenantId: data.tenantId || null
         }
       })
     } catch (error) {
@@ -263,7 +265,7 @@ export const logger = new Logger(
  * With a single line:
  *   logActivitySafe({ action: 'CREATE', subject: 'Invoice', userId: '...', details: { ... } })
  */
-export function logActivitySafe(data: { action: string; subject: string; details?: Record<string, unknown>; userId?: string; ipAddress?: string; userAgent?: string }): void {
+export function logActivitySafe(data: { action: string; subject: string; details?: Record<string, unknown>; userId?: string; ipAddress?: string; userAgent?: string; tenantId?: string }): void {
   logger.logActivity(data).catch(e => console.error('Logging failed', e))
 }
 

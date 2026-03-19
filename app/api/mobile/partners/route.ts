@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { ApiErrors } from '@/lib/api-response';
+import { ApiErrors, apiError, ErrorCodes } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
 
         // Check Permission
         const permissions = payload.permissions || [];
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
         const where: Prisma.UserWhereInput = {
             id: { not: userId },
             isActive: true,
+            tenantId,
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' } },
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch users (excluding self) with pagination
         const [users, total] = await Promise.all([
-            prisma.user.findMany({
+            prisma.user.findMany({ 
                 where,
                 select: {
                     id: true,
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
                 skip,
                 take: limit,
                 orderBy: { name: 'asc' }
-            }),
+             }),
             prisma.user.count({ where })
         ]);
 
@@ -71,6 +73,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('Mobile Partner List Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

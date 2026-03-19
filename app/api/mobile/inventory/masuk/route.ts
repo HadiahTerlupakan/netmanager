@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { prismaMitra } from '@/lib/prisma-mitra';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { isSuperAdmin } from '@/lib/auth';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // POST - Create barang masuk (mobile)
 export async function POST(request: NextRequest) {
@@ -13,18 +14,19 @@ export async function POST(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
         const userId = payload.id as string;
         const body = await request.json();
         const { barangId, gudangId, jumlah, kondisi, keterangan, supplier, fotoBukti } = body;
 
         if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
-            return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 });
+            return apiError('Data tidak lengkap', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Fetch user to check permissions
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             include: {
                 role: { include: { permission: true } },
                 sites: true
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
         }) : null;
 
         if (!user && !mitra) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         // Check for Site-Based Restriction Policy (only for User, Mitra skips)
@@ -48,22 +50,22 @@ export async function POST(request: NextRequest) {
 
         if (isSiteRestricted && user) {
             if (!user.sites?.id) {
-                return NextResponse.json({ error: 'Akses ditolak: Tidak ada site yang ditugaskan' }, { status: 403 });
+                return apiError('Akses ditolak: Tidak ada site yang ditugaskan', ErrorCodes.FORBIDDEN, { status: 403 });
             }
 
             // Verify the target gudang belongs to user's site
-            const targetGudang = await prisma.gudang.findUnique({
-                where: { id: gudangId },
+            const targetGudang = await prisma.gudang.findFirst({
+                where: { id: gudangId , tenantId },
                 include: { sites: { select: { id: true } } }
             });
 
             if (!targetGudang) {
-                return NextResponse.json({ error: 'Gudang tidak ditemukan' }, { status: 404 });
+                return apiError('Gudang tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
             }
 
             const gudangSiteIds = targetGudang.sites.map(s => s.id);
             if (!gudangSiteIds.includes(user.sites?.id)) {
-                return NextResponse.json({ error: 'Akses ditolak: Gudang di luar site Anda' }, { status: 403 });
+                return apiError('Akses ditolak: Gudang di luar site Anda', ErrorCodes.FORBIDDEN, { status: 403 });
             }
         }
 
@@ -126,6 +128,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Mobile Barang Masuk Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

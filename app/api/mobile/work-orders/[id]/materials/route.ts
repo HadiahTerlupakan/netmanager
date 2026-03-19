@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { randomUUID } from 'crypto'
 import { notifyAdminsAboutMobileAction } from '@/modules/notification'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 interface UsedMaterial {
     id: string;
@@ -28,10 +29,11 @@ export async function POST(
 
         const decoded = authResult
         const userId = decoded.id as string
+        const tenantId = decoded.tenantId as string
 
         // Fetch user to get name (for accurate notifications)
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId, tenantId },
             select: { name: true }
         })
 
@@ -40,18 +42,18 @@ export async function POST(
         const { items } = body
 
         if (!items || !Array.isArray(items) || items.length === 0) {
-            return NextResponse.json({ error: 'Items wajib diisi' }, { status: 400 })
+            return apiError('Items wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id },
+        const workOrder = await prisma.workOrders.findFirst({
+            where: { id, tenantId },
             include: {
                 assignments: { select: { userId: true, status: true } }
             }
         })
 
         if (!workOrder) {
-            return NextResponse.json({ error: 'Work order tidak ditemukan' }, { status: 404 })
+            return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
         }
 
         // Check if user is authorized (lead technician OR approved partner)
@@ -61,11 +63,11 @@ export async function POST(
         )
 
         if (!isAssignedTo && !isApprovedPartner) {
-            return NextResponse.json({ error: 'Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.' }, { status: 403 })
+            return apiError('Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.', ErrorCodes.FORBIDDEN, { status: 403 })
         }
 
         if (!['ASSIGNED', 'IN_PROGRESS'].includes(workOrder.status)) {
-            return NextResponse.json({ error: 'Work order harus dalam status ASSIGNED atau IN_PROGRESS' }, { status: 400 })
+            return apiError('Work order harus dalam status ASSIGNED atau IN_PROGRESS', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
         // Process each item - create barang keluar and update stock
@@ -76,9 +78,11 @@ export async function POST(
                 const { barangId, gudangId, jumlah, kondisi } = item
 
                 // Check stock
-                const barangGudang = await tx.barangGudang.findUnique({
+                const barangGudang = await tx.barangGudang.findFirst({
                     where: {
-                        barangId_gudangId: { barangId, gudangId }
+                        barangId,
+                        gudangId,
+                        tenantId
                     },
                     include: { barang: true }
                 })
@@ -97,35 +101,25 @@ export async function POST(
                         kondisi: kondisi || 'BARU',
                         userId: userId,
                         purpose: `Work Order: ${workOrder.workOrderNumber}`,
-                        keterangan: `Digunakan untuk work order ${workOrder.workOrderNumber} - ${workOrder.title}`
+                        keterangan: `Digunakan untuk work order ${workOrder.workOrderNumber} - ${workOrder.title}`,
+                        tenantId
                     },
                     include: { barang: true }
                 })
 
-                // Update stock
-                await tx.barangGudang.update({
-                    where: {
-                        barangId_gudangId: { barangId, gudangId }
-                    },
-                    data: {
-                        stok: { decrement: jumlah }
-                    }
-                })
-
-                // Specific condition stock update
-                const updateData: Prisma.BarangGudangUpdateInput = {}
+                // Update stock - using updateMany because findFirst doesn't expose a unique identifier in where clause here
+                const updateData: Prisma.BarangGudangUpdateInput = {
+                    stok: { decrement: jumlah }
+                }
+                
                 if (kondisi === 'BARU') updateData.stokBaru = { decrement: jumlah }
                 else if (kondisi === 'BEKAS') updateData.stokBekas = { decrement: jumlah }
                 else if (kondisi === 'RUSAK') updateData.stokRusak = { decrement: jumlah }
 
-                if (Object.keys(updateData).length > 0) {
-                    await tx.barangGudang.update({
-                        where: {
-                            barangId_gudangId: { barangId, gudangId }
-                        },
-                        data: updateData
-                    })
-                }
+                await tx.barangGudang.update({
+                    where: { id: barangGudang.id },
+                    data: updateData
+                })
 
 
                 createdItems.push({
@@ -142,7 +136,7 @@ export async function POST(
             // Update work order usedMaterials
             const existingMaterials = (workOrder.usedMaterials as unknown as UsedMaterial[]) || []
             await tx.workOrders.update({
-                where: { id },
+                where: { id, tenantId },
                 data: {
                     usedMaterials: [...existingMaterials, ...createdItems]
                 }
@@ -158,7 +152,8 @@ export async function POST(
                     updateType: 'MATERIAL_PICKUP',
                     message: `Mengambil barang: ${materialList}`,
                     oldStatus: workOrder.status,
-                    newStatus: workOrder.status
+                    newStatus: workOrder.status,
+                    tenantId
                 }
             })
 

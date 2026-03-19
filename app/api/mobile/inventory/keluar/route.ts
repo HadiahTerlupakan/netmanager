@@ -5,6 +5,7 @@ import { prismaMitra } from '@/lib/prisma-mitra';
 import { getInventoryRepository } from '@/lib/repositories';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { logger } from '@/lib/logger';
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // POST - Create barang keluar (mobile)
 export async function POST(request: NextRequest) {
@@ -14,18 +15,19 @@ export async function POST(request: NextRequest) {
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
         const userId = payload.id as string;
         const body = await request.json();
         const { barangId, gudangId, jumlah, kondisi, keterangan, tujuanPenggunaan, fotoBukti } = body;
 
         if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
-            return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 });
+            return apiError('Data tidak lengkap', ErrorCodes.VALIDATION_ERROR, { status: 400 });
         }
 
         // Fetch user to check permissions
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
+        const user = await prisma.user.findFirst({
+            where: { id: userId , tenantId },
             include: {
                 role: { include: { permission: true } },
                 sites: true
@@ -39,13 +41,15 @@ export async function POST(request: NextRequest) {
         }) : null;
 
         if (!user && !mitra) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
+            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         // Check stock
-        const barangGudang = await prisma.barangGudang.findUnique({
+        const barangGudang = await prisma.barangGudang.findFirst({
             where: {
-                barangId_gudangId: { barangId, gudangId }
+                barangId,
+                gudangId,
+                tenantId
             },
             include: {
                 barang: { select: { nama: true } }
@@ -69,22 +73,22 @@ export async function POST(request: NextRequest) {
 
         if (isSiteRestricted && user) {
             if (!user.sites?.id) {
-                return NextResponse.json({ error: 'Akses ditolak: Tidak ada site yang ditugaskan' }, { status: 403 });
+                return apiError('Akses ditolak: Tidak ada site yang ditugaskan', ErrorCodes.FORBIDDEN, { status: 403 });
             }
 
             // Verify the target gudang belongs to user's site
-            const targetGudang = await prisma.gudang.findUnique({
-                where: { id: gudangId },
+            const targetGudang = await prisma.gudang.findFirst({
+                where: { id: gudangId, tenantId },
                 include: { sites: { select: { id: true } } }
             });
 
             if (!targetGudang) {
-                return NextResponse.json({ error: 'Gudang not found' }, { status: 404 });
+                return apiError('Gudang not found', ErrorCodes.NOT_FOUND, { status: 404 });
             }
 
             const gudangSiteIds = targetGudang.sites.map(s => s.id);
             if (!gudangSiteIds.includes(user.sites?.id || '')) {
-                return NextResponse.json({ error: 'Akses ditolak: Gudang di luar site Anda' }, { status: 403 });
+                return apiError('Akses ditolak: Gudang di luar site Anda', ErrorCodes.FORBIDDEN, { status: 403 });
             }
         }
 
@@ -100,6 +104,7 @@ export async function POST(request: NextRequest) {
             tujuanPenggunaan,
             fotoBukti: fotoBukti || [],
             userId,
+            tenantId,
             tanggal: new Date()
         });
 
@@ -125,7 +130,8 @@ export async function POST(request: NextRequest) {
                 keterangan,
                 tujuanPenggunaan
             },
-            userId
+            userId,
+            tenantId
         });
 
         return NextResponse.json({
@@ -134,6 +140,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Mobile Barang Keluar Error:', error);
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 });
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
     }
 }

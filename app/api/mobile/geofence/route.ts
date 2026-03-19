@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 /**
  * GET /api/mobile/geofence
@@ -36,6 +37,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error: unknown) {
         console.error('Error fetching geofence zones:', error)
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
     }
 }

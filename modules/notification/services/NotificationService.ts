@@ -22,6 +22,7 @@ export interface CreateNotificationData {
     sourceType?: string | undefined;
     sourceId?: string | undefined;
     skipExpoPush?: boolean | undefined;
+    tenantId?: string | undefined;
 }
 
 export interface WorkOrderNotificationData {
@@ -33,6 +34,7 @@ export interface WorkOrderNotificationData {
     departmentId?: string | undefined;
     siteId?: string | undefined; // Added for strict filtering
     assignedToId?: string | undefined;
+    tenantId?: string | undefined;
 }
 
 /**
@@ -52,6 +54,7 @@ export async function createNotification(data: CreateNotificationData) {
             siteId: data.siteId || null,
             sourceType: data.sourceType || null,
             sourceId: data.sourceId || null,
+            tenantId: data.tenantId || null
         },
     });
 

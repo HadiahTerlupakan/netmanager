@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
+import { apiError, ErrorCodes } from '@/lib/api-response';
 
 // Mark an announcement as read from mobile app
 export async function POST(
@@ -13,22 +14,23 @@ export async function POST(
             return authResult;
         }
 
-        const payload = authResult;
+        const payload = authResult
+        const tenantId = payload.tenantId as string;
         const userId = payload.sub as string;
         const { id: announcementId } = await params;
         const body = await request.json().catch(() => ({}));
         const portal = body.portal || 'mobile';
 
         // Check if announcement exists
-        const announcement = await prisma.announcement.findUnique({
-            where: { id: announcementId }
+        const announcement = await prisma.announcement.findFirst({
+            where: { 
+                id: announcementId,
+                tenantId: tenantId
+            }
         });
 
         if (!announcement) {
-            return NextResponse.json(
-                { error: 'Pengumuman tidak ditemukan' },
-                { status: 404 }
-            );
+            return apiError('Pengumuman tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
         }
 
         // Upsert the read record (idempotent)
@@ -45,7 +47,8 @@ export async function POST(
             create: {
                 announcementId: announcementId,
                 userId: userId,
-                portal: portal
+                portal: portal,
+                tenantId: tenantId
             }
         });
 
@@ -58,8 +61,9 @@ export async function POST(
 
     } catch (error) {
         console.error('Mobile mark announcement read error:', error);
-        return NextResponse.json(
-            { error: String(error) },
+        return apiError(
+            'Terjadi kesalahan server',
+            ErrorCodes.INTERNAL_ERROR,
             { status: 500 }
         );
     }

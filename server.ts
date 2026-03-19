@@ -13,7 +13,6 @@ if (!process.env.TZ) {
 console.log(`[Server] Timezone set to: ${process.env.TZ} (${new Date().toString()})`)
 
 import { createServer } from 'http'
-import { parse } from 'url'
 import next from 'next'
 import { Server as SocketIOServer } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
@@ -37,10 +36,14 @@ app.prepare().then(() => {
     // Keep reference to MikroTik monitor to stop it later
     let mikroTikMonitorRef: { stop: () => void; setSocketServer: (io: SocketIOServer) => void; start: () => void } | null = null
     const server = createServer(async (req, res) => {
-        const parsedUrl = parse(req.url!, true)
+        // Use standard WHATWG URL API instead of deprecated url.parse()
+        const protocol = req.headers['x-forwarded-proto'] || 'http'
+        const host = req.headers.host || 'localhost'
+        const parsedUrl = new URL(req.url || '/', `${protocol}://${host}`)
+        const pathname = parsedUrl.pathname
 
         // Custom handler for large APK uploads - bypass Next.js body limit
-        if (req.method === 'POST' && parsedUrl.pathname === '/api/admin/app-version') {
+        if (req.method === 'POST' && pathname === '/api/admin/app-version') {
             const formidable = await import('formidable')
             const fs = await import('fs')
 
@@ -231,7 +234,7 @@ app.prepare().then(() => {
 
         // Internal endpoint for emitting WebSocket events from API routes
         // This bypasses the globalThis issue in development mode
-        if (req.method === 'POST' && parsedUrl.pathname === '/_internal/emit') {
+        if (req.method === 'POST' && pathname === '/_internal/emit') {
             let body = ''
             req.on('data', chunk => { body += chunk })
             req.on('end', () => {
@@ -277,7 +280,7 @@ app.prepare().then(() => {
         }
 
         // Manual Static File Serving for Uploads (Bypassing Next.js static handling for runtime uploads)
-        if (parsedUrl.pathname?.startsWith('/uploads/') && req.method === 'GET') {
+        if (pathname?.startsWith('/uploads/') && req.method === 'GET') {
             const fs = await import('fs')
             const path = await import('path')
 
@@ -285,7 +288,7 @@ app.prepare().then(() => {
             const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads')
 
             // Remove leading slashes to prevent path.resolve treating it as absolute root path
-            const cleanPath = (parsedUrl.pathname || '').replace(/^\/+/, '')
+            const cleanPath = (pathname || '').replace(/^\/+/, '')
             const requestedPath = path.resolve(process.cwd(), 'public', cleanPath)
 
             // Ensure the resolved path is within the uploads directory
@@ -313,7 +316,7 @@ app.prepare().then(() => {
             // If file not found, let Next.js handle it (maybe 404 or other route)
         }
 
-        handle(req, res, parsedUrl)
+        handle(req, res)
     })
 
     // Initialize Socket.io server

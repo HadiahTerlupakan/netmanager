@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { getR2Settings } from '@/lib/utils/r2-client'
+import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function GET(request: Request) {
   // Verify mobile authentication
@@ -11,11 +12,12 @@ export async function GET(request: Request) {
   }
 
   const payload = authResult
+        const tenantId = payload.tenantId as string
 
   // Check Permission
   const permissions = payload.permissions || []
   if (!permissions.includes('m_topology:read')) {
-    return NextResponse.json({ error: 'Akses ditolak: Memerlukan izin m_topology:read' }, { status: 403 })
+    return apiError('Akses ditolak: Memerlukan izin m_topology:read', ErrorCodes.FORBIDDEN, { status: 403 })
   }
 
   try {
@@ -38,6 +40,7 @@ export async function GET(request: Request) {
         where: {
           latitude: { not: null },
           longitude: { not: null },
+          tenantId,
         },
         select: {
           id: true,
@@ -55,6 +58,7 @@ export async function GET(request: Request) {
         where: {
           latitude: { not: null },
           longitude: { not: null },
+          tenantId,
         },
         select: {
           id: true,
@@ -89,6 +93,7 @@ export async function GET(request: Request) {
         where: {
           latitude: { not: null },
           longitude: { not: null },
+          tenantId,
         },
         select: {
           id: true,
@@ -129,6 +134,7 @@ export async function GET(request: Request) {
         where: {
           latitude: { not: null },
           longitude: { not: null },
+          tenantId,
         },
         select: {
           id: true,
@@ -146,6 +152,7 @@ export async function GET(request: Request) {
         where: {
           latitude: { not: null },
           longitude: { not: null },
+          tenantId,
         },
         select: {
           id: true,
@@ -165,6 +172,7 @@ export async function GET(request: Request) {
           latitude: { not: null },
           longitude: { not: null },
           odpId: { not: null },
+          tenantId,
         },
         select: {
           id: true,
@@ -190,7 +198,7 @@ export async function GET(request: Request) {
       prisma.kmzFile.findMany({
         where: {
           isActive: true,
-        },
+         tenantId },
         select: {
           id: true,
           name: true,
@@ -430,6 +438,6 @@ export async function GET(request: Request) {
     })
   } catch (error: unknown) {
     console.error('Error fetching topology data:', error)
-    return NextResponse.json({ error: 'Gagal mengambil data topologi' }, { status: 500 })
+    return apiError('Gagal mengambil data topologi', ErrorCodes.INTERNAL_ERROR, { status: 500 })
   }
 }
