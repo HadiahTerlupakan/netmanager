@@ -27,15 +27,15 @@ COPY . .
 ARG NEXT_TELEMETRY_DISABLED=1
 ARG NODE_OPTIONS="--max-old-space-size=4096"
 ARG NEXTAUTH_URL="http://localhost:3000"
-ARG NEXTAUTH_SECRET="build-time-dummy"
-ARG AUTH_SECRET="build-time-dummy"
+ARG NEXTAUTH_SECRET="build-time-dummy-secret-32-chars-long"
+ARG AUTH_SECRET="build-time-dummy-secret-32-chars-long"
 ARG AUTH_URL="http://localhost:3000"
 ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ARG DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing"
 ARG DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra"
 ARG RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius"
 ARG REDIS_URL="redis://localhost:6379"
-ARG OAUTH_ENCRYPTION_KEY="build-time-dummy"
+ARG OAUTH_ENCRYPTION_KEY="build-time-dummy-secret-32-chars-long"
 
 # Re-export as ENV only within the builder stage if needed by 'npm run build'
 ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED

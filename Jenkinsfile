@@ -65,7 +65,7 @@ spec:
                             'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
                             'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
                             'REDIS_URL=redis://localhost:6379',
-                            'NEXTAUTH_SECRET=build-time-secret',
+                            'NEXTAUTH_SECRET=build-time-dummy-secret-32-chars-long',
                             'NEXTAUTH_URL=http://localhost:3000'
                         ]) {
                             sh "npm install && npm run prisma:generate && npm run lint && npm run typecheck"
@@ -86,7 +86,7 @@ spec:
                             'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
                             'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
                             'REDIS_URL=redis://localhost:6379',
-                            'NEXTAUTH_SECRET=build-time-secret',
+                            'NEXTAUTH_SECRET=build-time-dummy-secret-32-chars-long',
                             'NEXTAUTH_URL=http://localhost:3000'
                         ]) {
                             sh "npm run test:run"
@@ -252,16 +252,15 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Cleaning up old Docker images and build cache..."
-                        // Hapus dangling images (image lama tanpa tag)
-                        sh "docker image prune -f || true"
-                        // Hapus build cache yang lebih dari 24 jam
-                        sh "docker builder prune -f --filter 'until=24h' || true"
-                        // Bersihkan image tak terpakai di K3s containerd
+                        echo "Cleaning up Docker system and build cache..."
+                        // Lebih agresif: hapus semua image tak terpakai & build cache
+                        sh "docker system prune -f || true"
+                        
+                        echo "Cleaning up K3s (containerd) unused images..."
                         sh """
-                        docker run --rm -i --privileged \
-                            -v /:/host \
-                            docker:cli \
+                        docker run --rm -i --privileged \\
+                            -v /:/host \\
+                            docker:cli \\
                             sh -c "chroot /host /usr/local/bin/k3s ctr images prune --all 2>/dev/null || echo 'K3s image prune skipped'"
                         """
                     }
@@ -272,9 +271,16 @@ spec:
 
     post {
         always {
+            script {
+                echo "Final system cleanup..."
+                // Hapus backup files lama (lebih dari 7 hari)
+                sh "find . -name 'backup_*.sql.gz' -mtime +7 -delete 2>/dev/null || true"
+                
+                // Opsional: Hapus workspace Jenkins setelah build selesai untuk menghemat tempat
+                // (Hanya jika Anda tidak butuh file sisa untuk debugging selanjutnya)
+                // cleanWs() 
+            }
             echo "Pipeline finished."
-            // Hapus backup files lama (lebih dari 7 hari)
-            sh "find . -name 'backup_*.sql.gz' -mtime +7 -delete 2>/dev/null || true"
         }
         success {
                 echo "Deployment to ${NAMESPACE} Successful!"
