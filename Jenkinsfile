@@ -187,8 +187,17 @@ spec:
                         // 1. Bersihkan Job lama jika ada
                         sh "kubectl delete job netmanager-migration-job --namespace=${NAMESPACE} --ignore-not-found"
                         
-                        // 2. Terapkan config map TERBARU sebelum job jalan
+                        // 2. Terapkan konfigurasi infrastruktur (DB, Redis, Config) SEBELUM migrasi
+                        // Ini krusial agar perbaikan securityContext pada DB segera diterapkan
+                        echo "Memperbarui konfigurasi infrastruktur di ${NAMESPACE}..."
                         sh "kubectl apply -f ${K8S_DIR}/configmap.yaml --namespace=${NAMESPACE} || true"
+                        sh "kubectl apply -f ${K8S_DIR}/db-statefulset.yaml --namespace=${NAMESPACE} || true"
+                        sh "kubectl apply -f ${K8S_DIR}/redis-deployment.yaml --namespace=${NAMESPACE} || true"
+                        sh "kubectl apply -f ${K8S_DIR}/pvc.yaml --namespace=${NAMESPACE} || true"
+
+                        // Tunggu sebentar agar database sempat restart dengan konfigurasi baru
+                        echo "Menunggu database melakukan inisialisasi..."
+                        sleep 20
 
                         // 3. Render template dan apply Job
                         sh """
@@ -197,23 +206,25 @@ spec:
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
                         
-                        // 4. Wait for Job completion or failure (lebih efisien daripada loop manual)
+                        // 4. Wait for Job completion or failure
                         def jobStatus = sh(
                             script: """
-                                echo "Menunggu Kubernetes Job netmanager-migration-job (timeout 30 menit)..."
-                                # Gunakan kubectl wait untuk deteksi completion yang lebih clean
-                                if kubectl wait --for=condition=complete job/netmanager-migration-job -n ${NAMESPACE} --timeout=1800s; then
-                                    exit 0
-                                else
-                                    # Jika bukan complete, cek apakah failed
-                                    if kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' | grep -q "True"; then
-                                        echo "❌ Job GAGAL terdeteksi."
-                                        exit 1
-                                    else
-                                        echo "⚠️ Job timeout atau status tidak diketahui."
+                                echo "Menunggu Kubernetes Job netmanager-migration-job..."
+                                # Tunggu sampai job selesai (Complete) atau gagal (Failed)
+                                for i in \$(seq 1 60); do
+                                    STATUS=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "Waiting")
+                                    if [ "\$STATUS" = "Complete" ]; then
+                                        echo "✅ Job Selesai Sukses!"
+                                        exit 0
+                                    elif [ "\$STATUS" = "Failed" ]; then
+                                        echo "❌ Job Gagal!"
                                         exit 1
                                     fi
-                                fi
+                                    echo "Status saat ini: \$STATUS... menunggu (10 detik)"
+                                    sleep 10
+                                done
+                                echo "⚠️ Job timeout (10 menit)."
+                                exit 1
                             """,
                             returnStatus: true
                         )

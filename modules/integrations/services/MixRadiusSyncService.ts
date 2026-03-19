@@ -38,10 +38,11 @@ export class MixRadiusSyncService {
     }
 
     // Upsert into MixRadiusCustomer using mixRadiusId as the unique key
+    const finalTenantId = tenantId || "DEFAULT"
     const result = await prismaBilling.mixRadiusCustomer.upsert({
       where: {
         tenantId_mixRadiusId: {
-          tenantId: tenantId || null,
+          tenantId: finalTenantId,
           mixRadiusId: data.id
         }
       },
@@ -49,7 +50,7 @@ export class MixRadiusSyncService {
       create: {
         id: randomUUID(),
         ...customerData,
-        tenantId: tenantId || null
+        tenantId: finalTenantId
       }
     })
 
@@ -122,14 +123,15 @@ export class MixRadiusSyncService {
         await prismaBilling.mixRadiusCustomer.upsert({
           where: {
             tenantId_mixRadiusId: {
-              tenantId: null, // Global sync usually doesn't have a specific tenant, but we should handle this
+              tenantId: "DEFAULT",
               mixRadiusId: customer.id
             }
           },
           update: customerData,
           create: {
             id: randomUUID(),
-            ...customerData
+            ...customerData,
+            tenantId: "DEFAULT"
           }
         })
         count++
@@ -213,13 +215,14 @@ export class MixRadiusSyncService {
 
   private async upsertInvoice(record: MixRadiusIncomePeriodRecord, tenantId?: string) {
     const mixRadiusId = record.customer_id || record.username;
+    const finalTenantId = tenantId || "DEFAULT"
 
     // Ensure customer exists to satisfy foreign key constraint
     // Use mixRadiusId as primary key for upsert to handle username changes
     await prismaBilling.mixRadiusCustomer.upsert({
       where: {
         tenantId_mixRadiusId: {
-          tenantId: tenantId || null,
+          tenantId: finalTenantId,
           mixRadiusId: mixRadiusId
         }
       },
@@ -239,7 +242,7 @@ export class MixRadiusSyncService {
         phoneNumber: record.phonenumber,
         planName: record.plan_name,
         lastSyncedAt: new Date(),
-        tenantId: tenantId || null
+        tenantId: finalTenantId
       }
     })
 
@@ -266,7 +269,7 @@ export class MixRadiusSyncService {
     return await prismaBilling.mixRadiusInvoice.upsert({
       where: {
         tenantId_invoiceNumber: {
-          tenantId: tenantId || null,
+          tenantId: finalTenantId,
           invoiceNumber: record.invoice
         }
       },
@@ -275,7 +278,7 @@ export class MixRadiusSyncService {
         id: randomUUID(),
         invoiceNumber: record.invoice,
         ...invoiceData,
-        tenantId: tenantId || null
+        tenantId: finalTenantId
       }
     })
   }

@@ -4,7 +4,7 @@ metadata:
   name: netmanager-migration-job
   namespace: "{{NAMESPACE}}"
 spec:
-  ttlSecondsAfterFinished: 300
+  ttlSecondsAfterFinished: 3600
   backoffLimit: 0
   activeDeadlineSeconds: 1800
   template:
