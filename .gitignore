@@ -154,3 +154,6 @@ service-account*.json
 # Debug scripts with credentials
 scripts/debug-password.ts
 *service-account*.json
+
+.gemini/
+gha-creds-*.json
