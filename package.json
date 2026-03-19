@@ -73,7 +73,7 @@
     "dompurify": "^3.3.2",
     "expo-server-sdk": "^4.0.0",
     "firebase": "^12.10.0",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^13.0.0",
     "formidable": "^3.5.4",
     "geolib": "^3.3.4",
     "helmet": "^8.1.0",
@@ -176,7 +176,10 @@
     "dompurify": "^3.3.2",
     "serialize-javascript": "^7.0.4",
     "@hono/node-server": "^1.19.11",
-    "immutable": "^3.8.3"
+    "immutable": "^3.8.3",
+    "protobufjs": "^7.5.4",
+    "jsonwebtoken": "^9.0.3",
+    "@tootallnate/once": "3.0.1"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
