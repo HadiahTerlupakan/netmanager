@@ -18,8 +18,8 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1')
 
     const [balanceResult, transactionsResult] = await Promise.all([
-        walletService.getBalance(id),
-        walletService.getTransactions(id, page),
+        walletService.getBalance(id, user.tenantId as string),
+        walletService.getTransactions(id, user.tenantId as string, page),
     ])
 
     if (!balanceResult.success) {
@@ -55,7 +55,7 @@ export async function POST(
             return NextResponse.json({ success: false, error: 'Amount dan deskripsi harus diisi' }, { status: 400 })
         }
 
-        const result = await walletService.addAdjustment(id, amount, description, user.id!)
+        const result = await walletService.addAdjustment(id, amount, description, user.id!, user.tenantId as string)
 
         if (!result.success) {
             return NextResponse.json({ success: false, error: result.error }, { status: 400 })

@@ -1,11 +1,11 @@
-import { prisma } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/lib/prisma'
 
 /**
  * @deprecated This function implements the old bypass logic and should not be used for access control.
  * Use standard RBAC permissions instead.
  */
 export async function canAccessCanvasingMobile(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({
+  const user = await prismaAuth.user.findUnique({
     where: { id: userId },
     select: {
       isSales: true,
@@ -30,7 +30,8 @@ export async function canAccessCanvasingMobile(userId: string): Promise<boolean>
  * The 'm_canvasing' feature will only be present if assigned via role permissions.
  */
 export async function getUserFeaturesWithCanvasing(userId: string): Promise<string[]> {
-  const user = await prisma.user.findUnique({
+  const user = await prismaAuth.user.findUnique({
+
     where: { id: userId },
     include: {
       role: {
@@ -40,6 +41,7 @@ export async function getUserFeaturesWithCanvasing(userId: string): Promise<stri
       }
     }
   })
+
 
   if (!user?.role?.permission) return []
 

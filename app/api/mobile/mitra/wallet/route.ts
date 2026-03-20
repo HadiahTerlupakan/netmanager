@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1')
 
         const [balanceResult, txResult] = await Promise.all([
-            walletService.getBalance(mitra.id),
-            walletService.getTransactions(mitra.id, page, 20),
+            walletService.getBalance(mitra.id, session.tenantId as string),
+            walletService.getTransactions(mitra.id, session.tenantId as string, page, 20),
         ])
 
         return apiSuccess({

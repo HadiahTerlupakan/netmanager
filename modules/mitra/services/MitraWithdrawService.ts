@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
+import { randomUUID } from 'crypto'
 import { Prisma, MitraTransactionType, WithdrawStatus } from '@/prisma/generated/mitra'
 import { logger, logActivitySafe } from '@/lib/logger'
 import type { WithdrawRequestDTO } from '../dto/MitraDTO'
@@ -31,15 +32,22 @@ export class MitraWithdrawService {
     /**
      * Request withdraw (from mobile app)
      */
-    async requestWithdraw(userId: string, data: WithdrawRequestDTO): Promise<ServiceResult<{ id: string }>> {
+    async requestWithdraw(userId: string, data: WithdrawRequestDTO, tenantId?: string): Promise<ServiceResult<{ id: string }>> {
         try {
-            const mitra = await prismaMitra.mitra.findUnique({
-                where: { id: userId },
-                select: { minWithdrawal: true },
+            const mitra = await prismaMitra.mitra.findFirst({
+                where: { 
+                    id: userId,
+                    ...(tenantId && { tenantId })
+                },
+                select: { id: true, minWithdrawal: true },
             });
 
+            if (!mitra) {
+                return { success: false, error: 'Mitra tidak ditemukan' }
+            }
+
             const defaultMinWithdraw = await this.getMinWithdraw()
-            const minWithdraw = mitra?.minWithdrawal ?? defaultMinWithdraw;
+            const minWithdraw = mitra.minWithdrawal ?? defaultMinWithdraw;
 
             if (data.amount < minWithdraw) {
                 return { success: false, error: `Minimum penarikan Anda adalah Rp ${minWithdraw.toLocaleString('id-ID')}` }
@@ -78,7 +86,7 @@ export class MitraWithdrawService {
             }
 
             // Create withdraw request
-            const id = crypto.randomUUID()
+            const id = randomUUID()
             await prismaMitra.withdrawRequest.create({
                 data: {
                     id,
@@ -104,10 +112,13 @@ export class MitraWithdrawService {
     /**
      * Approve withdraw request (admin)
      */
-    async approveWithdraw(id: string, approvedById: string): Promise<ServiceResult> {
+    async approveWithdraw(id: string, approvedById: string, tenantId?: string): Promise<ServiceResult> {
         try {
-            const request = await prismaMitra.withdrawRequest.findUnique({
-                where: { id },
+            const request = await prismaMitra.withdrawRequest.findFirst({
+                where: { 
+                    id,
+                    ...(tenantId && { mitra: { tenantId } })
+                },
                 include: { mitraWallet: true },
             })
 
@@ -150,10 +161,13 @@ export class MitraWithdrawService {
     /**
      * Reject withdraw request (admin)
      */
-    async rejectWithdraw(id: string, reason: string, rejectedById: string): Promise<ServiceResult> {
+    async rejectWithdraw(id: string, reason: string, rejectedById: string, tenantId?: string): Promise<ServiceResult> {
         try {
-            const request = await prismaMitra.withdrawRequest.findUnique({
-                where: { id },
+            const request = await prismaMitra.withdrawRequest.findFirst({
+                where: { 
+                    id,
+                    ...(tenantId && { mitra: { tenantId } })
+                },
             })
 
             if (!request) {
@@ -191,10 +205,13 @@ export class MitraWithdrawService {
     /**
      * Complete withdraw — deduct from wallet and record transaction
      */
-    async completeWithdraw(id: string, processedById: string): Promise<ServiceResult> {
+    async completeWithdraw(id: string, processedById: string, tenantId?: string): Promise<ServiceResult> {
         try {
-            const request = await prismaMitra.withdrawRequest.findUnique({
-                where: { id },
+            const request = await prismaMitra.withdrawRequest.findFirst({
+                where: { 
+                    id,
+                    ...(tenantId && { mitra: { tenantId } })
+                },
                 include: { mitraWallet: true },
             })
 
@@ -266,13 +283,19 @@ export class MitraWithdrawService {
         status?: string
         page?: number
         limit?: number
+        tenantId?: string
     }) {
         try {
-            const { userId, status, page = 1, limit = 20 } = filters
+            const { userId, status, page = 1, limit = 20, tenantId } = filters
 
             let walletId: string | undefined
             if (userId) {
-                const wallet = await prismaMitra.mitraWallet.findUnique({ where: { mitraId: userId } })
+                const wallet = await prismaMitra.mitraWallet.findFirst({ 
+                    where: { 
+                        mitraId: userId,
+                        ...(tenantId && { mitra: { tenantId } })
+                    } 
+                })
                 walletId = wallet?.id
                 if (!walletId) {
                     return { success: true, data: { requests: [], total: 0, page, totalPages: 0 } }
@@ -283,6 +306,7 @@ export class MitraWithdrawService {
             const where: Prisma.WithdrawRequestWhereInput = {
                 ...(walletId && { mitraWalletId: walletId }),
                 ...(status && { status: status as WithdrawStatus }),
+                ...(tenantId && !userId && { mitra: { tenantId } }),
             }
 
             const [requests, total] = await Promise.all([

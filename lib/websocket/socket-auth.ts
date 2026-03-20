@@ -1,7 +1,6 @@
 import type { IncomingHttpHeaders } from 'http'
 import { getToken, decode } from 'next-auth/jwt'
 import { prisma } from '@/lib/prisma'
-import { verifyMobileToken } from '@/lib/mobile-auth'
 import { verifyPelangganAccessToken } from '@/lib/jwt'
 import type { SocketData } from './types'
 
@@ -33,8 +32,11 @@ function getBearerToken(headers: IncomingHttpHeaders, auth?: { token?: string })
 export async function resolveSocketAuth(input: ResolveSocketAuthInput): Promise<SocketData | null> {
     const bearerToken = getBearerToken(input.headers, input.auth)
     if (bearerToken) {
+        console.log('[WS] Attempting mobile token auth...')
+        const { verifyMobileToken } = await import('../mobile-auth')
         const mobileUser = await verifyMobileToken(bearerToken)
         if (mobileUser?.userId) {
+            console.log(`[WS] Mobile auth success for user: ${mobileUser.userId}`)
             return {
                 userId: mobileUser.userId,
                 userRole: String(mobileUser.role || 'USER'),
@@ -44,6 +46,7 @@ export async function resolveSocketAuth(input: ResolveSocketAuthInput): Promise<
                     : false,
             }
         }
+        console.warn('[WS] Mobile token verification failed')
     }
 
     const cookieHeader = Array.isArray(input.headers.cookie) ? input.headers.cookie.join('; ') : input.headers.cookie

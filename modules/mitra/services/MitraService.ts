@@ -1,5 +1,6 @@
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { hash } from 'bcryptjs'
+import { randomUUID } from 'crypto'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { MitraRepository, getMitraRepository } from '../repositories/MitraRepository'
 import type { CreateMitraDTO, UpdateMitraDTO, MitraFilters } from '../dto/MitraDTO'
@@ -24,7 +25,7 @@ export class MitraService {
     async getMitras(filters: MitraFilters, page: number = 1, limit: number = 20) {
         try {
             const result = await this.repository.findAll(filters, page, limit)
-            const stats = await this.repository.getStats()
+            const stats = await this.repository.getStats(filters.tenantId)
             return { success: true, data: { ...result, stats } }
         } catch (error) {
             logger.error('[MitraService] Error fetching mitras:', error as Error)
@@ -35,13 +36,13 @@ export class MitraService {
     /**
      * Get single mitra by ID
      */
-    async getMitraById(id: string): Promise<ServiceResult<Record<string, unknown>>> {
+    async getMitraById(id: string, tenantId?: string): Promise<ServiceResult<Record<string, unknown>>> {
         try {
-            const mitra = await this.repository.findById(id)
+            const mitra = await this.repository.findById(id, tenantId)
             if (!mitra) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }
-            return { success: true, data: mitra }
+            return { success: true, data: mitra as unknown as Record<string, unknown> }
         } catch (error) {
             logger.error('[MitraService] Error fetching mitra:', error as Error)
             return { success: false, error: 'Gagal mengambil data mitra' }
@@ -53,16 +54,17 @@ export class MitraService {
      */
     async createMitra(data: CreateMitraDTO, createdById: string): Promise<ServiceResult<{ id: string }>> {
         try {
+            // Check global unique email
             const globalCheck = await checkGlobalIdentifier(data.email, 'MITRA')
             if (globalCheck.exists) {
                 return { success: false, error: `Email sudah digunakan sebagai ${globalCheck.role}` }
             }
 
-            // Validate mitra type (mapped from DTO employeeType temporarily, ideally DTO also updated)
+            // Validate mitra type
             const mitraType = data.employeeType === 'MITRA_SALES' ? 'MITRA_SALES' : 'MITRA_TEKNISI';
 
             const passwordHash = await hash(data.password, 12)
-            const id = crypto.randomUUID()
+            const id = randomUUID()
 
             // Create user + wallet in transaction
             await prismaMitra.$transaction(async (tx) => {
@@ -76,6 +78,7 @@ export class MitraService {
                         phone: data.phone,
                         mitraType,
                         siteId: data.siteId,
+                        tenantId: data.tenantId,
                         mitraRateWoPsb: data.mitraRateWoPsb,
                         mitraRateWoMaintenance: data.mitraRateWoMaintenance,
                         mitraRateCanvasing: data.mitraRateCanvasing,
@@ -133,7 +136,13 @@ export class MitraService {
      */
     async updateMitra(id: string, data: UpdateMitraDTO, updatedById: string): Promise<ServiceResult> {
         try {
-            const existing = await prismaMitra.mitra.findFirst({ where: { id } })
+            const tenantId = data.tenantId
+            const existing = await prismaMitra.mitra.findFirst({ 
+                where: { 
+                    id,
+                    ...(tenantId && { tenantId })
+                } 
+            })
             if (!existing) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }
@@ -216,14 +225,25 @@ export class MitraService {
     /**
      * Delete mitra (soft delete — set isActive = false)
      */
-    async deleteMitra(id: string, deletedById: string): Promise<ServiceResult> {
+    async deleteMitra(id: string, deletedById: string, tenantId?: string): Promise<ServiceResult> {
         try {
+            const existing = await prismaMitra.mitra.findFirst({
+                where: {
+                    id,
+                    ...(tenantId && { tenantId })
+                }
+            })
+
+            if (!existing) {
+                return { success: false, error: 'Mitra tidak ditemukan' }
+            }
+
             await prismaMitra.mitra.update({
                 where: { id },
                 data: { isActive: false },
             })
 
-            logActivitySafe({ action: 'DELETE', subject: 'Mitra', userId: deletedById, details: { mitraId: id } })
+            logActivitySafe({ action: 'DELETE', subject: 'Mitra', userId: deletedById, details: { mitraId: id, tenantId } })
 
             return { success: true }
         } catch (error) {
@@ -235,9 +255,9 @@ export class MitraService {
     /**
      * Get mitra stats
      */
-    async getStats(): Promise<ServiceResult<Record<string, unknown>>> {
+    async getStats(tenantId?: string): Promise<ServiceResult<Record<string, unknown>>> {
         try {
-            const stats = await this.repository.getStats()
+            const stats = await this.repository.getStats(tenantId)
             return { success: true, data: stats }
         } catch (error) {
             logger.error('[MitraService] Error getting stats:', error as Error)
@@ -248,9 +268,15 @@ export class MitraService {
     /**
      * Get face verification logs for a mitra
      */
-    async getFaceVerificationLogs(mitraId: string, page: number = 1, limit: number = 20) {
+    async getFaceVerificationLogs(mitraId: string, tenantId?: string, page: number = 1, limit: number = 20) {
         try {
-            const mitra = await prismaMitra.mitra.findFirst({ where: { id: mitraId }, select: { id: true } })
+            const mitra = await prismaMitra.mitra.findFirst({ 
+                where: { 
+                    id: mitraId,
+                    ...(tenantId && { tenantId })
+                }, 
+                select: { id: true } 
+            })
             if (!mitra) {
                 return { success: false, error: 'Mitra tidak ditemukan' }
             }

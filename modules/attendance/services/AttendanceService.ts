@@ -19,6 +19,7 @@ interface CheckInParams {
     longitude?: number
     offlineTime?: Date // For mobile offline sync
     timezone?: string
+    tenantId?: string
 }
 
 type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
@@ -44,7 +45,7 @@ export class AttendanceService {
     }
 
     async checkIn(params: CheckInParams) {
-        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, timezone } = params
+        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, timezone, tenantId } = params
 
         // 1. Timezone & Date Context
         // Use offlineTime if provided (trusted for sync), else server time
@@ -89,13 +90,14 @@ export class AttendanceService {
         }
 
         // 4. Auto-Checkout Stale Sessions
-        await this.processAutoCheckout(userId, userDetails, effectiveToday)
+        await this.processAutoCheckout(userId, userDetails, effectiveToday, tenantId)
 
         // 5. Duplicate Check
         const existingAttendance = await prisma.attendance.findFirst({
             where: {
                 userId,
-                checkIn: { gte: effectiveToday }
+                checkIn: { gte: effectiveToday },
+                ...(tenantId && { tenantId })
             }
         })
         if (existingAttendance) {
@@ -146,6 +148,7 @@ export class AttendanceService {
         const createData: Prisma.AttendanceUncheckedCreateInput = {
             id: randomUUID(),
             userId,
+            tenantId,
             checkIn: checkInTime,
             checkInPhoto: photoUrl,
             location,
@@ -166,7 +169,7 @@ export class AttendanceService {
         })
     }
 
-    private async processAutoCheckout(userId: string, userDetails: { endWorkTime: string | null; workingHourMode: string | null } | null, effectiveToday: Date) {
+    private async processAutoCheckout(userId: string, userDetails: { endWorkTime: string | null; workingHourMode: string | null } | null, effectiveToday: Date, tenantId?: string) {
         // Skip for flexible users
         if (userDetails?.workingHourMode === 'FLEXIBLE') return
 
@@ -174,7 +177,8 @@ export class AttendanceService {
             where: {
                 userId,
                 checkOut: null,
-                checkIn: { lt: effectiveToday }
+                checkIn: { lt: effectiveToday },
+                ...(tenantId && { tenantId })
             }
         })
 
@@ -239,17 +243,19 @@ export class AttendanceService {
         latitude?: number
         longitude?: number
         offlineTime?: Date
+        tenantId?: string
     }): Promise<{
         attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>
         warning?: string
     }> {
-        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime } = params
+        const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, tenantId } = params
 
         // 1. Find active attendance
         const attendance = await prisma.attendance.findFirst({
             where: {
                 userId,
-                checkOut: null
+                checkOut: null,
+                ...(tenantId && { tenantId })
             },
             orderBy: { checkIn: 'desc' },
             include: {

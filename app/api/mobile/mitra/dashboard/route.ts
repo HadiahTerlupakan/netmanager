@@ -21,8 +21,13 @@ export async function GET(req: NextRequest) {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
+        const tenantId = session.tenantId as string
+
         const mitra = await prismaMitra.mitra.findFirst({
-            where: { id: session.id },
+            where: { 
+                id: session.id,
+                ...(tenantId && { tenantId })
+            },
             select: {
                 id: true,
                 mitraType: true,
@@ -40,11 +45,11 @@ export async function GET(req: NextRequest) {
         if (!mitra) return ApiErrors.notFound('Mitra tidak ditemukan')
 
         // Get wallet balance
-        const balanceResult = await walletService.getBalance(mitra.id)
+        const balanceResult = await walletService.getBalance(mitra.id, tenantId)
         const balance = balanceResult.success ? balanceResult.data : { balance: 0, totalEarnings: 0, totalWithdrawn: 0 }
 
         // Get earnings summary
-        const monthlyResult = await walletService.getEarningsSummary(mitra.id)
+        const monthlyResult = await walletService.getEarningsSummary(mitra.id, tenantId)
         const monthlyEarnings = monthlyResult.success ? monthlyResult.data : null
 
         // Get pending withdrawals count
@@ -52,11 +57,12 @@ export async function GET(req: NextRequest) {
             where: {
                 mitraId: mitra.id,
                 status: 'PENDING',
+                ...(tenantId && { mitra: { tenantId } })
             },
         })
 
         // Get recent transactions (last 5)
-        const txResult = await walletService.getTransactions(mitra.id, 1, 5)
+        const txResult = await walletService.getTransactions(mitra.id, tenantId, 1, 5)
         const recentTransactions = txResult.success ? txResult.data?.transactions || [] : []
 
         // Get completed jobs count this month

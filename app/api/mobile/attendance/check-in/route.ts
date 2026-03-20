@@ -304,12 +304,14 @@ export async function POST(request: NextRequest) {
             latitude?: number;
             longitude?: number;
             offlineTime?: Date;
+            tenantId?: string;
         } = {
             userId,
             photoUrl,
             location,
             notes,
-            timezone // Use fetched user timezone preference
+            timezone, // Use fetched user timezone preference
+            tenantId
         }
         if (latitude !== undefined) checkInParams.latitude = latitude
         if (longitude !== undefined) checkInParams.longitude = longitude

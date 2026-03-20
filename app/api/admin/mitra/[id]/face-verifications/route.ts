@@ -18,7 +18,7 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
 
-    const result = await mitraService.getFaceVerificationLogs(id, page, limit)
+    const result = await mitraService.getFaceVerificationLogs(id, user.tenantId as string, page, limit)
 
     if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 404 })

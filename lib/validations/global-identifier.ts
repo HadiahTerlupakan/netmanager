@@ -1,5 +1,5 @@
-import { prisma, prismaAuth } from '@/lib/prisma'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaAuth } from '@/lib/prisma'
+import { prismaMitraAuth } from '@/lib/prisma-mitra'
 
 export type RoleToExclude = 'EMPLOYEE' | 'CUSTOMER' | 'MITRA'
 
@@ -20,7 +20,7 @@ export async function checkGlobalIdentifier(
 
     // 1. Check Pelanggan
     if (excludeRole !== 'CUSTOMER') {
-        const pelanggan = await prisma.pelanggan.findFirst({
+        const pelanggan = await prismaAuth.pelanggan.findFirst({
             where: {
                 OR: [
                     { username: { equals: idLower, mode: 'insensitive' } },
@@ -60,7 +60,7 @@ export async function checkGlobalIdentifier(
 
     // 3. Check Mitra
     if (excludeRole !== 'MITRA') {
-        const mitra = await prismaMitra.mitra.findFirst({
+        const mitra = await prismaMitraAuth.mitra.findFirst({
             where: {
                 email: { equals: idLower, mode: 'insensitive' },
                 ...(excludeId ? { id: { not: excludeId } } : {})

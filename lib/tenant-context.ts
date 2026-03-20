@@ -1,5 +1,4 @@
 import { getToken } from 'next-auth/jwt'
-import { verifyMobileToken } from '@/lib/mobile-auth'
 import { jwtVerify } from 'jose'
 
 /**
@@ -12,9 +11,12 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
   // This helps distinguish between regular API calls and background/system tasks.
   let isNextRequest = false;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { headers } = await import('next/headers');
-    await headers();
-    isNextRequest = true;
+    if (headers) {
+        await headers();
+        isNextRequest = true;
+    }
   } catch (_e) {
     // Not in a Next.js App Router context.
   }
@@ -22,28 +24,33 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
   // If we are NOT in a standard Next.js request context BUT we are running via the
   // custom server (e.g. WebSocket handshake, cron jobs, etc.), we return isSuperAdmin: true.
   // This allows these internal/system operations to bypass automatic isolation filters.
-  if (!isNextRequest && (globalThis as Record<string, unknown>).IS_CUSTOM_SERVER) {
+  const globalObj = globalThis as Record<string, unknown>;
+  if (!isNextRequest && globalObj.IS_CUSTOM_SERVER) {
     return { tenantId: null, isSuperAdmin: true };
   }
 
   try {
     // 1. Check for Mobile App Bearer Token first
     let authHeader: string | null = null;
-    let cookieStore: unknown = null;
+    let cookieStore: any = null;
 
-    try {
-      const { headers } = await import('next/headers');
-      const h = await headers();
-      authHeader = h.get('authorization');
-      cookieStore = h; 
-    } catch {
-      // Not in a Next.js App Router context - skip headers-based detection
+    if (isNextRequest) {
+        try {
+            const { headers } = await import('next/headers');
+            const h = await headers();
+            authHeader = h.get('authorization');
+            cookieStore = h; 
+        } catch {
+            // Failed to get headers despite being in Next request (shouldn't happen)
+        }
     }
     
     // 1a. Mobile App Bearer Token logic
     if (authHeader?.startsWith('Bearer ')) {
        const token = authHeader.split(' ')[1]
        if (token && token !== 'null') {
+         // Break circular dependency with relative import
+         const { verifyMobileToken } = await import('./mobile-auth')
          const mobilePayload = await verifyMobileToken(token)
          if (mobilePayload) {
             const mp = mobilePayload as Record<string, unknown>
@@ -80,14 +87,12 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
         const cs = await cookies()
         const investorToken = cs.get('investor_auth_token')?.value
         if (investorToken) {
-          console.log('[TENANT_CONTEXT] Investor token found in cookies')
           const rawSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
           if (!rawSecret) throw new Error('NEXTAUTH_SECRET environment variable is required')
           const secret = new TextEncoder().encode(rawSecret)
           try {
             const { payload } = await jwtVerify(investorToken, secret)
             if (payload && payload.tenantId) {
-              console.log(`[TENANT_CONTEXT] Investor tenantId detected: ${payload.tenantId}`)
               return { 
                 tenantId: payload.tenantId as string,
                 isSuperAdmin: false 

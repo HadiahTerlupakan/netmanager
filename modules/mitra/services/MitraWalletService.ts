@@ -13,20 +13,26 @@ export class MitraWalletService {
     /**
      * Get wallet balance for a user
      */
-    async getBalance(userId: string): Promise<ServiceResult<{
+    async getBalance(userId: string, tenantId?: string): Promise<ServiceResult<{
         balance: number
         totalEarnings: number
         totalWithdrawn: number
     }>> {
         try {
             let wallet = await prismaMitra.mitraWallet.findFirst({
-                where: { mitraId: userId },
+                where: { 
+                    mitraId: userId,
+                    ...(tenantId && { mitra: { tenantId } })
+                },
             })
 
             // Auto-create wallet if user is mitra but doesn't have one
             if (!wallet) {
                 const user = await prismaMitra.mitra.findFirst({
-                    where: { id: userId },
+                    where: { 
+                        id: userId,
+                        ...(tenantId && { tenantId })
+                    },
                     select: { mitraType: true },
                 })
 
@@ -195,12 +201,16 @@ export class MitraWalletService {
         userId: string,
         amount: number,
         description: string,
-        adminId: string
+        adminId: string,
+        tenantId?: string
     ): Promise<ServiceResult> {
         try {
             await prismaMitra.$transaction(async (tx) => {
                 const wallet = await tx.mitraWallet.findFirst({
-                    where: { mitraId: userId },
+                    where: { 
+                        mitraId: userId,
+                        ...(tenantId && { mitra: { tenantId } })
+                    },
                 })
 
                 if (!wallet) {
@@ -244,10 +254,13 @@ export class MitraWalletService {
     /**
      * Get transaction history
      */
-    async getTransactions(userId: string, page: number = 1, limit: number = 20) {
+    async getTransactions(userId: string, tenantId?: string, page: number = 1, limit: number = 20) {
         try {
             const wallet = await prismaMitra.mitraWallet.findFirst({
-                where: { mitraId: userId },
+                where: { 
+                    mitraId: userId,
+                    ...(tenantId && { mitra: { tenantId } })
+                },
             })
 
             if (!wallet) {
@@ -284,10 +297,13 @@ export class MitraWalletService {
     /**
      * Get earnings summary for a period (for dashboard)
      */
-    async getEarningsSummary(userId: string, month?: number, year?: number) {
+    async getEarningsSummary(userId: string, tenantId?: string, month?: number, year?: number) {
         try {
             const wallet = await prismaMitra.mitraWallet.findFirst({
-                where: { mitraId: userId },
+                where: { 
+                    mitraId: userId,
+                    ...(tenantId && { mitra: { tenantId } })
+                },
             })
 
             if (!wallet) {

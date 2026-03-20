@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
         }
 
         userId = authResult.id as string
+        const tenantId = authResult.tenantId as string
         let bodyRequestId: string | undefined
 
         if (!userId) {
@@ -191,11 +192,13 @@ export async function POST(request: NextRequest) {
               latitude?: number;
               longitude?: number;
               offlineTime?: Date;
+              tenantId?: string;
             } = {
                 userId,
                 photoUrl,
                 location,
                 notes,
+                tenantId
             }
             if (latitude !== undefined) checkOutParams.latitude = latitude
             if (longitude !== undefined) checkOutParams.longitude = longitude

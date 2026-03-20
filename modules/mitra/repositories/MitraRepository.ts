@@ -14,6 +14,7 @@ export class MitraRepository {
             ...(filters.employeeType && { mitraType: filters.employeeType as Prisma.EnumMitraTypeFilter }),
             ...(filters.isActive !== undefined && { isActive: filters.isActive }),
             ...(filters.siteId && { siteId: filters.siteId }),
+            ...(filters.tenantId && { tenantId: filters.tenantId }),
             ...(filters.search && {
                 OR: [
                     { name: { contains: filters.search, mode: 'insensitive' } },
@@ -83,9 +84,12 @@ export class MitraRepository {
     /**
      * Get single mitra by ID
      */
-    async findById(id: string) {
+    async findById(id: string, tenantId?: string) {
         return prismaMitra.mitra.findFirst({
-            where: { id },
+            where: { 
+                id,
+                ...(tenantId && { tenantId })
+            },
             include: {
                 // sites: { select: { id: true, name: true } }, // Cross-DB relation removed
                 mitraWallet: {
@@ -107,12 +111,16 @@ export class MitraRepository {
     /**
      * Get mitra stats (totals by type)
      */
-    async getStats() {
+    async getStats(tenantId?: string) {
+        const where = tenantId ? { tenantId } : {}
         const [totalTeknisi, totalSales, totalActive, totalWalletBalance] = await Promise.all([
-            prismaMitra.mitra.count({ where: { mitraType: 'MITRA_TEKNISI' } }),
-            prismaMitra.mitra.count({ where: { mitraType: 'MITRA_SALES' } }),
-            prismaMitra.mitra.count({ where: { isActive: true } }),
-            prismaMitra.mitraWallet.aggregate({ _sum: { balance: true } }),
+            prismaMitra.mitra.count({ where: { ...where, mitraType: 'MITRA_TEKNISI' } }),
+            prismaMitra.mitra.count({ where: { ...where, mitraType: 'MITRA_SALES' } }),
+            prismaMitra.mitra.count({ where: { ...where, isActive: true } }),
+            prismaMitra.mitraWallet.aggregate({ 
+                where: { mitra: { tenantId } },
+                _sum: { balance: true } 
+            }),
         ])
 
         return {
@@ -135,9 +143,12 @@ export class MitraRepository {
     /**
      * Get wallet by mitra ID
      */
-    async getWalletByUserId(mitraId: string) {
+    async getWalletByUserId(mitraId: string, tenantId?: string) {
         return prismaMitra.mitraWallet.findFirst({
-            where: { mitraId },
+            where: { 
+                mitraId,
+                ...(tenantId && { mitra: { tenantId } })
+            },
             include: {
                 transactions: {
                     orderBy: { createdAt: 'desc' },
@@ -178,13 +189,15 @@ export class MitraRepository {
         status?: string
         page?: number
         limit?: number
+        tenantId?: string
     }) {
-        const { mitraId, status, page = 1, limit = 20 } = filters
+        const { mitraId, status, page = 1, limit = 20, tenantId } = filters
         const skip = (page - 1) * limit
 
         const where: Prisma.WithdrawRequestWhereInput = {
             ...(mitraId && { mitraId }),
             ...(status && { status: status as WithdrawStatus }),
+            ...(tenantId && { mitra: { tenantId } }),
         }
 
         const [requests, total] = await Promise.all([

@@ -36,6 +36,7 @@ export interface CreateMitraDTO {
     fotoSim?: string
     fotoKk?: string
     requiresFaceVerification?: boolean
+    tenantId?: string
 }
 
 export interface UpdateMitraDTO {
@@ -74,6 +75,7 @@ export interface UpdateMitraDTO {
     fotoSim?: string
     fotoKk?: string
     requiresFaceVerification?: boolean
+    tenantId?: string
 }
 
 export interface MitraFilters {
@@ -82,6 +84,7 @@ export interface MitraFilters {
     isActive?: boolean
     departmentId?: string
     siteId?: string
+    tenantId?: string
 }
 
 export interface WithdrawRequestDTO {

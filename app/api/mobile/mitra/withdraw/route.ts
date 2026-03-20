@@ -13,13 +13,17 @@ export async function GET(req: NextRequest) {
         if (authResult instanceof Response) return authResult
 
         const session = authResult
+        const tenantId = session.tenantId as string
 
         if (session.role !== 'MITRA') {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
-        const mitra = await prismaMitra.mitra.findUnique({
-            where: { id: session.id },
+        const mitra = await prismaMitra.mitra.findFirst({
+            where: { 
+                id: session.id,
+                ...(tenantId && { tenantId })
+            },
             select: {
                 id: true,
                 mitraType: true,
@@ -31,8 +35,11 @@ export async function GET(req: NextRequest) {
 
         if (!mitra) return ApiErrors.notFound('Mitra tidak ditemukan')
 
-        const wallet = await prismaMitra.mitraWallet.findUnique({
-            where: { mitraId: mitra.id },
+        const wallet = await prismaMitra.mitraWallet.findFirst({
+            where: { 
+                mitraId: mitra.id,
+                ...(tenantId && { mitra: { tenantId } })
+            },
         })
 
         if (!wallet) {
@@ -77,13 +84,17 @@ export async function POST(req: NextRequest) {
         if (authResult instanceof Response) return authResult
 
         const session = authResult
+        const tenantId = session.tenantId as string
 
         if (session.role !== 'MITRA') {
             return ApiErrors.forbidden('Bukan akun mitra')
         }
 
-        const mitra = await prismaMitra.mitra.findUnique({
-            where: { id: session.id },
+        const mitra = await prismaMitra.mitra.findFirst({
+            where: { 
+                id: session.id,
+                ...(tenantId && { tenantId })
+            },
             select: { id: true, mitraType: true },
         })
 
@@ -107,7 +118,7 @@ export async function POST(req: NextRequest) {
             accountNumber: accountNumber || undefined,
             accountName: accountName || undefined,
             notes: notes || undefined,
-        })
+        }, tenantId)
 
         if (!result.success) {
             return ApiErrors.badRequest(result.error || 'Gagal membuat permintaan penarikan')
