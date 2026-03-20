@@ -8,8 +8,11 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies (Optimized for CI/Build stability)
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && (npm ci --legacy-peer-deps --no-audit --prefer-offline || npm install --legacy-peer-deps --registry=https://registry.npmmirror.com --no-audit)
 
 # ==============================================================================
 # Stage 2: Builder

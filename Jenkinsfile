@@ -68,7 +68,17 @@ spec:
                             'NEXTAUTH_SECRET=build-time-dummy-secret-32-chars-long',
                             'NEXTAUTH_URL=http://localhost:3000'
                         ]) {
-                            sh "npm install && npm run prisma:generate && npm run lint && npm run typecheck"
+                            // Optimasi npm untuk koneksi yang tidak stabil (ECONNRESET fix)
+                            sh """
+                                npm config set fetch-retries 5
+                                npm config set fetch-retry-mintimeout 20000
+                                npm config set fetch-retry-maxtimeout 120000
+                                
+                                # Coba pakai npm ci dulu (lebih stabil di CI), fallback ke mirror jika gagal
+                                (npm ci --no-audit --prefer-offline || npm install --registry=https://registry.npmmirror.com --no-audit)
+                                
+                                npm run prisma:generate && npm run lint && npm run typecheck
+                            """
                         }
                     }
                 }
