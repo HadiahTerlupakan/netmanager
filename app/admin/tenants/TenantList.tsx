@@ -133,6 +133,7 @@ export default function TenantList({ onViewAdmins }: { onViewAdmins: (tenantId: 
             key: 'name',
             header: 'Tenant Name',
             priority: 'primary',
+            className: 'w-[40%]',
             render: (tenant) => (
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -148,6 +149,7 @@ export default function TenantList({ onViewAdmins }: { onViewAdmins: (tenantId: 
             key: 'domain',
             header: 'Domain',
             priority: 'secondary',
+            className: 'w-[25%]',
             render: (tenant) => (
                 <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
                     <HiOutlineGlobeAlt className="w-4 h-4 text-gray-400" />
@@ -159,6 +161,7 @@ export default function TenantList({ onViewAdmins }: { onViewAdmins: (tenantId: 
             key: 'isActive',
             header: 'Status',
             priority: 'primary',
+            className: 'w-[15%]',
             render: (tenant) => (
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tenant.isActive
                     ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
@@ -172,6 +175,7 @@ export default function TenantList({ onViewAdmins }: { onViewAdmins: (tenantId: 
             key: 'createdAt',
             header: 'Created At',
             priority: 'secondary',
+            className: 'w-[20%]',
             render: (tenant) => (
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                     {new Date(tenant.createdAt).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}

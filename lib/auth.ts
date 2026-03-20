@@ -647,8 +647,13 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
   try {
     const cached = await redis.get(cacheKey)
     if (cached) {
-      console.debug('[AUTH] Permissions loaded from cache', { userId })
-      return JSON.parse(cached)
+      const perms = JSON.parse(cached)
+      // Only return if cache is not empty to avoid stale empty permissions during initial setup
+      if (perms.length > 0) {
+        // console.debug('[AUTH] Permissions loaded from cache', { userId, count: perms.length })
+        return perms
+      }
+      console.log('[AUTH] Cached permissions are empty, falling back to database', { userId })
     }
   } catch (e) {
     // Cache read failed - continue to database (fail-open for performance)
@@ -668,6 +673,13 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       }
     })
 
+    // console.log('[AUTH DB] Found user for permissions check:', { 
+    //   id: userId, 
+    //   email: user?.email, 
+    //   role: user?.role?.name,
+    //   permissionsInDb: user?.role?.permission?.length || 0 
+    // })
+
     // Check for Super Admin status at the database level
     // This provides a failsafe if session flags are missing
     if (user?.role?.isSuperAdmin || user?.role?.name === 'SUPER_ADMIN' || user?.role?.name === 'Super Admin') {
@@ -682,7 +694,8 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       return allPermissions;
     }
 
-    if (!user?.role?.permission) {
+    if (!user?.role?.permission || user.role.permission.length === 0) {
+      console.warn('[AUTH] User has no permissions in database', { userId, role: user?.role?.name })
       return []
     }
 
@@ -693,7 +706,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
     // Cache permissions (non-blocking)
     try {
       await redis.setex(cacheKey, PERMISSION_CACHE_TTL, JSON.stringify(permissions))
-      console.debug('[AUTH] Permissions cached', { userId, count: permissions.length })
+      console.log('[AUTH] Permissions cached from database', { userId, count: permissions.length })
     } catch (e) {
       // Cache write failed - continue without caching
       console.warn('[AUTH] Redis cache write error:', e)

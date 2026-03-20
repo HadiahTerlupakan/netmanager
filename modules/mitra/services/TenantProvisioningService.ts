@@ -13,46 +13,63 @@ export async function provisionTenantData(
   prismaClient: PrismaClient,
   tenantId: string
 ): Promise<{ rolesCreated: number; permissionsCreated: number; settingsCreated: number }> {
-  // ── 1. Clone Roles ──────────────────────────────────────────────────
+  // ── 1. Clone ALL Permissions ────────────────────────────────────────
+  // We MUST clone all permissions first so they exist for the new tenant
+  const mainPermissions = await prismaClient.permission.findMany({
+    where: { tenantId: MAIN_TENANT_ID }
+  })
+
+  let permissionsCreated = 0
+  for (const perm of mainPermissions) {
+    const existingPerm = await prismaClient.permission.findFirst({
+      where: { resource: perm.resource, action: perm.action, tenantId }
+    })
+
+    if (!existingPerm) {
+      await prismaClient.permission.create({
+        data: {
+          id: randomUUID(),
+          name: perm.name,
+          action: perm.action,
+          resource: perm.resource,
+          description: perm.description,
+          tenantId,
+          updatedAt: new Date()
+        }
+      })
+      permissionsCreated++
+    }
+  }
+
+  // ── 2. Clone Roles ──────────────────────────────────────────────────
   const mainRoles = await prismaClient.role.findMany({
-    where: { tenantId: MAIN_TENANT_ID },
+    where: { 
+      tenantId: MAIN_TENANT_ID,
+      isSuperAdmin: false // Don't clone Super Admin roles to sub-tenants
+    },
     include: {
-      permission: { select: { id: true, name: true, action: true, resource: true, description: true } }
+      permission: { select: { resource: true, action: true } }
     }
   })
 
   // Map old role ID -> new role ID (for user re-assignment later)
   const roleIdMap = new Map<string, string>()
-  let permissionsCreated = 0
 
   for (const role of mainRoles) {
     const newRoleId = randomUUID()
     roleIdMap.set(role.id, newRoleId)
 
-    // First, create permissions for this tenant (if not already exist)
-    const newPermissionIds: string[] = []
-    for (const perm of role.permission) {
-      // Try to find existing permission for this tenant
-      let existingPerm = await prismaClient.permission.findFirst({
-        where: { resource: perm.resource, action: perm.action, tenantId }
-      })
-
-      if (!existingPerm) {
-        existingPerm = await prismaClient.permission.create({
-          data: {
-            id: randomUUID(),
-            name: perm.name,
-            action: perm.action,
-            resource: perm.resource,
-            description: perm.description,
-            tenantId,
-            updatedAt: new Date()
-          }
-        })
-        permissionsCreated++
-      }
-      newPermissionIds.push(existingPerm.id)
-    }
+    // Find the newly created permissions for this tenant that match the original role's permissions
+    const tenantPermissions = await prismaClient.permission.findMany({
+      where: {
+        tenantId,
+        OR: role.permission.map(p => ({
+          resource: p.resource,
+          action: p.action
+        }))
+      },
+      select: { id: true }
+    })
 
     // Create the role for the new tenant
     await prismaClient.role.create({
@@ -60,22 +77,55 @@ export async function provisionTenantData(
         id: newRoleId,
         name: role.name,
         description: role.description,
-        accessAdminPanel: role.accessAdminPanel,
+        accessAdminPanel: role.accessAdminPanel, 
         accessEmployeePanel: role.accessEmployeePanel,
         isRestricted: role.isRestricted,
         isTechnical: role.isTechnical,
-        isSuperAdmin: role.isSuperAdmin,
+        isSuperAdmin: false, // Force isSuperAdmin to false for all tenant-level roles
         canApproveRab: role.canApproveRab,
         tenantId,
         updatedAt: new Date(),
         permission: {
-          connect: newPermissionIds.map(id => ({ id }))
+          connect: tenantPermissions.map(p => ({ id: p.id }))
         }
       }
     })
   }
 
-  // ── 2. Clone Settings (non-encrypted only) ──────────────────────────
+  // ── 3. Ensure Admin Role Exists ────────────────────────────────────
+  // If no admin role was cloned, create a default 'ADMIN' role
+  const existingAdmin = await getTenantAdminRoleId(prismaClient, tenantId)
+  if (!existingAdmin) {
+    const adminRoleId = randomUUID()
+    
+    // Find all permissions created for this tenant to give them to the new admin
+    const tenantPermissions = await prismaClient.permission.findMany({
+      where: { tenantId },
+      select: { id: true }
+    })
+
+    await prismaClient.role.create({
+      data: {
+        id: adminRoleId,
+        name: 'ADMIN',
+        description: 'Administrator dengan akses penuh (Auto-generated)',
+        accessAdminPanel: true, // MUST be true for admin
+        accessEmployeePanel: true,
+        isRestricted: true,
+        isTechnical: false,
+        isSuperAdmin: false,
+        canApproveRab: true,
+        tenantId,
+        updatedAt: new Date(),
+        permission: {
+          connect: tenantPermissions.map(p => ({ id: p.id }))
+        }
+      }
+    })
+    console.log(`[TENANT_PROVISION] Created default ADMIN role for tenant ${tenantId}`)
+  }
+
+  // ── 4. Clone Settings (non-encrypted only) ──────────────────────────
   const mainSettings = await prismaClient.settings.findMany({
     where: { tenantId: MAIN_TENANT_ID, encrypted: false }
   })

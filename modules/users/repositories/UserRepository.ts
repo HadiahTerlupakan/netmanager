@@ -38,7 +38,7 @@ export interface UserWithRelations extends User {
 }
 
 export class UserRepository {
-    async findAll(siteId?: string, tenantId?: string): Promise<UserWithRelations[]> {
+    async findAll(siteId?: string, tenantId?: string, roleName?: string): Promise<UserWithRelations[]> {
         const query: Prisma.UserFindManyArgs = {
             orderBy: { createdAt: 'desc' },
             include: {
@@ -60,6 +60,14 @@ export class UserRepository {
         const where: Prisma.UserWhereInput = {}
         if (siteId) where.siteId = siteId
         if (tenantId) where.tenantId = tenantId
+        if (roleName) {
+            where.role = {
+                name: {
+                    equals: roleName,
+                    mode: 'insensitive'
+                }
+            }
+        }
         
         if (Object.keys(where).length > 0) {
             query.where = where

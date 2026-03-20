@@ -3,7 +3,8 @@ import { getUserService } from '@/modules/users'
 import { createUserSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
 import { getSiteFilter, checkSiteRestriction } from '@/modules/roles'
-import { prisma } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/lib/prisma'
+import { getTenantAdminRoleId } from '@/modules/mitra/services/TenantProvisioningService'
 import type { Session } from 'next-auth'
 
 /**
@@ -34,10 +35,19 @@ export const GET = createHandler({
 
   // Get site and tenant filters
   const siteIdFilter = getSiteFilter(sessionWithPermissions as Session, 'users')
-  const tenantIdFilter = req.nextUrl.searchParams.get('tenantId') || undefined
+  let tenantIdFilter = req.nextUrl.searchParams.get('tenantId') || undefined
+  const roleNameFilter = req.nextUrl.searchParams.get('roleName') || undefined
+
+  // If session user is NOT super admin, they can ONLY see their own tenant
+  // If session user IS super admin but no tenantId provided, default to their current tenant
+  if (!session.user.isSuperAdmin) {
+    tenantIdFilter = session.user.tenantId || undefined
+  } else if (!tenantIdFilter) {
+    tenantIdFilter = session.user.tenantId || undefined
+  }
 
   const userService = getUserService()
-  const users = await userService.getAllUsers(siteIdFilter, tenantIdFilter)
+  const users = await userService.getAllUsers(siteIdFilter, tenantIdFilter, roleNameFilter)
 
   logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
     userId: session.user.id,
@@ -84,10 +94,22 @@ export const POST = createHandler({
   const isSuperAdmin = session.user.isSuperAdmin || false
   const targetTenantId = isSuperAdmin ? body.tenantId : undefined
 
+  // Automatically find admin role for the target tenant if not provided
+  let effectiveRoleId = body.roleId;
+  if (!effectiveRoleId && targetTenantId) {
+    effectiveRoleId = await getTenantAdminRoleId(prismaAuth, targetTenantId) || undefined;
+    if (effectiveRoleId) {
+      logger.info('Automatically assigned admin role for new tenant user', {
+        tenantId: targetTenantId,
+        roleId: effectiveRoleId
+      })
+    }
+  }
+
   logger.info('Creating new user', {
     email: body.email,
     createdBy: session.user.id,
-    roleId: body.roleId
+    roleId: effectiveRoleId
   })
 
   try {
@@ -99,7 +121,7 @@ export const POST = createHandler({
       ...(body.phone && { phone: body.phone }),
       ...(body.departmentId && { departmentId: body.departmentId }),
       ...(body.siteId && { siteId: body.siteId }),
-      ...(body.roleId && { roleId: body.roleId }),
+      ...(effectiveRoleId && { roleId: effectiveRoleId }),
       isActive: body.isActive ?? true,
       // Working Hours Settings
       workingHourMode: body.workingHourMode || 'FIXED',

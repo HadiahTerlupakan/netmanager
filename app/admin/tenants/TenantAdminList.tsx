@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { HiOutlineUserCircle, HiOutlinePlus, HiOutlineBuildingOffice, HiOutlineEnvelope, HiOutlinePhone } from 'react-icons/hi2'
+import { HiOutlineUserCircle, HiOutlinePlus, HiOutlineBuildingOffice, HiOutlineEnvelope, HiOutlinePhone, HiOutlinePencilSquare, HiOutlineTrash } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { toast } from 'react-hot-toast'
 import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
@@ -19,11 +19,6 @@ interface User {
 }
 
 interface Tenant {
-    id: string
-    name: string
-}
-
-interface Role {
     id: string
     name: string
 }
@@ -65,7 +60,7 @@ export default function TenantAdminList({ initialTenantId }: { initialTenantId: 
     const fetchAdmins = useCallback(async () => {
         try {
             setLoading(true)
-            const res = await fetch(`/api/admin/users?tenantId=${selectedTenantId}`)
+            const res = await fetch(`/api/admin/users?tenantId=${selectedTenantId}&roleName=ADMIN`)
             const data = await res.json()
             if (res.ok) {
                 setUsers(data.data?.users || data.users || [])
@@ -116,18 +111,6 @@ export default function TenantAdminList({ initialTenantId }: { initialTenantId: 
         
         setIsSaving(true)
         try {
-            const roleRes = await fetch('/api/roles')
-            const roles = await roleRes.json()
-            const adminRole = Array.isArray(roles) 
-                ? roles.find((r: Role) => r.name.toUpperCase() === 'ADMIN') 
-                : null
-            
-            if (!adminRole) {
-                toast.error('Peran Administrator tidak ditemukan di sistem')
-                setIsSaving(false)
-                return
-            }
-
             const url = isEditMode ? `/api/admin/users/${formData.id}` : '/api/admin/users'
             const method = isEditMode ? 'PATCH' : 'POST'
 
@@ -140,7 +123,6 @@ export default function TenantAdminList({ initialTenantId }: { initialTenantId: 
                     ...(formData.password && { password: formData.password }),
                     phone: formData.phone || undefined,
                     tenantId: selectedTenantId,
-                    roleId: adminRole.id,
                     isActive: true,
                     // Default fields required by createUserSchema (only for POST)
                     ...(!isEditMode && {
@@ -201,25 +183,35 @@ export default function TenantAdminList({ initialTenantId }: { initialTenantId: 
             key: 'name',
             header: 'Administrator',
             priority: 'primary',
+            className: 'w-[40%]',
             render: (user) => (
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+                <div className="flex items-center gap-3 py-1">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-sm">
                         {user.name ? user.name.charAt(0).toUpperCase() : <HiOutlineUserCircle className="w-6 h-6" />}
                     </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || 'No Name'}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{user.name || 'Tanpa Nama'}</p>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 uppercase tracking-wider">
+                                {user.role?.name || 'ADMIN'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                     </div>
                 </div>
             )
         },
         {
             key: 'phone',
-            header: 'Telepon',
+            header: 'Kontak',
             priority: 'secondary',
+            className: 'w-[25%]',
             render: (user) => (
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {user.phone || '-'}
+                <div className="flex flex-col gap-0.5">
+                    <div className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                        <HiOutlinePhone className="w-3.5 h-3.5 text-gray-400" />
+                        {user.phone || '-'}
+                    </div>
                 </div>
             )
         },
@@ -227,89 +219,112 @@ export default function TenantAdminList({ initialTenantId }: { initialTenantId: 
             key: 'isActive',
             header: 'Status',
             priority: 'primary',
+            className: 'w-[20%]',
             render: (user) => (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                    }`}>
-                    {user.isActive ? 'Active' : 'Inactive'}
-                </span>
+                <div className="flex items-center">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${user.isActive
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                        {user.isActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                </div>
             )
         }
     ]
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3 flex-1">
-                    <HiOutlineBuildingOffice className="w-5 h-5 text-gray-400" />
-                    <select
-                        value={selectedTenantId}
-                        onChange={(e) => setSelectedTenantId(e.target.value)}
-                        className="flex-1 max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="">Pilih Tenant...</option>
-                        {tenants.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                    </select>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:shadow-md">
+                <div className="flex items-center gap-4 flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                        <HiOutlineBuildingOffice className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 max-w-sm">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Pilih Tenant</label>
+                        <select
+                            value={selectedTenantId}
+                            onChange={(e) => setSelectedTenantId(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
+                        >
+                            <option value="">-- Pilih Tenant --</option>
+                            {tenants.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-                <button
-                    onClick={handleOpenCreate}
-                    disabled={!selectedTenantId}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <HiOutlinePlus className="w-5 h-5" />
-                    Tambah Admin
-                </button>
+                <div className="flex items-center gap-3">
+                    {selectedTenantId && (
+                        <div className="hidden sm:block text-right mr-2">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Admin</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">{users.length}</p>
+                        </div>
+                    )}
+                    <button
+                        onClick={handleOpenCreate}
+                        disabled={!selectedTenantId}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+                    >
+                        <HiOutlinePlus className="w-5 h-5" />
+                        Tambah Admin
+                    </button>
+                </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden min-h-[300px]">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {loading ? (
-                    <PageLoader variant="section" message="Memuat administrator..." />
+                    <PageLoader variant="section" message="Menyinkronkan data administrator..." />
                 ) : !selectedTenantId ? (
-                    <div className="py-20 text-center">
-                        <HiOutlineBuildingOffice className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Pilih Tenant</h3>
-                        <p className="text-gray-500">Silakan pilih tenant untuk mengelola administrator secara spesifik.</p>
+                    <div className="py-24 text-center">
+                        <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <HiOutlineBuildingOffice className="w-10 h-10 text-gray-300" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Kelola Administrator</h3>
+                        <p className="text-gray-500 max-w-xs mx-auto">Silakan pilih salah satu tenant untuk mengelola akun administrator sistem mereka.</p>
                     </div>
                 ) : users.length === 0 ? (
-                    <div className="py-20 text-center">
-                        <HiOutlineUserCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Belum Ada Admin</h3>
-                        <p className="text-gray-500 mb-6">Tenant ini belum memiliki administrator akun sistem.</p>
+                    <div className="py-24 text-center">
+                        <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <HiOutlineUserCircle className="w-10 h-10 text-indigo-300" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Belum Ada Administrator</h3>
+                        <p className="text-gray-500 mb-8 max-w-xs mx-auto">Tenant ini belum memiliki akun admin. Buat akun pertama untuk memberikan akses panel.</p>
                         <button
                             onClick={handleOpenCreate}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-indigo-600 border-2 border-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-all"
                         >
                             <HiOutlinePlus className="w-5 h-5" />
-                            Tambah Admin Pertama
+                            Buat Admin Pertama
                         </button>
                     </div>
                 ) : (
-                    <ResponsiveTable
-                        data={users}
-                        columns={columns}
-                        keyField="id"
-                        renderActions={(user) => (
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => handleOpenEdit(user)}
-                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
-                                    title="Edit"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => setUserToDelete(user)}
-                                    className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                                    title="Hapus"
-                                >
-                                    Hapus
-                                </button>
-                            </div>
-                        )}
-                    />
+                    <div className="overflow-x-auto">
+                        <ResponsiveTable
+                            data={users}
+                            columns={columns}
+                            keyField="id"
+                            renderActions={(user) => (
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => handleOpenEdit(user)}
+                                        className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                                        title="Edit Profil"
+                                    >
+                                        <HiOutlinePencilSquare className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setUserToDelete(user)}
+                                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                        title="Hapus Akun"
+                                    >
+                                        <HiOutlineTrash className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
+                        />
+                    </div>
                 )}
             </div>
 

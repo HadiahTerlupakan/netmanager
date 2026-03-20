@@ -43,7 +43,7 @@ export const createUserSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
   password: z.string().min(8, 'Password minimal 8 karakter'),
   phone: z.string().optional(),
-  roleId: idSchema,
+  roleId: optionalIdSchema,
   siteId: optionalIdSchema,
   departmentId: optionalIdSchema,
   isActive: z.boolean().default(true),

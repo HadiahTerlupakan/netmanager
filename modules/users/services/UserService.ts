@@ -58,8 +58,8 @@ export class UserService {
         this.userRepository = new UserRepository()
     }
 
-    async getAllUsers(siteId?: string, tenantId?: string): Promise<UserWithRelations[]> {
-        return this.userRepository.findAll(siteId, tenantId)
+    async getAllUsers(siteId?: string, tenantId?: string, roleName?: string): Promise<UserWithRelations[]> {
+        return this.userRepository.findAll(siteId, tenantId, roleName)
     }
 
     async getUser(id: string): Promise<User | null> {
@@ -85,7 +85,7 @@ export class UserService {
         const passwordHash = await hash(data.password, 10)
 
         // Create user with working hours settings
-        return this.userRepository.create({
+        const user = await this.userRepository.create({
             email: data.email,
             name: data.name || null,
             passwordHash,
@@ -106,6 +106,11 @@ export class UserService {
             isSales: data.isSales || false,
             tenantId: data.tenantId || null,
         })
+
+        // Invalidate permission cache for new user
+        await invalidatePermissionCache(user.id)
+
+        return user
     }
 
     async updateUser(id: string, data: UpdateUserInput): Promise<User> {
