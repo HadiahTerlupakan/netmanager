@@ -46,6 +46,11 @@ vi.mock('@/lib/prisma-mitra', () => ({
     mitra: {
       findUnique: mockMitraFindUnique
     }
+  },
+  prismaMitraAuth: {
+    mitra: {
+      findUnique: mockMitraFindUnique
+    }
   }
 }))
 

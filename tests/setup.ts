@@ -222,8 +222,12 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 vi.mock('@/lib/prisma-mitra', () => ({
-  prismaMitra: prismaMock
+  prismaMitra: prismaMock,
+  prismaMitraAuth: prismaMock,
 }))
+
+// Set default secret for JWT testing
+process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'test-secret-123-at-least-32-chars-long'
 
 // Reset all mocks before each test
 beforeEach(() => {

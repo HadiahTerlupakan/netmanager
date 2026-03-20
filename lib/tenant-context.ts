@@ -11,7 +11,6 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
   // This helps distinguish between regular API calls and background/system tasks.
   let isNextRequest = false;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { headers } = await import('next/headers');
     if (headers) {
         await headers();
@@ -32,7 +31,7 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
   try {
     // 1. Check for Mobile App Bearer Token first
     let authHeader: string | null = null;
-    let cookieStore: any = null;
+    let cookieStore: unknown = null;
 
     if (isNextRequest) {
         try {
