@@ -263,7 +263,7 @@ export function ResponsiveTable<T>({
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 {showRowNumbers && (
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-12">
+                  <th key="header-row-number" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-10">
                     #
                   </th>
                 )}
@@ -317,7 +317,7 @@ export function ResponsiveTable<T>({
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 {showRowNumbers && (
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-12">
+                  <th key="header-row-number" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-10">
                     #
                   </th>
                 )}
@@ -364,7 +364,7 @@ export function ResponsiveTable<T>({
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               {showRowNumbers && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-12">
+                <th key="header-row-number" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-10">
                   #
                 </th>
               )}
@@ -396,7 +396,7 @@ export function ResponsiveTable<T>({
                 </th>
               ))}
               {renderActions && (
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th key="header-actions" className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Aksi
                 </th>
               )}
@@ -414,7 +414,7 @@ export function ResponsiveTable<T>({
                 onClick={() => onRowClick?.(item)}
               >
                 {showRowNumbers && (
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td key="row-number" className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {index + 1}
                   </td>
                 )}
@@ -433,7 +433,7 @@ export function ResponsiveTable<T>({
                   )
                 })}
                 {renderActions && (
-                  <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                  <td key="row-actions" className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
                     <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                       {renderActions(item)}
                     </div>

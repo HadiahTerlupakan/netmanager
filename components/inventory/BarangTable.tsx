@@ -191,9 +191,9 @@ export function BarangTable() {
             <span className="text-sm text-gray-500 italic">Tidak ada stok</span>
           ) : (
             <div className="flex flex-wrap gap-1">
-              {item.stockPerGudang.slice(0, 3).map((stock) => (
+              {item.stockPerGudang.slice(0, 3).map((stock, idx) => (
                 <div
-                  key={stock.gudangId}
+                  key={`${stock.gudangId}-${idx}`}
                   className="inline-flex items-center"
                   title={`${stock.gudangNama}: ${stock.stok}`}
                 >
