@@ -47,6 +47,7 @@ spec:
     environment {
         DOCKER_IMAGE = "netmanager-app"
         CRON_IMAGE = "netmanager-cron"
+        DOCKER_BUILDKIT = "1"
         // Adjust values dynamically based on the current branch
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
         NAMESPACE = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'netmanager-production' : 'netmanager-staging'}"
@@ -59,24 +60,22 @@ spec:
                 container('node') {
                     script {
                         echo "Running Quality Checks inside Node container..."
+                        // Use a safer dummy secret for build/lint
                         withEnv([
                             'DATABASE_URL=postgresql://user:pass@localhost:5432/db',
                             'RADIUS_DATABASE_URL=postgresql://user:pass@localhost:5432/radius',
                             'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
                             'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
                             'REDIS_URL=redis://localhost:6379',
-                            'NEXTAUTH_SECRET=build-time-dummy-secret-32-chars-long',
+                            'NEXTAUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
+                            'AUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
                             'NEXTAUTH_URL=http://localhost:3000'
                         ]) {
-                            // Optimasi npm untuk koneksi yang tidak stabil (ECONNRESET fix)
                             sh """
                                 npm config set fetch-retries 5
                                 npm config set fetch-retry-mintimeout 20000
                                 npm config set fetch-retry-maxtimeout 120000
-                                
-                                # Coba pakai npm ci dulu (lebih stabil di CI), fallback ke mirror jika gagal
                                 (npm ci --no-audit --prefer-offline || npm install --registry=https://registry.npmmirror.com --no-audit)
-                                
                                 npm run prisma:generate && npm run lint && npm run typecheck
                             """
                         }
@@ -96,7 +95,8 @@ spec:
                             'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
                             'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
                             'REDIS_URL=redis://localhost:6379',
-                            'NEXTAUTH_SECRET=build-time-dummy-secret-32-chars-long',
+                            'NEXTAUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
+                            'AUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
                             'NEXTAUTH_URL=http://localhost:3000'
                         ]) {
                             sh "npm run test:run"
@@ -111,7 +111,6 @@ spec:
                 container('docker') {
                     script {
                         echo "Backing up previous images as :prev before building new ones..."
-                        // Simpan image lama sebagai cadangan (:prev), abaikan jika belum ada
                         sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous app image to backup'"
                         sh "docker tag ${CRON_IMAGE}:${DOCKER_TAG} ${CRON_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous cron image to backup'"
                     }
@@ -123,13 +122,32 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Building Docker images for ${DOCKER_TAG}..."
-                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
-                        sh "docker build -t ${CRON_IMAGE}:${DOCKER_TAG} ./cron"
+                        echo "Building Docker images for ${DOCKER_TAG} with BuildKit Secrets..."
+                        
+                        // We create temporary files for secrets to pass them to docker build --secret
+                        // In a real Jenkins setup, you should use 'withCredentials' to get these values safely.
+                        // Here we use the dummy/CI values if credentials are not explicitly bound.
+                        sh """
+                        mkdir -p .secrets
+                        echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
+                        echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
+                        echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
+
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} \\
+                            --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \\
+                            --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \\
+                            --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \\
+                            .
+                        
+                        docker build -t ${CRON_IMAGE}:${DOCKER_TAG} ./cron
+                        
+                        rm -rf .secrets
+                        """
                     }
                 }
             }
         }
+
 
 
         stage('Load Image to K3s') {
