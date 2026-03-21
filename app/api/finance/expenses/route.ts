@@ -291,7 +291,7 @@ export const POST = createHandler({
 
     // Trigger audit log and wait for it to ensure E2E consistency
     // We pass a minimal response object with status 201
-    await logAuditActivity(req, { status: 201 } as any, userId, user.tenantId, ctx.validated);
+    await logAuditActivity(req, { status: 201 } as unknown as import('next/server').NextResponse, userId, user.tenantId, ctx.validated);
 
     return apiSuccess(response, { status: 201 });
 });

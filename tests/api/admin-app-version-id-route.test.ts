@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockFns = vi.hoisted(() => ({
@@ -31,8 +30,6 @@ vi.mock('@/modules/app-version', () => ({
 vi.mock('@/lib/logger', () => ({
   logActivitySafe: mockFns.logActivitySafe,
 }))
-
-import { DELETE } from '@/app/api/admin/app-version/[id]/route'
 
 describe('admin app version id route', () => {
   beforeEach(() => {

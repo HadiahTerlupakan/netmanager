@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockFns = vi.hoisted(() => ({
@@ -33,8 +32,6 @@ vi.mock('@/modules/attendance/repositories/HolidayRepository', () => ({
     delete = mockFns.holidayDelete
   },
 }))
-
-import { DELETE } from '@/app/api/admin/holidays/[id]/route'
 
 describe('admin holiday id route', () => {
   beforeEach(() => {

@@ -263,12 +263,14 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
         error,
     })
 
-    if (isPrismaRecordNotFoundError(error) || (error as any)?.code === 'P2025') {
+    if (isPrismaRecordNotFoundError(error) || (error && typeof error === 'object' && 'code' in error && error.code === 'P2025')) {
         return ApiErrors.notFound('Data tidak ditemukan')
     }
 
     // Handle known error types
-    const message = (error as any)?.message || ''
+    const message = (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') 
+        ? error.message 
+        : ''
     
     if (typeof message === 'string') {
         // Business logic errors (Standard prefixes)
