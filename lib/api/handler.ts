@@ -42,6 +42,7 @@ import { apiError, ApiErrors, ErrorCodes } from '@/lib/api-response'
 import type { ErrorResponse } from '@/lib/api-response'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { parseQuery } from './query-parser'
+import { logRequest, logResponse, logAuditActivity } from '@/lib/middleware/request-logger'
 
 // Types
 export interface HandlerContext<T = unknown> {
@@ -98,10 +99,14 @@ export function createHandler<T = unknown>(
         request: NextRequest,
         routeContext: { params: Promise<Record<string, string>> }
     ): Promise<NextResponse> => {
+        const startTime = Date.now()
         // Resolve params if it's a Promise (Next.js 15+)
         const params = await routeContext.params
 
         try {
+            // Log request
+            logRequest(request)
+
             // Create context object
             const ctx: HandlerContext<T> = {
                 validated: {} as T,
@@ -205,7 +210,22 @@ export function createHandler<T = unknown>(
             }
 
             // 4. Execute handler
-            return await handler(request, ctx)
+            const response = await handler(request, ctx)
+
+            // 5. Automatic logging & audit
+            const duration = Date.now() - startTime
+            logResponse(request, response, duration)
+
+            // Audit write operations asynchronously (fire-and-forget)
+            logAuditActivity(
+                request,
+                response,
+                ctx.session?.user?.id,
+                ctx.session?.user?.tenantId,
+                ctx.validated // Use validated body for audit log
+            ).catch(err => console.error('[Audit Log Fire-and-Forget Error]', err))
+
+            return response
 
         } catch (error) {
             // 5. Error handling with Sentry

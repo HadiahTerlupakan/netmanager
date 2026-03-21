@@ -14,14 +14,103 @@ export interface RequestLogOptions {
   logHeaders?: boolean
   excludePaths?: string[]
   maxBodyLength?: number
+  /** Enable automatic audit logging to SystemLog for write operations */
+  audit?: boolean
 }
 
 const defaultOptions: Required<RequestLogOptions> = {
   logRequestBody: false, // Jangan log body secara default (privacy)
   logResponseBody: false, // Jangan log body secara default (privacy)
   logHeaders: false, // Jangan log headers secara default (privacy)
-  excludePaths: ['/api/health'], // Exclude health check dari logging
+  excludePaths: ['/api/health', '/api/docs'], // Exclude health check dari logging
   maxBodyLength: 1000, // Max length untuk body logging
+  audit: false,
+}
+
+const SENSITIVE_FIELDS = [
+  'password',
+  'apiPassword',
+  'secret',
+  'secretRadius',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'clientSecret',
+]
+
+/**
+ * Redact sensitive fields from an object recursively
+ */
+function redactSensitiveData(data: unknown): unknown {
+  if (!data || typeof data !== 'object') {
+    return data
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(redactSensitiveData)
+  }
+
+  const redacted = { ...data as Record<string, unknown> }
+  for (const key in redacted) {
+    if (SENSITIVE_FIELDS.some(field => key.toLowerCase().includes(field.toLowerCase()))) {
+      redacted[key] = '[REDACTED]'
+    } else if (typeof redacted[key] === 'object') {
+      redacted[key] = redactSensitiveData(redacted[key])
+    }
+  }
+
+  return redacted
+}
+
+/**
+ * Log audit activity to SystemLog
+ */
+export async function logAuditActivity(
+  req: NextRequest,
+  res: NextResponse,
+  userId?: string,
+  tenantId?: string,
+  body?: unknown
+): Promise<void> {
+  const method = req.method
+  const pathname = req.nextUrl.pathname
+  const status = res.status
+
+  // Only audit successful write operations by default
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) || status >= 400) {
+    return
+  }
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+             req.headers.get('x-real-ip') || 
+             'unknown'
+  const userAgent = req.headers.get('user-agent') || 'unknown'
+
+  let action = 'UNKNOWN'
+  switch (method) {
+    case 'POST': action = 'CREATE'; break
+    case 'PUT':
+    case 'PATCH': action = 'UPDATE'; break
+    case 'DELETE': action = 'DELETE'; break
+  }
+
+  // Generate subject from path (e.g., /api/mikrotik-routers -> MikroTik Routers)
+  const subject = pathname
+    .split('/')
+    .filter(Boolean)
+    .filter(p => p !== 'api' && p !== 'admin')
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, ' '))
+    .join(' ') || 'API Action'
+
+  await logger.logActivity({
+    action,
+    subject,
+    userId,
+    tenantId,
+    ipAddress: ip,
+    userAgent,
+    details: body ? redactSensitiveData(body) as Record<string, unknown> : { path: pathname, status }
+  }).catch(err => console.error('[Audit Log Error]', err))
 }
 
 /**
@@ -59,12 +148,6 @@ function logRequestInternal(
       headers[key] = value
     })
     logContext.headers = headers
-  }
-
-  // Log request body jika diminta
-  if (opts.logRequestBody && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-    // Note: Body sudah dibaca di handler, jadi kita tidak bisa read lagi di sini
-    // Ini hanya untuk reference, body logging harus dilakukan di handler
   }
 
   logger.info(`→ ${method} ${pathname}`, logContext)
