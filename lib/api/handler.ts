@@ -263,25 +263,32 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
         error,
     })
 
-    if (isPrismaRecordNotFoundError(error)) {
+    if (isPrismaRecordNotFoundError(error) || (error as any)?.code === 'P2025') {
         return ApiErrors.notFound('Data tidak ditemukan')
     }
 
     // Handle known error types
-    if (error instanceof Error) {
-        // Business logic errors
-        if (error.message.startsWith('NOT_FOUND:')) {
-            return ApiErrors.notFound(error.message.replace('NOT_FOUND:', ''))
+    const message = (error as any)?.message || ''
+    
+    if (typeof message === 'string') {
+        // Business logic errors (Standard prefixes)
+        if (message.startsWith('NOT_FOUND:')) {
+            return ApiErrors.notFound(message.replace('NOT_FOUND:', ''))
         }
-        if (error.message.startsWith('CONFLICT:')) {
-            return ApiErrors.conflict(error.message.replace('CONFLICT:', ''))
+        if (message.startsWith('CONFLICT:')) {
+            return ApiErrors.conflict(message.replace('CONFLICT:', ''))
         }
-        if (error.message.startsWith('FORBIDDEN:')) {
-            return ApiErrors.forbidden(error.message.replace('FORBIDDEN:', ''))
+        if (message.startsWith('FORBIDDEN:')) {
+            return ApiErrors.forbidden(message.replace('FORBIDDEN:', ''))
+        }
+
+        // Common raw business error messages
+        if (message === 'Versi tidak ditemukan') {
+            return ApiErrors.notFound('Versi aplikasi')
         }
 
         // Prisma errors
-        if (error.message.includes('Unique constraint')) {
+        if (message.includes('Unique constraint')) {
             // Extract field name if possible from Prisma error message
             // Prisma P2002 error usually contains field names in meta
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -291,7 +298,7 @@ function handleError(error: unknown, request: NextRequest): NextResponse<ErrorRe
             const fieldName = field ? ` (${field})` : ''
             return ApiErrors.conflict(`Data sudah ada${fieldName}. Silakan gunakan nilai lain.`)
         }
-        if (error.message.includes('Record to update not found')) {
+        if (message.includes('Record to update not found') || message.includes('No record was found for a delete')) {
             return ApiErrors.notFound('Data tidak ditemukan')
         }
     }
