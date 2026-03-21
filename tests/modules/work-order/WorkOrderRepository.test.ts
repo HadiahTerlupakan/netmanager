@@ -91,14 +91,13 @@ describe('WorkOrderRepository', () => {
     })
 
     it('should always increment counter using unique check', async () => {
-      // Implementation uses findFirst to check uniqueness, not count
-      prismaMock.workOrders.findFirst.mockResolvedValueOnce({ id: 'existing' } as unknown as WorkOrders)
-      prismaMock.workOrders.findFirst.mockResolvedValueOnce(null)
+      // Implementation uses findFirst to check today's records
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce({ 
+        workOrderNumber: 'WO-20260321-0001' 
+      } as unknown as WorkOrders)
 
       const result = await repository.generateWorkOrderNumber()
-
-      // Should be a valid WO number format
-      expect(result).toMatch(/^WO-\d{8}-\d{4}$/)
+      expect(result).toMatch(/^WO-\d{8}-0002$/)
     })
   })
 
@@ -131,7 +130,7 @@ describe('WorkOrderRepository', () => {
     it('should set startedAt when transitioning to IN_PROGRESS', async () => {
       const mockWo = createWoMock({ id: 'wo-1', status: WorkOrderStatus.ASSIGNED })
       
-      prismaMock.workOrders.findFirst.mockResolvedValue(mockWo as unknown as WorkOrders)
+      prismaMock.workOrders.findFirst.mockResolvedValue(mockWo as any)
       prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock() as unknown as WorkOrderUpdates)
       prismaMock.workOrders.findUnique.mockResolvedValue(

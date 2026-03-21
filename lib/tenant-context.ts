@@ -101,6 +101,25 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
             console.error('[TENANT_CONTEXT] Investor token verification failed:', err instanceof Error ? err.message : err)
           }
         }
+
+        // 2c. Check for Customer Auth Cookie
+        const customerToken = cs.get('customer-token')?.value
+        if (customerToken) {
+          const rawSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+          if (!rawSecret) throw new Error('NEXTAUTH_SECRET environment variable is required')
+          const secret = new TextEncoder().encode(rawSecret)
+          try {
+            const { payload } = await jwtVerify(customerToken, secret)
+            if (payload && (payload as any).tenantId) {
+              return { 
+                tenantId: (payload as any).tenantId as string,
+                isSuperAdmin: false 
+              }
+            }
+          } catch (err) {
+            // Silently ignore invalid customer tokens
+          }
+        }
       } catch {
         // NextRequest or getToken failed (probably non-next context)
       }

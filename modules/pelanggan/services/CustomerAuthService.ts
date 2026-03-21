@@ -91,6 +91,7 @@ export class CustomerAuthService {
             nama: pelanggan.nama,
             username: pelanggan.username,
             status: pelanggan.status,
+            tenantId: pelanggan.tenantId,
         })
 
         return {

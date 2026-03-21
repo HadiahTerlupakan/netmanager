@@ -159,7 +159,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
     async findById(id: string): Promise<WorkOrderWithRelations | null> {
         const tenantWhere = await this.getTenantWhere();
-        return this.prisma.workOrders.findFirst({
+
+        const result = await this.prisma.workOrders.findFirst({
             where: { id, ...tenantWhere },
             include: {
                 pelanggan: {
@@ -253,6 +254,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                 },
             },
         });
+
+        return result;
     }
 
     async findByWorkOrderNumber(workOrderNumber: string): Promise<WorkOrderWithRelations | null> {
