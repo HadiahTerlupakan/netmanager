@@ -39,7 +39,6 @@ const createUpdateMock = (overrides = {}) => ({
 })
 
 // Helper to create base work order mock
-// Helper to create base work order mock
 const createWoMock = (overrides: Partial<WorkOrders> = {}): WorkOrders => ({
   id: 'wo-1',
   workOrderNumber: 'WO-001',
@@ -130,20 +129,21 @@ describe('WorkOrderRepository', () => {
 
   describe('updateStatus', () => {
     it('should set startedAt when transitioning to IN_PROGRESS', async () => {
-      prismaMock.workOrders.findUnique.mockResolvedValue(
-        createWoMock({ status: 'ASSIGNED' }) as unknown as WorkOrders
-      );
+      const mockWo = createWoMock({ id: 'wo-1', status: WorkOrderStatus.ASSIGNED })
+      
+      prismaMock.workOrders.findFirst.mockResolvedValue(mockWo as unknown as WorkOrders)
+      prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock() as unknown as WorkOrderUpdates)
-      prismaMock.workOrders.update.mockResolvedValue(
-        createWoMock({ status: 'IN_PROGRESS', startedAt: new Date() }) as unknown as WorkOrders
+      prismaMock.workOrders.findUnique.mockResolvedValue(
+        createWoMock({ id: 'wo-1', status: WorkOrderStatus.IN_PROGRESS, startedAt: new Date() }) as unknown as WorkOrders
       )
 
       await repository.updateStatus('wo-1', WorkOrderStatus.IN_PROGRESS, 'user-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            status: 'IN_PROGRESS',
+            status: WorkOrderStatus.IN_PROGRESS,
             startedAt: expect.any(Date)
           })
         })
@@ -152,17 +152,18 @@ describe('WorkOrderRepository', () => {
 
     it('should set completedAt and calculate actualHours when COMPLETED', async () => {
       const startedAt = new Date(Date.now() - 3600000) // 1 hour ago
-      prismaMock.workOrders.findUnique.mockResolvedValue(
+      prismaMock.workOrders.findFirst.mockResolvedValue(
         createWoMock({ status: 'IN_PROGRESS', startedAt }) as unknown as WorkOrders
       )
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock() as unknown as WorkOrderUpdates)
-      prismaMock.workOrders.update.mockResolvedValue(
+      prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValue(
         createWoMock({ status: 'COMPLETED', completedAt: new Date() }) as unknown as WorkOrders
       )
 
       await repository.updateStatus('wo-1', WorkOrderStatus.COMPLETED, 'user-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: 'COMPLETED',
@@ -174,17 +175,18 @@ describe('WorkOrderRepository', () => {
     })
 
     it('should set verifiedAt when VERIFIED', async () => {
-      prismaMock.workOrders.findUnique.mockResolvedValue(
+      prismaMock.workOrders.findFirst.mockResolvedValue(
         createWoMock({ status: 'COMPLETED' }) as unknown as WorkOrders
       )
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock() as unknown as WorkOrderUpdates)
-      prismaMock.workOrders.update.mockResolvedValue(
+      prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValue(
         createWoMock({ status: 'VERIFIED', verifiedAt: new Date() }) as unknown as WorkOrders
       )
 
       await repository.updateStatus('wo-1', WorkOrderStatus.VERIFIED, 'user-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: 'VERIFIED',
@@ -195,17 +197,18 @@ describe('WorkOrderRepository', () => {
     })
 
     it('should set closedAt when CLOSED', async () => {
-      prismaMock.workOrders.findUnique.mockResolvedValue(
+      prismaMock.workOrders.findFirst.mockResolvedValue(
         createWoMock({ status: 'VERIFIED' }) as unknown as WorkOrders
       )
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock() as unknown as WorkOrderUpdates)
-      prismaMock.workOrders.update.mockResolvedValue(
+      prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValue(
         createWoMock({ status: 'CLOSED', closedAt: new Date() }) as unknown as WorkOrders
       )
 
       await repository.updateStatus('wo-1', WorkOrderStatus.CLOSED, 'user-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: 'CLOSED',
@@ -216,7 +219,7 @@ describe('WorkOrderRepository', () => {
     })
 
     it('should throw error if work order not found', async () => {
-      prismaMock.workOrders.findUnique.mockResolvedValueOnce(null)
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce(null)
 
       await expect(
         repository.updateStatus('non-existent', WorkOrderStatus.IN_PROGRESS)
@@ -228,19 +231,19 @@ describe('WorkOrderRepository', () => {
     it('should set assignedToId and change status to ASSIGNED', async () => {
       prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders);
       prismaMock.workOrderAssignments.create.mockResolvedValueOnce({} as unknown as WorkOrderAssignments)
-      prismaMock.workOrders.findUnique.mockResolvedValue(
+      prismaMock.workOrders.findFirst.mockResolvedValue(
         createWoMock({ assignedToId: 'user-1', status: 'ASSIGNED' }) as unknown as WorkOrders
       )
 
       await repository.assign('wo-1', 'user-1', 'Lead')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
-        where: { id: 'wo-1' },
-        data: {
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: 'wo-1' }),
+        data: expect.objectContaining({
           assignedToId: 'user-1',
           status: 'ASSIGNED'
-        }
-      })
+        })
+      }))
 
       expect(prismaMock.workOrderAssignments.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -260,13 +263,13 @@ describe('WorkOrderRepository', () => {
 
       const result = await repository.unassign('wo-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
-        where: { id: 'wo-1' },
-        data: {
+      expect(prismaMock.workOrders.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: 'wo-1' }),
+        data: expect.objectContaining({
           assignedToId: null,
           status: 'PENDING'
-        }
-      })
+        })
+      }))
       expect(result.status).toBe('PENDING')
     })
   })
@@ -274,8 +277,9 @@ describe('WorkOrderRepository', () => {
   describe('cancel', () => {
     it('should add cancellation note and set status to CANCELLED', async () => {
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock({ updateType: 'NOTE' }) as unknown as WorkOrderUpdates)
-      prismaMock.workOrders.findUnique.mockResolvedValue(createWoMock() as unknown as WorkOrders)
-      prismaMock.workOrders.update.mockResolvedValue(
+      prismaMock.workOrders.findFirst.mockResolvedValue(createWoMock() as unknown as WorkOrders)
+      prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValue(
         createWoMock({ status: 'CANCELLED' }) as unknown as WorkOrders
       )
 

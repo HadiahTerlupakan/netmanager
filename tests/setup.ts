@@ -226,6 +226,10 @@ vi.mock('@/lib/prisma-mitra', () => ({
   prismaMitraAuth: prismaMock,
 }))
 
+vi.mock('@/lib/tenant-context', () => ({
+  getTenantIdFromContext: vi.fn().mockResolvedValue({ isSuperAdmin: true })
+}))
+
 // Set default secret for JWT testing
 process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'test-secret-123-at-least-32-chars-long'
 

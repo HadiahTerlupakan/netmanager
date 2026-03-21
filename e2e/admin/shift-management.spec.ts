@@ -81,7 +81,7 @@ test.describe('Shift Management', () => {
     await expect(page.getByText('Shift berhasil dibuat')).toBeVisible()
 
     // Wait for loading to finish
-    await expect(page.getByText('Memuat data...')).not.toBeVisible()
+    await expect(page.getByText('Memuat data...').first()).not.toBeVisible()
 
     // Verify it appears in the list using cell locator
     // ResponsiveTable uses standard table elements on desktop
@@ -111,7 +111,7 @@ test.describe('Shift Management', () => {
     await refreshResponsePromise2
 
     await expect(page.getByText('Shift berhasil diperbarui')).toBeVisible()
-    await expect(page.getByText('Memuat data...')).not.toBeVisible()
+    await expect(page.getByText('Memuat data...').first()).not.toBeVisible()
 
     // Verify the updated text is visible
     const updatedShiftCell = page.getByRole('cell', { name: `${shiftName} Updated` }).first()
@@ -163,7 +163,7 @@ test.describe('Shift Management', () => {
     await refreshPromise1
 
     await expect(page.getByText('Shift berhasil dibuat')).toBeVisible()
-    await expect(page.getByText('Memuat data...')).not.toBeVisible()
+    await expect(page.getByText('Memuat data...').first()).not.toBeVisible()
 
     const shiftCell = page.getByRole('cell', { name: shiftName }).first()
     await expect(shiftCell).toBeVisible()

@@ -83,6 +83,7 @@ test.describe('Attendance Module Business Flow', () => {
     await expect(modalHeader).toBeVisible({ timeout: 15000 })
 
     console.log('Filling holiday form...')
+    await page.waitForSelector('input[type="date"]', { state: 'visible', timeout: 30000 })
     await page.fill('input[type="date"]', dateStr)
     await page.fill('input[placeholder*="Contoh: Tahun Baru"]', holidayName)
     await page.click('button:has-text("Simpan")')

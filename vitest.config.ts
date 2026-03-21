@@ -27,7 +27,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './')
+      '@': path.resolve(__dirname, './'),
+      '@prisma/client-radius': path.resolve(__dirname, './prisma/generated/radius'),
+      '@prisma/client-billing': path.resolve(__dirname, './prisma/generated/billing'),
+      '@prisma/client-mitra': path.resolve(__dirname, './prisma/generated/mitra')
     }
   }
 })
