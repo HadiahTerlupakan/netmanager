@@ -163,11 +163,18 @@ export function ClientComponent() {
 
     const onSubmit = async (data: FieldValues) => {
         try {
+            // Find category name for API compatibility
+            const categoryName = categories.find(c => c.id === data.categoryId)?.name || 'Beban Lainnya'
+
             const res = await fetch("/api/finance/expenses", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-idempotency-key": crypto.randomUUID()
+                },
                 body: JSON.stringify({
                     ...data,
+                    category: categoryName,
                     amount: Number(data.amount)
                 }),
             });

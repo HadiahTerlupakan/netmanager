@@ -56,9 +56,9 @@ test.describe('Finance Management E2E', () => {
     // Select Category (Combobox)
     console.log('Selecting category...')
     await page.click('text=Pilih kategori beban...')
-    await page.fill('input[placeholder="Cari..."]', 'Beban Gaji')
+    await page.fill('input[placeholder="Cari..."]', 'E2E Test Category')
     await page.waitForTimeout(500)
-    await page.click('button:has-text("Beban Gaji")')
+    await page.click('button:has-text("E2E Test Category")')
     
     // Select Account (Combobox)
     console.log('Selecting account...')
@@ -76,11 +76,20 @@ test.describe('Finance Management E2E', () => {
     
     // Submit
     console.log('Submitting...')
-    await page.click('button:has-text("Simpan Transaksi")')
+    const [response] = await Promise.all([
+      page.waitForResponse(res => res.url().includes('/api/finance/expenses') && res.request().method() === 'POST'),
+      page.click('button:has-text("Simpan Transaksi")')
+    ])
+    
+    console.log('Response status:', response.status())
+    if (response.status() === 400) {
+      const body = await response.json()
+      console.log('Error Body:', body)
+    }
     
     // 3. Verify Success & Audit Log
     console.log('Verifying success...')
-    await expect(page.locator('text=Pengeluaran berhasil dicatat')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('text=Pengeluaran berhasil disimpan')).toBeVisible({ timeout: 15000 })
     
     await page.goto('/admin/log/activity')
     await page.waitForLoadState('networkidle')

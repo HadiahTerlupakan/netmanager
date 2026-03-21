@@ -59,6 +59,10 @@ export function buildExpensePayloadHash(payload: unknown): string {
       return value.map(normalize)
     }
 
+    if (typeof value === 'bigint') {
+      return value.toString()
+    }
+
     if (typeof value === 'object') {
       const entries = Object.entries(value as Record<string, unknown>)
         .sort(([left], [right]) => left.localeCompare(right))

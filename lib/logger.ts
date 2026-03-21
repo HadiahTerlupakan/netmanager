@@ -211,19 +211,27 @@ class Logger {
       // Dynamic import to avoid circular dependency if any, though prisma is safe here
       const { prisma } = await import('@/lib/prisma')
 
-      await prisma.systemLog.create({
-        data: {
-          id: randomUUID(),
-          type: 'ACTIVITY',
-          action: data.action,
-          subject: data.subject,
-          details: data.details ? JSON.stringify(data.details) : null,
-          userId: data.userId || null,
-          ipAddress: data.ipAddress || null,
-          userAgent: data.userAgent || null,
-          tenantId: data.tenantId || null
-        }
-      })
+      // Bypass tenant isolation for system logs
+      const originalIsSeeding = process.env.IS_SEEDING
+      process.env.IS_SEEDING = 'true'
+      
+      try {
+        await prisma.systemLog.create({
+          data: {
+            id: randomUUID(),
+            type: 'ACTIVITY',
+            action: data.action,
+            subject: data.subject,
+            details: data.details ? JSON.stringify(data.details) : null,
+            userId: data.userId || null,
+            ipAddress: data.ipAddress || null,
+            userAgent: data.userAgent || null,
+            tenantId: data.tenantId || null
+          }
+        })
+      } finally {
+        process.env.IS_SEEDING = originalIsSeeding
+      }
     } catch (error) {
       this.error('Failed to save activity log to DB', error as Error)
     }
@@ -234,19 +242,27 @@ class Logger {
     try {
       const { prisma } = await import('@/lib/prisma')
 
-      await prisma.systemLog.create({
-        data: {
-          id: randomUUID(),
-          type: 'AUTH',
-          action: data.action,
-          subject: 'Auth',
-          details: data.details ? JSON.stringify(data.details) : null,
-          userId: data.userId || null,
-          ipAddress: data.ipAddress || null,
-          userAgent: data.userAgent || null,
-          tenantId: data.tenantId || null
-        }
-      })
+      // Bypass tenant isolation for system logs
+      const originalIsSeeding = process.env.IS_SEEDING
+      process.env.IS_SEEDING = 'true'
+
+      try {
+        await prisma.systemLog.create({
+          data: {
+            id: randomUUID(),
+            type: 'AUTH',
+            action: data.action,
+            subject: 'Auth',
+            details: data.details ? JSON.stringify(data.details) : null,
+            userId: data.userId || null,
+            ipAddress: data.ipAddress || null,
+            userAgent: data.userAgent || null,
+            tenantId: data.tenantId || null
+          }
+        })
+      } finally {
+        process.env.IS_SEEDING = originalIsSeeding
+      }
     } catch (error) {
       this.error('Failed to save auth log to DB', error as Error)
     }

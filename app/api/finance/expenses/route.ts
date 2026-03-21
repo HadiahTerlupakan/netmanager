@@ -26,6 +26,7 @@ const expenseSchema = z.object({
     rabItemId: z.string().optional(),
     invoiceNumber: z.string().optional(),
     invoiceFile: z.string().optional(),
+    accountId: z.string().optional(),
 });
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -268,6 +269,7 @@ export const POST = createHandler({
             ...(rabItemId ? { rabItemId } : {}),
             ...(invoiceNumber ? { invoiceNumber } : {}),
             ...(invoiceFile ? { invoiceFile } : {}),
+            ...(ctx.validated.accountId ? { accountId: ctx.validated.accountId } : {}),
         },
     });
 

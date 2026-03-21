@@ -21,11 +21,11 @@ export default defineConfig({
     },
   ],
 
-  // Dev server sudah jalan manual, jadi tidak perlu webServer config
-  // Uncomment jika ingin auto-start server saat testing:
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  // Dev server akan dikelola otomatis oleh Playwright
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000, // Beri waktu ekstra untuk kompilasi Next.js
+  },
 })
