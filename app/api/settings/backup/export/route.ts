@@ -124,7 +124,6 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
                 `--format=plain`,
                 `--inserts`,
                 `--column-inserts`,
-                `--on-conflict-do-nothing`,
                 `| gzip > "${dumpFilePath}"`,
             ].join(' ')
 

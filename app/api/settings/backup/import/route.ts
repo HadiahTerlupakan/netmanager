@@ -171,7 +171,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
                 // LANGKAH 2: Import dump (mendukung COPY dan INSERT)
                 await execAsync(
-                    `${pgPrefix} gunzip -c "${sqlGzPath}" | "${psqlBin}" -d "${dbConfig.database}" -q > /dev/null 2>&1`,
+                    `${pgPrefix} gunzip -c "${sqlGzPath}" | "${psqlBin}" -d "${dbConfig.database}"`,
                     { shell: '/bin/sh', maxBuffer: 1024 * 1024 * 10 }
                 )
 
@@ -217,6 +217,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     status: 'success',
                     message: 'Berhasil di-restore. Data diganti dengan isi backup.',
                 })
+
+                // LANGKAH 4: Backfill tenantId untuk data lama (Legacy Backup)
+                // Ini memastikan data dari backup versi lama (tanpa tenantId) muncul di UI
+                if (session.user.tenantId) {
+                    try {
+                        const targetTenantId = session.user.tenantId
+                        console.log(`[backup:import] Starting auto-backfill for ${dbName} to tenant ${targetTenantId}`)
+                        
+                        // Gunakan perintah SQL langsung untuk kecepatan dan keandalan (bypass prisma isolation)
+                        const getTablesCmd = `${pgPrefix} "${psqlBin}" -d "${dbConfig.database}" -t -A -c "SELECT table_name FROM information_schema.columns WHERE column_name = 'tenantId' AND table_schema = 'public'"`
+                        const tablesResult = await execAsync(getTablesCmd, { shell: '/bin/sh' })
+                        const tables = tablesResult.stdout.trim().split('\n').filter(Boolean)
+
+                        for (const table of tables) {
+                            const backfillCmd = `${pgPrefix} "${psqlBin}" -d "${dbConfig.database}" -c "UPDATE \\"${table}\\" SET \\"tenantId\\" = '${targetTenantId}' WHERE \\"tenantId\\" IS NULL;"`
+                            await execAsync(backfillCmd, { shell: '/bin/sh' })
+                        }
+                        console.log(`[backup:import] Auto-backfill finished for ${dbName}. Affected ${tables.length} tables.`)
+                    } catch (backfillErr) {
+                        console.warn(`[backup:import] Auto-backfill warning for ${dbName}:`, String(backfillErr).substring(0, 300))
+                    }
+                }
             } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err)
                 console.error(`[backup:import] Error restore ${dbName}:`, errMsg.substring(0, 500))
