@@ -26,36 +26,40 @@ COPY . .
 
 # Generate Prisma and Build
 # Use ARG instead of ENV for build-time only configuration
-# This prevents sensitive keys from being baked into the image metadata
 ARG NEXT_TELEMETRY_DISABLED=1
 ARG NODE_OPTIONS="--max-old-space-size=4096"
 ARG NEXTAUTH_URL="http://localhost:3000"
-ARG NEXTAUTH_SECRET="build-time-dummy-secret-32-chars-long"
-ARG AUTH_SECRET="build-time-dummy-secret-32-chars-long"
 ARG AUTH_URL="http://localhost:3000"
+
+# DATABASE and other non-sensitive build configs
 ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 ARG DATABASE_URL_BILLING="postgresql://user:pass@localhost:5432/billing"
 ARG DATABASE_URL_MITRA="postgresql://user:pass@localhost:5432/mitra"
 ARG RADIUS_DATABASE_URL="postgresql://user:pass@localhost:5432/radius"
 ARG REDIS_URL="redis://localhost:6379"
-ARG OAUTH_ENCRYPTION_KEY="build-time-dummy-secret-32-chars-long"
 
-# Re-export as ENV only within the builder stage if needed by 'npm run build'
 ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
 ENV NODE_OPTIONS=$NODE_OPTIONS
 ENV NEXTAUTH_URL=$NEXTAUTH_URL
-ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
-ENV AUTH_SECRET=$AUTH_SECRET
 ENV AUTH_URL=$AUTH_URL
 ENV DATABASE_URL=$DATABASE_URL
 ENV DATABASE_URL_BILLING=$DATABASE_URL_BILLING
 ENV DATABASE_URL_MITRA=$DATABASE_URL_MITRA
 ENV RADIUS_DATABASE_URL=$RADIUS_DATABASE_URL
 ENV REDIS_URL=$REDIS_URL
-ENV OAUTH_ENCRYPTION_KEY=$OAUTH_ENCRYPTION_KEY
 
 RUN npm run prisma:generate
-RUN npm run build
+
+# Use BuildKit secrets to securely pass sensitive data during build
+# These will NOT be baked into the image layers.
+RUN --mount=type=secret,id=NEXTAUTH_SECRET \
+    --mount=type=secret,id=AUTH_SECRET \
+    --mount=type=secret,id=OAUTH_ENCRYPTION_KEY \
+    export NEXTAUTH_SECRET=$(cat /run/secrets/NEXTAUTH_SECRET) && \
+    export AUTH_SECRET=$(cat /run/secrets/AUTH_SECRET) && \
+    export OAUTH_ENCRYPTION_KEY=$(cat /run/secrets/OAUTH_ENCRYPTION_KEY) && \
+    npm run build
+
 
 # ==============================================================================
 # Stage 3: Production Runner
