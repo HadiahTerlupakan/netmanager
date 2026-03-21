@@ -4,6 +4,7 @@ import { prismaMitra } from '@/lib/prisma-mitra';
 import fs from 'fs';
 import path from 'path';
 import { apiError, ErrorCodes } from '@/lib/api-response'
+import { logActivitySafe } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
     try {
@@ -17,6 +18,9 @@ export async function POST(request: NextRequest) {
         if (payload.role !== 'MITRA') {
             return apiError('Akses ditolak. Fitur ini hanya untuk Mitra.', ErrorCodes.FORBIDDEN, { status: 403 });
         }
+
+        const userId = payload.id as string;
+        const tenantId = payload.tenantId;
 
         // 2. Parse Multipart form data
         const formData = await request.formData();
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
 
         const timestamp = Date.now();
         const extension = photo.name.split('.').pop() || 'jpg';
-        const filename = `face_verification_${payload.id}_${timestamp}.${extension}`;
+        const filename = `face_verification_${userId}_${timestamp}.${extension}`;
         const filepath = path.join(uploadsDir, filename);
         const fileUrl = `/uploads/mitra/${filename}`;
 
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest) {
         // 4. Update Database — also log the verification event
         await prismaMitra.$transaction([
             prismaMitra.mitra.update({
-                where: { id: payload.id as string },
+                where: { id: userId },
                 data: {
                     requiresFaceVerification: false,
                     lastFaceVerification: new Date(),
@@ -57,13 +61,27 @@ export async function POST(request: NextRequest) {
             }),
             prismaMitra.faceVerificationLog.create({
                 data: {
-                    mitraId: payload.id as string,
+                    mitraId: userId,
                     photoUrl: fileUrl,
                 }
             }),
         ]);
 
-        // 5. Response
+        // 5. System Log Audit
+        logActivitySafe({
+            action: 'UPDATE',
+            subject: 'Face Verification',
+            userId: null, // Mitra ID is not in User table
+            tenantId: tenantId,
+            details: { 
+                mitraId: userId, 
+                action: 'FACE_VERIFY_MOBILE', 
+                photoUrl: fileUrl,
+                status: 'SUCCESS'
+            }
+        });
+
+        // 6. Response
         return NextResponse.json({
             success: true,
             data: {
