@@ -130,7 +130,7 @@ describe('WorkOrderRepository', () => {
     it('should set startedAt when transitioning to IN_PROGRESS', async () => {
       const mockWo = createWoMock({ id: 'wo-1', status: WorkOrderStatus.ASSIGNED })
       
-      prismaMock.workOrders.findFirst.mockResolvedValue(mockWo as any)
+      prismaMock.workOrders.findFirst.mockResolvedValue(mockWo as unknown as WorkOrders)
       prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
       prismaMock.workOrderUpdates.create.mockResolvedValue(createUpdateMock() as unknown as WorkOrderUpdates)
       prismaMock.workOrders.findUnique.mockResolvedValue(

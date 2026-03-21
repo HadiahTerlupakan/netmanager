@@ -125,6 +125,7 @@ export class CustomerAuthService {
                 email: true,
                 status: true,
                 passwordHash: true,
+                tenantId: true,
             },
         })
     }

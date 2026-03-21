@@ -110,13 +110,14 @@ export async function getTenantIdFromContext(): Promise<{ tenantId: string | nul
           const secret = new TextEncoder().encode(rawSecret)
           try {
             const { payload } = await jwtVerify(customerToken, secret)
-            if (payload && (payload as any).tenantId) {
+            const tenantId = (payload as { tenantId?: string }).tenantId
+            if (payload && tenantId) {
               return { 
-                tenantId: (payload as any).tenantId as string,
+                tenantId,
                 isSuperAdmin: false 
               }
             }
-          } catch (err) {
+          } catch {
             // Silently ignore invalid customer tokens
           }
         }
