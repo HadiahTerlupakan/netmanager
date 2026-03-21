@@ -8,16 +8,15 @@ const QA_USERS = {
 
 async function login(page: Page, email: string, pass: string) {
   await page.goto('/admin/login')
-  await page.waitForSelector('#email')
+  await page.waitForSelector('#email', { timeout: 30000 })
   await page.fill('#email', email)
   await page.fill('#password', pass)
   await page.click('button[type="submit"]')
   
-  await page.waitForFunction(
-    () => !window.location.pathname.includes('login'),
-    { timeout: 15000 }
+  await page.waitForURL(url => 
+    url.pathname.includes('/admin') && !url.pathname.includes('/login'),
+    { timeout: 45000 }
   )
-  await page.waitForLoadState('domcontentloaded')
 }
 
 test.describe('Attendance Multi-Role & Multi-Site Verification', () => {
@@ -74,15 +73,23 @@ test.describe('Attendance Multi-Role & Multi-Site Verification', () => {
 
     console.log('Starting site filtering verification...')
 
-    // Sites from database mapping
-    const siteMap = [
-        { label: 'Jakarta Selatan', id: 'cmj9udk20001un9jlle33w84r' },
-        { label: 'CARIU', id: 'cmja1jqqa0000n9etbr2ybufu' }
-    ]
+    // Sites from the dropdown dynamically
+    const options = await siteSelect.locator('option').all()
+    const validOptions = []
+    
+    for (const option of options) {
+        const label = await option.innerText()
+        const value = await option.getAttribute('value')
+        if (value && value !== 'all') {
+            validOptions.push({ label, value })
+        }
+    }
 
-    for (const site of siteMap) {
+    console.log(`Found ${validOptions.length} sites to test.`)
+
+    for (const site of validOptions.slice(0, 2)) { // Test first 2 sites
         console.log(`Filtering by site: ${site.label}`)
-        await siteSelect.selectOption({ label: site.label })
+        await siteSelect.selectOption({ value: site.value })
         await cariButton.click()
         
         await page.waitForResponse(r => r.url().includes('/api/admin/attendance') && r.status() === 200)

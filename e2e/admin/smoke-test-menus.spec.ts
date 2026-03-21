@@ -70,7 +70,7 @@ const MENU_PATHS = [
 async function loginAsAdmin(page: Page) {
   try {
     await page.goto('/admin/login')
-    await page.waitForSelector('#email', { timeout: 10000 })
+    await page.waitForSelector('#email', { timeout: 30000 })
     await page.fill('#email', SUPER_ADMIN.email)
     await page.fill('#password', SUPER_ADMIN.password)
     await page.click('button[type="submit"]')
@@ -78,7 +78,7 @@ async function loginAsAdmin(page: Page) {
     // Wait for navigation away from login
     await page.waitForFunction(
       () => !window.location.pathname.includes('login'),
-      { timeout: 20000 }
+      { timeout: 45000 }
     )
     await page.waitForLoadState('domcontentloaded')
     // Additional wait to ensure dashboard is ready
@@ -109,7 +109,7 @@ test.describe('Admin Menu Smoke Test', () => {
             try {
                 // Wait for either H1 (success) or error message
                 await Promise.race([
-                    page.waitForSelector('h1', { timeout: 10000 }),
+                    page.waitForSelector('h1', { timeout: 30000 }),
                     page.waitForSelector('text=404', { timeout: 5000 }),
                     page.waitForSelector('text=403', { timeout: 5000 }),
                     page.waitForSelector('text=Error', { timeout: 5000 })

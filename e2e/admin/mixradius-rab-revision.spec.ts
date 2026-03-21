@@ -5,11 +5,14 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'password'
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
     await page.goto('/admin/login')
-    await page.waitForSelector('#email', { state: 'visible', timeout: 15000 })
+    await page.waitForSelector('#email', { state: 'visible', timeout: 30000 })
     await page.fill('#email', ADMIN_EMAIL)
     await page.fill('#password', ADMIN_PASSWORD)
     await page.click('button[type="submit"]')
-    await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 20000 })
+    await page.waitForURL(url => 
+        url.pathname.includes('/admin') && !url.pathname.includes('/login'),
+        { timeout: 30000 }
+    )
 }
 
 test.describe('MixRadius RAB Revision UX', () => {

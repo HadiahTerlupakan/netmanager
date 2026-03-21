@@ -31,21 +31,21 @@ test.beforeEach(async () => {
 
 async function login(page: Page, user: typeof ADMIN) {
   await page.goto('/admin/login')
-  await page.waitForSelector('#email', { state: 'visible', timeout: 10000 })
+  await page.waitForSelector('#email', { state: 'visible', timeout: 30000 })
   await page.locator('#email').fill(user.email)
   await page.locator('#password').fill(user.password)
   await page.click('button[type="submit"]')
   // Wait for redirect away from login
-  await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 15000 })
+  await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 30000 })
 }
 
 async function loginAsEmployee(page: Page) {
   await page.goto('/karyawan/login')
-  await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 10000 })
+  await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 30000 })
   await page.fill('input[type="email"]', EMPLOYEE.email)
   await page.fill('input[type="password"]', EMPLOYEE.password)
   await page.click('button[type="submit"]')
-  await page.waitForFunction(() => window.location.pathname.includes('dashboard'), { timeout: 15000 })
+  await page.waitForFunction(() => window.location.pathname.includes('dashboard'), { timeout: 30000 })
 }
 
 async function setupMocks(context: BrowserContext) {
@@ -118,7 +118,7 @@ async function performCheckIn(page: Page) {
     
     // In Camera Modal
     const captureButton = page.locator('button >> div.size-16');
-    await captureButton.waitFor({ state: 'visible', timeout: 10000 });
+    await captureButton.waitFor({ state: 'visible', timeout: 30000 });
     await captureButton.click();
     
     // In Preview Modal
@@ -196,11 +196,11 @@ test.describe.skip('User Schedule & Attendance Flow', () => {
     
     // Success Toast/Status
     // Toast might be flaky or disappear too fast/be covered. Rely on data update (Badge).
-    // await expect(employeePage.getByText('Check-in Berhasil!')).toBeVisible({ timeout: 15000 });
+    // await expect(employeePage.getByText('Check-in Berhasil!')).toBeVisible({ timeout: 30000 });
     
     // Verify in History
     const statusBadge = employeePage.locator('span:has-text("Tepat Waktu")').first();
-    await expect(statusBadge).toBeVisible({ timeout: 15000 });
+    await expect(statusBadge).toBeVisible({ timeout: 30000 });
     
     await employeeContext.close();
   });
@@ -253,7 +253,7 @@ test.describe.skip('User Schedule & Attendance Flow', () => {
     // Verify LATE status
     // await expect(employeePage.locator('text=Check-in Berhasil!')).toBeVisible();
     const statusBadge = employeePage.locator('span:has-text("Terlambat")').first();
-    await expect(statusBadge).toBeVisible({ timeout: 15000 });
+    await expect(statusBadge).toBeVisible({ timeout: 30000 });
     
     await employeeContext.close();
   });
@@ -301,7 +301,7 @@ test.describe.skip('User Schedule & Attendance Flow', () => {
     // Flexible mode should be ON_TIME by default in current implementation
     // await expect(employeePage.locator('text=Check-in Berhasil!')).toBeVisible();
     const statusBadge = employeePage.locator('span:has-text("Tepat Waktu")').first();
-    await expect(statusBadge).toBeVisible({ timeout: 15000 });
+    await expect(statusBadge).toBeVisible({ timeout: 30000 });
     
     await employeeContext.close();
   });

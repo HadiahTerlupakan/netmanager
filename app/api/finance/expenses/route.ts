@@ -3,6 +3,7 @@ import { isSuperAdmin } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { logAuditActivity } from "@/lib/middleware/request-logger";
 import {
     beginExpenseMutation,
     buildExpensePayloadHash,
@@ -288,5 +289,9 @@ export const POST = createHandler({
         response,
     });
 
-    return apiSuccess(response);
+    // Trigger audit log and wait for it to ensure E2E consistency
+    // We pass a minimal response object with status 201
+    await logAuditActivity(req, { status: 201 } as any, userId, user.tenantId, ctx.validated);
+
+    return apiSuccess(response, { status: 201 });
 });

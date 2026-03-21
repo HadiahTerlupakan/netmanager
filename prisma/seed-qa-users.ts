@@ -24,9 +24,7 @@ const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter } as unknown)
 
-const MAIN_TENANT_ID = '11111111-1111-1111-1111-111111111111'
-
-// ====== ROLE DEFINITIONS ======
+// ====== USER DEFINITIONS ======
 interface RoleDefinition {
   name: string
   description: string
@@ -170,6 +168,11 @@ const QA_USERS: UserDefinition[] = [
 
 async function main() {
   console.log('🧪 Seeding QA Test Users and Roles...\n')
+
+  const tenant = await prisma.tenant.findFirst()
+  if (!tenant) throw new Error('No tenant found')
+  const MAIN_TENANT_ID = tenant.id
+  console.log(`🏢 Using Tenant: ${tenant.name} (${MAIN_TENANT_ID})`)
 
   const defaultDept = await prisma.departments.findFirst()
   const defaultSite = await prisma.sites.findFirst()

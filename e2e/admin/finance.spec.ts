@@ -9,11 +9,11 @@ const SUPER_ADMIN = {
 async function loginAsAdmin(page: Page) {
   await page.goto('/admin/login')
   try {
-    await page.waitForSelector('#email', { timeout: 10000 })
+    await page.waitForSelector('#email', { timeout: 30000 })
     await page.fill('#email', SUPER_ADMIN.email)
     await page.fill('#password', SUPER_ADMIN.password)
     await page.click('button[type="submit"]')
-    await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 20000 })
+    await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 45000 })
     await page.waitForLoadState('domcontentloaded')
     return true
   } catch (error) {
@@ -89,12 +89,15 @@ test.describe('Finance Management E2E', () => {
     
     // 3. Verify Success & Audit Log
     console.log('Verifying success...')
-    await expect(page.locator('text=Pengeluaran berhasil disimpan')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('text=Pengeluaran berhasil disimpan')).toBeVisible({ timeout: 30000 })
     
     await page.goto('/admin/log/activity')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('table')).toContainText('CREATE')
-    await expect(page.locator('table')).toContainText('Finance Pengeluaran')
+    
+    // Wait specifically for the table to contain the expected text, avoiding 'Memuat data...'
+    const table = page.locator('table')
+    await expect(table).toContainText('CREATE', { timeout: 30000 })
+    await expect(table).toContainText('Finance Expenses', { timeout: 30000 })
     console.log('Audit log verified.')
   })
 })

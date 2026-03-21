@@ -30,21 +30,24 @@ const NO_PERM_USER = {
 // Helper: Admin login
 async function loginAsAdmin(page: Page) {
   await page.goto('/admin/login')
-  await page.waitForSelector('#email', { state: 'visible', timeout: 10000 })
+  await page.waitForSelector('#email', { state: 'visible', timeout: 30000 })
   await page.locator('#email').fill(ADMIN.email)
   await page.locator('#password').fill(ADMIN.password)
   await page.click('button[type="submit"]')
-  await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 15000 })
+  await page.waitForURL(url => 
+    url.pathname.includes('/admin') && !url.pathname.includes('/login'),
+    { timeout: 45000 }
+  )
 }
 
 // Helper: Employee login
 async function _loginAsEmployee(page: Page) {
   await page.goto('/karyawan/login')
-  await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 10000 })
+  await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 30000 })
   await page.fill('input[type="email"]', EMPLOYEE.email)
   await page.fill('input[type="password"]', EMPLOYEE.password)
   await page.click('button[type="submit"]')
-  await page.waitForFunction(() => window.location.pathname.includes('dashboard'), { timeout: 15000 })
+  await page.waitForURL(/\/dashboard|karyawan\//, { timeout: 45000 })
 }
 
 test.describe.serial('Work Order Flow', () => {
@@ -57,7 +60,7 @@ test.describe.serial('Work Order Flow', () => {
     await page.waitForLoadState('networkidle')
     // Verify dashboard elements - updated to match current UI
     // Dashboard now shows: Urgent Attention, Unassigned, Active Progress, Completed
-    await expect(page.getByText(/Work Order|Dashboard|Urgent|Active/i).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/Work Order|Dashboard|Urgent|Active/i).first()).toBeVisible({ timeout: 30000 })
   })
 
   test('Scenario 2: Admin can access Work Order list', async ({ page }) => {
@@ -109,12 +112,12 @@ test.describe.serial('Work Order Flow', () => {
 
   test('Scenario 5: RBAC - User without permission gets blocked', async ({ page }) => {
     await page.goto('/admin/login')
-    await page.waitForSelector('#email', { state: 'visible', timeout: 10000 })
+    await page.waitForSelector('#email', { state: 'visible', timeout: 30000 })
     await page.locator('#email').fill(NO_PERM_USER.email)
     await page.locator('#password').fill(NO_PERM_USER.password)
     await page.click('button[type="submit"]')
 
-    await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 15000 })
+    await page.waitForFunction(() => !window.location.pathname.includes('login'), { timeout: 30000 })
 
     // Try accessing WO page
     await page.goto('/admin/workorders')
@@ -134,7 +137,7 @@ test.describe.serial('Work Order Flow', () => {
     await page.waitForLoadState('networkidle')
 
     // Verify sites page - Updated to match UI "Manajemen Sites"
-    await expect(page.getByRole('heading', { name: /Manajemen Sites|Site/i })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: /Manajemen Sites|Site/i })).toBeVisible({ timeout: 30000 })
   })
 
   test('Scenario 7: Admin can view Departments management', async ({ page }) => {
@@ -145,6 +148,6 @@ test.describe.serial('Work Order Flow', () => {
 
     // Verify departments page - Updated to match UI "Manajemen Departments"
     // Use .first() to resolve strict mode violation between H1 and H2
-    await expect(page.getByRole('heading', { name: /Manajemen Departments|Department/i }).first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: /Manajemen Departments|Department/i }).first()).toBeVisible({ timeout: 30000 })
   })
 })

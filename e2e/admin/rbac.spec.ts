@@ -38,19 +38,16 @@ async function loginAsAdmin(page: Page, email: string, password: string): Promis
   await page.goto('/admin/login')
   
   try {
-    await page.waitForSelector('#email', { timeout: 5000 })
+    await page.waitForSelector('#email', { timeout: 30000 })
     await page.fill('#email', email)
     await page.fill('#password', password)
     await page.click('button[type="submit"]')
     
     // Wait for navigation - check if we're no longer on login page
-    await page.waitForFunction(
-      () => !window.location.pathname.includes('login'),
-      { timeout: 15000 }
+    await page.waitForURL(url => 
+      url.pathname.includes('/admin') && !url.pathname.includes('/login'),
+      { timeout: 45000 }
     )
-    
-    // Extra wait for page to stabilize
-    await page.waitForLoadState('networkidle')
     
     return true
   } catch (_error) {

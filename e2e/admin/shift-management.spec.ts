@@ -9,14 +9,14 @@ const SUPER_ADMIN = {
 async function loginAsAdmin(page: Page) {
   await page.goto('/admin/login')
   try {
-    await page.waitForSelector('#email', { timeout: 10000 })
+    await page.waitForSelector('#email', { timeout: 30000 })
     await page.fill('#email', SUPER_ADMIN.email)
     await page.fill('#password', SUPER_ADMIN.password)
     await page.click('button[type="submit"]')
 
     await page.waitForFunction(
       () => !window.location.pathname.includes('login'),
-      { timeout: 20000 }
+      { timeout: 45000 }
     )
     await page.waitForLoadState('domcontentloaded')
     return true

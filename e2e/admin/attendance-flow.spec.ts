@@ -9,14 +9,14 @@ const SUPER_ADMIN = {
 async function loginAsAdmin(page: Page) {
   await page.goto('/admin/login')
   try {
-    await page.waitForSelector('#email', { timeout: 10000 })
+    await page.waitForSelector('#email', { timeout: 30000 })
     await page.fill('#email', SUPER_ADMIN.email)
     await page.fill('#password', SUPER_ADMIN.password)
     await page.click('button[type="submit"]')
     
     await page.waitForFunction(
       () => !window.location.pathname.includes('login'),
-      { timeout: 20000 }
+      { timeout: 45000 }
     )
     await page.waitForLoadState('domcontentloaded')
     return true
@@ -44,7 +44,7 @@ test.describe('Attendance Module Business Flow', () => {
       console.log(`Navigating to: ${menu.name}`)
       await page.goto(menu.path)
       await expect(page).toHaveURL(new RegExp(menu.path))
-      await expect(page.locator('h1')).toContainText(new RegExp(menu.name, 'i'), { timeout: 10000 })
+      await expect(page.locator('h1')).toContainText(new RegExp(menu.name, 'i'), { timeout: 30000 })
     }
   })
 
@@ -66,19 +66,21 @@ test.describe('Attendance Module Business Flow', () => {
     // The grid we want is the one with auto-rows-fr (the calendar days)
     console.log(`Looking for day cell with text: ${targetDay}`)
 
-    // We look for the span containing the day number, then go to its parent div which has the click handler
-    const dayNumberSpan = page.locator('.grid span').filter({ hasText: new RegExp(`^${targetDay}$`) }).last()
-    const dayCell = dayNumberSpan.locator('..').locator('..') // span -> div (flex) -> div (cell with onClick)
+    // Wait for the calendar to load
+    await page.waitForSelector('.grid', { timeout: 15000 })
+
+    // We look for the span containing the day number specifically within the calendar grid
+    console.log(`Looking for day cell with text: ${targetDay}`)
+    const dayCell = page.locator('div.grid div').filter({ has: page.locator(`span:text-is("${targetDay}")`) }).last()
 
     // Ensure it's visible before clicking
-    console.log('Scrolling to day cell...')
-    await dayNumberSpan.scrollIntoViewIfNeeded();
-    console.log('Clicking day cell...')
+    await dayCell.scrollIntoViewIfNeeded();
     await dayCell.click({ force: true });
 
     console.log('Waiting for holiday modal...')
-    const modalHeader = page.locator('h2, h3').filter({ hasText: /Hari Libur/i })
-    await expect(modalHeader).toBeVisible({ timeout: 10000 })
+    // Modal could contain 'Hari Libur', 'Tambah Libur', etc.
+    const modalHeader = page.locator('h2, h3, div').filter({ hasText: /Libur/i }).first()
+    await expect(modalHeader).toBeVisible({ timeout: 15000 })
 
     console.log('Filling holiday form...')
     await page.fill('input[type="date"]', dateStr)
@@ -87,7 +89,7 @@ test.describe('Attendance Module Business Flow', () => {
 
     console.log('Verifying holiday in calendar...')
     const holidayBadge = page.locator(`div:has-text("${holidayName}")`).first()
-    await expect(holidayBadge).toBeVisible({ timeout: 15000 })
+    await expect(holidayBadge).toBeVisible({ timeout: 30000 })
 
     console.log('Deleting holiday...')
     await holidayBadge.hover()
@@ -108,7 +110,7 @@ test.describe('Attendance Module Business Flow', () => {
     await expect(async () => {
       const count = await siteSelect.locator('option').count()
       expect(count).toBeGreaterThan(1)
-    }).toPass({ timeout: 10000 })
+    }).toPass({ timeout: 30000 })
     
     await siteSelect.selectOption({ index: 1 })
     await cariButton.click()

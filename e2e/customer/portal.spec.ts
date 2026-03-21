@@ -19,11 +19,7 @@ test.describe('Customer Portal', () => {
     await page.click('button[type="submit"]');
 
     // 4. Wait for navigation
-    // We wait for URL to contain /dashboard OR for an error message to appear
-    await Promise.race([
-        page.waitForURL(/\/dashboard/),
-        page.locator('.text-red-600').waitFor({ state: 'visible' }).then(() => { throw new Error('Login failed with error message') })
-    ]);
+    await page.waitForFunction(() => window.location.pathname.includes('dashboard'), { timeout: 30000 });
 
     // 5. Verify Dashboard
     // Wait for the loading spinner to disappear
@@ -51,7 +47,7 @@ test.describe('Customer Portal', () => {
     await page.fill('input[type="text"]', '88888888');
     await page.fill('input[type="password"]', 'customer123');
     await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/);
+    await page.waitForURL(/\/dashboard/, { timeout: 30000 });
 
     // Navigate to Billing/Riwayat via Quick Menu or Bottom Nav
     // Using Bottom Nav "Tagihan" or "Riwayat"

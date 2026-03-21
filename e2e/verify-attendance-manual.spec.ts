@@ -114,14 +114,14 @@ test.describe('Attendance Manual Input Verification', () => {
         if (!refreshResponse) {
             console.log('Refresh API did not trigger or timed out. Reloading page...');
             await page.reload();
-            await expect(page.locator('table')).toBeVisible();
+            await expect(page.locator('table').first()).toBeVisible();
         } else {
             console.log('Refresh API detected.');
         }
 
         // 7. Switch to "ALL" filter to ensure we see the record regardless of its auto-approved status
         console.log('Switching to "ALL" filter...');
-        const allFilterBtn = page.locator('button').filter({ hasText: /^Semua$/ });
+        const allFilterBtn = page.locator('button').filter({ hasText: /^Semua$/ }).first();
         await allFilterBtn.click();
 
         // Wait for the table to refresh after filter change
