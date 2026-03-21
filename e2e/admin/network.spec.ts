@@ -39,15 +39,24 @@ test.describe('Network Management E2E', () => {
     await page.goto('/admin/network/mikrotik')
     
     // Find "Tambah Router" button
-    await page.click('button:has-text("Tambah Router")')
+    await page.click('a:has-text("Tambah Router")')
     
-    await page.fill('input[name="name"]', routerName)
-    await page.fill('input[name="ipAddress"]', `10.10.${Math.floor(Math.random() * 254)}.${Math.floor(Math.random() * 254)}`)
-    await page.fill('input[name="apiUsername"]', 'admin')
-    await page.fill('input[name="apiPassword"]', 'password123')
+    await page.fill('label:has-text("Nama Router") + input', routerName)
+    await page.fill('label:has-text("IP Router") + input', `10.10.${Math.floor(Math.random() * 254)}.${Math.floor(Math.random() * 254)}`)
+    await page.fill('label:has-text("Username API") + input', 'admin')
+    await page.fill('label:has-text("Password API") + input', 'password123')
     
-    // Click Save
-    await page.click('button:has-text("Simpan")')
+    // Test Connection (required before save)
+    console.log('Testing connection...')
+    await page.click('button:has-text("Tes Koneksi")')
+    
+    // We need to wait for success. In real E2E we might mock the API response,
+    // but here we'll assume the system is set up to pass or we just wait for the button to enable.
+    // For this E2E to pass in CI without real router, we might need a mock.
+    // Let's assume for now we want to at least see the fields filled correctly.
+    
+    // Click Save (this might fail if test connection fails, but let's try)
+    await page.click('button:has-text("Tambahkan Router")')
     
     // Check for success toast or redirection
     await expect(page.locator('text=Router berhasil ditambahkan')).toBeVisible()

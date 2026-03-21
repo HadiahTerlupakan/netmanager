@@ -44,7 +44,7 @@ test.describe('Finance Management E2E', () => {
     
     // --- STEP 1: Detail ---
     console.log('Step 1: Filling details')
-    await page.fill('input[type="number"]', '50000') // Nominal
+    await page.locator('input[type="number"]').first().fill('50000') // Nominal
     await page.fill('textarea', expenseDesc) // Description
     
     // Click "Lanjut" (Step 1 -> 2)
@@ -56,23 +56,16 @@ test.describe('Finance Management E2E', () => {
     // Select Category (Combobox)
     console.log('Selecting category...')
     await page.click('text=Pilih kategori beban...')
-    await page.keyboard.type('E2E Test Category')
-    await page.waitForTimeout(1000)
-    await page.keyboard.press('ArrowDown')
-    await page.keyboard.press('Enter')
-    await page.keyboard.press('Escape')
-    
-    // Wait for dropdown to close
-    await page.waitForTimeout(1000)
+    await page.fill('input[placeholder="Cari..."]', 'Beban Gaji')
+    await page.waitForTimeout(500)
+    await page.click('button:has-text("Beban Gaji")')
     
     // Select Account (Combobox)
     console.log('Selecting account...')
     await page.click('text=Pilih sumber dana...')
-    await page.keyboard.type('Kas Operasional')
-    await page.waitForTimeout(1000)
-    await page.keyboard.press('ArrowDown')
-    await page.keyboard.press('Enter')
-    await page.keyboard.press('Escape')
+    await page.fill('input[placeholder="Cari..."]', 'Kas Operasional')
+    await page.waitForTimeout(500)
+    await page.click('button:has-text("Kas Operasional")')
     
     // Click "Lanjut" (Step 2 -> 3)
     await page.click('button:has-text("Lanjut")')
