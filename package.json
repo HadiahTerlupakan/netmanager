@@ -27,10 +27,10 @@
     "prisma:setup": "npm run prisma:generate && npm run prisma:migrate-deploy && npm run prisma:seed",
     "prisma:reset": "prisma migrate reset --force",
     "prisma:reset-seed": "prisma migrate reset --force && npm run prisma:seed-only",
-    "prisma:baseline": "prisma migrate resolve --applied 20251105130408_init",
+    "prisma:baseline": "prisma migrate resolve --applied 20260313000000_init_squashed",
     "prisma:seed-permissions": "tsx prisma/seed-permissions.ts",
-    "prisma:sync": "prisma db push && prisma migrate resolve --applied 20251105130408_init",
-    "prisma:fix-drift": "prisma migrate resolve --rolled-back 20251105130408_init && prisma migrate dev --name complete_schema"
+    "prisma:sync": "prisma db push && prisma migrate resolve --applied 20260313000000_init_squashed",
+    "prisma:fix-drift": "prisma migrate resolve --applied 20260313000000_init_squashed && prisma migrate dev --name complete_schema"
   },
   "keywords": [],
   "author": "",

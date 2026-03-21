@@ -191,9 +191,11 @@ spec:
                 echo "🌱 Fresh database detected. Running all migrations from scratch..."
               else
                 echo "🔄 Existing database detected. Applying baseline resolutions..."
-                npx prisma migrate resolve --rolled-back 20260314015651_init_tenant_schema 2>&1 || true
                 npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
+                npx prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
                 npx prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
+                npx prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
+                npx prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true
               fi
               
               npx prisma migrate deploy
@@ -204,8 +206,8 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                npx prisma migrate resolve --rolled-back 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
                 npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
+                npx prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
               fi
               npx prisma migrate deploy --config=prisma.radius.config.ts
 
@@ -215,8 +217,8 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                npx prisma migrate resolve --rolled-back 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
                 npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
+                npx prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
               fi
               npx prisma migrate deploy --config=prisma.billing.config.ts
 
@@ -226,8 +228,8 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                npx prisma migrate resolve --rolled-back 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
                 npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
+                npx prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
               fi
               npx prisma migrate deploy --config=prisma.mitra.config.ts
 

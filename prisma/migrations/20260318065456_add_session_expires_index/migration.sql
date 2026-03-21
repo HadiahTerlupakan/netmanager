@@ -1,2 +1,2 @@
 -- CreateIndex
-CREATE INDEX "Session_expires_idx" ON "Session"("expires");
+CREATE INDEX IF NOT EXISTS "Session_expires_idx" ON "Session"("expires");
