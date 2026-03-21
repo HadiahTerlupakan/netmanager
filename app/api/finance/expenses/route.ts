@@ -1,6 +1,5 @@
-import { prisma } from "@/lib/prisma";
+import { FinanceService } from "@/modules/finance/services/FinanceService";
 import { isSuperAdmin } from "@/lib/auth";
-import { randomUUID } from "crypto";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logAuditActivity } from "@/lib/middleware/request-logger";
@@ -10,6 +9,7 @@ import {
     completeExpenseMutation,
 } from "@/modules/finance/expense-idempotency";
 import { z } from "zod";
+import { getUserService } from "@/modules/users/services/UserService";
 
 export const dynamic = 'force-dynamic';
 
@@ -31,13 +31,9 @@ const expenseSchema = z.object({
 });
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    // ctx.session is guaranteed
     const user = ctx.session!.user;
-
-    // Allow SUPER_ADMIN to bypass permission check
     const isSuper = isSuperAdmin(user);
 
-    // Check for either generic expense permission OR mixradius expense permission
     const hasAccess = isSuper ||
         (await hasPermission("expense:read")) ||
         (await hasPermission("mixradius_expenses:read"));
@@ -47,133 +43,47 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const { searchParams } = req.nextUrl;
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
     const siteId = searchParams.get("siteId");
     const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
     const category = searchParams.get("category");
     const expenseCategoryId = searchParams.get("expenseCategoryId");
     const scope = searchParams.get("scope");
 
-    // console.log("[EXPENSES_GET] Fetching expenses...", { startDate, endDate, siteId, mixRadiusGroupId, category, expenseCategoryId, scope });
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
 
-    // Build where clause
-    const where: Record<string, unknown> = {};
-    if (startDate && endDate) {
-        const start = startDate.includes('T') ? new Date(startDate) : new Date(`${startDate}T00:00:00`);
-        const end = endDate.includes('T') ? new Date(endDate) : new Date(`${endDate}T23:59:59.999`);
+    if (startDateParam && endDateParam) {
+        startDate = startDateParam.includes('T') ? new Date(startDateParam) : new Date(`${startDateParam}T00:00:00`);
+        endDate = endDateParam.includes('T') ? new Date(endDateParam) : new Date(`${endDateParam}T23:59:59.999`);
 
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             return ApiErrors.badRequest("Format tanggal tidak valid");
         }
-
-        where.date = {
-            gte: start,
-            lte: end,
-        };
     }
 
-    if (category) {
-        where.category = category;
-    }
-
-    if (expenseCategoryId) {
-        where.expenseCategoryId = expenseCategoryId;
-    }
-
+    let restrictedSiteId: string | undefined;
     if ((await hasPermission("expense:site_only")) && !isSuper) {
-        // Need to fetch full user to get siteId if it's not in session
-        // Assuming session.user has siteId (ctx.session structure in handler.ts implies standard fields, let's double check if custom fields like siteId are passed)
-        // handler.ts only maps basic fields: id, email, name, role.
-        // It does NOT map siteId.
-        // So I need to fetch the user or rely on what's in 'user' variable if I cast it?
-        // Wait, handler.ts:
-        // ctx.session = { user: { id, email, name, role } }
-        // It does NOT include siteId.
-        // I must fetch the user from DB to get siteId, or update handler.ts.
-        // Updating handler.ts affects all files.
-        // Safer to fetch user here or check if session from `next-auth` (which I removed) had it.
-        // The original code used `verifyAuth` which returns the session user object.
-        // `createHandler` uses `getServerSession`.
-        // If `getServerSession` returns `siteId`, `createHandler` DROPS it because of explicit mapping.
-        // This is a limitation of `createHandler` current implementation.
-        // I should probably fix `createHandler` later to include `...session.user` to pass through custom fields.
-        // For now, I will use `prisma.user.findUnique` to be safe.
-
-        const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { siteId: true }
-        });
-
-        const userSiteId = dbUser?.siteId;
-
-        if (userSiteId) {
-            where.siteId = userSiteId;
-        } else {
-            // If user is restricted but has no site, return empty
-            return apiSuccess([]);
-        }
-    } else if (scope === 'general') {
-        // Explicitly fetch expenses with NO site association (Shared/General)
-        where.siteId = null;
-        where.mixRadiusGroupId = null;
-    } else if (mixRadiusGroupId) {
-        // Precise filtering by Group ID if provided
-        where.mixRadiusGroupId = mixRadiusGroupId;
-    } else if (siteId) {
-        // Fallback to physical site ID if no specific group requested
-        where.siteId = siteId;
+        const userService = getUserService();
+        const dbUser = await userService.getUser(user.id);
+        restrictedSiteId = dbUser?.siteId || undefined;
+        if (!restrictedSiteId) return apiSuccess([]);
     }
 
-    const expenses = await prisma.expense.findMany({
-        where,
-        orderBy: {
-            date: 'desc',
-        },
-        include: {
-            user: {
-                select: {
-                    name: true,
-                }
-            },
-            site: {
-                select: {
-                    name: true
-                }
-            },
-            expenseCategory: {
-                select: {
-                    id: true,
-                    name: true,
-                    type: true
-                }
-            },
-            rabProject: {
-                select: {
-                    id: true,
-                    name: true
-                }
-            },
-            rabItem: {
-                select: {
-                    id: true,
-                    name: true
-                }
-            }
-        }
+    const financeService = new FinanceService();
+    const expenses = await financeService.getExpenses({
+        startDate,
+        endDate,
+        siteId,
+        mixRadiusGroupId,
+        category,
+        expenseCategoryId,
+        scope,
+        restrictedSiteId
     });
 
-    // console.log(`[EXPENSES_GET] Found ${expenses.length} expenses.`);
-
-    // Convert BigInt to string for JSON serialization
-    const serializedExpenses = expenses.map(expense => ({
-        ...expense,
-        amount: expense.amount.toString(),
-        depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
-        usefulLife: expense.usefulLife || 0,
-    }));
-
-    return apiSuccess(serializedExpenses);
+    return apiSuccess(expenses);
 });
 
 export const POST = createHandler({
@@ -182,11 +92,8 @@ export const POST = createHandler({
 }, async (req, ctx) => {
     const user = ctx.session!.user;
     const userId = user.id;
-
-    // Allow SUPER_ADMIN to bypass permission check
     const isSuper = isSuperAdmin(user);
 
-    // Check for either generic expense permission OR mixradius expense permission
     const hasAccess = isSuper ||
         (await hasPermission("expense:create")) ||
         (await hasPermission("mixradius_expenses:create"));
@@ -199,23 +106,6 @@ export const POST = createHandler({
     if (!idempotencyKey) {
         return ApiErrors.badRequest('Header x-idempotency-key wajib diisi');
     }
-
-    // Data is already validated and transformed by Zod via createHandler
-    const {
-        amount,
-        depreciation,
-        usefulLife,
-        date,
-        category,
-        expenseCategoryId,
-        description,
-        siteId,
-        mixRadiusGroupId,
-        rabProjectId,
-        rabItemId,
-        invoiceNumber,
-        invoiceFile
-    } = ctx.validated;
 
     const payloadHash = buildExpensePayloadHash(ctx.validated);
     const beginResult = beginExpenseMutation({
@@ -236,50 +126,24 @@ export const POST = createHandler({
     if (beginResult.status === 'in-progress') {
         return ApiErrors.conflict('Permintaan serupa sedang diproses');
     }
+let finalSiteId = ctx.validated.siteId;
+if ((await hasPermission("expense:site_only")) && !isSuper) {
+    const userService = getUserService();
+    const dbUser = await userService.getUser(user.id);
+    const userSiteId = dbUser?.siteId;
 
-    let finalSiteId = siteId;
-    if ((await hasPermission("expense:site_only")) && !isSuper) {
-        // Fetch user again to get siteId (see GET comment)
-        const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
-            select: { siteId: true }
-        });
-        const userSiteId = dbUser?.siteId;
-
-        if (!userSiteId) {
-            return ApiErrors.forbidden("User terikat site namun belum memiliki site");
-        }
-        finalSiteId = userSiteId;
+    if (!userSiteId) {
+        return ApiErrors.forbidden("User terikat site namun belum memiliki site");
     }
+    finalSiteId = userSiteId;
+}
 
-    const expense = await prisma.expense.create({
-        data: {
-            id: randomUUID(),
-            amount,
-            depreciation,
-            usefulLife,
-            date,
-            category,
-            ...(expenseCategoryId ? { expenseCategoryId } : {}),
-            ...(description !== undefined ? { description } : {}),
-            userId,
-            updatedAt: new Date(),
-            ...(finalSiteId ? { siteId: finalSiteId } : {}),
-            ...(mixRadiusGroupId ? { mixRadiusGroupId } : {}),
-            ...(rabProjectId ? { rabProjectId } : {}),
-            ...(rabItemId ? { rabItemId } : {}),
-            ...(invoiceNumber ? { invoiceNumber } : {}),
-            ...(invoiceFile ? { invoiceFile } : {}),
-            ...(ctx.validated.accountId ? { accountId: ctx.validated.accountId } : {}),
-        },
-    });
 
-    const response = {
-        ...expense,
-        amount: expense.amount.toString(),
-        depreciation: expense.depreciation ? expense.depreciation.toString() : '0',
-        usefulLife: expense.usefulLife || 0,
-    };
+    const financeService = new FinanceService();
+    const response = await financeService.createExpense({
+        ...ctx.validated,
+        siteId: finalSiteId
+    } as Parameters<typeof financeService.createExpense>[0], userId);
 
     completeExpenseMutation({
         action: 'create',
@@ -289,8 +153,6 @@ export const POST = createHandler({
         response,
     });
 
-    // Trigger audit log and wait for it to ensure E2E consistency
-    // We pass a minimal response object with status 201
     await logAuditActivity(req, { status: 201 } as unknown as import('next/server').NextResponse, userId, user.tenantId, ctx.validated);
 
     return apiSuccess(response, { status: 201 });

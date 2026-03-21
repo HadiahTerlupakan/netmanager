@@ -1,5 +1,5 @@
 import { prismaBilling } from '@/lib/prisma-billing'
-import type { MixRadiusOwnerGroup } from '@/prisma/generated/billing'
+import type { MixRadiusOwnerGroup } from '@prisma/client-billing'
 import axios, { type AxiosInstance } from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import { CookieJar } from 'tough-cookie'

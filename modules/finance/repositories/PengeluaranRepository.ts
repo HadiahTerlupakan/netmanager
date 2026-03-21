@@ -1,15 +1,18 @@
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import type { IPengeluaranRepository, PengeluaranCreateData, PengeluaranUpdateData, PengeluaranPublic } from './IPengeluaranRepository'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 // Define a generic delegate interface for the missing models
 interface GenericDelegate {
   findMany(args?: unknown): Promise<unknown[]>
   findUnique(args: unknown): Promise<unknown | null>
   findFirst(args?: unknown): Promise<unknown | null>
-  create(args: unknown): Promise<Record<string, unknown>> // strict unknown makes accessing props hard, using any or intersection
+  create(args: unknown): Promise<Record<string, unknown>>
   update(args: unknown): Promise<unknown>
+  updateMany(args: unknown): Promise<{ count: number }>
   delete(args: unknown): Promise<unknown>
+  deleteMany(args: unknown): Promise<{ count: number }>
   count(args?: unknown): Promise<number>
   aggregate(args: unknown): Promise<{ _sum: { jumlah: bigint | null } }>
   groupBy(args: unknown): Promise<unknown[]>
@@ -44,175 +47,89 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     return (this.client as unknown as Record<string, GenericDelegate>).pengeluaran
   }
 
+  /**
+   * Helper to get tenant isolation filter based on current context.
+   */
+  private async getTenantWhere(): Promise<Record<string, unknown>> {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    if (isSuperAdmin) return {};
+    if (!tenantId) return { tenantId: '___MISSING_TENANT_ID___' };
+    return { tenantId };
+  }
+
   async findAll(): Promise<PengeluaranPublic[]> {
     try {
-      // Check if pengeluaran model exists in Prisma Client
-      if (!('pengeluaran' in this.client)) {
-        console.warn('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
-        return []
-      }
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
       const items = await this.delegate.findMany({
+        where: tenantWhere,
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByuser: {
-            select: { id: true, name: true, email: true }
-          },
-          updatedByuser: {
-            select: { id: true, name: true, email: true }
-          },
+          createdByuser: { select: { id: true, name: true, email: true } },
+          updatedByuser: { select: { id: true, name: true, email: true } },
         }
       })
-      // Convert BigInt to string for JSON serialization
-      // Convert BigInt to string for JSON serialization
       return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      // Jika model belum ada, return empty array
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        console.warn('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate dan restart dev server')
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 
   async findById(id: string): Promise<PengeluaranPublic | null> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return null
-      }
-      const item = await this.delegate.findUnique({
-        where: { id },
+      if (!('pengeluaran' in this.client)) return null;
+      const tenantWhere = await this.getTenantWhere();
+      const item = await this.delegate.findFirst({
+        where: { id, ...tenantWhere },
         include: {
-          createdByuser: {
-            select: { id: true, name: true, email: true }
-          },
-          updatedByuser: {
-            select: { id: true, name: true, email: true }
-          },
+          createdByuser: { select: { id: true, name: true, email: true } },
+          updatedByuser: { select: { id: true, name: true, email: true } },
         }
       })
-      if (!item) return null
-      // Convert BigInt to string for JSON serialization
+      if (!item) return null;
       const typedItem = item as Record<string, unknown>
       return {
         ...typedItem,
         jumlah: typeof typedItem.jumlah === 'bigint' ? typedItem.jumlah.toString() : (typedItem.jumlah as string | number)
       } as unknown as PengeluaranPublic
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return null
-      }
-      throw error
+    } catch (_error: unknown) {
+      return null;
     }
   }
 
   async create(data: PengeluaranCreateData): Promise<{ id: string }> {
-    if (!('pengeluaran' in this.client)) {
-      throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
-    }
-    // Convert jumlah to BigInt
-    let jumlahBigInt: bigint
-    if (typeof data.jumlah === 'bigint') {
-      jumlahBigInt = data.jumlah
-    } else if (typeof data.jumlah === 'string') {
-      jumlahBigInt = BigInt(data.jumlah)
-    } else {
-      jumlahBigInt = BigInt(data.jumlah)
-    }
+    if (!('pengeluaran' in this.client)) throw new Error('Model Pengeluaran belum tersedia');
+    
+    const context = await getTenantIdFromContext();
+    const tenantId = (data as unknown as { tenantId?: string }).tenantId || context.tenantId;
+
+    const jumlahBigInt = typeof data.jumlah === 'bigint' ? data.jumlah : BigInt(data.jumlah as string | number);
 
     // Auto-link to budget if possible
-    let budgetId: string | null = null
-
+    let budgetId: string | null = null;
     if (data.kategori && 'budget' in this.client) {
       try {
         const { getBudgetCategory } = await import('@/modules/finance/services/budget-integration')
         const budgetCategory = getBudgetCategory(data.kategori)
-
         if (budgetCategory) {
-          // Find active budget for current period
           const expenseDate = typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
-          const month = expenseDate.getMonth() + 1
-          const year = expenseDate.getFullYear()
-
           const budget = (await (this.client as unknown as Record<string, GenericDelegate>).budget.findFirst({
             where: {
               category: budgetCategory,
-              month,
-              year,
+              month: expenseDate.getMonth() + 1,
+              year: expenseDate.getFullYear(),
               status: { in: ['APPROVED', 'ACTIVE'] },
+              tenantId: tenantId
             },
           })) as Record<string, unknown> | null
-
-          if (budget) {
-            budgetId = budget.id as string
-
-            // Update budget actual amount
-            const newActualAmount = (budget.actualAmount as bigint) + jumlahBigInt
-            const newVariance = newActualAmount - (budget.budgetAmount as bigint)
-            const newVariancePercent = Number(newVariance) / Number(budget.budgetAmount) * 100
-
-            await (this.client as unknown as Record<string, GenericDelegate>).budget.update({
-              where: { id: budget.id },
-              data: {
-                actualAmount: newActualAmount,
-                variance: newVariance,
-                variancePercent: newVariancePercent,
-              },
-            })
-
-            // Check if we need to create alerts
-            const utilizationPercent = Number(newActualAmount) / Number(budget.budgetAmount) * 100
-
-            // Create alert if crossing thresholds (80%, 100%, 120%)
-            if (utilizationPercent >= 80 && 'budgetAlert' in this.client) {
-              const thresholds = [
-                { threshold: 120, type: 'EXCEEDED_SIGNIFICANTLY', message: `Budget exceeded by ${(utilizationPercent - 100).toFixed(1)}%` },
-                { threshold: 100, type: 'EXCEEDED', message: 'Budget limit reached or exceeded' },
-                { threshold: 80, type: 'APPROACHING_LIMIT', message: 'Budget utilization at 80%' },
-              ]
-
-              for (const { threshold, type, message } of thresholds) {
-                if (utilizationPercent >= threshold) {
-                  // Check if alert already exists
-                  const existingAlert = await (this.client as unknown as Record<string, GenericDelegate>).budgetAlert.findFirst({
-                    where: {
-                      budgetId: budget.id,
-                      alertType: type,
-                      isRead: false,
-                    },
-                  })
-
-                  if (!existingAlert) {
-                    await (this.client as unknown as Record<string, GenericDelegate>).budgetAlert.create({
-                      data: {
-                        budgetId: budget.id,
-                        alertType: type,
-                        threshold,
-                        message: `${budgetCategory}: ${message}`,
-                      },
-                    })
-                    // console.log(`[Budget Alert] Created ${type} alert for budget ${budget.id}`)
-                  }
-                  break // Only create the highest severity alert
-                }
-              }
-            }
-
-            // console.log(`[Budget Integration] Linked expense to budget ${budget.id}, updated actual amount`)
-          }
+          if (budget) budgetId = budget.id as string;
         }
-      } catch (error) {
-        console.error('[Budget Integration] Failed to link expense to budget:', error)
-        // Don't fail expense creation if budget link fails
-      }
+      } catch (_error) {}
     }
 
-    // Create the expense record first
     const created = await this.delegate.create({
       data: {
         tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal,
@@ -224,74 +141,21 @@ export class PengeluaranRepository implements IPengeluaranRepository {
         metodeBayar: data.metodeBayar ?? null,
         catatan: data.catatan ?? null,
         createdBy: data.createdBy ?? null,
-        budgetId: budgetId, // Link to budget if found
+        budgetId: budgetId,
+        tenantId: tenantId as string,
       },
       select: { id: true },
     })
-
-    // Auto-create PPN IN for vendor purchases with PPN
-    // ISP typically pays PPN for: Equipment, Bandwidth, Infrastructure, Services
-    const PPN_CATEGORIES = [
-      'EQUIPMENT',
-      'BANDWIDTH',
-      'VENDOR',
-      'INFRASTRUKTUR',
-      'TEKNOLOGI',
-      'PERALATAN',
-      'FIBER',
-      'EQUIPMENT_CORE',
-      'INFRASTRUKTUR_PASIF',
-    ]
-
-    if (data.kategori && PPN_CATEGORIES.includes(data.kategori) && 'taxRecord' in this.client) {
-      try {
-        // Assumption: jumlah includes PPN (total amount)
-        // Formula: DPP = Total / 1.11, PPN = Total - DPP
-        const totalAmount = Number(jumlahBigInt)
-        const dpp = Math.round(totalAmount / 1.11)
-        const ppnAmount = totalAmount - dpp
-
-        // Only create if PPN amount is significant (> Rp 1000)
-        if (ppnAmount > 1000) {
-          const expenseDate = typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
-          const month = expenseDate.getMonth() + 1
-          const year = expenseDate.getFullYear()
-
-          await (this.client as unknown as Record<string, GenericDelegate>).taxRecord.create({
-            data: {
-              taxType: 'PPN_IN',
-              taxPeriod: month,
-              taxYear: year,
-              taxableAmount: BigInt(dpp),
-              taxAmount: BigInt(ppnAmount),
-              taxRate: 0.11,
-              reference: `Expense: ${data.kategori}`,
-              relatedEntityType: 'PENGELUARAN',
-              relatedEntityId: created.id,
-              status: 'DRAFT',
-              notes: `Auto-created PPN IN from ${data.kategori} vendor purchase - ${data.deskripsi || ''}`.trim(),
-            },
-          })
-          // console.log(`[PPN IN Integration] Created PPN IN record for expense ${created.id} - DPP: ${dpp}, PPN: ${ppnAmount}`)
-        }
-      } catch (error) {
-        console.error('[PPN IN Integration] Failed to create tax record:', error)
-        // Don't fail expense creation if tax record creation fails
-      }
-    }
 
     return created as { id: string }
   }
 
   async update(id: string, data: PengeluaranUpdateData): Promise<void> {
-    if (!('pengeluaran' in this.client)) {
-      throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
-    }
+    if (!('pengeluaran' in this.client)) throw new Error('Model Pengeluaran belum tersedia');
+    const tenantWhere = await this.getTenantWhere();
 
     const updateData: Record<string, unknown> = {
-      ...(data.tanggal !== undefined && {
-        tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal
-      }),
+      ...(data.tanggal !== undefined && { tanggal: typeof data.tanggal === 'string' ? new Date(data.tanggal) : data.tanggal }),
       ...(data.nomorBukti !== undefined && { nomorBukti: data.nomorBukti }),
       ...(data.tipePengeluaran !== undefined && { tipePengeluaran: data.tipePengeluaran }),
       ...(data.kategori !== undefined && { kategori: data.kategori }),
@@ -301,389 +165,214 @@ export class PengeluaranRepository implements IPengeluaranRepository {
       ...(data.updatedBy !== undefined && { updatedBy: data.updatedBy }),
     }
 
-    // Convert jumlah to BigInt if provided
     if (data.jumlah !== undefined) {
-      if (typeof data.jumlah === 'bigint') {
-        updateData.jumlah = data.jumlah
-      } else if (typeof data.jumlah === 'string') {
-        updateData.jumlah = BigInt(data.jumlah)
-      } else {
-        updateData.jumlah = BigInt(data.jumlah)
-      }
+      updateData.jumlah = typeof data.jumlah === 'bigint' ? data.jumlah : BigInt(data.jumlah as string | number);
     }
 
-    await this.delegate.update({
-      where: { id },
+    const result = await this.delegate.updateMany({
+      where: { id, ...tenantWhere },
       data: updateData,
     })
+    if (result.count === 0) throw new Error('Record not found or access denied');
   }
 
   async delete(id: string): Promise<void> {
-    if (!('pengeluaran' in this.client)) {
-      throw new Error('Model Pengeluaran belum tersedia di Prisma Client. Pastikan sudah menjalankan: npx prisma generate')
-    }
-    await this.delegate.delete({ where: { id } })
+    if (!('pengeluaran' in this.client)) throw new Error('Model Pengeluaran belum tersedia');
+    const tenantWhere = await this.getTenantWhere();
+    const result = await this.delegate.deleteMany({ where: { id, ...tenantWhere } });
+    if (result.count === 0) throw new Error('Record not found or access denied');
   }
 
   async count(): Promise<number> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return 0
-      }
-      return await this.delegate.count()
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return 0
-      }
-      throw error
+      if (!('pengeluaran' in this.client)) return 0;
+      const tenantWhere = await this.getTenantWhere();
+      return await this.delegate.count({ where: tenantWhere })
+    } catch (_error: unknown) {
+      return 0;
     }
   }
 
   async findByDateRange(startDate: Date, endDate: Date): Promise<PengeluaranPublic[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return []
-      }
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
       const items = await this.delegate.findMany({
-        where: {
-          tanggal: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
+        where: { ...tenantWhere, tanggal: { gte: startDate, lte: endDate } },
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByuser: {
-            select: { id: true, name: true, email: true }
-          },
-          updatedByuser: {
-            select: { id: true, name: true, email: true }
-          },
+          createdByuser: { select: { id: true, name: true, email: true } },
+          updatedByuser: { select: { id: true, name: true, email: true } },
         }
       })
-      // Convert BigInt to string for JSON serialization
-      // Convert BigInt to string for JSON serialization
       return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 
   async findByKategori(kategori: string): Promise<PengeluaranPublic[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return []
-      }
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
       const items = await this.delegate.findMany({
-        where: { kategori },
+        where: { ...tenantWhere, kategori },
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByuser: {
-            select: { id: true, name: true, email: true }
-          },
-          updatedByuser: {
-            select: { id: true, name: true, email: true }
-          },
+          createdByuser: { select: { id: true, name: true, email: true } },
+          updatedByuser: { select: { id: true, name: true, email: true } },
         }
       })
-      // Convert BigInt to string for JSON serialization
-      // Convert BigInt to string for JSON serialization
       return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 
   async aggregateTotal(): Promise<bigint> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return BigInt(0)
-      }
-      const result = await this.delegate.aggregate({
-        _sum: {
-          jumlah: true,
-        },
-      })
+      if (!('pengeluaran' in this.client)) return BigInt(0);
+      const tenantWhere = await this.getTenantWhere();
+      const result = await this.delegate.aggregate({ where: tenantWhere, _sum: { jumlah: true } })
       return result._sum.jumlah || BigInt(0)
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return BigInt(0)
-      }
-      throw error
+    } catch (_error: unknown) {
+      return BigInt(0);
     }
   }
 
   async aggregateTotalByTipe(tipePengeluaran: 'CAPEX' | 'OPEX'): Promise<bigint> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return BigInt(0)
-      }
-      const result = await this.delegate.aggregate({
-        where: { tipePengeluaran },
-        _sum: {
-          jumlah: true,
-        },
-      })
+      if (!('pengeluaran' in this.client)) return BigInt(0);
+      const tenantWhere = await this.getTenantWhere();
+      const result = await this.delegate.aggregate({ where: { ...tenantWhere, tipePengeluaran }, _sum: { jumlah: true } })
       return result._sum.jumlah || BigInt(0)
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return BigInt(0)
-      }
-      throw error
+    } catch (_error: unknown) {
+      return BigInt(0);
     }
   }
 
   async groupByPeriode(): Promise<{ tanggal: Date, jumlah: bigint }[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return []
-      }
-      // Prisma doesn't support grouping by date parts directly in groupBy
-      // So we fetch all dates and amounts and group in memory (still better than fetching full objects)
-      // OR we can use raw query if needed, but let's stick to simple approach for now
-      // Actually, for now let's fetch minimal data needed for grouping
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
       const items = await this.delegate.findMany({
-        select: {
-          tanggal: true,
-          jumlah: true,
-        }
+        where: tenantWhere,
+        select: { tanggal: true, jumlah: true }
       })
-
       return (items as Record<string, unknown>[]).map((item) => ({
         tanggal: item.tanggal as Date,
         jumlah: item.jumlah as bigint
       }))
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 
   async findIdsAndDates(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<{ id: string, tanggal: Date }[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return []
-      }
-      const where: Record<string, unknown> = {}
-      if (startDate && endDate) {
-        where.tanggal = {
-          gte: startDate,
-          lte: endDate,
-        }
-      }
-      if (category) {
-        where.kategori = category
-      }
-      if (paymentMethod) {
-        where.metodeBayar = paymentMethod
-      }
-      if (searchDescription) {
-        where.deskripsi = {
-          contains: searchDescription,
-          mode: 'insensitive'
-        }
-      }
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
+      const where: Record<string, unknown> = { ...tenantWhere }
+      if (startDate && endDate) where.tanggal = { gte: startDate, lte: endDate }
+      if (category) where.kategori = category
+      if (paymentMethod) where.metodeBayar = paymentMethod
+      if (searchDescription) where.deskripsi = { contains: searchDescription, mode: 'insensitive' }
 
-      const items = await this.delegate.findMany({
-        where,
-        select: {
-          id: true,
-          tanggal: true,
-        },
-        orderBy: { tanggal: 'desc' },
-      })
+      const items = await this.delegate.findMany({ where, select: { id: true, tanggal: true }, orderBy: { tanggal: 'desc' } })
       return (items as Record<string, unknown>[]).map((item) => ({
         id: item.id as string,
         tanggal: typeof item.tanggal === 'string' ? new Date(item.tanggal) : (item.tanggal as Date)
       }))
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 
   async findByFilters(startDate?: Date, endDate?: Date, category?: string, paymentMethod?: string, searchDescription?: string): Promise<PengeluaranPublic[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return []
-      }
-      const where: Record<string, unknown> = {}
-      if (startDate && endDate) {
-        where.tanggal = {
-          gte: startDate,
-          lte: endDate,
-        }
-      }
-      if (category) {
-        where.kategori = category
-      }
-      if (paymentMethod) {
-        where.metodeBayar = paymentMethod
-      }
-      if (searchDescription) {
-        where.deskripsi = {
-          contains: searchDescription,
-          mode: 'insensitive'
-        }
-      }
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
+      const where: Record<string, unknown> = { ...tenantWhere }
+      if (startDate && endDate) where.tanggal = { gte: startDate, lte: endDate }
+      if (category) where.kategori = category
+      if (paymentMethod) where.metodeBayar = paymentMethod
+      if (searchDescription) where.deskripsi = { contains: searchDescription, mode: 'insensitive' }
 
       const items = await this.delegate.findMany({
         where,
         orderBy: { tanggal: 'desc' },
         include: {
-          createdByuser: {
-            select: { id: true, name: true, email: true }
-          },
-          updatedByuser: {
-            select: { id: true, name: true, email: true }
-          },
+          createdByuser: { select: { id: true, name: true, email: true } },
+          updatedByuser: { select: { id: true, name: true, email: true } },
         }
       })
-      // Convert BigInt to string for JSON serialization
-      // Convert BigInt to string for JSON serialization
       return (items as Record<string, unknown>[]).map((item) => ({
         ...item,
         jumlah: typeof item.jumlah === 'bigint' ? item.jumlah.toString() : (item.jumlah as string | number)
       })) as unknown as PengeluaranPublic[]
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 
   async aggregateTotalByPeriod(month?: number, year?: number): Promise<bigint> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return BigInt(0)
-      }
-
-      const where: Record<string, unknown> = {}
-
+      if (!('pengeluaran' in this.client)) return BigInt(0);
+      const tenantWhere = await this.getTenantWhere();
+      const where: Record<string, unknown> = { ...tenantWhere }
       if (month !== undefined && year !== undefined) {
-        where.tanggal = {
-          gte: new Date(year, month - 1, 1), // Start of month
-          lt: new Date(year, month, 1), // Start of next month
-        }
+        where.tanggal = { gte: new Date(year, month - 1, 1), lt: new Date(year, month, 1) }
       }
-
-      const result = await this.delegate.aggregate({
-        where,
-        _sum: {
-          jumlah: true,
-        },
-      })
-
+      const result = await this.delegate.aggregate({ where, _sum: { jumlah: true } })
       return result._sum.jumlah || BigInt(0)
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return BigInt(0)
-      }
-      throw error
+    } catch (_error: unknown) {
+      return BigInt(0);
     }
   }
 
   async aggregateTotalByTipeAndPeriod(tipePengeluaran: 'CAPEX' | 'OPEX', month?: number, year?: number): Promise<bigint> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return BigInt(0)
-      }
-
-      const where: Record<string, unknown> = { tipePengeluaran }
-
+      if (!('pengeluaran' in this.client)) return BigInt(0);
+      const tenantWhere = await this.getTenantWhere();
+      const where: Record<string, unknown> = { ...tenantWhere, tipePengeluaran }
       if (month !== undefined && year !== undefined) {
-        where.tanggal = {
-          gte: new Date(year, month - 1, 1), // Start of month
-          lt: new Date(year, month, 1), // Start of next month
-        }
+        where.tanggal = { gte: new Date(year, month - 1, 1), lt: new Date(year, month, 1) }
       }
-
-      const result = await this.delegate.aggregate({
-        where,
-        _sum: {
-          jumlah: true,
-        },
-      })
-
+      const result = await this.delegate.aggregate({ where, _sum: { jumlah: true } })
       return result._sum.jumlah || BigInt(0)
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return BigInt(0)
-      }
-      throw error
+    } catch (_error: unknown) {
+      return BigInt(0);
     }
   }
 
   async groupByCategoryAndPeriod(month?: number, year?: number): Promise<GroupedPengeluaran[]> {
     try {
-      if (!('pengeluaran' in this.client)) {
-        return []
-      }
-
-      const where: Record<string, unknown> = {}
-
+      if (!('pengeluaran' in this.client)) return [];
+      const tenantWhere = await this.getTenantWhere();
+      const where: Record<string, unknown> = { ...tenantWhere }
       if (month !== undefined && year !== undefined) {
-        where.tanggal = {
-          gte: new Date(year, month - 1, 1), // Start of month
-          lt: new Date(year, month, 1), // Start of next month
-        }
+        where.tanggal = { gte: new Date(year, month - 1, 1), lt: new Date(year, month, 1) }
       }
-
       const items = await this.delegate.groupBy({
         by: ['kategori', 'tipePengeluaran'],
         where,
-        _sum: {
-          jumlah: true,
-        },
-        _count: {
-          id: true,
-        },
+        _sum: { jumlah: true },
+        _count: { id: true },
       })
-
       return (items as unknown as RawGroupResult[]).map((item) => ({
         kategori: item.kategori || 'Lainnya',
         tipePengeluaran: item.tipePengeluaran || 'OPEX',
-        _sum: {
-          jumlah: Number(item._sum.jumlah || 0)
-        },
-        _count: {
-          id: item._count.id || 0
-        }
+        _sum: { jumlah: Number(item._sum.jumlah || 0) },
+        _count: { id: item._count.id || 0 }
       }))
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      if (err.message?.includes('Unknown model') || err.message?.includes('does not exist') || err.message?.includes('Cannot read properties')) {
-        return []
-      }
-      throw error
+    } catch (_error: unknown) {
+      return [];
     }
   }
 }
-

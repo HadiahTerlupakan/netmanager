@@ -1,4 +1,4 @@
-import type { MixRadiusConfig, MixRadiusCustomer } from '@/prisma/generated/billing'
+import type { MixRadiusConfig, MixRadiusCustomer } from '@prisma/client-billing'
 import type {
     IntegrationConfigListItemDTO,
     IntegrationConfigDetailDTO,

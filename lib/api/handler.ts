@@ -146,9 +146,34 @@ export function createHandler<T = unknown>(
                     const authHeader = request.headers.get('Authorization')
                     if (authHeader?.startsWith('Bearer ')) {
                         const token = authHeader.split(' ')[1]
-                        if (token) {
-                            const { verifyMobileToken } = await import('@/lib/mobile-auth')
-                            const payload = await verifyMobileToken(token)
+                        if (token && token !== 'null') {
+                            const { verifyMobileToken, getMobileTokenDetails } = await import('@/lib/mobile-auth')
+                            
+                            // Extract version code for compatibility check
+                            const rawVersionCode = request.headers.get('x-app-version-code')
+                            const requestVersionCode = rawVersionCode ? Number(rawVersionCode) : null
+                            const validVersionCode = (requestVersionCode && Number.isFinite(requestVersionCode)) ? requestVersionCode : null
+
+                            // Check version liveness first for specific 426 response
+                            const details = await getMobileTokenDetails(token, validVersionCode)
+                            if (details && !details.versionAccess.isSupported) {
+                                return apiError(
+                                    'Aplikasi harus diperbarui untuk melanjutkan.',
+                                    ErrorCodes.APP_VERSION_UNSUPPORTED,
+                                    {
+                                        status: 426,
+                                        details: {
+                                            currentVersionCode: details.versionCode,
+                                            minimumVersion: details.versionAccess.minimumVersion,
+                                            latestVersion: details.versionAccess.latestVersion,
+                                            isForceUpdate: details.versionAccess.isForceUpdate,
+                                            updateAvailable: details.versionAccess.updateAvailable
+                                        }
+                                    }
+                                )
+                            }
+
+                            const payload = await verifyMobileToken(token, validVersionCode)
 
                             if (payload) {
                                 ctx.session = {
@@ -157,7 +182,7 @@ export function createHandler<T = unknown>(
                                         email: (payload.email as string) || '',
                                         name: payload.name as string | undefined,
                                         role: payload.role,
-                                        tenantId: payload.tenantId,
+                                        tenantId: payload.tenantId || undefined,
                                         isSuperAdmin: payload.isSuperAdmin,
                                     }
                                 }

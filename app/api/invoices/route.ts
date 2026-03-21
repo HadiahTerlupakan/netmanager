@@ -1,4 +1,4 @@
-import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
+import { Prisma as PrismaBilling } from '@prisma/client-billing';
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { invoiceSchema } from '@/lib/validations/invoice'

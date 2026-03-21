@@ -1,5 +1,5 @@
 import { prismaMitra } from '@/lib/prisma-mitra'
-import { Prisma, WithdrawStatus } from '@/prisma/generated/mitra'
+import { Prisma, WithdrawStatus } from '@prisma/client-mitra'
 import type { MitraFilters, MitraWithDetails } from '../dto/MitraDTO'
 
 export class MitraRepository {

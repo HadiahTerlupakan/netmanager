@@ -1,69 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { convertAndSaveImage, saveFile, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
 import { Status, Prisma } from '@prisma/client'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { hasPermission } from '@/lib/rbac'
 import { getPelangganService } from '@/modules/pelanggan'
 import type { FilterOptions } from '@/modules/pelanggan'
-import { logActivitySafe } from '@/lib/logger'
 import { checkSiteRestriction } from '@/modules/roles'
-import { apiSuccess, apiPaginated } from '@/lib/api-response'
+import { apiSuccess, apiPaginated, ApiErrors, createHandler, apiError } from '@/lib/api'
+import { createPelangganSchema } from '@/lib/validations/pelanggan'
+import { validateFileSignature } from '@/lib/utils/file-validation'
 
 /**
- * @swagger
- * /api/pelanggan-ppp:
- *   get:
- *     summary: Get all PPPoE customers
- *     description: Retrieve a list of all PPPoE customers with their package and bandwidth details
- *     tags: [Customer Management]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [AKTIF, NONAKTIF, ISOLIR]
- *         description: Filter by customer status
- *     responses:
- *       200:
- *         description: Successfully retrieved customer list
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       500:
- *         $ref: '#/components/responses/Error'
+ * GET /api/pelanggan-ppp
+ * Get all PPPoE customers with Read-Audit support.
  */
-export async function GET(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
-
-    if (!(await hasPermission("pelanggan:read"))) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-    }
-
-    const { searchParams } = new URL(req.url)
+export const GET = createHandler({ 
+    auth: true,
+    permissions: ['pelanggan:read']
+}, async (req, ctx) => {
+    const session = ctx.session!;
+    const { searchParams } = req.nextUrl
     const status = searchParams.get('status') as Status | null
     const siteIdParam = searchParams.get('siteId')
     const search = searchParams.get('search')
 
-    const { isRestricted, siteIds } = checkSiteRestriction(session, 'pelanggan')
+    const { isRestricted, siteIds } = checkSiteRestriction(session as unknown as Parameters<typeof checkSiteRestriction>[0], 'pelanggan')
 
     const filter: FilterOptions & { siteIds?: string[] } = {}
     if (status) filter.status = status
     if (search) filter.search = search
 
     if (isRestricted) {
-      if (siteIds.length === 0) {
-        return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
-      }
-      // Pass siteIds to filter (depends on if service supports it)
-      // We will cast to any to pass the array to Prisma if FilterOptions doesn't explicitly support it
+      if (siteIds.length === 0) return ApiErrors.forbidden('User tidak memiliki akses site')
       filter.siteId = { in: siteIds } as Prisma.StringNullableFilter
     } else if (siteIdParam) {
       filter.siteId = siteIdParam
@@ -76,85 +42,37 @@ export async function GET(req: NextRequest) {
     const { data: pelanggans, total } = await pelangganService.getAllPelangganPaginated(filter, page, limit)
 
     return apiPaginated(pelanggans, { page, limit, total })
-  } catch (error) {
-    console.error('Error fetching pelanggans:', error)
-    return NextResponse.json(
-      { error: (error as Error)?.message || 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
-  }
-}
+})
 
 /**
- * @swagger
- * /api/pelanggan-ppp:
- *   post:
- *     summary: Create a new PPPoE customer
- *     description: Create a new PPPoE customer with service package and account details
- *     tags: [Customer Management]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     responses:
- *       201:
- *         description: Successfully created customer
- *       400:
- *         $ref: '#/components/responses/ValidationError'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       409:
- *         description: ID or Username already exists
- *       500:
- *         $ref: '#/components/responses/Error'
+ * POST /api/pelanggan-ppp
+ * Create a new PPPoE customer with auto-audit.
  */
-import { createPelangganSchema } from '@/lib/validations/pelanggan'
-import { validateFileSignature } from '@/lib/utils/file-validation'
-
-export async function POST(req: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
-
-    if (!(await hasPermission("pelanggan:create"))) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
-    }
-
+export const POST = createHandler({ 
+    auth: true,
+    permissions: ['pelanggan:create']
+}, async (req, ctx) => {
+    const session = ctx.session!;
     const formData = await req.formData()
     const rawData = Object.fromEntries(formData.entries())
     if (rawData.siteId === '') rawData.siteId = null;
     if (rawData.odpId === '') rawData.odpId = null;
 
-    // Convert checkbox/boolean fields explicitly for Zod
-    // (Note: The schema handles string 'true'/'on', but helpful to be explicit)
-
-    // Parse with Zod
     const validationResult = createPelangganSchema.safeParse(rawData)
-
     if (!validationResult.success) {
-      // console.log('Validation Error:', JSON.stringify(validationResult.error.flatten(), null, 2));
       const details = validationResult.error.flatten();
       const firstError = Object.values(details.fieldErrors)[0]?.[0] || 'Periksa kembali input Anda';
-      return NextResponse.json(
-        { error: `Validasi Gagal: ${firstError}`, details },
-        { status: 400 }
-      )
+      return apiError(`Validasi Gagal: ${firstError}`, 'VALIDATION_ERROR', { status: 400, details });
     }
 
     const data = validationResult.data
+    const { isRestricted, primarySiteId } = checkSiteRestriction(session as unknown as Parameters<typeof checkSiteRestriction>[0], 'pelanggan')
 
-    const { isRestricted, primarySiteId } = checkSiteRestriction(session, 'pelanggan')
-
-    // Force siteId for restricted users
     if (isRestricted) {
-      if (!primarySiteId) {
-        return NextResponse.json({ error: 'User tidak memiliki akses site' }, { status: 403 })
-      }
+      if (!primarySiteId) return ApiErrors.forbidden('User tidak memiliki akses site')
       data.siteId = primarySiteId
     }
 
-    // Handle file uploads with strict validation
     const fileKTP = formData.get('fileKTP') as File | null
     const fileRumahSekitar = formData.get('fileRumahSekitar') as File | null
     const fileBAST = formData.get('fileBAST') as File | null
@@ -168,100 +86,29 @@ export async function POST(req: NextRequest) {
 
     try {
       if (fileKTP && fileKTP.size > 0) {
-        const isValid = await validateFileSignature(fileKTP, ALLOWED_TYPES)
-        if (!isValid) {
-          return NextResponse.json({ error: 'File KTP tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
-        }
-
-        if (isImageFile(fileKTP)) {
-          fileKTPPath = await convertAndSaveImage(fileKTP, pelangganUploadDir, 'ktp')
-        } else {
-          const ext = path.extname(fileKTP.name) || '.pdf'
-          fileKTPPath = await saveFile(fileKTP, pelangganUploadDir, `ktp${ext}`)
-        }
+        if (!await validateFileSignature(fileKTP, ALLOWED_TYPES)) return apiError('File KTP tidak valid', 'VALIDATION_ERROR', { status: 400 })
+        fileKTPPath = isImageFile(fileKTP) ? await convertAndSaveImage(fileKTP, pelangganUploadDir, 'ktp') : await saveFile(fileKTP, pelangganUploadDir, `ktp${path.extname(fileKTP.name) || '.pdf'}`)
       }
-
       if (fileRumahSekitar && fileRumahSekitar.size > 0) {
-        const isValid = await validateFileSignature(fileRumahSekitar, ALLOWED_TYPES)
-        if (!isValid) {
-          return NextResponse.json({ error: 'File Rumah tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
-        }
-
-        if (isImageFile(fileRumahSekitar)) {
-          fileRumahSekitarPath = await convertAndSaveImage(fileRumahSekitar, pelangganUploadDir, 'rumah')
-        } else {
-          const ext = path.extname(fileRumahSekitar.name) || '.pdf'
-          fileRumahSekitarPath = await saveFile(fileRumahSekitar, pelangganUploadDir, `rumah${ext}`)
-        }
+        if (!await validateFileSignature(fileRumahSekitar, ALLOWED_TYPES)) return apiError('File Rumah tidak valid', 'VALIDATION_ERROR', { status: 400 })
+        fileRumahSekitarPath = isImageFile(fileRumahSekitar) ? await convertAndSaveImage(fileRumahSekitar, pelangganUploadDir, 'rumah') : await saveFile(fileRumahSekitar, pelangganUploadDir, `rumah${path.extname(fileRumahSekitar.name) || '.pdf'}`)
       }
-
       if (fileBAST && fileBAST.size > 0) {
-        const isValid = await validateFileSignature(fileBAST, ALLOWED_TYPES)
-        if (!isValid) {
-          return NextResponse.json({ error: 'File BAST tidak valid (harus JPG, PNG, atau PDF)' }, { status: 400 })
-        }
-
-        if (isImageFile(fileBAST)) {
-          fileBASTPath = await convertAndSaveImage(fileBAST, pelangganUploadDir, 'bast')
-        } else {
-          const ext = path.extname(fileBAST.name) || '.pdf'
-          fileBASTPath = await saveFile(fileBAST, pelangganUploadDir, `bast${ext}`)
-        }
+        if (!await validateFileSignature(fileBAST, ALLOWED_TYPES)) return apiError('File BAST tidak valid', 'VALIDATION_ERROR', { status: 400 })
+        fileBASTPath = isImageFile(fileBAST) ? await convertAndSaveImage(fileBAST, pelangganUploadDir, 'bast') : await saveFile(fileBAST, pelangganUploadDir, `bast${path.extname(fileBAST.name) || '.pdf'}`)
       }
-    } catch (fileError) {
-      console.error('Error saving files:', fileError)
-      return NextResponse.json({ error: 'Gagal memproses upload file' }, { status: 500 })
+    } catch (e) {
+      console.error('Error saving files:', e)
+      return ApiErrors.internalError('Gagal memproses upload file')
     }
 
-    // Create pelanggan using service
     const pelangganService = getPelangganService()
-    const pelanggan = await pelangganService.createPelanggan({
-      ...data,
-      fileKTP: fileKTPPath,
-      fileRumahSekitar: fileRumahSekitarPath,
-      fileBAST: fileBASTPath,
-    } as Parameters<ReturnType<typeof getPelangganService>['createPelanggan']>[0])
+    const pelanggan = await pelangganService.createPelanggan({ ...data, fileKTP: fileKTPPath, fileRumahSekitar: fileRumahSekitarPath, fileBAST: fileBASTPath } as Parameters<typeof pelangganService.createPelanggan>[0])
 
-    // Revalidate cache
     const { revalidatePath } = await import('next/cache')
     revalidatePath('/admin/pelanggan/ppp')
     revalidatePath('/api/pelanggan-ppp')
 
-    // System Log
-    logActivitySafe({
-      action: 'CREATE',
-      subject: 'Pelanggan',
-      userId: session.user.id ?? 'unknown',
-      details: { id: pelanggan.id, nama: pelanggan.nama, username: pelanggan.username }
-    })
-
+    ctx.validated = { id: pelanggan.id, idPelanggan: pelanggan.idPelanggan, nama: pelanggan.nama, username: pelanggan.username } // Sync for audit log
     return apiSuccess(pelanggan, { status: 201 })
-  } catch (error: unknown) {
-    console.error('Error creating pelanggan:', error)
-
-    const errorMsg = (error as Error)?.message || String(error)
-    const errorCode = (error as { code?: string })?.code
-
-    // Handle specific errors from service
-    if (errorMsg.includes('sudah digunakan')) {
-      return NextResponse.json({ error: errorMsg }, { status: 409 })
-    }
-
-    if (errorMsg === 'Harga Paket tidak ditemukan') {
-      return NextResponse.json({ error: errorMsg }, { status: 404 })
-    }
-
-    // Handle Prisma unique constraint error
-    if (errorCode === 'P2002') {
-      return NextResponse.json(
-        { error: 'ID Pelanggan atau Username sudah digunakan.' },
-        { status: 409 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: errorMsg || 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
-  }
-}
+})

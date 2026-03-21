@@ -1,4 +1,4 @@
-import { InvoiceStatus } from '@/prisma/generated/billing';;
+import { InvoiceStatus } from '@prisma/client-billing';;
 import { prisma } from '@/lib/prisma';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';

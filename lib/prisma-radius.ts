@@ -1,4 +1,4 @@
-import { PrismaClient as PrismaClientRadius } from '@/prisma/generated/radius'
+import { PrismaClient as PrismaClientRadius } from '@prisma/client-radius'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { withTenantIsolation } from './prisma-extension'

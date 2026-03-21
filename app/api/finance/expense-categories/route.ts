@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { isSuperAdmin } from "@/lib/auth";
 import { z } from "zod";
 import { hasPermission } from "@/lib/rbac";
@@ -11,59 +11,30 @@ export const dynamic = 'force-dynamic';
 
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     const { searchParams } = req.nextUrl;
-    const type = searchParams.get("type"); // CAPEX or OPEX
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const type = searchParams.get("type") || undefined;
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
 
-    const where: { type?: string } = {};
-    if (type) {
-        where.type = type;
-    }
+    let startDate: Date | undefined;
+    let endDate: Date | undefined;
 
-    // Build expense filter
-    const expenseWhere: { date?: { gte: Date; lte: Date } } = {};
-    if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+    if (startDateParam && endDateParam) {
+        const start = new Date(startDateParam);
+        const end = new Date(endDateParam);
         if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-            // Set end date to end of day
-            end.setTime(toEndOfDay(end).getTime());
-            expenseWhere.date = {
-                gte: start,
-                lte: end
-            };
+            startDate = start;
+            endDate = toEndOfDay(end);
         }
     }
 
-    const categories = await prisma.expenseCategory.findMany({
-        where,
-        include: {
-            parent: {
-                select: { name: true }
-            },
-            _count: {
-                select: { children: true }
-            },
-            expenses: {
-                where: expenseWhere,
-                select: { amount: true }
-            }
-        },
-        orderBy: {
-            name: 'asc'
-        }
+    const financeService = new FinanceService();
+    const categories = await financeService.getExpenseCategories({
+        type,
+        startDate,
+        endDate
     });
 
-    // Calculate direct total per category
-    const categoriesWithTotal = categories.map(cat => {
-        const { expenses, ...rest } = cat;
-        return {
-            ...rest,
-            totalDirect: expenses.reduce((sum, e) => sum + Number(e.amount), 0)
-        };
-    });
-
-    return apiSuccess(categoriesWithTotal);
+    return apiSuccess(categories);
 });
 
 const createCategorySchema = z.object({
@@ -88,38 +59,19 @@ export const POST = createHandler({
          return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create");
     }
 
-    const { name, type, parentId } = ctx.validated;
+    const financeService = new FinanceService();
+    try {
+        const category = await financeService.createExpenseCategory(ctx.validated);
 
-    // Check if exists
-    const existing = await prisma.expenseCategory.findFirst({
-        where: {
-            name: {
-                equals: name,
-                mode: 'insensitive'
-            },
-            type,
-            parentId: parentId || null
-        }
-    });
+        await logger.logActivity({
+            action: 'CREATE',
+            subject: 'ExpenseCategory',
+            details: { id: category.id, name: category.name, type: category.type },
+            userId: user.id
+        });
 
-    if (existing) {
-        return ApiErrors.badRequest(`Kategori "${name}" sudah ada di level ini.`);
+        return apiSuccess(category);
+    } catch (error: unknown) {
+        return ApiErrors.badRequest(error instanceof Error ? error.message : "Gagal membuat kategori");
     }
-
-    const category = await prisma.expenseCategory.create({
-        data: {
-            name,
-            type,
-            ...(parentId ? { parentId } : {})
-        }
-    });
-
-    await logger.logActivity({
-        action: 'CREATE',
-        subject: 'ExpenseCategory',
-        details: { id: category.id, name: category.name, type: category.type },
-        userId: user.id
-    });
-
-    return apiSuccess(category);
 });

@@ -1,4 +1,4 @@
-import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
+import { Prisma as PrismaBilling } from '@prisma/client-billing';
 /**
  * Re-export Prisma types dan custom model extensions
  */

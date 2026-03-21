@@ -1,42 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { apiSuccess, createHandler } from '@/lib/api'
 
 /**
  * GET /api/mobile/geofence
  * Mengambil daftar zona geofence untuk user yang sedang login
  */
-export async function GET(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request)
-        if (authResult instanceof NextResponse) {
-            return authResult
+export const GET = createHandler({ auth: true }, async (_request, ctx) => {
+    const userId = ctx.session!.user.id
+    const geofenceService = new GeofenceService()
+    const [zones, policy] = await Promise.all([
+        geofenceService.getZonesForUser(userId),
+        geofenceService.getPolicyForUser(userId)
+    ])
+
+    return apiSuccess({
+        zones,
+        policy,
+        // Config for mobile app
+        config: {
+            enableWarning: true,  // Show warning if outside zone
+            requirePhoto: true,   // Require photo for attendance
         }
-
-        const payload = authResult
-        const userId = payload.userId || payload.sub
-        const geofenceService = new GeofenceService()
-        const [zones, policy] = await Promise.all([
-            geofenceService.getZonesForUser(userId),
-            geofenceService.getPolicyForUser(userId)
-        ])
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                zones,
-                policy,
-                // Config for mobile app
-                config: {
-                    enableWarning: true,  // Show warning if outside zone
-                    requirePhoto: true,   // Require photo for attendance
-                }
-            }
-        })
-
-    } catch (error: unknown) {
-        console.error('Error fetching geofence zones:', error)
-        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
-    }
-}
+    })
+})

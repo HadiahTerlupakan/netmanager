@@ -1,5 +1,5 @@
 import { EmployeeType } from '@prisma/client'
-import { MitraType, WithdrawMethod } from '@/prisma/generated/mitra'
+import { MitraType, WithdrawMethod } from '@prisma/client-mitra'
 
 export interface CreateMitraDTO {
     name: string

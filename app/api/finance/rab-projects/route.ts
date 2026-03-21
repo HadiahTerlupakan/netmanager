@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { FinanceService } from "@/modules/finance/services/FinanceService";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { z } from "zod";
@@ -98,95 +98,17 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const { searchParams } = req.nextUrl;
-    const siteId = searchParams.get("siteId");
-    const mixRadiusGroupId = searchParams.get("mixRadiusGroupId");
-    const mixRadiusInvestorSiteId = searchParams.get("mixRadiusInvestorSiteId");
-    const status = searchParams.get("status");
+    const params = {
+        siteId: searchParams.get("siteId"),
+        mixRadiusGroupId: searchParams.get("mixRadiusGroupId"),
+        mixRadiusInvestorSiteId: searchParams.get("mixRadiusInvestorSiteId"),
+        status: searchParams.get("status")
+    }
 
-    const where: Record<string, string> = {};
-    if (siteId) where.siteId = siteId;
-    if (mixRadiusGroupId) where.mixRadiusGroupId = mixRadiusGroupId;
-    if (mixRadiusInvestorSiteId) where.mixRadiusInvestorSiteId = mixRadiusInvestorSiteId;
-    if (status) where.status = status;
+    const financeService = new FinanceService();
+    const projects = await financeService.getRabProjects(params);
 
-    const projects = await prisma.rabProject.findMany({
-        where,
-        include: {
-            items: {
-                include: {
-                    disbursements: true,
-                    expenseCategory: {
-                        include: {
-                            parent: true
-                        }
-                    }
-                }
-            },
-            wbsGroups: true,
-            site: { select: { name: true } },
-            investors: true,
-            creator: { select: { name: true } },
-            approvals: {
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                            role: {
-                                select: { name: true }
-                            }
-                        }
-                    }
-                }
-            },
-            revisions: {
-                select: {
-                    id: true,
-                    revisionNumber: true,
-                    status: true
-                },
-                orderBy: { revisionNumber: 'desc' },
-                take: 1
-            },
-            _count: {
-                select: {
-                    revisions: true
-                }
-            }
-        },
-    });
-
-    // Serialize BigInt and new fields
-    const serialized = projects.map(p => {
-        const { revisions, _count, ...projectData } = p
-
-        return {
-            ...projectData,
-            projectedRevenue: p.projectedRevenue.toString(),
-            projectedOpex: p.projectedOpex.toString(),
-            arpu: p.arpu?.toString() || null,
-            contingencyAmount: p.contingencyAmount?.toString() || "0",
-            revisionCount: _count?.revisions || 0,
-            latestRevision: revisions?.[0] || null,
-            investors: (p.investors || []).map((i: { investmentAmount: bigint }) => ({
-                ...i,
-                investmentAmount: i.investmentAmount?.toString() || "0"
-            })),
-            items: p.items.map(i => ({
-                ...i,
-                unitPrice: i.unitPrice.toString(),
-                totalPrice: i.totalPrice.toString(),
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                disbursements: (i.disbursements || []).map((d: any) => ({
-                    ...d,
-                    amount: d.amount.toString()
-                }))
-            }))
-        }
-    });
-
-    return apiSuccess(serialized);
+    return apiSuccess(projects);
 });
 
 // POST: Create RAB Project
@@ -204,141 +126,11 @@ export const POST = createHandler({
         return ApiErrors.forbidden("Akses ditolak. Anda memerlukan permission: expense:create ATAU mixradius_expenses:create");
     }
 
-    const {
-        name, description, siteId, mixRadiusGroupId, mixRadiusInvestorSiteId,
-        projectedRevenue, projectedOpex, items,
-        targetSubscribers, arpu, growthType, paymentType, growthSettings, startDate,
-        investmentDurationMonths, investmentRecoveryType, investmentRecoveryValue, investorProfitSharePercent,
-        contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups, investorIds
-    } = ctx.validated;
-
-    // Calculate item totals - category and expenseType already validated by Zod as proper enums
-    // Items mapped but never used
-    // Removed unused itemsWithTotal
-
-    const project = await prisma.$transaction(async (tx) => {
-        // Create base project
-        const p = await tx.rabProject.create({
-            data: {
-                name,
-                description,
-                siteId,
-                mixRadiusGroupId,
-                mixRadiusInvestorSiteId,
-                projectedRevenue,
-                projectedOpex,
-                targetSubscribers,
-                arpu,
-                growthType,
-                paymentType,
-                growthSettings: growthSettings || undefined,
-                startDate,
-                investmentDurationMonths,
-                investmentRecoveryType,
-                investmentRecoveryValue,
-                investorProfitSharePercent,
-                contingencyPercent,
-                contingencyAmount,
-                nplTolerancePercent,
-                hasDisbursementPlan,
-                createdBy: user.id
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any
-        });
-
-        // WBS mapping
-        const wbsMap = new Map<string, string>(); // tempId -> dbId
-        for (const wbs of wbsGroups) {
-            const createdWbs = await tx.rabWbs.create({
-                data: {
-                    rabProjectId: p.id,
-                    name: wbs.name,
-                    order: wbs.order,
-                }
-            });
-            if (wbs.id) {
-                wbsMap.set(wbs.id, createdWbs.id);
-            }
-        }
-
-        // Items and their nested disbursements
-        if (items.length > 0) {
-            for (const item of items) {
-                const createdItem = await tx.rabItem.create({
-                    data: {
-                        rabProjectId: p.id,
-                        name: item.name,
-                        description: item.description,
-                        quantity: item.quantity,
-                        unitPrice: item.unitPrice,
-                        category: item.category,
-                        expenseType: item.expenseType,
-                        expenseCategoryId: item.expenseCategoryId,
-                        totalPrice: BigInt(item.quantity) * item.unitPrice,
-                        wbsId: item.wbsGroupId ? wbsMap.get(item.wbsGroupId) : undefined,
-                    }
-                });
-
-                if (item.disbursements && item.disbursements.length > 0) {
-                    const disbData = item.disbursements.map(d => ({
-                        rabItemId: createdItem.id,
-                        name: d.name,
-                        percentage: d.percentage,
-                        amount: d.amount,
-                        estimatedDate: d.estimatedDate,
-                        isPaid: d.isPaid,
-                    }));
-                    await tx.rabDisbursement.createMany({ data: disbData });
-                }
-            }
-        }
-
-        if (investorIds && investorIds.length > 0) {
-            const totalCapex = items
-                .filter(i => i.expenseType === 'CAPEX')
-                .reduce((acc, i) => acc + (Number(i.quantity) * Number(i.unitPrice)), 0);
-
-            const splitAmount = Math.floor(totalCapex / investorIds.length);
-
-            await tx.rabInvestor.createMany({
-                data: investorIds.map(id => ({
-                    rabProjectId: p.id,
-                    investorId: id,
-                    investmentAmount: splitAmount,
-                    profitSharePercent: p.investorProfitSharePercent
-                }))
-            });
-        }
-
-        return tx.rabProject.findUnique({
-            where: { id: p.id },
-            include: {
-                items: { include: { disbursements: true } },
-                wbsGroups: true
-            }
-        });
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const proj = project as any;
-    const serialized = {
-        ...proj,
-        projectedRevenue: proj.projectedRevenue.toString(),
-        projectedOpex: proj.projectedOpex.toString(),
-        arpu: proj.arpu?.toString() || null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        items: (proj.items || []).map((i: any) => ({
-            ...i,
-            unitPrice: i.unitPrice.toString(),
-            totalPrice: i.totalPrice.toString(),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            disbursements: (i.disbursements || []).map((d: any) => ({
-                ...d,
-                amount: d.amount.toString()
-            }))
-        })),
-        contingencyAmount: proj.contingencyAmount?.toString()
-    };
-
-    return apiSuccess(serialized, { status: 201 });
+    const financeService = new FinanceService();
+    try {
+        const project = await financeService.createRabProject(ctx.validated as Parameters<typeof financeService.createRabProject>[0], user.id);
+        return apiSuccess(project, { status: 201 });
+    } catch (error: unknown) {
+        return ApiErrors.badRequest(error instanceof Error ? error.message : "Gagal membuat proyek RAB");
+    }
 });

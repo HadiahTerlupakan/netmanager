@@ -1,7 +1,7 @@
 import { prismaBilling } from '@/lib/prisma-billing'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { InvoiceStatus } from '@/prisma/generated/billing'
+import { InvoiceStatus } from '@prisma/client-billing'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 
 export class VoidInvoiceService {

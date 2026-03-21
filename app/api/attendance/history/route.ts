@@ -1,45 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { createHandler, apiPaginated } from '@/lib/api'
 
-export async function GET(request: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session || !session.user || !session.user.id) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-        }
+export const dynamic = 'force-dynamic'
 
-        const userId = session.user.id
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const userId = ctx.session!.user.id
+    const { searchParams } = req.nextUrl
+    
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
 
-        // Pagination params
-        const { searchParams } = new URL(request.url)
-        const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '10')
-        const skip = (page - 1) * limit
+    const attendanceService = new AttendanceService()
+    const result = await attendanceService.getAttendanceHistory(userId, { page, limit })
 
-        const [attendances, total] = await Promise.all([
-            prisma.attendance.findMany({
-                where: { userId },
-                orderBy: { checkIn: 'desc' },
-                take: limit,
-                skip
-            }),
-            prisma.attendance.count({ where: { userId } })
-        ])
-
-        return NextResponse.json({
-            success: true,
-            data: attendances,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit)
-            }
-        })
-
-    } catch (_error) {
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
-    }
-}
+    return apiPaginated(result.attendances, {
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+        total: result.pagination.total
+    })
+})

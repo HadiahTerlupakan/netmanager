@@ -1,4 +1,4 @@
-import { PrismaClient } from '@/prisma/generated/billing'
+import { PrismaClient } from '@prisma/client-billing'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { withTenantIsolation } from './prisma-extension'

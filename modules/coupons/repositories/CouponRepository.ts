@@ -1,4 +1,4 @@
-import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
+import { Prisma as PrismaBilling } from '@prisma/client-billing';
 import { PrismaClient, Prisma } from '@prisma/client'
 import type { Coupon, CouponUsage } from '@prisma/client'
 import { prisma } from '@/lib/prisma'

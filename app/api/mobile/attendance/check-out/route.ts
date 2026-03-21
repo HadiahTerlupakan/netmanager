@@ -1,31 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
-import { logger, logActivitySafe } from '@/lib/logger'
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendanceIdempotencyService } from '@/modules/attendance/services/AttendanceIdempotencyService'
 import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
 import { validateCoordinates } from '@/lib/validation-utils'
 import { verifySignature } from '@/lib/crypto'
+import { apiSuccess, apiError, ErrorCodes, createHandler } from '@/lib/api'
 
-export async function POST(request: NextRequest) {
-    let userId: string | null = null
+export const POST = createHandler({ auth: true }, async (request, ctx) => {
+    const userSession = ctx.session!.user
+    const userId = userSession.id
+    const tenantId = userSession.tenantId as string
     let resolvedRequestId: string | null = null
 
     try {
-        const authResult = await getMobileAuthPayload(request)
-        if (authResult instanceof NextResponse) {
-            return authResult
-        }
-
-        userId = authResult.id as string
-        const tenantId = authResult.tenantId as string
         let bodyRequestId: string | undefined
-
-        if (!userId) {
-            return apiError('Struktur token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
-        }
-
         let photoUrl: string | null = null
         let notes = ''
         let location = ''
@@ -36,206 +23,91 @@ export async function POST(request: NextRequest) {
         const contentType = request.headers.get('content-type') || ''
         
         if (contentType.includes('application/json')) {
-            const body = await request.json() as {
-              location: string;
-              notes: string;
-              photoUrl?: string;
-              latitude?: number;
-              longitude?: number;
-              requestId?: string;
-              _offline_meta?: { capturedAt?: string; signature?: string };
-            }
+            const body = await request.json()
             location = body.location
             notes = body.notes
             bodyRequestId = body.requestId
 
-            // Handle photoUrl from trusted CDN or relative path
             if (body.photoUrl) {
-                // SECURITY: Accept relative paths from our upload endpoint
-                // OR full URLs from trusted CDN domains
                 if (body.photoUrl.startsWith('/uploads/')) {
-                    // Relative path from our own upload endpoint - trusted
                     photoUrl = body.photoUrl
                 } else {
                     const trustedDomains = ['cdn.radpro.id', 'localhost:3000', '0.0.0.0:3000']
                     try {
                         const url = new URL(body.photoUrl)
-                        const isTrusted = trustedDomains.some(domain =>
-                            url.host === domain || url.host.endsWith('.' + domain)
-                        )
-                        if (isTrusted) {
+                        if (trustedDomains.some(domain => url.host === domain || url.host.endsWith('.' + domain))) {
                             photoUrl = body.photoUrl
                         }
-                    } catch {
-                        // Invalid URL, ignore
-                    }
+                    } catch {}
                 }
             }
 
-            // Validate coordinates using centralized utility
             if (body.latitude !== undefined && body.longitude !== undefined) {
                 const coordValidation = validateCoordinates(body.latitude, body.longitude)
-                if (!coordValidation.valid) {
-                    return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
-                }
+                if (!coordValidation.valid) return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 latitude = coordValidation.latitude
                 longitude = coordValidation.longitude
             }
 
-            // Signature verification for offline data
             if (body._offline_meta?.capturedAt) {
-                if (!body._offline_meta.signature) {
-                    return apiError('Data offline harus ditandatangani', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-                }
-
-                const dataToVerify = {
-                    userId,
-                    timestamp: body._offline_meta.capturedAt,
-                    latitude,
-                    longitude
-                }
-                if (!verifySignature(dataToVerify, body._offline_meta.signature)) {
+                if (!body._offline_meta.signature) return apiError('Data offline harus ditandatangani', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+                if (!verifySignature({ userId, timestamp: body._offline_meta.capturedAt, latitude, longitude }, body._offline_meta.signature)) {
                     return apiError('Tanda tangan data offline tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
                 }
-
                 const dt = new Date(body._offline_meta.capturedAt)
-                if (!isNaN(dt.getTime())) {
-                    offlineTime = dt
-                }
+                if (!isNaN(dt.getTime())) offlineTime = dt
             }
+            ctx.validated = body
         } else {
-            // FormData handling
             const formData = await request.formData()
             const photo = formData.get('photo') as File | null
             notes = formData.get('notes') as string || ''
             location = formData.get('location') as string || ''
             const requestIdValue = formData.get('requestId')
-
-            if (typeof requestIdValue === 'string') {
-                bodyRequestId = requestIdValue
-            }
+            if (typeof requestIdValue === 'string') bodyRequestId = requestIdValue
 
             if (photo) {
                 const photoService = new AttendancePhotoService()
-                try {
-                    photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
-                } catch (error: unknown) {
-                    return apiError(error instanceof Error ? error.message : 'Unknown photo processing error', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-                }
+                photoUrl = await photoService.processPhoto(photo, userId, 'checkout')
             }
 
-            // Parse coordinates from formData
             const latStr = formData.get('latitude') as string
             const lngStr = formData.get('longitude') as string
             if (latStr && lngStr) {
                 const coordValidation = validateCoordinates(latStr, lngStr)
-                if (!coordValidation.valid) {
-                    return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
-                }
+                if (!coordValidation.valid) return apiError(coordValidation.error ?? 'Koordinat tidak valid', ErrorCodes.INVALID_COORDINATES, { status: 400 })
                 latitude = coordValidation.latitude
                 longitude = coordValidation.longitude
             }
+            ctx.validated = { location, latitude, longitude, isOffline: !!offlineTime }
         }
 
-        // Use centralized service
         const attendanceService = new AttendanceService()
         const idempotencyService = new AttendanceIdempotencyService()
 
-        resolvedRequestId = idempotencyService.resolveRequestId(
-            request.headers.get('Idempotency-Key') ?? request.headers.get('idempotency-key'),
-            bodyRequestId
-        )
+        resolvedRequestId = idempotencyService.resolveRequestId(request.headers.get('Idempotency-Key') ?? request.headers.get('idempotency-key'), bodyRequestId)
 
         let payloadHash: string | null = null
-
         if (resolvedRequestId) {
-            payloadHash = idempotencyService.buildPayloadHash({
-                location,
-                notes,
-                latitude,
-                longitude,
-                photoUrl,
-                offlineTime: offlineTime?.toISOString() ?? null,
-            })
-
+            payloadHash = idempotencyService.buildPayloadHash({ location, notes, latitude, longitude, photoUrl, offlineTime: offlineTime?.toISOString() ?? null })
             const beginState = await idempotencyService.begin(userId, 'check-out', resolvedRequestId, payloadHash)
-
             if (beginState === 'completed') {
-                const replayPayload = await idempotencyService.getReplay<{ success: boolean; data: unknown; warning?: string }>(
-                    userId,
-                    'check-out',
-                    resolvedRequestId
-                )
-
-                if (replayPayload) {
-                    return apiSuccess(replayPayload, {
-                        headers: { 'X-Idempotent-Replay': 'true' }
-                    })
-                }
+                const replayPayload = await idempotencyService.getReplay<{ success: boolean; data: unknown; warning?: string }>(userId, 'check-out', resolvedRequestId)
+                if (replayPayload) return apiSuccess(replayPayload, { headers: { 'X-Idempotent-Replay': 'true' } })
             }
-
-            if (beginState === 'hash-mismatch') {
-                return apiError('Idempotency key sudah digunakan untuk payload berbeda', ErrorCodes.CONFLICT, { status: 409 })
-            }
-
-            if (beginState === 'in-progress') {
-                return apiError('Permintaan check-out sedang diproses', ErrorCodes.CONFLICT, { status: 409 })
-            }
+            if (beginState === 'hash-mismatch') return apiError('Idempotency key sudah digunakan untuk payload berbeda', ErrorCodes.CONFLICT, { status: 409 })
+            if (beginState === 'in-progress') return apiError('Permintaan check-out sedang diproses', ErrorCodes.CONFLICT, { status: 409 })
         }
 
         try {
-            const checkOutParams: {
-              userId: string;
-              photoUrl: string | null;
-              location: string;
-              notes: string;
-              latitude?: number;
-              longitude?: number;
-              offlineTime?: Date;
-              tenantId?: string;
-            } = {
-                userId,
-                photoUrl,
-                location,
-                notes,
-                tenantId
-            }
-            if (latitude !== undefined) checkOutParams.latitude = latitude
-            if (longitude !== undefined) checkOutParams.longitude = longitude
-            if (offlineTime) checkOutParams.offlineTime = offlineTime
-
-            const result = await attendanceService.checkOut(checkOutParams)
-
-            // System Log
-            logActivitySafe({
-                action: 'CHECK_OUT',
-                subject: 'Attendance',
-                userId,
-                details: {
-                    attendanceId: result.attendance.id,
-                    location,
-                    isOffline: !!offlineTime
-                }
-            })
-
-            const responsePayload = {
-                success: true,
-                data: result.attendance,
-                ...(result.warning && { warning: result.warning })
-            }
-
+            const result = await attendanceService.checkOut({ userId, photoUrl, location, notes, tenantId, latitude, longitude, offlineTime })
             if (resolvedRequestId && payloadHash) {
-                await idempotencyService.complete(userId, 'check-out', resolvedRequestId, payloadHash, responsePayload)
+                await idempotencyService.complete(userId, 'check-out', resolvedRequestId, payloadHash, { success: true, data: result.attendance, ...(result.warning && { warning: result.warning }) })
             }
-
             return apiSuccess(result.attendance, result.warning ? { message: result.warning } : undefined)
         } catch (error: unknown) {
-            if (error instanceof Error && error.message === 'OUTSIDE_GEOFENCE') {
-                return apiError('Anda berada di luar area absensi yang diizinkan', ErrorCodes.OUTSIDE_GEOFENCE, { status: 400 })
-            }
-            if (error instanceof Error && error.message === 'NO_ACTIVE_SESSION') {
-                return apiError('Anda belum melakukan check-in atau sudah check-out hari ini', ErrorCodes.NO_ACTIVE_SESSION, { status: 400 })
-            }
+            if (error instanceof Error && error.message === 'OUTSIDE_GEOFENCE') return apiError('Anda berada di luar area absensi yang diizinkan', ErrorCodes.OUTSIDE_GEOFENCE, { status: 400 })
+            if (error instanceof Error && error.message === 'NO_ACTIVE_SESSION') return apiError('Anda belum melakukan check-in atau sudah check-out hari ini', ErrorCodes.NO_ACTIVE_SESSION, { status: 400 })
             throw error
         }
 
@@ -244,8 +116,6 @@ export async function POST(request: NextRequest) {
             const idempotencyService = new AttendanceIdempotencyService()
             await idempotencyService.release(userId, 'check-out', resolvedRequestId)
         }
-
-        logger.error('Error in mobile check-out', error as Error)
-        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
+        throw error // Caught by createHandler
     }
-}
+})

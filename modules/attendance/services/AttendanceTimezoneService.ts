@@ -12,16 +12,20 @@ import { startOfDay as fnsStartOfDay, differenceInMinutes, setHours, setMinutes,
 export class AttendanceTimezoneService {
   /**
    * Get system timezone setting with caching (1 hour TTL)
+   * @param tenantId - Optional tenant ID
    * @returns Timezone string (e.g., 'Asia/Jakarta')
    */
-  async getTimezone(): Promise<string> {
-    const cacheKey = 'settings:timezone'
+  async getTimezone(tenantId?: string): Promise<string> {
+    const cacheKey = `settings:timezone${tenantId ? `:${tenantId}` : ''}`
     const cached = cache.get<string>(cacheKey)
     
     if (cached) return cached
     
     const setting = await prisma.settings.findFirst({
-      where: { key: 'GENERAL_TIMEZONE' }
+      where: { 
+        key: 'GENERAL_TIMEZONE',
+        ...(tenantId && { tenantId })
+      }
     })
     
     const timezone = setting?.value || 'Asia/Jakarta'
@@ -32,16 +36,20 @@ export class AttendanceTimezoneService {
   
   /**
    * Get attendance tolerance setting with caching (1 hour TTL)
+   * @param tenantId - Optional tenant ID
    * @returns Tolerance in minutes
    */
-  async getTolerance(): Promise<number> {
-    const cacheKey = 'settings:tolerance'
+  async getTolerance(tenantId?: string): Promise<number> {
+    const cacheKey = `settings:tolerance${tenantId ? `:${tenantId}` : ''}`
     const cached = cache.get<number>(cacheKey)
     
     if (cached) return cached
     
     const setting = await prisma.settings.findFirst({
-      where: { key: 'GENERAL_ATTENDANCE_TOLERANCE' }
+      where: { 
+        key: 'GENERAL_ATTENDANCE_TOLERANCE',
+        ...(tenantId && { tenantId })
+      }
     })
     
     const tolerance = setting?.value ? parseInt(setting.value) : 0

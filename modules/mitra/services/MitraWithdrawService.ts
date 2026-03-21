@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
 import { randomUUID } from 'crypto'
-import { Prisma, MitraTransactionType, WithdrawStatus } from '@/prisma/generated/mitra'
+import { Prisma, MitraTransactionType, WithdrawStatus } from '@prisma/client-mitra'
 import { logger, logActivitySafe } from '@/lib/logger'
 import type { WithdrawRequestDTO } from '../dto/MitraDTO'
 

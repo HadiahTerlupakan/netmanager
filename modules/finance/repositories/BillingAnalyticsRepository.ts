@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
-import type { Invoice, Payment } from '@/prisma/generated/billing'
+import type { Invoice, Payment } from '@prisma/client-billing'
 
 export type InvoiceWithPayments = Invoice & { payment: Payment[] }
 

@@ -272,7 +272,7 @@ export async function POST(
  * Update all linked invoices when payment is confirmed.
  * Parses invoiceIds from payment notes metadata and updates each invoice.
  */
-async function updateInvoicesOnPaymentTx(tx: Parameters<Parameters<typeof import('@/prisma/generated/billing').PrismaClient.prototype.$transaction>[0]>[0], paymentId: string, notes: string | null) {
+async function updateInvoicesOnPaymentTx(tx: Parameters<Parameters<typeof import('@prisma/client-billing').PrismaClient.prototype.$transaction>[0]>[0], paymentId: string, notes: string | null) {
     // Try to extract invoiceIds from notes metadata
     let invoiceIds: string[] = []
 

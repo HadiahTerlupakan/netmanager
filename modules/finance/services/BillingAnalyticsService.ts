@@ -1,6 +1,6 @@
 import { BillingAnalyticsRepository } from '../repositories/BillingAnalyticsRepository'
 import type { InvoiceWithPayments } from '../repositories/BillingAnalyticsRepository'
-import type { Payment } from '@/prisma/generated/billing'
+import type { Payment } from '@prisma/client-billing'
 
 type PeriodType = 'TODAY' | 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR' | 'CUSTOM'
 

@@ -1,5 +1,5 @@
 import { prismaMitra } from '@/lib/prisma-mitra'
-import { MitraTransactionType } from '@/prisma/generated/mitra'
+import { MitraTransactionType } from '@prisma/client-mitra'
 import { logger } from '@/lib/logger'
 
 interface ServiceResult<T = void> {

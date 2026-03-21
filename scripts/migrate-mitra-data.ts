@@ -1,5 +1,5 @@
 import { PrismaClient as PrismaMain } from '@prisma/client'
-import { PrismaClient as PrismaMitra } from '../prisma/generated/mitra'
+import { PrismaClient as PrismaMitra } from '@prisma/client-mitra'
 import { logger } from '../lib/logger'
 
 const prismaMain = new PrismaMain()

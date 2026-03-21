@@ -25,6 +25,17 @@ type PrismaInstance = typeof defaultPrisma
 export class WorkOrderRepository implements IWorkOrderRepository {
     constructor(private prisma: PrismaInstance = defaultPrisma) { }
 
+    /**
+     * Helper to get tenant isolation filter based on current context.
+     * Prevents cross-tenant data leakage (IDOR protection at Repo level).
+     */
+    private async getTenantWhere(): Promise<Prisma.WorkOrdersWhereInput> {
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+        if (isSuperAdmin) return {};
+        if (!tenantId) return { tenantId: '___MISSING_TENANT_ID___' };
+        return { tenantId };
+    }
+
     async generateWorkOrderNumber(tenantId?: string): Promise<string> {
         const now = new Date();
         const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -147,8 +158,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async findById(id: string): Promise<WorkOrderWithRelations | null> {
-        return this.prisma.workOrders.findUnique({
-            where: { id },
+        const tenantWhere = await this.getTenantWhere();
+        return this.prisma.workOrders.findFirst({
+            where: { id, ...tenantWhere },
             include: {
                 pelanggan: {
                     select: {
@@ -312,7 +324,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         page: number;
         totalPages: number;
     }> {
-        const where: Prisma.WorkOrdersWhereInput = {};
+        const tenantWhere = await this.getTenantWhere();
+        const where: Prisma.WorkOrdersWhereInput = { ...tenantWhere };
 
         if (filters?.status) {
             where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
@@ -516,7 +529,8 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         page: number;
         totalPages: number;
     }> {
-        const where: Prisma.WorkOrdersWhereInput = {};
+        const tenantWhere = await this.getTenantWhere();
+        const where: Prisma.WorkOrdersWhereInput = { ...tenantWhere };
 
         if (filters?.status) {
             where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
@@ -702,19 +716,31 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders> {
-        return this.prisma.workOrders.update({
-            where: { id },
+        const tenantWhere = await this.getTenantWhere();
+        const result = await this.prisma.workOrders.updateMany({
+            where: { id, ...tenantWhere },
             data: {
                 ...data,
                 updatedAt: new Date(),
             } as Prisma.WorkOrdersUncheckedUpdateInput,
         });
+
+        if (result.count === 0) {
+            throw new Error('Work order not found or access denied');
+        }
+
+        return this.prisma.workOrders.findUnique({ where: { id } }) as Promise<WorkOrders>;
     }
 
     async delete(id: string): Promise<void> {
-        await this.prisma.workOrders.delete({
-            where: { id },
+        const tenantWhere = await this.getTenantWhere();
+        const result = await this.prisma.workOrders.deleteMany({
+            where: { id, ...tenantWhere },
         });
+
+        if (result.count === 0) {
+            throw new Error('Work order not found or access denied');
+        }
     }
 
     async updateStatus(id: string, status: WorkOrderStatus, userId?: string, timestamp?: Date): Promise<WorkOrders> {

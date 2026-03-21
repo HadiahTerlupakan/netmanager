@@ -1,44 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
-export async function GET(_request: NextRequest) {
+export const dynamic = 'force-dynamic'
+
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const userId = ctx.session!.user.id
+    const attendanceService = new AttendanceService()
+
     try {
-        const session = await getServerSession(authOptions)
-        if (!session || !session.user || !session.user.id) {
-            return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+        const config = await attendanceService.getAttendanceConfig(userId)
+        return apiSuccess(config)
+    } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'USER_NOT_FOUND') {
+            return ApiErrors.notFound('User tidak ditemukan')
         }
-
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: {
-                sites: {
-                    select: {
-                        name: true,
-                        latitude: true,
-                        longitude: true,
-                        attendanceRadius: true
-                    }
-                }
-            }
-        })
-
-        // Site config retrieved - log only in development
-        // console.log('[attendance:config] fetched for user', session.user.id)
-
-        if (!user) {
-            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 })
-        }
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                site: user.sites
-            }
-        })
-    } catch (error) {
-        console.error('Error fetching attendance config:', error)
-        return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+        throw error
     }
-}
+})

@@ -643,4 +643,122 @@ export class AttendanceService {
             employeeSummary
         }
     }
+
+    async getAttendanceHistory(userId: string, params: { page: number, limit: number }) {
+        const { page, limit } = params
+        const skip = (page - 1) * limit
+
+        const [attendances, total] = await Promise.all([
+            prisma.attendance.findMany({
+                where: { userId },
+                orderBy: { checkIn: 'desc' },
+                take: limit,
+                skip
+            }),
+            prisma.attendance.count({ where: { userId } })
+        ])
+
+        return {
+            attendances,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        }
+    }
+
+    async getAttendanceConfig(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                sites: {
+                    select: {
+                        name: true,
+                        latitude: true,
+                        longitude: true,
+                        attendanceRadius: true
+                    }
+                }
+            }
+        })
+
+        if (!user) {
+            throw new Error('USER_NOT_FOUND')
+        }
+
+        return {
+            site: user.sites
+        }
+    }
+
+    async getAttendanceAnalytics(userId: string, days: number = 30) {
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - days)
+        const endDate = new Date()
+
+        const userAttendances = await prisma.attendance.findMany({
+            where: {
+                userId,
+                checkIn: { gte: startDate, lte: endDate }
+            },
+            orderBy: { checkIn: 'desc' }
+        })
+
+        const totalDays = userAttendances.length
+        const onTimeDays = userAttendances.filter(a => a.status === 'ON_TIME').length
+        const lateDays = userAttendances.filter(a => a.status === 'LATE').length
+
+        let totalMinutes = 0
+        userAttendances.forEach(att => {
+            if (att.checkOut) {
+                const diff = new Date(att.checkOut).getTime() - new Date(att.checkIn).getTime()
+                totalMinutes += diff / (1000 * 60)
+            }
+        })
+
+        const stats = {
+            totalDays,
+            onTimeDays,
+            lateDays,
+            totalWorkHours: totalMinutes / 60,
+            avgWorkHours: totalDays > 0 ? (totalMinutes / 60) / totalDays : 0,
+            onTimeRate: totalDays > 0 ? (onTimeDays / totalDays) * 100 : 0,
+            lateRate: totalDays > 0 ? (lateDays / totalDays) * 100 : 0
+        }
+
+        const weeklyBreakdown = []
+        for (let i = 0; i < 4; i++) {
+            const weekStart = new Date(startDate)
+            weekStart.setDate(weekStart.getDate() + (i * 7))
+            const weekEnd = new Date(weekStart)
+            weekEnd.setDate(weekEnd.getDate() + 7)
+
+            const weekAttendances = userAttendances.filter(a => {
+                const checkIn = new Date(a.checkIn)
+                return checkIn >= weekStart && checkIn < weekEnd
+            })
+
+            weeklyBreakdown.push({
+                week: i + 1,
+                startDate: weekStart,
+                endDate: weekEnd,
+                totalDays: weekAttendances.length,
+                onTimeDays: weekAttendances.filter(a => a.status === 'ON_TIME').length,
+                lateDays: weekAttendances.filter(a => a.status === 'LATE').length
+            })
+        }
+
+        return {
+            stats,
+            weeklyBreakdown,
+            recentAttendance: userAttendances.slice(0, 10),
+            period: {
+                startDate,
+                endDate,
+                days
+            }
+        }
+    }
 }

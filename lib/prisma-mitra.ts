@@ -1,4 +1,4 @@
-import { PrismaClient } from '@/prisma/generated/mitra'
+import { PrismaClient } from '@prisma/client-mitra'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { withTenantIsolation } from './prisma-extension'

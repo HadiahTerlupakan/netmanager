@@ -1,5 +1,5 @@
 import { prismaBilling } from '@/lib/prisma-billing'
-import type { MixRadiusConfig } from '@/prisma/generated/billing'
+import type { MixRadiusConfig } from '@prisma/client-billing'
 
 export class MixRadiusConfigRepository {
   /**

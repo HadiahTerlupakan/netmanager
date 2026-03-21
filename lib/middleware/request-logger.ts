@@ -63,6 +63,19 @@ function redactSensitiveData(data: unknown): unknown {
 }
 
 /**
+ * List of paths that require auditing even for GET (READ) operations.
+ * Focus on Finance, PII, and sensitive records.
+ */
+const SENSITIVE_READ_PATHS = [
+  '/api/admin/salary',
+  '/api/admin/pelanggan',
+  '/api/admin/investors',
+  '/api/finance',
+  '/api/mobile/salary',
+  '/api/pelanggan-ppp',
+]
+
+/**
  * Log audit activity to SystemLog
  */
 export async function logAuditActivity(
@@ -76,8 +89,12 @@ export async function logAuditActivity(
   const pathname = req.nextUrl.pathname
   const status = res.status
 
-  // Only audit successful write operations by default
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) || status >= 400) {
+  // 1. Determine if this request should be audited
+  const isWriteOp = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+  const isSensitiveRead = method === 'GET' && SENSITIVE_READ_PATHS.some(path => pathname.startsWith(path))
+
+  // Only audit successful write operations or sensitive reads
+  if ((!isWriteOp && !isSensitiveRead) || status >= 400) {
     return
   }
 
@@ -88,6 +105,7 @@ export async function logAuditActivity(
 
   let action = 'UNKNOWN'
   switch (method) {
+    case 'GET': action = 'READ'; break
     case 'POST': action = 'CREATE'; break
     case 'PUT':
     case 'PATCH': action = 'UPDATE'; break

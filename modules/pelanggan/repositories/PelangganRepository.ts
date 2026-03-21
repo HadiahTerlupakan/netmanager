@@ -1,10 +1,10 @@
-import { Prisma as PrismaBilling } from '@/prisma/generated/billing'
+import { Prisma as PrismaBilling } from '@prisma/client-billing'
     ;
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { Prisma } from '@prisma/client'
 import type { Pelanggan, Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client'
-import { InvoiceStatus } from '@/prisma/generated/billing'
+import { InvoiceStatus } from '@prisma/client-billing'
 import { randomUUID } from 'crypto'
 
 export interface CreatePelangganDTO {

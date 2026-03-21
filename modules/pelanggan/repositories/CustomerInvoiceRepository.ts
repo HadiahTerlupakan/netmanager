@@ -1,7 +1,7 @@
-import { Prisma as PrismaBilling } from '@/prisma/generated/billing';
+import { Prisma as PrismaBilling } from '@prisma/client-billing';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { } from '@prisma/client';
-import { InvoiceStatus } from '@/prisma/generated/billing';
+import { InvoiceStatus } from '@prisma/client-billing';
 
 /**
  * Type for invoice with its relations used in this repository

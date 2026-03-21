@@ -24,7 +24,13 @@
     "baseUrl": ".",
     "paths": {
       "@prisma/client-radius": [
-        "./node_modules/@prisma/client-radius"
+        "./prisma/generated/radius"
+      ],
+      "@prisma/client-billing": [
+        "./prisma/generated/billing"
+      ],
+      "@prisma/client-mitra": [
+        "./prisma/generated/mitra"
       ],
       "@/*": [
         "./*"
