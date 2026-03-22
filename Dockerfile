@@ -77,49 +77,28 @@ ENV TZ=Asia/Jakarta
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files - with correct ownership for uploads
+# Set correct ownership for public and uploads
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder /app/package.json ./package.json
 
-# Copy node_modules (Complete copy since we are not using standalone)
-# Optimization: In a stricter setup we would prune devDependencies, but ensuring 'tsx' 
-# and other runtime deps are present is priority for the Custom Server setup.
-COPY --from=builder /app/node_modules ./node_modules
+# Set up standalone output
+# Automatically leverages output: 'standalone' from next.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy application artifacts and logic
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+# Copy necessary files for the custom server and background tasks
+# These files are needed by server.ts and are not automatically bundled in standalone
 COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
-COPY --from=builder /app/next.config.ts ./next.config.ts
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder /app/prisma.radius.config.ts ./prisma.radius.config.ts
-COPY --from=builder /app/prisma.billing.config.ts ./prisma.billing.config.ts
-COPY --from=builder /app/prisma.mitra.config.ts ./prisma.mitra.config.ts
-
-# Copy lib folder (required by server.ts for websocket, etc.)
-COPY --from=builder /app/lib ./lib
-
-# Copy modules folder (required by server.ts for RadiusMonitor, etc.)
-COPY --from=builder /app/modules ./modules
-
-# Copy scripts folder (required by K8s migration job for backfill/migration scripts)
-COPY --from=builder /app/scripts ./scripts
-
-# proxy.ts is merged into middleware.ts, so we don't copy it anymore
-# middleware.ts is handled by default next build or root copy? 
-# Check if we need to copy middleware.ts explicitly for custom server...
-# Custom server doesn't run middleware, Next.js internal server does.
-# But since we use 'tsx server.ts' which wraps 'next start' or similar?
-# server.ts uses app.getRequestHandler() which uses middleware internally.
-# So middleware.ts needs to be in root.
-# builder stage COPY . . so middleware.ts is in /app/middleware.ts in builder.
-# runner stage needs to copy it if it's not in .next/standalone (we use complete copy).
-# However, we copy .next and server.ts.
-# Copy proxy.ts (Next.js 16+ replacement for middleware.ts)
-COPY --from=builder /app/proxy.ts ./proxy.ts
-
-# Copy tsconfig for path resolution
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+COPY --from=builder --chown=nextjs:nodejs /app/modules ./modules
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.radius.config.ts ./prisma.radius.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.billing.config.ts ./prisma.billing.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/prisma.mitra.config.ts ./prisma.mitra.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/proxy.ts ./proxy.ts
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Create uploads directories with correct permissions BEFORE switching to nextjs user
 RUN mkdir -p /app/public/uploads/attendance \
@@ -132,10 +111,9 @@ RUN mkdir -p /app/public/uploads/attendance \
 
 USER nextjs
 
-
 EXPOSE 3000
 ENV PORT=3000
 
-# Start the application using the custom server script defined in package.json
-# "start": "NODE_ENV=production tsx server.ts"
-CMD ["npm", "start"]
+# Start the application using tsx to run our custom server.ts
+# standalone/node_modules already contains 'tsx' and other production dependencies
+CMD ["node", "node_modules/.bin/tsx", "server.ts"]

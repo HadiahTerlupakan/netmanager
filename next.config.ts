@@ -50,7 +50,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
-  // output: 'standalone', // Disabled because we use a custom server (server.ts)
+  output: 'standalone', 
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
