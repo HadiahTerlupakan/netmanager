@@ -75,6 +75,18 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '1gb',
     },
+    // Force include prisma CLI and its config package in standalone output
+    // This fixes "Cannot find module 'prisma/config'" in Docker
+    outputFileTracingIncludes: {
+      '/**': [
+        'node_modules/prisma/**/*',
+        'node_modules/.prisma/**/*',
+        'prisma.config.ts',
+        'prisma.radius.config.ts',
+        'prisma.billing.config.ts',
+        'prisma.mitra.config.ts'
+      ],
+    },
   },
 
   // Webpack configuration to suppress React warnings and remove console.log in production
