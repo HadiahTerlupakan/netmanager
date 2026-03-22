@@ -100,8 +100,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pathe ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/remeda ./node_modules/remeda
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/std-env ./node_modules/std-env
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/zeptomatch ./node_modules/zeptomatch
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/graphmatch ./node_modules/graphmatch
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/grammex ./node_modules/grammex
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/hono ./node_modules/hono
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@hono ./node_modules/@hono
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/foreground-child ./node_modules/foreground-child
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-port-please ./node_modules/get-port-please
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/http-status-codes ./node_modules/http-status-codes
