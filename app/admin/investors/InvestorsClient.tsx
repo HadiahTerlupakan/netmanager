@@ -56,7 +56,7 @@ interface DetailData extends Investor {
 
 export default function InvestorsClient() {
     const { hasPermission } = usePermission()
-    const canCreate = hasPermission('users:create')
+    const canCreate = hasPermission('investors:create')
 
     const [investors, setInvestors] = useState<Investor[]>([])
     const [loading, setLoading] = useState(true)
@@ -69,8 +69,8 @@ export default function InvestorsClient() {
     const [detailData, setDetailData] = useState<DetailData | null>(null)
     const [loadingDetail, setLoadingDetail] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
-    const canUpdate = hasPermission('users:update')
-    const canDelete = hasPermission('users:delete')
+    const canUpdate = hasPermission('investors:update')
+    const canDelete = hasPermission('investors:delete')
 
     // Form state
     const [form, setForm] = useState({

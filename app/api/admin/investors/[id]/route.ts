@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import bcrypt from 'bcryptjs'
+import { hash } from 'bcryptjs'
+import { updateInvestorSchema } from '@/lib/validations/investor'
 
 export const GET = createHandler({ 
     auth: true, 
-    permissions: ['users:read'] 
+    permissions: ['investors:read'] 
 }, async (_req, ctx) => {
     const { id } = ctx.params
 
@@ -32,11 +33,14 @@ export const GET = createHandler({
 
 export const PUT = createHandler({ 
     auth: true, 
-    permissions: ['users:update'] 
+    permissions: ['investors:update'] 
 }, async (req, ctx) => {
     const { id } = ctx.params
     const body = await req.json()
-    const { username, password, namaLengkap, perusahaan, email, noTelp } = body
+    
+    // Validate with schema
+    const validatedData = updateInvestorSchema.parse({ ...body, id })
+    const { username, password, namaLengkap, perusahaan, email, noTelp } = validatedData
 
     // Cek existing
     const existingInvestor = await prisma.investor.findUnique({
@@ -67,19 +71,23 @@ export const PUT = createHandler({
         }
     }
 
-    const updateData: Record<string, string | boolean | undefined> = {
+    const updateData: {
+        username: string;
+        namaLengkap: string;
+        perusahaan: string | null;
+        email: string;
+        noTelp: string | null;
+        passwordHash?: string;
+    } = {
         username: username || existingInvestor.username,
         namaLengkap: namaLengkap || existingInvestor.namaLengkap,
-        perusahaan,
-        email,
-        noTelp,
+        perusahaan: perusahaan ?? existingInvestor.perusahaan,
+        email: email || existingInvestor.email,
+        noTelp: noTelp ?? existingInvestor.noTelp,
     }
 
     if (password && password.trim() !== '') {
-        const salt = await bcrypt.genSalt(10)
-        const hashedPassword = await bcrypt.hash(password, salt)
-        updateData.password = password // Legacy support
-        updateData.passwordHash = hashedPassword
+        updateData.passwordHash = await hash(password, 12)
     }
 
     const updatedInvestor = await prisma.investor.update({
@@ -90,14 +98,14 @@ export const PUT = createHandler({
     ctx.validated = { id, username, namaLengkap, companies: perusahaan, email } // Sync for audit log (exclude password)
 
     // Remove passwords before returning
-    const { password: _, passwordHash: __, ...safeInvestor } = updatedInvestor
+    const { passwordHash: _, ...safeInvestor } = updatedInvestor
 
     return apiSuccess(safeInvestor)
 })
 
 export const PATCH = createHandler({ 
     auth: true, 
-    permissions: ['users:update'] 
+    permissions: ['investors:update'] 
 }, async (req, ctx) => {
     const { id } = ctx.params
     const { isActive } = await req.json()
@@ -121,7 +129,7 @@ export const PATCH = createHandler({
 
 export const DELETE = createHandler({ 
     auth: true, 
-    permissions: ['users:delete'] 
+    permissions: ['investors:delete'] 
 }, async (_req, ctx) => {
     const { id } = ctx.params
 

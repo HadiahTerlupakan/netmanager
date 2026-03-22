@@ -4,7 +4,7 @@ import { ensurePermission } from '@/lib/rbac'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await ensurePermission('users:read')
+        await ensurePermission('investors:read')
 
         const { id } = await params
         const { searchParams } = new URL(request.url)
@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
-        await ensurePermission('users:create')
+        await ensurePermission('investors:create')
 
         const { id } = await params
         const body = await request.json()

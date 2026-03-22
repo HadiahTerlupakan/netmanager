@@ -794,7 +794,6 @@ async function main() {
     update: {},
     create: {
       username: 'investordemo',
-      password: 'investor123',
       passwordHash: investorHash,
       namaLengkap: 'Bapak Investor',
       perusahaan: 'PT Dana Mandiri',
@@ -812,7 +811,6 @@ async function main() {
     update: {},
     create: {
       username: 'investor2',
-      password: 'investor456',
       passwordHash: investor2Hash,
       namaLengkap: 'Ibu Investorwati',
       perusahaan: 'PT Investasi Bersama',

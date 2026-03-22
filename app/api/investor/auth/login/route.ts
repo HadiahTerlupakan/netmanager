@@ -48,17 +48,8 @@ export async function POST(request: Request) {
         }
 
         // Verify password
-        let isValid = false
-        if (investor.passwordHash) {
-            isValid = await compare(password, investor.passwordHash)
-        } else {
-            // Legacy fallback: passwordHash not yet set, compare plaintext
-            // TODO: migrate this investor's password to bcrypt hash
-            console.warn(`[INVESTOR_LOGIN] WARNING: Investor ${investor.id} is using legacy plaintext password. Please migrate to bcrypt hash.`)
-            isValid = investor.password === password
-        }
-        if (!isValid) {
-            console.log(`[INVESTOR_LOGIN] Invalid password for username: ${username}`)
+        if (!investor.passwordHash || !(await compare(password, investor.passwordHash))) {
+            console.log(`[INVESTOR_LOGIN] Invalid credentials for username: ${username}`)
             return apiError('Username atau Password salah', ErrorCodes.UNAUTHORIZED, { status: 401 })
         }
 

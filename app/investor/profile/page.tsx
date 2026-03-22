@@ -15,18 +15,16 @@ export default function InvestorProfile() {
         const fetchProfile = async () => {
             try {
                 const res = await fetch('/api/investor/auth/session')
-                if (!res.ok) {
-                    router.push('/investor/login')
-                    return
-                }
                 const data = await res.json()
-                if (data.authenticated) {
-                    setUser(data.user)
+                
+                if (res.ok && data.success && data.data?.authenticated) {
+                    setUser(data.data.user)
                 } else {
                     router.push('/investor/login')
                 }
             } catch (error) {
                 console.error("Session error:", error)
+                router.push('/investor/login')
             } finally {
                 setIsLoading(false)
             }

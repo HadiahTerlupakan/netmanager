@@ -336,7 +336,6 @@ model HargaPaket {
 model Investor {
   id           String           @id @default(uuid())
   username     String           @unique
-  password     String
   passwordHash String?
   namaLengkap  String
   perusahaan   String?

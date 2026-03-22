@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { hash } from 'bcryptjs'
+import { investorSchema } from '@/lib/validations/investor'
 
 export const GET = createHandler({ 
     auth: true, 
-    permissions: ['users:read'] 
+    permissions: ['investors:read'] 
 }, async () => {
     const investors = await prisma.investor.findMany({
         orderBy: { createdAt: 'desc' },
@@ -16,20 +17,20 @@ export const GET = createHandler({
     })
 
     // Sembunyikan field sensitif
-    const safeInvestors = investors.map(({ password: _, passwordHash: __, ...investor }) => investor)
+    const safeInvestors = investors.map(({ passwordHash: _, ...investor }) => investor)
 
     return apiSuccess(safeInvestors)
 })
 
 export const POST = createHandler({ 
     auth: true, 
-    permissions: ['users:create'] 
+    permissions: ['investors:create'],
+    schema: investorSchema
 }, async (req, ctx) => {
-    const body = await req.json()
-    const { username, password, namaLengkap, perusahaan, noTelp, email } = body
+    const { username, password, namaLengkap, perusahaan, noTelp, email, tenantId } = ctx.validated
 
-    if (!username || !password || !namaLengkap) {
-        return ApiErrors.badRequest('Data tidak lengkap (username, password, namaLengkap wajib diisi)')
+    if (!password) {
+        return ApiErrors.badRequest('Password wajib diisi untuk membuat investor baru')
     }
 
     const existingUser = await prisma.investor.findUnique({
@@ -45,20 +46,18 @@ export const POST = createHandler({
     const investor = await prisma.investor.create({
         data: {
             username,
-            password, // Legacy support, ideally removed in G1.1 but kept if still needed for now
             passwordHash,
             namaLengkap,
             perusahaan,
             noTelp,
             email,
+            tenantId,
             isActive: true
         }
     })
 
-    ctx.validated = { username, namaLengkap, perusahaan, email } // Sync for audit log (exclude password)
-
     // Remove passwords before returning
-    const { password: _, passwordHash: __, ...safeInvestor } = investor
+    const { passwordHash: _, ...safeInvestor } = investor
 
     return apiSuccess(safeInvestor, { status: 201 })
 })
