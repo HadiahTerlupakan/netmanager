@@ -99,7 +99,7 @@ export default function InvestorsClient() {
             const data = await res.json()
 
             if (res.ok) {
-                setInvestors(data || [])
+                setInvestors(data.data || [])
             } else {
                 toast.error(data.message || 'Gagal memuat data investor')
             }
@@ -153,7 +153,7 @@ export default function InvestorsClient() {
             const res = await fetch(`/api/admin/investors/${id}/detail`)
             const data = await res.json()
             if (res.ok) {
-                setDetailData(data)
+                setDetailData(data.data)
             } else {
                 toast.error(data.message || 'Gagal memuat detail investor')
                 setShowDetailModal(false)
