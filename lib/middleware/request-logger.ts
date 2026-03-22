@@ -73,6 +73,7 @@ const SENSITIVE_READ_PATHS = [
   '/api/finance',
   '/api/mobile/salary',
   '/api/pelanggan-ppp',
+  '/api/tagihan',
 ]
 
 /**
@@ -116,7 +117,7 @@ export async function logAuditActivity(
   const subject = pathname
     .split('/')
     .filter(Boolean)
-    .filter(p => p !== 'api' && p !== 'admin')
+    .filter(p => p !== 'api')
     .map(p => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, ' '))
     .join(' ') || 'API Action'
 

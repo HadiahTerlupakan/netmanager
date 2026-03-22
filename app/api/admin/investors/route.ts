@@ -1,69 +1,64 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { hasPermission } from '@/lib/rbac'
+import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { hash } from 'bcryptjs'
 
-export async function GET() {
-    try {
-        const canRead = await hasPermission('users:read')
-        if (!canRead) {
-            return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
-        }
-
-        const investors = await prisma.investor.findMany({
-            orderBy: { createdAt: 'desc' },
-            include: {
-                _count: {
-                    select: { rabProjects: true }
-                }
+export const GET = createHandler({ 
+    auth: true, 
+    permissions: ['users:read'] 
+}, async () => {
+    const investors = await prisma.investor.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+            _count: {
+                select: { rabProjects: true }
             }
-        })
-
-        return NextResponse.json(investors)
-    } catch (error) {
-        console.error('[ADMIN_INVESTORS_GET]', error)
-        return NextResponse.json({ message: 'Terjadi kesalahan' }, { status: 500 })
-    }
-}
-
-export async function POST(req: Request) {
-    try {
-        const canWrite = await hasPermission('users:create')
-        if (!canWrite) return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
-
-        const body = await req.json()
-        const { username, password, namaLengkap, perusahaan, noTelp, email } = body
-
-        if (!username || !password || !namaLengkap) {
-            return NextResponse.json({ message: 'Data tidak lengkap' }, { status: 400 })
         }
+    })
 
-        const existingUser = await prisma.investor.findUnique({
-            where: { username }
-        })
+    // Sembunyikan field sensitif
+    const safeInvestors = investors.map(({ password: _, passwordHash: __, ...investor }) => investor)
 
-        if (existingUser) {
-            return NextResponse.json({ message: 'Username sudah digunakan' }, { status: 400 })
-        }
+    return apiSuccess(safeInvestors)
+})
 
-        const passwordHash = await hash(password, 12)
+export const POST = createHandler({ 
+    auth: true, 
+    permissions: ['users:create'] 
+}, async (req, ctx) => {
+    const body = await req.json()
+    const { username, password, namaLengkap, perusahaan, noTelp, email } = body
 
-        const investor = await prisma.investor.create({
-            data: {
-                username,
-                password, // Optional: store plain or just hash. Storing hash is safer.
-                passwordHash,
-                namaLengkap,
-                perusahaan,
-                noTelp,
-                email,
-                isActive: true
-            }
-        })
-
-        return NextResponse.json(investor, { status: 201 })
-    } catch (error) {
-        console.error('[ADMIN_INVESTORS_POST]', error)
-        return NextResponse.json({ message: 'Terjadi kesalahan' }, { status: 500 })
+    if (!username || !password || !namaLengkap) {
+        return ApiErrors.badRequest('Data tidak lengkap (username, password, namaLengkap wajib diisi)')
     }
-}
+
+    const existingUser = await prisma.investor.findUnique({
+        where: { username }
+    })
+
+    if (existingUser) {
+        return ApiErrors.badRequest('Username sudah digunakan')
+    }
+
+    const passwordHash = await hash(password, 12)
+
+    const investor = await prisma.investor.create({
+        data: {
+            username,
+            password, // Legacy support, ideally removed in G1.1 but kept if still needed for now
+            passwordHash,
+            namaLengkap,
+            perusahaan,
+            noTelp,
+            email,
+            isActive: true
+        }
+    })
+
+    ctx.validated = { username, namaLengkap, perusahaan, email } // Sync for audit log (exclude password)
+
+    // Remove passwords before returning
+    const { password: _, passwordHash: __, ...safeInvestor } = investor
+
+    return apiSuccess(safeInvestor, { status: 201 })
+})

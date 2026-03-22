@@ -259,8 +259,9 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async findByWorkOrderNumber(workOrderNumber: string): Promise<WorkOrderWithRelations | null> {
+        const tenantWhere = await this.getTenantWhere();
         return this.prisma.workOrders.findFirst({
-            where: { workOrderNumber },
+            where: { workOrderNumber, ...tenantWhere },
             include: {
                 pelanggan: {
                     select: {
@@ -1060,6 +1061,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async addAssignment(workOrderId: string, userId: string, role?: string): Promise<WorkOrderAssignments> {
+        const tenantWhere = await this.getTenantWhere();
+        // Verify parent WO exists in this tenant
+        const wo = await this.prisma.workOrders.findFirst({
+            where: { id: workOrderId, ...tenantWhere }
+        });
+        if (!wo) throw new Error('Work order not found or access denied');
+
         return this.prisma.workOrderAssignments.create({
             data: {
                 id: randomUUID(),
@@ -1071,12 +1079,24 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async removeAssignment(assignmentId: string): Promise<void> {
-        await this.prisma.workOrderAssignments.delete({
-            where: { id: assignmentId },
+        const tenantWhere = await this.getTenantWhere();
+        const result = await this.prisma.workOrderAssignments.deleteMany({
+            where: { 
+                id: assignmentId,
+                workOrders: { ...tenantWhere }
+            },
         });
+        if (result.count === 0) throw new Error('Assignment not found or access denied');
     }
 
     async addTask(data: CreateTaskData): Promise<WorkOrderTasks> {
+        const tenantWhere = await this.getTenantWhere();
+        // Verify parent WO exists in this tenant
+        const wo = await this.prisma.workOrders.findFirst({
+            where: { id: data.workOrderId, ...tenantWhere }
+        });
+        if (!wo) throw new Error('Work order not found or access denied');
+
         return this.prisma.workOrderTasks.create({
             data: {
                 id: randomUUID(),
@@ -1088,22 +1108,35 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTasks> {
+        const tenantWhere = await this.getTenantWhere();
         const updateData: Record<string, unknown> = { ...data };
 
         if (data.status === 'COMPLETED' && data.completedById) {
             updateData.completedAt = new Date();
         }
 
-        return this.prisma.workOrderTasks.update({
-            where: { id: taskId },
-            data: updateData,
+        const result = await this.prisma.workOrderTasks.updateMany({
+            where: { 
+                id: taskId,
+                workOrder: { ...tenantWhere }
+            },
+            data: updateData as Prisma.WorkOrderTasksUpdateInput,
         });
+
+        if (result.count === 0) throw new Error('Task not found or access denied');
+
+        return this.prisma.workOrderTasks.findUnique({ where: { id: taskId } }) as Promise<WorkOrderTasks>;
     }
 
     async deleteTask(taskId: string): Promise<void> {
-        await this.prisma.workOrderTasks.delete({
-            where: { id: taskId },
+        const tenantWhere = await this.getTenantWhere();
+        const result = await this.prisma.workOrderTasks.deleteMany({
+            where: { 
+                id: taskId,
+                workOrder: { ...tenantWhere }
+            },
         });
+        if (result.count === 0) throw new Error('Task not found or access denied');
     }
 
     async completeTask(taskId: string, userId: string): Promise<WorkOrderTasks> {
@@ -1159,8 +1192,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]> {
+        const tenantWhere = await this.getTenantWhere();
         return this.prisma.workOrderUpdates.findMany({
-            where: { workOrderId },
+            where: { 
+                workOrderId,
+                workOrders: { ...tenantWhere }
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -1174,6 +1211,13 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         caption?: string,
         uploadedById?: string
     ): Promise<WorkOrderAttachments> {
+        const tenantWhere = await this.getTenantWhere();
+        // Verify parent WO exists in this tenant
+        const wo = await this.prisma.workOrders.findFirst({
+            where: { id: workOrderId, ...tenantWhere }
+        });
+        if (!wo) throw new Error('Work order not found or access denied');
+
         const attachment = await this.prisma.workOrderAttachments.create({
             data: {
                 id: randomUUID(),
@@ -1204,11 +1248,15 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     async deleteAttachment(attachmentId: string, deletedById?: string): Promise<void> {
-        const attachment = await this.prisma.workOrderAttachments.findUnique({
-            where: { id: attachmentId }
+        const tenantWhere = await this.getTenantWhere();
+        const attachment = await this.prisma.workOrderAttachments.findFirst({
+            where: { 
+                id: attachmentId,
+                workOrders: { ...tenantWhere }
+            }
         });
 
-        if (!attachment) return;
+        if (!attachment) throw new Error('Attachment not found or access denied');
 
         await this.prisma.workOrderAttachments.delete({
             where: { id: attachmentId },

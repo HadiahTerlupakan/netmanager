@@ -1,137 +1,112 @@
-import { NextRequest, NextResponse } from "next/server";
 import { prismaBilling } from "@/lib/prisma-billing";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-export async function GET(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
+    const status = ctx.query.status || 'PENDING';
+    const page = parseInt(ctx.query.page as string || '1');
+    const limit = parseInt(ctx.query.limit as string || '10');
+    const skip = (page - 1) * limit;
+
+    const whereCondition: { status?: 'PENDING' | 'RESOLVED' | 'IGNORED' } = {};
+
+    if (status !== 'ALL') {
+        whereCondition.status = status as 'PENDING' | 'RESOLVED' | 'IGNORED';
+    }
+
+    const [total, mutations] = await Promise.all([
+        prismaBilling.unmatchedMutation.count({ where: whereCondition }),
+        prismaBilling.unmatchedMutation.findMany({
+            where: whereCondition,
+            orderBy: { date: 'desc' },
+            skip,
+            take: limit,
+        })
+    ]);
+
+    return apiSuccess(mutations, {
+        meta: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
         }
+    });
+});
 
-        const { searchParams } = new URL(req.url);
-        const status = searchParams.get('status') || 'PENDING';
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '10');
-        const skip = (page - 1) * limit;
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+    const body = await req.json();
+    const { mutationId, invoiceId, action } = body;
+    // action can be 'RESOLVE' or 'IGNORE'
 
-        const whereCondition: { status?: 'PENDING' | 'RESOLVED' | 'IGNORED' } = {};
+    if (!mutationId || !action) {
+        return ApiErrors.badRequest("Missing required fields (mutationId, action)");
+    }
 
-        if (status !== 'ALL') {
-            whereCondition.status = status as 'PENDING' | 'RESOLVED' | 'IGNORED';
-        }
+    const mutation = await prismaBilling.unmatchedMutation.findUnique({
+        where: { id: mutationId }
+    });
 
-        const [total, mutations] = await Promise.all([
-            prismaBilling.unmatchedMutation.count({ where: whereCondition }),
-            prismaBilling.unmatchedMutation.findMany({
-                where: whereCondition,
-                orderBy: { date: 'desc' },
-                skip,
-                take: limit,
-            })
-        ]);
+    if (!mutation) {
+        return ApiErrors.notFound("Mutation not found");
+    }
 
-        return NextResponse.json({
-            mutations,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
+    if (action === 'IGNORE') {
+        const updated = await prismaBilling.unmatchedMutation.update({
+            where: { id: mutationId },
+            data: {
+                status: 'IGNORED',
+                resolvedAt: new Date(),
+                resolvedById: ctx.session!.user.id
             }
         });
-    } catch (error) {
-        console.error("Failed to fetch unmatched mutations:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return apiSuccess({ mutation: updated });
     }
-}
 
-export async function POST(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (action === 'RESOLVE') {
+        if (!invoiceId) {
+            return ApiErrors.badRequest("Invoice ID required for resolving");
         }
 
-        const body = await req.json();
-        const { mutationId, invoiceId, action } = body;
-        // action can be 'RESOLVE' or 'IGNORE'
-
-        if (!mutationId || !action) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-        }
-
-        const mutation = await prismaBilling.unmatchedMutation.findUnique({
-            where: { id: mutationId }
+        // Find invoice
+        const invoice = await prismaBilling.invoice.findUnique({
+            where: { id: invoiceId }
         });
 
-        if (!mutation) {
-            return NextResponse.json({ error: "Mutation not found" }, { status: 404 });
-        }
+        if (!invoice) return ApiErrors.notFound("Invoice not found");
 
-        if (action === 'IGNORE') {
-            const updated = await prismaBilling.unmatchedMutation.update({
-                where: { id: mutationId },
-                data: {
-                    status: 'IGNORED',
-                    resolvedAt: new Date(),
-                    resolvedById: session.user.id
-                }
-            });
-            return NextResponse.json({ success: true, mutation: updated });
-        }
-
-        if (action === 'RESOLVE') {
-            if (!invoiceId) {
-                return NextResponse.json({ error: "Invoice ID required for resolving" }, { status: 400 });
+        // Create Payment
+        const payment = await prismaBilling.payment.create({
+            data: {
+                id: `PAY-${Date.now()}`,
+                amount: BigInt(mutation.amount.toString()),
+                paymentDate: mutation.date,
+                paymentMethod: 'BANK_TRANSFER',
+                notes: `Resolved from unmatched mutation ${mutation.transactionId}`,
+                verifiedBy: ctx.session!.user.id || 'SYSTEM',
+                verifiedAt: new Date(),
+                transactionId: mutation.transactionId || undefined,
+                gatewayStatus: 'PAID',
+                gatewayProvider: mutation.provider,
+                pelangganId: invoice.pelangganId,
+                invoice: { connect: { id: invoice.id } },
+                unmatchedMutation: { connect: { id: mutation.id } },
+                updatedAt: new Date()
             }
+        });
 
-            // Find invoice
-            const invoice = await prismaBilling.invoice.findUnique({
-                where: { id: invoiceId }
-            });
+        // Update mutation status
+        const updated = await prismaBilling.unmatchedMutation.update({
+            where: { id: mutationId },
+            data: {
+                status: 'RESOLVED',
+                matchedInvoiceId: invoice.id,
+                resolvedAt: new Date(),
+                resolvedById: ctx.session!.user.id
+            }
+        });
 
-            if (!invoice) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-
-            // Create Payment
-            const payment = await prismaBilling.payment.create({
-                data: {
-                    id: `PAY-${Date.now()}`,
-                    amount: BigInt(mutation.amount.toString()),
-                    paymentDate: mutation.date,
-                    paymentMethod: 'BANK_TRANSFER',
-                    notes: `Resolved from unmatched mutation ${mutation.transactionId}`,
-                    verifiedBy: session.user?.id || 'SYSTEM',
-                    verifiedAt: new Date(),
-                    transactionId: mutation.transactionId || undefined,
-                    gatewayStatus: 'PAID',
-                    gatewayProvider: mutation.provider,
-                    pelangganId: invoice.pelangganId,
-                    invoice: { connect: { id: invoice.id } },
-                    unmatchedMutation: { connect: { id: mutation.id } },
-                    updatedAt: new Date()
-                }
-            });
-
-            // Update mutation status
-            const updated = await prismaBilling.unmatchedMutation.update({
-                where: { id: mutationId },
-                data: {
-                    status: 'RESOLVED',
-                    matchedInvoiceId: invoice.id,
-                    resolvedAt: new Date(),
-                    resolvedById: session.user.id
-                }
-            });
-
-            return NextResponse.json({ success: true, payment, mutation: updated });
-        }
-
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-
-    } catch (error) {
-        console.error("Failed to process unmatched mutation:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return apiSuccess({ payment, mutation: updated });
     }
-}
+
+    return ApiErrors.badRequest("Invalid action");
+});

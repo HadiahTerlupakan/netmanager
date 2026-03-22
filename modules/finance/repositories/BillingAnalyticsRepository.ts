@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import type { Invoice, Payment } from '@prisma/client-billing'
+import { getTenantIdFromContext } from '@/lib/tenant-context'
+import { Prisma } from '@prisma/client-billing'
 
 export type InvoiceWithPayments = Invoice & { payment: Payment[] }
 
@@ -9,11 +11,23 @@ export type InvoiceWithPayments = Invoice & { payment: Payment[] }
  */
 export class BillingAnalyticsRepository {
     /**
+     * Helper to get tenant isolation filter based on current context.
+     */
+    private async getTenantWhere(): Promise<Prisma.InvoiceWhereInput> {
+        const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+        if (isSuperAdmin) return {};
+        if (!tenantId) return { tenantId: '___MISSING_TENANT_ID___' };
+        return { tenantId };
+    }
+
+    /**
      * Get invoices with payments for a date range
      */
     async getInvoicesWithPayments(dateStart: Date, dateEnd: Date): Promise<InvoiceWithPayments[]> {
+        const tenantWhere = await this.getTenantWhere();
         return prismaBilling.invoice.findMany({
             where: {
+                ...tenantWhere,
                 createdAt: {
                     gte: dateStart,
                     lte: dateEnd,
@@ -26,8 +40,10 @@ export class BillingAnalyticsRepository {
      * Get all payments for a date range
      */
     async getPayments(dateStart: Date, dateEnd: Date) {
+        const tenantWhere = await this.getTenantWhere();
         return prismaBilling.payment.findMany({
             where: {
+                ...tenantWhere as Prisma.PaymentWhereInput,
                 paymentDate: {
                     gte: dateStart,
                     lte: dateEnd,
@@ -40,8 +56,10 @@ export class BillingAnalyticsRepository {
      * Get invoices for a specific month
      */
     async getInvoicesForMonth(monthStart: Date, monthEnd: Date) {
+        const tenantWhere = await this.getTenantWhere();
         return prismaBilling.invoice.findMany({
             where: {
+                ...tenantWhere,
                 createdAt: {
                     gte: monthStart,
                     lt: monthEnd,
@@ -54,9 +72,11 @@ export class BillingAnalyticsRepository {
      * Get top customers by payment amount (optimized with groupBy)
      */
     async getTopCustomersByPayment(dateStart: Date, dateEnd: Date, limit: number = 10) {
+        const tenantWhere = await this.getTenantWhere();
         const customerPayments = await prismaBilling.payment.groupBy({
             by: ['pelangganId'],
             where: {
+                ...tenantWhere as Prisma.PaymentWhereInput,
                 paymentDate: {
                     gte: dateStart,
                     lte: dateEnd,
