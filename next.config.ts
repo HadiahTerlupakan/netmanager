@@ -63,7 +63,19 @@ const nextConfig: NextConfig = {
       'prisma/schema.prisma',
       'prisma/schema.radius.prisma',
       'prisma/billing.prisma',
-      'prisma/mitra.prisma'
+      'prisma/mitra.prisma',
+      'node_modules/prisma/**',
+      'node_modules/@prisma/**',
+      'node_modules/valibot/**',
+      'node_modules/pathe/**',
+      'node_modules/remeda/**',
+      'node_modules/std-env/**',
+      'node_modules/zeptomatch/**',
+      'node_modules/hono/**',
+      'node_modules/@hono/**',
+      'node_modules/@mrleebo/**',
+      'node_modules/@electric-sql/**',
+      'node_modules/undici/**'
     ],
   },
   images: {

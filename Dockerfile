@@ -64,7 +64,7 @@ RUN --mount=type=secret,id=NEXTAUTH_SECRET \
 # ==============================================================================
 # Stage 3: Production Runner
 # ==============================================================================
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 # Install postgresql-client for pg_dump and psql (used by backup feature)
@@ -90,10 +90,25 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Robust fix for Prisma CLI in standalone:
 # Next.js standalone tracing prunes too many internal Prisma dependencies.
-# We explicitly copy the CLI, the engines, and the binaries.
+# We explicitly copy the CLI, the engines, and the necessary sub-dependencies.
+# Added missing modules for Prisma 7.x (valibot, pathe, remeda, etc.)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/valibot ./node_modules/valibot
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pathe ./node_modules/pathe
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/remeda ./node_modules/remeda
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/std-env ./node_modules/std-env
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/zeptomatch ./node_modules/zeptomatch
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/hono ./node_modules/hono
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@hono ./node_modules/@hono
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/foreground-child ./node_modules/foreground-child
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-port-please ./node_modules/get-port-please
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/http-status-codes ./node_modules/http-status-codes
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/proper-lockfile ./node_modules/proper-lockfile
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@mrleebo ./node_modules/@mrleebo
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@electric-sql ./node_modules/@electric-sql
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/undici ./node_modules/undici
 
 # Copy necessary files for the custom server and background tasks
 # These files are needed by server.ts and are not automatically bundled in standalone
