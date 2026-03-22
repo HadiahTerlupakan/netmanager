@@ -106,11 +106,17 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/hono ./node_modules/
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@hono ./node_modules/@hono
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@esbuild ./node_modules/@esbuild
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/source-map-support ./node_modules/source-map-support
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/foreground-child ./node_modules/foreground-child
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-port-please ./node_modules/get-port-please
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/http-status-codes ./node_modules/http-status-codes
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/proper-lockfile ./node_modules/proper-lockfile
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/graceful-fs ./node_modules/graceful-fs
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/retry ./node_modules/retry
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/signal-exit ./node_modules/signal-exit
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/fs-extra ./node_modules/fs-extra
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@mrleebo ./node_modules/@mrleebo
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@electric-sql ./node_modules/@electric-sql
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/undici ./node_modules/undici
