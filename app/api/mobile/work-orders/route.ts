@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { WorkOrderStatus } from '@prisma/client';
-import { apiSuccess, createHandler, apiPaginated } from '@/lib/api'
+import { createHandler, apiPaginated } from '@/lib/api'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const userId = ctx.session!.user.id;
