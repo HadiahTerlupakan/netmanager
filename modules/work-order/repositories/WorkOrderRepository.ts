@@ -1118,7 +1118,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const result = await this.prisma.workOrderTasks.updateMany({
             where: { 
                 id: taskId,
-                workOrder: { ...tenantWhere }
+                workOrders: { ...tenantWhere }
             },
             data: updateData as Prisma.WorkOrderTasksUpdateInput,
         });
@@ -1133,7 +1133,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         const result = await this.prisma.workOrderTasks.deleteMany({
             where: { 
                 id: taskId,
-                workOrder: { ...tenantWhere }
+                workOrders: { ...tenantWhere }
             },
         });
         if (result.count === 0) throw new Error('Task not found or access denied');

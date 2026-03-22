@@ -82,7 +82,8 @@ describe('Finance Repositories - IDOR Protection', () => {
       vi.mocked(getTenantIdFromContext).mockResolvedValue({ tenantId: 'tenant-Z', isSuperAdmin: false })
       const repo = new BillingAnalyticsRepository()
       
-      prismaBilling.payment.groupBy.mockResolvedValue([])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(prismaBilling.payment.groupBy as any).mockResolvedValue([])
       prismaMock.pelanggan.findMany.mockResolvedValue([])
 
       await repo.getTopCustomersByPayment(new Date(), new Date())

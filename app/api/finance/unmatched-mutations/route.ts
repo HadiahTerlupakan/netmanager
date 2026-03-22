@@ -1,5 +1,5 @@
 import { prismaBilling } from "@/lib/prisma-billing";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { apiSuccess, ApiErrors, createHandler, apiPaginated } from "@/lib/api";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const status = ctx.query.status || 'PENDING';
@@ -23,13 +23,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         })
     ]);
 
-    return apiSuccess(mutations, {
-        meta: {
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit)
-        }
+    return apiPaginated(mutations, {
+        total,
+        page,
+        limit
     });
 });
 

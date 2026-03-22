@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
 import { WorkOrderStatus } from '@prisma/client';
-import { apiSuccess, createHandler } from '@/lib/api'
+import { apiSuccess, createHandler, apiPaginated } from '@/lib/api'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const userId = ctx.session!.user.id;
@@ -31,11 +31,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
 
     // 4. Return Data
-    return apiSuccess(result.workOrders, {
-        meta: {
-            page: result.page,
-            total: result.total,
-            totalPages: result.totalPages
-        }
+    return apiPaginated(result.workOrders, {
+        page: result.page,
+        total: result.total,
+        limit: limit
     });
 });
