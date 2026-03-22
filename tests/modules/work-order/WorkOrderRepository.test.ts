@@ -297,6 +297,7 @@ describe('WorkOrderRepository', () => {
 
   describe('addTask', () => {
     it('should create task with PENDING status', async () => {
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce(createWoMock() as unknown as WorkOrders)
       prismaMock.workOrderTasks.create.mockResolvedValueOnce({
         id: 'task-1',
         workOrderId: 'wo-1',
@@ -323,7 +324,8 @@ describe('WorkOrderRepository', () => {
 
   describe('completeTask', () => {
     it('should set status to COMPLETED and record completedAt', async () => {
-      prismaMock.workOrderTasks.update.mockResolvedValueOnce({
+      prismaMock.workOrderTasks.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.workOrderTasks.findUnique.mockResolvedValueOnce({
         id: 'task-1',
         status: 'COMPLETED',
         completedAt: new Date(),
@@ -332,8 +334,8 @@ describe('WorkOrderRepository', () => {
 
       await repository.completeTask('task-1', 'user-1')
 
-      expect(prismaMock.workOrderTasks.update).toHaveBeenCalledWith({
-        where: { id: 'task-1' },
+      expect(prismaMock.workOrderTasks.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'task-1' }),
         data: expect.objectContaining({
           status: 'COMPLETED',
           completedById: 'user-1',
