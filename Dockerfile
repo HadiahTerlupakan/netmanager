@@ -89,10 +89,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Robust fix for Prisma CLI in standalone:
-# Explicitly copy the .bin folder and prisma package from builder node_modules
-# Next.js standalone tracing often excludes these, causing "prisma: not found"
+# Next.js standalone tracing prunes too many internal Prisma dependencies.
+# We explicitly copy the CLI, the engines, and the binaries.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 # Copy necessary files for the custom server and background tasks
 # These files are needed by server.ts and are not automatically bundled in standalone

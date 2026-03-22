@@ -59,6 +59,7 @@ const nextConfig: NextConfig = {
       'prisma.radius.config.ts',
       'prisma.billing.config.ts',
       'prisma.mitra.config.ts',
+      'prisma/*.prisma',
       'prisma/schema.prisma',
       'prisma/schema.radius.prisma',
       'prisma/billing.prisma',
