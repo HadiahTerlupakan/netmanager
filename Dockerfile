@@ -74,6 +74,9 @@ RUN apk add --no-cache postgresql-client tzdata
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TZ=Asia/Jakarta
+# Add node_modules/.bin to PATH so we can run prisma, tsx, etc. directly
+ENV PATH /app/node_modules/.bin:$PATH
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 

@@ -121,7 +121,7 @@ spec:
               function checkDatabase(config, folder) {
                 let unapplied = [];
                 try {
-                  execSync(`npx prisma migrate status ${config}`, { stdio: 'pipe', encoding: 'utf-8' });
+                  execSync(`prisma migrate status ${config}`, { stdio: 'pipe', encoding: 'utf-8' });
                 } catch (e) {
                   const out = (e.stdout || '') + '\n' + (e.stderr || '');
                   const cleanOut = out.replace(/\x1B\[\d+m/g, '');
@@ -191,14 +191,14 @@ spec:
                 echo "🌱 Fresh database detected. Running all migrations from scratch..."
               else
                 echo "🔄 Existing database detected. Applying baseline resolutions..."
-                npx prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
-                npx prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
-                npx prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
-                npx prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
-                npx prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true
+                prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
+                prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
+                prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
+                prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
+                prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true
               fi
               
-              npx prisma migrate deploy
+              prisma migrate deploy
 
               echo ""
               echo "======================================"
@@ -206,10 +206,10 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
-                npx prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
+                prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
+                prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
               fi
-              npx prisma migrate deploy --config=prisma.radius.config.ts
+              prisma migrate deploy --config=prisma.radius.config.ts
 
               echo ""
               echo "======================================"
@@ -217,10 +217,10 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
-                npx prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
+                prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
+                prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
               fi
-              npx prisma migrate deploy --config=prisma.billing.config.ts
+              prisma migrate deploy --config=prisma.billing.config.ts
 
               echo ""
               echo "======================================"
@@ -228,10 +228,10 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                npx prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
-                npx prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
+                prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
+                prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
               fi
-              npx prisma migrate deploy --config=prisma.mitra.config.ts
+              prisma migrate deploy --config=prisma.mitra.config.ts
 
               # =============================================
               # STEP 4: Backfill Data
@@ -241,19 +241,19 @@ spec:
               echo "======================================"
               echo "Running multi-tenant data backfill script"
               echo "======================================"
-              npx tsx scripts/backfill-tenant.ts || echo "⚠️ Backfill script encountered an issue, but migration continuing"
+              tsx scripts/backfill-tenant.ts || echo "⚠️ Backfill script encountered an issue, but migration continuing"
 
               echo ""
               echo "======================================"
               echo "Running tenant provisioning fix script"
               echo "======================================"
-              npx tsx scripts/fix-tenant-provision.ts || echo "⚠️ Tenant provisioning script encountered an issue, but migration continuing"
+              tsx scripts/fix-tenant-provision.ts || echo "⚠️ Tenant provisioning script encountered an issue, but migration continuing"
 
               echo ""
               echo "======================================"
               echo "Running legacy data migration (NETMANAGER)"
               echo "======================================"
-              npx tsx scripts/migrate-legacy-tenant.ts || echo "⚠️ Legacy migration encountered an issue, but migration continuing"
+              tsx scripts/migrate-legacy-tenant.ts || echo "⚠️ Legacy migration encountered an issue, but migration continuing"
 
               echo ""
               echo "======================================"
