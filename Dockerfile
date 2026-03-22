@@ -60,6 +60,12 @@ RUN --mount=type=secret,id=NEXTAUTH_SECRET \
     export OAUTH_ENCRYPTION_KEY=$(cat /run/secrets/OAUTH_ENCRYPTION_KEY) && \
     npm run build
 
+# Prune devDependencies AFTER build so only production deps remain.
+# This ensures the runner stage gets a complete, working node_modules
+# without needing fragile per-module COPY commands.
+RUN npm prune --omit=dev --legacy-peer-deps && \
+    npm run prisma:generate
+
 
 # ==============================================================================
 # Stage 3: Production Runner
@@ -75,7 +81,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TZ=Asia/Jakarta
 # Add node_modules/.bin to PATH so we can run prisma, tsx, etc. directly
-ENV PATH /app/node_modules/.bin:$PATH
+ENV PATH="/app/node_modules/.bin:$PATH"
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -88,61 +94,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Robust fix for Prisma CLI in standalone:
-# Next.js standalone tracing prunes too many internal Prisma dependencies.
-# We explicitly copy the CLI, the engines, and the necessary sub-dependencies.
-# Added missing modules for Prisma 7.x (valibot, pathe, remeda, etc.)
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/valibot ./node_modules/valibot
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pathe ./node_modules/pathe
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/remeda ./node_modules/remeda
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/std-env ./node_modules/std-env
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/zeptomatch ./node_modules/zeptomatch
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/graphmatch ./node_modules/graphmatch
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/grammex ./node_modules/grammex
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/hono ./node_modules/hono
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@hono ./node_modules/@hono
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@esbuild ./node_modules/@esbuild
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/source-map-support ./node_modules/source-map-support
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/buffer-from ./node_modules/buffer-from
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/effect ./node_modules/effect
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@standard-schema/spec ./node_modules/@standard-schema/spec
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/fast-check ./node_modules/fast-check
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/deepmerge-ts ./node_modules/deepmerge-ts
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/empathic ./node_modules/empathic
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/chokidar ./node_modules/chokidar
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/jiti ./node_modules/jiti
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/defu ./node_modules/defu
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/ohash ./node_modules/ohash
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/confbox ./node_modules/confbox
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/exsolve ./node_modules/exsolve
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/giget ./node_modules/giget
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/perfect-debounce ./node_modules/perfect-debounce
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/pkg-types ./node_modules/pkg-types
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/rc9 ./node_modules/rc9
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/postgres ./node_modules/postgres
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/mysql2 ./node_modules/mysql2
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/arg ./node_modules/arg
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/dotenv ./node_modules/dotenv
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/cross-spawn ./node_modules/cross-spawn
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/cli-cursor ./node_modules/cli-cursor
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/restore-cursor ./node_modules/restore-cursor
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/foreground-child ./node_modules/foreground-child
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/get-port-please ./node_modules/get-port-please
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/http-status-codes ./node_modules/http-status-codes
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/proper-lockfile ./node_modules/proper-lockfile
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/graceful-fs ./node_modules/graceful-fs
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/retry ./node_modules/retry
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/signal-exit ./node_modules/signal-exit
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/fs-extra ./node_modules/fs-extra
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@mrleebo ./node_modules/@mrleebo
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@electric-sql ./node_modules/@electric-sql
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/undici ./node_modules/undici
+# Copy FULL production node_modules (already pruned in builder stage).
+# This replaces the fragile per-module COPY approach that caused missing
+# sub-dependency errors (e.g. pure-rand, ioredis, socket.io, etc.)
+# The standalone node_modules is overwritten with the complete set.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copy necessary files for the custom server and background tasks
 # These files are needed by server.ts and are not automatically bundled in standalone
