@@ -100,6 +100,27 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # The standalone node_modules is overwritten with the complete set.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
+# Trim node_modules: remove files not needed at runtime to reduce image size.
+# This is safe because these files are never imported/required at runtime.
+# Estimated savings: ~50-80MB
+RUN find node_modules \( \
+      -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" \
+      -o -name "*.map" \
+      -o -name "README.md" -o -name "README" -o -name "readme.md" \
+      -o -name "CHANGELOG.md" -o -name "CHANGELOG" -o -name "HISTORY.md" \
+      -o -name "LICENSE" -o -name "LICENSE.md" -o -name "LICENSE.txt" -o -name "license" \
+      -o -name ".editorconfig" -o -name ".npmignore" \
+      -o -name "tsconfig.json" -o -name "tsconfig.*.json" \
+      -o -name ".eslintrc*" -o -name ".prettierrc*" \
+    \) -type f -delete 2>/dev/null; \
+    find node_modules \( \
+      -name "test" -o -name "tests" -o -name "__tests__" \
+      -o -name "docs" -o -name ".github" \
+      -o -name "example" -o -name "examples" \
+    \) -type d -exec rm -rf {} + 2>/dev/null; \
+    rm -rf node_modules/@prisma/studio-core node_modules/@prisma/studio 2>/dev/null; \
+    echo "node_modules trimmed successfully"
+
 # Copy necessary files for the custom server and background tasks
 # These files are needed by server.ts and are not automatically bundled in standalone
 COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
