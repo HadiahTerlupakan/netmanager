@@ -76,6 +76,7 @@ export async function createRestockRequest({
               jumlah: item.quantity,
               hargaPerUnit: 0,
               totalHarga: 0,
+              tenantId: tenantId, // Explicitly pass tenantId to children
             })),
           },
         },

@@ -2,10 +2,10 @@
   "primary_root": ".",
   "lanes": [
     {
-      "id": "audit-settings",
+      "id": "inventory-restock-remediation",
       "path": ".",
       "owner": "omg-director",
-      "purpose": "Audit menyeluruh menu pengaturan admin",
+      "purpose": "Remediasi audit restock inventory",
       "health": {
         "cleanliness": "clean",
         "trusted": "trusted",

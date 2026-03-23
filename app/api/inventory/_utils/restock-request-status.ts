@@ -54,7 +54,7 @@ export async function patchRestockRequestStatus({
       return NextResponse.json({ error: 'Aksi tidak valid' }, { status: 400 })
     }
 
-    if (po.status !== 'ORDERED' && po.status !== 'PARTIAL') {
+    if (po.status !== 'DRAFT' && po.status !== 'ORDERED' && po.status !== 'PARTIAL') {
       return NextResponse.json({ error: 'Hanya PO dalam proses yang bisa diterima' }, { status: 400 })
     }
 
@@ -64,39 +64,57 @@ export async function patchRestockRequestStatus({
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      for (const item of po.items) {
-        // RECEIVED QUANTITY can be revised (different from ordered quantity)
-        const receivedQty = items[item.id] !== undefined ? items[item.id] : 0
+      // Fetch PO items inside transaction for data consistency
+      const freshPO = await tx.purchaseOrder.findUnique({
+        where: { id: purchaseOrderId },
+        include: {
+          items: {
+            include: { barang: true },
+          },
+        },
+      })
 
-        // Always update the receivedQuantity in PO Item for history/comparison
+      if (!freshPO || freshPO.items.length === 0) {
+        throw new Error('Purchase Order tidak memiliki items')
+      }
+
+      for (const item of freshPO.items) {
+        // RECEIVED QUANTITY - support both barangId key (new) and item.id key (legacy)
+        const receivedQty = items[item.barangId] !== undefined ? items[item.barangId] : (items[item.id] !== undefined ? items[item.id] : 0)
+
+        if (receivedQty < 0) {
+          throw new Error(`Jumlah diterima untuk ${item.barang.nama} tidak boleh negatif`)
+        }
+
+        // ALWAYS update the receivedQuantity in PO Item to track that it was processed
+        const currentReceived = item.receivedQuantity || 0
+        const newReceivedTotal = currentReceived + receivedQty
+
         await tx.purchaseOrderItem.update({
           where: { id: item.id },
           data: { 
-            receivedQuantity: { increment: receivedQty }
+            receivedQuantity: newReceivedTotal
           }
         })
 
+        // ONLY add stock and create history if quantity is greater than 0
         if (receivedQty > 0) {
+          // Robust Warehouse Detection: Use the gudangId from the associated PurchaseRequest
           let targetGudangId = ''
-          const shipToMatch = po.notes?.match(/\[Ship To Warehouse: (.*?) -/)
-          if (shipToMatch && shipToMatch[1]) {
-            const parsedId = shipToMatch[1].trim()
-            const exists = await tx.gudang.findUnique({ where: { id: parsedId } })
-            if (exists) {
-              targetGudangId = parsedId
-            }
+          
+          const linkedPR = await tx.purchaseRequest.findFirst({
+            where: { purchaseOrderId },
+            select: { gudangId: true }
+          })
+
+          if (linkedPR) {
+            targetGudangId = linkedPR.gudangId
           }
 
+          // Fallback only if absolutely necessary
           if (!targetGudangId) {
             const firstGudang = await tx.gudang.findFirst({ where: { isActive: true } })
-            if (firstGudang) {
-              targetGudangId = firstGudang.id
-            } else {
-              const anyGudang = await tx.gudang.findFirst()
-              if (anyGudang) {
-                targetGudangId = anyGudang.id
-              }
-            }
+            targetGudangId = firstGudang?.id || ''
           }
 
           if (!targetGudangId) {
@@ -137,7 +155,7 @@ export async function patchRestockRequestStatus({
               jumlah: receivedQty,
               hargaBeliSatuan: item.unitPrice,
               tanggal: now,
-              keterangan: `Penerimaan dari PO #${po.poNumber} (Revisi/Partial)`,
+              keterangan: `Penerimaan dari PO #${freshPO.poNumber} (Revisi/Partial)`,
               kondisi: 'BARU',
               userId: actorId,
               fotoBukti: fotoBukti, // Attach the photos to the stock-in record
@@ -199,6 +217,14 @@ export async function patchRestockRequestStatus({
           updatedAt: new Date(),
         },
       })
+
+      // Update linked PurchaseRequest status when PO is fully received
+      if (newStatus === 'RECEIVED') {
+        await tx.purchaseRequest.updateMany({
+          where: { purchaseOrderId },
+          data: { status: 'RECEIVED' },
+        })
+      }
 
       return updatedPO
     })

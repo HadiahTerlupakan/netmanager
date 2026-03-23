@@ -48,6 +48,12 @@ vi.mock('@/app/api/inventory/_utils/restock-request-status', () => ({
   patchRestockRequestStatus: mockFns.patchRestockRequestStatus,
 }))
 
+vi.mock('@/modules/procurement', () => ({
+  ProcurementService: vi.fn().mockImplementation(() => ({
+    generatePOFromPRs: vi.fn().mockResolvedValue([]),
+  })),
+}))
+
 import { POST as postRestockRequests } from '@/app/api/inventory/restock/requests/route'
 import { GET as getRestockRequestById, PATCH as patchRestockRequestById } from '@/app/api/inventory/restock/requests/[id]/route'
 import { PATCH as patchRestockRequestProcess } from '@/app/api/inventory/restock/requests/[id]/process/route'
@@ -145,7 +151,7 @@ describe('inventory restock request lifecycle routes', () => {
 
     expect(prismaMock.purchaseRequest.findUnique).toHaveBeenCalledWith({
       where: { id: 'pr-1' },
-      select: { purchaseOrderId: true },
+      select: { purchaseOrderId: true, status: true },
     })
     expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledTimes(1)
     expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledWith({
@@ -187,10 +193,11 @@ describe('inventory restock request lifecycle routes', () => {
     expect(response.status).toBe(200)
   })
 
-  it('returns 400 when request has no linked purchase order for receive flow', async () => {
+  it('returns 500 when auto-generate PO fails for receive flow', async () => {
     prismaMock.purchaseRequest.findUnique.mockResolvedValue({
       id: 'pr-1',
       purchaseOrderId: null,
+      status: 'APPROVED',
     })
 
     const response = await patchRestockRequestReceive(
@@ -202,8 +209,8 @@ describe('inventory restock request lifecycle routes', () => {
     )
 
     const json = await response.json()
-    expect(response.status).toBe(400)
-    expect(json).toEqual({ error: 'Purchase Request belum memiliki Purchase Order untuk diterima' })
+    expect(response.status).toBe(500)
+    expect(json).toEqual({ error: 'Gagal membuat Purchase Order. Coba lagi atau hubungi admin.' })
     expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled()
   })
 

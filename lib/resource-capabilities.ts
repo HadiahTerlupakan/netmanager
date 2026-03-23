@@ -128,7 +128,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
         description: 'Stock opname'
     },
     restock: {
-        actions: ['read', 'create', 'update', 'delete', 'site_only'],
+        actions: ['read', 'create', 'update', 'delete', 'approve', 'verify', 'site_only'],
         description: 'Request restock'
     },
     inventory: {

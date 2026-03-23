@@ -85,10 +85,12 @@ export class ProcurementService {
             const po = await prisma.$transaction(async (tx) => {
                 const newPO = await tx.purchaseOrder.create({
                     data: {
+                        id: randomUUID(),
                         poNumber,
                         supplierId: realSupplierId,
                         status: 'DRAFT',
                         createdBy: userId,
+                        tenantId: tenantId, // Set tenantId for the PO
                         totalAmount: Array.from(itemMap.values()).reduce((sum, i) => sum + (i.qty * i.price), 0),
                         items: {
                             create: Array.from(itemMap.values()).map((i) => ({
@@ -96,7 +98,8 @@ export class ProcurementService {
                                 barangId: i.barangId,
                                 quantity: i.qty,
                                 unitPrice: i.price,
-                                totalPrice: i.qty * i.price
+                                totalPrice: i.qty * i.price,
+                                tenantId: tenantId // Set tenantId for each item
                             }))
                         },
                         purchaseRequests: {

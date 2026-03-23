@@ -763,6 +763,10 @@ export async function invalidateRolePermissionCache(roleId: string): Promise<voi
 // Check if user has specific permission
 export async function hasPermission(userId: string, resource: string, action: string): Promise<boolean> {
   const permissions = await getUserPermissions(userId)
+  
+  // Support wildcard for Super Admin
+  if (permissions.includes('*')) return true
+  
   const permissionKey = `${resource}:${action}`
   return permissions.includes(permissionKey)
 }

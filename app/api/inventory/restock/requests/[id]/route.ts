@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { randomUUID } from 'crypto'
 import { getRestockRequestDetail, patchRestockRequestLifecycle } from '@/app/api/inventory/_utils/restock-request-lifecycle'
+import { hasPermission } from '@/lib/rbac'
 
 interface RestockItemInput {
   barangId: string
@@ -19,6 +20,10 @@ export async function GET(
   const session = await getServerSession(authOptions)
   if (!session || !session.user) {
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+  }
+
+  if (!(await hasPermission('restock:read'))) {
+    return NextResponse.json({ error: 'Akses ditolak. Butuh izin restock:read' }, { status: 403 })
   }
 
   const { id } = await params
@@ -54,6 +59,10 @@ export async function PUT(
   const session = await getServerSession(authOptions)
   if (!session || !session.user) {
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+  }
+
+  if (!(await hasPermission('restock:update'))) {
+    return NextResponse.json({ error: 'Akses ditolak. Butuh izin restock:update' }, { status: 403 })
   }
 
   const { id } = await params
@@ -116,6 +125,10 @@ export async function DELETE(
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }
 
+  if (!(await hasPermission('restock:delete'))) {
+    return NextResponse.json({ error: 'Akses ditolak. Butuh izin restock:delete' }, { status: 403 })
+  }
+
   const { id } = await params
   const tenantId = session.user.tenantId as string
 
@@ -127,9 +140,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Pengajuan tidak ditemukan' }, { status: 404 })
   }
 
-  if (existing.status !== 'DRAFT' && existing.status !== 'SUBMITTED') {
-    return NextResponse.json({ error: 'Hanya pengajuan Draft/Submitted yang bisa dihapus' }, { status: 400 })
-  }
+
 
   await prisma.purchaseRequest.delete({ where: { id } })
 

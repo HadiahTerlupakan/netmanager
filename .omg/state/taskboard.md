@@ -1,6 +1,17 @@
 # OmG Taskboard
 
-## Active Lane: multi-tenant-consistency
+## Active Lane: inventory-restock-audit-remediation
+**Status:** Completed
+
+| Task ID | Status | Owner | Dependency | Worktree | Lane Health | Summary | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| INV-001 | verified | omg-architect | - | root | clean | Refactor brittle warehouse detection (regex fallback) | Code Audit |
+| INV-002 | verified | omg-executor | - | root | clean | Add backend validation for non-negative received quantity | Code Audit |
+| INV-003 | verified | omg-executor | - | root | clean | Add "Tutup Pesanan" checkbox for flexible receipt completion | Code Audit |
+| INV-004 | verified | omg-executor | - | root | clean | Per-item Arrived Toggle (Explicit Selection) | UI/UX Verified |
+| INV-005 | verified | omg-executor | - | root | clean | Bug Fix: Corrected received quantity persistence logic | Code Audit |
+
+## Lane: multi-tenant-consistency (Archived)
 **Status:** Completed
 
 | Task ID | Status | Owner | Dependency | Worktree | Lane Health | Summary | Evidence |
@@ -10,12 +21,3 @@
 | MTC-003 | verified | omg-executor | - | root | clean | Multi-tenant support in Repositories/Services | Code Audit |
 | MTC-004 | verified | omg-executor | - | root | clean | Sync `Overtime` model relation logic | Build Success |
 | VER-003 | verified | omg-verifier | MTC-001 | root | clean | Final Health Check (`npm run check`) | Full Build Log |
-
-### Completed Tasks (Archive)
-- [x] SEC-001: Complete Security Audit & Static Scan
-- [x] SEC-002: Remediate IDOR in `payments/[id]`
-- [x] DEP-001: Update Next.js to 16.1.7 (CVE Fixes)
-- [x] ARC-001: Refactor `AttendanceRepository` (Module Isolation)
-- [x] PERF-001: Optimize `InventoryRepository` (Deep Includes)
-- [x] VER-001: Run Structural Verification (Build/Typecheck)
-- [x] VER-002: Verify IDOR Fix behavioral correctness

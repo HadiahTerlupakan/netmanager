@@ -13,7 +13,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }
 
-  const hasAccess = await hasPermission(session.id, 'purchase_orders', 'update')
+  const hasAccess = await hasPermission(session.id, 'restock', 'update')
   if (!hasAccess) {
     return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
   }

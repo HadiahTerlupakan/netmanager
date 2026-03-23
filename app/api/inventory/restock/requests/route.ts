@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { PurchaseRequestStatus } from '@prisma/client'
 import { createRestockRequest } from '@/app/api/inventory/_utils/restock-request-create'
+import { hasPermission } from '@/lib/rbac'
 
 interface RestockItemInput {
   barangId: string
@@ -16,6 +17,10 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session || !session.user) {
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+  }
+
+  if (!(await hasPermission('restock:read'))) {
+    return NextResponse.json({ error: 'Akses ditolak. Butuh izin restock:read' }, { status: 403 })
   }
 
   const tenantId = session.user.tenantId as string
@@ -33,12 +38,29 @@ export async function GET(req: NextRequest) {
       },
       requester: { select: { name: true } },
       approver: { select: { name: true } },
-      gudang: { select: { nama: true, id: true } }
+      gudang: { select: { nama: true, id: true } },
+      purchaseOrder: {
+        include: {
+          items: true
+        }
+      }
     },
     orderBy: { createdAt: 'desc' }
   })
 
-  return NextResponse.json({ data: requests })
+  // Map receivedQuantity from PO to PR items for the UI
+  const data = requests.map(pr => ({
+    ...pr,
+    items: pr.items.map(item => {
+      const poItem = pr.purchaseOrder?.items.find(poi => poi.barangId === item.barangId)
+      return {
+        ...item,
+        receivedQuantity: poItem?.receivedQuantity || 0
+      }
+    })
+  }))
+
+  return NextResponse.json({ data })
 }
 
 // POST: Create new request
@@ -46,6 +68,10 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session || !session.user) {
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+  }
+
+  if (!(await hasPermission('restock:create'))) {
+    return NextResponse.json({ error: 'Akses ditolak. Butuh izin restock:create' }, { status: 403 })
   }
 
   const body = await req.json()

@@ -77,6 +77,7 @@ export default function RestockCRUDPage() {
   const { hasPermission } = usePermission()
   const canApprove = hasPermission('restock:approve')
   const canUpdate = hasPermission('restock:update')
+  const canVerify = hasPermission('restock:verify')
 
   const [requests, setRequests] = useState<PurchaseRequest[]>([])
   const [barangs, setBarangs] = useState<Barang[]>([])
@@ -226,7 +227,7 @@ export default function RestockCRUDPage() {
 
   const handleApprove = async (id: string) => {
     try {
-      const res = await patchWithAuth(`/api/inventory/restock/requests/${id}/approve`, {})
+      const res = await patchWithAuth(`/api/inventory/restock/requests/${id}`, { action: 'APPROVE' })
       if (res.ok) {
         toast.success('Pengajuan disetujui')
         fetchData()
@@ -243,7 +244,8 @@ export default function RestockCRUDPage() {
     setReceivingPR(pr)
     const initialItems: Record<string, number> = {}
     pr.items.forEach(item => {
-      initialItems[item.id] = item.jumlah - item.receivedQuantity
+      // Use barangId as key so it maps correctly to PO items
+      initialItems[item.barangId] = (initialItems[item.barangId] || 0) + (item.jumlah - item.receivedQuantity)
     })
     setReceivedItems(initialItems)
     setReceivedPhotos([])
@@ -438,15 +440,18 @@ export default function RestockCRUDPage() {
           {pr.status === 'DRAFT' && canUpdate && (
             <>
               <button onClick={() => handleOpenEdit(pr)} title="Edit" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><FiEdit2 /></button>
-              <button onClick={() => handleDelete(pr.id)} title="Hapus" className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><FiTrash2 /></button>
               {canApprove && <button onClick={() => handleApprove(pr.id)} className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-lg ml-2 transition-all hover:scale-105">Approve</button>}
             </>
           )}
 
           {(pr.status === 'APPROVED' || pr.status === 'ORDERED') && (
             <>
-              {canUpdate && <button onClick={() => handleOpenReceive(pr)} className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg ml-2 transition-all hover:scale-105">Verifikasi Sampai</button>}
+              {canVerify && <button onClick={() => handleOpenReceive(pr)} className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg ml-2 transition-all hover:scale-105">Verifikasi Sampai</button>}
             </>
+          )}
+
+          {canUpdate && (
+            <button onClick={() => handleDelete(pr.id)} title="Hapus" className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><FiTrash2 /></button>
           )}
         </div>
       )
@@ -654,18 +659,30 @@ export default function RestockCRUDPage() {
           <div className="space-y-3">
             <div className="text-xs font-bold text-gray-400 uppercase px-1">Daftar Barang</div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                {viewingPR?.items.map((i, idx) => (
-                <div key={i.id} className={`flex justify-between p-4 ${idx !== 0 ? 'border-t border-gray-50 dark:border-gray-700' : ''}`}>
-                    <div>
-                  <div className="font-bold text-sm text-gray-900 dark:text-white">{i.barang.nama}</div>
-                  <div className="text-xs text-gray-500">{i.barang.kode}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-black text-indigo-600">{i.jumlah}</div>
-                  <div className="text-[10px] text-gray-400 uppercase font-bold">{i.barang.satuan}</div>
-                </div>
-                </div>
-                ))}
+                {viewingPR?.items.map((i, idx) => {
+                  const isNotSent = viewingPR.status === 'RECEIVED' && (i.receivedQuantity || 0) === 0;
+                  
+                  return (
+                    <div key={i.id} className={`flex justify-between p-4 ${idx !== 0 ? 'border-t border-gray-50 dark:border-gray-700' : ''} ${isNotSent ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
+                      <div className="flex-1">
+                        <div className={`font-bold text-sm ${isNotSent ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>{i.barang.nama}</div>
+                        <div className="text-xs text-gray-500">{i.barang.kode}</div>
+                        {isNotSent && (
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-black uppercase rounded-lg">Tidak Dikirim</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-black ${isNotSent ? 'text-gray-300' : 'text-indigo-600'}`}>
+                          {viewingPR.status === 'RECEIVED' ? i.receivedQuantity : i.jumlah}
+                          {viewingPR.status === 'RECEIVED' && i.receivedQuantity !== i.jumlah && !isNotSent && (
+                            <span className="text-[10px] text-gray-400 font-bold ml-1">/ {i.jumlah}</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-400 uppercase font-bold">{i.barang.satuan}</div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
           <button onClick={() => setViewingPR(null)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg">Tutup</button>
@@ -688,24 +705,42 @@ export default function RestockCRUDPage() {
               <FiEdit2 /> Revisi Jumlah Realita
             </div>
             <div className="max-h-[250px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                {receivingPR?.items.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all hover:border-indigo-200">
-                    <div>
-                    <div className="font-bold text-sm text-gray-900 dark:text-white">{item.barang.nama}</div>
-                    <div className="text-xs text-gray-500 italic">Dipesan: {item.jumlah} {item.barang.satuan}</div>
+                {receivingPR?.items.map(item => {
+                  const isExcluded = (receivedItems[item.barangId] || 0) <= 0;
+                  
+                  return (
+                    <div key={item.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isExcluded ? 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:border-indigo-200'}`}>
+                        <div className="flex items-center gap-4">
+                          <input 
+                            type="checkbox" 
+                            checked={!isExcluded}
+                            onChange={(e) => {
+                              // If checked, try to use remaining quantity, if 0 use 1, if unchecked set to 0
+                              const remaining = item.jumlah - item.receivedQuantity;
+                              const newValue = e.target.checked ? (remaining > 0 ? remaining : 1) : 0;
+                              setReceivedItems({...receivedItems, [item.barangId]: newValue});
+                            }}
+                            className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <div>
+                            <div className={`font-bold text-sm ${isExcluded ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>{item.barang.nama}</div>
+                            <div className="text-xs text-gray-500 italic">Pesanan: {item.jumlah} {item.barang.satuan}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase">Diterima:</span>
+                          <input
+                              type="number"
+                              min="0"
+                              disabled={isExcluded}
+                              value={receivedItems[item.barangId] || 0}
+                              onChange={(e) => setReceivedItems({...receivedItems, [item.barangId]: parseInt(e.target.value) || 0})}
+                              className={`w-20 bg-gray-50 dark:bg-gray-900 border-none rounded-xl text-right font-black focus:ring-2 focus:ring-indigo-500 ${isExcluded ? 'text-gray-300' : 'text-indigo-600'}`}
+                          />
+                        </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">Diterima:</span>
-                    <input
-                        type="number"
-                        min="0"
-                        value={receivedItems[item.id] || 0}
-                        onChange={(e) => setReceivedItems({...receivedItems, [item.id]: parseInt(e.target.value) || 0})}
-                        className="w-20 bg-gray-50 dark:bg-gray-900 border-none rounded-xl text-right font-black text-indigo-600 focus:ring-2 focus:ring-indigo-500"
-                    />
-                    </div>
-                </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
 
@@ -721,6 +756,25 @@ export default function RestockCRUDPage() {
                 transactionType="inventory-masuk"
                 />
             </div>
+          </div>
+
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-5 rounded-3xl border border-yellow-100 dark:border-yellow-800/50">
+            <label className="flex items-start gap-4 cursor-pointer group">
+              <div className="relative flex items-center mt-1">
+                <input 
+                  type="checkbox" 
+                  checked={isFinishingPO} 
+                  onChange={(e) => setIsFinishingPO(e.target.checked)}
+                  className="w-6 h-6 rounded-lg border-2 border-yellow-400 text-yellow-600 focus:ring-yellow-500 transition-all cursor-pointer"
+                />
+              </div>
+              <div className="flex-1">
+                <span className="block text-sm font-black text-yellow-800 dark:text-yellow-200 uppercase tracking-tight">Tutup Pesanan (Selesai)</span>
+                <span className="block text-[11px] text-yellow-700/70 dark:text-yellow-400/60 font-medium leading-relaxed mt-0.5">
+                  Centang jika tidak akan ada pengiriman lagi untuk nomor PO ini (meskipun jumlah yang diterima kurang dari yang diajukan).
+                </span>
+              </div>
+            </label>
           </div>
 
           <div className="flex gap-3 pt-2">
