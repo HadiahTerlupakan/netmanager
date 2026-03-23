@@ -118,7 +118,6 @@ RUN find node_modules \( \
       -o -name "docs" -o -name ".github" \
       -o -name "example" -o -name "examples" \
     \) -type d -exec rm -rf {} + 2>/dev/null; \
-    rm -rf node_modules/@prisma/studio-core node_modules/@prisma/studio 2>/dev/null; \
     echo "node_modules trimmed successfully"
 
 # Copy necessary files for the custom server and background tasks
