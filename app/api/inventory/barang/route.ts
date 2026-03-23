@@ -244,6 +244,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         isWorkOrderMaterial: barang.isWorkOrderMaterial,
         jenis: barang.jenis,
         kategoriAset: barang.kategoriAset,
+        minStokDefault: barang.minStokDefault || 0,
         createdAt: barang.createdAt,
         updatedAt: barang.updatedAt,
         totalStock,
@@ -348,7 +349,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       satuan,
       isWorkOrderMaterial,
       jenis: body.jenis,
-      kategoriAset: body.kategoriAset
+      kategoriAset: body.kategoriAset,
+      minStokDefault: body.minStokDefault
     })
 
     logger.dbOperation('create', 'Barang', Date.now() - dbStart)

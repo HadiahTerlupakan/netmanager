@@ -1097,6 +1097,7 @@ model User {
   poProcessed                                PurchaseOrder[]           @relation("POProcessor")
   poReceived                                 PurchaseOrder[]           @relation("POReceiver")
   purchaseRequests                           PurchaseRequest[]         @relation("Requester")
+  approverPurchaseRequests                   PurchaseRequest[]         @relation("ApproverPR")
   push_subscriptions                         PushSubscriptions[]
   rabApprovals                               RabApproval[]
   createdRabProjects                         RabProject[]
@@ -1166,6 +1167,7 @@ model Barang {
   supplierId           String?
   jenis                JenisBarang           @default(HABIS_PAKAI)
   kategoriAset         KategoriAset?
+  minStokDefault       Int                   @default(0)
   tenantId             String?
   assets               Asset[]
   supplier             Supplier?             @relation(fields: [supplierId], references: [id])
@@ -2381,6 +2383,7 @@ model PurchaseRequest {
   updatedAt       DateTime              @updatedAt
   approvedAt      DateTime?
   approvedBy      String?
+  approver        User?                 @relation("ApproverPR", fields: [approvedBy], references: [id])
   tenantId        String?
   items           PurchaseRequestItem[]
   gudang          Gudang                @relation(fields: [gudangId], references: [id])
@@ -2444,6 +2447,7 @@ model PurchaseOrder {
   createdBy         String
   processedById     String?
   receivedById      String?
+  fotoBukti         String[]
   grandTotal        Float               @default(0)
   paidFromAccountId String?
   paymentStatus     PaymentStatus       @default(UNPAID)
@@ -2465,16 +2469,17 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id              String        @id
-  purchaseOrderId String
-  barangId        String
-  quantity        Int
-  unitPrice       Float
-  totalPrice      Float
-  tenantId        String?
-  barang          Barang        @relation(fields: [barangId], references: [id])
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  tenant          Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id               String        @id @default(uuid())
+  purchaseOrderId  String
+  barangId         String
+  quantity         Int
+  receivedQuantity Int           @default(0)
+  unitPrice        Float
+  totalPrice       Float
+  tenantId         String?
+  barang           Barang        @relation(fields: [barangId], references: [id])
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  tenant           Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@map("purchase_order_items")

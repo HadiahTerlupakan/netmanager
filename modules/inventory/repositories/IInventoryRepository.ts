@@ -36,6 +36,7 @@ export interface CreateBarangInput {
     isWorkOrderMaterial?: boolean
     jenis?: JenisBarang
     kategoriAset?: KategoriAset
+    minStokDefault?: number
     tenantId?: string
 }
 
@@ -46,6 +47,7 @@ export interface UpdateBarangInput {
     isWorkOrderMaterial?: boolean
     jenis?: JenisBarang
     kategoriAset?: KategoriAset
+    minStokDefault?: number
     tenantId?: string
 }
 

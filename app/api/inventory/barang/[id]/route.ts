@@ -159,7 +159,8 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       satuan,
       isWorkOrderMaterial,
       jenis: body.jenis,
-      kategoriAset: body.kategoriAset
+      kategoriAset: body.kategoriAset,
+      minStokDefault: body.minStokDefault
     })
 
     logger.dbOperation('update', 'Barang', Date.now() - dbStart)

@@ -745,19 +745,12 @@ export class WorkOrderService {
                 }
 
                 // Check barang
-                // If preferredGudangId is provided, look there first.
-                // If not, we still fail-safe by explicitly requiring one or falling back to "highest stock" 
-                // but user concern suggests we should be safer. 
-                // Logic: 
-                // 1. If preferredGudangId, filter by it.
-                // 2. If not, defaults to "highest stock" (existing behavior), but we can log unique warehouse usage if needed.
-
                 const barang = await tx.barang.findUnique({
                     where: { id: barangId },
                     include: {
                         barangGudang: {
                             where: {
-                                stok: { gt: 0 },
+                                stok: { gte: quantity },
                                 ...(preferredGudangId ? { gudangId: preferredGudangId } : {})
                             },
                             orderBy: { stok: 'desc' }, // Use warehouse with most stock first
@@ -773,13 +766,21 @@ export class WorkOrderService {
                 // Find available stock
                 const gudangSource = barang.barangGudang[0]
                 if (!gudangSource || gudangSource.stok < quantity) {
-                    // Note: Simple check. For production, might need to split across warehouses if needed.
-                    throw new Error(`Stok tidak mencukupi. Tersedia: ${gudangSource?.stok || 0}`)
+                    throw new Error(`Stok tidak mencukupi di gudang yang ditentukan. Tersedia: ${gudangSource?.stok || 0}`)
                 }
 
+                // Business Rule: Ensure integer
+                if (Math.floor(quantity) !== quantity) {
+                    throw new Error('Jumlah material harus angka bulat (tidak boleh desimal)')
+                }
+                
                 const deductAmount = quantity
 
-                // Deduct stock
+                // Deduct stock - using conditions if possible, but WO Service seems to use total stock.
+                // To be safe and consistent with InventoryRepository, we should ideally know the condition.
+                // But WorkOrderMaterial doesn't have a 'kondisi' field in schema yet, it defaults to NEW.
+                // Let's assume BARU for Work Order materials as per common practice in this app.
+                
                 await tx.barangGudang.update({
                     where: {
                         barangId_gudangId: {
@@ -788,7 +789,8 @@ export class WorkOrderService {
                         }
                     },
                     data: {
-                        stok: { decrement: deductAmount }
+                        stok: { decrement: deductAmount },
+                        stokBaru: { decrement: deductAmount } // Default to NEW for WO
                     }
                 })
 

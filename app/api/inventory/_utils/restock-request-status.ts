@@ -8,6 +8,7 @@ interface RestockRequestStatusInput {
   items?: Record<string, number>
   closePO?: boolean
   actorId: string
+  fotoBukti?: string[]
 }
 
 export async function patchRestockRequestStatus({
@@ -16,6 +17,7 @@ export async function patchRestockRequestStatus({
   items = {},
   closePO,
   actorId,
+  fotoBukti = [],
 }: RestockRequestStatusInput) {
   try {
     const po = await prisma.purchaseOrder.findUnique({
@@ -56,9 +58,23 @@ export async function patchRestockRequestStatus({
       return NextResponse.json({ error: 'Hanya PO dalam proses yang bisa diterima' }, { status: 400 })
     }
 
+    // Business Rule: Photo is required for receipt
+    if (!fotoBukti || fotoBukti.length === 0) {
+      return NextResponse.json({ error: 'Foto bukti penerimaan barang wajib diunggah' }, { status: 400 })
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       for (const item of po.items) {
-        const receivedQty = items[item.id] || 0
+        // RECEIVED QUANTITY can be revised (different from ordered quantity)
+        const receivedQty = items[item.id] !== undefined ? items[item.id] : 0
+
+        // Always update the receivedQuantity in PO Item for history/comparison
+        await tx.purchaseOrderItem.update({
+          where: { id: item.id },
+          data: { 
+            receivedQuantity: { increment: receivedQty }
+          }
+        })
 
         if (receivedQty > 0) {
           let targetGudangId = ''
@@ -121,9 +137,10 @@ export async function patchRestockRequestStatus({
               jumlah: receivedQty,
               hargaBeliSatuan: item.unitPrice,
               tanggal: now,
-              keterangan: `Penerimaan dari PO #${po.poNumber}`,
+              keterangan: `Penerimaan dari PO #${po.poNumber} (Revisi/Partial)`,
               kondisi: 'BARU',
               userId: actorId,
+              fotoBukti: fotoBukti, // Attach the photos to the stock-in record
             },
             include: {
               barang: true,
@@ -171,42 +188,14 @@ export async function patchRestockRequestStatus({
       }
 
       const newStatus = closePO ? 'RECEIVED' : 'PARTIAL'
-      let updatedTotalAmount = po.totalAmount
-
-      if (closePO) {
-        let recalculatedTotal = 0
-        const itemUpdates = []
-
-        for (const item of po.items) {
-          const receivedQty = items[item.id] || 0
-          const newTotalPrice = receivedQty * item.unitPrice
-          recalculatedTotal += newTotalPrice
-
-          if (receivedQty !== item.quantity) {
-            itemUpdates.push(
-              tx.purchaseOrderItem.update({
-                where: { id: item.id },
-                data: {
-                  quantity: receivedQty,
-                  totalPrice: newTotalPrice,
-                },
-              })
-            )
-          }
-        }
-
-        if (itemUpdates.length > 0) {
-          await Promise.all(itemUpdates)
-        }
-        updatedTotalAmount = recalculatedTotal
-      }
-
+      
+      // Update PO with photos and status
       const updatedPO = await tx.purchaseOrder.update({
         where: { id: purchaseOrderId },
         data: {
           status: newStatus as 'RECEIVED' | 'PARTIAL',
           ...(newStatus === 'RECEIVED' && { receivedById: actorId }),
-          totalAmount: updatedTotalAmount,
+          fotoBukti: { push: fotoBukti }, // Store the proof photos in PO record
           updatedAt: new Date(),
         },
       })

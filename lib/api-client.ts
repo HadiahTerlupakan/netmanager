@@ -63,6 +63,21 @@ export async function putWithAuth(url: string, data: unknown, options: RequestIn
 }
 
 /**
+ * PATCH request dengan autentikasi
+ * @param url - URL endpoint
+ * @param data - Data body
+ * @param options - Fetch options tambahan
+ * @returns Promise<Response>
+ */
+export async function patchWithAuth(url: string, data: unknown, options: RequestInit = {}): Promise<Response> {
+  return fetchWithAuth(url, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+    ...options,
+  })
+}
+
+/**
  * DELETE request dengan autentikasi
  * @param url - URL endpoint
  * @param options - Fetch options tambahan

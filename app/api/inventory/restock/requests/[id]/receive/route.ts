@@ -47,5 +47,6 @@ export async function PATCH(
     items: body.items,
     closePO: body.closePO,
     actorId: session.id,
+    fotoBukti: body.fotoBukti,
   })
 }

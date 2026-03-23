@@ -76,8 +76,14 @@ export async function POST(
 
             for (const item of items) {
                 const { barangId, gudangId, jumlah, kondisi } = item
+                const jumlahInt = Math.floor(jumlah)
+                const itemKondisi = kondisi || 'BARU'
 
-                // Check stock
+                if (jumlahInt <= 0) {
+                    throw new Error('Jumlah harus angka bulat positif')
+                }
+
+                // Check stock specifically for the condition
                 const barangGudang = await tx.barangGudang.findFirst({
                     where: {
                         barangId,
@@ -87,8 +93,19 @@ export async function POST(
                     include: { barang: true }
                 })
 
-                if (!barangGudang || barangGudang.stok < jumlah) {
-                    throw new Error(`Stok tidak mencukupi untuk barang ${barangGudang?.barang?.nama || barangId}`)
+                if (!barangGudang) {
+                    throw new Error('Data stok tidak ditemukan di gudang ini')
+                }
+
+                // Determine which stock field to check
+                let availableStock = 0
+                if (itemKondisi === 'BARU') availableStock = barangGudang.stokBaru
+                else if (itemKondisi === 'BEKAS') availableStock = barangGudang.stokBekas
+                else if (itemKondisi === 'RUSAK') availableStock = barangGudang.stokRusak
+                else availableStock = barangGudang.stok // Fallback
+
+                if (availableStock < jumlahInt) {
+                    throw new Error(`Stok ${itemKondisi} tidak mencukupi untuk barang ${barangGudang.barang.nama}. Tersedia: ${availableStock}`)
                 }
 
                 // Create barang keluar
@@ -97,8 +114,8 @@ export async function POST(
                         id: randomUUID(),
                         barangId,
                         gudangId,
-                        jumlah,
-                        kondisi: kondisi || 'BARU',
+                        jumlah: jumlahInt,
+                        kondisi: itemKondisi,
                         userId: userId,
                         purpose: `Work Order: ${workOrder.workOrderNumber}`,
                         keterangan: `Digunakan untuk work order ${workOrder.workOrderNumber} - ${workOrder.title}`,
@@ -107,14 +124,14 @@ export async function POST(
                     include: { barang: true }
                 })
 
-                // Update stock - using updateMany because findFirst doesn't expose a unique identifier in where clause here
+                // Update stock - precisely for the condition and total
                 const updateData: Prisma.BarangGudangUpdateInput = {
-                    stok: { decrement: jumlah }
+                    stok: { decrement: jumlahInt }
                 }
                 
-                if (kondisi === 'BARU') updateData.stokBaru = { decrement: jumlah }
-                else if (kondisi === 'BEKAS') updateData.stokBekas = { decrement: jumlah }
-                else if (kondisi === 'RUSAK') updateData.stokRusak = { decrement: jumlah }
+                if (itemKondisi === 'BARU') updateData.stokBaru = { decrement: jumlahInt }
+                else if (itemKondisi === 'BEKAS') updateData.stokBekas = { decrement: jumlahInt }
+                else if (itemKondisi === 'RUSAK') updateData.stokRusak = { decrement: jumlahInt }
 
                 await tx.barangGudang.update({
                     where: { id: barangGudang.id },
@@ -125,9 +142,9 @@ export async function POST(
                 createdItems.push({
                     id: keluar.id,
                     nama: keluar.barang.nama,
-                    jumlah,
+                    jumlah: jumlahInt,
                     satuan: keluar.barang.satuan,
-                    kondisi: kondisi || 'BARU',
+                    kondisi: itemKondisi,
                     barangId,
                     gudangId
                 })

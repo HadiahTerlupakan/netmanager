@@ -62,6 +62,7 @@ export class InventoryRepository implements IInventoryRepository {
                 isWorkOrderMaterial: true,
                 jenis: true,
                 kategoriAset: true,
+                minStokDefault: true,
                 createdAt: true,
                 tenantId: true,
                 updatedAt: true,
@@ -75,6 +76,7 @@ export class InventoryRepository implements IInventoryRepository {
                     },
                     select: {
                         id: true,
+                        gudangId: true,
                         stok: true,
                         stokBaru: true,
                         stokBekas: true,
@@ -150,6 +152,7 @@ export class InventoryRepository implements IInventoryRepository {
             data: {
                 id: crypto.randomUUID(),
                 ...data,
+                minStokDefault: data.minStokDefault || 0,
                 updatedAt: new Date()
             }
         })
@@ -305,27 +308,33 @@ export class InventoryRepository implements IInventoryRepository {
 
     async removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar> {
         return this.db.$transaction(async (tx) => {
+            // Ensure integer quantity
+            if (Math.floor(data.jumlah) !== data.jumlah) throw new Error('Jumlah tidak boleh angka desimal')
+            
+            const jumlahInt = data.jumlah
+            if (jumlahInt <= 0) throw new Error('Jumlah harus angka bulat positif')
+
             const currentStock = await tx.barangGudang.findUnique({
                 where: { barangId_gudangId: { barangId: data.barangId, gudangId: data.gudangId } }
             })
 
-            if (!currentStock) throw new Error('Stok tidak ditemukan')
-            if (currentStock.stok < data.jumlah) throw new Error('Total stok tidak mencukupi')
+            if (!currentStock) throw new Error('Stok tidak ditemukan di gudang ini')
+            if (currentStock.stok < jumlahInt) throw new Error(`Total stok tidak mencukupi (Tersedia: ${currentStock.stok})`)
 
             const kondisi = data.kondisi || DEFAULT_KONDISI
             const stockField = STOCK_FIELD_MAP[kondisi] || 'stokBaru'
             const stokByKondisi = currentStock[stockField as keyof typeof currentStock] as number
 
             if (typeof stokByKondisi !== 'number' || isNaN(stokByKondisi)) throw new Error(`Data stok tidak valid untuk kondisi ${kondisi}`)
-            if (stokByKondisi < data.jumlah) throw new Error(`Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`)
+            if (stokByKondisi < jumlahInt) throw new Error(`Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`)
 
             const updateData = {
-                stok: { decrement: data.jumlah },
-                [stockField]: { decrement: data.jumlah }
+                stok: { decrement: jumlahInt },
+                [stockField]: { decrement: jumlahInt }
             } as Prisma.BarangGudangUpdateInput
 
             const updated = await tx.barangGudang.updateMany({
-                where: { id: currentStock.id, stok: { gte: data.jumlah }, [stockField]: { gte: data.jumlah } },
+                where: { id: currentStock.id, stok: { gte: jumlahInt }, [stockField]: { gte: jumlahInt } },
                 data: updateData
             })
 
@@ -336,7 +345,7 @@ export class InventoryRepository implements IInventoryRepository {
                     id: crypto.randomUUID(),
                     barangId: data.barangId,
                     gudangId: data.gudangId,
-                    jumlah: data.jumlah,
+                    jumlah: jumlahInt,
                     kondisi: data.kondisi || 'BARU',
                     keterangan: data.keterangan || null,
                     tujuanPenggunaan: data.tujuanPenggunaan || null,
@@ -355,7 +364,7 @@ export class InventoryRepository implements IInventoryRepository {
                 const assetsToAllocate = await tx.asset.findMany({
                     where: { barangId: data.barangId, status: 'ACTIVE', location: keluarWithRelations.gudang?.nama },
                     orderBy: [{ purchaseDate: 'asc' }, { createdAt: 'asc' }],
-                    take: data.jumlah
+                    take: jumlahInt
                 })
 
                 if (assetsToAllocate.length > 0) {

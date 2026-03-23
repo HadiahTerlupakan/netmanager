@@ -16,6 +16,7 @@ interface BarangFormProps {
     isWorkOrderMaterial?: boolean
     jenis?: 'HABIS_PAKAI' | 'ASET'
     kategoriAset?: string
+    minStokDefault?: number
   }
   onSubmit: (data: {
     nama: string
@@ -23,6 +24,7 @@ interface BarangFormProps {
     isWorkOrderMaterial: boolean
     jenis: 'HABIS_PAKAI' | 'ASET'
     kategoriAset: string | null
+    minStokDefault: number
   }) => void
   onCancel: () => void
 }
@@ -43,7 +45,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
     satuan: initialData?.satuan || '',
     isWorkOrderMaterial: initialData?.isWorkOrderMaterial || false,
     jenis: (initialData?.jenis as 'HABIS_PAKAI' | 'ASET') || 'HABIS_PAKAI',
-    kategoriAset: initialData?.kategoriAset || 'ELEKTRONIK'
+    kategoriAset: initialData?.kategoriAset || 'ELEKTRONIK',
+    minStokDefault: initialData?.minStokDefault || 0
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -58,7 +61,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         satuan: initialData.satuan || '',
         isWorkOrderMaterial: initialData.isWorkOrderMaterial || false,
         jenis: initialData.jenis || 'HABIS_PAKAI',
-        kategoriAset: initialData.kategoriAset || 'ELEKTRONIK'
+        kategoriAset: initialData.kategoriAset || 'ELEKTRONIK',
+        minStokDefault: initialData.minStokDefault || 0
       })
       // Check if initial satuan is custom
       if (initialData.satuan && !SATUAN_OPTIONS.includes(initialData.satuan)) {
@@ -97,7 +101,8 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
         satuan: sanitizeInput(formData.satuan),
         isWorkOrderMaterial: formData.isWorkOrderMaterial,
         jenis: formData.jenis,
-        kategoriAset: formData.jenis === 'ASET' ? formData.kategoriAset : null
+        kategoriAset: formData.jenis === 'ASET' ? formData.kategoriAset : null,
+        minStokDefault: Number(formData.minStokDefault)
       }
       if (initialData?.id) {
         // Update existing barang
@@ -346,6 +351,30 @@ export function BarangForm({ initialData, onSubmit, onCancel }: BarangFormProps)
             </p>
           </div>
         )}
+      </div>
+
+      <div>
+        <label htmlFor="minStokDefault" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Stok Minimal (Default)
+        </label>
+        <div className="relative">
+          <input
+            type="number"
+            id="minStokDefault"
+            value={formData.minStokDefault}
+            onChange={(e) => setFormData({ ...formData, minStokDefault: parseInt(e.target.value) || 0 })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            placeholder="0"
+            min="0"
+            disabled={loading || !hasAccess}
+          />
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <span className="text-gray-500 sm:text-sm">{formData.satuan || 'unit'}</span>
+          </div>
+        </div>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Batas minimal stok global. Sistem akan memberikan peringatan restock jika stok di gudang manapun berada di bawah angka ini.
+        </p>
       </div>
 
       <div>
