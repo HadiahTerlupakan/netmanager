@@ -70,17 +70,19 @@ export async function POST(request: Request) {
             .setExpirationTime('7d')
             .sign(getSecret())
 
-        // Set HTTP-only cookie
-        const response = apiSuccess({ user: payload }, { message: 'Login berhasil' })
-
-        response.cookies.set({
-            name: 'investor_auth_token',
-            value: token,
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 60 * 60 * 24 * 7 // 7 days
+        // Set HTTP-only cookie via raw header for maximum compatibility
+        const isSecure = process.env.NODE_ENV === 'production'
+        const cookieParts = [
+            `investor_auth_token=${token}`,
+            'Path=/',
+            'HttpOnly',
+            'SameSite=Lax',
+            `Max-Age=${60 * 60 * 24 * 7}`,
+            ...(isSecure ? ['Secure'] : []),
+        ]
+        const response = apiSuccess({ user: payload }, { 
+            message: 'Login berhasil',
+            headers: { 'Set-Cookie': cookieParts.join('; ') }
         })
 
         return response

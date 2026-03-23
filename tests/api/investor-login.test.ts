@@ -9,25 +9,19 @@ vi.mock('bcryptjs', () => ({
 }))
 
 vi.mock('jose', () => {
-  return {
-    SignJWT: vi.fn().mockImplementation(() => {
-      return {
-        setProtectedHeader: vi.fn().mockReturnThis(),
-        setIssuedAt: vi.fn().mockReturnThis(),
-        setExpirationTime: vi.fn().mockReturnThis(),
-        sign: vi.fn().mockResolvedValue('mocked-jwt-token'),
-      }
-    }),
+  // Use a class so `new SignJWT()` works (arrow functions can't be constructors)
+  class MockSignJWT {
+    setProtectedHeader() { return this }
+    setIssuedAt() { return this }
+    setExpirationTime() { return this }
+    async sign() { return 'mocked-jwt-token' }
   }
+  return { SignJWT: MockSignJWT }
 })
 
 describe('Investor Login API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.spyOn(console, 'error').mockImplementation((...args) => {
-      // Un-comment to see errors
-      console.log('[TEST-ERROR]', ...args)
-    })
     process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-chars-long-standard'
   })
 
@@ -78,7 +72,7 @@ describe('Investor Login API', () => {
       username: 'investor1',
       passwordHash: 'hashed_pw',
       isActive: true,
-    } as unknown as { id: string, username: string, passwordHash: string, isActive: boolean })
+    } as unknown as { id: string, username: string, passwordHash: string, isActive: boolean });
     (vi.mocked(compare) as Mock).mockResolvedValue(false)
 
     const req = new Request('http://localhost', {
@@ -100,7 +94,7 @@ describe('Investor Login API', () => {
       tenantId: 'tenant1',
       isActive: true,
     }
-    prismaMock.investor.findFirst.mockResolvedValue(mockInvestor as unknown as { id: string, username: string, passwordHash: string, namaLengkap: string, tenantId: string, isActive: boolean })
+    prismaMock.investor.findFirst.mockResolvedValue(mockInvestor as unknown as { id: string, username: string, passwordHash: string, namaLengkap: string, tenantId: string, isActive: boolean });
     (vi.mocked(compare) as Mock).mockResolvedValue(true)
 
     const req = new Request('http://localhost', {
@@ -110,15 +104,14 @@ describe('Investor Login API', () => {
     const res = await POST(req)
     const data = await res.json() as { success: boolean, data: { user: { username: string } } }
 
-    if (res.status === 500) {
-      // Force log error if 500
-      console.log('Failing with 500:', data)
-    }
-
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.data.user.username).toBe('investor1')
-    expect(res.headers.get('set-cookie')).toContain('investor_auth_token=mocked-jwt-token')
+    
+    // Verify cookie was set via Set-Cookie header
+    const setCookie = res.headers.get('set-cookie') || ''
+    expect(setCookie).toContain('investor_auth_token=')
+    expect(setCookie).toContain('HttpOnly')
   })
 
   it('should return 403 if account is inactive', async () => {
