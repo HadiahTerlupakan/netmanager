@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { randomUUID } from 'crypto'
-import { patchRestockRequestLifecycle } from '@/app/api/inventory/_utils/restock-request-lifecycle'
+import { getRestockRequestDetail, patchRestockRequestLifecycle } from '@/app/api/inventory/_utils/restock-request-lifecycle'
 
 interface RestockItemInput {
   barangId: string
@@ -22,20 +22,7 @@ export async function GET(
   }
 
   const { id } = await params
-  const request = await prisma.purchaseRequest.findUnique({
-    where: { id, tenantId: session.user.tenantId as string },
-    include: {
-      items: { include: { barang: true } },
-      requester: { select: { name: true } },
-      gudang: { select: { nama: true } }
-    }
-  })
-
-  if (!request) {
-    return NextResponse.json({ error: 'Pengajuan tidak ditemukan' }, { status: 404 })
-  }
-
-  return NextResponse.json({ data: request })
+  return getRestockRequestDetail(id)
 }
 
 // PATCH: Update request status/lifecycle
