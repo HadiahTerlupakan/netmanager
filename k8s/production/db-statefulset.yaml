@@ -39,12 +39,12 @@ spec:
               memory: 512Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
@@ -111,12 +111,12 @@ spec:
               memory: 512Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
@@ -183,12 +183,12 @@ spec:
               memory: 512Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
@@ -255,12 +255,12 @@ spec:
               memory: 512Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+              command: ["pg_isready", "-U", "netmgr"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:

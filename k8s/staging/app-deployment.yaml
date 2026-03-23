@@ -103,6 +103,11 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: REDIS_URL
+            - name: ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: netmanager-config
+                  key: ALLOWED_ORIGINS
           volumeMounts:
             - name: uploads-volume
               mountPath: /app/public/uploads

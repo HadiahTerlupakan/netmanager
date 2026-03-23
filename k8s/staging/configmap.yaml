@@ -9,3 +9,4 @@ data:
   NEXTAUTH_URL: "https://staging.radpro.id"
   TZ: "Asia/Jakarta"
   NODE_ENV: "production"
+  ALLOWED_ORIGINS: "https://staging.radpro.id"
