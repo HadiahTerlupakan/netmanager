@@ -4,7 +4,6 @@ import { canJoinRoom, resolveSocketAuth } from './socket-auth'
 
 // Declare global type for Socket.io server instance
 declare global {
-
     var socketIOServer: SocketIOServer | undefined
 }
 

@@ -468,10 +468,9 @@ export default function Sidebar() {
           {/* User Profile Section */}
           <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 shrink-0">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
-              <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-100 to-violet-100 dark:from-indigo-900 dark:to-violet-900 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm shrink-0">
+              <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-100 to-violet-100 dark:from-indigo-900 dark:to-violet-900 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm shrink-0 relative overflow-hidden">
                 {session?.user?.image ? (
-
-                  <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={session.user.image} alt={session.user.name || 'User'} className="w-full h-full rounded-full object-cover" />
+                  <Image width={40} height={40} src={session.user.image} alt={session.user.name || 'User'} className="object-cover" />
                 ) : (
                   <span className="text-lg font-bold text-indigo-600 dark:text-indigo-300">
                     {(session?.user?.name || 'U').charAt(0).toUpperCase()}

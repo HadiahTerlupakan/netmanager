@@ -98,12 +98,14 @@ export function WoActivityTimeline({
                                                 href={attData.filePath}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="block"
+                                                className="block relative h-40 w-full min-w-[200px] rounded-lg overflow-hidden mb-2"
                                             >
-                                                <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
+                                                <Image 
                                                     src={attData.filePath}
                                                     alt={attData.caption || 'Attachment'}
-                                                    className="h-40 rounded-lg object-cover mb-2"
+                                                    fill
+                                                    sizes="(max-width: 768px) 100vw, 400px"
+                                                    className="object-cover"
                                                 />
                                             </a>
 

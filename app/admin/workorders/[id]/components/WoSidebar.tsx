@@ -101,14 +101,16 @@ export function WoSidebar({
                                                     setLightboxIndex(index)
                                                     setLightboxOpen(true)
                                                 }}
-                                                className="block group relative aspect-square cursor-pointer"
+                                                className="block group relative aspect-square cursor-pointer rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-emerald-500 transition-colors"
                                             >
-                                                <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
+                                                <Image 
                                                     src={att.filePath}
                                                     alt="Bukti Selesai"
-                                                    className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 transition-colors"
+                                                    fill
+                                                    sizes="(max-width: 768px) 50vw, 200px"
+                                                    className="object-cover"
                                                 />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                                                     <HiPhoto className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
                                             </button>

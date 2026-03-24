@@ -142,7 +142,15 @@ export function WoMaterialDetailModal({ isOpen, onClose, data, loading }: WoMate
                             <div className="grid grid-cols-2 gap-4">
                                 {data.fotoBukti.map((url, idx) => (
                                     <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                                        <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={url} alt={`Bukti ${idx + 1}`} className="rounded-lg border-2 border-gray-200 dark:border-gray-600 h-32 w-full object-cover hover:border-indigo-500 transition-colors" />
+                                        <div className="relative h-32 w-full rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-500 transition-colors">
+                                            <Image 
+                                                src={url} 
+                                                alt={`Bukti ${idx + 1}`} 
+                                                fill 
+                                                sizes="(max-width: 768px) 50vw, 200px"
+                                                className="object-cover" 
+                                            />
+                                        </div>
                                     </a>
                                 ))}
                             </div>

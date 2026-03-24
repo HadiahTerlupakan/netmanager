@@ -1,7 +1,6 @@
-generator client_billing {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
-  output          = "./generated/billing"
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/billing"
 }
 
 datasource db {

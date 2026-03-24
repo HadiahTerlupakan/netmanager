@@ -251,7 +251,7 @@ export default function AttendanceCard() {
                         {/* Photo Preview */}
                         {photo && !showCamera && (
                             <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
-                                <Image src={photo} alt="Selfie Preview" fill className="object-cover" />
+                                <Image src={photo} alt="Selfie Preview" fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover" />
                                 <Button onClick={() => setPhoto(null)}
                                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full text-xs"
                                 >

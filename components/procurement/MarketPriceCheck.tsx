@@ -413,7 +413,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                             </span>
                         </div>
                         <div className="flex gap-4">
-                             <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={analytics.bestSellerItem.image} alt="Best Seller" className="w-16 h-16 rounded-lg object-cover border border-white shadow-sm" />
+                             <Image width={64} height={64} src={analytics.bestSellerItem.image} alt="Best Seller" className="rounded-lg object-cover border border-white shadow-sm" />
                              <div className="flex-1 min-w-0">
                                  <a href={analytics.bestSellerItem.url} target="_blank" rel="noopener" className="font-bold text-gray-900 dark:text-white line-clamp-2 hover:text-orange-600 transition-colors">
                                      {analytics.bestSellerItem.name}
@@ -434,7 +434,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {analytics.recommendedShops.length > 0 ? analytics.recommendedShops.map((shop: Product) => (
                              <a key={shop.id} href={shop.url} target="_blank" rel="noopener" className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition-all group">
-                                <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={shop.image} alt={shop.shopName} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                                <Image width={40} height={40} src={shop.image} alt={shop.shopName} className="rounded-lg object-cover bg-gray-100" />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-gray-900 dark:text-gray-200 group-hover:text-indigo-600 transition-colors truncate">{shop.shopName}</p>
                                     <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -476,7 +476,7 @@ export function MarketPriceCheck({ initialKeyword = '', onSelectPrice }: MarketP
                                <td className="px-6 py-4">
                                    <div className="flex items-start gap-4">
                                        <div className="relative shrink-0">
-                                           <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
+                                           <Image width={48} height={48} src={item.image} alt={item.name} className="object-cover rounded-lg shadow-sm" />
                                        </div>
                                        <div className="min-w-0 max-w-xs">
                                            <a href={item.url} target="_blank" rel="noopener" className="font-medium text-gray-900 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-2">

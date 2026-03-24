@@ -7,6 +7,7 @@ import { empty } from '@prisma/client-runtime-utils';
 import { isAnyNull } from '@prisma/client-runtime-utils';
 import { isDbNull } from '@prisma/client-runtime-utils';
 import { isJsonNull } from '@prisma/client-runtime-utils';
+import { isObjectEnumValue } from '@prisma/client-runtime-utils';
 import { join } from '@prisma/client-runtime-utils';
 import { JsonNull } from '@prisma/client-runtime-utils';
 import { JsonNullClass } from '@prisma/client-runtime-utils';
@@ -461,7 +462,7 @@ export declare function defineDmmfProperty(target: object, runtimeDataModel: Run
 
 declare function defineExtension(ext: ExtensionArgs | ((client: Client) => Client)): (client: Client) => Client;
 
-declare const denylist: readonly ["$connect", "$disconnect", "$on", "$transaction", "$extends"];
+declare const denylist: readonly ["$connect", "$disconnect", "$on", "$use", "$extends"];
 
 declare type Deprecation = ReadonlyDeep_2<{
     sinceVersion: string;
@@ -1263,7 +1264,7 @@ export declare function getPrismaClient(config: GetPrismaClientConfig): {
             callback: (client: Client) => Promise<unknown>;
             options?: Options;
         }): Promise<unknown>;
-        _createItxClient(transaction: PrismaPromiseInteractiveTransaction): Client;
+        _createItxClient(transaction: PrismaPromiseInteractiveTransaction, scopeId: string, scopeState: ItxScopeState): Client;
         /**
          * Execute queries within a transaction
          * @param input a callback or a query list
@@ -1543,6 +1544,8 @@ export { isDbNull }
 
 export { isJsonNull }
 
+export { isObjectEnumValue }
+
 declare type IsolationLevel = 'READ UNCOMMITTED' | 'READ COMMITTED' | 'REPEATABLE READ' | 'SNAPSHOT' | 'SERIALIZABLE';
 
 declare type IsolationLevel_2 = 'ReadUncommitted' | 'ReadCommitted' | 'RepeatableRead' | 'Snapshot' | 'Serializable';
@@ -1554,6 +1557,10 @@ export declare function isTypedSql(value: unknown): value is UnknownTypedSql;
 export declare type ITXClientDenyList = (typeof denylist)[number];
 
 export declare const itxClientDenyList: readonly (string | symbol)[];
+
+declare type ItxScopeState = {
+    stack: string[];
+};
 
 declare interface Job {
     resolve: (data: any) => void;
@@ -1913,6 +1920,11 @@ declare type Options = {
     timeout?: number;
     /** Transaction isolation level */
     isolationLevel?: IsolationLevel_2;
+    /**
+     * Used for nested interactive transactions. When provided, the engine may
+     * re-use an existing open transaction instead of opening a new one.
+     */
+    newTxId?: string;
 };
 
 export declare type Or<A extends 1 | 0, B extends 1 | 0> = {
@@ -3151,6 +3163,18 @@ declare interface Transaction extends AdapterInfo, SqlQueryable {
      * Roll back the transaction.
      */
     rollback(): Promise<void>;
+    /**
+     * Creates a savepoint within the currently running transaction.
+     */
+    createSavepoint?(name: string): Promise<void>;
+    /**
+     * Rolls back transaction state to a previously created savepoint.
+     */
+    rollbackToSavepoint?(name: string): Promise<void>;
+    /**
+     * Releases a previously created savepoint. Optional because not every connector supports this operation.
+     */
+    releaseSavepoint?(name: string): Promise<void>;
 }
 
 declare namespace Transaction_2 {

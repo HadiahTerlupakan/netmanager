@@ -113,17 +113,16 @@ export async function GET(request: NextRequest) {
         if (siteId) options.siteId = siteId;
         if (user.departmentId) options.departmentId = user.departmentId;
 
-        const { notifications, total } = await getNotificationsForUser(
-            session.user.id,
-            options
-        );
-
-        const unreadCount = await getUnreadCount(session.user.id, excludeTypes, siteId);
+        // Optimized: Run queries in parallel
+        const [notificationData, unreadCount] = await Promise.all([
+            getNotificationsForUser(session.user.id, options),
+            getUnreadCount(session.user.id, excludeTypes, siteId)
+        ]);
 
         return NextResponse.json({
             success: true,
-            notifications,
-            total,
+            notifications: notificationData.notifications,
+            total: notificationData.total,
             unreadCount,
         });
     } catch (error) {

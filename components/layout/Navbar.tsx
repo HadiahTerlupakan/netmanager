@@ -107,8 +107,7 @@ export default function Navbar() {
                 <div className="h-8 w-8 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
                   <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                     {session.user.image ? (
-
-                      <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
+                      <Image width={32} height={32} sizes="32px" src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                         {(session.user.name || 'U').charAt(0).toUpperCase()}
@@ -171,8 +170,7 @@ export default function Navbar() {
             <div className="sm:hidden h-9 w-9 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 p-[2px] shrink-0">
               <div className="h-full w-full rounded-full bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
                 {session.user.image ? (
-
-                  <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
+                  <Image width={36} height={36} sizes="36px" src={session.user.image} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                     {(session.user.name || 'U').charAt(0).toUpperCase()}

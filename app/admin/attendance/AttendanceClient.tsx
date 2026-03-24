@@ -270,7 +270,7 @@ export function ClientComponent() {
                     <div className="h-10 w-10 shrink-0 relative">
                         <Image
                             src={item.user.image || `https://ui-avatars.com/api/?name=${item.user.name}&background=random`}
-                            alt="" fill className="rounded-full object-cover"
+                            alt="" fill sizes="40px" className="rounded-full object-cover"
                         />
                     </div>
                     <div className="ml-4">
@@ -422,16 +422,16 @@ export function ClientComponent() {
             render: (item) => (
                 <div className="flex gap-2">
                     {item.checkInPhoto && (
-                        <button onClick={() => setSelectedPhoto(item.checkInPhoto)} className="relative group">
-                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-blue-500 transition-all">
-                                <Image src={item.checkInPhoto} alt="In" fill className="object-cover" />
+                        <button onClick={() => setSelectedPhoto(item.checkInPhoto)} className="group">
+                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-blue-500 transition-all relative">
+                                <Image src={item.checkInPhoto} alt="In" fill sizes="32px" className="object-cover" />
                             </div>
                         </button>
                     )}
                     {item.checkOutPhoto && (
-                        <button onClick={() => setSelectedPhoto(item.checkOutPhoto)} className="relative group">
-                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-orange-500 transition-all">
-                                <Image src={item.checkOutPhoto} alt="Out" fill className="object-cover" />
+                        <button onClick={() => setSelectedPhoto(item.checkOutPhoto)} className="group">
+                            <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-orange-500 transition-all relative">
+                                <Image src={item.checkOutPhoto} alt="Out" fill sizes="32px" className="object-cover" />
                             </div>
                         </button>
                     )}
@@ -628,6 +628,7 @@ export function ClientComponent() {
                             src={selectedPhoto}
                             alt="Full view"
                             fill
+                            sizes="(max-width: 768px) 100vw, 800px"
                             className="object-contain"
                         />
                     )}

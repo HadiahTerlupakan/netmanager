@@ -270,9 +270,8 @@ export function ClientComponent() {
             priority: 'primary',
             render: (item) => (
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 relative">
-                        { }
-                        <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
+                    <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                        <Image width={32} height={32}
                             src={item.user?.image || `https://ui-avatars.com/api/?name=${item.user?.name}&background=random`}
                             alt=""
                             className="w-full h-full object-cover"

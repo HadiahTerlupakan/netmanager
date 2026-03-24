@@ -93,10 +93,12 @@ export function ImageUpload({ images, onImagesChange, maxImages = 5 }: ImageUplo
                 <div className="grid grid-cols-3 gap-2 mb-3">
                     {previews.map((preview, index) => (
                         <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-                            <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
+                            <Image 
+                                fill
+                                sizes="33vw"
                                 src={preview}
                                 alt={`Preview ${index + 1}`}
-                                className="w-full h-full object-cover"
+                                className="object-cover"
                             />
                             <Button type="button"
                                 onClick={() => removeImage(index)}

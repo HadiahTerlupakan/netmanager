@@ -98,9 +98,9 @@ self.addEventListener('notificationclose', (event: NotificationEvent) => {
     console.log('[SW] Notification closed:', event.notification.tag);
 });
 
-self.addEventListener('pushsubscriptionchange', (event) => {
+self.addEventListener('pushsubscriptionchange', (event: Event) => {
     console.log('[SW] Push subscription changed');
-    event.waitUntil(
+    (event as ExtendableEvent).waitUntil(
         recoverPushSubscription({
             vapidPublicKey,
             subscribe: (options) => self.registration.pushManager.subscribe(options),

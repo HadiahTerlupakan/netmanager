@@ -321,9 +321,9 @@ export function ClientComponent() {
             priority: 'primary',
             render: (item) => (
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 relative">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 relative overflow-hidden">
                         {item.user.image ? (
-                            <Image src={item.user.image} alt="" fill className="object-cover rounded-full" />
+                            <Image src={item.user.image} alt="" fill sizes="32px" className="object-cover rounded-full" />
                         ) : (
                             <span className="font-bold text-xs">{item.user.name?.charAt(0) || 'U'}</span>
                         )}
@@ -470,7 +470,7 @@ export function ClientComponent() {
                             title="Foto Mulai"
                         >
                             <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm transition-all ring-2 ring-transparent hover:ring-green-500 dark:hover:ring-green-400 relative">
-                                <Image src={item.startPhoto} alt="Start" fill className="object-cover" />
+                                <Image src={item.startPhoto} alt="Start" fill sizes="40px" className="object-cover" />
                             </div>
                         </Button>
                     )}
@@ -482,7 +482,7 @@ export function ClientComponent() {
                             title="Foto Selesai"
                         >
                             <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm transition-all ring-2 ring-transparent hover:ring-red-500 dark:hover:ring-red-400 relative">
-                                <Image src={item.endPhoto} alt="End" fill className="object-cover" />
+                                <Image src={item.endPhoto} alt="End" fill sizes="40px" className="object-cover" />
                             </div>
                         </Button>
                     )}
@@ -808,6 +808,7 @@ export function ClientComponent() {
                             src={selectedPhoto}
                             alt="Full view"
                             fill
+                            sizes="(max-width: 1024px) 100vw, 1024px"
                             className="object-contain"
                         />
                     )}

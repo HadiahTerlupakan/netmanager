@@ -110,12 +110,14 @@ export function WoDiscussionTab({
                                                         setDiscussionLightboxIndex(attachmentIndex >= 0 ? attachmentIndex : 0)
                                                         setDiscussionLightboxOpen(true)
                                                     }}
-                                                    className="block w-full cursor-pointer"
+                                                    className="block w-full cursor-pointer relative h-60 min-w-[200px] rounded-lg overflow-hidden"
                                                 >
-                                                    <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
+                                                    <Image 
                                                         src={attData.filePath}
                                                         alt={attData.caption || 'Attachment'}
-                                                        className={`rounded-lg object-cover max-h-60 min-w-[200px] w-full hover:opacity-90 transition-opacity ${isMe ? 'bg-indigo-500' : 'bg-gray-100'}`}
+                                                        fill
+                                                        sizes="(max-width: 768px) 100vw, 400px"
+                                                        className={`object-cover hover:opacity-90 transition-opacity ${isMe ? 'bg-indigo-500' : 'bg-gray-100'}`}
                                                     />
                                                 </button>
 

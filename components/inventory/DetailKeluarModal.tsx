@@ -217,14 +217,15 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
                   <div key={index}>
                     {/* Image Container */}
                     <div
-                      className="group relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
-                      style={{ minHeight: '200px' }}
+                      className="group relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors h-48"
                       onClick={() => openLightbox(index)}
                     >
-                      <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }}
+                      <Image 
+                        fill
+                        sizes="(max-width: 640px) 100vw, 300px"
                         src={url}
                         alt={`Foto bukti ${index + 1}`}
-                        className="w-full h-48 object-contain bg-white dark:bg-gray-900"
+                        className="object-contain bg-white dark:bg-gray-900"
                         onError={(e) => {
                           console.error('Failed to load image:', url);
                           const target = e.target as HTMLImageElement;

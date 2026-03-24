@@ -409,6 +409,7 @@ export default function CanvasingList() {
                                                                 src={url}
                                                                 alt={`Bukti ${idx + 1}`}
                                                                 fill
+                                                                sizes="150px"
                                                                 className="rounded-lg object-cover cursor-zoom-in border border-gray-200 dark:border-gray-600 hover:opacity-80 transition-opacity"
                                                                 onClick={() => setZoomImage(url)}
                                                             />
@@ -462,7 +463,7 @@ export default function CanvasingList() {
                     onClick={() => setZoomImage(null)}
                 >
                     <div className="relative w-full h-full max-w-4xl max-h-[90vh]">
-                        <Image src={zoomImage} alt="Zoomed" fill className="object-contain rounded-lg shadow-2xl" />
+                        <Image src={zoomImage} alt="Zoomed" fill sizes="(max-width: 1024px) 100vw, 1024px" className="object-contain rounded-lg shadow-2xl" />
                     </div>
                     <Button variant="ghost" size="icon" className="absolute top-6 right-6">
                         <HiOutlineXMark className="w-8 h-8" />

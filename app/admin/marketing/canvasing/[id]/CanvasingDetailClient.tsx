@@ -363,7 +363,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                             >
                                 {item.fotoKtp ? (
                                     <div className="relative w-full h-full group">
-                                        <Image src={item.fotoKtp} alt="KTP" fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <Image src={item.fotoKtp} alt="Foto KTP" fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover group-hover:scale-105 transition-transform duration-300" />
                                         <div className="absolute inset-x-0 bottom-0 h-12 bg-black/50" />
                                         <span className="absolute bottom-3 left-3 text-white text-sm font-medium">Foto KTP</span>
                                     </div>
@@ -385,7 +385,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                             >
                                 {item.foto ? (
                                     <div className="relative w-full h-full group">
-                                        <Image src={item.foto} alt="Lokasi" fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <Image src={item.foto} alt="Foto Lokasi" fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover group-hover:scale-105 transition-transform duration-300" />
                                         <div className="absolute inset-x-0 bottom-0 h-12 bg-black/50" />
                                         <span className="absolute bottom-3 left-3 text-white text-sm font-medium">Foto Lokasi</span>
                                     </div>
@@ -514,6 +514,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                                                             src={url}
                                                             alt={`Bukti ${idx + 1}`}
                                                             fill
+                                                            sizes="(max-width: 768px) 50vw, 200px"
                                                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                         />
                                                         <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/60 to-transparent" />
@@ -633,6 +634,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
                             src={zoomImage}
                             alt="Zoomed"
                             fill
+                            sizes="(max-width: 1024px) 100vw, 1024px"
                             className="object-contain"
                         />
                     )}

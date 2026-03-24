@@ -230,12 +230,7 @@ export default function MyProfileClient() {
                         <div className="relative">
                             <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center border-4 border-white dark:border-gray-800 shadow-lg overflow-hidden shrink-0">
                                 {profile?.image ? (
-                                     
-                                    <Image width={0} height={0} sizes="100vw" style={{ width: "100%", height: "auto" }} 
-                                        src={profile.image} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover"
-                                    />
+                                    <Image width={96} height={96} src={profile.image} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     <span className="text-blue-600 dark:text-blue-400 text-3xl font-bold">
                                         {getInitials(profile?.name)}

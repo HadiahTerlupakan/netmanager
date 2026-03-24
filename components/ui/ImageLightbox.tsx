@@ -244,6 +244,7 @@ export function ImageLightbox({ images, initialIndex = 0, isOpen, onClose, alt =
                     src={img}
                     alt={`Thumbnail ${idx + 1}`}
                     fill
+                    sizes="64px"
                     className="object-cover"
                     unoptimized
                   />
