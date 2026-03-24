@@ -78,9 +78,9 @@ spec:
                                 (npm ci --no-audit --prefer-offline || npm install --registry=https://registry.npmmirror.com --no-audit)
                                 npm run prisma:generate-parallel
                                 echo "Running Lint and Typecheck in parallel..."
-                                npm run lint & LINT_PID=$!
-                                npm run typecheck & TYPE_PID=$!
-                                wait $LINT_PID $TYPE_PID
+                                npm run lint & LINT_PID=\$!
+                                npm run typecheck & TYPE_PID=\$!
+                                wait \$LINT_PID \$TYPE_PID
                             """
                         }
                     }
