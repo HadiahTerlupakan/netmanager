@@ -14,7 +14,7 @@ const mockIsSuperAdmin = vi.fn().mockReturnValue(false)
 vi.mock('@/lib/auth', () => ({
   authConfig: {},
   getUserPermissions: (userId: string) => mockGetUserPermissions(userId),
-  isSuperAdmin: (user: any) => mockIsSuperAdmin(user)
+  isSuperAdmin: (user: { role?: string; isSuperAdmin?: boolean } | null | undefined) => mockIsSuperAdmin(user)
 }))
 
 // Mock modules/roles
