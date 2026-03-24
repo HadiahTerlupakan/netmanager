@@ -10,9 +10,11 @@ vi.mock('next-auth', () => ({
 
 // Mock auth config and getUserPermissions  
 const mockGetUserPermissions = vi.fn()
+const mockIsSuperAdmin = vi.fn().mockReturnValue(false)
 vi.mock('@/lib/auth', () => ({
   authConfig: {},
-  getUserPermissions: (userId: string) => mockGetUserPermissions(userId)
+  getUserPermissions: (userId: string) => mockGetUserPermissions(userId),
+  isSuperAdmin: (user: any) => mockIsSuperAdmin(user)
 }))
 
 // Mock modules/roles
@@ -198,6 +200,27 @@ describe('Authorization Middleware', () => {
       const result = await authorize(request, { allowSelf: true }, { id: userId })
       
       expect(isAuthorized(result)).toBe(true)
+    })
+
+    it('should bypass all permission checks for Super Admin', async () => {
+      mockGetServerSession.mockResolvedValueOnce({
+        user: {
+          id: 'super-admin-1',
+          email: 'super@example.com',
+          role: 'SUPER_ADMIN'
+        }
+      })
+      mockIsSuperAdmin.mockReturnValueOnce(true)
+      
+      const request = createMockRequest()
+      // Even with impossible permissions, Super Admin should pass
+      const result = await authorize(request, { permissions: ['impossible:permission'] })
+      
+      expect(isAuthorized(result)).toBe(true)
+      if (isAuthorized(result)) {
+        expect(result.session.permissions).toContain('*')
+        expect(result.session.user.isSuperAdmin).toBe(true)
+      }
     })
   })
 
