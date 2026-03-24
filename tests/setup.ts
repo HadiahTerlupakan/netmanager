@@ -213,6 +213,28 @@ beforeEach(() => {
 vi.spyOn(console, 'log').mockImplementation(() => { })
 vi.spyOn(console, 'error').mockImplementation(() => { })
 
+// Mock Redis client globally
+// This prevents errors in CI environments where Redis is not available
+export const redisMock = {
+  get: vi.fn(),
+  set: vi.fn(),
+  del: vi.fn(),
+  exists: vi.fn(),
+  keys: vi.fn(),
+  expire: vi.fn(),
+  hget: vi.fn(),
+  hset: vi.fn(),
+  hdel: vi.fn(),
+  hgetall: vi.fn(),
+  publish: vi.fn(),
+  subscribe: vi.fn(),
+  on: vi.fn(),
+}
+
+vi.mock('@/lib/redis', () => ({
+  redis: redisMock,
+}))
+
 // Mock the WebSocket emitter globally using vi.mock
 // This replaces the module completely preventing any network calls
 vi.mock('@/lib/websocket/emitter', () => ({

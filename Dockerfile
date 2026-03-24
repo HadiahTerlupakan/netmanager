@@ -29,7 +29,7 @@ COPY . .
 ARG NEXT_TELEMETRY_DISABLED=1
 ARG NODE_OPTIONS="--max-old-space-size=4096"
 ARG NEXTAUTH_URL="http://localhost:3000"
-ARG AUTH_URL="http://localhost:3000"
+ARG APP_URL="http://localhost:3000"
 
 # DATABASE and other non-sensitive build configs
 ARG DATABASE_URL="postgresql://user:pass@localhost:5432/db"
@@ -41,7 +41,7 @@ ARG REDIS_URL="redis://localhost:6379"
 ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
 ENV NODE_OPTIONS=$NODE_OPTIONS
 ENV NEXTAUTH_URL=$NEXTAUTH_URL
-ENV AUTH_URL=$AUTH_URL
+ENV APP_URL=$APP_URL
 ENV DATABASE_URL=$DATABASE_URL
 ENV DATABASE_URL_BILLING=$DATABASE_URL_BILLING
 ENV DATABASE_URL_MITRA=$DATABASE_URL_MITRA
@@ -51,8 +51,9 @@ ENV REDIS_URL=$REDIS_URL
 RUN npm run prisma:generate
 
 # Use BuildKit secrets to securely pass sensitive data during build
-# These will NOT be baked into the image layers.
-RUN --mount=type=secret,id=NEXTAUTH_SECRET \
+# and cache mount for Next.js build cache to speed up subsequent builds.
+RUN --mount=type=cache,target=/app/.next/cache \
+    --mount=type=secret,id=NEXTAUTH_SECRET \
     --mount=type=secret,id=AUTH_SECRET \
     --mount=type=secret,id=OAUTH_ENCRYPTION_KEY \
     export NEXTAUTH_SECRET=$(cat /run/secrets/NEXTAUTH_SECRET) && \
