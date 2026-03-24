@@ -4,6 +4,7 @@ import { LeaveBalanceRepository, DEFAULT_LEAVE_QUOTAS } from '@/modules/attendan
 import { LeaveType } from '@prisma/client'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { z } from 'zod'
+import { prismaAuth } from '@/lib/prisma'
 
 const leaveBalanceRepo = new LeaveBalanceRepository()
 
@@ -27,12 +28,33 @@ export async function GET(req: NextRequest) {
     const auth = await authorize(req, { permissions: ['attendance:read'] })
     if (isAuthError(auth)) return auth.error
 
+    const { session } = auth
     const { searchParams } = new URL(req.url)
     const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString())
     const userId = searchParams.get('userId')
 
     try {
         if (userId) {
+            // Security: Verify user belongs to same tenant if not superadmin
+            if (!session.user.isSuperAdmin) {
+                const targetUser = await prismaAuth.user.findUnique({
+                    where: { id: userId },
+                    select: { tenantId: true, email: true }
+                })
+
+                // Debug logging for troubleshooting
+                if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
+                    console.warn('[AUTH_DEBUG] Tenant mismatch or user not found:', {
+                        requesterId: session.user.id,
+                        requesterTenant: session.user.tenantId,
+                        targetUserId: userId,
+                        targetUserEmail: targetUser?.email,
+                        targetTenant: targetUser?.tenantId
+                    })
+                    return ApiErrors.forbidden('Anda tidak memiliki akses ke data user ini')
+                }
+            }
+
             // Get balances for specific user
             const balances = await leaveBalanceRepo.getUserBalances(userId, year)
             
@@ -78,6 +100,8 @@ export async function POST(req: NextRequest) {
     const auth = await authorize(req, { permissions: ['attendance:update'] })
     if (isAuthError(auth)) return auth.error
 
+    const { session } = auth
+
     try {
         const body = await req.json()
         
@@ -92,6 +116,18 @@ export async function POST(req: NextRequest) {
         }
 
         const { userId, year, quotas } = parseResult.data
+
+        // Security: Verify user belongs to same tenant if not superadmin
+        if (!session.user.isSuperAdmin) {
+            const targetUser = await prismaAuth.user.findUnique({
+                where: { id: userId },
+                select: { tenantId: true }
+            })
+            if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
+                return ApiErrors.forbidden('Anda tidak diizinkan mengubah data user ini')
+            }
+        }
+
         const targetYear = year || new Date().getFullYear()
 
         // Update each provided quota

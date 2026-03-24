@@ -24,7 +24,7 @@ export const investorPayoutStatusEnum = z.enum(['PENDING', 'COMPLETED', 'CANCELL
  */
 export const investorPayoutSchema = z.object({
   investorId: idSchema,
-  amount: z.number().positive('Jumlah harus lebih dari 0'),
+  amount: z.coerce.number().positive('Jumlah harus lebih dari 0'),
   date: z.coerce.date(),
   bankName: z.string().min(1, 'Nama bank wajib diisi'),
   accountNumber: z.string().min(1, 'Nomor rekening wajib diisi'),

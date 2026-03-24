@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession, type NextAuthOptions, type Session } from 'next-auth'
-import { authConfig, getUserPermissions } from '@/lib/auth'
+import { authConfig, getUserPermissions, isSuperAdmin as isSuperAdminHelper } from '@/lib/auth'
 import { checkSiteRestriction } from '@/modules/roles'
 import { prisma } from '@/lib/prisma'
 
@@ -58,6 +58,8 @@ export interface AuthorizedSession {
     primarySiteId?: string | null
     departmentId?: string | null
     isSales?: boolean
+    isSuperAdmin?: boolean
+    tenantId?: string | null
   }
   permissions: string[]
 }
@@ -72,6 +74,8 @@ interface SessionUser {
   primarySiteId?: string | null;
   departmentId?: string | null;
   isSales?: boolean;
+  isSuperAdmin?: boolean;
+  tenantId?: string | null;
 }
 
 export type AuthorizationResult =
@@ -161,11 +165,36 @@ export async function authorize(
   const userSiteId = user.siteId
   const userSiteIds = user.siteIds || (userSiteId ? [userSiteId] : [])
   const primarySiteId = user.primarySiteId || userSiteId
+  const isSuperAdmin = isSuperAdminHelper(user)
 
   // -------------------------------------------------------------------------
   // Step 2: Load User Permissions (always from database)
   // -------------------------------------------------------------------------
   let userPermissions: string[] = []
+  
+  // Super Admin Bypass - Early return if user is Super Admin
+  // Consistent with hasPermission logic in rbac.ts
+  if (isSuperAdmin) {
+    return {
+      session: {
+        user: {
+          id: userId,
+          email: user.email || '',
+          name: user.name || null,
+          role: userRole,
+          siteId: primarySiteId,
+          siteIds: userSiteIds,
+          primarySiteId,
+          departmentId: user.departmentId,
+          isSales: user.isSales,
+          isSuperAdmin: true,
+          tenantId: user.tenantId
+        },
+        permissions: ['*'] // Represent all permissions
+      }
+    }
+  }
+
   try {
     userPermissions = await getUserPermissions(userId)
   } catch (error) {
@@ -281,7 +310,9 @@ export async function authorize(
         siteIds: userSiteIds,
         primarySiteId,
         departmentId: user.departmentId,
-        isSales: user.isSales
+        isSales: user.isSales,
+        isSuperAdmin: false, // In this branch, we know it's not a bypassed superadmin
+        tenantId: user.tenantId
       },
       permissions: userPermissions
     }

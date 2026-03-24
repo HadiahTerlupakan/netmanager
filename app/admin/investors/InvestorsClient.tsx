@@ -72,6 +72,20 @@ export default function InvestorsClient() {
     const canUpdate = hasPermission('investors:update')
     const canDelete = hasPermission('investors:delete')
 
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        variant: 'danger' | 'warning' | 'primary';
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        variant: 'primary'
+    })
+
     // Form state
     const [form, setForm] = useState({
         username: '',
@@ -238,40 +252,59 @@ export default function InvestorsClient() {
     }
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
-        try {
-            const res = await fetch(`/api/admin/investors/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isActive: !currentStatus }),
-            })
-            if (res.ok) {
-                toast.success('Status Investor berhasil diubah')
-                fetchInvestors()
-            } else {
-                const data = await res.json()
-                toast.error(data.message || 'Gagal mengubah status')
+        setConfirmModal({
+            isOpen: true,
+            title: currentStatus ? 'Nonaktifkan Investor' : 'Aktifkan Investor',
+            message: `Apakah Anda yakin ingin ${currentStatus ? 'menonaktifkan' : 'mengaktifkan'} investor ini?`,
+            variant: currentStatus ? 'warning' : 'primary',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch(`/api/admin/investors/${id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ isActive: !currentStatus }),
+                    })
+                    if (res.ok) {
+                        toast.success('Status Investor berhasil diubah')
+                        fetchInvestors()
+                    } else {
+                        const data = await res.json()
+                        toast.error(data.message || 'Gagal mengubah status')
+                    }
+                } catch {
+                    toast.error('Terjadi kesalahan')
+                } finally {
+                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                }
             }
-        } catch {
-            toast.error('Terjadi kesalahan')
-        }
+        })
     }
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Apakah Anda yakin ingin menghapus investor ini?')) return
-        try {
-            const res = await fetch(`/api/admin/investors/${id}`, {
-                method: 'DELETE',
-            })
-            if (res.ok) {
-                toast.success('Investor berhasil dihapus')
-                fetchInvestors()
-            } else {
-                const data = await res.json()
-                toast.error(data.message || 'Gagal menghapus investor')
+        setConfirmModal({
+            isOpen: true,
+            title: 'Hapus Investor Permanen',
+            message: 'Apakah Anda yakin ingin menghapus investor ini? Tindakan ini tidak dapat dibatalkan dan hanya bisa dilakukan jika investor tidak memiliki riwayat proyek atau payout.',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch(`/api/admin/investors/${id}`, {
+                        method: 'DELETE',
+                    })
+                    if (res.ok) {
+                        toast.success('Investor berhasil dihapus')
+                        fetchInvestors()
+                    } else {
+                        const data = await res.json()
+                        toast.error(data.message || 'Gagal menghapus investor')
+                    }
+                } catch {
+                    toast.error('Terjadi kesalahan')
+                } finally {
+                    setConfirmModal(prev => ({ ...prev, isOpen: false }))
+                }
             }
-        } catch {
-            toast.error('Terjadi kesalahan')
-        }
+        })
     }
 
     const columns: Column<Investor>[] = [
@@ -662,6 +695,16 @@ export default function InvestorsClient() {
                         </div>
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Pemilik Rekening *</label>
+                        <input
+                            type="text"
+                            value={payoutForm.accountName}
+                            onChange={(e) => setPayoutForm({ ...payoutForm, accountName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Nama sesuai di buku tabungan"
+                        />
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Catatan Tambahan</label>
                         <textarea
                             value={payoutForm.notes}
@@ -675,6 +718,39 @@ export default function InvestorsClient() {
                     <button onClick={() => setShowPayoutModal(false)} disabled={saving} className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">Batal</button>
                     <button onClick={handleSavePayout} disabled={saving} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
                         {saving ? 'Menyimpan...' : 'Simpan Payout'}
+                    </button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                title={confirmModal.title}
+                size="sm"
+            >
+                <div className="py-2">
+                    <p className="text-gray-600 dark:text-gray-400">
+                        {confirmModal.message}
+                    </p>
+                </div>
+                <ModalFooter>
+                    <button
+                        onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={confirmModal.onConfirm}
+                        className={`px-4 py-2 text-white rounded-lg transition-colors ${confirmModal.variant === 'danger'
+                            ? 'bg-red-600 hover:bg-red-700'
+                            : confirmModal.variant === 'warning'
+                                ? 'bg-orange-500 hover:bg-orange-600'
+                                : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
+                    >
+                        Konfirmasi
                     </button>
                 </ModalFooter>
             </Modal>

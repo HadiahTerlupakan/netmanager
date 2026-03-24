@@ -449,6 +449,7 @@ export const authConfig: NextAuthOptions = {
 
           sessionUser.role = roleName;
           sessionUser.isSuperAdmin = isSuperAdmin;
+          sessionUser.tenantId = dbUser.tenantId || null; // SINGLE SOURCE OF TRUTH
 
           // If Super Admin, force enable access
           if (isSuperAdmin) {
@@ -471,10 +472,14 @@ export const authConfig: NextAuthOptions = {
           sessionUser.siteId = primarySiteId;
           sessionUser.primarySiteId = primarySiteId;
           sessionUser.siteIds = token.siteIds; // Keep array from token
-          sessionUser.tenantId = dbUser.tenantId || null;
           sessionUser.tenantName = dbUser.tenant?.name || null;
 
           sessionUser.isSales = dbUser.isSales;
+
+          // Debugging Session Creation
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[AUTH SESSION] Session created for ${sessionUser.email}. Tenant: ${sessionUser.tenantId}, isSuper: ${sessionUser.isSuperAdmin}`);
+          }
 
         } catch (error) {
           console.error('[AUTH SESSION] Error validating tokenVersion:', error);
@@ -642,22 +647,23 @@ const PERMISSION_CACHE_PREFIX = 'permissions:'
 // Includes Redis caching for performance optimization
 export async function getUserPermissions(userId: string): Promise<string[]> {
   const cacheKey = `${PERMISSION_CACHE_PREFIX}${userId}`
+  const isDebug = process.env.NEXTAUTH_DEBUG === 'true'
 
-  // Try cache first
-  try {
-    const cached = await redis.get(cacheKey)
-    if (cached) {
-      const perms = JSON.parse(cached)
-      // Only return if cache is not empty to avoid stale empty permissions during initial setup
-      if (perms.length > 0) {
-        // console.debug('[AUTH] Permissions loaded from cache', { userId, count: perms.length })
-        return perms
+  // Try cache first (skip if debug enabled to allow instant testing)
+  if (!isDebug) {
+    try {
+      const cached = await redis.get(cacheKey)
+      if (cached) {
+        const perms = JSON.parse(cached)
+        if (perms.length > 0) {
+          return perms
+        }
       }
-      console.log('[AUTH] Cached permissions are empty, falling back to database', { userId })
+    } catch (e) {
+      console.warn('[AUTH] Redis cache read error, falling back to DB:', e)
     }
-  } catch (e) {
-    // Cache read failed - continue to database (fail-open for performance)
-    console.warn('[AUTH] Redis cache read error, falling back to DB:', e)
+  } else {
+    // console.log('[AUTH] Debug mode enabled, skipping permission cache lookup', { userId })
   }
 
   // Load from database

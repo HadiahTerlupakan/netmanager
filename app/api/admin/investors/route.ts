@@ -16,7 +16,7 @@ export const GET = createHandler({
         }
     })
 
-    // Sembunyikan field sensitif
+    // Sembunyikan field sensitif dan pastikan serialisasi BigInt jika ada (lewat apiSuccess)
     const safeInvestors = investors.map(({ passwordHash: _, ...investor }) => investor)
 
     return apiSuccess(safeInvestors)

@@ -241,14 +241,20 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
   }, [])
 
   useEffect(() => {
-    Promise.all([
+    const promises = [
       fetchUser(),
       fetchDepartments(),
       fetchRoles(),
       fetchSites(),
-      fetchTenants(),
-    ]).finally(() => setLoading(false))
-  }, [fetchUser, fetchDepartments, fetchRoles, fetchSites, fetchTenants])
+    ]
+
+    // Only fetch tenants if user has permission
+    if (hasPermission('tenants:read')) {
+      promises.push(fetchTenants())
+    }
+
+    Promise.all(promises).finally(() => setLoading(false))
+  }, [fetchUser, fetchDepartments, fetchRoles, fetchSites, fetchTenants, hasPermission])
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
@@ -257,6 +263,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
       password += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     setFormData(prev => ({ ...prev, password }))
+    setShowPassword(true) // Show generated password immediately
     setErrors(prev => {
       const newErrors = { ...prev }
       delete newErrors.password
@@ -671,7 +678,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         <UserPerformanceStats userId={id as string} />
 
         {/* Leave Quota Summary - Only for non-FLEXIBLE users */}
-        <LeaveQuotaSummary userId={id as string} workingHourMode={formData.workingHourMode} />
+        {hasPermission('attendance:read') && (
+          <LeaveQuotaSummary userId={id as string} workingHourMode={formData.workingHourMode} />
+        )}
 
         {/* Sales Performance Stats - Only for Sales users */}
         {formData.isSales && (
@@ -997,11 +1006,13 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         />
 
         {/* Leave Balance Settings */}
-        <LeaveBalanceSettings
-          userId={id}
-          workingHourMode={formData.workingHourMode}
-          onChange={(quotas) => setLeaveQuotas(quotas)}
-        />
+        {hasPermission('attendance:read') && (
+          <LeaveBalanceSettings
+            userId={id}
+            workingHourMode={formData.workingHourMode}
+            onChange={(quotas) => setLeaveQuotas(quotas)}
+          />
+        )}
 
         {/* Error Message */}
         {errors.submit && (

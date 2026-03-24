@@ -77,6 +77,9 @@ export const GET = createHandler({
       role: {
         select: { id: true, name: true },
       },
+      tenant: {
+        select: { id: true, name: true },
+      },
       userSites: {
         select: {
           id: true,
@@ -139,7 +142,8 @@ export const PATCH = createHandler({
       roleId: true,
       siteId: true,
       departmentId: true,
-      isActive: true
+      isActive: true,
+      tenantId: true
     }
   })
 
@@ -174,8 +178,18 @@ export const PATCH = createHandler({
   }
 
   // Prepare data for update
-  const { password, userSites, email, ...updateData } = body
+  const { password, userSites, email, tenantId, ...updateData } = body
   const data: Prisma.UserUpdateInput = { ...updateData }
+
+  // 3. Multi-tenancy Protection: Only Super Admin can change tenantId
+  if (tenantId !== undefined) {
+    if (session.user.isSuperAdmin) {
+      data.tenant = tenantId ? { connect: { id: tenantId } } : { disconnect: true }
+    } else if (tenantId !== currentData.tenantId) {
+      // If not superadmin, they cannot change the tenantId to anything else
+      return ApiErrors.forbidden('Hanya Super Admin yang dapat mengubah tenantId')
+    }
+  }
 
   if (email && email !== currentData.email) {
     const globalCheck = await checkGlobalIdentifier(email, 'EMPLOYEE', id)
