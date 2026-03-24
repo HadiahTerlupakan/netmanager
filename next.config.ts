@@ -40,9 +40,17 @@ const withPWA = withPWAInit({
     ],
     // Exclude these patterns from precaching
     exclude: [
+      ({ asset }) => {
+        // Exclude anything in /uploads folder
+        if (asset.name.includes('uploads/')) return true;
+        // Exclude attendance specifically
+        if (asset.name.includes('attendance/')) return true;
+        // Exclude source maps
+        if (asset.name.endsWith('.map')) return true;
+        return false;
+      },
       /\/uploads\/.*/,
       /\.map$/,
-      // Exclude attendance photos specifically
       /\/uploads\/attendance\/.*/,
     ],
   },

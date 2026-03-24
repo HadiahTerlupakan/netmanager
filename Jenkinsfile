@@ -77,7 +77,10 @@ spec:
                                 npm config set fetch-retry-maxtimeout 120000
                                 (npm ci --no-audit --prefer-offline || npm install --registry=https://registry.npmmirror.com --no-audit)
                                 npm run prisma:generate-parallel
-                                (npm run lint & npm run typecheck & wait)
+                                echo "Running Lint and Typecheck in parallel..."
+                                npm run lint & LINT_PID=$!
+                                npm run typecheck & TYPE_PID=$!
+                                wait $LINT_PID $TYPE_PID
                             """
                         }
                     }
