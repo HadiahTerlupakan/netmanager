@@ -12,6 +12,7 @@ const mockFns = vi.hoisted(() => ({
   getRestockRequestDetail: vi.fn(),
   patchRestockRequestLifecycle: vi.fn(),
   patchRestockRequestStatus: vi.fn(),
+  generatePOFromPRs: vi.fn(),
 }))
 
 vi.mock('next-auth', async () => {
@@ -49,9 +50,9 @@ vi.mock('@/app/api/inventory/_utils/restock-request-status', () => ({
 }))
 
 vi.mock('@/modules/procurement', () => ({
-  ProcurementService: vi.fn().mockImplementation(() => ({
-    generatePOFromPRs: vi.fn().mockResolvedValue([]),
-  })),
+  ProcurementService: vi.fn(class {
+    generatePOFromPRs = mockFns.generatePOFromPRs
+  }),
 }))
 
 import { POST as postRestockRequests } from '@/app/api/inventory/restock/requests/route'
@@ -66,6 +67,7 @@ describe('inventory restock request lifecycle routes', () => {
     mockFns.rbacHasPermission.mockResolvedValue(true)
     mockFns.verifyAuth.mockResolvedValue({ id: 'user-1' })
     mockFns.authHasPermission.mockResolvedValue(true)
+    mockFns.generatePOFromPRs.mockResolvedValue([])
     mockFns.createRestockRequest.mockResolvedValue(
       NextResponse.json({ id: 'pr-1', nomorRequest: 'PR-20260311-0001' }, { status: 201 })
     )

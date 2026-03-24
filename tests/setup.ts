@@ -1,5 +1,5 @@
 import { beforeEach, vi } from 'vitest'
-import { mockReset, mockDeep } from 'vitest-mock-extended'
+import { mockReset } from 'vitest-mock-extended'
 
 // Force the timezone to Jakarta for all tests so that CI (UTC) behaves identically to local development
 process.env.TZ = 'Asia/Jakarta'
@@ -130,90 +130,47 @@ const createMock = (): MockPrismaClient => {
     groupBy: vi.fn(),
   })
 
-  return mockDeep<MockPrismaClient>({
-    user: createMockModel(),
-    role: createMockModel(),
-    permission: createMockModel(),
-    pelanggan: createMockModel(),
-    invoice: createMockModel(),
-    payment: createMockModel(),
-    paket: createMockModel(),
-    bandwidth: createMockModel(),
-    mikrotikRouter: createMockModel(),
-    attendance: createMockModel(),
-    leave: createMockModel(),
-    workOrders: createMockModel(),
-    supportTickets: createMockModel(),
-    ticketReplies: createMockModel(),
-    inventory: createMockModel(),
-    site: createMockModel(),
-    department: createMockModel(),
-    notifications: createMockModel(),
-    announcement: createMockModel(),
-    leaveBalance: createMockModel(),
-    overtime: createMockModel(),
-    shift: createMockModel(),
-    holiday: createMockModel(),
-    salary: createMockModel(),
-    salaryComponent: createMockModel(),
-    mitra: createMockModel(),
-    mitraWallet: createMockModel(),
-    mitraTransaction: createMockModel(),
-    withdrawRequest: createMockModel(),
-    leaveRequest: createMockModel(),
-    canvasing: createMockModel(),
-    pointClaim: createMockModel(),
-    coupon: createMockModel(),
-    purchaseOrder: createMockModel(),
-    purchaseRequest: createMockModel(),
-    supplier: createMockModel(),
-    odc: createMockModel(),
-    odcOutput: createMockModel(),
-    odp: createMockModel(),
-    odpOutput: createMockModel(),
-    onu: createMockModel(),
-    onuType: createMockModel(),
-    barang: createMockModel(),
-    gudang: createMockModel(),
-    stokBarang: createMockModel(),
-    barangGudang: createMockModel(),
-    barangMasuk: createMockModel(),
-    barangKeluar: createMockModel(),
-    transferBarang: createMockModel(),
-    stockOpname: createMockModel(),
-    asset: createMockModel(),
-    speedProfile: createMockModel(),
-    profilePpp: createMockModel(),
-    hargaPaket: createMockModel(),
-    registration: createMockModel(),
-    systemLog: createMockModel(),
-    loginLog: createMockModel(),
-    appVersion: createMockModel(),
-    settings: createMockModel(),
-    locationHistory: createMockModel(),
-    workOrderTasks: createMockModel(),
-    workOrderAssignments: createMockModel(),
-    workOrderUpdates: createMockModel(),
-    workOrderComment: createMockModel(),
-    workOrderAttachment: createMockModel(),
-    workOrderMaterial: createMockModel(),
-    workOrderTemplate: createMockModel(),
-    workOrderSla: createMockModel(),
-    workOrderEscalation: createMockModel(),
-    chatMessage: createMockModel(),
-    conversation: createMockModel(),
-    pushToken: createMockModel(),
+  // Base methods that are always present
+  const baseMock: Record<string, MockFn> = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    $transaction: vi.fn(),
+    $transaction: vi.fn().mockImplementation((callback) => {
+      if (typeof callback === 'function') {
+        return callback(prismaMock)
+      }
+      return Promise.resolve(callback)
+    }),
     $queryRaw: vi.fn(),
     $queryRawUnsafe: vi.fn(),
     $executeRaw: vi.fn(),
-  })
+  }
+
+  // Use Proxy to create models on demand
+  const cache = new Map<string, MockModel>()
+  
+  const proxy = new Proxy(baseMock, {
+    get(target, prop) {
+      if (prop === '_cache') return cache
+      if (typeof prop === 'string' && prop in target) {
+        return target[prop]
+      }
+
+      if (typeof prop === 'string' && !prop.startsWith('$')) {
+        if (!cache.has(prop)) {
+          cache.set(prop, createMockModel())
+        }
+        return cache.get(prop)
+      }
+
+      return undefined
+    }
+  }) as unknown as MockPrismaClient
+  
+  return proxy
 }
 
 // Export with simplified type - the actual mock still has all Prisma methods
-export const prismaMock = createMock() as unknown as MockPrismaClient
+export const prismaMock = createMock()
 
 // Mock the prisma modules
 vi.mock('@/lib/prisma', () => ({
@@ -235,8 +192,21 @@ process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'test-secret-123-at
 
 // Reset all mocks before each test
 beforeEach(() => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockReset(prismaMock as any)
+  const pMock = prismaMock as unknown as MockPrismaClient & { _cache?: Map<string, MockModel> }
+  mockReset(pMock as unknown as MockPrismaClient)
+  
+  // Reset all cached model mocks
+  if (pMock._cache) {
+    pMock._cache.forEach((model: MockModel) => {
+      Object.values(model).forEach(mock => {
+        if (typeof mock === 'function' && 'mockReset' in mock) {
+          (mock as unknown as { mockReset: () => void }).mockReset()
+        } else if (typeof mock === 'function') {
+          vi.mocked(mock).mockReset()
+        }
+      })
+    })
+  }
 })
 
 // Mock console methods to reduce noise in tests

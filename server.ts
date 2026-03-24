@@ -17,6 +17,7 @@ import next from 'next'
 import { Server as SocketIOServer } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
+import { getToken } from 'next-auth/jwt'
 import { initializeSocketServer } from './lib/websocket/server'
 import { cronRegistry } from './lib/cron-registry'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
@@ -281,6 +282,19 @@ app.prepare().then(() => {
 
         // Manual Static File Serving for Uploads (Bypassing Next.js static handling for runtime uploads)
         if (pathname?.startsWith('/uploads/') && req.method === 'GET') {
+            // Security: Authenticate request before serving static files from uploads
+            const token = await getToken({
+                req: req as unknown as import('next-auth/jwt').GetTokenParams['req'],
+                secret: process.env.NEXTAUTH_SECRET
+            })
+
+            if (!token) {
+                console.warn(`[Server] Unauthorized access attempt to ${pathname} from ${req.headers['x-forwarded-for'] || req.socket.remoteAddress}`)
+                res.writeHead(401, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ error: 'Sesi tidak valid atau telah berakhir. Silakan login kembali.' }))
+                return
+            }
+
             const fs = await import('fs')
             const path = await import('path')
 
