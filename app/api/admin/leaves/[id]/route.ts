@@ -24,10 +24,11 @@ export const PATCH = createHandler({
     const { id } = ctx.params
     const { status, rejectionReason } = ctx.validated
     const user = ctx.session!.user
+    const tenantId = user.tenantId
 
     // Ownership Check - fetch existing leave
     const existing = await prisma.leaveRequest.findUnique({
-        where: { id },
+        where: { id, tenantId },
         include: { user: true }
     })
 
@@ -41,7 +42,7 @@ export const PATCH = createHandler({
 
     if (!isSuper) {
         const { prisma: db } = await import('@/lib/prisma');
-        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+        const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { siteId: true, departmentId: true } });
         
         if (permissions.includes('izin:site_only') && dbUser?.siteId) {
             if (existing.user.siteId !== dbUser.siteId) {
@@ -57,8 +58,8 @@ export const PATCH = createHandler({
 
     // Call service based on status
     const result = status === 'APPROVED'
-        ? await service.approveLeave(id, user.id)
-        : await service.rejectLeave(id, user.id, rejectionReason || '')
+        ? await service.approveLeave(id, user.id, tenantId)
+        : await service.rejectLeave(id, user.id, tenantId, rejectionReason || '')
 
     if (!result.success) {
         return ApiErrors.internalError(result.error)
@@ -77,10 +78,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
     const { id } = ctx.params
     const user = ctx.session!.user
+    const tenantId = user.tenantId
 
     // Ownership Check
     const existing = await prisma.leaveRequest.findUnique({
-        where: { id },
+        where: { id, tenantId },
         include: { user: true }
     })
 
@@ -94,7 +96,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
     if (!isSuper) {
         const { prisma: db } = await import('@/lib/prisma');
-        const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
+        const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('izin:site_only') && dbUser?.siteId) {
             if (existing.user.siteId !== dbUser.siteId) {
@@ -108,7 +110,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         }
     }
 
-    const result = await service.deleteLeave(id, user.id)
+    const result = await service.deleteLeave(id, user.id, tenantId)
 
     if (!result.success) {
         if (result.code === 'NOT_FOUND') {

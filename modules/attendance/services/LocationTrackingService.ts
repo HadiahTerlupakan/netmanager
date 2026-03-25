@@ -3,7 +3,8 @@ import { Prisma } from '@prisma/client'
 import { getTenantIdFromContext } from '@/lib/tenant-context'
 import { calculateHaversineDistance } from '@/lib/geo-utils'
 import { type Server as SocketIOServer } from 'socket.io'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 
 interface LocationData {
@@ -37,6 +38,12 @@ export class LocationTrackingService {
      * Simpan lokasi baru untuk user
      */
     async saveLocation(userId: string, data: LocationData): Promise<void> {
+        // Fetch user's tenantId for socket room isolation
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { tenantId: true }
+        })
+
         const location = await prisma.employeeLocation.create({
             data: {
                 userId,
@@ -48,13 +55,15 @@ export class LocationTrackingService {
                 heading: data.heading ?? null,
                 batteryLevel: data.batteryLevel ?? null,
                 isMoving: data.isMoving ?? false,
-                recordedAt: data.recordedAt ?? new Date()
+                recordedAt: data.recordedAt ?? new Date(),
+                tenantId: user?.tenantId // Ensure tenantId is persisted
             }
         })
 
         // Emit realtime update to admin
-        if (this.io) {
-            this.io.to('admin:location').emit('admin:location:update', {
+        if (this.io && user?.tenantId) {
+            const roomName = `admin:location:${user.tenantId}`
+            this.io.to(roomName).emit('admin:location:update', {
                 userId,
                 latitude: location.latitude,
                 longitude: location.longitude,
@@ -73,6 +82,12 @@ export class LocationTrackingService {
      * Batch save multiple locations (untuk sync offline)
      */
     async saveLocations(userId: string, locations: LocationData[]): Promise<number> {
+        // Fetch user's tenantId for socket room isolation
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { tenantId: true }
+        })
+
         const result = await prisma.employeeLocation.createMany({
             data: locations.map(loc => ({
                 userId,
@@ -84,12 +99,13 @@ export class LocationTrackingService {
                 heading: loc.heading ?? null,
                 batteryLevel: loc.batteryLevel ?? null,
                 isMoving: loc.isMoving ?? false,
-                recordedAt: loc.recordedAt ?? new Date()
+                recordedAt: loc.recordedAt ?? new Date(),
+                tenantId: user?.tenantId
             }))
         })
 
         // Emit the latest location in the batch
-        if (this.io && locations.length > 0) {
+        if (this.io && user?.tenantId && locations.length > 0) {
             // Find latest by date
             const latest = locations.reduce((prev, current) => {
                 const prevDate = prev.recordedAt ? new Date(prev.recordedAt) : new Date(0)
@@ -97,7 +113,8 @@ export class LocationTrackingService {
                 return (prevDate > currDate) ? prev : current
             })
 
-            this.io.to('admin:location').emit('admin:location:update', {
+            const roomName = `admin:location:${user.tenantId}`
+            this.io.to(roomName).emit('admin:location:update', {
                 userId,
                 latitude: latest.latitude,
                 longitude: latest.longitude,
@@ -114,25 +131,24 @@ export class LocationTrackingService {
     }
 
     /**
-     * Helper to get today's start (00:00) in WIB (UTC+7) converted back to UTC
+     * Helper to get today's start (00:00) in tenant's timezone converted back to UTC
      */
-    private getTodayWIBStartUTC(): Date {
-        const now = new Date()
-        const wibOffset = 7 * 60 // WIB is UTC+7, convert to minutes
-        const utcOffset = now.getTimezoneOffset() // Server's offset in minutes (negative for UTC+)
-        const totalOffset = wibOffset + utcOffset // Total offset from server time to WIB
-        
-        // Create "today at 00:00 WIB" in UTC
-        const todayWIB = new Date(now.getTime() + totalOffset * 60 * 1000)
-        todayWIB.setTime(toStartOfDay(todayWIB).getTime())
-        return new Date(todayWIB.getTime() - totalOffset * 60 * 1000)
+    private async getTodayTenantStartUTC(tenantId?: string): Promise<Date> {
+        const timezone = await getTimezone(tenantId)
+        return toStartOfDay(new Date(), timezone)
     }
 
     /**
      * Cek apakah user sedang dalam status aktif (sudah check-in, belum check-out)
      */
     async isUserCurrentlyCheckedIn(userId: string): Promise<boolean> {
-        const todayUTC = this.getTodayWIBStartUTC()
+        // Get user's tenantId first
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { tenantId: true }
+        })
+
+        const todayUTC = await this.getTodayTenantStartUTC(user?.tenantId || undefined)
 
         const activeAttendance = await prisma.attendance.findFirst({
             where: {

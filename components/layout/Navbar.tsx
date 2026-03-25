@@ -11,6 +11,7 @@ import { AdminNotificationBell } from '@/components/notifications/AdminNotificat
 import { CustomerSupportBell } from '@/components/notifications/CustomerSupportBell'
 import { PaymentApprovalBell } from '@/components/notifications/PaymentApprovalBell'
 import { useClickOutside } from '@/hooks/useClickOutside'
+import { ServerClock } from '@/components/layout/ServerClock'
 import CommandPalette from '@/components/layout/CommandPalette'
 
 export default function Navbar() {
@@ -76,6 +77,11 @@ export default function Navbar() {
 
         {/* Right: Actions & Profile */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+
+          {/* Real-time Server Clock */}
+          <div className="hidden lg:block">
+            <ServerClock />
+          </div>
 
           {/* Work Order Notifications (NEW) */}
           <WorkOrderBell />

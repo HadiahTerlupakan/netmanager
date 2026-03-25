@@ -1,5 +1,5 @@
 import { prismaRadius } from '@/lib/prisma-radius';
-import { toStartOfDay } from '@/lib/utils/datetime';
+import { toStartOfDay } from '@/lib/utils/server-datetime';
 import { prisma as defaultPrisma } from '@/lib/prisma';
 import type {
     IRadiusRepository,

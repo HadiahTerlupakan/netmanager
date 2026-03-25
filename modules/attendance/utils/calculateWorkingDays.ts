@@ -1,11 +1,12 @@
 import { HolidayRepository } from '../repositories/HolidayRepository'
-import { toStartOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/server-datetime'
 
 export async function calculateWorkingDays(
   startDate: Date,
   endDate: Date,
   workDaysStr: string | null = null,
-  holidayRepository: HolidayRepository = new HolidayRepository()
+  holidayRepository: HolidayRepository = new HolidayRepository(),
+  tenantId: string
 ): Promise<number> {
   let days = 0
   const curDate = new Date(startDate)
@@ -23,7 +24,7 @@ export async function calculateWorkingDays(
     const dayName = dayNames[dayIndex]
 
     if (allowedDays.includes(dayName)) {
-      const { isHoliday } = await holidayRepository.isHoliday(curDate)
+      const { isHoliday } = await holidayRepository.isHoliday(curDate, tenantId)
       if (!isHoliday) {
         days++
       }

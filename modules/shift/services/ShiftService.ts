@@ -9,15 +9,15 @@ export class ShiftService {
     this.repository = new ShiftRepository()
   }
 
-  async getAllShifts(includeInactive = false): Promise<Shift[]> {
-    return this.repository.findAll(includeInactive)
+  async getAllShifts(tenantId: string, includeInactive = false): Promise<Shift[]> {
+    return this.repository.findAll(tenantId, includeInactive)
   }
 
-  async getShiftById(id: string): Promise<Shift | null> {
-    return this.repository.findById(id)
+  async getShiftById(tenantId: string, id: string): Promise<Shift | null> {
+    return this.repository.findById(tenantId, id)
   }
 
-  async createShift(input: CreateShiftInput): Promise<Shift> {
+  async createShift(tenantId: string, input: CreateShiftInput): Promise<Shift> {
     // Validate time format
     if (!this.isValidTimeFormat(input.startTime)) {
       throw new Error('Invalid start time format. Use HH:mm')
@@ -28,17 +28,17 @@ export class ShiftService {
 
     // Check code uniqueness if provided
     if (input.code) {
-      const existing = await this.repository.findByCode(input.code)
+      const existing = await this.repository.findByCode(tenantId, input.code)
       if (existing) {
         throw new Error('Shift code already exists')
       }
     }
 
-    return this.repository.create(input)
+    return this.repository.create(tenantId, input)
   }
 
-  async updateShift(id: string, input: UpdateShiftInput): Promise<Shift> {
-    const existing = await this.repository.findById(id)
+  async updateShift(tenantId: string, id: string, input: UpdateShiftInput): Promise<Shift> {
+    const existing = await this.repository.findById(tenantId, id)
     if (!existing) {
       throw new Error('Shift not found')
     }
@@ -53,23 +53,23 @@ export class ShiftService {
 
     // Check code uniqueness if changed
     if (input.code && input.code !== existing.code) {
-      const existingCode = await this.repository.findByCode(input.code)
+      const existingCode = await this.repository.findByCode(tenantId, input.code)
       if (existingCode) {
         throw new Error('Shift code already exists')
       }
     }
 
-    return this.repository.update(id, input)
+    return this.repository.update(tenantId, id, input)
   }
 
-  async deleteShift(id: string, force = false): Promise<void> {
-    const existing = await this.repository.findById(id)
+  async deleteShift(tenantId: string, id: string, force = false): Promise<void> {
+    const existing = await this.repository.findById(tenantId, id)
     if (!existing) {
       throw new Error('Shift not found')
     }
 
     // Check if shift is assigned to users
-    const userCount = await this.repository.getUserCount(id)
+    const userCount = await this.repository.getUserCount(tenantId, id)
     if (userCount > 0 && !force) {
       throw new Error(`Cannot delete shift. It is assigned to ${userCount} user(s). Use force=true to soft delete.`)
     }
@@ -77,10 +77,10 @@ export class ShiftService {
     try {
       if (force) {
         // Soft delete
-        await this.repository.delete(id)
+        await this.repository.delete(tenantId, id)
       } else {
         // Hard delete (only if no users)
-        await this.repository.hardDelete(id)
+        await this.repository.hardDelete(tenantId, id)
       }
     } catch (error) {
       if (isPrismaRecordNotFoundError(error)) {

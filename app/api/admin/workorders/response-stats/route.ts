@@ -3,7 +3,7 @@ import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrder
 import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
-import { toStartOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/server-datetime'
 
 
 const workOrderRepo = new WorkOrderRepository(prisma);

@@ -4,7 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 async function requireAdmin() {

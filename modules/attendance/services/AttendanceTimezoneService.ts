@@ -7,6 +7,7 @@
 import { prisma } from '@/lib/prisma'
 import { cache } from '@/lib/cache'
 import { toZonedTime, toDate } from 'date-fns-tz'
+import { DEFAULT_TIMEZONE } from '@/lib/constants/timezone-constants'
 import { startOfDay as fnsStartOfDay, differenceInMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns'
 
 export class AttendanceTimezoneService {
@@ -28,7 +29,7 @@ export class AttendanceTimezoneService {
       }
     })
     
-    const timezone = setting?.value || 'Asia/Jakarta'
+    const timezone = setting?.value || DEFAULT_TIMEZONE
     cache.set(cacheKey, timezone, 3600) // 1 hour TTL
     
     return timezone

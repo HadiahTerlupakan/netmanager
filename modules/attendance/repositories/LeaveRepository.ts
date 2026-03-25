@@ -3,7 +3,7 @@ import { LeaveStatus, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 
 export class LeaveRepository {
-    async create(data: Omit<Prisma.LeaveRequestCreateInput, 'id' | 'updatedAt'>) {
+    async create(data: Omit<Prisma.LeaveRequestUncheckedCreateInput, 'id' | 'updatedAt'>) {
         return prisma.leaveRequest.create({
             data: {
                 ...data,

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { prisma } from '@/lib/prisma'
 import { ensureAdminAccess } from '@/lib/server-auth'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export async function GET(request: Request) {

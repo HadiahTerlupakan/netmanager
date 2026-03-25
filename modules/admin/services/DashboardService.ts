@@ -1,6 +1,6 @@
 import { getAttendanceRepository, getWorkOrderRepository, getPointClaimRepository, getInventoryRepository } from '@/lib/repositories';
 import { prisma } from '@/lib/prisma';
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export type TopEmployee = {

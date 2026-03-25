@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { Prisma } from '@prisma/client'
-import { toStartOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/server-datetime'
 
 
 export const dynamic = 'force-dynamic'

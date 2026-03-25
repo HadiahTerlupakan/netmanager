@@ -4,7 +4,7 @@ import { apiSuccess, ErrorCodes, apiError, createHandler, ApiErrors } from '@/li
 import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/auth'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 // Disable Next.js caching for this route

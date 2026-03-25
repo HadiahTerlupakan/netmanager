@@ -9,7 +9,7 @@ import { logger, logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 // Standard ServiceResult pattern
@@ -27,6 +27,7 @@ export interface LeaveFilters {
     endDate?: Date
     departmentId?: string
     siteId?: string
+    tenantId?: string
 }
 
 export interface CreateLeaveData {
@@ -49,8 +50,8 @@ export class LeaveService {
         this.holidayRepository = new HolidayRepository()
     }
 
-    private async calculateWorkingDays(startDate: Date, endDate: Date, workDaysStr: string | null = null): Promise<number> {
-        return calculateWorkingDays(startDate, endDate, workDaysStr, this.holidayRepository)
+    private async calculateWorkingDays(startDate: Date, endDate: Date, tenantId: string, workDaysStr: string | null = null): Promise<number> {
+        return calculateWorkingDays(startDate, endDate, workDaysStr, this.holidayRepository, tenantId)
     }
 
     /**
@@ -92,10 +93,10 @@ export class LeaveService {
     /**
      * Get single leave by ID
      */
-    async getLeaveById(id: string): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<{ include: { user: true } }>>> {
+    async getLeaveById(id: string, tenantId: string): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<{ include: { user: true } }>>> {
         try {
             const leave = await prisma.leaveRequest.findUnique({
-                where: { id },
+                where: { id, tenantId },
                 include: { user: true }
             })
             if (!leave) {
@@ -114,6 +115,7 @@ export class LeaveService {
     async createLeave(
         data: CreateLeaveData,
         createdById: string,
+        tenantId: string,
         autoApprove: boolean = true
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
@@ -121,15 +123,15 @@ export class LeaveService {
             let leaveDays = 0
             if (autoApprove) {
                 const user = await prisma.user.findUnique({
-                    where: { id: data.userId },
+                    where: { id: data.userId, tenantId },
                     select: { workingHourMode: true, workDays: true }
                 })
 
                 if (user && user.workingHourMode !== 'FLEXIBLE' && data.type !== 'TUKAR_LIBUR') {
-                    leaveDays = await this.calculateWorkingDays(data.startDate, data.endDate, user.workDays)
+                    leaveDays = await this.calculateWorkingDays(data.startDate, data.endDate, tenantId, user.workDays)
                     const year = data.startDate.getFullYear()
 
-                    const hasEnough = await this.balanceRepository.hasEnoughDays(data.userId, year, data.type, leaveDays)
+                    const hasEnough = await this.balanceRepository.hasEnoughDays(data.userId, year, data.type, leaveDays, tenantId)
                     if (!hasEnough) {
                         return { success: false, error: 'Sisa cuti tidak mencukupi', code: 'INSUFFICIENT_BALANCE' }
                     }
@@ -137,14 +139,15 @@ export class LeaveService {
             }
 
             const leave = await this.repository.create({
-                user: { connect: { id: data.userId } },
+                userId: data.userId,
                 type: data.type,
                 startDate: data.startDate,
                 endDate: data.endDate,
                 reason: data.reason,
                 attachmentUrl: data.attachmentUrl ?? null,
                 status: autoApprove ? 'APPROVED' : 'PENDING',
-                approvedBy: autoApprove ? createdById : null
+                approvedBy: autoApprove ? createdById : null,
+                tenantId: tenantId
             })
 
             // If auto-approved, update balance
@@ -155,7 +158,8 @@ export class LeaveService {
                         data.userId,
                         year,
                         data.type as LeaveType,
-                        leaveDays
+                        leaveDays,
+                        tenantId
                     )
                 } catch (error) {
                     logger.error('Failed to update leave balance for auto-approved leave', error instanceof Error ? error : undefined)
@@ -166,7 +170,7 @@ export class LeaveService {
             if (autoApprove) {
                 try {
                     const leaveForSync = await prisma.leaveRequest.findUnique({
-                        where: { id: leave.id },
+                        where: { id: leave.id, tenantId },
                         include: { user: true }
                     })
                     if (leaveForSync) {
@@ -197,12 +201,13 @@ export class LeaveService {
      */
     async approveLeave(
         id: string,
-        approverId: string
+        approverId: string,
+        tenantId: string
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
             // Get existing leave with user data
             const existing = await prisma.leaveRequest.findUnique({
-                where: { id },
+                where: { id, tenantId },
                 include: { user: true }
             })
 
@@ -219,14 +224,15 @@ export class LeaveService {
             const shouldCheckBalance = existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR'
 
             if (shouldCheckBalance) {
-                leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, existing.user.workDays)
+                leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, tenantId, existing.user.workDays)
                 const year = existing.startDate.getFullYear()
 
                 const hasEnough = await this.balanceRepository.hasEnoughDays(
                     existing.userId,
                     year,
                     existing.type as LeaveType,
-                    leaveDays
+                    leaveDays,
+                    tenantId
                 )
 
                 if (!hasEnough) {
@@ -248,7 +254,8 @@ export class LeaveService {
                         existing.userId,
                         year,
                         existing.type as LeaveType,
-                        leaveDays
+                        leaveDays,
+                        tenantId
                     )
                 } catch (error) {
                     logger.error('Failed to update leave balance', error instanceof Error ? error : undefined)
@@ -291,11 +298,12 @@ export class LeaveService {
     async rejectLeave(
         id: string,
         approverId: string,
+        tenantId: string,
         rejectionReason: string
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
             const existing = await prisma.leaveRequest.findUnique({
-                where: { id },
+                where: { id, tenantId },
                 include: { user: true }
             })
 
@@ -307,14 +315,15 @@ export class LeaveService {
             if (existing.status === 'APPROVED') {
                 if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
                      try {
-                        const leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, existing.user.workDays)
+                        const leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, tenantId, existing.user.workDays)
                         const year = existing.startDate.getFullYear()
 
                         await this.balanceRepository.decrementUsed(
                             existing.userId,
                             year,
                             existing.type as LeaveType,
-                            leaveDays
+                            leaveDays,
+                            tenantId
                         )
                     } catch (error) {
                         logger.error('Failed to refund leave balance', error instanceof Error ? error : undefined)
@@ -354,10 +363,10 @@ export class LeaveService {
     /**
      * Delete leave request
      */
-    async deleteLeave(id: string, deletedById: string): Promise<ServiceResult<void>> {
+    async deleteLeave(id: string, deletedById: string, tenantId: string): Promise<ServiceResult<void>> {
         try {
             const existing = await prisma.leaveRequest.findUnique({
-                where: { id },
+                where: { id, tenantId },
                 include: { user: true }
             })
 
@@ -369,14 +378,15 @@ export class LeaveService {
             if (existing.status === 'APPROVED') {
                 if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
                      try {
-                        const leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, existing.user.workDays)
+                        const leaveDays = await this.calculateWorkingDays(existing.startDate, existing.endDate, tenantId, existing.user.workDays)
                         const year = existing.startDate.getFullYear()
 
                         await this.balanceRepository.decrementUsed(
                             existing.userId,
                             year,
                             existing.type as LeaveType,
-                            leaveDays
+                            leaveDays,
+                            tenantId
                         )
                     } catch (error) {
                         logger.error('Failed to refund leave balance during deletion', error instanceof Error ? error : undefined)
@@ -434,7 +444,7 @@ export class LeaveService {
             // Only process work days
             if (allowedDays.includes(dayName)) {
                 // Check holiday
-                const { isHoliday } = await this.holidayRepository.isHoliday(curDate)
+                const { isHoliday } = await this.holidayRepository.isHoliday(curDate, leave.tenantId)
                 if (!isHoliday) {
                     // Start of Day and End of Day for query
                     const dayStart = new Date(curDate)
@@ -449,7 +459,8 @@ export class LeaveService {
                             checkIn: {
                                 gte: dayStart,
                                 lte: dayEnd
-                            }
+                            },
+                            tenantId: leave.tenantId
                         }
                     })
 
@@ -481,7 +492,8 @@ export class LeaveService {
                                 status: status,
                                 location: 'System (Auto-Sync)',
                                 notes: `Auto-generated from Leave Request`,
-                                updatedAt: new Date()
+                                updatedAt: new Date(),
+                                tenantId: leave.tenantId
                             }
                         })
                     }

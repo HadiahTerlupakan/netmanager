@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { randomUUID } from 'crypto'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export class AbsenceService {
@@ -19,8 +19,9 @@ export class AbsenceService {
      * Ideally run for YESTERDAY (H-1) to ensure full day has passed.
      * 
      * @param targetDate The date to check for absences
+     * @param tenantId The tenant ID to scope the operation
      */
-    async processDailyAbsence(targetDate: Date) {
+    async processDailyAbsence(targetDate: Date, tenantId: string) {
         // Normalize date to start of day
         const startOfDay = new Date(targetDate)
         startOfDay.setTime(toStartOfDay(startOfDay).getTime())
@@ -29,7 +30,7 @@ export class AbsenceService {
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         // 1. Check if targetDate is a Holiday
-        const holidays = await this.holidayRepo.findMany({
+        const holidays = await this.holidayRepo.findMany(tenantId, {
             where: {
                 date: {
                     gte: startOfDay,
@@ -47,6 +48,7 @@ export class AbsenceService {
         // FLEXIBLE users accumulate working hours monthly, not daily check-in/out
         const users = await prisma.user.findMany({
             where: {
+                tenantId,
                 isActive: true,
                 role: {
                     name: { not: 'SUPER_ADMIN' } 
@@ -106,6 +108,7 @@ export class AbsenceService {
              const attendance = await prisma.attendance.findFirst({
                  where: {
                      userId: user.id,
+                     tenantId,
                      checkIn: {
                          gte: startOfDay,
                          lte: endOfDay
@@ -121,6 +124,7 @@ export class AbsenceService {
              const leave = await prisma.leaveRequest.findFirst({
                  where: {
                      userId: user.id,
+                     tenantId,
                      status: 'APPROVED',
                      startDate: { lte: endOfDay },
                      endDate: { gte: startOfDay }
@@ -143,6 +147,7 @@ export class AbsenceService {
                     data: {
                         id: randomUUID(),
                         userId: user.id,
+                        tenantId,
                         checkIn: alphaTime,
                         status: 'ALPHA',
                         notes: 'Tidak Masuk Kerja (Alpha) - Auto Generated',

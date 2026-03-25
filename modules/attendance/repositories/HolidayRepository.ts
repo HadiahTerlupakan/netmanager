@@ -1,49 +1,57 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { cache } from '@/lib/cache'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 type Holiday = Prisma.HolidayGetPayload<object>
 
 export class HolidayRepository {
-    async create(data: Prisma.HolidayCreateInput) {
-        const holiday = await prisma.holiday.create({ data })
+    async create(data: Omit<Prisma.HolidayUncheckedCreateInput, 'tenantId'>, tenantId: string) {
+        const holiday = await prisma.holiday.create({ 
+            data: { ...data, tenantId } 
+        })
         // Invalidate holiday cache after creating new holiday
-        this.invalidateCache()
+        this.invalidateCache(tenantId)
         return holiday
     }
 
-    async update(id: string, data: Prisma.HolidayUpdateInput) {
+    async update(id: string, data: Prisma.HolidayUncheckedUpdateInput, tenantId: string) {
         const holiday = await prisma.holiday.update({
-            where: { id },
+            where: { id, tenantId },
             data
         })
         // Invalidate holiday cache after updating
-        this.invalidateCache()
+        this.invalidateCache(tenantId)
         return holiday
     }
 
-    async delete(id: string) {
+    async delete(id: string, tenantId: string) {
         const holiday = await prisma.holiday.delete({
-            where: { id }
+            where: { id, tenantId }
         })
         // Invalidate holiday cache after deleting
-        this.invalidateCache()
+        this.invalidateCache(tenantId)
         return holiday
     }
 
-    async findMany(params?: {
+    async findMany(tenantId: string, params?: {
         where?: Prisma.HolidayWhereInput
         orderBy?: Prisma.HolidayOrderByWithRelationInput
     }) {
-        return prisma.holiday.findMany(params)
+        return prisma.holiday.findMany({
+            ...params,
+            where: {
+                ...params?.where,
+                tenantId
+            }
+        })
     }
 
-    async isHoliday(date: Date, tenantId?: string): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
+    async isHoliday(date: Date, tenantId: string): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
         // Check cache first (24h TTL)
         const dateStr = date.toISOString().split('T')[0]
-        const cacheKey = `holiday:${tenantId || 'global'}:${dateStr}`
+        const cacheKey = `holiday:${tenantId}:${dateStr}`
         const cached = cache.get<{ isHoliday: boolean, holiday?: Holiday | null }>(cacheKey)
 
         if (cached) return cached
@@ -76,9 +84,9 @@ export class HolidayRepository {
         return result
     }
 
-    async getHolidaysByYear(year: number, tenantId?: string): Promise<Holiday[]> {
+    async getHolidaysByYear(year: number, tenantId: string): Promise<Holiday[]> {
         // Check cache first (24h TTL)
-        const cacheKey = `holidays:year:${year}:${tenantId || 'global'}`
+        const cacheKey = `holidays:${tenantId}:year:${year}`
         const cached = cache.get<Holiday[]>(cacheKey)
 
         if (cached) return cached
@@ -109,8 +117,8 @@ export class HolidayRepository {
      * Invalidate all holiday-related cache entries
      * Call this after creating, updating, or deleting holidays
      */
-    invalidateCache(): void {
-        cache.invalidate('holiday:')
-        cache.invalidate('holidays:')
+    invalidateCache(tenantId: string): void {
+        cache.invalidate(`holiday:${tenantId}:`)
+        cache.invalidate(`holidays:${tenantId}:`)
     }
 }

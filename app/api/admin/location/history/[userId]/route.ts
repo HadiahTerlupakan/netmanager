@@ -1,7 +1,7 @@
 import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 /**

@@ -119,7 +119,7 @@ export default function HargaPaketPage() {
       const sitesData = await sitesRes.json()
       const bandwidthsData = await bandwidthsRes.json()
       const settingsJson = settingsRes.ok ? await settingsRes.json() : { data: { pppConnectionMode: 'RADIUS' } }
-      const settingsData = settingsJson.data || settingsJson
+      const _settingsData = settingsJson.data || settingsJson
 
       setHargaPakets(hargaPaketsData.data || hargaPaketsData)
       setProfilePPPs(profilePPPsData.data || profilePPPsData)

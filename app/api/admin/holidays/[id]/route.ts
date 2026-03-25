@@ -12,6 +12,9 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const { id } = ctx.params
+    const tenantId = ctx.session!.user.tenantId
+    if (!tenantId) return ApiErrors.badRequest('Tenant ID tidak ditemukan')
+
     const body = await req.json()
     const { date, description, isNational } = body
 
@@ -24,13 +27,14 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     if (description) updateData.description = description
     if (isNational !== undefined) updateData.isNational = isNational
 
-    const holiday = await holidayRepo.update(id, updateData)
+    const holiday = await holidayRepo.update(id, updateData, tenantId)
 
     await logger.logActivity({
         action: 'UPDATE',
         subject: 'Holiday',
         details: { id, changes: updateData },
-        userId: ctx.session!.user.id
+        userId: ctx.session!.user.id,
+        tenantId
     })
 
     return apiSuccess(holiday, { message: 'Hari libur berhasil diperbarui' })
@@ -42,8 +46,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const { id } = ctx.params
+    const tenantId = ctx.session!.user.tenantId
+    if (!tenantId) return ApiErrors.badRequest('Tenant ID tidak ditemukan')
+
     try {
-        await holidayRepo.delete(id)
+        await holidayRepo.delete(id, tenantId)
     } catch (error) {
         if (isPrismaRecordNotFoundError(error)) {
             return apiSuccess(null, { message: 'Hari libur sudah tidak ada' })
@@ -56,7 +63,8 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         action: 'DELETE',
         subject: 'Holiday',
         details: { id },
-        userId: ctx.session!.user.id
+        userId: ctx.session!.user.id,
+        tenantId
     })
 
     return apiSuccess(null, { message: 'Hari libur berhasil dihapus' })

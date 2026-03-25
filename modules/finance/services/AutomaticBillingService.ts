@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { sendCustomerPushNotification } from '@/modules/notification/services/ExpoPushService';
 import { logger } from '@/lib/logger';
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 
 

@@ -4,7 +4,7 @@ import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService';
 import { createHandler, ApiErrors } from "@/lib/api";
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export const dynamic = 'force-dynamic';

@@ -49,6 +49,7 @@ describe('auto-approve leave cron route', () => {
       {
         id: 'leave-1',
         userId: 'user-1',
+        tenantId: 'tenant-1',
         startDate: new Date('2026-03-10T00:00:00.000Z'),
         user: { id: 'user-1', name: 'Budi' },
       },
@@ -61,7 +62,7 @@ describe('auto-approve leave cron route', () => {
     }))
     const json = await response.json()
 
-    expect(mockFns.approveLeave).toHaveBeenCalledWith('leave-1', 'SYSTEM_AUTO')
+    expect(mockFns.approveLeave).toHaveBeenCalledWith('leave-1', 'SYSTEM_AUTO', 'tenant-1')
     expect(json.data.approvedCount).toBe(1)
     expect(json.data.approvedIds).toEqual(['leave-1'])
   })

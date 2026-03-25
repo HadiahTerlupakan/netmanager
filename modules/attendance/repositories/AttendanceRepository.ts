@@ -139,7 +139,7 @@ export class AttendanceRepository {
         // 2. Get Leave Stats
         // ... (rest of the method stays mostly same, but update leaveWhere)
         const holidayRepo = new HolidayRepository()
-        const holidays = await holidayRepo.findMany({
+        const holidays = await holidayRepo.findMany(tenantId, {
             where: { date: { gte: startDate, lte: endDate } }
         })
         const holidaySet = new Set<string>(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))

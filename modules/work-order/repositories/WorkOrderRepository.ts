@@ -16,7 +16,7 @@ import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
 import { validateStatusTransition } from '../utils/status-transitions';
 import { randomUUID } from 'crypto';
 import { socketEmitter } from '@/lib/websocket/emitter';
-import { toStartOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/server-datetime'
 
 import { prisma as defaultPrisma } from '@/lib/prisma'
 import { getTenantIdFromContext } from '@/lib/tenant-context'

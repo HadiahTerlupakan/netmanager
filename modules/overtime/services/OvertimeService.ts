@@ -3,7 +3,7 @@ import { OvertimeStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createNotification } from '../../notification/services/NotificationService'
 import { HolidayRepository } from '../../attendance/repositories/HolidayRepository'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export class OvertimeService {

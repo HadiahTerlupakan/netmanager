@@ -3,7 +3,7 @@ import { redis } from '@/lib/redis'
 import { cache } from '@/lib/cache'
 import { sendPushNotification } from '@/modules/notification/services/ExpoPushService'
 import { createNotification } from '@/modules/notification/services/NotificationService'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 /**

@@ -65,6 +65,7 @@ vi.mock('@/lib/logger', () => ({
 
 describe('LeaveService', () => {
     let service: LeaveService
+    const tenantId = 'tenant-1'
 
     beforeEach(() => {
         vi.clearAllMocks()
@@ -84,13 +85,14 @@ describe('LeaveService', () => {
         }
 
         it('should create pending leave without deducting balance if autoApprove is false', async () => {
-            mockLeaveRepo.create.mockResolvedValue({ id: 'leave-1', ...createData, status: 'PENDING' })
+            mockLeaveRepo.create.mockResolvedValue({ id: 'leave-1', ...createData, status: 'PENDING', tenantId })
 
-            const result = await service.createLeave(createData, 'admin-1', false)
+            const result = await service.createLeave(createData, 'admin-1', tenantId, false)
 
             expect(result.success).toBe(true)
             expect(mockLeaveRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-                status: 'PENDING'
+                status: 'PENDING',
+                tenantId
             }))
             expect(mockBalanceRepo.incrementUsed).not.toHaveBeenCalled()
         })
@@ -100,31 +102,34 @@ describe('LeaveService', () => {
             prismaMock.user.findUnique.mockResolvedValue({
                 id: 'user-1',
                 workingHourMode: 'FIXED',
-                workDays: 'Mon,Tue,Wed,Thu,Fri'
-            } as unknown as { id: string; workingHourMode: string; workDays: string })
+                workDays: 'Mon,Tue,Wed,Thu,Fri',
+                tenantId
+            } as unknown as { id: string; workingHourMode: string; workDays: string; tenantId: string })
 
-            mockLeaveRepo.create.mockResolvedValue({ id: 'leave-1', ...createData, status: 'APPROVED' })
+            mockLeaveRepo.create.mockResolvedValue({ id: 'leave-1', ...createData, status: 'APPROVED', tenantId })
 
-            const result = await service.createLeave(createData, 'admin-1', true)
+            const result = await service.createLeave(createData, 'admin-1', tenantId, true)
 
             expect(result.success).toBe(true)
             expect(mockLeaveRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-                status: 'APPROVED'
+                status: 'APPROVED',
+                tenantId
             }))
             // 2 days (Mon, Tue)
-            expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 2)
+            expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 2, tenantId)
         })
 
         it('should fail if balance is insufficient for auto-approved leave', async () => {
             prismaMock.user.findUnique.mockResolvedValue({
                 id: 'user-1',
                 workingHourMode: 'FIXED',
-                workDays: 'Mon,Tue,Wed,Thu,Fri'
-            } as unknown as { id: string; workingHourMode: string; workDays: string })
+                workDays: 'Mon,Tue,Wed,Thu,Fri',
+                tenantId
+            } as unknown as { id: string; workingHourMode: string; workDays: string; tenantId: string })
 
             mockBalanceRepo.hasEnoughDays.mockResolvedValue(false)
 
-            const result = await service.createLeave(createData, 'admin-1', true)
+            const result = await service.createLeave(createData, 'admin-1', tenantId, true)
 
             expect(result.success).toBe(false)
             expect(result.code).toBe('INSUFFICIENT_BALANCE')
@@ -140,32 +145,34 @@ describe('LeaveService', () => {
             startDate: new Date('2024-01-01'), // Monday
             endDate: new Date('2024-01-03'),   // Wednesday (3 days)
             status: 'PENDING',
+            tenantId,
             user: {
                 id: 'user-1',
                 name: 'John Doe',
                 workingHourMode: 'FIXED',
-                workDays: 'Mon,Tue,Wed,Thu,Fri'
+                workDays: 'Mon,Tue,Wed,Thu,Fri',
+                tenantId
             }
         }
 
         it('should approve leave and deduct balance', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; name: string; workingHourMode: string; workDays: string } })
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; name: string; workingHourMode: string; workDays: string; tenantId: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...leaveRequest, status: 'APPROVED' })
 
-            const result = await service.approveLeave('leave-1', 'admin-1')
+            const result = await service.approveLeave('leave-1', 'admin-1', tenantId)
 
             expect(result.success).toBe(true)
-            expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 3)
+            expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 3, tenantId)
             expect(mockLeaveRepo.update).toHaveBeenCalledWith('leave-1', expect.objectContaining({
                 status: 'APPROVED'
             }))
         })
 
         it('should fail approval if balance is insufficient', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; name: string; workingHourMode: string; workDays: string } })
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; name: string; workingHourMode: string; workDays: string; tenantId: string } })
             mockBalanceRepo.hasEnoughDays.mockResolvedValue(false)
 
-            const result = await service.approveLeave('leave-1', 'admin-1')
+            const result = await service.approveLeave('leave-1', 'admin-1', tenantId)
 
             expect(result.success).toBe(false)
             expect(result.code).toBe('INSUFFICIENT_BALANCE')
@@ -177,10 +184,10 @@ describe('LeaveService', () => {
                 ...leaveRequest,
                 user: { ...leaveRequest.user, workingHourMode: 'FLEXIBLE' }
             }
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(flexUserLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; name: string; workingHourMode: string; workDays: string } })
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(flexUserLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; name: string; workingHourMode: string; workDays: string; tenantId: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...flexUserLeave, status: 'APPROVED' })
 
-            const result = await service.approveLeave('leave-1', 'admin-1')
+            const result = await service.approveLeave('leave-1', 'admin-1', tenantId)
 
             expect(result.success).toBe(true)
             expect(mockBalanceRepo.incrementUsed).not.toHaveBeenCalled()
@@ -195,29 +202,31 @@ describe('LeaveService', () => {
             startDate: new Date('2024-01-01'),
             endDate: new Date('2024-01-01'), // 1 day
             status: 'APPROVED',
+            tenantId,
             user: {
                 id: 'user-1',
                 workingHourMode: 'FIXED',
-                workDays: 'Mon,Tue,Wed,Thu,Fri'
+                workDays: 'Mon,Tue,Wed,Thu,Fri',
+                tenantId
             }
         }
 
         it('should refund balance when rejecting approved leave', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; workingHourMode: string; workDays: string } })
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; workingHourMode: string; workDays: string; tenantId: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...approvedLeave, status: 'REJECTED' })
 
-            const result = await service.rejectLeave('leave-1', 'admin-1', 'Reason')
+            const result = await service.rejectLeave('leave-1', 'admin-1', tenantId, 'Reason')
 
             expect(result.success).toBe(true)
-            expect(mockBalanceRepo.decrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 1)
+            expect(mockBalanceRepo.decrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 1, tenantId)
         })
 
         it('should NOT refund balance when rejecting pending leave', async () => {
             const pendingLeave = { ...approvedLeave, status: 'PENDING' }
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(pendingLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; workingHourMode: string; workDays: string } })
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(pendingLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; workingHourMode: string; workDays: string; tenantId: string } })
             mockLeaveRepo.update.mockResolvedValue({ ...pendingLeave, status: 'REJECTED' })
 
-            const result = await service.rejectLeave('leave-1', 'admin-1', 'Reason')
+            const result = await service.rejectLeave('leave-1', 'admin-1', tenantId, 'Reason')
 
             expect(result.success).toBe(true)
             expect(mockBalanceRepo.decrementUsed).not.toHaveBeenCalled()
@@ -232,20 +241,22 @@ describe('LeaveService', () => {
             startDate: new Date('2024-01-01'),
             endDate: new Date('2024-01-01'), // 1 day
             status: 'APPROVED',
+            tenantId,
             user: {
                 id: 'user-1',
                 workingHourMode: 'FIXED',
-                workDays: 'Mon,Tue,Wed,Thu,Fri'
+                workDays: 'Mon,Tue,Wed,Thu,Fri',
+                tenantId
             }
         }
 
         it('should refund balance when deleting approved leave', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; user: { id: string; workingHourMode: string; workDays: string } })
+            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; workingHourMode: string; workDays: string; tenantId: string } })
 
-            const result = await service.deleteLeave('leave-1', 'admin-1')
+            const result = await service.deleteLeave('leave-1', 'admin-1', tenantId)
 
             expect(result.success).toBe(true)
-            expect(mockBalanceRepo.decrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 1)
+            expect(mockBalanceRepo.decrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 1, tenantId)
             expect(mockLeaveRepo.delete).toHaveBeenCalledWith('leave-1')
         })
     })
@@ -262,7 +273,7 @@ describe('LeaveService', () => {
             const endDate = new Date('2024-01-09')   // Next Tuesday
 
             // Mock holiday on Jan 4th (Thursday)
-            mockHolidayRepo.isHoliday.mockImplementation(async (date: Date) => {
+            mockHolidayRepo.isHoliday.mockImplementation(async (date: Date, _tid: string) => {
                 const d = date.toISOString().split('T')[0]
                 return { isHoliday: d === '2024-01-04' }
             })
@@ -270,10 +281,11 @@ describe('LeaveService', () => {
             prismaMock.user.findUnique.mockResolvedValue({
                 id: 'user-1',
                 workingHourMode: 'FIXED',
-                workDays: 'Mon,Tue,Wed,Thu,Fri'
-            } as unknown as { id: string; workingHourMode: string; workDays: string })
+                workDays: 'Mon,Tue,Wed,Thu,Fri',
+                tenantId
+            } as unknown as { id: string; workingHourMode: string; workDays: string; tenantId: string })
 
-            mockLeaveRepo.create.mockResolvedValue({ status: 'APPROVED' })
+            mockLeaveRepo.create.mockResolvedValue({ status: 'APPROVED', tenantId })
 
             await service.createLeave({
                 userId: 'user-1',
@@ -281,9 +293,9 @@ describe('LeaveService', () => {
                 startDate,
                 endDate,
                 reason: 'Test'
-            }, 'admin-1', true)
+            }, 'admin-1', tenantId, true)
 
-            expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 4)
+            expect(mockBalanceRepo.incrementUsed).toHaveBeenCalledWith('user-1', 2024, 'CUTI', 4, tenantId)
         })
     })
 })

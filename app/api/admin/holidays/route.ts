@@ -20,7 +20,7 @@ const createHolidaySchema = z.object({
 /**
  * GET /api/admin/holidays - List holidays by year
  */
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (!await hasPermission('holiday:read')) {
         return ApiErrors.forbidden('Akses ditolak')
     }
@@ -34,7 +34,10 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
         return ApiErrors.badRequest('Parameter tidak valid', { errors: parseResult.error.flatten().fieldErrors })
     }
 
-    const holidays = await holidayRepo.getHolidaysByYear(parseResult.data.year)
+    const tenantId = ctx.session!.user.tenantId
+    if (!tenantId) return ApiErrors.badRequest('Tenant ID tidak ditemukan')
+
+    const holidays = await holidayRepo.getHolidaysByYear(parseResult.data.year, tenantId)
     return apiSuccess(holidays)
 })
 
@@ -50,6 +53,8 @@ export const POST = createHandler({
     }
 
     const { date, description, isNational } = ctx.validated
+    const tenantId = ctx.session!.user.tenantId
+    if (!tenantId) return ApiErrors.badRequest('Tenant ID tidak ditemukan')
 
     try {
         const holiday = await holidayRepo.create({
@@ -58,13 +63,14 @@ export const POST = createHandler({
             description,
             isNational,
             updatedAt: new Date()
-        })
+        }, tenantId)
 
         await logger.logActivity({
             action: 'CREATE',
             subject: 'Holiday',
             details: { id: holiday.id, date: holiday.date, description: holiday.description },
-            userId: ctx.session!.user.id
+            userId: ctx.session!.user.id,
+            tenantId
         })
 
         return apiSuccess(holiday, { status: 201, message: 'Hari libur berhasil dibuat' })

@@ -35,6 +35,7 @@ interface EmployeeLocation {
 export default function LiveMapClient() {
     const { socket, isConnected } = useSocket()
     const [locations, setLocations] = useState<EmployeeLocation[]>([])
+    const [tenantId, setTenantId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
@@ -51,7 +52,8 @@ export default function LiveMapClient() {
 
             if (data.success) {
                 console.log('[LiveMapClient] API Response:', data)
-                setLocations(data.data || [])
+                setLocations(data.data.locations || [])
+                setTenantId(data.data.tenantId || null)
                 setLastUpdated(new Date())
                 setError(null)
             } else {
@@ -70,10 +72,12 @@ export default function LiveMapClient() {
 
     // Real-time updates via Socket.io
     useEffect(() => {
-        if (!socket) return
+        if (!socket || !tenantId) return
+
+        const roomName = `admin:location:${tenantId}`
 
         // Join the location tracking room
-        socket.emit('join:room', 'admin:location')
+        socket.emit('join:room', roomName)
 
         const handleLocationUpdate = (data: EmployeeLocation) => {
             // console.log('[LiveMap] Received update:', data)
@@ -114,9 +118,9 @@ export default function LiveMapClient() {
 
         return () => {
             socket.off('admin:location:update', handleLocationUpdate)
-            socket.emit('leave:room', 'admin:location')
+            socket.emit('leave:room', roomName)
         }
-    }, [socket, fetchLocations])
+    }, [socket, fetchLocations, tenantId])
 
     // Polling fallback when socket is disconnected
     useEffect(() => {

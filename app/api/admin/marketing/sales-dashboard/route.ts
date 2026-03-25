@@ -258,5 +258,5 @@ export async function GET(request: NextRequest) {
     }
 }
 import { NextResponse } from 'next/server'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 

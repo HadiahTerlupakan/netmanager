@@ -59,7 +59,7 @@ export class AttendanceService {
 
         // 2. Cross-Module Validation (Leave & Holiday)
         // Check using the User's Timezone Date
-        const eligibility = await this.validationService.validateCheckInEligibility(userId, nowInTz)
+        const eligibility = await this.validationService.validateCheckInEligibility(userId, tz, nowInTz)
         if (!eligibility.isValid) {
             throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`) // Format error for controller to parse
         }

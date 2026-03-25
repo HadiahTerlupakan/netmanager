@@ -19,28 +19,29 @@ export interface UpdateShiftInput {
 }
 
 export class ShiftRepository {
-  async findAll(includeInactive = false): Promise<Shift[]> {
+  async findAll(tenantId: string, includeInactive = false): Promise<Shift[]> {
     return prisma.shift.findMany({
-      where: includeInactive ? {} : { isActive: true },
+      where: includeInactive ? { tenantId } : { tenantId, isActive: true },
       orderBy: { name: 'asc' }
     })
   }
 
-  async findById(id: string): Promise<Shift | null> {
-    return prisma.shift.findUnique({
-      where: { id }
-    })
-  }
-
-  async findByCode(code: string): Promise<Shift | null> {
+  async findById(tenantId: string, id: string): Promise<Shift | null> {
     return prisma.shift.findFirst({
-      where: { code }
+      where: { id, tenantId }
     })
   }
 
-  async create(data: CreateShiftInput): Promise<Shift> {
+  async findByCode(tenantId: string, code: string): Promise<Shift | null> {
+    return prisma.shift.findFirst({
+      where: { code, tenantId }
+    })
+  }
+
+  async create(tenantId: string, data: CreateShiftInput): Promise<Shift> {
     return prisma.shift.create({
       data: {
+        tenantId,
         name: data.name,
         code: data.code || null,
         startTime: data.startTime,
@@ -50,9 +51,9 @@ export class ShiftRepository {
     })
   }
 
-  async update(id: string, data: UpdateShiftInput): Promise<Shift> {
+  async update(tenantId: string, id: string, data: UpdateShiftInput): Promise<Shift> {
     return prisma.shift.update({
-      where: { id },
+      where: { id, tenantId },
       data: {
         name: data.name,
         code: data.code,
@@ -64,9 +65,9 @@ export class ShiftRepository {
     })
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(tenantId: string, id: string): Promise<void> {
     // Soft delete - set isActive to false AND rename code if exists to release unique constraint
-    const shift = await this.findById(id)
+    const shift = await this.findById(tenantId, id)
     if (!shift) return
 
     const updateData: Partial<{ isActive: boolean, code: string }> = { isActive: false }
@@ -81,20 +82,20 @@ export class ShiftRepository {
     }
 
     await prisma.shift.update({
-      where: { id },
+      where: { id, tenantId },
       data: updateData
     })
   }
 
-  async hardDelete(id: string): Promise<void> {
+  async hardDelete(tenantId: string, id: string): Promise<void> {
     await prisma.shift.delete({
-      where: { id }
+      where: { id, tenantId }
     })
   }
 
-  async getUserCount(shiftId: string): Promise<number> {
+  async getUserCount(tenantId: string, shiftId: string): Promise<number> {
     return prisma.user.count({
-      where: { shiftId }
+      where: { shiftId, tenantId }
     })
   }
 }

@@ -55,7 +55,7 @@ export const GET = createHandler({ auth: true }, async (_request, ctx) => {
     })
 
     const holidayRepo = new HolidayRepository()
-    const { isHoliday, holiday } = await holidayRepo.isHoliday(new Date())
+    const { isHoliday, holiday } = await holidayRepo.isHoliday(new Date(), tenantId)
 
     const userData = await prisma.user.findFirst({
         where: { id: userId, tenantId },

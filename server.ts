@@ -410,12 +410,17 @@ app.prepare().then(() => {
 
     // Log connections count periodically in development
     if (dev) {
-        setInterval(() => {
+        // Prevent duplicate intervals on hot reload
+        if (global.wsLogInterval) {
+            clearInterval(global.wsLogInterval);
+        }
+        
+        global.wsLogInterval = setInterval(() => {
             const connectedSockets = io.sockets.sockets.size
             if (connectedSockets > 0) {
                 console.log(`[WS] Active connections: ${connectedSockets}`)
             }
-        }, 60000) // Log every minute
+        }, 60000);
     }
 
     server.listen(port, '0.0.0.0', () => {

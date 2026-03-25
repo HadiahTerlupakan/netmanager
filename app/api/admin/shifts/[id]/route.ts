@@ -20,7 +20,7 @@ export async function GET(
 
     try {
         const { id } = await params
-        const shift = await shiftService.getShiftById(id)
+        const shift = await shiftService.getShiftById(session.user.tenantId, id)
         
         if (!shift) {
             return ApiErrors.notFound('Shift')
@@ -48,7 +48,7 @@ export async function PATCH(
         const { id } = await params
         const body = await request.json()
 
-        const shift = await shiftService.updateShift(id, {
+        const shift = await shiftService.updateShift(session.user.tenantId, id, {
             name: body.name,
             code: body.code,
             startTime: body.startTime,
@@ -88,7 +88,7 @@ export async function DELETE(
         const { searchParams } = new URL(request.url)
         const force = searchParams.get('force') === 'true'
 
-        await shiftService.deleteShift(id, force)
+        await shiftService.deleteShift(session.user.tenantId, id, force)
 
         await logger.logActivity({
             action: 'DELETE',

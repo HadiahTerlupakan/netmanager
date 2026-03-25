@@ -59,7 +59,7 @@ async function autoApproveTukarLibur() {
 
     for (const request of pendingRequests) {
         try {
-            await leaveService.approveLeave(request.id, 'SYSTEM_AUTO')
+            await leaveService.approveLeave(request.id, 'SYSTEM_AUTO', request.tenantId)
 
             approvedCount++
             approvedIds.push(request.id)

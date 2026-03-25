@@ -166,13 +166,18 @@ import('./lib/cron-registry').then(({ cronRegistry }) => {
 }).catch(err => console.error('[Server] Failed to load Cron Registry:', err))
 
 if (dev) {
-    setInterval(() => {
-        const connectedSockets = io.sockets.sockets.size
-        if (connectedSockets > 0) {
-            console.log(`[WS] Active connections: ${connectedSockets}`)
-        }
-    }, 60000)
+// Prevent duplicate intervals on hot reload
+if (global.wsApiLogInterval) {
+clearInterval(global.wsApiLogInterval);
 }
+
+global.wsApiLogInterval = setInterval(() => {
+        const connectedSockets = io.sockets.sockets.size
+            if (connectedSockets > 0) {
+                console.log(`[WS] Active connections: ${connectedSockets}`)
+            }
+        }, 60000);
+    }
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal: string) => {

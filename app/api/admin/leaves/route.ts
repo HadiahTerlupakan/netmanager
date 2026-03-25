@@ -18,6 +18,7 @@ const createLeaveSchema = z.object({
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const user = ctx.session!.user
+    const tenantId = user.tenantId
 
     // Permission check
     if (!await hasPermission('izin:read')) {
@@ -36,12 +37,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (!isSuper) {
         if (permissions.includes('izin:site_only')) {
              const { prisma: db } = await import('@/lib/prisma');
-             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
+             const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { siteId: true } });
              siteId = dbUser?.siteId || undefined
         }
         if (permissions.includes('izin:department_only')) {
              const { prisma: db } = await import('@/lib/prisma');
-             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { departmentId: true } });
+             const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { departmentId: true } });
              departmentId = dbUser?.departmentId || undefined
         }
     }
@@ -49,7 +50,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const result = await service.getLeaves({
         ...(status ? { status: status as LeaveStatus } : {}),
         ...(siteId ? { siteId } : {}),
-        ...(departmentId ? { departmentId } : {})
+        ...(departmentId ? { departmentId } : {}),
+        tenantId
     })
 
     if (!result.success) {
@@ -69,6 +71,8 @@ export const POST = createHandler({
     }
 
     const { userId, type, startDate, endDate, reason, attachmentUrl } = ctx.validated
+    const user = ctx.session!.user
+    const tenantId = user.tenantId
 
     const result = await service.createLeave(
         {
@@ -79,7 +83,8 @@ export const POST = createHandler({
             reason,
             ...(attachmentUrl ? { attachmentUrl } : {})
         },
-        ctx.session!.user.id,
+        user.id,
+        tenantId,
         true // Auto-approve for manual admin entry
     )
 

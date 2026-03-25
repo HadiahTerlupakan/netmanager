@@ -6,7 +6,7 @@
 
 import type { TicketCategory, TicketPriority } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export interface CreateTicketInput {

@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
             select: { workingHourMode: true, workDays: true, name: true, siteId: true }
         })
 
-        const leaveDays = await calculateWorkingDays(start, end, userData?.workDays || null)
+        const leaveDays = await calculateWorkingDays(start, end, userData?.workDays || null, undefined, tenantId)
 
         // Validate leave quota (skip for FLEXIBLE users and TUKAR_LIBUR type)
         if (userData?.workingHourMode !== 'FLEXIBLE' && type !== 'TUKAR_LIBUR') {
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         }
 
         const createData: Record<string, unknown> = {
-            user: { connect: { id: userId } },
+            userId,
             type: type as LeaveType,
             startDate: new Date(startDate),
             endDate: new Date(endDate),
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
             createData.attachmentUrl = attachments[0]
         }
 
-        const requestData = await repo.create(createData as unknown as Prisma.LeaveRequestCreateInput)
+        const requestData = await repo.create(createData as unknown as Prisma.LeaveRequestUncheckedCreateInput)
 
         // Notify Admins
         try {

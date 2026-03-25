@@ -4,7 +4,7 @@ import { authConfig } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/modules/network'
 import { Prisma } from '@prisma/client'
-import { toEndOfDay } from '@/lib/utils/datetime'
+import { toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 /**

@@ -163,11 +163,11 @@ export function formatDate(
 
 /**
  * Get start of day as Date object (00:00:00.000)
- * Replaces the repetitive: const d = new Date(date); d.setHours(0, 0, 0, 0)
  * @param date - Date object or ISO string (defaults to today)
+ * @param timezone - Target timezone string (optional, defaults to UTC for safety)
  * @returns Date at start of day
  */
-export function toStartOfDay(date: Date | string = new Date(), timezone: string = 'Asia/Jakarta'): Date {
+export function toStartOfDay(date: Date | string = new Date(), timezone: string = 'UTC'): Date {
   const d = typeof date === 'string' ? parseISO(date) : date
   const zonedDate = toZonedTime(d, timezone)
   const localStart = dateFnsStartOfDay(zonedDate)
@@ -176,11 +176,11 @@ export function toStartOfDay(date: Date | string = new Date(), timezone: string 
 
 /**
  * Get end of day as Date object (23:59:59.999)
- * Replaces the repetitive: const d = new Date(date); d.setHours(23, 59, 59, 999)
  * @param date - Date object or ISO string (defaults to today)
+ * @param timezone - Target timezone string (optional, defaults to UTC for safety)
  * @returns Date at end of day
  */
-export function toEndOfDay(date: Date | string = new Date(), timezone: string = 'Asia/Jakarta'): Date {
+export function toEndOfDay(date: Date | string = new Date(), timezone: string = 'UTC'): Date {
   const d = typeof date === 'string' ? parseISO(date) : date
   const zonedDate = toZonedTime(d, timezone)
   const localEnd = dateFnsEndOfDay(zonedDate)

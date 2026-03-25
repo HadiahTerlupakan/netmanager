@@ -3,7 +3,7 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
-import { toStartOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/server-datetime'
 
 
 

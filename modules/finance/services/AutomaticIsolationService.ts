@@ -4,7 +4,7 @@ import { prismaBilling } from '@/lib/prisma-billing';
 import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
 import { logger } from '@/lib/logger';
 import { Status } from '@prisma/client';
-import { toStartOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 
 

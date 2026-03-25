@@ -6,7 +6,8 @@ import { attendanceFilterSchema } from '@/lib/validations/attendance'
 import { createHandler } from '@/lib/api'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 
 /**
@@ -15,6 +16,14 @@ import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const user = ctx.session!.user
+    const tenantId = user.tenantId
+
+    if (!tenantId) {
+        return ApiErrors.badRequest('Tenant ID tidak ditemukan')
+    }
+
+    // Get tenant's timezone at the beginning
+    const timezone = await getTimezone(tenantId)
 
     // 1. Permission Check
     if (!(await hasPermission("attendance:read"))) {
@@ -33,7 +42,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, search, export: isExportStr } = parseResult.data
     const skip = (page - 1) * limit
 
-    const where: Prisma.AttendanceWhereInput = {}
+    const where: Prisma.AttendanceWhereInput = { tenantId }
 
     // 3. Apply RBAC Restrictions
     const permissions = await getUserPermissions(user.id);
@@ -59,16 +68,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     // Apply date range filter
     if (startDateStr && endDateStr) {
-        const start = new Date(startDateStr)
-        start.setTime(toStartOfDay(start).getTime())
-        const end = new Date(endDateStr)
-        end.setTime(toEndOfDay(end).getTime())
+        const start = toStartOfDay(startDateStr, timezone)
+        const end = toEndOfDay(endDateStr, timezone)
         where.checkIn = { gte: start, lte: end }
     } else if (startDateStr) {
-        const start = new Date(startDateStr)
-        start.setTime(toStartOfDay(start).getTime())
-        const end = new Date(startDateStr)
-        end.setTime(toEndOfDay(end).getTime())
+        const start = toStartOfDay(startDateStr, timezone)
+        const end = toEndOfDay(startDateStr, timezone)
         where.checkIn = { gte: start, lte: end }
     }
 
@@ -112,12 +117,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const isExport = isExportStr === 'true'
 
     if (isExport) {
-        // Fetch Timezone Setting
-        const timezoneSetting = await prisma.settings.findFirst({
-            where: { key: 'GENERAL_TIMEZONE' }
-        })
-        const timezone = timezoneSetting?.value || 'Asia/Jakarta'
-
         const attendances = await prisma.attendance.findMany({
             where,
             include: {

@@ -5,7 +5,7 @@ import { OvertimeStatus } from '@prisma/client'
 import { createHandler, ApiErrors } from '@/lib/api'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/datetime'
+import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 /**

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { toEndOfDay } from '@/lib/utils/datetime'
+import { toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export const dynamic = 'force-dynamic';

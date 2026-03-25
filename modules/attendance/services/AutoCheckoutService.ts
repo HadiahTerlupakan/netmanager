@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getTimezone } from '@/lib/utils/get-timezone'
-import { toEndOfDay } from '@/lib/utils/datetime'
+import { toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export class AutoCheckoutService {

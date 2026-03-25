@@ -8,7 +8,7 @@ export class AttendanceValidationService {
      * 1. Apakah ada Cuti yang disetujui (APPROVED) pada tanggal tersebut?
      * 2. Apakah tanggal tersebut adalah Hari Libur (Holiday)?
      */
-    async validateCheckInEligibility(userId: string, date: Date = new Date(), timezone: string = 'Asia/Jakarta'): Promise<{
+    async validateCheckInEligibility(userId: string, timezone: string, date: Date = new Date()): Promise<{
         isValid: boolean
         reason?: string
         type?: 'LEAVE' | 'HOLIDAY' | 'OFF_DAY'

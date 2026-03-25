@@ -40,29 +40,31 @@ describe('ShiftService', () => {
         }
 
         it('should create a shift successfully', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findByCode.mockResolvedValue(null)
             mockShiftRepo.create.mockResolvedValue({ id: 'shift-1', ...input })
 
-            const result = await service.createShift(input)
+            const result = await service.createShift(tenantId, input)
 
             expect(result).toEqual(expect.objectContaining(input))
-            expect(mockShiftRepo.create).toHaveBeenCalledWith(input)
+            expect(mockShiftRepo.create).toHaveBeenCalledWith(tenantId, input)
         })
 
         it('should throw error for invalid start time format', async () => {
-            await expect(service.createShift({ ...input, startTime: '8:00' }))
+            await expect(service.createShift('tenant-1', { ...input, startTime: '8:00' }))
                 .rejects.toThrow('Invalid start time format')
         })
 
         it('should throw error for invalid end time format', async () => {
-            await expect(service.createShift({ ...input, endTime: '25:00' }))
+            await expect(service.createShift('tenant-1', { ...input, endTime: '25:00' }))
                 .rejects.toThrow('Invalid end time format')
         })
 
         it('should throw error if code already exists', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findByCode.mockResolvedValue({ id: 'existing', code: 'S1' })
 
-            await expect(service.createShift(input))
+            await expect(service.createShift(tenantId, input))
                 .rejects.toThrow('Shift code already exists')
         })
     })
@@ -77,56 +79,60 @@ describe('ShiftService', () => {
         }
 
         it('should update shift successfully', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findById.mockResolvedValue(existingShift)
             mockShiftRepo.findByCode.mockResolvedValue(null)
             mockShiftRepo.update.mockResolvedValue({ ...existingShift, name: 'Updated Name' })
 
-            const result = await service.updateShift('shift-1', { name: 'Updated Name' })
+            const result = await service.updateShift(tenantId, 'shift-1', { name: 'Updated Name' })
 
             expect(result.name).toBe('Updated Name')
-            expect(mockShiftRepo.update).toHaveBeenCalledWith('shift-1', { name: 'Updated Name' })
+            expect(mockShiftRepo.update).toHaveBeenCalledWith(tenantId, 'shift-1', { name: 'Updated Name' })
         })
 
         it('should throw error if shift not found', async () => {
             mockShiftRepo.findById.mockResolvedValue(null)
-
-            await expect(service.updateShift('invalid', { name: 'New' }))
+            await expect(service.updateShift('tenant-1', 'invalid', { name: 'New' }))
                 .rejects.toThrow('Shift not found')
         })
 
         it('should throw error if new code exists', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findById.mockResolvedValue(existingShift)
             mockShiftRepo.findByCode.mockResolvedValue({ id: 'other', code: 'S2' })
 
-            await expect(service.updateShift('shift-1', { code: 'S2' }))
+            await expect(service.updateShift(tenantId, 'shift-1', { code: 'S2' }))
                 .rejects.toThrow('Shift code already exists')
         })
     })
 
     describe('deleteShift', () => {
         it('should soft delete by default', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findById.mockResolvedValue({ id: 'shift-1' })
             mockShiftRepo.getUserCount.mockResolvedValue(0)
 
-            await service.deleteShift('shift-1', true) // Force true for soft delete in service implementation logic
+            await service.deleteShift(tenantId, 'shift-1', true) // Force true for soft delete in service implementation logic
 
-            expect(mockShiftRepo.delete).toHaveBeenCalledWith('shift-1')
+            expect(mockShiftRepo.delete).toHaveBeenCalledWith(tenantId, 'shift-1')
         })
 
         it('should hard delete if not forced and no users', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findById.mockResolvedValue({ id: 'shift-1' })
             mockShiftRepo.getUserCount.mockResolvedValue(0)
 
-            await service.deleteShift('shift-1', false)
+            await service.deleteShift(tenantId, 'shift-1', false)
 
-            expect(mockShiftRepo.hardDelete).toHaveBeenCalledWith('shift-1')
+            expect(mockShiftRepo.hardDelete).toHaveBeenCalledWith(tenantId, 'shift-1')
         })
 
         it('should throw error if assigned to users and not forced', async () => {
+            const tenantId = 'tenant-1'
             mockShiftRepo.findById.mockResolvedValue({ id: 'shift-1' })
             mockShiftRepo.getUserCount.mockResolvedValue(5)
 
-            await expect(service.deleteShift('shift-1', false))
+            await expect(service.deleteShift(tenantId, 'shift-1', false))
                 .rejects.toThrow('Cannot delete shift')
         })
     })

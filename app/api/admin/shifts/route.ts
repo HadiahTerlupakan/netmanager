@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const includeInactive = searchParams.get('includeInactive') === 'true'
 
-        const shifts = await shiftService.getAllShifts(includeInactive)
+        const shifts = await shiftService.getAllShifts(session.user.tenantId, includeInactive)
         return apiSuccess(shifts)
     } catch (error) {
         console.error('[Shifts API] Error:', error)
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
             return apiError('name, startTime, dan endTime wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
-        const shift = await shiftService.createShift({
+        const shift = await shiftService.createShift(session.user.tenantId, {
             name: body.name,
             code: body.code || null,
             startTime: body.startTime,

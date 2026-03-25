@@ -32,12 +32,29 @@ export async function POST(request: Request) {
         }
 
         const absenceService = new AbsenceService()
-        const result = await absenceService.processDailyAbsence(targetDate)
+        
+        // Process for all active tenants
+        const { prisma } = await import('@/lib/prisma')
+        const tenants = await prisma.tenant.findMany({
+            where: { isActive: true },
+            select: { id: true }
+        })
+
+        const summaries = []
+        for (const tenant of tenants) {
+            try {
+                const result = await absenceService.processDailyAbsence(targetDate, tenant.id)
+                summaries.push({ tenantId: tenant.id, ...result })
+            } catch (err) {
+                console.error(`[Cron] Error for tenant ${tenant.id}:`, err)
+            }
+        }
 
         return NextResponse.json({
             success: true,
             date: targetDate.toISOString().split('T')[0],
-            result
+            tenantsProcessed: summaries.length,
+            results: summaries
         })
 
     } catch (error: unknown) {
