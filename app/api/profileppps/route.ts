@@ -238,6 +238,7 @@ export async function POST(req: NextRequest) {
       dnsServer: body.dnsServer && body.dnsServer.trim() ? sanitizeInput(body.dnsServer) : undefined,
       sessionTimeout: body.sessionTimeout !== undefined && body.sessionTimeout !== null && body.sessionTimeout !== '' ? Number(body.sessionTimeout) : undefined,
       idleTimeout: body.idleTimeout !== undefined && body.idleTimeout !== null && body.idleTimeout !== '' ? Number(body.idleTimeout) : undefined,
+      poolMode: body.poolMode || 'MIKROTIK',
       // Rate limit diambil dari Bandwidth yang terkait melalui HargaPaket atau bandwidthId langsung
       mikroTikRouterId: body.mikroTikRouterId && body.mikroTikRouterId.trim() ? body.mikroTikRouterId : undefined,
       bandwidthId: body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : undefined, // Bandwidth untuk rate limit (opsional)
@@ -285,6 +286,7 @@ export async function POST(req: NextRequest) {
       dnsServer: rawPrismaData.dnsServer || null,
       sessionTimeout: rawPrismaData.sessionTimeout || null,
       idleTimeout: rawPrismaData.idleTimeout || null,
+      poolMode: rawPrismaData.poolMode,
       description: rawPrismaData.description || null,
       status: rawPrismaData.status,
       siteId: rawPrismaData.siteId || null,

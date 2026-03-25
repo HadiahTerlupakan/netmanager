@@ -9,9 +9,9 @@ export interface MikroTikRouterCreateData {
   accountingPort?: number
   secretRadius: string
   isolirUrl?: string | null
-
   description?: string | null
   siteId?: string | null
+  tenantId: string
 }
 
 export interface MikroTikRouterUpdateData {
@@ -28,9 +28,9 @@ export interface MikroTikRouterUpdateData {
   description?: string | null
   pingStatus?: string
   userOnline?: number
-
   lastStatusCheck?: Date | null
   siteId?: string | null
+  tenantId?: string
 }
 
 export interface MikroTikRouterPublic {
@@ -83,13 +83,13 @@ export interface PaginatedRouterResult {
 }
 
 export interface IMikroTikRouterRepository {
-  findAll(): Promise<MikroTikRouterPublic[]>
-  findWithFilters(filters: RouterFilters, pagination: PaginationOptions): Promise<PaginatedRouterResult>
-  findById(id: string): Promise<MikroTikRouterPublic | null>
+  findAll(tenantId: string): Promise<MikroTikRouterPublic[]>
+  findWithFilters(filters: RouterFilters, pagination: PaginationOptions, tenantId: string): Promise<PaginatedRouterResult>
+  findById(id: string, tenantId: string): Promise<MikroTikRouterPublic | null>
   create(data: MikroTikRouterCreateData): Promise<{ id: string }>
-  update(id: string, data: MikroTikRouterUpdateData): Promise<void>
-  delete(id: string): Promise<void>
-  count(siteId?: string): Promise<number>
-  getStatistics(siteId?: string): Promise<MikroTikRouterStatistics>
+  update(id: string, data: MikroTikRouterUpdateData, tenantId: string): Promise<void>
+  delete(id: string, tenantId: string): Promise<void>
+  count(tenantId: string, siteId?: string): Promise<number>
+  getStatistics(tenantId: string, siteId?: string): Promise<MikroTikRouterStatistics>
 }
 

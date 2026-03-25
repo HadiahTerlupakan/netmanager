@@ -140,13 +140,14 @@ export async function GET(
     }
     // Get customer information
     const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
+      where: { id, tenantId: session.user.tenantId },
       select: {
         id: true,
         idPelanggan: true,
         nama: true,
         username: true,
         status: true,
+        tenantId: true,
       },
     })
 
@@ -212,12 +213,13 @@ export async function GET(
     const radiusService = new RadiusSyncService(prisma)
     const radiusStats = await radiusService.getCustomerAccountingStats(
       pelanggan.username,
+      pelanggan.tenantId!,
       startDate,
       endDate
     )
 
     // Get active sessions
-    const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username)
+    const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username, pelanggan.tenantId!)
     const activeSession = activeSessions.length > 0 ? activeSessions[0] : null
 
     // Get customer usage from our database (for additional tracking)

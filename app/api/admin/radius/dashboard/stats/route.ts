@@ -5,11 +5,12 @@ import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
 
 const radiusRepository = new RadiusRepository(prisma);
 
-export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     if (!await hasPermission('radius:read')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik RADIUS');
     }
 
-    const stats = await radiusRepository.getDashboardStats();
+    const tenantId = ctx.session!.user.tenantId;
+    const stats = await radiusRepository.getDashboardStats(tenantId);
     return apiSuccess(stats);
 })

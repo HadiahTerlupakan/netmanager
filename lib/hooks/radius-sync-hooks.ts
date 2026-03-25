@@ -94,8 +94,16 @@ export async function beforeCustomerDelete(
         const syncService = new RadiusSyncService(prisma);
         const radiusRepo = syncService['radiusRepo']; // Access private field hack
 
-        await radiusRepo.deleteRadiusUser(username);
-        console.log(`[RADIUS Hook] Customer removed from RADIUS: ${username}`);
+        // Get tenantId for this user
+        const user = await prisma.pelanggan.findFirst({
+            where: { username },
+            select: { tenantId: true }
+        });
+
+        if (user?.tenantId) {
+            await radiusRepo.deleteRadiusUser(username, user.tenantId);
+            console.log(`[RADIUS Hook] Customer removed from RADIUS: ${username}`);
+        }
 
         return { success: true };
     } catch (error) {

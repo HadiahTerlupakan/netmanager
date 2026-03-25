@@ -59,49 +59,58 @@ export interface IRadIpPool {
 
 export interface IRadiusRepository {
     // User Management
-    createRadiusUser(data: IRadiusUser): Promise<void>;
-    updateRadiusPassword(username: string, password: string): Promise<void>;
-    deleteRadiusUser(username: string): Promise<void>;
-    userExists(username: string): Promise<boolean>;
+    createRadiusUser(data: IRadiusUser, tenantId: string): Promise<void>;
+    updateRadiusPassword(username: string, password: string, tenantId: string): Promise<void>;
+    deleteRadiusUser(username: string, tenantId: string): Promise<void>;
+    userExists(username: string, tenantId: string): Promise<boolean>;
 
     // Bandwidth Management
-    setUserBandwidth(username: string, bandwidth: IRadiusBandwidth): Promise<void>;
-    getUserBandwidth(username: string): Promise<IRadiusBandwidth | null>;
+    setUserBandwidth(username: string, bandwidth: IRadiusBandwidth, tenantId: string): Promise<void>;
+    getUserBandwidth(username: string, tenantId: string): Promise<IRadiusBandwidth | null>;
+    setGroupBandwidth(groupname: string, bandwidth: IRadiusBandwidth, tenantId: string): Promise<void>;
+    getGroupBandwidth(groupname: string, tenantId: string): Promise<IRadiusBandwidth | null>;
+    setGroupAttribute(groupname: string, attribute: string, value: string, tenantId: string, op?: string): Promise<void>;
+    removeGroupAttribute(groupname: string, attribute: string, tenantId: string): Promise<void>;
+    setGroupCheckAttribute(groupname: string, attribute: string, value: string, tenantId: string, op?: string): Promise<void>;
+    removeGroupCheckAttribute(groupname: string, attribute: string, tenantId: string): Promise<void>;
 
     // Group Management
-    assignUserToGroup(username: string, groupname: string, priority?: number): Promise<void>;
-    removeUserFromGroup(username: string, groupname: string): Promise<void>;
-    getUserGroups(username: string): Promise<string[]>;
+    assignUserToGroup(username: string, groupname: string, tenantId: string, priority?: number): Promise<void>;
+    removeUserFromGroup(username: string, groupname: string, tenantId: string): Promise<void>;
+    getUserGroups(username: string, tenantId: string): Promise<string[]>;
 
     // Session Management
-    getActiveSessions(username?: string): Promise<IRadiusSession[]>;
-    getUserSessions(username: string, startDate?: Date, endDate?: Date): Promise<IRadiusSession[]>;
+    getActiveSessions(tenantId: string, username?: string): Promise<IRadiusSession[]>;
+    getUserSessions(username: string, tenantId: string, startDate?: Date, endDate?: Date): Promise<IRadiusSession[]>;
 
     // Accounting Stats
-    getAccountingStats(username: string, startDate?: Date, endDate?: Date): Promise<IRadiusAccountingStats>;
+    getAccountingStats(username: string, tenantId: string, startDate?: Date, endDate?: Date): Promise<IRadiusAccountingStats>;
 
     // Sync Operations
     syncPelangganToRadius(pelangganId: string): Promise<void>;
-    syncAllActiveCustomers(): Promise<{ created: number; updated: number; deleted: number }>;
+    syncAllActiveCustomers(tenantId?: string): Promise<{ created: number; updated: number; deleted: number }>;
+    syncPackageToRadius(packageId: string): Promise<void>;
+    syncBandwidthToRadius(bandwidthId: string): Promise<void>;
+    syncAllPackagesToRadius(tenantId?: string): Promise<void>;
 
     // NAS Management
-    createNas(nas: INas): Promise<INas>;
-    updateNas(id: number, nas: Partial<INas>): Promise<INas>;
-    deleteNas(id: number): Promise<void>;
-    getNasById(id: number): Promise<INas | null>;
-    getAllNas(): Promise<INas[]>;
-    getNasByIp(ip: string): Promise<INas | null>;
+    createNas(nas: INas, tenantId: string): Promise<INas>;
+    updateNas(id: number, nas: Partial<INas>, tenantId: string): Promise<INas>;
+    deleteNas(id: number, tenantId: string): Promise<void>;
+    getNasById(id: number, tenantId: string): Promise<INas | null>;
+    getAllNas(tenantId: string): Promise<INas[]>;
+    getNasByIp(ip: string, tenantId: string): Promise<INas | null>;
 
     // IP Pool Management
-    addToIpPool(pool: IRadIpPool): Promise<IRadIpPool>;
-    removeFromIpPool(ipAddress: string): Promise<void>;
-    getIpFromPool(poolName: string, nasIpAddress?: string): Promise<string | null>;
-    returnIpToPool(ipAddress: string): Promise<void>;
-    getIpPoolStats(poolName?: string): Promise<{ total: number; used: number; available: number }>;
-    getAllIpPools(): Promise<IRadIpPool[]>;
+    addToIpPool(pool: IRadIpPool, tenantId: string): Promise<IRadIpPool>;
+    removeFromIpPool(ipAddress: string, tenantId: string): Promise<void>;
+    getIpFromPool(poolName: string, tenantId: string, nasIpAddress?: string): Promise<string | null>;
+    returnIpToPool(ipAddress: string, tenantId: string): Promise<void>;
+    getIpPoolStats(tenantId: string, poolName?: string): Promise<{ total: number; used: number; available: number }>;
+    getAllIpPools(tenantId: string): Promise<IRadIpPool[]>;
     // Dashboard Methods
-    getDashboardStats(): Promise<IDashboardStats>;
-    getRecentSessions(options?: {
+    getDashboardStats(tenantId: string): Promise<IDashboardStats>;
+    getRecentSessions(tenantId: string, options?: {
         page?: number;
         limit?: number;
         status?: 'active' | 'all';

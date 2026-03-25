@@ -75,13 +75,13 @@ export class RadiusSyncService {
     /**
      * Handle customer status change
      * - AKTIF: Sync user (RADIUS mode: sync to radcheck, API mode: create secret)
-     * - ISOLIR/NONAKTIF: Ubah profile ke "expired users" di MikroTik (SAMA untuk kedua mode)
-     * - DISMANTLE: Hapus user (RADIUS mode: hapus dari radcheck, API mode: hapus secret)
+     * - ISOLIR/NONAKTIF: Ubah profile ke "expired users" di MikroTik (API mode) atau pindah ke grup ISOLIR (RADIUS mode)
+     * - DISMANTLE: Hapus user sepenuhnya
      */
     async handleStatusChange(pelangganId: string, newStatus: Status): Promise<void> {
         const pelanggan = await this.prisma.pelanggan.findUnique({
             where: { id: pelangganId },
-            select: { username: true },
+            select: { username: true, status: true },
         });
 
         if (!pelanggan) {
@@ -90,31 +90,30 @@ export class RadiusSyncService {
 
         const mode = await this.getConnectionMode();
 
-        if (newStatus === 'AKTIF') {
-            // Re-sync to enable user
-            await this.syncSingleCustomer(pelangganId);
-            // Kembalikan profile normal di MikroTik
-            await this.pppSecretService.unIsolateCustomer(pelangganId);
-
-        } else if (newStatus === 'ISOLIR' || newStatus === 'NONAKTIF') {
-            // Isolir: Ubah profile ke "expired users" di MikroTik
-            // SAMA untuk kedua mode - isolir selalu via MikroTik
-            await this.pppSecretService.isolateCustomer(pelangganId);
-
-        } else if (newStatus === 'DISMANTLE') {
-            // Dismantle: Hapus user sepenuhnya
-            if (mode === 'MIKROTIK_API') {
-                // Hapus secret dari MikroTik
+        if (mode === 'MIKROTIK_API') {
+            if (newStatus === 'AKTIF') {
+                await this.pppSecretService.syncNewCustomer(pelangganId);
+                await this.pppSecretService.unIsolateCustomer(pelangganId);
+            } else if (newStatus === 'ISOLIR' || newStatus === 'NONAKTIF') {
+                await this.pppSecretService.isolateCustomer(pelangganId);
+            } else if (newStatus === 'DISMANTLE') {
                 await this.pppSecretService.dismantleCustomer(pelangganId);
             } else {
-                // Hapus dari RADIUS + hapus secret di MikroTik jika ada
-                await this.radiusRepo.deleteRadiusUser(pelanggan.username);
-                await this.pppSecretService.dismantleCustomer(pelangganId);
+                await this.pppSecretService.isolateCustomer(pelangganId);
             }
-
         } else {
-            // MAINTENANCE atau status lainnya - isolir
-            await this.pppSecretService.isolateCustomer(pelangganId);
+            // RADIUS Mode
+            // Update RADIUS tables (handles AKTIF, ISOLIR, NONAKTIF, DISMANTLE)
+            await this.radiusRepo.syncPelangganToRadius(pelangganId);
+
+            // Also try to update MikroTik profile if secret exists (for hybrid migration)
+            if (newStatus === 'AKTIF') {
+                await this.pppSecretService.unIsolateCustomer(pelangganId);
+            } else if (newStatus === 'DISMANTLE') {
+                await this.pppSecretService.dismantleCustomer(pelangganId);
+            } else {
+                await this.pppSecretService.isolateCustomer(pelangganId);
+            }
         }
     }
 
@@ -129,8 +128,8 @@ export class RadiusSyncService {
     /**
      * Get active sessions for customer
      */
-    async getCustomerActiveSessions(username: string) {
-        return await this.radiusRepo.getActiveSessions(username);
+    async getCustomerActiveSessions(username: string, tenantId: string) {
+        return await this.radiusRepo.getActiveSessions(tenantId, username);
     }
 
     /**
@@ -138,10 +137,11 @@ export class RadiusSyncService {
      */
     async getCustomerAccountingStats(
         username: string,
+        tenantId: string,
         startDate?: Date,
         endDate?: Date
     ) {
-        return await this.radiusRepo.getAccountingStats(username, startDate, endDate);
+        return await this.radiusRepo.getAccountingStats(username, tenantId, startDate, endDate);
     }
 
     /**
@@ -158,14 +158,15 @@ export class RadiusSyncService {
             select: {
                 username: true,
                 status: true,
+                tenantId: true,
             },
         });
 
-        if (!pelanggan) {
-            throw new Error(`Pelanggan ${pelangganId} not found`);
+        if (!pelanggan || !pelanggan.tenantId) {
+            throw new Error(`Pelanggan ${pelangganId} not found or missing tenantId`);
         }
 
-        const existsInRadius = await this.radiusRepo.userExists(pelanggan.username);
+        const existsInRadius = await this.radiusRepo.userExists(pelanggan.username, pelanggan.tenantId);
         const shouldExist = pelanggan.status === 'AKTIF';
 
         return {

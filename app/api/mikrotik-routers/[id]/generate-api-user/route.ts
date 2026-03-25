@@ -10,8 +10,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     const { id } = ctx.params
+    const tenantId = ctx.session!.user.tenantId;
     const routerRepository = getMikroTikRouterRepository()
-    const router = await routerRepository.findById(id)
+    const router = await routerRepository.findById(id, tenantId)
     
     if (!router) {
       return ApiErrors.notFound('Router tidak ditemukan')

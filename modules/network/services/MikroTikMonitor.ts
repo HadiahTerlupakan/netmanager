@@ -1,3 +1,4 @@
+import { prisma } from '@/lib/prisma'
 import { checkAllMikroTikRouterStatus } from './mikrotik-ping-check'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { type Server as SocketIOServer } from 'socket.io'
@@ -64,7 +65,23 @@ class MikroTikMonitor {
             const updatedCount = await checkAllMikroTikRouterStatus()
 
             const routerRepository = getMikroTikRouterRepository()
-            const _stats = await routerRepository.getStatistics()
+            
+            // Get stats for each tenant and broadcast
+            const tenants = await prisma.tenant.findMany({
+                where: { isActive: true },
+                select: { id: true }
+            })
+
+            for (const tenant of tenants) {
+                try {
+                    const _stats = await routerRepository.getStatistics(tenant.id)
+                    if (this.io) {
+                        this.io.to(`admin:mikrotik:${tenant.id}`).emit('mikrotik:stats', _stats)
+                    }
+                } catch (e) {
+                    console.error(`[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`, e)
+                }
+            }
 
             if (this.errorCount > 0) {
                 // console.log('[MikroTikMonitor] Connection restored, resuming normal operation')

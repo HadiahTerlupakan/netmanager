@@ -40,13 +40,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         siteIdFilter = userSiteId
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const filters: Record<string, string | undefined> = {}
     if (search) filters.search = search
     if (siteIdFilter) filters.siteId = siteIdFilter
 
     const result = await routerRepository.findWithFilters(
       filters,
-      { page, limit }
+      { page, limit },
+      tenantId
     )
 
     return apiSuccess(result)
@@ -110,6 +112,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         if (isolirUrl) createData.isolirUrl = isolirUrl
         if (description) createData.description = description
         if (finalSiteId) createData.siteId = finalSiteId
+        createData.tenantId = user.tenantId
 
         const router = await routerRepository.create(createData as unknown as MikroTikRouterCreateData)
 

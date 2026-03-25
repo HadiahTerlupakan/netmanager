@@ -7,8 +7,9 @@ import { prisma } from '@/lib/prisma'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { id } = ctx.params
+    const tenantId = ctx.session!.user.tenantId;
     const routerRepository = getMikroTikRouterRepository()
-    const router = await routerRepository.findById(id)
+    const router = await routerRepository.findById(id, tenantId)
     
     if (!router) {
         return ApiErrors.notFound('Router')
@@ -39,10 +40,11 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     }
     const data = parsed.data
     const user = ctx.session!.user
+    const tenantId = user.tenantId;
 
     try {
         const routerRepository = getMikroTikRouterRepository()
-        const existingRouter = await routerRepository.findById(id)
+        const existingRouter = await routerRepository.findById(id, tenantId)
         if (!existingRouter) {
             return ApiErrors.notFound('Router')
         }
@@ -72,8 +74,9 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
         if (data.isolirUrl !== undefined) updateData.isolirUrl = data.isolirUrl
         if (data.description !== undefined) updateData.description = data.description
         if (data.siteId !== undefined) updateData.siteId = data.siteId
+        updateData.tenantId = tenantId
 
-        await routerRepository.update(id, updateData)
+        await routerRepository.update(id, updateData, tenantId)
 
         // System Log
         logActivitySafe({
@@ -92,10 +95,11 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const { id } = ctx.params
     const user = ctx.session!.user
+    const tenantId = user.tenantId;
 
     try {
         const routerRepository = getMikroTikRouterRepository()
-        const router = await routerRepository.findById(id)
+        const router = await routerRepository.findById(id, tenantId)
         
         if (router) {
              const isRestricted = (await hasPermission("mikrotik:site_only")) && user.role !== 'SUPER_ADMIN'
@@ -134,7 +138,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
              }
         }
 
-        await routerRepository.delete(id)
+        await routerRepository.delete(id, tenantId)
 
         // System Log
         logActivitySafe({

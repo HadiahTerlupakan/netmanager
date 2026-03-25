@@ -255,7 +255,7 @@ export async function POST(
 
       // Terminate active sessions if requested
       if (terminateActiveSessions) {
-        const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username)
+        const activeSessions = await radiusService.getCustomerActiveSessions(pelanggan.username, pelanggan.tenantId!)
 
         // Log active sessions that were terminated
         for (const _session of activeSessions) {

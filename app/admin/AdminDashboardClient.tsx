@@ -51,7 +51,7 @@ export async function ClientComponent() {
   // Ensure these repos are only called if we are staying on the dashboard
   const routerRepository = getMikroTikRouterRepository()
 
-  const routerStats = await routerRepository.getStatistics()
+  const routerStats = await routerRepository.getStatistics(user.tenantId!)
 
   const dashboardService = getDashboardService()
   const topEmployees = await dashboardService.getTopEmployees()

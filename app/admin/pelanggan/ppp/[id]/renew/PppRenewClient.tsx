@@ -71,9 +71,10 @@ export function ClientComponent() {
         // Load settings first (or in parallel)
         const settingsRes = await fetch('/api/settings/general')
         if (settingsRes.ok) {
-          const settings = await settingsRes.json()
-          if (settings.disablePerpanjanganPaket) {
-            setDisableDuration(parseInt(settings.disablePerpanjanganPaket) || 5)
+          const settingsJson = await settingsRes.json()
+          const settingsData = settingsJson.data || settingsJson
+          if (settingsData.disablePerpanjanganPaket) {
+            setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
           }
         }
 

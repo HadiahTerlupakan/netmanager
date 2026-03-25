@@ -95,6 +95,20 @@ export async function PUT(
       data: dataToUpdate,
     })
 
+    // RADIUS Sync Hook
+    try {
+      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service')
+      const radiusSync = new RadiusSyncService()
+      const mode = await radiusSync.getConnectionMode()
+      if (mode === 'RADIUS') {
+        const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository')
+        const radiusRepo = new RadiusRepository()
+        await radiusRepo.syncBandwidthToRadius(id)
+      }
+    } catch (syncError) {
+      console.error('[Bandwidth API] RADIUS sync error:', syncError)
+    }
+
     return apiSuccess(bandwidth, { message: 'Bandwidth berhasil diperbarui' })
   } catch (error: unknown) {
     console.error('Error updating bandwidth:', error)

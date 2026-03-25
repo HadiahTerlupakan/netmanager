@@ -4,7 +4,7 @@ import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logActivitySafe } from '@/lib/logger';
 
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (!await hasPermission('radius:read')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat IP Pool');
     }
@@ -13,16 +13,17 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     const getStats = searchParams.get('stats') === 'true';
     const poolName = searchParams.get('poolName');
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
 
     if (getStats) {
-        const stats = await radiusRepo.getIpPoolStats(poolName || undefined);
+        const stats = await radiusRepo.getIpPoolStats(tenantId, poolName || undefined);
         return apiSuccess({
             data: stats,
             poolName: poolName || 'all',
         });
     } else {
-        const pools = await radiusRepo.getAllIpPools();
+        const pools = await radiusRepo.getAllIpPools(tenantId);
 
         // Filter by pool name if provided
         const filteredPools = poolName
@@ -56,12 +57,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         return apiError('Format alamat IP tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
 
     const newPool = await radiusRepo.addToIpPool({
         poolName,
         framedIpAddress,
-    });
+    }, tenantId);
 
     // System Log
     logActivitySafe({

@@ -16,6 +16,7 @@ type ProfilePPP = {
   dnsServer?: string | null
   sessionTimeout?: number | null
   idleTimeout?: number | null
+  poolMode?: 'MIKROTIK' | 'RADIUS' | null
   // Rate limit diambil dari Bandwidth yang terkait melalui HargaPaket
   mikroTikRouterId?: string | null
   mikroTikRouter?: {
@@ -53,6 +54,7 @@ export default function ProfilePPPPage() {
   const [profilePPPs, setProfilePPPs] = useState<ProfilePPP[]>([])
   const [mikroTikRouters, setMikroTikRouters] = useState<MikroTikRouter[]>([])
   const [bandwidths, setBandwidths] = useState<Bandwidth[]>([])
+  const [pppConnectionMode, setPppConnectionMode] = useState<'RADIUS' | 'MIKROTIK_API'>('RADIUS')
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<ProfilePPP | null>(null)
@@ -65,6 +67,7 @@ export default function ProfilePPPPage() {
     dnsServer: '',
     mikroTikRouterId: '',
     bandwidthId: '', // Bandwidth untuk rate limit (opsional)
+    poolMode: 'MIKROTIK' as 'MIKROTIK' | 'RADIUS',
     description: '',
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
     siteId: '',
@@ -76,10 +79,11 @@ export default function ProfilePPPPage() {
       const queryParams = new URLSearchParams()
       if (siteId) queryParams.append('siteId', siteId)
 
-      const [profilePPPsRes, routersRes, bandwidthsRes] = await Promise.all([
+      const [profilePPPsRes, routersRes, bandwidthsRes, settingsRes] = await Promise.all([
         fetch(`/api/profileppps?${queryParams.toString()}`),
         fetch('/api/mikrotik-routers'),
         fetch(`/api/bandwidths?${queryParams.toString()}`), // Filter bandwidth by site too
+        fetch('/api/settings/general'),
       ])
 
       if (!profilePPPsRes.ok) {
@@ -98,10 +102,20 @@ export default function ProfilePPPPage() {
       const profilePPPsData = await profilePPPsRes.json()
       const routersData = routersRes.ok ? await routersRes.json() : { routers: [] }
       const bandwidthsData = bandwidthsRes.ok ? await bandwidthsRes.json() : { data: [] }
+      const settingsJson = settingsRes.ok ? await settingsRes.json() : { data: { pppConnectionMode: 'RADIUS' } }
+      const settingsData = settingsJson.data || settingsJson
 
       setProfilePPPs(profilePPPsData.data || profilePPPsData || [])
       setMikroTikRouters(routersData.data?.routers || routersData.routers || [])
       setBandwidths(bandwidthsData.data || [])
+      const pppMode = settingsData.pppConnectionMode || 'RADIUS'
+      setPppConnectionMode(pppMode)
+      
+      // Jika mode bukan RADIUS, paksa poolMode ke MIKROTIK
+      if (pppMode !== 'RADIUS') {
+        setFormData(prev => ({ ...prev, poolMode: 'MIKROTIK' }))
+      }
+      
       setError(null)
     } catch (error: unknown) {
       console.error('Error loading data:', error)
@@ -138,6 +152,7 @@ export default function ProfilePPPPage() {
         dnsServer: formData.dnsServer?.trim() || undefined,
         mikroTikRouterId: formData.mikroTikRouterId?.trim() || undefined,
         bandwidthId: formData.bandwidthId?.trim() || undefined, // Bandwidth untuk rate limit
+        poolMode: pppConnectionMode === 'RADIUS' ? formData.poolMode : 'MIKROTIK',
         description: formData.description?.trim() || undefined,
         status: formData.status,
         siteId: formData.siteId || undefined,
@@ -219,6 +234,7 @@ export default function ProfilePPPPage() {
       dnsServer: profile.dnsServer || '',
       mikroTikRouterId: profile.mikroTikRouterId || '',
       bandwidthId: '', // Bandwidth tidak disimpan di database, kosongkan saat edit (user bisa pilih ulang)
+      poolMode: profile.poolMode || 'MIKROTIK',
       description: profile.description || '',
       status: profile.status,
       siteId: profile.siteId || '',
@@ -238,6 +254,7 @@ export default function ProfilePPPPage() {
       dnsServer: '',
       mikroTikRouterId: '',
       bandwidthId: '',
+      poolMode: 'MIKROTIK',
       description: '',
       status: 'AKTIF',
       siteId: '',
@@ -342,6 +359,20 @@ export default function ProfilePPPPage() {
               </span>
             ),
           },
+          ...(pppConnectionMode === 'RADIUS' ? [{
+            key: 'poolMode',
+            header: 'Mode',
+            priority: 'secondary' as const,
+            render: (item: ProfilePPP) => (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                item.poolMode === 'RADIUS' 
+                  ? 'bg-purple-100 text-indigo-800 dark:bg-purple-900/30 dark:text-indigo-300' 
+                  : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+              }`}>
+                {item.poolMode || 'MIKROTIK'}
+              </span>
+            ),
+          }] : []),
           {
             key: 'dnsServer',
             header: 'DNS Server',
@@ -511,6 +542,25 @@ export default function ProfilePPPPage() {
           <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
             Range IP untuk pool. Jika dikosongkan, IP Pool harus sudah dibuat manual di MikroTik.
           </p>
+
+          {pppConnectionMode === 'RADIUS' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Mode IP Pool <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.poolMode}
+                onChange={(e) => setFormData({ ...formData, poolMode: e.target.value as 'MIKROTIK' | 'RADIUS' })}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              >
+                <option value="MIKROTIK">MIKROTIK (Pool ada di Router)</option>
+                <option value="RADIUS">RADIUS (Pool dikelola di Database RADIUS)</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Pilih di mana IP Pool dikelola. Mode RADIUS membutuhkan konfigurasi tabel radippool.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

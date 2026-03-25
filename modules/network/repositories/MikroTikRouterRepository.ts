@@ -11,13 +11,14 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     this.radiusRepo = new RadiusRepository(client);
   }
 
-  async findAll(): Promise<MikroTikRouterPublic[]> {
+  async findAll(tenantId: string): Promise<MikroTikRouterPublic[]> {
     try {
       // Check if mikroTikRouter exists on client
       if (!this.client.mikroTikRouter) {
         throw new Error('Prisma client does not have mikroTikRouter model. Please restart the server after running prisma generate.')
       }
       const routers = await this.client.mikroTikRouter.findMany({
+        where: { tenantId },
         orderBy: { createdAt: 'desc' },
       })
       return routers
@@ -29,13 +30,14 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
 
   async findWithFilters(
     filters: import('./IMikroTikRouterRepository').RouterFilters,
-    pagination: import('./IMikroTikRouterRepository').PaginationOptions
+    pagination: import('./IMikroTikRouterRepository').PaginationOptions,
+    tenantId: string
   ): Promise<import('./IMikroTikRouterRepository').PaginatedRouterResult> {
     const { search, siteId } = filters
     const { page, limit } = pagination
     const skip = (page - 1) * limit
 
-    const whereClause: Prisma.MikroTikRouterWhereInput = {}
+    const whereClause: Prisma.MikroTikRouterWhereInput = { tenantId }
 
     if (search) {
       whereClause.OR = [
@@ -70,9 +72,9 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     }
   }
 
-  async findById(id: string): Promise<MikroTikRouterPublic | null> {
-    const router = await this.client.mikroTikRouter.findUnique({
-      where: { id },
+  async findById(id: string, tenantId: string): Promise<MikroTikRouterPublic | null> {
+    const router = await this.client.mikroTikRouter.findFirst({
+      where: { id, tenantId },
     })
     return router
   }
@@ -96,21 +98,24 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         pingStatus: 'offline',
         userOnline: 0,
         siteId: data.siteId ?? null,
+        tenantId: data.tenantId,
       },
-      select: { id: true, ipAddress: true, secretRadius: true, name: true, description: true },
+      select: { id: true, ipAddress: true, secretRadius: true, name: true, description: true, tenantId: true },
     })
 
     // Sync to RADIUS NAS
     try {
-      await this.radiusRepo.createNas({
-        nasname: router.ipAddress,
-        shortname: router.name,
-        type: 'other',
-        ports: data.apiPort ?? 8728, // Using API port as reference, though NAS ports are virtual
-        secret: router.secretRadius,
-        description: router.description || `Auto-sync: MikroTik ${router.name}`,
-        community: 'public', // Default community
-      });
+      if (router.tenantId) {
+        await this.radiusRepo.createNas({
+          nasname: router.ipAddress,
+          shortname: router.name,
+          type: 'other',
+          ports: data.apiPort ?? 8728, // Using API port as reference, though NAS ports are virtual
+          secret: router.secretRadius,
+          description: router.description || `Auto-sync: MikroTik ${router.name}`,
+          community: 'public', // Default community
+        }, router.tenantId);
+      }
     } catch (error) {
       console.error(`Failed to sync NAS for router ${router.name}:`, error);
       // We don't throw here to ensure Router creation isn't blocked by RADIUS sync failure,
@@ -120,15 +125,15 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     return { id: router.id }
   }
 
-  async update(id: string, data: MikroTikRouterUpdateData): Promise<void> {
+  async update(id: string, data: MikroTikRouterUpdateData, tenantId: string): Promise<void> {
     // Fetch existing router first to handle NAS sync
-    const existingRouter = await this.client.mikroTikRouter.findUnique({
-      where: { id },
-      select: { ipAddress: true, secretRadius: true, name: true }
+    const existingRouter = await this.client.mikroTikRouter.findFirst({
+      where: { id, tenantId },
+      select: { ipAddress: true, secretRadius: true, name: true, tenantId: true }
     });
 
-    await this.client.mikroTikRouter.update({
-      where: { id },
+    await this.client.mikroTikRouter.updateMany({
+      where: { id, tenantId },
       data: {
         updatedAt: new Date(),
         ...(data.name !== undefined && { name: data.name }),
@@ -146,6 +151,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         ...(data.userOnline !== undefined && { userOnline: data.userOnline }),
         ...(data.lastStatusCheck !== undefined && { lastStatusCheck: data.lastStatusCheck }),
         ...(data.siteId !== undefined && { siteId: data.siteId }),
+        ...(data.tenantId !== undefined && { tenantId: data.tenantId }),
       },
     })
 
@@ -159,7 +165,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       if (ipChanged || secretChanged || nameChanged || descChanged) {
         try {
           const targetIp = existingRouter.ipAddress; // Look up by OLD IP
-          const existingNas = await this.radiusRepo.getNasByIp(targetIp);
+          const existingNas = await this.radiusRepo.getNasByIp(targetIp, existingRouter.tenantId!);
 
           const newNasData = {
             nasname: data.ipAddress ?? existingRouter.ipAddress,
@@ -169,7 +175,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
           };
 
           if (existingNas && existingNas.id) {
-            await this.radiusRepo.updateNas(existingNas.id, newNasData);
+            await this.radiusRepo.updateNas(existingNas.id, newNasData, existingRouter.tenantId!);
           } else {
             // Self-healing: Create if it didn't exist
             await this.radiusRepo.createNas({
@@ -177,7 +183,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
               type: 'other',
               ports: data.apiPort ?? 8728,
               community: 'public',
-            });
+            }, existingRouter.tenantId!);
           }
         } catch (error) {
           console.error(`Failed to sync NAS update for router ${id}:`, error);
@@ -186,13 +192,14 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, tenantId: string): Promise<void> {
     // Fetch existing router first to check relations and get IP for NAS deletion
-    const existingRouter = await this.client.mikroTikRouter.findUnique({
-      where: { id },
+    const existingRouter = await this.client.mikroTikRouter.findFirst({
+      where: { id, tenantId },
       select: { 
         ipAddress: true,
         name: true,
+        tenantId: true,
         profilePPP: {
           select: { 
             id: true, 
@@ -225,29 +232,29 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       }
     }
 
-    await this.client.mikroTikRouter.delete({
-      where: { id },
+    await this.client.mikroTikRouter.deleteMany({
+      where: { id, tenantId },
     })
 
     // Delete NAS
     try {
-      const nas = await this.radiusRepo.getNasByIp(existingRouter.ipAddress);
+      const nas = await this.radiusRepo.getNasByIp(existingRouter.ipAddress, existingRouter.tenantId!);
       if (nas && nas.id) {
-        await this.radiusRepo.deleteNas(nas.id);
+        await this.radiusRepo.deleteNas(nas.id, existingRouter.tenantId!);
       }
     } catch (error) {
       console.error(`Failed to delete NAS for router ${id}:`, error);
     }
   }
 
-  async count(siteId?: string): Promise<number> {
-    const where: Prisma.MikroTikRouterWhereInput = {}
+  async count(tenantId: string, siteId?: string): Promise<number> {
+    const where: Prisma.MikroTikRouterWhereInput = { tenantId }
     if (siteId) where.siteId = siteId
     return await this.client.mikroTikRouter.count({ where })
   }
 
-  async getStatistics(siteId?: string): Promise<MikroTikRouterStatistics> {
-    const where: Prisma.MikroTikRouterWhereInput = {}
+  async getStatistics(tenantId: string, siteId?: string): Promise<MikroTikRouterStatistics> {
+    const where: Prisma.MikroTikRouterWhereInput = { tenantId }
     if (siteId) where.siteId = siteId
 
     const total = await this.client.mikroTikRouter.count({ where })

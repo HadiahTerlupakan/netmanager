@@ -24,7 +24,7 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Create RADIUS user with authentication credentials
      */
-    async createRadiusUser(data: IRadiusUser): Promise<void> {
+    async createRadiusUser(data: IRadiusUser, tenantId: string): Promise<void> {
         // Create authentication entry in radcheck
         await this.radiusClient.radcheck.create({
             data: {
@@ -32,28 +32,28 @@ export class RadiusRepository implements IRadiusRepository {
                 attribute: 'Cleartext-Password',
                 op: ':=',
                 value: data.password,
-
+                tenantId,
             },
         });
 
         // Assign to group if specified
         if (data.groupname) {
-            await this.assignUserToGroup(data.username, data.groupname);
+            await this.assignUserToGroup(data.username, data.groupname, tenantId);
         }
     }
 
     /**
      * Update user password
      */
-    async updateRadiusPassword(username: string, password: string): Promise<void> {
+    async updateRadiusPassword(username: string, password: string, tenantId: string): Promise<void> {
         await this.radiusClient.radcheck.updateMany({
             where: {
                 username,
                 attribute: 'Cleartext-Password',
+                tenantId,
             },
             data: {
                 value: password,
-
             },
         });
     }
@@ -61,22 +61,23 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Delete RADIUS user and all related records
      */
-    async deleteRadiusUser(username: string): Promise<void> {
+    async deleteRadiusUser(username: string, tenantId: string): Promise<void> {
         await this.radiusClient.$transaction([
-            this.radiusClient.radcheck.deleteMany({ where: { username } }),
-            this.radiusClient.radreply.deleteMany({ where: { username } }),
-            this.radiusClient.radusergroup.deleteMany({ where: { username } }),
+            this.radiusClient.radcheck.deleteMany({ where: { username, tenantId } }),
+            this.radiusClient.radreply.deleteMany({ where: { username, tenantId } }),
+            this.radiusClient.radusergroup.deleteMany({ where: { username, tenantId } }),
         ]);
     }
 
     /**
      * Check if user exists in RADIUS
      */
-    async userExists(username: string): Promise<boolean> {
+    async userExists(username: string, tenantId: string): Promise<boolean> {
         const count = await this.radiusClient.radcheck.count({
             where: {
                 username,
                 attribute: 'Cleartext-Password',
+                tenantId,
             },
         });
         return count > 0;
@@ -86,7 +87,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Set user bandwidth using Mikrotik-Rate-Limit attribute
      * Format: "upload/download" in bits per second
      */
-    async setUserBandwidth(username: string, bandwidth: IRadiusBandwidth): Promise<void> {
+    async setUserBandwidth(username: string, bandwidth: IRadiusBandwidth, tenantId: string): Promise<void> {
         const uploadBps = bandwidth.uploadMbps * 1000000;
         const downloadBps = bandwidth.downloadMbps * 1000000;
         const rateLimit = `${uploadBps}/${downloadBps}`;
@@ -96,6 +97,7 @@ export class RadiusRepository implements IRadiusRepository {
             where: {
                 username,
                 attribute: 'Mikrotik-Rate-Limit',
+                tenantId,
             },
         });
 
@@ -106,7 +108,7 @@ export class RadiusRepository implements IRadiusRepository {
                 attribute: 'Mikrotik-Rate-Limit',
                 op: ':=',
                 value: rateLimit,
-
+                tenantId,
             },
         });
     }
@@ -114,11 +116,142 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get user bandwidth settings
      */
-    async getUserBandwidth(username: string): Promise<IRadiusBandwidth | null> {
+    async getUserBandwidth(username: string, tenantId: string): Promise<IRadiusBandwidth | null> {
         const reply = await this.radiusClient.radreply.findFirst({
             where: {
                 username,
                 attribute: 'Mikrotik-Rate-Limit',
+                tenantId,
+            },
+        });
+
+        if (!reply) return null;
+
+        // Parse "upload/download" format
+        const parts = reply.value.split('/').map(Number);
+        const upload = parts[0] ?? 0;
+        const download = parts[1] ?? 0;
+
+        return {
+            uploadMbps: upload / 1000000,
+            downloadMbps: download / 1000000,
+        };
+    }
+
+    /**
+     * Set group bandwidth using Mikrotik-Rate-Limit attribute in radgroupreply
+     */
+    async setGroupBandwidth(groupname: string, bandwidth: IRadiusBandwidth, tenantId: string): Promise<void> {
+        const uploadBps = bandwidth.uploadMbps * 1000000;
+        const downloadBps = bandwidth.downloadMbps * 1000000;
+        const rateLimit = `${uploadBps}/${downloadBps}`;
+
+        // Delete existing bandwidth entries for the group
+        await this.radiusClient.radgroupreply.deleteMany({
+            where: {
+                groupname,
+                attribute: 'Mikrotik-Rate-Limit',
+                tenantId,
+            },
+        });
+
+        // Create new bandwidth entry in radgroupreply
+        await this.radiusClient.radgroupreply.create({
+            data: {
+                groupname,
+                attribute: 'Mikrotik-Rate-Limit',
+                op: ':=',
+                value: rateLimit,
+                tenantId,
+            },
+        });
+    }
+
+    /**
+     * Set a check attribute for a group in radgroupcheck
+     */
+    async setGroupCheckAttribute(groupname: string, attribute: string, value: string, tenantId: string, op = '=='): Promise<void> {
+        // Delete existing attribute entries for the group
+        await this.radiusClient.radgroupcheck.deleteMany({
+            where: {
+                groupname,
+                attribute,
+                tenantId,
+            },
+        });
+
+        // Create new attribute entry
+        await this.radiusClient.radgroupcheck.create({
+            data: {
+                groupname,
+                attribute,
+                op,
+                value,
+                tenantId,
+            },
+        });
+    }
+
+    /**
+     * Remove a check attribute from a group in radgroupcheck
+     */
+    async removeGroupCheckAttribute(groupname: string, attribute: string, tenantId: string): Promise<void> {
+        await this.radiusClient.radgroupcheck.deleteMany({
+            where: {
+                groupname,
+                attribute,
+                tenantId,
+            },
+        });
+    }
+
+    /**
+     * Set a generic attribute for a group in radgroupreply
+     */
+    async setGroupAttribute(groupname: string, attribute: string, value: string, tenantId: string, op = ':='): Promise<void> {
+        // Delete existing attribute entries for the group
+        await this.radiusClient.radgroupreply.deleteMany({
+            where: {
+                groupname,
+                attribute,
+                tenantId,
+            },
+        });
+
+        // Create new attribute entry
+        await this.radiusClient.radgroupreply.create({
+            data: {
+                groupname,
+                attribute,
+                op,
+                value,
+                tenantId,
+            },
+        });
+    }
+
+    /**
+     * Remove a generic attribute from a group in radgroupreply
+     */
+    async removeGroupAttribute(groupname: string, attribute: string, tenantId: string): Promise<void> {
+        await this.radiusClient.radgroupreply.deleteMany({
+            where: {
+                groupname,
+                attribute,
+                tenantId,
+            },
+        });
+    }
+
+    /**
+     * Get group bandwidth settings from radgroupreply
+     */
+    async getGroupBandwidth(groupname: string, tenantId: string): Promise<IRadiusBandwidth | null> {
+        const reply = await this.radiusClient.radgroupreply.findFirst({
+            where: {
+                groupname,
+                attribute: 'Mikrotik-Rate-Limit',
+                tenantId,
             },
         });
 
@@ -138,9 +271,9 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Assign user to a group
      */
-    async assignUserToGroup(username: string, groupname: string, priority = 0): Promise<void> {
+    async assignUserToGroup(username: string, groupname: string, tenantId: string, priority = 0): Promise<void> {
         const existing = await this.radiusClient.radusergroup.findFirst({
-            where: { username, groupname }
+            where: { username, groupname, tenantId }
         });
         if (existing) {
             await this.radiusClient.radusergroup.update({
@@ -149,7 +282,7 @@ export class RadiusRepository implements IRadiusRepository {
             });
         } else {
             await this.radiusClient.radusergroup.create({
-                data: { username, groupname, priority }
+                data: { username, groupname, priority, tenantId }
             });
         }
     }
@@ -157,18 +290,18 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Remove user from group
      */
-    async removeUserFromGroup(username: string, groupname: string): Promise<void> {
+    async removeUserFromGroup(username: string, groupname: string, tenantId: string): Promise<void> {
         await this.radiusClient.radusergroup.deleteMany({
-            where: { username, groupname }
+            where: { username, groupname, tenantId }
         });
     }
 
     /**
      * Get all groups assigned to user
      */
-    async getUserGroups(username: string): Promise<string[]> {
+    async getUserGroups(username: string, tenantId: string): Promise<string[]> {
         const groups = await this.radiusClient.radusergroup.findMany({
-            where: { username },
+            where: { username, tenantId },
             orderBy: { priority: 'asc' },
         });
         return groups.map((g: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => g.groupname);
@@ -177,10 +310,11 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get active sessions (acctstoptime is null)
      */
-    async getActiveSessions(username?: string): Promise<IRadiusSession[]> {
+    async getActiveSessions(tenantId: string, username?: string): Promise<IRadiusSession[]> {
         const sessions = await this.radiusClient.radacct.findMany({
             where: {
                 acctstoptime: null,
+                tenantId,
                 ...(username && { username }),
             },
             orderBy: {
@@ -196,12 +330,14 @@ export class RadiusRepository implements IRadiusRepository {
      */
     async getUserSessions(
         username: string,
+        tenantId: string,
         startDate?: Date,
         endDate?: Date
     ): Promise<IRadiusSession[]> {
         const sessions = await this.radiusClient.radacct.findMany({
             where: {
                 username,
+                tenantId,
                 ...(startDate && {
                     acctstarttime: {
                         gte: startDate,
@@ -226,10 +362,11 @@ export class RadiusRepository implements IRadiusRepository {
      */
     async getAccountingStats(
         username: string,
+        tenantId: string,
         startDate?: Date,
         endDate?: Date
     ): Promise<IRadiusAccountingStats> {
-        const sessions = await this.getUserSessions(username, startDate, endDate);
+        const sessions = await this.getUserSessions(username, tenantId, startDate, endDate);
 
         const stats: IRadiusAccountingStats = {
             username,
@@ -261,6 +398,26 @@ export class RadiusRepository implements IRadiusRepository {
     }
 
     /**
+     * Parse bandwidth from MikroTik format (e.g., "10M") to Mbps
+     */
+    private parseSpeed(speed: string | null): number {
+        if (!speed) return 0;
+        const match = speed.match(/^(\d+)([MKG])?$/i);
+        if (!match) return 0;
+
+        const value = parseInt(match[1] ?? '0');
+        const unit = match[2]?.toUpperCase();
+
+        if (unit === 'G') return value * 1000;
+        if (unit === 'M') return value;
+        if (unit === 'K') return value / 1000;
+        
+        // If it's just a number, assume it's bits/sec if it's very large, or Mbps if it's small?
+        // Usually, in this app, it's Mbps if no unit.
+        return value; 
+    }
+
+    /**
      * Sync single pelanggan to RADIUS
      */
     async syncPelangganToRadius(pelangganId: string): Promise<void> {
@@ -279,60 +436,141 @@ export class RadiusRepository implements IRadiusRepository {
             throw new Error(`Pelanggan ${pelangganId} not found`);
         }
 
-        const { username, password, status, hargaPaket } = pelanggan;
+        const { username, password, status, hargaPaket, tenantId } = pelanggan;
 
-        // Delete user if not AKTIF
-        if (status !== 'AKTIF') {
-            await this.deleteRadiusUser(username);
+        if (!tenantId) {
+            throw new Error(`Pelanggan ${pelangganId} does not have a tenantId`);
+        }
+
+        // 1. Handle NONAKTIF / DISMANTLE: Remove from RADIUS
+        if (status === 'NONAKTIF' || status === 'DISMANTLE') {
+            await this.deleteRadiusUser(username, tenantId);
             return;
         }
 
-        // Check if user exists
-        const exists = await this.userExists(username);
-
+        // 2. Ensure User exists and password is correct
+        const exists = await this.userExists(username, tenantId);
         if (!exists) {
-            // Create new user
-            await this.createRadiusUser({
-                username,
-                password,
-                groupname: hargaPaket.name,
-            });
+            await this.createRadiusUser({ username, password }, tenantId);
         } else {
-            // Update password
-            await this.updateRadiusPassword(username, password);
+            await this.updateRadiusPassword(username, password, tenantId);
         }
 
-        // Set bandwidth if available
-        if (hargaPaket.bandwidth) {
-            const bandwidth = hargaPaket.bandwidth;
+        // 2.5. Remove individual bandwidth from radreply to ensure Group Bandwidth takes priority
+        await this.radiusClient.radreply.deleteMany({
+            where: {
+                username,
+                attribute: 'Mikrotik-Rate-Limit',
+                tenantId,
+            },
+        });
 
-            // Parse bandwidth from MikroTik format (e.g., "10M")
-            const parseSpeed = (speed: string): number => {
-                const match = speed.match(/^(\d+)([MK])?$/i);
-                if (!match) return 0;
+        // 3. Handle status-based Group Assignment
+        if (status === 'AKTIF' || status === 'ISOLIR') {
+            if (hargaPaket) {
+                // Ensure package group exists and sync bandwidth
+                await this.syncPackageToRadius(hargaPaket.id);
+                
+                // Ensure user is assigned to their package group (priority 10 - lower)
+                await this.assignUserToGroup(username, hargaPaket.id, tenantId, 10);
+            }
 
-                const value = parseInt(match[1] ?? '0');
-                const unit = match[2]?.toUpperCase();
+            if (status === 'ISOLIR') {
+                // Ensure ISOLIR group tells MikroTik to use the 'expired users' profile
+                await this.setGroupAttribute('ISOLIR', 'Mikrotik-Group', 'expired users', tenantId);
+                
+                // Also remove explicit bandwidth limit from ISOLIR group if it exists 
+                // so it doesn't override the package bandwidth
+                await this.removeGroupAttribute('ISOLIR', 'Mikrotik-Rate-Limit', tenantId);
+                
+                // Add to ISOLIR group with HIGHER priority (priority 1 - higher)
+                // This ensures the profile switch happens while keeping the package bandwidth
+                await this.assignUserToGroup(username, 'ISOLIR', tenantId, 1);
+            } else {
+                // If AKTIF, ensure user is removed from ISOLIR group
+                await this.removeUserFromGroup(username, 'ISOLIR', tenantId);
+            }
+        }
+    }
 
-                if (unit === 'M') return value;
-                if (unit === 'K') return value / 1000;
-                return value / 1000000; // Assume Kbps if no unit
-            };
+    /**
+     * Sync Package settings to RADIUS (radgroupreply)
+     */
+    async syncPackageToRadius(packageId: string): Promise<void> {
+        const pkg = await this.prisma.hargaPaket.findUnique({
+            where: { id: packageId },
+            include: { 
+                bandwidth: true,
+                profilePPP: true
+            }
+        });
 
-            await this.setUserBandwidth(username, {
-                uploadMbps: parseSpeed(bandwidth.maxLimitUpload),
-                downloadMbps: parseSpeed(bandwidth.maxLimitDownload),
-            });
+        if (!pkg || !pkg.tenantId) return;
+        const tenantId = pkg.tenantId;
+
+        // 1. Sync Bandwidth
+        if (pkg.bandwidth) {
+            // Using pkg.id as group name for stability
+            await this.setGroupBandwidth(pkg.id, {
+                uploadMbps: this.parseSpeed(pkg.bandwidth.maxLimitUpload),
+                downloadMbps: this.parseSpeed(pkg.bandwidth.maxLimitDownload),
+            }, tenantId);
         }
 
-        // Assign to package group
-        await this.assignUserToGroup(username, hargaPaket.name);
+        // 2. Sync IP Pool Mode
+        if (pkg.profilePPP) {
+            const profile = pkg.profilePPP;
+            const poolName = profile.remoteAddress;
+
+            if (profile.poolMode === 'RADIUS') {
+                // Mode RADIUS: Gunakan radgroupcheck.Pool-Name
+                // MikroTik akan melihat ini dan meminta IP dari RADIUS
+                await this.setGroupCheckAttribute(pkg.id, 'Pool-Name', poolName, tenantId);
+                
+                // Pastikan tidak ada Framed-Pool di reply agar tidak konflik
+                await this.removeGroupAttribute(pkg.id, 'Framed-Pool', tenantId);
+            } else {
+                // Mode MIKROTIK (Default): Gunakan radgroupreply.Framed-Pool
+                // MikroTik akan mencari pool lokal dengan nama tersebut
+                await this.setGroupAttribute(pkg.id, 'Framed-Pool', poolName, tenantId);
+                
+                // Pastikan tidak ada Pool-Name di check agar tidak konflik
+                await this.removeGroupCheckAttribute(pkg.id, 'Pool-Name', tenantId);
+            }
+        }
+    }
+
+    /**
+     * Sync all packages using a specific bandwidth to RADIUS
+     */
+    async syncBandwidthToRadius(bandwidthId: string): Promise<void> {
+        const packages = await this.prisma.hargaPaket.findMany({
+            where: { bandwidthId }
+        });
+        for (const pkg of packages) {
+            await this.syncPackageToRadius(pkg.id);
+        }
+    }
+
+    /**
+     * Sync all packages to RADIUS
+     */
+    async syncAllPackagesToRadius(tenantId?: string): Promise<void> {
+        const packages = await this.prisma.hargaPaket.findMany({
+            ...(tenantId && { where: { tenantId } })
+        });
+        for (const pkg of packages) {
+            await this.syncPackageToRadius(pkg.id);
+        }
     }
 
     /**
      * Sync all active customers to RADIUS
      */
-    async syncAllActiveCustomers(): Promise<{ created: number; updated: number; deleted: number }> {
+    async syncAllActiveCustomers(tenantId?: string): Promise<{ created: number; updated: number; deleted: number }> {
+        // First sync all packages to ensure groups are ready
+        await this.syncAllPackagesToRadius(tenantId);
+
         const pelanggans = await this.prisma.pelanggan.findMany({
             include: {
                 hargaPaket: {
@@ -341,6 +579,7 @@ export class RadiusRepository implements IRadiusRepository {
                     },
                 },
             },
+            ...(tenantId && { where: { tenantId } })
         });
 
         let created = 0;
@@ -348,9 +587,12 @@ export class RadiusRepository implements IRadiusRepository {
         let deleted = 0;
 
         for (const pelanggan of pelanggans) {
-            const exists = await this.userExists(pelanggan.username);
+            const currentTenantId = pelanggan.tenantId;
+            if (!currentTenantId) continue;
 
-            if (pelanggan.status === 'AKTIF') {
+            const exists = await this.userExists(pelanggan.username, currentTenantId);
+
+            if (pelanggan.status === 'AKTIF' || pelanggan.status === 'ISOLIR') {
                 if (exists) {
                     updated++;
                 } else {
@@ -360,7 +602,7 @@ export class RadiusRepository implements IRadiusRepository {
             } else {
                 if (exists) {
                     deleted++;
-                    await this.deleteRadiusUser(pelanggan.username);
+                    await this.deleteRadiusUser(pelanggan.username, currentTenantId);
                 }
             }
         }
@@ -371,7 +613,7 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Create new NAS (Network Access Server)
      */
-    async createNas(nas: INas): Promise<INas> {
+    async createNas(nas: INas, tenantId: string): Promise<INas> {
         const created = await this.radiusClient.nas.create({
             data: {
                 nasname: nas.nasname,
@@ -381,7 +623,7 @@ export class RadiusRepository implements IRadiusRepository {
                 secret: nas.secret,
                 community: nas.community ?? null,
                 description: nas.description ?? null,
-
+                tenantId,
             },
         });
 
@@ -400,9 +642,9 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Update NAS configuration
      */
-    async updateNas(id: number, nas: Partial<INas>): Promise<INas> {
+    async updateNas(id: number, nas: Partial<INas>, tenantId: string): Promise<INas> {
         const updated = await this.radiusClient.nas.update({
-            where: { id },
+            where: { id, tenantId },
             data: {
                 ...(nas.nasname !== undefined ? { nasname: nas.nasname } : {}),
                 ...(nas.shortname !== undefined ? { shortname: nas.shortname } : {}),
@@ -411,7 +653,6 @@ export class RadiusRepository implements IRadiusRepository {
                 ...(nas.secret !== undefined ? { secret: nas.secret } : {}),
                 ...(nas.community !== undefined ? { community: nas.community } : {}),
                 ...(nas.description !== undefined ? { description: nas.description } : {}),
-
             },
         });
 
@@ -430,18 +671,18 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Delete NAS
      */
-    async deleteNas(id: number): Promise<void> {
+    async deleteNas(id: number, tenantId: string): Promise<void> {
         await this.radiusClient.nas.delete({
-            where: { id },
+            where: { id, tenantId },
         });
     }
 
     /**
      * Get NAS by ID
      */
-    async getNasById(id: number): Promise<INas | null> {
+    async getNasById(id: number, tenantId: string): Promise<INas | null> {
         const nas = await this.radiusClient.nas.findFirst({
-            where: { id },
+            where: { id, tenantId },
         });
 
         if (!nas) return null;
@@ -461,8 +702,9 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get all NAS
      */
-    async getAllNas(): Promise<INas[]> {
+    async getAllNas(tenantId: string): Promise<INas[]> {
         const nasList = await this.radiusClient.nas.findMany({
+            where: { tenantId },
             orderBy: { nasname: 'asc' },
         });
 
@@ -481,9 +723,9 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get NAS by IP address
      */
-    async getNasByIp(ip: string): Promise<INas | null> {
+    async getNasByIp(ip: string, tenantId: string): Promise<INas | null> {
         const nas = await this.radiusClient.nas.findFirst({
-            where: { nasname: ip },
+            where: { nasname: ip, tenantId },
         });
 
         if (!nas) return null;
@@ -503,7 +745,7 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Add IP to pool
      */
-    async addToIpPool(pool: IRadIpPool): Promise<IRadIpPool> {
+    async addToIpPool(pool: IRadIpPool, tenantId: string): Promise<IRadIpPool> {
         const created = await this.radiusClient.radippool.create({
             data: {
                 pool_name: pool.poolName,
@@ -513,6 +755,7 @@ export class RadiusRepository implements IRadiusRepository {
                 username: '',
                 callingstationid: '',
                 calledstationid: '',
+                tenantId,
             },
         });
 
@@ -528,19 +771,20 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Remove IP from pool
      */
-    async removeFromIpPool(ipAddress: string): Promise<void> {
+    async removeFromIpPool(ipAddress: string, tenantId: string): Promise<void> {
         await this.radiusClient.radippool.deleteMany({
-            where: { framedipaddress: ipAddress },
+            where: { framedipaddress: ipAddress, tenantId },
         });
     }
 
     /**
      * Get available IP from pool
      */
-    async getIpFromPool(poolName: string, nasipaddress?: string): Promise<string | null> {
+    async getIpFromPool(poolName: string, tenantId: string, nasipaddress?: string): Promise<string | null> {
         const availableIp = await this.radiusClient.radippool.findFirst({
             where: {
                 pool_name: poolName,
+                tenantId,
                 nasipaddress: nasipaddress || null,
                 // Find IP that's not currently assigned
             },
@@ -552,15 +796,14 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Return IP to pool (mark as available)
      */
-    async returnIpToPool(ipAddress: string): Promise<void> {
+    async returnIpToPool(ipAddress: string, tenantId: string): Promise<void> {
         // In a real implementation, you might clear the poolKey or nasipaddress
         // to mark the IP as available again
         await this.radiusClient.radippool.updateMany({
-            where: { framedipaddress: ipAddress },
+            where: { framedipaddress: ipAddress, tenantId },
             data: {
                 nasipaddress: null,
                 pool_key: null,
-
             },
         });
     }
@@ -568,8 +811,8 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get IP pool statistics
      */
-    async getIpPoolStats(poolName?: string): Promise<{ total: number; used: number; available: number }> {
-        const whereClause = poolName ? { pool_name: poolName } : {};
+    async getIpPoolStats(tenantId: string, poolName?: string): Promise<{ total: number; used: number; available: number }> {
+        const whereClause = poolName ? { pool_name: poolName, tenantId } : { tenantId };
 
         const total = await this.radiusClient.radippool.count({
             where: whereClause,
@@ -592,8 +835,9 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get all IP pools
      */
-    async getAllIpPools(): Promise<IRadIpPool[]> {
+    async getAllIpPools(tenantId: string): Promise<IRadIpPool[]> {
         const pools = await this.radiusClient.radippool.findMany({
+            where: { tenantId },
             orderBy: [{ pool_name: 'asc' }, { framedipaddress: 'asc' }],
         });
 
@@ -609,12 +853,13 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get dashboard statistics
      */
-    async getDashboardStats(): Promise<IDashboardStats> {
+    async getDashboardStats(tenantId: string): Promise<IDashboardStats> {
         // Get unique usernames (since one user might have multiple radcheck entries)
         const uniqueUsers = await this.radiusClient.radcheck.groupBy({
             by: ['username'],
             where: {
                 attribute: 'Cleartext-Password',
+                tenantId,
             },
         });
 
@@ -622,6 +867,7 @@ export class RadiusRepository implements IRadiusRepository {
         const onlineSessions = await this.radiusClient.radacct.findMany({
             where: {
                 acctstoptime: null,
+                tenantId,
             },
             distinct: ['username'],
         });
@@ -638,6 +884,7 @@ export class RadiusRepository implements IRadiusRepository {
                 acctstarttime: {
                     gte: today,
                 },
+                tenantId,
             },
         });
 
@@ -683,7 +930,7 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Get recent sessions with pagination
      */
-    async getRecentSessions(options: {
+    async getRecentSessions(tenantId: string, options: {
         page?: number;
         limit?: number;
         status?: 'active' | 'all'
@@ -692,7 +939,7 @@ export class RadiusRepository implements IRadiusRepository {
         const skip = (page - 1) * limit;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const where: any = {};
+        const where: any = { tenantId };
         if (status === 'active') {
             where.acctstoptime = null;
         }

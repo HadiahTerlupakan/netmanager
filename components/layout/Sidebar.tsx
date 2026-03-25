@@ -72,7 +72,6 @@ import {
 import { useSettings } from '@/hooks/useSettings'
 import { usePermission } from '@/hooks/use-permission'
 import { useSession, signOut } from 'next-auth/react'
-import { isMainTenant } from '@/modules/mitra/services/tenant-constants'
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -174,6 +173,19 @@ export default function Sidebar() {
     // Filter menu items based on permissions
     const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
       if (!item) return null;
+
+      // HIDE RADIUS menu if mode is MIKROTIK_API
+      if (settings?.pppConnectionMode === 'MIKROTIK_API') {
+        const isRadiusMenu = 
+          item.code === 'NETWORK.RADIUS' || 
+          item.code === 'INTEGRATION.MIXRADIUS' || 
+          item.code.startsWith('INTEGRATION.MIXRADIUS_');
+        
+        if (isRadiusMenu) {
+          return null
+        }
+      }
+
       let filteredChildren: MenuConfig[] | undefined = undefined
 
       if (item.children && Array.isArray(item.children)) {
@@ -182,15 +194,11 @@ export default function Sidebar() {
           .filter((child): child is MenuConfig => child !== null)
       }
 
-      // RESTRICTION: Hide certain menus for non-main tenants
-      const restrictedCodes = ['TENANT', 'PENGATURAN.APP_VERSION', 'PENGATURAN.BACKUP_DATABASE']
-      const isMain = isMainTenant(session?.user?.tenantId)
-
-      if (!isMain && restrictedCodes.includes(item.code)) {
+      // Special case: If INTEGRATION menu has no children left (because all were RADIUS), hide the parent too
+      if (item.code === 'INTEGRATION' && (!filteredChildren || filteredChildren.length === 0)) {
         return null
       }
 
-      // Check strict permission for the item itself
       // Use the last part of the code (e.g. "NETWORK.MIKROTIK" -> "MIKROTIK")
       const permissionResource = item.code
         ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
@@ -213,7 +221,7 @@ export default function Sidebar() {
       }
 
       return { ...item, children: filteredChildren }
-    }, [hasPermission, session?.user?.tenantId])
+    }, [hasPermission, settings?.pppConnectionMode])
 
     const allNavItems = ADMIN_MENU_CONFIG
 

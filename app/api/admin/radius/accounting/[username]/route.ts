@@ -19,9 +19,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         ? new Date(searchParams.get('endDate')!)
         : undefined;
 
+    const tenantId = ctx.session!.user.tenantId;
     const syncService = new RadiusSyncService(prisma);
     const stats = await syncService.getCustomerAccountingStats(
         username,
+        tenantId,
         startDate,
         endDate
     );

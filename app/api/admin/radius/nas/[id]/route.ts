@@ -15,8 +15,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
-    const nas = await radiusRepo.getNasById(id);
+    const nas = await radiusRepo.getNasById(id, tenantId);
 
     if (!nas) {
         return ApiErrors.notFound('NAS');
@@ -39,17 +40,18 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     const body = await req.json();
     const { nasname, shortname, type, ports, secret, community, description } = body;
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
 
     // Check if NAS exists
-    const existingNas = await radiusRepo.getNasById(id);
+    const existingNas = await radiusRepo.getNasById(id, tenantId);
     if (!existingNas) {
         return ApiErrors.notFound('NAS');
     }
 
     // Check if new nasname conflicts with existing NAS (if changing)
     if (nasname && nasname !== existingNas.nasname) {
-        const conflictNas = await radiusRepo.getNasByIp(nasname);
+        const conflictNas = await radiusRepo.getNasByIp(nasname, tenantId);
         if (conflictNas) {
             return ApiErrors.conflict('NAS dengan IP/hostname ini sudah ada');
         }
@@ -64,7 +66,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     if (community !== undefined) updateData.community = community;
     if (description !== undefined) updateData.description = description;
 
-    const updatedNas = await radiusRepo.updateNas(id, updateData);
+    const updatedNas = await radiusRepo.updateNas(id, updateData, tenantId);
 
     return apiSuccess(updatedNas, { message: 'NAS berhasil diperbarui' });
 })
@@ -80,15 +82,16 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
 
     // Check if NAS exists
-    const existingNas = await radiusRepo.getNasById(id);
+    const existingNas = await radiusRepo.getNasById(id, tenantId);
     if (!existingNas) {
         return ApiErrors.notFound('NAS');
     }
 
-    await radiusRepo.deleteNas(id);
+    await radiusRepo.deleteNas(id, tenantId);
 
     return apiSuccess(null, { message: 'NAS berhasil dihapus' });
 })

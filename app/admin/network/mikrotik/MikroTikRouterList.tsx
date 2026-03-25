@@ -70,6 +70,7 @@ export default function MikroTikRouterList() {
   const [showReconfigureModal, setShowReconfigureModal] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null)
+  const [pppConnectionMode, setPppConnectionMode] = useState<'RADIUS' | 'MIKROTIK_API'>('RADIUS')
 
   // Fetch Data Function
   const fetchRouters = useCallback(async () => {
@@ -81,11 +82,21 @@ export default function MikroTikRouterList() {
       })
       if (debouncedSearch) params.append('search', debouncedSearch)
 
-      const res = await fetch(`/api/mikrotik-routers?${params.toString()}`)
+      const [res, settingsRes] = await Promise.all([
+        fetch(`/api/mikrotik-routers?${params.toString()}`),
+        fetch('/api/settings/general'),
+      ])
+
       if (!res.ok) throw new Error('Failed to fetch routers')
 
       const result = await res.json()
       setData(result)
+
+      if (settingsRes.ok) {
+        const settingsJson = await settingsRes.ok ? await settingsRes.json() : { data: { pppConnectionMode: 'RADIUS' } }
+        const settingsData = settingsJson.data || settingsJson
+        setPppConnectionMode(settingsData.pppConnectionMode || 'RADIUS')
+      }
     } catch (error) {
       console.error('Error loading routers:', error)
       toast.error('Gagal memuat data Router')
@@ -192,7 +203,9 @@ export default function MikroTikRouterList() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Router [NAS]</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Router {pppConnectionMode === 'RADIUS' && '[NAS]'}
+        </h1>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowReconfigureModal(true)}

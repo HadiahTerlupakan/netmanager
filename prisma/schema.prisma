@@ -876,6 +876,7 @@ model ProfilePPP {
   dnsServer        String?
   sessionTimeout   Int?
   idleTimeout      Int?
+  poolMode         String?         @default("MIKROTIK")
   mikroTikRouterId String?
   description      String?
   status           Status          @default(AKTIF)

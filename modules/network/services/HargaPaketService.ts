@@ -79,6 +79,20 @@ export class HargaPaketService {
 
         // Sync MikroTik rate limit if needed
         await this.syncMikroTikRateLimit(hargaPaket)
+        
+        // Sync RADIUS if in RADIUS mode
+        try {
+            const { RadiusSyncService } = await import('./radius-sync-service');
+            const radiusSync = new RadiusSyncService();
+            const mode = await radiusSync.getConnectionMode();
+            if (mode === 'RADIUS') {
+                const { RadiusRepository } = await import('../repositories/RadiusRepository');
+                const radiusRepo = new RadiusRepository();
+                await radiusRepo.syncPackageToRadius(hargaPaket.id);
+            }
+        } catch (error) {
+            console.error('[HargaPaketService] RADIUS sync error:', error);
+        }
 
         // Log activity
         if (userId) {
@@ -133,6 +147,20 @@ export class HargaPaketService {
         // Sync MikroTik if bandwidth changed
         if (data.bandwidthId !== undefined) {
             await this.syncMikroTikRateLimit(updated)
+            
+            // Sync RADIUS if in RADIUS mode
+            try {
+                const { RadiusSyncService } = await import('./radius-sync-service');
+                const radiusSync = new RadiusSyncService();
+                const mode = await radiusSync.getConnectionMode();
+                if (mode === 'RADIUS') {
+                    const { RadiusRepository } = await import('../repositories/RadiusRepository');
+                    const radiusRepo = new RadiusRepository();
+                    await radiusRepo.syncPackageToRadius(updated.id);
+                }
+            } catch (error) {
+                console.error('[HargaPaketService] RADIUS sync error during update:', error);
+            }
         }
 
         // Log activity

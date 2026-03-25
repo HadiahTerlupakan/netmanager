@@ -4,13 +4,14 @@ import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logActivitySafe } from '@/lib/logger';
 
-export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     if (!await hasPermission('radius:read')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat NAS');
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
-    const nasList = await radiusRepo.getAllNas();
+    const nasList = await radiusRepo.getAllNas(tenantId);
 
     return apiSuccess({ data: nasList, count: nasList.length });
 })
@@ -32,10 +33,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         );
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
 
     // Check if NAS already exists
-    const existingNas = await radiusRepo.getNasByIp(nasname);
+    const existingNas = await radiusRepo.getNasByIp(nasname, tenantId);
     if (existingNas) {
         return ApiErrors.conflict('NAS dengan IP/hostname ini sudah ada');
     }
@@ -48,7 +50,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         secret,
         community,
         description,
-    });
+    }, tenantId);
 
     // System Log
     logActivitySafe({

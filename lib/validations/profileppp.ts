@@ -8,6 +8,7 @@ export const profilePPPSchema = z.object({
   dnsServer: z.string().optional().or(z.literal('')),
   sessionTimeout: z.number().optional().nullable(),
   idleTimeout: z.number().optional().nullable(),
+  poolMode: z.enum(['MIKROTIK', 'RADIUS']).default('MIKROTIK'),
   mikroTikRouterId: z.string().optional().nullable(),
   bandwidthId: z.string().optional().nullable(),
   description: z.string().optional().or(z.literal('')),

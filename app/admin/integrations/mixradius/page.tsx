@@ -1,8 +1,20 @@
 import { ensurePermission } from '@/lib/rbac'
 import MixRadiusClient from './MixRadiusClient'
+import { prisma } from '@/lib/prisma'
+import { redirect } from 'next/navigation'
 
 export default async function MixRadiusPage() {
   await ensurePermission('mixradius:read')
+
+  // Check if mode is MIKROTIK_API, if so, redirect
+  const setting = await prisma.settings.findFirst({
+    where: { key: 'PPP_CONNECTION_MODE' }
+  })
+  
+  if (setting?.value === 'MIKROTIK_API') {
+    redirect('/admin/dashboard')
+  }
+
   return <MixRadiusClient />
 }
 

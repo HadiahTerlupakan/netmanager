@@ -89,7 +89,8 @@ export default function PelangganPPPPage() {
 
       if (resSettings.ok) {
         try {
-          const settingsData = await resSettings.json()
+          const settingsJson = await resSettings.json()
+          const settingsData = settingsJson.data || settingsJson
           if (settingsData.disablePerpanjanganPaket) {
             setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
           }

@@ -1,3 +1,4 @@
+import { prisma } from '@/lib/prisma';
 import { RadiusConnectionError } from '../errors';
 /**
  * Service untuk mengecek status API connection semua MikroTik Router
@@ -77,54 +78,67 @@ async function testMikroTikAPI(
 export async function checkAllMikroTikRouterStatus(): Promise<number> {
   try {
     const routerRepository = getMikroTikRouterRepository()
-    const routers = await routerRepository.findAll()
+    
+    // Fetch all active tenants
+    const tenants = await prisma.tenant.findMany({
+      where: { isActive: true },
+      select: { id: true }
+    });
 
-    let updatedCount = 0
+    let totalUpdatedCount = 0
 
-    // Check status untuk setiap router secara parallel
-    const checkPromises = routers.map(async (router) => {
+    for (const tenant of tenants) {
       try {
-        // Gunakan generated API user jika tersedia, fallback ke master user
-        const apiUsername = router.apiUsernameGenerated || router.apiUsername
-        const apiPassword = router.apiPasswordGenerated || router.apiPassword
-        
-        // Test API connection dan ambil jumlah user online
-        const apiResult = await testMikroTikAPI(
-          router.ipAddress,
-          router.apiPort,
-          apiUsername,
-          apiPassword,
-          5000
-        )
+        const routers = await routerRepository.findAll(tenant.id)
 
-        // Update status di database berdasarkan API connection
-        await routerRepository.update(router.id, {
-          pingStatus: apiResult.success ? 'online' : 'offline',
-          userOnline: apiResult.userOnline ?? 0,
-          lastStatusCheck: new Date(),
+        // Check status untuk setiap router secara parallel
+        const checkPromises = routers.map(async (router) => {
+          try {
+            // Gunakan generated API user jika tersedia, fallback ke master user
+            const apiUsername = router.apiUsernameGenerated || router.apiUsername
+            const apiPassword = router.apiPasswordGenerated || router.apiPassword
+            
+            // Test API connection dan ambil jumlah user online
+            const apiResult = await testMikroTikAPI(
+              router.ipAddress,
+              router.apiPort,
+              apiUsername,
+              apiPassword,
+              5000
+            )
+
+            // Update status di database berdasarkan API connection
+            await routerRepository.update(router.id, {
+              pingStatus: apiResult.success ? 'online' : 'offline',
+              userOnline: apiResult.userOnline ?? 0,
+              lastStatusCheck: new Date(),
+            }, tenant.id)
+
+            return { id: router.id, success: apiResult.success, userOnline: apiResult.userOnline ?? 0 }
+          } catch (error: unknown) {
+            console.error(`Error checking router ${router.id}:`, error)
+            // Update ke offline jika error
+            try {
+              await routerRepository.update(router.id, {
+                pingStatus: 'offline',
+                userOnline: 0,
+                lastStatusCheck: new Date(),
+              }, tenant.id)
+            } catch (updateError: unknown) {
+              console.error(`Error updating router ${router.id}:`, updateError)
+            }
+            return { id: router.id, success: false, userOnline: 0 }
+          }
         })
 
-        updatedCount++
-        return { id: router.id, success: apiResult.success, userOnline: apiResult.userOnline ?? 0 }
-      } catch (error: unknown) {
-        console.error(`Error checking router ${router.id}:`, error)
-        // Update ke offline jika error
-        try {
-          await routerRepository.update(router.id, {
-            pingStatus: 'offline',
-            userOnline: 0,
-            lastStatusCheck: new Date(),
-          })
-        } catch (updateError: unknown) {
-          console.error(`Error updating router ${router.id}:`, updateError)
-        }
-        return { id: router.id, success: false, userOnline: 0 }
+        const results = await Promise.all(checkPromises)
+        totalUpdatedCount += results.length
+      } catch (tenantError) {
+        console.error(`Error checking routers for tenant ${tenant.id}:`, tenantError)
       }
-    })
+    }
 
-    await Promise.all(checkPromises)
-
-    return updatedCount
+    return totalUpdatedCount
   } catch (error: unknown) {
     // Re-throw with original error - caller handles logging
     throw error
@@ -137,7 +151,16 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
 export async function checkSingleMikroTikRouterStatus(id: string): Promise<boolean> {
   try {
     const routerRepository = getMikroTikRouterRepository()
-    const router = await routerRepository.findById(id)
+    
+    // Find router to get its tenantId
+    const routerData = await prisma.mikroTikRouter.findUnique({
+      where: { id },
+      select: { tenantId: true }
+    })
+
+    if (!routerData?.tenantId) return false
+
+    const router = await routerRepository.findById(id, routerData.tenantId)
 
     if (!router) return false
 
@@ -159,7 +182,7 @@ export async function checkSingleMikroTikRouterStatus(id: string): Promise<boole
       pingStatus: apiResult.success ? 'online' : 'offline',
       userOnline: apiResult.userOnline ?? 0,
       lastStatusCheck: new Date(),
-    })
+    }, routerData.tenantId)
 
     return apiResult.success
   } catch (error: unknown) {

@@ -144,11 +144,12 @@ async function testMikroTikAPI(
   })
 }
 
-export const POST = createHandler({ auth: true }, async (req, _ctx) => {
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
   if (!await hasPermission("mikrotik:read")) {
     return ApiErrors.forbidden('Akses ditolak')
   }
 
+  const tenantId = ctx.session!.user.tenantId;
   const body = await req.json()
   const {
     ipAddress: initialIpAddress,
@@ -166,7 +167,7 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
   if (routerId) {
     try {
       const routerRepository = getMikroTikRouterRepository()
-      const router = await routerRepository.findById(routerId)
+      const router = await routerRepository.findById(routerId, tenantId)
       if (router) {
         ipAddress = router.ipAddress
         apiPort = router.apiPort
@@ -206,7 +207,7 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
         pingStatus: 'online',
         userOnline: apiResult.routerInfo.userOnline || 0,
         lastStatusCheck: new Date(),
-      })
+      }, tenantId)
     } catch (error: unknown) {
       console.error('Error updating connection status:', error)
     }
@@ -217,7 +218,7 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
         pingStatus: 'offline',
         userOnline: 0,
         lastStatusCheck: new Date(),
-      })
+      }, tenantId)
     } catch (error: unknown) {
       console.error('Error updating connection status:', error)
     }

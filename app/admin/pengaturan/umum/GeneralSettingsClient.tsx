@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { toast } from 'react-hot-toast'
 import { HiArrowPath, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi2'
 import { CompanyProfileSettings } from '@/components/admin/settings/CompanyProfileSettings'
 import { BillingSettings } from '@/components/admin/settings/BillingSettings'
@@ -29,6 +31,8 @@ type GeneralSettings = {
   timezone: string
   attendanceTolerance: string
   pppConnectionMode: 'RADIUS' | 'MIKROTIK_API'
+  autoIsolirEnabled: boolean
+  autoIsolirHariToleransi: string
   reminderOtomatis: string
   reminderFrequency: 'ONCE' | 'DAILY'
   reminderTime: string
@@ -38,6 +42,7 @@ type GeneralSettings = {
 }
 
 export function ClientComponent() {
+  const { data: session } = useSession()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +61,8 @@ export function ClientComponent() {
     timezone: 'Asia/Jakarta',
     attendanceTolerance: '0',
     pppConnectionMode: 'RADIUS',
+    autoIsolirEnabled: true,
+    autoIsolirHariToleransi: '1',
     reminderOtomatis: '3',
     reminderFrequency: 'DAILY',
     reminderTime: '08:00',
@@ -68,6 +75,8 @@ export function ClientComponent() {
   const [backfilling, setBackfilling] = useState(false)
   const [backfillResult, setBackfillResult] = useState<{ success: boolean; message: string; log?: string } | null>(null)
   const [backfillError, setBackfillError] = useState<string | null>(null)
+
+  const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN' || session?.user?.role === 'Super Admin'
 
   // Update current time every second based on selected timezone
   useEffect(() => {
@@ -95,17 +104,14 @@ export function ClientComponent() {
     return () => clearInterval(interval)
   }, [settings.timezone])
 
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       const res = await fetch('/api/settings/general')
       if (res.ok) {
-        const data = await res.json()
+        const response = await res.json()
+        const data = response.data // Access the nested data object
         setSettings({
           perusahaan: data.perusahaan || '',
           namaAplikasi: data.namaAplikasi || '',
@@ -119,6 +125,8 @@ export function ClientComponent() {
           timezone: data.timezone || 'Asia/Jakarta',
           attendanceTolerance: data.attendanceTolerance || '0',
           pppConnectionMode: data.pppConnectionMode || 'RADIUS',
+          autoIsolirEnabled: data.autoIsolirEnabled ?? true,
+          autoIsolirHariToleransi: data.autoIsolirHariToleransi || '1',
           reminderOtomatis: data.reminderOtomatis || '3',
           reminderFrequency: data.reminderFrequency || 'DAILY',
           reminderTime: data.reminderTime || '08:00',
@@ -136,204 +144,197 @@ export function ClientComponent() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    loadSettings()
+  }, [loadSettings])
+
+  // Handlers for props
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setSettings(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target
+    setSettings(prev => ({ ...prev, [name]: checked }))
+  }
+
+  const handleBankChange = (index: number, field: keyof BankAccount, value: string) => {
+    const newBankAccounts = [...settings.rekeningBank]
+    newBankAccounts[index] = { ...newBankAccounts[index], [field]: value }
+    setSettings(prev => ({ ...prev, rekeningBank: newBankAccounts }))
+  }
+
+  const addBankAccount = () => {
+    setSettings(prev => ({
+      ...prev,
+      rekeningBank: [...prev.rekeningBank, { namaBank: '', atasNama: '', noRekening: '' }]
+    }))
+  }
+
+  const removeBankAccount = (index: number) => {
+    const newBankAccounts = [...settings.rekeningBank]
+    newBankAccounts.splice(index, 1)
+    setSettings(prev => ({ ...prev, rekeningBank: newBankAccounts }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setSuccess(false)
+    setSaving(true)
 
     try {
-      setSaving(true)
       const res = await fetch('/api/settings/general', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       })
 
-      if (!res.ok) {
+      if (res.ok) {
+        toast.success('Pengaturan berhasil disimpan!')
+        setSuccess(true)
+        loadSettings()
+        setTimeout(() => setSuccess(false), 3000)
+      } else {
         const errorData = await res.json()
-        throw new Error(errorData.error || 'Gagal menyimpan pengaturan')
+        const errorMsg = errorData.error || 'Gagal menyimpan pengaturan'
+        toast.error(errorMsg)
+        setError(errorMsg)
       }
-
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
     } catch (err: unknown) {
       console.error('Error saving settings:', err)
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan pengaturan')
+      const errorMsg = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan pengaturan'
+      toast.error(errorMsg)
+      setError(errorMsg)
     } finally {
       setSaving(false)
     }
   }
 
-  // ─── BACKFILL (SYNC TENANT) ──────────────────────────────────────────
   const handleBackfill = async () => {
-    setBackfilling(true)
-    setBackfillError(null)
-    setBackfillResult(null)
+    if (!confirm('Apakah Anda yakin ingin menjalankan sinkronisasi data multi-tenant? Operasi ini akan memakan waktu.')) {
+      return
+    }
 
     try {
-      const res = await fetch('/api/settings/backup/backfill', { method: 'POST' })
+      setBackfilling(true)
+      setBackfillError(null)
+      setBackfillResult(null)
+      toast.loading('Sedang melakukan sinkronisasi...', { id: 'backfill' })
+
+      const res = await fetch('/api/settings/backup/backfill', {
+        method: 'POST',
+      })
+
       const data = await res.json()
 
-      if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}: Gagal sinkronisasi tenant`)
+      if (res.ok) {
+        toast.success('Sinkronisasi data multi-tenant selesai!', { id: 'backfill' })
+        setBackfillResult({
+          success: true,
+          message: data.message || 'Sinkronisasi berhasil diselesaikan',
+          log: data.log
+        })
+      } else {
+        const errorMsg = data.error || 'Terjadi kesalahan saat sinkronisasi'
+        toast.error(errorMsg, { id: 'backfill' })
+        setBackfillError(errorMsg)
       }
-
-      setBackfillResult(data)
-    } catch (err) {
-      setBackfillError(err instanceof Error ? err.message : 'Terjadi kesalahan saat sinkronisasi tenant')
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Kesalahan jaringan atau server'
+      toast.error(errorMsg, { id: 'backfill' })
+      setBackfillError(errorMsg)
     } finally {
       setBackfilling(false)
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setSettings((prev) => ({ ...prev, [name]: value }))
-    setError(null)
-    setSuccess(false)
-  }
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target
-    setSettings((prev) => ({ ...prev, [name]: checked }))
-    setError(null)
-    setSuccess(false)
-  }
-
-  const handleBankChange = (index: number, field: keyof BankAccount, value: string) => {
-    setSettings((prev) => {
-      const newBanks = [...prev.rekeningBank]
-      newBanks[index] = { ...newBanks[index], [field]: value } as BankAccount
-      return { ...prev, rekeningBank: newBanks }
-    })
-  }
-
-  const addBankAccount = () => {
-    setSettings((prev) => ({
-      ...prev,
-      rekeningBank: [...prev.rekeningBank, { namaBank: '', atasNama: '', noRekening: '' }],
-    }))
-  }
-
-  const removeBankAccount = (index: number) => {
-    setSettings((prev) => ({
-      ...prev,
-      rekeningBank: prev.rekeningBank.filter((_, i) => i !== index),
-    }))
-  }
-
   return (
-    <div className="w-full space-y-5">
-      <div className="mb-4 text-center md:text-left">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Pengaturan Umum</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Konfigurasi profil perusahaan, penagihan, notifikasi, dan infrastruktur utama
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-          <HiArrowPath className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Memuat semua pengaturan...</span>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Pengaturan Umum
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Kelola profil perusahaan, penagihan, dan konfigurasi sistem lainnya.
+          </p>
         </div>
-      ) : (
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 gap-6">
-            <CompanyProfileSettings 
-              settings={settings}
-              handleChange={handleChange}
-              handleBankChange={handleBankChange}
-              addBankAccount={addBankAccount}
-              removeBankAccount={removeBankAccount}
-            />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BillingSettings 
-                settings={settings}
-                handleChange={handleChange}
-              />
-              <NotificationSettings 
-                settings={settings}
-                handleChange={handleChange}
-                handleCheckboxChange={handleCheckboxChange}
-              />
-            </div>
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+            <HiExclamationCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+          </div>
+        )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <NetworkSettings 
-                settings={settings}
-                handleChange={handleChange}
-              />
-              <TimezoneSettings 
-                timezone={settings.timezone}
-                currentTime={currentTime}
-                handleChange={handleChange}
-              />
-            </div>
+        {success && (
+          <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+            <HiCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-green-800 dark:text-green-400 font-medium">
+              Pengaturan berhasil disimpan!
+            </p>
+          </div>
+        )}
 
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <CompanyProfileSettings 
+            settings={settings} 
+            handleChange={handleChange}
+            handleBankChange={handleBankChange}
+            addBankAccount={addBankAccount}
+            removeBankAccount={removeBankAccount}
+          />
+          <BillingSettings 
+            settings={settings} 
+            handleChange={handleChange} 
+          />
+          <NotificationSettings 
+            settings={settings} 
+            handleChange={handleChange}
+            handleCheckboxChange={handleCheckboxChange}
+          />
+          <NetworkSettings 
+            settings={settings} 
+            handleChange={handleChange} 
+          />
+          
+          {isSuperAdmin && (
             <TenantSync 
               backfilling={backfilling}
               backfillResult={backfillResult}
               backfillError={backfillError}
               handleBackfill={handleBackfill}
             />
-          </div>
+          )}
 
-          {/* Feedback & Actions */}
-          <div className="sticky bottom-4 z-10">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex-1">
-                {success && (
-                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400 animate-in fade-in slide-in-from-left-2">
-                    <HiCheckCircle className="w-5 h-5" />
-                    <span className="text-sm font-bold">Semua pengaturan berhasil disimpan!</span>
-                  </div>
-                )}
-                {error && (
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 animate-in fade-in slide-in-from-left-2">
-                    <HiExclamationCircle className="w-5 h-5" />
-                    <span className="text-sm font-bold">{error}</span>
-                  </div>
-                )}
-                {!success && !error && (
-                  <p className="text-xs text-gray-500 font-medium">Pastikan semua data bertanda bintang (*) telah diisi dengan benar.</p>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <button
-                  type="button"
-                  onClick={loadSettings}
-                  disabled={loading || saving}
-                  className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
-                >
-                  <HiArrowPath className="w-4 h-4" />
-                  Reset
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-[2] md:flex-none inline-flex items-center justify-center gap-2 px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <>
-                      <HiArrowPath className="w-4 h-4 animate-spin" />
-                      Menyimpan...
-                    </>
-                  ) : (
-                    <>
-                      <HiCheckCircle className="w-4 h-4" />
-                      Simpan Perubahan
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+          <TimezoneSettings 
+            timezone={settings.timezone} 
+            currentTime={currentTime} 
+            handleChange={handleChange}
+          />
+
+          <div className="sticky bottom-6 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving || loading}
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {saving ? (
+                <>
+                  <HiArrowPath className="w-5 h-5 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan Semua Pengaturan'
+              )}
+            </button>
           </div>
         </form>
-      )}
+      </div>
     </div>
   )
 }

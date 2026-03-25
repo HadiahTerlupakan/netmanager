@@ -16,8 +16,9 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
         return apiError('Format alamat IP tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
+    const tenantId = ctx.session!.user.tenantId;
     const radiusRepo = new RadiusRepository(prisma);
-    await radiusRepo.removeFromIpPool(ipAddress);
+    await radiusRepo.removeFromIpPool(ipAddress, tenantId);
 
     return apiSuccess({ ipAddress }, { message: 'IP berhasil dihapus dari pool' });
 })

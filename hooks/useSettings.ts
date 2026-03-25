@@ -10,6 +10,7 @@ type GeneralSettings = {
     invoiceOtomatis: string;
     disablePerpanjanganPaket: string;
     timezone: string;
+    pppConnectionMode?: 'RADIUS' | 'MIKROTIK_API';
     logoInvoice?: string | null;
     logoAplikasi?: string | null;
 };
@@ -27,7 +28,8 @@ export function useSettings() {
                 ]);
 
                 if (generalRes.ok) {
-                    const generalData = await generalRes.json();
+                    const response = await generalRes.json();
+                    const generalData = response.data; // Access nested data object
                     let logoData = {};
 
                     if (logoRes.ok) {
