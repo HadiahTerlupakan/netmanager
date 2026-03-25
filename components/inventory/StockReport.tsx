@@ -138,11 +138,11 @@ export function StockReport() {
                             Pilih gudang untuk melihat laporan stok
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                         <select
                             value={selectedGudangId}
                             onChange={(e) => setSelectedGudangId(e.target.value)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            className="flex-1 sm:flex-none px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white min-w-0"
                         >
                             <option value="">-- Pilih Gudang --</option>
                             {gudangOptions.map(gudang => (
@@ -151,12 +151,13 @@ export function StockReport() {
                                 </option>
                             ))}
                         </select>
-                        <Button onClick={() => selectedGudangId && fetchStockReport(selectedGudangId)}
+                        <Button 
+                            onClick={() => selectedGudangId && fetchStockReport(selectedGudangId)}
                             disabled={!selectedGudangId || loading}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+                            className="shrink-0 inline-flex items-center p-2 sm:px-3 sm:py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
                         >
-                            <FiRefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                            Refresh
+                            <FiRefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''} sm:mr-2`} />
+                            <span className="hidden sm:inline">Refresh</span>
                         </Button>
                     </div>
                 </div>

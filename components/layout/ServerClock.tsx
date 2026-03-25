@@ -64,13 +64,13 @@ export function ServerClock() {
   const zonedTime = toZonedTime(time, timezone)
   
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg shadow-sm">
-      <HiClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+    <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg shadow-sm">
+      <HiClock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 dark:text-indigo-400" />
       <div className="flex flex-col">
-        <span className="text-sm font-bold font-mono text-indigo-900 dark:text-indigo-100 leading-none">
+        <span className="text-[11px] sm:text-sm font-bold font-mono text-indigo-900 dark:text-indigo-100 leading-none">
           {format(zonedTime, 'HH:mm:ss', { timeZone: timezone })}
         </span>
-        <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium leading-none mt-0.5">
+        <span className="text-[8px] sm:text-[10px] text-indigo-500 dark:text-indigo-400 font-medium leading-none mt-0.5">
           {timezone.split('/').pop()?.replace('_', ' ')}
         </span>
       </div>

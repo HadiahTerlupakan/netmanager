@@ -15,6 +15,7 @@ import {
     HiTrash,
     HiXCircle,
     HiBellAlert,
+    HiWrenchScrewdriver,
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { useToast } from '@/hooks/use-toast'
@@ -41,6 +42,9 @@ interface WorkOrder {
     } | null
     assignedTo?: {
         name: string
+        role?: {
+            isTechnical: boolean
+        } | null
     } | null
     assignedMitra?: {
         name: string
@@ -53,6 +57,9 @@ interface WorkOrder {
     } | null
     createdBy?: {
         name: string | null
+        role?: {
+            isTechnical: boolean
+        } | null
     } | null
     createdAt: string
     startedAt: string | null
@@ -506,46 +513,50 @@ export function ClientComponent() {
             header: 'Customer / Dept',
             priority: 'secondary',
             render: (wo) => {
+                const isMobile = !!wo.requestedById;
+                const sourceBadge = isMobile ? (
+                    <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] h-4 font-medium">
+                        Mobile App
+                    </Badge>
+                ) : (
+                    <Badge className="bg-slate-50 text-slate-700 border-slate-100 text-[10px] h-4 font-medium">
+                        Portal Admin
+                    </Badge>
+                );
+
+                const employeeBadge = (wo.isInternal || wo.requestedById) && (
+                    <Badge className="bg-orange-50 text-orange-700 border-orange-100 text-[10px] h-4 font-medium">
+                        Karyawan
+                    </Badge>
+                );
+
                 // If pelanggan exists, show customer info
                 if (wo.pelanggan) {
                     return (
-                        <div>
-                            <div className="text-sm text-gray-900 dark:text-white">{wo.pelanggan.nama}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{wo.pelanggan.idPelanggan}</div>
-                        </div>
-                    )
-                }
-                // If no pelanggan but has contactName with department name, show as Internal
-                if (wo.contactName && wo.department) {
-                    return (
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-900 dark:text-white">{wo.contactName}</span>
-                                            {/* Internal / Customer Badge */}
-                                            {wo.isInternal && (
-                                                <Badge className="bg-orange-100 text-orange-800 border-none text-[10px] h-4 font-medium">
-                                                    Internal
-                                                </Badge>
-                                            )}
-                                            {wo.requestedById ? (
-                                                <Badge className="bg-indigo-100 text-indigo-700 border-none text-[10px] h-4 font-medium">
-                                                    Mobile
-                                                </Badge>
-                                            ) : (
-                                                <Badge className="bg-slate-100 text-slate-700 border-none text-[10px] h-4 font-medium">
-                                                    Admin
-                                                </Badge>
-                                            )}
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm text-gray-900 dark:text-white font-semibold leading-none">{wo.pelanggan.nama}</span>
+                                {sourceBadge}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{wo.department.name}</div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{wo.pelanggan.idPelanggan}</span>
+                            </div>
                         </div>
                     )
                 }
-                // Fallback
+                
+                // If no pelanggan but has contactName/department, show as Internal/Employee
                 return (
-                    <div>
-                        <div className="text-sm text-gray-900 dark:text-white">
-                            {wo.contactName || <span className="text-gray-400">Guest</span>}
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm text-gray-900 dark:text-white font-semibold leading-none">
+                                {wo.contactName || 'Internal Request'}
+                            </span>
+                            {employeeBadge}
+                            {sourceBadge}
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {wo.department?.name || (wo.isInternal ? 'Internal / FOC' : '-')}
                         </div>
                     </div>
                 )
@@ -597,12 +608,20 @@ export function ClientComponent() {
                     )
                 }
                 if (wo.assignedTo) {
+                    const isTechnical = wo.assignedTo.role?.isTechnical;
                     return (
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                {wo.assignedTo.name}
+                            <div className="flex items-center gap-1">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {wo.assignedTo.name}
+                                </span>
+                                {isTechnical && (
+                                    <HiWrenchScrewdriver className="w-3.5 h-3.5 text-sky-500" title="Tim Teknis" />
+                                )}
+                            </div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {isTechnical ? 'Teknis' : 'Internal'}
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Internal</span>
                         </div>
                     )
                 }
@@ -646,11 +665,19 @@ export function ClientComponent() {
             key: 'createdBy',
             header: 'Dibuat Oleh',
             priority: 'tertiary',
-            render: (wo) => (
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {wo.createdBy?.name || '-'}
-                </span>
-            )
+            render: (wo) => {
+                const isTechnical = wo.createdBy?.role?.isTechnical;
+                return (
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {wo.createdBy?.name || '-'}
+                        </span>
+                        {isTechnical && (
+                            <HiWrenchScrewdriver className="w-3 h-3 text-gray-400" title="Tim Teknis" />
+                        )}
+                    </div>
+                )
+            }
         }
     ]
 

@@ -65,10 +65,23 @@ export default function UserList() {
     const [forceLogoutUserId, setForceLogoutUserId] = useState<string | null>(null)
     const [forcingLogout, setForcingLogout] = useState(false)
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
+    
+    // Selection state for comparison
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 10
+
+    const toggleUserSelection = (userId: string) => {
+        setSelectedUserIds(prev => 
+            prev.includes(userId) 
+                ? prev.filter(id => id !== userId) 
+                : [...prev, userId]
+        )
+    }
+
+    const clearSelection = () => setSelectedUserIds([])
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -209,6 +222,20 @@ export default function UserList() {
 
     // Define columns for ResponsiveTable
     const columns: Column<User>[] = [
+        {
+            key: 'selection',
+            header: '',
+            priority: 'primary',
+            render: (user) => (
+                <input
+                    type="checkbox"
+                    checked={selectedUserIds.includes(user.id)}
+                    onChange={() => toggleUserSelection(user.id)}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                    onClick={(e) => e.stopPropagation()}
+                />
+            )
+        },
         {
             key: 'name',
             header: 'Pengguna',
@@ -603,6 +630,42 @@ export default function UserList() {
                     </>
                 )}
             </div>
+
+            {/* Floating Comparison Bar */}
+            {selectedUserIds.length > 0 && (
+                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-indigo-100 dark:border-indigo-900 px-6 py-4 flex items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {selectedUserIds.length} Pengguna Terpilih
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                            Pilih minimal 2 untuk membandingkan
+                        </span>
+                    </div>
+                    
+                    <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
+                    
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={clearSelection}
+                            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                        >
+                            Batal
+                        </button>
+                        <Link
+                            href={`/admin/users/compare?ids=${selectedUserIds.join(',')}`}
+                            className={`px-6 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
+                                selectedUserIds.length >= 2
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white translate-y-0 opacity-100 shadow-indigo-200 dark:shadow-indigo-900/20'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed pointer-events-none'
+                            }`}
+                        >
+                            <HiOutlineStar className="w-4 h-4" />
+                            Bandingkan Kinerja
+                        </Link>
+                    </div>
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             <Modal

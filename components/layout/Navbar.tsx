@@ -37,11 +37,11 @@ export default function Navbar() {
 
   return (
     <header className="h-16 bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-30 transition-colors duration-300">
-      <div className="h-full flex items-center justify-between px-4 sm:px-6 gap-4">
+      <div className="h-full flex items-center justify-between px-3 sm:px-6 gap-3 sm:gap-4">
 
         {/* Left: Mobile Toggle */}
         <div className="flex items-center shrink-0 md:hidden">
-          <Button onClick={() => {
+          <button onClick={() => {
             const win = window as Window & {
               toggleAdminSidebar?: () => void;
               toggleEmployeeSidebar?: () => void;
@@ -49,15 +49,15 @@ export default function Navbar() {
             win.toggleAdminSidebar?.()
             win.toggleEmployeeSidebar?.()
           }}
-            className="p-2 -ml-2 text-gray-500 hover:text-indigo-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none"
             aria-label="Toggle Menu"
           >
             <HiBars3 className="w-6 h-6" />
-          </Button>
+          </button>
         </div>
 
         {/* Center: Search Bar (triggers Command Palette) */}
-        <div className="flex-1 max-w-2xl flex items-center">
+        <div className="hidden sm:flex flex-1 max-w-2xl items-center">
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
@@ -79,7 +79,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
 
           {/* Real-time Server Clock */}
-          <div className="hidden lg:block">
+          <div className="flex items-center">
             <ServerClock />
           </div>
 
@@ -96,9 +96,11 @@ export default function Navbar() {
           <AdminNotificationBell />
 
           {/* Settings (Optional Utility) */}
-          <Button variant="ghost" >
-            <HiOutlineCog6Tooth className="w-6 h-6" />
-          </Button>
+          <div className="hidden sm:block">
+            <Button variant="ghost" >
+              <HiOutlineCog6Tooth className="w-6 h-6" />
+            </Button>
+          </div>
 
           {/* Separator */}
           <div className="h-8 w-px bg-gray-100 dark:bg-gray-800 hidden sm:block"></div>

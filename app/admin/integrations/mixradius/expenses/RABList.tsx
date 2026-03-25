@@ -1106,7 +1106,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         disabled={selectedIds.length < 2}
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                        <HiOutlineDocumentDuplicate className="w-4 h-4" /> {/* Or a compare icon */}
+                        <HiOutlineDocumentDuplicate className="w-4 h-4" />
                         Bandingkan {selectedIds.length > 1 ? `(${selectedIds.length})` : ''}
                     </button>
                 </div>
@@ -1134,10 +1134,126 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                             <p className="text-sm mt-1">Buat RAB baru untuk memulai perencanaan proyek</p>
                         </div>
                     }
+                    renderMobileCard={(item) => {
+                        const { bepMonth } = calculateRealisticBEP(item)
+                        return (
+                            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm space-y-4">
+                                {/* Header: Checkbox & Name */}
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="mt-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(item.id)}
+                                                onChange={() => toggleSelection(item.id)}
+                                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-600 dark:bg-gray-700 dark:border-gray-600 dark:ring-offset-gray-800"
+                                            />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-gray-900 dark:text-white leading-tight">
+                                                {item.name}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                                                {item.description || "Tidak ada deskripsi"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span className={`inline-flex px-2 py-0.5 ${getStatusBadge(item.status)} rounded text-[10px] font-bold uppercase`}>
+                                        {item.status || 'DRAFT'}
+                                    </span>
+                                </div>
+
+                                {/* Main Info Grid */}
+                                <div className="grid grid-cols-2 gap-4 py-3 border-y border-gray-100 dark:border-gray-800">
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">Total CAPEX</div>
+                                        <div className="font-bold text-purple-600 dark:text-purple-400 font-mono text-sm leading-none">
+                                            {formatCurrency(calculateTotalCapex(item))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">Est. BEP</div>
+                                        <div className={`font-bold px-2 py-0.5 rounded text-[10px] inline-flex items-center gap-1 ${bepMonth === Infinity
+                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                            : bepMonth <= 24
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                            }`}>
+                                            {bepMonth === Infinity ? '∞' : `${bepMonth} Bulan`}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">Site / Group</div>
+                                        <div className="text-xs text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                            <HiOutlineBuildingOffice className="w-3.5 h-3.5 text-gray-400" />
+                                            {item.mixRadiusGroup?.name || item.site?.name || '-'}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">Model Growth</div>
+                                        <div className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                                            <HiOutlineArrowTrendingUp className="w-3.5 h-3.5 text-purple-400" />
+                                            {getGrowthTypeLabel(item.growthType)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Actions Section */}
+                                <div className="space-y-3">
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => onView(item)}
+                                            className="w-full flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200"
+                                        >
+                                            <HiOutlineEye className="w-4 h-4" />
+                                            Lihat Detail
+                                        </button>
+                                        {canUpdate && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onRevise(item)}
+                                                className="w-full flex items-center justify-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-200"
+                                            >
+                                                <HiOutlineDocumentText className="w-4 h-4" />
+                                                {item.latestRevision?.status === 'PENDING_APPROVAL' ? 'Revisi Pending' : 'Kelola Revisi'}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-between pt-1">
+                                        <div className="flex items-center gap-2">
+                                            {canUpdate && (
+                                                <>
+                                                    <button onClick={() => onEdit(item)} className="p-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                                        <HiOutlinePencilSquare className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => handleDuplicate(item.id)} className="p-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                                                        <HiOutlineDocumentDuplicate className="w-5 h-5" />
+                                                    </button>
+                                                </>
+                                            )}
+                                            <button onClick={() => handleExport(item)} className="p-2 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                                <HiOutlineDocumentArrowDown className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => handleExportPDF(item)} className="p-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                                <HiOutlineDocumentText className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                        {canDelete && (
+                                            <button onClick={() => handleDelete(item.id)} className="p-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                                <HiOutlineTrash className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }}
                     columns={[
                         {
                             key: 'select',
                             header: '',
+                            priority: 'primary',
                             render: (item) => (
                                 <div className="flex justify-center -ml-2">
                                     <input
@@ -1152,6 +1268,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'name',
                             header: 'Nama Proyek',
+                            priority: 'primary',
                             render: (item) => (
                                 <div>
                                     <div className="font-medium text-gray-900 dark:text-white">{item.name}</div>
@@ -1162,6 +1279,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'site',
                             header: 'Site / Group',
+                            priority: 'secondary',
                             render: (item) => {
                                 const name = item.mixRadiusGroup?.name || item.site?.name
                                 return name ? (
@@ -1177,6 +1295,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'target',
                             header: 'Target',
+                            priority: 'secondary',
                             render: (item) => (
                                 <div className="flex items-center gap-1.5 text-sm">
                                     <HiOutlineUsers className="w-4 h-4 text-indigo-400" />
@@ -1189,6 +1308,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'growthType',
                             header: 'Model Growth',
+                            priority: 'secondary',
                             render: (item) => (
                                 <div className="flex items-center gap-1.5">
                                     <HiOutlineArrowTrendingUp className="w-4 h-4 text-purple-400" />
@@ -1201,6 +1321,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'totalCapex',
                             header: 'Total CAPEX',
+                            priority: 'primary',
                             render: (item) => (
                                 <span className="font-bold text-purple-600 dark:text-purple-400 font-mono">
                                     {formatCurrency(calculateTotalCapex(item))}
@@ -1210,6 +1331,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'bep',
                             header: 'Est. BEP',
+                            priority: 'secondary',
                             render: (item) => {
                                 const { bepMonth, simpleBep } = calculateRealisticBEP(item)
                                 const hasGrowth = item.targetSubscribers && item.arpu && item.growthSettings
@@ -1237,6 +1359,7 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         {
                             key: 'status',
                             header: 'Status',
+                            priority: 'primary',
                             render: (item) => (
                                 <div className="space-y-1">
                                     <span className={`inline-flex px-2 py-1 ${getStatusBadge(item.status)} rounded text-xs font-bold uppercase`}>
@@ -1250,9 +1373,10 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                         },
                         {
                             key: 'actions',
-                            header: '',
+                            header: 'Aksi',
+                            priority: 'primary',
                             render: (item: RABProject) => (
-                                <div className="flex flex-wrap justify-end gap-2">
+                                <div className="flex flex-wrap md:justify-end gap-2">
                                     <button
                                         type="button"
                                         onClick={() => onView(item)}
@@ -1279,58 +1403,64 @@ export default function RABList({ initialData, onEdit, onView, onRevise, onRefre
                                                         : 'Kelola Revisi'}
                                                 </span>
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => onEdit(item)}
-                                                className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                                                title="Edit"
-                                                aria-label={`Edit ${item.name}`}
-                                            >
-                                                <HiOutlinePencilSquare className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDuplicate(item.id)}
-                                                className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
-                                                title="Duplikat (Copy)"
-                                                aria-label={`Duplikat ${item.name}`}
-                                            >
-                                                <HiOutlineDocumentDuplicate className="w-5 h-5" />
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onEdit(item)}
+                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
+                                                    title="Edit"
+                                                    aria-label={`Edit ${item.name}`}
+                                                >
+                                                    <HiOutlinePencilSquare className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDuplicate(item.id)}
+                                                    className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors border border-transparent hover:border-amber-200 dark:hover:border-amber-800"
+                                                    title="Duplikat (Copy)"
+                                                    aria-label={`Duplikat ${item.name}`}
+                                                >
+                                                    <HiOutlineDocumentDuplicate className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </>
                                     )}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleExport(item)}
-                                        className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
-                                        title="Export CSV"
-                                        aria-label={`Export CSV ${item.name}`}
-                                    >
-                                        <HiOutlineDocumentArrowDown className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleExportPDF(item)}
-                                        className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                        title="Export PDF"
-                                        aria-label={`Export PDF ${item.name}`}
-                                    >
-                                        <HiOutlineDocumentText className="w-5 h-5" />
-                                    </button>
-                                    {canDelete && (
+                                    <div className="flex items-center gap-1">
                                         <button
                                             type="button"
-                                            onClick={() => handleDelete(item.id)}
-                                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                            title="Hapus"
-                                            aria-label={`Hapus ${item.name}`}
+                                            onClick={() => handleExport(item)}
+                                            className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors border border-transparent hover:border-green-200 dark:hover:border-green-800"
+                                            title="Export CSV"
+                                            aria-label={`Export CSV ${item.name}`}
                                         >
-                                            <HiOutlineTrash className="w-5 h-5" />
+                                            <HiOutlineDocumentArrowDown className="w-5 h-5" />
                                         </button>
-                                    )}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleExportPDF(item)}
+                                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
+                                            title="Export PDF"
+                                            aria-label={`Export PDF ${item.name}`}
+                                        >
+                                            <HiOutlineDocumentText className="w-5 h-5" />
+                                        </button>
+                                        {canDelete && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(item.id)}
+                                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
+                                                title="Hapus"
+                                                aria-label={`Hapus ${item.name}`}
+                                            >
+                                                <HiOutlineTrash className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )
                         }
+
+
                     ]}
                 />
 

@@ -351,6 +351,22 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             where.assignedToId = null;
             // Also ensure no mitra is assigned if requesting truly unassigned tickets
             where.assignedMitraId = null;
+
+            // Unassigned Only should never show finalized statuses
+            const finalizedStatuses = ['CANCELLED', 'CLOSED', 'COMPLETED', 'VERIFIED'];
+            
+            if (where.status === undefined) {
+                where.status = { notIn: finalizedStatuses as WorkOrderStatus[] };
+            } else {
+                // If user filtered by status, also ensure it's not one of the finalized ones
+                const currentStatus = where.status;
+                where.AND = [
+                    ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+                    { status: currentStatus as Prisma.WorkOrdersWhereInput['status'] },
+                    { status: { notIn: finalizedStatuses as WorkOrderStatus[] } }
+                ];
+                delete where.status;
+            }
         }
 
         if (filters?.involvedUserId) {
@@ -474,6 +490,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                             id: true,
                             name: true,
                             email: true,
+                            role: {
+                                select: {
+                                    isTechnical: true
+                                }
+                            }
                         },
                     },
                     tasks: true,
@@ -555,6 +576,22 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         if (filters?.unassignedOnly) {
             where.assignedToId = null;
             where.assignedMitraId = null;
+
+            // Unassigned Only should never show finalized statuses
+            const finalizedStatuses = ['CANCELLED', 'CLOSED', 'COMPLETED', 'VERIFIED'];
+            
+            if (where.status === undefined) {
+                where.status = { notIn: finalizedStatuses as WorkOrderStatus[] };
+            } else {
+                // If user filtered by status, also ensure it's not one of the finalized ones
+                const currentStatus = where.status;
+                where.AND = [
+                    ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+                    { status: currentStatus as Prisma.WorkOrdersWhereInput['status'] },
+                    { status: { notIn: finalizedStatuses as WorkOrderStatus[] } }
+                ];
+                delete where.status;
+            }
         }
 
         if (filters?.involvedUserId) {
@@ -691,12 +728,22 @@ export class WorkOrderRepository implements IWorkOrderRepository {
                         select: {
                             id: true,
                             name: true,
+                            role: {
+                                select: {
+                                    isTechnical: true
+                                }
+                            }
                         },
                     },
                     createdBy: {
                         select: {
                             id: true,
                             name: true,
+                            role: {
+                                select: {
+                                    isTechnical: true
+                                }
+                            }
                         },
                     },
                     // NOTE: Deliberately NOT fetching tasks, assignments, updates, attachments

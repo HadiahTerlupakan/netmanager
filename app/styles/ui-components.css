@@ -308,3 +308,39 @@
     border: 2px solid currentColor;
   }
 }
+
+/* React Date Range Picker Custom Styles */
+.rdrCalendarWrapper {
+    background: transparent !important;
+    color: inherit !important;
+    font-family: inherit !important;
+}
+.rdrDateDisplayWrapper {
+    background-color: transparent !important;
+}
+.dark .rdrCalendarWrapper {
+    background-color: #1f2937 !important; /* gray-800 */
+    color: #f9fafb !important; /* gray-50 */
+}
+.dark .rdrMonthAndYearWrapper {
+    background-color: transparent !important;
+}
+.dark .rdrMonthAndYearPickers select {
+    color: #f9fafb !important;
+    background-color: #374151 !important; /* gray-700 */
+}
+.dark .rdrDayNumber span {
+    color: #f9fafb !important;
+}
+.dark .rdrDayPassive .rdrDayNumber span {
+    color: #6b7280 !important; /* gray-500 */
+}
+.dark .rdrDayToday .rdrDayNumber span:after {
+    background: #4f46e5 !important;
+}
+.dark .rdrDayDisabled {
+    background-color: #111827 !important; /* gray-900 */
+}
+.rdrDayInPreview {
+    border: none !important;
+}

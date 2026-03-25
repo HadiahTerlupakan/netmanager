@@ -2,6 +2,7 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
+import { Prisma } from '@prisma/client'
 
 
 /**
@@ -45,21 +46,37 @@ export const GET = createHandler({
   const workingHourMode = user.workingHourMode || 'FIXED'
   const flexibleTargetHour = user.flexibleTargetHour || 8
 
-  // 1. Attendance Stats (Last 30 Days)
-  const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30))
-  
-  // Get start of current month for FLEXIBLE stats
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setTime(toStartOfDay(startOfMonth).getTime())
-  
-  // Group by status for last 30 days
+  // 0. Get Date Range from Query Params
+  const { searchParams } = new URL(req.url)
+  const dateFromParam = searchParams.get('dateFrom')
+  const dateToParam = searchParams.get('dateTo')
+  const period = searchParams.get('period') || 'month'
+
+  let startDate: Date
+  let endDate = new Date()
+
+  if (dateFromParam && dateToParam) {
+    startDate = new Date(dateFromParam)
+    endDate = new Date(dateToParam)
+    // Ensure endDate is end of day
+    endDate.setHours(23, 59, 59, 999)
+  } else if (period === 'month') {
+    startDate = new Date()
+    startDate.setDate(1)
+    startDate.setTime(toStartOfDay(startDate).getTime())
+  } else {
+    // All time - use a very old date as start
+    startDate = new Date(0)
+  }
+
+  // 1. Attendance Stats
   const attendanceStats = await prisma.attendance.groupBy({
     by: ['status'],
     where: {
       userId: userId,
       checkIn: {
-        gte: thirtyDaysAgo
+        gte: startDate,
+        lte: endDate
       }
     },
     _count: {
@@ -97,10 +114,10 @@ export const GET = createHandler({
   }
 
   if (workingHourMode === 'FLEXIBLE') {
-    const monthlyAttendance = await prisma.attendance.findMany({
+    const rangeAttendance = await prisma.attendance.findMany({
       where: {
         userId: userId,
-        checkIn: { gte: startOfMonth },
+        checkIn: { gte: startDate, lte: endDate },
         checkOut: { not: null }
       },
       select: {
@@ -110,14 +127,14 @@ export const GET = createHandler({
     })
 
     let totalMinutes = 0
-    monthlyAttendance.forEach(att => {
+    rangeAttendance.forEach(att => {
       if (att.checkOut) {
         const duration = (att.checkOut.getTime() - att.checkIn.getTime()) / (1000 * 60)
         totalMinutes += duration
       }
     })
 
-    const daysWorked = monthlyAttendance.length
+    const daysWorked = rangeAttendance.length
     const avgMinutesPerDay = daysWorked > 0 ? totalMinutes / daysWorked : 0
     const avgHoursPerDay = avgMinutesPerDay / 60
 
@@ -136,12 +153,13 @@ export const GET = createHandler({
     }
   }
 
-  // 3. Leave Request Stats (All Time - Approved Only)
+  // 3. Leave Request Stats (Approved Only)
   const leaveStats = await prisma.leaveRequest.groupBy({
     by: ['type'],
     where: {
       userId: userId,
-      status: 'APPROVED'
+      status: 'APPROVED',
+      startDate: { gte: startDate, lte: endDate }
     },
     _count: {
       _all: true
@@ -167,43 +185,59 @@ export const GET = createHandler({
       else if (stat.type === 'TUKAR_LIBUR') leaves.tukarLibur = count;
   })
 
-  // 4. Work Order Stats (All Time)
-  const workOrderStats = await prisma.workOrders.aggregate({
-    where: {
-      assignedToId: userId,
-    },
-    _count: {
-      id: true,
-    },
-    _avg: {
-      rating: true
-    }
+  // 4. Work Order Stats
+  const dateFilter = { createdAt: { gte: startDate, lte: endDate } }
+
+  // 4a. Stats as LEAD (assignedToId)
+  const leadWhere = {
+    assignedToId: userId,
+    ...dateFilter
+  }
+  const leadTotal = await prisma.workOrders.count({ where: leadWhere })
+  const leadCompleted = await prisma.workOrders.count({
+    where: { ...leadWhere, status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] } }
   })
 
-  const completedWorkOrders = await prisma.workOrders.count({
-      where: {
-          assignedToId: userId,
-          status: 'COMPLETED'
-      }
+  // 4b. Stats as SUPPORT (In assignments table but not assignedToId)
+  const supportWhere = {
+    assignedToId: { not: userId }, // Not the lead
+    assignments: { some: { userId: userId } },
+    ...dateFilter
+  }
+  const supportTotal = await prisma.workOrders.count({ where: supportWhere })
+  const supportCompleted = await prisma.workOrders.count({
+    where: { ...supportWhere, status: { in: ['COMPLETED', 'VERIFIED', 'CLOSED'] } }
   })
-  
-  const activeWorkOrders = await prisma.workOrders.count({
-      where: {
-          assignedToId: userId,
-          status: {
-              in: ['PENDING', 'IN_PROGRESS', 'ON_HOLD']
-          }
-      }
+
+  // 4c. Overall Stats (Combined)
+  const overallWhere: Prisma.WorkOrdersWhereInput = {
+    OR: [
+      { assignedToId: userId },
+      { assignments: { some: { userId: userId } } }
+    ],
+    ...dateFilter
+  }
+
+  const overallRating = await prisma.workOrders.aggregate({
+    where: overallWhere,
+    _avg: { rating: true }
   })
 
   const workOrders = {
-    totalAssigned: workOrderStats._count?.id || 0,
-    completed: completedWorkOrders,
-    active: activeWorkOrders,
-    completionRate: (workOrderStats._count?.id || 0) > 0 
-      ? Math.round((completedWorkOrders / (workOrderStats._count?.id || 1)) * 100) 
+    totalAssigned: leadTotal + supportTotal,
+    completed: leadCompleted + supportCompleted,
+    lead: {
+        total: leadTotal,
+        completed: leadCompleted
+    },
+    support: {
+        total: supportTotal,
+        completed: supportCompleted
+    },
+    completionRate: (leadTotal + supportTotal) > 0 
+      ? Math.round(((leadCompleted + supportCompleted) / (leadTotal + supportTotal)) * 100) 
       : 0,
-    avgRating: workOrderStats._avg?.rating ? Number(workOrderStats._avg.rating.toFixed(1)) : 0
+    avgRating: overallRating._avg?.rating ? Number(overallRating._avg.rating.toFixed(1)) : 0
   }
 
   logger.apiRequest('GET', `/api/admin/users/${userId}/performance`, 200, Date.now() - startTime, {
