@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { HiOutlineClock, HiOutlineCalendar, HiOutlineSun, HiOutlineBriefcase } from "react-icons/hi2"
+import { HiOutlineClock, HiOutlineCalendar, HiOutlineSun, HiOutlineBriefcase, HiOutlineCheckCircle } from "react-icons/hi2"
 
 enum WorkingHourMode {
     FIXED = 'FIXED',
@@ -26,6 +26,7 @@ interface Shift {
 interface WorkingHoursData {
     workingHourMode: WorkingHourMode
     attendanceGeofencePolicy: AttendanceGeofencePolicy
+    isAttendanceRequired: boolean
     startWorkTime?: string | null
     endWorkTime?: string | null
     workDays?: string | null
@@ -37,6 +38,7 @@ interface WorkingHoursSettingsProps {
     initialData: {
         workingHourMode: string
         attendanceGeofencePolicy?: string | null
+        isAttendanceRequired?: boolean
         startWorkTime?: string | null
         endWorkTime?: string | null
         workDays?: string | null
@@ -49,6 +51,7 @@ interface WorkingHoursSettingsProps {
 export default function WorkingHoursSettings({ initialData, onChange }: WorkingHoursSettingsProps) {
     const [mode, setMode] = useState<WorkingHourMode>((initialData.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED)
     const [geofencePolicy, setGeofencePolicy] = useState<AttendanceGeofencePolicy>((initialData.attendanceGeofencePolicy as AttendanceGeofencePolicy) || AttendanceGeofencePolicy.WARN)
+    const [isAttendanceRequired, setIsAttendanceRequired] = useState(initialData.isAttendanceRequired ?? true)
     const [startTime, setStartTime] = useState(initialData.startWorkTime || "09:00")
     const [endTime, setEndTime] = useState(initialData.endWorkTime || "17:00")
     const [selectedDays, setSelectedDays] = useState<string[]>(initialData.workDays ? initialData.workDays.split(',') : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])
@@ -94,7 +97,11 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         // Notify parent of changes
         // Use timeout to break sync render loop if parent updates state immediately
         const timer = setTimeout(() => {
-             const data: WorkingHoursData = { workingHourMode: mode, attendanceGeofencePolicy: geofencePolicy }
+             const data: WorkingHoursData = { 
+                workingHourMode: mode, 
+                attendanceGeofencePolicy: geofencePolicy,
+                isAttendanceRequired: isAttendanceRequired
+            }
 
             if (mode === WorkingHourMode.FIXED) {
                 data.startWorkTime = startTime
@@ -113,7 +120,7 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         }, 0)
 
         return () => clearTimeout(timer)
-    }, [mode, geofencePolicy, startTime, endTime, selectedDays, targetHours, selectedShiftId, onChange])
+    }, [mode, geofencePolicy, isAttendanceRequired, startTime, endTime, selectedDays, targetHours, selectedShiftId, onChange])
 
     const toggleDay = (dayId: string) => {
         if (selectedDays.includes(dayId)) {
@@ -339,6 +346,37 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
                             </button>
                         </div>
                     </div>
+                </div>
+
+                {/* Wajib Absen Toggle */}
+                <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${isAttendanceRequired ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
+                                <HiOutlineCheckCircle className={`w-5 h-5 ${isAttendanceRequired ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`} />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Wajib Absen</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Tentukan apakah pengguna ini harus melakukan absensi harian</p>
+                            </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={isAttendanceRequired}
+                                onChange={(e) => setIsAttendanceRequired(e.target.checked)}
+                                className="sr-only peer" 
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    {!isAttendanceRequired && (
+                        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                                <strong>Info:</strong> Pengguna yang tidak wajib absen (seperti Direktur) tidak akan muncul sebagai &quot;Alpha&quot; di laporan jika tidak melakukan check-in.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

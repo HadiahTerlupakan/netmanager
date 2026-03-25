@@ -90,6 +90,7 @@ interface UserData {
   shift?: { id: string; name: string; startTime: string; endTime: string } | null
   canvasingTarget?: number
   isSales?: boolean
+  isAttendanceRequired?: boolean
   tenantId?: string | null
   tenant?: { id: string; name: string } | null
 }
@@ -128,6 +129,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     // Working Hours
     workingHourMode: 'FIXED',
     attendanceGeofencePolicy: 'WARN',
+    isAttendanceRequired: true,
     startWorkTime: '',
     endWorkTime: '',
     workDays: '',
@@ -158,6 +160,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           // Working Hours
           workingHourMode: usr.workingHourMode || 'FIXED',
           attendanceGeofencePolicy: usr.attendanceGeofencePolicy || 'WARN',
+          isAttendanceRequired: usr.isAttendanceRequired ?? true,
           startWorkTime: usr.startWorkTime || '',
           endWorkTime: usr.endWorkTime || '',
           workDays: usr.workDays || '',
@@ -996,6 +999,7 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           initialData={{
             workingHourMode: formData.workingHourMode,
             attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
+            isAttendanceRequired: formData.isAttendanceRequired,
             startWorkTime: formData.startWorkTime,
             endWorkTime: formData.endWorkTime,
             workDays: formData.workDays,

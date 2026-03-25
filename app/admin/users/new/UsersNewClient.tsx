@@ -92,6 +92,7 @@ export function ClientComponent() {
   const [workingHoursData, setWorkingHoursData] = useState({
     workingHourMode: 'FIXED',
     attendanceGeofencePolicy: 'WARN',
+    isAttendanceRequired: true,
     startWorkTime: '09:00',
     endWorkTime: '17:00',
     workDays: 'Mon,Tue,Wed,Thu,Fri',
@@ -638,6 +639,7 @@ export function ClientComponent() {
           initialData={{
             workingHourMode: workingHoursData.workingHourMode,
             attendanceGeofencePolicy: workingHoursData.attendanceGeofencePolicy,
+            isAttendanceRequired: workingHoursData.isAttendanceRequired,
             startWorkTime: workingHoursData.startWorkTime,
             endWorkTime: workingHoursData.endWorkTime,
             workDays: workingHoursData.workDays,

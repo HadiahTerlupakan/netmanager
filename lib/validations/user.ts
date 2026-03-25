@@ -48,6 +48,7 @@ export const createUserSchema = z.object({
   departmentId: optionalIdSchema,
   isActive: z.boolean().default(true),
   isSales: z.boolean().default(false),
+  isAttendanceRequired: z.boolean().default(true),
   tenantId: optionalIdSchema,
 
   // Multi-site support
@@ -99,6 +100,7 @@ export const updateUserSchema = z.object({
   phone: z.string().optional(),
   roleId: optionalIdSchema,
   siteId: optionalIdSchema,
+  isAttendanceRequired: z.boolean().optional(),
   departmentId: optionalIdSchema,
   isActive: z.boolean().optional(),
   isSales: z.boolean().optional(),

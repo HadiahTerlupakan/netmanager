@@ -1,97 +1,83 @@
-'use client'
+'use client';
 
-import { useState, useRef, useEffect } from 'react'
-import { DateRange, type Range, type RangeKeyDict } from 'react-date-range'
-import { format } from 'date-fns'
-import { id } from 'date-fns/locale'
-import { HiOutlineCalendarDays, HiOutlineChevronDown } from 'react-icons/hi2'
-
-// Styles
-import 'react-date-range/dist/styles.css' // main style file
-import 'react-date-range/dist/theme/default.css' // theme css file
+import React, { useState, useRef, useEffect } from 'react';
+import { DateRange } from 'react-date-range';
+import type { Range, RangeKeyDict } from 'react-date-range';
+import { format, isSameDay } from 'date-fns';
+import { id as localeID } from 'date-fns/locale';
+import { Calendar, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DateRangePickerProps {
-    onChange: (range: { startDate: Date; endDate: Date }) => void
-    initialRange?: { startDate: Date; endDate: Date }
-    className?: string
+  range: Range;
+  onChange: (range: Range) => void;
+  className?: string;
+  placeholder?: string;
 }
 
-export default function DateRangePicker({ onChange, initialRange, className = '' }: DateRangePickerProps) {
-    const [isOpen, setIsOpen] = useState(false)
-    const [state, setState] = useState<Range[]>([
-        {
-            startDate: initialRange?.startDate || new Date(),
-            endDate: initialRange?.endDate || new Date(),
-            key: 'selection'
-        }
-    ])
+export function DateRangePicker({
+  range,
+  onChange,
+  className,
+  placeholder = 'Pilih rentang tanggal'
+}: DateRangePickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (ranges: RangeKeyDict) => {
+    const selectedRange = ranges.selection;
+    onChange(selectedRange);
     
-    const containerRef = useRef<HTMLDivElement>(null)
-
-    // Close when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
-
-    const handleSelect = (ranges: RangeKeyDict) => {
-        setState([ranges.selection])
+    // Auto-close if different days selected (meaning range is complete)
+    if (selectedRange.startDate && selectedRange.endDate && !isSameDay(selectedRange.startDate, selectedRange.endDate)) {
+        // give small delay for UX
+        setTimeout(() => setIsOpen(false), 300);
     }
+  };
 
-    const handleApply = () => {
-        const selection = state[0]
-        if (selection.startDate && selection.endDate) {
-            onChange({
-                startDate: selection.startDate,
-                endDate: selection.endDate
-            })
-        }
-        setIsOpen(false)
-    }
+  const displayText = range.startDate && range.endDate 
+    ? `${format(range.startDate, 'dd MMM yyyy', { locale: localeID })} - ${format(range.endDate, 'dd MMM yyyy', { locale: localeID })}`
+    : placeholder;
 
-    const rangeLabel = `${format(state[0].startDate!, 'dd MMM yyyy', { locale: id })} - ${format(state[0].endDate!, 'dd MMM yyyy', { locale: id })}`
-
-    return (
-        <div className={`relative ${className}`} ref={containerRef}>
-            <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-sm"
-            >
-                <HiOutlineCalendarDays className="w-4 h-4 text-indigo-500" />
-                <span>{rangeLabel}</span>
-                <HiOutlineChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isOpen && (
-                <div className="absolute right-0 top-full mt-2 z-[60] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="p-2">
-                        <DateRange
-                            editableDateInputs={true}
-                            onChange={handleSelect}
-                            moveRangeOnFirstSelection={false}
-                            ranges={state}
-                            locale={id}
-                            rangeColors={['#4f46e5']} // Indigo-600
-                            className="text-gray-900"
-                        />
-                    </div>
-                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-                        <button
-                            type="button"
-                            onClick={handleApply}
-                            className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200 dark:shadow-none"
-                        >
-                            Terapkan
-                        </button>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className={cn('relative inline-block w-full', className)} ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 opacity-50" />
+          <span className="truncate">{displayText}</span>
         </div>
-    )
+        {isOpen && <X className="h-4 w-4 opacity-50 hover:text-destructive" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} />}
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 z-50 mt-2 rounded-lg border bg-popover p-1 shadow-md outline-none animate-in fade-in-0 zoom-in-95 overflow-hidden">
+          <DateRange
+            ranges={[range]}
+            onChange={handleSelect}
+            moveRangeOnFirstSelection={false}
+            months={1}
+            direction="vertical"
+            locale={localeID}
+            rangeColors={['#2563eb']} // blue-600
+            className="text-sm"
+          />
+        </div>
+      )}
+    </div>
+  );
 }

@@ -26,6 +26,7 @@ export interface CreateUserInput {
     shiftId?: string | null
     // Sales Feature
     isSales?: boolean
+    isAttendanceRequired?: boolean
     tenantId?: string | null
 }
 
@@ -49,6 +50,7 @@ export interface UpdateUserInput {
     flexibleTargetHour?: number | null
     shiftId?: string | null
     isSales?: boolean
+    isAttendanceRequired?: boolean
 }
 
 export class UserService {
@@ -104,6 +106,7 @@ export class UserService {
             shiftId: data.shiftId || null,
             // Sales Feature
             isSales: data.isSales || false,
+            isAttendanceRequired: data.isAttendanceRequired ?? true,
             tenantId: data.tenantId || null,
         })
 
@@ -147,6 +150,7 @@ export class UserService {
         if (data.shiftId !== undefined) updateData.shiftId = data.shiftId || null
 
         if (data.isSales !== undefined) updateData.isSales = data.isSales
+        if (data.isAttendanceRequired !== undefined) updateData.isAttendanceRequired = data.isAttendanceRequired
 
         if (data.roleId !== undefined) {
             updateData.roleId = data.roleId || null

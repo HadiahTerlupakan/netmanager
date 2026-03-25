@@ -130,12 +130,16 @@ export class AutoCheckoutService {
                 }
 
                 if (shouldCheckout) {
+                    const isFlexible = user.workingHourMode === 'FLEXIBLE'
+                    
                     await prisma.attendance.update({
                         where: { id: attendance.id },
                         data: {
                             checkOut: checkOutTime,
                             notes: attendance.notes ? `${attendance.notes}; Auto checkout by system (Mangkir)` : 'Auto checkout by system (Mangkir)',
-                            status: 'ABSENT'
+                            // For flexible users, do not change status to ABSENT. 
+                            // They are always ON_TIME as long as they checked in.
+                            status: isFlexible ? attendance.status : 'ABSENT'
                         }
                     })
                     updatedCount++

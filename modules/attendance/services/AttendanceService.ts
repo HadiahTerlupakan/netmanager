@@ -177,6 +177,7 @@ export class AttendanceService {
             where: {
                 userId,
                 checkOut: null,
+                status: { not: 'ALPHA' },
                 checkIn: { lt: effectiveToday },
                 ...(tenantId && { tenantId })
             }

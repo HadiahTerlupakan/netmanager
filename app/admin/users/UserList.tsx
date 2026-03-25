@@ -20,6 +20,7 @@ interface User {
     departmentId: string | null
     siteId: string | null
     isActive: boolean
+    isAttendanceRequired: boolean
     createdAt: string
     departments: { id: string; name: string } | null
     sites?: {
@@ -399,18 +400,37 @@ export default function UserList() {
             }
         },
         {
-            key: 'isActive',
+            key: 'isAttendanceRequired',
+            header: 'Wajib Absen',
+            priority: 'secondary',
+            render: (user) => (
+                <div className="flex items-center gap-1.5">
+                    {user.isAttendanceRequired ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            YA
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                            TIDAK
+                        </span>
+                    )}
+                </div>
+            )
+        },
+        {
+            key: 'status',
             header: 'Status',
             priority: 'primary',
             render: (user) => (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                    }`}>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    user.isActive 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                }`}>
                     {user.isActive ? 'Aktif' : 'Nonaktif'}
                 </span>
             )
-        }
+        },
     ]
 
     // Render actions for each row

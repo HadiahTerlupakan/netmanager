@@ -22,6 +22,7 @@ export interface CreateUserDTO {
     shiftId?: string | null
     // Sales Feature
     isSales?: boolean
+    isAttendanceRequired?: boolean
     tenantId?: string | null
 }
 
@@ -101,7 +102,31 @@ export class UserRepository {
     async findById(id: string): Promise<User | null> {
         return prisma.user.findUnique({
             where: { id },
-        })
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                phone: true,
+                departmentId: true,
+                siteId: true,
+                roleId: true,
+                isActive: true,
+                isSales: true,
+                isAttendanceRequired: true,
+                workingHourMode: true,
+                attendanceGeofencePolicy: true,
+                startWorkTime: true,
+                endWorkTime: true,
+                workDays: true,
+                flexibleTargetHour: true,
+                shiftId: true,
+                canvasingTarget: true,
+                targetSchema: true,
+                tenantId: true,
+                createdAt: true,
+                updatedAt: true,
+            }
+        }) as unknown as Promise<User | null>
     }
 
     async findByIdWithRelations(id: string): Promise<UserWithRelations | null> {
@@ -143,6 +168,7 @@ export class UserRepository {
                 siteId: data.siteId || null,
                 roleId: data.roleId || null,
                 isActive: data.isActive !== undefined ? data.isActive : true,
+                isAttendanceRequired: data.isAttendanceRequired !== undefined ? data.isAttendanceRequired : true,
                 // Working Hours Settings
                 workingHourMode: data.workingHourMode || WorkingHourMode.FIXED,
                 attendanceGeofencePolicy: data.attendanceGeofencePolicy || AttendanceGeofencePolicy.WARN,

@@ -2,10 +2,21 @@
   "primary_root": ".",
   "lanes": [
     {
-      "id": "inventory-restock-remediation",
+      "id": "main",
       "path": ".",
       "owner": "omg-director",
-      "purpose": "Remediasi audit restock inventory",
+      "purpose": "merge-ready baseline",
+      "health": {
+        "cleanliness": "clean",
+        "trusted": "trusted",
+        "handoff": "ready"
+      }
+    },
+    {
+      "id": "attendance-audit",
+      "path": "netmanager/app/api/admin/attendance/route.ts",
+      "owner": "omg-executor",
+      "purpose": "Include leave requests in attendance list",
       "health": {
         "cleanliness": "clean",
         "trusted": "trusted",

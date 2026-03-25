@@ -1063,8 +1063,9 @@ model User {
   fcmTokens                                  String[]                  @default([])
   joinDate                                   DateTime?
   ptkpStatus                                 PtkpStatus?
-  targetSchema                               TargetSchema              @default(MONTHLY_RESET)
+  targetSchema                              TargetSchema              @default(MONTHLY_RESET)
   attendanceGeofencePolicy                   AttendanceGeofencePolicy  @default(WARN)
+  isAttendanceRequired                       Boolean                   @default(true)
   tenantId                                   String?
   account                                    Account[]
   announcement                               Announcement[]

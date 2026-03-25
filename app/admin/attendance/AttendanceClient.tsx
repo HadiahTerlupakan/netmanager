@@ -28,6 +28,7 @@ interface Attendance {
         name: string | null
         email: string
         image: string | null
+        workingHourMode?: string
         departments: {
             name: string
         } | null
@@ -56,9 +57,7 @@ export function ClientComponent() {
 
     // Filters
     const [startDate, setStartDate] = useState(() => {
-        // Safe local date generator
         const d = new Date()
-        // Convert to timezone offset explicitly, but simple padStart is safe for local browser time IF not using toISOString
         const year = d.getFullYear()
         const month = String(d.getMonth() + 1).padStart(2, '0')
         return `${year}-${month}-01`
@@ -111,7 +110,6 @@ export function ClientComponent() {
     const fetchAttendances = useCallback(async (signal?: AbortSignal) => {
         if (retryCountdown !== null) return
 
-        // Validate date range
         const validation = validateDateRange(debouncedStartDate, debouncedEndDate)
         if (!validation.valid) {
             showToast('error', validation.error!)
@@ -131,7 +129,6 @@ export function ClientComponent() {
             if (debouncedSearchQuery) params.search = debouncedSearchQuery
 
             const query = new URLSearchParams(params)
-
             const response = await fetchWithHandling<Attendance[]>(`/api/admin/attendance?${query.toString()}`, { signal })
 
             setAttendances(response.data || [])
@@ -223,7 +220,6 @@ export function ClientComponent() {
     const handleUpdate = async () => {
         if (!editingAttendance) return
 
-        // Validate
         const errors: Record<string, string> = {}
         const checkInValid = validateRequired(editForm.checkIn, 'Jam Masuk')
         if (!checkInValid.valid) errors.checkIn = checkInValid.error!
@@ -308,25 +304,40 @@ export function ClientComponent() {
             header: 'Jam Kerja',
             priority: 'primary',
             render: (item) => {
-                // ALPHA records should not show working hours
-                if (item.status === 'ALPHA' || item.status === 'ABSENT') {
-                    return (
-                        <div className="text-sm text-gray-400 italic">
-                            Tidak Masuk
-                        </div>
-                    )
+                if (item.status === 'SICK') return <div className="text-sm text-orange-500 italic font-medium">Sakit</div>
+                if (item.status === 'PERMIT') return <div className="text-sm text-blue-500 italic font-medium">Izin</div>
+                
+                const checkInDate = new Date(item.checkIn);
+                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
+                
+                // Forgot Check-out logic: has real check-in but status is Alpha/Absent OR checkout is null
+                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut);
+
+                if (['ALPHA', 'ABSENT'].includes(item.status) && !hasRealCheckIn) {
+                    return <div className="text-sm text-red-500 italic font-medium">Mangkir</div>
                 }
+
+                const checkInHour = checkInDate.getHours();
+                const checkInMinute = checkInDate.getMinutes();
+                const isOnTime = checkInHour < 8 || (checkInHour === 8 && checkInMinute === 0);
 
                 return (
                     <div>
                         <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
                             IN: {formatTimeDisplay(item.checkIn)}
                         </div>
-                        {item.checkOut ? (
-                            <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
-                                OUT: {formatTimeDisplay(item.checkOut)}
+                        {isForgotCheckOut ? (
+                            <div className={`text-[10px] italic font-medium block mt-1 ${isOnTime ? 'text-green-600' : 'text-yellow-600'}`}>
+                                {isOnTime ? 'Tepat Waktu' : 'Terlambat'} dan tidak cekout
                             </div>
                         ) : (
+                            item.checkOut && (
+                                <div className="text-sm text-red-600 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block">
+                                    OUT: {formatTimeDisplay(item.checkOut)}
+                                </div>
+                            )
+                        )}
+                        {!item.checkOut && !isForgotCheckOut && (
                             <div className="text-xs text-gray-400 italic mt-1">Belum checkout</div>
                         )}
                     </div>
@@ -338,7 +349,11 @@ export function ClientComponent() {
             header: 'Durasi',
             priority: 'primary',
             render: (item) => {
-                if (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut) {
+                const checkInDate = new Date(item.checkIn);
+                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
+                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT');
+
+                if (['ALPHA', 'ABSENT', 'SICK', 'PERMIT'].includes(item.status) || !item.checkOut || isForgotCheckOut) {
                     return <span className="text-gray-400 text-sm">-</span>
                 }
 
@@ -360,58 +375,102 @@ export function ClientComponent() {
             key: 'location',
             header: 'Lokasi',
             priority: 'tertiary',
-            render: (item) => (
-                <div className="flex flex-col gap-1 max-w-[200px]">
-                    {item.location ? (
-                        <a
-                            href={`https://www.google.com/maps?q=${item.location}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
-                            title={`Lokasi Masuk: ${item.location}`}
-                        >
-                            <MdLocationOn className="text-green-600 shrink-0" />
-                            <span className="text-xs group-hover:underline font-medium">Lokasi Masuk</span>
-                        </a>
-                    ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                    )}
-                    {item.checkOutLocation && (
-                        <a
-                            href={`https://www.google.com/maps?q=${item.checkOutLocation}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
-                            title={`Lokasi Pulang: ${item.checkOutLocation}`}
-                        >
-                            <MdLocationOn className="text-red-500 shrink-0" />
-                            <span className="text-xs group-hover:underline font-medium">Lokasi Pulang</span>
-                        </a>
-                    )}
-                    {item.notes && <div className="text-[10px] italic text-gray-400 mt-1 line-clamp-2">&ldquo;{item.notes}&rdquo;</div>}
-                </div>
-            )
+            render: (item) => {
+                if (['SICK', 'PERMIT'].includes(item.status)) return <span className="text-xs text-gray-400">-</span>
+
+                const checkInDate = new Date(item.checkIn);
+                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
+                
+                if (!hasRealCheckIn) return <span className="text-xs text-gray-400">-</span>
+
+                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT');
+
+                return (
+                    <div className="flex flex-col gap-1 max-w-[200px]">
+                        {item.location ? (
+                            <a
+                                href={`https://www.google.com/maps?q=${item.location}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
+                                title={`Lokasi Masuk: ${item.location}`}
+                            >
+                                <MdLocationOn className="text-green-600 shrink-0" />
+                                <span className="text-xs group-hover:underline font-medium">Lokasi Masuk</span>
+                            </a>
+                        ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                        )}
+                        
+                        {(item.checkOutLocation && !isForgotCheckOut) ? (
+                            <a
+                                href={`https://www.google.com/maps?q=${item.checkOutLocation}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors group"
+                                title={`Lokasi Pulang: ${item.checkOutLocation}`}
+                            >
+                                <MdLocationOn className="text-red-500 shrink-0" />
+                                <span className="text-xs group-hover:underline font-medium">Lokasi Pulang</span>
+                            </a>
+                        ) : (
+                            isForgotCheckOut && <div className="text-[10px] text-red-400 italic">tidak cekout</div>
+                        )}
+                    </div>
+                )
+            }
         },
         {
             key: 'status',
             header: 'Status',
             priority: 'primary',
             render: (item) => {
+                const checkInDate = new Date(item.checkIn);
+                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
+                
+                // Robust forgot checkout detection
+                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut);
+
                 const statusConfig: Record<string, { bg: string, text: string, label: string }> = {
                     'ON_TIME': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Tepat Waktu' },
                     'LATE': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Terlambat' },
                     'SICK': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-400', label: 'Sakit' },
                     'PERMIT': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-400', label: 'Izin' },
                     'ALPHA': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
-                    'ABSENT': { bg: 'bg-gray-100 dark:bg-gray-900/30', text: 'text-gray-800 dark:text-gray-400', label: 'Absen' },
+                    'ABSENT': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
                     'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur' }
                 }
-                const config = statusConfig[item.status] || statusConfig['ABSENT'] || { bg: 'bg-gray-100', text: 'text-gray-800', label: item.status };
+                
+                let config = statusConfig[item.status] || statusConfig['ABSENT'];
+                
+                if (isForgotCheckOut) {
+                    const checkInHour = checkInDate.getHours();
+                    const checkInMinute = checkInDate.getMinutes();
+                    const isFlexible = item.user?.workingHourMode === 'FLEXIBLE';
+                    const wasOnTime = isFlexible || checkInHour < 8 || (checkInHour === 8 && checkInMinute === 0);
+                    
+                    if (wasOnTime) {
+                        config = { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Tepat Waktu dan tidak cekout' };
+                    } else {
+                        config = { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Terlambat dan tidak cekout' };
+                    }
+                } else if (!hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT')) {
+                    config = { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' };
+                }
 
                 return (
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.bg} ${config.text}`}>
-                        {config.label}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap gap-1 items-center">
+                            <span className={`px-2 inline-flex text-[10px] leading-5 font-semibold rounded-full ${config.bg} ${config.text}`}>
+                                {config.label}
+                            </span>
+                        </div>
+                        {item.notes && (
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 italic line-clamp-2 max-w-[150px]" title={item.notes}>
+                                &ldquo;{item.notes}&rdquo;
+                            </div>
+                        )}
+                    </div>
                 )
             }
         },
@@ -440,7 +499,6 @@ export function ClientComponent() {
         }
     ]
 
-    // Render actions for each row
     const renderActions = (item: Attendance) => (
         <>
             {canUpdate && (
@@ -472,7 +530,6 @@ export function ClientComponent() {
         <div className="space-y-6">
             <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Data Absensi</h1>
 
-            {/* Rate Limit Warning */}
             {retryCountdown !== null && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3 dark:bg-yellow-900/20 dark:border-yellow-800">
                     <MdTimer className="text-yellow-600 text-xl" />
@@ -485,21 +542,15 @@ export function ClientComponent() {
                 </div>
             )}
 
-            {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {/* On Time Card */}
                 <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500 dark:bg-gray-800">
                     <div className="text-sm text-gray-500 dark:text-gray-400">Tepat Waktu</div>
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">{summary['ON_TIME'] || 0}</div>
                 </div>
-
-                {/* Late Card */}
                 <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500 dark:bg-gray-800">
                     <div className="text-sm text-gray-500 dark:text-gray-400">Terlambat</div>
                     <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{summary['LATE'] || 0}</div>
                 </div>
-
-                {/* Monthly Total Card */}
                 <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500 dark:bg-gray-800">
                     <div className="text-sm text-gray-500 dark:text-gray-400">Total Absen Bulan Ini</div>
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalItems}</div>
@@ -509,7 +560,6 @@ export function ClientComponent() {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="bg-white p-4 rounded-lg shadow dark:bg-gray-800 flex flex-wrap gap-4 items-end">
                 <div>
                     <label className="block text-sm font-medium mb-1 dark:text-gray-300">Dari Tanggal</label>
@@ -581,7 +631,6 @@ export function ClientComponent() {
                 </div>
             </div>
 
-            {/* Responsive Table */}
             <div className="bg-white shadow rounded-lg overflow-hidden dark:bg-gray-800">
                 <ResponsiveTable
                     data={attendances}
@@ -593,7 +642,6 @@ export function ClientComponent() {
                     renderActions={renderActions}
                 />
 
-                {/* Pagination Controls */}
                 <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
                     <Button
                         variant="outline"
@@ -615,7 +663,6 @@ export function ClientComponent() {
                 </div>
             </div>
 
-            {/* Photo Modal */}
             <Modal
                 isOpen={!!selectedPhoto}
                 onClose={() => setSelectedPhoto(null)}
@@ -643,7 +690,6 @@ export function ClientComponent() {
                 </ModalFooter>
             </Modal>
 
-            {/* Edit Modal */}
             <Modal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
