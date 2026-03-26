@@ -21,19 +21,19 @@ done
 # 1. Substitute variables in sql module config
 SQL_FILE="$CONFIG_DIR/mods-available/sql"
 if [ -f "$SQL_FILE" ]; then
-    sed -i "s|\\\$ENV{DB_HOST}|${DB_HOST}|g" "$SQL_FILE"
-    sed -i "s|\\\$ENV{DB_PORT}|${DB_PORT}|g" "$SQL_FILE"
-    sed -i "s|\\\$ENV{DB_USER}|${DB_USER}|g" "$SQL_FILE"
-    sed -i "s|\\\$ENV{DB_PASSWORD}|${DB_PASSWORD}|g" "$SQL_FILE"
-    sed -i "s|\\\$ENV{DB_NAME}|${DB_NAME}|g" "$SQL_FILE"
+    sed -i "s|__DB_HOST__|${DB_HOST}|g" "$SQL_FILE"
+    sed -i "s|__DB_PORT__|${DB_PORT}|g" "$SQL_FILE"
+    sed -i "s|__DB_USER__|${DB_USER}|g" "$SQL_FILE"
+    sed -i "s|__DB_PASSWORD__|${DB_PASSWORD}|g" "$SQL_FILE"
+    sed -i "s|__DB_NAME__|${DB_NAME}|g" "$SQL_FILE"
     echo "[entrypoint] SQL module configured: host=${DB_HOST}, port=${DB_PORT}, db=${DB_NAME}"
 fi
 
 # 2. Substitute variables in clients.conf
 CLIENTS_FILE="$CONFIG_DIR/clients.conf"
 if [ -f "$CLIENTS_FILE" ]; then
-    RADIUS_SECRET="${RADIUS_SECRET:-testing123}"
-    sed -i "s|\\\$ENV{RADIUS_SECRET}|${RADIUS_SECRET}|g" "$CLIENTS_FILE"
+    RADIUS_SECRET_VAL="${RADIUS_SECRET:-testing123}"
+    sed -i "s|__RADIUS_SECRET__|${RADIUS_SECRET_VAL}|g" "$CLIENTS_FILE"
     echo "[entrypoint] clients.conf configured with RADIUS_SECRET"
 fi
 
