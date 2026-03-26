@@ -90,7 +90,7 @@ export default function MikroTikRouterList() {
       if (!res.ok) throw new Error('Failed to fetch routers')
 
       const result = await res.json()
-      setData(result)
+      setData(result.data || result)
 
       if (settingsRes.ok) {
         const settingsJson = await settingsRes.ok ? await settingsRes.json() : { data: { pppConnectionMode: 'RADIUS' } }
@@ -129,7 +129,7 @@ export default function MikroTikRouterList() {
 
     fetch(`/api/mikrotik-routers?${params.toString()}`)
       .then(res => res.json())
-      .then(result => setData(result))
+      .then(result => setData(result.data || result))
       .catch(console.error)
   })
 

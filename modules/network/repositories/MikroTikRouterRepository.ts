@@ -80,8 +80,29 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   }
 
   async create(data: MikroTikRouterCreateData): Promise<{ id: string }> {
-    const router = await this.client.mikroTikRouter.create({
-      data: {
+    // Gunakan upsert agar jika IP sudah ada untuk tenant ini, datanya diperbarui (overwrite)
+    const router = await this.client.mikroTikRouter.upsert({
+      where: {
+        tenantId_ipAddress: {
+          tenantId: data.tenantId || '',
+          ipAddress: data.ipAddress,
+        }
+      },
+      update: {
+        name: data.name,
+        updatedAt: new Date(),
+        timezone: data.timezone ?? '+07:00 Asia/Jakarta',
+        apiPort: data.apiPort ?? 8728,
+        apiUsername: data.apiUsername,
+        apiPassword: data.apiPassword,
+        authPort: data.authPort ?? 7265,
+        accountingPort: data.accountingPort ?? 7266,
+        secretRadius: data.secretRadius,
+        isolirUrl: data.isolirUrl ?? null,
+        description: data.description ?? null,
+        siteId: data.siteId ?? null,
+      },
+      create: {
         id: randomUUID(),
         updatedAt: new Date(),
         name: data.name,
@@ -103,23 +124,21 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       select: { id: true, ipAddress: true, secretRadius: true, name: true, description: true, tenantId: true },
     })
 
-    // Sync to RADIUS NAS
+    // Sync to RADIUS NAS (Repository sudah menggunakan upsert di internalnya)
     try {
       if (router.tenantId) {
         await this.radiusRepo.createNas({
           nasname: router.ipAddress,
           shortname: router.name,
           type: 'other',
-          ports: data.apiPort ?? 8728, // Using API port as reference, though NAS ports are virtual
+          ports: data.apiPort ?? 8728,
           secret: router.secretRadius,
           description: router.description || `Auto-sync: MikroTik ${router.name}`,
-          community: 'public', // Default community
+          community: 'public',
         }, router.tenantId);
       }
     } catch (error) {
       console.error(`Failed to sync NAS for router ${router.name}:`, error);
-      // We don't throw here to ensure Router creation isn't blocked by RADIUS sync failure,
-      // but we log it. In strict mode, we might want to throw.
     }
 
     return { id: router.id }

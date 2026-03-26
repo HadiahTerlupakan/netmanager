@@ -611,11 +611,26 @@ export class RadiusRepository implements IRadiusRepository {
     }
 
     /**
-     * Create new NAS (Network Access Server)
+     * Create or update NAS (Network Access Server)
      */
     async createNas(nas: INas, tenantId: string): Promise<INas> {
-        const created = await this.radiusClient.nas.create({
-            data: {
+        // Use upsert to prevent unique constraint violations if the NAS already exists
+        const created = await this.radiusClient.nas.upsert({
+            where: {
+                nasname_tenantId: {
+                    nasname: nas.nasname,
+                    tenantId: tenantId
+                }
+            },
+            update: {
+                shortname: nas.shortname ?? null,
+                type: nas.type || 'other',
+                ports: nas.ports ?? null,
+                secret: nas.secret,
+                community: nas.community ?? null,
+                description: nas.description ?? null,
+            },
+            create: {
                 nasname: nas.nasname,
                 shortname: nas.shortname ?? null,
                 type: nas.type || 'other',

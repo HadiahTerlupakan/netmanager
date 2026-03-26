@@ -33,8 +33,13 @@ type TestConnectionModalProps = {
   isLoading?: boolean
 }
 
-export default function TestConnectionModal({ open, onClose, result, isLoading }: TestConnectionModalProps) {
+export default function TestConnectionModal({ open, onClose, result: rawResult, isLoading }: TestConnectionModalProps) {
   if (!open) return null
+
+  // Handle standardized API response format { success: true, data: { ... } }
+  const result = rawResult && 'data' in rawResult 
+    ? (rawResult.data as TestConnectionResult) 
+    : rawResult;
 
   return (
     <Modal
@@ -87,24 +92,24 @@ export default function TestConnectionModal({ open, onClose, result, isLoading }
             {/* API Result */}
             <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
               <div className="mb-2 flex items-center gap-2">
-                {result.api.success ? <HiCheck className="w-6 h-6 text-green-600 dark:text-green-400" /> : <HiXMark className="w-6 h-6 text-red-600 dark:text-red-400" />}
+                {result.api?.success ? <HiCheck className="w-6 h-6 text-green-600 dark:text-green-400" /> : <HiXMark className="w-6 h-6 text-red-600 dark:text-red-400" />}
                 <h4 className="font-semibold text-gray-900 dark:text-white">Test API Connection</h4>
               </div>
               <div className="ml-8">
                 <p
                   className={`text-sm ${
-                    result.api.success
+                    result.api?.success
                       ? 'text-green-700 dark:text-green-400'
                       : 'text-red-700 dark:text-red-400'
                   }`}
                 >
-                  {result.api.message}
+                  {result.api?.message || 'Tidak ada informasi API'}
                 </p>
               </div>
             </div>
 
             {/* Router Info */}
-            {result.routerInfo && result.api.success && (
+            {result.routerInfo && result.api?.success && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
                 <h4 className="mb-3 font-semibold text-blue-900 dark:text-blue-300">Informasi Router</h4>
                 <div className="grid grid-cols-2 gap-3">
