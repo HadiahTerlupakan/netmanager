@@ -191,14 +191,17 @@ spec:
                 echo "🌱 Fresh database detected. Running all migrations from scratch..."
               else
                 echo "🔄 Existing database detected. Applying baseline resolutions..."
-                # Clean up failed migration attempts from previous pipeline runs
-                prisma migrate resolve --rolled-back 20260326004412_sync_schema_changes 2>&1 || true
-                
                 prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
                 prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
                 prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
                 prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
                 prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true
+
+                # Fix partially-applied migration: complete remaining changes via idempotent SQL
+                # then mark as applied so Prisma does not try to re-run the full SQL
+                echo "🔧 Running idempotent fix for sync_schema_changes..."
+                psql "$DATABASE_URL" -f /app/scripts/fix-partial-sync-schema.sql 2>&1 || true
+                prisma migrate resolve --applied 20260326004412_sync_schema_changes 2>&1 || true
               fi
               
               prisma migrate deploy
