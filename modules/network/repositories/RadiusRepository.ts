@@ -141,10 +141,16 @@ export class RadiusRepository implements IRadiusRepository {
     /**
      * Set group bandwidth using Mikrotik-Rate-Limit attribute in radgroupreply
      */
-    async setGroupBandwidth(groupname: string, bandwidth: IRadiusBandwidth, tenantId: string): Promise<void> {
-        const uploadBps = bandwidth.uploadMbps * 1000000;
-        const downloadBps = bandwidth.downloadMbps * 1000000;
-        const rateLimit = `${uploadBps}/${downloadBps}`;
+    async setGroupBandwidth(groupname: string, bandwidth: string | IRadiusBandwidth, tenantId: string): Promise<void> {
+        let rateLimit = '';
+
+        if (typeof bandwidth === 'string') {
+            rateLimit = bandwidth;
+        } else {
+            const uploadBps = bandwidth.uploadMbps * 1000000;
+            const downloadBps = bandwidth.downloadMbps * 1000000;
+            rateLimit = `${uploadBps}/${downloadBps}`;
+        }
 
         // Delete existing bandwidth entries for the group
         await this.radiusClient.radgroupreply.deleteMany({
@@ -510,11 +516,47 @@ export class RadiusRepository implements IRadiusRepository {
 
         // 1. Sync Bandwidth
         if (pkg.bandwidth) {
+            // Ambil helper format dari service MikroTik (menghindari duplikasi logika)
+            // rx-rate/tx-rate [burst-rate] [burst-threshold] [burst-time] [priority] [min-limit]
+            // rx = upload, tx = download
+            
+            let rateLimit = `${pkg.bandwidth.maxLimitUpload}/${pkg.bandwidth.maxLimitDownload}`;
+
+            // Tambahkan burst jika ada
+            if (pkg.bandwidth.burstLimitUpload || pkg.bandwidth.burstLimitDownload) {
+                const burstRx = pkg.bandwidth.burstLimitUpload || pkg.bandwidth.maxLimitUpload;
+                const burstTx = pkg.bandwidth.burstLimitDownload || pkg.bandwidth.maxLimitDownload;
+                rateLimit += ` ${burstRx}/${burstTx}`;
+            }
+
+            // Tambahkan threshold jika ada
+            if (pkg.bandwidth.burstThresholdUpload || pkg.bandwidth.burstThresholdDownload) {
+                const thresholdRx = pkg.bandwidth.burstThresholdUpload || pkg.bandwidth.maxLimitUpload;
+                const thresholdTx = pkg.bandwidth.burstThresholdDownload || pkg.bandwidth.maxLimitDownload;
+                rateLimit += ` ${thresholdRx}/${thresholdTx}`;
+            }
+
+            // Tambahkan burst time jika ada
+            if (pkg.bandwidth.burstTimeUpload || pkg.bandwidth.burstTimeDownload) {
+                const timeRx = pkg.bandwidth.burstTimeUpload || 1;
+                const timeTx = pkg.bandwidth.burstTimeDownload || pkg.bandwidth.burstTimeUpload || 1;
+                rateLimit += ` ${timeRx}/${timeTx}`;
+            }
+
+            // Tambahkan priority jika ada
+            if (pkg.bandwidth.priority) {
+                rateLimit += ` ${pkg.bandwidth.priority}`;
+            }
+
+            // Tambahkan min-limit jika ada
+            if (pkg.bandwidth.minLimitUpload || pkg.bandwidth.minLimitDownload) {
+                const minRx = pkg.bandwidth.minLimitUpload || pkg.bandwidth.maxLimitUpload;
+                const minTx = pkg.bandwidth.minLimitDownload || pkg.bandwidth.maxLimitDownload;
+                rateLimit += ` ${minRx}/${minTx}`;
+            }
+
             // Using pkg.id as group name for stability
-            await this.setGroupBandwidth(pkg.id, {
-                uploadMbps: this.parseSpeed(pkg.bandwidth.maxLimitUpload),
-                downloadMbps: this.parseSpeed(pkg.bandwidth.maxLimitDownload),
-            }, tenantId);
+            await this.setGroupBandwidth(pkg.id, rateLimit, tenantId);
         }
 
         // 2. Sync IP Pool Mode

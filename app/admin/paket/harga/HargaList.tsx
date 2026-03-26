@@ -87,6 +87,8 @@ export default function HargaPaketPage() {
     status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
   })
 
+  const [pppConnectionMode, setPppConnectionMode] = useState<'RADIUS' | 'MIKROTIK_API'>('RADIUS')
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
@@ -119,7 +121,8 @@ export default function HargaPaketPage() {
       const sitesData = await sitesRes.json()
       const bandwidthsData = await bandwidthsRes.json()
       const settingsJson = settingsRes.ok ? await settingsRes.json() : { data: { pppConnectionMode: 'RADIUS' } }
-      const _settingsData = settingsJson.data || settingsJson
+      const settingsData = settingsJson.data || settingsJson
+      setPppConnectionMode(settingsData.pppConnectionMode || 'RADIUS')
 
       setHargaPakets(hargaPaketsData.data || hargaPaketsData)
       setProfilePPPs(profilePPPsData.data || profilePPPsData)
@@ -490,26 +493,28 @@ export default function HargaPaketPage() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Bandwidth
-            </label>
-            <select
-              value={formData.bandwidthId || ''}
-              onChange={(e) => setFormData({ ...formData, bandwidthId: e.target.value || null })}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-            >
-              <option value="">-- Pilih Bandwidth (Opsional) --</option>
-              {bandwidths.map((bw) => (
-                <option key={bw.id} value={bw.id}>
-                  {bw.name} ({bw.maxLimitDownload}/{bw.maxLimitUpload})
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Jika dipilih, rate limit akan mengikuti bandwidth ini. Jika kosong, akan menggunakan setting di Profile PPP.
-            </p>
-          </div>
+          {pppConnectionMode === 'RADIUS' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Bandwidth
+              </label>
+              <select
+                value={formData.bandwidthId || ''}
+                onChange={(e) => setFormData({ ...formData, bandwidthId: e.target.value || null })}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              >
+                <option value="">-- Pilih Bandwidth (Opsional) --</option>
+                {bandwidths.map((bw) => (
+                  <option key={bw.id} value={bw.id}>
+                    {bw.name} ({bw.maxLimitDownload}/{bw.maxLimitUpload})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Jika dipilih, rate limit akan mengikuti bandwidth ini. Jika kosong, akan menggunakan setting di Profile PPP.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -817,4 +822,3 @@ export default function HargaPaketPage() {
     </div>
   )
 }
-

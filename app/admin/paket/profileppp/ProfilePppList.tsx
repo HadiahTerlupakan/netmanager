@@ -598,26 +598,28 @@ export default function ProfilePPPPage() {
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Bandwidth (untuk Rate Limit)
-            </label>
-            <select
-              value={formData.bandwidthId}
-              onChange={(e) => setFormData({ ...formData, bandwidthId: e.target.value })}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-            >
-              <option value="">-- Pilih Bandwidth (Opsional) --</option>
-              {bandwidths.map((bandwidth) => (
-                <option key={bandwidth.id} value={bandwidth.id}>
-                  {bandwidth.name} ({bandwidth.maxLimitDownload}/{bandwidth.maxLimitUpload})
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Pilih Bandwidth untuk rate limit. Jika tidak dipilih, rate limit akan diambil dari HargaPaket yang terkait.
-            </p>
-          </div>
+          {pppConnectionMode === 'MIKROTIK_API' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Bandwidth (untuk Rate Limit)
+              </label>
+              <select
+                value={formData.bandwidthId}
+                onChange={(e) => setFormData({ ...formData, bandwidthId: e.target.value })}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              >
+                <option value="">-- Pilih Bandwidth (Opsional) --</option>
+                {bandwidths.map((bandwidth) => (
+                  <option key={bandwidth.id} value={bandwidth.id}>
+                    {bandwidth.name} ({bandwidth.maxLimitDownload}/{bandwidth.maxLimitUpload})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Pilih Bandwidth untuk rate limit. Jika tidak dipilih, rate limit akan diambil dari HargaPaket yang terkait.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

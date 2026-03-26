@@ -541,13 +541,22 @@ export async function updatePPPProfileInMikroTik(
 
     try {
       // Cari profile berdasarkan name
-      // console.log('[MikroTik PPP] Searching for profile:', profileName)
       const profiles = await conn.write('/ppp/profile/print', ['?name=' + profileName])
-      // console.log('[MikroTik PPP] Found profiles:', profiles)
       
       if (!profiles || profiles.length === 0 || !profiles[0]) {
+        // Fallback: Jika profile tidak ditemukan saat update, coba buat baru
+        // console.log('[MikroTik PPP] Profile not found for update, falling back to create:', profileName)
         conn.close()
-        return { success: false, error: 'Profile PPP tidak ditemukan di MikroTik' }
+        
+        // Gabungkan data lama dan baru untuk create
+        const createData: PPPProfileData = {
+          name: profileData.name || profileName,
+          localAddress: profileData.localAddress || (profiles[0]?.['local-address'] as string) || '0.0.0.0',
+          remoteAddress: profileData.remoteAddress || (profiles[0]?.['remote-address'] as string) || (profileData.name || profileName),
+          ...profileData
+        }
+        
+        return await createPPPProfileInMikroTik(routerId, createData)
       }
 
       const profileId = profiles[0]['.id']

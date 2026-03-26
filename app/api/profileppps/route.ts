@@ -311,12 +311,21 @@ export async function POST(req: NextRequest) {
         // Ambil rate limit dari Bandwidth
         // Prioritas: 1. bandwidthId langsung (jika disediakan), 2. HargaPaket yang terkait
         const { getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile')
-        const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
+        
+        // Cek mode koneksi global
+        const pppModeSetting = await prisma.settings.findFirst({
+          where: { key: 'PPP_CONNECTION_MODE' }
+        })
+        const isRadiusMode = (pppModeSetting?.value || 'RADIUS') === 'RADIUS'
 
-        if (rateLimit) {
-          // console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
+        let rateLimit: string | null = null
+        if (!isRadiusMode) {
+          rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
+          if (rateLimit) {
+            // console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
+          }
         } else {
-          // console.log('[API ProfilePPP] No rate limit found from Bandwidth, creating profile without rate limit')
+          // console.log('[API ProfilePPP] RADIUS mode enabled, skipping MikroTik rate-limit')
         }
 
         const mikrotikResult = await createPPPProfileInMikroTik(
