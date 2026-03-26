@@ -24,58 +24,58 @@
 
 */
 -- DropIndex
-DROP INDEX "Bandwidth_name_key";
+DROP INDEX IF EXISTS "Bandwidth_name_key";
 
 -- DropIndex
-DROP INDEX "Coupon_code_key";
+DROP INDEX IF EXISTS "Coupon_code_key";
 
 -- DropIndex
-DROP INDEX "HargaPaket_name_siteId_key";
+DROP INDEX IF EXISTS "HargaPaket_name_siteId_key";
 
 -- DropIndex
-DROP INDEX "MikroTikRouter_ipAddress_key";
+DROP INDEX IF EXISTS "MikroTikRouter_ipAddress_key";
 
 -- DropIndex
-DROP INDEX "Pelanggan_idPelanggan_key";
+DROP INDEX IF EXISTS "Pelanggan_idPelanggan_key";
 
 -- DropIndex
-DROP INDEX "Shift_code_key";
+DROP INDEX IF EXISTS "Shift_code_key";
 
 -- DropIndex
-DROP INDEX "acs_wifi_security_productClass_key";
+DROP INDEX IF EXISTS "acs_wifi_security_productClass_key";
 
 -- DropIndex
-DROP INDEX "assets_kodeAsset_key";
+DROP INDEX IF EXISTS "assets_kodeAsset_key";
 
 -- DropIndex
-DROP INDEX "barang_kode_key";
+DROP INDEX IF EXISTS "barang_kode_key";
 
 -- DropIndex
-DROP INDEX "departments_name_key";
+DROP INDEX IF EXISTS "departments_name_key";
 
 -- DropIndex
-DROP INDEX "gudang_kode_key";
+DROP INDEX IF EXISTS "gudang_kode_key";
 
 -- DropIndex
-DROP INDEX "purchase_orders_poNumber_key";
+DROP INDEX IF EXISTS "purchase_orders_poNumber_key";
 
 -- DropIndex
-DROP INDEX "purchase_requests_nomorRequest_key";
+DROP INDEX IF EXISTS "purchase_requests_nomorRequest_key";
 
 -- DropIndex
-DROP INDEX "salary_components_name_key";
+DROP INDEX IF EXISTS "salary_components_name_key";
 
 -- DropIndex
-DROP INDEX "support_tickets_ticketNumber_idx";
+DROP INDEX IF EXISTS "support_tickets_ticketNumber_idx";
 
 -- DropIndex
-DROP INDEX "support_tickets_ticketNumber_key";
+DROP INDEX IF EXISTS "support_tickets_ticketNumber_key";
 
 -- DropIndex
-DROP INDEX "work_orders_workOrderNumber_idx";
+DROP INDEX IF EXISTS "work_orders_workOrderNumber_idx";
 
 -- DropIndex
-DROP INDEX "work_orders_workOrderNumber_key";
+DROP INDEX IF EXISTS "work_orders_workOrderNumber_key";
 
 -- AlterTable
 ALTER TABLE "Investor" DROP COLUMN "password";
