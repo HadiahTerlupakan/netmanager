@@ -75,7 +75,6 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         let isMounted = true;
 
         if (mode === WorkingHourMode.SHIFT && shifts.length === 0) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoadingShifts(true)
             fetch('/api/admin/shifts')
                 .then(res => res.json())
@@ -120,7 +119,8 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
         }, 0)
 
         return () => clearTimeout(timer)
-    }, [mode, geofencePolicy, isAttendanceRequired, startTime, endTime, selectedDays, targetHours, selectedShiftId, onChange])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, geofencePolicy, isAttendanceRequired, startTime, endTime, selectedDays, targetHours, selectedShiftId])
 
     const toggleDay = (dayId: string) => {
         if (selectedDays.includes(dayId)) {
@@ -307,7 +307,7 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
                     </div>
                 )}
 
-                <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-6">
+                <div className="space-y-4 border-t border-gray-200 dark:border-gray-800 pt-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Kebijakan Geofence Absensi</label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -315,34 +315,34 @@ export default function WorkingHoursSettings({ initialData, onChange }: WorkingH
                                 type="button"
                                 onClick={() => setGeofencePolicy(AttendanceGeofencePolicy.STRICT)}
                                 className={`p-4 border rounded-xl text-left transition-all ${geofencePolicy === AttendanceGeofencePolicy.STRICT
-                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 ring-2 ring-red-200 dark:ring-red-800'
-                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/40 ring-2 ring-red-200 dark:ring-red-900/60'
+                                    : 'border-gray-200 dark:border-gray-750 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <div className="font-semibold text-gray-900 dark:text-white">Wajib dalam area site</div>
-                                <div className="text-xs text-gray-500 mt-1">Tolak absensi jika berada di luar geofence.</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tolak absensi jika berada di luar geofence.</div>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setGeofencePolicy(AttendanceGeofencePolicy.WARN)}
                                 className={`p-4 border rounded-xl text-left transition-all ${geofencePolicy === AttendanceGeofencePolicy.WARN
-                                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-200 dark:ring-amber-800'
-                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/40 ring-2 ring-amber-200 dark:ring-amber-900/60'
+                                    : 'border-gray-200 dark:border-gray-750 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <div className="font-semibold text-gray-900 dark:text-white">Peringatkan saja</div>
-                                <div className="text-xs text-gray-500 mt-1">Izinkan absensi di luar area, tapi tampilkan peringatan.</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Izinkan absensi di luar area, tapi tampilkan peringatan.</div>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setGeofencePolicy(AttendanceGeofencePolicy.DISABLED)}
                                 className={`p-4 border rounded-xl text-left transition-all ${geofencePolicy === AttendanceGeofencePolicy.DISABLED
-                                    ? 'border-slate-500 bg-slate-50 dark:bg-slate-900/20 ring-2 ring-slate-200 dark:ring-slate-800'
-                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+                                    ? 'border-slate-500 bg-slate-50 dark:bg-slate-900/40 ring-2 ring-slate-200 dark:ring-slate-900/60'
+                                    : 'border-gray-200 dark:border-gray-750 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 <div className="font-semibold text-gray-900 dark:text-white">Nonaktifkan geofence</div>
-                                <div className="text-xs text-gray-500 mt-1">Cocok untuk WFH atau peran remote penuh.</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Cocok untuk WFH atau peran remote penuh.</div>
                             </button>
                         </div>
                     </div>

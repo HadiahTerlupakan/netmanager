@@ -38,6 +38,17 @@ export const GET = createHandler({
   let tenantIdFilter = req.nextUrl.searchParams.get('tenantId') || undefined
   const roleNameFilter = req.nextUrl.searchParams.get('roleName') || undefined
 
+  const pageParam = req.nextUrl.searchParams.get('page')
+  const limitParam = req.nextUrl.searchParams.get('limit')
+  const page = pageParam ? parseInt(pageParam) : undefined
+  const limit = limitParam ? parseInt(limitParam) : undefined
+  const search = req.nextUrl.searchParams.get('search') || undefined
+  
+  const statusParam = req.nextUrl.searchParams.get('status')
+  let isActive: boolean | undefined = undefined
+  if (statusParam === 'active') isActive = true
+  if (statusParam === 'inactive') isActive = false
+
   // If session user is NOT super admin, they can ONLY see their own tenant
   // If session user IS super admin but no tenantId provided, default to their current tenant
   if (!session.user.isSuperAdmin) {
@@ -47,14 +58,34 @@ export const GET = createHandler({
   }
 
   const userService = getUserService()
-  const users = await userService.getAllUsers(siteIdFilter, tenantIdFilter, roleNameFilter)
+  const result = await userService.getAllUsers({
+    siteId: siteIdFilter,
+    tenantId: tenantIdFilter,
+    roleName: roleNameFilter,
+    page,
+    limit,
+    search,
+    isActive
+  })
 
   logger.apiRequest('GET', '/api/admin/users', 200, Date.now() - startTime, {
     userId: session.user.id,
-    count: users.length,
+    count: result.data.length,
+    total: result.total
   })
 
-  return apiSuccess({ users })
+  return apiSuccess({ 
+    users: result.data,
+    meta: {
+      total: result.total,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      active: (result as any).active,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      inactive: (result as any).inactive,
+      page: page || 1,
+      limit: limit || result.data.length
+    }
+  })
 })
 
 /**
@@ -115,26 +146,10 @@ export const POST = createHandler({
   try {
     const userService = getUserService()
     const user = await userService.createUser({
-      email: body.email,
-      name: body.name,
-      password: body.password,
-      ...(body.phone && { phone: body.phone }),
-      ...(body.departmentId && { departmentId: body.departmentId }),
-      ...(body.siteId && { siteId: body.siteId }),
-      ...(effectiveRoleId && { roleId: effectiveRoleId }),
-      isActive: body.isActive ?? true,
-      // Working Hours Settings
-      workingHourMode: body.workingHourMode || 'FIXED',
-      attendanceGeofencePolicy: body.attendanceGeofencePolicy || 'WARN',
-      ...(body.startWorkTime && { startWorkTime: body.startWorkTime }),
-      ...(body.endWorkTime && { endWorkTime: body.endWorkTime }),
-      ...(body.workDays && { workDays: body.workDays }),
+      ...body,
+      roleId: effectiveRoleId || body.roleId,
+      tenantId: targetTenantId || body.tenantId || null,
       flexibleTargetHour: body.flexibleTargetHour ? parseInt(body.flexibleTargetHour.toString()) : 8,
-      ...(body.shiftId && { shiftId: body.shiftId }),
-      // Sales Feature
-      isSales: body.isSales || false,
-      // Tenant Support
-      tenantId: targetTenantId || null,
     })
 
     // Handle multi-site: create userSites records
@@ -157,6 +172,25 @@ export const POST = createHandler({
       }
 
       logger.info('UserSites created for new user', { userId: user.id, count: body.userSites.length })
+    }
+
+    // Handle leave quotas initialization
+    if (body.leaveQuotas && Object.keys(body.leaveQuotas).length > 0) {
+      try {
+        const { LeaveBalanceRepository } = await import('@/modules/attendance/repositories/LeaveBalanceRepository')
+        const leaveBalanceRepo = new LeaveBalanceRepository()
+        const targetYear = new Date().getFullYear()
+        
+        const updatePromises = Object.entries(body.leaveQuotas).map(([type, quota]) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          leaveBalanceRepo.upsertQuota(user.id, targetYear, type as any, quota as number)
+        )
+        await Promise.all(updatePromises)
+        logger.info('Leave quotas initialized for new user', { userId: user.id })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        logger.error('Failed to init leave quotas for new user', err, { userId: user.id })
+      }
     }
 
     logger.apiRequest('POST', '/api/admin/users', 201, Date.now() - startTime, {

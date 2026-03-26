@@ -310,8 +310,11 @@ export function ClientComponent() {
                 const checkInDate = new Date(item.checkIn);
                 const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
                 
-                // Forgot Check-out logic: has real check-in but status is Alpha/Absent OR checkout is null
-                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut);
+                const now = new Date();
+                const isToday = checkInDate.toDateString() === now.toDateString();
+                
+                // Forgot Check-out logic: has real check-in but status is Alpha/Absent OR (checkout is null AND not today)
+                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || (!item.checkOut && !isToday));
 
                 if (['ALPHA', 'ABSENT'].includes(item.status) && !hasRealCheckIn) {
                     return <div className="text-sm text-red-500 italic font-medium">Mangkir</div>
@@ -351,7 +354,11 @@ export function ClientComponent() {
             render: (item) => {
                 const checkInDate = new Date(item.checkIn);
                 const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
-                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT');
+                
+                const now = new Date();
+                const isToday = checkInDate.toDateString() === now.toDateString();
+                
+                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || (!item.checkOut && !isToday));
 
                 if (['ALPHA', 'ABSENT', 'SICK', 'PERMIT'].includes(item.status) || !item.checkOut || isForgotCheckOut) {
                     return <span className="text-gray-400 text-sm">-</span>
@@ -428,8 +435,11 @@ export function ClientComponent() {
                 const checkInDate = new Date(item.checkIn);
                 const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
                 
-                // Robust forgot checkout detection
-                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || !item.checkOut);
+                const now = new Date();
+                const isToday = checkInDate.toDateString() === now.toDateString();
+                
+                // Robust forgot checkout detection: ignore if it's today
+                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || (!item.checkOut && !isToday));
 
                 const statusConfig: Record<string, { bg: string, text: string, label: string }> = {
                     'ON_TIME': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Tepat Waktu' },

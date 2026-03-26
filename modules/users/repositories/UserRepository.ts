@@ -22,8 +22,24 @@ export interface CreateUserDTO {
     shiftId?: string | null
     // Sales Feature
     isSales?: boolean
+    canvasingTarget?: number
+    targetSchema?: string
     isAttendanceRequired?: boolean
     tenantId?: string | null
+    // Salary configuration
+    basicSalary?: number
+    payPeriodDay?: number
+    payDay?: number
+    woIncentiveEnabled?: boolean
+    woIncentiveRate?: number
+    lateDeductionRate?: number
+    absentDeductionRate?: number
+    overtimeRateNormal?: number
+    overtimeRateHoliday?: number
+    overtimeRateNational?: number
+    overtimeCalcTypeNormal?: string
+    overtimeCalcTypeHoliday?: string
+    overtimeCalcTypeNational?: string
 }
 
 export interface UserWithRelations extends User {
@@ -39,7 +55,17 @@ export interface UserWithRelations extends User {
 }
 
 export class UserRepository {
-    async findAll(siteId?: string, tenantId?: string, roleName?: string): Promise<UserWithRelations[]> {
+    async findAll(params: {
+        siteId?: string;
+        tenantId?: string;
+        roleName?: string;
+        page?: number;
+        limit?: number;
+        search?: string;
+        isActive?: boolean;
+    } = {}): Promise<{ data: UserWithRelations[], total: number, active: number, inactive: number }> {
+        const { siteId, tenantId, roleName, page, limit, search, isActive } = params;
+        
         const query: Prisma.UserFindManyArgs = {
             orderBy: { createdAt: 'desc' },
             include: {
@@ -69,34 +95,67 @@ export class UserRepository {
                 }
             }
         }
+        if (isActive !== undefined) {
+            where.isActive = isActive;
+        }
+
+        if (search) {
+            where.OR = [
+                { email: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search, mode: 'insensitive' } },
+                { phone: { contains: search, mode: 'insensitive' } },
+            ];
+            // Prisma join search can be more tricky if we want to search department names. 
+            // We'll add department search if needed, but for now email, name, phone is standard.
+            // If they really need department search, it would look like:
+            // { departments: { name: { contains: search, mode: 'insensitive' } } }
+            where.OR.push({
+                departments: { name: { contains: search, mode: 'insensitive' } }
+            });
+        }
         
         if (Object.keys(where).length > 0) {
             query.where = where
         }
 
-        const users = await prisma.user.findMany(query)
+        // Calculate pagination
+        if (page && limit) {
+            query.skip = (page - 1) * limit;
+            query.take = limit;
+        }
 
-        return users.map((user) => {
-            const userWithMeta = user as unknown as {
-                departments: { id: string; name: string } | null;
-                sites: { id: string; code: string; name: string } | null;
-                role: { id: string; name: string } | null;
-                userSites: Array<{
-                    id: string;
-                    siteId: string;
-                    isPrimary: boolean;
-                    site: { id: string; code: string; name: string };
-                }>;
-            } & User;
+        const [users, total, active] = await prisma.$transaction([
+            prisma.user.findMany(query),
+            prisma.user.count({ where: query.where }),
+            prisma.user.count({ where: { ...query.where, isActive: true } })
+        ]);
 
-            return {
-                ...user,
-                department: userWithMeta.departments,
-                site: userWithMeta.sites,
-                role: userWithMeta.role,
-                userSites: userWithMeta.userSites
-            };
-        })
+        return {
+            total,
+            active,
+            inactive: total - active,
+            data: users.map((user) => {
+                const userWithMeta = user as unknown as {
+                    departments: { id: string; name: string } | null;
+                    sites: { id: string; code: string; name: string } | null;
+                    role: { id: string; name: string } | null;
+                    userSites: Array<{
+                        id: string;
+                        siteId: string;
+                        isPrimary: boolean;
+                        site: { id: string; code: string; name: string };
+                    }>;
+                } & User;
+
+                return {
+                    ...user,
+                    department: userWithMeta.departments,
+                    site: userWithMeta.sites,
+                    role: userWithMeta.role,
+                    userSites: userWithMeta.userSites
+                };
+            })
+        };
     }
 
     async findById(id: string): Promise<User | null> {
@@ -179,6 +238,26 @@ export class UserRepository {
                 shiftId: data.shiftId || null,
                 // Sales Feature
                 isSales: data.isSales || false,
+                canvasingTarget: data.canvasingTarget !== undefined ? data.canvasingTarget : 50,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                targetSchema: (data.targetSchema as any) || 'MONTHLY_RESET',
+                // Salary configuration
+                basicSalary: data.basicSalary || 0,
+                payPeriodDay: data.payPeriodDay || 25,
+                payDay: data.payDay || 1,
+                woIncentiveEnabled: data.woIncentiveEnabled || false,
+                woIncentiveRate: data.woIncentiveRate || 0,
+                lateDeductionRate: data.lateDeductionRate || 0,
+                absentDeductionRate: data.absentDeductionRate || 0,
+                overtimeRateNormal: data.overtimeRateNormal || 0,
+                overtimeRateHoliday: data.overtimeRateHoliday || 0,
+                overtimeRateNational: data.overtimeRateNational || 0,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                overtimeCalcTypeNormal: (data.overtimeCalcTypeNormal as any) || 'PER_HOUR',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                overtimeCalcTypeHoliday: (data.overtimeCalcTypeHoliday as any) || 'PER_HOUR',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                overtimeCalcTypeNational: (data.overtimeCalcTypeNational as any) || 'PER_HOUR',
                 // Tenant Support: Allow manual tenantId for Super Admin bypass
                 ...(data.tenantId && { tenantId: data.tenantId }),
             },

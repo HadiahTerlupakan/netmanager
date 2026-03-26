@@ -179,7 +179,8 @@ export const PATCH = createHandler({
 
   // Prepare data for update
   const { password, userSites, email, tenantId, ...updateData } = body
-  const data: Prisma.UserUpdateInput = { ...updateData }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: Prisma.UserUpdateInput = { ...updateData } as any
 
   // 3. Multi-tenancy Protection: Only Super Admin can change tenantId
   if (tenantId !== undefined) {

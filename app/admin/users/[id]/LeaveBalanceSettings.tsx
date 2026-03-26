@@ -100,6 +100,13 @@ export default function LeaveBalanceSettings({ userId, year, workingHourMode, on
     }
   }, [isFlexible, fetchBalances])
 
+  useEffect(() => {
+    if (_onChange) {
+      _onChange(quotas)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotas])
+
   const handleQuotaChange = (type: string, value: number) => {
     setQuotas(prev => ({ ...prev, [type]: value }))
   }

@@ -33,7 +33,7 @@ export const overtimeCalcTypeEnum = z.enum(['PER_HOUR', 'DAILY_SALARY', 'FIXED',
 /**
  * Target schema options
  */
-export const targetSchemaEnum = z.enum(['MONTHLY_RESET', 'ACCUMULATED'])
+export const targetSchemaEnum = z.enum(['REVENUE', 'QUANTITY', 'POINTS', 'MONTHLY_RESET', 'ACCUMULATED'])
 
 /**
  * Create user schema
@@ -88,6 +88,9 @@ export const createUserSchema = z.object({
   woIncentiveRate: z.number().min(0).default(0),
   lateDeductionRate: z.number().min(0).default(0),
   absentDeductionRate: z.number().min(0).default(0),
+
+  // Leave quotas initialization
+  leaveQuotas: z.record(z.string(), z.number()).optional(),
 })
 
 /**

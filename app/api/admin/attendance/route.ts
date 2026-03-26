@@ -85,7 +85,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     const isExport = isExportStr === 'true'
 
-    const [allAttendances, _statusSummary, approvedLeaves, requiredUsers] = await Promise.all([
+    const [allAttendances, _statusSummary, approvedLeaves, requiredUsers, holidays] = await Promise.all([
         prisma.attendance.findMany({
             where,
             include: {
@@ -142,14 +142,40 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
                 departments: { select: { name: true } },
                 sites: { select: { name: true } }
             }
+        }),
+        prisma.holiday.findMany({
+            where: {
+                tenantId,
+                date: {
+                    gte: startDateStr ? toStartOfDay(startDateStr, timezone) : undefined,
+                    lte: endDateStr ? toEndOfDay(endDateStr, timezone) : undefined
+                }
+            }
         })
     ])
+
+    const holidaySet = new Set<string>(holidays.map(h => {
+        // Use Intl.DateTimeFormat to get date string in tenant's timezone
+        return new Intl.DateTimeFormat('en-CA', { 
+            timeZone: timezone, 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit' 
+        }).format(new Date(h.date))
+    }))
 
     type MappedAttendance = (typeof allAttendances[0]) & { isLeave?: boolean, isVirtual?: boolean }
 
     // 1. Process Leaves into expanded days
     const leaveAttendances: MappedAttendance[] = []
     const leaveDateMap = new Set<string>() // Track user-date combinations that are leaves
+
+    const dateFormatter = new Intl.DateTimeFormat('en-CA', { 
+        timeZone: timezone, 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit' 
+    })
 
     approvedLeaves.forEach(leave => {
         const start = new Date(leave.startDate)
@@ -158,7 +184,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         end.setHours(23, 59, 59, 999)
         
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const currentDayDate = d.toISOString().split('T')[0]
+            const currentDayDate = dateFormatter.format(d)
             const currentDayStart = toStartOfDay(currentDayDate, timezone)
             const filterStart = startDateStr ? toStartOfDay(startDateStr, timezone) : null
             const filterEnd = endDateStr ? toEndOfDay(endDateStr, timezone) : null
@@ -198,7 +224,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     // 2. Track existing attendances
     const attendanceDateMap = new Set<string>()
     allAttendances.forEach(att => {
-        const dateStr = new Date(att.checkIn).toISOString().split('T')[0]
+        const dateStr = dateFormatter.format(new Date(att.checkIn))
         attendanceDateMap.add(`${att.userId}-${dateStr}`)
     })
 
@@ -213,15 +239,19 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const dayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     requiredUsers.forEach(u => {
-        const workDays = u.workDays?.split(',') || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+        const workDays = u.workDays?.split(',').map(d => d.trim()) || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
         
         // Loop from startRange to effectiveEnd
         for (let d = new Date(startRange); d <= effectiveEnd; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0]
+            const dateStr = dateFormatter.format(d)
+            const dayNum = d.getDay().toString()
             const dayName = dayMap[d.getDay()]
             
-            // Skip if it's not a work day
-            if (!workDays.includes(dayName)) continue
+            // Skip if it's not a work day (support both name and number)
+            if (!workDays.includes(dayName) && !workDays.includes(dayNum)) continue
+
+            // Skip if it's a holiday
+            if (holidaySet.has(dateStr)) continue
             
             // Skip if they already have attendance or leave
             if (attendanceDateMap.has(`${u.id}-${dateStr}`)) continue
@@ -281,14 +311,17 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             else if (item.status === 'ALPHA' || item.status === 'ABSENT') {
                 const checkInDate = new Date(item.checkIn)
                 const isSystemGenerated = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0
+                const isToday = checkInDate.toDateString() === new Date().toDateString()
                 
                 if (isSystemGenerated) {
                     displayStatus = 'TIDAK HADIR'
-                } else {
+                } else if (!isToday) {
                     const checkInHour = checkInDate.getHours()
                     const checkInMinute = checkInDate.getMinutes()
                     const wasOnTime = checkInHour < 8 || (checkInHour === 8 && checkInMinute === 0)
                     displayStatus = wasOnTime ? 'Tepat Waktu dan tidak cekout' : 'Terlambat dan tidak cekout'
+                } else {
+                    displayStatus = 'BELUM CHECKOUT'
                 }
             }
             else if (item.status === 'ON_TIME') displayStatus = 'TEPAT WAKTU'

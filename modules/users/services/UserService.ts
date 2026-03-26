@@ -26,8 +26,24 @@ export interface CreateUserInput {
     shiftId?: string | null
     // Sales Feature
     isSales?: boolean
+    canvasingTarget?: number
+    targetSchema?: string
     isAttendanceRequired?: boolean
     tenantId?: string | null
+    // Salary configuration
+    basicSalary?: number
+    payPeriodDay?: number
+    payDay?: number
+    woIncentiveEnabled?: boolean
+    woIncentiveRate?: number
+    lateDeductionRate?: number
+    absentDeductionRate?: number
+    overtimeRateNormal?: number
+    overtimeRateHoliday?: number
+    overtimeRateNational?: number
+    overtimeCalcTypeNormal?: string
+    overtimeCalcTypeHoliday?: string
+    overtimeCalcTypeNational?: string
 }
 
 type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
@@ -50,7 +66,23 @@ export interface UpdateUserInput {
     flexibleTargetHour?: number | null
     shiftId?: string | null
     isSales?: boolean
+    canvasingTarget?: number
+    targetSchema?: string
     isAttendanceRequired?: boolean
+    // Salary configuration
+    basicSalary?: number
+    payPeriodDay?: number
+    payDay?: number
+    woIncentiveEnabled?: boolean
+    woIncentiveRate?: number
+    lateDeductionRate?: number
+    absentDeductionRate?: number
+    overtimeRateNormal?: number
+    overtimeRateHoliday?: number
+    overtimeRateNational?: number
+    overtimeCalcTypeNormal?: string
+    overtimeCalcTypeHoliday?: string
+    overtimeCalcTypeNational?: string
 }
 
 export class UserService {
@@ -60,8 +92,16 @@ export class UserService {
         this.userRepository = new UserRepository()
     }
 
-    async getAllUsers(siteId?: string, tenantId?: string, roleName?: string): Promise<UserWithRelations[]> {
-        return this.userRepository.findAll(siteId, tenantId, roleName)
+    async getAllUsers(params: {
+        siteId?: string;
+        tenantId?: string;
+        roleName?: string;
+        page?: number;
+        limit?: number;
+        search?: string;
+        isActive?: boolean;
+    } = {}): Promise<{ data: UserWithRelations[], total: number, active: number, inactive: number }> {
+        return this.userRepository.findAll(params)
     }
 
     async getUser(id: string): Promise<User | null> {
@@ -106,8 +146,24 @@ export class UserService {
             shiftId: data.shiftId || null,
             // Sales Feature
             isSales: data.isSales || false,
+            canvasingTarget: data.canvasingTarget,
+            targetSchema: data.targetSchema,
             isAttendanceRequired: data.isAttendanceRequired ?? true,
             tenantId: data.tenantId || null,
+            // Salary configuration
+            basicSalary: data.basicSalary,
+            payPeriodDay: data.payPeriodDay,
+            payDay: data.payDay,
+            woIncentiveEnabled: data.woIncentiveEnabled,
+            woIncentiveRate: data.woIncentiveRate,
+            lateDeductionRate: data.lateDeductionRate,
+            absentDeductionRate: data.absentDeductionRate,
+            overtimeRateNormal: data.overtimeRateNormal,
+            overtimeRateHoliday: data.overtimeRateHoliday,
+            overtimeRateNational: data.overtimeRateNational,
+            overtimeCalcTypeNormal: data.overtimeCalcTypeNormal,
+            overtimeCalcTypeHoliday: data.overtimeCalcTypeHoliday,
+            overtimeCalcTypeNational: data.overtimeCalcTypeNational,
         })
 
         // Invalidate permission cache for new user

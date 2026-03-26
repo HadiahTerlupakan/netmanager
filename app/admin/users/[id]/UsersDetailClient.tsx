@@ -21,7 +21,8 @@ import {
   HiArrowPath,
   HiOutlineIdentification,
   HiOutlineStar,
-  HiOutlineGlobeAlt
+  HiOutlineGlobeAlt,
+  HiOutlineClock
 } from 'react-icons/hi2'
 import WorkingHoursSettings from './WorkingHoursSettings'
 import LeaveBalanceSettings from './LeaveBalanceSettings'
@@ -136,7 +137,23 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
     flexibleTargetHour: 8,
     shiftId: '',
     isSales: false,
+    canvasingTarget: 0,
+    targetSchema: 'REVENUE',
     tenantId: '',
+    // Salary configuration
+    basicSalary: 0,
+    payPeriodDay: 1,
+    payDay: 25,
+    woIncentiveEnabled: false,
+    woIncentiveRate: 0,
+    lateDeductionRate: 0,
+    absentDeductionRate: 0,
+    overtimeRateNormal: 0,
+    overtimeRateHoliday: 0,
+    overtimeRateNational: 0,
+    overtimeCalcTypeNormal: 'FIXED',
+    overtimeCalcTypeHoliday: 'FIXED',
+    overtimeCalcTypeNational: 'FIXED',
   })
 
   const fetchUser = useCallback(async () => {
@@ -167,7 +184,23 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           flexibleTargetHour: usr.flexibleTargetHour || 8,
           shiftId: usr.shiftId || '',
           isSales: usr.isSales || false,
-          tenantId: usr.tenantId || '',
+          canvasingTarget: usr.canvasingTarget || 0,
+          targetSchema: usr.targetSchema || 'REVENUE',
+          tenantId: usr.tenantId || usr.tenant?.id || '',
+          // Salary configuration
+          basicSalary: usr.basicSalary || 0,
+          payPeriodDay: usr.payPeriodDay || 1,
+          payDay: usr.payDay || 25,
+          woIncentiveEnabled: usr.woIncentiveEnabled || false,
+          woIncentiveRate: usr.woIncentiveRate || 0,
+          lateDeductionRate: usr.lateDeductionRate || 0,
+          absentDeductionRate: usr.absentDeductionRate || 0,
+          overtimeRateNormal: usr.overtimeRateNormal || 0,
+          overtimeRateHoliday: usr.overtimeRateHoliday || 0,
+          overtimeRateNational: usr.overtimeRateNational || 0,
+          overtimeCalcTypeNormal: usr.overtimeCalcTypeNormal || 'FIXED',
+          overtimeCalcTypeHoliday: usr.overtimeCalcTypeHoliday || 'FIXED',
+          overtimeCalcTypeNational: usr.overtimeCalcTypeNational || 'FIXED',
         })
         // Multi-site: Load userSites
         if (usr.userSites && usr.userSites.length > 0) {
@@ -336,7 +369,23 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
         flexibleTargetHour: formData.flexibleTargetHour || null,
         shiftId: formData.shiftId || null,
         isSales: formData.isSales,
+        canvasingTarget: formData.canvasingTarget,
+        targetSchema: formData.targetSchema,
         tenantId: formData.tenantId || null,
+        // Salary configuration
+        basicSalary: formData.basicSalary,
+        payPeriodDay: formData.payPeriodDay,
+        payDay: formData.payDay,
+        woIncentiveEnabled: formData.woIncentiveEnabled,
+        woIncentiveRate: formData.woIncentiveRate,
+        lateDeductionRate: formData.lateDeductionRate,
+        absentDeductionRate: formData.absentDeductionRate,
+        overtimeRateNormal: formData.overtimeRateNormal,
+        overtimeRateHoliday: formData.overtimeRateHoliday,
+        overtimeRateNational: formData.overtimeRateNational,
+        overtimeCalcTypeNormal: formData.overtimeCalcTypeNormal,
+        overtimeCalcTypeHoliday: formData.overtimeCalcTypeHoliday,
+        overtimeCalcTypeNational: formData.overtimeCalcTypeNational,
         // Multi-site support
         userSites: selectedSites,
       }
@@ -730,6 +779,37 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tenant Selection (Super Admin only) - MOVED TO TOP */}
+              {hasPermission('tenants:read') && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Tenant <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <HiOutlineGlobeAlt className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      name="tenantId"
+                      required
+                      value={formData.tenantId}
+                      onChange={handleChange}
+                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.tenantId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                    >
+                      <option value="">Pilih Tenant</option>
+                      {tenants.map(tenant => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pilih tenant untuk pengguna ini. Pengguna akan dibatasi hanya pada data milik tenant ini.</p>
+                  {errors.tenantId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tenantId}</p>}
+                </div>
+              )}
+
               {/* Email (Read Only) */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -856,41 +936,9 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                   </button>
                 </div>
                 {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
-              </div>
-
-              {/* Tenant Selection (Super Admin only) */}
-              {hasPermission('tenants:read') && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Tenant <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <HiOutlineGlobeAlt className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <select
-                      name="tenantId"
-                      required
-                      value={formData.tenantId}
-                      onChange={handleChange}
-                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.tenantId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                    >
-                      <option value="">Pilih Tenant</option>
-                      {tenants.map(tenant => (
-                        <option key={tenant.id} value={tenant.id}>
-                          {tenant.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pilih tenant untuk pengguna ini. Pengguna akan dibatasi hanya pada data milik tenant ini.</p>
-                  {errors.tenantId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tenantId}</p>}
-                </div>
-              )}
-            </div>
+                        </div>
           </div>
-        </div>
+        </div>    </div>
 
         {/* Organization Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -943,6 +991,21 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
           </div>
         </div>
 
+        {/* Working Hours Section - MOVED FROM BOTTOM */}
+        <WorkingHoursSettings
+          initialData={{
+            workingHourMode: formData.workingHourMode,
+            attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
+            isAttendanceRequired: formData.isAttendanceRequired,
+            startWorkTime: formData.startWorkTime,
+            endWorkTime: formData.endWorkTime,
+            workDays: formData.workDays,
+            flexibleTargetHour: formData.flexibleTargetHour,
+            shiftId: formData.shiftId
+          }}
+          onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
+        />
+
         {/* Status & Sales Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-b border-gray-200 dark:border-gray-700">
@@ -991,23 +1054,199 @@ export function ClientComponent({ params, searchParams }: { params: Promise<{ id
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
               </label>
             </div>
+
+            {/* Sales Target - Only if isSales is true */}
+            {formData.isSales && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Target Canvasing (Poin)
+                  </label>
+                  <input
+                    type="number"
+                    name="canvasingTarget"
+                    value={formData.canvasingTarget}
+                    onChange={handleChange}
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Skema Target
+                  </label>
+                  <select
+                    name="targetSchema"
+                    value={formData.targetSchema}
+                    onChange={handleChange}
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="REVENUE">Revenue (Pendapatan)</option>
+                    <option value="QUANTITY">Quantity (Jumlah Unit)</option>
+                    <option value="POINTS">Points (Poin Kinerja)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Basic Salary - Only if admin has permission */}
+            {hasPermission('payroll:read') && (
+              <div className="p-4 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
+                <h3 className="font-medium text-emerald-900 dark:text-emerald-300 mb-3 flex items-center gap-2">
+                  <HiOutlineStar className="w-4 h-4" />
+                  Konfigurasi Gaji Pokok
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">
+                      Gaji Pokok (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      name="basicSalary"
+                      value={formData.basicSalary}
+                      onChange={handleChange}
+                      className="block w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">
+                      Tgl Mulai Periode
+                    </label>
+                    <input
+                      type="number"
+                      name="payPeriodDay"
+                      min="1"
+                      max="31"
+                      value={formData.payPeriodDay}
+                      onChange={handleChange}
+                      className="block w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">
+                      Tgl Gajian
+                    </label>
+                    <input
+                      type="number"
+                      name="payDay"
+                      min="1"
+                      max="31"
+                      value={formData.payDay}
+                      onChange={handleChange}
+                      className="block w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Incentives & Deductions */}
+                <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-900/20">
+                  <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-500 uppercase tracking-wider mb-3">Insentif & Potongan</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
+                      <div>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Insentif WO</span>
+                        <p className="text-[10px] text-gray-500">Aktifkan bonus per WO selesai</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {formData.woIncentiveEnabled && (
+                          <input
+                            type="number"
+                            name="woIncentiveRate"
+                            value={formData.woIncentiveRate}
+                            onChange={handleChange}
+                            placeholder="Rp/WO"
+                            className="w-24 px-2 py-1 text-xs border border-emerald-200 dark:border-emerald-800 rounded bg-emerald-50/50 dark:bg-emerald-900/20 text-gray-900 dark:text-white"
+                          />
+                        )}
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="woIncentiveEnabled"
+                            checked={formData.woIncentiveEnabled}
+                            onChange={handleChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-rose-100 dark:border-rose-900/20">
+                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">Denda Terlambat</span>
+                        <input
+                          type="number"
+                          name="lateDeductionRate"
+                          value={formData.lateDeductionRate}
+                          onChange={handleChange}
+                          placeholder="Rp/Menit"
+                          className="w-full px-2 py-1 text-xs border border-rose-100 dark:border-rose-900/30 rounded bg-rose-50/30 dark:bg-rose-900/10 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-rose-100 dark:border-rose-900/20">
+                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">Denda Mangkir</span>
+                        <input
+                          type="number"
+                          name="absentDeductionRate"
+                          value={formData.absentDeductionRate}
+                          onChange={handleChange}
+                          placeholder="Rp/Hari"
+                          className="w-full px-2 py-1 text-xs border border-rose-100 dark:border-rose-900/30 rounded bg-rose-50/30 dark:bg-rose-900/10 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Overtime Configuration */}
+                <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-900/20">
+                  <h4 className="text-xs font-bold text-indigo-800 dark:text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <HiOutlineClock className="w-3.5 h-3.5" />
+                    Konfigurasi Lembur
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {[
+                      { key: 'Normal', label: 'Hari Kerja', color: 'indigo' },
+                      { key: 'Holiday', label: 'Hari Libur', color: 'amber' },
+                      { key: 'National', label: 'Libur Nas.', color: 'rose' }
+                    ].map((item) => (
+                      <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-lg border border-${item.color}-100 dark:border-${item.color}-900/20`}>
+                        <span className={`text-xs font-bold text-${item.color}-700 dark:text-${item.color}-400 block mb-2`}>{item.label}</span>
+                        <div className="space-y-2">
+                          <select
+                            name={`overtimeCalcType${item.key}`}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            value={(formData as any)[`overtimeCalcType${item.key}`]}
+                            onChange={handleChange}
+                            className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
+                          >
+                            <option value="PER_HOUR">Per Jam</option>
+                            <option value="DAILY_SALARY">Gaji Harian</option>
+                            <option value="FIXED">Tetap (Rp)</option>
+                            <option value="PERCENTAGE">% Gaji Pokok</option>
+                          </select>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name={`overtimeRate${item.key}`}
+                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                              value={(formData as any)[`overtimeRate${item.key}`]}
+                              onChange={handleChange}
+                              className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
+                            />
+                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">Rp</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Working Hours Section */}
-        <WorkingHoursSettings
-          initialData={{
-            workingHourMode: formData.workingHourMode,
-            attendanceGeofencePolicy: formData.attendanceGeofencePolicy,
-            isAttendanceRequired: formData.isAttendanceRequired,
-            startWorkTime: formData.startWorkTime,
-            endWorkTime: formData.endWorkTime,
-            workDays: formData.workDays,
-            flexibleTargetHour: formData.flexibleTargetHour,
-            shiftId: formData.shiftId
-          }}
-          onChange={(data) => setFormData(prev => ({ ...prev, ...data }))}
-        />
+
 
         {/* Leave Balance Settings */}
         {hasPermission('attendance:read') && (
