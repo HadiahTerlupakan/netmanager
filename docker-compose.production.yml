@@ -190,8 +190,8 @@ services:
   # ==========================================================================
   freeradius:
     build:
-      context: ./radius
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: radius/Dockerfile
     image: netmanager-radius:latest
     container_name: netmanager-radius
     restart: always

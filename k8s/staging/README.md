@@ -42,6 +42,13 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
    kubectl apply -f ingress-staging.yaml
    ```
 
+6. **Konfigurasi Radius Eksternal (NodePort)**
+   Jika menggunakan FreeRADIUS, deploy dengan:
+   ```bash
+   kubectl apply -f radius-deployment.yaml
+   ```
+   **PENTING**: Radius diakses dari Node IP di port `31812` (Auth) dan `31813` (Acct) untuk mencegah konflik dengan environment Production.
+
 ## ⚠️ Catatan Penting
 - **Cert-Manager**: Pastikan `cert-manager` sudah terinstal di cluster untuk otomatisasi SSL (Let's Encrypt).
 - **Multiple Databases**: Jika aplikasi membutuhkan database terpisah untuk Radius, Billing, dan Mitra (seperti di Docker Compose), Anda bisa mereplikasi `db-statefulset.yaml` atau menggunakan managed database service.

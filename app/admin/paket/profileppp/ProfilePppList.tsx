@@ -319,123 +319,125 @@ export default function ProfilePPPPage() {
       )}
 
       {/* Main Content Card */}
-      <ResponsiveTable
-        data={profilePPPs}
-        columns={[
-          {
-            key: 'name',
-            header: 'Nama Profile',
-            priority: 'primary',
-            render: (item) => (
-              <div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {item.name}
-                </div>
-                {item.description && (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {item.description}
-                  </div>
-                )}
-              </div>
-            ),
-          },
-          {
-            key: 'localAddress',
-            header: 'Local Address',
-            priority: 'primary',
-            render: (item) => (
-              <span className="text-sm text-gray-900 dark:text-white">
-                {item.localAddress}
-              </span>
-            ),
-          },
-          {
-            key: 'remoteAddress',
-            header: 'Remote Address',
-            priority: 'primary',
-            render: (item) => (
-              <span className="text-sm text-gray-900 dark:text-white">
-                {item.remoteAddress}
-              </span>
-            ),
-          },
-          ...(pppConnectionMode === 'RADIUS' ? [{
-            key: 'poolMode',
-            header: 'Mode',
-            priority: 'secondary' as const,
-            render: (item: ProfilePPP) => (
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                item.poolMode === 'RADIUS' 
-                  ? 'bg-purple-100 text-indigo-800 dark:bg-purple-900/30 dark:text-indigo-300' 
-                  : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-              }`}>
-                {item.poolMode || 'MIKROTIK'}
-              </span>
-            ),
-          }] : []),
-          {
-            key: 'dnsServer',
-            header: 'DNS Server',
-            priority: 'secondary',
-            render: (item) => (
-              <span className="text-sm text-gray-900 dark:text-white">
-                {item.dnsServer || '-'}
-              </span>
-            ),
-          },
-          {
-            key: 'mikroTikRouter',
-            header: 'Target MikroTik',
-            priority: 'secondary',
-            render: (item) => (
-              item.mikroTikRouter ? (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <ResponsiveTable
+          data={profilePPPs}
+          columns={[
+            {
+              key: 'name',
+              header: 'Nama Profile',
+              priority: 'primary',
+              render: (item) => (
                 <div>
-                  <div className="font-medium text-sm text-gray-900 dark:text-white">{item.mikroTikRouter.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{item.mikroTikRouter.ipAddress}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {item.name}
+                  </div>
+                  {item.description && (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {item.description}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <span className="text-sm text-gray-500">-</span>
-              )
-            ),
-          },
-          {
-            key: 'paketTerkait',
-            header: 'Paket Terkait',
-            priority: 'secondary',
-            render: (item) => (
-              <span className="text-sm text-gray-900 dark:text-white">
-                {item._count?.hargaPakets || 0} paket
-              </span>
-            ),
-          },
-          {
-            key: 'status',
-            header: 'Status',
-            priority: 'primary',
-            render: (item) => <StatusBadge status={item.status} />,
-          },
-        ]}
-        keyField="id"
-        emptyMessage='Tidak ada data profile PPP. Klik "Tambah Profile PPP" untuk menambahkan.'
-        renderActions={(item) => (
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() => handleEdit(item)}
-              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-              title="Edit"
-            >
-              <HiPencil className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => handleDelete(item.id)}
-              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              title="Delete"
-            >
-              <HiTrash className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-      />
+              ),
+            },
+            {
+              key: 'localAddress',
+              header: 'Local Address',
+              priority: 'primary',
+              render: (item) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {item.localAddress}
+                </span>
+              ),
+            },
+            {
+              key: 'remoteAddress',
+              header: 'Remote Address',
+              priority: 'primary',
+              render: (item) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {item.remoteAddress}
+                </span>
+              ),
+            },
+            ...(pppConnectionMode === 'RADIUS' ? [{
+              key: 'poolMode',
+              header: 'Mode',
+              priority: 'secondary' as const,
+              render: (item: ProfilePPP) => (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  item.poolMode === 'RADIUS' 
+                    ? 'bg-purple-100 text-indigo-800 dark:bg-purple-900/30 dark:text-indigo-300' 
+                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                }`}>
+                  {item.poolMode || 'MIKROTIK'}
+                </span>
+              ),
+            }] : []),
+            {
+              key: 'dnsServer',
+              header: 'DNS Server',
+              priority: 'secondary',
+              render: (item) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {item.dnsServer || '-'}
+                </span>
+              ),
+            },
+            {
+              key: 'mikroTikRouter',
+              header: 'Target MikroTik',
+              priority: 'secondary',
+              render: (item) => (
+                item.mikroTikRouter ? (
+                  <div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-white">{item.mikroTikRouter.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{item.mikroTikRouter.ipAddress}</div>
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-500">-</span>
+                )
+              ),
+            },
+            {
+              key: 'paketTerkait',
+              header: 'Paket Terkait',
+              priority: 'secondary',
+              render: (item) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {item._count?.hargaPakets || 0} paket
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              priority: 'primary',
+              render: (item) => <StatusBadge status={item.status} />,
+            },
+          ]}
+          keyField="id"
+          emptyMessage='Tidak ada data profile PPP. Klik "Tambah Profile PPP" untuk menambahkan.'
+          renderActions={(item) => (
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => handleEdit(item)}
+                className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+                title="Edit"
+              >
+                <HiPencil className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleDelete(item.id)}
+                className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                title="Delete"
+              >
+                <HiTrash className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        />
+      </div>
 
       {/* Modal Create/Edit Profile PPP */}
       <Modal

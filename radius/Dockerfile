@@ -1,26 +1,26 @@
 FROM freeradius/freeradius-server:3.2.5
 
-# 0. Install PostgreSQL Driver (Required for Debian-based images)
-RUN apt-get update && apt-get install -y freeradius-postgresql
+# 1. Install PostgreSQL Driver (Required for Debian-based images)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends freeradius-postgresql && \
+    rm -rf /var/lib/apt/lists/*
 
-# 1. Enable SQL Module (Create Symlink)
-RUN ln -s /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql
+# 2. Enable SQL Module (Create Symlink)
+RUN ln -sf /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql
 
-# 2. Fix Permission
-RUN chown -R freerad:freerad /etc/freeradius/mods-enabled/sql
+# 3. Copy custom configuration files
+COPY config/radius/sql.conf /etc/freeradius/mods-available/sql
+COPY config/radius/clients.conf /etc/freeradius/clients.conf
 
-# 3. Configure SQL to use Environment Variables
-# Force use of PostgreSQL driver
-RUN sed -i 's/driver = "rlm_sql_null"/driver = "rlm_sql_postgresql"/g' /etc/freeradius/mods-available/sql
+# 4. Copy and prepare entrypoint script
+COPY radius/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-# Inject Env Vars for Connection
-# 1. Set dialect to postgresql
-RUN sed -i 's/dialect = "sqlite"/dialect = "postgresql"/g' /etc/freeradius/mods-available/sql
+# 5. Fix permissions
+RUN chown -R freerad:freerad /etc/freeradius
 
-# 2. Uncomment and set Connection Info (match # line)
-# Use $ENV{VAR} syntax for FreeRadius 3.x
-RUN sed -i 's/#.*server = "localhost"/server = "$ENV{DB_HOST}"/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/#.*port = 3306/port = $ENV{DB_PORT}/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/#.*login = "radius"/login = "$ENV{DB_USER}"/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/#.*password = "radpass"/password = "$ENV{DB_PASSWORD}"/g' /etc/freeradius/mods-available/sql && \
-    sed -i 's/radius_db = "radius"/radius_db = "$ENV{DB_NAME}"/g' /etc/freeradius/mods-available/sql
+# 6. Expose RADIUS ports
+EXPOSE 1812/udp 1813/udp
+
+# 7. Use custom entrypoint for env var substitution at runtime
+ENTRYPOINT ["/docker-entrypoint.sh"]

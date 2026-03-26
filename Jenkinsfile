@@ -47,6 +47,7 @@ spec:
     environment {
         DOCKER_IMAGE = "netmanager-app"
         CRON_IMAGE = "netmanager-cron"
+        RADIUS_IMAGE = "netmanager-radius"
         DOCKER_BUILDKIT = "1"
         // Adjust values dynamically based on the current branch
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
@@ -117,6 +118,7 @@ spec:
                         echo "Backing up previous images as :prev before building new ones..."
                         sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous app image to backup'"
                         sh "docker tag ${CRON_IMAGE}:${DOCKER_TAG} ${CRON_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous cron image to backup'"
+                        sh "docker tag ${RADIUS_IMAGE}:${DOCKER_TAG} ${RADIUS_IMAGE}:${DOCKER_TAG}-prev 2>/dev/null || echo 'No previous radius image to backup'"
                     }
                 }
             }
@@ -144,6 +146,7 @@ spec:
                             .
                         
                         docker build -t ${CRON_IMAGE}:${DOCKER_TAG} ./cron
+                        docker build -t ${RADIUS_IMAGE}:${DOCKER_TAG} -f radius/Dockerfile .
                         
                         rm -rf .secrets
                         """
@@ -175,6 +178,12 @@ spec:
                             -v /var/run/docker.sock:/var/run/docker.sock \\
                             docker:cli \\
                             sh -c "docker save ${CRON_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
+
+                        docker run --rm -i --privileged \\
+                            -v /:/host \\
+                            -v /var/run/docker.sock:/var/run/docker.sock \\
+                            docker:cli \\
+                            sh -c "docker save ${RADIUS_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
 
                         echo "Verifikasi image yang terdaftar di k3s:"
                         docker run --rm -i --privileged -v /:/host docker:cli \\
@@ -287,9 +296,11 @@ spec:
                         
                         // Force rollout restart with a slight delay.
                         sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
+                        sh "kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE} || true"
                         
                         // Wait for the rollout to complete
                         sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
+                        sh "kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s || true"
                     }
                 }
             }

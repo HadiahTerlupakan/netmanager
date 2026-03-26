@@ -201,8 +201,14 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
 
 ### FreeRADIUS
 
-- **Port Authentication:** `1812/udp`
-- **Port Accounting:** `1813/udp`
+- **Port Authentication:** 
+  - Docker Compose: `1812/udp`
+  - Kubernetes Staging: `31812/udp` (NodePort)
+  - Kubernetes Production: `30812/udp` (NodePort)
+- **Port Accounting:** 
+  - Docker Compose: `1813/udp`
+  - Kubernetes Staging: `31813/udp` (NodePort)
+  - Kubernetes Production: `30813/udp` (NodePort)
 - **Purpose:** PPPoE authentication and accounting for customer internet access
 - **Configuration:** `config/radius/`
 

@@ -311,144 +311,146 @@ export default function HargaPaketPage() {
           <PageLoader />
         </div>
       ) : (
-        <ResponsiveTable
-          data={hargaPakets}
-          columns={[
-            {
-              key: 'name',
-              header: 'Nama Paket',
-              priority: 'primary',
-              render: (item) => (
-                <div className="flex items-center gap-2">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {item.name}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <ResponsiveTable
+            data={hargaPakets}
+            columns={[
+              {
+                key: 'name',
+                header: 'Nama Paket',
+                priority: 'primary',
+                render: (item) => (
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.name}
+                      </div>
+                      {item.description && (
+                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          {item.description}
+                        </div>
+                      )}
                     </div>
-                    {item.description && (
-                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {item.description}
+                    {item.featured && (
+                      <HiStar className="w-5 h-5 text-yellow-500" title="Paket Unggulan" />
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: 'profilePPP',
+                header: 'Profile PPP',
+                priority: 'secondary',
+                render: (item) => (
+                  <div>
+                    <div className="text-sm text-gray-900 dark:text-white">
+                      {item.profilePPP.name}
+                    </div>
+                    {item.bandwidth && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        BW: {item.bandwidth.name}
                       </div>
                     )}
                   </div>
-                  {item.featured && (
-                    <HiStar className="w-5 h-5 text-yellow-500" title="Paket Unggulan" />
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'profilePPP',
-              header: 'Profile PPP',
-              priority: 'secondary',
-              render: (item) => (
-                <div>
-                  <div className="text-sm text-gray-900 dark:text-white">
-                    {item.profilePPP.name}
-                  </div>
-                  {item.bandwidth && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      BW: {item.bandwidth.name}
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'site',
-              header: 'Site',
-              priority: 'secondary',
-              render: (item) => (
-                <span className="text-sm text-gray-900 dark:text-white">
-                  {item.site?.name || '-'}
-                </span>
-              ),
-            },
-            {
-              key: 'harga',
-              header: 'Harga',
-              priority: 'primary',
-              render: (item) => (
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  <div>{formatRupiah(item.harga)}</div>
-                  {item.useDiscount && item.discountType && item.discountValue && (
-                    <>
-                      <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        - Diskon: {
-                          item.discountType === 'FIXED'
-                            ? formatRupiah(item.discountValue)
-                            : `${item.discountValue}%`
-                        } = {
-                          formatRupiah(
+                ),
+              },
+              {
+                key: 'site',
+                header: 'Site',
+                priority: 'secondary',
+                render: (item) => (
+                  <span className="text-sm text-gray-900 dark:text-white">
+                    {item.site?.name || '-'}
+                  </span>
+                ),
+              },
+              {
+                key: 'harga',
+                header: 'Harga',
+                priority: 'primary',
+                render: (item) => (
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    <div>{formatRupiah(item.harga)}</div>
+                    {item.useDiscount && item.discountType && item.discountValue && (
+                      <>
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          - Diskon: {
                             item.discountType === 'FIXED'
-                              ? Math.max(0, item.harga - item.discountValue)
-                              : Math.round(item.harga * (1 - item.discountValue / 100))
+                              ? formatRupiah(item.discountValue)
+                              : `${item.discountValue}%`
+                          } = {
+                            formatRupiah(
+                              item.discountType === 'FIXED'
+                                ? Math.max(0, item.harga - item.discountValue)
+                                : Math.round(item.harga * (1 - item.discountValue / 100))
+                            )
+                          }
+                        </div>
+                        {item.discountDuration && item.discountDurationUnit && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Durasi: {item.discountDuration} {item.discountDurationUnit === 'JAM' ? 'jam' : item.discountDurationUnit === 'HARI' ? 'hari' : item.discountDurationUnit === 'BULAN' ? 'bulan' : 'tahun'}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {item.usePPN && item.ppnPercentage && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        + PPN {item.ppnPercentage}% = {
+                          formatRupiah(
+                            item.useDiscount && item.discountType && item.discountValue
+                              ? Math.round(
+                                (item.discountType === 'FIXED'
+                                  ? Math.max(0, item.harga - item.discountValue)
+                                  : Math.round(item.harga * (1 - item.discountValue / 100))
+                                ) * (1 + item.ppnPercentage / 100)
+                              )
+                              : Math.round(item.harga * (1 + item.ppnPercentage / 100))
                           )
                         }
                       </div>
-                      {item.discountDuration && item.discountDurationUnit && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          Durasi: {item.discountDuration} {item.discountDurationUnit === 'JAM' ? 'jam' : item.discountDurationUnit === 'HARI' ? 'hari' : item.discountDurationUnit === 'BULAN' ? 'bulan' : 'tahun'}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {item.usePPN && item.ppnPercentage && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      + PPN {item.ppnPercentage}% = {
-                        formatRupiah(
-                          item.useDiscount && item.discountType && item.discountValue
-                            ? Math.round(
-                              (item.discountType === 'FIXED'
-                                ? Math.max(0, item.harga - item.discountValue)
-                                : Math.round(item.harga * (1 - item.discountValue / 100))
-                              ) * (1 + item.ppnPercentage / 100)
-                            )
-                            : Math.round(item.harga * (1 + item.ppnPercentage / 100))
-                        )
-                      }
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              key: 'durasi',
-              header: 'Durasi',
-              priority: 'secondary',
-              render: (item) => (
-                <span className="text-sm text-gray-900 dark:text-white">
-                  {item.durasi} {item.durasiUnit === 'JAM' ? 'jam' : item.durasiUnit === 'HARI' ? 'hari' : item.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
-                </span>
-              ),
-            },
-            {
-              key: 'status',
-              header: 'Status',
-              priority: 'primary',
-              render: (item) => <StatusBadge status={item.status} />,
-            },
-          ]}
-          keyField="id"
-          emptyMessage='Tidak ada data paket. Klik "Tambah Paket" untuk menambahkan.'
-          renderActions={(item) => (
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => handleEdit(item)}
-                className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-                title="Edit"
-              >
-                <HiPencil className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => handleDelete(item.id)}
-                className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                title="Delete"
-              >
-                <HiTrash className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-        />
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: 'durasi',
+                header: 'Durasi',
+                priority: 'secondary',
+                render: (item) => (
+                  <span className="text-sm text-gray-900 dark:text-white">
+                    {item.durasi} {item.durasiUnit === 'JAM' ? 'jam' : item.durasiUnit === 'HARI' ? 'hari' : item.durasiUnit === 'BULAN' ? 'bulan' : 'tahun'}
+                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                priority: 'primary',
+                render: (item) => <StatusBadge status={item.status} />,
+              },
+            ]}
+            keyField="id"
+            emptyMessage='Tidak ada data paket. Klik "Tambah Paket" untuk menambahkan.'
+            renderActions={(item) => (
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => handleEdit(item)}
+                  className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+                  title="Edit"
+                >
+                  <HiPencil className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  title="Delete"
+                >
+                  <HiTrash className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          />
+        </div>
       )}
 
       {/* Modal Create/Edit Harga Paket */}

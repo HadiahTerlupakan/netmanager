@@ -328,86 +328,88 @@ export default function BandwidthPage() {
       )}
 
       {/* Main Content Card */}
-      <ResponsiveTable
-        data={bandwidths}
-        columns={[
-          {
-            key: 'name',
-            header: 'Nama',
-            priority: 'primary',
-            render: (item) => (
-              <div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {item.name}
-                </div>
-                {item.description && (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {item.description}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <ResponsiveTable
+          data={bandwidths}
+          columns={[
+            {
+              key: 'name',
+              header: 'Nama',
+              priority: 'primary',
+              render: (item) => (
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {item.name}
                   </div>
-                )}
-              </div>
-            ),
-          },
-          {
-            key: 'maxLimitDownload',
-            header: 'Max Limit D/U',
-            priority: 'primary',
-            render: (item) => (
-              <span className="text-sm text-gray-900 dark:text-white">
-                {item.maxLimitDownload} / {item.maxLimitUpload}
-              </span>
-            ),
-          },
-          {
-            key: 'burstLimitDownload',
-            header: 'Burst Limit D/U',
-            priority: 'secondary',
-            render: (item) => (
-              item.burstLimitDownload && item.burstLimitUpload ? (
+                  {item.description && (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {item.description}
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'maxLimitDownload',
+              header: 'Max Limit D/U',
+              priority: 'primary',
+              render: (item) => (
                 <span className="text-sm text-gray-900 dark:text-white">
-                  {item.burstLimitDownload} / {item.burstLimitUpload}
+                  {item.maxLimitDownload} / {item.maxLimitUpload}
                 </span>
-              ) : <span className="text-sm text-gray-500">-</span>
-            ),
-          },
-          {
-            key: 'priority',
-            header: 'Priority',
-            priority: 'secondary',
-            render: (item) => (
-              <span className="text-sm text-gray-900 dark:text-white">
-                {item.priority || '-'}
-              </span>
-            ),
-          },
-          {
-            key: 'status',
-            header: 'Status',
-            priority: 'primary',
-            render: (item) => <StatusBadge status={item.status} />,
-          },
-        ]}
-        keyField="id"
-        emptyMessage='Tidak ada data bandwidth. Klik "Tambah Bandwidth" untuk menambahkan.'
-        renderActions={(item) => (
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() => handleEdit(item)}
-              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-              title="Edit"
-            >
-              <HiPencil className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => handleDelete(item.id)}
-              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              title="Delete"
-            >
-              <HiTrash className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-      />
+              ),
+            },
+            {
+              key: 'burstLimitDownload',
+              header: 'Burst Limit D/U',
+              priority: 'secondary',
+              render: (item) => (
+                item.burstLimitDownload && item.burstLimitUpload ? (
+                  <span className="text-sm text-gray-900 dark:text-white">
+                    {item.burstLimitDownload} / {item.burstLimitUpload}
+                  </span>
+                ) : <span className="text-sm text-gray-500">-</span>
+              ),
+            },
+            {
+              key: 'priority',
+              header: 'Priority',
+              priority: 'secondary',
+              render: (item) => (
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {item.priority || '-'}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              priority: 'primary',
+              render: (item) => <StatusBadge status={item.status} />,
+            },
+          ]}
+          keyField="id"
+          emptyMessage='Tidak ada data bandwidth. Klik "Tambah Bandwidth" untuk menambahkan.'
+          renderActions={(item) => (
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => handleEdit(item)}
+                className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
+                title="Edit"
+              >
+                <HiPencil className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleDelete(item.id)}
+                className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                title="Delete"
+              >
+                <HiTrash className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        />
+      </div>
 
       {/* Modal Create/Edit Bandwidth */}
       <Modal

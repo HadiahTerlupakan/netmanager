@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netmanager-radius
+  namespace: netmanager-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netmanager-radius
+  template:
+    metadata:
+      labels:
+        app: netmanager-radius
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: radius
+          image: netmanager-radius:staging
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 1812
+              protocol: UDP
+            - containerPort: 1813
+              protocol: UDP
+          env:
+            - name: DB_TYPE
+              value: "postgresql"
+            - name: DB_HOST
+              value: "db-radius"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "radius"
+            - name: DB_USER
+              value: "netmgr"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: RADIUS_SECRET
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          # Health check: verify FreeRADIUS process is running
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep freeradius || exit 1"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep freeradius || exit 1"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netmanager-radius
+  namespace: netmanager-staging
+spec:
+  # Using NodePort to expose UDP ports outside the cluster,
+  # or LoadBalancer if the cluster supports it.
+  # NodePort provides a simple fallback mechanism.
+  type: NodePort
+  ports:
+    - name: radius-auth
+      port: 1812
+      targetPort: 1812
+      nodePort: 31812
+      protocol: UDP
+      # nodePort will be auto-assigned by Kubernetes between 30000-32767
+    - name: radius-acct
+      port: 1813
+      targetPort: 1813
+      nodePort: 31813
+      protocol: UDP
+  selector:
+    app: netmanager-radius
