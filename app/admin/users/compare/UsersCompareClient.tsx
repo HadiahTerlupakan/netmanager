@@ -17,6 +17,7 @@ import PageLoader from '@/components/ui/PageLoader'
 import { Badge } from '@/components/ui/badge'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { format } from 'date-fns'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import type { Range } from 'react-date-range'
 
@@ -287,10 +288,12 @@ export default function UsersCompareClient() {
                             <div className="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-700 animate-in fade-in slide-in-from-left-2">
                                 <DateRangePicker 
                                     onChange={(range: Range) => {
-                                        setDateRange({
-                                            from: range.startDate?.toISOString().split('T')[0] || '',
-                                            to: range.endDate?.toISOString().split('T')[0] || ''
-                                        })
+                                        if (range.startDate && range.endDate) {
+                                            setDateRange({
+                                                from: format(range.startDate, 'yyyy-MM-dd'),
+                                                to: format(range.endDate, 'yyyy-MM-dd')
+                                            })
+                                        }
                                     }}
                                     range={{
                                         startDate: new Date(dateRange.from),
