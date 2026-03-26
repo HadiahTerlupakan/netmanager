@@ -299,14 +299,15 @@ app.prepare().then(() => {
             const path = await import('path')
 
             // Security: Resolve and validate path to prevent path traversal attacks
-            const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads')
+            const uploadsRootDir = path.resolve(process.cwd(), 'public', 'uploads')
 
-            // Remove leading slashes to prevent path.resolve treating it as absolute root path
-            const cleanPath = (pathname || '').replace(/^\/+/, '')
-            const requestedPath = path.resolve(process.cwd(), 'public', cleanPath)
+            // The pathname starts with '/uploads/', we want to map this to 'public/uploads/'
+            const relativePath = (pathname || '').replace(/^\/uploads\//, '')
+            const requestedPath = path.resolve(uploadsRootDir, relativePath)
 
             // Ensure the resolved path is within the uploads directory
-            if (!requestedPath.startsWith(uploadsDir + path.sep) && requestedPath !== uploadsDir) {
+            if (!requestedPath.startsWith(uploadsRootDir + path.sep) && requestedPath !== uploadsRootDir) {
+                console.warn(`[Server] Blocked potential path traversal: ${pathname}`)
                 res.writeHead(403, { 'Content-Type': 'application/json' })
                 res.end(JSON.stringify({ error: 'Akses ditolak' }))
                 return
@@ -451,6 +452,29 @@ app.prepare().then(() => {
         }
 
         // 3. Close Socket.io
+        if (ioRef) {
+            ioRef.close(() => {
+                console.log('[WS] Socket.io server closed')
+            })
+        }
+
+        // 4. Close HTTP Server
+        server.close(() => {
+            console.log('[Server] HTTP server closed')
+            process.exit(0)
+        })
+
+        // Force exit if hanging
+        setTimeout(() => {
+            console.error('[Server] Forced exit after timeout')
+            process.exit(1)
+        }, 5000)
+    }
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+})
+lose Socket.io
         if (ioRef) {
             ioRef.close(() => {
                 console.log('[WS] Socket.io server closed')
