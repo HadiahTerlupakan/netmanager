@@ -474,26 +474,3 @@ app.prepare().then(() => {
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 })
-lose Socket.io
-        if (ioRef) {
-            ioRef.close(() => {
-                console.log('[WS] Socket.io server closed')
-            })
-        }
-
-        // 4. Close HTTP Server
-        server.close(() => {
-            console.log('[Server] HTTP server closed')
-            process.exit(0)
-        })
-
-        // Force exit if hanging
-        setTimeout(() => {
-            console.error('[Server] Forced exit after timeout')
-            process.exit(1)
-        }, 5000)
-    }
-
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'))
-})
