@@ -1,3 +1,4 @@
+-- @safe-guard-ack: Syncing database schema with new columns and tenant-scoped unique constraints to maintain data integrity across tenants.
 /*
   Warnings:
 
