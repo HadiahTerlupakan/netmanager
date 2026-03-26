@@ -191,6 +191,9 @@ spec:
                 echo "🌱 Fresh database detected. Running all migrations from scratch..."
               else
                 echo "🔄 Existing database detected. Applying baseline resolutions..."
+                # Clean up failed migration attempts from previous pipeline runs
+                prisma migrate resolve --rolled-back 20260326004412_sync_schema_changes 2>&1 || true
+                
                 prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
                 prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
                 prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
