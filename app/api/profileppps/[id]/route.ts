@@ -411,6 +411,7 @@ export async function PUT(
               ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
               ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
               ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+              skipPoolCheck: validation.data.poolMode === 'RADIUS',
             };
 
             await updatePPPProfileInMikroTik(
@@ -436,6 +437,7 @@ export async function PUT(
           ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
           ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
           ...(validation.data.poolMode !== 'RADIUS' && rateLimit && { rateLimit }),
+          skipPoolCheck: validation.data.poolMode === 'RADIUS',
         };
 
         await updatePPPProfileInMikroTik(

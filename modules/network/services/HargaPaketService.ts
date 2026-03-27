@@ -213,18 +213,32 @@ export class HargaPaketService {
     private async syncMikroTikRateLimit(hargaPaket: {
         id: string;
         name: string;
+        profilePPPId: string;
         profilePPP?: {
             id: string;
             name: string;
+            poolMode: string | null;
             mikroTikRouterId: string | null;
             mikroTikRouter?: unknown
         }
     }) {
+        // Jika tidak ada router, abaikan
         if (!hargaPaket.profilePPP?.mikroTikRouterId || !hargaPaket.profilePPP?.mikroTikRouter) {
             return
         }
 
         try {
+            const { RadiusSyncService } = await import('./radius-sync-service');
+            const radiusSync = new RadiusSyncService();
+            const connectionMode = await radiusSync.getConnectionMode();
+            
+            // Jika mode RADIUS dan poolMode profil adalah RADIUS, 
+            // maka rate limit dikelola oleh RADIUS, jangan kirim ke MikroTik
+            if (connectionMode === 'RADIUS' && hargaPaket.profilePPP.poolMode === 'RADIUS') {
+                // console.log('[HargaPaketService] Skipping MikroTik rate limit sync because profile uses RADIUS pool mode')
+                return
+            }
+
             const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } = await import('@/modules/network/services/mikrotik-ppp-profile')
             const rateLimit = await getRateLimitFromBandwidth(hargaPaket.profilePPP.id)
 
@@ -233,7 +247,10 @@ export class HargaPaketService {
                 const updateResult = await updatePPPProfileInMikroTik(
                     hargaPaket.profilePPP.mikroTikRouterId,
                     hargaPaket.profilePPP.name,
-                    { rateLimit }
+                    { 
+                        rateLimit,
+                        skipPoolCheck: hargaPaket.profilePPP.poolMode === 'RADIUS'
+                    }
                 )
 
                 if (!updateResult.success) {

@@ -22,6 +22,7 @@ interface PPPProfileData {
   sessionTimeout?: number | null
   idleTimeout?: number | null
   rateLimit?: string // Format: "10M/10M" (download/upload)
+  skipPoolCheck?: boolean // Jika true, lewati verifikasi IP Pool lokal di router
 }
 
 /**
@@ -375,7 +376,7 @@ export async function createPPPProfileInMikroTik(
           return { success: false, error: `Gagal membuat IP Pool: ${poolResult.error}` }
         }
         // console.log('[MikroTik PPP] IP Pool created successfully')
-      } else {
+      } else if (!profileData.skipPoolCheck) {
         // Cek apakah IP Pool sudah ada (jika tidak ada ipRange, asumsikan pool sudah dibuat manual)
         const poolExists = await checkIPPoolExists(conn, profileData.remoteAddress)
         if (!poolExists) {
@@ -578,7 +579,7 @@ export async function updatePPPProfileInMikroTik(
           } else {
             // console.log('[MikroTik PPP] IP Pool updated successfully')
           }
-        } else if (profileData.remoteAddress && profileData.remoteAddress !== oldProfileData['remote-address']) {
+        } else if (profileData.remoteAddress && profileData.remoteAddress !== oldProfileData['remote-address'] && !profileData.skipPoolCheck) {
           // Jika remoteAddress berubah tapi tidak ada ipRange, cek apakah pool baru sudah ada
           const poolExists = await checkIPPoolExists(conn, newPoolName)
           if (!poolExists) {

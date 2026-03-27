@@ -357,6 +357,7 @@ export async function POST(req: NextRequest) {
               ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
               ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
               ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+              skipPoolCheck: validation.data.poolMode === 'RADIUS',
             };
 
             await createPPPProfileInMikroTik(
@@ -381,6 +382,7 @@ export async function POST(req: NextRequest) {
           ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
           ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
           ...(validation.data.poolMode !== 'RADIUS' && rateLimit && { rateLimit }),
+          skipPoolCheck: validation.data.poolMode === 'RADIUS',
         };
 
         await createPPPProfileInMikroTik(
