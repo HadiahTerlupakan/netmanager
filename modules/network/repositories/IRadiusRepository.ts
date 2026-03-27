@@ -93,6 +93,7 @@ export interface IRadiusRepository {
     syncBandwidthToRadius(bandwidthId: string): Promise<void>;
     syncProfileToRadius(profileId: string): Promise<void>;
     syncAllPackagesToRadius(tenantId?: string): Promise<void>;
+    syncIpPoolToRadius(poolName: string, ipRange: string, tenantId: string): Promise<void>;
 
     // NAS Management
     createNas(nas: INas, tenantId: string): Promise<INas>;

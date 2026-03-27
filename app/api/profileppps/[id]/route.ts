@@ -365,7 +365,14 @@ export async function PUT(
         const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository');
         const radiusRepo = new RadiusRepository();
         await radiusRepo.syncProfileToRadius(profilePPP.id);
-        // console.log('[API ProfilePPP] Successfully synced profile to RADIUS')
+        
+        // Sync IP Pool if in RADIUS mode and ipRange is provided
+        if (profilePPP.poolMode === 'RADIUS' && sanitizedBody.ipRange) {
+           const tenantId = profilePPP.tenantId || (session.user as { tenantId?: string }).tenantId;
+           if (tenantId) {
+             await radiusRepo.syncIpPoolToRadius(profilePPP.remoteAddress, sanitizedBody.ipRange, tenantId);
+           }
+        }
       }
     } catch (error) {
       console.error('[API ProfilePPP] RADIUS sync error during update:', error);
@@ -395,18 +402,21 @@ export async function PUT(
 
         for (const router of activeRouters) {
           try {
+            const profilePPPDataForMikrotik = {
+              name: validation.data.name,
+              localAddress: validation.data.localAddress,
+              remoteAddress: validation.data.remoteAddress,
+              // Skip ipRange if poolMode is RADIUS to prevent local pool creation/update
+              ...(validation.data.poolMode !== 'RADIUS' && validation.data.ipRange && { ipRange: validation.data.ipRange }),
+              ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
+              ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
+              ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+            };
+
             await updatePPPProfileInMikroTik(
               router.id,
               oldProfile.name,
-              {
-                name: validation.data.name,
-                localAddress: validation.data.localAddress,
-                remoteAddress: validation.data.remoteAddress,
-                ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
-                ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
-                ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
-                ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-              }
+              profilePPPDataForMikrotik
             );
           } catch (routerErr) {
             console.error(`[API ProfilePPP] Failed to update profile in router ${router.name}:`, routerErr);
@@ -416,19 +426,22 @@ export async function PUT(
         // Mode Non-RADIUS: Hanya update di router yang dipilih
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
         
+        const profilePPPDataForMikrotik = {
+          name: validation.data.name,
+          localAddress: validation.data.localAddress,
+          remoteAddress: validation.data.remoteAddress,
+          // Skip ipRange and rateLimit if poolMode is RADIUS
+          ...(validation.data.poolMode !== 'RADIUS' && validation.data.ipRange && { ipRange: validation.data.ipRange }),
+          ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
+          ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
+          ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+          ...(validation.data.poolMode !== 'RADIUS' && rateLimit && { rateLimit }),
+        };
+
         await updatePPPProfileInMikroTik(
           validation.data.mikroTikRouterId,
           oldProfile.name,
-          {
-            name: validation.data.name,
-            localAddress: validation.data.localAddress,
-            remoteAddress: validation.data.remoteAddress,
-            ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
-            ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
-            ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
-            ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-            ...(rateLimit && { rateLimit }),
-          }
+          profilePPPDataForMikrotik
         );
       }
     } catch (syncError) {

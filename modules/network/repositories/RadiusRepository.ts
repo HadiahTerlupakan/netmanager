@@ -12,6 +12,7 @@ import type {
     IDashboardStats,
     IRadiusSessionView,
 } from './IRadiusRepository';
+import { parseIpRange } from '@/lib/utils/ip-helpers';
 
 type PrismaInstance = typeof defaultPrisma;
 
@@ -1071,6 +1072,40 @@ export class RadiusRepository implements IRadiusRepository {
         });
 
         return { sessions: transformedSessions, total };
+    }
+
+    /**
+     * Sync IP Pool to RADIUS radippool table
+     */
+    async syncIpPoolToRadius(poolName: string, ipRange: string, tenantId: string): Promise<void> {
+        const ips = parseIpRange(ipRange);
+        if (ips.length === 0) return;
+
+        // 1. Delete existing IPs in this pool for this tenant
+        // Only delete IPs that are not currently in use (or all if we want a hard reset)
+        // Usually, for a sync, we want to ensure the pool matches the range exactly.
+        await this.radiusClient.radippool.deleteMany({
+            where: {
+                pool_name: poolName,
+                tenantId
+            }
+        });
+
+        // 2. Insert new IPs
+        // Prisma's createMany is supported on PostgreSQL
+        await this.radiusClient.radippool.createMany({
+            data: ips.map(ip => ({
+                pool_name: poolName,
+                framedipaddress: ip,
+                nasipaddress: '',
+                calledstationid: '',
+                callingstationid: '',
+                username: '',
+                pool_key: '',
+                tenantId
+            })),
+            skipDuplicates: true
+        });
     }
 }
 

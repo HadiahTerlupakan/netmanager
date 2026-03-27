@@ -37,10 +37,16 @@ if [ -f "$CLIENTS_FILE" ]; then
     echo "[entrypoint] clients.conf configured with RADIUS_SECRET"
 fi
 
-# 3. Disable 'detail' module in accounting to prevent text log directory errors
+# 3. Enable 'sqlippool' in sites-enabled/default (accounting and post-auth)
+# 4. Disable 'detail' module in accounting to prevent text log directory errors
 if [ -f "$CONFIG_DIR/sites-enabled/default" ]; then
+    # Un-comment sqlippool in accounting section
+    sed -i '/accounting {/,/}/ s/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/sqlippool/' "$CONFIG_DIR/sites-enabled/default"
+    # Un-comment sqlippool in post-auth section
+    sed -i '/post-auth {/,/}/ s/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/sqlippool/' "$CONFIG_DIR/sites-enabled/default"
+    # Disable detail
     sed -i 's/^[[:space:]]*detail[[:space:]]*$//g' "$CONFIG_DIR/sites-enabled/default"
-    echo "[entrypoint] Disabled 'detail' module in sites-enabled/default"
+    echo "[entrypoint] Enabled 'sqlippool' and disabled 'detail' in sites-enabled/default"
 fi
 
 # 4. Fix permissions

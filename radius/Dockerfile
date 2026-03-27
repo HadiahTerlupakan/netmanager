@@ -5,11 +5,13 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends freeradius-postgresql && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. Enable SQL Module (Create Symlink)
-RUN ln -sf /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql
+# 2. Enable SQL Modules (Create Symlinks)
+RUN ln -sf /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/sql && \
+    ln -sf /etc/freeradius/mods-available/sqlippool /etc/freeradius/mods-enabled/sqlippool
 
 # 3. Copy custom configuration files
 COPY config/radius/sql.conf /etc/freeradius/mods-available/sql
+COPY config/radius/sqlippool.conf /etc/freeradius/mods-available/sqlippool
 COPY config/radius/clients.conf /etc/freeradius/clients.conf
 
 # 4. Copy and prepare entrypoint script
