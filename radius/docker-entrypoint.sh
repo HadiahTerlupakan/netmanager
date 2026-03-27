@@ -37,7 +37,13 @@ if [ -f "$CLIENTS_FILE" ]; then
     echo "[entrypoint] clients.conf configured with RADIUS_SECRET"
 fi
 
-# 3. Fix permissions
+# 3. Disable 'detail' module in accounting to prevent text log directory errors
+if [ -f "$CONFIG_DIR/sites-enabled/default" ]; then
+    sed -i 's/^[[:space:]]*detail[[:space:]]*$//g' "$CONFIG_DIR/sites-enabled/default"
+    echo "[entrypoint] Disabled 'detail' module in sites-enabled/default"
+fi
+
+# 4. Fix permissions
 chown -R freerad:freerad "$CONFIG_DIR"
 
 echo "[entrypoint] Starting FreeRADIUS in foreground mode..."
