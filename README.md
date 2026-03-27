@@ -209,10 +209,9 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
   - Docker Compose: `1813/udp`
   - Kubernetes Staging: `31813/udp` (NodePort)
   - Kubernetes Production: `30813/udp` (NodePort)
-- **Purpose:** PPPoE authentication and accounting for customer internet access
+- **Purpose:** PPPoE authentication and accounting for customer internet access.
 - **Configuration:** `config/radius/`
-
-Lihat dokumentasi lengkap di [`docs/RADIUS_INTEGRATION.md`](docs/RADIUS_INTEGRATION.md)
+- **Documentation:** Lihat panduan lengkap di [docs/RADIUS_INTEGRATION.md](docs/RADIUS_INTEGRATION.md)
 
 ## 🧪 Testing
 
