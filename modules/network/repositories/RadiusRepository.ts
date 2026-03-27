@@ -559,10 +559,24 @@ export class RadiusRepository implements IRadiusRepository {
             await this.setGroupBandwidth(pkg.id, rateLimit, tenantId);
         }
 
-        // 2. Sync IP Pool Mode
+        // 2. Sync IP Pool Mode & Profile Settings
         if (pkg.profilePPP) {
             const profile = pkg.profilePPP;
             const poolName = profile.remoteAddress;
+
+            // 2.1 Sync Local Address
+            if (profile.localAddress) {
+                await this.setGroupAttribute(pkg.id, 'Mikrotik-Address', profile.localAddress, tenantId);
+            } else {
+                await this.removeGroupAttribute(pkg.id, 'Mikrotik-Address', tenantId);
+            }
+
+            // 2.2 Sync Profile Name
+            if (profile.name) {
+                await this.setGroupAttribute(pkg.id, 'Mikrotik-Group', profile.name, tenantId);
+            } else {
+                await this.removeGroupAttribute(pkg.id, 'Mikrotik-Group', tenantId);
+            }
 
             if (profile.poolMode === 'RADIUS') {
                 // Mode RADIUS: Gunakan radgroupcheck.Pool-Name
