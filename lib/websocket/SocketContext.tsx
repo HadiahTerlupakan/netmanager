@@ -73,8 +73,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
             reconnectionDelayMax: 5000,
             // Timeout settings
             timeout: 20000,
-            // Transport settings
-            transports: ['websocket', 'polling'],
+            // Transport settings (Force websocket to bypass multi-replica polling issues)
+            transports: ['websocket'],
             // Only connect when browser is focused (optional optimization)
             autoConnect: true,
         })
