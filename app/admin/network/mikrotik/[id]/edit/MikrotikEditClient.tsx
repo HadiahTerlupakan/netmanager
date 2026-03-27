@@ -56,8 +56,8 @@ export function ClientComponent() {
         router.push('/admin/network/mikrotik')
         return
       }
-      const data = await res.json()
-      const routerData = data.router
+      const responseData = await res.json()
+      const routerData = responseData.data?.router
       setFormData({
         name: routerData.name,
         ipAddress: routerData.ipAddress,

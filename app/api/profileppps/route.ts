@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { createPPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
@@ -358,7 +357,7 @@ export async function POST(req: NextRequest) {
         }
       } else if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
         // Mode Non-RADIUS: Hanya buat di router yang dipilih
-        let rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
+        const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
         
         await createPPPProfileInMikroTik(
           validation.data.mikroTikRouterId,

@@ -145,7 +145,12 @@ export function ClientComponent() {
         }
         throw new Error('Gagal memuat data pelanggan')
       }
-      const data = await res.json()
+      const responseData = await res.json()
+      const data = responseData.data
+
+      if (!data) {
+        throw new Error('Data pelanggan tidak ditemukan dalam respons')
+      }
 
       // Pre-fill form dengan data existing
       setFormData({

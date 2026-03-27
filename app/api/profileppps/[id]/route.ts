@@ -3,7 +3,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { prisma } from '@/lib/prisma'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { updatePPPProfileInMikroTik, deletePPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
+import { deletePPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
 import { Prisma } from '@prisma/client'
 
 /**
@@ -414,7 +414,7 @@ export async function PUT(
         }
       } else if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
         // Mode Non-RADIUS: Hanya update di router yang dipilih
-        let rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
+        const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
         
         await updatePPPProfileInMikroTik(
           validation.data.mikroTikRouterId,
