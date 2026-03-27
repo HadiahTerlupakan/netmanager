@@ -412,9 +412,20 @@ export class MikroTikPPPSecretService {
       );
       
       if (!profileResult.success) {
-        return { success: false, logs, error: profileResult.error };
+        // Jika error karena secret tidak ditemukan (misal user RADIUS),
+        // kita tetap lanjut disconnect session agar user ter-kick untuk apply radius profile baru.
+        if (profileResult.error === 'PPP Secret tidak ditemukan') {
+           logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
+        } else {
+           return {
+             success: false,
+             logs,
+             ...(profileResult.error ? { error: profileResult.error } : {})
+           };
+        }
+      } else {
+        logs.push(`Profile dikembalikan ke "${profileName}"`);
       }
-      logs.push(`Profile dikembalikan ke "${profileName}"`);
 
       // 2. Disconnect session agar reload dengan profile baru
       const disconnectResult = await this.disconnectSession(
