@@ -78,6 +78,8 @@ metadata:
   name: netmanager-radius
   namespace: netmanager-production
 spec:
+  # Maintain client source IP address to identify individual NAS clients
+  externalTrafficPolicy: Local
   type: NodePort
   ports:
     - name: radius-auth

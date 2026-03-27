@@ -79,6 +79,8 @@ metadata:
   name: netmanager-radius
   namespace: netmanager-staging
 spec:
+  # Maintain client source IP address to identify individual NAS clients
+  externalTrafficPolicy: Local
   # Using NodePort to expose UDP ports outside the cluster,
   # or LoadBalancer if the cluster supports it.
   # NodePort provides a simple fallback mechanism.
