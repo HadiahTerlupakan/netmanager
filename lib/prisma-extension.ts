@@ -52,7 +52,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
 
             if (operation === 'create') {
               // Ensure newly created data belongs to the correct tenant
-              args.data = { ...(args.data as Record<string, unknown>), tenant: { connect: { id: tenantId } } };
+              args.data = { ...(args.data as Record<string, unknown>), tenantId };
             } else if (operation === 'createMany') {
               if (Array.isArray(args.data)) {
                 args.data = (args.data as Record<string, unknown>[]).map((d) => ({ ...d, tenantId }));
@@ -61,7 +61,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
               }
             } else if (operation === 'upsert') {
               args.where = { ...(args.where as Record<string, unknown>), tenantId };
-              args.create = { ...(args.create as Record<string, unknown>), tenant: { connect: { id: tenantId } } };
+              args.create = { ...(args.create as Record<string, unknown>), tenantId };
               // Protection: Do NOT allow updating tenantId in upsert
               const updateArgs = args.update as Record<string, unknown> | undefined;
               if (updateArgs) {
