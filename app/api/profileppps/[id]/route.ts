@@ -356,6 +356,21 @@ export async function PUT(
       },
     })
 
+    // Sync to RADIUS if in RADIUS mode
+    try {
+      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+      const radiusSync = new RadiusSyncService();
+      const mode = await radiusSync.getConnectionMode();
+      if (mode === 'RADIUS') {
+        const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository');
+        const radiusRepo = new RadiusRepository();
+        await radiusRepo.syncProfileToRadius(profilePPP.id);
+        // console.log('[API ProfilePPP] Successfully synced profile to RADIUS')
+      }
+    } catch (error) {
+      console.error('[API ProfilePPP] RADIUS sync error during update:', error);
+    }
+
     // Update profile PPP di MikroTik jika ada router
     // Alur: 1. Update IP Pool (jika remoteAddress berubah atau ipRange disediakan), 2. Update Profile PPP dengan rate limit dari Bandwidth
     if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {

@@ -302,6 +302,20 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Sync to RADIUS if in RADIUS mode
+    try {
+      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+      const radiusSync = new RadiusSyncService();
+      const mode = await radiusSync.getConnectionMode();
+      if (mode === 'RADIUS') {
+        const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository');
+        const radiusRepo = new RadiusRepository();
+        await radiusRepo.syncProfileToRadius(profilePPP.id);
+      }
+    } catch (error) {
+      console.error('[API ProfilePPP] RADIUS sync error during creation:', error);
+    }
+
     // Jika ada mikroTikRouterId, buat profile PPP dan IP Pool di MikroTik Router
     // Alur: 1. Buat IP Pool (jika ipRange disediakan), 2. Buat Profile PPP dengan rate limit dari Bandwidth
     if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {

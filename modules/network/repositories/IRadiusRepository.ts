@@ -91,6 +91,7 @@ export interface IRadiusRepository {
     syncAllActiveCustomers(tenantId?: string): Promise<{ created: number; updated: number; deleted: number }>;
     syncPackageToRadius(packageId: string): Promise<void>;
     syncBandwidthToRadius(bandwidthId: string): Promise<void>;
+    syncProfileToRadius(profileId: string): Promise<void>;
     syncAllPackagesToRadius(tenantId?: string): Promise<void>;
 
     // NAS Management

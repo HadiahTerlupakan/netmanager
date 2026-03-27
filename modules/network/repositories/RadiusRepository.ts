@@ -609,6 +609,18 @@ export class RadiusRepository implements IRadiusRepository {
     }
 
     /**
+     * Sync all packages using a specific profile to RADIUS
+     */
+    async syncProfileToRadius(profileId: string): Promise<void> {
+        const packages = await this.prisma.hargaPaket.findMany({
+            where: { profilePPPId: profileId }
+        });
+        for (const pkg of packages) {
+            await this.syncPackageToRadius(pkg.id);
+        }
+    }
+
+    /**
      * Sync all packages to RADIUS
      */
     async syncAllPackagesToRadius(tenantId?: string): Promise<void> {
