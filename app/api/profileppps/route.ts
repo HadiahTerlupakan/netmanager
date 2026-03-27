@@ -316,64 +316,66 @@ export async function POST(req: NextRequest) {
       console.error('[API ProfilePPP] RADIUS sync error during creation:', error);
     }
 
-    // Jika ada mikroTikRouterId, buat profile PPP dan IP Pool di MikroTik Router
-    // Alur: 1. Buat IP Pool (jika ipRange disediakan), 2. Buat Profile PPP dengan rate limit dari Bandwidth
-    if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
-      try {
-        // console.log('[API ProfilePPP] Attempting to create profile in MikroTik router:', validation.data.mikroTikRouterId)
+    // Update profile PPP di MikroTik jika ada router atau dalam mode RADIUS
+    try {
+      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+      const radiusSync = new RadiusSyncService();
+      const connectionMode = await radiusSync.getConnectionMode();
+      const isRadiusMode = connectionMode === 'RADIUS';
 
-        // Ambil rate limit dari Bandwidth
-        // Prioritas: 1. bandwidthId langsung (jika disediakan), 2. HargaPaket yang terkait
-        const { getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile')
+      const { createPPPProfileInMikroTik, getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile');
+
+      if (isRadiusMode) {
+        // console.log('[API ProfilePPP] RADIUS mode: broadcasting profile creation to all active routers');
         
-        // Cek mode koneksi global
-        const pppModeSetting = await prisma.settings.findFirst({
-          where: { key: 'PPP_CONNECTION_MODE' }
-        })
-        const isRadiusMode = (pppModeSetting?.value || 'RADIUS') === 'RADIUS'
-
-        let rateLimit: string | null = null
-        if (!isRadiusMode) {
-          rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId)
-          if (rateLimit) {
-            // console.log('[API ProfilePPP] Rate limit from bandwidth:', rateLimit)
+        // Ambil SEMUA router yang relevan untuk profil ini (berdasarkan tenantId atau siteId)
+        const activeRouters = await prisma.mikroTikRouter.findMany({
+          where: {
+            OR: [
+              { tenantId: profilePPP.tenantId },
+              { siteId: profilePPP.siteId }
+            ]
           }
-        } else {
-          // console.log('[API ProfilePPP] RADIUS mode enabled, skipping MikroTik rate-limit')
-        }
+        });
 
-        const mikrotikResult = await createPPPProfileInMikroTik(
+        for (const router of activeRouters) {
+          try {
+            await createPPPProfileInMikroTik(
+              router.id,
+              {
+                name: validation.data.name,
+                localAddress: validation.data.localAddress,
+                remoteAddress: validation.data.remoteAddress,
+                ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
+                ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
+                ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
+                ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
+              }
+            );
+          } catch (routerErr) {
+            console.error(`[API ProfilePPP] Failed to create profile in router ${router.name}:`, routerErr);
+          }
+        }
+      } else if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
+        // Mode Non-RADIUS: Hanya buat di router yang dipilih
+        let rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
+        
+        await createPPPProfileInMikroTik(
           validation.data.mikroTikRouterId,
           {
             name: validation.data.name,
             localAddress: validation.data.localAddress,
-            remoteAddress: validation.data.remoteAddress, // Nama IP Pool (sama dengan name)
+            remoteAddress: validation.data.remoteAddress,
             ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
             ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
             ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
             ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-            ...(rateLimit && { rateLimit }), // Rate limit dari Bandwidth (format: "10M/10M")
+            ...(rateLimit && { rateLimit }),
           }
-        )
-
-        if (!mikrotikResult.success) {
-          console.error('[API ProfilePPP] Failed to create PPP profile in MikroTik:', mikrotikResult.error)
-          // Jangan gagalkan request, hanya log error
-          // Profile sudah dibuat di database, user bisa sync manual nanti jika diperlukan
-        } else {
-          // console.log('[API ProfilePPP] Successfully created PPP profile in MikroTik')
-        }
-      } catch (mikrotikError: unknown) {
-        console.error('[API ProfilePPP] Error creating PPP profile in MikroTik:', mikrotikError)
-        if (mikrotikError instanceof Error) {
-          console.error('[API ProfilePPP] Error stack:', mikrotikError.stack)
-        }
-        // Jangan gagalkan request, hanya log error
-        // Profile sudah dibuat di database, user bisa sync manual nanti jika diperlukan
+        );
       }
-    } else {
-      // Jika tidak ada mikroTikRouterId yang dipilih, skip pembuatan profile di MikroTik
-      // console.log('[API ProfilePPP] No MikroTik router selected, skipping MikroTik profile creation')
+    } catch (syncError) {
+      console.error('[API ProfilePPP] Error during MikroTik profile broadcast (POST):', syncError);
     }
 
     return NextResponse.json(profilePPP, { status: 201 })

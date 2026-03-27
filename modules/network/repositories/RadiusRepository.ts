@@ -564,14 +564,7 @@ export class RadiusRepository implements IRadiusRepository {
             const profile = pkg.profilePPP;
             const poolName = profile.remoteAddress;
 
-            // 2.1 Sync Local Address
-            if (profile.localAddress) {
-                await this.setGroupAttribute(pkg.id, 'Mikrotik-Address', profile.localAddress, tenantId);
-            } else {
-                await this.removeGroupAttribute(pkg.id, 'Mikrotik-Address', tenantId);
-            }
-
-            // 2.2 Sync Profile Name
+            // 2.1 Sync Profile Name
             if (profile.name) {
                 await this.setGroupAttribute(pkg.id, 'Mikrotik-Group', profile.name, tenantId);
             } else {
