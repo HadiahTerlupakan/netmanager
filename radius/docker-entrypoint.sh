@@ -44,8 +44,9 @@ if [ -f "$CONFIG_DIR/sites-enabled/default" ]; then
     sed -i '/accounting {/,/}/ s/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/sqlippool/' "$CONFIG_DIR/sites-enabled/default"
     # Un-comment sqlippool in post-auth section
     sed -i '/post-auth {/,/}/ s/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/sqlippool/' "$CONFIG_DIR/sites-enabled/default"
-    # Disable detail
-    sed -i 's/^[[:space:]]*detail[[:space:]]*$//g' "$CONFIG_DIR/sites-enabled/default"
+    # Disable 'detail' module in sites-enabled/default
+    # This prevents errors related to writing to /var/log/freeradius/radacct/
+    sed -i '/^[[:space:]]*detail[[:space:]]*$/s/^/#/' "$CONFIG_DIR/sites-enabled/default"
     echo "[entrypoint] Enabled 'sqlippool' and disabled 'detail' in sites-enabled/default"
 fi
 
