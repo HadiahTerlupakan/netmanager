@@ -366,7 +366,17 @@ export async function PUT(
         const radiusRepo = new RadiusRepository();
         await radiusRepo.syncProfileToRadius(profilePPP.id);
         
-        // Sync IP Pool if in RADIUS mode and ipRange is provided
+        // Clean up old IP Pool if remoteAddress changed or if no longer in RADIUS mode
+        if (oldProfile.poolMode === 'RADIUS' && oldProfile.remoteAddress) {
+          if (profilePPP.poolMode !== 'RADIUS' || oldProfile.remoteAddress !== profilePPP.remoteAddress) {
+            const tenantId = oldProfile.tenantId || (session.user as { tenantId?: string }).tenantId;
+            if (tenantId) {
+              await radiusRepo.syncIpPoolToRadius(oldProfile.remoteAddress, '', tenantId); // Passing empty string deletes it
+            }
+          }
+        }
+
+        // Sync IP Pool if currently in RADIUS mode and ipRange is provided
         if (profilePPP.poolMode === 'RADIUS' && sanitizedBody.ipRange) {
            const tenantId = profilePPP.tenantId || (session.user as { tenantId?: string }).tenantId;
            if (tenantId) {

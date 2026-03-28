@@ -573,9 +573,10 @@ export class RadiusRepository implements IRadiusRepository {
             }
 
             if (profile.poolMode === 'RADIUS') {
-                // Mode RADIUS: Gunakan radgroupcheck.Pool-Name
-                // MikroTik akan melihat ini dan meminta IP dari RADIUS
-                await this.setGroupCheckAttribute(pkg.id, 'Pool-Name', poolName, tenantId);
+                // Mode RADIUS: Gunakan radgroupcheck.Pool-Name sebagai CONTROL attribute
+                // Operator ':=' berarti assign ke control list (bukan '==' yang berarti match/compare)
+                // Sesuai dokumentasi resmi FreeRADIUS: Pool-Name is a CONTROL attribute
+                await this.setGroupCheckAttribute(pkg.id, 'Pool-Name', poolName, tenantId, ':=');
                 
                 // Pastikan tidak ada Framed-Pool di reply agar tidak konflik
                 await this.removeGroupAttribute(pkg.id, 'Framed-Pool', tenantId);
@@ -1078,8 +1079,7 @@ export class RadiusRepository implements IRadiusRepository {
      * Sync IP Pool to RADIUS radippool table
      */
     async syncIpPoolToRadius(poolName: string, ipRange: string, tenantId: string): Promise<void> {
-        const ips = parseIpRange(ipRange);
-        if (ips.length === 0) return;
+        const ips = ipRange ? parseIpRange(ipRange) : [];
 
         // 1. Delete existing IPs in this pool for this tenant
         // Only delete IPs that are not currently in use (or all if we want a hard reset)
@@ -1091,8 +1091,12 @@ export class RadiusRepository implements IRadiusRepository {
             }
         });
 
-        // 2. Insert new IPs
-        // Prisma's createMany is supported on PostgreSQL
+        if (ips.length === 0) return;
+
+        // 2. Insert new IPs with expiry_time in the past so they are immediately available
+        // FreeRADIUS 3.2.5 allocate_find uses: WHERE expiry_time < 'now'::timestamp(0)
+        // NULL expiry_time would NOT match this condition, so we set it to past timestamp
+        const pastTime = new Date(Date.now() - 1000); // 1 second in the past
         await this.radiusClient.radippool.createMany({
             data: ips.map(ip => ({
                 pool_name: poolName,
@@ -1102,6 +1106,7 @@ export class RadiusRepository implements IRadiusRepository {
                 callingstationid: '',
                 username: '',
                 pool_key: '',
+                expiry_time: pastTime,
                 tenantId
             })),
             skipDuplicates: true

@@ -40,10 +40,8 @@ fi
 # 3. Enable 'sqlippool' in sites-enabled/default (accounting and post-auth)
 # 4. Disable 'detail' module in accounting to prevent text log directory errors
 if [ -f "$CONFIG_DIR/sites-enabled/default" ]; then
-    # Un-comment sqlippool in accounting section
-    sed -i '/accounting {/,/}/ s/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/sqlippool/' "$CONFIG_DIR/sites-enabled/default"
-    # Un-comment sqlippool in post-auth section
-    sed -i '/post-auth {/,/}/ s/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/sqlippool/' "$CONFIG_DIR/sites-enabled/default"
+    # Un-comment sqlippool globally in default site (it appears in accounting and post-auth)
+    sed -i 's/^[[:space:]]*#[[:space:]]*sqlippool[[:space:]]*$/\tsqlippool/' "$CONFIG_DIR/sites-enabled/default"
     # Disable 'detail' module in sites-enabled/default
     # This prevents errors related to writing to /var/log/freeradius/radacct/
     sed -i '/^[[:space:]]*detail[[:space:]]*$/s/^/#/' "$CONFIG_DIR/sites-enabled/default"
