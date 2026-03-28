@@ -9,7 +9,7 @@ export const mikrotikRouterCreateSchema = z.object({
   apiPassword: z.string().min(1, 'Password API wajib diisi'),
   authPort: z.number().int().min(1).max(65535).optional(),
   accountingPort: z.number().int().min(1).max(65535).optional(),
-  secretRadius: z.string().trim().min(1, 'Secret Radius wajib diisi'),
+  secretRadius: z.string().trim().optional(),
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   siteId: z.string().optional().nullable(),
