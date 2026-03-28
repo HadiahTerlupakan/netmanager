@@ -43,8 +43,11 @@ export class MikroTikProvisioningService {
      * Provisions the RADIUS configuration on a MikroTik router.
      * 
      * @param routerDetails Connection details for the MikroTik router
-     * @param radiusServerIp (Optional) The IP address of the NetManager/RADIUS server. If not provided, it will be auto-detected.
+     * @param radiusServerIp The IP address of the RADIUS server (public IP). If not provided, auto-detect (fallback).
      * @param radiusSecret The shared secret for RADIUS
+     * @param isolirUrl Optional URL for isolation redirect
+     * @param authPort RADIUS Authentication port (default: 1812)
+     * @param accountingPort RADIUS Accounting port (default: 1813)
      */
     async provisionRadius(
         routerDetails: {
@@ -55,15 +58,16 @@ export class MikroTikProvisioningService {
         },
         radiusServerIp: string | null,
         radiusSecret: string,
-        isolirUrl: string | null | undefined = null
+        isolirUrl: string | null | undefined = null,
+        authPort: number = 1812,
+        accountingPort: number = 1813
     ): Promise<{ success: boolean; logs: string[] }> {
         const logs: string[] = [];
         
         // Auto-detect IP if not provided
         const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
-        // console.log(`[Provisioning] Starting provisioning for Router: ${routerDetails.ip}`);
-        // console.log(`[Provisioning] Detected/Used Server IP (RADIUS Address): ${finalServerIp}`);
         logs.push(`Using Server IP for RADIUS: ${finalServerIp}`);
+        logs.push(`Auth Port: ${authPort}, Accounting Port: ${accountingPort}`);
 
         const conn = new RouterOSAPI({
             host: routerDetails.ip,
@@ -74,9 +78,7 @@ export class MikroTikProvisioningService {
         });
 
         try {
-            // console.log(`[Provisioning] Connecting to ${routerDetails.ip}...`);
             await conn.connect();
-            // console.log(`[Provisioning] Connected.`);
             logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
 
             // --- 1. RADIUS Provisioning ---
@@ -93,10 +95,12 @@ export class MikroTikProvisioningService {
                         '=.id=' + r['.id'],
                         '=secret=' + radiusSecret,
                         '=service=ppp,login,hotspot',
+                        '=authentication-port=' + authPort,
+                        '=accounting-port=' + accountingPort,
                         '=timeout=3000ms'
                     ]);
                     await this.delay(300);
-                    logs.push(`Updated existing RADIUS config for ${finalServerIp}`);
+                    logs.push(`Updated existing RADIUS config for ${finalServerIp} (auth:${authPort}, acct:${accountingPort})`);
                 }
             } else {
                 // Add new
@@ -104,11 +108,13 @@ export class MikroTikProvisioningService {
                     '=address=' + finalServerIp,
                     '=secret=' + radiusSecret,
                     '=service=ppp,login,hotspot',
+                    '=authentication-port=' + authPort,
+                    '=accounting-port=' + accountingPort,
                     '=timeout=3000ms',
                     '=comment=added by netmanager'
                 ]);
                 await this.delay(300);
-                logs.push(`Added new RADIUS config for ${finalServerIp}`);
+                logs.push(`Added new RADIUS config for ${finalServerIp} (auth:${authPort}, acct:${accountingPort})`);
             }
 
             // Configure Incoming (CoA)

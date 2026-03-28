@@ -36,8 +36,8 @@ export function ClientComponent() {
     apiPort: 8728,
     apiUsername: '',
     apiPassword: '',
-    authPort: 7265,
-    accountingPort: 7266,
+    authPort: 1812,
+    accountingPort: 1813,
     secretRadius: Array(20).fill(0).map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join(''),
     isolirUrl: '',
     description: '',
@@ -168,11 +168,14 @@ export function ClientComponent() {
               <input
                 type="number"
                 value={formData.authPort}
-                onChange={(e) => setFormData({ ...formData, authPort: parseInt(e.target.value) || 7265 })}
+                onChange={(e) => setFormData({ ...formData, authPort: parseInt(e.target.value) || 1812 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="1"
                 max="65535"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Port RADIUS Authentication di server. Default standar: 1812
+              </p>
             </div>
 
             {/* Accounting Port */}
@@ -183,11 +186,14 @@ export function ClientComponent() {
               <input
                 type="number"
                 value={formData.accountingPort}
-                onChange={(e) => setFormData({ ...formData, accountingPort: parseInt(e.target.value) || 7266 })}
+                onChange={(e) => setFormData({ ...formData, accountingPort: parseInt(e.target.value) || 1813 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="1"
                 max="65535"
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Port RADIUS Accounting di server. Default standar: 1813
+              </p>
             </div>
           </div>
         )}

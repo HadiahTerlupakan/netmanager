@@ -276,6 +276,9 @@ services:
 
       # Cron Security
       CRON_SECRET: ${CRON_SECRET}
+
+      # RADIUS Configuration
+      RADIUS_PUBLIC_IP: ${RADIUS_PUBLIC_IP:-}
     expose:
       - "3000"
     healthcheck:
