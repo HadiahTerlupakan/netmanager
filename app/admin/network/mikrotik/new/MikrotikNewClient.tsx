@@ -44,13 +44,26 @@ export function ClientComponent() {
     autoConfigure: true,
   })
 
-  // Fetch settings to know connection mode
+  // Fetch settings to know connection mode + RADIUS default ports
   useEffect(() => {
+    // Fetch connection mode
     fetch('/api/settings/general')
       .then(res => res.json())
       .then(response => {
         const data = response.data
         if (data && data.pppConnectionMode) setPppConnectionMode(data.pppConnectionMode)
+      })
+      .catch(console.error)
+
+    // Fetch RADIUS default ports dari env server
+    fetch('/api/settings/radius-defaults')
+      .then(res => res.json())
+      .then(defaults => {
+        setFormData(prev => ({
+          ...prev,
+          authPort: defaults.authPort || 1812,
+          accountingPort: defaults.accountingPort || 1813,
+        }))
       })
       .catch(console.error)
   }, [])

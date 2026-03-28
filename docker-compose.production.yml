@@ -279,6 +279,8 @@ services:
 
       # RADIUS Configuration
       RADIUS_PUBLIC_IP: ${RADIUS_PUBLIC_IP:-}
+      RADIUS_AUTH_PORT: ${RADIUS_AUTH_PORT:-1812}
+      RADIUS_ACCT_PORT: ${RADIUS_ACCT_PORT:-1813}
     expose:
       - "3000"
     healthcheck:

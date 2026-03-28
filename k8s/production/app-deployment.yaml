@@ -108,6 +108,11 @@ spec:
                 configMapKeyRef:
                   name: netmanager-config
                   key: ALLOWED_ORIGINS
+            # RADIUS external ports (match NodePort values in radius-deployment.yaml)
+            - name: RADIUS_AUTH_PORT
+              value: "30812"
+            - name: RADIUS_ACCT_PORT
+              value: "30813"
           volumeMounts:
             - name: uploads-volume
               mountPath: /app/public/uploads
