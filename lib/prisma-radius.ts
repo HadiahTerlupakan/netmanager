@@ -28,7 +28,7 @@ const baseRadiusClient = new PrismaClientRadius({
 })
 
 export const prismaRadius = globalForPrismaRadius.prismaRadius ?? 
-  (baseRadiusClient.$extends(withTenantIsolation([])) as unknown as PrismaClientRadius)
+  (baseRadiusClient.$extends(withTenantIsolation(['radcheck', 'radreply', 'radusergroup', 'radgroupcheck', 'radgroupreply', 'radpostauth', 'radacct', 'radippool', 'nas'])) as unknown as PrismaClientRadius)
 
 export const prismaRadiusAuth = baseRadiusClient
 
