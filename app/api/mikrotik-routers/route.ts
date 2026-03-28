@@ -96,6 +96,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         finalSiteId = userSiteId
     }
 
+    // Memaksa semua konfigurasi RADIUS dari environment agar konsisten
+    const forceSecretRadius = process.env.RADIUS_SECRET || 'testing123';
+    const forceAuthPort = Number(process.env.RADIUS_AUTH_PORT) || 1812;
+    const forceAcctPort = Number(process.env.RADIUS_ACCT_PORT) || 1813;
+
     try {
         const routerRepository = getMikroTikRouterRepository()
         const createData: Record<string, string | number | undefined> = {
@@ -104,9 +109,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
             apiPort: Number(apiPort),
             apiUsername,
             apiPassword,
-            authPort: Number(authPort),
-            accountingPort: Number(accountingPort),
-            secretRadius,
+            authPort: forceAuthPort,
+            accountingPort: forceAcctPort,
+            secretRadius: forceSecretRadius,
         }
         if (timezone) createData.timezone = timezone
         if (isolirUrl) createData.isolirUrl = isolirUrl
@@ -133,10 +138,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                             password: apiPassword,
                         },
                         null, // auto-detect IP publik
-                        secretRadius,
+                        forceSecretRadius,
                         isolirUrl,
-                        Number(authPort) || 1812,
-                        Number(accountingPort) || 1813
+                        forceAuthPort,
+                        forceAcctPort
                     );
 
                     if (!provisioningResult.success) {

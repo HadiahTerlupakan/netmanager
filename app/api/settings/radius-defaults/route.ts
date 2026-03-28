@@ -15,5 +15,6 @@ export async function GET() {
     return NextResponse.json({
         authPort: Number(process.env.RADIUS_AUTH_PORT) || 1812,
         accountingPort: Number(process.env.RADIUS_ACCT_PORT) || 1813,
+        radiusSecret: process.env.RADIUS_SECRET || 'testing123',
     });
 }

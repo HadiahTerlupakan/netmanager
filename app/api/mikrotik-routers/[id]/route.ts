@@ -68,9 +68,11 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
         if (data.apiPort !== undefined) updateData.apiPort = data.apiPort
         if (data.apiUsername !== undefined) updateData.apiUsername = data.apiUsername
         if (data.apiPassword !== undefined) updateData.apiPassword = data.apiPassword
-        if (data.authPort !== undefined) updateData.authPort = data.authPort
-        if (data.accountingPort !== undefined) updateData.accountingPort = data.accountingPort
-        if (data.secretRadius !== undefined) updateData.secretRadius = data.secretRadius
+        
+        // Memaksa semua konfigurasi RADIUS dari environment agar konsisten
+        updateData.authPort = Number(process.env.RADIUS_AUTH_PORT) || 1812
+        updateData.accountingPort = Number(process.env.RADIUS_ACCT_PORT) || 1813
+        updateData.secretRadius = process.env.RADIUS_SECRET || 'testing123'
         if (data.isolirUrl !== undefined) updateData.isolirUrl = data.isolirUrl
         if (data.description !== undefined) updateData.description = data.description
         if (data.siteId !== undefined) updateData.siteId = data.siteId

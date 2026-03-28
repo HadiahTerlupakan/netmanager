@@ -23,6 +23,8 @@ export function ClientComponent() {
   const [showTestModal, setShowTestModal] = useState(false)
   const [showScriptModal, setShowScriptModal] = useState(false)
   const [pppConnectionMode, setPppConnectionMode] = useState<'RADIUS' | 'MIKROTIK_API'>('RADIUS')
+  // RADIUS config (otomatis dari server env, tidak ditampilkan ke user)
+  const [radiusSecret, setRadiusSecret] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     ipAddress: '',
@@ -30,9 +32,6 @@ export function ClientComponent() {
     apiPort: 8728,
     apiUsername: '',
     apiPassword: '',
-    authPort: 1812,
-    accountingPort: 1813,
-    secretRadius: '',
     isolirUrl: '',
     description: '',
   })
@@ -44,6 +43,14 @@ export function ClientComponent() {
       .then(response => {
         const data = response.data
         if (data && data.pppConnectionMode) setPppConnectionMode(data.pppConnectionMode)
+      })
+      .catch(console.error)
+
+    // Fetch RADIUS secret dari env server (untuk ScriptGeneratorModal)
+    fetch('/api/settings/radius-defaults')
+      .then(res => res.json())
+      .then(defaults => {
+        setRadiusSecret(defaults.radiusSecret || 'testing123')
       })
       .catch(console.error)
   }, [])
@@ -65,9 +72,6 @@ export function ClientComponent() {
         apiPort: routerData.apiPort,
         apiUsername: routerData.apiUsername,
         apiPassword: routerData.apiPassword,
-        authPort: routerData.authPort,
-        accountingPort: routerData.accountingPort,
-        secretRadius: routerData.secretRadius,
         isolirUrl: routerData.isolirUrl || '',
         description: routerData.description || '',
       })
@@ -194,46 +198,6 @@ export function ClientComponent() {
       {/* Form */}
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
         
-        {pppConnectionMode === 'RADIUS' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-gray-100 dark:border-gray-700">
-            {/* Authentication Port */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Authentication Port
-              </label>
-              <input
-                type="number"
-                value={formData.authPort}
-                onChange={(e) => setFormData({ ...formData, authPort: parseInt(e.target.value) || 1812 })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="1"
-                max="65535"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Port RADIUS Authentication di server. Default standar: 1812
-              </p>
-            </div>
-
-            {/* Accounting Port */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Accounting Port
-              </label>
-              <input
-                type="number"
-                value={formData.accountingPort}
-                onChange={(e) => setFormData({ ...formData, accountingPort: parseInt(e.target.value) || 1813 })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="1"
-                max="65535"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Port RADIUS Accounting di server. Default standar: 1813
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Nama Router */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -327,44 +291,7 @@ export function ClientComponent() {
           />
         </div>
 
-        {/* Secret Radius */}
-        {pppConnectionMode === 'RADIUS' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              ! Secret Radius
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={formData.secretRadius}
-                onChange={(e) => setFormData({ ...formData, secretRadius: e.target.value })}
-                required
-                placeholder="Secret Radius"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                  let result = '';
-                  for (let i = 0; i < 20; i++) {
-                    result += chars.charAt(Math.floor(Math.random() * chars.length));
-                  }
-                  setFormData({ ...formData, secretRadius: result });
-                }}
-                className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                title="Generate Random Secret"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Klik tombol refresh untuk generate secret acak baru. Jangan lupa update juga konfigurasi di MikroTik.
-            </p>
-          </div>
-        )}
+
 
         {/* URL Info Isolir (Optional) */}
         <div>
@@ -445,7 +372,7 @@ export function ClientComponent() {
       <ScriptGeneratorModal
         open={showScriptModal}
         onClose={() => setShowScriptModal(false)}
-        secret={formData.secretRadius}
+        secret={radiusSecret}
       />
     </div>
   )
