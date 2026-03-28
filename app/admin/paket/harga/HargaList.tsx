@@ -92,15 +92,17 @@ export default function HargaPaketPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
+      const ts = new Date().getTime().toString()
       const params = new URLSearchParams()
       if (siteId) params.append('siteId', siteId)
+      params.append('t', ts)
 
       const [hargaPaketsRes, profilePPPsRes, sitesRes, bandwidthsRes, settingsRes] = await Promise.all([
-        fetch(`/api/hargapakets?${params.toString()}`),
-        fetch(`/api/profileppps?${params.toString()}`),
-        fetch('/api/admin/sites'),
-        fetch(`/api/bandwidths?${params.toString()}`),
-        fetch('/api/settings/general'),
+        fetch(`/api/hargapakets?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/profileppps?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/admin/sites?t=${ts}`, { cache: 'no-store' }),
+        fetch(`/api/bandwidths?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/settings/general?t=${ts}`, { cache: 'no-store' }),
       ])
 
       if (!hargaPaketsRes.ok) {
