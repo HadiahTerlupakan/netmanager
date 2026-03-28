@@ -36,8 +36,8 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             throw new Error('Security Breach: Attempted data access without valid tenant context.')
           }
 
-          // 5. Automatic Filter Injection (Bypassed for Super Admin)
-          if (tenantId && !isSuperAdmin) {
+          // 5. Automatic Filter Injection
+          if (tenantId) {
             const isReadOp = [
               'findUnique', 'findUniqueOrThrow', 'findFirst', 'findFirstOrThrow', 
               'findMany', 'count', 'groupBy', 'aggregate'
@@ -45,38 +45,55 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             
             const isWriteOp = ['update', 'updateMany', 'delete', 'deleteMany'].includes(operation)
 
-            if (isReadOp || isWriteOp) {
-              // Inject tenantId filter to ensure user only sees/touches their own data
-              args.where = { ...(args.where as Record<string, unknown>), tenantId };
+            // For reads and updates/deletes, ONLY filter if NOT superadmin.
+            // SuperAdmins can read/write across all tenants.
+            if (!isSuperAdmin) {
+              if (isReadOp || isWriteOp) {
+                // Inject tenantId filter to ensure user only sees/touches their own data
+                args.where = { ...(args.where as Record<string, unknown>), tenantId };
+              }
+
+              if (operation === 'upsert') {
+                args.where = { ...(args.where as Record<string, unknown>), tenantId };
+              }
+
+              // 6. Immutability Protection: Mencegah perubahan tenantId pada operasi update
+              if (operation === 'update' || operation === 'updateMany') {
+                const dataArgs = args.data as Record<string, unknown> | undefined;
+                if (dataArgs && dataArgs.tenantId !== undefined) {
+                  // Hapus upaya pengubahan tenantId jika bukan superadmin
+                  delete dataArgs.tenantId;
+                }
+              }
             }
 
+            // For creates, ALWAYS inject the tenantId if it's not explicitly provided,
+            // even for SuperAdmins, so newly created records belong to their active tenant context.
             if (operation === 'create') {
-              // Ensure newly created data belongs to the correct tenant
-              args.data = { ...(args.data as Record<string, unknown>), tenantId };
+              const dataArgs = args.data as Record<string, unknown> | undefined;
+              if (dataArgs && dataArgs.tenantId === undefined) {
+                args.data = { ...dataArgs, tenantId };
+              }
             } else if (operation === 'createMany') {
               if (Array.isArray(args.data)) {
-                args.data = (args.data as Record<string, unknown>[]).map((d) => ({ ...d, tenantId }));
+                args.data = (args.data as Record<string, unknown>[]).map((d) => (d.tenantId === undefined ? { ...d, tenantId } : d));
               } else {
-                args.data = { ...(args.data as Record<string, unknown>), tenantId };
+                const dataArgs = args.data as Record<string, unknown> | undefined;
+                if (dataArgs && dataArgs.tenantId === undefined) {
+                  args.data = { ...dataArgs, tenantId };
+                }
               }
             } else if (operation === 'upsert') {
-              args.where = { ...(args.where as Record<string, unknown>), tenantId };
-              args.create = { ...(args.create as Record<string, unknown>), tenantId };
-              // Protection: Do NOT allow updating tenantId in upsert
-              const updateArgs = args.update as Record<string, unknown> | undefined;
-              if (updateArgs) {
-                delete updateArgs.tenantId;
+              const createArgs = args.create as Record<string, unknown> | undefined;
+              if (createArgs && createArgs.tenantId === undefined) {
+                args.create = { ...createArgs, tenantId };
               }
-            }
-
-            // 6. Immutability Protection: Mencegah perubahan tenantId pada operasi update
-            if (operation === 'update' || operation === 'updateMany') {
-              const dataArgs = args.data as Record<string, unknown> | undefined;
-              if (dataArgs && dataArgs.tenantId !== undefined) {
-                // Hapus upaya pengubahan tenantId jika bukan superadmin
-                delete dataArgs.tenantId;
-                // Kita juga bisa melempar error jika ingin lebih ketat:
-                // throw new Error('Action Denied: tenantId is immutable and cannot be changed.');
+              
+              if (!isSuperAdmin) {
+                const updateArgs = args.update as Record<string, unknown> | undefined;
+                if (updateArgs && updateArgs.tenantId !== undefined) {
+                  delete updateArgs.tenantId;
+                }
               }
             }
           }
