@@ -348,16 +348,27 @@ export async function POST(req: NextRequest) {
 
         for (const router of activeRouters) {
           try {
+            // Jika poolMode=MIKROTIK, kita tetap perlu rateLimit dan ipRange di profil MikroTik
+            // Jika poolMode=RADIUS, skip keduanya (dikelola FreeRADIUS)
+            const isRadiusPool = validation.data.poolMode === 'RADIUS';
+            let rateLimit: string | undefined;
+            if (!isRadiusPool) {
+              const rateLimitResult = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
+              rateLimit = rateLimitResult || undefined;
+            }
+
             const profilePPPDataForMikrotik = {
               name: validation.data.name,
               localAddress: validation.data.localAddress,
               remoteAddress: validation.data.remoteAddress,
-              // Skip ipRange if poolMode is RADIUS to prevent local pool creation
-              ...(validation.data.poolMode !== 'RADIUS' && validation.data.ipRange && { ipRange: validation.data.ipRange }),
+              // ipRange: hanya jika pool di MikroTik
+              ...(!isRadiusPool && validation.data.ipRange && { ipRange: validation.data.ipRange }),
               ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
               ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
               ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-              skipPoolCheck: validation.data.poolMode === 'RADIUS',
+              // rateLimit: hanya jika pool di MikroTik
+              ...(!isRadiusPool && rateLimit && { rateLimit }),
+              skipPoolCheck: isRadiusPool,
             };
 
             await createPPPProfileInMikroTik(
@@ -369,20 +380,20 @@ export async function POST(req: NextRequest) {
           }
         }
       } else if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
-        // Mode Non-RADIUS: Hanya buat di router yang dipilih
+        // Mode API MikroTik: Hanya buat di router yang dipilih
+        // poolMode pasti MIKROTIK di mode ini (sudah di-guard di atas)
         const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
         
         const profilePPPDataForMikrotik = {
           name: validation.data.name,
           localAddress: validation.data.localAddress,
           remoteAddress: validation.data.remoteAddress,
-          // Skip ipRange and rateLimit if poolMode is RADIUS
-          ...(validation.data.poolMode !== 'RADIUS' && validation.data.ipRange && { ipRange: validation.data.ipRange }),
+          ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
           ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
           ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
           ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-          ...(validation.data.poolMode !== 'RADIUS' && rateLimit && { rateLimit }),
-          skipPoolCheck: validation.data.poolMode === 'RADIUS',
+          ...(rateLimit && { rateLimit }),
+          skipPoolCheck: false, // Mode API MikroTik selalu buat pool di router
         };
 
         await createPPPProfileInMikroTik(

@@ -498,7 +498,7 @@ export default function ProfilePPPPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Remote Address (Nama IP Pool) <span className="text-red-500">*</span>
+                {formData.poolMode === 'RADIUS' ? 'Pool Name (RADIUS)' : 'Remote Address (Nama IP Pool)'} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -509,7 +509,9 @@ export default function ProfilePPPPage() {
                 placeholder="Otomatis sama dengan Nama Profile"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Otomatis sama dengan Nama Profile (IP Pool akan dibuat dengan nama ini)
+                {formData.poolMode === 'RADIUS'
+                  ? 'Pool Name untuk sqlippool FreeRADIUS (otomatis dari Nama Profile)'
+                  : 'Otomatis sama dengan Nama Profile (IP Pool akan dibuat dengan nama ini di MikroTik)'}
               </p>
             </div>
           </div>
@@ -517,32 +519,38 @@ export default function ProfilePPPPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Range IP Awal
+                Range IP Awal {formData.poolMode !== 'RADIUS' && <span className="text-gray-400">(opsional)</span>}
+                {formData.poolMode === 'RADIUS' && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="text"
                 value={formData.ipRangeStart}
+                required={formData.poolMode === 'RADIUS'}
                 onChange={(e) => setFormData({ ...formData, ipRangeStart: e.target.value })}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-                placeholder="192.168.1.100"
+                placeholder="10.10.10.2"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Range IP Akhir
+                Range IP Akhir {formData.poolMode !== 'RADIUS' && <span className="text-gray-400">(opsional)</span>}
+                {formData.poolMode === 'RADIUS' && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="text"
                 value={formData.ipRangeEnd}
+                required={formData.poolMode === 'RADIUS'}
                 onChange={(e) => setFormData({ ...formData, ipRangeEnd: e.target.value })}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-                placeholder="192.168.1.200"
+                placeholder="10.10.10.254"
               />
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-            Range IP untuk pool. Jika dikosongkan, IP Pool harus sudah dibuat manual di MikroTik.
+            {formData.poolMode === 'RADIUS'
+              ? 'Range IP untuk pool sqlippool FreeRADIUS. Akan disinkronkan ke tabel radippool.'
+              : 'Range IP untuk pool MikroTik. Jika dikosongkan, IP Pool harus sudah ada di router.'}
           </p>
 
           {pppConnectionMode === 'RADIUS' && (
