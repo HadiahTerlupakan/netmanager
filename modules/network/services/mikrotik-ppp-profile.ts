@@ -366,30 +366,30 @@ export async function createPPPProfileInMikroTik(
     })
 
     try {
-      // Remote Address adalah nama IP Pool yang harus dibuat terlebih dahulu
-      // Buat IP Pool jika ipRange disediakan
-      if (profileData.ipRange && profileData.ipRange.trim() !== '') {
-        // console.log('[MikroTik PPP] Creating IP Pool first:', profileData.remoteAddress, profileData.ipRange)
-        const poolResult = await createIPPool(conn, profileData.remoteAddress, profileData.ipRange)
-        if (!poolResult.success) {
-          conn.close()
-          return { success: false, error: `Gagal membuat IP Pool: ${poolResult.error}` }
+      // =====================================================================
+      // MODE RADIUS: Tidak perlu buat IP Pool dan remote-address di MikroTik
+      // Karena IP dialokasikan oleh FreeRADIUS sqlippool
+      // MODE LOKAL: Buat IP Pool dan set remote-address di MikroTik
+      // =====================================================================
+      if (!profileData.skipPoolCheck) {
+        // Mode LOKAL: Buat IP Pool jika ipRange disediakan
+        if (profileData.ipRange && profileData.ipRange.trim() !== '') {
+          const poolResult = await createIPPool(conn, profileData.remoteAddress, profileData.ipRange)
+          if (!poolResult.success) {
+            conn.close()
+            return { success: false, error: `Gagal membuat IP Pool: ${poolResult.error}` }
+          }
+        } else {
+          // Cek apakah IP Pool sudah ada
+          const poolExists = await checkIPPoolExists(conn, profileData.remoteAddress)
+          if (!poolExists) {
+            conn.close()
+            return { success: false, error: `IP Pool "${profileData.remoteAddress}" tidak ditemukan. Silakan buat IP Pool terlebih dahulu atau berikan IP Range untuk membuat otomatis.` }
+          }
         }
-        // console.log('[MikroTik PPP] IP Pool created successfully')
-      } else if (!profileData.skipPoolCheck) {
-        // Cek apakah IP Pool sudah ada (jika tidak ada ipRange, asumsikan pool sudah dibuat manual)
-        const poolExists = await checkIPPoolExists(conn, profileData.remoteAddress)
-        if (!poolExists) {
-          conn.close()
-          return { success: false, error: `IP Pool "${profileData.remoteAddress}" tidak ditemukan. Silakan buat IP Pool terlebih dahulu atau berikan IP Range untuk membuat otomatis.` }
-        }
-        // console.log('[MikroTik PPP] IP Pool already exists:', profileData.remoteAddress)
       }
 
       // Prepare data untuk profile PPP
-      // Format untuk node-routeros-v2: array of strings dengan format =key=value
-      // Berdasarkan README: conn.write('/ip/address/add', ['=interface=ether2', '=address=192.168.90.1'])
-      // Pastikan semua value tidak undefined atau null
       const profileParams: string[] = []
       
       // Name harus ada dan tidak kosong
@@ -405,14 +405,17 @@ export async function createPPPProfileInMikroTik(
       }
       profileParams.push(`=local-address=${profileData.localAddress}`)
       
-      if (!profileData.remoteAddress || profileData.remoteAddress.trim() === '') {
-        conn.close()
-        return { success: false, error: 'Remote address (nama IP Pool) tidak boleh kosong' }
+      // Remote address: hanya set jika mode LOKAL (bukan RADIUS)
+      // Mode RADIUS: IP pool dikelola oleh FreeRADIUS, bukan MikroTik
+      if (!profileData.skipPoolCheck) {
+        if (!profileData.remoteAddress || profileData.remoteAddress.trim() === '') {
+          conn.close()
+          return { success: false, error: 'Remote address (nama IP Pool) tidak boleh kosong' }
+        }
+        profileParams.push(`=remote-address=${profileData.remoteAddress}`)
       }
-      // Remote address adalah nama IP Pool yang sudah dibuat
-      profileParams.push(`=remote-address=${profileData.remoteAddress}`)
 
-      // Tambahkan comment: "add by netmanager - {profileName}"
+      // Tambahkan comment
       const profileComment = `add by netmanager - ${profileData.name}`
       profileParams.push(`=comment=${profileComment}`)
 
@@ -429,12 +432,10 @@ export async function createPPPProfileInMikroTik(
         profileParams.push(`=idle-timeout=${profileData.idleTimeout}`)
       }
 
-      // Tambahkan rate-limit jika disediakan
-      if (profileData.rateLimit && profileData.rateLimit.trim() !== '') {
-        // console.log('[MikroTik PPP] Adding rate-limit to profile:', profileData.rateLimit)
+      // Rate-limit: hanya set jika mode LOKAL (bukan RADIUS)
+      // Mode RADIUS: bandwidth dikelola via Mikrotik-Rate-Limit attribute di RADIUS reply
+      if (!profileData.skipPoolCheck && profileData.rateLimit && profileData.rateLimit.trim() !== '') {
         profileParams.push(`=rate-limit=${profileData.rateLimit}`)
-      } else {
-        // console.log('[MikroTik PPP] No rate-limit provided, profile will be created without rate limit')
       }
 
       // Create profile PPP di MikroTik
@@ -565,34 +566,31 @@ export async function updatePPPProfileInMikroTik(
       // console.log('[MikroTik PPP] Profile ID:', profileId)
       // console.log('[MikroTik PPP] Old profile data:', oldProfileData)
 
-      // Handle IP Pool update jika remoteAddress berubah atau ipRange disediakan
-      if (profileData.remoteAddress !== undefined || profileData.ipRange) {
-        const newPoolName = profileData.remoteAddress || oldProfileData['remote-address']
-        
-        // Jika ipRange disediakan, update atau buat IP Pool
-        if (profileData.ipRange && profileData.ipRange.trim() !== '') {
-          // console.log('[MikroTik PPP] Updating IP Pool:', newPoolName, profileData.ipRange)
-          const poolResult = await createIPPool(conn, newPoolName, profileData.ipRange)
-          if (!poolResult.success) {
-            console.error('[MikroTik PPP] Failed to update IP Pool:', poolResult.error)
-            // Lanjutkan update profile meskipun IP Pool gagal diupdate
-          } else {
-            // console.log('[MikroTik PPP] IP Pool updated successfully')
+      // =====================================================================
+      // MODE RADIUS: Tidak perlu IP Pool dan remote-address di MikroTik
+      // MODE LOKAL: Update IP Pool dan set remote-address di MikroTik
+      // =====================================================================
+      if (!profileData.skipPoolCheck) {
+        // Mode LOKAL: Handle IP Pool update
+        if (profileData.remoteAddress !== undefined || profileData.ipRange) {
+          const newPoolName = profileData.remoteAddress || oldProfileData['remote-address']
+          
+          if (profileData.ipRange && profileData.ipRange.trim() !== '') {
+            const poolResult = await createIPPool(conn, newPoolName, profileData.ipRange)
+            if (!poolResult.success) {
+              console.error('[MikroTik PPP] Failed to update IP Pool:', poolResult.error)
+            }
+          } else if (profileData.remoteAddress && profileData.remoteAddress !== oldProfileData['remote-address']) {
+            const poolExists = await checkIPPoolExists(conn, newPoolName)
+            if (!poolExists) {
+              conn.close()
+              return { success: false, error: `IP Pool "${newPoolName}" tidak ditemukan. Silakan berikan IP Range untuk membuat otomatis.` }
+            }
           }
-        } else if (profileData.remoteAddress && profileData.remoteAddress !== oldProfileData['remote-address'] && !profileData.skipPoolCheck) {
-          // Jika remoteAddress berubah tapi tidak ada ipRange, cek apakah pool baru sudah ada
-          const poolExists = await checkIPPoolExists(conn, newPoolName)
-          if (!poolExists) {
-            conn.close()
-            return { success: false, error: `IP Pool "${newPoolName}" tidak ditemukan. Silakan berikan IP Range untuk membuat otomatis.` }
-          }
-          // console.log('[MikroTik PPP] IP Pool already exists:', newPoolName)
         }
       }
 
       // Prepare data untuk update Profile PPP
-      // Format untuk node-routeros-v2: array of strings dengan format =key=value
-      // Kirim semua field yang disediakan untuk memastikan sinkronisasi dengan database
       const updateParams: string[] = []
 
       // Update name jika disediakan dan berbeda dari nama lama
@@ -605,13 +603,17 @@ export async function updatePPPProfileInMikroTik(
         updateParams.push(`=local-address=${profileData.localAddress}`)
       }
 
-      // Update remoteAddress jika disediakan
-      if (profileData.remoteAddress !== undefined) {
+      // Remote address: kondisional berdasarkan mode
+      if (profileData.skipPoolCheck) {
+        // Mode RADIUS: Hapus remote-address dari profil MikroTik
+        // IP pool dikelola oleh FreeRADIUS, bukan MikroTik
+        updateParams.push('=remote-address=')
+      } else if (profileData.remoteAddress !== undefined) {
+        // Mode LOKAL: Set remote-address ke nama IP Pool
         updateParams.push(`=remote-address=${profileData.remoteAddress}`)
       }
 
-      // Update comment: "add by netmanager - {profileName}"
-      // Gunakan name baru jika ada, jika tidak gunakan name lama
+      // Update comment
       const profileNameForComment = profileData.name && profileData.name !== profileName ? profileData.name : profileName
       const profileComment = `add by netmanager - ${profileNameForComment}`
       updateParams.push(`=comment=${profileComment}`)
@@ -621,7 +623,6 @@ export async function updatePPPProfileInMikroTik(
         if (profileData.dnsServer && profileData.dnsServer.trim() !== '') {
           updateParams.push(`=dns-server=${profileData.dnsServer}`)
         } else {
-          // Hapus dns-server jika dikosongkan
           updateParams.push('=dns-server=')
         }
       }
@@ -631,7 +632,6 @@ export async function updatePPPProfileInMikroTik(
         if (profileData.sessionTimeout) {
           updateParams.push(`=session-timeout=${profileData.sessionTimeout}`)
         } else {
-          // Hapus session-timeout jika dikosongkan
           updateParams.push('=session-timeout=')
         }
       }
@@ -641,23 +641,21 @@ export async function updatePPPProfileInMikroTik(
         if (profileData.idleTimeout) {
           updateParams.push(`=idle-timeout=${profileData.idleTimeout}`)
         } else {
-          // Hapus idle-timeout jika dikosongkan
           updateParams.push('=idle-timeout=')
         }
       }
 
-      // Update rateLimit jika disediakan
-      if (profileData.rateLimit !== undefined) {
+      // Rate-limit: kondisional berdasarkan mode
+      if (profileData.skipPoolCheck) {
+        // Mode RADIUS: Hapus rate-limit dari profil MikroTik
+        // Bandwidth dikelola via Mikrotik-Rate-Limit attribute di RADIUS reply
+        updateParams.push('=rate-limit=')
+      } else if (profileData.rateLimit !== undefined) {
         if (profileData.rateLimit && profileData.rateLimit.trim() !== '') {
-          // console.log('[MikroTik PPP] Updating rate-limit:', profileData.rateLimit)
           updateParams.push(`=rate-limit=${profileData.rateLimit}`)
         } else {
-          // Hapus rate-limit jika dikosongkan
-          // console.log('[MikroTik PPP] Removing rate-limit')
           updateParams.push('=rate-limit=')
         }
-      } else {
-        // console.log('[MikroTik PPP] rateLimit not provided, skipping rate-limit update')
       }
 
       // Update profile PPP di MikroTik
