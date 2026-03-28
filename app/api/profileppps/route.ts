@@ -348,27 +348,24 @@ export async function POST(req: NextRequest) {
 
         for (const router of activeRouters) {
           try {
-            // Jika poolMode=MIKROTIK, kita tetap perlu rateLimit dan ipRange di profil MikroTik
-            // Jika poolMode=RADIUS, skip keduanya (dikelola FreeRADIUS)
             const isRadiusPool = validation.data.poolMode === 'RADIUS';
-            let rateLimit: string | undefined;
-            if (!isRadiusPool) {
-              const rateLimitResult = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
-              rateLimit = rateLimitResult || undefined;
-            }
+            // Connection Mode = RADIUS: rate-limit SELALU dari FreeRADIUS
+            // (via Mikrotik-Rate-Limit attribute), TIDAK di-set di profil MikroTik
+            // ipRange & remote-address: berdasarkan poolMode
 
             const profilePPPDataForMikrotik = {
               name: validation.data.name,
               localAddress: validation.data.localAddress,
               remoteAddress: validation.data.remoteAddress,
-              // ipRange: hanya jika pool di MikroTik
+              // ipRange: hanya jika poolMode=MIKROTIK (pool di router)
               ...(!isRadiusPool && validation.data.ipRange && { ipRange: validation.data.ipRange }),
               ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
               ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
               ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-              // rateLimit: hanya jika pool di MikroTik
-              ...(!isRadiusPool && rateLimit && { rateLimit }),
+              // rateLimit: TIDAK di-set karena connection mode RADIUS
+              // FreeRADIUS mengirim Mikrotik-Rate-Limit via reply attributes
               skipPoolCheck: isRadiusPool,
+              skipRateLimit: true, // Connection Mode RADIUS: rate-limit selalu dari FreeRADIUS
             };
 
             await createPPPProfileInMikroTik(

@@ -23,6 +23,7 @@ interface PPPProfileData {
   idleTimeout?: number | null
   rateLimit?: string // Format: "10M/10M" (download/upload)
   skipPoolCheck?: boolean // Jika true, lewati verifikasi IP Pool lokal di router
+  skipRateLimit?: boolean // Jika true, TIDAK set rate-limit di profil MikroTik (RADIUS handle via Mikrotik-Rate-Limit attribute)
 }
 
 /**
@@ -432,9 +433,10 @@ export async function createPPPProfileInMikroTik(
         profileParams.push(`=idle-timeout=${profileData.idleTimeout}`)
       }
 
-      // Rate-limit: hanya set jika mode LOKAL (bukan RADIUS)
-      // Mode RADIUS: bandwidth dikelola via Mikrotik-Rate-Limit attribute di RADIUS reply
-      if (!profileData.skipPoolCheck && profileData.rateLimit && profileData.rateLimit.trim() !== '') {
+      // Rate-limit: kondisional berdasarkan mode
+      // skipRateLimit=true: Connection Mode RADIUS → rate-limit dari FreeRADIUS
+      // skipPoolCheck=true: poolMode RADIUS → rate-limit juga dari FreeRADIUS
+      if (!profileData.skipRateLimit && !profileData.skipPoolCheck && profileData.rateLimit && profileData.rateLimit.trim() !== '') {
         profileParams.push(`=rate-limit=${profileData.rateLimit}`)
       }
 
@@ -646,8 +648,9 @@ export async function updatePPPProfileInMikroTik(
       }
 
       // Rate-limit: kondisional berdasarkan mode
-      if (profileData.skipPoolCheck) {
-        // Mode RADIUS: Hapus rate-limit dari profil MikroTik
+      if (profileData.skipRateLimit || profileData.skipPoolCheck) {
+        // Connection Mode RADIUS atau poolMode RADIUS:
+        // Hapus rate-limit dari profil MikroTik
         // Bandwidth dikelola via Mikrotik-Rate-Limit attribute di RADIUS reply
         updateParams.push('=rate-limit=')
       } else if (profileData.rateLimit !== undefined) {
