@@ -132,7 +132,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
                             username: apiUsername,
                             password: apiPassword,
                         },
-                        process.env.RADIUS_PUBLIC_IP || null, // IP publik RADIUS server
+                        null, // auto-detect IP publik
                         secretRadius,
                         isolirUrl,
                         Number(authPort) || 1812,

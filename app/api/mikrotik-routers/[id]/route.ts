@@ -125,7 +125,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
                         username: router.apiUsername,
                         password: router.apiPassword,
                     },
-                    process.env.RADIUS_PUBLIC_IP || null, // IP publik RADIUS server
+                    null, // auto-detect IP publik
                     router.isolirUrl
                 );
                 if (!result.success) {

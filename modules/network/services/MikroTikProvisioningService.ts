@@ -1,6 +1,10 @@
 import { RouterOSAPI } from 'node-routeros-v2';
 import { networkInterfaces } from 'os';
 
+// Cache IP publik selama 5 menit agar tidak terus-terusan request
+let cachedPublicIp: string | null = null;
+let cacheExpiry: number = 0;
+
 export class MikroTikProvisioningService {
 
     /**
@@ -10,40 +14,76 @@ export class MikroTikProvisioningService {
         await new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    private detectServerIp(targetRouterIp: string): string {
-        const nets = networkInterfaces();
-        const results: string[] = [];
-        
-        // Simple logic: return the first non-internal IPv4 address
-        // Ideally we would check routing tables or matching subnets, but that's complex without system calls.
-        
-        for (const name of Object.keys(nets)) {
-            for (const net of nets[name]!) {
-                // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
-                if (net.family === 'IPv4' && !net.internal) {
-                    results.push(net.address);
+    /**
+     * Deteksi IP publik server secara otomatis via layanan API publik.
+     * Prioritas: env RADIUS_PUBLIC_IP > cache > API publik > IP lokal (fallback)
+     */
+    private async detectPublicIp(): Promise<string> {
+        // 1. Prioritas utama: env var RADIUS_PUBLIC_IP
+        if (process.env.RADIUS_PUBLIC_IP) {
+            return process.env.RADIUS_PUBLIC_IP;
+        }
+
+        // 2. Cache masih valid
+        if (cachedPublicIp && Date.now() < cacheExpiry) {
+            return cachedPublicIp;
+        }
+
+        // 3. Auto-detect via API publik (coba beberapa service)
+        const services = [
+            'https://api.ipify.org',
+            'https://ifconfig.me/ip',
+            'https://icanhazip.com',
+        ];
+
+        for (const url of services) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeout);
+
+                if (res.ok) {
+                    const ip = (await res.text()).trim();
+                    // Validasi format IPv4
+                    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+                        cachedPublicIp = ip;
+                        cacheExpiry = Date.now() + 5 * 60 * 1000; // Cache 5 menit
+                        console.log(`[Provisioning] Public IP detected: ${ip} (from ${url})`);
+                        return ip;
+                    }
                 }
+            } catch {
+                // Coba service berikutnya
+                continue;
             }
         }
 
-        if (results.length === 0) return '127.0.0.1'; // Fallback
-        
-        // If we have multiple IPs, how do we choose? 
-        // A simple heuristic: if target is in common private ranges, try to match the first octet.
-        const targetParts = targetRouterIp.split('.');
-        if (targetParts.length === 4) {
-             const bestMatch = results.find(ip => ip.startsWith(`${targetParts[0]}.`));
-             if (bestMatch) return bestMatch;
-        }
+        // 4. Fallback: IP lokal (untuk development / jaringan lokal)
+        console.warn('[Provisioning] Cannot detect public IP, falling back to local IP');
+        return this.detectLocalIp();
+    }
 
-        return results[0];
+    /**
+     * Fallback: ambil IP lokal dari network interfaces
+     */
+    private detectLocalIp(): string {
+        const nets = networkInterfaces();
+        for (const name of Object.keys(nets)) {
+            for (const net of nets[name]!) {
+                if (net.family === 'IPv4' && !net.internal) {
+                    return net.address;
+                }
+            }
+        }
+        return '127.0.0.1';
     }
 
     /**
      * Provisions the RADIUS configuration on a MikroTik router.
      * 
      * @param routerDetails Connection details for the MikroTik router
-     * @param radiusServerIp The IP address of the RADIUS server (public IP). If not provided, auto-detect (fallback).
+     * @param radiusServerIp The IP address of the RADIUS server (public IP). If not provided, auto-detect.
      * @param radiusSecret The shared secret for RADIUS
      * @param isolirUrl Optional URL for isolation redirect
      * @param authPort RADIUS Authentication port (default: 1812)
@@ -64,8 +104,8 @@ export class MikroTikProvisioningService {
     ): Promise<{ success: boolean; logs: string[] }> {
         const logs: string[] = [];
         
-        // Auto-detect IP if not provided
-        const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
+        // Auto-detect public IP if not provided
+        const finalServerIp = radiusServerIp || await this.detectPublicIp();
         logs.push(`Using Server IP for RADIUS: ${finalServerIp}`);
         logs.push(`Auth Port: ${authPort}, Accounting Port: ${accountingPort}`);
 
@@ -323,7 +363,7 @@ export class MikroTikProvisioningService {
         isolirUrl: string | null | undefined = null
     ): Promise<{ success: boolean; logs: string[] }> {
         const logs: string[] = [];
-        const finalServerIp = radiusServerIp || this.detectServerIp(routerDetails.ip);
+        const finalServerIp = radiusServerIp || await this.detectPublicIp();
 
         // console.log(`[Deprovisioning] Starting removal for Router: ${routerDetails.ip}`);
 
