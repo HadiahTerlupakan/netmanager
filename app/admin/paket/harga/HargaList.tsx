@@ -126,10 +126,10 @@ export default function HargaPaketPage() {
       const settingsData = settingsJson.data || settingsJson
       setPppConnectionMode(settingsData.pppConnectionMode || 'RADIUS')
 
-      setHargaPakets(hargaPaketsData.data || hargaPaketsData)
-      setProfilePPPs(profilePPPsData.data || profilePPPsData)
-      setSites(sitesData.data || sitesData)
-      setBandwidths(bandwidthsData.data || bandwidthsData)
+      setHargaPakets(Array.isArray(hargaPaketsData?.data) ? hargaPaketsData.data : Array.isArray(hargaPaketsData) ? hargaPaketsData : [])
+      setProfilePPPs(Array.isArray(profilePPPsData?.data) ? profilePPPsData.data : Array.isArray(profilePPPsData) ? profilePPPsData : [])
+      setSites(Array.isArray(sitesData?.data) ? sitesData.data : Array.isArray(sitesData) ? sitesData : [])
+      setBandwidths(Array.isArray(bandwidthsData?.data) ? bandwidthsData.data : Array.isArray(bandwidthsData) ? bandwidthsData : [])
       setError(null)
     } catch (error: unknown) {
       console.error('Error loading data:', error)
@@ -487,7 +487,7 @@ export default function HargaPaketPage() {
               className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
             >
               <option value="">-- Pilih Profile PPP --</option>
-              {profilePPPs
+              {(profilePPPs || [])
                 .filter((p) => p.status === 'AKTIF')
                 .map((profile) => (
                   <option key={profile.id} value={profile.id}>
