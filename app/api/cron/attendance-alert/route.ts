@@ -6,6 +6,21 @@ import {
     runScheduledAttendanceCheck 
 } from '@/modules/attendance/services/AttendanceAlertService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { acquireCronLock } from '@/lib/cron-lock'
+
+function getAttendanceAlertLock(type: string): { jobName: string; ttlSeconds: number } {
+    switch (type) {
+        case 'checkin':
+            return { jobName: 'route:attendanceAlert:checkin', ttlSeconds: 10 * 60 }
+        case 'checkout':
+            return { jobName: 'route:attendanceAlert:checkout', ttlSeconds: 10 * 60 }
+        case 'process':
+            return { jobName: 'route:attendanceAlert:process', ttlSeconds: 60 * 60 }
+        case 'auto':
+        default:
+            return { jobName: 'route:attendanceAlert:auto', ttlSeconds: 10 * 60 }
+    }
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -19,6 +34,16 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type') || 'auto'
+
+        const { jobName, ttlSeconds } = getAttendanceAlertLock(type)
+        const lockAcquired = await acquireCronLock(jobName, ttlSeconds)
+        if (!lockAcquired) {
+            return apiSuccess({
+                type,
+                skipped: true,
+                reason: 'Lock already held'
+            }, { message: 'Attendance alert sedang berjalan di runtime lain' })
+        }
 
         let result: Record<string, unknown> | undefined;
 

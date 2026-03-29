@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { acquireCronLock } from '@/lib/cron-lock'
 import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,14 @@ export async function POST(_request: Request) {
 
         if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
             return ApiErrors.unauthorized('Tidak terautentikasi')
+        }
+
+        const lockAcquired = await acquireCronLock('autoCheckout', 82800)
+        if (!lockAcquired) {
+            return apiSuccess({
+                skipped: true,
+                reason: 'Lock already held'
+            }, { message: 'Auto-checkout sedang berjalan di runtime lain' })
         }
 
         const count = await AutoCheckoutService.runAutoCheckout()

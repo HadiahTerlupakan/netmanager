@@ -4,6 +4,8 @@ import { cache } from '@/lib/cache'
 import { sendPushNotification } from '@/modules/notification/services/ExpoPushService'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
+import { randomUUID } from 'crypto'
+import { getTimezone } from '@/lib/utils/get-timezone'
 
 
 /**
@@ -23,6 +25,15 @@ interface UserSchedule {
 
 function getDateKey(date: Date = new Date()): string {
     return date.toISOString().slice(0, 10)
+}
+
+function getDateKeyInTimezone(date: Date, timezone: string): string {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(date)
 }
 
 function getFlexibleHourBucket(excessHours: number): number {
@@ -55,6 +66,14 @@ function parseTimeToDate(timeStr: string, date: Date = new Date()): Date {
     return result
 }
 
+function parseTimeToDateInTimezone(timeStr: string, date: Date, timezone: string): Date {
+    const parts = timeStr.split(':').map(Number)
+    const hours = parts[0] ?? 0
+    const minutes = parts[1] ?? 0
+    const startOfLocalDay = toStartOfDay(getDateKeyInTimezone(date, timezone), timezone)
+    return new Date(startOfLocalDay.getTime() + hours * 60 * 60 * 1000 + minutes * 60 * 1000)
+}
+
 /**
  * Check if current time is past the reminder time
  * @param workTime - Work start/end time (HH:mm)
@@ -78,7 +97,14 @@ function isInReminderWindow(
 /**
  * Get day name in English (MON, TUE, WED, etc.)
  */
-function getDayName(date: Date = new Date()): string {
+function getDayName(date: Date = new Date(), timezone?: string): string {
+    if (timezone) {
+        return new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            weekday: 'short'
+        }).format(date).slice(0, 3).toUpperCase()
+    }
+
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
     return days[date.getDay()] ?? 'SUN'
 }
@@ -86,10 +112,10 @@ function getDayName(date: Date = new Date()): string {
 /**
  * Check if user works on given day
  */
-function isWorkDay(workDays: string | null, date: Date = new Date()): boolean {
+function isWorkDay(workDays: string | null, date: Date = new Date(), timezone?: string): boolean {
     if (!workDays) return true // Default: all days are work days
 
-    const dayName = getDayName(date)
+    const dayName = getDayName(date, timezone)
     const workDayList = workDays.toUpperCase().split(',').map(d => d.trim())
 
     return workDayList.includes(dayName)
@@ -174,6 +200,7 @@ export async function getUsersNeedingCheckOutReminder(
         where: {
             checkIn: { gte: startOfDay, lte: endOfDay },
             checkOut: null,
+            status: { not: 'ALPHA' },
             user: {
                 isActive: true,
                 pushToken: { not: null },
@@ -365,6 +392,7 @@ export async function processIncompleteAttendance(): Promise<{
         where: {
             checkIn: { gte: startOfDay, lte: endOfDay },
             checkOut: null,
+            status: { not: 'ALPHA' },
             user: {
                 workingHourMode: { not: 'FLEXIBLE' }
             }
@@ -388,6 +416,134 @@ export async function processIncompleteAttendance(): Promise<{
     return {
         missingCheckOut: incomplete.length,
         usersNotified
+    }
+}
+
+export async function processFixedHourAutoAlpha(): Promise<{
+    usersMarkedAlpha: number
+    details: string[]
+}> {
+    try {
+        const now = new Date()
+
+        const users = await prisma.user.findMany({
+            where: {
+                isActive: true,
+                isAttendanceRequired: true,
+                tenantId: { not: null },
+                endWorkTime: { not: null },
+                workingHourMode: 'FIXED',
+                role: {
+                    name: { not: 'SUPER_ADMIN' }
+                }
+            },
+            select: {
+                id: true,
+                name: true,
+                tenantId: true,
+                endWorkTime: true,
+                workDays: true,
+                workingHourMode: true,
+                isAttendanceRequired: true
+            }
+        })
+
+        if (users.length === 0) {
+            return { usersMarkedAlpha: 0, details: [] }
+        }
+
+        const details: string[] = []
+        let usersMarkedAlpha = 0
+        const timezoneCache = new Map<string, string>()
+
+        for (const user of users) {
+            if (user.workingHourMode !== 'FIXED') continue
+            if (!user.isAttendanceRequired) continue
+            if (!user.tenantId || !user.endWorkTime) continue
+
+            let timezone = timezoneCache.get(user.tenantId)
+            if (!timezone) {
+                timezone = await getTimezone(user.tenantId)
+                timezoneCache.set(user.tenantId, timezone)
+            }
+
+            const currentDateKey = getDateKeyInTimezone(now, timezone)
+            const startOfDay = toStartOfDay(currentDateKey, timezone)
+            const endOfDay = toEndOfDay(currentDateKey, timezone)
+
+            if (!isWorkDay(user.workDays, now, timezone)) continue
+
+            const shiftEndTime = parseTimeToDateInTimezone(user.endWorkTime, now, timezone)
+            if (now < shiftEndTime) continue
+
+            const holiday = await prisma.holiday.findFirst({
+                where: {
+                    tenantId: user.tenantId,
+                    date: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                    }
+                }
+            })
+
+            if (holiday) continue
+
+            const existingAttendance = await prisma.attendance.findFirst({
+                where: {
+                    userId: user.id,
+                    tenantId: user.tenantId,
+                    checkIn: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                    }
+                }
+            })
+
+            if (existingAttendance) continue
+
+            const approvedLeave = await prisma.leaveRequest.findFirst({
+                where: {
+                    userId: user.id,
+                    tenantId: user.tenantId,
+                    status: 'APPROVED',
+                    startDate: { lte: endOfDay },
+                    endDate: { gte: startOfDay }
+                }
+            })
+
+            if (approvedLeave) continue
+
+            const alphaLockKey = `attendance:auto-alpha:${user.id}:${currentDateKey}`
+            const shouldCreate = await acquireReminderLock(alphaLockKey, 15 * 60)
+            if (!shouldCreate) continue
+
+            const alphaTime = new Date(startOfDay)
+
+            await prisma.attendance.create({
+                data: {
+                    id: randomUUID(),
+                    userId: user.id,
+                    tenantId: user.tenantId,
+                    checkIn: alphaTime,
+                    status: 'ALPHA',
+                    notes: 'Tidak Masuk Kerja (Alpha) - Auto Generated',
+                    location: 'System',
+                    updatedAt: new Date()
+                }
+            })
+
+            usersMarkedAlpha++
+            details.push(`${user.name || user.id} (${user.endWorkTime})`)
+        }
+
+        if (usersMarkedAlpha > 0) {
+            console.log(`[AttendanceAlert] Auto-marked ALPHA for ${usersMarkedAlpha} fixed-hour users`)
+        }
+
+        return { usersMarkedAlpha, details }
+    } catch (error) {
+        console.error('[AttendanceAlert] Error auto-marking fixed-hour ALPHA:', error)
+        return { usersMarkedAlpha: 0, details: [] }
     }
 }
 
@@ -448,12 +604,14 @@ export async function runScheduledAttendanceCheck(
     checkIn: { usersNotified: number; details: string[] }
     checkOut: { usersNotified: number; details: string[] }
     lateCheckOut: { usersNotified: number; details: string[] }
+    fixedAlpha: { usersMarkedAlpha: number; details: string[] }
     flexible: { usersNotified: number; details: string[] }
 }> {
-    const [checkInResult, checkOutResult, lateCheckOutResult, flexibleReminderResult] = await Promise.all([
+    const [checkInResult, checkOutResult, lateCheckOutResult, fixedAlphaResult, flexibleReminderResult] = await Promise.all([
         processCheckInReminders(reminderMinutes),
         processCheckOutReminders(reminderMinutes),
         processLateCheckOutReminders(),
+        processFixedHourAutoAlpha(),
         processFlexibleReminders()
     ])
 
@@ -461,6 +619,7 @@ export async function runScheduledAttendanceCheck(
         checkIn: checkInResult.usersNotified,
         checkOut: checkOutResult.usersNotified,
         lateCheckOut: lateCheckOutResult.usersNotified,
+        fixedAlpha: fixedAlphaResult.usersMarkedAlpha,
         flexible: flexibleReminderResult.usersNotified
     })
 
@@ -468,6 +627,7 @@ export async function runScheduledAttendanceCheck(
         checkIn: checkInResult,
         checkOut: checkOutResult,
         lateCheckOut: lateCheckOutResult,
+        fixedAlpha: fixedAlphaResult,
         flexible: flexibleReminderResult
     }
 }

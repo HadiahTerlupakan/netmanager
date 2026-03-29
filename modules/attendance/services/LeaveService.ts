@@ -11,7 +11,6 @@ import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
-
 // Standard ServiceResult pattern
 export interface ServiceResult<T> {
     success: boolean
@@ -329,6 +328,13 @@ export class LeaveService {
                         logger.error('Failed to refund leave balance', error instanceof Error ? error : undefined)
                     }
                 }
+                
+                // Also revert the Attendance records
+                try {
+                    await this.revertLeaveFromAttendance(existing)
+                } catch (error) {
+                    logger.error('Failed to revert attendance in reject', error instanceof Error ? error : undefined)
+                }
             }
 
             const leave = await this.repository.update(id, {
@@ -391,6 +397,13 @@ export class LeaveService {
                     } catch (error) {
                         logger.error('Failed to refund leave balance during deletion', error instanceof Error ? error : undefined)
                     }
+                }
+
+                // Also revert the Attendance records
+                try {
+                    await this.revertLeaveFromAttendance(existing)
+                } catch (error) {
+                    logger.error('Failed to revert attendance during deletion', error instanceof Error ? error : undefined)
                 }
             }
 
@@ -501,6 +514,35 @@ export class LeaveService {
             }
             curDate.setDate(curDate.getDate() + 1)
         }
+    }
+
+    /**
+     * Helper: Revert synced leave from attendance
+     */
+    private async revertLeaveFromAttendance(leave: Prisma.LeaveRequestGetPayload<{ include: { user: true } }>): Promise<void> {
+        const startDate = new Date(leave.startDate)
+        const endDate = new Date(leave.endDate)
+        
+        startDate.setTime(toStartOfDay(startDate).getTime())
+        endDate.setTime(toEndOfDay(endDate).getTime())
+
+        // Delete all 'PERMIT', 'SICK', 'DAY_OFF' attendances in this range that have "Auto-generated from Leave Request" or "Updated by Leave Approval"
+        await prisma.attendance.deleteMany({
+            where: {
+                userId: leave.userId,
+                tenantId: leave.tenantId,
+                checkIn: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                status: {
+                    in: ['SICK', 'PERMIT', 'DAY_OFF']
+                },
+                notes: {
+                    contains: 'Leave'
+                }
+            }
+        })
     }
 
     /**

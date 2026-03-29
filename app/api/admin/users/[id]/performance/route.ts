@@ -98,7 +98,7 @@ export const GET = createHandler({
     const count = (stat._count as { _all: number })._all || 0
     if (status === 'ON_TIME') attendance.present += count
     else if (status === 'LATE') attendance.late += count
-    else if (status === 'ABSENT' || status === 'DAY_OFF') attendance.absent += count
+    else if (status === 'ABSENT' || status === 'DAY_OFF' || status === 'NO_CHECKOUT') attendance.absent += count
     else if (status === 'ALPHA') attendance.alpha += count
   })
   attendance.total = attendance.present + attendance.late + attendance.absent + attendance.alpha

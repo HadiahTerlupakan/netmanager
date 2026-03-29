@@ -3271,6 +3271,7 @@ enum AttendanceStatus {
   PERMIT
   DAY_OFF
   ALPHA
+  NO_CHECKOUT
 }
 
 enum AttendanceGeofencePolicy {

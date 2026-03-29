@@ -15,6 +15,7 @@ import { Server as SocketIOServer } from 'socket.io'
 import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
 import { initializeSocketServer } from './lib/websocket/server'
+import { startInternalCronIfEnabled } from './lib/runtime/should-start-internal-cron'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { Hono } from 'hono'
@@ -161,9 +162,11 @@ import('./modules/network/services/MikroTikMonitor').then(({ mikroTikMonitor }) 
 }).catch(err => console.error('[Server] Failed to start MikroTik monitoring:', err))
 
 // Start Cron Jobs
-import('./lib/cron-registry').then(({ cronRegistry }) => {
+if (startInternalCronIfEnabled({ startAll: () => {} })) {
+  import('./lib/cron-registry').then(({ cronRegistry }) => {
     cronRegistry.startAll()
-}).catch(err => console.error('[Server] Failed to load Cron Registry:', err))
+  }).catch(err => console.error('[Server] Failed to load Cron Registry:', err))
+}
 
 if (dev) {
 // Prevent duplicate intervals on hot reload

@@ -74,7 +74,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
               // Add tenant relation, unless they already provided tenant or tenantId
               if (dataArgs && dataArgs.tenantId === undefined && dataArgs.tenant === undefined) {
                 // Determine if we need to use relation syntax (CreateInput) or scalar flat syntax (UncheckedCreateInput)
-                const hasRelationPayload = (obj: any): boolean => {
+                const hasRelationPayload = (obj: Record<string, unknown> | null | undefined): boolean => {
                     if (!obj || typeof obj !== 'object') return false;
                     for (const key in obj) {
                         if (obj[key] && typeof obj[key] === 'object') {
@@ -105,7 +105,7 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             } else if (operation === 'upsert') {
               const createArgs = args.create as Record<string, unknown> | undefined;
               if (createArgs && createArgs.tenantId === undefined && createArgs.tenant === undefined) {
-                const hasRelationPayload = (obj: any): boolean => {
+                const hasRelationPayload = (obj: Record<string, unknown> | null | undefined): boolean => {
                     if (!obj || typeof obj !== 'object') return false;
                     for (const key in obj) {
                         if (obj[key] && typeof obj[key] === 'object') {

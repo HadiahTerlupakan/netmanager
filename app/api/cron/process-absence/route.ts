@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
+import { acquireCronLock } from '@/lib/cron-lock'
 import { env } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
+
+function getDateLockKey(date: Date): string {
+    return date.toISOString().slice(0, 10)
+}
 
 export async function POST(request: Request) {
     try {
@@ -29,6 +34,15 @@ export async function POST(request: Request) {
             }
         } catch (_e) {
             // No body or invalid json, use default
+        }
+
+        const lockAcquired = await acquireCronLock(`processAbsence:${getDateLockKey(targetDate)}`, 60 * 60)
+        if (!lockAcquired) {
+            return NextResponse.json({
+                success: true,
+                skipped: true,
+                reason: 'Lock already held'
+            })
         }
 
         const absenceService = new AbsenceService()

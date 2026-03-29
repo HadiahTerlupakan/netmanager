@@ -306,19 +306,22 @@ export function ClientComponent() {
             render: (item) => {
                 if (item.status === 'SICK') return <div className="text-sm text-orange-500 italic font-medium">Sakit</div>
                 if (item.status === 'PERMIT') return <div className="text-sm text-blue-500 italic font-medium">Izin</div>
-                
+                if (item.status === 'DAY_OFF') return <div className="text-sm text-purple-500 italic font-medium">Libur</div>
                 const checkInDate = new Date(item.checkIn);
-                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
+                const isDummyCheckIn = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0 && checkInDate.getSeconds() === 0;
+                const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
+                
+                if (['ALPHA', 'ABSENT'].includes(item.status)) {
+                    if (isSystemGenerated || (isDummyCheckIn && !item.checkOut)) {
+                        return <div className="text-sm text-red-500 italic font-medium">Mangkir</div>
+                    }
+                }
                 
                 const now = new Date();
                 const isToday = checkInDate.toDateString() === now.toDateString();
                 
-                // Forgot Check-out logic: has real check-in but status is Alpha/Absent OR (checkout is null AND not today)
-                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || (!item.checkOut && !isToday));
-
-                if (['ALPHA', 'ABSENT'].includes(item.status) && !hasRealCheckIn) {
-                    return <div className="text-sm text-red-500 italic font-medium">Mangkir</div>
-                }
+                // Forgot Check-out logic
+                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
 
                 const checkInHour = checkInDate.getHours();
                 const checkInMinute = checkInDate.getMinutes();
@@ -326,10 +329,20 @@ export function ClientComponent() {
 
                 return (
                     <div>
-                        <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
-                            IN: {formatTimeDisplay(item.checkIn)}
-                        </div>
-                        {isForgotCheckOut ? (
+                        {isDummyCheckIn ? (
+                            <div className="text-sm text-red-500 font-mono bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded inline-block mb-1">
+                                IN: -
+                            </div>
+                        ) : (
+                            <div className="text-sm text-green-600 font-mono bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded inline-block mb-1">
+                                IN: {formatTimeDisplay(item.checkIn)}
+                            </div>
+                        )}
+                        {item.status === 'NO_CHECKOUT' ? (
+                            <div className={`text-[10px] italic font-medium block mt-1 ${isOnTime ? 'text-green-600' : 'text-yellow-600'}`}>
+                                {isOnTime ? 'Tepat Waktu' : 'Terlambat'} &nbsp;(Tidak Checkout)
+                            </div>
+                        ) : isForgotCheckOut ? (
                             <div className={`text-[10px] italic font-medium block mt-1 ${isOnTime ? 'text-green-600' : 'text-yellow-600'}`}>
                                 {isOnTime ? 'Tepat Waktu' : 'Terlambat'} dan tidak cekout
                             </div>
@@ -353,14 +366,14 @@ export function ClientComponent() {
             priority: 'primary',
             render: (item) => {
                 const checkInDate = new Date(item.checkIn);
-                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
-                
+                const isDummyCheckIn = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0 && checkInDate.getSeconds() === 0;
                 const now = new Date();
                 const isToday = checkInDate.toDateString() === now.toDateString();
                 
-                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || (!item.checkOut && !isToday));
+                const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
+                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
 
-                if (['ALPHA', 'ABSENT', 'SICK', 'PERMIT'].includes(item.status) || !item.checkOut || isForgotCheckOut) {
+                if (!item.checkOut || ['ALPHA', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF', 'NO_CHECKOUT'].includes(item.status) || isSystemGenerated || isForgotCheckOut || isDummyCheckIn) {
                     return <span className="text-gray-400 text-sm">-</span>
                 }
 
@@ -383,14 +396,17 @@ export function ClientComponent() {
             header: 'Lokasi',
             priority: 'tertiary',
             render: (item) => {
-                if (['SICK', 'PERMIT'].includes(item.status)) return <span className="text-xs text-gray-400">-</span>
+                if (['SICK', 'PERMIT', 'DAY_OFF'].includes(item.status)) return <span className="text-xs text-gray-400">-</span>
 
                 const checkInDate = new Date(item.checkIn);
-                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
+                const isDummyCheckIn = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0 && checkInDate.getSeconds() === 0;
+                const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
                 
-                if (!hasRealCheckIn) return <span className="text-xs text-gray-400">-</span>
+                if (isSystemGenerated || isDummyCheckIn) return <span className="text-xs text-gray-400">-</span>
 
-                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT');
+                const now = new Date();
+                const isToday = checkInDate.toDateString() === now.toDateString();
+                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
 
                 return (
                     <div className="flex flex-col gap-1 max-w-[200px]">
@@ -433,13 +449,12 @@ export function ClientComponent() {
             priority: 'primary',
             render: (item) => {
                 const checkInDate = new Date(item.checkIn);
-                const hasRealCheckIn = checkInDate.getHours() !== 0 || checkInDate.getMinutes() !== 0;
-                
+                const isDummyCheckIn = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0 && checkInDate.getSeconds() === 0;
                 const now = new Date();
                 const isToday = checkInDate.toDateString() === now.toDateString();
                 
-                // Robust forgot checkout detection: ignore if it's today
-                const isForgotCheckOut = hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT' || (!item.checkOut && !isToday));
+                const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
+                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isSystemGenerated && !isDummyCheckIn;
 
                 const statusConfig: Record<string, { bg: string, text: string, label: string }> = {
                     'ON_TIME': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Tepat Waktu' },
@@ -448,7 +463,8 @@ export function ClientComponent() {
                     'PERMIT': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-400', label: 'Izin' },
                     'ALPHA': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
                     'ABSENT': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
-                    'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur' }
+                    'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur/Tukar Libur' },
+                    'NO_CHECKOUT': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Tidak Checkout' }
                 }
                 
                 let config = statusConfig[item.status] || statusConfig['ABSENT'];
@@ -464,8 +480,14 @@ export function ClientComponent() {
                     } else {
                         config = { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Terlambat dan tidak cekout' };
                     }
-                } else if (!hasRealCheckIn && (item.status === 'ALPHA' || item.status === 'ABSENT')) {
-                    config = { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' };
+                } else if (!item.checkOut && isToday && !isSystemGenerated && !['SICK', 'PERMIT', 'DAY_OFF'].includes(item.status) && !isDummyCheckIn && item.status !== 'NO_CHECKOUT') {
+                     config = { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-800 dark:text-gray-300', label: 'Belum Checkout' };
+                } else if ((isSystemGenerated || isDummyCheckIn) && (item.status === 'ALPHA' || item.status === 'ABSENT' || item.status === 'NO_CHECKOUT')) {
+                    if (isDummyCheckIn && item.checkOut) {
+                        config = { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Lupa Check-in (Mangkir)' };
+                    } else {
+                        config = { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' };
+                    }
                 }
 
                 return (
@@ -638,6 +660,27 @@ export function ClientComponent() {
                     >
                         <FaFileExport /> Export CSV
                     </Button>
+                    {hasPermission('attendance:create') && (
+                        <Button
+                            variant="default"
+                            onClick={async () => {
+                                if (!confirm('Jalankan proses perbaikan (backfill) presensi Mangkir otomatis?')) return;
+                                try {
+                                    await fetchWithHandling('/api/admin/attendance/backdate', {
+                                        method: 'POST',
+                                        body: JSON.stringify({ startDate, endDate })
+                                    })
+                                    showToast('success', 'Backfill presensi berhasil dijalankan!')
+                                    fetchAttendances()
+                                } catch (error) {
+                                     console.error(error);
+                                     showToast('error', 'Gagal menjalankan backfill absen')
+                                }
+                            }}
+                        >
+                            Sync Mangkir
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -741,6 +784,7 @@ export function ClientComponent() {
                             <option value="SICK">Sakit (SICK)</option>
                             <option value="PERMIT">Izin (PERMIT)</option>
                             <option value="ABSENT">Alpha (ABSENT)</option>
+                            <option value="NO_CHECKOUT">Tidak Checkout (NO_CHECKOUT)</option>
                             <option value="DAY_OFF">Libur (DAY_OFF)</option>
                         </select>
                     </div>

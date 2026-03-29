@@ -226,7 +226,7 @@ export class AttendanceService {
                 data: {
                     checkOut: autoCheckOut,
                     notes: newNotes,
-                    status: 'ABSENT' // Consistent with AutoCheckoutService
+                    status: 'NO_CHECKOUT' // Consistent with AutoCheckoutService
                 }
             })
         }))

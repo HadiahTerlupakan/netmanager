@@ -40,10 +40,21 @@ vi.mock('@/lib/redis', () => {
   return { redis: { get, set } }
 })
 
+vi.mock('@/lib/utils/get-timezone', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/utils/get-timezone')>()
+
+  return {
+    ...actual,
+    getTimezone: vi.fn().mockResolvedValue('Asia/Jakarta'),
+  }
+})
+
 import {
   processCheckInReminders,
+  processFixedHourAutoAlpha,
   processIncompleteAttendance,
   processFlexibleReminders,
+  runScheduledAttendanceCheck,
 } from '@/modules/attendance/services/AttendanceAlertService'
 
 describe('AttendanceAlertService', () => {
@@ -110,5 +121,164 @@ describe('AttendanceAlertService', () => {
     expect(first.usersNotified).toEqual(['Rina'])
     expect(second.usersNotified).toEqual([])
     expect(mockFns.createNotification).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores ALPHA records when checking incomplete attendance alerts', async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([])
+
+    await processIncompleteAttendance()
+
+    expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { not: 'ALPHA' },
+        }),
+      })
+    )
+    expect(mockFns.createNotification).not.toHaveBeenCalled()
+  })
+
+  it('auto marks fixed-hour users as ALPHA once their work end time has passed without check-in', async () => {
+    vi.setSystemTime(new Date(2026, 2, 9, 17, 35, 0, 0))
+
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: 'user-fixed',
+        name: 'Budi',
+        tenantId: 'tenant-1',
+        endWorkTime: '17:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FIXED',
+        isAttendanceRequired: true,
+      },
+    ])
+    prismaMock.holiday.findFirst.mockResolvedValue(null)
+    prismaMock.attendance.findFirst.mockResolvedValue(null)
+    prismaMock.leaveRequest.findFirst.mockResolvedValue(null)
+    prismaMock.attendance.create.mockResolvedValue({ id: 'att-1' })
+
+    const result = await processFixedHourAutoAlpha()
+
+    expect(result.usersMarkedAlpha).toBe(1)
+    expect(result.details).toEqual(['Budi (17:00)'])
+    expect(prismaMock.attendance.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'user-fixed',
+        tenantId: 'tenant-1',
+        status: 'ALPHA',
+        notes: 'Tidak Masuk Kerja (Alpha) - Auto Generated',
+        location: 'System',
+        checkIn: new Date(2026, 2, 9, 0, 0, 0, 0),
+        updatedAt: expect.any(Date),
+        id: expect.any(String),
+      }),
+    })
+  })
+
+  it('does not auto mark users before the fixed work end time or for non-fixed modes', async () => {
+    vi.setSystemTime(new Date(2026, 2, 9, 16, 45, 0, 0))
+
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: 'user-fixed',
+        name: 'Budi',
+        tenantId: 'tenant-1',
+        endWorkTime: '17:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FIXED',
+        isAttendanceRequired: true,
+      },
+      {
+        id: 'user-flex',
+        name: 'Sari',
+        tenantId: 'tenant-1',
+        endWorkTime: '16:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FLEXIBLE',
+        isAttendanceRequired: true,
+      },
+    ])
+
+    const result = await processFixedHourAutoAlpha()
+
+    expect(result.usersMarkedAlpha).toBe(0)
+    expect(prismaMock.attendance.create).not.toHaveBeenCalled()
+  })
+
+  it('skips auto alpha when fixed-hour users are on holiday, already attended, or on approved leave', async () => {
+    vi.setSystemTime(new Date(2026, 2, 9, 17, 35, 0, 0))
+
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: 'user-holiday',
+        name: 'Hari',
+        tenantId: 'tenant-1',
+        endWorkTime: '17:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FIXED',
+        isAttendanceRequired: true,
+      },
+      {
+        id: 'user-attended',
+        name: 'Absen',
+        tenantId: 'tenant-1',
+        endWorkTime: '17:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FIXED',
+        isAttendanceRequired: true,
+      },
+      {
+        id: 'user-leave',
+        name: 'Cuti',
+        tenantId: 'tenant-1',
+        endWorkTime: '17:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FIXED',
+        isAttendanceRequired: true,
+      },
+    ])
+
+    prismaMock.holiday.findFirst
+      .mockResolvedValueOnce({ id: 'holiday-1' })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+    prismaMock.attendance.findFirst
+      .mockResolvedValueOnce({ id: 'att-existing' })
+      .mockResolvedValueOnce(null)
+    prismaMock.leaveRequest.findFirst.mockResolvedValueOnce({ id: 'leave-1' })
+
+    const result = await processFixedHourAutoAlpha()
+
+    expect(result.usersMarkedAlpha).toBe(0)
+    expect(prismaMock.attendance.create).not.toHaveBeenCalled()
+  })
+
+  it('includes fixed-hour auto alpha processing in the scheduled attendance check', async () => {
+    vi.setSystemTime(new Date(2026, 2, 9, 17, 35, 0, 0))
+
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: 'user-fixed',
+        name: 'Budi',
+        tenantId: 'tenant-1',
+        endWorkTime: '17:00',
+        workDays: 'MON,TUE,WED,THU,FRI',
+        workingHourMode: 'FIXED',
+        isAttendanceRequired: true,
+      },
+    ])
+    prismaMock.attendance.findMany.mockResolvedValue([])
+    prismaMock.holiday.findFirst.mockResolvedValue(null)
+    prismaMock.attendance.findFirst.mockResolvedValue(null)
+    prismaMock.leaveRequest.findFirst.mockResolvedValue(null)
+    prismaMock.attendance.create.mockResolvedValue({ id: 'att-1' })
+
+    const result = await runScheduledAttendanceCheck()
+
+    expect(result.fixedAlpha.usersMarkedAlpha).toBe(1)
+    expect(result.checkIn.usersNotified).toBe(0)
+    expect(result.checkOut.usersNotified).toBe(0)
+    expect(result.lateCheckOut.usersNotified).toBe(0)
+    expect(result.flexible.usersNotified).toBe(0)
   })
 })

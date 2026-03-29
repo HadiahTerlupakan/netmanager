@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { cronRegistry } from './lib/cron-registry'
+import { startInternalCronIfEnabled } from './lib/runtime/should-start-internal-cron'
 
 // Safeguard: Set Default Timezone for the entire process if not set
 if (!process.env.TZ) {
@@ -8,7 +9,7 @@ if (!process.env.TZ) {
 console.log(`[Worker] Starting cron worker... Timezone: ${process.env.TZ} (${new Date().toString()})`)
 
 // Start all cron jobs
-cronRegistry.startAll()
+startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() })
 
 // Graceful shutdown
 const gracefulShutdown = (signal: string) => {

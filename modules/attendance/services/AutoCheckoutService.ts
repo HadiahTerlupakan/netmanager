@@ -137,9 +137,9 @@ export class AutoCheckoutService {
                         data: {
                             checkOut: checkOutTime,
                             notes: attendance.notes ? `${attendance.notes}; Auto checkout by system (Mangkir)` : 'Auto checkout by system (Mangkir)',
-                            // For flexible users, do not change status to ABSENT. 
+                            // For flexible users, do not change status to NO_CHECKOUT. 
                             // They are always ON_TIME as long as they checked in.
-                            status: isFlexible ? attendance.status : 'ABSENT'
+                            status: isFlexible ? attendance.status : 'NO_CHECKOUT'
                         }
                     })
                     updatedCount++

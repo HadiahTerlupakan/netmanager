@@ -20,6 +20,7 @@ import Redis from 'ioredis'
 import { getToken } from 'next-auth/jwt'
 import { initializeSocketServer } from './lib/websocket/server'
 import { cronRegistry } from './lib/cron-registry'
+import { startInternalCronIfEnabled } from './lib/runtime/should-start-internal-cron'
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { prisma } from './lib/prisma'
@@ -393,7 +394,7 @@ app.prepare().then(() => {
     startPushRetryProcessor()
 
     // Start all cron jobs
-    cronRegistry.startAll()
+    startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() })
 
     // Start Radius Monitoring Service
     // Dynamic import to avoid issues if module dependencies aren't ready
