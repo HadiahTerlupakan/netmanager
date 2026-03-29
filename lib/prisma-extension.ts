@@ -71,10 +71,12 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             // even for SuperAdmins, so newly created records belong to their active tenant context.
             if (operation === 'create') {
               const dataArgs = args.data as Record<string, unknown> | undefined;
-              if (dataArgs && dataArgs.tenantId === undefined) {
-                args.data = { ...dataArgs, tenantId };
+              // Add tenant relation, unless they already provided tenant or tenantId
+              if (dataArgs && dataArgs.tenantId === undefined && dataArgs.tenant === undefined) {
+                args.data = { ...dataArgs, tenant: { connect: { id: tenantId } } };
               }
             } else if (operation === 'createMany') {
+              // createMany only takes scalars, so tenantId is strictly required here
               if (Array.isArray(args.data)) {
                 args.data = (args.data as Record<string, unknown>[]).map((d) => (d.tenantId === undefined ? { ...d, tenantId } : d));
               } else {
@@ -85,14 +87,17 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
               }
             } else if (operation === 'upsert') {
               const createArgs = args.create as Record<string, unknown> | undefined;
-              if (createArgs && createArgs.tenantId === undefined) {
-                args.create = { ...createArgs, tenantId };
+              if (createArgs && createArgs.tenantId === undefined && createArgs.tenant === undefined) {
+                args.create = { ...createArgs, tenant: { connect: { id: tenantId } } };
               }
               
               if (!isSuperAdmin) {
                 const updateArgs = args.update as Record<string, unknown> | undefined;
                 if (updateArgs && updateArgs.tenantId !== undefined) {
                   delete updateArgs.tenantId;
+                }
+                if (updateArgs && updateArgs.tenant !== undefined) {
+                  delete updateArgs.tenant;
                 }
               }
             }
