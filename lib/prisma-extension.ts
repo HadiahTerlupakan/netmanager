@@ -73,7 +73,15 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
               const dataArgs = args.data as Record<string, unknown> | undefined;
               // Add tenant relation, unless they already provided tenant or tenantId
               if (dataArgs && dataArgs.tenantId === undefined && dataArgs.tenant === undefined) {
-                args.data = { ...dataArgs, tenant: { connect: { id: tenantId } } };
+                // Determine if we need to use relation syntax (CreateInput) or scalar flat syntax (UncheckedCreateInput)
+                const hasRelationPayload = Object.values(dataArgs).some(val => 
+                  val !== null && typeof val === 'object' && ('connect' in val || 'create' in val || 'connectOrCreate' in val)
+                );
+                if (hasRelationPayload) {
+                  args.data = { ...dataArgs, tenant: { connect: { id: tenantId } } };
+                } else {
+                  args.data = { ...dataArgs, tenantId };
+                }
               }
             } else if (operation === 'createMany') {
               // createMany only takes scalars, so tenantId is strictly required here
@@ -88,7 +96,14 @@ export function withTenantIsolation(ignoreModels: string[] = []) {
             } else if (operation === 'upsert') {
               const createArgs = args.create as Record<string, unknown> | undefined;
               if (createArgs && createArgs.tenantId === undefined && createArgs.tenant === undefined) {
-                args.create = { ...createArgs, tenant: { connect: { id: tenantId } } };
+                const hasRelationPayload = Object.values(createArgs).some(val => 
+                  val !== null && typeof val === 'object' && ('connect' in val || 'create' in val || 'connectOrCreate' in val)
+                );
+                if (hasRelationPayload) {
+                  args.create = { ...createArgs, tenant: { connect: { id: tenantId } } };
+                } else {
+                  args.create = { ...createArgs, tenantId };
+                }
               }
               
               if (!isSuperAdmin) {
