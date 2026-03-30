@@ -105,4 +105,44 @@ describe('mobile attendance status route', () => {
             warningMessage: 'Sesi fleksibel lama sejak 23/01/2026 09:00 belum checkout.',
         })
     })
+
+    it('returns idle when the latest attendance was checked out on a previous day', async () => {
+        vi.setSystemTime(new Date('2026-03-09T02:24:00.000Z'))
+        prismaMock.attendance.findFirst.mockResolvedValue({
+            id: 'attendance-closed-yesterday',
+            checkIn: new Date('2026-03-08T02:00:00.000Z'),
+            checkOut: new Date('2026-03-08T09:30:00.000Z'),
+            status: 'ON_TIME',
+            notes: null,
+            user: {
+                workingHourMode: 'FIXED',
+                flexibleTargetHour: null,
+                shift: null,
+            },
+        })
+
+        const { GET } = await import('@/app/api/mobile/attendance/status/route')
+
+        const response = await GET(
+            new NextRequest('http://localhost/api/mobile/attendance/status'),
+            {
+                session: {
+                    user: {
+                        id: 'user-1',
+                        tenantId: 'tenant-1',
+                    },
+                },
+            } as never
+        )
+
+        const body = await response.json()
+
+        expect(body.data).toMatchObject({
+            status: 'idle',
+            sourceAttendanceId: 'attendance-closed-yesterday',
+            checkInAt: '2026-03-08T02:00:00.000Z',
+            checkOutAt: '2026-03-08T09:30:00.000Z',
+            attendanceStatus: 'ON_TIME',
+        })
+    })
 })

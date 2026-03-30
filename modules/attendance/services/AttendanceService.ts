@@ -806,7 +806,7 @@ export class AttendanceService {
             }
         }
 
-        if (attendance.checkOut) {
+        if (attendance.checkOut && sameDay) {
             return {
                 status: 'checked-out',
                 checkInTime: formatCurrentAttendanceTime(attendance.checkIn),
