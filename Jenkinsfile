@@ -76,7 +76,7 @@ spec:
                                 npm config set fetch-retries 5
                                 npm config set fetch-retry-mintimeout 20000
                                 npm config set fetch-retry-maxtimeout 120000
-                            npm ci --no-audit --prefer-offline
+                                npm ci --no-audit --prefer-offline
                                 npm run prisma:generate-parallel
                                 echo "Running Lint and Typecheck in parallel..."
                                 npm run lint & LINT_PID=\$!
@@ -269,21 +269,33 @@ spec:
                                 POLL_INTERVAL=10
                                 MAX_ATTEMPTS=\$((MAX_WAIT_SECONDS / POLL_INTERVAL))
 
-                                # Tunggu sampai job selesai (Complete) atau gagal (Failed)
-                                for i in \$(seq 1 \$MAX_ATTEMPTS); do
-                                    STATUS=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{range .status.conditions[?(@.status=="True")]}{.type}{" "}{end}' 2>/dev/null || echo "Waiting")
-                                    if echo "\$STATUS" | grep -q "Complete"; then
-                                        echo "✅ Job Selesai Sukses!"
-                                        exit 0
-                                    elif echo "\$STATUS" | grep -q "Failed"; then
-                                        echo "❌ Job Gagal! Status: \$STATUS"
-                                        exit 1
-                                    fi
-                                    echo "Status saat ini: \$STATUS... menunggu (\$POLL_INTERVAL detik) [\$i/\$MAX_ATTEMPTS]"
-                                    sleep \$POLL_INTERVAL
-                                done
-                                echo "⚠️ Job timeout (\$MAX_WAIT_SECONDS detik)."
-                                exit 1
+                                get_job_status() {
+                                    kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{range .status.conditions[?(@.status=="True")]}{.type}{" "}{end}' 2>/dev/null || echo "Waiting"
+                                }
+
+                                wait_for_migration_job() {
+                                    local i status
+
+                                    # Tunggu sampai job selesai (Complete) atau gagal (Failed)
+                                    for i in \$(seq 1 \$MAX_ATTEMPTS); do
+                                        status=\$(get_job_status)
+                                        if echo "\$status" | grep -q "Complete"; then
+                                            echo "✅ Job Selesai Sukses!"
+                                            return 0
+                                        elif echo "\$status" | grep -q "Failed"; then
+                                            echo "❌ Job Gagal! Status: \$status"
+                                            return 1
+                                        fi
+
+                                        echo "Status saat ini: \$status... menunggu (\$POLL_INTERVAL detik) [\$i/\$MAX_ATTEMPTS]"
+                                        sleep \$POLL_INTERVAL
+                                    done
+
+                                    echo "⚠️ Job timeout (\$MAX_WAIT_SECONDS detik)."
+                                    return 1
+                                }
+
+                                wait_for_migration_job
                             """,
                             returnStatus: true
                         )
@@ -291,16 +303,21 @@ spec:
                         if (jobStatus != 0) {
                             echo "❌ Migration Job GAGAL! Deployment dibatalkan."
                             sh """
-                            kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true
-                            POD_NAME=\$(kubectl get pods --namespace=${NAMESPACE} -l job-name=netmanager-migration-job -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-                            if [ -n "\$POD_NAME" ]; then
-                              kubectl get pod "\$POD_NAME" --namespace=${NAMESPACE} -o wide || true
-                              kubectl describe pod "\$POD_NAME" --namespace=${NAMESPACE} || true
-                              kubectl logs "\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true
-                            else
-                              echo "Migration pod not found for diagnostic logging."
-                              kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=100 || true
-                            fi
+                            collect_migration_diagnostics() {
+                              kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true
+
+                              POD_NAME=\$(kubectl get pods --namespace=${NAMESPACE} -l job-name=netmanager-migration-job -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+                              if [ -n "\$POD_NAME" ]; then
+                                kubectl get pod "\$POD_NAME" --namespace=${NAMESPACE} -o wide || true
+                                kubectl describe pod "\$POD_NAME" --namespace=${NAMESPACE} || true
+                                kubectl logs "\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true
+                              else
+                                echo "Migration pod not found for diagnostic logging."
+                                kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=100 || true
+                              fi
+                            }
+
+                            collect_migration_diagnostics
                             """
                             error("Pipeline berhenti untuk mencegah corrupt data / downtime.")
                         } else {
@@ -321,21 +338,63 @@ spec:
                         // Ini agar secret di server tidak tertimpa nilai dummy dari Git
                         sh """
                         set -eu
-                        kubectl apply -f ${K8S_DIR}/namespace.yaml
-                        find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do
-                          kubectl apply -f "\$manifest" --namespace=${NAMESPACE}
-                        done
+                        apply_deploy_manifests() {
+                          kubectl apply -f ${K8S_DIR}/namespace.yaml
+                          find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do
+                            kubectl apply -f "\$manifest" --namespace=${NAMESPACE}
+                          done
+                        }
+
+                        apply_deploy_manifests
                         """
                         
-                        // Force rollout restart with a slight delay.
-                        sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
-                        sh "kubectl rollout restart deployment/netmanager-cron --namespace=${NAMESPACE}"
-                        sh "kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE}"
-                        
-                        // Wait for the rollout to complete
-                        sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
-                        sh "kubectl rollout status deployment/netmanager-cron --namespace=${NAMESPACE} --timeout=300s"
-                        sh "kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s"
+                        // Force rollout restart with a slight delay, then verify each workload.
+                        sh """
+                        set -eu
+                        rollout_restart() {
+                          case "\$1" in
+                            netmanager-app)
+                              sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')
+                              ;;
+                            netmanager-cron)
+                              kubectl rollout restart deployment/netmanager-cron --namespace=${NAMESPACE}
+                              ;;
+                            netmanager-radius)
+                              kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE}
+                              ;;
+                            *)
+                              echo "Unknown deployment for rollout restart: \$1" >&2
+                              return 1
+                              ;;
+                          esac
+                        }
+
+                        rollout_status() {
+                          case "\$1" in
+                            netmanager-app)
+                              kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s
+                              ;;
+                            netmanager-cron)
+                              kubectl rollout status deployment/netmanager-cron --namespace=${NAMESPACE} --timeout=300s
+                              ;;
+                            netmanager-radius)
+                              kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s
+                              ;;
+                            *)
+                              echo "Unknown deployment for rollout status: \$1" >&2
+                              return 1
+                              ;;
+                          esac
+                        }
+
+                        for deployment in netmanager-app netmanager-cron netmanager-radius; do
+                          rollout_restart "\$deployment"
+                        done
+
+                        for deployment in netmanager-app netmanager-cron netmanager-radius; do
+                          rollout_status "\$deployment"
+                        done
+                        """
                     }
                 }
             }
