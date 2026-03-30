@@ -308,7 +308,7 @@ spec:
                         set -eu
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
                         find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do
-                          kubectl apply -f "$manifest" --namespace=${NAMESPACE}
+                          kubectl apply -f "\$manifest" --namespace=${NAMESPACE}
                         done
                         """
                         
