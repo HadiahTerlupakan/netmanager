@@ -265,20 +265,24 @@ spec:
                         def jobStatus = sh(
                             script: """
                                 echo "Menunggu Kubernetes Job netmanager-migration-job..."
+                                MAX_WAIT_SECONDS=1800
+                                POLL_INTERVAL=10
+                                MAX_ATTEMPTS=$((MAX_WAIT_SECONDS / POLL_INTERVAL))
+
                                 # Tunggu sampai job selesai (Complete) atau gagal (Failed)
-                                for i in \$(seq 1 60); do
-                                    STATUS=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{.status.conditions[?(@.status=="True")].type}' 2>/dev/null || echo "Waiting")
+                                for i in \$(seq 1 \$MAX_ATTEMPTS); do
+                                    STATUS=\$(kubectl get job netmanager-migration-job -n ${NAMESPACE} -o jsonpath='{range .status.conditions[?(@.status=="True")]}{.type}{" "}{end}' 2>/dev/null || echo "Waiting")
                                     if echo "\$STATUS" | grep -q "Complete"; then
                                         echo "✅ Job Selesai Sukses!"
                                         exit 0
                                     elif echo "\$STATUS" | grep -q "Failed"; then
-                                        echo "❌ Job Gagal!"
+                                        echo "❌ Job Gagal! Status: \$STATUS"
                                         exit 1
                                     fi
-                                    echo "Status saat ini: \$STATUS... menunggu (10 detik)"
-                                    sleep 10
+                                    echo "Status saat ini: \$STATUS... menunggu (\$POLL_INTERVAL detik) [\$i/\$MAX_ATTEMPTS]"
+                                    sleep \$POLL_INTERVAL
                                 done
-                                echo "⚠️ Job timeout (10 menit)."
+                                echo "⚠️ Job timeout (\$MAX_WAIT_SECONDS detik)."
                                 exit 1
                             """,
                             returnStatus: true
@@ -286,7 +290,18 @@ spec:
                         
                         if (jobStatus != 0) {
                             echo "❌ Migration Job GAGAL! Deployment dibatalkan."
-                            sh "kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=100 || true"
+                            sh """
+                            kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true
+                            POD_NAME=\$(kubectl get pods --namespace=${NAMESPACE} -l job-name=netmanager-migration-job -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+                            if [ -n "\$POD_NAME" ]; then
+                              kubectl get pod "\$POD_NAME" --namespace=${NAMESPACE} -o wide || true
+                              kubectl describe pod "\$POD_NAME" --namespace=${NAMESPACE} || true
+                              kubectl logs "\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true
+                            else
+                              echo "Migration pod not found for diagnostic logging."
+                              kubectl logs -l app=netmanager-migration --namespace=${NAMESPACE} --tail=100 || true
+                            fi
+                            """
                             error("Pipeline berhenti untuk mencegah corrupt data / downtime.")
                         } else {
                             echo "✅ Migration selesai dengan sukses!"
@@ -314,11 +329,13 @@ spec:
                         
                         // Force rollout restart with a slight delay.
                         sh "sleep 5 && (kubectl rollout restart deployment/netmanager-app --namespace=${NAMESPACE} || echo 'Rollout already in progress')"
-                        sh "kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE} || true"
+                        sh "kubectl rollout restart deployment/netmanager-cron --namespace=${NAMESPACE}"
+                        sh "kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE}"
                         
                         // Wait for the rollout to complete
                         sh "kubectl rollout status deployment/netmanager-app --namespace=${NAMESPACE} --timeout=600s"
-                        sh "kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s || true"
+                        sh "kubectl rollout status deployment/netmanager-cron --namespace=${NAMESPACE} --timeout=300s"
+                        sh "kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s"
                     }
                 }
             }

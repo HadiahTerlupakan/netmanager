@@ -30,4 +30,20 @@ describe('Jenkinsfile deploy safety', () => {
     expect(jenkinsfile).toContain('find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do')
     expect(jenkinsfile).not.toContain('find ${K8S_DIR}/ -name "*.yaml" ! -name "secrets.yaml" | xargs -I {} kubectl apply -f {} --namespace=${NAMESPACE}')
   })
+
+  it('restarts and verifies cron rollout after applying static-tag staging manifests', () => {
+    const jenkinsfile = readJenkinsfile()
+
+    expect(jenkinsfile).toContain('kubectl rollout restart deployment/netmanager-cron --namespace=${NAMESPACE}')
+    expect(jenkinsfile).toContain('kubectl rollout status deployment/netmanager-cron --namespace=${NAMESPACE} --timeout=300s')
+  })
+
+  it('does not tolerate radius rollout restart or status failures', () => {
+    const jenkinsfile = readJenkinsfile()
+
+    expect(jenkinsfile).toContain('kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE}')
+    expect(jenkinsfile).toContain('kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s')
+    expect(jenkinsfile).not.toContain('kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE} || true')
+    expect(jenkinsfile).not.toContain('kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s || true')
+  })
 })
