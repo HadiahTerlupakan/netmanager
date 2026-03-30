@@ -33,6 +33,16 @@ describe('Jenkinsfile and Dockerfile build safety', () => {
     expect(jenkinsfile).not.toContain('grep netmanager || true')
   })
 
+  it('verifies imported k3s images without shell command substitution escaping the helper container', () => {
+    const jenkinsfile = readJenkinsfile()
+
+    expect(jenkinsfile).toContain('sh -c "chroot /host /usr/local/bin/k3s ctr images list" > .k3s-images.txt')
+    expect(jenkinsfile).toContain('grep -F "${DOCKER_IMAGE}:${DOCKER_TAG}" .k3s-images.txt')
+    expect(jenkinsfile).toContain('grep -F "${CRON_IMAGE}:${DOCKER_TAG}" .k3s-images.txt')
+    expect(jenkinsfile).toContain('grep -F "${RADIUS_IMAGE}:${DOCKER_TAG}" .k3s-images.txt')
+    expect(jenkinsfile).not.toContain('IMAGES=\\$(chroot /host /usr/local/bin/k3s ctr images list)')
+  })
+
   it('fails production migration by default when backup fails unless explicit override is set', () => {
     const jenkinsfile = readJenkinsfile()
 

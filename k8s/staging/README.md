@@ -19,7 +19,9 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
    ```
 
 2. **Konfigurasi Kredensial**
-   Edit `secrets.yaml` dan isi dengan nilai yang benar, lalu jalankan:
+   `secrets.yaml` di folder ini adalah **template**, bukan tempat menyimpan secret live secara permanen di repo.
+   
+   **Sangat disarankan:** gunakan SOPS / SealedSecrets / secret manager. Jika terpaksa memakai template ini untuk staging lokal, isi nilainya di salinan lokal yang tidak di-commit, lalu jalankan:
    ```bash
    kubectl apply -f secrets.yaml
    kubectl apply -f configmap.yaml
@@ -50,6 +52,9 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
    **PENTING**: Radius diakses dari Node IP di port `31812` (Auth) dan `31813` (Acct) untuk mencegah konflik dengan environment Production.
 
 ## ⚠️ Catatan Penting
+- **Jangan commit secret live** ke `secrets.yaml`. File ini harus tetap berupa placeholder/template.
+- **Jangan copy-paste secret** ke chat, tiket, atau screenshot. Simpan hanya di password manager / secret manager / file lokal yang terproteksi.
+- Lihat standar hygiene di `docs/standards/GIT_JENKINS_SECRET_HYGIENE.md`.
 - **Cert-Manager**: Pastikan `cert-manager` sudah terinstal di cluster untuk otomatisasi SSL (Let's Encrypt).
 - **Multiple Databases**: Jika aplikasi membutuhkan database terpisah untuk Radius, Billing, dan Mitra (seperti di Docker Compose), Anda bisa mereplikasi `db-statefulset.yaml` atau menggunakan managed database service.
 - **Image Registry**: Sesuaikan field `image` di `app-deployment.yaml` dengan registry (Docker Hub/GHCR/private) yang Anda gunakan.

@@ -168,6 +168,7 @@ spec:
                         // Masalah: docker save multi-image bisa merusak parsing nama oleh k3s ctr import.
                         // Solusi: Lakukan satu per satu agar nama image tetap konsisten (menggunakan strip -).
                         sh """
+                        set -euo pipefail
                         docker run --rm -i --privileged \\
                             -v /:/host \\
                             -v /var/run/docker.sock:/var/run/docker.sock \\
@@ -187,8 +188,13 @@ spec:
                             sh -c "docker save ${RADIUS_IMAGE}:${DOCKER_TAG} | chroot /host /usr/local/bin/k3s ctr images import -"
 
                         echo "Verifikasi image yang terdaftar di k3s:"
+                        rm -f .k3s-images.txt
                         docker run --rm -i --privileged -v /:/host docker:cli \\
-                            sh -c "IMAGES=\$(chroot /host /usr/local/bin/k3s ctr images list) && printf '%s\n' \"\$IMAGES\" | grep -F \"${DOCKER_IMAGE}:${DOCKER_TAG}\" && printf '%s\n' \"\$IMAGES\" | grep -F \"${CRON_IMAGE}:${DOCKER_TAG}\" && printf '%s\n' \"\$IMAGES\" | grep -F \"${RADIUS_IMAGE}:${DOCKER_TAG}\""
+                            sh -c "chroot /host /usr/local/bin/k3s ctr images list" > .k3s-images.txt
+                        grep -F "${DOCKER_IMAGE}:${DOCKER_TAG}" .k3s-images.txt
+                        grep -F "${CRON_IMAGE}:${DOCKER_TAG}" .k3s-images.txt
+                        grep -F "${RADIUS_IMAGE}:${DOCKER_TAG}" .k3s-images.txt
+                        rm -f .k3s-images.txt
                         """
                     }
                 }
