@@ -35,11 +35,11 @@ describe('legacy attendance cron route', () => {
     expect(json.error).toBe('Unauthorized')
   })
 
-  it('delegates H+1 absence generation to AbsenceService and reports ALPHA totals', async () => {
+  it('delegates H+1 absence generation to AbsenceService and reports ABSENT totals', async () => {
     mockFns.tenantFindMany.mockResolvedValue([{ id: 'tenant-1' }, { id: 'tenant-2' }])
     mockFns.processDailyAbsence
-      .mockResolvedValueOnce({ processed: 12, alpha: 2 })
-      .mockResolvedValueOnce({ processed: 8, alpha: 3 })
+      .mockResolvedValueOnce({ processed: 12, absent: 2 })
+      .mockResolvedValueOnce({ processed: 8, absent: 3 })
 
     const response = await GET(new Request('http://localhost/api/cron/attendance', {
       headers: { authorization: 'Bearer cron-secret' },
@@ -54,8 +54,8 @@ describe('legacy attendance cron route', () => {
     expect(mockFns.processDailyAbsence).toHaveBeenNthCalledWith(2, expect.any(Date), 'tenant-2')
     expect(json.totalGenerated).toBe(5)
     expect(json.log).toEqual([
-      'Processed Tenant tenant-1: generated 2 ALPHA records',
-      'Processed Tenant tenant-2: generated 3 ALPHA records',
+      'Processed Tenant tenant-1: generated 2 ABSENT records',
+      'Processed Tenant tenant-2: generated 3 ABSENT records',
     ])
     expect(json.success).toBe(true)
   })

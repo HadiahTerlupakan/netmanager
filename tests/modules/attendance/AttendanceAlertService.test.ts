@@ -123,7 +123,7 @@ describe('AttendanceAlertService', () => {
     expect(mockFns.createNotification).toHaveBeenCalledTimes(1)
   })
 
-  it('ignores ALPHA records when checking incomplete attendance alerts', async () => {
+  it('ignores ALPHA and ABSENT records when checking incomplete attendance alerts', async () => {
     prismaMock.attendance.findMany.mockResolvedValue([])
 
     await processIncompleteAttendance()
@@ -131,14 +131,14 @@ describe('AttendanceAlertService', () => {
     expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { not: 'ALPHA' },
+          status: { notIn: ['ALPHA', 'ABSENT'] },
         }),
       })
     )
     expect(mockFns.createNotification).not.toHaveBeenCalled()
   })
 
-  it('auto marks fixed-hour users as ALPHA once their work end time has passed without check-in', async () => {
+  it('auto marks fixed-hour users as ABSENT once their work end time has passed without check-in', async () => {
     vi.setSystemTime(new Date(2026, 2, 9, 17, 35, 0, 0))
 
     prismaMock.user.findMany.mockResolvedValue([
@@ -165,8 +165,8 @@ describe('AttendanceAlertService', () => {
       data: expect.objectContaining({
         userId: 'user-fixed',
         tenantId: 'tenant-1',
-        status: 'ALPHA',
-        notes: 'Tidak Masuk Kerja (Alpha) - Auto Generated',
+        status: 'ABSENT',
+        notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
         location: 'System',
         checkIn: new Date(2026, 2, 9, 0, 0, 0, 0),
         updatedAt: expect.any(Date),

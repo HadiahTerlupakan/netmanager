@@ -330,7 +330,7 @@ export class AttendanceRepository {
 
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
-            status: 'ALPHA',
+            status: { in: ['ALPHA', 'ABSENT'] },
             userId: { in: userIds }
         }
 
@@ -401,7 +401,7 @@ export class AttendanceRepository {
 
         const where: Prisma.AttendanceWhereInput = {
             checkIn: { gte: startDate, lte: endDate },
-            status: 'ALPHA',
+            status: { in: ['ALPHA', 'ABSENT'] },
             userId: { in: userIds }
         }
 

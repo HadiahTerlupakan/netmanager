@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { usePermission } from '@/hooks/use-permission'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
+import { getDayOffDisplayLabel, getPermitDisplayLabel, isHistoricalAutoCheckoutAbsence } from '@/lib/attendance-display'
 import { fetchWithHandling, isFetchError, formatErrorMessage } from '@/lib/utils/fetch-wrapper'
 import { formatForDateTimeInput, toISOString, formatDateDisplay, formatTimeDisplay } from '@/lib/utils/datetime'
 import { validateDateRange, validateRequired } from '@/lib/utils/validation'
@@ -72,6 +73,7 @@ export function ClientComponent() {
     const [siteId, setSiteId] = useState('')
     const [departmentId, setDepartmentId] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
+    const [statusDetail, setStatusDetail] = useState('')
 
     // Debounced filters
     const debouncedStartDate = useDebounce(startDate, 300)
@@ -79,6 +81,7 @@ export function ClientComponent() {
     const debouncedSiteId = useDebounce(siteId, 300)
     const debouncedDepartmentId = useDebounce(departmentId, 300)
     const debouncedSearchQuery = useDebounce(searchQuery, 300)
+    const debouncedStatusDetail = useDebounce(statusDetail, 300)
 
     // Summary
     const [summary, setSummary] = useState<Record<string, number>>({})
@@ -127,6 +130,7 @@ export function ClientComponent() {
             if (debouncedSiteId) params.siteId = debouncedSiteId
             if (debouncedDepartmentId) params.departmentId = debouncedDepartmentId
             if (debouncedSearchQuery) params.search = debouncedSearchQuery
+            if (debouncedStatusDetail) params.statusDetail = debouncedStatusDetail
 
             const query = new URLSearchParams(params)
             const response = await fetchWithHandling<Attendance[]>(`/api/admin/attendance?${query.toString()}`, { signal })
@@ -148,7 +152,7 @@ export function ClientComponent() {
                 setLoading(false)
             }
         }
-    }, [page, debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, debouncedSearchQuery, retryCountdown, showToast])
+    }, [page, debouncedStartDate, debouncedEndDate, debouncedSiteId, debouncedDepartmentId, debouncedSearchQuery, debouncedStatusDetail, retryCountdown, showToast])
 
     useEffect(() => {
         fetchOptions()
@@ -191,6 +195,7 @@ export function ClientComponent() {
         if (siteId) params.siteId = siteId
         if (departmentId) params.departmentId = departmentId
         if (searchQuery) params.search = searchQuery
+        if (statusDetail) params.statusDetail = statusDetail
 
         const query = new URLSearchParams(params)
         window.open(`/api/admin/attendance?${query.toString()}`, '_blank')
@@ -305,14 +310,15 @@ export function ClientComponent() {
             priority: 'primary',
             render: (item) => {
                 if (item.status === 'SICK') return <div className="text-sm text-orange-500 italic font-medium">Sakit</div>
-                if (item.status === 'PERMIT') return <div className="text-sm text-blue-500 italic font-medium">Izin</div>
-                if (item.status === 'DAY_OFF') return <div className="text-sm text-purple-500 italic font-medium">Libur</div>
+                if (item.status === 'PERMIT') return <div className="text-sm text-blue-500 italic font-medium">{getPermitDisplayLabel(item)}</div>
+                if (item.status === 'DAY_OFF') return <div className="text-sm text-purple-500 italic font-medium">{getDayOffDisplayLabel(item)}</div>
                 const checkInDate = new Date(item.checkIn);
                 const isDummyCheckIn = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0 && checkInDate.getSeconds() === 0;
                 const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
+                const isHistoricalNoCheckout = isHistoricalAutoCheckoutAbsence(item);
                 
                 if (['ALPHA', 'ABSENT'].includes(item.status)) {
-                    if (isSystemGenerated || (isDummyCheckIn && !item.checkOut)) {
+                    if (!isHistoricalNoCheckout && (isSystemGenerated || (isDummyCheckIn && !item.checkOut))) {
                         return <div className="text-sm text-red-500 italic font-medium">Mangkir</div>
                     }
                 }
@@ -321,7 +327,7 @@ export function ClientComponent() {
                 const isToday = checkInDate.toDateString() === now.toDateString();
                 
                 // Forgot Check-out logic
-                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
+                const isForgotCheckOut = !isHistoricalNoCheckout && (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
 
                 const checkInHour = checkInDate.getHours();
                 const checkInMinute = checkInDate.getMinutes();
@@ -338,7 +344,7 @@ export function ClientComponent() {
                                 IN: {formatTimeDisplay(item.checkIn)}
                             </div>
                         )}
-                        {item.status === 'NO_CHECKOUT' ? (
+                        {item.status === 'NO_CHECKOUT' || isHistoricalNoCheckout ? (
                             <div className={`text-[10px] italic font-medium block mt-1 ${isOnTime ? 'text-green-600' : 'text-yellow-600'}`}>
                                 {isOnTime ? 'Tepat Waktu' : 'Terlambat'} &nbsp;(Tidak Checkout)
                             </div>
@@ -371,9 +377,10 @@ export function ClientComponent() {
                 const isToday = checkInDate.toDateString() === now.toDateString();
                 
                 const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
-                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
+                const isHistoricalNoCheckout = isHistoricalAutoCheckoutAbsence(item);
+                const isForgotCheckOut = !isHistoricalNoCheckout && (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
 
-                if (!item.checkOut || ['ALPHA', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF', 'NO_CHECKOUT'].includes(item.status) || isSystemGenerated || isForgotCheckOut || isDummyCheckIn) {
+                if (!item.checkOut || ['ALPHA', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF', 'NO_CHECKOUT'].includes(item.status) || isSystemGenerated || isForgotCheckOut || isDummyCheckIn || isHistoricalNoCheckout) {
                     return <span className="text-gray-400 text-sm">-</span>
                 }
 
@@ -401,12 +408,13 @@ export function ClientComponent() {
                 const checkInDate = new Date(item.checkIn);
                 const isDummyCheckIn = checkInDate.getHours() === 0 && checkInDate.getMinutes() === 0 && checkInDate.getSeconds() === 0;
                 const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
+                const isHistoricalNoCheckout = isHistoricalAutoCheckoutAbsence(item)
                 
                 if (isSystemGenerated || isDummyCheckIn) return <span className="text-xs text-gray-400">-</span>
 
                 const now = new Date();
                 const isToday = checkInDate.toDateString() === now.toDateString();
-                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
+                const isForgotCheckOut = !isHistoricalNoCheckout && (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isDummyCheckIn;
 
                 return (
                     <div className="flex flex-col gap-1 max-w-[200px]">
@@ -454,7 +462,8 @@ export function ClientComponent() {
                 const isToday = checkInDate.toDateString() === now.toDateString();
                 
                 const isSystemGenerated = item.notes?.includes('Tanpa Keterangan') || item.notes?.includes('System');
-                const isForgotCheckOut = (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isSystemGenerated && !isDummyCheckIn;
+                const isHistoricalNoCheckout = isHistoricalAutoCheckoutAbsence(item)
+                const isForgotCheckOut = !isHistoricalNoCheckout && (item.status === 'ALPHA' || item.status === 'ABSENT') && (!item.checkOut && !isToday) && !isSystemGenerated && !isDummyCheckIn;
 
                 const statusConfig: Record<string, { bg: string, text: string, label: string }> = {
                     'ON_TIME': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-400', label: 'Tepat Waktu' },
@@ -463,13 +472,15 @@ export function ClientComponent() {
                     'PERMIT': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-800 dark:text-blue-400', label: 'Izin' },
                     'ALPHA': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
                     'ABSENT': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' },
-                    'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur/Tukar Libur' },
+                    'DAY_OFF': { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-800 dark:text-purple-400', label: 'Libur' },
                     'NO_CHECKOUT': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Tidak Checkout' }
                 }
                 
                 let config = statusConfig[item.status] || statusConfig['ABSENT'];
                 
-                if (isForgotCheckOut) {
+                if (isHistoricalNoCheckout) {
+                    config = { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-800 dark:text-yellow-400', label: 'Tidak Checkout' };
+                } else if (isForgotCheckOut) {
                     const checkInHour = checkInDate.getHours();
                     const checkInMinute = checkInDate.getMinutes();
                     const isFlexible = item.user?.workingHourMode === 'FLEXIBLE';
@@ -482,12 +493,16 @@ export function ClientComponent() {
                     }
                 } else if (!item.checkOut && isToday && !isSystemGenerated && !['SICK', 'PERMIT', 'DAY_OFF'].includes(item.status) && !isDummyCheckIn && item.status !== 'NO_CHECKOUT') {
                      config = { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-800 dark:text-gray-300', label: 'Belum Checkout' };
-                } else if ((isSystemGenerated || isDummyCheckIn) && (item.status === 'ALPHA' || item.status === 'ABSENT' || item.status === 'NO_CHECKOUT')) {
+                } else if (!isHistoricalNoCheckout && (isSystemGenerated || isDummyCheckIn) && (item.status === 'ALPHA' || item.status === 'ABSENT' || item.status === 'NO_CHECKOUT')) {
                     if (isDummyCheckIn && item.checkOut) {
                         config = { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Lupa Check-in (Mangkir)' };
                     } else {
                         config = { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-400', label: 'Mangkir' };
                     }
+                } else if (item.status === 'PERMIT') {
+                    config = { ...config, label: getPermitDisplayLabel(item) };
+                } else if (item.status === 'DAY_OFF') {
+                    config = { ...config, label: getDayOffDisplayLabel(item) };
                 }
 
                 return (
@@ -513,14 +528,14 @@ export function ClientComponent() {
             render: (item) => (
                 <div className="flex gap-2">
                     {item.checkInPhoto && (
-                        <button onClick={() => setSelectedPhoto(item.checkInPhoto)} className="group">
+                        <button type="button" onClick={() => setSelectedPhoto(item.checkInPhoto)} className="group">
                             <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-blue-500 transition-all relative">
                                 <Image src={item.checkInPhoto} alt="In" fill sizes="32px" className="object-cover" />
                             </div>
                         </button>
                     )}
                     {item.checkOutPhoto && (
-                        <button onClick={() => setSelectedPhoto(item.checkOutPhoto)} className="group">
+                        <button type="button" onClick={() => setSelectedPhoto(item.checkOutPhoto)} className="group">
                             <div className="w-8 h-8 rounded bg-gray-200 overflow-hidden ring-1 ring-gray-300 dark:ring-gray-600 hover:ring-orange-500 transition-all relative">
                                 <Image src={item.checkOutPhoto} alt="Out" fill sizes="32px" className="object-cover" />
                             </div>
@@ -594,8 +609,9 @@ export function ClientComponent() {
 
             <div className="bg-white p-4 rounded-lg shadow dark:bg-gray-800 flex flex-wrap gap-4 items-end">
                 <div>
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Dari Tanggal</label>
+                    <label htmlFor="attendance-start-date" className="block text-sm font-medium mb-1 dark:text-gray-300">Dari Tanggal</label>
                     <input
+                        id="attendance-start-date"
                         type="date"
                         value={startDate}
                         onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
@@ -603,8 +619,9 @@ export function ClientComponent() {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Sampai Tanggal</label>
+                    <label htmlFor="attendance-end-date" className="block text-sm font-medium mb-1 dark:text-gray-300">Sampai Tanggal</label>
                     <input
+                        id="attendance-end-date"
                         type="date"
                         value={endDate}
                         onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
@@ -612,12 +629,13 @@ export function ClientComponent() {
                     />
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Pencarian Karyawan</label>
+                    <label htmlFor="attendance-search-query" className="block text-sm font-medium mb-1 dark:text-gray-300">Pencarian Karyawan</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <FaSearch className="text-gray-400" />
                         </div>
                         <input
+                            id="attendance-search-query"
                             type="text"
                             placeholder="Cari nama atau email..."
                             value={searchQuery}
@@ -627,8 +645,9 @@ export function ClientComponent() {
                     </div>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Site</label>
+                    <label htmlFor="attendance-site-filter" className="block text-sm font-medium mb-1 dark:text-gray-300">Site</label>
                     <select
+                        id="attendance-site-filter"
                         value={siteId}
                         onChange={(e) => { setSiteId(e.target.value); setPage(1); }}
                         className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -638,14 +657,44 @@ export function ClientComponent() {
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Departemen</label>
+                    <label htmlFor="attendance-department-filter" className="block text-sm font-medium mb-1 dark:text-gray-300">Departemen</label>
                     <select
+                        id="attendance-department-filter"
                         value={departmentId}
                         onChange={(e) => { setDepartmentId(e.target.value); setPage(1); }}
                         className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     >
                         <option value="">Semua Dept</option>
                         {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="attendance-status-detail-filter" className="block text-sm font-medium mb-1 dark:text-gray-300">Status</label>
+                    <select
+                        id="attendance-status-detail-filter"
+                        value={statusDetail}
+                        onChange={(e) => { setStatusDetail(e.target.value); setPage(1); }}
+                        className="border rounded px-3 py-2 text-sm w-48 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option value="">Semua Status</option>
+                        <optgroup label="Kehadiran">
+                            <option value="ON_TIME">Tepat Waktu</option>
+                            <option value="LATE">Terlambat</option>
+                        </optgroup>
+                        <optgroup label="Ketidakhadiran">
+                            <option value="ABSENT">Tidak Hadir</option>
+                            <option value="SICK">Sakit</option>
+                            <option value="CUTI">Cuti</option>
+                            <option value="IZIN">Izin</option>
+                        </optgroup>
+                        <optgroup label="Libur & Pengganti">
+                            <option value="TUKAR_LIBUR">Tukar Libur</option>
+                            <option value="HARI_LIBUR">Libur Nasional</option>
+                            <option value="HARI_OFF">Hari Libur</option>
+                        </optgroup>
+                        <optgroup label="Masalah Absensi">
+                            <option value="NO_CHECKOUT">Tidak Checkout</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div className="flex gap-2">
@@ -750,8 +799,9 @@ export function ClientComponent() {
             >
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Masuk (Check In)</label>
+                        <label htmlFor="attendance-edit-checkin" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Masuk (Check In)</label>
                         <input
+                            id="attendance-edit-checkin"
                             type="datetime-local"
                             value={editForm.checkIn}
                             onChange={(e) => {
@@ -763,8 +813,9 @@ export function ClientComponent() {
                         {editErrors.checkIn && <p className="text-xs text-red-500 mt-1">{editErrors.checkIn}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Pulang (Check Out)</label>
+                        <label htmlFor="attendance-edit-checkout" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jam Pulang (Check Out)</label>
                         <input
+                            id="attendance-edit-checkout"
                             type="datetime-local"
                             value={editForm.checkOut}
                             onChange={(e) => setEditForm({ ...editForm, checkOut: e.target.value })}
@@ -773,8 +824,9 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 mt-1">Biarkan kosong jika belum checkout</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                        <label htmlFor="attendance-edit-status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                         <select
+                            id="attendance-edit-status"
                             value={editForm.status}
                             onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                             className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -785,7 +837,7 @@ export function ClientComponent() {
                             <option value="PERMIT">Izin (PERMIT)</option>
                             <option value="ABSENT">Alpha (ABSENT)</option>
                             <option value="NO_CHECKOUT">Tidak Checkout (NO_CHECKOUT)</option>
-                            <option value="DAY_OFF">Libur (DAY_OFF)</option>
+                            <option value="DAY_OFF">Day Off / Tukar Libur (DAY_OFF)</option>
                         </select>
                     </div>
                 </div>

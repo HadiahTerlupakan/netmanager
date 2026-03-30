@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { GeofenceService } from './GeofenceService'
 import { AttendanceValidationService } from './AttendanceValidationService'
 import { AttendanceTimezoneService } from './AttendanceTimezoneService'
+import { AttendanceSessionPolicyService } from './AttendanceSessionPolicyService'
 import { AttendanceStatus, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
@@ -31,6 +32,86 @@ type CachedUserAttendanceSettings = {
     attendanceGeofencePolicy: AttendanceGeofencePolicy | null
     shiftId: string | null
     shift: { startTime: string, endTime: string } | null
+}
+
+type CurrentAttendanceUiStatus = 'idle' | 'checked-in' | 'checked-out'
+
+type CurrentAttendanceRow = {
+    id: string
+    checkIn: Date
+    checkOut: Date | null
+    status: AttendanceStatus
+    user: {
+        workingHourMode: 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null
+        flexibleTargetHour: number | null
+        shift: {
+            startTime: string | null
+            endTime: string | null
+        } | null
+    } | null
+}
+
+export type CurrentAttendanceStatusResult = {
+    status: CurrentAttendanceUiStatus
+    checkInTime: string | null
+    checkOutTime: string | null
+    warningMessage: string | null
+    sourceAttendanceId: string | null
+    checkInAt: string | null
+    checkOutAt: string | null
+    attendanceStatus: AttendanceStatus | null
+    workingHourMode: 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null
+    flexibleTargetHour: number | null
+    shift: {
+        startTime: string | null
+        endTime: string | null
+    } | null
+}
+
+const CURRENT_STATUS_TIMEZONE = 'Asia/Jakarta'
+function formatCurrentAttendanceTime(value: Date | null): string | null {
+    if (!value) {
+        return null
+    }
+
+    return new Intl.DateTimeFormat('en-GB', {
+        timeZone: CURRENT_STATUS_TIMEZONE,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).format(value)
+}
+
+function formatCurrentAttendanceWarningDate(value: Date): string {
+    return new Intl.DateTimeFormat('en-GB', {
+        timeZone: CURRENT_STATUS_TIMEZONE,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).format(value).replace(',', '')
+}
+
+function isSameAttendanceDay(a: Date, b: Date): boolean {
+    return a.toLocaleDateString('en-CA', { timeZone: CURRENT_STATUS_TIMEZONE }) === b.toLocaleDateString('en-CA', { timeZone: CURRENT_STATUS_TIMEZONE })
+}
+
+function buildIdleCurrentAttendanceStatus(attendance?: CurrentAttendanceRow | null, warningMessage: string | null = null): CurrentAttendanceStatusResult {
+    return {
+        status: 'idle',
+        checkInTime: null,
+        checkOutTime: null,
+        warningMessage,
+        sourceAttendanceId: attendance?.id ?? null,
+        checkInAt: attendance?.checkIn?.toISOString() ?? null,
+        checkOutAt: attendance?.checkOut?.toISOString() ?? null,
+        attendanceStatus: attendance?.status ?? null,
+        workingHourMode: attendance?.user?.workingHourMode ?? null,
+        flexibleTargetHour: attendance?.user?.flexibleTargetHour ?? null,
+        shift: attendance?.user?.shift ?? null
+    }
 }
 
 export class AttendanceService {
@@ -169,9 +250,11 @@ export class AttendanceService {
         })
     }
 
-    private async processAutoCheckout(userId: string, userDetails: { endWorkTime: string | null; workingHourMode: string | null } | null, effectiveToday: Date, tenantId?: string) {
+    private async processAutoCheckout(userId: string, userDetails: { endWorkTime: string | null; workingHourMode: string | null; shift?: { startTime: string, endTime: string } | null } | null, effectiveToday: Date, tenantId?: string) {
         // Skip for flexible users
         if (userDetails?.workingHourMode === 'FLEXIBLE') return
+
+        const sessionPolicyService = new AttendanceSessionPolicyService()
 
         const staleSessions = await prisma.attendance.findMany({
             where: {
@@ -186,36 +269,27 @@ export class AttendanceService {
         if (staleSessions.length === 0) return
 
         await Promise.all(staleSessions.map(async (session) => {
-            let autoCheckOut = new Date(session.checkIn)
+            const decision = sessionPolicyService.resolve({
+                attendance: {
+                    id: session.id,
+                    checkIn: session.checkIn,
+                    checkOut: session.checkOut,
+                    status: session.status,
+                    user: {
+                        workingHourMode: (userDetails?.workingHourMode as 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null) ?? null,
+                        flexibleTargetHour: null,
+                        shift: userDetails?.shift ? {
+                            startTime: userDetails.shift.startTime,
+                            endTime: userDetails.shift.endTime
+                        } : null
+                    }
+                },
+                now: new Date(),
+                scheduleEndTime: userDetails?.endWorkTime ?? null
+            })
 
-            // Logic Auto Checkout - same as legacy
-            if (userDetails?.endWorkTime) {
-                const parts = userDetails.endWorkTime.split(':').map(Number)
-                const endHour = parts[0] ?? 17
-                const endMinute = parts[1] ?? 0
-                autoCheckOut.setHours(endHour, endMinute, 0, 0)
-            } else {
-                autoCheckOut.setHours(17, 0, 0, 0)
-            }
-
-            // Adjust date if previous day logic needed? 
-            // The legacy code used simple Hours setting on the CheckIn Date.
-            // If checkIn was yesterday 08:00, autoCheckout becomes yesterday 17:00. Correct.
-
-            // Safety: if config error makes checkout < checkin
-            if (autoCheckOut <= session.checkIn) {
-                // Fallback: CheckIn + default work hours
-                autoCheckOut = new Date(session.checkIn.getTime() + ATTENDANCE_CONSTANTS.DEFAULT_WORK_HOURS * 3600000)
-            }
-
-            // Logic "Malam" -> end of day
-            if (session.checkIn > autoCheckOut) {
-                autoCheckOut.setHours(
-                    ATTENDANCE_CONSTANTS.END_OF_DAY_HOUR,
-                    ATTENDANCE_CONSTANTS.END_OF_DAY_MINUTE,
-                    ATTENDANCE_CONSTANTS.END_OF_DAY_SECOND,
-                    ATTENDANCE_CONSTANTS.END_OF_DAY_MILLISECOND
-                )
+            if (!decision.shouldAutoCheckout || !decision.autoCheckoutAt || !decision.nextStatus) {
+                return
             }
 
             const autoNote = ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE
@@ -224,9 +298,9 @@ export class AttendanceService {
             await prisma.attendance.update({
                 where: { id: session.id },
                 data: {
-                    checkOut: autoCheckOut,
+                    checkOut: decision.autoCheckoutAt,
                     notes: newNotes,
-                    status: 'NO_CHECKOUT' // Consistent with AutoCheckoutService
+                    status: decision.nextStatus
                 }
             })
         }))
@@ -560,7 +634,7 @@ export class AttendanceService {
         const lateCount = stats.statusCounts['LATE'] || 0
         const lateRate = stats.total > 0 ? (lateCount / stats.total) * 100 : 0
 
-        const alphaCount = stats.statusCounts['ALPHA'] || 0
+        const alphaCount = (stats.statusCounts['ALPHA'] || 0) + (stats.statusCounts['ABSENT'] || 0)
         // Alpha rate relative to active users? OR relative to total attendance records?
         // Usually relative to total expected days, but for simple report, maybe just count.
         // Or % of total records (which includes presences).
@@ -668,6 +742,87 @@ export class AttendanceService {
                 totalPages: Math.ceil(total / limit)
             }
         }
+    }
+
+    async getCurrentAttendanceStatus(userId: string, options?: { tenantId?: string }): Promise<CurrentAttendanceStatusResult> {
+        const sessionPolicyService = new AttendanceSessionPolicyService()
+        const attendance = await prisma.attendance.findFirst({
+            where: {
+                userId,
+                ...(options?.tenantId ? { tenantId: options.tenantId } : {})
+            },
+            orderBy: { checkIn: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true,
+                        shift: {
+                            select: {
+                                startTime: true,
+                                endTime: true
+                            }
+                        }
+                    }
+                }
+            }
+        }) as CurrentAttendanceRow | null
+
+        const decision = attendance
+            ? sessionPolicyService.resolve({
+                attendance,
+                now: new Date(),
+                scheduleEndTime: null
+            })
+            : null
+
+        if (!attendance) {
+            return buildIdleCurrentAttendanceStatus()
+        }
+
+        if (decision?.isStaleFlexibleSession) {
+            return buildIdleCurrentAttendanceStatus(
+                attendance,
+                `Sesi fleksibel lama sejak ${formatCurrentAttendanceWarningDate(attendance.checkIn)} belum checkout.`
+            )
+        }
+
+        const sameDay = isSameAttendanceDay(attendance.checkIn, new Date())
+        const shouldAppearActive = decision?.isOvernightShiftActive || attendance.user?.workingHourMode === 'FLEXIBLE' || sameDay
+
+        if (!attendance.checkOut && shouldAppearActive) {
+            return {
+                status: 'checked-in',
+                checkInTime: formatCurrentAttendanceTime(attendance.checkIn),
+                checkOutTime: null,
+                warningMessage: null,
+                sourceAttendanceId: attendance.id,
+                checkInAt: attendance.checkIn.toISOString(),
+                checkOutAt: null,
+                attendanceStatus: attendance.status,
+                workingHourMode: attendance.user?.workingHourMode ?? null,
+                flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
+                shift: attendance.user?.shift ?? null
+            }
+        }
+
+        if (attendance.checkOut) {
+            return {
+                status: 'checked-out',
+                checkInTime: formatCurrentAttendanceTime(attendance.checkIn),
+                checkOutTime: formatCurrentAttendanceTime(attendance.checkOut),
+                warningMessage: null,
+                sourceAttendanceId: attendance.id,
+                checkInAt: attendance.checkIn.toISOString(),
+                checkOutAt: attendance.checkOut.toISOString(),
+                attendanceStatus: attendance.status,
+                workingHourMode: attendance.user?.workingHourMode ?? null,
+                flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
+                shift: attendance.user?.shift ?? null
+            }
+        }
+
+        return buildIdleCurrentAttendanceStatus(attendance)
     }
 
     async getAttendanceConfig(userId: string) {

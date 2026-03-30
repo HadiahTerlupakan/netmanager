@@ -1,0 +1,22 @@
+import { readFileSync } from 'fs'
+import { describe, expect, it } from 'vitest'
+
+describe('AttendanceClient status detail filter consumer', () => {
+  it('exposes a grouped statusDetail filter with specific labels for permit and day-off variants', () => {
+    const content = readFileSync(
+      '/Users/rohadimraja/Documents/radpro/netmanager/app/admin/attendance/AttendanceClient.tsx',
+      'utf8'
+    )
+
+    expect(content).toContain('statusDetail')
+    expect(content).toContain('<optgroup label="Kehadiran">')
+    expect(content).toContain('<optgroup label="Ketidakhadiran">')
+    expect(content).toContain('<optgroup label="Libur & Pengganti">')
+    expect(content).toContain('<optgroup label="Masalah Absensi">')
+    expect(content).toContain('Cuti')
+    expect(content).toContain('Izin')
+    expect(content).toContain('Tukar Libur')
+    expect(content).toContain('Libur Nasional')
+    expect(content).toContain('Hari Libur')
+  })
+})

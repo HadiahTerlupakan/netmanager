@@ -79,6 +79,27 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
                 latitude = coordValidation.latitude
                 longitude = coordValidation.longitude
             }
+
+            const metaStr = formData.get('_offline_meta') as string
+            if (metaStr) {
+                try {
+                    const meta = JSON.parse(metaStr) as { capturedAt?: string; signature?: string }
+                    if (meta.capturedAt) {
+                        const dt = new Date(meta.capturedAt)
+                        if (!isNaN(dt.getTime())) {
+                            offlineTime = dt
+                            if (meta.signature) {
+                                if (!verifySignature({ userId, timestamp: meta.capturedAt, latitude, longitude }, meta.signature)) {
+                                    return apiError('Tanda tangan data offline tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+                                }
+                            } else {
+                                return apiError('Data offline harus ditandatangani', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+                            }
+                        }
+                    }
+                } catch (_e) {}
+            }
+
             ctx.validated = { location, latitude, longitude, isOffline: !!offlineTime }
         }
 

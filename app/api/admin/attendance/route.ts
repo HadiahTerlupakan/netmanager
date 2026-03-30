@@ -6,8 +6,11 @@ import { attendanceFilterSchema } from '@/lib/validations/attendance'
 import { createHandler } from '@/lib/api'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import { getDayOffDisplayLabel, getPermitDisplayLabel, isHistoricalAutoCheckoutAbsence } from '@/lib/attendance-display'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { getTimezone } from '@/lib/utils/get-timezone'
+import { LeaveService } from '@/modules/attendance/services/LeaveService'
+import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
 
 /**
  * Admin Attendance Routes
@@ -35,7 +38,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         return ApiErrors.badRequest('Parameter tidak valid', { errors: parseResult.error.flatten().fieldErrors })
     }
 
-    const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, search, export: isExportStr } = parseResult.data
+    const { page, limit, startDate: startDateStr, endDate: endDateStr, userId, siteId, departmentId, status, statusDetail, search, export: isExportStr } = parseResult.data
     const skip = (page - 1) * limit
 
     const where: Prisma.AttendanceWhereInput = { tenantId }
@@ -59,10 +62,25 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         }
     }
 
+    let rangeStart: Date | null = null
+    let rangeEnd: Date | null = null
+
     if (startDateStr && endDateStr) {
-        where.checkIn = { gte: toStartOfDay(startDateStr, timezone), lte: toEndOfDay(endDateStr, timezone) }
+        rangeStart = toStartOfDay(startDateStr, timezone)
+        rangeEnd = toEndOfDay(endDateStr, timezone)
+        where.checkIn = { gte: rangeStart, lte: rangeEnd }
     } else if (startDateStr) {
-        where.checkIn = { gte: toStartOfDay(startDateStr, timezone), lte: toEndOfDay(startDateStr, timezone) }
+        rangeStart = toStartOfDay(startDateStr, timezone)
+        rangeEnd = toEndOfDay(startDateStr, timezone)
+        where.checkIn = { gte: rangeStart, lte: rangeEnd }
+    }
+
+    if (rangeStart && rangeEnd) {
+        const leaveService = new LeaveService()
+        const absenceService = new AbsenceService()
+
+        await leaveService.syncApprovedLeaveToAttendanceRange(rangeStart, rangeEnd, tenantId, userId)
+        await absenceService.syncDayOffAttendanceRange(rangeStart, rangeEnd, tenantId, userId)
     }
 
     const userWhere: Prisma.UserWhereInput = {}
@@ -81,6 +99,75 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     if (Object.keys(userWhere).length > 0) where.user = userWhere
     if (status) where.status = status
+
+    if (statusDetail) {
+        switch (statusDetail) {
+            case 'ON_TIME':
+            case 'LATE':
+            case 'SICK':
+                where.status = statusDetail
+                break
+            case 'ABSENT':
+                where.AND = [
+                    { status: { in: ['ALPHA', 'ABSENT'] } },
+                    {
+                        NOT: {
+                            AND: [
+                                { status: { in: ['ALPHA', 'ABSENT'] } },
+                                { checkOut: { not: null } },
+                                {
+                                    OR: [
+                                        { notes: { contains: 'Auto checkout by system (Mangkir)' } },
+                                        { notes: { contains: 'Lupa Absen Pulang' } },
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+                break
+            case 'NO_CHECKOUT':
+                where.OR = [
+                    { status: 'NO_CHECKOUT' },
+                    {
+                        AND: [
+                            { status: { in: ['ALPHA', 'ABSENT'] } },
+                            { checkOut: { not: null } },
+                            {
+                                OR: [
+                                    { notes: { contains: 'Auto checkout by system (Mangkir)' } },
+                                    { notes: { contains: 'Lupa Absen Pulang' } },
+                                ]
+                            }
+                        ]
+                    }
+                ]
+                break
+            case 'CUTI':
+                where.status = 'PERMIT'
+                where.notes = { contains: '(CUTI)' }
+                break
+            case 'IZIN':
+                where.status = 'PERMIT'
+                where.notes = { contains: '(IZIN)' }
+                break
+            case 'TUKAR_LIBUR':
+                where.status = 'DAY_OFF'
+                where.OR = [
+                    { notes: { contains: 'Auto-generated from Leave Request' } },
+                    { notes: { contains: 'Updated by Leave Approval' } },
+                ]
+                break
+            case 'HARI_LIBUR':
+                where.status = 'DAY_OFF'
+                where.notes = { contains: 'Hari Libur (Day Off)' }
+                break
+            case 'HARI_OFF':
+                where.status = 'DAY_OFF'
+                where.notes = { contains: 'Hari Off (Day Off)' }
+                break
+        }
+    }
 
     const isExport = isExportStr === 'true'
 
@@ -112,16 +199,20 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             const checkOutDate = item.checkOut ? new Date(item.checkOut) : null
             const dateOptions: Intl.DateTimeFormatOptions = { timeZone: timezone, day: '2-digit', month: '2-digit', year: 'numeric' }
             const timeOptions: Intl.DateTimeFormatOptions = { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+            const isHistoricalNoCheckout = isHistoricalAutoCheckoutAbsence(item)
 
             let displayStatus = item.status as string
             if (item.status === 'SICK') displayStatus = 'SAKIT'
-            else if (item.status === 'PERMIT') displayStatus = 'IZIN'
-            else if (item.status === 'DAY_OFF') displayStatus = 'TUKAR LIBUR'
+            else if (item.status === 'PERMIT') displayStatus = getPermitDisplayLabel(item).toUpperCase()
+            else if (item.status === 'DAY_OFF') displayStatus = getDayOffDisplayLabel(item).toUpperCase()
             else if (item.status === 'ALPHA' || item.status === 'ABSENT') {
-                displayStatus = 'TIDAK HADIR'
-                // Recompute if they clocked in but no checkout
-                if (item.checkIn && !item.checkOut && !item.notes?.includes('Tanpa Keterangan') && !item.notes?.includes('Leave')) {
-                     displayStatus = 'BELUM CHECKOUT'
+                if (isHistoricalNoCheckout) {
+                    displayStatus = 'TIDAK CHECKOUT'
+                } else {
+                    displayStatus = 'TIDAK HADIR'
+                    if (item.checkIn && !item.checkOut && !item.notes?.includes('Tanpa Keterangan') && !item.notes?.includes('Leave')) {
+                        displayStatus = 'BELUM CHECKOUT'
+                    }
                 }
             }
             else if (item.status === 'NO_CHECKOUT') displayStatus = 'TIDAK CHECKOUT'
@@ -129,11 +220,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
             else if (item.status === 'LATE') displayStatus = 'TERLAMBAT'
 
             // Special marker for leave/system-generated items formatting
-            const isAbsentOrLeave = ['ALPHA', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF'].includes(item.status)
+            const isAbsentOrLeave = ['ALPHA', 'ABSENT', 'SICK', 'PERMIT', 'DAY_OFF'].includes(item.status) && !isHistoricalNoCheckout
             
             const checkInStr = isAbsentOrLeave ? '-' : checkInDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':')
             // For NO_CHECKOUT, checkout was auto-generated or missing, so display '-'
-            const checkOutStr = (isAbsentOrLeave || item.status === 'NO_CHECKOUT' || !checkOutDate) ? '-' : checkOutDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':')
+            const checkOutStr = (isAbsentOrLeave || item.status === 'NO_CHECKOUT' || isHistoricalNoCheckout || !checkOutDate) ? '-' : checkOutDate.toLocaleTimeString('id-ID', timeOptions).replace(/\./g, ':')
 
             csvRows.push([
                 (index + 1).toString(),

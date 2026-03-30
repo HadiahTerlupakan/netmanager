@@ -39,6 +39,18 @@ export const attendanceFilterSchema = z.object({
         AttendanceStatus.PERMIT,
         AttendanceStatus.DAY_OFF,
     ]).optional()),
+    statusDetail: z.preprocess(emptyToUndefined, z.enum([
+        'ON_TIME',
+        'LATE',
+        'ABSENT',
+        'NO_CHECKOUT',
+        'SICK',
+        'CUTI',
+        'IZIN',
+        'TUKAR_LIBUR',
+        'HARI_LIBUR',
+        'HARI_OFF',
+    ]).optional()),
     search: z.preprocess(emptyToUndefined, z.string().optional()),
     export: z.preprocess((v) => (v === 'true' || v === true ? 'true' : v === 'false' || v === false ? 'false' : undefined), z.enum(['true', 'false']).optional()),
 }).refine((data) => !(data.endDate && !data.startDate), {

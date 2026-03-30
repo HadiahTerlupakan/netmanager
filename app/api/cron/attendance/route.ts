@@ -36,8 +36,8 @@ export async function GET(request: Request) {
         for (const tenant of tenants) {
             try {
                 const result = await absenceService.processDailyAbsence(targetDate, tenant.id)
-                totalGenerated += result.alpha
-                resultLog.push(`Processed Tenant ${tenant.id}: generated ${result.alpha} ALPHA records`)
+                totalGenerated += result.absent
+                resultLog.push(`Processed Tenant ${tenant.id}: generated ${result.absent} ABSENT records`)
             } catch (err) {
                 console.error(`Error processing tenant ${tenant.id}:`, err)
                 resultLog.push(`Error processing tenant ${tenant.id}: ${err instanceof Error ? err.message : String(err)}`)

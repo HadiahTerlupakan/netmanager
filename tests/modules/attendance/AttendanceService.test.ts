@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { prismaMock } from '../../setup'
+import { getCrossSurfaceAttendanceFixture } from '../../fixtures/attendance/crossSurfaceAttendanceFixtures'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
 import { AttendanceValidationService } from '@/modules/attendance/services/AttendanceValidationService'
 import { AttendanceTimezoneService } from '@/modules/attendance/services/AttendanceTimezoneService'
@@ -214,4 +215,15 @@ describe('AttendanceService', () => {
     })
   })
 
+})
+
+describe('AttendanceService cross-surface fixture coverage', () => {
+  it('exposes critical attendance fixtures needed by parity tests', () => {
+    expect(getCrossSurfaceAttendanceFixture('same-day-open-session')).toBeDefined()
+    expect(getCrossSurfaceAttendanceFixture('same-day-checked-out-session')).toBeDefined()
+    expect(getCrossSurfaceAttendanceFixture('overnight-shift-still-active')).toBeDefined()
+    expect(getCrossSurfaceAttendanceFixture('stale-flexible-session')).toBeDefined()
+    expect(getCrossSurfaceAttendanceFixture('no-checkout-system-closure')).toBeDefined()
+    expect(getCrossSurfaceAttendanceFixture('outside-geofence-warn-accepted')).toBeDefined()
+  })
 })

@@ -71,52 +71,44 @@ export default function AttendancePageContent({ holidayInfo }: AttendancePageCon
 
     const fetchStatus = useCallback(async () => {
         try {
-            const res = await fetch('/api/attendance/history?limit=5')
-            const data = await res.json()
+            const [statusRes, historyRes] = await Promise.all([
+                fetch('/api/attendance/status'),
+                fetch('/api/attendance/history?limit=5')
+            ])
+            const statusData = await statusRes.json()
+            const historyData = await historyRes.json()
 
-            if (data.success) {
-                setHistory(data.data)
+            if (historyData.success) {
+                setHistory(historyData.data)
+            }
 
-                if (data.data.length > 0) {
-                    const lastAttendance = data.data[0] as {
-                        checkIn: string;
-                        checkOut?: string;
-                        status?: 'ON_TIME' | 'LATE';
-                        user?: {
-                            workingHourMode?: 'FIXED' | 'FLEXIBLE';
-                            flexibleTargetHour?: number;
-                        }
-                    }
-                    const today = new Date().toDateString()
-                    const attendanceDate = new Date(lastAttendance.checkIn).toDateString()
+            if (statusData.success) {
+                const currentStatus = statusData.data as {
+                    status: 'idle' | 'checked-in' | 'checked-out';
+                    checkInTime: string | null;
+                    checkOutTime: string | null;
+                    checkInAt: string | null;
+                    checkOutAt: string | null;
+                    attendanceStatus: 'ON_TIME' | 'LATE' | null;
+                    workingHourMode?: 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null;
+                    flexibleTargetHour?: number | null;
+                }
 
-                    if (today === attendanceDate) {
-                        setCheckInTime(format(new Date(lastAttendance.checkIn), 'HH:mm'))
-                        setCheckInDate(new Date(lastAttendance.checkIn))
-                        setAttendanceStatus(lastAttendance.status || 'ON_TIME')
+                setStatus(currentStatus.status)
+                setAttendanceStatus(currentStatus.attendanceStatus === 'LATE' ? 'LATE' : 'ON_TIME')
+                setWorkingHourMode(currentStatus.workingHourMode === 'FLEXIBLE' ? 'FLEXIBLE' : 'FIXED')
+                setTargetHours(currentStatus.flexibleTargetHour || 8)
 
-                        // Set working hour mode and target hours from user data if available
-                        if (lastAttendance.user) {
-                            setWorkingHourMode(lastAttendance.user.workingHourMode || 'FIXED')
-                            setTargetHours(lastAttendance.user.flexibleTargetHour || 8)
-                        }
-
-                        if (lastAttendance.checkOut) {
-                            setStatus('checked-out')
-                            setCheckOutTime(format(new Date(lastAttendance.checkOut), 'HH:mm'))
-                            setCheckOutDate(new Date(lastAttendance.checkOut))
-                        } else {
-                            setStatus('checked-in')
-                        }
-                    } else {
-                        setStatus('idle')
-                        setCheckInTime(null)
-                        setCheckOutTime(null)
-                        setCheckInDate(null)
-                        setCheckOutDate(null)
-                    }
+                if (currentStatus.status === 'idle') {
+                    setCheckInTime(null)
+                    setCheckOutTime(null)
+                    setCheckInDate(null)
+                    setCheckOutDate(null)
                 } else {
-                    setStatus('idle')
+                    setCheckInTime(currentStatus.checkInTime)
+                    setCheckOutTime(currentStatus.checkOutTime)
+                    setCheckInDate(currentStatus.checkInAt ? new Date(currentStatus.checkInAt) : null)
+                    setCheckOutDate(currentStatus.checkOutAt ? new Date(currentStatus.checkOutAt) : null)
                 }
             }
         } catch (error) {

@@ -195,6 +195,25 @@ export class LeaveService {
         }
     }
 
+    async syncApprovedLeaveToAttendanceRange(startDate: Date, endDate: Date, tenantId: string, userId?: string): Promise<void> {
+        const leaves = await prisma.leaveRequest.findMany({
+            where: {
+                tenantId,
+                status: 'APPROVED',
+                ...(userId ? { userId } : {}),
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+            },
+            include: {
+                user: true
+            }
+        })
+
+        for (const leave of leaves) {
+            await this.syncLeaveToAttendance(leave)
+        }
+    }
+
     /**
      * Approve leave request
      */
@@ -479,14 +498,15 @@ export class LeaveService {
 
                     if (existingAttendance) {
                         // UPDATE existing
-                        // Only update if it's not already the same status
-                        if (existingAttendance.status !== status) {
+                        const leaveMarker = `(${leave.type})`
+                        const shouldUpdateLeaveMarker = !existingAttendance.notes?.includes(leaveMarker)
+                        if (existingAttendance.status !== status || shouldUpdateLeaveMarker) {
                             await prisma.attendance.update({
                                 where: { id: existingAttendance.id },
                                 data: {
                                     status: status,
                                     notes: existingAttendance.notes 
-                                        ? `${existingAttendance.notes} | Updated by Leave Approval` 
+                                        ? `${existingAttendance.notes} | Updated by Leave Approval (${leave.type})` 
                                         : `Updated by Leave Approval (${leave.type})`
                                 }
                             })
@@ -504,7 +524,7 @@ export class LeaveService {
                                 checkIn: checkInTime,
                                 status: status,
                                 location: 'System (Auto-Sync)',
-                                notes: `Auto-generated from Leave Request`,
+                                notes: `Auto-generated from Leave Request (${leave.type})`,
                                 updatedAt: new Date(),
                                 tenantId: leave.tenantId
                             }

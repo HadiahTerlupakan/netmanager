@@ -39,10 +39,7 @@ export class AbsenceService {
             }
         })
         
-        if (holidays.length > 0) {
-            // console.log(`[AbsenceService] ${targetDate.toDateString()} is a holiday. Skipping absence check.`)
-            return { processed: 0, alpha: 0, message: 'Holiday' }
-        }
+        const isHoliday = holidays.length > 0
 
         // 2. Get All Active Users (EXCLUDE FLEXIBLE mode - they don't have daily attendance requirements)
         // FLEXIBLE users accumulate working hours monthly, not daily check-in/out
@@ -69,7 +66,8 @@ export class AbsenceService {
             }
         })
 
-        let alphaCount = 0
+        let absentCount = 0
+        let dayOffCount = 0
 
         // 3. Iterate and Check
         // console.log(`[AbsenceService] Processing ${users.length} active users for ${targetDate.toDateString()}`)
@@ -98,10 +96,6 @@ export class AbsenceService {
                  }
              } else {
                  isWorkDay = false
-             }
-
-             if (!isWorkDay) {
-                 continue // Skip
              }
 
              // 3.2 Check Existing Attendance
@@ -135,10 +129,35 @@ export class AbsenceService {
                  continue // On Leave
              }
 
-             // 3.4 If all checks passed: MARK AS ALPHA
-             try {
+             if (isHoliday || !isWorkDay) {
+                try {
+                    const dayOffTime = new Date(startOfDay)
+                    dayOffTime.setTime(toStartOfDay(dayOffTime).getTime())
+
+                    await prisma.attendance.create({
+                        data: {
+                            id: randomUUID(),
+                            userId: user.id,
+                            tenantId,
+                            checkIn: dayOffTime,
+                            status: 'DAY_OFF',
+                            notes: isHoliday
+                                ? 'Hari Libur (Day Off) - Auto Generated'
+                                : 'Hari Off (Day Off) - Auto Generated',
+                            location: 'System',
+                            updatedAt: new Date()
+                        }
+                    })
+                    dayOffCount++
+                } catch (error) {
+                    console.error(`[AbsenceService] Error creating Day Off for ${user.name}:`, error)
+                }
+
+                continue
+             }
+
+            try {
                 // Set checkIn time to 00:00:00 (midnight) of that day
-                // This signals that this is NOT a real check-in, just a placeholder record for ALPHA
                 // UI should hide the time display for records with this midnight timestamp
                 const alphaTime = new Date(startOfDay)
                 alphaTime.setTime(toStartOfDay(alphaTime).getTime())
@@ -149,19 +168,126 @@ export class AbsenceService {
                         userId: user.id,
                         tenantId,
                         checkIn: alphaTime,
-                        status: 'ALPHA',
-                        notes: 'Tidak Masuk Kerja (Alpha) - Auto Generated',
+                        status: 'ABSENT',
+                        notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
                         location: 'System', 
                         updatedAt: new Date()
                     }
                 })
-                // console.log(`[AbsenceService] Marked ALPHA for ${user.name} on ${targetDate.toDateString()}`)
-                alphaCount++
-             } catch (error) {
-                 console.error(`[AbsenceService] Error creating Alpha for ${user.name}:`, error)
-             }
+                absentCount++
+            } catch (error) {
+                console.error(`[AbsenceService] Error creating Absent for ${user.name}:`, error)
+            }
         }
 
-        return { processed: users.length, alpha: alphaCount }
+        return { processed: users.length, absent: absentCount, dayOff: dayOffCount, ...(isHoliday ? { message: 'Holiday' } : {}) }
+    }
+
+    async syncDayOffAttendanceRange(startDate: Date, endDate: Date, tenantId: string, userId?: string) {
+        const current = new Date(startDate)
+        current.setTime(toStartOfDay(current).getTime())
+
+        const last = new Date(endDate)
+        last.setTime(toStartOfDay(last).getTime())
+
+        while (current <= last) {
+            const startOfDay = new Date(current)
+            startOfDay.setTime(toStartOfDay(startOfDay).getTime())
+            const endOfDay = new Date(current)
+            endOfDay.setTime(toEndOfDay(endOfDay).getTime())
+
+            const holidays = await this.holidayRepo.findMany(tenantId, {
+                where: {
+                    date: {
+                        gte: startOfDay,
+                        lte: endOfDay
+                    }
+                }
+            })
+
+            const isHoliday = holidays.length > 0
+
+            const users = await prisma.user.findMany({
+                where: {
+                    tenantId,
+                    isActive: true,
+                    ...(userId ? { id: userId } : {}),
+                    role: { name: { not: 'SUPER_ADMIN' } },
+                    workingHourMode: { not: 'FLEXIBLE' }
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    workDays: true
+                }
+            })
+
+            const dayOfWeek = current.getDay()
+            for (const user of users) {
+                const rawDays = user.workDays ? user.workDays.split(',').map(d => d.trim()) : []
+                const dayMap: Record<string, number> = {
+                    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
+                    'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
+                    '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
+                }
+                const workDays = rawDays.map(d => {
+                    const parsed = parseInt(d)
+                    if (!isNaN(parsed)) return parsed
+                    return dayMap[d]
+                }).filter(d => d !== undefined)
+                const isWorkDay = workDays.includes(dayOfWeek)
+
+                if (!isHoliday && isWorkDay) {
+                    continue
+                }
+
+                const attendance = await prisma.attendance.findFirst({
+                    where: {
+                        userId: user.id,
+                        tenantId,
+                        checkIn: {
+                            gte: startOfDay,
+                            lte: endOfDay
+                        }
+                    }
+                })
+
+                if (attendance) {
+                    continue
+                }
+
+                const leave = await prisma.leaveRequest.findFirst({
+                    where: {
+                        userId: user.id,
+                        tenantId,
+                        status: 'APPROVED',
+                        startDate: { lte: endOfDay },
+                        endDate: { gte: startOfDay }
+                    }
+                })
+
+                if (leave) {
+                    continue
+                }
+
+                const checkInTime = new Date(startOfDay)
+                await prisma.attendance.create({
+                    data: {
+                        id: randomUUID(),
+                        userId: user.id,
+                        tenantId,
+                        checkIn: checkInTime,
+                        status: 'DAY_OFF',
+                        notes: isHoliday
+                            ? 'Hari Libur (Day Off) - Auto Generated'
+                            : 'Hari Off (Day Off) - Auto Generated',
+                        location: 'System',
+                        updatedAt: new Date()
+                    }
+                })
+            }
+
+            current.setDate(current.getDate() + 1)
+        }
     }
 }

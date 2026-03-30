@@ -200,7 +200,7 @@ export async function getUsersNeedingCheckOutReminder(
         where: {
             checkIn: { gte: startOfDay, lte: endOfDay },
             checkOut: null,
-            status: { not: 'ALPHA' },
+            status: { notIn: ['ALPHA', 'ABSENT'] },
             user: {
                 isActive: true,
                 pushToken: { not: null },
@@ -392,7 +392,7 @@ export async function processIncompleteAttendance(): Promise<{
         where: {
             checkIn: { gte: startOfDay, lte: endOfDay },
             checkOut: null,
-            status: { not: 'ALPHA' },
+            status: { notIn: ['ALPHA', 'ABSENT'] },
             user: {
                 workingHourMode: { not: 'FLEXIBLE' }
             }
@@ -525,8 +525,8 @@ export async function processFixedHourAutoAlpha(): Promise<{
                     userId: user.id,
                     tenantId: user.tenantId,
                     checkIn: alphaTime,
-                    status: 'ALPHA',
-                    notes: 'Tidak Masuk Kerja (Alpha) - Auto Generated',
+                    status: 'ABSENT',
+                    notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
                     location: 'System',
                     updatedAt: new Date()
                 }
@@ -537,12 +537,12 @@ export async function processFixedHourAutoAlpha(): Promise<{
         }
 
         if (usersMarkedAlpha > 0) {
-            console.log(`[AttendanceAlert] Auto-marked ALPHA for ${usersMarkedAlpha} fixed-hour users`)
+            console.log(`[AttendanceAlert] Auto-marked ABSENT for ${usersMarkedAlpha} fixed-hour users`)
         }
 
         return { usersMarkedAlpha, details }
     } catch (error) {
-        console.error('[AttendanceAlert] Error auto-marking fixed-hour ALPHA:', error)
+        console.error('[AttendanceAlert] Error auto-marking fixed-hour ABSENT:', error)
         return { usersMarkedAlpha: 0, details: [] }
     }
 }
