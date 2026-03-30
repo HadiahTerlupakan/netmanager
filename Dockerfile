@@ -12,7 +12,7 @@ COPY package.json package-lock.json ./
 RUN npm config set fetch-retries 5 \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
-    && (npm ci --legacy-peer-deps --no-audit --prefer-offline || npm install --legacy-peer-deps --registry=https://registry.npmmirror.com --no-audit)
+    && npm ci --legacy-peer-deps --no-audit --prefer-offline
 
 # ==============================================================================
 # Stage 2: Builder

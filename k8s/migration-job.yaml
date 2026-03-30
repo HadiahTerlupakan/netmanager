@@ -243,23 +243,35 @@ spec:
               # STEP 4: Backfill Data
               # Automatically assign all orphaned data to a Default Tenant
               # =============================================
-              echo ""
-              echo "======================================"
-              echo "Running multi-tenant data backfill script"
-              echo "======================================"
-              tsx scripts/backfill-tenant.ts || echo "⚠️ Backfill script encountered an issue, but migration continuing"
+              OPTIONAL_FAILURES=0
+              run_optional_step() {
+                local label="$1"
+                shift
 
-              echo ""
-              echo "======================================"
-              echo "Running tenant provisioning fix script"
-              echo "======================================"
-              tsx scripts/fix-tenant-provision.ts || echo "⚠️ Tenant provisioning script encountered an issue, but migration continuing"
+                echo ""
+                echo "======================================"
+                echo "Running optional step: ${label}"
+                echo "======================================"
 
-              echo ""
-              echo "======================================"
-              echo "Running legacy data migration (NETMANAGER)"
-              echo "======================================"
-              tsx scripts/migrate-legacy-tenant.ts || echo "⚠️ Legacy migration encountered an issue, but migration continuing"
+                if "$@"; then
+                  echo "✅ Optional step succeeded: ${label}"
+                else
+                  OPTIONAL_FAILURES=$((OPTIONAL_FAILURES + 1))
+                  echo "⚠️ Optional step failed: ${label}"
+                  if [ "${FAIL_ON_OPTIONAL_MIGRATION_ERRORS:-false}" = "true" ]; then
+                    echo "❌ FAIL_ON_OPTIONAL_MIGRATION_ERRORS=true, aborting migration job"
+                    exit 1
+                  fi
+                fi
+              }
+
+              run_optional_step "multi-tenant data backfill" tsx scripts/backfill-tenant.ts
+              run_optional_step "tenant provisioning fix" tsx scripts/fix-tenant-provision.ts
+              run_optional_step "legacy data migration (NETMANAGER)" tsx scripts/migrate-legacy-tenant.ts
+
+              if [ "$OPTIONAL_FAILURES" -gt 0 ]; then
+                echo "⚠️ Optional migration steps completed with $OPTIONAL_FAILURES failure(s)"
+              fi
 
               echo ""
               echo "======================================"

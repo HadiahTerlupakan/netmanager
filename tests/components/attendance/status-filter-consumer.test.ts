@@ -1,10 +1,11 @@
 import { readFileSync } from 'fs'
+import { join } from 'path'
 import { describe, expect, it } from 'vitest'
 
 describe('AttendanceClient status detail filter consumer', () => {
   it('exposes a grouped statusDetail filter with specific labels for permit and day-off variants', () => {
     const content = readFileSync(
-      '/Users/rohadimraja/Documents/radpro/netmanager/app/admin/attendance/AttendanceClient.tsx',
+      join(process.cwd(), 'app', 'admin', 'attendance', 'AttendanceClient.tsx'),
       'utf8'
     )
 

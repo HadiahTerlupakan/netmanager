@@ -76,7 +76,7 @@ spec:
                                 npm config set fetch-retries 5
                                 npm config set fetch-retry-mintimeout 20000
                                 npm config set fetch-retry-maxtimeout 120000
-                                (npm ci --no-audit --prefer-offline || npm install --registry=https://registry.npmmirror.com --no-audit)
+                            npm ci --no-audit --prefer-offline
                                 npm run prisma:generate-parallel
                                 echo "Running Lint and Typecheck in parallel..."
                                 npm run lint & LINT_PID=\$!
@@ -134,6 +134,7 @@ spec:
                         // In a real Jenkins setup, you should use 'withCredentials' to get these values safely.
                         // Here we use the dummy/CI values if credentials are not explicitly bound.
                         sh """
+                        set -euo pipefail
                         mkdir -p .secrets
                         echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/nextauth_secret.txt
                         echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
@@ -187,7 +188,7 @@ spec:
 
                         echo "Verifikasi image yang terdaftar di k3s:"
                         docker run --rm -i --privileged -v /:/host docker:cli \\
-                            chroot /host /usr/local/bin/k3s ctr images list | grep netmanager || true
+                            sh -c "IMAGES=\$(chroot /host /usr/local/bin/k3s ctr images list) && printf '%s\n' \"\$IMAGES\" | grep -F \"${DOCKER_IMAGE}:${DOCKER_TAG}\" && printf '%s\n' \"\$IMAGES\" | grep -F \"${CRON_IMAGE}:${DOCKER_TAG}\" && printf '%s\n' \"\$IMAGES\" | grep -F \"${RADIUS_IMAGE}:${DOCKER_TAG}\""
                         """
                     }
                 }
@@ -206,8 +207,10 @@ spec:
                         if (isProduction) {
                             echo "🔒 PRODUCTION: Creating database backup before migration..."
                             // Backup database disalurkan keluar pod ke workspace Jenkins agar persisten
+                            def allowMigrationWithoutBackup = env.ALLOW_MIGRATION_WITHOUT_BACKUP == 'true'
                             def backupStatus = sh(
                                 script: """
+                                set -euo pipefail
                                 BACKUP_FILE="backup_${NAMESPACE}_\$(date +%Y%m%d_%H%M%S).sql.gz"
                                 echo "Creating backup streaming to Jenkins workspace: \$BACKUP_FILE"
                                 kubectl exec -n ${NAMESPACE} deployment/netmanager-app -- sh -c 'pg_dump "\$DATABASE_URL" --no-owner --no-privileges' | gzip > "\$BACKUP_FILE"
@@ -217,7 +220,11 @@ spec:
                             )
 
                             if (backupStatus != 0) {
-                                echo "⚠️ Warning: Pre-migration backup failed (mungkin pod belum ada), tapi migration dilanjutkan."
+                                if (allowMigrationWithoutBackup) {
+                                    echo "⚠️ Pre-migration backup failed, but migration continues because ALLOW_MIGRATION_WITHOUT_BACKUP=true"
+                                } else {
+                                    error('Pre-migration backup failed; aborting production migration. Set ALLOW_MIGRATION_WITHOUT_BACKUP=true only for an explicit emergency override.')
+                                }
                             } else {
                                 echo "✅ Database backup berhasil dibuat."
                             }
@@ -231,10 +238,11 @@ spec:
                         // 2. Terapkan konfigurasi infrastruktur (DB, Redis, Config) SEBELUM migrasi
                         // Ini krusial agar perbaikan securityContext pada DB segera diterapkan
                         echo "Memperbarui konfigurasi infrastruktur di ${NAMESPACE}..."
-                        sh "kubectl apply -f ${K8S_DIR}/configmap.yaml --namespace=${NAMESPACE} || true"
-                        sh "kubectl apply -f ${K8S_DIR}/db-statefulset.yaml --namespace=${NAMESPACE} || true"
-                        sh "kubectl apply -f ${K8S_DIR}/redis-deployment.yaml --namespace=${NAMESPACE} || true"
-                        sh "kubectl apply -f ${K8S_DIR}/pvc.yaml --namespace=${NAMESPACE} || true"
+                        sh "kubectl apply -f ${K8S_DIR}/namespace.yaml"
+                        sh "kubectl apply -f ${K8S_DIR}/configmap.yaml --namespace=${NAMESPACE}"
+                        sh "kubectl apply -f ${K8S_DIR}/db-statefulset.yaml --namespace=${NAMESPACE}"
+                        sh "kubectl apply -f ${K8S_DIR}/redis-deployment.yaml --namespace=${NAMESPACE}"
+                        sh "kubectl apply -f ${K8S_DIR}/pvc.yaml --namespace=${NAMESPACE}"
 
                         // Tunggu sebentar agar database sempat restart dengan konfigurasi baru
                         echo "Menunggu database melakukan inisialisasi..."
@@ -291,7 +299,11 @@ spec:
                         // Implementasi Opsi A: Terapkan semua file KECUALI secrets.yaml
                         // Ini agar secret di server tidak tertimpa nilai dummy dari Git
                         sh """
-                        find ${K8S_DIR}/ -name "*.yaml" ! -name "secrets.yaml" | xargs -I {} kubectl apply -f {} --namespace=${NAMESPACE}
+                        set -eu
+                        kubectl apply -f ${K8S_DIR}/namespace.yaml
+                        find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do
+                          kubectl apply -f "$manifest" --namespace=${NAMESPACE}
+                        done
                         """
                         
                         // Force rollout restart with a slight delay.
