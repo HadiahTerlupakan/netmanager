@@ -18,7 +18,7 @@ describe('migration job safety', () => {
 
     expect(jenkinsfile).toContain('MAX_WAIT_SECONDS=1800')
     expect(jenkinsfile).toContain('POLL_INTERVAL=10')
-    expect(jenkinsfile).toContain('MAX_ATTEMPTS=$((MAX_WAIT_SECONDS / POLL_INTERVAL))')
+    expect(jenkinsfile).toContain('MAX_ATTEMPTS=\\$((MAX_WAIT_SECONDS / POLL_INTERVAL))')
     expect(jenkinsfile).not.toContain('for i in $(seq 1 60)')
     expect(jenkinsfile).not.toContain('⚠️ Job timeout (10 menit).')
     expect(jenkinsfile).toContain('kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true')
