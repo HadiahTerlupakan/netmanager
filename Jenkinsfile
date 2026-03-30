@@ -267,7 +267,7 @@ spec:
                                 echo "Menunggu Kubernetes Job netmanager-migration-job..."
                                 MAX_WAIT_SECONDS=1800
                                 POLL_INTERVAL=10
-                                MAX_ATTEMPTS=$((MAX_WAIT_SECONDS / POLL_INTERVAL))
+                                MAX_ATTEMPTS=\$((MAX_WAIT_SECONDS / POLL_INTERVAL))
 
                                 # Tunggu sampai job selesai (Complete) atau gagal (Failed)
                                 for i in \$(seq 1 \$MAX_ATTEMPTS); do
