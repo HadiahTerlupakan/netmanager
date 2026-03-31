@@ -51,6 +51,30 @@ type CurrentAttendanceRow = {
     } | null
 }
 
+type ActiveAttendanceSessionRow = {
+    id: string
+    checkIn: Date
+    checkOut: Date | null
+    status: AttendanceStatus
+    user: {
+        workingHourMode: 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null
+        flexibleTargetHour: number | null
+        shift: {
+            startTime: string | null
+            endTime: string | null
+        } | null
+    } | null
+}
+
+type AttendancePolicyScheduleContext = {
+    endWorkTime: string | null
+    workingHourMode: string | null
+    shift?: {
+        startTime: string | null
+        endTime: string | null
+    } | null
+} | null
+
 export type CurrentAttendanceStatusResult = {
     status: CurrentAttendanceUiStatus
     checkInTime: string | null
@@ -68,23 +92,22 @@ export type CurrentAttendanceStatusResult = {
     } | null
 }
 
-const CURRENT_STATUS_TIMEZONE = 'Asia/Jakarta'
-function formatCurrentAttendanceTime(value: Date | null): string | null {
+function formatCurrentAttendanceTime(value: Date | null, timezone: string): string | null {
     if (!value) {
         return null
     }
 
     return new Intl.DateTimeFormat('en-GB', {
-        timeZone: CURRENT_STATUS_TIMEZONE,
+        timeZone: timezone,
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
     }).format(value)
 }
 
-function formatCurrentAttendanceWarningDate(value: Date): string {
+function formatCurrentAttendanceWarningDate(value: Date, timezone: string): string {
     return new Intl.DateTimeFormat('en-GB', {
-        timeZone: CURRENT_STATUS_TIMEZONE,
+        timeZone: timezone,
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -94,8 +117,8 @@ function formatCurrentAttendanceWarningDate(value: Date): string {
     }).format(value).replace(',', '')
 }
 
-function isSameAttendanceDay(a: Date, b: Date): boolean {
-    return a.toLocaleDateString('en-CA', { timeZone: CURRENT_STATUS_TIMEZONE }) === b.toLocaleDateString('en-CA', { timeZone: CURRENT_STATUS_TIMEZONE })
+function isSameAttendanceDay(a: Date, b: Date, timezone: string): boolean {
+    return a.toLocaleDateString('en-CA', { timeZone: timezone }) === b.toLocaleDateString('en-CA', { timeZone: timezone })
 }
 
 function buildIdleCurrentAttendanceStatus(attendance?: CurrentAttendanceRow | null, warningMessage: string | null = null): CurrentAttendanceStatusResult {
@@ -125,6 +148,75 @@ export class AttendanceService {
         this.timezoneService = new AttendanceTimezoneService()
     }
 
+    private getScheduleEndTimeForPolicy(
+        workingHourMode: string | null | undefined,
+        userDetails: AttendancePolicyScheduleContext,
+        shift: { startTime: string | null; endTime: string | null } | null | undefined
+    ) {
+        if (workingHourMode === 'SHIFT') {
+            return shift?.endTime ?? userDetails?.endWorkTime ?? null
+        }
+
+        return userDetails?.endWorkTime ?? null
+    }
+
+    private async assertNoActiveSessionConflict(
+        userId: string,
+        userDetails: CachedUserAttendanceSettings | null,
+        atTime: Date,
+        tenantId?: string
+    ) {
+        const latestOpenAttendance = await prisma.attendance.findFirst({
+            where: {
+                userId,
+                checkOut: null,
+                ...(tenantId && { tenantId })
+            },
+            orderBy: { checkIn: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true,
+                        shift: {
+                            select: {
+                                startTime: true,
+                                endTime: true,
+                            }
+                        }
+                    }
+                }
+            }
+        }) as ActiveAttendanceSessionRow | null
+
+        if (!latestOpenAttendance) {
+            return
+        }
+
+        const workingHourMode = latestOpenAttendance.user?.workingHourMode ?? (userDetails?.workingHourMode as 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null) ?? null
+        const shift = latestOpenAttendance.user?.shift ?? userDetails?.shift ?? null
+        const sessionPolicyService = new AttendanceSessionPolicyService()
+        const decision = sessionPolicyService.resolve({
+            attendance: {
+                id: latestOpenAttendance.id,
+                checkIn: latestOpenAttendance.checkIn,
+                checkOut: latestOpenAttendance.checkOut,
+                status: latestOpenAttendance.status,
+                user: {
+                    workingHourMode,
+                    flexibleTargetHour: latestOpenAttendance.user?.flexibleTargetHour ?? null,
+                    shift,
+                }
+            },
+            now: atTime,
+            scheduleEndTime: this.getScheduleEndTimeForPolicy(workingHourMode, userDetails, shift),
+        })
+
+        if (!decision.shouldAutoCheckout && !decision.isStaleFlexibleSession) {
+            throw new Error('DUPLICATE_ENTRY')
+        }
+    }
+
     async checkIn(params: CheckInParams) {
         const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, timezone, tenantId } = params
 
@@ -140,7 +232,7 @@ export class AttendanceService {
 
         // 2. Cross-Module Validation (Leave & Holiday)
         // Check using the User's Timezone Date
-        const eligibility = await this.validationService.validateCheckInEligibility(userId, tz, nowInTz)
+        const eligibility = await this.validationService.validateCheckInEligibility(userId, tz, nowInTz, tenantId)
         if (!eligibility.isValid) {
             throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`) // Format error for controller to parse
         }
@@ -173,19 +265,9 @@ export class AttendanceService {
         // 4. Auto-Checkout Stale Sessions
         await this.processAutoCheckout(userId, userDetails, effectiveToday, tenantId)
 
-        // 5. Duplicate Check
-        const existingAttendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                checkIn: { gte: effectiveToday },
-                ...(tenantId && { tenantId })
-            }
-        })
-        if (existingAttendance) {
-            throw new Error('DUPLICATE_ENTRY')
-        }
+        await this.assertNoActiveSessionConflict(userId, userDetails, nowInTz, tenantId)
 
-        // 6. Geofence Validation
+        // 5. Geofence Validation (before transaction to minimize lock time)
         let geofenceResult = {
             status: 'UNKNOWN',
             distance: null as number | null,
@@ -207,7 +289,7 @@ export class AttendanceService {
             }
         }
 
-        // 7. Status Calculation (LATE vs ON_TIME)
+        // 6. Status Calculation (LATE vs ON_TIME)
         let status: AttendanceStatus = 'ON_TIME'
         if (userDetails?.workingHourMode !== 'FLEXIBLE') {
             // Determine schedule time: for SHIFT mode, use shift schedule; otherwise use user's startWorkTime
@@ -225,12 +307,15 @@ export class AttendanceService {
             }
         }
 
-        // 8. Create Record
+        // 7. Create Record with transaction to prevent race condition
+        // checkInDate is the date-only portion in the user's timezone,
+        // used for the unique constraint to prevent duplicate check-ins per day
         const createData: Prisma.AttendanceUncheckedCreateInput = {
             id: randomUUID(),
             userId,
             tenantId,
             checkIn: checkInTime,
+            checkInDate: effectiveToday,
             checkInPhoto: photoUrl,
             location,
             notes,
@@ -245,9 +330,17 @@ export class AttendanceService {
             createData.geofenceMeta = { offline: true, capturedAt: offlineTime.toISOString() }
         }
 
-        return await prisma.attendance.create({
-            data: createData
-        })
+        try {
+            return await prisma.attendance.create({
+                data: createData
+            })
+        } catch (error) {
+            // P2002 = Unique constraint violation → duplicate check-in caught by DB
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                throw new Error('DUPLICATE_ENTRY')
+            }
+            throw error
+        }
     }
 
     private async processAutoCheckout(userId: string, userDetails: { endWorkTime: string | null; workingHourMode: string | null; shift?: { startTime: string, endTime: string } | null } | null, effectiveToday: Date, tenantId?: string) {
@@ -285,7 +378,7 @@ export class AttendanceService {
                     }
                 },
                 now: new Date(),
-                scheduleEndTime: userDetails?.endWorkTime ?? null
+                scheduleEndTime: this.getScheduleEndTimeForPolicy(userDetails?.workingHourMode, userDetails, userDetails?.shift)
             })
 
             if (!decision.shouldAutoCheckout || !decision.autoCheckoutAt || !decision.nextStatus) {
@@ -746,6 +839,10 @@ export class AttendanceService {
 
     async getCurrentAttendanceStatus(userId: string, options?: { tenantId?: string }): Promise<CurrentAttendanceStatusResult> {
         const sessionPolicyService = new AttendanceSessionPolicyService()
+
+        // Fetch timezone for accurate time display
+        const timezone = await this.timezoneService.getTimezone(options?.tenantId)
+
         const attendance = await prisma.attendance.findFirst({
             where: {
                 userId,
@@ -783,17 +880,18 @@ export class AttendanceService {
         if (decision?.isStaleFlexibleSession) {
             return buildIdleCurrentAttendanceStatus(
                 attendance,
-                `Sesi fleksibel lama sejak ${formatCurrentAttendanceWarningDate(attendance.checkIn)} belum checkout.`
+                `Sesi fleksibel lama sejak ${formatCurrentAttendanceWarningDate(attendance.checkIn, timezone)} belum checkout.`
             )
         }
 
-        const sameDay = isSameAttendanceDay(attendance.checkIn, new Date())
+        const now = new Date()
+        const sameDay = isSameAttendanceDay(attendance.checkIn, now, timezone)
         const shouldAppearActive = decision?.isOvernightShiftActive || attendance.user?.workingHourMode === 'FLEXIBLE' || sameDay
 
         if (!attendance.checkOut && shouldAppearActive) {
             return {
                 status: 'checked-in',
-                checkInTime: formatCurrentAttendanceTime(attendance.checkIn),
+                checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
                 checkOutTime: null,
                 warningMessage: null,
                 sourceAttendanceId: attendance.id,
@@ -809,8 +907,8 @@ export class AttendanceService {
         if (attendance.checkOut && sameDay) {
             return {
                 status: 'checked-out',
-                checkInTime: formatCurrentAttendanceTime(attendance.checkIn),
-                checkOutTime: formatCurrentAttendanceTime(attendance.checkOut),
+                checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
+                checkOutTime: formatCurrentAttendanceTime(attendance.checkOut, timezone),
                 warningMessage: null,
                 sourceAttendanceId: attendance.id,
                 checkInAt: attendance.checkIn.toISOString(),

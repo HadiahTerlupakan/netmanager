@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { createHandler } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendanceTimezoneService } from '@/modules/attendance/services/AttendanceTimezoneService'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { isOffDayForUser } from '@/modules/attendance/utils/workingDayUtils'
 
 type MobileTodayMetadata = {
     isHoliday: boolean
@@ -13,34 +15,26 @@ type MobileTodayMetadata = {
     isTukarLiburLeaveDay: boolean
 }
 
-const DAY_MAP: Record<string, string[]> = {
-    SUNDAY: ['SUNDAY', 'MINGGU', '0'],
-    MONDAY: ['MONDAY', 'SENIN', '1'],
-    TUESDAY: ['TUESDAY', 'SELASA', '2'],
-    WEDNESDAY: ['WEDNESDAY', 'RABU', '3'],
-    THURSDAY: ['THURSDAY', 'KAMIS', '4'],
-    FRIDAY: ['FRIDAY', 'JUMAT', '5'],
-    SATURDAY: ['SATURDAY', 'SABTU', '6']
-}
-
-function normalizeWorkDays(workDays: unknown): string[] {
-    if (!Array.isArray(workDays)) {
-        return []
-    }
-
-    return workDays.map((day) => String(day).toUpperCase())
+function isSameDay(date1: Date, date2: Date): boolean {
+    return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate()
+    )
 }
 
 async function getTodayMetadata(userId: string, tenantId: string): Promise<MobileTodayMetadata> {
     const holidayRepo = new HolidayRepository()
-    const today = new Date()
-    const todayStart = new Date(today)
-    todayStart.setHours(0, 0, 0, 0)
-    const todayEnd = new Date(today)
+    const timezoneService = new AttendanceTimezoneService()
+
+    // Use tenant timezone for accurate day-of-week calculation
+    const tz = await timezoneService.getTimezone(tenantId)
+    const { now: todayInTz, startOfDay: todayStart } = timezoneService.getEffectiveDate(tz)
+    const todayEnd = new Date(todayStart)
     todayEnd.setHours(23, 59, 59, 999)
 
     const [holidayInfo, userData, tukarLibur] = await Promise.all([
-        holidayRepo.isHoliday(today, tenantId),
+        holidayRepo.isHoliday(todayStart, tenantId),
         prisma.user.findFirst({
             where: { id: userId, tenantId },
             select: {
@@ -62,17 +56,17 @@ async function getTodayMetadata(userId: string, tenantId: string): Promise<Mobil
         })
     ])
 
-    const todayKey = today.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
-    const normalizedWorkDays = normalizeWorkDays(userData?.workDays)
-    const matchingDays = DAY_MAP[todayKey] ?? [todayKey]
+    // Use timezone-aware day-of-week
+    const dayOfWeek = todayInTz.getDay()
 
-    let isOffDay = false
-    if (userData?.workingHourMode !== 'FLEXIBLE') {
-        isOffDay = !matchingDays.some((day) => normalizedWorkDays.includes(day))
-    }
+    let isOffDay = isOffDayForUser(dayOfWeek, userData?.workDays ?? null, userData?.workingHourMode ?? null)
 
-    const isTukarLiburWorkDay = Boolean(tukarLibur?.replacementDate)
-    const isTukarLiburLeaveDay = Boolean(tukarLibur?.startDate && !tukarLibur?.replacementDate)
+    const isTukarLiburWorkDay = Boolean(
+        tukarLibur?.replacementDate && isSameDay(new Date(tukarLibur.replacementDate), todayStart)
+    )
+    const isTukarLiburLeaveDay = Boolean(
+        tukarLibur?.startDate && isSameDay(new Date(tukarLibur.startDate), todayStart)
+    )
 
     if (isTukarLiburWorkDay) {
         isOffDay = false

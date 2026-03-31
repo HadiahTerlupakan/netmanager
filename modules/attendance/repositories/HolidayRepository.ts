@@ -49,19 +49,16 @@ export class HolidayRepository {
     }
 
     async isHoliday(date: Date, tenantId: string): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
-        // Check cache first (24h TTL)
-        const dateStr = date.toISOString().split('T')[0]
-        const cacheKey = `holiday:${tenantId}:${dateStr}`
-        const cached = cache.get<{ isHoliday: boolean, holiday?: Holiday | null }>(cacheKey)
-
-        if (cached) return cached
-
-        // Normalize date to YYYY-MM-DD for comparison
         const startOfDay = new Date(date)
         startOfDay.setTime(toStartOfDay(startOfDay).getTime())
 
         const endOfDay = new Date(startOfDay)
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
+
+        const cacheKey = `holiday:${tenantId}:${startOfDay.getTime()}`
+        const cached = cache.get<{ isHoliday: boolean, holiday?: Holiday | null }>(cacheKey)
+
+        if (cached) return cached
 
         const holiday = await prisma.holiday.findFirst({
             where: {

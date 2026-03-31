@@ -68,20 +68,31 @@ async function main() {
         const holidayDate = new Date(h.date)
 
         // Upsert to populate or update if exists
-        await prisma.holiday.upsert({
-            where: { date: holidayDate },
-            update: {
-                description: h.description,
-                isNational: h.isNational
-            },
-            create: {
-                id: randomUUID(),
-                updatedAt: new Date(),
-                date: holidayDate,
-                description: h.description,
-                isNational: h.isNational
-            }
+        // Using findFirst + update/create because unique constraint is [date, tenantId]
+        const existing = await prisma.holiday.findFirst({
+            where: { date: holidayDate, tenantId: null }
         })
+
+        if (existing) {
+            await prisma.holiday.update({
+                where: { id: existing.id },
+                data: {
+                    description: h.description,
+                    isNational: h.isNational
+                }
+            })
+        } else {
+            await prisma.holiday.create({
+                data: {
+                    id: randomUUID(),
+                    updatedAt: new Date(),
+                    date: holidayDate,
+                    description: h.description,
+                    isNational: h.isNational,
+                    tenantId: null
+                }
+            })
+        }
     }
 
     console.log('Seeding holidays finished.')

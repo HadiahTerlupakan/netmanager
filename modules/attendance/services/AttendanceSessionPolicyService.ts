@@ -126,7 +126,11 @@ export class AttendanceSessionPolicyService {
       }
     }
 
-    const autoCheckoutAt = overnightShiftEnd ?? buildDefaultCheckout(attendance.checkIn, scheduleEndTime)
+    const resolvedScheduleEndTime = workingHourMode === 'SHIFT'
+      ? attendance.user?.shift?.endTime ?? scheduleEndTime
+      : scheduleEndTime
+
+    const autoCheckoutAt = overnightShiftEnd ?? buildDefaultCheckout(attendance.checkIn, resolvedScheduleEndTime)
     const shouldAutoCheckout = now >= autoCheckoutAt
 
     return {

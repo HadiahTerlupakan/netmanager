@@ -88,6 +88,7 @@ model Attendance {
   id                       String           @id
   userId                   String
   checkIn                  DateTime         @default(now())
+  checkInDate              DateTime?
   checkOut                 DateTime?
   checkInPhoto             String?
   checkOutPhoto            String?
@@ -115,6 +116,7 @@ model Attendance {
   @@index([userId, checkIn(sort: Desc)], map: "idx_attendance_user_checkin")
   @@index([userId, checkOut(sort: Desc)], map: "idx_attendance_user_checkout")
   @@index([tenantId])
+  @@unique([userId, checkInDate, tenantId], map: "idx_attendance_user_checkin_date_tenant")
 }
 
 model EmployeeLocation {
@@ -391,7 +393,7 @@ model RabInvestor {
 
 model Holiday {
   id          String   @id
-  date        DateTime @unique
+  date        DateTime
   description String
   isNational  Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -399,6 +401,7 @@ model Holiday {
   tenantId    String?
   tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@unique([date, tenantId])
   @@index([tenantId])
 }
 

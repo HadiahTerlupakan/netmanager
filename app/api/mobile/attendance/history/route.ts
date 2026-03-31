@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { AttendanceTimezoneService } from '@/modules/attendance/services/AttendanceTimezoneService'
+import { isOffDayForUser } from '@/modules/attendance/utils/workingDayUtils'
 import { apiPaginated, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
@@ -54,21 +56,26 @@ export const GET = createHandler({ auth: true }, async (_request, ctx) => {
         }
     })
 
+    // Use tenant timezone for accurate day-of-week calculation
+    const timezoneService = new AttendanceTimezoneService()
+    const tz = await timezoneService.getTimezone(tenantId)
+    const { now: todayInTz, startOfDay: todayStart } = timezoneService.getEffectiveDate(tz)
+    const todayEnd = new Date(todayStart)
+    todayEnd.setHours(23, 59, 59, 999)
+
     const holidayRepo = new HolidayRepository()
-    const { isHoliday, holiday } = await holidayRepo.isHoliday(new Date(), tenantId)
+    const { isHoliday, holiday } = await holidayRepo.isHoliday(todayStart, tenantId)
 
     const userData = await prisma.user.findFirst({
         where: { id: userId, tenantId },
         select: { workDays: true, workingHourMode: true }
     })
 
-    let isOffDay = false
-    let isTukarLiburWorkDay = false 
-    let isTukarLiburLeaveDay = false 
+    const dayOfWeek = todayInTz.getDay()
+    let isOffDay = isOffDayForUser(dayOfWeek, userData?.workDays ?? null, userData?.workingHourMode ?? null)
 
-    const today = new Date()
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+    let isTukarLiburWorkDay = false
+    let isTukarLiburLeaveDay = false
 
     const approvedTukarLibur = await prisma.leaveRequest.findFirst({
         where: {
@@ -91,24 +98,8 @@ export const GET = createHandler({ auth: true }, async (_request, ctx) => {
         if (startDateMatch) isTukarLiburLeaveDay = true
     }
 
-    if (userData?.workDays && userData?.workingHourMode !== 'FLEXIBLE') {
-        const dayOfWeek = today.getDay() 
-        const dayMap: Record<string, number> = {
-            'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
-            'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
-            '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
-        }
-        const workDays = userData.workDays.split(',').map((d: string) => {
-            const trimmed = d.trim()
-            const parsed = parseInt(trimmed)
-            if (!isNaN(parsed)) return parsed
-            return dayMap[trimmed]
-        }).filter((d) => d !== undefined)
-        isOffDay = workDays.length > 0 && !workDays.includes(dayOfWeek)
-    }
-
-    if (isTukarLiburWorkDay) isOffDay = false 
-    if (isTukarLiburLeaveDay) isOffDay = true 
+    if (isTukarLiburWorkDay) isOffDay = false
+    if (isTukarLiburLeaveDay) isOffDay = true
 
     return apiPaginated(attendancesWithSessionMeta, {
         page,

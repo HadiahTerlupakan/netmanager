@@ -213,6 +213,82 @@ describe('AttendanceService', () => {
         longitude: 106.82,
       })).rejects.toThrow('OUTSIDE_GEOFENCE')
     })
+
+    it('rejects a new check-in when a flexible session from yesterday is still active', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        startWorkTime: '08:00',
+        endWorkTime: '17:00',
+        workingHourMode: 'FLEXIBLE',
+        shiftId: null,
+        attendanceGeofencePolicy: 'WARN',
+        shift: null,
+      })
+
+      prismaMock.attendance.findFirst.mockResolvedValueOnce({
+        id: 'att-flex-active',
+        checkIn: new Date('2026-03-07T10:00:00.000Z'),
+        checkOut: null,
+        status: 'ON_TIME',
+        user: {
+          workingHourMode: 'FLEXIBLE',
+          flexibleTargetHour: 8,
+          shift: null,
+        },
+      })
+
+      await expect(service.checkIn({
+        userId: 'flex-user',
+        photoUrl: null,
+        location: 'Remote',
+        notes: '',
+        latitude: -6.2,
+        longitude: 106.8,
+      })).rejects.toThrow('DUPLICATE_ENTRY')
+    })
+
+    it('rejects a new check-in when an overnight shift session is still active after midnight', async () => {
+      vi.spyOn(AttendanceTimezoneService.prototype, 'getEffectiveDate').mockReturnValueOnce({
+        now: new Date('2026-03-07T18:00:00.000Z'),
+        startOfDay: new Date('2026-03-07T00:00:00.000Z'),
+        tzOffsetMs: 0,
+      })
+
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        startWorkTime: '08:00',
+        endWorkTime: '17:00',
+        workingHourMode: 'SHIFT',
+        shiftId: 'shift-1',
+        attendanceGeofencePolicy: 'WARN',
+        shift: {
+          startTime: '21:00',
+          endTime: '04:00',
+        },
+      })
+      prismaMock.attendance.findMany.mockResolvedValueOnce([])
+      prismaMock.attendance.findFirst.mockResolvedValueOnce({
+        id: 'att-shift-overnight',
+        checkIn: new Date('2026-03-07T15:00:00.000Z'),
+        checkOut: null,
+        status: 'ON_TIME',
+        user: {
+          workingHourMode: 'SHIFT',
+          flexibleTargetHour: null,
+          shift: {
+            startTime: '21:00',
+            endTime: '04:00',
+          },
+        },
+      })
+
+      await expect(service.checkIn({
+        userId: 'shift-user',
+        photoUrl: null,
+        location: 'Remote',
+        notes: '',
+        latitude: -6.2,
+        longitude: 106.8,
+      })).rejects.toThrow('DUPLICATE_ENTRY')
+    })
   })
 
 })

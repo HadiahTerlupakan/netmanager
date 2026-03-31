@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { prismaMock } from '../setup'
+import { cache } from '@/lib/cache'
 import { getCrossSurfaceAttendanceFixture } from '../fixtures/attendance/crossSurfaceAttendanceFixtures'
 
 vi.mock('@/lib/api', () => ({
@@ -10,16 +11,12 @@ vi.mock('@/lib/api', () => ({
         NextResponse.json({ success: true, message, data }, { status }),
 }))
 
-vi.mock('@/modules/holidays/repositories/HolidayRepository', () => ({
-    HolidayRepository: class {
-        isHoliday = vi.fn().mockResolvedValue({ isHoliday: false, holidayName: null })
-    },
-}))
-
 describe('mobile attendance status route', () => {
     beforeEach(() => {
         vi.useFakeTimers()
+        cache.clear()
         prismaMock.attendance.findFirst.mockResolvedValue(null)
+        prismaMock.holiday.findFirst.mockResolvedValue(null)
         prismaMock.user.findFirst.mockResolvedValue({
             id: 'user-1',
             workDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
@@ -144,5 +141,58 @@ describe('mobile attendance status route', () => {
             checkOutAt: '2026-03-08T09:30:00.000Z',
             attendanceStatus: 'ON_TIME',
         })
+    })
+
+    it('does not report yesterday holiday as today during early morning WIB requests', async () => {
+        const { GET } = await import('@/app/api/mobile/attendance/status/route')
+
+        prismaMock.holiday.findFirst
+            .mockResolvedValueOnce({
+                id: 'holiday-yesterday',
+                date: new Date('2026-03-18T00:00:00.000Z'),
+                description: 'Nyepi',
+                tenantId: 'tenant-1',
+            })
+            .mockResolvedValueOnce(null)
+
+        vi.setSystemTime(new Date('2026-03-18T16:30:00.000Z'))
+        const firstResponse = await GET(
+            new NextRequest('http://localhost/api/mobile/attendance/status'),
+            {
+                session: {
+                    user: {
+                        id: 'user-1',
+                        tenantId: 'tenant-1',
+                    },
+                },
+            } as never
+        )
+
+        const firstBody = await firstResponse.json()
+
+        vi.setSystemTime(new Date('2026-03-18T18:30:00.000Z'))
+        const secondResponse = await GET(
+            new NextRequest('http://localhost/api/mobile/attendance/status'),
+            {
+                session: {
+                    user: {
+                        id: 'user-1',
+                        tenantId: 'tenant-1',
+                    },
+                },
+            } as never
+        )
+
+        const secondBody = await secondResponse.json()
+
+        expect(firstBody.today).toMatchObject({
+            isHoliday: true,
+            holidayName: 'Nyepi',
+        })
+        expect(secondBody.today).toMatchObject({
+            isHoliday: false,
+            holidayName: null,
+        })
+        expect(prismaMock.holiday.findFirst).toHaveBeenCalledTimes(2)
     })
 })

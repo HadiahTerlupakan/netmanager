@@ -70,4 +70,32 @@ describe('AttendanceSessionPolicyService', () => {
     })
     expect(decision.autoCheckoutAt?.toISOString()).toBe('2026-01-24T02:00:00.000Z')
   })
+
+  it('uses shift end time for non-overnight shift auto-checkout', async () => {
+    const { AttendanceSessionPolicyService } = await import('@/modules/attendance/services/AttendanceSessionPolicyService')
+    const service = new AttendanceSessionPolicyService()
+
+    const decision = service.resolve({
+      attendance: {
+        id: 'att-shift-daytime',
+        checkIn: new Date('2026-03-08T01:00:00.000Z'),
+        checkOut: null,
+        status: 'ON_TIME',
+        user: {
+          workingHourMode: 'SHIFT',
+          flexibleTargetHour: null,
+          shift: {
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+        },
+      },
+      now: new Date('2026-03-08T11:00:00.000Z'),
+      scheduleEndTime: null,
+    })
+
+    expect(decision.reason).toBe('eligible-for-auto-checkout')
+    expect(decision.autoCheckoutAt?.toISOString()).toBe('2026-03-08T10:00:00.000Z')
+    expect(decision.nextStatus).toBe('NO_CHECKOUT')
+  })
 })

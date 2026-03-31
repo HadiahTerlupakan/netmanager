@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import { getTimezone } from '@/lib/utils/get-timezone'
+import { toZonedTime } from 'date-fns-tz'
 import { toEndOfDay } from '@/lib/utils/server-datetime'
+import { getTimezone } from '@/lib/utils/get-timezone'
 import { ATTENDANCE_CONSTANTS } from '../constants'
 import { AttendanceSessionPolicyService } from './AttendanceSessionPolicyService'
 
@@ -22,12 +23,12 @@ export class AutoCheckoutService {
         const sessionPolicyService = new AttendanceSessionPolicyService()
         const timezone = await getTimezone()
 
-        // Use timezone-aware current time
+        // Use timezone-aware current time via date-fns-tz (reliable)
         const now = new Date()
-        const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }))
+        const nowInTz = toZonedTime(now, timezone)
 
         const endOfToday = new Date(nowInTz)
-        endOfToday.setTime(toEndOfDay(endOfToday).getTime())
+        endOfToday.setTime(toEndOfDay(endOfToday, timezone).getTime())
 
         // 1. Find all active attendance (checkOut is null)
         // We catch everything up to the current moment.
@@ -70,6 +71,8 @@ export class AutoCheckoutService {
                     select: {
                         name: true,
                         workingHourMode: true,
+                        startWorkTime: true,
+                        endWorkTime: true,
                         shift: true // Include shift details
                     }
                 }
@@ -84,6 +87,15 @@ export class AutoCheckoutService {
         for (const attendance of openAttendances) {
             try {
                 const { user } = attendance
+
+                // Resolve scheduleEndTime from user settings instead of passing null
+                let scheduleEndTime: string | null = null
+                if (user.workingHourMode === 'SHIFT' && user.shift) {
+                    scheduleEndTime = user.shift.endTime
+                } else {
+                    scheduleEndTime = user.endWorkTime
+                }
+
                 const decision = sessionPolicyService.resolve({
                     attendance: {
                         id: attendance.id,
@@ -100,7 +112,7 @@ export class AutoCheckoutService {
                         }
                     },
                     now,
-                    scheduleEndTime: null
+                    scheduleEndTime
                 })
 
                 if (decision.shouldAutoCheckout && decision.autoCheckoutAt && decision.nextStatus) {

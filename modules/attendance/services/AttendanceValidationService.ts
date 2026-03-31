@@ -1,25 +1,29 @@
 import { prisma } from '@/lib/prisma'
 import { toZonedTime, toDate } from 'date-fns-tz'
 import { startOfDay as fnsStartOfDay, endOfDay as fnsEndOfDay } from 'date-fns'
+import { HolidayRepository } from '../repositories/HolidayRepository'
+import { isOffDayForUser } from '../utils/workingDayUtils'
+
 export class AttendanceValidationService {
     /**
      * Memvalidasi apakah user bisa check-in pada tanggal tertentu
      * Checks:
      * 1. Apakah ada Cuti yang disetujui (APPROVED) pada tanggal tersebut?
      * 2. Apakah tanggal tersebut adalah Hari Libur (Holiday)?
+     * 3. Apakah tanggal tersebut adalah Off Day (bukan jadwal kerja)?
      */
-    async validateCheckInEligibility(userId: string, timezone: string, date: Date = new Date()): Promise<{
+    async validateCheckInEligibility(userId: string, timezone: string, date: Date = new Date(), tenantId?: string): Promise<{
         isValid: boolean
         reason?: string
         type?: 'LEAVE' | 'HOLIDAY' | 'OFF_DAY'
     }> {
         // Build the correct timezone boundaries
         const zonedDate = toZonedTime(date, timezone)
-        
+
         // Start and end of day in the specified timezone
         const localStartOfDay = fnsStartOfDay(zonedDate)
         const localEndOfDay = fnsEndOfDay(zonedDate)
-        
+
         // Convert to UTC Date objects for accurate Prisma queries
         const startOfDay = toDate(localStartOfDay, { timeZone: timezone })
         const endOfDay = toDate(localEndOfDay, { timeZone: timezone })
@@ -28,6 +32,7 @@ export class AttendanceValidationService {
         const activeLeave = await prisma.leaveRequest.findFirst({
             where: {
                 userId,
+                tenantId: tenantId || undefined,
                 status: 'APPROVED',
                 startDate: { lte: endOfDay },
                 endDate: { gte: startOfDay }
@@ -46,58 +51,50 @@ export class AttendanceValidationService {
             }
         }
 
-        // 2. Check Holidays
-        const holiday = await prisma.holiday.findFirst({
-            where: {
-                date: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
-            },
-            select: {
-                description: true,
-                isNational: true
-            }
-        })
+        // 2. Check Holidays — use HolidayRepository for consistent caching
+        if (tenantId) {
+            const holidayRepo = new HolidayRepository()
+            const { isHoliday, holiday } = await holidayRepo.isHoliday(startOfDay, tenantId)
 
-        if (holiday) {
-            return {
-                isValid: false,
-                reason: `Hari ini adalah hari libur: ${holiday.description}`,
-                type: 'HOLIDAY'
+            if (isHoliday && holiday) {
+                return {
+                    isValid: false,
+                    reason: `Hari ini adalah hari libur: ${holiday.description}`,
+                    type: 'HOLIDAY'
+                }
+            }
+        } else {
+            // Fallback: direct query when no tenantId (shouldn't happen in normal flow)
+            const holiday = await prisma.holiday.findFirst({
+                where: {
+                    date: { gte: startOfDay, lte: endOfDay }
+                },
+                select: { description: true }
+            })
+
+            if (holiday) {
+                return {
+                    isValid: false,
+                    reason: `Hari ini adalah hari libur: ${holiday.description}`,
+                    type: 'HOLIDAY'
+                }
             }
         }
-        
-        // 3. Check Off Days (Jadwal Kerja User)
+
+        // 3. Check Off Days (Jadwal Kerja User) — use shared utility
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { workDays: true, workingHourMode: true }
         })
 
-        // User FLEXIBLE tidak terpengaruh workDays - bisa absen setiap hari
-        if (user?.workDays && user?.workingHourMode !== 'FLEXIBLE') {
-            const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
-            const dayMap: Record<string, number> = { 
-                'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6,
-                'Minggu': 0, 'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6,
-                '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
-            }
-            
-            const workDays = user.workDays.split(',').map(d => {
-                const trimmed = d.trim()
-                const parsed = parseInt(trimmed)
-                if (!isNaN(parsed)) return parsed
-                return dayMap[trimmed]
-            }).filter(d => d !== undefined)
+        // Use timezone-aware day-of-week from the zoned date
+        const dayOfWeek = zonedDate.getDay()
 
-            // SAFEGUARD: Jika workDays kosong setelah parsing (misal: workDays=""), 
-            // jangan blokir user - izinkan check-in (default fleksibel)
-            if (workDays.length > 0 && !workDays.includes(dayOfWeek)) {
-                return {
-                    isValid: false,
-                    reason: `Hari ini bukan jadwal kerja Anda`,
-                    type: 'OFF_DAY'
-                }
+        if (isOffDayForUser(dayOfWeek, user?.workDays ?? null, user?.workingHourMode ?? null)) {
+            return {
+                isValid: false,
+                reason: `Hari ini bukan jadwal kerja Anda`,
+                type: 'OFF_DAY'
             }
         }
 
