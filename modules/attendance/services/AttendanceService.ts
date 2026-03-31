@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/lib/prisma'
 import { GeofenceService } from './GeofenceService'
 import { AttendanceValidationService } from './AttendanceValidationService'
 import { AttendanceTimezoneService } from './AttendanceTimezoneService'
@@ -843,13 +843,17 @@ export class AttendanceService {
         // Fetch timezone for accurate time display
         const timezone = await this.timezoneService.getTimezone(options?.tenantId)
 
-        const attendance = await prisma.attendance.findFirst({
+        const attendance = await prismaAuth.attendance.findFirst({
             where: {
                 userId,
                 ...(options?.tenantId ? { tenantId: options.tenantId } : {})
             },
             orderBy: { checkIn: 'desc' },
-            include: {
+            select: {
+                id: true,
+                checkIn: true,
+                checkOut: true,
+                status: true,
                 user: {
                     select: {
                         workingHourMode: true,

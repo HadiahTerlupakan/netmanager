@@ -202,8 +202,30 @@ spec:
                 echo "🔧 Running idempotent fix for sync_schema_changes..."
                 psql "$DATABASE_URL" -f /app/scripts/fix-partial-sync-schema.sql 2>&1 || true
                 prisma migrate resolve --applied 20260326004412_sync_schema_changes 2>&1 || true
+
+                # =============================================
+                # Resolve failed migrations (P3009 recovery)
+                # If a migration failed mid-apply, Prisma blocks all future deploys.
+                # We roll-back the failed migration so it can be re-attempted.
+                # The migration SQL must be idempotent to handle re-runs safely.
+                # =============================================
+                echo "🔍 Checking for failed migrations to roll back..."
+                FAILED_MIGRATIONS=$(psql "$DATABASE_URL" -tAc "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL")
+                if [ -n "$FAILED_MIGRATIONS" ]; then
+                  echo "⚠️ Found failed migrations, rolling back for re-attempt:"
+                  echo "$FAILED_MIGRATIONS" | while IFS= read -r mig; do
+                    echo "   Rolling back: $mig"
+                    # Clean up any partially-created objects from the failed migration
+                    # (idempotent — safe to run even if nothing to clean)
+                    psql "$DATABASE_URL" -c "DROP INDEX IF EXISTS \"idx_attendance_user_checkin_date_tenant\"" 2>&1 || true
+                    prisma migrate resolve --rolled-back "$mig" 2>&1 || true
+                  done
+                  echo "✅ Failed migrations rolled back. They will be re-attempted below."
+                else
+                  echo "✅ No failed migrations found."
+                fi
               fi
-              
+
               prisma migrate deploy
 
               echo ""
