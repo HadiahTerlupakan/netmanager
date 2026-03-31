@@ -5,8 +5,12 @@ EXCEPTION WHEN duplicate_column THEN
   RAISE NOTICE 'column checkInDate already exists, skipping ADD COLUMN';
 END $$;
 
--- Backfill: Reset and recompute checkInDate to ensure clean state on re-run
-UPDATE "Attendance" SET "checkInDate" = DATE_TRUNC('day', "checkIn");
+-- Backfill: Set checkInDate using timezone-aware date (matches application logic)
+-- The app computes effectiveToday = startOfDay in user's timezone, converted back to UTC.
+-- Using 'Asia/Jakarta' (UTC+7) as default, matching DEFAULT_TIMEZONE in the codebase.
+-- This ensures the dedup and unique index match what the application inserts.
+UPDATE "Attendance"
+SET "checkInDate" = DATE_TRUNC('day', "checkIn" AT TIME ZONE 'Asia/Jakarta') AT TIME ZONE 'Asia/Jakarta';
 
 -- Clean duplicates: Keep only the earliest check-in per user per day per tenant
 WITH "Duplicates" AS (
