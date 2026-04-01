@@ -4,7 +4,7 @@ import { WorkingHourMode, Prisma } from '@prisma/client'
 import type { User } from '@prisma/client'
 import { hash } from 'bcryptjs'
 import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
-import { cache } from '@/lib/cache'
+import { redis } from '@/lib/redis'
 import { invalidatePermissionCache } from '@/lib/auth'
 
 export interface CreateUserInput {
@@ -217,8 +217,8 @@ export class UserService {
 
         const updatedUser = await this.userRepository.update(id, updateData)
 
-        // Invalidate attendance schedule cache
-        cache.invalidate(`user:schedule:${id}`)
+        // Invalidate attendance schedule cache in Redis
+        await redis.del(`user:schedule:${id}`)
 
         // Invalidate permission cache when role changes
         if (data.roleId !== undefined) {
@@ -263,8 +263,8 @@ export class UserService {
 
         const updatedUser = await this.userRepository.updateWorkingHours(id, data)
 
-        // Invalidate attendance schedule cache to ensure immediate effect
-        cache.invalidate(`user:schedule:${id}`)
+        // Invalidate attendance schedule cache in Redis to ensure immediate effect
+        await redis.del(`user:schedule:${id}`)
 
         return updatedUser
     }

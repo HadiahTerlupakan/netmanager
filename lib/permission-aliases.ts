@@ -113,6 +113,18 @@ export const PERMISSION_ALIASES: Record<string, string[]> = {
   'acs:create': ['pengaturan:update'],
   'acs:update': ['pengaturan:update'],
   'acs:delete': ['pengaturan:delete'],
+
+  // ====== PPP / PELANGGAN MODULE ======
+  // Page uses 'ppp:read' but API uses 'pelanggan:read'
+  'ppp:read': ['pelanggan:read'],
+  'ppp:create': ['pelanggan:create'],
+  'ppp:update': ['pelanggan:update'],
+  'ppp:delete': ['pelanggan:delete'],
+
+  'pelanggan:read': ['ppp:read'],
+  'pelanggan:create': ['ppp:create'],
+  'pelanggan:update': ['ppp:update'],
+  'pelanggan:delete': ['ppp:delete'],
 }
 
 /**

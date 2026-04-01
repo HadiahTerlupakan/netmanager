@@ -6,7 +6,7 @@ import { AttendanceSessionPolicyService } from './AttendanceSessionPolicyService
 import { AttendanceStatus, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
-import { cache } from '@/lib/cache'
+import { redis } from '@/lib/redis'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
@@ -237,13 +237,13 @@ export class AttendanceService {
             throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`) // Format error for controller to parse
         }
 
-        // 3. User Settings & Schedule (with caching)
+        // 3. User Settings & Schedule (with Redis caching for cross-pod consistency)
         const cacheKey = `user:schedule:${userId}`
-        const cachedSchedule = cache.get<CachedUserAttendanceSettings>(cacheKey)
+        let userDetails: CachedUserAttendanceSettings | null = null
 
-        let userDetails: CachedUserAttendanceSettings | null
-        if (cachedSchedule) {
-            userDetails = cachedSchedule
+        const cachedRaw = await redis.get(cacheKey)
+        if (cachedRaw) {
+            userDetails = JSON.parse(cachedRaw) as CachedUserAttendanceSettings
         } else {
             userDetails = await prisma.user.findUnique({
                 where: { id: userId },
@@ -256,9 +256,9 @@ export class AttendanceService {
                     shift: { select: { startTime: true, endTime: true } }
                 }
             })
-            // Cache for 1 hour
+            // Cache for 60 seconds in Redis
             if (userDetails) {
-                cache.set(cacheKey, userDetails, 60)
+                await redis.setex(cacheKey, 60, JSON.stringify(userDetails))
             }
         }
 

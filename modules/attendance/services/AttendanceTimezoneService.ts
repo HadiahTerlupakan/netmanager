@@ -5,7 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { cache } from '@/lib/cache'
+import { redis } from '@/lib/redis'
 import { toZonedTime, toDate } from 'date-fns-tz'
 import { DEFAULT_TIMEZONE } from '@/lib/constants/timezone-constants'
 import { startOfDay as fnsStartOfDay, differenceInMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns'
@@ -18,20 +18,20 @@ export class AttendanceTimezoneService {
    */
   async getTimezone(tenantId?: string): Promise<string> {
     const cacheKey = `settings:timezone${tenantId ? `:${tenantId}` : ''}`
-    const cached = cache.get<string>(cacheKey)
-    
+    const cached = await redis.get(cacheKey)
+
     if (cached) return cached
-    
+
     const setting = await prisma.settings.findFirst({
-      where: { 
+      where: {
         key: 'GENERAL_TIMEZONE',
         ...(tenantId && { tenantId })
       }
     })
-    
+
     const timezone = setting?.value || DEFAULT_TIMEZONE
-    cache.set(cacheKey, timezone, 3600) // 1 hour TTL
-    
+    await redis.setex(cacheKey, 3600, timezone) // 1 hour TTL
+
     return timezone
   }
   
@@ -42,20 +42,20 @@ export class AttendanceTimezoneService {
    */
   async getTolerance(tenantId?: string): Promise<number> {
     const cacheKey = `settings:tolerance${tenantId ? `:${tenantId}` : ''}`
-    const cached = cache.get<number>(cacheKey)
-    
-    if (cached) return cached
-    
+    const cached = await redis.get(cacheKey)
+
+    if (cached) return parseInt(cached)
+
     const setting = await prisma.settings.findFirst({
-      where: { 
+      where: {
         key: 'GENERAL_ATTENDANCE_TOLERANCE',
         ...(tenantId && { tenantId })
       }
     })
-    
+
     const tolerance = setting?.value ? parseInt(setting.value) : 0
-    cache.set(cacheKey, tolerance, 3600) // 1 hour TTL
-    
+    await redis.setex(cacheKey, 3600, tolerance.toString()) // 1 hour TTL
+
     return tolerance
   }
   
@@ -119,8 +119,13 @@ export class AttendanceTimezoneService {
    * Invalidate timezone and tolerance cache
    * Call this when settings are updated
    */
-  invalidateCache(): void {
-    cache.invalidate('settings:timezone')
-    cache.invalidate('settings:tolerance')
+  async invalidateCache(tenantId?: string): Promise<void> {
+    const suffix = tenantId ? `:${tenantId}` : ''
+    const keys = await redis.keys(`settings:timezone${suffix}*`)
+    const keys2 = await redis.keys(`settings:tolerance${suffix}*`)
+    const allKeys = [...keys, ...keys2]
+    if (allKeys.length > 0) {
+      await redis.del(...allKeys)
+    }
   }
 }

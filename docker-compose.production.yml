@@ -155,6 +155,121 @@ services:
       - internal
 
   # ==========================================================================
+  # PGBOUNCER - Connection Pooler
+  # ==========================================================================
+  pgbouncer_db:
+    image: bitnami/pgbouncer:1
+    container_name: netmanager-pgbouncer-db
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGBOUNCER_DATABASE: ${POSTGRES_DB:-netmanager}
+      PGBOUNCER_PORT: "6432"
+      PGBOUNCER_POOL_MODE: "transaction"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "20"
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_MAX_DB_CONNECTIONS: "30"
+      POSTGRESQL_HOST: db
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-netmgr}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+    networks:
+      - internal
+
+  pgbouncer_radius:
+    image: bitnami/pgbouncer:1
+    container_name: netmanager-pgbouncer-radius
+    restart: always
+    depends_on:
+      db_radius:
+        condition: service_healthy
+    environment:
+      PGBOUNCER_DATABASE: ${POSTGRES_DB_RADIUS:-radius}
+      PGBOUNCER_PORT: "6432"
+      PGBOUNCER_POOL_MODE: "transaction"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "20"
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_MAX_DB_CONNECTIONS: "30"
+      POSTGRESQL_HOST: db_radius
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-netmgr}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+    networks:
+      - internal
+
+  pgbouncer_billing:
+    image: bitnami/pgbouncer:1
+    container_name: netmanager-pgbouncer-billing
+    restart: always
+    depends_on:
+      db_billing:
+        condition: service_healthy
+    environment:
+      PGBOUNCER_DATABASE: ${POSTGRES_DB_BILLING:-billing}
+      PGBOUNCER_PORT: "6432"
+      PGBOUNCER_POOL_MODE: "transaction"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "20"
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_MAX_DB_CONNECTIONS: "30"
+      POSTGRESQL_HOST: db_billing
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-netmgr}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+    networks:
+      - internal
+
+  pgbouncer_mitra:
+    image: bitnami/pgbouncer:1
+    container_name: netmanager-pgbouncer-mitra
+    restart: always
+    depends_on:
+      db_mitra:
+        condition: service_healthy
+    environment:
+      PGBOUNCER_DATABASE: ${POSTGRES_DB_MITRA:-mitra}
+      PGBOUNCER_PORT: "6432"
+      PGBOUNCER_POOL_MODE: "transaction"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "20"
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_MAX_DB_CONNECTIONS: "30"
+      POSTGRESQL_HOST: db_mitra
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-netmgr}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+    networks:
+      - internal
+
+  # ==========================================================================
   # CACHE - Redis
   # ==========================================================================
   redis:
@@ -196,17 +311,17 @@ services:
     container_name: netmanager-radius
     restart: always
     depends_on:
-      db_radius:
-        condition: service_healthy
-      db_billing:
-        condition: service_healthy
+      pgbouncer_radius:
+        condition: service_started
+      pgbouncer_billing:
+        condition: service_started
     ports:
       - "1812:1812/udp"
       - "1813:1813/udp"
     environment:
       DB_TYPE: postgresql
-      DB_HOST: db_radius
-      DB_PORT: 5432
+      DB_HOST: pgbouncer_radius
+      DB_PORT: 6432
       DB_NAME: ${POSTGRES_DB_RADIUS:-radius}
       DB_USER: ${POSTGRES_USER:-netmgr}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
@@ -239,10 +354,14 @@ services:
     container_name: netmanager-app
     restart: always
     depends_on:
-      db:
-        condition: service_healthy
-      db_radius:
-        condition: service_healthy
+      pgbouncer_db:
+        condition: service_started
+      pgbouncer_radius:
+        condition: service_started
+      pgbouncer_billing:
+        condition: service_started
+      pgbouncer_mitra:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
@@ -251,10 +370,10 @@ services:
 
       NODE_ENV: production
       TMPDIR: /app/tmp
-      DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-netmanager}
-      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_billing:5432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=20&pool_timeout=10
-      RADIUS_DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_radius:5432/${POSTGRES_DB_RADIUS:-radius}
-      DATABASE_URL_MITRA: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@db_mitra:5432/${POSTGRES_DB_MITRA:-mitra}?schema=public&connection_limit=20&pool_timeout=10
+      DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_db:6432/${POSTGRES_DB:-netmanager}
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_billing:6432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=10&pool_timeout=10
+      RADIUS_DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_radius:6432/${POSTGRES_DB_RADIUS:-radius}
+      DATABASE_URL_MITRA: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_mitra:6432/${POSTGRES_DB_MITRA:-mitra}?schema=public&connection_limit=10&pool_timeout=10
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
 
       # Auth Configuration

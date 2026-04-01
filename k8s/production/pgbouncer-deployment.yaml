@@ -1,0 +1,255 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer-db
+  namespace: netmanager-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer-db
+  template:
+    metadata:
+      labels:
+        app: pgbouncer-db
+    spec:
+      containers:
+        - name: pgbouncer
+          image: bitnami/pgbouncer:1
+          env:
+            - name: PGBOUNCER_DATABASE
+              value: "netmanager"
+            - name: PGBOUNCER_PORT
+              value: "6432"
+            - name: PGBOUNCER_POOL_MODE
+              value: "transaction"
+            - name: PGBOUNCER_DEFAULT_POOL_SIZE
+              value: "20"
+            - name: PGBOUNCER_MAX_CLIENT_CONN
+              value: "200"
+            - name: PGBOUNCER_MAX_DB_CONNECTIONS
+              value: "30"
+            - name: POSTGRESQL_HOST
+              value: "db-netmanager"
+            - name: POSTGRESQL_PORT
+              value: "5432"
+            - name: POSTGRESQL_USERNAME
+              value: "netmgr"
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 6432
+              name: pgbouncer
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer-db
+  namespace: netmanager-production
+spec:
+  ports:
+    - port: 6432
+  selector:
+    app: pgbouncer-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer-radius
+  namespace: netmanager-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer-radius
+  template:
+    metadata:
+      labels:
+        app: pgbouncer-radius
+    spec:
+      containers:
+        - name: pgbouncer
+          image: bitnami/pgbouncer:1
+          env:
+            - name: PGBOUNCER_DATABASE
+              value: "radius"
+            - name: PGBOUNCER_PORT
+              value: "6432"
+            - name: PGBOUNCER_POOL_MODE
+              value: "transaction"
+            - name: PGBOUNCER_DEFAULT_POOL_SIZE
+              value: "20"
+            - name: PGBOUNCER_MAX_CLIENT_CONN
+              value: "200"
+            - name: PGBOUNCER_MAX_DB_CONNECTIONS
+              value: "30"
+            - name: POSTGRESQL_HOST
+              value: "db-radius"
+            - name: POSTGRESQL_PORT
+              value: "5432"
+            - name: POSTGRESQL_USERNAME
+              value: "netmgr"
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 6432
+              name: pgbouncer
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer-radius
+  namespace: netmanager-production
+spec:
+  ports:
+    - port: 6432
+  selector:
+    app: pgbouncer-radius
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer-billing
+  namespace: netmanager-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer-billing
+  template:
+    metadata:
+      labels:
+        app: pgbouncer-billing
+    spec:
+      containers:
+        - name: pgbouncer
+          image: bitnami/pgbouncer:1
+          env:
+            - name: PGBOUNCER_DATABASE
+              value: "billing"
+            - name: PGBOUNCER_PORT
+              value: "6432"
+            - name: PGBOUNCER_POOL_MODE
+              value: "transaction"
+            - name: PGBOUNCER_DEFAULT_POOL_SIZE
+              value: "20"
+            - name: PGBOUNCER_MAX_CLIENT_CONN
+              value: "200"
+            - name: PGBOUNCER_MAX_DB_CONNECTIONS
+              value: "30"
+            - name: POSTGRESQL_HOST
+              value: "db-billing"
+            - name: POSTGRESQL_PORT
+              value: "5432"
+            - name: POSTGRESQL_USERNAME
+              value: "netmgr"
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 6432
+              name: pgbouncer
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer-billing
+  namespace: netmanager-production
+spec:
+  ports:
+    - port: 6432
+  selector:
+    app: pgbouncer-billing
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer-mitra
+  namespace: netmanager-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer-mitra
+  template:
+    metadata:
+      labels:
+        app: pgbouncer-mitra
+    spec:
+      containers:
+        - name: pgbouncer
+          image: bitnami/pgbouncer:1
+          env:
+            - name: PGBOUNCER_DATABASE
+              value: "mitra"
+            - name: PGBOUNCER_PORT
+              value: "6432"
+            - name: PGBOUNCER_POOL_MODE
+              value: "transaction"
+            - name: PGBOUNCER_DEFAULT_POOL_SIZE
+              value: "20"
+            - name: PGBOUNCER_MAX_CLIENT_CONN
+              value: "200"
+            - name: PGBOUNCER_MAX_DB_CONNECTIONS
+              value: "30"
+            - name: POSTGRESQL_HOST
+              value: "db-mitra"
+            - name: POSTGRESQL_PORT
+              value: "5432"
+            - name: POSTGRESQL_USERNAME
+              value: "netmgr"
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 6432
+              name: pgbouncer
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer-mitra
+  namespace: netmanager-production
+spec:
+  ports:
+    - port: 6432
+  selector:
+    app: pgbouncer-mitra

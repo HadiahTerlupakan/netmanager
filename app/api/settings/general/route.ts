@@ -347,8 +347,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     })
   )
 
-  // Invalidate timezone cache agar cron jobs menggunakan timezone baru
+  // Invalidate both timezone caches (get-timezone.ts AND AttendanceTimezoneService)
   invalidateTimezoneCache()
+
+  // Also invalidate AttendanceTimezoneService Redis cache
+  const { AttendanceTimezoneService } = await import('@/modules/attendance/services/AttendanceTimezoneService')
+  const tzService = new AttendanceTimezoneService()
+  await tzService.invalidateCache().catch(() => {}) // Fire and forget
 
   // System Log
   // ctx.session is guaranteed to exist because auth: true

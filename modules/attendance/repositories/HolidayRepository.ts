@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { cache } from '@/lib/cache'
+import { redis } from '@/lib/redis'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
@@ -12,7 +12,7 @@ export class HolidayRepository {
             data: { ...data, tenantId } 
         })
         // Invalidate holiday cache after creating new holiday
-        this.invalidateCache(tenantId)
+        await this.invalidateCache(tenantId)
         return holiday
     }
 
@@ -22,7 +22,7 @@ export class HolidayRepository {
             data
         })
         // Invalidate holiday cache after updating
-        this.invalidateCache(tenantId)
+        await this.invalidateCache(tenantId)
         return holiday
     }
 
@@ -31,7 +31,7 @@ export class HolidayRepository {
             where: { id, tenantId }
         })
         // Invalidate holiday cache after deleting
-        this.invalidateCache(tenantId)
+        await this.invalidateCache(tenantId)
         return holiday
     }
 
@@ -56,9 +56,9 @@ export class HolidayRepository {
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
         const cacheKey = `holiday:${tenantId}:${startOfDay.getTime()}`
-        const cached = cache.get<{ isHoliday: boolean, holiday?: Holiday | null }>(cacheKey)
+        const cachedRaw = await redis.get(cacheKey)
 
-        if (cached) return cached
+        if (cachedRaw) return JSON.parse(cachedRaw) as { isHoliday: boolean, holiday?: Holiday | null }
 
         const holiday = await prisma.holiday.findFirst({
             where: {
@@ -76,7 +76,7 @@ export class HolidayRepository {
         }
 
         // Cache result for 24 hours
-        cache.set(cacheKey, result, 86400)
+        await redis.setex(cacheKey, 86400, JSON.stringify(result))
 
         return result
     }
@@ -84,9 +84,9 @@ export class HolidayRepository {
     async getHolidaysByYear(year: number, tenantId: string): Promise<Holiday[]> {
         // Check cache first (24h TTL)
         const cacheKey = `holidays:${tenantId}:year:${year}`
-        const cached = cache.get<Holiday[]>(cacheKey)
+        const cachedRaw = await redis.get(cacheKey)
 
-        if (cached) return cached
+        if (cachedRaw) return JSON.parse(cachedRaw) as Holiday[]
         
         const startDate = new Date(year, 0, 1) // Jan 1st
         const endDate = new Date(year, 11, 31, 23, 59, 59) // Dec 31st
@@ -105,7 +105,7 @@ export class HolidayRepository {
         })
         
         // Cache result for 24 hours
-        cache.set(cacheKey, holidays, 86400)
+        await redis.setex(cacheKey, 86400, JSON.stringify(holidays))
         
         return holidays
     }
@@ -114,8 +114,12 @@ export class HolidayRepository {
      * Invalidate all holiday-related cache entries
      * Call this after creating, updating, or deleting holidays
      */
-    invalidateCache(tenantId: string): void {
-        cache.invalidate(`holiday:${tenantId}:`)
-        cache.invalidate(`holidays:${tenantId}:`)
+    async invalidateCache(tenantId: string): Promise<void> {
+        const keys1 = await redis.keys(`holiday:${tenantId}:*`)
+        const keys2 = await redis.keys(`holidays:${tenantId}:*`)
+        const allKeys = [...keys1, ...keys2]
+        if (allKeys.length > 0) {
+            await redis.del(...allKeys)
+        }
     }
 }

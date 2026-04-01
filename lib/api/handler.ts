@@ -43,6 +43,7 @@ import type { ErrorResponse } from '@/lib/api-response'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { parseQuery } from './query-parser'
 import { logRequest, logResponse, logAuditActivity } from '@/lib/middleware/request-logger'
+import { hasPermissionWithAlias, expandPermissionsWithAliases } from '@/lib/permission-aliases'
 
 // Types
 export interface HandlerContext<T = unknown> {
@@ -197,9 +198,10 @@ export function createHandler<T = unknown>(
                 }
             }
 
-            // 2. Permission check (RBAC)
+            // 2. Permission check (RBAC) with alias resolution
             if (options.permissions && options.permissions.length > 0) {
-                const hasPermission = options.permissions.some(
+                const expandedPerms = expandPermissionsWithAliases(options.permissions)
+                const hasPermission = expandedPerms.some(
                     perm => ctx.permissions.includes(perm) || ctx.permissions.includes('*')
                 )
 

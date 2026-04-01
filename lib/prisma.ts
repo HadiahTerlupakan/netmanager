@@ -19,7 +19,7 @@ const ignoreModels = ['Account', 'Session', 'VerificationToken', 'Tenant']
 const createPrismaClientBase = (): PrismaClient => {
   const pool = new Pool({
     connectionString,
-    max: 20,
+    max: 10,
     min: 2,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
