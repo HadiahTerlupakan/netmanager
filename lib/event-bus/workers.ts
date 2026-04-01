@@ -288,6 +288,64 @@ function registerDefaultHandlers(): void {
     }
   })
 
+  registerEventHandler(EVENT_NAMES.TICKET_STATUS_CHANGED, async (job) => {
+    const { payload } = job.data
+    try {
+      const { socketEmitter } = await import('@/lib/websocket/emitter')
+      socketEmitter.updateTicket(
+        {
+          id: payload.ticketId,
+          ticketNumber: payload.ticketNumber,
+          subject: payload.subject,
+          status: 'UPDATED',
+          priority: payload.priority,
+        },
+        payload.siteId
+      )
+    } catch (error) {
+      console.error('[Worker] Ticket status changed handler error:', error)
+    }
+  })
+
+  // --- ATTENDANCE EVENTS ---
+
+  registerEventHandler(EVENT_NAMES.ATTENDANCE_CHECKIN, async (job) => {
+    const { payload } = job.data
+    try {
+      const { socketEmitter } = await import('@/lib/websocket/emitter')
+      // Notify admin room about check-in
+      socketEmitter.broadcast('attendance:checkin', {
+        userId: payload.userId,
+        attendanceId: payload.attendanceId,
+        timestamp: payload.timestamp,
+      })
+    } catch (error) {
+      console.error('[Worker] Attendance checkin handler error:', error)
+    }
+  })
+
+  registerEventHandler(EVENT_NAMES.ATTENDANCE_ABSENT, async (job) => {
+    const { payload } = job.data
+    try {
+      // Create notification for absent users
+      const { addNotificationJob } = await import('./queues')
+      await addNotificationJob({
+        type: 'websocket',
+        title: 'Ketidakhadiran',
+        body: `${payload.userName || 'Karyawan'} tidak hadir`,
+        room: 'admin:notifications',
+        event: 'attendance:absent',
+        data: {
+          userId: payload.userId,
+          attendanceId: payload.attendanceId,
+          timestamp: payload.timestamp,
+        },
+      })
+    } catch (error) {
+      console.error('[Worker] Attendance absent handler error:', error)
+    }
+  })
+
   // --- NETWORK EVENTS ---
 
   registerEventHandler(EVENT_NAMES.NETWORK_DEVICE_OFFLINE, async (job) => {

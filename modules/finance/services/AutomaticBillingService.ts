@@ -7,6 +7,7 @@ import { sendCustomerPushNotification } from '@/modules/notification/services/Ex
 import { logger } from '@/lib/logger';
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
+import { BillingEventDispatcher } from '@/modules/events/BillingEventDispatcher'
 
 
 // Type for the raw query result
@@ -297,6 +298,13 @@ export class AutomaticBillingService {
                         updatedAt: new Date()
                     }
                 });
+
+                // Publish domain events
+                await BillingEventDispatcher.onInvoicePaid(
+                    invoice.id,
+                    pelangganId,
+                    Number(invoice.totalAmount)
+                ).catch(err => logger.error('Failed to publish INVOICE_PAID event', err instanceof Error ? err : undefined));
             }
 
             console.log(`[Billing] Immediate invoice generated for customer ${customer.nama}, isPaid: ${isPaid}`);
@@ -419,6 +427,15 @@ export class AutomaticBillingService {
             }
         });
 
+        // 7. Publish domain event
+        const { eventBus, EVENT_NAMES } = await import('@/lib/event-bus');
+        await eventBus.publish(EVENT_NAMES.INVOICE_CREATED, {
+            invoiceId: result.id,
+            pelangganId: customer.id,
+            amount: Number(result.totalAmount),
+            dueDate: dueDate.toISOString(),
+        }).catch(err => logger.error('Failed to publish INVOICE_CREATED event', err instanceof Error ? err : undefined));
+
         return result;
     }
     /**
@@ -501,6 +518,13 @@ export class AutomaticBillingService {
             const radiusService = new RadiusSyncService(mainDb, prismaRadiusAuth);
             await radiusService.handleStatusChange(customer.id, 'AKTIF');
         }
+
+        // Publish domain event
+        await BillingEventDispatcher.onInvoicePaid(
+            invoiceId,
+            customer.id,
+            Number(invoice.totalAmount)
+        ).catch(err => logger.error('Failed to publish INVOICE_PAID event', err instanceof Error ? err : undefined));
     }
 
     /**

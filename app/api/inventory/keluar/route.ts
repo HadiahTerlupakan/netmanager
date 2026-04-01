@@ -224,6 +224,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       totalStok: finalStock
     });
 
+    // Publish domain event
+    const { InventoryEventDispatcher } = await import('@/modules/events/InventoryEventDispatcher');
+    await InventoryEventDispatcher.onStockOut({
+      barangId,
+      barangName: (keluarRecord as Record<string, unknown>)?.barang ? ((keluarRecord as Record<string, unknown>).barang as Record<string, unknown>)?.nama as string : undefined,
+      gudangId,
+      jumlah,
+      totalStok: finalStock,
+      userId: finalEmployeeId as string || user.id,
+    }).catch(err => logger.error('Failed to publish INVENTORY_STOCK_OUT event', err instanceof Error ? err : undefined));
+
     return apiSuccess({
       message: 'Barang keluar berhasil dicatat',
       keluarId: keluarRecord.id,

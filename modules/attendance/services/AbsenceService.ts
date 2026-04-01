@@ -3,6 +3,8 @@ import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { randomUUID } from 'crypto'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
+import { AttendanceEventDispatcher } from '@/modules/events/AttendanceEventDispatcher'
+import { logger } from '@/lib/logger'
 
 
 export class AbsenceService {
@@ -161,19 +163,30 @@ export class AbsenceService {
                 // UI should hide the time display for records with this midnight timestamp
                 const alphaTime = new Date(startOfDay)
                 alphaTime.setTime(toStartOfDay(alphaTime).getTime())
-                
+                const attendanceId = randomUUID()
+
                 await prisma.attendance.create({
                     data: {
-                        id: randomUUID(),
+                        id: attendanceId,
                         userId: user.id,
                         tenantId,
                         checkIn: alphaTime,
                         status: 'ABSENT',
                         notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
-                        location: 'System', 
+                        location: 'System',
                         updatedAt: new Date()
                     }
                 })
+
+                // Publish domain event
+                AttendanceEventDispatcher.onAbsent({
+                    userId: user.id,
+                    userName: user.name || undefined,
+                    attendanceId,
+                    timestamp: alphaTime.toISOString(),
+                    tenantId,
+                }).catch(err => logger.error('Failed to publish ATTENDANCE_ABSENT event', err instanceof Error ? err : undefined))
+
                 absentCount++
             } catch (error) {
                 console.error(`[AbsenceService] Error creating Absent for ${user.name}:`, error)

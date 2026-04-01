@@ -4,6 +4,7 @@ import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 import { logActivitySafe } from '@/lib/logger'
+import { CustomerEventDispatcher } from '@/modules/events/CustomerEventDispatcher'
 
 /**
  * @swagger
@@ -291,6 +292,14 @@ export async function POST(
         suspensionId: result.id
       }
     })
+
+    // Publish domain event
+    CustomerEventDispatcher.onSuspended({
+      customerId: id,
+      customerName: updatedPelanggan?.nama || '',
+      oldStatus: 'AKTIF',
+      newStatus: 'NONAKTIF',
+    }).catch(err => console.error('Failed to publish CUSTOMER_SUSPENDED event:', err))
 
     return NextResponse.json({
       success: true,

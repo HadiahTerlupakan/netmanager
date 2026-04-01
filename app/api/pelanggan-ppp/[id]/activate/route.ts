@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
+import { CustomerEventDispatcher } from '@/modules/events/CustomerEventDispatcher'
 
 interface ExtendedUser {
   id: string;
@@ -298,6 +299,14 @@ export async function POST(
           suspensionId: result.id
       }
     })
+
+    // Publish domain event
+    CustomerEventDispatcher.onActivated({
+      customerId: id,
+      customerName: updatedPelanggan?.nama || '',
+      oldStatus: 'NONAKTIF',
+      newStatus: 'AKTIF',
+    }).catch(err => console.error('Failed to publish CUSTOMER_ACTIVATED event:', err))
 
     return NextResponse.json({
       success: true,

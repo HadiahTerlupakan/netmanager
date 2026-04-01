@@ -10,6 +10,8 @@ import { redis } from '@/lib/redis'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
+import { AttendanceEventDispatcher } from '@/modules/events/AttendanceEventDispatcher'
+import { logger } from '@/lib/logger'
 
 interface CheckInParams {
     userId: string
@@ -331,9 +333,22 @@ export class AttendanceService {
         }
 
         try {
-            return await prisma.attendance.create({
+            const result = await prisma.attendance.create({
                 data: createData
             })
+
+            // Publish domain event
+            AttendanceEventDispatcher.onCheckIn({
+                userId,
+                attendanceId: result.id,
+                timestamp: checkInTime.toISOString(),
+                tenantId,
+                location: latitude !== undefined && longitude !== undefined
+                    ? { lat: latitude, lng: longitude }
+                    : undefined,
+            }).catch(err => logger.error('Failed to publish ATTENDANCE_CHECKIN event', err instanceof Error ? err : undefined))
+
+            return result
         } catch (error) {
             // P2002 = Unique constraint violation → duplicate check-in caught by DB
             if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -499,6 +514,18 @@ export class AttendanceService {
             where: { id: attendance.id },
             data: updateData
         })
+
+        // Publish domain event
+        AttendanceEventDispatcher.onCheckOut({
+            userId,
+            userName: attendance.user.name || undefined,
+            attendanceId: attendance.id,
+            timestamp: checkOutTime.toISOString(),
+            tenantId,
+            location: latitude !== undefined && longitude !== undefined
+                ? { lat: latitude, lng: longitude }
+                : undefined,
+        }).catch(err => logger.error('Failed to publish ATTENDANCE_CHECKOUT event', err instanceof Error ? err : undefined))
 
         const result: { attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>; warning?: string } = { attendance: updatedAttendance as Prisma.AttendanceGetPayload<{ include: { user: true } }> }
         if (warning) result.warning = warning

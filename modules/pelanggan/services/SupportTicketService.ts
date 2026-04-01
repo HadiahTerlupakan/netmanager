@@ -1,6 +1,7 @@
 import { CustomerTicketRepository } from '../repositories/CustomerTicketRepository'
 import { TicketCategory, TicketPriority } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
+import { TicketEventDispatcher } from '@/modules/events/TicketEventDispatcher'
 
 /**
  * Service for customer support ticket business logic
@@ -86,6 +87,15 @@ export class SupportTicketService {
                 subject: ticket.subject,
             },
         })
+
+        // Publish domain event
+        await TicketEventDispatcher.onCreated({
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticketNumber,
+            subject: ticket.subject,
+            priority: ticket.priority,
+            triggeredBy: customerId,
+        }).catch(err => console.error('Failed to publish TICKET_CREATED event:', err))
 
         return {
             id: ticket.id,

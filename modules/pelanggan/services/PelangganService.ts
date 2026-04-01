@@ -6,6 +6,8 @@ import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
 import { prisma } from '@/lib/prisma'
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
+import { CustomerEventDispatcher } from '@/modules/events/CustomerEventDispatcher'
+import { logger } from '@/lib/logger'
 
 export interface CreatePelangganInput {
     idPelanggan: string
@@ -200,6 +202,14 @@ export class PelangganService {
         } catch (billingErr) {
             console.error('[Billing] Failed to trigger invoice generation for new customer:', billingErr);
         }
+
+        // Publish domain event
+        CustomerEventDispatcher.onCreated({
+            customerId: pelanggan.id,
+            customerName: pelanggan.nama,
+            packageId: pelanggan.hargaPaketId,
+            tenantId: pelanggan.tenantId ?? undefined,
+        }).catch(err => logger.error('Failed to publish CUSTOMER_CREATED event', err instanceof Error ? err : undefined))
 
         return pelanggan
     }

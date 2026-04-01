@@ -4,6 +4,7 @@ import { logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { randomUUID } from 'crypto'
+import { TicketEventDispatcher } from '@/modules/events/TicketEventDispatcher'
 
 /**
  * Service Result type for consistent API responses
@@ -258,7 +259,7 @@ export class AdminSupportTicketService {
             const existing = await prisma.supportTickets.findUnique({
                 where: { id },
                 include: {
-                    pelanggan: { select: { siteId: true } },
+                    pelanggan: { select: { siteId: true, nama: true } },
                 },
             })
 
@@ -329,6 +330,19 @@ export class AdminSupportTicketService {
 
             // Log activity
             await this.logActivity('UPDATE', 'Support Ticket', user.id, { id, updates: updateData })
+
+            // Publish domain event for status change
+            if (data.status && data.status !== existing.status) {
+                await TicketEventDispatcher.onStatusChanged({
+                    ticketId: ticket.id,
+                    ticketNumber: ticket.ticketNumber,
+                    subject: existing.subject,
+                    priority: ticket.priority,
+                    pelangganNama: ticket.pelanggan?.nama,
+                    siteId: existing.pelanggan?.siteId,
+                    triggeredBy: user.id,
+                }).catch(err => console.error('Failed to publish TICKET_STATUS_CHANGED event:', err))
+            }
 
             return { success: true, data: ticket }
         } catch (error) {

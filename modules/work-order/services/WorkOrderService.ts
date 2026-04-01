@@ -16,6 +16,7 @@ import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } fro
 import { workOrderCacheService } from './WorkOrderCacheService'
 import { socketEmitter } from '@/lib/websocket/emitter'
 import { logger, logActivitySafe } from '@/lib/logger'
+import { WorkOrderEventDispatcher } from '@/modules/events/WorkOrderEventDispatcher'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
 
@@ -330,6 +331,19 @@ export class WorkOrderService {
             // Trigger notifications
             await this.notifyWorkOrderCreated(workOrder, userContext.id)
 
+            // Publish domain event
+            await WorkOrderEventDispatcher.onCreated({
+                workOrderId: workOrder.id,
+                workOrderNumber: workOrder.workOrderNumber,
+                title: workOrder.title,
+                type: workOrder.type,
+                priority: workOrder.priority,
+                departmentId: workOrder.departmentId,
+                siteId: workOrder.siteId,
+                assignedToId: workOrder.assignedToId,
+                triggeredBy: createdById,
+            }).catch(err => logger.error('Failed to publish WORK_ORDER_CREATED event', err instanceof Error ? err : undefined))
+
             // Broadcast socket event
             this.broadcastWorkOrderCreated(workOrder)
 
@@ -455,6 +469,30 @@ export class WorkOrderService {
                     status,
                     userId
                 )
+
+                // Publish domain event
+                if (status === 'COMPLETED') {
+                    await WorkOrderEventDispatcher.onCompleted({
+                        workOrderId: fullWorkOrder.id,
+                        workOrderNumber: fullWorkOrder.workOrderNumber,
+                        title: fullWorkOrder.title,
+                        departmentId: fullWorkOrder.departmentId,
+                        siteId: fullWorkOrder.siteId,
+                        assignedToId: fullWorkOrder.assignedToId,
+                        triggeredBy: userId,
+                    }).catch(err => logger.error('Failed to publish WORK_ORDER_COMPLETED event', err instanceof Error ? err : undefined))
+                } else {
+                    await WorkOrderEventDispatcher.onUpdated({
+                        workOrderId: fullWorkOrder.id,
+                        workOrderNumber: fullWorkOrder.workOrderNumber,
+                        title: fullWorkOrder.title,
+                        updateMessage: `Status changed from ${previousStatus} to ${status}`,
+                        departmentId: fullWorkOrder.departmentId,
+                        siteId: fullWorkOrder.siteId,
+                        assignedToId: fullWorkOrder.assignedToId,
+                        triggeredBy: userId,
+                    }).catch(err => logger.error('Failed to publish WORK_ORDER_UPDATED event', err instanceof Error ? err : undefined))
+                }
             }
 
             // Log activity
@@ -546,6 +584,18 @@ export class WorkOrderService {
                     undefined,
                     assignedById
                 )
+
+                // Publish domain event
+                await WorkOrderEventDispatcher.onAssigned({
+                    workOrderId: fullWorkOrder.id,
+                    workOrderNumber: fullWorkOrder.workOrderNumber,
+                    title: fullWorkOrder.title,
+                    assignedToId: employeeId,
+                    assignedToName: employee.name || undefined,
+                    departmentId: fullWorkOrder.departmentId,
+                    siteId: fullWorkOrder.siteId,
+                    triggeredBy: assignedById,
+                }).catch(err => logger.error('Failed to publish WORK_ORDER_ASSIGNED event', err instanceof Error ? err : undefined))
             }
 
             // Log activity
@@ -1040,6 +1090,16 @@ export class WorkOrderService {
             await this.validateWorkOrderAccess(workOrderId, userContext)
 
             const comment = await this.repository.addComment(workOrderId, message, userContext.id)
+
+            // Publish domain event
+            await WorkOrderEventDispatcher.onActivity({
+                workOrderId,
+                activityId: (comment as { id: string }).id,
+                activityType: 'comment',
+                message,
+                triggeredBy: userContext.id,
+            }).catch(err => logger.error('Failed to publish WORK_ORDER_ACTIVITY event', err instanceof Error ? err : undefined))
+
             return { success: true, data: comment }
         } catch (error) {
             logger.error('Gagal menambahkan komentar', error instanceof Error ? error : undefined)

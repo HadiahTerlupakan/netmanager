@@ -193,6 +193,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       totalStok: finalStock
     });
 
+    // Publish domain event
+    const { InventoryEventDispatcher } = await import('@/modules/events/InventoryEventDispatcher');
+    await InventoryEventDispatcher.onStockIn({
+      barangId,
+      barangName: (masukRecord as Record<string, unknown>)?.barang ? ((masukRecord as Record<string, unknown>).barang as Record<string, unknown>)?.nama as string : undefined,
+      gudangId,
+      jumlah: parsedJumlah,
+      totalStok: finalStock,
+      userId: user.id,
+    }).catch(err => logger.error('Failed to publish INVENTORY_STOCK_IN event', err instanceof Error ? err : undefined));
+
     return apiSuccess({
       message: 'Barang masuk berhasil dicatat',
       masukId: masukRecord.id,
