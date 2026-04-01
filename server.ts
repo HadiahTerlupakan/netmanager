@@ -24,6 +24,7 @@ import { startInternalCronIfEnabled } from './lib/runtime/should-start-internal-
 import { stopRadiusMonitoring } from './modules/network/services/RadiusMonitor'
 import { startPushRetryProcessor, stopPushRetryProcessor } from './modules/notification/services/PushRetryQueue'
 import { prisma } from './lib/prisma'
+import { initializeEventBus, shutdownEventBus } from './lib/event-bus'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
@@ -393,6 +394,9 @@ app.prepare().then(() => {
     // Start Background Services
     startPushRetryProcessor()
 
+    // Start Event Bus (BullMQ workers + Outbox processor)
+    initializeEventBus().catch(err => console.error('[Server] Failed to initialize Event Bus:', err))
+
     // Start all cron jobs
     startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() })
 
@@ -434,10 +438,18 @@ app.prepare().then(() => {
     })
 
     // Graceful shutdown handler
-    const gracefulShutdown = (signal: string) => {
+    const gracefulShutdown = async (signal: string) => {
         console.log(`[Server] ${signal} received, shutting down gracefully`)
 
-        // 1. Stop Cron Jobs
+        // 1. Stop Event Bus (workers + outbox processor)
+        try {
+            await shutdownEventBus()
+            console.log('[Server] Event Bus stopped')
+        } catch (e) {
+            console.error('[Server] Error stopping Event Bus:', e)
+        }
+
+        // 2. Stop Cron Jobs
         cronRegistry.stopAll()
 
         // 2. Stop Monitoring Services

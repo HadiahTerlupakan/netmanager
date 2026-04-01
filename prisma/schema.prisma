@@ -3604,3 +3604,42 @@ enum TargetSchema {
   MONTHLY_RESET
   ACCUMULATED
 }
+
+// ============================================
+// EVENT BUS — Transactional Outbox Pattern
+// ============================================
+
+/// Transactional Outbox Pattern: Events are persisted here atomically
+/// with business operations, then dispatched to BullMQ queues asynchronously
+/// for reliable delivery.
+model OutboxEvent {
+  id            String    @id @default(uuid())
+  eventName     String
+  payload       Json      @default("{}")
+  priority      Int       @default(3)
+  category      String    @default("general")
+
+  // Aggregate reference (optional, for event sourcing)
+  aggregateId   String?
+  aggregateType String?
+
+  // Processing state
+  status        String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | DEAD
+  retryCount    Int       @default(0)
+  maxRetries    Int       @default(5)
+  lastError     String?
+
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  processedAt   DateTime?
+  scheduledAt   DateTime?
+
+  @@index([status, createdAt])
+  @@index([status, scheduledAt])
+  @@index([eventName])
+  @@index([category])
+  @@index([aggregateId])
+  @@index([priority, createdAt])
+  @@map("OutboxEvent")
+}

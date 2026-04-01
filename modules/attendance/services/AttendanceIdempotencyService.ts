@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import { cache } from '@/lib/cache'
 import { redis } from '@/lib/redis'
 
-type AttendanceAction = 'check-in' | 'check-out'
+export type AttendanceAction = 'check-in' | 'check-out'
 
 type IdempotencyState<T = unknown> =
   | {
@@ -42,8 +42,8 @@ export class AttendanceIdempotencyService {
       .digest('hex')
   }
 
-  async begin(userId: string, action: AttendanceAction, requestId: string, payloadHash: string): Promise<BeginResult> {
-    const key = this.buildKey(userId, action, requestId)
+  async begin(userId: string, action: string, requestId: string, payloadHash: string): Promise<BeginResult> {
+    const key = this.buildKey(userId, action as AttendanceAction, requestId)
     const started = await this.setInProgressIfAbsent(key, payloadHash)
 
     if (started) {
@@ -67,8 +67,8 @@ export class AttendanceIdempotencyService {
     return 'in-progress'
   }
 
-  async complete<T>(userId: string, action: AttendanceAction, requestId: string, payloadHash: string, response: T): Promise<void> {
-    const key = this.buildKey(userId, action, requestId)
+  async complete<T>(userId: string, action: string, requestId: string, payloadHash: string, response: T): Promise<void> {
+    const key = this.buildKey(userId, action as AttendanceAction, requestId)
 
     await this.setState(key, {
       status: 'COMPLETED',
@@ -77,8 +77,8 @@ export class AttendanceIdempotencyService {
     })
   }
 
-  async getReplay<T>(userId: string, action: AttendanceAction, requestId: string): Promise<T | null> {
-    const key = this.buildKey(userId, action, requestId)
+  async getReplay<T>(userId: string, action: string, requestId: string): Promise<T | null> {
+    const key = this.buildKey(userId, action as AttendanceAction, requestId)
     const state = await this.getState<T>(key)
 
     if (!state || state.status !== 'COMPLETED') {
@@ -88,8 +88,8 @@ export class AttendanceIdempotencyService {
     return state.response
   }
 
-  async release(userId: string, action: AttendanceAction, requestId: string): Promise<void> {
-    const key = this.buildKey(userId, action, requestId)
+  async release(userId: string, action: string, requestId: string): Promise<void> {
+    const key = this.buildKey(userId, action as AttendanceAction, requestId)
     const state = await this.getState(key)
 
     if (state?.status === 'IN_PROGRESS') {

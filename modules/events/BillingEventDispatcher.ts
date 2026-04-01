@@ -1,41 +1,51 @@
-;
 import type { Pelanggan } from '@prisma/client';
+import { eventBus, EVENT_NAMES } from '@/lib/event-bus';
 
 export class BillingEventDispatcher {
   /**
    * Hook ini dipanggil setelah Pelanggan baru dibuat di database utama.
-   * Mensinkronisasikan data dasar ke database billing jika snapshot diaktifkan kelak,
-   * atau bisa digunakan untuk auto-generate invoice pertama.
+   * Mem-publish event CUSTOMER_CREATED agar sistem terkait (billing, notifikasi, dll)
+   * dapat memproses secara async via BullMQ.
    */
-  static async onCustomerCreated(_customer: Pelanggan) {
-    // console.log(`[Hook] Pelanggan baru dibuat: ${customer.id}`);
-    // Di sini kita bisa menambahkan logika auto-create invoice
-    // menggunakan prismaBilling
+  static async onCustomerCreated(customer: Pelanggan) {
+    await eventBus.publish(EVENT_NAMES.CUSTOMER_CREATED, {
+      customerId: customer.id,
+      customerName: customer.nama,
+      tenantId: customer.tenantId ?? undefined,
+    });
   }
 
   /**
-   * Hook ini dipanggil setelah status Invoice berubah menjadi PAID
-   * Berguna untuk memberitahu DB Utama (Radius) agar membuka blokir internet
+   * Hook ini dipanggil setelah status Invoice berubah menjadi PAID.
+   * Mem-publish event INVOICE_PAID yang akan:
+   * 1. Mengaktifkan status pelanggan di DB Utama (via BullMQ worker)
+   * 2. Mengirim notifikasi ke user terkait
+   * 3. Mengupdate WebSocket real-time
+   *
+   * Menggunakan Outbox Pattern: event disimpan di DB dalam transaksi yang sama
+   * dengan update invoice, sehingga dijamin ter-delivery meskipun BullMQ down.
    */
-  static async onInvoicePaid(invoiceId: string, pelangganId: string) {
-    // console.log(`[Hook] Invoice LUNAS: ${invoiceId} untuk pelanggan ${pelangganId}`);
-    
-    // Import DB utama secara dinamis jika diperlukan
-    const { prisma } = await import('@/lib/prisma');
-    
-    try {
-      // Buka blokir pelanggan di DB Utama / Radius
-      await prisma.pelanggan.update({
-        where: { id: pelangganId },
-        data: {
-          status: 'AKTIF'
-        }
-      });
-      // console.log(`[Hook] Status pelanggan ${pelangganId} berhasil diubah menjadi AKTIF di DB Utama`);
-    } catch (error) {
-      console.error(`[Hook] Gagal mengubah status pelanggan di DB Utama:`, error);
-      // Di sini kita bisa mengimplementasikan Outbox Pattern
-      // untuk retry (mengulang) jika DB Utama sedang down.
-    }
+  static async onInvoicePaid(invoiceId: string, pelangganId: string, amount?: number) {
+    await eventBus.publish(EVENT_NAMES.INVOICE_PAID, {
+      invoiceId,
+      pelangganId,
+      amount: amount ?? 0,
+      paidAt: new Date().toISOString(),
+    }, {
+      // Critical event — use highest priority
+      priority: 1,
+    });
+  }
+
+  /**
+   * Hook untuk event pembayaran gagal.
+   */
+  static async onPaymentFailed(invoiceId: string, pelangganId: string) {
+    await eventBus.publish(EVENT_NAMES.PAYMENT_FAILED, {
+      invoiceId,
+      pelangganId,
+      amount: 0,
+      dueDate: new Date().toISOString(),
+    });
   }
 }

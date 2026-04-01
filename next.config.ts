@@ -153,14 +153,14 @@ const nextConfig: NextConfig = {
 
   // Webpack configuration to suppress React warnings and remove console.log in production
   webpack: (config, { isServer, dev }) => {
-    // Suppress React UNSAFE_componentWillReceiveProps warnings from swagger-ui-react
-    if (!isServer) {
-      config.ignoreWarnings = [
-        /UNSAFE_componentWillReceiveProps/,
-        /componentWillReceiveProps/,
-        /ModelCollapse/
-      ]
-    }
+    // Suppress known non-critical warnings
+    config.ignoreWarnings = [
+      /UNSAFE_componentWillReceiveProps/,
+      /componentWillReceiveProps/,
+      /ModelCollapse/,
+      // swagger-jsdoc uses dynamic require() which triggers webpack warning
+      /Critical dependency: the request of a dependency is an expression/,
+    ]
 
     // Remove console.log in production (keep console.error and console.warn)
     if (!dev && !isServer) {
