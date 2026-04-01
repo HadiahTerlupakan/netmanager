@@ -218,10 +218,13 @@ vi.spyOn(console, 'error').mockImplementation(() => { })
 export const redisMock = {
   get: vi.fn(),
   set: vi.fn(),
+  setex: vi.fn(),
   del: vi.fn(),
   exists: vi.fn(),
   keys: vi.fn(),
   expire: vi.fn(),
+  incr: vi.fn(),
+  ttl: vi.fn(),
   hget: vi.fn(),
   hset: vi.fn(),
   hdel: vi.fn(),

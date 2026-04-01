@@ -43,7 +43,7 @@ import type { ErrorResponse } from '@/lib/api-response'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { parseQuery } from './query-parser'
 import { logRequest, logResponse, logAuditActivity } from '@/lib/middleware/request-logger'
-import { hasPermissionWithAlias, expandPermissionsWithAliases } from '@/lib/permission-aliases'
+import { expandPermissionsWithAliases } from '@/lib/permission-aliases'
 
 // Types
 export interface HandlerContext<T = unknown> {
