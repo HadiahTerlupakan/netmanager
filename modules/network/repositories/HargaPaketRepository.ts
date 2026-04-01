@@ -50,7 +50,10 @@ export class HargaPaketRepository {
             where.featured = options.featured
         }
         if (options.siteId) {
-            where.siteId = options.siteId
+            where.OR = [
+                { siteId: options.siteId },
+                { siteId: null },
+            ]
         }
 
         return prisma.hargaPaket.findMany({

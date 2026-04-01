@@ -25,24 +25,22 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status')
     const siteIdParam = searchParams.get('siteId')
 
-    const where: { status?: string; siteId?: string } = {}
+    const where: Prisma.BandwidthWhereInput = {}
     if (status) {
-      where.status = status
+      where.status = status as Prisma.EnumStatusFilter<'Bandwidth'>
     }
 
     const { isRestricted, siteIds } = checkSiteRestriction(session, 'bandwidth')
     if (isRestricted && siteIds.length > 0) {
-      where.siteId = siteIds[0] // or use { in: siteIds } if prisma schema allows
-      // Actually, since where is structured with siteId?: string, let's stick to single site for now,
-      // or map correctly: 
-      // where.siteId = { in: siteIds } as any
+      where.OR = [
+        { siteId: { in: siteIds } },
+        { siteId: null },
+      ]
     } else if (siteIdParam) {
-      where.siteId = siteIdParam
-    }
-
-    if (isRestricted && siteIds.length > 0) {
-      // override where for multi-site if needed
-      (where as Prisma.BandwidthWhereInput).siteId = { in: siteIds } as Prisma.StringNullableFilter
+      where.OR = [
+        { siteId: siteIdParam },
+        { siteId: null },
+      ]
     }
 
     const bandwidths = await prisma.bandwidth.findMany({

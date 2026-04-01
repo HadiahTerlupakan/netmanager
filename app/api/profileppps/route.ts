@@ -47,13 +47,15 @@ export async function GET(req: NextRequest) {
     const { isRestricted, siteIds } = checkSiteRestriction(session, 'profileppp')
 
     if (isRestricted && siteIds.length > 0) {
-      where.siteId = siteIds[0] // Type workaround, overridden below if multi-site
+      where.OR = [
+        { siteId: { in: siteIds } },
+        { siteId: null },
+      ]
     } else if (siteIdParam) {
-      where.siteId = siteIdParam
-    }
-
-    if (isRestricted && siteIds.length > 0) {
-      where.siteId = { in: siteIds } as Prisma.StringNullableFilter;
+      where.OR = [
+        { siteId: siteIdParam },
+        { siteId: null },
+      ]
     }
 
     const profilePPPs = await prisma.profilePPP.findMany({
