@@ -1,1 +1,0 @@
-SELECT id, checksum, finished_at, migration_name FROM _prisma_migrations ORDER BY finished_at;

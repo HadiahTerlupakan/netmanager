@@ -297,10 +297,10 @@ export interface EventPayloadMap {
 // ============================================
 
 export const QUEUE_NAMES = {
-  EVENTS: 'radpro:events',
-  NOTIFICATIONS: 'radpro:notifications',
-  WEBHOOKS: 'radpro:webhooks',
-  OUTBOX: 'radpro:outbox',
+  EVENTS: 'radpro-events',
+  NOTIFICATIONS: 'radpro-notifications',
+  WEBHOOKS: 'radpro-webhooks',
+  OUTBOX: 'radpro-outbox',
 } as const
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES]
