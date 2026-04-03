@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { prismaMock } from '../../setup'
 import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
-import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
+import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/utils/constants'
 
 vi.mock('@/lib/utils/get-timezone', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils/get-timezone')>()

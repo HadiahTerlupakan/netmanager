@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   filterEligibleReminderRecipients,
   shouldSendRabReminder,
-} from '@/modules/finance/rab-approval-reminder'
+} from '@/modules/finance/utils/rab-approval-reminder'
 
 describe('rab approval reminder', () => {
   it('filters recipient who already approved or is creator', () => {

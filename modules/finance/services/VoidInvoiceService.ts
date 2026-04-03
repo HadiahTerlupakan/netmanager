@@ -1,63 +1,37 @@
-import { prismaBilling } from '@/lib/prisma-billing'
-import { prisma } from '@/lib/prisma'
+import { InvoiceRepository } from '../repositories/InvoiceRepository'
+import { PelangganRepository } from '../../pelanggan/repositories/PelangganRepository'
 import { logger } from '@/lib/logger'
-import { InvoiceStatus } from '@prisma/client-billing'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 
 export class VoidInvoiceService {
-    /**
-     * Void/Cancel a paid invoice atomically and rollback customer due date.
-     */
+    private invoiceRepo: InvoiceRepository
+    private pelangganRepo: PelangganRepository
+
+    constructor() {
+        this.invoiceRepo = new InvoiceRepository()
+        this.pelangganRepo = new PelangganRepository()
+    }
+
     static async voidInvoice(invoiceId: string, reason: string, adminUserId: string) {
+        const service = new VoidInvoiceService()
+        return service.executeVoid(invoiceId, reason, adminUserId)
+    }
+
+    private async executeVoid(invoiceId: string, reason: string, adminUserId: string) {
         try {
-            // 1. Find and validate invoice
-            const invoice = await prismaBilling.invoice.findUnique({
-                where: { id: invoiceId },
-                include: { payment: true }
-            })
+            const invoice = await this.invoiceRepo.findUnique(invoiceId)
 
             if (!invoice) throw new Error('NOT_FOUND: Invoice tidak ditemukan')
 
-            // Validate payable status
             if (invoice.status !== 'PAID' && invoice.status !== 'PARTIAL_PAID') {
                 throw new Error('FORBIDDEN: Hanya invoice PAID atau PARTIAL_PAID yang dapat dibatalkan melalui fitur ini')
             }
 
-            // 2. Atomic Billing Transaction
-            // Cover billing database operations
-            await prismaBilling.$transaction(async (tx) => {
-                // Update ALL associated payments with gatewayStatus 'PAID' -> 'REFUNDED'
-                await tx.payment.updateMany({
-                    where: {
-                        invoiceId,
-                        gatewayStatus: 'PAID'
-                    },
-                    data: {
-                        gatewayStatus: 'REFUNDED'
-                    }
-                })
+            await this.invoiceRepo.voidInvoiceTransaction(invoiceId, reason, invoice.notes)
 
-                // Update the invoice: status -> 'CANCELLED', paidAmount -> 0, add void reason to notes
-                await tx.invoice.update({
-                    where: { id: invoiceId },
-                    data: {
-                        status: 'CANCELLED' as InvoiceStatus,
-                        paidAmount: 0,
-                        notes: invoice.notes
-                            ? `${invoice.notes}\n[VOID] Reason: ${reason}`
-                            : `[VOID] Reason: ${reason}`
-                    }
-                })
-            })
-
-            // 3. Rollback Pelanggan (Main DB)
-            const pelanggan = await prisma.pelanggan.findUnique({
-                where: { id: invoice.pelangganId }
-            })
+            const pelanggan = await this.pelangganRepo.findById(invoice.pelangganId)
 
             if (!pelanggan) {
-                // If customer is not found in main DB, we still logged the invoice cancellation
-                // but we can't rollback jatuhTempo. We return success but log a warning.
                 console.warn(`[VoidInvoiceService] Pelanggan ${invoice.pelangganId} not found in main DB for invoice ${invoiceId}`)
                 return {
                     success: true,
@@ -72,38 +46,29 @@ export class VoidInvoiceService {
                 }
             }
 
-            // Calculate rolled back jatuhTempo
             const currentJatuhTempo = pelanggan.jatuhTempo
             const newJatuhTempo = new Date(currentJatuhTempo)
             newJatuhTempo.setMonth(newJatuhTempo.getMonth() - 1)
 
-            // Check for status change
             const statusChanged = pelanggan.status === 'AKTIF'
             const newStatus = statusChanged ? 'ISOLIR' : pelanggan.status
 
-            // Update main DB
-            await prisma.pelanggan.update({
-                where: { id: pelanggan.id },
-                data: {
-                    jatuhTempo: newJatuhTempo,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    status: newStatus as any
-                }
+            await this.pelangganRepo.update(pelanggan.id, {
+                jatuhTempo: newJatuhTempo,
+                status: newStatus
             })
 
-            // 4. If status changed to ISOLIR, sync to RADIUS
             if (statusChanged) {
                 try {
                     const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service')
-                    const radiusService = new RadiusSyncService(prisma)
+                    const { prisma: mainPrisma } = await import('@/lib/prisma')
+                    const radiusService = new RadiusSyncService(mainPrisma)
                     await radiusService.handleStatusChange(pelanggan.id, 'ISOLIR')
                 } catch (radiusErr) {
                     console.error('[VoidInvoiceService] Failed to sync to RADIUS:', radiusErr)
-                    // We don't throw here to ensure the rest of the feedback/logging happens
                 }
             }
 
-            // 5. Create notification for the pelanggan
             try {
                 await notifyCustomerFinanceNotification({
                     userId: pelanggan.userId,
@@ -118,7 +83,6 @@ export class VoidInvoiceService {
                 console.error('[VoidInvoiceService] Failed to send notification:', notifErr)
             }
 
-            // 6. Log activity
             await logger.logActivity({
                 action: 'VOID_INVOICE',
                 subject: `Invoice ${invoice.invoiceNumber}`,

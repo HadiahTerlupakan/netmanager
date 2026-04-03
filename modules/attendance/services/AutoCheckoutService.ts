@@ -1,9 +1,9 @@
-import { prisma } from '@/lib/prisma'
 import { toZonedTime } from 'date-fns-tz'
 import { toEndOfDay } from '@/lib/utils/server-datetime'
 import { getTimezone } from '@/lib/utils/get-timezone'
-import { ATTENDANCE_CONSTANTS } from '../constants'
+import { ATTENDANCE_CONSTANTS } from '../utils/constants'
 import { AttendanceSessionPolicyService } from './AttendanceSessionPolicyService'
+import { AttendanceRepository } from '../repositories/AttendanceRepository'
 
 
 export class AutoCheckoutService {
@@ -21,6 +21,7 @@ export class AutoCheckoutService {
      */
     static async runAutoCheckout() {
         const sessionPolicyService = new AttendanceSessionPolicyService()
+        const attendanceRepo = new AttendanceRepository()
         const timezone = await getTimezone()
 
         // Use timezone-aware current time via date-fns-tz (reliable)
@@ -30,54 +31,10 @@ export class AutoCheckoutService {
         const endOfToday = new Date(nowInTz)
         endOfToday.setTime(toEndOfDay(endOfToday, timezone).getTime())
 
-        // 1. Find all active attendance (checkOut is null)
-        // We catch everything up to the current moment.
-        // IMPORTANT: Exclude FLEXIBLE users - they don't have fixed schedules
-        // so they shouldn't be auto-checked out and marked as MANGKIR
-        // ALSO: Exclude ALPHA records - they are created by AbsenceService for users who didn't check-in at all
-        // ALPHA records should NOT have checkOut time added
-        const openAttendances = await prisma.attendance.findMany({
-            where: {
-                checkOut: null,
-                checkIn: {
-                    lte: endOfToday
-                },
-                // IMPORTANT: Skip ALPHA records - they are placeholder records for absent users
-                // Adding checkOut to ALPHA records would create false working hours
-                status: {
-                    not: 'ALPHA'
-                },
-                OR: [
-                    {
-                        user: {
-                            workingHourMode: {
-                                not: 'FLEXIBLE'
-                            }
-                        }
-                    },
-                    {
-                        user: {
-                            workingHourMode: 'FLEXIBLE'
-                        },
-                        checkIn: {
-                            // Flexible users are only auto-checked out if they've been checked in for more than 24 hours
-                            lte: new Date(now.getTime() - 24 * 60 * 60 * 1000)
-                        }
-                    }
-                ]
-            },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        workingHourMode: true,
-                        startWorkTime: true,
-                        endWorkTime: true,
-                        shift: true // Include shift details
-                    }
-                }
-            }
-        })
+        const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+        // 1. Find all open attendance sessions with user details via repository
+        const openAttendances = await attendanceRepo.findAllOpenSessionsWithUser(endOfToday, twentyFourHoursAgo)
 
 
         // console.log(`[AutoCheckout] Found ${openAttendances.length} open sessions. Processing...`)
@@ -116,13 +73,10 @@ export class AutoCheckoutService {
                 })
 
                 if (decision.shouldAutoCheckout && decision.autoCheckoutAt && decision.nextStatus) {
-                    await prisma.attendance.update({
-                        where: { id: attendance.id },
-                        data: {
-                            checkOut: decision.autoCheckoutAt,
-                            notes: attendance.notes ? `${attendance.notes}; ${ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE}` : ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE,
-                            status: decision.nextStatus
-                        }
+                    await attendanceRepo.update(attendance.id, {
+                        checkOut: decision.autoCheckoutAt,
+                        notes: attendance.notes ? `${attendance.notes}; ${ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE}` : ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE,
+                        status: decision.nextStatus
                     })
                     updatedCount++
                 }

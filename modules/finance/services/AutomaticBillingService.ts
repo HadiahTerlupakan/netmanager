@@ -1,32 +1,24 @@
 
-import { prisma } from '@/lib/prisma';
-import { prismaBilling } from '@/lib/prisma-billing';
-import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { sendCustomerPushNotification } from '@/modules/notification/services/ExpoPushService';
 import { logger } from '@/lib/logger';
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
-import { BillingEventDispatcher } from '@/modules/events/BillingEventDispatcher'
+import { BillingEventDispatcher } from '@/modules/events/dispatchers/BillingEventDispatcher'
+import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
+import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
+import { PelangganFinanceRepository } from '@/modules/pelanggan/repositories/PelangganFinanceRepository'
+import { InvoiceRepository } from '@/modules/finance/repositories/InvoiceRepository'
+import { PaymentRepository } from '@/modules/finance/repositories/PaymentRepository'
 
-
-// Type for the raw query result
-interface EligibleCustomerRow {
-    id: string;
-    nama: string;
-    jatuhTempo: Date;
-    userId: string | null;
-    usePPN: boolean;
-    tipe: string;
-    status: string;
-    hargaPaketId: string;
-    paketName: string;
-    paketHarga: number;
-    paketUsePPN: boolean;
-    paketPpnPercentage: number | null;
-}
 
 export class AutomaticBillingService {
+    private static settingsRepo = new SettingsRepository();
+    private static pelangganRepo = new PelangganRepository();
+    private static pelangganFinanceRepo = new PelangganFinanceRepository();
+    private static invoiceRepo = new InvoiceRepository();
+    private static paymentRepo = new PaymentRepository();
+
     /**
      * Generate invoices for customers who are due for billing
      * run daily via cron
@@ -35,11 +27,8 @@ export class AutomaticBillingService {
      */
     static async generateDailyInvoices() {
         try {
-            // console.log('[Billing] Starting automatic invoice generation...');
-
             // 1. Get settings
-            const invoiceOtomatisSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_INVOICE_OTOMATIS' },
-            });
+            const invoiceOtomatisSetting = await this.settingsRepo.findByKey('GENERAL_INVOICE_OTOMATIS');
 
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
@@ -53,58 +42,31 @@ export class AutomaticBillingService {
             const targetYear = targetDate.getFullYear();
 
             // OPTIMIZATION: Use raw query to filter by day-of-month at database level
-            // This avoids fetching all active customers and filtering in JavaScript
-            // With >5000 customers, this reduces data transfer from ~5000 rows to ~160 rows
             const BATCH_SIZE = 100;
             let offset = 0;
-            // let generatedCount = 0;
-            // let processedCount = 0;
             let hasMore = true;
 
             while (hasMore) {
-                const customers = await prisma.$queryRaw<EligibleCustomerRow[]>(
-                    Prisma.sql`
-                        SELECT
-                            p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
-                            h.name AS "paketName", h.harga AS "paketHarga",
-                            h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
-                        FROM "Pelanggan" p
-                        INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
-                        WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
-                          AND p."hargaPaketId" != ''
-                          AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
-                        ORDER BY p.id ASC
-                        LIMIT ${BATCH_SIZE} OFFSET ${offset}
-                    `
-                );
+                const customers = await this.pelangganRepo.findEligibleForBilling(targetDay, BATCH_SIZE, offset);
 
                 if (customers.length === 0) {
                     hasMore = false;
                     break;
                 }
 
-                // console.log(`[Billing] Processing batch ${Math.floor(offset / BATCH_SIZE) + 1} (${customers.length} eligible customers)`);
-
                 // OPTIMIZATION: Batch check existing invoices (instead of N queries)
                 const eligibleIds = customers.map(c => c.id);
-                const existingInvoices = await prismaBilling.invoice.findMany({
-                    where: {
-                        pelangganId: { in: eligibleIds },
-                        dueDate: {
-                            gte: new Date(targetYear, targetMonth - 1, targetDay, 0, 0, 0),
-                            lte: new Date(targetYear, targetMonth - 1, targetDay, 23, 59, 59),
-                        }
-                    },
-                    select: { pelangganId: true }
-                });
+                const existingInvoices = await this.invoiceRepo.findManyForDateRangeWithPelangganIds(
+                    new Date(targetYear, targetMonth - 1, targetDay, 0, 0, 0),
+                    new Date(targetYear, targetMonth - 1, targetDay, 23, 59, 59),
+                    eligibleIds
+                );
                 const existingInvoiceSet = new Set(existingInvoices.map(i => i.pelangganId));
 
                 const invoiceDueDate = new Date(targetYear, targetMonth - 1, targetDay);
 
                 for (const row of customers) {
                     try {
-                        // _processedCount++;
-
                         // Skip if invoice already exists (O(1) lookup)
                         if (existingInvoiceSet.has(row.id)) {
                             continue;
@@ -130,7 +92,6 @@ export class AutomaticBillingService {
 
                         // Generate Invoice
                         await this.createInvoiceForCustomer(customer, invoiceDueDate);
-                        // _generatedCount++;
 
                     } catch (err) {
                         console.error(`[Billing] Error processing customer ${row.nama}:`, err);
@@ -145,8 +106,6 @@ export class AutomaticBillingService {
                 }
             }
 
-            // console.log(`[Billing] Completed. Processed ${processedCount} customers, generated ${generatedCount} invoices.`);
-
         } catch (error) {
             console.error('[Billing] Fatal error in generateDailyInvoices:', error);
         }
@@ -159,17 +118,13 @@ export class AutomaticBillingService {
     static async checkAndGenerateRealtimeInvoice(pelangganId: string) {
         try {
             // 1. Get settings for daysBeforeDue
-            const invoiceOtomatisSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_INVOICE_OTOMATIS' },
-            });
+            const invoiceOtomatisSetting = await this.settingsRepo.findByKey('GENERAL_INVOICE_OTOMATIS');
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
             // 2. Fetch customer
-            const customer = await prisma.pelanggan.findUnique({
-                where: { id: pelangganId },
-                include: { hargaPaket: true }
-            });
+            const customer = await this.pelangganRepo.findByIdWithHargaPaket(pelangganId);
 
-            if (!customer || !customer.hargaPaket || customer.status !== 'AKTIF' && customer.status !== 'ISOLIR') {
+            if (!customer || !customer.hargaPaket || (customer.status !== 'AKTIF' && customer.status !== 'ISOLIR')) {
                 return;
             }
             if (customer.status === 'ISOLIR' && customer.tipe !== 'REGULER') {
@@ -196,15 +151,11 @@ export class AutomaticBillingService {
             const dueMonth = jatuhTempo.getMonth();
             const dueDay = jatuhTempo.getDate();
 
-            const existingInvoices = await prismaBilling.invoice.findMany({
-                where: {
-                    pelangganId: customer.id,
-                    dueDate: {
-                        gte: new Date(dueYear, dueMonth, dueDay, 0, 0, 0),
-                        lte: new Date(dueYear, dueMonth, dueDay, 23, 59, 59),
-                    }
-                }
-            });
+            const existingInvoices = await this.invoiceRepo.findManyForExactDueDate(
+                customer.id,
+                new Date(dueYear, dueMonth, dueDay, 0, 0, 0),
+                new Date(dueYear, dueMonth, dueDay, 23, 59, 59)
+            );
 
             if (existingInvoices.length > 0) {
                 return; // Invoice already exists for this date
@@ -241,10 +192,7 @@ export class AutomaticBillingService {
     static async generateImmediateInvoice(pelangganId: string, isPaid: boolean = false) {
         try {
             // 1. Fetch customer
-            const customer = await prisma.pelanggan.findUnique({
-                where: { id: pelangganId },
-                include: { hargaPaket: true }
-            });
+            const customer = await this.pelangganRepo.findByIdWithHargaPaket(pelangganId);
 
             if (!customer || !customer.hargaPaket) {
                 return;
@@ -272,34 +220,28 @@ export class AutomaticBillingService {
 
             // If it should be marked as paid immediately:
             if (isPaid && invoice) {
-                await prismaBilling.invoice.update({
-                    where: { id: invoice.id },
-                    data: { status: 'PAID', paidAmount: invoice.totalAmount }
-                });
+                await this.invoiceRepo.update(invoice.id, { status: 'PAID', paidAmount: invoice.totalAmount });
 
                 // Note: We deliberately do NOT call handleInvoicePaid here because 
                 // for a new customer registration, the jatuhTempo is already set to the end of the first period.
                 // Calling handleInvoicePaid would incorrectly push it by another month.
 
                 // We create a payment record to make it complete
-                await prismaBilling.payment.create({
-                    data: {
-                        id: randomUUID(),
-                        pelangganId: pelangganId,
-                        invoiceId: invoice.id,
-                        amount: invoice.totalAmount,
-                        paymentDate: new Date(),
-                        paymentMethod: 'CASH',
-                        reference: 'REGISTRATION_PAYMENT',
-                        verifiedAt: new Date(),
-                        verifiedBy: 'SYSTEM',
-                        notes: 'Pembayaran otomatis pada saat registrasi pelanggan',
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
+                await this.paymentRepo.create({
+                    id: randomUUID(),
+                    pelangganId: pelangganId,
+                    invoiceId: invoice.id,
+                    amount: invoice.totalAmount,
+                    paymentDate: new Date(),
+                    paymentMethod: 'CASH',
+                    reference: 'REGISTRATION_PAYMENT',
+                    verifiedAt: new Date(),
+                    verifiedBy: 'SYSTEM',
+                    notes: 'Pembayaran otomatis pada saat registrasi pelanggan',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
                 });
 
-                // Publish domain events
                 await BillingEventDispatcher.onInvoicePaid(
                     invoice.id,
                     pelangganId,
@@ -327,133 +269,108 @@ export class AutomaticBillingService {
             ppnPercentage: number | null;
         };
     }, dueDate: Date) {
-        // Use transaction to ensure atomicity
-        const result = await prisma.$transaction(async (_tx) => {
-            // 1. Generate Invoice Number with UUID suffix to prevent race condition
-            const currentYear = new Date().getFullYear();
-            const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
-            const currentDay = String(new Date().getDate()).padStart(2, '0');
+        const currentYear = new Date().getFullYear();
+        const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+        const currentDay = String(new Date().getDate()).padStart(2, '0');
 
-            // Use crypto.randomUUID for better uniqueness (12 chars from UUID v4 to avoid collisions)
-            // 8 chars was colliding at ~100k scale. 12 chars (16^12) is safe.
-            const uniqueSuffix = randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
-            const invoiceNumber = `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix}`;
+        const uniqueSuffix = randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
+        const invoiceNumber = `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix}`;
 
-            // 2. Calculate Items
-            const amount = BigInt(customer.hargaPaket.harga);
-            // Add tax logic
-            let taxAmount = 0n;
-            if (customer.usePPN || customer.hargaPaket.usePPN) {
-                const ppnRate = customer.hargaPaket.ppnPercentage || 11;
-                taxAmount = amount * BigInt(Math.round(ppnRate * 100)) / 10000n;
-            }
+        const amount = BigInt(customer.hargaPaket.harga);
+        let taxAmount = 0n;
+        if (customer.usePPN || customer.hargaPaket.usePPN) {
+            const ppnRate = customer.hargaPaket.ppnPercentage || 11;
+            taxAmount = amount * BigInt(Math.round(ppnRate * 100)) / 10000n;
+        }
 
-            const totalAmount = amount + taxAmount;
+        const totalAmount = amount + taxAmount;
 
-            // 3. Create Invoice
-            const invoice = await prismaBilling.invoice.create({
-                data: {
+        const invoice = await this.invoiceRepo.create({
+            id: randomUUID(),
+            invoiceNumber,
+            pelangganId: customer.id,
+            issueDate: new Date(),
+            dueDate: dueDate,
+            status: 'SENT',
+            subtotal: amount,
+            taxAmount: taxAmount,
+            totalAmount: totalAmount,
+            updatedAt: new Date(),
+            invoiceItem: {
+                create: [{
                     id: randomUUID(),
-                    invoiceNumber,
-                    pelangganId: customer.id,
-                    issueDate: new Date(),
-                    dueDate: dueDate,
-                    status: 'SENT', // Auto sent
-                    subtotal: amount,
-                    taxAmount: taxAmount,
-                    totalAmount: totalAmount,
-                    updatedAt: new Date(),
-                    invoiceItem: {
-                        create: [{
-                            id: randomUUID(),
-                            description: `Berlangganan Internet Paket ${customer.hargaPaket.name}`,
-                            quantity: 1,
-                            unitPrice: amount,
-                            totalPrice: amount,
-                            itemType: 'SERVICE'
-                        }]
-                    }
-                }
-            });
-
-            // 4. Update jatuhTempo removed. Will be updated upon payment.
-
-            return invoice;
+                    description: `Berlangganan Internet Paket ${customer.hargaPaket.name}`,
+                    quantity: 1,
+                    unitPrice: amount,
+                    totalPrice: amount,
+                    itemType: 'SERVICE'
+                }]
+            }
         });
 
-        // 5. Send Notification (outside transaction because it's not critical)
         try {
             await notifyCustomerFinanceNotification({
                 userId: customer.userId,
                 title: 'Tagihan Baru Tersedia',
-                message: `Tagihan bulan ini sebesar Rp ${Number(result.totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
+                message: `Tagihan bulan ini sebesar Rp ${Number(invoice.totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
                 link: '/tagihan',
                 sourceType: 'INVOICE',
-                sourceId: result.id,
+                sourceId: invoice.id,
                 priority: 'NORMAL'
             });
         } catch (notifErr) {
             console.error(`[Billing] Failed to send notification for ${customer.nama}:`, notifErr);
         }
 
-        // 5.5 Send Push Notification
         try {
-            const notifAppSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_NOTIF_APP' }
-            });
+            const notifAppSetting = await this.settingsRepo.findByKey('GENERAL_NOTIF_APP');
             const isPushEnabled = notifAppSetting?.value !== 'false';
 
             if (isPushEnabled) {
                 await sendCustomerPushNotification(
                     customer.id,
                     'Tagihan Baru Tersedia',
-                    `Tagihan bulan ini sebesar Rp ${Number(result.totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
-                    { type: 'INVOICE_GENERATED', invoiceId: result.id, url: '/(customer)/tagihan' }
+                    `Tagihan bulan ini sebesar Rp ${Number(invoice.totalAmount).toLocaleString('id-ID')} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString('id-ID')}.`,
+                    { type: 'INVOICE_GENERATED', invoiceId: invoice.id, url: '/(customer)/tagihan' }
                 );
             }
         } catch (pushErr) {
             console.error(`[Billing] Failed to send push notification for ${customer.nama}:`, pushErr);
         }
 
-        // 6. Log activity
         await logger.logActivity({
             action: 'CREATE',
             subject: 'Invoice (Auto)',
             details: {
-                id: result.id,
-                invoiceNumber: result.invoiceNumber,
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
                 customer: customer.nama,
                 actor: 'SYSTEM_CRON',
                 nextDueDate: new Date(customer.jatuhTempo).toISOString()
             }
         });
 
-        // 7. Publish domain event
         const { eventBus, EVENT_NAMES } = await import('@/lib/event-bus');
         await eventBus.publish(EVENT_NAMES.INVOICE_CREATED, {
-            invoiceId: result.id,
+            invoiceId: invoice.id,
             pelangganId: customer.id,
-            amount: Number(result.totalAmount),
+            amount: Number(invoice.totalAmount),
             dueDate: dueDate.toISOString(),
         }).catch(err => logger.error('Failed to publish INVOICE_CREATED event', err instanceof Error ? err : undefined));
 
-        return result;
+        return invoice;
     }
+
     /**
      * Update jatuhTempo and status when an invoice is fully paid.
      * Call this from webhook or manual payment handlers.
      */
     static async handleInvoicePaid(invoiceId: string) {
-        const { prismaBillingAuth } = await import('@/lib/prisma-billing');
-        const invoice = await prismaBillingAuth.invoice.findUnique({
-            where: { id: invoiceId },
-            include: { /* pelanggan: true removed */ }
-        });
+        const invoice = await this.invoiceRepo.findUnique(invoiceId);
 
         if (!invoice || invoice.status !== 'PAID') return;
 
-
-        const { prismaAuth: mainDb } = await import("@/lib/prisma");
-        const customer = await mainDb.pelanggan.findUnique({ where: { id: invoice.pelangganId } });
+        const customer = await this.pelangganFinanceRepo.findById(invoice.pelangganId);
         if (!customer) return;
 
         const today = new Date();
@@ -481,12 +398,7 @@ export class AutomaticBillingService {
             }
         }
 
-        const unpaidInvoices = await prismaBilling.invoice.count({
-            where: {
-                pelangganId: customer.id,
-                status: { notIn: ['PAID', 'CANCELLED'] }
-            }
-        });
+        const unpaidInvoices = await this.invoiceRepo.countUnpaidByPelangganId(customer.id);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updates: any = {
@@ -507,15 +419,14 @@ export class AutomaticBillingService {
             }
         }
 
-        await mainDb.pelanggan.update({
-            where: { id: customer.id },
-            data: updates
-        });
+        await this.pelangganFinanceRepo.updateJatuhTempo(customer.id, newJatuhTempo);
+        if (shouldActivate) {
+            await this.pelangganFinanceRepo.updateStatus(customer.id, 'AKTIF');
+        }
 
         if (shouldActivate) {
             const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
-            const { prismaRadiusAuth } = await import('@/lib/prisma-radius');
-            const radiusService = new RadiusSyncService(mainDb, prismaRadiusAuth);
+            const radiusService = new RadiusSyncService();
             await radiusService.handleStatusChange(customer.id, 'AKTIF');
         }
 
@@ -534,18 +445,12 @@ export class AutomaticBillingService {
     static async sendDailyReminders() {
         try {
             // 1. Get settings
-            const settingsParams = await prisma.settings.findMany({
-                where: {
-                    key: {
-                        in: [
-                            'GENERAL_REMINDER_OTOMATIS',
-                            'GENERAL_REMINDER_FREQUENCY',
-                            'GENERAL_REMINDER_TIME',
-                            'GENERAL_NOTIF_APP',
-                        ]
-                    }
-                }
-            });
+            const settingsParams = await this.settingsRepo.findManyByKeys([
+                'GENERAL_REMINDER_OTOMATIS',
+                'GENERAL_REMINDER_FREQUENCY',
+                'GENERAL_REMINDER_TIME',
+                'GENERAL_NOTIF_APP',
+            ]);
             const settingsMap = new Map(settingsParams.map(s => [s.key, s.value]));
 
             const reminderTime = settingsMap.get('GENERAL_REMINDER_TIME') || '08:00';
@@ -578,26 +483,23 @@ export class AutomaticBillingService {
             targetDate.setDate(today.getDate() + reminderDays);
 
             // Fetch unpaid invoices
-            const unpaidInvoices = await prismaBilling.invoice.findMany({
-                where: {
-                    status: { in: ['SENT', 'PARTIAL_PAID'] },
-                    dueDate: reminderFrequency === 'ONCE'
-                        ? {
-                            gte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0),
-                            lte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59),
-                        }
-                        : {
-                            gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
-                            lte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59),
-                        }
-                },
-                select: {
-                    id: true,
-                    pelangganId: true,
-                    dueDate: true,
-                    totalAmount: true,
-                    paidAmount: true,
-                }
+            const unpaidInvoices = await this.invoiceRepo.findUnpaidInvoices({
+                status: { in: ['SENT', 'PARTIAL_PAID'] },
+                dueDate: reminderFrequency === 'ONCE'
+                    ? {
+                        gte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0),
+                        lte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59),
+                    }
+                    : {
+                        gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
+                        lte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59),
+                    }
+            }, {
+                id: true,
+                pelangganId: true,
+                dueDate: true,
+                totalAmount: true,
+                paidAmount: true,
             });
 
             if (unpaidInvoices.length === 0) {

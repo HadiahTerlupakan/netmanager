@@ -1,17 +1,15 @@
 // WhatsApp Service - Main service for sending WhatsApp messages
 
-import { prisma as defaultPrisma } from '@/lib/prisma'
+import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
 import { decryptApiKey } from '@/lib/utils/encryption'
 import { WhatsAppFactory } from './whatsapp-factory'
 import type { WhatsAppConfig, SendMessageParams, SendFileParams, SendResult } from './whatsapp-provider-interface'
 
-type PrismaInstance = typeof defaultPrisma
-
 export class WhatsAppService {
-    private prisma: PrismaInstance
+    private settingsRepo: SettingsRepository
 
-    constructor(prisma: PrismaInstance = defaultPrisma) {
-        this.prisma = prisma
+    constructor(settingsRepo?: SettingsRepository) {
+        this.settingsRepo = settingsRepo ?? new SettingsRepository()
     }
 
     /**
@@ -19,13 +17,7 @@ export class WhatsAppService {
      */
     async isConfigured(): Promise<boolean> {
         try {
-            const settings = await this.prisma.settings.findMany({
-                where: {
-                    key: {
-                        in: ['WHATSAPP_API_KEY']
-                    }
-                }
-            })
+            const settings = await this.settingsRepo.findManyByKeys(['WHATSAPP_API_KEY'])
 
             const apiKey = settings.find(s => s.key === 'WHATSAPP_API_KEY')?.value
             const envKey = process.env.FONNTE_API_KEY
@@ -41,13 +33,9 @@ export class WhatsAppService {
      * Returns null if not configured
      */
     private async loadConfig(): Promise<WhatsAppConfig | null> {
-        const settings = await this.prisma.settings.findMany({
-            where: {
-                key: {
-                    in: ['WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WABLAS_DOMAIN', 'WABLAS_DEVICE_ID']
-                }
-            }
-        })
+        const settings = await this.settingsRepo.findManyByKeys([
+            'WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WABLAS_DOMAIN', 'WABLAS_DEVICE_ID'
+        ])
 
         const settingsMap: Record<string, string> = {}
         for (const setting of settings) {

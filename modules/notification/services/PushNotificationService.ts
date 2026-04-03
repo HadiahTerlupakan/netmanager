@@ -1,5 +1,7 @@
 import webpush from 'web-push';
-import { prisma } from '@/lib/prisma';
+import { PushSubscriptionRepository } from '../repositories/PushSubscriptionRepository';
+
+const pushSubRepo = new PushSubscriptionRepository();
 
 // VAPID keys configuration
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -112,13 +114,8 @@ export async function sendPushNotifications(
     );
 
     if (expiredEndpoints.length > 0) {
-        await prisma.pushSubscriptions.updateMany({
-            where: {
-                endpoint: { in: expiredEndpoints },
-            },
-            data: {
-                isActive: false,
-            },
+        await pushSubRepo.updateManyForEndpoints(expiredEndpoints, {
+            isActive: false,
         });
     }
 

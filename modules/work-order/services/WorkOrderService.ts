@@ -6,9 +6,7 @@
  * Routes should call this service instead of directly using repositories.
  */
 
-import type { PrismaClient, WorkOrderStatus, WorkOrderPriority, WorkOrderType } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import type { WorkOrderStatus, WorkOrderPriority, WorkOrderType, PrismaClient } from '@prisma/client'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { WorkOrderRepository } from '../repositories/WorkOrderRepository'
 import type { WorkOrderFilters, WorkOrderWithRelations, CreateWorkOrderData } from '../repositories/IWorkOrderRepository'
@@ -16,9 +14,15 @@ import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } fro
 import { workOrderCacheService } from './WorkOrderCacheService'
 import { socketEmitter } from '@/lib/websocket/emitter'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { WorkOrderEventDispatcher } from '@/modules/events/WorkOrderEventDispatcher'
+import { WorkOrderEventDispatcher } from '@/modules/events/dispatchers/WorkOrderEventDispatcher'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
+import { UserRepository } from '@/modules/users/repositories/UserRepository'
+import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
+import { CanvasingRepository } from '@/modules/marketing/repositories/CanvasingRepository'
+import { TicketRepository, WorkOrderTemplateRepository, WarrantyCheckRepository } from '../repositories/WorkOrderSupportRepositories'
+import { WorkOrderMaterialRepository } from '../repositories/WorkOrderMaterialRepository'
+import { randomUUID } from 'crypto'
 
 // Types
 export interface UserContext {
@@ -78,9 +82,23 @@ export interface ServiceResult<T> {
  */
 export class WorkOrderService {
     private repository: WorkOrderRepository
+    private userRepo: UserRepository
+    private settingsRepo: SettingsRepository
+    private canvasingRepo: CanvasingRepository
+    private ticketRepo: TicketRepository
+    private templateRepo: WorkOrderTemplateRepository
+    private warrantyRepo: WarrantyCheckRepository
+    private materialRepo: WorkOrderMaterialRepository
 
-    constructor(prismaClient: PrismaClient = prisma) {
+    constructor(prismaClient?: PrismaClient) {
         this.repository = new WorkOrderRepository(prismaClient)
+        this.userRepo = new UserRepository()
+        this.settingsRepo = new SettingsRepository()
+        this.canvasingRepo = new CanvasingRepository(prismaClient)
+        this.ticketRepo = new TicketRepository()
+        this.templateRepo = new WorkOrderTemplateRepository()
+        this.warrantyRepo = new WarrantyCheckRepository()
+        this.materialRepo = new WorkOrderMaterialRepository(prismaClient)
     }
 
     // ==================== LIST OPERATIONS ====================
@@ -284,20 +302,10 @@ export class WorkOrderService {
             // --- WARRANTY CHECK LOGIC ---
             if (input.pelangganId && (input.type === 'TROUBLESHOOT' || input.type === 'MAINTENANCE')) {
                 // Find the most recent completed work order for this customer that was done by a Mitra
-                const lastCompletedWo = await prisma.workOrders.findFirst({
-                    where: {
-                        pelangganId: input.pelangganId,
-                        status: 'COMPLETED',
-                        assignedMitraId: { not: null },
-                        completedAt: { not: null }
-                    },
-                    orderBy: { completedAt: 'desc' },
-                });
+                const lastCompletedWo = await this.warrantyRepo.findLastCompletedWoByMitra(input.pelangganId);
 
                 if (lastCompletedWo && lastCompletedWo.assignedMitraId && lastCompletedWo.completedAt) {
-                    const mitra = await prismaMitra.mitra.findUnique({
-                        where: { id: lastCompletedWo.assignedMitraId }
-                    });
+                    const mitra = await this.warrantyRepo.findMitraById(lastCompletedWo.assignedMitraId);
 
                     if (mitra) {
                         const garansiHari = mitra.garansiHari || 0;
@@ -545,19 +553,16 @@ export class WorkOrderService {
             }
 
             // Validate employee status
-            const employee = await prisma.user.findUnique({
-                where: { id: employeeId },
-                select: { id: true, name: true, isActive: true }
-            })
+            const employee = await this.userRepo.findById(employeeId)
 
             if (!employee) {
                 return { success: false, error: 'Karyawan tidak ditemukan', code: 'EMPLOYEE_NOT_FOUND' }
             }
 
-            if (!employee.isActive) {
+            if (!(employee as { isActive: boolean }).isActive) {
                 return {
                     success: false,
-                    error: `Tidak dapat menugaskan work order ke karyawan yang tidak aktif: ${employee.name || 'Tidak Diketahui'}`,
+                    error: `Tidak dapat menugaskan work order ke karyawan yang tidak aktif: ${(employee as { name: string | null }).name || 'Tidak Diketahui'}`,
                     code: 'EMPLOYEE_INACTIVE'
                 }
             }
@@ -787,150 +792,16 @@ export class WorkOrderService {
             await this.validateWorkOrderAccess(workOrderId, userContext)
 
             const actorId = userContext.id
-            return await prisma.$transaction(async (tx) => {
-                // Check work order
-                const workOrder = await tx.workOrders.findUnique({ where: { id: workOrderId } })
-                if (!workOrder) {
-                    throw new Error('Work order tidak ditemukan')
-                }
-
-                // Check barang
-                const barang = await tx.barang.findUnique({
-                    where: { id: barangId },
-                    include: {
-                        barangGudang: {
-                            where: {
-                                stok: { gte: quantity },
-                                ...(preferredGudangId ? { gudangId: preferredGudangId } : {})
-                            },
-                            orderBy: { stok: 'desc' }, // Use warehouse with most stock first
-                            take: 1
-                        }
-                    }
-                })
-
-                if (!barang) {
-                    throw new Error('Barang tidak ditemukan')
-                }
-
-                // Find available stock
-                const gudangSource = barang.barangGudang[0]
-                if (!gudangSource || gudangSource.stok < quantity) {
-                    throw new Error(`Stok tidak mencukupi di gudang yang ditentukan. Tersedia: ${gudangSource?.stok || 0}`)
-                }
-
-                // Business Rule: Ensure integer
-                if (Math.floor(quantity) !== quantity) {
-                    throw new Error('Jumlah material harus angka bulat (tidak boleh desimal)')
-                }
-                
-                const deductAmount = quantity
-
-                // Deduct stock - using conditions if possible, but WO Service seems to use total stock.
-                // To be safe and consistent with InventoryRepository, we should ideally know the condition.
-                // But WorkOrderMaterial doesn't have a 'kondisi' field in schema yet, it defaults to NEW.
-                // Let's assume BARU for Work Order materials as per common practice in this app.
-                
-                await tx.barangGudang.update({
-                    where: {
-                        barangId_gudangId: {
-                            barangId,
-                            gudangId: gudangSource.gudangId
-                        }
-                    },
-                    data: {
-                        stok: { decrement: deductAmount },
-                        stokBaru: { decrement: deductAmount } // Default to NEW for WO
-                    }
-                })
-
-                // Create usage record
-                const material = await tx.workOrderMaterial.create({
-                    data: {
-                        workOrderId,
-                        barangId,
-                        quantity: quantity, // Prisma schema updated to Float
-                        notes: notes ?? null,
-                        satuan: barang.satuan
-                    },
-                    include: {
-                        barang: true
-                    }
-                })
-
-                // Record transaction log (BarangKeluar)
-                await tx.barangKeluar.create({
-                    data: {
-                        id: crypto.randomUUID(),
-                        barangId,
-                        gudangId: gudangSource.gudangId,
-                        jumlah: deductAmount,
-                        tanggal: new Date(),
-                        kondisi: 'BARU',
-                        keterangan: `Used in Work Order #${workOrder.workOrderNumber}`,
-                        tujuanPenggunaan: 'WORK_ORDER',
-                        userId: actorId, // Use actorId instead of workOrder.assignedToId
-                    }
-                })
-
-                return { success: true, data: material }
-            })
-        } catch (error) {
-            logger.error('WorkOrderService.addMaterial failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menambahkan material',
-                code: 'ADD_MATERIAL_ERROR'
-            }
-        }
-    }
-
-    /**
-     * Create tasks from template
-     */
-    async createTasksFromTemplate(
-        workOrderId: string,
-        templateId: string,
-        userContext: UserContext
-    ): Promise<ServiceResult<unknown>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(workOrderId, userContext)
-
-            // Check work order
-            const workOrder = await this.repository.findById(workOrderId)
-            if (!workOrder) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            // Get template items
-            const templateItems = await prisma.workOrderTemplateItem.findMany({
-                where: { templateId },
-                orderBy: { order: 'asc' }
-            })
-
-            if (templateItems.length === 0) {
-                return { success: false, error: 'Template tidak memiliki item', code: 'EMPTY_TEMPLATE' }
-            }
-
-            // Create tasks
-            const tasks = await prisma.$transaction(
-                templateItems.map(item =>
-                    prisma.workOrderTasks.create({
-                        data: {
-                            id: crypto.randomUUID(),
-                            workOrderId,
-                            title: item.title,
-                            description: item.description,
-                            order: item.order,
-                            status: 'PENDING',
-                            updatedAt: new Date()
-                        }
-                    })
-                )
+            const material = await this.materialRepo.addMaterialWithStockDeduction(
+                workOrderId,
+                barangId,
+                quantity,
+                actorId,
+                notes ?? null,
+                preferredGudangId
             )
 
-            return { success: true, data: tasks }
+            return { success: true, data: material }
         } catch (error) {
             logger.error('WorkOrderService.createTasksFromTemplate failed', error instanceof Error ? error : undefined)
             return { success: false, error: 'Gagal membuat tugas dari template', code: 'CREATE_TASKS_ERROR' }
@@ -1047,20 +918,15 @@ export class WorkOrderService {
                 `Tipe: ${wo.type}\n` +
                 `Jadwal: ${scheduledTime}`
 
-            await prisma.ticketReplies.create({
-                data: {
-                    id: crypto.randomUUID(),
-                    ticketId,
-                    message: replyMessage,
-                    isFromAdmin: true,
-                    senderId: userId,
-                },
+            await this.ticketRepo.createReply({
+                id: randomUUID(),
+                ticketId,
+                message: replyMessage,
+                isFromAdmin: true,
+                senderId: userId,
             })
 
-            await prisma.supportTickets.update({
-                where: { id: ticketId },
-                data: { status: 'IN_PROGRESS' },
-            })
+            await this.ticketRepo.updateTicketStatus(ticketId, 'IN_PROGRESS')
         } catch (err) {
             logger.error('Failed to link work order to ticket', err instanceof Error ? err : undefined)
         }

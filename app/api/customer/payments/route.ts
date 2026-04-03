@@ -2,11 +2,11 @@ import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
-import { PelangganService } from '@/modules/pelanggan'
+import { CustomerPortalService } from '@/modules/pelanggan/services/CustomerPortalService'
 import { CouponService } from '@/modules/coupons'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
-const pelangganService = new PelangganService()
+const customerPortalService = new CustomerPortalService()
 const couponService = new CouponService()
 
 /**
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '10')
 
-        const result = await pelangganService.getPaymentHistory(
+        const result = await customerPortalService.getPaymentHistory(
             authResult.session.id,
             page,
             limit
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
             return apiError('Pilih minimal satu tagihan untuk dibayar', ErrorCodes.VALIDATION_ERROR, { status: 400 })
         }
 
-        const { totalAmount } = await pelangganService.validateInvoicesForPayment(
+        const { totalAmount } = await customerPortalService.validateInvoicesForPayment(
             invoiceIds,
             authResult.session.id
         )

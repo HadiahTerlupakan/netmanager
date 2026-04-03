@@ -4,7 +4,7 @@ import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
 import { z } from 'zod'
 import { logActivitySafe } from '@/lib/logger'
-import { CustomerEventDispatcher } from '@/modules/events/CustomerEventDispatcher'
+import { CustomerEventDispatcher } from '@/modules/events/dispatchers/CustomerEventDispatcher'
 
 /**
  * @swagger

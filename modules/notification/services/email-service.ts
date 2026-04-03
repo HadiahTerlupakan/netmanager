@@ -1,6 +1,6 @@
 // Email Service using Nodemailer
 import nodemailer from 'nodemailer'
-import { prisma as defaultPrisma } from '@/lib/prisma'
+import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
 import { decryptApiKey } from '@/lib/utils/encryption'
 
 export interface EmailConfig {
@@ -29,20 +29,20 @@ export interface SendEmailResult {
     error?: string
 }
 
-type PrismaInstance = typeof defaultPrisma
-
 export class EmailService {
-    constructor(private prisma: PrismaInstance = defaultPrisma) { }
+    private settingsRepo: SettingsRepository
+
+    constructor(settingsRepo?: SettingsRepository) {
+        this.settingsRepo = settingsRepo ?? new SettingsRepository()
+    }
 
     /**
      * Load email configuration from database
      */
     private async loadConfig(): Promise<EmailConfig> {
-        const settings = await this.prisma.settings.findMany({
-            where: {
-                key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_NAME', 'FROM_EMAIL'] }
-            }
-        })
+        const settings = await this.settingsRepo.findManyByKeys([
+            'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_NAME', 'FROM_EMAIL'
+        ])
 
         const settingsMap: Record<string, string> = {}
         for (const setting of settings) {

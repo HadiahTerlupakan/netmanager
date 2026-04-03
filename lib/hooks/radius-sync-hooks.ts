@@ -7,6 +7,7 @@
 
 import { PrismaClient, Status } from '@prisma/client';
 import { RadiusSyncService } from '@/modules/network';
+import { prisma as defaultPrisma } from '@/lib/prisma';
 
 export interface SyncResult {
     success: boolean;
@@ -26,11 +27,12 @@ export interface CustomerChange {
  * Automatically syncs new customer to RADIUS
  */
 export async function afterCustomerCreate(
-    prisma: PrismaClient,
+    prisma: PrismaClient | undefined | null,
     customerId: string
 ): Promise<SyncResult> {
+    const db = prisma || defaultPrisma;
     try {
-        const syncService = new RadiusSyncService(prisma);
+        const syncService = new RadiusSyncService(db);
         await syncService.syncSingleCustomer(customerId);
 
         console.log(`[RADIUS Hook] Customer created and synced: ${customerId}`);
@@ -53,12 +55,13 @@ export async function afterCustomerCreate(
  * - Other changes → Full sync
  */
 export async function afterCustomerUpdate(
-    prisma: PrismaClient,
+    prisma: PrismaClient | undefined | null,
     customerId: string,
     changes: CustomerChange
 ): Promise<SyncResult> {
+    const db = prisma || defaultPrisma;
     try {
-        const syncService = new RadiusSyncService(prisma);
+        const syncService = new RadiusSyncService(db);
 
         // Handle status change specifically
         if (changes.statusChanged && changes.newStatus) {
@@ -87,15 +90,16 @@ export async function afterCustomerUpdate(
  * Removes customer from RADIUS before deleting from database
  */
 export async function beforeCustomerDelete(
-    prisma: PrismaClient,
+    prisma: PrismaClient | undefined | null,
     username: string
 ): Promise<SyncResult> {
+    const db = prisma || defaultPrisma;
     try {
-        const syncService = new RadiusSyncService(prisma);
+        const syncService = new RadiusSyncService(db);
         const radiusRepo = syncService['radiusRepo']; // Access private field hack
 
         // Get tenantId for this user
-        const user = await prisma.pelanggan.findFirst({
+        const user = await db.pelanggan.findFirst({
             where: { username },
             select: { tenantId: true }
         });

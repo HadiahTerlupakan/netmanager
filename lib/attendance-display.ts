@@ -1,4 +1,4 @@
-import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
+import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/utils/constants'
 
 export function hasAutoCheckoutNote(notes?: string | null): boolean {
     if (!notes) {

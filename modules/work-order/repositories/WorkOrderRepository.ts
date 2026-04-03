@@ -2140,6 +2140,28 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             .sort((a, b) => b.count - a.count); // Sort by count descending
     }
 
+    async findByIdWithTicketAndAttachments(id: string): Promise<(WorkOrders & {
+        ticket: import('@prisma/client').SupportTickets | null,
+        attachments: WorkOrderAttachments[]
+    }) | null> {
+        return this.prisma.workOrders.findUnique({
+            where: { id },
+            include: {
+                ticket: true,
+                attachments: true,
+            },
+        }) as Promise<(WorkOrders & {
+            ticket: import('@prisma/client').SupportTickets | null,
+            attachments: WorkOrderAttachments[]
+        }) | null>
+    }
+
+    async findManyByTicketId(ticketId: string): Promise<WorkOrders[]> {
+        return this.prisma.workOrders.findMany({
+            where: { ticketId },
+        })
+    }
+
     async addComment(workOrderId: string, message: string, userId: string): Promise<WorkOrderUpdates> {
         return this.prisma.workOrderUpdates.create({
             data: {

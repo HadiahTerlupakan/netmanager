@@ -12,11 +12,7 @@
 import { Status } from '@prisma/client';
 import { RadiusRepository } from '../repositories/RadiusRepository';
 import { MikroTikPPPSecretService } from './MikroTikPPPSecretService';
-import { prisma as defaultPrisma } from '@/lib/prisma';
-
-type PrismaInstance = typeof defaultPrisma;
-
-// Connection mode types
+import { NetworkRepository } from '../repositories/NetworkRepository';
 import { prismaRadius } from '@/lib/prisma-radius';
 
 export type ConnectionMode = 'RADIUS' | 'MIKROTIK_API';
@@ -24,10 +20,12 @@ export type ConnectionMode = 'RADIUS' | 'MIKROTIK_API';
 export class RadiusSyncService {
     private radiusRepo: RadiusRepository;
     private pppSecretService: MikroTikPPPSecretService;
+    private networkRepo: NetworkRepository;
 
-    constructor(private prisma: PrismaInstance = defaultPrisma, radiusClient?: typeof prismaRadius) {
-        this.radiusRepo = new RadiusRepository(prisma, radiusClient);
-        this.pppSecretService = new MikroTikPPPSecretService(prisma);
+    constructor(radiusClient?: typeof prismaRadius) {
+        this.radiusRepo = new RadiusRepository(undefined, radiusClient);
+        this.pppSecretService = new MikroTikPPPSecretService();
+        this.networkRepo = new NetworkRepository();
     }
 
     /**
@@ -36,13 +34,11 @@ export class RadiusSyncService {
      */
     async getConnectionMode(): Promise<ConnectionMode> {
         try {
-            const setting = await this.prisma.settings.findFirst({ where: { key: 'PPP_CONNECTION_MODE' }
-            });
+            const setting = await this.networkRepo.findSettingByKey('PPP_CONNECTION_MODE');
             if (setting?.value === 'MIKROTIK_API') {
                 return 'MIKROTIK_API';
             }
         } catch (_error) {
-            // Settings table might not exist or other error, default to RADIUS
             console.warn('[RadiusSyncService] Could not read connection mode, defaulting to RADIUS');
         }
         return 'RADIUS';
@@ -74,15 +70,9 @@ export class RadiusSyncService {
 
     /**
      * Handle customer status change
-     * - AKTIF: Sync user (RADIUS mode: sync to radcheck, API mode: create secret)
-     * - ISOLIR/NONAKTIF: Ubah profile ke "expired users" di MikroTik (API mode) atau pindah ke grup ISOLIR (RADIUS mode)
-     * - DISMANTLE: Hapus user sepenuhnya
      */
     async handleStatusChange(pelangganId: string, newStatus: Status): Promise<void> {
-        const pelanggan = await this.prisma.pelanggan.findUnique({
-            where: { id: pelangganId },
-            select: { username: true, status: true },
-        });
+        const pelanggan = await this.networkRepo.findPelangganBasic(pelangganId);
 
         if (!pelanggan) {
             throw new Error(`Pelanggan ${pelangganId} not found`);
@@ -102,11 +92,8 @@ export class RadiusSyncService {
                 await this.pppSecretService.isolateCustomer(pelangganId);
             }
         } else {
-            // RADIUS Mode
-            // Update RADIUS tables (handles AKTIF, ISOLIR, NONAKTIF, DISMANTLE)
             await this.radiusRepo.syncPelangganToRadius(pelangganId);
 
-            // Also try to update MikroTik profile if secret exists (for hybrid migration)
             if (newStatus === 'AKTIF') {
                 await this.pppSecretService.unIsolateCustomer(pelangganId);
             } else if (newStatus === 'DISMANTLE') {
@@ -119,7 +106,6 @@ export class RadiusSyncService {
 
     /**
      * Update customer bandwidth
-     * Called when package is changed
      */
     async updateCustomerBandwidth(pelangganId: string): Promise<void> {
         await this.syncSingleCustomer(pelangganId);
@@ -153,14 +139,7 @@ export class RadiusSyncService {
         status: Status;
         existsInRadius: boolean;
     }> {
-        const pelanggan = await this.prisma.pelanggan.findUnique({
-            where: { id: pelangganId },
-            select: {
-                username: true,
-                status: true,
-                tenantId: true,
-            },
-        });
+        const pelanggan = await this.networkRepo.findPelangganBasic(pelangganId);
 
         if (!pelanggan || !pelanggan.tenantId) {
             throw new Error(`Pelanggan ${pelangganId} not found or missing tenantId`);
@@ -172,7 +151,7 @@ export class RadiusSyncService {
         return {
             synced: existsInRadius === shouldExist,
             username: pelanggan.username,
-            status: pelanggan.status,
+            status: pelanggan.status as Status,
             existsInRadius,
         };
     }

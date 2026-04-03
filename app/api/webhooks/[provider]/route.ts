@@ -105,7 +105,7 @@ export async function POST(
         }
 
         // Process webhook through gateway manager (passing tenantId discovered from payment)
-        const gatewayManager = new PaymentGatewayManager(prisma as unknown as PrismaClient)
+        const gatewayManager = new PaymentGatewayManager()
         const webhookResult = await gatewayManager.processWebhook(
             providerType, 
             payload, 

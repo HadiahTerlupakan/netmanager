@@ -1,8 +1,8 @@
-import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
+import { DepartmentRepository } from '../repositories/DepartmentRepository'
 
 export interface DepartmentFilters {
     search?: string
@@ -19,8 +19,8 @@ export interface CreateDepartmentData {
 
 export interface UpdateDepartmentData {
     name?: string
-    description?: string
-    jobDescription?: string
+    description?: string | null
+    jobDescription?: string | null
     isReminderTarget?: boolean
     showInMobileWO?: boolean
 }
@@ -33,37 +33,18 @@ export interface ServiceResult<T> {
 }
 
 export class DepartmentService {
+    private departmentRepo: DepartmentRepository
+
+    constructor() {
+        this.departmentRepo = new DepartmentRepository()
+    }
+
     /**
      * Get all departments with filters
      */
     async getDepartments(filters: DepartmentFilters = {}): Promise<ServiceResult<unknown[]>> {
         try {
-            const where: Prisma.DepartmentsWhereInput = {}
-
-            if (filters.search) {
-                where.OR = [
-                    { name: { contains: filters.search, mode: 'insensitive' } },
-                    { description: { contains: filters.search, mode: 'insensitive' } },
-                ]
-            }
-
-            if (filters.reminderOnly) {
-                where.isReminderTarget = true
-            }
-
-            const departments = await prisma.departments.findMany({
-                where,
-                include: {
-                    _count: {
-                        select: {
-                            user: true,
-                            work_orders: true,
-                        },
-                    },
-                },
-                orderBy: { name: 'asc' },
-            })
-
+            const departments = await this.departmentRepo.findAll(filters)
             return { success: true, data: departments }
         } catch (error) {
             logger.error('DepartmentService.getDepartments failed', error instanceof Error ? error : undefined)
@@ -76,25 +57,7 @@ export class DepartmentService {
      */
     async getDepartmentById(id: string): Promise<ServiceResult<unknown>> {
         try {
-            const department = await prisma.departments.findUnique({
-                where: { id },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            email: true,
-                            name: true,
-                        },
-                        take: 10,
-                    },
-                    _count: {
-                        select: {
-                            user: true,
-                            work_orders: true,
-                        },
-                    },
-                },
-            })
+            const department = await this.departmentRepo.findById(id)
 
             if (!department) {
                 return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
@@ -117,29 +80,25 @@ export class DepartmentService {
             }
 
             // Check if name already exists
-            const existing = await prisma.departments.findFirst({
-                where: { name: data.name },
-            })
+            const existing = await this.departmentRepo.findByName(data.name)
 
             if (existing) {
                 return { success: false, error: 'Nama departemen sudah digunakan', code: 'DUPLICATE_NAME' }
             }
 
-            const department = await prisma.departments.create({
-                data: {
-                    id: randomUUID(),
-                    name: data.name,
-                    description: data.description || null,
-                    jobDescription: data.jobDescription || null,
-                    isReminderTarget: data.isReminderTarget ?? false,
-                    showInMobileWO: data.showInMobileWO ?? false,
-                    updatedAt: new Date(),
-                },
+            const department = await this.departmentRepo.create({
+                id: randomUUID(),
+                name: data.name,
+                description: data.description || null,
+                jobDescription: data.jobDescription || null,
+                isReminderTarget: data.isReminderTarget ?? false,
+                showInMobileWO: data.showInMobileWO ?? false,
+                updatedAt: new Date(),
             })
 
             await this.logActivity('CREATE', 'Department', createdById, {
-                id: department.id,
-                name: department.name
+                id: (department as { id: string }).id,
+                name: (department as { name: string }).name
             })
 
             return { success: true, data: department }
@@ -154,9 +113,7 @@ export class DepartmentService {
      */
     async updateDepartment(id: string, data: UpdateDepartmentData, updatedById: string): Promise<ServiceResult<unknown>> {
         try {
-            const existing = await prisma.departments.findUnique({
-                where: { id },
-            })
+            const existing = await this.departmentRepo.findById(id) as { id: string; name: string } | null
 
             if (!existing) {
                 return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
@@ -164,28 +121,17 @@ export class DepartmentService {
 
             // Check for duplicate name
             if (data.name && data.name !== existing.name) {
-                const duplicate = await prisma.departments.findFirst({
-                    where: { name: data.name },
-                });
+                const duplicate = await this.departmentRepo.findByName(data.name);
 
                 if (duplicate) {
                     return { success: false, error: 'Nama departemen sudah digunakan', code: 'DUPLICATE_NAME' }
                 }
             }
 
-            const department = await prisma.departments.update({
-                where: { id },
-                data: {
-                    ...(data.name && { name: data.name }),
-                    ...(data.description !== undefined && { description: data.description || null }),
-                    ...(data.jobDescription !== undefined && { jobDescription: data.jobDescription || null }),
-                    ...(data.isReminderTarget !== undefined && { isReminderTarget: data.isReminderTarget }),
-                    ...(data.showInMobileWO !== undefined && { showInMobileWO: data.showInMobileWO }),
-                },
-            })
+            const department = await this.departmentRepo.update(id, data as Record<string, unknown>)
 
             await this.logActivity('UPDATE', 'Department', updatedById, {
-                id: department.id,
+                id: (department as { id: string }).id,
                 updates: data
             })
 
@@ -201,45 +147,36 @@ export class DepartmentService {
      */
     async deleteDepartment(id: string, deletedById: string): Promise<ServiceResult<void>> {
         try {
-            const department = await prisma.departments.findUnique({
-                where: { id },
-                include: {
-                    _count: {
-                        select: {
-                            user: true,
-                            work_orders: true,
-                        },
-                    },
-                },
-            })
+            const department = await this.departmentRepo.findByIdWithCounts(id)
 
             if (!department) {
                 return { success: false, error: 'Departemen tidak ditemukan', code: 'NOT_FOUND' }
             }
 
-            if (department._count.user > 0) {
+            const userCount = department._count?.user ?? 0
+            const workOrderCount = department._count?.work_orders ?? 0
+
+            if (userCount > 0) {
                 return {
                     success: false,
-                    error: `Tidak dapat menghapus departemen. Terdapat ${department._count.user} pengguna yang terhubung.`,
+                    error: `Tidak dapat menghapus departemen. Terdapat ${userCount} pengguna yang terhubung.`,
                     code: 'HAS_USERS'
                 }
             }
 
-            if (department._count.work_orders > 0) {
+            if (workOrderCount > 0) {
                 return {
                     success: false,
-                    error: `Tidak dapat menghapus departemen. Terdapat ${department._count.work_orders} work order yang terhubung.`,
+                    error: `Tidak dapat menghapus departemen. Terdapat ${workOrderCount} work order yang terhubung.`,
                     code: 'HAS_WORKORDERS'
                 }
             }
 
-            await prisma.departments.delete({
-                where: { id },
-            })
+            await this.departmentRepo.delete(id)
 
             await this.logActivity('DELETE', 'Department', deletedById, {
-                id: department.id,
-                name: department.name
+                id: id,
+                name: (department as { name?: string }).name
             })
 
             return { success: true }

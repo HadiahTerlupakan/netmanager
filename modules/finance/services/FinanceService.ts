@@ -1,19 +1,46 @@
-import { prisma } from '@/lib/prisma'
 import { type PaymentStatus, RabItemCategory, RabExpenseType, RabGrowthType, RabPaymentType, Prisma } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
 import { randomUUID } from 'crypto'
+import {
+  FinancialAccountRepository,
+  ExpenseRepository,
+  ExpenseCategoryRepository,
+  RabProjectRepository,
+  RabWbsRepository,
+  RabItemRepository,
+  RabDisbursementRepository,
+  RabInvestorRepository,
+  PurchaseOrderRepository
+} from '../repositories'
 
 export class FinanceService {
-  constructor() {}
+  private financialAccountRepo: FinancialAccountRepository
+  private expenseRepo: ExpenseRepository
+  private expenseCategoryRepo: ExpenseCategoryRepository
+  private rabProjectRepo: RabProjectRepository
+  private rabWbsRepo: RabWbsRepository
+  private rabItemRepo: RabItemRepository
+  private rabDisbursementRepo: RabDisbursementRepository
+  private rabInvestorRepo: RabInvestorRepository
+  private purchaseOrderRepo: PurchaseOrderRepository
+
+  constructor() {
+    this.financialAccountRepo = new FinancialAccountRepository()
+    this.expenseRepo = new ExpenseRepository()
+    this.expenseCategoryRepo = new ExpenseCategoryRepository()
+    this.rabProjectRepo = new RabProjectRepository()
+    this.rabWbsRepo = new RabWbsRepository()
+    this.rabItemRepo = new RabItemRepository()
+    this.rabDisbursementRepo = new RabDisbursementRepository()
+    this.rabInvestorRepo = new RabInvestorRepository()
+    this.purchaseOrderRepo = new PurchaseOrderRepository()
+  }
 
   /**
    * Get all active financial accounts
    */
   async getAccounts() {
-    return prisma.financialAccount.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' }
-    })
+    return this.financialAccountRepo.findActive()
   }
 
   /**
@@ -26,15 +53,13 @@ export class FinanceService {
     description?: string
     initialBalance?: number
   }) {
-    return prisma.financialAccount.create({
-      data: {
-        name: data.name,
-        type: data.type,
-        accountNumber: data.accountNumber ?? null,
-        description: data.description ?? null,
-        balance: data.initialBalance || 0,
-        isActive: true
-      }
+    return this.financialAccountRepo.create({
+      name: data.name,
+      type: data.type,
+      accountNumber: data.accountNumber ?? null,
+      description: data.description ?? null,
+      balance: data.initialBalance || 0,
+      isActive: true
     })
   }
 
@@ -79,19 +104,7 @@ export class FinanceService {
       where.siteId = params.siteId
     }
 
-    const expenses = await prisma.expense.findMany({
-      where,
-      orderBy: {
-        date: 'desc',
-      },
-      include: {
-        user: { select: { name: true } },
-        site: { select: { name: true } },
-        expenseCategory: { select: { id: true, name: true, type: true } },
-        rabProject: { select: { id: true, name: true } },
-        rabItem: { select: { id: true, name: true } }
-      }
-    })
+    const expenses = await this.expenseRepo.findManyWithRelations(where)
 
     return expenses.map(expense => ({
       ...expense,
@@ -120,26 +133,23 @@ export class FinanceService {
     invoiceFile?: string
     accountId?: string
   }, userId: string) {
-    const expense = await prisma.expense.create({
-      data: {
-        id: randomUUID(),
-        amount: data.amount,
-        depreciation: data.depreciation || 0,
-        usefulLife: data.usefulLife || 0,
-        date: data.date,
-        category: data.category,
-        ...(data.expenseCategoryId ? { expenseCategory: { connect: { id: data.expenseCategoryId } } } : {}),
-        ...(data.description !== undefined ? { description: data.description } : {}),
-        user: { connect: { id: userId } },
-        updatedAt: new Date(),
-        ...(data.siteId ? { site: { connect: { id: data.siteId } } } : {}),
-        ...(data.mixRadiusGroupId ? { mixRadiusGroupId: data.mixRadiusGroupId } : {}),
-        ...(data.rabProjectId ? { rabProject: { connect: { id: data.rabProjectId } } } : {}),
-        ...(data.rabItemId ? { rabItem: { connect: { id: data.rabItemId } } } : {}),
-        ...(data.invoiceNumber ? { invoiceNumber: data.invoiceNumber } : {}),
-        ...(data.invoiceFile ? { invoiceFile: data.invoiceFile } : {}),
-        ...(data.accountId ? { financialAccount: { connect: { id: data.accountId } } } : {}),
-      },
+    const expense = await this.expenseRepo.createExpense({
+      id: randomUUID(),
+      amount: data.amount,
+      depreciation: data.depreciation || BigInt(0),
+      usefulLife: data.usefulLife || 0,
+      date: data.date,
+      category: data.category,
+      expenseCategoryId: data.expenseCategoryId,
+      description: data.description,
+      userId,
+      siteId: data.siteId,
+      mixRadiusGroupId: data.mixRadiusGroupId,
+      rabProjectId: data.rabProjectId,
+      rabItemId: data.rabItemId,
+      invoiceNumber: data.invoiceNumber,
+      invoiceFile: data.invoiceFile,
+      accountId: data.accountId,
     })
 
     return {
@@ -171,32 +181,7 @@ export class FinanceService {
       }
     }
 
-    const categories = await prisma.expenseCategory.findMany({
-      where,
-      include: {
-        parent: {
-          select: { name: true }
-        },
-        _count: {
-          select: { children: true }
-        },
-        expenses: {
-          where: expenseWhere,
-          select: { amount: true }
-        }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    })
-
-    return categories.map(cat => {
-      const { expenses, ...rest } = cat
-      return {
-        ...rest,
-        totalDirect: expenses.reduce((sum, e) => sum + Number(e.amount), 0)
-      }
-    })
+    return this.expenseCategoryRepo.findManyWithStats(where, expenseWhere)
   }
 
   /**
@@ -207,27 +192,20 @@ export class FinanceService {
     type: string
     parentId?: string | null
   }) {
-    const existing = await prisma.expenseCategory.findFirst({
-      where: {
-        name: {
-          equals: data.name,
-          mode: 'insensitive'
-        },
-        type: data.type,
-        parentId: data.parentId || null
-      }
-    })
+    const existing = await this.expenseCategoryRepo.findFirstDuplicate(
+      data.name,
+      data.type,
+      data.parentId || null
+    )
 
     if (existing) {
       throw new Error(`Kategori "${data.name}" sudah ada di level ini.`)
     }
 
-    return prisma.expenseCategory.create({
-      data: {
-        name: data.name,
-        type: data.type,
-        ...(data.parentId ? { parentId: data.parentId } : {})
-      }
+    return this.expenseCategoryRepo.createCategory({
+      name: data.name,
+      type: data.type,
+      parentId: data.parentId ?? undefined
     })
   }
 
@@ -246,53 +224,7 @@ export class FinanceService {
     if (params.mixRadiusInvestorSiteId) where.mixRadiusInvestorSiteId = params.mixRadiusInvestorSiteId
     if (params.status) where.status = params.status as Prisma.RabProjectWhereInput['status']
 
-    const projects = await prisma.rabProject.findMany({
-      where,
-      include: {
-        items: {
-          include: {
-            disbursements: true,
-            expenseCategory: {
-              include: {
-                parent: true
-              }
-            }
-          }
-        },
-        wbsGroups: true,
-        site: { select: { name: true } },
-        investors: true,
-        creator: { select: { name: true } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: {
-                  select: { name: true }
-                }
-              }
-            }
-          }
-        },
-        revisions: {
-          select: {
-            id: true,
-            revisionNumber: true,
-            status: true
-          },
-          orderBy: { revisionNumber: 'desc' },
-          take: 1
-        },
-        _count: {
-          select: {
-            revisions: true
-          }
-        }
-      },
-    })
+    const projects = await this.rabProjectRepo.findManyWithDetails(where)
 
     return projects.map(p => {
       const { revisions, _count, ...projectData } = p
@@ -376,103 +308,51 @@ export class FinanceService {
       contingencyPercent, contingencyAmount, nplTolerancePercent, hasDisbursementPlan, wbsGroups, investorIds
     } = data
 
-    const project = await prisma.$transaction(async (tx) => {
-      const p = await tx.rabProject.create({
-        data: {
-          name,
-          description,
-          siteId,
-          mixRadiusGroupId,
-          mixRadiusInvestorSiteId,
-          projectedRevenue,
-          projectedOpex,
-          targetSubscribers,
-          arpu,
-          growthType,
-          paymentType,
-          growthSettings: (growthSettings || undefined) as Prisma.InputJsonValue,
-          startDate,
-          investmentDurationMonths,
-          investmentRecoveryType,
-          investmentRecoveryValue,
-          investorProfitSharePercent,
-          contingencyPercent,
-          contingencyAmount,
-          nplTolerancePercent,
-          hasDisbursementPlan,
-          createdBy: userId
-        }
-      })
-
-      const wbsMap = new Map<string, string>()
-      for (const wbs of wbsGroups) {
-        const createdWbs = await tx.rabWbs.create({
-          data: {
-            rabProjectId: p.id,
-            name: wbs.name,
-            order: wbs.order,
-          }
-        })
-        if (wbs.id) {
-          wbsMap.set(wbs.id, createdWbs.id)
-        }
-      }
-
-      if (items.length > 0) {
-        for (const item of items) {
-          const createdItem = await tx.rabItem.create({
-            data: {
-              rabProjectId: p.id,
-              name: item.name,
-              description: item.description,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              category: item.category,
-              expenseType: item.expenseType,
-              expenseCategoryId: item.expenseCategoryId,
-              totalPrice: BigInt(item.quantity) * item.unitPrice,
-              wbsId: item.wbsGroupId ? wbsMap.get(item.wbsGroupId) : undefined,
-            }
-          })
-
-          if (item.disbursements && item.disbursements.length > 0) {
-            const disbData = item.disbursements.map((d) => ({
-              rabItemId: createdItem.id,
-              name: d.name,
-              percentage: d.percentage,
-              amount: d.amount,
-              estimatedDate: d.estimatedDate,
-              isPaid: d.isPaid,
-            }))
-            await tx.rabDisbursement.createMany({ data: disbData })
-          }
-        }
-      }
-
-      if (investorIds && investorIds.length > 0) {
-        const totalCapex = items
-          .filter((i) => i.expenseType === 'CAPEX')
-          .reduce((acc: number, i) => acc + (Number(i.quantity) * Number(i.unitPrice)), 0)
-
-        const splitAmount = Math.floor(totalCapex / investorIds.length)
-
-        await tx.rabInvestor.createMany({
-          data: investorIds.map((id: string) => ({
-            rabProjectId: p.id,
-            investorId: id,
-            investmentAmount: splitAmount,
-            profitSharePercent: p.investorProfitSharePercent
-          }))
-        })
-      }
-
-      return tx.rabProject.findUnique({
-        where: { id: p.id },
-        include: {
-          items: { include: { disbursements: true } },
-          wbsGroups: true
-        }
-      })
+    const project = await this.rabProjectRepo.createFullProject({
+      project: {
+        name,
+        description,
+        siteId,
+        mixRadiusGroupId,
+        mixRadiusInvestorSiteId,
+        projectedRevenue,
+        projectedOpex,
+        targetSubscribers,
+        arpu,
+        growthType,
+        paymentType,
+        growthSettings: (growthSettings || undefined) as Prisma.InputJsonValue,
+        startDate,
+        investmentDurationMonths,
+        investmentRecoveryType,
+        investmentRecoveryValue,
+        investorProfitSharePercent,
+        contingencyPercent,
+        contingencyAmount,
+        nplTolerancePercent,
+        hasDisbursementPlan,
+        createdBy: userId
+      },
+      wbsGroups,
+      items: items.map(item => ({
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        category: item.category,
+        expenseType: item.expenseType,
+        expenseCategoryId: item.expenseCategoryId,
+        wbsGroupId: item.wbsGroupId,
+        disbursements: item.disbursements.map(d => ({
+          name: d.name,
+          percentage: d.percentage,
+          amount: d.amount,
+          estimatedDate: d.estimatedDate,
+          isPaid: d.isPaid,
+        }))
+      })),
+      investorIds,
+      investorProfitSharePercent
     })
 
     if (!project) throw new Error("Gagal membuat proyek RAB")
@@ -506,63 +386,18 @@ export class FinanceService {
     createdById: string
     paidFromAccountId?: string
   }) {
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id: input.poId }
-    })
+    const po = await this.purchaseOrderRepo.findById(input.poId)
 
     if (!po) throw new Error('Purchase Order not found')
     if (po.paymentStatus === 'PAID') throw new Error('Tagihan PO ini sudah lunas')
 
-    const result = await prisma.$transaction(async (tx) => {
-      if (input.paidFromAccountId) {
-        const account = await tx.financialAccount.findUnique({
-          where: { id: input.paidFromAccountId }
-        })
-
-        if (!account) throw new Error('Akun keuangan tidak ditemukan')
-        if (account.balance < input.amount) {
-          throw new Error(`Saldo akun ${account.name} tidak mencukupi.`)
-        }
-
-        await tx.financialAccount.update({
-          where: { id: input.paidFromAccountId },
-          data: { balance: { decrement: input.amount } }
-        })
-      }
-
-      const expense = await tx.expense.create({
-        data: {
-          category: 'Purchase Order Payment',
-          amount: input.amount,
-          date: new Date(input.date),
-          description: input.notes || `Pembayaran PO #${po.poNumber}`,
-          invoiceNumber: po.poNumber
-        }
-      })
-
-      const existingExpenses = await tx.expense.findMany({
-        where: { invoiceNumber: po.poNumber }
-      })
-
-      const totalPaid = existingExpenses.reduce((sum: number, e) => sum + Number(e.amount), 0)
-      let newStatus: PaymentStatus = 'UNPAID'
-      const targetAmount = po.grandTotal > 0 ? po.grandTotal : po.totalAmount
-
-      if (totalPaid >= (targetAmount - 100)) {
-        newStatus = 'PAID'
-      } else if (totalPaid > 0) {
-        newStatus = 'PARTIAL'
-      }
-
-      await tx.purchaseOrder.update({
-        where: { id: input.poId },
-        data: {
-          paymentStatus: newStatus,
-          ...(input.paidFromAccountId ? { paidFromAccountId: input.paidFromAccountId } : {})
-        }
-      })
-
-      return { expense, newStatus }
+    const result = await this.purchaseOrderRepo.processPaymentTransaction({
+      poId: input.poId,
+      po,
+      amount: input.amount,
+      date: new Date(input.date),
+      notes: input.notes,
+      paidFromAccountId: input.paidFromAccountId
     })
 
     logActivitySafe({
@@ -587,20 +422,9 @@ export class FinanceService {
   async getReports(type: 'CAPEX_OPEX' | 'TAX') {
     if (type === 'TAX') {
       const startDate = new Date(new Date().getFullYear(), 0, 1)
-      const pos = await prisma.purchaseOrder.findMany({
-        where: {
-          ppnAmount: { gt: 0 },
-          createdAt: { gte: startDate }
-        },
-        select: {
-          poNumber: true,
-          ppnAmount: true,
-          ppnRate: true,
-          totalAmount: true,
-          createdAt: true,
-          supplier: { select: { name: true } }
-        },
-        orderBy: { createdAt: 'desc' }
+      const pos = await this.purchaseOrderRepo.findManyWithTax({
+        ppnAmount: { gt: 0 },
+        createdAt: { gte: startDate }
       })
 
       return {
@@ -622,18 +446,10 @@ export class FinanceService {
     description?: string
     createdById: string
   }) {
-    const result = await prisma.$transaction(async (tx) => {
-      await tx.financialAccount.update({
-        where: { id: data.sourceAccountId },
-        data: { balance: { decrement: data.amount } }
-      })
-
-      await tx.financialAccount.update({
-        where: { id: data.destinationAccountId },
-        data: { balance: { increment: data.amount } }
-      })
-
-      return { success: true }
+    const result = await this.financialAccountRepo.transferBetweenAccounts({
+      sourceAccountId: data.sourceAccountId,
+      destinationAccountId: data.destinationAccountId,
+      amount: data.amount
     })
 
     logActivitySafe({

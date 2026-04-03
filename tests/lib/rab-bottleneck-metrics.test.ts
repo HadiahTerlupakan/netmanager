@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildRabBottleneckMetrics } from '@/modules/finance/rab-bottleneck-metrics'
+import { buildRabBottleneckMetrics } from '@/modules/finance/utils/rab-bottleneck-metrics'
 
 describe('rab bottleneck metrics', () => {
   it('computes pending count and oldest pending age days', () => {

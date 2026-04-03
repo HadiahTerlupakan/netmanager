@@ -1,87 +1,55 @@
-import { InvoiceStatus } from '@prisma/client-billing';;
-import { prisma } from '@/lib/prisma';
-import { prismaBilling } from '@/lib/prisma-billing';
-import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
-import { logger } from '@/lib/logger';
-import { Status } from '@prisma/client';
+import { InvoiceRepository } from '../repositories/InvoiceRepository'
+import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
+import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
+import { RadiusSyncService } from '@/modules/network/services/radius-sync-service'
+import { logger } from '@/lib/logger'
+import { Status } from '@prisma/client'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 
 
 export class AutomaticIsolationService {
-    /**
-     * Run daily check for overdue customers and isolate them.
-     */
     static async runDailyCheck() {
         try {
-            // console.log('[AutoIsolation] Starting daily isolation check...');
+            const settingsRepo = new SettingsRepository()
+            const billingRepo = new InvoiceRepository()
+            const pelangganRepo = new PelangganRepository()
 
-            // 1. Check if feature is enabled
-            const enabledSetting = await prisma.settings.findFirst({ where: { key: 'GENERAL_AUTO_ISOLASI_ENABLED' }
-            });
-
-            // Default to enabled if not set, or check specific value 'false'
-            const isEnabled = enabledSetting?.value !== 'false';
+            const enabledSetting = await settingsRepo.findByKey('GENERAL_AUTO_ISOLASI_ENABLED')
+            const isEnabled = enabledSetting?.value !== 'false'
 
             if (!isEnabled) {
-                // console.log('[AutoIsolation] Feature is disabled in settings. Skipping.');
-                return;
+                return
             }
 
-            const today = new Date();
-            today.setTime(toStartOfDay(today).getTime());
+            const today = new Date()
+            today.setTime(toStartOfDay(today).getTime())
 
-            // Calculation Logic:
-            // NEW LOGIC: Find Active customers who have at least ONE UNPAID invoice that is overdue
-            // This ensures we isolate them based on actual unpaid bills, not just based on falling behind the calendar.
-            const overdueInvoices = await prismaBilling.invoice.findMany({
-                where: {
-                    status: InvoiceStatus.OVERDUE,
-                    dueDate: { lt: today }
-                }
-            });
+            const overdueInvoices = await billingRepo.findOverdueInvoices(today)
 
-            // Group by pelanggan to avoid processing the same customer multiple times
-            const activeCustomersMap = new Map();
-
-            const { prisma: mainDb } = await import('@/lib/prisma');
+            const activeCustomersMap = new Map()
             for (const inv of overdueInvoices) {
-                const pelanggan = await mainDb.pelanggan.findUnique({ where: { id: inv.pelangganId } });
+                const pelanggan = await pelangganRepo.findById(inv.pelangganId)
                 if (pelanggan && pelanggan.status === 'AKTIF' && pelanggan.autoIsolir) {
-                    activeCustomersMap.set(pelanggan.id, pelanggan);
+                    activeCustomersMap.set(pelanggan.id, pelanggan)
                 }
             }
-            const activeCustomers = Array.from(activeCustomersMap.values());
+            const activeCustomers = Array.from(activeCustomersMap.values())
 
-            // console.log(`[AutoIsolation] Found ${activeCustomers.length} candidates (overdue). Processing...`);
-
-            // let isolatedCount = 0;
-            const radiusService = new RadiusSyncService(prisma); // Fixed instantiation
+            const radiusService = new RadiusSyncService()
 
             for (const customer of activeCustomers) {
                 try {
-                    const dueDate = new Date(customer.jatuhTempo);
-                    dueDate.setTime(toStartOfDay(dueDate).getTime());
+                    const dueDate = new Date(customer.jatuhTempo)
+                    dueDate.setTime(toStartOfDay(dueDate).getTime())
 
+                    const diffTime = Math.abs(today.getTime() - dueDate.getTime())
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
+                    await pelangganRepo.update(customer.id, { status: Status.ISOLIR })
 
-                    // Difference in days (untuk logging saja)
-                    const diffTime = Math.abs(today.getTime() - dueDate.getTime());
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    await radiusService.handleStatusChange(customer.id, Status.ISOLIR)
 
-                    // console.log(`[AutoIsolation] Isolating ${customer.nama} (Due: ${customer.jatuhTempo}, Late: ${diffDays} days)`);
-
-                    // Perform Isolation
-                    // 1. Update DB Status
-                    await prisma.pelanggan.update({
-                        where: { id: customer.id },
-                        data: { status: Status.ISOLIR } // Use Enum
-                    });
-
-                    // 2. Sync to Radius (Disconnect)
-                    await radiusService.handleStatusChange(customer.id, Status.ISOLIR); // Use Enum
-
-                    // 3. Notification
                     await notifyCustomerFinanceNotification({
                         userId: customer.userId,
                         title: 'Layanan Diisolir',
@@ -90,9 +58,8 @@ export class AutomaticIsolationService {
                         sourceType: 'BILLING',
                         sourceId: customer.id,
                         priority: 'HIGH'
-                    });
+                    })
 
-                    // 4. Log
                     await logger.logActivity({
                         action: 'UPDATE',
                         subject: 'Pelanggan (Auto Isolir)',
@@ -101,20 +68,16 @@ export class AutomaticIsolationService {
                             name: customer.nama,
                             reason: `Overdue ${diffDays} days`
                         }
-                    });
-
-                    // _isolatedCount++;
+                    })
 
                 } catch (err) {
-                    console.error(`[AutoIsolation] Error isolating customer ${customer.id}:`, err);
+                    console.error(`[AutoIsolation] Error isolating customer ${customer.id}:`, err)
                 }
             }
 
-            // console.log(`[AutoIsolation] Finished. Isolated ${isolatedCount} customers.`);
-
         } catch (error) {
-            console.error('[AutoIsolation] Fatal error:', error);
-            console.error(error); // Log full error object
+            console.error('[AutoIsolation] Fatal error:', error)
+            console.error(error)
         }
     }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { getDayOffDisplayLabel, getPermitDisplayLabel, hasAutoCheckoutNote, isHistoricalAutoCheckoutAbsence } from '@/lib/attendance-display'
-import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
+import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/utils/constants'
 
 describe('attendance display semantics', () => {
   it('recognizes both legacy and canonical auto-checkout notes', () => {

@@ -1,6 +1,6 @@
 import type { AttendanceStatus } from '@prisma/client'
 
-import { ATTENDANCE_CONSTANTS } from '../constants'
+import { ATTENDANCE_CONSTANTS } from '../utils/constants'
 
 type WorkingHourMode = 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null
 

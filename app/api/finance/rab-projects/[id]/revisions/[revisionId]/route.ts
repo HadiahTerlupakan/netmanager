@@ -8,7 +8,7 @@ import {
   normalizeRevisionSnapshotItems,
   serializeRabRevision,
   type RevisionSnapshotSourceItem,
-} from "@/modules/finance/rab-revisions";
+} from "@/modules/finance/utils/rab-revisions";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 

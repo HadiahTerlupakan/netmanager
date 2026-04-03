@@ -1,23 +1,11 @@
-import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
 import { getTenantIdFromContext } from '@/lib/tenant-context'
 import { calculateHaversineDistance } from '@/lib/geo-utils'
 import { type Server as SocketIOServer } from 'socket.io'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { getTimezone } from '@/lib/utils/get-timezone'
-
-
-interface LocationData {
-    latitude: number
-    longitude: number
-    accuracy?: number
-    altitude?: number
-    speed?: number
-    heading?: number
-    batteryLevel?: number
-    isMoving?: boolean
-    recordedAt?: Date
-}
+import { LocationTrackingRepository, type LocationData } from '../repositories/LocationTrackingRepository'
+import { AttendanceRepository } from '../repositories/AttendanceRepository'
+import { UserRepository } from '@/modules/users/repositories/UserRepository'
 
 /**
  * LocationTrackingService - Mengelola data lokasi karyawan selama jam kerja
@@ -26,6 +14,9 @@ interface LocationData {
 export class LocationTrackingService {
     private readonly LOCATION_RETENTION_DAYS = 30 // Simpan data 30 hari
     private io: SocketIOServer | null = null
+    private locationRepo = new LocationTrackingRepository()
+    private attendanceRepo = new AttendanceRepository()
+    private userRepo = new UserRepository()
 
     constructor() {
         const globalAny = globalThis as unknown as { socketIOServer: SocketIOServer | null }
@@ -39,26 +30,9 @@ export class LocationTrackingService {
      */
     async saveLocation(userId: string, data: LocationData): Promise<void> {
         // Fetch user's tenantId for socket room isolation
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { tenantId: true }
-        })
+        const user = await this.userRepo.findById(userId)
 
-        const location = await prisma.employeeLocation.create({
-            data: {
-                userId,
-                latitude: data.latitude,
-                longitude: data.longitude,
-                accuracy: data.accuracy ?? null,
-                altitude: data.altitude ?? null,
-                speed: data.speed ?? null,
-                heading: data.heading ?? null,
-                batteryLevel: data.batteryLevel ?? null,
-                isMoving: data.isMoving ?? false,
-                recordedAt: data.recordedAt ?? new Date(),
-                tenantId: user?.tenantId // Ensure tenantId is persisted
-            }
-        })
+        const location = await this.locationRepo.createLocation(userId, user?.tenantId, data)
 
         // Emit realtime update to admin
         if (this.io && user?.tenantId) {
@@ -83,26 +57,9 @@ export class LocationTrackingService {
      */
     async saveLocations(userId: string, locations: LocationData[]): Promise<number> {
         // Fetch user's tenantId for socket room isolation
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { tenantId: true }
-        })
+        const user = await this.userRepo.findById(userId)
 
-        const result = await prisma.employeeLocation.createMany({
-            data: locations.map(loc => ({
-                userId,
-                latitude: loc.latitude,
-                longitude: loc.longitude,
-                accuracy: loc.accuracy ?? null,
-                altitude: loc.altitude ?? null,
-                speed: loc.speed ?? null,
-                heading: loc.heading ?? null,
-                batteryLevel: loc.batteryLevel ?? null,
-                isMoving: loc.isMoving ?? false,
-                recordedAt: loc.recordedAt ?? new Date(),
-                tenantId: user?.tenantId
-            }))
-        })
+        const result = await this.locationRepo.createLocationsBatch(userId, user?.tenantId, locations)
 
         // Emit the latest location in the batch
         if (this.io && user?.tenantId && locations.length > 0) {
@@ -143,14 +100,11 @@ export class LocationTrackingService {
      */
     async isUserCurrentlyCheckedIn(userId: string): Promise<boolean> {
         // Get user's tenantId first
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { tenantId: true }
-        })
+        const user = await this.userRepo.findById(userId)
 
         const todayUTC = await this.getTodayTenantStartUTC(user?.tenantId || undefined)
 
-        const activeAttendance = await prisma.attendance.findFirst({
+        const activeAttendance = await this.attendanceRepo.findFirst({
             where: {
                 userId,
                 checkIn: { gte: todayUTC },
@@ -203,7 +157,7 @@ export class LocationTrackingService {
         }
 
         // Cari semua user yang sedang check-in (belum check-out)
-        const activeAttendances = await prisma.attendance.findMany({
+        const activeAttendances = await this.attendanceRepo.findMany({
             where: {
                 checkIn: { gte: todayUTC },
                 checkOut: null,
@@ -220,7 +174,7 @@ export class LocationTrackingService {
                     }
                 }
             }
-        })
+        }) as any[]
 
         // Early return if no active attendances
         if (activeAttendances.length === 0) {
@@ -231,29 +185,10 @@ export class LocationTrackingService {
         // This eliminates N+1 query problem (was: 1 query per user)
         const userIds = activeAttendances.map(a => a.userId)
         
-        // Use raw query for DISTINCT ON (PostgreSQL specific - most efficient)
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
-        const latestLocations = await prisma.$queryRaw<Array<{
-            userId: string
-            latitude: number
-            longitude: number
-            accuracy: number | null
-            speed: number | null
-            heading: number | null
-            isMoving: boolean
-            batteryLevel: number | null
-            recordedAt: Date
-        }>>`
-            SELECT DISTINCT ON ("userId") 
-                "userId", latitude, longitude, accuracy, speed, 
-                heading, "isMoving", "batteryLevel", "recordedAt"
-            FROM "employee_locations"
-            WHERE "userId" = ANY(${userIds})
-            ${!isSuperAdmin ? Prisma.sql`AND "tenantId" = ${effectiveTenantId}` : Prisma.empty}
-            ORDER BY "userId", "recordedAt" DESC
-        `
+        const latestLocations = await this.locationRepo.getLatestLocationsForUsers(userIds, effectiveTenantId, isSuperAdmin)
 
         // Create lookup map for O(1) access
         const locationMap = new Map(
@@ -265,13 +200,16 @@ export class LocationTrackingService {
             .map(attendance => {
                 const location = locationMap.get(attendance.userId)
                 if (!location) return null
+                
+                // Mapped \`any\` for now because we used a generic relation in TS, but the prisma query explicitly returns user with sites and departments
+                const userData: any = attendance.user;
 
                 return {
                     userId: attendance.userId,
-                    userName: attendance.user.name || 'Unknown',
-                    userImage: attendance.user.image,
-                    siteName: attendance.user.sites?.name || null,
-                    departmentName: attendance.user.departments?.name || null,
+                    userName: userData.name || 'Unknown',
+                    userImage: userData.image,
+                    siteName: userData.sites?.name || null,
+                    departmentName: userData.departments?.name || null,
                     latitude: location.latitude,
                     longitude: location.longitude,
                     accuracy: location.accuracy,
@@ -303,25 +241,7 @@ export class LocationTrackingService {
         isMoving: boolean
         recordedAt: Date
     }>> {
-        const locations = await prisma.employeeLocation.findMany({
-            where: {
-                userId,
-                recordedAt: {
-                    gte: startDate,
-                    lte: endDate
-                }
-            },
-            orderBy: { recordedAt: 'asc' },
-            select: {
-                latitude: true,
-                longitude: true,
-                accuracy: true,
-                speed: true,
-                isMoving: true,
-                recordedAt: true
-            }
-        })
-
+        const locations = await this.locationRepo.findLocationsByUserIdAndDateRange(userId, startDate, endDate)
         return locations
     }
 
@@ -332,12 +252,7 @@ export class LocationTrackingService {
         const cutoffDate = new Date()
         cutoffDate.setDate(cutoffDate.getDate() - this.LOCATION_RETENTION_DAYS)
 
-        const result = await prisma.employeeLocation.deleteMany({
-            where: {
-                recordedAt: { lt: cutoffDate }
-            }
-        })
-
+        const result = await this.locationRepo.deleteLocationsBefore(cutoffDate)
         return result.count
     }
 
@@ -356,21 +271,7 @@ export class LocationTrackingService {
         const endOfDay = new Date(date)
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
-        const locations = await prisma.employeeLocation.findMany({
-            where: {
-                userId,
-                recordedAt: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
-            },
-            orderBy: { recordedAt: 'asc' },
-            select: {
-                latitude: true,
-                longitude: true,
-                recordedAt: true
-            }
-        })
+        const locations = await this.locationRepo.findLocationsByUserIdAndDateRange(userId, startOfDay, endOfDay)
 
         if (locations.length === 0) {
             return {

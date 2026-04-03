@@ -1,14 +1,19 @@
-import { prisma } from '@/lib/prisma'
 import { checkAllMikroTikRouterStatus } from './mikrotik-ping-check'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { type Server as SocketIOServer } from 'socket.io'
+import { NetworkRepository } from '../repositories/NetworkRepository'
 
 class MikroTikMonitor {
     private intervalId: ReturnType<typeof setTimeout> | null = null
-    private readonly CHECK_INTERVAL = 60000 * 5 // 5 minutes
+    private readonly CHECK_INTERVAL = 60000 * 5
     private io: SocketIOServer | null = null
     private errorCount: number = 0
     private readonly MAX_ERRORS = 5
+    private networkRepo: NetworkRepository
+
+    constructor() {
+        this.networkRepo = new NetworkRepository()
+    }
 
     public setSocketServer(io: SocketIOServer) {
         this.io = io
@@ -16,17 +21,11 @@ class MikroTikMonitor {
 
     public start() {
         if (this.intervalId) {
-            // console.log('[MikroTikMonitor] Already running')
             return
         }
 
-        // console.log('[MikroTikMonitor] Starting monitoring service...')
         this.errorCount = 0
-
-        // Initial check
         this.checkStatus()
-
-        // Schedule periodic checks
         this.scheduleNext()
     }
 
@@ -34,12 +33,10 @@ class MikroTikMonitor {
         if (this.intervalId) {
             clearTimeout(this.intervalId)
             this.intervalId = null
-            // console.log('[MikroTikMonitor] Stopped')
         }
     }
 
     private scheduleNext() {
-        // Backoff: after 2 consecutive errors, increase interval
         const backoff = this.errorCount > 2 ? Math.min(2 ** (this.errorCount - 2), 8) : 1
         const interval = this.CHECK_INTERVAL * backoff
 
@@ -66,11 +63,7 @@ class MikroTikMonitor {
 
             const routerRepository = getMikroTikRouterRepository()
             
-            // Get stats for each tenant and broadcast
-            const tenants = await prisma.tenant.findMany({
-                where: { isActive: true },
-                select: { id: true }
-            })
+            const tenants = await this.networkRepo.findActiveTenants()
 
             for (const tenant of tenants) {
                 try {
@@ -84,11 +77,8 @@ class MikroTikMonitor {
             }
 
             if (this.errorCount > 0) {
-                // console.log('[MikroTikMonitor] Connection restored, resuming normal operation')
             }
             this.errorCount = 0
-
-            // console.log(`[MikroTikMonitor] Check complete. Updated ${updatedCount} routers.`)
 
             if (this.io) {
                 this.io.emit('mikrotik:update', {

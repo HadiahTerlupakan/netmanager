@@ -1,10 +1,10 @@
-import { prisma } from '@/lib/prisma'
 import { TicketStatus, TicketCategory, TicketPriority, Prisma } from '@prisma/client'
+import { CustomerTicketRepository } from '../repositories/CustomerTicketRepository'
 import { logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
 import { randomUUID } from 'crypto'
-import { TicketEventDispatcher } from '@/modules/events/TicketEventDispatcher'
+import { TicketEventDispatcher } from '@/modules/events/dispatchers/TicketEventDispatcher'
 
 /**
  * Service Result type for consistent API responses
@@ -45,6 +45,11 @@ export interface UserContext {
  * Handles all support ticket business logic for admin panel
  */
 export class AdminSupportTicketService {
+    private ticketRepo: CustomerTicketRepository
+
+    constructor() {
+        this.ticketRepo = new CustomerTicketRepository()
+    }
 
     /**
      * Get paginated list of tickets with filters and stats
@@ -106,42 +111,8 @@ export class AdminSupportTicketService {
 
             // Execute queries
             const [tickets, total, statusSummary] = await Promise.all([
-                prisma.supportTickets.findMany({
-                    where,
-                    orderBy: [
-                        { priority: 'desc' },
-                        { createdAt: 'desc' },
-                    ],
-                    skip,
-                    take: limit,
-                    include: {
-                        pelanggan: {
-                            select: {
-                                id: true,
-                                idPelanggan: true,
-                                nama: true,
-                                noTelp: true,
-                                email: true,
-                            },
-                        },
-                        user: {
-                            select: { id: true, name: true },
-                        },
-                        replies: {
-                            orderBy: { createdAt: 'desc' },
-                            take: 1,
-                            select: {
-                                createdAt: true,
-                                isFromAdmin: true,
-                                message: true,
-                            },
-                        },
-                        _count: {
-                            select: { replies: true },
-                        },
-                    },
-                }),
-                prisma.supportTickets.count({ where }),
+                this.ticketRepo.findAllAdmin(where, skip, limit),
+                this.ticketRepo.countAdmin(where),
                 this.getStatusCounts(where),
             ])
 
@@ -190,38 +161,7 @@ export class AdminSupportTicketService {
         hasSiteRestriction: boolean
     ): Promise<ServiceResult<unknown>> {
         try {
-            const ticket = await prisma.supportTickets.findUnique({
-                where: { id },
-                include: {
-                    pelanggan: {
-                        select: {
-                            id: true,
-                            idPelanggan: true,
-                            nama: true,
-                            username: true,
-                            email: true,
-                            noTelp: true,
-                            alamat: true,
-                            status: true,
-                            siteId: true,
-                            hargaPaket: {
-                                select: { name: true },
-                            },
-                        },
-                    },
-                    user: {
-                        select: { id: true, name: true, email: true },
-                    },
-                    replies: {
-                        orderBy: { createdAt: 'asc' },
-                        include: {
-                            user: {
-                                select: { id: true, name: true, image: true },
-                            },
-                        },
-                    },
-                },
-            })
+            const ticket = await this.ticketRepo.findByIdAdmin(id)
 
             if (!ticket) {
                 return { success: false, error: 'Tiket tidak ditemukan', code: 'NOT_FOUND' }
@@ -256,12 +196,7 @@ export class AdminSupportTicketService {
         hasSiteRestriction: boolean
     ): Promise<ServiceResult<unknown>> {
         try {
-            const existing = await prisma.supportTickets.findUnique({
-                where: { id },
-                include: {
-                    pelanggan: { select: { siteId: true, nama: true } },
-                },
-            })
+            const existing = await this.ticketRepo.findByIdBasic(id)
 
             if (!existing) {
                 return { success: false, error: 'Tiket tidak ditemukan', code: 'NOT_FOUND' }
@@ -299,30 +234,16 @@ export class AdminSupportTicketService {
                 updateData.user = data.assignedToId ? { connect: { id: data.assignedToId } } : { disconnect: true }
             }
 
-            const ticket = await prisma.supportTickets.update({
-                where: { id },
-                data: updateData,
-                include: {
-                    pelanggan: {
-                        select: { nama: true, idPelanggan: true },
-                    },
-                    user: {
-                        select: { name: true },
-                    },
-                },
-            })
+            const ticket = await this.ticketRepo.updateAdmin(id, updateData)
 
             // Handle closing side effects
             if (data.status === TicketStatus.CLOSED) {
                 if (data.closingNote) {
-                    await prisma.ticketReplies.create({
-                        data: {
-                            id: randomUUID(),
-                            ticketId: id,
-                            message: data.closingNote,
-                            isFromAdmin: true,
-                            senderId: user.id,
-                        },
+                    await this.ticketRepo.createReply({
+                        ticketId: id,
+                        message: data.closingNote,
+                        isFromAdmin: true,
+                        senderId: user.id,
                     })
                 }
                 await closeWoOnTicketClose(id)
@@ -360,12 +281,7 @@ export class AdminSupportTicketService {
         hasSiteRestriction: boolean
     ): Promise<ServiceResult<{ id: string }>> {
         try {
-            const ticket = await prisma.supportTickets.findUnique({
-                where: { id },
-                include: {
-                    pelanggan: { select: { siteId: true } },
-                },
-            })
+            const ticket = await this.ticketRepo.findByIdBasic(id)
 
             if (!ticket) {
                 return { success: false, error: 'Tiket tidak ditemukan', code: 'NOT_FOUND' }
@@ -378,7 +294,7 @@ export class AdminSupportTicketService {
                 }
             }
 
-            await prisma.supportTickets.delete({ where: { id } })
+            await this.ticketRepo.delete(id)
 
             // Log activity
             await this.logActivity('DELETE', 'Support Ticket', user.id, { id })
@@ -397,13 +313,7 @@ export class AdminSupportTicketService {
 
     private async getStatusCounts(baseWhere: Prisma.SupportTicketsWhereInput) {
         // Optimization: Use groupBy instead of 5 separate count queries
-        const counts = await prisma.supportTickets.groupBy({
-            by: ['status'],
-            where: baseWhere,
-            _count: {
-                status: true
-            }
-        })
+        const counts = await this.ticketRepo.getStatusCounts(baseWhere)
 
         const countMap = counts.reduce((acc, curr) => {
             acc[curr.status] = curr._count.status
@@ -429,17 +339,7 @@ export class AdminSupportTicketService {
     private async calculateAverageRating(baseWhere: Prisma.SupportTicketsWhereInput) {
         // Optimization: parse logic is still heavy in application layer due to string storage
         // but we ensure we only select minimal data
-        const closedTicketsWithReplies = await prisma.supportTickets.findMany({
-            where: { ...baseWhere, status: TicketStatus.CLOSED },
-            select: {
-                replies: {
-                    where: { isFromAdmin: false, message: { contains: '⭐' } },
-                    take: 1,
-                    orderBy: { createdAt: 'desc' },
-                    select: { message: true },
-                },
-            },
-        })
+        const closedTicketsWithReplies = await this.ticketRepo.getClosedTicketsWithReplies(baseWhere)
 
         let totalRating = 0
         let ratedCount = 0

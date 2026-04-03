@@ -75,4 +75,12 @@ export class RegistrationRepository implements IRegistrationRepository {
             where: { id }
         })
     }
+
+    async getSettingValue(key: string): Promise<string | null> {
+        const setting = await prisma.settings.findFirst({
+            where: { key },
+            select: { value: true }
+        })
+        return setting?.value ?? null
+    }
 }

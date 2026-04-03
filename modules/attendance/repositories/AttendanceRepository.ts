@@ -14,6 +14,35 @@ export class AttendanceRepository {
         return prisma.attendance.findMany(params)
     }
 
+    async findFirst(params: {
+        where?: Prisma.AttendanceWhereInput
+        orderBy?: Prisma.AttendanceOrderByWithRelationInput
+        include?: Prisma.AttendanceInclude
+    }) {
+        return prisma.attendance.findFirst(params)
+    }
+
+    async findFirstWithUser(params: {
+        where: Prisma.AttendanceWhereInput
+        orderBy?: Prisma.AttendanceOrderByWithRelationInput
+        userSelect?: {
+            workingHourMode?: boolean
+            flexibleTargetHour?: boolean
+            workDays?: boolean
+        }
+    }) {
+        return prisma.attendance.findFirst({
+            where: params.where,
+            orderBy: params.orderBy,
+            include: {
+                user: {
+                    select: params.userSelect
+                }
+            }
+        })
+    }
+
+
     async count(where?: Prisma.AttendanceWhereInput) {
         return prisma.attendance.count({
             ...(where ? { where } : {})
@@ -21,8 +50,6 @@ export class AttendanceRepository {
     }
 
     async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        // 1. Status Counts
-        // Use user ID filtering instead of JOIN to User table
         let userIds: string[] | undefined = undefined
         if (siteId || departmentId) {
             const users = await prisma.user.findMany({
@@ -34,7 +61,6 @@ export class AttendanceRepository {
             })
             userIds = users.map(u => u.id)
             
-            // Short-circuit if no users match filters
             if (userIds.length === 0) {
                 return {
                     total: 0,
@@ -57,7 +83,6 @@ export class AttendanceRepository {
 
         const total = await prisma.attendance.count({ where })
 
-        // 2. Average Duration (Optimized)
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
@@ -93,7 +118,6 @@ export class AttendanceRepository {
     }
 
     async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        // 1. Get Attendance Stats
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
@@ -108,7 +132,6 @@ export class AttendanceRepository {
             })
             userIds = users.map(u => u.id)
             
-            // Short-circuit if no users match filters
             if (userIds.length === 0) {
                 return []
             }
@@ -136,15 +159,12 @@ export class AttendanceRepository {
 
         const attendanceStats = await prisma.$queryRaw<{ date: string, present: number, late: number }[]>(query)
 
-        // 2. Get Leave Stats
-        // ... (rest of the method stays mostly same, but update leaveWhere)
         const holidayRepo = new HolidayRepository()
         const holidays = await holidayRepo.findMany(tenantId, {
             where: { date: { gte: startDate, lte: endDate } }
         })
         const holidaySet = new Set<string>(holidays.map((h: { date: Date }) => h.date.toISOString().split('T')[0]))
 
-        // Fetch Leaves
         const leaveWhere: Prisma.LeaveRequestWhereInput = {
             status: 'APPROVED',
             startDate: { lte: endDate },
@@ -157,10 +177,8 @@ export class AttendanceRepository {
             select: { startDate: true, endDate: true, type: true }
         })
 
-        // Merge Data
         const dailyMap = new Map<string, { present: number, late: number, absent: number, isHoliday: boolean, sakit: number, cuti: number, izin: number }>()
 
-        // Helper
         const ensureDate = (dateKey: string) => {
             if (!dailyMap.has(dateKey)) {
                 dailyMap.set(dateKey, { present: 0, late: 0, absent: 0, isHoliday: holidaySet.has(dateKey), sakit: 0, cuti: 0, izin: 0 })
@@ -168,19 +186,16 @@ export class AttendanceRepository {
             return dailyMap.get(dateKey)!
         }
 
-        // Fill from SQL Attendance Stats
         attendanceStats.forEach((stat: { date: string, present: number, late: number }) => {
             const d = ensureDate(stat.date)
             d.present = stat.present
             d.late = stat.late
         })
 
-        // Fill Holidays
         holidaySet.forEach((date: string) => {
             if(date) ensureDate(date)
         })
 
-        // Fill Leaves (JS Expansion)
         leaves.forEach((leave: { startDate: Date, endDate: Date, type: string }) => {
             const current = new Date(leave.startDate)
             const end = new Date(leave.endDate)
@@ -212,7 +227,6 @@ export class AttendanceRepository {
         const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
         const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
 
-        // 1. Get attendance stats grouped by userId
         const query = Prisma.sql`
             SELECT
                 a."userId",
@@ -230,7 +244,6 @@ export class AttendanceRepository {
 
         if (userStats.length === 0) return []
 
-        // 2. Fetch Users with their site or department info
         const users = await prisma.user.findMany({
             where: { id: { in: userStats.map(s => s.userId) } },
             select: {
@@ -242,7 +255,6 @@ export class AttendanceRepository {
             }
         })
 
-        // 3. Aggregate in memory
         const groupMap = new Map<string, { id: string, name: string, present: number, late: number, total: number }>()
 
         userStats.forEach(stat => {
@@ -287,20 +299,17 @@ export class AttendanceRepository {
             ...(userIds !== undefined && { userId: { in: userIds } })
         }
 
-        // Group by User
         const groups = await prisma.attendance.groupBy({
             by: ['userId'],
             where,
             _count: { _all: true }
         })
 
-        // Sort by count desc
         groups.sort((a, b) => b._count._all - a._count._all)
         const topIds = groups.slice(0, limit)
 
         if (topIds.length === 0) return []
 
-        // Fetch User Details
         const users = await prisma.user.findMany({
             where: { id: { in: topIds.map(g => g.userId) } },
             select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
@@ -340,7 +349,6 @@ export class AttendanceRepository {
             _count: { _all: true }
         })
 
-        // Sort by count desc
         groups.sort((a, b) => b._count._all - a._count._all)
         const topIds = groups.slice(0, limit)
 
@@ -514,6 +522,308 @@ export class AttendanceRepository {
             by: ['userId'],
             where,
             _count: { _all: true }
+        })
+    }
+
+    async findAllOpenSessionsWithUser(endOfToday: Date, twentyFourHoursAgo: Date) {
+        return prisma.attendance.findMany({
+            where: {
+                checkOut: null,
+                checkIn: {
+                    lte: endOfToday
+                },
+                status: {
+                    not: 'ALPHA'
+                },
+                OR: [
+                    {
+                        user: {
+                            workingHourMode: {
+                                not: 'FLEXIBLE'
+                            }
+                        }
+                    },
+                    {
+                        user: {
+                            workingHourMode: 'FLEXIBLE'
+                        },
+                        checkIn: {
+                            lte: twentyFourHoursAgo
+                        }
+                    }
+                ]
+            },
+            include: {
+                user: {
+                    select: {
+                        name: true,
+                        workingHourMode: true,
+                        startWorkTime: true,
+                        endWorkTime: true,
+                        shift: true
+                    }
+                }
+            }
+        })
+    }
+
+    async update(id: string, data: Prisma.AttendanceUpdateInput) {
+        return prisma.attendance.update({
+            where: { id },
+            data
+        })
+    }
+
+    async create(data: Prisma.AttendanceUncheckedCreateInput) {
+        return prisma.attendance.create({
+            data
+        })
+    }
+
+    async findFirstByUserAndDateRange(userId: string, tenantId: string, startOfDay: Date, endOfDay: Date) {
+        return prisma.attendance.findFirst({
+            where: {
+                userId,
+                tenantId,
+                checkIn: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                }
+            }
+        })
+    }
+
+    async findCheckedInUserIds(startOfDay: Date, endOfDay: Date) {
+        const results = await prisma.attendance.findMany({
+            where: {
+                checkIn: { gte: startOfDay, lte: endOfDay }
+            },
+            select: { userId: true }
+        })
+        return results
+    }
+
+    async findIncompleteCheckOutWithUser(startOfDay: Date, endOfDay: Date) {
+        return prisma.attendance.findMany({
+            where: {
+                checkIn: { gte: startOfDay, lte: endOfDay },
+                checkOut: null,
+                status: { notIn: ['ALPHA', 'ABSENT'] },
+                user: {
+                    isActive: true,
+                    pushToken: { not: null },
+                    endWorkTime: { not: null },
+                    workingHourMode: { not: 'FLEXIBLE' }
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        startWorkTime: true,
+                        endWorkTime: true,
+                        workDays: true,
+                        pushToken: true
+                    }
+                }
+            },
+            distinct: ['userId']
+        })
+    }
+
+    async findIncompleteCheckOutSelect(startOfDay: Date, endOfDay: Date) {
+        return prisma.attendance.findMany({
+            where: {
+                checkIn: { gte: startOfDay, lte: endOfDay },
+                checkOut: null,
+                status: { notIn: ['ALPHA', 'ABSENT'] },
+                user: {
+                    workingHourMode: { not: 'FLEXIBLE' }
+                }
+            },
+            select: { userId: true, user: { select: { name: true } } }
+        })
+    }
+
+    async findActiveFlexibleSessionsWithUser() {
+        return prisma.attendance.findMany({
+            where: {
+                checkOut: null,
+                user: {
+                    isActive: true,
+                    pushToken: { not: null },
+                    workingHourMode: 'FLEXIBLE'
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        flexibleTargetHour: true,
+                        pushToken: true
+                    }
+                }
+            }
+        })
+    }
+
+    async createWithId(data: {
+        id: string
+        userId: string
+        tenantId: string
+        checkIn: Date
+        status: string
+        notes: string
+        location: string
+        updatedAt: Date
+    }) {
+        return prisma.attendance.create({
+            data: {
+                id: data.id,
+                userId: data.userId,
+                tenantId: data.tenantId,
+                checkIn: data.checkIn,
+                status: data.status as any,
+                notes: data.notes,
+                location: data.location,
+                updatedAt: data.updatedAt
+            }
+        })
+    }
+
+    async deleteMany(where: Prisma.AttendanceWhereInput) {
+        return prisma.attendance.deleteMany({ where })
+    }
+
+    async findFirstOpenSession(params: {
+        userId: string
+        tenantId?: string
+    }) {
+        return prisma.attendance.findFirst({
+            where: {
+                userId: params.userId,
+                checkOut: null,
+                ...(params.tenantId && { tenantId: params.tenantId })
+            },
+            orderBy: { checkIn: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true,
+                        shift: {
+                            select: {
+                                startTime: true,
+                                endTime: true,
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    async findManyStaleSessions(params: {
+        userId: string
+        effectiveToday: Date
+        tenantId?: string
+    }) {
+        return prisma.attendance.findMany({
+            where: {
+                userId: params.userId,
+                checkOut: null,
+                status: { not: 'ALPHA' },
+                checkIn: { lt: params.effectiveToday },
+                ...(params.tenantId && { tenantId: params.tenantId })
+            }
+        })
+    }
+
+    async findFirstActiveForCheckout(params: {
+        userId: string
+        tenantId?: string
+    }) {
+        return prisma.attendance.findFirst({
+            where: {
+                userId: params.userId,
+                checkOut: null,
+                ...(params.tenantId && { tenantId: params.tenantId })
+            },
+            orderBy: { checkIn: 'desc' },
+            include: {
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        attendanceGeofencePolicy: true,
+                        flexibleTargetHour: true,
+                        name: true
+                    }
+                }
+            }
+        })
+    }
+
+    async findFirstForCurrentStatus(params: {
+        userId: string
+        tenantId?: string
+    }) {
+        return prisma.attendance.findFirst({
+            where: {
+                userId: params.userId,
+                ...(params.tenantId ? { tenantId: params.tenantId } : {})
+            },
+            orderBy: { checkIn: 'desc' },
+            select: {
+                id: true,
+                checkIn: true,
+                checkOut: true,
+                status: true,
+                user: {
+                    select: {
+                        workingHourMode: true,
+                        flexibleTargetHour: true,
+                        shift: {
+                            select: {
+                                startTime: true,
+                                endTime: true
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    async findManyForHistory(params: {
+        userId: string
+        skip: number
+        take: number
+    }) {
+        return prisma.attendance.findMany({
+            where: { userId: params.userId },
+            orderBy: { checkIn: 'desc' },
+            take: params.take,
+            skip: params.skip
+        })
+    }
+
+    async countByUserId(userId: string) {
+        return prisma.attendance.count({ where: { userId } })
+    }
+
+    async findManyForAnalytics(params: {
+        userId: string
+        startDate: Date
+        endDate: Date
+    }) {
+        return prisma.attendance.findMany({
+            where: {
+                userId: params.userId,
+                checkIn: { gte: params.startDate, lte: params.endDate }
+            },
+            orderBy: { checkIn: 'desc' }
         })
     }
 }

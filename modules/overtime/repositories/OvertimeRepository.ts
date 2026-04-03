@@ -1,11 +1,28 @@
 import { prisma } from '@/lib/prisma'
 import { type IOvertimeRepository } from './IOvertimeRepository'
 import { Prisma } from '@prisma/client'
-import type { Overtime, OvertimeStatus } from '@prisma/client'
+import type { Overtime } from '@prisma/client'
+import { OvertimeStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
 import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 export class OvertimeRepository implements IOvertimeRepository {
+    async findActiveRequestByDate(userId: string, tenantId: string | undefined, startOfDay: Date, endOfDay: Date): Promise<Overtime | null> {
+        return prisma.overtime.findFirst({
+            where: {
+                userId,
+                tenantId,
+                createdAt: {
+                    gte: startOfDay,
+                    lte: endOfDay,
+                },
+                status: {
+                    in: [OvertimeStatus.PENDING, OvertimeStatus.APPROVED, OvertimeStatus.IN_PROGRESS]
+                }
+            }
+        })
+    }
+
     async findById(id: string, tenantId?: string): Promise<Overtime | null> {
         return prisma.overtime.findFirst({
             where: { id, tenantId },

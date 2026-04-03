@@ -1,29 +1,22 @@
-import { prismaBilling } from '@/lib/prisma-billing';
 // Gateway Manager - Manages all payment providers
 
+import { PaymentGatewayConfigRepository } from '@/modules/finance/repositories/PaymentGatewayConfigRepository'
 import { ProviderFactory } from './provider-factory'
 import type { PaymentProvider, CreatePaymentParams, PaymentResult } from './provider-interface'
-
-import { prisma as defaultPrisma } from '@/lib/prisma';
 import { decryptApiKey } from '@/lib/utils/encryption'
 
-type PrismaInstance = typeof defaultPrisma;
-
 export class PaymentGatewayManager {
-    private prisma: PrismaInstance;
+    private configRepository: PaymentGatewayConfigRepository
 
-    constructor(prisma: PrismaInstance = defaultPrisma) {
-        this.prisma = prisma;
+    constructor(configRepository = new PaymentGatewayConfigRepository()) {
+        this.configRepository = configRepository
     }
 
     /**
      * Get all enabled providers, sorted by priority
      */
     async getEnabledProviders() {
-        return prismaBilling.paymentGatewayConfig.findMany({
-            where: { isEnabled: true },
-            orderBy: { priority: 'desc' }
-        })
+        return this.configRepository.findEnabled()
     }
 
     /**
@@ -45,15 +38,7 @@ export class PaymentGatewayManager {
      * Get provider instance with decrypted config
      */
     async getProviderInstance(providerType: string, tenantId?: string): Promise<PaymentProvider> {
-        // Get config from database using UN-ISOLATED client to support webhook/system context
-        const { prismaBillingAuth } = await import('@/lib/prisma-billing');
-        
-        const config = await prismaBillingAuth.paymentGatewayConfig.findFirst({
-            where: { 
-                provider: providerType,
-                ...(tenantId ? { tenantId } : {})
-            }
-        })
+        const config = await this.configRepository.findByProvider(providerType, tenantId)
 
         if (!config) {
             throw new Error(`Provider ${providerType} not configured${tenantId ? ' for tenant ' + tenantId : ''}`)
@@ -85,11 +70,7 @@ export class PaymentGatewayManager {
      * Create payment with automatic provider selection
      */
     async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
-        // Use regular isolated client for creation as it happens in user context
-        const providers = await prismaBilling.paymentGatewayConfig.findMany({
-            where: { isEnabled: true },
-            orderBy: { priority: 'desc' }
-        })
+        const providers = await this.configRepository.findEnabled()
         const providerConfig = providers[0]
 
         if (!providerConfig) {

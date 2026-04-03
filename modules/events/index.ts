@@ -1,7 +1,7 @@
 // Public API for Events Module
 
 // BillingEventDispatcher — Cross-module billing event hooks
-export { BillingEventDispatcher } from './BillingEventDispatcher'
+export { BillingEventDispatcher } from './dispatchers/BillingEventDispatcher'
 
 // Re-export the full event bus for convenience
 export {

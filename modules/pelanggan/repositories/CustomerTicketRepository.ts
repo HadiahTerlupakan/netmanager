@@ -119,4 +119,150 @@ export class CustomerTicketRepository {
             }
         })
     }
+
+    // ============================================
+    // Admin Methods
+    // ============================================
+
+    async findAllAdmin(where: Prisma.SupportTicketsWhereInput, skip: number, take: number) {
+        return prisma.supportTickets.findMany({
+            where,
+            orderBy: [
+                { priority: 'desc' },
+                { createdAt: 'desc' },
+            ],
+            skip,
+            take,
+            include: {
+                pelanggan: {
+                    select: {
+                        id: true,
+                        idPelanggan: true,
+                        nama: true,
+                        noTelp: true,
+                        email: true,
+                    },
+                },
+                user: {
+                    select: { id: true, name: true },
+                },
+                replies: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: {
+                        createdAt: true,
+                        isFromAdmin: true,
+                        message: true,
+                    },
+                },
+                _count: {
+                    select: { replies: true },
+                },
+            },
+        })
+    }
+
+    async countAdmin(where: Prisma.SupportTicketsWhereInput) {
+        return prisma.supportTickets.count({ where })
+    }
+
+    async getStatusCounts(where: Prisma.SupportTicketsWhereInput) {
+        return prisma.supportTickets.groupBy({
+            by: ['status'],
+            where,
+            _count: {
+                status: true
+            }
+        })
+    }
+
+    async getClosedTicketsWithReplies(where: Prisma.SupportTicketsWhereInput) {
+        return prisma.supportTickets.findMany({
+            where: { ...where, status: TicketStatus.CLOSED },
+            select: {
+                replies: {
+                    where: { isFromAdmin: false, message: { contains: '⭐' } },
+                    take: 1,
+                    orderBy: { createdAt: 'desc' },
+                    select: { message: true },
+                },
+            },
+        })
+    }
+
+    async findByIdAdmin(id: string) {
+        return prisma.supportTickets.findUnique({
+            where: { id },
+            include: {
+                pelanggan: {
+                    select: {
+                        id: true,
+                        idPelanggan: true,
+                        nama: true,
+                        username: true,
+                        email: true,
+                        noTelp: true,
+                        alamat: true,
+                        status: true,
+                        siteId: true,
+                        hargaPaket: {
+                            select: { name: true },
+                        },
+                    },
+                },
+                user: {
+                    select: { id: true, name: true, email: true },
+                },
+                replies: {
+                    orderBy: { createdAt: 'asc' },
+                    include: {
+                        user: {
+                            select: { id: true, name: true, image: true },
+                        },
+                    },
+                },
+            },
+        })
+    }
+
+    async findByIdBasic(id: string) {
+        return prisma.supportTickets.findUnique({
+            where: { id },
+            include: {
+                pelanggan: { select: { siteId: true, nama: true } },
+            },
+        })
+    }
+
+    async updateAdmin(id: string, updateData: Prisma.SupportTicketsUpdateInput) {
+        return prisma.supportTickets.update({
+            where: { id },
+            data: updateData,
+            include: {
+                pelanggan: {
+                    select: { nama: true, idPelanggan: true },
+                },
+                user: {
+                    select: { name: true },
+                },
+            },
+        })
+    }
+
+    async createReply(data: { ticketId: string; message: string; isFromAdmin: boolean; senderId?: string }) {
+        return prisma.ticketReplies.create({
+            data: {
+                id: randomUUID(),
+                ticketId: data.ticketId,
+                message: data.message,
+                isFromAdmin: data.isFromAdmin,
+                senderId: data.senderId,
+            },
+        })
+    }
+
+    async delete(id: string) {
+        return prisma.supportTickets.delete({ where: { id } })
+    }
 }
+

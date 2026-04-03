@@ -1,6 +1,5 @@
 import type { Registrations } from '@prisma/client'
 import { RegistrationStatus } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
 import { RegistrationRepository } from '../repositories/RegistrationRepository'
 
 export interface RegistrationInput {
@@ -110,9 +109,8 @@ export class RegistrationService {
         ipAddress?: string
     ): Promise<RegistrationResult> {
         // Cek apakah captcha diaktifkan
-        const captchaEnabledSetting = await prisma.settings.findFirst({ where: { key: 'captcha_enabled' }
-        })
-        const captchaEnabled = captchaEnabledSetting?.value === 'true'
+        const captchaEnabledValue = await this.repository.getSettingValue('captcha_enabled')
+        const captchaEnabled = captchaEnabledValue === 'true'
 
         if (!captchaEnabled) {
             return { success: true } // Captcha tidak aktif, skip
@@ -127,9 +125,7 @@ export class RegistrationService {
         }
 
         // Ambil secret key
-        const captchaSecretSetting = await prisma.settings.findFirst({ where: { key: 'captcha_secret_key' }
-        })
-        const secretKey = captchaSecretSetting?.value
+        const secretKey = await this.repository.getSettingValue('captcha_secret_key')
 
         if (!secretKey) {
             console.warn('[RegistrationService] Captcha enabled but no secret key configured')

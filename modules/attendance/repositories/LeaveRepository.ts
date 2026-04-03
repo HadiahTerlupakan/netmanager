@@ -108,4 +108,75 @@ export class LeaveRepository {
             _count: { _all: true }
         })
     }
+
+    /**
+     * Find active approved leave for a user on a specific date range.
+     * Used by AttendanceValidationService to check if user is on leave.
+     */
+    async findActiveLeaveForUserOnDate(
+        userId: string,
+        startOfDay: Date,
+        endOfDay: Date,
+        tenantId?: string
+    ) {
+        return prisma.leaveRequest.findFirst({
+            where: {
+                userId,
+                ...(tenantId && { tenantId }),
+                status: 'APPROVED',
+                startDate: { lte: endOfDay },
+                endDate: { gte: startOfDay }
+            },
+            select: {
+                type: true,
+                reason: true
+            }
+        })
+    }
+
+    /**
+     * Find approved leave for a user on a date range (for auto-alpha check).
+     */
+    async findApprovedLeaveForUserOnDateRange(
+        userId: string,
+        tenantId: string,
+        startOfDay: Date,
+        endOfDay: Date
+    ) {
+        return prisma.leaveRequest.findFirst({
+            where: {
+                userId,
+                tenantId,
+                status: 'APPROVED',
+                startDate: { lte: endOfDay },
+                endDate: { gte: startOfDay }
+            }
+        })
+    }
+
+    /**
+     * Find leave by ID with user relation included.
+     */
+    async findByIdWithUser(id: string, tenantId: string) {
+        return prisma.leaveRequest.findUnique({
+            where: { id, tenantId },
+            include: { user: true }
+        })
+    }
+
+    /**
+     * Find approved leaves in a date range with user relation included.
+     */
+    async findApprovedInRangeWithUser(startDate: Date, endDate: Date, tenantId: string, userId?: string) {
+        return prisma.leaveRequest.findMany({
+            where: {
+                tenantId,
+                status: 'APPROVED',
+                ...(userId ? { userId } : {}),
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+            },
+            include: { user: true }
+        })
+    }
 }

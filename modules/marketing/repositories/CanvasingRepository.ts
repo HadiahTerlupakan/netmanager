@@ -168,4 +168,14 @@ export class CanvasingRepository implements ICanvasingRepository {
       where: { id },
     })
   }
+
+  /**
+   * Find canvasing linked to a work order
+   */
+  async findByWorkOrderId(workOrderId: string): Promise<{ id: string; nama: string; salesId: string | null } | null> {
+    return this.db.canvasing.findFirst({
+      where: { workOrderId },
+      select: { id: true, nama: true, salesId: true }
+    })
+  }
 }

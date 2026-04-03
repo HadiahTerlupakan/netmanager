@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { serializeRabRevision } from "@/modules/finance/rab-revisions";
+import { serializeRabRevision } from "@/modules/finance/utils/rab-revisions";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 

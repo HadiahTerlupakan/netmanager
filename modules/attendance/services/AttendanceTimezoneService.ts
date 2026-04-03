@@ -4,13 +4,19 @@
  * Reduces database queries for frequently accessed settings
  */
 
-import { prisma } from '@/lib/prisma'
 import { redis } from '@/lib/redis'
 import { toZonedTime, toDate } from 'date-fns-tz'
 import { DEFAULT_TIMEZONE } from '@/lib/constants/timezone-constants'
 import { startOfDay as fnsStartOfDay, differenceInMinutes, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns'
+import { SettingsRepository } from '../repositories/SettingsRepository'
 
 export class AttendanceTimezoneService {
+  private settingsRepo: SettingsRepository
+
+  constructor() {
+    this.settingsRepo = new SettingsRepository()
+  }
+
   /**
    * Get system timezone setting with caching (1 hour TTL)
    * @param tenantId - Optional tenant ID
@@ -22,12 +28,7 @@ export class AttendanceTimezoneService {
 
     if (cached) return cached
 
-    const setting = await prisma.settings.findFirst({
-      where: {
-        key: 'GENERAL_TIMEZONE',
-        ...(tenantId && { tenantId })
-      }
-    })
+    const setting = await this.settingsRepo.findByKey('GENERAL_TIMEZONE', tenantId)
 
     const timezone = setting?.value || DEFAULT_TIMEZONE
     await redis.setex(cacheKey, 3600, timezone) // 1 hour TTL
@@ -46,12 +47,7 @@ export class AttendanceTimezoneService {
 
     if (cached) return parseInt(cached)
 
-    const setting = await prisma.settings.findFirst({
-      where: {
-        key: 'GENERAL_ATTENDANCE_TOLERANCE',
-        ...(tenantId && { tenantId })
-      }
-    })
+    const setting = await this.settingsRepo.findByKey('GENERAL_ATTENDANCE_TOLERANCE', tenantId)
 
     const tolerance = setting?.value ? parseInt(setting.value) : 0
     await redis.setex(cacheKey, 3600, tolerance.toString()) // 1 hour TTL

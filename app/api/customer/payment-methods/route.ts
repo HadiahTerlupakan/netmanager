@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
             return authResult.response
         }
 
-        const gatewayManager = new PaymentGatewayManager(prismaBilling as unknown as PrismaClient)
+        const gatewayManager = new PaymentGatewayManager()
         const providers = await gatewayManager.getEnabledProviders()
 
         const paymentMethods = []

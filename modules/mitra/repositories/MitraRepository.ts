@@ -4,6 +4,41 @@ import type { MitraFilters, MitraWithDetails } from '../dto/MitraDTO'
 
 export class MitraRepository {
 
+    async clearPushTokens(tokens: string[]) {
+        return prismaMitra.mitra.updateMany({
+            where: { pushToken: { in: tokens } },
+            data: { pushToken: null }
+        })
+    }
+
+    async findManyWithPushToken(tokens: string[]): Promise<Array<{ id: string, pushToken: string | null }>> {
+        return prismaMitra.mitra.findMany({
+            where: { pushToken: { in: tokens } },
+            select: { id: true, pushToken: true }
+        })
+    }
+
+    async findPushTokenById(id: string): Promise<{ pushToken: string | null } | null> {
+        return prismaMitra.mitra.findUnique({
+            where: { id },
+            select: { pushToken: true }
+        })
+    }
+
+    async findManyWithPushTokenByIds(ids: string[]): Promise<Array<{ id: string, pushToken: string | null }>> {
+        return prismaMitra.mitra.findMany({
+            where: {
+                id: { in: ids },
+                pushToken: { not: null }
+            },
+            select: { id: true, pushToken: true }
+        })
+    }
+
+    async findByIdSimple(id: string) {
+        return prismaMitra.mitra.findUnique({ where: { id } })
+    }
+
     /**
      * Get all mitra users with filters and pagination
      */

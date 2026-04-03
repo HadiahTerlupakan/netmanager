@@ -5,7 +5,7 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import {
   filterEligibleReminderRecipients,
   shouldSendRabReminder,
-} from '@/modules/finance/rab-approval-reminder'
+} from '@/modules/finance/utils/rab-approval-reminder'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 
 const REMINDER_COOLDOWN_MINUTES = 30

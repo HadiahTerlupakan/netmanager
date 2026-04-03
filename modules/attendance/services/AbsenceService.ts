@@ -1,19 +1,24 @@
-import { prisma } from '@/lib/prisma'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
+import { AttendanceRepository } from '../repositories/AttendanceRepository'
+import { UserRepository } from '@/modules/users/repositories/UserRepository'
 import { randomUUID } from 'crypto'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
-import { AttendanceEventDispatcher } from '@/modules/events/AttendanceEventDispatcher'
+import { AttendanceEventDispatcher } from '@/modules/events/dispatchers/AttendanceEventDispatcher'
 import { logger } from '@/lib/logger'
 
 
 export class AbsenceService {
     private holidayRepo: HolidayRepository
     private leaveRepo: LeaveRepository
+    private attendanceRepo: AttendanceRepository
+    private userRepo: UserRepository
 
     constructor() {
         this.holidayRepo = new HolidayRepository()
         this.leaveRepo = new LeaveRepository()
+        this.attendanceRepo = new AttendanceRepository()
+        this.userRepo = new UserRepository()
     }
 
     /**
@@ -45,28 +50,7 @@ export class AbsenceService {
 
         // 2. Get All Active Users (EXCLUDE FLEXIBLE mode - they don't have daily attendance requirements)
         // FLEXIBLE users accumulate working hours monthly, not daily check-in/out
-        const users = await prisma.user.findMany({
-            where: {
-                tenantId,
-                isActive: true,
-                role: {
-                    name: { not: 'SUPER_ADMIN' } 
-                },
-                // IMPORTANT: Exclude FLEXIBLE users - they don't have fixed schedules
-                // Their attendance is based on monthly hour accumulation, not daily presence
-                workingHourMode: {
-                    not: 'FLEXIBLE'
-                }
-            },
-            select: {
-                id: true,
-                name: true,
-                workDays: true,
-                workingHourMode: true,
-                shiftId: true,
-                shift: true
-            }
-        })
+        const users = await this.userRepo.findActiveForAttendance(tenantId)
 
         let absentCount = 0
         let dayOffCount = 0
@@ -101,31 +85,14 @@ export class AbsenceService {
              }
 
              // 3.2 Check Existing Attendance
-             const attendance = await prisma.attendance.findFirst({
-                 where: {
-                     userId: user.id,
-                     tenantId,
-                     checkIn: {
-                         gte: startOfDay,
-                         lte: endOfDay
-                     }
-                 }
-             })
+             const attendance = await this.attendanceRepo.findFirstByUserAndDateRange(user.id, tenantId, startOfDay, endOfDay)
 
              if (attendance) {
                  continue // Present
              }
 
              // 3.3 Check Approved Leave
-             const leave = await prisma.leaveRequest.findFirst({
-                 where: {
-                     userId: user.id,
-                     tenantId,
-                     status: 'APPROVED',
-                     startDate: { lte: endOfDay },
-                     endDate: { gte: startOfDay }
-                 }
-             })
+             const leave = await this.leaveRepo.findActiveLeaveForUserOnDate(user.id, startOfDay, endOfDay, tenantId)
 
              if (leave) {
                  continue // On Leave
@@ -136,19 +103,17 @@ export class AbsenceService {
                     const dayOffTime = new Date(startOfDay)
                     dayOffTime.setTime(toStartOfDay(dayOffTime).getTime())
 
-                    await prisma.attendance.create({
-                        data: {
-                            id: randomUUID(),
-                            userId: user.id,
-                            tenantId,
-                            checkIn: dayOffTime,
-                            status: 'DAY_OFF',
-                            notes: isHoliday
-                                ? 'Hari Libur (Day Off) - Auto Generated'
-                                : 'Hari Off (Day Off) - Auto Generated',
-                            location: 'System',
-                            updatedAt: new Date()
-                        }
+                    await this.attendanceRepo.create({
+                        id: randomUUID(),
+                        userId: user.id,
+                        tenantId,
+                        checkIn: dayOffTime,
+                        status: 'DAY_OFF',
+                        notes: isHoliday
+                            ? 'Hari Libur (Day Off) - Auto Generated'
+                            : 'Hari Off (Day Off) - Auto Generated',
+                        location: 'System',
+                        updatedAt: new Date()
                     })
                     dayOffCount++
                 } catch (error) {
@@ -165,17 +130,15 @@ export class AbsenceService {
                 alphaTime.setTime(toStartOfDay(alphaTime).getTime())
                 const attendanceId = randomUUID()
 
-                await prisma.attendance.create({
-                    data: {
-                        id: attendanceId,
-                        userId: user.id,
-                        tenantId,
-                        checkIn: alphaTime,
-                        status: 'ABSENT',
-                        notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
-                        location: 'System',
-                        updatedAt: new Date()
-                    }
+                await this.attendanceRepo.create({
+                    id: attendanceId,
+                    userId: user.id,
+                    tenantId,
+                    checkIn: alphaTime,
+                    status: 'ABSENT',
+                    notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
+                    location: 'System',
+                    updatedAt: new Date()
                 })
 
                 // Publish domain event
@@ -220,20 +183,7 @@ export class AbsenceService {
 
             const isHoliday = holidays.length > 0
 
-            const users = await prisma.user.findMany({
-                where: {
-                    tenantId,
-                    isActive: true,
-                    ...(userId ? { id: userId } : {}),
-                    role: { name: { not: 'SUPER_ADMIN' } },
-                    workingHourMode: { not: 'FLEXIBLE' }
-                },
-                select: {
-                    id: true,
-                    name: true,
-                    workDays: true
-                }
-            })
+            const users = await this.userRepo.findActiveForAttendance(tenantId, userId)
 
             const dayOfWeek = current.getDay()
             for (const user of users) {
@@ -254,49 +204,30 @@ export class AbsenceService {
                     continue
                 }
 
-                const attendance = await prisma.attendance.findFirst({
-                    where: {
-                        userId: user.id,
-                        tenantId,
-                        checkIn: {
-                            gte: startOfDay,
-                            lte: endOfDay
-                        }
-                    }
-                })
+                const attendance = await this.attendanceRepo.findFirstByUserAndDateRange(user.id, tenantId, startOfDay, endOfDay)
 
                 if (attendance) {
                     continue
                 }
 
-                const leave = await prisma.leaveRequest.findFirst({
-                    where: {
-                        userId: user.id,
-                        tenantId,
-                        status: 'APPROVED',
-                        startDate: { lte: endOfDay },
-                        endDate: { gte: startOfDay }
-                    }
-                })
+                const leave = await this.leaveRepo.findActiveLeaveForUserOnDate(user.id, startOfDay, endOfDay, tenantId)
 
                 if (leave) {
                     continue
                 }
 
                 const checkInTime = new Date(startOfDay)
-                await prisma.attendance.create({
-                    data: {
-                        id: randomUUID(),
-                        userId: user.id,
-                        tenantId,
-                        checkIn: checkInTime,
-                        status: 'DAY_OFF',
-                        notes: isHoliday
-                            ? 'Hari Libur (Day Off) - Auto Generated'
-                            : 'Hari Off (Day Off) - Auto Generated',
-                        location: 'System',
-                        updatedAt: new Date()
-                    }
+                await this.attendanceRepo.create({
+                    id: randomUUID(),
+                    userId: user.id,
+                    tenantId,
+                    checkIn: checkInTime,
+                    status: 'DAY_OFF',
+                    notes: isHoliday
+                        ? 'Hari Libur (Day Off) - Auto Generated'
+                        : 'Hari Off (Day Off) - Auto Generated',
+                    location: 'System',
+                    updatedAt: new Date()
                 })
             }
 

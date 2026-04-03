@@ -6,9 +6,8 @@
  */
 
 import { RouterOSAPI } from 'node-routeros-v2';
-import { prisma as defaultPrisma } from '@/lib/prisma';
-
-type PrismaInstance = typeof defaultPrisma;
+import { NetworkRepository } from '../repositories/NetworkRepository';
+import { getMikroTikRouterRepository } from '@/lib/repositories'
 
 interface PPPSecretData {
   name: string;
@@ -30,7 +29,11 @@ const EXPIRED_PROFILE = 'expired users';
 const CONNECTION_TIMEOUT = 10000;
 
 export class MikroTikPPPSecretService {
-  constructor(private prisma: PrismaInstance = defaultPrisma) {}
+  private networkRepo: NetworkRepository;
+
+  constructor() {
+    this.networkRepo = new NetworkRepository();
+  }
 
   /**
    * Helper: Connect ke MikroTik Router
@@ -61,18 +64,7 @@ export class MikroTikPPPSecretService {
     };
     profileName: string;
   } | null> {
-    const pelanggan = await this.prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      include: {
-        hargaPaket: {
-          include: {
-            profilePPP: {
-              include: { mikroTikRouter: true }
-            }
-          }
-        }
-      }
-    });
+    const pelanggan = await this.networkRepo.findPelangganWithRouter(pelangganId);
 
     if (!pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter) {
       return null;
@@ -80,7 +72,6 @@ export class MikroTikPPPSecretService {
 
     const router = pelanggan.hargaPaket.profilePPP.mikroTikRouter;
     
-    // Gunakan generated API user jika tersedia, fallback ke master user
     const apiUsername = router.apiUsernameGenerated || router.apiUsername;
     const apiPassword = router.apiPasswordGenerated || router.apiPassword;
     
@@ -105,9 +96,9 @@ export class MikroTikPPPSecretService {
     data: PPPSecretData
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const router = await this.prisma.mikroTikRouter.findUnique({
-        where: { id: routerId }
-      });
+      const routerRepo = getMikroTikRouterRepository();
+      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
+      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
 
       if (!router) {
         return { success: false, error: 'Router tidak ditemukan' };
@@ -121,13 +112,11 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        // Cek apakah secret sudah ada
         const existing = await conn.write('/ppp/secret/print', [
           `?name=${data.name}`
         ]) as Array<Record<string, string>>;
 
         if (existing && existing.length > 0) {
-          // Update jika sudah ada
           const secret = existing[0];
           if (secret) {
             await conn.write('/ppp/secret/set', [
@@ -138,7 +127,6 @@ export class MikroTikPPPSecretService {
             ]);
           }
         } else {
-          // Buat baru
           await conn.write('/ppp/secret/add', [
             `=name=${data.name}`,
             `=password=${data.password}`,
@@ -170,9 +158,9 @@ export class MikroTikPPPSecretService {
     profileName: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const router = await this.prisma.mikroTikRouter.findUnique({
-        where: { id: routerId }
-      });
+      const routerRepo = getMikroTikRouterRepository();
+      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
+      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
 
       if (!router) {
         return { success: false, error: 'Router tidak ditemukan' };
@@ -221,9 +209,9 @@ export class MikroTikPPPSecretService {
     username: string
   ): Promise<{ success: boolean; disconnected: number; error?: string }> {
     try {
-      const router = await this.prisma.mikroTikRouter.findUnique({
-        where: { id: routerId }
-      });
+      const routerRepo = getMikroTikRouterRepository();
+      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
+      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
 
       if (!router) {
         return { success: false, disconnected: 0, error: 'Router tidak ditemukan' };
@@ -237,7 +225,6 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        // Cari active sessions
         const sessions = await conn.write('/ppp/active/print', [
           `?name=${username}`
         ]) as Array<Record<string, string>>;
@@ -273,9 +260,9 @@ export class MikroTikPPPSecretService {
     username: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const router = await this.prisma.mikroTikRouter.findUnique({
-        where: { id: routerId }
-      });
+      const routerRepo = getMikroTikRouterRepository();
+      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
+      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
 
       if (!router) {
         return { success: false, error: 'Router tidak ditemukan' };
@@ -289,7 +276,6 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        // 1. Hapus secret DULU (agar tidak bisa auto-reconnect)
         const secrets = await conn.write('/ppp/secret/print', [
           `?name=${username}`
         ]) as Array<Record<string, string>>;
@@ -300,7 +286,6 @@ export class MikroTikPPPSecretService {
           }
         }
 
-        // 2. Baru disconnect session (kick user)
         const activeSessions = await conn.write('/ppp/active/print', [
           `?name=${username}`
         ]) as Array<Record<string, string>>;
@@ -345,7 +330,6 @@ export class MikroTikPPPSecretService {
       const { router, routerId, pelanggan } = data;
       logs.push(`Connecting to router ${router.ipAddress}`);
 
-      // 1. Ubah profile ke expired users
       const profileResult = await this.setSecretProfile(
         routerId, 
         pelanggan.username, 
@@ -353,8 +337,6 @@ export class MikroTikPPPSecretService {
       );
       
       if (!profileResult.success) {
-        // Jika error karena secret tidak ditemukan (misal user RADIUS),
-        // kita tetap lanjut disconnect session agar user ter-kick.
         if (profileResult.error === 'PPP Secret tidak ditemukan') {
            logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
         } else {
@@ -368,7 +350,6 @@ export class MikroTikPPPSecretService {
         logs.push(`Profile diubah ke "${EXPIRED_PROFILE}"`);
       }
 
-      // 2. Disconnect session
       const disconnectResult = await this.disconnectSession(
         routerId, 
         pelanggan.username
@@ -404,7 +385,6 @@ export class MikroTikPPPSecretService {
       const { router, routerId, pelanggan, profileName } = data;
       logs.push(`Connecting to router ${router.ipAddress}`);
 
-      // 1. Kembalikan profile normal
       const profileResult = await this.setSecretProfile(
         routerId, 
         pelanggan.username, 
@@ -412,8 +392,6 @@ export class MikroTikPPPSecretService {
       );
       
       if (!profileResult.success) {
-        // Jika error karena secret tidak ditemukan (misal user RADIUS),
-        // kita tetap lanjut disconnect session agar user ter-kick untuk apply radius profile baru.
         if (profileResult.error === 'PPP Secret tidak ditemukan') {
            logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
         } else {
@@ -427,7 +405,6 @@ export class MikroTikPPPSecretService {
         logs.push(`Profile dikembalikan ke "${profileName}"`);
       }
 
-      // 2. Disconnect session agar reload dengan profile baru
       const disconnectResult = await this.disconnectSession(
         routerId, 
         pelanggan.username

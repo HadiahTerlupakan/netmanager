@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
 import { generatePelangganTokenPair } from '@/lib/jwt'
 import { checkRateLimit } from '@/lib/redis'
+import { PelangganRepository } from '../repositories/PelangganRepository'
 
 interface LoginResult {
     success: boolean
@@ -23,6 +23,12 @@ interface LoginResult {
  * Service for customer authentication
  */
 export class CustomerAuthService {
+    private pelangganRepository: PelangganRepository
+
+    constructor() {
+        this.pelangganRepository = new PelangganRepository()
+    }
+
     /**
      * Authenticate customer with identifier and password
      */
@@ -110,23 +116,6 @@ export class CustomerAuthService {
      * Find customer by ID or email
      */
     private async findCustomerByIdentifier(identifier: string) {
-        return prisma.pelanggan.findFirst({
-            where: {
-                OR: [
-                    { idPelanggan: identifier.toUpperCase() },
-                    { email: identifier.toLowerCase() },
-                ],
-            },
-            select: {
-                id: true,
-                idPelanggan: true,
-                nama: true,
-                username: true,
-                email: true,
-                status: true,
-                passwordHash: true,
-                tenantId: true,
-            },
-        })
+        return this.pelangganRepository.findByIdentifierForAuth(identifier)
     }
 }

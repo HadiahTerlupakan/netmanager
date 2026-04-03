@@ -391,5 +391,87 @@ export class PelangganRepository {
             data
         })
     }
+
+    async findByIdentifierForAuth(identifier: string) {
+        return prisma.pelanggan.findFirst({
+            where: {
+                OR: [
+                    { idPelanggan: identifier.toUpperCase() },
+                    { email: identifier.toLowerCase() },
+                ],
+            },
+            select: {
+                id: true,
+                idPelanggan: true,
+                nama: true,
+                username: true,
+                email: true,
+                status: true,
+                passwordHash: true,
+                tenantId: true,
+            },
+        })
+    }
+
+    async findByIdWithHargaPaket(id: string) {
+        return prisma.pelanggan.findUnique({
+            where: { id },
+            include: { hargaPaket: true }
+        })
+    }
+
+    async findEligibleForBilling(targetDay: number, batchSize: number, offset: number) {
+        return prisma.$queryRaw<EligibleBillingCustomer[]>(
+            Prisma.sql`
+                SELECT
+                    p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
+                    h.name AS "paketName", h.harga AS "paketHarga",
+                    h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
+                FROM "Pelanggan" p
+                INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
+                WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
+                  AND p."hargaPaketId" != ''
+                  AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
+                ORDER BY p.id ASC
+                LIMIT ${batchSize} OFFSET ${offset}
+            `
+        )
+    }
+
+    async findByIdWithPushToken(pelangganId: string): Promise<{ id: string, pushToken: string | null } | null> {
+        return prisma.pelanggan.findUnique({
+            where: { id: pelangganId },
+            select: { id: true, pushToken: true }
+        })
+    }
+
+    async findManyWithPushToken(tokens: string[]): Promise<Array<{ id: string, pushToken: string | null }>> {
+        return prisma.pelanggan.findMany({
+            where: { pushToken: { in: tokens } },
+            select: { id: true, pushToken: true }
+        })
+    }
+
+    async clearPushTokens(tokens: string[]) {
+        return prisma.pelanggan.updateMany({
+            where: { pushToken: { in: tokens } },
+            data: { pushToken: null }
+        })
+    }
+}
+
+interface EligibleBillingCustomer {
+    id: string;
+    nama: string;
+    jatuhTempo: Date;
+    userId: string | null;
+    usePPN: boolean;
+    tipe: string;
+    status: string;
+    hargaPaketId: string;
+    paketName: string;
+    paketHarga: number;
+    paketUsePPN: boolean;
+    paketPpnPercentage: number | null;
 }
 

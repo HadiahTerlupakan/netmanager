@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
 import { calculateHaversineDistance } from '@/lib/geo-utils'
+import { UserRepository } from '@/modules/users/repositories/UserRepository'
 
 type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
 
@@ -10,16 +10,14 @@ type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
  * Multi-site Support: User bisa punya banyak sites via userSites relation
  */
 export class GeofenceService {
+    private userRepo: UserRepository
+
+    constructor() {
+        this.userRepo = new UserRepository()
+    }
 
     async getPolicyForUser(userId: string): Promise<AttendanceGeofencePolicy> {
-        const rows = await prisma.$queryRaw<Array<{ attendanceGeofencePolicy: string | null }>>`
-            SELECT "attendanceGeofencePolicy"
-            FROM "User"
-            WHERE "id" = ${userId}
-            LIMIT 1
-        `
-
-        const geofencePolicy = rows[0]?.attendanceGeofencePolicy ?? null
+        const geofencePolicy = await this.userRepo.getGeofencePolicy(userId)
 
         return geofencePolicy === 'STRICT' || geofencePolicy === 'DISABLED' || geofencePolicy === 'WARN'
             ? geofencePolicy
@@ -43,59 +41,9 @@ export class GeofenceService {
     }
 
     /**
-     * Validasi koordinat terhadap sites yang dimiliki user
-     * Multi-site: Cek semua sites dari userSites, fallback ke legacy sites
-     * @returns Object dengan status validasi dan info zona terdekat
+     * Collect valid sites from user data (multi-site + legacy fallback)
      */
-    async validateGeofence(userId: string, latitude: number, longitude: number): Promise<{
-        isInside: boolean
-        nearestDistance: number | null
-        nearestSiteName: string | null
-        nearestSiteId: string | null
-    }> {
-        // Ambil sites yang dimiliki user (multi-site + legacy fallback)
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                // Multi-site: userSites relation
-                userSites: {
-                    select: {
-                        site: {
-                            select: {
-                                id: true,
-                                name: true,
-                                latitude: true,
-                                longitude: true,
-                                attendanceRadius: true,
-                                isActive: true
-                            }
-                        }
-                    }
-                },
-                // Legacy: single site
-                sites: {
-                    select: {
-                        id: true,
-                        name: true,
-                        latitude: true,
-                        longitude: true,
-                        attendanceRadius: true,
-                        isActive: true
-                    }
-                }
-            }
-        })
-
-        if (!user) {
-            return {
-                isInside: true,
-                nearestDistance: null,
-                nearestSiteName: null,
-                nearestSiteId: null
-            }
-        }
-
-        // Collect all valid sites (multi-site first, then legacy fallback)
+    private collectValidSites(user: NonNullable<Awaited<ReturnType<typeof this.userRepo.findUserWithSites>>>) {
         const validSites: Array<{
             id: string
             name: string
@@ -131,6 +79,34 @@ export class GeofenceService {
                 attendanceRadius: user.sites.attendanceRadius
             })
         }
+
+        return validSites
+    }
+
+    /**
+     * Validasi koordinat terhadap sites yang dimiliki user
+     * Multi-site: Cek semua sites dari userSites, fallback ke legacy sites
+     * @returns Object dengan status validasi dan info zona terdekat
+     */
+    async validateGeofence(userId: string, latitude: number, longitude: number): Promise<{
+        isInside: boolean
+        nearestDistance: number | null
+        nearestSiteName: string | null
+        nearestSiteId: string | null
+    }> {
+        // Ambil sites yang dimiliki user (multi-site + legacy fallback) via repository
+        const user = await this.userRepo.findUserWithSites(userId)
+
+        if (!user) {
+            return {
+                isInside: true,
+                nearestDistance: null,
+                nearestSiteName: null,
+                nearestSiteId: null
+            }
+        }
+
+        const validSites = this.collectValidSites(user)
 
         // If no valid sites, allow attendance anywhere
         if (validSites.length === 0) {
@@ -181,76 +157,18 @@ export class GeofenceService {
         longitude: number
         radius: number
     }>> {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                // Multi-site
-                userSites: {
-                    select: {
-                        site: {
-                            select: {
-                                id: true,
-                                name: true,
-                                latitude: true,
-                                longitude: true,
-                                attendanceRadius: true,
-                                isActive: true
-                            }
-                        }
-                    }
-                },
-                // Legacy
-                sites: {
-                    select: {
-                        id: true,
-                        name: true,
-                        latitude: true,
-                        longitude: true,
-                        attendanceRadius: true,
-                        isActive: true
-                    }
-                }
-            }
-        })
+        const user = await this.userRepo.findUserWithSites(userId)
 
         if (!user) return []
 
-        const zones: Array<{
-            siteId: string
-            siteName: string
-            latitude: number
-            longitude: number
-            radius: number
-        }> = []
+        const validSites = this.collectValidSites(user)
 
-        // Multi-site: get zones from userSites
-        if (user.userSites && user.userSites.length > 0) {
-            for (const us of user.userSites) {
-                const site = us.site
-                if (site.isActive && site.latitude !== null && site.longitude !== null) {
-                    zones.push({
-                        siteId: site.id,
-                        siteName: site.name,
-                        latitude: site.latitude,
-                        longitude: site.longitude,
-                        radius: site.attendanceRadius
-                    })
-                }
-            }
-        }
-
-        // Legacy fallback: use single site if no userSites
-        if (zones.length === 0 && user.sites && user.sites.isActive &&
-            user.sites.latitude !== null && user.sites.longitude !== null) {
-            zones.push({
-                siteId: user.sites.id,
-                siteName: user.sites.name,
-                latitude: user.sites.latitude,
-                longitude: user.sites.longitude,
-                radius: user.sites.attendanceRadius
-            })
-        }
-
-        return zones
+        return validSites.map(site => ({
+            siteId: site.id,
+            siteName: site.name,
+            latitude: site.latitude,
+            longitude: site.longitude,
+            radius: site.attendanceRadius
+        }))
     }
 }

@@ -5,6 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 export interface NotificationFilters {
     userId?: string
@@ -150,5 +151,73 @@ export class NotificationRepository {
         ])
 
         return { total, unread }
+    }
+
+    /**
+     * Create notification with full data including departmentId, siteId, sourceType, sourceId, tenantId
+     */
+    async createFull(data: {
+        id: string
+        type: string
+        priority: string
+        title: string
+        message: string
+        link?: string | null
+        userId?: string | null
+        departmentId?: string | null
+        siteId?: string | null
+        sourceType?: string | null
+        sourceId?: string | null
+        tenantId?: string | null
+    }) {
+        return prisma.notifications.create({ data })
+    }
+
+    /**
+     * Find many notifications with complex where clause for user notifications
+     */
+    async findManyForUser(where: Record<string, unknown>, options?: { take?: number; skip?: number }): Promise<unknown[]> {
+        return prisma.notifications.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: options?.take || 50,
+            skip: options?.skip || 0,
+        })
+    }
+
+    /**
+     * Count notifications with where clause
+     */
+    async countWhere(where: Record<string, unknown>): Promise<number> {
+        return prisma.notifications.count({ where })
+    }
+
+    /**
+     * Find single notification with complex where
+     */
+    async findFirst(where: Record<string, unknown>): Promise<unknown | null> {
+        return prisma.notifications.findFirst({ where })
+    }
+
+    /**
+     * UpdateMany notifications
+     */
+    async updateMany(where: Record<string, unknown>, data: Record<string, unknown>): Promise<{ count: number }> {
+        return prisma.notifications.updateMany({ where, data })
+    }
+
+    async getUnreadCountRaw(
+        userId: string,
+        typeCondition: Prisma.Sql,
+        siteCondition: Prisma.Sql,
+        tenantCondition: Prisma.Sql
+    ): Promise<number> {
+        const result = await prisma.$queryRaw<[{ count: bigint }]>`
+            SELECT COUNT(*) as count FROM "notifications" n
+            WHERE n."isRead" = false ${typeCondition}
+            ${tenantCondition}
+            AND (n."userId" = ${userId} OR (n."departmentId" = (SELECT "departmentId" FROM "User" WHERE "id" = ${userId}) ${siteCondition}))
+        `
+        return Number(result[0]?.count || 0)
     }
 }

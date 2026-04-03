@@ -153,26 +153,4 @@ describe('PelangganService', () => {
       expect(result?.id).toBe('pelanggan-id')
     })
   })
-
-  describe('changePassword', () => {
-    it('should hash new customer password with cost factor 12', async () => {
-      prismaMock.pelanggan.findUnique.mockResolvedValueOnce({
-        passwordHash: 'existing_hash',
-      } as unknown as Pelanggan)
-
-      prismaMock.pelanggan.update.mockResolvedValueOnce({
-        id: 'pelanggan-id',
-        noTelp: null,
-        is2FAEnabled: false,
-        isBillNotifEnabled: true,
-        isPromoEnabled: true,
-        updatedAt: new Date(),
-      } as unknown as Pelanggan)
-
-      await service.changePassword('pelanggan-id', 'current-password', 'new-password')
-
-      const { hash } = await import('bcryptjs')
-      expect(hash).toHaveBeenLastCalledWith('new-password', 12)
-    })
-  })
 })

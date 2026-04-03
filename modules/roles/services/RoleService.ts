@@ -1,15 +1,17 @@
 import { RoleRepository } from '../repositories/RoleRepository'
 import type { RoleWithCount, RoleWithPermissions, FilterOptions } from '../repositories/RoleRepository'
+import { PermissionRepository } from '../repositories/PermissionRepository'
 import type { Role } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
 import { invalidateRolePermissionCache } from '@/lib/auth'
 
 export class RoleService {
     private roleRepository: RoleRepository
+    private permissionRepository: PermissionRepository
 
     constructor() {
         this.roleRepository = new RoleRepository()
+        this.permissionRepository = new PermissionRepository()
     }
 
     async getAllRoles(filter?: FilterOptions): Promise<RoleWithCount[]> {
@@ -52,18 +54,7 @@ export class RoleService {
 
         if (requestedPairs.length > 0) {
             // 2. Find existing permissions to check what's missing
-            const existingPermissions = await prisma.permission.findMany({
-                where: {
-                    OR: requestedPairs.map(pair => ({
-                        resource: pair.resource,
-                        action: pair.action
-                    }))
-                },
-                select: {
-                    resource: true,
-                    action: true
-                }
-            })
+            const existingPermissions = await this.permissionRepository.findManyByResourceActionPairs(requestedPairs)
 
             // 3. Identify missing permissions
             const missingPermissions = requestedPairs.filter(req =>
@@ -74,31 +65,19 @@ export class RoleService {
 
             // 4. Create missing permissions if any
             if (missingPermissions.length > 0) {
-                await prisma.permission.createMany({
-                    data: missingPermissions.map(p => ({
-                        id: randomUUID(),
-                        resource: p.resource,
-                        action: p.action,
-                        // Helper to capitalise first letter
-                        name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
-                        description: `Izinkan ${p.action} pada ${p.resource}`,
-                        updatedAt: new Date()
-                    })),
-                    skipDuplicates: true
-                })
+                await this.permissionRepository.createMany(missingPermissions.map(p => ({
+                    id: randomUUID(),
+                    resource: p.resource,
+                    action: p.action,
+                    name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
+                    description: `Izinkan ${p.action} pada ${p.resource}`,
+                    updatedAt: new Date()
+                })))
             }
         }
 
         // 5. Fetch ALL permission IDs (now that they all exist)
-        const finalPermissions = await prisma.permission.findMany({
-            where: {
-                OR: requestedPairs.map(pair => ({
-                    resource: pair.resource,
-                    action: pair.action
-                }))
-            },
-            select: { id: true }
-        })
+        const finalPermissions = await this.permissionRepository.findManyByResourceActionPairs(requestedPairs)
 
         return this.roleRepository.create({
             name: data.name,
@@ -146,18 +125,7 @@ export class RoleService {
 
         if (requestedPairs.length > 0) {
             // 2. Find existing permissions to check what's missing
-            const existingPermissions = await prisma.permission.findMany({
-                where: {
-                    OR: requestedPairs.map(pair => ({
-                        resource: pair.resource,
-                        action: pair.action
-                    }))
-                },
-                select: {
-                    resource: true,
-                    action: true
-                }
-            })
+            const existingPermissions = await this.permissionRepository.findManyByResourceActionPairs(requestedPairs)
 
             // 3. Identify missing permissions
             const missingPermissions = requestedPairs.filter(req =>
@@ -168,31 +136,19 @@ export class RoleService {
 
             // 4. Create missing permissions if any
             if (missingPermissions.length > 0) {
-                await prisma.permission.createMany({
-                    data: missingPermissions.map(p => ({
-                        id: randomUUID(),
-                        resource: p.resource,
-                        action: p.action,
-                        // Helper to capitalise first letter
-                        name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
-                        description: `Izinkan ${p.action} pada ${p.resource}`,
-                        updatedAt: new Date()
-                    })),
-                    skipDuplicates: true
-                })
+                await this.permissionRepository.createMany(missingPermissions.map(p => ({
+                    id: randomUUID(),
+                    resource: p.resource,
+                    action: p.action,
+                    name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.resource.charAt(0).toUpperCase() + p.resource.slice(1)}`,
+                    description: `Izinkan ${p.action} pada ${p.resource}`,
+                    updatedAt: new Date()
+                })))
             }
         }
 
         // 5. Fetch ALL permission IDs (now that they all exist)
-        const finalPermissions = await prisma.permission.findMany({
-            where: {
-                OR: requestedPairs.map(pair => ({
-                    resource: pair.resource,
-                    action: pair.action
-                }))
-            },
-            select: { id: true }
-        })
+        const finalPermissions = await this.permissionRepository.findManyByResourceActionPairs(requestedPairs)
 
         const updatedRole = await this.roleRepository.update(id, {
             name: data.name,

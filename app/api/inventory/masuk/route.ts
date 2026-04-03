@@ -2,7 +2,7 @@ import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { validateGudangAccess } from '@/modules/inventory/validation'
+import { validateGudangAccess } from '@/modules/inventory/utils/validation'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import type { Session } from 'next-auth'
 
@@ -194,7 +194,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     // Publish domain event
-    const { InventoryEventDispatcher } = await import('@/modules/events/InventoryEventDispatcher');
+    const { InventoryEventDispatcher } = await import('@/modules/events/dispatchers/InventoryEventDispatcher');
     await InventoryEventDispatcher.onStockIn({
       barangId,
       barangName: (masukRecord as Record<string, unknown>)?.barang ? ((masukRecord as Record<string, unknown>).barang as Record<string, unknown>)?.nama as string : undefined,

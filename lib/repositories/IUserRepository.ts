@@ -54,4 +54,5 @@ export interface IUserRepository {
   update(id: string, data: UserUpdateData): Promise<void>
   delete(id: string): Promise<void>
   count(): Promise<number>
+  findManyWithFullDetails(userIds: string[]): Promise<Array<{ id: string; name: string | null; image: string | null; sites: { name: string } | null; departments: { name: string } | null }>>
 }

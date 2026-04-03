@@ -1,16 +1,16 @@
-import { prisma, prismaAuth } from '@/lib/prisma'
 import { GeofenceService } from './GeofenceService'
 import { AttendanceValidationService } from './AttendanceValidationService'
 import { AttendanceTimezoneService } from './AttendanceTimezoneService'
 import { AttendanceSessionPolicyService } from './AttendanceSessionPolicyService'
 import { AttendanceStatus, Prisma } from '@prisma/client'
 import { randomUUID } from 'crypto'
-import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/constants'
+import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/utils/constants'
 import { redis } from '@/lib/redis'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
-import { AttendanceEventDispatcher } from '@/modules/events/AttendanceEventDispatcher'
+import { UserRepository } from '../../users/repositories/UserRepository'
+import { AttendanceEventDispatcher } from '@/modules/events/dispatchers/AttendanceEventDispatcher'
 import { logger } from '@/lib/logger'
 
 interface CheckInParams {
@@ -143,11 +143,15 @@ export class AttendanceService {
     private geofenceService: GeofenceService
     private validationService: AttendanceValidationService
     private timezoneService: AttendanceTimezoneService
+    private attendanceRepo: AttendanceRepository
+    private userRepo: UserRepository
 
     constructor() {
         this.geofenceService = new GeofenceService()
         this.validationService = new AttendanceValidationService()
         this.timezoneService = new AttendanceTimezoneService()
+        this.attendanceRepo = new AttendanceRepository()
+        this.userRepo = new UserRepository()
     }
 
     private getScheduleEndTimeForPolicy(
@@ -168,27 +172,9 @@ export class AttendanceService {
         atTime: Date,
         tenantId?: string
     ) {
-        const latestOpenAttendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                checkOut: null,
-                ...(tenantId && { tenantId })
-            },
-            orderBy: { checkIn: 'desc' },
-            include: {
-                user: {
-                    select: {
-                        workingHourMode: true,
-                        flexibleTargetHour: true,
-                        shift: {
-                            select: {
-                                startTime: true,
-                                endTime: true,
-                            }
-                        }
-                    }
-                }
-            }
+        const latestOpenAttendance = await this.attendanceRepo.findFirstOpenSession({
+            userId,
+            tenantId
         }) as ActiveAttendanceSessionRow | null
 
         if (!latestOpenAttendance) {
@@ -247,17 +233,7 @@ export class AttendanceService {
         if (cachedRaw) {
             userDetails = JSON.parse(cachedRaw) as CachedUserAttendanceSettings
         } else {
-            userDetails = await prisma.user.findUnique({
-                where: { id: userId },
-                select: {
-                    startWorkTime: true,
-                    endWorkTime: true,
-                    workingHourMode: true,
-                    attendanceGeofencePolicy: true,
-                    shiftId: true,
-                    shift: { select: { startTime: true, endTime: true } }
-                }
-            })
+            userDetails = await this.userRepo.findAttendanceSettingsById(userId)
             // Cache for 60 seconds in Redis
             if (userDetails) {
                 await redis.setex(cacheKey, 60, JSON.stringify(userDetails))
@@ -333,9 +309,7 @@ export class AttendanceService {
         }
 
         try {
-            const result = await prisma.attendance.create({
-                data: createData
-            })
+            const result = await this.attendanceRepo.create(createData)
 
             // Publish domain event
             AttendanceEventDispatcher.onCheckIn({
@@ -364,25 +338,21 @@ export class AttendanceService {
 
         const sessionPolicyService = new AttendanceSessionPolicyService()
 
-        const staleSessions = await prisma.attendance.findMany({
-            where: {
-                userId,
-                checkOut: null,
-                status: { not: 'ALPHA' },
-                checkIn: { lt: effectiveToday },
-                ...(tenantId && { tenantId })
-            }
+        const staleSessions = await this.attendanceRepo.findManyStaleSessions({
+            userId,
+            effectiveToday,
+            tenantId
         })
 
         if (staleSessions.length === 0) return
 
-        await Promise.all(staleSessions.map(async (session) => {
+        await Promise.all(staleSessions.map(async (session: { id: string; checkIn: Date; checkOut: Date | null; status: string; notes: string | null }) => {
             const decision = sessionPolicyService.resolve({
                 attendance: {
                     id: session.id,
                     checkIn: session.checkIn,
                     checkOut: session.checkOut,
-                    status: session.status,
+                    status: session.status as AttendanceStatus,
                     user: {
                         workingHourMode: (userDetails?.workingHourMode as 'FIXED' | 'SHIFT' | 'FLEXIBLE' | null) ?? null,
                         flexibleTargetHour: null,
@@ -403,13 +373,10 @@ export class AttendanceService {
             const autoNote = ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE
             const newNotes = session.notes ? `${session.notes} ${autoNote}` : autoNote
 
-            await prisma.attendance.update({
-                where: { id: session.id },
-                data: {
-                    checkOut: decision.autoCheckoutAt,
-                    notes: newNotes,
-                    status: decision.nextStatus
-                }
+            await this.attendanceRepo.update(session.id, {
+                checkOut: decision.autoCheckoutAt,
+                notes: newNotes,
+                status: decision.nextStatus
             })
         }))
     }
@@ -434,23 +401,9 @@ export class AttendanceService {
         const { userId, photoUrl, location, notes, latitude, longitude, offlineTime, tenantId } = params
 
         // 1. Find active attendance
-        const attendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                checkOut: null,
-                ...(tenantId && { tenantId })
-            },
-            orderBy: { checkIn: 'desc' },
-            include: {
-                user: {
-                    select: {
-                        workingHourMode: true,
-                        attendanceGeofencePolicy: true,
-                        flexibleTargetHour: true,
-                        name: true
-                    }
-                }
-            }
+        const attendance = await this.attendanceRepo.findFirstActiveForCheckout({
+            userId,
+            tenantId
         })
 
         if (!attendance) {
@@ -510,10 +463,7 @@ export class AttendanceService {
             updatedAt: new Date()
         }
 
-        const updatedAttendance = await prisma.attendance.update({
-            where: { id: attendance.id },
-            data: updateData
-        })
+        const updatedAttendance = await this.attendanceRepo.update(attendance.id, updateData)
 
         // Publish domain event
         AttendanceEventDispatcher.onCheckOut({
@@ -580,22 +530,7 @@ export class AttendanceService {
 
         // 4. Fetch User Work Hour Configuration for accurate standard hours calculation
         const userIds = Array.from(userMap.keys())
-        const userConfigs = userIds.length > 0 ? await prisma.user.findMany({
-            where: { id: { in: userIds } },
-            select: {
-                id: true,
-                workingHourMode: true,
-                startWorkTime: true,
-                endWorkTime: true,
-                flexibleTargetHour: true,
-                shift: {
-                    select: {
-                        startTime: true,
-                        endTime: true
-                    }
-                }
-            }
-        }) : []
+        const userConfigs = userIds.length > 0 ? await this.userRepo.findManyWithWorkConfig(userIds) : []
 
         // Create user config map for quick lookup
         const userConfigMap = new Map(userConfigs.map(u => [u.id, u]))
@@ -729,16 +664,7 @@ export class AttendanceService {
         }> = []
 
         if (topScorers.length > 0) {
-            const topScorerDetails = await prisma.user.findMany({
-                where: { id: { in: topScorers.map(u => u.userId) } },
-                select: {
-                    id: true,
-                    name: true,
-                    image: true,
-                    sites: { select: { name: true } },
-                    departments: { select: { name: true } }
-                }
-            })
+            const topScorerDetails = await this.userRepo.findManyWithBasicInfo(topScorers.map(u => u.userId))
 
             combinedTopEmployees = topScorers.map(scorer => {
                 const user = topScorerDetails.find(u => u.id === scorer.userId)
@@ -755,12 +681,6 @@ export class AttendanceService {
         const lateRate = stats.total > 0 ? (lateCount / stats.total) * 100 : 0
 
         const alphaCount = (stats.statusCounts['ALPHA'] || 0) + (stats.statusCounts['ABSENT'] || 0)
-        // Alpha rate relative to active users? OR relative to total attendance records?
-        // Usually relative to total expected days, but for simple report, maybe just count.
-        // Or % of total records (which includes presences).
-        // If 10 presence, 1 alpha. Total 11. Alpha rate 1/11.
-        // Wait, stats.total is count of ALL records (including ALPHA).
-        // Since ALPHA is a record now.
         const alphaRate = stats.total > 0 ? (alphaCount / stats.total) * 100 : 0
 
         // Build Employee Summary for "Rekap Karyawan" tab
@@ -779,16 +699,7 @@ export class AttendanceService {
         ])
 
         // Fetch all user details in one query
-        const allUsers = await prisma.user.findMany({
-            where: { id: { in: Array.from(allUserIds) } },
-            select: {
-                id: true,
-                name: true,
-                image: true,
-                sites: { select: { id: true, name: true } },
-                departments: { select: { id: true, name: true } }
-            }
-        })
+        const allUsers = await this.userRepo.findManyWithFullDetails(Array.from(allUserIds))
 
         const userDetailsMap = new Map(allUsers.map(u => [u.id, u]))
 
@@ -844,13 +755,8 @@ export class AttendanceService {
         const skip = (page - 1) * limit
 
         const [attendances, total] = await Promise.all([
-            prisma.attendance.findMany({
-                where: { userId },
-                orderBy: { checkIn: 'desc' },
-                take: limit,
-                skip
-            }),
-            prisma.attendance.count({ where: { userId } })
+            this.attendanceRepo.findManyForHistory({ userId, skip, take: limit }),
+            this.attendanceRepo.countByUserId(userId)
         ])
 
         return {
@@ -870,30 +776,9 @@ export class AttendanceService {
         // Fetch timezone for accurate time display
         const timezone = await this.timezoneService.getTimezone(options?.tenantId)
 
-        const attendance = await prismaAuth.attendance.findFirst({
-            where: {
-                userId,
-                ...(options?.tenantId ? { tenantId: options.tenantId } : {})
-            },
-            orderBy: { checkIn: 'desc' },
-            select: {
-                id: true,
-                checkIn: true,
-                checkOut: true,
-                status: true,
-                user: {
-                    select: {
-                        workingHourMode: true,
-                        flexibleTargetHour: true,
-                        shift: {
-                            select: {
-                                startTime: true,
-                                endTime: true
-                            }
-                        }
-                    }
-                }
-            }
+        const attendance = await this.attendanceRepo.findFirstForCurrentStatus({
+            userId,
+            tenantId: options?.tenantId
         }) as CurrentAttendanceRow | null
 
         const decision = attendance
@@ -955,19 +840,7 @@ export class AttendanceService {
     }
 
     async getAttendanceConfig(userId: string) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-                sites: {
-                    select: {
-                        name: true,
-                        latitude: true,
-                        longitude: true,
-                        attendanceRadius: true
-                    }
-                }
-            }
-        })
+        const user = await this.userRepo.findWithSitesById(userId)
 
         if (!user) {
             throw new Error('USER_NOT_FOUND')
@@ -983,12 +856,10 @@ export class AttendanceService {
         startDate.setDate(startDate.getDate() - days)
         const endDate = new Date()
 
-        const userAttendances = await prisma.attendance.findMany({
-            where: {
-                userId,
-                checkIn: { gte: startDate, lte: endDate }
-            },
-            orderBy: { checkIn: 'desc' }
+        const userAttendances = await this.attendanceRepo.findManyForAnalytics({
+            userId,
+            startDate,
+            endDate
         })
 
         const totalDays = userAttendances.length

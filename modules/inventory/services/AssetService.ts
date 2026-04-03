@@ -1,14 +1,19 @@
 import { AssetRepository } from '../repositories/AssetRepository'
 import type { CreateAssetInput, UpdateAssetInput, AssetWithRelations } from '../repositories/AssetRepository'
-import { prisma } from '@/lib/prisma'
 import { AssetStatus } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
+import { ExpenseCategoryRepository } from '@/modules/finance/repositories/ExpenseCategoryRepository'
+import { ExpenseRepository } from '@/modules/finance/repositories/ExpenseRepository'
 
 export class AssetService {
     private assetRepo: AssetRepository
+    private expenseCategoryRepo: ExpenseCategoryRepository
+    private expenseRepo: ExpenseRepository
 
     constructor() {
         this.assetRepo = new AssetRepository()
+        this.expenseCategoryRepo = new ExpenseCategoryRepository()
+        this.expenseRepo = new ExpenseRepository()
     }
 
     async createAsset(data: CreateAssetInput, userId: string) {
@@ -123,29 +128,25 @@ export class AssetService {
 
         // 2. Create Finance Expense
         // Find or create "Depreciation" category under ExpenseCategory
-        const depCategory = await prisma.expenseCategory.findFirst({
-            where: {
-                tenantId: asset.tenantId,
-                OR: [
-                    { name: { contains: 'penyusutan', mode: 'insensitive' } },
-                    { name: { contains: 'depreciation', mode: 'insensitive' } }
-                ]
-            }
+        const depCategory = await this.expenseCategoryRepo.findFirst({
+            tenantId: asset.tenantId,
+            OR: [
+                { name: { contains: 'penyusutan', mode: 'insensitive' } },
+                { name: { contains: 'depreciation', mode: 'insensitive' } }
+            ]
         })
         
         if (!depCategory) {
             throw new Error('Expense Category for Depreciation (e.g. "Beban Penyusutan") not found. Please create it in Finance Settings.')
         }
 
-        await prisma.expense.create({
-            data: {
-                amount: Math.round(actualAmount), // Prisma BigInt constraint expects rounded integer usually
-                date: customDate,
-                expenseCategoryId: depCategory.id,
-                category: 'Depresiasi Aset',
-                description: `Penyusutan Aset: ${asset.barang.nama} (${asset.kodeAsset})`,
-                userId: createdById,
-            }
+        await this.expenseRepo.createDepreciationExpense({
+            amount: BigInt(Math.round(actualAmount)),
+            date: customDate,
+            expenseCategoryId: depCategory.id,
+            category: 'Depresiasi Aset',
+            description: `Penyusutan Aset: ${asset.barang.nama} (${asset.kodeAsset})`,
+            userId: createdById,
         })
 
         // Log Activity

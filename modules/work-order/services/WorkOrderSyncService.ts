@@ -1,53 +1,32 @@
-import { prisma } from "@/lib/prisma"
-import type { WorkOrders, SupportTickets, WorkOrderAttachments } from "@prisma/client"
+import type { WorkOrders, WorkOrderAttachments } from "@prisma/client"
 import { WorkOrderStatus, TicketStatus } from "@prisma/client"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
 import { randomUUID } from "crypto"
+import { WorkOrderRepository } from "../repositories/WorkOrderRepository"
+import { TicketRepository } from "../repositories/TicketRepository"
+
+const workOrderRepo = new WorkOrderRepository()
+const ticketRepo = new TicketRepository()
 
 export async function syncWoStatusToTicket(workOrderId: string, status: WorkOrderStatus) {
-    // console.log(`[SyncService] Syncing WO ${workOrderId} status ${status}`)
     try {
-        const workOrder = await prisma.workOrders.findUnique({
-            where: { id: workOrderId },
-            include: {
-                ticket: true,
-                attachments: true
-            }
-        }) as (WorkOrders & {
-            ticket: SupportTickets | null,
-            attachments: WorkOrderAttachments[]
-        }) | null;
+        const workOrder = await workOrderRepo.findByIdWithTicketAndAttachments(workOrderId)
 
         if (!workOrder) {
-            // console.log(`[SyncService] WO not found`)
             return
         }
 
         if (!workOrder.ticketId) {
-            // console.log(`[SyncService] WO ${workOrder.workOrderNumber} has no ticketId`)
             return
         }
 
-        // console.log(`[SyncService] Found linked Ticket ${workOrder.ticketId}`)
-
         if (status === "IN_PROGRESS") {
-            // Update Ticket to IN_PROGRESS
-            // console.log(`[SyncService] Updating ticket to IN_PROGRESS`)
-            await prisma.supportTickets.update({
-                where: { id: workOrder.ticketId },
-                data: { status: TicketStatus.IN_PROGRESS }
-            })
+            await ticketRepo.updateStatus(workOrder.ticketId, TicketStatus.IN_PROGRESS)
         } else if (status === "COMPLETED") {
-            // Update Ticket to RESOLVED (Sudah Dikerjakan)
-            // console.log(`[SyncService] Updating ticket to RESOLVED and sending report`)
-            await prisma.supportTickets.update({
-                where: { id: workOrder.ticketId },
-                data: { status: TicketStatus.RESOLVED }
-            })
+            await ticketRepo.updateStatus(workOrder.ticketId, TicketStatus.RESOLVED)
 
-            // Send Completion Report
-            const completionPhotos = workOrder.attachments.filter(a => a.caption?.startsWith('[COMPLETION]'))
+            const completionPhotos = (workOrder.attachments as WorkOrderAttachments[]).filter((a: WorkOrderAttachments) => a.caption?.startsWith('[COMPLETION]'))
 
             let message = `**Laporan Pekerjaan Selesai**\n\n` +
                 `Work Order #${workOrder.workOrderNumber} telah diselesaikan.\n` +
@@ -59,19 +38,16 @@ export async function syncWoStatusToTicket(workOrderId: string, status: WorkOrde
                 message += `\n**Bukti Foto:**\n`
             }
 
-            const attachUrls = completionPhotos.map(p => p.filePath)
+            const attachUrls = completionPhotos.map((p: WorkOrderAttachments) => p.filePath)
 
-            await prisma.ticketReplies.create({
-                data: {
-                    id: randomUUID(),
-                    ticketId: workOrder.ticketId,
-                    message: message,
-                    isFromAdmin: true,
-                    attachments: attachUrls.length > 0 ? JSON.stringify(attachUrls) : undefined,
-                    senderId: workOrder.assignedToId
-                }
+            await ticketRepo.createReply({
+                id: randomUUID(),
+                ticketId: workOrder.ticketId,
+                message: message,
+                isFromAdmin: true,
+                senderId: workOrder.assignedToId,
+                attachments: attachUrls.length > 0 ? JSON.stringify(attachUrls) : undefined,
             })
-            // console.log(`[SyncService] Report sent successfully`)
         }
 
     } catch (error) {
@@ -80,47 +56,23 @@ export async function syncWoStatusToTicket(workOrderId: string, status: WorkOrde
 }
 
 export async function closeWoOnTicketClose(ticketId: string) {
-    // console.log(`[SyncService] Closing WOs for Ticket ${ticketId}`)
     try {
-        const wos = await prisma.workOrders.findMany({
-            where: { ticketId: ticketId }
-        })
+        const wos = await workOrderRepo.findManyByTicketId(ticketId)
 
         for (const wo of wos) {
             if (wo.status === "PENDING") {
-                // WO Belum Diambil -> BATAL
-                // console.log(`[SyncService] WO ${wo.workOrderNumber} is PENDING -> CANCELLED`)
-                await prisma.workOrders.update({
-                    where: { id: wo.id },
-                    data: {
-                        status: "CANCELLED",
-                        closedAt: new Date(),
-                        resolutionNotes: "Tiket ditutup sebelum WO diambil"
-                    }
+                await workOrderRepo.update(wo.id, {
+                    status: "CANCELLED",
+                    resolutionNotes: "Tiket ditutup sebelum WO diambil"
                 })
             } else if (wo.status === "ASSIGNED" || wo.status === "IN_PROGRESS" || wo.status === "ON_HOLD") {
-                // WO Sudah Diambil tapi belum selesai -> CLOSED tanpa kirim laporan
-                // console.log(`[SyncService] WO ${wo.workOrderNumber} is ${wo.status} -> CLOSED (No Report)`)
-                await prisma.workOrders.update({
-                    where: { id: wo.id },
-                    data: {
-                        status: "CLOSED",
-                        completedAt: new Date(),
-                        verifiedAt: new Date(),
-                        closedAt: new Date(),
-                        resolutionNotes: "Tiket ditutup manual oleh Admin"
-                    }
+                await workOrderRepo.update(wo.id, {
+                    status: "CLOSED",
+                    resolutionNotes: "Tiket ditutup manual oleh Admin"
                 })
             } else if (wo.status === "COMPLETED" || wo.status === "VERIFIED") {
-                // WO Sudah Selesai -> Archive (CLOSED)
-                // console.log(`[SyncService] WO ${wo.workOrderNumber} is ${wo.status} -> CLOSED (Archive)`)
-                await prisma.workOrders.update({
-                    where: { id: wo.id },
-                    data: {
-                        status: "CLOSED",
-                        verifiedAt: wo.verifiedAt || new Date(),
-                        closedAt: new Date()
-                    }
+                await workOrderRepo.update(wo.id, {
+                    status: "CLOSED",
                 })
             }
         }

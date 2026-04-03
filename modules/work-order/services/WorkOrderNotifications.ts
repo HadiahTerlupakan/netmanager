@@ -12,9 +12,12 @@ import {
     notifyWorkOrderUpdate,
     createNotification,
 } from '@/modules/notification';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { CanvasingRepository } from '../repositories/CanvasingRepository';
+import { UserRepository } from '@/modules/users/repositories/UserRepository';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
+
+const canvasingRepo = new CanvasingRepository();
+const userRepo = new UserRepository();
 
 interface WorkOrderData {
     id: string;
@@ -117,14 +120,7 @@ export async function onWorkOrderStatusChanged(
 async function notifyCanvasingSalesOnWOStatusChange(workOrderId: string, newStatus: string) {
     try {
         // Check if this WO is linked to a canvasing
-        const canvasing = await prisma.canvasing.findFirst({
-            where: { workOrderId },
-            select: {
-                id: true,
-                nama: true,
-                salesId: true,
-            }
-        });
+        const canvasing = await canvasingRepo.findByWorkOrderId(workOrderId);
 
         if (!canvasing || !canvasing.salesId) return;
 
@@ -225,36 +221,20 @@ export async function sendWorkOrderReminder(
             return 0;
         }
 
-        // Build query: teknisi aktif di site WO dengan push token
-        const whereClause: Prisma.UserWhereInput = {
-            isActive: true,
-            pushToken: { not: null },
-            OR: [
-                { siteId: workOrder.siteId }, // Legacy: direct siteId
-                { userSites: { some: { siteId: workOrder.siteId } } } // Multi-site
-            ]
-        };
-
-        // Jika ada departmentId → tambahkan filter department (opsional, untuk tidak ganggu dept lain)
-        if (workOrder.departmentId) {
-            whereClause.departmentId = workOrder.departmentId;
-            // console.log(`[Push] Filtering by department: ${workOrder.departmentId}`);
-        }
-
-        const techniciansInSite = await prisma.user.findMany({
-            where: whereClause,
-            select: { id: true }
-        });
+        const techniciansInSite = await userRepo.findManyActiveWithPushTokenAndSite(
+            workOrder.departmentId || undefined,
+            workOrder.siteId
+        );
 
         if (techniciansInSite.length === 0) {
             const _deptInfo = workOrder.departmentId ? ` in department ${workOrder.departmentId}` : '';
-            // console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}${deptInfo}`);
+            // console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}${_deptInfo}`);
             return 0;
         }
 
-        const userIds = techniciansInSite.map(u => u.id);
+        const userIds = techniciansInSite.map((u: { id: string }) => u.id);
         const _deptInfo = workOrder.departmentId ? ` (filtered by dept)` : '';
-        // console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${deptInfo}`);
+        // console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${_deptInfo}`);
         
         return await sendPushToUsers(
             userIds,

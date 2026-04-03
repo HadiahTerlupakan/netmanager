@@ -1,17 +1,16 @@
-import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { LeaveBalanceRepository } from '../repositories/LeaveBalanceRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
+import { AttendanceRepository } from '../repositories/AttendanceRepository'
+import { UserRepository } from '@/modules/users/repositories/UserRepository'
 import { calculateWorkingDays } from '../utils/calculateWorkingDays'
 import { createNotification } from '@/modules/notification/services/NotificationService'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import type { LeaveStatus, LeaveType, AttendanceStatus } from '@prisma/client'
-import { randomUUID } from 'crypto'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
-// Standard ServiceResult pattern
 export interface ServiceResult<T> {
     success: boolean
     data?: T
@@ -42,20 +41,21 @@ export class LeaveService {
     private repository: LeaveRepository
     private balanceRepository: LeaveBalanceRepository
     private holidayRepository: HolidayRepository
+    private attendanceRepository: AttendanceRepository
+    private userRepository: UserRepository
 
     constructor() {
         this.repository = new LeaveRepository()
         this.balanceRepository = new LeaveBalanceRepository()
         this.holidayRepository = new HolidayRepository()
+        this.attendanceRepository = new AttendanceRepository()
+        this.userRepository = new UserRepository()
     }
 
     private async calculateWorkingDays(startDate: Date, endDate: Date, tenantId: string, workDaysStr: string | null = null): Promise<number> {
         return calculateWorkingDays(startDate, endDate, workDaysStr, this.holidayRepository, tenantId)
     }
 
-    /**
-     * Get all leaves with filters and pagination
-     */
     async getLeaves(
         filters: LeaveFilters,
         page: number = 1,
@@ -89,15 +89,9 @@ export class LeaveService {
         }
     }
 
-    /**
-     * Get single leave by ID
-     */
     async getLeaveById(id: string, tenantId: string): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<{ include: { user: true } }>>> {
         try {
-            const leave = await prisma.leaveRequest.findUnique({
-                where: { id, tenantId },
-                include: { user: true }
-            })
+            const leave = await this.repository.findByIdWithUser(id, tenantId)
             if (!leave) {
                 return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
@@ -108,9 +102,6 @@ export class LeaveService {
         }
     }
 
-    /**
-     * Create new leave request (admin manual entry)
-     */
     async createLeave(
         data: CreateLeaveData,
         createdById: string,
@@ -118,13 +109,9 @@ export class LeaveService {
         autoApprove: boolean = true
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
-            // Validation for Auto-Approve: Check Balance
             let leaveDays = 0
             if (autoApprove) {
-                const user = await prisma.user.findUnique({
-                    where: { id: data.userId, tenantId },
-                    select: { workingHourMode: true, workDays: true }
-                })
+                const user = await this.userRepository.findWorkScheduleByIdWithTenant(data.userId, tenantId)
 
                 if (user && user.workingHourMode !== 'FLEXIBLE' && data.type !== 'TUKAR_LIBUR') {
                     leaveDays = await this.calculateWorkingDays(data.startDate, data.endDate, tenantId, user.workDays)
@@ -149,7 +136,6 @@ export class LeaveService {
                 tenantId: tenantId
             })
 
-            // If auto-approved, update balance
             if (autoApprove && leaveDays > 0) {
                 try {
                     const year = data.startDate.getFullYear()
@@ -165,13 +151,9 @@ export class LeaveService {
                 }
             }
 
-            // Sync with Attendance if Approved
             if (autoApprove) {
                 try {
-                    const leaveForSync = await prisma.leaveRequest.findUnique({
-                        where: { id: leave.id, tenantId },
-                        include: { user: true }
-                    })
+                    const leaveForSync = await this.repository.findByIdWithUser(leave.id, tenantId)
                     if (leaveForSync) {
                         await this.syncLeaveToAttendance(leaveForSync)
                     }
@@ -180,7 +162,6 @@ export class LeaveService {
                 }
             }
 
-            // Log activity
             await this.logActivity('CREATE', 'LeaveRequest', createdById, {
                 id: leave.id,
                 userId: data.userId,
@@ -196,38 +177,20 @@ export class LeaveService {
     }
 
     async syncApprovedLeaveToAttendanceRange(startDate: Date, endDate: Date, tenantId: string, userId?: string): Promise<void> {
-        const leaves = await prisma.leaveRequest.findMany({
-            where: {
-                tenantId,
-                status: 'APPROVED',
-                ...(userId ? { userId } : {}),
-                startDate: { lte: endDate },
-                endDate: { gte: startDate }
-            },
-            include: {
-                user: true
-            }
-        })
+        const leaves = await this.repository.findApprovedInRangeWithUser(startDate, endDate, tenantId, userId)
 
         for (const leave of leaves) {
             await this.syncLeaveToAttendance(leave)
         }
     }
 
-    /**
-     * Approve leave request
-     */
     async approveLeave(
         id: string,
         approverId: string,
         tenantId: string
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
-            // Get existing leave with user data
-            const existing = await prisma.leaveRequest.findUnique({
-                where: { id, tenantId },
-                include: { user: true }
-            })
+            const existing = await this.repository.findByIdWithUser(id, tenantId)
 
             if (!existing) {
                 return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
@@ -237,7 +200,6 @@ export class LeaveService {
                  return { success: false, error: 'Cuti sudah disetujui', code: 'ALREADY_APPROVED' }
             }
 
-            // Calculate days and check balance BEFORE approving
             let leaveDays = 0
             const shouldCheckBalance = existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR'
 
@@ -258,13 +220,11 @@ export class LeaveService {
                 }
             }
 
-            // Update status
             const leave = await this.repository.update(id, {
                 status: 'APPROVED',
                 approvedBy: approverId
             })
 
-            // Update LeaveBalance
             if (shouldCheckBalance && leaveDays > 0) {
                 try {
                     const year = existing.startDate.getFullYear()
@@ -280,14 +240,12 @@ export class LeaveService {
                 }
             }
 
-            // Sync with Attendance
             try {
                 await this.syncLeaveToAttendance(existing)
             } catch (error) {
                 logger.error('Failed to sync leave to attendance in approve', error instanceof Error ? error : undefined)
             }
 
-            // Log activity
             await this.logActivity('UPDATE', 'LeaveRequest', approverId, {
                 id,
                 status: 'APPROVED',
@@ -295,7 +253,6 @@ export class LeaveService {
                 employeeName: existing.user.name
             })
 
-            // Send notification to user
             await this.sendNotification(
                 existing.userId,
                 '✅ Izin Disetujui',
@@ -310,9 +267,6 @@ export class LeaveService {
         }
     }
 
-    /**
-     * Reject leave request
-     */
     async rejectLeave(
         id: string,
         approverId: string,
@@ -320,16 +274,12 @@ export class LeaveService {
         rejectionReason: string
     ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
         try {
-            const existing = await prisma.leaveRequest.findUnique({
-                where: { id, tenantId },
-                include: { user: true }
-            })
+            const existing = await this.repository.findByIdWithUser(id, tenantId)
 
             if (!existing) {
                 return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
 
-            // Refund balance if previously approved
             if (existing.status === 'APPROVED') {
                 if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
                      try {
@@ -347,8 +297,7 @@ export class LeaveService {
                         logger.error('Failed to refund leave balance', error instanceof Error ? error : undefined)
                     }
                 }
-                
-                // Also revert the Attendance records
+
                 try {
                     await this.revertLeaveFromAttendance(existing)
                 } catch (error) {
@@ -361,7 +310,6 @@ export class LeaveService {
                 rejectionReason
             })
 
-            // Log activity
             await this.logActivity('UPDATE', 'LeaveRequest', approverId, {
                 id,
                 status: 'REJECTED',
@@ -370,7 +318,6 @@ export class LeaveService {
                 employeeName: existing.user.name
             })
 
-            // Send notification to user
             await this.sendNotification(
                 existing.userId,
                 '❌ Izin Ditolak',
@@ -385,21 +332,14 @@ export class LeaveService {
         }
     }
 
-    /**
-     * Delete leave request
-     */
     async deleteLeave(id: string, deletedById: string, tenantId: string): Promise<ServiceResult<void>> {
         try {
-            const existing = await prisma.leaveRequest.findUnique({
-                where: { id, tenantId },
-                include: { user: true }
-            })
+            const existing = await this.repository.findByIdWithUser(id, tenantId)
 
             if (!existing) {
                 return { success: false, error: 'Cuti tidak ditemukan', code: 'NOT_FOUND' }
             }
 
-            // Refund balance if previously approved
             if (existing.status === 'APPROVED') {
                 if (existing.user.workingHourMode !== 'FLEXIBLE' && existing.type !== 'TUKAR_LIBUR') {
                      try {
@@ -418,7 +358,6 @@ export class LeaveService {
                     }
                 }
 
-                // Also revert the Attendance records
                 try {
                     await this.revertLeaveFromAttendance(existing)
                 } catch (error) {
@@ -428,7 +367,6 @@ export class LeaveService {
 
             await this.repository.delete(id)
 
-            // Log activity
             await this.logActivity('DELETE', 'LeaveRequest', deletedById, {
                 id,
                 employeeName: existing.user?.name
@@ -444,26 +382,20 @@ export class LeaveService {
         }
     }
 
-    /**
-     * Helper: Sync approved leave to attendance
-     */
     private async syncLeaveToAttendance(leave: Prisma.LeaveRequestGetPayload<{ include: { user: true } }>): Promise<void> {
         const startDate = new Date(leave.startDate)
         const endDate = new Date(leave.endDate)
         const curDate = new Date(startDate)
 
-        // Reset hours
         curDate.setTime(toStartOfDay(curDate).getTime())
         const lastDate = new Date(endDate)
         lastDate.setTime(toStartOfDay(lastDate).getTime())
 
-        // Determine status based on LeaveType
         let status: AttendanceStatus = 'PERMIT'
         if (leave.type === 'SAKIT') status = 'SICK'
         else if (leave.type === 'TUKAR_LIBUR') status = 'DAY_OFF'
         else if (leave.type === 'CUTI') status = 'PERMIT'
 
-        // Parse work days
         const workDaysStr = leave.user.workDays
         const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
         const allowedDays = workDaysStr ? workDaysStr.split(',').map((d: string) => d.trim()) : defaultWorkDays
@@ -473,19 +405,15 @@ export class LeaveService {
             const dayIndex = curDate.getDay()
             const dayName = dayNames[dayIndex]
 
-            // Only process work days
             if (allowedDays.includes(dayName)) {
-                // Check holiday
                 const { isHoliday } = await this.holidayRepository.isHoliday(curDate, leave.tenantId)
                 if (!isHoliday) {
-                    // Start of Day and End of Day for query
                     const dayStart = new Date(curDate)
                     dayStart.setTime(toStartOfDay(dayStart).getTime())
                     const dayEnd = new Date(curDate)
                     dayEnd.setTime(toEndOfDay(dayEnd).getTime())
 
-                    // Check existing attendance
-                    const existingAttendance = await prisma.attendance.findFirst({
+                    const existingAttendance = await this.attendanceRepository.findFirst({
                         where: {
                             userId: leave.userId,
                             checkIn: {
@@ -497,37 +425,29 @@ export class LeaveService {
                     })
 
                     if (existingAttendance) {
-                        // UPDATE existing
                         const leaveMarker = `(${leave.type})`
                         const shouldUpdateLeaveMarker = !existingAttendance.notes?.includes(leaveMarker)
                         if (existingAttendance.status !== status || shouldUpdateLeaveMarker) {
-                            await prisma.attendance.update({
-                                where: { id: existingAttendance.id },
-                                data: {
-                                    status: status,
-                                    notes: existingAttendance.notes 
-                                        ? `${existingAttendance.notes} | Updated by Leave Approval (${leave.type})` 
-                                        : `Updated by Leave Approval (${leave.type})`
-                                }
+                            await this.attendanceRepository.update(existingAttendance.id, {
+                                status: status,
+                                notes: existingAttendance.notes
+                                    ? `${existingAttendance.notes} | Updated by Leave Approval (${leave.type})`
+                                    : `Updated by Leave Approval (${leave.type})`
                             })
                         }
                     } else {
-                        // CREATE new
-                        // Create dummy checkIn at 00:00:00
                         const checkInTime = new Date(curDate)
                         checkInTime.setTime(toStartOfDay(checkInTime).getTime())
 
-                        await prisma.attendance.create({
-                            data: {
-                                id: randomUUID(),
-                                userId: leave.userId,
-                                checkIn: checkInTime,
-                                status: status,
-                                location: 'System (Auto-Sync)',
-                                notes: `Auto-generated from Leave Request (${leave.type})`,
-                                updatedAt: new Date(),
-                                tenantId: leave.tenantId
-                            }
+                        await this.attendanceRepository.createWithId({
+                            id: crypto.randomUUID(),
+                            userId: leave.userId,
+                            tenantId: leave.tenantId,
+                            checkIn: checkInTime,
+                            status: status,
+                            notes: `Auto-generated from Leave Request (${leave.type})`,
+                            location: 'System (Auto-Sync)',
+                            updatedAt: new Date()
                         })
                     }
                 }
@@ -536,38 +456,29 @@ export class LeaveService {
         }
     }
 
-    /**
-     * Helper: Revert synced leave from attendance
-     */
     private async revertLeaveFromAttendance(leave: Prisma.LeaveRequestGetPayload<{ include: { user: true } }>): Promise<void> {
         const startDate = new Date(leave.startDate)
         const endDate = new Date(leave.endDate)
-        
+
         startDate.setTime(toStartOfDay(startDate).getTime())
         endDate.setTime(toEndOfDay(endDate).getTime())
 
-        // Delete all 'PERMIT', 'SICK', 'DAY_OFF' attendances in this range that have "Auto-generated from Leave Request" or "Updated by Leave Approval"
-        await prisma.attendance.deleteMany({
-            where: {
-                userId: leave.userId,
-                tenantId: leave.tenantId,
-                checkIn: {
-                    gte: startDate,
-                    lte: endDate
-                },
-                status: {
-                    in: ['SICK', 'PERMIT', 'DAY_OFF']
-                },
-                notes: {
-                    contains: 'Leave'
-                }
+        await this.attendanceRepository.deleteMany({
+            userId: leave.userId,
+            tenantId: leave.tenantId,
+            checkIn: {
+                gte: startDate,
+                lte: endDate
+            },
+            status: {
+                in: ['SICK', 'PERMIT', 'DAY_OFF']
+            },
+            notes: {
+                contains: 'Leave'
             }
         })
     }
 
-    /**
-     * Helper: Log activity
-     */
     private logActivity(
         action: string,
         subject: string,
@@ -577,9 +488,6 @@ export class LeaveService {
         logActivitySafe({ action, subject, userId, details })
     }
 
-    /**
-     * Helper: Send notification
-     */
     private async sendNotification(
         userId: string,
         title: string,
@@ -603,7 +511,6 @@ export class LeaveService {
     }
 }
 
-// Singleton instance
 let leaveServiceInstance: LeaveService | null = null
 
 export function getLeaveService(): LeaveService {

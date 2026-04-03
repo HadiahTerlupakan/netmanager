@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { PelangganService } from '@/modules/pelanggan'
+import { CustomerPortalService } from '@/modules/pelanggan/services/CustomerPortalService'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
-const pelangganService = new PelangganService()
+const customerPortalService = new CustomerPortalService()
 
 /**
  * GET - Get customer profile
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
             return authResult.response
         }
 
-        const profile = await pelangganService.getProfile(authResult.session.id)
+        const profile = await customerPortalService.getProfile(authResult.session.id)
 
         return apiSuccess({ profile })
     } catch (error: unknown) {
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest) {
                 return apiError('Password saat ini harus diisi untuk mengganti password', ErrorCodes.VALIDATION_ERROR, { status: 400 })
             }
 
-            await pelangganService.changePassword(
+            await customerPortalService.changePassword(
                 authResult.session.id,
                 currentPassword,
                 newPassword
@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest) {
             return apiSuccess(null, { message: 'Password berhasil diubah' })
         }
 
-        const updated = await pelangganService.updateProfile(authResult.session.id, {
+        const updated = await customerPortalService.updateProfile(authResult.session.id, {
             noTelp,
             is2FAEnabled,
             isBillNotifEnabled,

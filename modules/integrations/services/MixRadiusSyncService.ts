@@ -1,29 +1,19 @@
-import { prisma } from "@/lib/prisma"
-import { prismaBilling } from '@/lib/prisma-billing';
 import type { MixRadiusCustomerDetail, MixRadiusIncomePeriodRecord } from "./MixRadiusService"
 import { getMixRadiusService } from "./MixRadiusService"
-import { randomUUID } from "crypto"
+import { MixRadiusRepository } from "../repositories/MixRadiusRepository"
 
 export class MixRadiusSyncService {
-  /**
-   * Sync customer data from MixRadius to Local Database.
-   * 
-   * Strategy:
-   * 1. Check if customer already exists by mixRadiusId.
-   * 2. If not, check by username (idPelanggan).
-   * 3. Resolve HargaPaket (Plan):
-   *    - Search for package with same name.
-   *    - If not found, pick the first available active package as fallback.
-   * 4. Upsert (Create or Update) the Pelanggan record.
-   */
+  private repo: MixRadiusRepository
+
+  constructor() {
+    this.repo = new MixRadiusRepository()
+  }
+
   async syncCustomer(data: MixRadiusCustomerDetail, tenantId?: string) {
     if (!data.username) {
       throw new Error("Username diperlukan untuk sinkronisasi")
     }
 
-    // console.log(`[MixRadiusSync] Syncing customer: ${data.username} (${data.id})`)
-
-    // Prepare Data
     const customerData = {
       mixRadiusId: data.id,
       username: data.username,
@@ -37,55 +27,25 @@ export class MixRadiusSyncService {
       lastSyncedAt: new Date(),
     }
 
-    // Upsert into MixRadiusCustomer using mixRadiusId as the unique key
     const finalTenantId = tenantId || "DEFAULT"
-    const result = await prismaBilling.mixRadiusCustomer.upsert({
-      where: {
-        tenantId_mixRadiusId: {
-          tenantId: finalTenantId,
-          mixRadiusId: data.id
-        }
-      },
-      update: customerData,
-      create: {
-        id: randomUUID(),
-        ...customerData,
-        tenantId: finalTenantId
-      }
+    const result = await this.repo.upsertMixRadiusCustomer({
+      ...customerData,
+      tenantId: finalTenantId
     })
 
-    // Try to link to Pelanggan table
     let linkedToPelanggan = false
     try {
-      // 1. Find by mixRadiusId
-      let pelanggan = await prisma.pelanggan.findUnique({
-        where: { mixRadiusId: data.id }
-      })
+      let pelanggan = await this.repo.findPelangganByMixRadiusId(data.id)
 
-      // 2. Fallback: Find by username (corresponding to idPelanggan)
       if (!pelanggan) {
-        pelanggan = await prisma.pelanggan.findFirst({
-          where: { idPelanggan: data.username }
-        })
+        pelanggan = await this.repo.findPelangganByUsername(data.username)
       }
 
-      // 3. Update Pelanggan with mixRadiusId if found and not linked
       if (pelanggan && pelanggan.mixRadiusId !== data.id) {
-        await prisma.pelanggan.update({
-          where: { id: pelanggan.id },
-          data: {
-            mixRadiusId: data.id,
-            lastSyncedAt: new Date()
-          }
-        })
+        await this.repo.updatePelangganMixRadiusLink(pelanggan.id, data.id)
         linkedToPelanggan = true
-        // console.log(`[MixRadiusSync] Linked customer ${data.username} to Pelanggan table.`)
       } else if (pelanggan) {
-        // Already linked, just update timestamp
-        await prisma.pelanggan.update({
-          where: { id: pelanggan.id },
-          data: { lastSyncedAt: new Date() }
-        })
+        await this.repo.updatePelangganSyncTimestamp(pelanggan.id)
         linkedToPelanggan = true
       }
     } catch (err) {
@@ -95,9 +55,6 @@ export class MixRadiusSyncService {
     return { action: "synced", customer: result, linked: linkedToPelanggan }
   }
 
-  /**
-   * Sync all customers from MixRadius to populate status and expiry dates.
-   */
   async syncAllCustomers() {
     try {
       const service = getMixRadiusService()
@@ -109,7 +66,6 @@ export class MixRadiusSyncService {
 
       let count = 0
       for (const customer of response.data) {
-        // Prepare data to be consistent with syncCustomer
         const customerData = {
           mixRadiusId: customer.id,
           username: customer.username,
@@ -120,24 +76,13 @@ export class MixRadiusSyncService {
           lastSyncedAt: new Date(),
         }
 
-        await prismaBilling.mixRadiusCustomer.upsert({
-          where: {
-            tenantId_mixRadiusId: {
-              tenantId: "DEFAULT",
-              mixRadiusId: customer.id
-            }
-          },
-          update: customerData,
-          create: {
-            id: randomUUID(),
-            ...customerData,
-            tenantId: "DEFAULT"
-          }
+        await this.repo.upsertMixRadiusCustomer({
+          ...customerData,
+          tenantId: "DEFAULT"
         })
         count++
       }
 
-      // console.log(`[MixRadiusSync] Successfully synced ${count} customers`)
       return { success: true, count }
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'name' in error && error.name === 'MixRadiusConfigError') {
@@ -150,9 +95,6 @@ export class MixRadiusSyncService {
     }
   }
 
-  /**
-   * Sync specifically for settlement (H-1)
-   */
   async syncYesterdaySettlement() {
     const yesterday = new Date()
     yesterday.setDate(yesterday.getDate() - 1)
@@ -162,45 +104,36 @@ export class MixRadiusSyncService {
     return await this.syncInvoices(dateStr, dateStr)
   }
 
-  /**
-   * Sync invoices from MixRadius to Local Database.
-   * Default to current month if dates not provided.
-   */
   async syncInvoices(startDate?: string, endDate?: string) {
     try {
       const service = getMixRadiusService()
 
-      // Default to current month if not provided
       const now = new Date()
       const start = startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
 
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
       const end = endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`
 
-      // console.log(`[MixRadiusSync] Syncing invoices from ${start} to ${end}`)
-
       const response = await service.fetchIncomeByPeriod({
         startDate: start,
         endDate: end,
-        length: 10000, // Fetch all for the period
+        length: 10000,
       })
 
       if (!response.data || !Array.isArray(response.data)) {
-        // console.log("[MixRadiusSync] No invoices found for period")
         return { success: true, count: 0 }
       }
 
       let syncCount = 0
       for (const record of response.data) {
         try {
-          await this.upsertInvoice(record, undefined) // TODO: handle tenantId if needed for batch sync
+          await this.upsertInvoice(record, undefined)
           syncCount++
         } catch (err) {
           console.error(`[MixRadiusSync] Failed to sync invoice ${record.invoice}:`, err)
         }
       }
 
-      // console.log(`[MixRadiusSync] Successfully synced ${syncCount} invoices`)
       return { success: true, count: syncCount }
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'name' in error && error.name === 'MixRadiusConfigError') {
@@ -217,69 +150,37 @@ export class MixRadiusSyncService {
     const mixRadiusId = record.customer_id || record.username;
     const finalTenantId = tenantId || "DEFAULT"
 
-    // Ensure customer exists to satisfy foreign key constraint
-    // Use mixRadiusId as primary key for upsert to handle username changes
-    await prismaBilling.mixRadiusCustomer.upsert({
-      where: {
-        tenantId_mixRadiusId: {
-          tenantId: finalTenantId,
-          mixRadiusId: mixRadiusId
-        }
-      },
-      update: {
-        username: record.username,
-        fullName: record.fullname,
-        ownerName: record.owner_name,
-        lastSyncedAt: new Date()
-      },
-      create: {
-        id: randomUUID(),
-        mixRadiusId: mixRadiusId,
-        username: record.username,
-        fullName: record.fullname,
-        ownerName: record.owner_name,
-        address: record.address,
-        phoneNumber: record.phonenumber,
-        planName: record.plan_name,
-        lastSyncedAt: new Date(),
-        tenantId: finalTenantId
-      }
+    await this.repo.upsertMixRadiusCustomer({
+      mixRadiusId,
+      tenantId: finalTenantId,
+      username: record.username,
+      fullName: record.fullname,
+      ownerName: record.owner_name,
+      address: record.address,
+      phoneNumber: record.phonenumber,
+      planName: record.plan_name,
+      lastSyncedAt: new Date(),
     })
 
-    // Remove formatting from price if any and convert to number
     const amount = parseFloat(record.total.replace(/[^0-9.-]+/g, "")) || 0
     const issuedDate = this.parseDate(record.renewed_on) || new Date()
     const expiredOn = this.parseDate(record.expired_on)
 
-    const invoiceData = {
+    return await this.repo.upsertMixRadiusInvoice({
       mixRadiusId: record.id,
+      tenantId: finalTenantId,
+      invoiceNumber: record.invoice,
       username: record.username,
       fullName: record.fullname,
       ownerName: record.owner_name,
       planName: record.plan_name,
-      amount: amount,
+      amount,
       status: record.trx_status.toUpperCase() === "SUCCESS" ? "PAID" : record.trx_status.toUpperCase(),
       paymentMethod: record.payment_method,
-      issuedDate: issuedDate,
+      issuedDate,
       dueDate: expiredOn,
-      expiredOn: expiredOn,
+      expiredOn,
       syncedAt: new Date(),
-    }
-
-    return await prismaBilling.mixRadiusInvoice.upsert({
-      where: {
-        tenantId_invoiceNumber: {
-          tenantId: finalTenantId,
-          invoiceNumber: record.invoice
-        }
-      },
-      update: invoiceData,
-      create: {
-        id: randomUUID(),
-        invoiceNumber: record.invoice,
-        ...invoiceData,
-        tenantId: finalTenantId
-      }
     })
   }
 
@@ -287,22 +188,17 @@ export class MixRadiusSyncService {
     const now = new Date();
     const service = getMixRadiusService();
 
-    // 1. Resolve groupId to owners list
     let owners: string[] | null = null;
     if (groupId && groupId !== "all") {
-      const group = await prismaBilling.mixRadiusOwnerGroup.findUnique({
-        where: { id: groupId },
-      });
+      const group = await this.repo.findOwnerGroupById(groupId);
       if (group && group.owners && group.owners.length > 0) {
         owners = group.owners.map(o => o.split(/[—–-]/)[0].trim().toLowerCase());
       }
     }
 
-    // 2. Fetch data directly from MixRadius
     const response = await service.fetchCustomersPPP({ length: 10000 });
     const allCustomers = response.data || [];
 
-    // 3. Filter and Calculate
     const stats = {
       under30: { count: 0, sum: 0 },
       between30And60: { count: 0, sum: 0 },
@@ -312,12 +208,7 @@ export class MixRadiusSyncService {
 
     let totalCustomers = 0;
 
-    // Pre-calculate average prices per plan for fallback estimation
-    const planAverages = await prismaBilling.mixRadiusInvoice.groupBy({
-      by: ["planName"],
-      _avg: { amount: true },
-      where: { amount: { gt: 0 } },
-    });
+    const planAverages = await this.repo.getInvoicePlanAverages();
 
     const planPriceMap = new Map<string, number>();
     planAverages.forEach((pa) => {
@@ -326,21 +217,16 @@ export class MixRadiusSyncService {
       }
     });
 
-    const globalAverageResult = await prismaBilling.mixRadiusInvoice.aggregate({
-      _avg: { amount: true },
-      where: { amount: { gt: 0 } },
-    });
+    const globalAverageResult = await this.repo.getInvoiceGlobalAverage();
     const globalAverage = Number(globalAverageResult._avg.amount) || 150000;
 
     for (const customer of allCustomers) {
-      // Site/Owner Filter
       if (owners && (!customer.owner_name || !owners.includes(customer.owner_name.toLowerCase().trim()))) {
         continue;
       }
 
       totalCustomers++;
 
-      // NPL Filter
       const expiredDate = this.parseDate(customer.expired_on);
       const isExpired = expiredDate && expiredDate < now;
       const isNPL =
@@ -352,7 +238,6 @@ export class MixRadiusSyncService {
         const diffTime = now.getTime() - expiredDate.getTime();
         const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
 
-        // Estimate amount
         let amount = 0;
         if (customer.total) {
           amount = typeof customer.total === "string"

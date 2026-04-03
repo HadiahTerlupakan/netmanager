@@ -2,7 +2,7 @@ import { RabExpenseType } from "@prisma/client";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { buildRabRevisionVarianceSummary, getVarianceLabel } from "@/modules/finance/rab-revision-variance";
+import { buildRabRevisionVarianceSummary, getVarianceLabel } from "@/modules/finance/utils/rab-revision-variance";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/rbac";
 

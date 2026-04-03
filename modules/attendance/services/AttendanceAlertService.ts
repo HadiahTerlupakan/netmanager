@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma'
 import { redis } from '@/lib/redis'
 import { cache } from '@/lib/cache'
 import { sendPushNotification } from '@/modules/notification/services/ExpoPushService'
@@ -6,7 +5,15 @@ import { createNotification } from '@/modules/notification/services/Notification
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { randomUUID } from 'crypto'
 import { getTimezone } from '@/lib/utils/get-timezone'
+import { AttendanceRepository } from '../repositories/AttendanceRepository'
+import { LeaveRepository } from '../repositories/LeaveRepository'
+import { HolidayRepository } from '../repositories/HolidayRepository'
+import { UserRepository } from '@/modules/users/repositories/UserRepository'
 
+const attendanceRepo = new AttendanceRepository()
+const leaveRepo = new LeaveRepository()
+const holidayRepo = new HolidayRepository()
+const userRepository = new UserRepository()
 
 /**
  * Attendance Alert Service
@@ -113,7 +120,7 @@ function getDayName(date: Date = new Date(), timezone?: string): string {
  * Check if user works on given day
  */
 function isWorkDay(workDays: string | null, date: Date = new Date(), timezone?: string): boolean {
-    if (!workDays) return true // Default: all days are work days
+    if (!workDays) return true
 
     const dayName = getDayName(date, timezone)
     const workDayList = workDays.toUpperCase().split(',').map(d => d.trim())
@@ -134,36 +141,11 @@ export async function getUsersNeedingCheckInReminder(
     const endOfDay = new Date(now)
     endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
-    // Get all active users with push tokens and work schedule configured
-    const users = await prisma.user.findMany({
-        where: {
-            isActive: true,
-            pushToken: { not: null },
-            startWorkTime: { not: null }
-        },
-        select: {
-            id: true,
-            name: true,
-            startWorkTime: true,
-            endWorkTime: true,
-            workDays: true,
-            pushToken: true
-        }
-    })
+    const users = await userRepository.findActiveWithPushTokenAndSchedule()
 
-    // Get users who have already checked in today
-    const checkedInToday = await prisma.attendance.findMany({
-        where: {
-            checkIn: { gte: startOfDay, lte: endOfDay }
-        },
-        select: { userId: true }
-    })
-    const checkedInUserIds = new Set(checkedInToday.map(a => a.userId))
+    const checkedInResults = await attendanceRepo.findCheckedInUserIds(startOfDay, endOfDay)
+    const checkedInUserIds = new Set(checkedInResults.map(a => a.userId))
 
-    // Filter users who:
-    // 1. Haven't checked in today
-    // 2. Are within their reminder window
-    // 3. Work on this day
     return users.filter(user => {
         if (checkedInUserIds.has(user.id)) return false
         if (!user.startWorkTime) return false
@@ -195,35 +177,8 @@ export async function getUsersNeedingCheckOutReminder(
     const endOfDay = new Date(now)
     endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
-    // Get users who checked in but haven't checked out
-    const incompleteAttendance = await prisma.attendance.findMany({
-        where: {
-            checkIn: { gte: startOfDay, lte: endOfDay },
-            checkOut: null,
-            status: { notIn: ['ALPHA', 'ABSENT'] },
-            user: {
-                isActive: true,
-                pushToken: { not: null },
-                endWorkTime: { not: null },
-                workingHourMode: { not: 'FLEXIBLE' }
-            }
-        },
-        include: {
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    startWorkTime: true,
-                    endWorkTime: true,
-                    workDays: true,
-                    pushToken: true
-                }
-            }
-        },
-        distinct: ['userId']
-    })
+    const incompleteAttendance = await attendanceRepo.findIncompleteCheckOutWithUser(startOfDay, endOfDay)
 
-    // Filter users within their check-out reminder window
     return incompleteAttendance.filter(att => {
         const user = att.user
         if (!user.endWorkTime) return false
@@ -258,7 +213,6 @@ export async function processCheckInReminders(
         const details: string[] = []
         let notified = 0
 
-        // Send individual notifications with personalized time info
         for (const user of users) {
             if (user.pushToken) {
                 const reminderKey = `attendance:reminder:checkin:${user.userId}:${getDateKey()}`
@@ -360,7 +314,6 @@ export async function sendAttendanceAlertToUser(
 
     const message = messages[type]
 
-    // Create notification in database
     await createNotification({
         type: 'ALERT',
         priority: 'NORMAL',
@@ -387,18 +340,7 @@ export async function processIncompleteAttendance(): Promise<{
     const endOfDay = new Date(now)
     endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
-    // Find users who checked in but didn't check out
-    const incomplete = await prisma.attendance.findMany({
-        where: {
-            checkIn: { gte: startOfDay, lte: endOfDay },
-            checkOut: null,
-            status: { notIn: ['ALPHA', 'ABSENT'] },
-            user: {
-                workingHourMode: { not: 'FLEXIBLE' }
-            }
-        },
-        select: { userId: true, user: { select: { name: true } } }
-    })
+    const incomplete = await attendanceRepo.findIncompleteCheckOutSelect(startOfDay, endOfDay)
 
     const usersNotified: string[] = []
 
@@ -426,27 +368,7 @@ export async function processFixedHourAutoAlpha(): Promise<{
     try {
         const now = new Date()
 
-        const users = await prisma.user.findMany({
-            where: {
-                isActive: true,
-                isAttendanceRequired: true,
-                tenantId: { not: null },
-                endWorkTime: { not: null },
-                workingHourMode: 'FIXED',
-                role: {
-                    name: { not: 'SUPER_ADMIN' }
-                }
-            },
-            select: {
-                id: true,
-                name: true,
-                tenantId: true,
-                endWorkTime: true,
-                workDays: true,
-                workingHourMode: true,
-                isAttendanceRequired: true
-            }
-        })
+        const users = await userRepository.findFixedHourUsersForAutoAlpha()
 
         if (users.length === 0) {
             return { usersMarkedAlpha: 0, details: [] }
@@ -476,40 +398,15 @@ export async function processFixedHourAutoAlpha(): Promise<{
             const shiftEndTime = parseTimeToDateInTimezone(user.endWorkTime, now, timezone)
             if (now < shiftEndTime) continue
 
-            const holiday = await prisma.holiday.findFirst({
-                where: {
-                    tenantId: user.tenantId,
-                    date: {
-                        gte: startOfDay,
-                        lte: endOfDay
-                    }
-                }
-            })
+            const holiday = await holidayRepo.findFirstByTenantAndDateRange(user.tenantId, startOfDay, endOfDay)
 
             if (holiday) continue
 
-            const existingAttendance = await prisma.attendance.findFirst({
-                where: {
-                    userId: user.id,
-                    tenantId: user.tenantId,
-                    checkIn: {
-                        gte: startOfDay,
-                        lte: endOfDay
-                    }
-                }
-            })
+            const existingAttendance = await attendanceRepo.findFirstByUserAndDateRange(user.id, user.tenantId, startOfDay, endOfDay)
 
             if (existingAttendance) continue
 
-            const approvedLeave = await prisma.leaveRequest.findFirst({
-                where: {
-                    userId: user.id,
-                    tenantId: user.tenantId,
-                    status: 'APPROVED',
-                    startDate: { lte: endOfDay },
-                    endDate: { gte: startOfDay }
-                }
-            })
+            const approvedLeave = await leaveRepo.findActiveLeaveForUserOnDate(user.id, startOfDay, endOfDay, user.tenantId)
 
             if (approvedLeave) continue
 
@@ -519,17 +416,15 @@ export async function processFixedHourAutoAlpha(): Promise<{
 
             const alphaTime = new Date(startOfDay)
 
-            await prisma.attendance.create({
-                data: {
-                    id: randomUUID(),
-                    userId: user.id,
-                    tenantId: user.tenantId,
-                    checkIn: alphaTime,
-                    status: 'ABSENT',
-                    notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
-                    location: 'System',
-                    updatedAt: new Date()
-                }
+            await attendanceRepo.createWithId({
+                id: randomUUID(),
+                userId: user.id,
+                tenantId: user.tenantId,
+                checkIn: alphaTime,
+                status: 'ABSENT',
+                notes: 'Tidak Masuk Kerja (Absent) - Auto Generated',
+                location: 'System',
+                updatedAt: new Date()
             })
 
             usersMarkedAlpha++
@@ -549,8 +444,6 @@ export async function processFixedHourAutoAlpha(): Promise<{
 
 // New Function: Late Checkout Reminder (3-4 hours after shift)
 export async function processLateCheckOutReminders(): Promise<{ usersNotified: number; details: string[] }> {
-    // 3 hours (180 mins) to 4 hours (240 mins) window
-    // so reminderMinutes = 180, windowMinutes = 60
     const reminderMinutes = 180
     const windowMinutes = 60
 
@@ -639,33 +532,8 @@ export async function runScheduledAttendanceCheck(
 export async function processFlexibleReminders(): Promise<{ usersNotified: number; details: string[] }> {
     try {
         const now = new Date()
-        const startOfDay = new Date(now)
-        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
-        const endOfDay = new Date(now)
-        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
-        // Find Flexible users currently Checked-In (CheckOut is null)
-        // Note: Removed the gte: startOfDay constraint to allow notifications for sessions started on previous days
-        const activeFlexibleSessions = await prisma.attendance.findMany({
-            where: {
-                checkOut: null,
-                user: {
-                    isActive: true,
-                    pushToken: { not: null },
-                    workingHourMode: 'FLEXIBLE'
-                }
-            },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        flexibleTargetHour: true,
-                        pushToken: true
-                    }
-                }
-            }
-        })
+        const activeFlexibleSessions = await attendanceRepo.findActiveFlexibleSessionsWithUser()
 
         if (activeFlexibleSessions.length === 0) {
             return { usersNotified: 0, details: [] }
@@ -680,18 +548,11 @@ export async function processFlexibleReminders(): Promise<{ usersNotified: numbe
             const durationHours = (currentTime - checkInTime) / (1000 * 60 * 60)
             const targetHours = session.user.flexibleTargetHour || 8
 
-            // Only notify if duration exceeds target
             if (durationHours > targetHours) {
                 const excessHours = durationHours - targetHours
 
-                // Logic to trigger roughly every hour (within 15 min window of the cron job)
-                // e.g., if excess is 1.05h (1h 3m) -> Notify
-                // if excess is 2.1h (2h 6m) -> Notify
-                // Using modulo 1 check
                 const remainder = excessHours % 1
 
-                // Trigger if we are in the first 0.25 (15 mins) of a new hour block
-                // OR if it's the very first time crossing the threshold (within first 15 mins)
                 if (remainder >= 0 && remainder <= 0.25) {
                     const reminderKey = `attendance:reminder:flexible:${session.user.id}:${getDateKey(now)}:${getFlexibleHourBucket(excessHours)}`
                     const shouldSend = await acquireReminderLock(reminderKey, 60 * 60)

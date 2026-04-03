@@ -1,7 +1,7 @@
 import { CustomerTicketRepository } from '../repositories/CustomerTicketRepository'
 import { TicketCategory, TicketPriority } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
-import { TicketEventDispatcher } from '@/modules/events/TicketEventDispatcher'
+import { TicketEventDispatcher } from '@/modules/events/dispatchers/TicketEventDispatcher'
 
 /**
  * Service for customer support ticket business logic

@@ -1,11 +1,29 @@
 import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoPushToDepartment } from './ExpoPushService';
 import { sendPushNotifications as sendBrowserPushNotifications } from './PushNotificationService';
-import { prisma } from '@/lib/prisma';
+import { NotificationRepository } from '../repositories/NotificationRepository';
+import { PushSubscriptionRepository } from '../repositories/PushSubscriptionRepository';
+import { UserRepository } from '@/modules/users/repositories/UserRepository';
 import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
-import { randomUUID } from 'crypto';
-import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/modules/notification/constants';
+import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/modules/notification/utils/constants';
 import { getTenantIdFromContext } from '@/lib/tenant-context';
+
+type RecipientUser = { id: string };
+type EligibleUser = {
+    id: string;
+    name: string | null;
+    departmentId: string | null;
+    siteId: string | null;
+    userSites: Array<{ siteId: string }>;
+    role: {
+        name: string;
+        permission: Array<{ id: string }>;
+    } | null;
+};
+
+const notificationRepo = new NotificationRepository();
+const pushSubRepo = new PushSubscriptionRepository();
+const userRepo = new UserRepository();
 
 export type NotificationType = 'WORK_ORDER' | 'SYSTEM' | 'TICKET' | 'ALERT' | 'ANNOUNCEMENT';
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -32,33 +50,27 @@ export interface WorkOrderNotificationData {
     type: string;
     priority: string;
     departmentId?: string | undefined;
-    siteId?: string | undefined; // Added for strict filtering
+    siteId?: string | undefined;
     assignedToId?: string | undefined;
     tenantId?: string | undefined;
 }
 
-/**
- * Create a notification in the database and emit WebSocket event
- */
 export async function createNotification(data: CreateNotificationData) {
-    const notification = await prisma.notifications.create({
-        data: {
-            id: randomUUID(),
-            type: data.type,
-            priority: data.priority || 'NORMAL',
-            title: data.title,
-            message: data.message,
-            link: data.link || null,
-            userId: data.userId || null,
-            departmentId: data.departmentId || null,
-            siteId: data.siteId || null,
-            sourceType: data.sourceType || null,
-            sourceId: data.sourceId || null,
-            tenantId: data.tenantId || null
-        },
+    const notification = await notificationRepo.createFull({
+        id: crypto.randomUUID(),
+        type: data.type,
+        priority: data.priority || 'NORMAL',
+        title: data.title,
+        message: data.message,
+        link: data.link || null,
+        userId: data.userId || null,
+        departmentId: data.departmentId || null,
+        siteId: data.siteId || null,
+        sourceType: data.sourceType || null,
+        sourceId: data.sourceId || null,
+        tenantId: data.tenantId || null
     });
 
-    // Prepare WebSocket payload
     const wsPayload = {
         id: notification.id,
         type: notification.type,
@@ -83,11 +95,9 @@ export async function createNotification(data: CreateNotificationData) {
 
     const browserRecipientIds = new Set<string>();
 
-    // Emit WebSocket event to specific user
     if (data.userId) {
         socketEmitter.notifyUser(data.userId, wsPayload);
         browserRecipientIds.add(data.userId);
-
         if (!data.skipExpoPush) {
             sendExpoPush(data.userId, data.title, data.message, {
                 link: data.link || undefined,
@@ -97,29 +107,12 @@ export async function createNotification(data: CreateNotificationData) {
         }
     }
 
-    // Emit to department if specified
     if (data.departmentId) {
         socketEmitter.notifyDepartment(data.departmentId, wsPayload);
-
-        const departmentRecipients = await prisma.user.findMany({
-            where: {
-                isActive: true,
-                departmentId: data.departmentId,
-                ...(data.siteId ? {
-                    OR: [
-                        { siteId: data.siteId },
-                        { siteId: null },
-                        { userSites: { some: { siteId: data.siteId } } },
-                    ],
-                } : {}),
-            },
-            select: { id: true },
-        });
-
+        const departmentRecipients = await userRepo.findManyActiveWithPushTokenAndSite(data.departmentId, data.siteId);
         for (const recipient of departmentRecipients) {
             browserRecipientIds.add(recipient.id);
         }
-
         if (!data.skipExpoPush) {
             sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
                 link: data.link || undefined,
@@ -129,32 +122,17 @@ export async function createNotification(data: CreateNotificationData) {
         }
     }
 
-    // Also notify admins for important notifications
     if (data.priority === 'HIGH' || data.priority === 'URGENT' || data.type === 'ALERT') {
         socketEmitter.notifyAdmins(wsPayload, data.siteId);
     }
 
     if (browserRecipientIds.size > 0) {
-        const subscriptions = await prisma.pushSubscriptions.findMany({
-            where: {
-                isActive: true,
-                userId: { in: [...browserRecipientIds] },
-            },
-            select: {
-                endpoint: true,
-                p256dh: true,
-                auth: true,
-            },
-        });
-
+        const subscriptions = await pushSubRepo.findManyByUserIds([...browserRecipientIds]);
         if (subscriptions.length > 0) {
             sendBrowserPushNotifications(
                 subscriptions.map((subscription) => ({
                     endpoint: subscription.endpoint,
-                    keys: {
-                        p256dh: subscription.p256dh,
-                        auth: subscription.auth,
-                    },
+                    keys: { p256dh: subscription.p256dh, auth: subscription.auth },
                 })),
                 browserPushPayload
             ).catch((err) => console.error('[Web Push] Error:', err));
@@ -164,198 +142,85 @@ export async function createNotification(data: CreateNotificationData) {
     return notification;
 }
 
-
-/**
- * Create notification for new Work Order (notify users by Department AND Site)
- */
-/**
- * Helper to find eligible recipients for a notification based on Access Rights
- * 
- * Logic BARU (Site sebagai WAJIB):
- * 1. User Must be Active
- * 2. User must have 'workorders:read' permission  
- * 3. Site Access Check (WAJIB):
- *    - User HARUS punya akses ke site WO (via legacy siteId atau multi-site userSites)
- *    - Jika WO tidak punya siteId, maka semua user eligible
- * 4. Department Filter (Opsional):
- *    - Jika departmentId diset, hanya user di department tersebut
- */
-async function findEligibleRecipients(departmentId?: string, siteId?: string, excludeUserId?: string) {
+async function findEligibleRecipients(departmentId?: string, siteId?: string, excludeUserId?: string): Promise<RecipientUser[]> {
     if (!excludeUserId) {
-        console.warn(`[NotificationDebug] WARNING: findEligibleRecipients called without excludeUserId. This may cause self-notifications.`);
+        console.warn(`[NotificationDebug] WARNING: findEligibleRecipients called without excludeUserId.`);
     }
-    // console.log(`[NotificationDebug] Finding recipients for Dept: ${departmentId}, Site: ${siteId}, Exclude: ${excludeUserId || 'NONE'}`);
 
-    // Build where clause
     const whereClause: Prisma.UserWhereInput = {
         isActive: true,
         ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
-        // Permission: Must have workorders:read
-        role: {
-            permission: {
-                some: {
-                    resource: 'workorders',
-                    action: 'read'
-                }
-            }
-        }
+        role: { permission: { some: { resource: 'workorders', action: 'read' } } }
     };
 
-    // SITE FILTER (WAJIB) - User harus punya akses ke site WO
     if (siteId) {
         whereClause.OR = [
-            { siteId: siteId }, // Legacy: direct siteId match
-            { siteId: null }, // Global user (no site restriction)
-            { userSites: { some: { siteId: siteId } } } // Multi-site access
+            { siteId: siteId },
+            { siteId: null },
+            { userSites: { some: { siteId: siteId } } }
         ];
     }
 
-    // DEPARTMENT FILTER (Opsional) - Jika department diset, filter user di department tsb
     if (departmentId) {
-        whereClause.OR = whereClause.OR ? 
-            // Combine with site filter
-            whereClause.OR.map((condition: Prisma.UserWhereInput) => ({
+        whereClause.OR = whereClause.OR
+            ? whereClause.OR.map((condition: Prisma.UserWhereInput) => ({
                 ...condition,
                 OR: [
                     { departmentId: departmentId },
-                    { departmentId: null }, // Global department user
-                    {
-                        role: {
-                            permission: {
-                                none: {
-                                    resource: 'workorders',
-                                    action: 'department_only'
-                                }
-                            }
-                        }
-                    }
+                    { departmentId: null },
+                    { role: { permission: { none: { resource: 'workorders', action: 'department_only' } } } }
                 ]
-            })) :
-            // Only department filter  
-            [
+            }))
+            : [
                 { departmentId: departmentId },
                 { departmentId: null },
-                {
-                    role: {
-                        permission: {
-                            none: {
-                                resource: 'workorders',
-                                action: 'department_only'
-                            }
-                        }
-                    }
-                }
+                { role: { permission: { none: { resource: 'workorders', action: 'department_only' } } } }
             ];
     }
-    
-    const usersWithPermission = await prisma.user.findMany({
-        where: whereClause,
-        select: { 
-            id: true,
-            name: true,
-            departmentId: true,
-            siteId: true,
-            userSites: {
-                select: { siteId: true }
-            },
-            role: {
-                select: {
-                    name: true,
-                    permission: {
-                        where: {
-                            resource: 'workorders',
-                            action: 'site_only'
-                        },
-                        select: { id: true }
-                    }
-                }
-            }
-        }
-    });
 
-    // Additional filter for site_only permission
-    const eligibleUsers = usersWithPermission.filter(user => {
-        // Explicit exclusion safety net
-        if (excludeUserId && user.id === excludeUserId) {
-            // console.log(`[NotificationDebug] Explicitly excluding user ${user.name} (${user.id})`);
-            return false;
-        }
+    const usersWithPermission = await userRepo.findManyWithDetailedRelations(whereClause);
 
+    const eligibleUsers = usersWithPermission.filter((user: EligibleUser) => {
+        if (excludeUserId && user.id === excludeUserId) return false;
         const hasSiteOnly = user.role?.permission && user.role.permission.length > 0;
-        
-        // User without site_only restriction can see all sites
-        if (!hasSiteOnly) {
-            return true;
-        }
-        
-        // WO has no site → global WO, everyone can see
-        if (!siteId) {
-            return true;
-        }
-        
-        // User HAS site_only restriction - verify site access
-        const userSiteIds = user.userSites?.map(us => us.siteId) || [];
-        const hasAccessViaSites = userSiteIds.includes(siteId);
-        const hasAccessViaLegacy = user.siteId === siteId || user.siteId === null;
-        
-        const match = hasAccessViaSites || hasAccessViaLegacy;
-        
-        if (!match) {
-            // console.log(`[NotificationDebug] User ${user.name} rejected (Site Mismatch: UserSites=[${userSiteIds.join(',')}], LegacySite=${user.siteId} vs WOSite=${siteId})`);
-        }
-        return match;
+        if (!hasSiteOnly) return true;
+        if (!siteId) return true;
+        const userSiteIds = user.userSites?.map((us: { siteId: string }) => us.siteId) || [];
+        return userSiteIds.includes(siteId) || user.siteId === siteId || user.siteId === null;
     });
 
-    // console.log(`[NotificationDebug] Found ${eligibleUsers.length} eligible recipients`);
-    return eligibleUsers.map(u => ({ id: u.id }));
+    return eligibleUsers.map((u: { id: string }) => ({ id: u.id }));
 }
 
-
-/**
- * Create notification for new Work Order (notify users by Department AND Site)
- */
 export async function notifyNewWorkOrder(data: WorkOrderNotificationData & { triggeredByUserId?: string }) {
     const priorityEmoji = getPriorityEmoji(data.priority);
     const typeLabel = getWorkOrderTypeLabel(data.type);
-
-    // console.log(`[NotificationDebug] Processing New WO Notification: ${data.workOrderNumber}`);
     const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
-    
-    // console.log(`[Notification] New WO ${data.workOrderNumber}: Found ${recipients.length} recipients`);
 
     if (recipients.length === 0) {
-        console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New WO ${data.workOrderNumber}. Check Dept/Site/Permissions.`);
-        return null; 
+        console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New WO ${data.workOrderNumber}.`);
+        return null;
     }
 
-    const promises = recipients.map(async (user) => {
+    await Promise.all(recipients.map(async (user: RecipientUser) => {
         const isAssignee = user.id === data.assignedToId;
-        const personalizedTitle = isAssignee 
-            ? `📋 Work Order Di-assign ke Anda`
-            : `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`;
-
         await createNotification({
             type: 'WORK_ORDER',
             priority: data.priority as NotificationPriority,
-            title: personalizedTitle,
+            title: isAssignee ? `📋 Work Order Di-assign ke Anda` : `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`,
             message: `[${typeLabel}] ${data.title}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
-            siteId: data.siteId, // Pass siteId to store it
+            siteId: data.siteId,
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-    });
+    }));
 
-    await Promise.all(promises);
     return { count: recipients.length };
 }
 
-/**
- * Create notification when Work Order is assigned to a user
- */
 export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & { assigneeName?: string; triggeredByUserId?: string }) {
-    // Notify Assignee
     if (data.assignedToId && data.assignedToId !== data.triggeredByUserId) {
         await createNotification({
             type: 'WORK_ORDER',
@@ -368,13 +233,10 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-        // createNotification already sends Expo Push, no need for duplicate sendPushToUser
     }
 
-    // Also notify Admins/Department (excluding assignee)
     const observers = await findEligibleRecipients(data.departmentId, data.siteId, data.assignedToId);
-    
-    await Promise.all(observers.map(user =>
+    await Promise.all(observers.map((user: RecipientUser) =>
         createNotification({
             type: 'WORK_ORDER',
             priority: 'NORMAL',
@@ -389,29 +251,16 @@ export async function notifyWorkOrderAssigned(data: WorkOrderNotificationData & 
     ));
 }
 
-/**
- * Create notification for Work Order status change
- */
-export async function notifyWorkOrderStatusChange(
-    data: WorkOrderNotificationData & {
-        oldStatus: string;
-        newStatus: string;
-        triggeredByUserId?: string;
-    }
-) {
+export async function notifyWorkOrderStatusChange(data: WorkOrderNotificationData & { oldStatus: string; newStatus: string; triggeredByUserId?: string }) {
     const statusEmoji = getStatusEmoji(data.newStatus);
-
-    // Find recipients (exclude the person who triggered the action)
     const recipients = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
-    
-    await Promise.all(recipients.map(async (user) => {
-        const isAssignee = user.id === data.assignedToId;
-        const personalizedTitle = isAssignee ? `${statusEmoji} Status WO Anda Berubah` : `${statusEmoji} Status WO Berubah`;
 
+    await Promise.all(recipients.map(async (user: RecipientUser) => {
+        const isAssignee = user.id === data.assignedToId;
         await createNotification({
             type: 'WORK_ORDER',
             priority: 'NORMAL',
-            title: personalizedTitle,
+            title: isAssignee ? `${statusEmoji} Status WO Anda Berubah` : `${statusEmoji} Status WO Berubah`,
             message: `${data.workOrderNumber}: ${data.oldStatus} → ${data.newStatus}`,
             link: `/admin/workorders/${data.workOrderId}`,
             userId: user.id,
@@ -419,26 +268,14 @@ export async function notifyWorkOrderStatusChange(
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-        // createNotification already sends Expo Push, removed duplicate sendPushToUser
     }));
 }
 
-/**
- * Create notification for Work Order update/comment
- */
-export async function notifyWorkOrderUpdate(
-    data: WorkOrderNotificationData & {
-        updateMessage: string;
-        updatedByName?: string;
-        triggeredByUserId?: string;
-        excludeUserIds?: string[];
-    }
-) {
-    // Notify Assignee + Admins/Department (exclude triggerer)
+export async function notifyWorkOrderUpdate(data: WorkOrderNotificationData & { updateMessage: string; updatedByName?: string; triggeredByUserId?: string; excludeUserIds?: string[] }) {
     const recipients = (await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId))
-        .filter((user) => !data.excludeUserIds?.includes(user.id));
+        .filter((user: RecipientUser) => !data.excludeUserIds?.includes(user.id));
 
-    await Promise.all(recipients.map(async (user) => {
+    await Promise.all(recipients.map(async (user: RecipientUser) => {
         await createNotification({
             type: 'WORK_ORDER',
             priority: 'NORMAL',
@@ -450,37 +287,19 @@ export async function notifyWorkOrderUpdate(
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-        // createNotification already sends Expo Push, removed duplicate sendPushToUser
     }));
 }
 
-/**
- * Notify Admin Portal users about mobile Work Order actions
- * This sends notifications to users who have workorders permission,
- * EXCLUDING the user who triggered the action (no self-notifications)
- */
 export async function notifyAdminsAboutMobileAction(data: {
-    workOrderId: string;
-    workOrderNumber: string;
-    title: string;
-    actionType: 'CLAIM' | 'START' | 'COMPLETE' | 'PAUSE' | 'NOTE' | 'MATERIAL_PICKUP' | 'MATERIAL_RETURN' | 'PARTNER_INVITE' | 'PARTNER_RESPONSE' | 'COMMENT';
-    actionMessage: string;
-    triggeredByUserId: string;
-    triggeredByName?: string;
-    departmentId?: string;
-    siteId?: string;
+    workOrderId: string; workOrderNumber: string; title: string;
+    actionType: string; actionMessage: string; triggeredByUserId: string;
+    triggeredByName?: string; departmentId?: string; siteId?: string;
 }) {
     const emoji = getActionEmoji(data.actionType);
-
-    // Get admin users who should be notified (with workorders permission, excluding the triggerer)
     const adminUsersRaw = await findEligibleRecipients(data.departmentId, data.siteId, data.triggeredByUserId);
-    
-    // Explicitly filter again to be absolutely sure
-    const adminUsers = adminUsersRaw.filter(u => u.id !== data.triggeredByUserId);
+    const adminUsers = adminUsersRaw.filter((u: RecipientUser) => u.id !== data.triggeredByUserId);
 
-    // console.log(`[Notification] Admin Action '${data.actionType}': Notifying ${adminUsers.length} users (Filtered out: ${adminUsersRaw.length - adminUsers.length})`);
-
-    const promises = adminUsers.map(async (user) => {
+    await Promise.all(adminUsers.map(async (user: RecipientUser) => {
         await createNotification({
             type: 'WORK_ORDER',
             priority: 'NORMAL',
@@ -492,366 +311,152 @@ export async function notifyAdminsAboutMobileAction(data: {
             sourceType: 'WORK_ORDER',
             sourceId: data.workOrderId,
         });
-    });
+    }));
 
-    await Promise.all(promises);
-    // console.log(`[Notification] Admin notified about mobile action: ${data.actionType} on ${data.workOrderNumber}`);
     return { count: adminUsers.length };
 }
 
-/**
- * Get notifications for a user (including department notifications)
- */
-export async function getNotificationsForUser(
-    userId: string,
-    options?: {
-        unreadOnly?: boolean;
-        limit?: number;
-        offset?: number;
-        type?: NotificationType;
-        excludeTypes?: NotificationType[];
-        siteId?: string;
-        departmentId?: string; // Add departmentId optimization
-    }
-) {
-    // Optimization: Use provided departmentId to avoid DB query
+export async function getNotificationsForUser(userId: string, options?: {
+    unreadOnly?: boolean; limit?: number; offset?: number;
+    type?: NotificationType; excludeTypes?: NotificationType[];
+    siteId?: string; departmentId?: string;
+}) {
     let userDepartmentId = options?.departmentId;
-
     if (!userDepartmentId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { departmentId: true },
-        });
+        const user = await userRepo.findByIdWithDepartment(userId);
         userDepartmentId = user?.departmentId || undefined;
     }
 
     const where: Prisma.NotificationsWhereInput = {
         OR: [
-            { userId }, // Direct notifications
-            {
-                AND: [
-                    { departmentId: userDepartmentId || 'NONE' },
-                    options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}
-                ]
-            }
+            { userId },
+            { AND: [{ departmentId: userDepartmentId || 'NONE' }, options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}] }
         ],
     };
 
-    if (options?.unreadOnly) {
-        where.isRead = false;
-    }
-
-    if (options?.type) {
-        where.type = options.type;
-    }
-
-    // Exclude specific types (e.g., WORK_ORDER from general notifications)
-    if (options?.excludeTypes && options.excludeTypes.length > 0) {
-        where.type = {
-            notIn: options.excludeTypes
-        };
-    }
+    if (options?.unreadOnly) where.isRead = false;
+    if (options?.type) where.type = options.type;
+    if (options?.excludeTypes && options.excludeTypes.length > 0) where.type = { notIn: options.excludeTypes };
 
     const [notifications, total] = await Promise.all([
-        prisma.notifications.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            take: options?.limit || 50,
-            skip: options?.offset || 0,
-        }),
-        prisma.notifications.count({ where }),
+        notificationRepo.findManyForUser(where, { take: options?.limit || 50, skip: options?.offset || 0 }),
+        notificationRepo.countWhere(where),
     ]);
 
     return { notifications, total };
 }
 
-export async function getReadableNotificationForUser(
-    notificationId: string,
-    userId: string,
-    options?: {
-        departmentId?: string;
-        siteId?: string;
-    }
-) {
+export async function getReadableNotificationForUser(notificationId: string, userId: string, options?: { departmentId?: string; siteId?: string }) {
     let userDepartmentId = options?.departmentId;
-
     if (!userDepartmentId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { departmentId: true },
-        });
+        const user = await userRepo.findByIdWithDepartment(userId);
         userDepartmentId = user?.departmentId || undefined;
     }
 
-    return prisma.notifications.findFirst({
-        where: {
-            id: notificationId,
-            OR: [
-                { userId },
-                {
-                    AND: [
-                        { departmentId: userDepartmentId || 'NONE' },
-                        options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}
-                    ]
-                }
-            ]
-        }
+    return notificationRepo.findFirst({
+        id: notificationId,
+        OR: [
+            { userId },
+            { AND: [{ departmentId: userDepartmentId || 'NONE' }, options?.siteId ? { OR: [{ siteId: options.siteId }, { siteId: null }] } : {}] }
+        ]
     });
 }
 
-/**
- * Get unread notification count for a user
- * OPTIMIZED: Uses single query with $queryRaw for better performance
- */
 export async function getUnreadCount(userId: string, excludeTypes?: NotificationType[], siteId?: string): Promise<number> {
-    // Build type exclusion condition safely using Prisma.sql and Prisma.join
-    const typeCondition = excludeTypes && excludeTypes.length > 0
-        ? Prisma.sql`AND "type" NOT IN (${Prisma.join(excludeTypes)})`
-        : Prisma.empty;
+    const typeCondition = excludeTypes && excludeTypes.length > 0 ? Prisma.sql`AND "type" NOT IN (${Prisma.join(excludeTypes)})` : Prisma.empty;
+    const siteCondition = siteId ? Prisma.sql`AND ("siteId" = ${siteId} OR "siteId" IS NULL)` : Prisma.empty;
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId;
+    const tenantCondition = !isSuperAdmin ? Prisma.sql`AND n."tenantId" = ${effectiveTenantId}` : Prisma.empty;
 
-    // Build site condition safely using parameterized query
-    const siteCondition = siteId
-        ? Prisma.sql`AND ("siteId" = ${siteId} OR "siteId" IS NULL)`
-        : Prisma.empty;
-
-    // Single optimized query with subquery for departmentId
-    const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
-    const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
-
-    const result = await prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) as count
-        FROM "notifications" n
-        WHERE n."isRead" = false
-        ${typeCondition}
-        ${!isSuperAdmin ? Prisma.sql`AND n."tenantId" = ${effectiveTenantId}` : Prisma.empty}
-        AND (
-            n."userId" = ${userId}
-            OR (
-                n."departmentId" = (SELECT "departmentId" FROM "User" WHERE "id" = ${userId})
-                ${siteCondition}
-            )
-        )
-    `;
-
-    return Number(result[0]?.count || 0);
+    return notificationRepo.getUnreadCountRaw(userId, typeCondition, siteCondition, tenantCondition);
 }
 
-/**
- * Mark notification as read
- */
 export async function markAsRead(notificationId: string) {
-    return prisma.notifications.update({
-        where: { id: notificationId },
-        data: {
-            isRead: true,
-            readAt: new Date(),
-        },
-    });
+    return notificationRepo.markAsRead(notificationId);
 }
 
-/**
- * Mark all notifications as read for a user
- */
 export async function markAllAsRead(userId: string, type?: NotificationType, siteId?: string) {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { departmentId: true },
-    });
-
+    const user = await userRepo.findByIdWithDepartment(userId);
     const where: Prisma.NotificationsWhereInput = {
         isRead: false,
         OR: [
             { userId },
-            {
-                AND: [
-                    { departmentId: user?.departmentId || 'NONE' },
-                    siteId ? { OR: [{ siteId: siteId }, { siteId: null }] } : {}
-                ]
-            }
+            { AND: [{ departmentId: user?.departmentId || 'NONE' }, siteId ? { OR: [{ siteId: siteId }, { siteId: null }] } : {}] }
         ],
     };
-
-    if (type) {
-        where.type = type;
-    }
-
-    return prisma.notifications.updateMany({
-        where,
-        data: {
-            isRead: true,
-            readAt: new Date(),
-        },
-    });
+    if (type) where.type = type;
+    return notificationRepo.updateMany(where, { isRead: true, readAt: new Date() });
 }
 
-/**
- * Subscribe device for push notifications
- */
-export async function subscribeDevice(
-    userId: string,
-    subscription: {
-        endpoint: string;
-        keys: {
-            p256dh: string;
-            auth: string;
-        };
-    },
-    userAgent?: string
-) {
-    // Check if already exists
-    const existing = await prisma.pushSubscriptions.findUnique({
-        where: { endpoint: subscription.endpoint },
-    });
-
+export async function subscribeDevice(userId: string, subscription: { endpoint: string; keys: { p256dh: string; auth: string } }, userAgent?: string) {
+    const existing = await pushSubRepo.findByEndpoint(subscription.endpoint);
     if (existing) {
-        return prisma.pushSubscriptions.update({
-            where: { endpoint: subscription.endpoint },
-            data: {
-                isActive: true,
-                updatedAt: new Date(),
-            },
-        });
+        return pushSubRepo.updateByEndpoint(subscription.endpoint, { isActive: true, updatedAt: new Date() });
     }
-
-    return prisma.pushSubscriptions.create({
-        data: {
-            id: randomUUID(),
-            updatedAt: new Date(),
-            userId,
-            endpoint: subscription.endpoint,
-            p256dh: subscription.keys.p256dh,
-            auth: subscription.keys.auth,
-            userAgent: userAgent || null,
-        },
+    return pushSubRepo.create({
+        id: crypto.randomUUID(), updatedAt: new Date(), userId,
+        endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth, userAgent: userAgent || null,
     });
 }
 
-/**
- * Unsubscribe device from push notifications
- */
 export async function unsubscribeDevice(endpoint: string) {
-    return prisma.pushSubscriptions.updateMany({
-        where: { endpoint },
-        data: { 
-            isActive: false,
-            updatedAt: new Date(),
-        },
-    });
+    return pushSubRepo.updateManyByEndpoint(endpoint, { isActive: false, updatedAt: new Date() });
 }
-
-// Helper functions imported from @/modules/notification/constants
-
-// ============================================
-// CANVASING NOTIFICATIONS
-// ============================================
 
 export interface CanvasingNotificationData {
-    canvasingId: string;
-    customerName: string;
-    salesId: string;
-    salesName?: string;
-    siteId?: string | null;
+    canvasingId: string; customerName: string; salesId: string;
+    salesName?: string; siteId?: string | null;
 }
 
 export interface PointClaimNotificationData {
-    claimId: string;
-    canvasingId: string;
-    customerName: string;
-    salesId: string;
-    salesName?: string;
-    pointValue: number;
-    siteId?: string | null;
+    claimId: string; canvasingId: string; customerName: string;
+    salesId: string; salesName?: string; pointValue: number; siteId?: string | null;
 }
 
-/**
- * Find users with canvasing:verify permission in a specific site
- */
-async function findCanvasingVerifiers(siteId?: string | null): Promise<{ id: string }[]> {
-    // console.log(`[NotificationDebug] Finding canvasing verifiers for Site: ${siteId}`);
-
+async function findCanvasingVerifiers(siteId?: string | null): Promise<RecipientUser[]> {
     const whereClause: Prisma.UserWhereInput = {
         isActive: true,
-        role: {
-            permission: {
-                some: {
-                    resource: 'canvasing',
-                    action: 'verify'
-                }
-            }
-        }
+        role: { permission: { some: { resource: 'canvasing', action: 'verify' } } }
     };
-
-    // Site filter - only notify users who have access to this site
     if (siteId) {
-        whereClause.OR = [
-            { siteId: siteId },
-            { siteId: null }, // Global users (no site restriction)
-            { userSites: { some: { siteId: siteId } } }
-        ];
+        whereClause.OR = [{ siteId: siteId }, { siteId: null }, { userSites: { some: { siteId: siteId } } }];
     }
-
-    const users = await prisma.user.findMany({
-        where: whereClause,
-        select: { id: true, name: true }
-    });
-
-    // console.log(`[NotificationDebug] Found ${users.length} canvasing verifiers`);
-    return users;
+    return userRepo.findManyWithCustomWhere(whereClause);
 }
 
-/**
- * Notify admins/managers about new canvasing request
- */
 export async function notifyNewCanvasing(data: CanvasingNotificationData) {
-    // console.log(`[NotificationDebug] Processing New Canvasing Notification for: ${data.customerName}`);
-
     const recipients = await findCanvasingVerifiers(data.siteId);
-
     if (recipients.length === 0) {
-        console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New Canvasing. Check permissions.`);
+        console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New Canvasing.`);
         return null;
     }
-
-    const promises = recipients.map(async (user) => {
+    await Promise.all(recipients.map(async (user: RecipientUser) => {
         await createNotification({
-            type: 'ANNOUNCEMENT',
-            priority: 'NORMAL',
-            title: '📋 Canvasing Baru',
+            type: 'ANNOUNCEMENT', priority: 'NORMAL', title: '📋 Canvasing Baru',
             message: `Request canvasing baru untuk ${data.customerName} dari ${data.salesName || 'Sales'}`,
             link: `/admin/marketing/canvasing/${data.canvasingId}`,
-            userId: user.id,
-            siteId: data.siteId || undefined,
-            sourceType: 'CANVASING',
-            sourceId: data.canvasingId,
+            userId: user.id, siteId: data.siteId || undefined,
+            sourceType: 'CANVASING', sourceId: data.canvasingId,
         });
-    });
-
-    await Promise.all(promises);
-    // console.log(`[Notification] New Canvasing: Notified ${recipients.length} verifiers`);
+    }));
     return { count: recipients.length };
 }
 
 export async function notifyNewPointClaim(data: PointClaimNotificationData) {
     const recipients = await findCanvasingVerifiers(data.siteId);
-    const filteredRecipients = recipients.filter((user) => user.id !== data.salesId);
+    const filteredRecipients = recipients.filter((user: RecipientUser) => user.id !== data.salesId);
+    if (filteredRecipients.length === 0) return null;
 
-    if (filteredRecipients.length === 0) {
-        return null;
-    }
-
-    await Promise.all(filteredRecipients.map(async (user) => {
+    await Promise.all(filteredRecipients.map(async (user: RecipientUser) => {
         await createNotification({
-            type: 'ANNOUNCEMENT',
-            priority: 'NORMAL',
-            title: '🎁 Claim Poin Baru',
+            type: 'ANNOUNCEMENT', priority: 'NORMAL', title: '🎁 Claim Poin Baru',
             message: `${data.salesName || 'Sales'} mengajukan claim +${data.pointValue} poin untuk canvasing ${data.customerName}`,
             link: `/admin/marketing/canvasing/${data.canvasingId}`,
-            userId: user.id,
-            siteId: data.siteId || undefined,
-            sourceType: 'POINT_CLAIM',
-            sourceId: data.claimId,
+            userId: user.id, siteId: data.siteId || undefined,
+            sourceType: 'POINT_CLAIM', sourceId: data.claimId,
         });
     }));
-
     return { count: filteredRecipients.length };
 }

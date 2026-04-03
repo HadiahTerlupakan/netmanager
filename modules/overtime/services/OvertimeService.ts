@@ -1,18 +1,23 @@
 import { OvertimeRepository } from '../repositories/OvertimeRepository'
 import { OvertimeStatus } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
 import { createNotification } from '../../notification/services/NotificationService'
 import { HolidayRepository } from '../../attendance/repositories/HolidayRepository'
+import { UserRepository } from '../../users/repositories/UserRepository'
+import { AttendanceRepository } from '../../attendance/repositories/AttendanceRepository'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 
 
 export class OvertimeService {
     private repository: OvertimeRepository
     private holidayRepository: HolidayRepository
+    private userRepository: UserRepository
+    private attendanceRepository: AttendanceRepository
 
     constructor() {
         this.repository = new OvertimeRepository()
         this.holidayRepository = new HolidayRepository()
+        this.userRepository = new UserRepository()
+        this.attendanceRepository = new AttendanceRepository()
     }
 
     // 1. Create Request - Bisa kapan saja selama hari itu (tidak perlu absen dulu)
@@ -33,19 +38,7 @@ export class OvertimeService {
         const tenantId = data.tenantId
 
         // Cek apakah sudah ada request PENDING/APPROVED/IN_PROGRESS hari ini
-        const existing = await prisma.overtime.findFirst({
-            where: {
-                userId: userId,
-                tenantId,
-                createdAt: {
-                    gte: startOfDay,
-                    lte: endOfDay,
-                },
-                status: {
-                    in: [OvertimeStatus.PENDING, OvertimeStatus.APPROVED, OvertimeStatus.IN_PROGRESS]
-                }
-            }
-        })
+        const existing = await this.repository.findActiveRequestByDate(userId, tenantId, startOfDay, endOfDay)
 
         if (existing) {
             throw new Error('Anda sudah memiliki pengajuan lembur aktif (Pending/Approved/Berjalan) untuk hari ini.')
@@ -61,37 +54,8 @@ export class OvertimeService {
 
         // Notify Admins
         try {
-            const user = await prisma.user.findFirst({ where: { id: userId, tenantId }, select: { name: true, siteId: true } })
-            const admins = await prisma.user.findMany({
-                where: {
-                    tenantId,
-                    OR: [
-                        { role: { name: 'SUPER_ADMIN' } },
-                        {
-                            AND: [
-                                {
-                                    role: {
-                                        permission: {
-                                            some: {
-                                                resource: 'lembur',
-                                                action: 'update'
-                                            }
-                                        }
-                                    }
-                                },
-                                ...(user?.siteId ? [{
-                                    OR: [
-                                        { siteId: user.siteId },
-                                        { siteId: null },
-                                        { userSites: { some: { siteId: user.siteId } } }
-                                    ]
-                                }] : [])
-                            ]
-                        }
-                    ]
-                },
-                select: { id: true }
-            })
+            const user = await this.userRepository.findByIdWithSite(userId, tenantId)
+            const admins = await this.userRepository.findAdminsForNotification(tenantId, user?.siteId ?? null)
 
             for (const admin of admins) {
                 await createNotification({
@@ -112,6 +76,7 @@ export class OvertimeService {
 
         return request
     }
+
     async startOvertime(userId: string, overtimeId: string, data: { photo: string, location?: string, timestamp?: Date, tenantId?: string }) {
         const { tenantId } = data
         const overtime = await this.repository.findById(overtimeId)
@@ -133,7 +98,7 @@ export class OvertimeService {
         const endOfDay = new Date()
         endOfDay.setTime(toEndOfDay(endOfDay).getTime())
 
-        const attendance = await prisma.attendance.findFirst({
+        const attendance = await this.attendanceRepository.findFirstWithUser({
             where: {
                 userId: userId,
                 tenantId,
@@ -145,14 +110,10 @@ export class OvertimeService {
             orderBy: {
                 checkIn: 'desc'
             },
-            include: {
-                user: {
-                    select: {
-                        workingHourMode: true,
-                        flexibleTargetHour: true,
-                        workDays: true
-                    }
-                }
+            userSelect: {
+                workingHourMode: true,
+                flexibleTargetHour: true,
+                workDays: true
             }
         })
 

@@ -84,6 +84,40 @@ import { NotificationRepository } from '@/modules/notification/repositories/...'
 
 Semua module menggunakan satu database Prisma. Ini **bukan** anti-pattern untuk Modular Monolith.
 
+### 5. Jangan Gunakan Strict DDD Berlebihan (Anti-Pattern)
+
+```text
+// ❌ SALAH - Over-engineering dengan strict DDD layer
+modules/example/
+├── application/
+├── domain/       <-- Dilarang membuat layer intra-domain yang redundan
+├── infrastructure/
+└── presentation/
+
+// ✅ BENAR - Flat Service-Repository Pattern
+modules/example/
+├── dto/
+├── mappers/
+├── repositories/
+└── services/
+```
+
+### 6. File Logika Harus Masuk ke Layer (Tidak Boleh di Root Module)
+
+```text
+// ❌ SALAH - File logic mengambang di luar
+modules/example/
+├── example-helper.ts <-- DILARANG
+├── services/
+
+// ✅ BENAR - Masukkan ke layer utils atau services
+modules/example/
+├── services/
+└── utils/
+    └── example-helper.ts
+```
+
+
 ---
 
 ## Layer Architecture

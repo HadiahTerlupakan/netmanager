@@ -122,4 +122,20 @@ export class HolidayRepository {
             await redis.del(...allKeys)
         }
     }
+
+    /**
+     * Find holiday for a tenant on a specific date range.
+     * Used by AttendanceAlertService for auto-alpha processing.
+     */
+    async findFirstByTenantAndDateRange(tenantId: string, startOfDay: Date, endOfDay: Date) {
+        return prisma.holiday.findFirst({
+            where: {
+                tenantId,
+                date: {
+                    gte: startOfDay,
+                    lte: endOfDay
+                }
+            }
+        })
+    }
 }

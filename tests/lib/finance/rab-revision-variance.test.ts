@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildRabRevisionVarianceSummary,
   getVarianceLabel,
-} from '@/modules/finance/rab-revision-variance'
+} from '@/modules/finance/utils/rab-revision-variance'
 
 describe('getVarianceLabel', () => {
   it('maps positive, negative, and zero variance to business labels', () => {

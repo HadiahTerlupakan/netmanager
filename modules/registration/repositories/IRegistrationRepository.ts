@@ -6,4 +6,5 @@ export interface IRegistrationRepository {
     findByEmailOrPhone(email: string, phone: string, status?: RegistrationStatus): Promise<Registrations | null>
     create(data: Omit<Prisma.RegistrationsCreateInput, 'id' | 'updatedAt'>): Promise<Registrations>
     updateStatus(id: string, status: RegistrationStatus): Promise<Registrations>
+    getSettingValue(key: string): Promise<string | null>
 }

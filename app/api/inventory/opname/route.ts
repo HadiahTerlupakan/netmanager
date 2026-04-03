@@ -151,7 +151,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   // NEW: Validate Gudang Access
-  const { validateGudangAccess } = await import('@/modules/inventory/validation');
+  const { validateGudangAccess } = await import('@/modules/inventory/utils/validation');
   
   // Mock session for validation
   const { prisma: db } = await import('@/lib/prisma');
