@@ -1,6 +1,6 @@
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
 import { AttendanceSettingsService } from '@/modules/attendance'
-import { PelangganRepository } from '@/modules/pelanggan'
+import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
 import { RadiusSyncService } from '@/modules/network'
 import { logger } from '@/lib/logger'
 import { Status } from '@prisma/client'

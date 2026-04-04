@@ -1,11 +1,32 @@
 import { UserRepository } from '@/modules/users'
-import { PelangganRepository } from '@/modules/pelanggan'
+import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
 import { MitraRepository } from '@/modules/mitra'
 import { enqueuePushRetry } from './PushRetryQueue'
 
-const userRepo = new UserRepository()
-const pelangganRepo = new PelangganRepository()
-const mitraRepo = new MitraRepository()
+let userRepo: UserRepository | null = null
+let pelangganRepo: PelangganRepository | null = null
+let mitraRepo: MitraRepository | null = null
+
+function getUserRepo(): UserRepository {
+    if (!userRepo) {
+        userRepo = new UserRepository()
+    }
+    return userRepo
+}
+
+function getPelangganRepo(): PelangganRepository {
+    if (!pelangganRepo) {
+        pelangganRepo = new PelangganRepository()
+    }
+    return pelangganRepo
+}
+
+function getMitraRepo(): MitraRepository {
+    if (!mitraRepo) {
+        mitraRepo = new MitraRepository()
+    }
+    return mitraRepo
+}
 
 interface ExpoPushMessage {
     to: string
@@ -36,19 +57,19 @@ interface PushTokenRecord {
 }
 
 async function clearPushTokensInMitra(tokens: string[]) {
-    await mitraRepo.clearPushTokens(tokens)
+    await getMitraRepo().clearPushTokens(tokens)
 }
 
 async function findUsersByPushTokens(tokens: string[]): Promise<PushTokenRecord[]> {
-    return userRepo.findManyWithPushToken(tokens)
+    return getUserRepo().findManyWithPushToken(tokens)
 }
 
 async function findMitrasByPushTokens(tokens: string[]): Promise<PushTokenRecord[]> {
-    return mitraRepo.findManyWithPushToken(tokens)
+    return getMitraRepo().findManyWithPushToken(tokens)
 }
 
 async function findPelangganByPushTokens(tokens: string[]): Promise<PushTokenRecord[]> {
-    return pelangganRepo.findManyWithPushToken(tokens)
+    return getPelangganRepo().findManyWithPushToken(tokens)
 }
 
 async function handleFailedTokens(failedTokens: FailedToken[], originalMessages: ExpoPushMessage[]) {
@@ -56,9 +77,9 @@ async function handleFailedTokens(failedTokens: FailedToken[], originalMessages:
     if (tokensToRemove.length > 0) {
         console.log(`[Push] Removing ${tokensToRemove.length} unregistered Expo push tokens`)
         await Promise.all([
-            userRepo.clearPushTokens(tokensToRemove),
+            getUserRepo().clearPushTokens(tokensToRemove),
             clearPushTokensInMitra(tokensToRemove),
-            pelangganRepo.clearPushTokens(tokensToRemove)
+            getPelangganRepo().clearPushTokens(tokensToRemove)
         ])
     }
 
@@ -171,11 +192,11 @@ export async function sendPushNotification(
     try {
         let pushToken: string | null = null;
 
-        const user = await userRepo.findByIdWithPushToken(userId)
+        const user = await getUserRepo().findByIdWithPushToken(userId)
         pushToken = user?.pushToken || null;
 
         if (!pushToken) {
-            const mitra = await mitraRepo.findPushTokenById(userId)
+            const mitra = await getMitraRepo().findPushTokenById(userId)
             pushToken = mitra?.pushToken || null;
         }
 
@@ -210,7 +231,7 @@ export async function sendCustomerPushNotification(
     data?: Record<string, unknown>
 ): Promise<boolean> {
     try {
-        const pelanggan = await pelangganRepo.findByIdWithPushToken(pelangganId)
+        const pelanggan = await getPelangganRepo().findByIdWithPushToken(pelangganId)
 
         if (!pelanggan?.pushToken) {
             return false
@@ -243,14 +264,14 @@ export async function sendPushToUsers(
     data?: Record<string, unknown>
 ): Promise<number> {
     try {
-        const users = await userRepo.findManyWithPushTokenAndFilter(userIds)
+        const users = await getUserRepo().findManyWithPushTokenAndFilter(userIds)
 
         const foundUserIds = users.map(u => u.id);
         const missingUserIds = userIds.filter(id => !foundUserIds.includes(id));
         let mitras: { id: string, pushToken: string | null }[] = [];
 
         if (missingUserIds.length > 0) {
-            mitras = await mitraRepo.findManyWithPushTokenByIds(missingUserIds)
+            mitras = await getMitraRepo().findManyWithPushTokenByIds(missingUserIds)
         }
 
         const allTokens: string[] = []
@@ -302,7 +323,7 @@ export async function sendPushToDepartment(
     data?: Record<string, unknown>
 ): Promise<number> {
     try {
-        const users = await userRepo.findManyByDepartmentWithPushToken(departmentId)
+        const users = await getUserRepo().findManyByDepartmentWithPushToken(departmentId)
 
         if (users.length === 0) {
             return 0
