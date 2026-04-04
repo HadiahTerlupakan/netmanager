@@ -1,5 +1,3 @@
-import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService'
-import { emitSocketEvent } from '@/lib/websocket/emit'
 import { ChatRepository } from '../repositories/ChatRepository'
 
 export interface SendMessageInput {
@@ -25,9 +23,55 @@ export interface BroadcastMessageInput {
 
 export class ChatService {
     private repository: ChatRepository
+    private pushServiceModulePromise?: Promise<typeof import('@/modules/notification/services/ExpoPushService')>
+    private socketEmitModulePromise?: Promise<typeof import('@/lib/websocket/emit')>
 
     constructor() {
         this.repository = new ChatRepository()
+    }
+
+    private getPushServiceModule() {
+        if (!this.pushServiceModulePromise) {
+            this.pushServiceModulePromise = import('@/modules/notification/services/ExpoPushService')
+        }
+
+        return this.pushServiceModulePromise
+    }
+
+    private getSocketEmitModule() {
+        if (!this.socketEmitModulePromise) {
+            this.socketEmitModulePromise = import('@/lib/websocket/emit')
+        }
+
+        return this.socketEmitModulePromise
+    }
+
+    private async sendPushToUsers(
+        userIds: string[],
+        title: string,
+        body: string,
+        data?: Record<string, unknown>
+    ) {
+        const { sendPushToUsers } = await this.getPushServiceModule()
+        return sendPushToUsers(userIds, title, body, data)
+    }
+
+    private async emitChatMessage(
+        userId: string,
+        payload: {
+            id: string
+            content: string | null
+            imageUrl?: string | null
+            conversationId: string
+            senderId: string
+            senderName: string
+            createdAt: string
+            isOwn: boolean
+            isBroadcast?: boolean
+        }
+    ) {
+        const { emitSocketEvent } = await this.getSocketEmitModule()
+        return emitSocketEvent(`user:${userId}`, 'chat:message', payload)
     }
 
     /**
@@ -241,7 +285,7 @@ export class ChatService {
         // Send push notifications to all users except sender
         const otherUserIds = allUsers.filter(u => u.id !== input.senderId).map(u => u.id)
         if (otherUserIds.length > 0) {
-            sendPushToUsers(
+            this.sendPushToUsers(
                 otherUserIds,
                 `📢 ${input.title || 'Broadcast'}`,
                 input.content,
@@ -254,7 +298,7 @@ export class ChatService {
 
             // Emit Socket Event for Broadcast
             otherUserIds.forEach(otherUserId => {
-                emitSocketEvent(`user:${otherUserId}`, 'chat:message', {
+                this.emitChatMessage(otherUserId, {
                     id: message.id,
                     content: message.content,
                     conversationId: globalChat.id,
@@ -263,7 +307,7 @@ export class ChatService {
                     createdAt: message.createdAt.toISOString(),
                     isOwn: false,
                     isBroadcast: true
-                })
+                }).catch(err => console.error('[Chat] Broadcast socket emit error:', err))
             })
         }
 
@@ -299,7 +343,7 @@ export class ChatService {
                     ? '📷 Mengirim gambar' 
                     : (message.content || 'Pesan baru')
 
-                await sendPushToUsers(
+                await this.sendPushToUsers(
                     otherUserIds,
                     `💬 ${chatName}`,
                     `${senderName}: ${notificationBody}`,
@@ -312,7 +356,7 @@ export class ChatService {
 
                 // Emit Socket Event to other participants
                 otherUserIds.forEach(otherUserId => {
-                    emitSocketEvent(`user:${otherUserId}`, 'chat:message', {
+                    this.emitChatMessage(otherUserId, {
                         id: message.id,
                         content: message.content,
                         imageUrl: message.imageUrl,
@@ -321,7 +365,7 @@ export class ChatService {
                         senderName,
                         createdAt: new Date().toISOString(),
                         isOwn: false
-                    })
+                    }).catch(err => console.error('[Chat] Socket emit error:', err))
                 })
             }
         } catch (error) {
