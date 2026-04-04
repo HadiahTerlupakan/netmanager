@@ -210,7 +210,7 @@ export async function GET(
     }
 
     // Get RADIUS usage statistics
-    const radiusService = new RadiusSyncService(prisma)
+    const radiusService = new RadiusSyncService()
     const radiusStats = await radiusService.getCustomerAccountingStats(
       pelanggan.username,
       pelanggan.tenantId!,

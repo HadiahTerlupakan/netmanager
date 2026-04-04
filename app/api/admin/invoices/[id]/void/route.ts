@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess } from '@/lib/api'
 import { VoidInvoiceService } from '@/modules/finance'
-import { z } from 'zod'
+import * as z from 'zod'
 
 /**
  * Validasi body request

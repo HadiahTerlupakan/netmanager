@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 const ioRowSchema = z.object({
   idx: z.number().int().min(0),

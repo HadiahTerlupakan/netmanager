@@ -27,12 +27,11 @@ export interface CustomerChange {
  * Automatically syncs new customer to RADIUS
  */
 export async function afterCustomerCreate(
-    prisma: PrismaClient | undefined | null,
+    _prisma: PrismaClient | undefined | null,
     customerId: string
 ): Promise<SyncResult> {
-    const db = prisma || defaultPrisma;
     try {
-        const syncService = new RadiusSyncService(db);
+        const syncService = new RadiusSyncService();
         await syncService.syncSingleCustomer(customerId);
 
         console.log(`[RADIUS Hook] Customer created and synced: ${customerId}`);
@@ -55,13 +54,12 @@ export async function afterCustomerCreate(
  * - Other changes → Full sync
  */
 export async function afterCustomerUpdate(
-    prisma: PrismaClient | undefined | null,
+    _prisma: PrismaClient | undefined | null,
     customerId: string,
     changes: CustomerChange
 ): Promise<SyncResult> {
-    const db = prisma || defaultPrisma;
     try {
-        const syncService = new RadiusSyncService(db);
+        const syncService = new RadiusSyncService();
 
         // Handle status change specifically
         if (changes.statusChanged && changes.newStatus) {
@@ -95,7 +93,7 @@ export async function beforeCustomerDelete(
 ): Promise<SyncResult> {
     const db = prisma || defaultPrisma;
     try {
-        const syncService = new RadiusSyncService(db);
+        const syncService = new RadiusSyncService();
         const radiusRepo = syncService['radiusRepo']; // Access private field hack
 
         // Get tenantId for this user

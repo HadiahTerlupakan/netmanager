@@ -1,5 +1,4 @@
 import { prisma as defaultPrisma } from '@/lib/prisma'
-import type { PrismaClient } from '@prisma/client'
 
 type PrismaInstance = typeof defaultPrisma
 

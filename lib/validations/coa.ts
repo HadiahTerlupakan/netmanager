@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 const baseCoaSchema = z.object({
   code: z.string().min(1, "Kode akun wajib diisi"),

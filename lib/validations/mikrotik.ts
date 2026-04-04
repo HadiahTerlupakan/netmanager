@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const mikrotikRouterCreateSchema = z.object({
   name: z.string().trim().min(1, 'Nama Router wajib diisi'),

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const hargaPaketSchema = z.object({
   name: z.string().min(1, 'Nama paket harus diisi').max(100, 'Nama paket maksimal 100 karakter'),

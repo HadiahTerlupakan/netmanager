@@ -91,7 +91,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     let whatsappSent = false
     if (sendWhatsApp && ticket.pelanggan.noTelp) {
         try {
-            const whatsappService = new WhatsAppService(prisma)
+            const whatsappService = new WhatsAppService()
             const result = await whatsappService.sendMessage({
                 phone: ticket.pelanggan.noTelp,
                 message: `🎫 *Tiket Dukungan*\n\nHalo ${ticket.pelanggan.nama},\n\nTiket Anda *#${ticket.ticketNumber}* telah dibalas oleh tim kami:\n\n"${message.trim().substring(0, 500)}${message.length > 500 ? '...' : ''}"\n\nSilakan login ke portal pelanggan untuk melihat detail dan membalas.\n\nTerima kasih,\nTim Dukungan`,

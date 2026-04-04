@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { PrismaClient, Prisma, Pelanggan, Settings } from '@prisma/client'
+import type { PrismaClient, Pelanggan, Settings, Status } from '@prisma/client'
 
 export class PelangganFinanceRepository {
     constructor(private client: PrismaClient = prisma) {}
@@ -14,11 +14,10 @@ export class PelangganFinanceRepository {
         })
     }
 
-    async updateStatus(id: string, status: string): Promise<Pelanggan> {
+    async updateStatus(id: string, status: Status): Promise<Pelanggan> {
         return this.client.pelanggan.update({
             where: { id },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data: { status: status as any }
+            data: { status }
         })
     }
 

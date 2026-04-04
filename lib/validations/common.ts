@@ -4,7 +4,7 @@
  * Updated for Zod 4 best practices
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 
 /**
  * Standard pagination schema

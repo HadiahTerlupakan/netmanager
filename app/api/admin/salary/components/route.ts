@@ -2,7 +2,7 @@ import { SalaryComponentRepository } from '@/modules/salary/repositories/SalaryC
 import { SalaryComponentType } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const componentRepo = new SalaryComponentRepository()
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { RadiusSyncService } from '@/modules/network'
 import { requireAuth } from '@/lib/auth-helpers'
-import { z } from 'zod'
+import * as z from 'zod'
 import { logActivitySafe } from '@/lib/logger'
 import { CustomerEventDispatcher } from '@/modules/events/dispatchers/CustomerEventDispatcher'
 
@@ -248,7 +248,7 @@ export async function POST(
     })
 
     // 4. Handle RADIUS operations outside transaction
-    const radiusService = new RadiusSyncService(prisma)
+    const radiusService = new RadiusSyncService()
 
     try {
       // Remove from RADIUS to disable authentication

@@ -3,7 +3,7 @@
  * Zod schemas for support ticket validation
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 import { TicketStatus, TicketCategory, TicketPriority } from '@prisma/client'
 
 /**

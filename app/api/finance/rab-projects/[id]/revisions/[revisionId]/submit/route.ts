@@ -1,5 +1,5 @@
 import { RabRevisionStatus } from "@prisma/client";
-import { z } from "zod";
+import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";

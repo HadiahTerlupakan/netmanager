@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const workOrderTemplateCreateSchema = z.object({
   name: z.string().trim().min(1, 'Nama template wajib diisi').max(100, 'Nama template maksimal 100 karakter'),

@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { PurchaseOrderStatus } from '@prisma/client'
-import type { Prisma, PurchaseOrder, PurchaseRequest, PurchaseRequestItem } from '@prisma/client'
-import { randomUUID } from 'crypto'
+import type { PurchaseOrder, PurchaseRequestItem } from '@prisma/client'
 
 export interface PRWithItems {
     id: string

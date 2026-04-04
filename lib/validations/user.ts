@@ -3,7 +3,7 @@
  * Comprehensive validation for user management endpoints
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 import { paginationSchema, idSchema, optionalIdSchema } from './common'
 
 /**

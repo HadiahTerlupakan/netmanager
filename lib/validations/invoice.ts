@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const invoiceItemSchema = z.object({
   description: z.string().min(1, 'Deskripsi item harus diisi'),

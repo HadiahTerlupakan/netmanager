@@ -135,6 +135,18 @@ export class LocationTrackingService {
         recordedAt: Date
         checkInTime: Date
     }>> {
+        type ActiveAttendanceWithUser = {
+            userId: string
+            checkIn: Date
+            user: {
+                id: string
+                name: string | null
+                image: string | null
+                sites: { name: string } | null
+                departments: { name: string } | null
+            }
+        }
+
         // Calculate today's start in WIB timezone (UTC+7)
         // When it's 00:00 WIB, it's 17:00 UTC previous day
         const now = new Date()
@@ -174,7 +186,7 @@ export class LocationTrackingService {
                     }
                 }
             }
-        }) as any[]
+        }) as ActiveAttendanceWithUser[]
 
         // Early return if no active attendances
         if (activeAttendances.length === 0) {
@@ -201,8 +213,7 @@ export class LocationTrackingService {
                 const location = locationMap.get(attendance.userId)
                 if (!location) return null
                 
-                // Mapped \`any\` for now because we used a generic relation in TS, but the prisma query explicitly returns user with sites and departments
-                const userData: any = attendance.user;
+                const userData = attendance.user
 
                 return {
                     userId: attendance.userId,

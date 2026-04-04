@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
+import * as z from "zod";
 
 const nodeSchema = z.object({
   nodeId: z.string(),

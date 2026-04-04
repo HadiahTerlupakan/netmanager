@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
-import { z } from 'zod'
+import * as z from 'zod'
 import { createHandler, ApiErrors } from '@/lib/api'
 import { InvoiceStatus } from '@prisma/client-billing'
 import { hasPermission } from "@/lib/rbac"

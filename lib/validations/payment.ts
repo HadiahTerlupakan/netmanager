@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const paymentSchema = z.object({
   invoiceId: z.string().optional(),

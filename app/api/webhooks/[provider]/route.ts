@@ -1,9 +1,7 @@
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { PaymentGatewayManager } from '@/modules/finance/services/payment-gateway/gateway-manager'
-import { PrismaClient } from '@prisma/client'
 
 /**
  * Signature header mapping per payment gateway provider.

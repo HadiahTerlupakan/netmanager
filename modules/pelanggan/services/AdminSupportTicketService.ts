@@ -3,7 +3,6 @@ import { CustomerTicketRepository } from '../repositories/CustomerTicketReposito
 import { logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
-import { randomUUID } from 'crypto'
 import { TicketEventDispatcher } from '@/modules/events/dispatchers/TicketEventDispatcher'
 
 /**

@@ -44,8 +44,7 @@ let pemasukanRepositoryInstance: IPemasukanRepository | null = null
 
 export function getUserRepository(): IUserRepository {
   if (!userRepositoryInstance) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    userRepositoryInstance = new UserRepository(prismaAuth as any)
+    userRepositoryInstance = new UserRepository(prismaAuth)
   }
   return userRepositoryInstance
 }

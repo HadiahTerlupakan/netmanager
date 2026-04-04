@@ -3,7 +3,7 @@ import { authorize, isAuthError } from '@/lib/authorization-middleware'
 import { LeaveBalanceRepository, DEFAULT_LEAVE_QUOTAS } from '@/modules/attendance/repositories/LeaveBalanceRepository'
 import { LeaveType } from '@prisma/client'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
-import { z } from 'zod'
+import * as z from 'zod'
 import { prismaAuth } from '@/lib/prisma'
 
 const leaveBalanceRepo = new LeaveBalanceRepository()

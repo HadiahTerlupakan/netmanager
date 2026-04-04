@@ -1,7 +1,7 @@
 import { getSalaryService } from '@/modules/salary/services/SalaryService'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const reviseSchema = z.object({
     reason: z.string().min(1, 'Alasan wajib diisi')

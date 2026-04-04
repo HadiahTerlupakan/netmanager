@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const workOrderEscalationCreateSchema = z.object({
   name: z.string().trim().min(1, 'Nama eskalasi wajib diisi').max(100, 'Nama eskalasi maksimal 100 karakter'),

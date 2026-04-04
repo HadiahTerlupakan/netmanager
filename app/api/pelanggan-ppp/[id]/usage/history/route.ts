@@ -253,7 +253,7 @@ export async function GET(
 
     // Get RADIUS session data if needed
     if (source === 'all' || source === 'radius') {
-      const radiusService = new RadiusSyncService(prisma)
+      const radiusService = new RadiusSyncService()
       // Access the private radiusRepo through a type assertion
       const radiusRepo = (radiusService as unknown as { radiusRepo: { getUserSessions: (u: string, s?: Date, e?: Date) => Promise<Record<string, unknown>[]> } }).radiusRepo
       if (radiusRepo && typeof radiusRepo.getUserSessions === 'function') {

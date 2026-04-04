@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     const newAlerts = []
     let notificationsSent = 0
     // Instantiate Email Service
-    const emailService = new EmailService(prisma)
+    const emailService = new EmailService()
 
     // 3. Iterate and Check Stock
     for (const setting of settings) {

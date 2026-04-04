@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma';
 import { RadiusSyncService } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
@@ -20,7 +19,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         : undefined;
 
     const tenantId = ctx.session!.user.tenantId;
-    const syncService = new RadiusSyncService(prisma);
+    const syncService = new RadiusSyncService();
     const stats = await syncService.getCustomerAccountingStats(
         username,
         tenantId,

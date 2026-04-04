@@ -1,5 +1,5 @@
 import { prismaBilling } from '@/lib/prisma-billing'
-import type { PaymentGatewayConfig, Prisma } from '@prisma/client-billing'
+import type { Prisma } from '@prisma/client-billing'
 
 export class PaymentGatewayConfigRepository {
     async findEnabled() {

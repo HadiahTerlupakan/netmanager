@@ -5,7 +5,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
+import type { Notifications, Prisma } from '@prisma/client'
 
 export interface NotificationFilters {
     userId?: string
@@ -31,7 +31,7 @@ export class NotificationRepository {
      * Find all notifications for a user
      */
     async findByUserId(userId: string, filters: Omit<NotificationFilters, 'userId'> = {}) {
-        const where: Record<string, unknown> = { userId }
+        const where: Prisma.NotificationsWhereInput = { userId }
 
         if (filters.type) {
             where.type = filters.type
@@ -176,7 +176,7 @@ export class NotificationRepository {
     /**
      * Find many notifications with complex where clause for user notifications
      */
-    async findManyForUser(where: Record<string, unknown>, options?: { take?: number; skip?: number }): Promise<unknown[]> {
+    async findManyForUser(where: Prisma.NotificationsWhereInput, options?: { take?: number; skip?: number }): Promise<Notifications[]> {
         return prisma.notifications.findMany({
             where,
             orderBy: { createdAt: 'desc' },
@@ -188,21 +188,21 @@ export class NotificationRepository {
     /**
      * Count notifications with where clause
      */
-    async countWhere(where: Record<string, unknown>): Promise<number> {
+    async countWhere(where: Prisma.NotificationsWhereInput): Promise<number> {
         return prisma.notifications.count({ where })
     }
 
     /**
      * Find single notification with complex where
      */
-    async findFirst(where: Record<string, unknown>): Promise<unknown | null> {
+    async findFirst(where: Prisma.NotificationsWhereInput): Promise<Notifications | null> {
         return prisma.notifications.findFirst({ where })
     }
 
     /**
      * UpdateMany notifications
      */
-    async updateMany(where: Record<string, unknown>, data: Record<string, unknown>): Promise<{ count: number }> {
+    async updateMany(where: Prisma.NotificationsWhereInput, data: Prisma.NotificationsUpdateManyMutationInput): Promise<{ count: number }> {
         return prisma.notifications.updateMany({ where, data })
     }
 

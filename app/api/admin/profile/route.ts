@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),

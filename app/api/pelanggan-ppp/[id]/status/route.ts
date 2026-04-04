@@ -41,7 +41,7 @@ export async function PATCH(
 
         // Trigger Radius Sync
         // We instantiate the service and call handleStatusChange manually to ensure it runs
-        const radiusService = new RadiusSyncService(prisma);
+        const radiusService = new RadiusSyncService();
         await radiusService.handleStatusChange(id, status);
 
         // Logging

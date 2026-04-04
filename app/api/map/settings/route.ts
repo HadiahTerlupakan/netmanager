@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess } from "@/lib/api";
 import { MappingService } from "@/modules/map";
-import { z } from "zod";
+import * as z from "zod";
 
 const service = new MappingService();
 

@@ -1,4 +1,4 @@
-import type { WorkOrders, WorkOrderAttachments } from "@prisma/client"
+import type { WorkOrderAttachments } from "@prisma/client"
 import { WorkOrderStatus, TicketStatus } from "@prisma/client"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"

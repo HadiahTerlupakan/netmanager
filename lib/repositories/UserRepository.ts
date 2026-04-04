@@ -105,4 +105,23 @@ export class UserRepository implements IUserRepository {
   async count(): Promise<number> {
     return await this.client.user.count()
   }
+
+  async findManyWithFullDetails(userIds: string[]): Promise<Array<{
+    id: string
+    name: string | null
+    image: string | null
+    sites: { name: string } | null
+    departments: { name: string } | null
+  }>> {
+    return this.client.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        sites: { select: { name: true } },
+        departments: { select: { name: true } },
+      },
+    })
+  }
 }

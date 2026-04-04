@@ -1,7 +1,7 @@
 import { FinanceService } from "@/modules/finance/services/FinanceService";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { z } from "zod";
+import * as z from "zod";
 import { RabItemCategory, RabExpenseType, RabGrowthType, RabPaymentType } from "@prisma/client";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 

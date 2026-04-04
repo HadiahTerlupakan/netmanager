@@ -1,7 +1,7 @@
 import { getSalaryService } from '@/modules/salary/services/SalaryService'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const adjustSchema = z.object({
     name: z.string().min(1, 'Nama komponen wajib diisi'),

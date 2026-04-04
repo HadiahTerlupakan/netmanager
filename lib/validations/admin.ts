@@ -3,7 +3,7 @@
  * Zod schemas for admin-specific validations (profile, holidays, etc.)
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 
 /**
  * Profile update validation

@@ -120,7 +120,7 @@ export class MitraWithdrawService {
         }
     }
 
-    async rejectWithdraw(id: string, reason: string, rejectedById: string, tenantId?: string): Promise<ServiceResult> {
+    async rejectWithdraw(id: string, reason: string, rejectedById: string, _tenantId?: string): Promise<ServiceResult> {
         try {
             const request = await this.withdrawRepo.findWithdrawRequestByIdSimple(id)
 

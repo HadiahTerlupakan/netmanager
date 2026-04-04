@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { prisma } from '@/lib/prisma'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 

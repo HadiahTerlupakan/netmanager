@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { PrismaClient, RabDisbursement } from '@prisma/client'
+import type { PrismaClient } from '@prisma/client'
 
 export class RabDisbursementRepository {
   constructor(private client: PrismaClient = prisma) {}

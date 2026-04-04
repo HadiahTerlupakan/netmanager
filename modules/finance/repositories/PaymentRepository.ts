@@ -1,5 +1,5 @@
 import { prismaBilling } from '@/lib/prisma-billing'
-import type { Payment, Prisma } from '@prisma/client-billing'
+import type { Prisma } from '@prisma/client-billing'
 
 export class PaymentRepository {
     async findManyByDateRange(startDate: Date, endDate: Date) {

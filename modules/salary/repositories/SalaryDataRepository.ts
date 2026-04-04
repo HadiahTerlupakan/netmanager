@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { PrismaClient, Prisma, EmployeeLoan, LoanPayment, User, Attendance, Overtime, WorkOrders } from '@prisma/client'
+import type { PrismaClient, Prisma, EmployeeLoan, LoanPayment, Attendance } from '@prisma/client'
 import type { RateType, EmployeeType, PtkpStatus } from '@prisma/client'
 
 export interface UserSalaryConfig {

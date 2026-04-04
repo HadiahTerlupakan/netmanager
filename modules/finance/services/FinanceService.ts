@@ -1,4 +1,4 @@
-import { type PaymentStatus, RabItemCategory, RabExpenseType, RabGrowthType, RabPaymentType, Prisma } from '@prisma/client'
+import { RabItemCategory, RabExpenseType, RabGrowthType, RabPaymentType, Prisma } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
 import { randomUUID } from 'crypto'
 import {

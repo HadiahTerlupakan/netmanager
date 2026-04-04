@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import * as z from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { apiError, ErrorCodes } from '@/lib/api-response'

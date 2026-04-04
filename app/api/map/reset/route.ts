@@ -1,7 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { z } from "zod";
+import * as z from "zod";
 
 const resetSchema = z.object({
   password: z.string().min(1, "Password is required"),

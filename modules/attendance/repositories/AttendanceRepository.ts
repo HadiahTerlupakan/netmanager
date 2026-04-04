@@ -1,24 +1,19 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import type { AttendanceStatus } from '@prisma/client'
 import { HolidayRepository } from './HolidayRepository'
 import { getTenantIdFromContext } from '@/lib/tenant-context'
 
 export class AttendanceRepository {
-    async findMany(params: {
-        skip?: number
-        take?: number
-        where?: Prisma.AttendanceWhereInput
-        orderBy?: Prisma.AttendanceOrderByWithRelationInput
-        include?: Prisma.AttendanceInclude
-    }) {
+    async findMany<T extends Prisma.AttendanceFindManyArgs>(
+        params: Prisma.SelectSubset<T, Prisma.AttendanceFindManyArgs>
+    ): Promise<Prisma.AttendanceGetPayload<T>[]> {
         return prisma.attendance.findMany(params)
     }
 
-    async findFirst(params: {
-        where?: Prisma.AttendanceWhereInput
-        orderBy?: Prisma.AttendanceOrderByWithRelationInput
-        include?: Prisma.AttendanceInclude
-    }) {
+    async findFirst<T extends Prisma.AttendanceFindFirstArgs>(
+        params: Prisma.SelectSubset<T, Prisma.AttendanceFindFirstArgs>
+    ): Promise<Prisma.AttendanceGetPayload<T> | null> {
         return prisma.attendance.findFirst(params)
     }
 
@@ -674,7 +669,7 @@ export class AttendanceRepository {
         userId: string
         tenantId: string
         checkIn: Date
-        status: string
+        status: AttendanceStatus
         notes: string
         location: string
         updatedAt: Date
@@ -685,7 +680,7 @@ export class AttendanceRepository {
                 userId: data.userId,
                 tenantId: data.tenantId,
                 checkIn: data.checkIn,
-                status: data.status as any,
+                status: data.status,
                 notes: data.notes,
                 location: data.location,
                 updatedAt: data.updatedAt

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { Status, TipePelanggan, DiscountType, DurasiUnit } from '@prisma/client';
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;

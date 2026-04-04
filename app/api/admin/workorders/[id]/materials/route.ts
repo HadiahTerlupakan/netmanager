@@ -1,7 +1,7 @@
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
-import { z } from 'zod';
+import * as z from 'zod';
 import { prisma } from '@/lib/prisma';
 
 const addMaterialSchema = z.object({

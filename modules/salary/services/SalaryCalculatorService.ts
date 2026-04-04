@@ -14,7 +14,6 @@ import {
 } from '../repositories/SalaryCalculationRepositories'
 import {
     RateType,
-    Prisma,
     EmployeeType,
     PtkpStatus
 } from '@prisma/client'

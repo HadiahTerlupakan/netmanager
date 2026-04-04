@@ -1,5 +1,5 @@
 import { FinanceService } from '@/modules/finance/services/FinanceService'
-import { z } from 'zod'
+import * as z from 'zod'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 const transferSchema = z.object({

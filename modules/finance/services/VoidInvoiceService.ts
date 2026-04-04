@@ -61,8 +61,7 @@ export class VoidInvoiceService {
             if (statusChanged) {
                 try {
                     const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service')
-                    const { prisma: mainPrisma } = await import('@/lib/prisma')
-                    const radiusService = new RadiusSyncService(mainPrisma)
+                    const radiusService = new RadiusSyncService()
                     await radiusService.handleStatusChange(pelanggan.id, 'ISOLIR')
                 } catch (radiusErr) {
                     console.error('[VoidInvoiceService] Failed to sync to RADIUS:', radiusErr)

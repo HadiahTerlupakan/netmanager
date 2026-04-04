@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { PrismaClient, PurchaseOrder, FinancialAccount, Expense } from '@prisma/client'
+import type { PrismaClient, PurchaseOrder, FinancialAccount } from '@prisma/client'
 import type { Prisma, PaymentStatus } from '@prisma/client'
 
 export class PurchaseOrderRepository {

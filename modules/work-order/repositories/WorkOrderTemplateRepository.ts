@@ -1,6 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
-import { randomUUID } from 'crypto'
 
 export class WorkOrderTemplateRepository {
     async findItemsByTemplateId(templateId: string) {

@@ -3,7 +3,7 @@ import { hasPermission } from '@/lib/rbac'
 import { getLeaveService } from '@/modules/attendance/services/LeaveService'
 import { LeaveType, LeaveStatus } from '@prisma/client'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const service = getLeaveService()
 

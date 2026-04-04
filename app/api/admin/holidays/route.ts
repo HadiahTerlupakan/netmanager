@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
 

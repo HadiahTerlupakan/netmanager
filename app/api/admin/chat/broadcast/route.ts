@@ -1,7 +1,7 @@
 import { hasPermission } from '@/lib/rbac'
 import { ChatService } from '@/modules/chat'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const broadcastSchema = z.object({
     content: z.string().min(1, 'Konten pesan wajib diisi').max(5000),

@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { prismaBilling } from '@/lib/prisma-billing'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { PaymentGatewayManager } from '@/modules/finance/services/payment-gateway/gateway-manager'
-import { PrismaClient } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 

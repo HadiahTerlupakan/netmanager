@@ -1,7 +1,7 @@
 import { hasPermission } from '@/lib/rbac'
 import { ChatService } from '@/modules/chat'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const sendMessageSchema = z.object({
     content: z.string().max(5000).optional(),

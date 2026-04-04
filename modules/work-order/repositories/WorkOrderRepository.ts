@@ -12,7 +12,6 @@ import type {
     WorkOrderStatistics,
     TopPerformer,
 } from './IWorkOrderRepository';
-import { syncWoStatusToTicket } from '../services/WorkOrderSyncService';
 import { validateStatusTransition } from '../utils/status-transitions';
 import { randomUUID } from 'crypto';
 import { socketEmitter } from '@/lib/websocket/emitter';
@@ -836,7 +835,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         const updatedWo = await this.update(id, woUpdateData);
 
-        // Sync to Ticket
+        const { syncWoStatusToTicket } = await import('../services/WorkOrderSyncService');
         await syncWoStatusToTicket(id, status);
 
         // NOTE: Notification moved to Service layer to avoid duplication

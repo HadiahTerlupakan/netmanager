@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 

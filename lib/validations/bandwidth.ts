@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 // Validasi format MikroTik (contoh: "10M", "10240k", "1G")
 const mikrotikFormatRegex = /^\d+(\.\d+)?[KMGTkmgt]?$/

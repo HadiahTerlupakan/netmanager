@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const slaCreateSchema = z.object({
   name: z.string().trim().min(1, 'Nama SLA wajib diisi').max(100, 'Nama SLA maksimal 100 karakter'),

@@ -1,6 +1,6 @@
 import { FinanceService } from '@/modules/finance/services/FinanceService'
 import { isSuperAdmin } from "@/lib/auth";
-import { z } from "zod";
+import * as z from "zod";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";

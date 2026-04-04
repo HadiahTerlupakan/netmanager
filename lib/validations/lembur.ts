@@ -3,7 +3,7 @@
  * Zod schemas for overtime request validation
  */
 
-import { z } from 'zod'
+import * as z from 'zod'
 
 /**
  * Overtime Status enum values

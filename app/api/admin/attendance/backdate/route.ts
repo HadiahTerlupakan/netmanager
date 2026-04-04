@@ -5,7 +5,7 @@ import { isSuperAdmin } from '@/lib/auth'
 import { ApiErrors } from '@/lib/api-response'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { getTimezone } from '@/lib/utils/get-timezone'
-import { z } from 'zod'
+import * as z from 'zod'
 import { randomUUID } from 'crypto'
 
 const backdateSchema = z.object({

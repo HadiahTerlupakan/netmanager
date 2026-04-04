@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma';
 import { RadiusSyncService } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
@@ -10,7 +9,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk sinkronisasi RADIUS');
     }
 
-    const syncService = new RadiusSyncService(prisma);
+    const syncService = new RadiusSyncService();
 
     // Sync single customer
     await syncService.syncSingleCustomer(id);

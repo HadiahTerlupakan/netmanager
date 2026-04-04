@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 export const networkPerformanceCreateSchema = z.object({
   deviceId: z.string().min(1, 'Device ID wajib diisi'),

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors, ErrorCodes, apiError } from "@/lib/api";
-import { z } from "zod";
+import * as z from "zod";
 
 export const dynamic = 'force-dynamic';
 

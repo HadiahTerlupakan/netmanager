@@ -2,7 +2,7 @@ import { getSalaryService } from '@/modules/salary/services/SalaryService'
 import { SalaryStatus, EmployeeType } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const service = getSalaryService()
 

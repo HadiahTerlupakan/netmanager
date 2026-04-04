@@ -4,7 +4,7 @@ import { authConfig } from "@/lib/auth"
 import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
-import { z } from 'zod'
+import * as z from 'zod'
 import { logActivitySafe } from '@/lib/logger'
 import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
 import { MAIN_TENANT_ID } from '@/modules/mitra/services/tenant-constants'

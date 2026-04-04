@@ -8,7 +8,7 @@ import {
     buildExpensePayloadHash,
     completeExpenseMutation,
 } from "@/modules/finance/services/expense-idempotency";
-import { z } from "zod";
+import * as z from "zod";
 import { getUserService } from "@/modules/users/services/UserService";
 
 export const dynamic = 'force-dynamic';

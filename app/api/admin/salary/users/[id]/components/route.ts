@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { z } from 'zod'
+import * as z from 'zod'
 
 const assignComponentSchema = z.object({
     componentId: z.string().uuid('Component ID wajib diisi'),
