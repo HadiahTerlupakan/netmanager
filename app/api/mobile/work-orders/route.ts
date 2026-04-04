@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order';
 import { WorkOrderStatus } from '@prisma/client';
 import { createHandler, apiPaginated } from '@/lib/api'
 

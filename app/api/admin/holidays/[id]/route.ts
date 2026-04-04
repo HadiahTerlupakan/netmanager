@@ -1,4 +1,4 @@
-import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { HolidayRepository } from '@/modules/attendance'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { logger } from '@/lib/logger'

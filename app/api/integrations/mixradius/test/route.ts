@@ -1,7 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
-import { mixRadiusConfigRepo } from '@/modules/integrations/repositories/MixRadiusConfigRepository'
+import { mixRadiusConfigRepo } from '@/modules/integrations'
 
 export const dynamic = 'force-dynamic'
 

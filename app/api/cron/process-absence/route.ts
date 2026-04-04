@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
+import { AbsenceService } from '@/modules/attendance'
 import { acquireCronLock } from '@/lib/cron-lock'
 import { getEnv } from '@/lib/env'
 

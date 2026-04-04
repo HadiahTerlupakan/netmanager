@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { HolidayRepository } from '@/modules/attendance'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import * as z from 'zod'
 import { logger } from '@/lib/logger'

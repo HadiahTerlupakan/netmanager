@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
-import { AttendanceTimezoneService } from '@/modules/attendance/services/AttendanceTimezoneService'
+import { HolidayRepository, AttendanceTimezoneService } from '@/modules/attendance'
 import { isOffDayForUser } from '@/modules/attendance/utils/workingDayUtils'
 import { apiPaginated, createHandler } from '@/lib/api'
 

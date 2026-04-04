@@ -47,9 +47,6 @@ vi.mock('@/modules/work-order', () => ({
     addTask: mockFns.addTask,
     getWorkOrderById: mockFns.getWorkOrderById,
   }),
-}))
-
-vi.mock('@/modules/work-order/services/WorkOrderNotifications', () => ({
   onWorkOrderUpdated: mockFns.onWorkOrderUpdated,
 }))
 

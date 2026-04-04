@@ -1,4 +1,4 @@
-import { GeofenceService } from '@/modules/attendance/services/GeofenceService'
+import { GeofenceService } from '@/modules/attendance'
 import { apiSuccess, createHandler } from '@/lib/api'
 
 /**

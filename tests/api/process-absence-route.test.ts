@@ -19,7 +19,7 @@ vi.mock('@/lib/cron-lock', () => ({
   acquireCronLock: mockFns.acquireCronLock,
 }))
 
-vi.mock('@/modules/attendance/services/AbsenceService', () => ({
+vi.mock('@/modules/attendance', () => ({
   AbsenceService: class MockAbsenceService {
     processDailyAbsence = mockFns.processDailyAbsence
   },
@@ -27,6 +27,11 @@ vi.mock('@/modules/attendance/services/AbsenceService', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    tenant: {
+      findMany: mockFns.tenantFindMany,
+    },
+  },
+  prismaAuth: {
     tenant: {
       findMany: mockFns.tenantFindMany,
     },

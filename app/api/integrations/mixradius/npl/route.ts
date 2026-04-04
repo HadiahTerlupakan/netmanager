@@ -1,5 +1,5 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { syncService } from "@/modules/integrations/services/MixRadiusSyncService";
+import { syncService } from "@/modules/integrations";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {

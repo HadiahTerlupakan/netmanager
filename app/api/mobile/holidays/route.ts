@@ -1,4 +1,4 @@
-import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { HolidayRepository } from '@/modules/attendance'
 import { createHandler } from '@/lib/api'
 import { NextResponse } from 'next/server'
 

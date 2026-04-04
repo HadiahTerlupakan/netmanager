@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { subscribeDevice } from '@/modules/notification';
-import { getVapidPublicKey, isPushConfigured } from '@/modules/notification/services/PushNotificationService';
+import { getVapidPublicKey, isPushConfigured } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';
 
 // GET /api/notifications/subscribe - Get VAPID public key

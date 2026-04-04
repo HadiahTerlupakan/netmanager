@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
+import { AutoCheckoutService } from '@/modules/attendance'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { acquireCronLock } from '@/lib/cron-lock'
 import { getEnv } from '@/lib/env'

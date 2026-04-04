@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { prisma } from '@/lib/prisma';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 import { apiError, ErrorCodes } from '@/lib/api-response'

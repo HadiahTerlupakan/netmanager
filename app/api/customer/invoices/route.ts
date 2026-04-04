@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { CustomerInvoiceRepository } from '@/modules/pelanggan/repositories/CustomerInvoiceRepository'
+import { CustomerInvoiceRepository } from '@/modules/pelanggan'
 
 export const dynamic = 'force-dynamic'
 

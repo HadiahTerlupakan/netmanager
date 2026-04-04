@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendWorkOrderReminder } from '@/modules/work-order/services/WorkOrderNotifications'
+import { sendWorkOrderReminder } from '@/modules/work-order'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 interface ReminderResult {

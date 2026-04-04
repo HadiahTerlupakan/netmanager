@@ -1,4 +1,4 @@
-import { syncService } from '@/modules/integrations/services/MixRadiusSyncService'
+import { syncService } from '@/modules/integrations'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { getUserPermissions } from '@/lib/auth'
 

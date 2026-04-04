@@ -1,4 +1,4 @@
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendanceService } from '@/modules/attendance'
 import { validateDaysRange } from '@/lib/validation-utils'
 import { createHandler, apiSuccess } from '@/lib/api'
 

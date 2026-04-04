@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
+import { LocationTrackingService } from '@/modules/attendance'
 import * as z from 'zod'
 
 // Validasi input lokasi menggunakan Zod

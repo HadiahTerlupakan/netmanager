@@ -4,7 +4,7 @@ import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { createNotification } from '@/modules/notification';
-import { onWorkOrderUpdated } from '@/modules/work-order/services/WorkOrderNotifications';
+import { onWorkOrderUpdated } from '@/modules/work-order';
 
 // GET /api/admin/workorders/[id]/tasks - Get tasks
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {

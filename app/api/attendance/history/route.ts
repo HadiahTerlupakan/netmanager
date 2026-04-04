@@ -1,4 +1,4 @@
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendanceService } from '@/modules/attendance'
 import { createHandler, apiPaginated } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'

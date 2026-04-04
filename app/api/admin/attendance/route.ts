@@ -9,8 +9,8 @@ import { hasPermission } from '@/lib/rbac'
 import { getDayOffDisplayLabel, getPermitDisplayLabel, isHistoricalAutoCheckoutAbsence } from '@/lib/attendance-display'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { getTimezone } from '@/lib/utils/get-timezone'
-import { LeaveService } from '@/modules/attendance/services/LeaveService'
-import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
+import { LeaveService } from '@/modules/attendance'
+import { AbsenceService } from '@/modules/attendance'
 
 /**
  * Admin Attendance Routes

@@ -2,7 +2,7 @@ import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
-import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
+import { AutomaticBillingService } from '@/modules/finance'
 import { Status, TipePelanggan } from '@prisma/client'
 import { apiSuccess, ApiErrors, createHandler, apiError } from '@/lib/api'
 

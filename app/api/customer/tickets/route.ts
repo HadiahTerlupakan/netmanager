@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { SupportTicketService } from '@/modules/pelanggan/services/SupportTicketService'
+import { SupportTicketService } from '@/modules/pelanggan'
 
 const ticketService = new SupportTicketService()
 

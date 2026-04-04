@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError, createHandler, ErrorCodes } from '@/lib/api';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
-import type { CreateWorkOrderData } from '@/modules/work-order/repositories/IWorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order';
+import type { CreateWorkOrderData } from '@/modules/work-order';
 import { createNotification } from '@/modules/notification';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 

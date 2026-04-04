@@ -6,7 +6,7 @@ import {
   filterEligibleReminderRecipients,
   shouldSendRabReminder,
 } from '@/modules/finance/utils/rab-approval-reminder'
-import { createNotification } from '@/modules/notification/services/NotificationService'
+import { createNotification } from '@/modules/notification'
 
 const REMINDER_COOLDOWN_MINUTES = 30
 

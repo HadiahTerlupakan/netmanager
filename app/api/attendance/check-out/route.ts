@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
-import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
+import { AttendanceService } from '@/modules/attendance'
+import { AttendancePhotoService } from '@/modules/attendance'
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()

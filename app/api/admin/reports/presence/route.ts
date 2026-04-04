@@ -1,4 +1,4 @@
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
+import { AttendanceService } from '@/modules/attendance'
 import { OvertimeService } from '@/modules/overtime/services/OvertimeService'
 import { apiSuccess, ErrorCodes, apiError, createHandler, ApiErrors } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { prismaMitra } from '@/lib/prisma-mitra';
-import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository';
+import { WorkOrderRepository } from '@/modules/work-order';
 import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';

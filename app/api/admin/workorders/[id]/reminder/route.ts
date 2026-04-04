@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { hasPermission } from '@/lib/rbac'
-import { sendWorkOrderReminder } from '@/modules/work-order/services/WorkOrderNotifications'
+import { sendWorkOrderReminder } from '@/modules/work-order'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
 /**

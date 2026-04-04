@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { SiteService } from '@/modules/roles/services/SiteService'
+import { SiteService } from '@/modules/roles'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 const siteService = new SiteService()

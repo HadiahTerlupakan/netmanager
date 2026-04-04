@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { RadiusRepository } from '@/modules/network/repositories/RadiusRepository';
+import { RadiusRepository } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logActivitySafe } from '@/lib/logger';

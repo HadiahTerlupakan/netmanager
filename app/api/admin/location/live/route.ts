@@ -1,5 +1,5 @@
 import { isSuperAdmin } from '@/lib/auth'
-import { LocationTrackingService } from '@/modules/attendance/services/LocationTrackingService'
+import { LocationTrackingService } from '@/modules/attendance'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { prisma } from '@/lib/prisma'

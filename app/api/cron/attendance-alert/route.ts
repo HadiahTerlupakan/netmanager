@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server'
-import { 
-    processCheckInReminders, 
-    processCheckOutReminders, 
-    processIncompleteAttendance,
-    runScheduledAttendanceCheck 
-} from '@/modules/attendance/services/AttendanceAlertService'
+import { processCheckInReminders, 
+processCheckOutReminders, 
+processIncompleteAttendance,
+runScheduledAttendanceCheck } from '@/modules/attendance'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { acquireCronLock } from '@/lib/cron-lock'
 

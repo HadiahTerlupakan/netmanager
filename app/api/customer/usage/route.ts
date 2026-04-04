@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { CustomerUsageService } from '@/modules/pelanggan/services/CustomerUsageService'
+import { CustomerUsageService } from '@/modules/pelanggan'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 const usageService = new CustomerUsageService()

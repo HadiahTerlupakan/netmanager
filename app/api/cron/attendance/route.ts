@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
+import { AbsenceService } from '@/modules/attendance'
 export async function GET(request: Request) {
     const url = new URL(request.url)
     const authHeader = request.headers.get('authorization')

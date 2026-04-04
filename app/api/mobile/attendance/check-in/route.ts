@@ -1,7 +1,9 @@
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
-import { AttendanceIdempotencyService } from '@/modules/attendance/services/AttendanceIdempotencyService'
-import { AttendancePhotoService } from '@/modules/attendance/services/AttendancePhotoService'
-import { AttendanceTimezoneService } from '@/modules/attendance/services/AttendanceTimezoneService'
+import {
+    AttendanceService,
+    AttendanceIdempotencyService,
+    AttendancePhotoService,
+    AttendanceTimezoneService,
+} from '@/modules/attendance'
 import { verifySignature } from '@/lib/crypto'
 import { apiSuccess, apiError, ErrorCodes, createHandler } from '@/lib/api'
 

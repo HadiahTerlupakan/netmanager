@@ -2,7 +2,7 @@ import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 import { logActivitySafe } from '@/lib/logger'
-import { SiteService } from '@/modules/roles/services/SiteService'
+import { SiteService } from '@/modules/roles'
 
 export const dynamic = 'force-dynamic'
 

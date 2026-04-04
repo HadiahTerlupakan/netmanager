@@ -1,6 +1,6 @@
 import { isSuperAdmin, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
-import { getLeaveService } from '@/modules/attendance/services/LeaveService'
+import { getLeaveService } from '@/modules/attendance'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import * as z from 'zod'

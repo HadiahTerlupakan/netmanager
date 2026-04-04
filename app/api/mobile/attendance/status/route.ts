@@ -2,9 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { createHandler } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
-import { AttendanceService } from '@/modules/attendance/services/AttendanceService'
-import { AttendanceTimezoneService } from '@/modules/attendance/services/AttendanceTimezoneService'
-import { HolidayRepository } from '@/modules/attendance/repositories/HolidayRepository'
+import { AttendanceService, AttendanceTimezoneService, HolidayRepository } from '@/modules/attendance'
 import { isOffDayForUser } from '@/modules/attendance/utils/workingDayUtils'
 
 type MobileTodayMetadata = {
