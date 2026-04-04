@@ -23,6 +23,15 @@ vi.mock('@/modules/overtime/repositories/OvertimeRepository', () => ({
 // Mock AttendanceRepository with class syntax - matching actual return structure
 vi.mock('@/modules/attendance/repositories/AttendanceRepository', () => ({
   AttendanceRepository: class MockAttendanceRepository {
+    create = vi.fn((data) => prismaMock.attendance.create({ data }))
+    update = vi.fn((id, data) => prismaMock.attendance.update({ where: { id }, data }))
+    findFirstOpenSession = vi.fn(() => prismaMock.attendance.findFirst())
+    findManyStaleSessions = vi.fn(() => prismaMock.attendance.findMany())
+    findFirstActiveForCheckout = vi.fn(() => prismaMock.attendance.findFirst())
+    findManyForHistory = vi.fn().mockResolvedValue([])
+    countByUserId = vi.fn().mockResolvedValue(0)
+    findFirstForCurrentStatus = vi.fn().mockResolvedValue(null)
+    findManyForAnalytics = vi.fn().mockResolvedValue([])
     getStatsByDateRange = vi.fn().mockResolvedValue({
       total: 100,
       avgDurationMinutes: 480,

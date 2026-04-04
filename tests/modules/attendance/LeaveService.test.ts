@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { prismaMock } from '../../setup'
 import { LeaveService } from '@/modules/attendance/services/LeaveService'
 import { LeaveType } from '@prisma/client'
 
@@ -12,6 +11,8 @@ const mockLeaveRepo = {
     delete: vi.fn(),
     findUnique: vi.fn(),
     findById: vi.fn(),
+    findByIdWithUser: vi.fn(),
+    findApprovedInRangeWithUser: vi.fn(),
 }
 
 const mockBalanceRepo = {
@@ -25,11 +26,15 @@ const mockHolidayRepo = {
     isHoliday: vi.fn().mockResolvedValue({ isHoliday: false }),
 }
 
+const mockUserRepo = {
+    findWorkScheduleByIdWithTenant: vi.fn(),
+}
+
 // Mock Repository Classes
 vi.mock('@/modules/attendance/repositories/LeaveRepository', () => ({
     LeaveRepository: class {
         constructor() {
-            return mockLeaveRepo
+            Object.assign(this, mockLeaveRepo)
         }
     }
 }))
@@ -37,7 +42,7 @@ vi.mock('@/modules/attendance/repositories/LeaveRepository', () => ({
 vi.mock('@/modules/attendance/repositories/LeaveBalanceRepository', () => ({
     LeaveBalanceRepository: class {
         constructor() {
-            return mockBalanceRepo
+            Object.assign(this, mockBalanceRepo)
         }
     }
 }))
@@ -45,7 +50,15 @@ vi.mock('@/modules/attendance/repositories/LeaveBalanceRepository', () => ({
 vi.mock('@/modules/attendance/repositories/HolidayRepository', () => ({
     HolidayRepository: class {
         constructor() {
-            return mockHolidayRepo
+            Object.assign(this, mockHolidayRepo)
+        }
+    }
+}))
+
+vi.mock('@/modules/users/repositories/UserRepository', () => ({
+    UserRepository: class {
+        constructor() {
+            Object.assign(this, mockUserRepo)
         }
     }
 }))
@@ -73,6 +86,12 @@ describe('LeaveService', () => {
         // Reset default mock behaviors
         mockHolidayRepo.isHoliday.mockResolvedValue({ isHoliday: false })
         mockBalanceRepo.hasEnoughDays.mockResolvedValue(true)
+        mockUserRepo.findWorkScheduleByIdWithTenant.mockResolvedValue({
+            id: 'user-1',
+            workingHourMode: 'FIXED',
+            workDays: 'Mon,Tue,Wed,Thu,Fri',
+            tenantId,
+        })
     })
 
     describe('createLeave', () => {
@@ -99,12 +118,12 @@ describe('LeaveService', () => {
 
         it('should create approved leave and deduct balance if autoApprove is true', async () => {
             // Mock user to have fixed schedule
-            prismaMock.user.findUnique.mockResolvedValue({
+            mockUserRepo.findWorkScheduleByIdWithTenant.mockResolvedValue({
                 id: 'user-1',
                 workingHourMode: 'FIXED',
                 workDays: 'Mon,Tue,Wed,Thu,Fri',
-                tenantId
-            } as unknown as { id: string; workingHourMode: string; workDays: string; tenantId: string })
+                tenantId,
+            })
 
             mockLeaveRepo.create.mockResolvedValue({ id: 'leave-1', ...createData, status: 'APPROVED', tenantId })
 
@@ -120,12 +139,12 @@ describe('LeaveService', () => {
         })
 
         it('should fail if balance is insufficient for auto-approved leave', async () => {
-            prismaMock.user.findUnique.mockResolvedValue({
+            mockUserRepo.findWorkScheduleByIdWithTenant.mockResolvedValue({
                 id: 'user-1',
                 workingHourMode: 'FIXED',
                 workDays: 'Mon,Tue,Wed,Thu,Fri',
-                tenantId
-            } as unknown as { id: string; workingHourMode: string; workDays: string; tenantId: string })
+                tenantId,
+            })
 
             mockBalanceRepo.hasEnoughDays.mockResolvedValue(false)
 
@@ -156,7 +175,7 @@ describe('LeaveService', () => {
         }
 
         it('should approve leave and deduct balance', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; name: string; workingHourMode: string; workDays: string; tenantId: string } })
+            mockLeaveRepo.findByIdWithUser.mockResolvedValue(leaveRequest)
             mockLeaveRepo.update.mockResolvedValue({ ...leaveRequest, status: 'APPROVED' })
 
             const result = await service.approveLeave('leave-1', 'admin-1', tenantId)
@@ -169,7 +188,7 @@ describe('LeaveService', () => {
         })
 
         it('should fail approval if balance is insufficient', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(leaveRequest as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; name: string; workingHourMode: string; workDays: string; tenantId: string } })
+            mockLeaveRepo.findByIdWithUser.mockResolvedValue(leaveRequest)
             mockBalanceRepo.hasEnoughDays.mockResolvedValue(false)
 
             const result = await service.approveLeave('leave-1', 'admin-1', tenantId)
@@ -184,7 +203,7 @@ describe('LeaveService', () => {
                 ...leaveRequest,
                 user: { ...leaveRequest.user, workingHourMode: 'FLEXIBLE' }
             }
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(flexUserLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; name: string; workingHourMode: string; workDays: string; tenantId: string } })
+            mockLeaveRepo.findByIdWithUser.mockResolvedValue(flexUserLeave)
             mockLeaveRepo.update.mockResolvedValue({ ...flexUserLeave, status: 'APPROVED' })
 
             const result = await service.approveLeave('leave-1', 'admin-1', tenantId)
@@ -212,7 +231,7 @@ describe('LeaveService', () => {
         }
 
         it('should refund balance when rejecting approved leave', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; workingHourMode: string; workDays: string; tenantId: string } })
+            mockLeaveRepo.findByIdWithUser.mockResolvedValue(approvedLeave)
             mockLeaveRepo.update.mockResolvedValue({ ...approvedLeave, status: 'REJECTED' })
 
             const result = await service.rejectLeave('leave-1', 'admin-1', tenantId, 'Reason')
@@ -223,7 +242,7 @@ describe('LeaveService', () => {
 
         it('should NOT refund balance when rejecting pending leave', async () => {
             const pendingLeave = { ...approvedLeave, status: 'PENDING' }
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(pendingLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; workingHourMode: string; workDays: string; tenantId: string } })
+            mockLeaveRepo.findByIdWithUser.mockResolvedValue(pendingLeave)
             mockLeaveRepo.update.mockResolvedValue({ ...pendingLeave, status: 'REJECTED' })
 
             const result = await service.rejectLeave('leave-1', 'admin-1', tenantId, 'Reason')
@@ -251,7 +270,7 @@ describe('LeaveService', () => {
         }
 
         it('should refund balance when deleting approved leave', async () => {
-            prismaMock.leaveRequest.findUnique.mockResolvedValue(approvedLeave as unknown as { id: string; userId: string; type: string; startDate: Date; endDate: Date; status: string; tenantId: string; user: { id: string; workingHourMode: string; workDays: string; tenantId: string } })
+            mockLeaveRepo.findByIdWithUser.mockResolvedValue(approvedLeave)
 
             const result = await service.deleteLeave('leave-1', 'admin-1', tenantId)
 
@@ -278,12 +297,12 @@ describe('LeaveService', () => {
                 return { isHoliday: d === '2024-01-04' }
             })
 
-            prismaMock.user.findUnique.mockResolvedValue({
+            mockUserRepo.findWorkScheduleByIdWithTenant.mockResolvedValue({
                 id: 'user-1',
                 workingHourMode: 'FIXED',
                 workDays: 'Mon,Tue,Wed,Thu,Fri',
-                tenantId
-            } as unknown as { id: string; workingHourMode: string; workDays: string; tenantId: string })
+                tenantId,
+            })
 
             mockLeaveRepo.create.mockResolvedValue({ status: 'APPROVED', tenantId })
 

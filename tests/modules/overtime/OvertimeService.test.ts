@@ -9,6 +9,7 @@ import { prismaMock } from '../../setup'
 const mockOvertimeRepo = {
   findAll: vi.fn(),
   findById: vi.fn(),
+  findActiveRequestByDate: vi.fn(),
   findByUserAndDate: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('@/modules/overtime/repositories/OvertimeRepository', () => ({
   OvertimeRepository: class MockOvertimeRepository {
     findAll = mockOvertimeRepo.findAll
     findById = mockOvertimeRepo.findById
+    findActiveRequestByDate = mockOvertimeRepo.findActiveRequestByDate
     findByUserAndDate = mockOvertimeRepo.findByUserAndDate
     create = mockOvertimeRepo.create
     update = mockOvertimeRepo.update
@@ -61,7 +63,7 @@ describe('OvertimeService', () => {
 
   describe('createRequest', () => {
     it('should create overtime request successfully', async () => {
-      mockOvertimeRepo.findByUserAndDate.mockResolvedValueOnce(null)
+      mockOvertimeRepo.findActiveRequestByDate.mockResolvedValueOnce(null)
       mockOvertimeRepo.create.mockResolvedValueOnce({
         id: 'overtime-1',
         userId: 'user-1',

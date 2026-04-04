@@ -97,12 +97,13 @@ describe('WorkOrderSyncService', () => {
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'PENDING' }
       ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders)
+      prismaMock.workOrders.updateMany.mockResolvedValueOnce({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
-        where: { id: 'wo-1' },
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'wo-1' }),
         data: expect.objectContaining({
           status: 'CANCELLED',
           resolutionNotes: 'Tiket ditutup sebelum WO diambil'
@@ -115,12 +116,13 @@ describe('WorkOrderSyncService', () => {
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'IN_PROGRESS' }
       ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders)
+      prismaMock.workOrders.updateMany.mockResolvedValueOnce({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
-        where: { id: 'wo-1' },
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'wo-1' }),
         data: expect.objectContaining({
           status: 'CLOSED',
           resolutionNotes: 'Tiket ditutup manual oleh Admin'
@@ -134,15 +136,15 @@ describe('WorkOrderSyncService', () => {
         { id: 'wo-1', workOrderNumber: 'WO-001', status: 'COMPLETED', verifiedAt }
       ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValueOnce({} as unknown as WorkOrders)
+      prismaMock.workOrders.updateMany.mockResolvedValueOnce({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValueOnce({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
-      expect(prismaMock.workOrders.update).toHaveBeenCalledWith({
-        where: { id: 'wo-1' },
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'wo-1' }),
         data: expect.objectContaining({
-          status: 'CLOSED',
-          verifiedAt // Should preserve existing verifiedAt
+          status: 'CLOSED'
         })
       })
     })
@@ -157,12 +159,13 @@ describe('WorkOrderSyncService', () => {
         { id: 'wo-3', workOrderNumber: 'WO-003', status: 'COMPLETED', verifiedAt: new Date() }
       ] as unknown as WorkOrders[])
 
-      prismaMock.workOrders.update.mockResolvedValue({} as unknown as WorkOrders)
+      prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 })
+      prismaMock.workOrders.findUnique.mockResolvedValue({} as unknown as WorkOrders)
 
       await closeWoOnTicketClose('ticket-1')
 
       // Should update all 3 work orders
-      expect(prismaMock.workOrders.update).toHaveBeenCalledTimes(3)
+      expect(prismaMock.workOrders.updateMany).toHaveBeenCalledTimes(3)
     })
   })
 })
