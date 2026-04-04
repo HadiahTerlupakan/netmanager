@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { prismaMock } from '../setup'
 import { getCrossSurfaceAttendanceFixture } from '../fixtures/attendance/crossSurfaceAttendanceFixtures'
@@ -11,6 +11,13 @@ vi.mock('@/lib/api', () => ({
 }))
 
 describe('web attendance status route', () => {
+    let getWebAttendanceStatus: (typeof import('@/app/api/attendance/status/route'))['GET']
+
+    beforeAll(async () => {
+        vi.useRealTimers()
+        ;({ GET: getWebAttendanceStatus } = await import('@/app/api/attendance/status/route'))
+    })
+
     beforeEach(() => {
         vi.useFakeTimers()
         prismaMock.attendance.findFirst.mockResolvedValue(null)
@@ -23,9 +30,7 @@ describe('web attendance status route', () => {
     it('returns idle status when the user has no attendance rows', async () => {
         vi.setSystemTime(new Date('2026-03-08T02:24:00.000Z'))
 
-        const { GET } = await import('@/app/api/attendance/status/route')
-
-        const response = await GET(
+        const response = await getWebAttendanceStatus(
             new NextRequest('http://localhost/api/attendance/status'),
             {
                 session: {
@@ -67,9 +72,7 @@ describe('web attendance status route', () => {
             },
         })
 
-        const { GET } = await import('@/app/api/attendance/status/route')
-
-        const response = await GET(
+        const response = await getWebAttendanceStatus(
             new NextRequest('http://localhost/api/attendance/status'),
             {
                 session: {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { prismaMock } from '../setup'
 
@@ -40,6 +40,13 @@ vi.mock('@/modules/attendance/services/AbsenceService', () => ({
 }))
 
 describe('admin attendance status detail filter', () => {
+  let getAdminAttendance: (typeof import('@/app/api/admin/attendance/route'))['GET']
+
+  beforeAll(async () => {
+    vi.useRealTimers()
+    ;({ GET: getAdminAttendance } = await import('@/app/api/admin/attendance/route'))
+  })
+
   beforeEach(() => {
     mockFns.syncApprovedLeaveToAttendanceRange.mockReset()
     mockFns.syncDayOffAttendanceRange.mockReset()
@@ -51,9 +58,7 @@ describe('admin attendance status detail filter', () => {
   })
 
   it('maps CUTI filter to PERMIT rows with CUTI marker', async () => {
-    const { GET } = await import('@/app/api/admin/attendance/route')
-
-    await GET(
+    await getAdminAttendance(
       new NextRequest('http://localhost/api/admin/attendance?page=1&limit=20&statusDetail=CUTI&startDate=2026-04-01&endDate=2026-04-30'),
       { session: { user: { id: 'admin-1', tenantId: 'tenant-1' } } } as never
     )
@@ -67,9 +72,7 @@ describe('admin attendance status detail filter', () => {
   })
 
   it('maps HARI_LIBUR filter to DAY_OFF rows with holiday marker', async () => {
-    const { GET } = await import('@/app/api/admin/attendance/route')
-
-    await GET(
+    await getAdminAttendance(
       new NextRequest('http://localhost/api/admin/attendance?page=1&limit=20&statusDetail=HARI_LIBUR&startDate=2026-04-01&endDate=2026-04-30'),
       { session: { user: { id: 'admin-1', tenantId: 'tenant-1' } } } as never
     )
@@ -83,9 +86,7 @@ describe('admin attendance status detail filter', () => {
   })
 
   it('maps ABSENT filter to true absence rows and excludes historical auto-checkout rows', async () => {
-    const { GET } = await import('@/app/api/admin/attendance/route')
-
-    await GET(
+    await getAdminAttendance(
       new NextRequest('http://localhost/api/admin/attendance?page=1&limit=20&statusDetail=ABSENT&startDate=2026-04-01&endDate=2026-04-30'),
       { session: { user: { id: 'admin-1', tenantId: 'tenant-1' } } } as never
     )
@@ -108,9 +109,7 @@ describe('admin attendance status detail filter', () => {
   })
 
   it('maps NO_CHECKOUT filter to real NO_CHECKOUT rows plus historical auto-checkout rows', async () => {
-    const { GET } = await import('@/app/api/admin/attendance/route')
-
-    await GET(
+    await getAdminAttendance(
       new NextRequest('http://localhost/api/admin/attendance?page=1&limit=20&statusDetail=NO_CHECKOUT&startDate=2026-04-01&endDate=2026-04-30'),
       { session: { user: { id: 'admin-1', tenantId: 'tenant-1' } } } as never
     )

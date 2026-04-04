@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { prismaMock } from '../setup'
 import { cache } from '@/lib/cache'
@@ -16,6 +16,13 @@ vi.mock('@/modules/database', () => ({
 }))
 
 describe('mobile attendance status route', () => {
+    let getMobileAttendanceStatus: (typeof import('@/app/api/mobile/attendance/status/route'))['GET']
+
+    beforeAll(async () => {
+        vi.useRealTimers()
+        ;({ GET: getMobileAttendanceStatus } = await import('@/app/api/mobile/attendance/status/route'))
+    })
+
     beforeEach(() => {
         vi.useFakeTimers()
         cache.clear()
@@ -36,9 +43,7 @@ describe('mobile attendance status route', () => {
     it('returns today metadata together with idle status when no attendance row exists', async () => {
         vi.setSystemTime(new Date('2026-03-08T02:24:00.000Z'))
 
-        const { GET } = await import('@/app/api/mobile/attendance/status/route')
-
-        const response = await GET(
+        const response = await getMobileAttendanceStatus(
             new NextRequest('http://localhost/api/mobile/attendance/status'),
             {
                 session: {
@@ -84,9 +89,7 @@ describe('mobile attendance status route', () => {
             },
         })
 
-        const { GET } = await import('@/app/api/mobile/attendance/status/route')
-
-        const response = await GET(
+        const response = await getMobileAttendanceStatus(
             new NextRequest('http://localhost/api/mobile/attendance/status'),
             {
                 session: {
@@ -122,9 +125,7 @@ describe('mobile attendance status route', () => {
             },
         })
 
-        const { GET } = await import('@/app/api/mobile/attendance/status/route')
-
-        const response = await GET(
+        const response = await getMobileAttendanceStatus(
             new NextRequest('http://localhost/api/mobile/attendance/status'),
             {
                 session: {
@@ -148,8 +149,6 @@ describe('mobile attendance status route', () => {
     })
 
     it('does not report yesterday holiday as today during early morning WIB requests', async () => {
-        const { GET } = await import('@/app/api/mobile/attendance/status/route')
-
         prismaMock.holiday.findFirst
             .mockResolvedValueOnce({
                 id: 'holiday-yesterday',
@@ -160,7 +159,7 @@ describe('mobile attendance status route', () => {
             .mockResolvedValueOnce(null)
 
         vi.setSystemTime(new Date('2026-03-18T16:30:00.000Z'))
-        const firstResponse = await GET(
+        const firstResponse = await getMobileAttendanceStatus(
             new NextRequest('http://localhost/api/mobile/attendance/status'),
             {
                 session: {
@@ -175,7 +174,7 @@ describe('mobile attendance status route', () => {
         const firstBody = await firstResponse.json()
 
         vi.setSystemTime(new Date('2026-03-18T18:30:00.000Z'))
-        const secondResponse = await GET(
+        const secondResponse = await getMobileAttendanceStatus(
             new NextRequest('http://localhost/api/mobile/attendance/status'),
             {
                 session: {
