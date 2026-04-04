@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { getRetryQueueStats } from '@/modules/notification/services/PushRetryQueue';
+import { getRetryQueueStats } from '@/modules/notification';
 import { verifyAuth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 
 export async function GET(request: NextRequest) {
     try {

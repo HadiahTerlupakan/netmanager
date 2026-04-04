@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import bcrypt from 'bcryptjs'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import * as z from 'zod'

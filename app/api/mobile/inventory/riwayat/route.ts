@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { apiError, ErrorCodes } from '@/lib/api-response'
 
 // GET - Get transaction history for mobile (Optimized)

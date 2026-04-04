@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { AssetService } from '@/modules/inventory/services/AssetService'
-import { prisma } from '@/lib/prisma'
+import { AssetService } from '@/modules/inventory'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getEnv } from '@/lib/env'
 

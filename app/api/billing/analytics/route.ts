@@ -1,4 +1,4 @@
-import { BillingAnalyticsService } from '@/modules/finance/services/BillingAnalyticsService'
+import { BillingAnalyticsService } from '@/modules/finance'
 import { apiSuccess, createHandler } from '@/lib/api'
 
 const analyticsService = new BillingAnalyticsService()

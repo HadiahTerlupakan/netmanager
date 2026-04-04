@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getMikroTikRouterRepository } from '@/lib/repositories'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
 
@@ -21,7 +21,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     // Check site restriction
     const user = ctx.session!.user
     if ((await hasPermission("mikrotik:site_only")) && user.role !== 'SUPER_ADMIN') {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
         const userSiteId = dbUser?.siteId
         if (!userSiteId || router.siteId !== userSiteId) {
@@ -30,7 +30,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     // Import the provisioning service
-    const { MikroTikProvisioningService } = await import('@/modules/network/services/MikroTikProvisioningService')
+    const { MikroTikProvisioningService } = await import('@/modules/network')
     const provisioningService = new MikroTikProvisioningService()
 
     // console.log(`[Generate API User] Creating API user for router ${router.name} (${router.ipAddress})...`)

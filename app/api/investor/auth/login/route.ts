@@ -1,6 +1,6 @@
 import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 
-import { prismaAuth } from '@/lib/prisma'
+import { prismaAuth } from '@/modules/database'
 import { compare } from 'bcryptjs'
 import { SignJWT } from 'jose'
 import { checkRateLimit } from '@/lib/redis'

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { MixRadiusService } from '@/modules/integrations'
 import { WorkOrderRepository } from '@/modules/work-order'

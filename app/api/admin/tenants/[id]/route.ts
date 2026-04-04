@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiError, ErrorCodes } from '@/lib/api-response'
 
 export async function PUT(

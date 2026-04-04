@@ -1,5 +1,5 @@
 import { prismaBilling } from '@/lib/prisma-billing'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const GET = createHandler({ auth: true }, async (request, ctx) => {

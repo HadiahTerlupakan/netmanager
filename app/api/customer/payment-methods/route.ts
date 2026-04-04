@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
-import { PaymentGatewayManager } from '@/modules/finance/services/payment-gateway/gateway-manager'
+import { PaymentGatewayManager } from '@/modules/finance'
 
 export const dynamic = 'force-dynamic'
 

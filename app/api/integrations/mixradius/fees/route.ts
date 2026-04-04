@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import * as crypto from 'crypto'

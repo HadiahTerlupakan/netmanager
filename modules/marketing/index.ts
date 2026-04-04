@@ -3,6 +3,7 @@
 // Services (public)
 export { CanvasingService } from './services/CanvasingService'
 export { PointClaimService } from './services/PointClaimService'
+export * from './services/CanvasingAccessService'
 
 // Repository interfaces (public - needed by consumers who inject repos)
 export type {

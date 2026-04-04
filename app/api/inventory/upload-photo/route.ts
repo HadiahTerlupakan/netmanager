@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logger } from '@/lib/logger'
 import { validateInventoryPhotos, uploadInventoryPhotos } from '@/lib/utils/image-upload'
 import * as path from 'path'

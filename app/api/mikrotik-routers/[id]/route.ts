@@ -3,7 +3,7 @@ import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { mikrotikRouterUpdateSchema } from '@/lib/validations/mikrotik'
 import { logActivitySafe } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { id } = ctx.params
@@ -116,7 +116,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
              // Auto Deprovisioning
              try {
-                const { MikroTikProvisioningService } = await import('@/modules/network/services/MikroTikProvisioningService');
+                const { MikroTikProvisioningService } = await import('@/modules/network');
                 const provisioningService = new MikroTikProvisioningService();
                 
                 // console.log(`Deprovisioning router ${router.ipAddress}...`);

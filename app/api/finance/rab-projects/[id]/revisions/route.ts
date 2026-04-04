@@ -7,8 +7,8 @@ import {
   calculateRevisionTotals,
   normalizeRevisionSnapshotItems,
   serializeRabRevision,
-} from "@/modules/finance/utils/rab-revisions";
-import { prisma } from "@/lib/prisma";
+} from "@/modules/finance";
+import { prisma } from "@/modules/database";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";

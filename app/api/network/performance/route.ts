@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { networkPerformanceQuerySchema } from '@/lib/validations/network-performance'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { Prisma } from '@prisma/client'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 

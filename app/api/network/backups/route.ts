@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { deviceBackupCreateSchema, deviceBackupQuerySchema } from '@/lib/validations/device-backup'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logActivitySafe } from '@/lib/logger'
 import { Prisma } from '@prisma/client'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'

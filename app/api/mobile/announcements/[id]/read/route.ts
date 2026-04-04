@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
 import { apiError, ErrorCodes } from '@/lib/api-response';
 

@@ -1,7 +1,7 @@
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { getWorkOrderService, type UserContext } from '@/modules/work-order'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const user = ctx.session!.user;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 interface GeminiResponse {
   candidates?: Array<{

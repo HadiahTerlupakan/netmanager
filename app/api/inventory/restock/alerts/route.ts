@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { Prisma } from '@prisma/client'

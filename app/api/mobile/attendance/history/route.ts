@@ -1,6 +1,6 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { HolidayRepository, AttendanceTimezoneService } from '@/modules/attendance'
-import { isOffDayForUser } from '@/modules/attendance/utils/workingDayUtils'
+import { isOffDayForUser } from '@/modules/attendance'
 import { apiPaginated, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'

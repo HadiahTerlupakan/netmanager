@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCustomerAuth, getCustomerById } from '@/lib/customer-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { DiscountType } from '@prisma/client'
 
 export async function GET(request: NextRequest) {

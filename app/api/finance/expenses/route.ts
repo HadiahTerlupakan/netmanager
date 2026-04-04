@@ -1,4 +1,4 @@
-import { FinanceService } from "@/modules/finance/services/FinanceService";
+import { FinanceService } from "@/modules/finance";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
@@ -7,9 +7,9 @@ import {
     beginExpenseMutation,
     buildExpensePayloadHash,
     completeExpenseMutation,
-} from "@/modules/finance/services/expense-idempotency";
+} from "@/modules/finance";
 import * as z from "zod";
-import { getUserService } from "@/modules/users/services/UserService";
+import { getUserService } from "@/modules/users";
 
 export const dynamic = 'force-dynamic';
 

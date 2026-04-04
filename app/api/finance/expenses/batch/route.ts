@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/modules/database";
 import { isSuperAdmin } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { hasPermission } from "@/lib/rbac";
@@ -7,7 +7,7 @@ import {
     beginExpenseMutation,
     buildExpensePayloadHash,
     completeExpenseMutation,
-} from "@/modules/finance/services/expense-idempotency";
+} from "@/modules/finance";
 import * as z from "zod";
 
 export const dynamic = 'force-dynamic';

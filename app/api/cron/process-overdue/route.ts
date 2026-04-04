@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AutomaticIsolationService } from '@/modules/finance/services/AutomaticIsolationService';
+import { AutomaticIsolationService } from '@/modules/finance';
 
 export async function GET(req: Request) {
     try {

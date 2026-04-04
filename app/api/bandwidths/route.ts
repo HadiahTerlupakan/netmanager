@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { Prisma } from '@prisma/client'
 import { bandwidthSchema } from '@/lib/validations/bandwidth'
 import { sanitizeInput } from '@/lib/utils/sanitize'

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prismaBilling } from '@/lib/prisma-billing'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { sendCustomerPushNotification } from '@/modules/notification/services/ExpoPushService'
+import { sendCustomerPushNotification } from '@/modules/notification'
 
 export async function POST(
     request: NextRequest,

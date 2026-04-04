@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { Prisma } from '@prisma/client'
 import { toEndOfDay } from '@/lib/utils/server-datetime'
 

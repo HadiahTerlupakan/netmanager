@@ -59,13 +59,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     if (!isSuper) {
         if (permissions.includes('lembur:site_only')) {
-             const { prisma: db } = await import('@/lib/prisma');
+             const { prisma: db } = await import('@/modules/database');
              const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
              if (dbUser?.siteId) serviceFilters.siteId = dbUser.siteId
         }
         if (permissions.includes('lembur:department_only')) {
              // If not already fetched
-             const { prisma: db } = await import('@/lib/prisma');
+             const { prisma: db } = await import('@/modules/database');
              const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { departmentId: true } });
              if (dbUser?.departmentId) serviceFilters.departmentId = dbUser.departmentId
         }

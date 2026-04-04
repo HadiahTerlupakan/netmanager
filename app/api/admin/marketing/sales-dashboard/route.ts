@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { hasPermission } from '@/lib/rbac'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(request: NextRequest) {

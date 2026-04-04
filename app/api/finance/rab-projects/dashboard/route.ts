@@ -1,6 +1,6 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { buildRabBottleneckMetrics } from '@/modules/finance/utils/rab-bottleneck-metrics'
+import { buildRabBottleneckMetrics } from '@/modules/finance'
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const isSuperAdmin = ctx.permissions.includes('*')

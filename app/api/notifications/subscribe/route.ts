@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { subscribeDevice } from '@/modules/notification';
 import { getVapidPublicKey, isPushConfigured } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response';

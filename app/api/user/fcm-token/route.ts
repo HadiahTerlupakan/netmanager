@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function POST(req: Request) {

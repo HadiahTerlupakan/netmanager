@@ -1,8 +1,8 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { getWorkOrderService, WorkOrderRepository } from '@/modules/work-order';
 import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
-import { workOrderCacheService } from '@/modules/work-order/services/WorkOrderCacheService';
+import { workOrderCacheService } from '@/modules/work-order';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { logActivitySafe } from '@/lib/logger';
 

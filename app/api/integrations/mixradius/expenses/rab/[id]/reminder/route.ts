@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto'
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import {
   filterEligibleReminderRecipients,
   shouldSendRabReminder,
-} from '@/modules/finance/utils/rab-approval-reminder'
+} from '@/modules/finance'
 import { createNotification } from '@/modules/notification'
 
 const REMINDER_COOLDOWN_MINUTES = 30

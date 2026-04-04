@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { socketEmitter } from '@/lib/websocket/emitter'
 import { forceLogoutSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'

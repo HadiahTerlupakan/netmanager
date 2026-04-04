@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { apiSuccess } from '@/lib/api-response'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { redis } from '@/lib/redis'
 
 /**

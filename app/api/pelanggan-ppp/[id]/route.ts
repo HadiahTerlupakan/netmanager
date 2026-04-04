@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
 import { AutomaticBillingService } from '@/modules/finance'

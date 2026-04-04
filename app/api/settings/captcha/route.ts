@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createHandler, apiSuccess } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export const dynamic = 'force-dynamic'
 

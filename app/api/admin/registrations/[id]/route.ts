@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { RegistrationRepository } from '@/modules/registration/repositories/RegistrationRepository'
+import { RegistrationRepository } from '@/modules/registration'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
 const registrationRepository = new RegistrationRepository()

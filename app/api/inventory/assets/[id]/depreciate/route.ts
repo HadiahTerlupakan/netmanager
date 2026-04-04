@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AssetService } from '@/modules/inventory/services/AssetService'
+import { AssetService } from '@/modules/inventory'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 

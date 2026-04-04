@@ -1,5 +1,5 @@
 import { Prisma as PrismaBilling } from '@prisma/client-billing';
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { prismaBilling } from '@/lib/prisma-billing';
 import { invoiceSchema } from '@/lib/validations/invoice'
 import { randomUUID } from 'crypto'
@@ -27,7 +27,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   if (isRestricted) {
     // Fetch user siteId
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     const userSiteId = dbUser?.siteId
 
@@ -118,7 +118,7 @@ export const POST = createHandler({
 
   if (isRestricted) {
     // Fetch user siteId
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     const userSiteId = dbUser?.siteId
 

@@ -1,4 +1,4 @@
-import { FinanceService } from "@/modules/finance/services/FinanceService";
+import { FinanceService } from "@/modules/finance";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import * as z from "zod";

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { Prisma } from '@prisma/client'
 import { apiPaginatedWithSummary, ApiErrors } from '@/lib/api-response'
 import { attendanceFilterSchema } from '@/lib/validations/attendance'
@@ -51,12 +51,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     if (!isSuper) {
         if (permissions.includes('attendance:site_only')) {
-            const { prisma: db } = await import('@/lib/prisma');
+            const { prisma: db } = await import('@/modules/database');
             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
             restrictedSiteId = dbUser?.siteId || undefined
         }
         if (permissions.includes('attendance:department_only')) {
-            const { prisma: db } = await import('@/lib/prisma');
+            const { prisma: db } = await import('@/modules/database');
             const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { departmentId: true } });
             restrictedDeptId = dbUser?.departmentId || undefined
         }

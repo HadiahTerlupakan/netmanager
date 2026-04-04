@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { AbsenceService } from '@/modules/attendance'
 export async function GET(request: Request) {
     const url = new URL(request.url)

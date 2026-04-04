@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { prisma } from '@/lib/prisma';
-import { prismaMitra } from '@/lib/prisma-mitra';
+import { prisma } from '@/modules/database';
+import { prismaMitra } from '@/modules/database';
 import { getInventoryRepository } from '@/lib/repositories';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { logger } from '@/lib/logger';

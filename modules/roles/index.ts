@@ -28,3 +28,5 @@ export {
 } from './services/SiteRestrictionService'
 export type { SiteRestrictionResult } from './services/SiteRestrictionService'
 
+// Department Management
+export * from './services/DepartmentService'

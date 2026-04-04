@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { prismaBilling } from '@/lib/prisma-billing';
 import * as z from 'zod'
 import { createHandler, ApiErrors } from '@/lib/api'
@@ -50,7 +50,7 @@ export const GET = createHandler({ auth: true }, async (req: any, ctx: any) => {
   const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
 
   if (isRestricted) {
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     const userSiteId = dbUser?.siteId
 
@@ -101,7 +101,7 @@ export const PUT = createHandler({ auth: true }, async (req: any, ctx: any) => {
 
   let userSiteId: string | undefined
   if (isRestricted) {
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     userSiteId = dbUser?.siteId || undefined
 
@@ -188,7 +188,7 @@ export const DELETE = createHandler({ auth: true }, async (req: any, ctx: any) =
   const isRestricted = (await hasPermission("invoice:site_only")) && user.role !== 'SUPER_ADMIN'
 
   if (isRestricted) {
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     const userSiteId = dbUser?.siteId
 

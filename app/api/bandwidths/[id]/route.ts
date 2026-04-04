@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { bandwidthSchema } from '@/lib/validations/bandwidth'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
@@ -101,7 +101,7 @@ export async function PUT(
       const radiusSync = new RadiusSyncService()
       const mode = await radiusSync.getConnectionMode()
       if (mode === 'RADIUS') {
-        const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository')
+        const { RadiusRepository } = await import('@/modules/network')
         const radiusRepo = new RadiusRepository()
         await radiusRepo.syncBandwidthToRadius(id)
       }

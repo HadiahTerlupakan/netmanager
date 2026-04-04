@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import axios from 'axios'
 
 export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {

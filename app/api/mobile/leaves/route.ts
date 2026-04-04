@@ -4,9 +4,9 @@ import { LeaveBalanceRepository } from '@/modules/attendance'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { LeaveType, LeaveStatus, Prisma } from '@prisma/client'
 import { createNotification } from '@/modules/notification'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { convertAndSaveBase64 } from '@/lib/utils/image-upload'
-import { calculateWorkingDays } from '@/modules/attendance/utils/calculateWorkingDays'
+import { calculateWorkingDays } from '@/modules/attendance'
 import { apiError, ErrorCodes } from '@/lib/api-response'
 
 const repo = new LeaveRepository()

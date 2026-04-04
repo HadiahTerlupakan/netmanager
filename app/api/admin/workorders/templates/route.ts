@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import crypto from 'crypto';
 import { workOrderTemplateCreateSchema, workOrderTemplateQuerySchema } from '@/lib/validations/workorder-template';
 import { hasPermission } from '@/lib/rbac';

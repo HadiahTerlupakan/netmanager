@@ -1,8 +1,8 @@
 import { AttendanceService } from '@/modules/attendance'
-import { OvertimeService } from '@/modules/overtime/services/OvertimeService'
+import { OvertimeService } from '@/modules/overtime'
 import { apiSuccess, ErrorCodes, apiError, createHandler, ApiErrors } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { isSuperAdmin } from '@/lib/auth'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 

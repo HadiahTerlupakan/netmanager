@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { getLeaveService } from '@/modules/attendance'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getEnv } from '@/lib/env'

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { invalidateTimezoneCache } from '@/lib/utils/get-timezone'
 import { logActivitySafe } from '@/lib/logger'
 
@@ -351,7 +351,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   invalidateTimezoneCache()
 
   // Also invalidate AttendanceTimezoneService Redis cache
-  const { AttendanceTimezoneService } = await import('@/modules/attendance/services/AttendanceTimezoneService')
+  const { AttendanceTimezoneService } = await import('@/modules/attendance')
   const tzService = new AttendanceTimezoneService()
   await tzService.invalidateCache().catch(() => {}) // Fire and forget
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { verifyAuth, hasPermission } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { patchRestockRequestStatus } from '@/app/api/inventory/_utils/restock-request-status'
 import { ProcurementService } from '@/modules/procurement'
 

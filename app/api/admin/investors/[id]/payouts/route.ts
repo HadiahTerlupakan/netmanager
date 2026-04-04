@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, apiPaginated, ApiErrors, createHandler } from '@/lib/api'
 import { investorPayoutSchema } from '@/lib/validations/investor'
 

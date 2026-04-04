@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { WorkOrderRepository } from '@/modules/work-order';
 import { WorkOrderStatus } from '@prisma/client';
 import { createHandler, apiPaginated } from '@/lib/api'

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { prismaMitra } from '@/lib/prisma-mitra';
+import { prismaMitra } from '@/modules/database';
 import fs from 'fs';
 import path from 'path';
 import { apiError, ErrorCodes } from '@/lib/api-response'

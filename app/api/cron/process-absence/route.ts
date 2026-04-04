@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         const absenceService = new AbsenceService()
         
         // Process for all active tenants
-        const { prisma } = await import('@/lib/prisma')
+        const { prisma } = await import('@/modules/database')
         const tenants = await prisma.tenant.findMany({
             where: { isActive: true },
             select: { id: true }

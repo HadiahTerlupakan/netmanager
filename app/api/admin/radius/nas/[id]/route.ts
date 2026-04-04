@@ -1,6 +1,6 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { RadiusRepository } from '@/modules/network';
-import type { INas } from '@/modules/network/repositories/IRadiusRepository';
+import type { INas } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 

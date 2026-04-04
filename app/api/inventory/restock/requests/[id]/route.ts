@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { authOptions } from '@/lib/auth'
 import { randomUUID } from 'crypto'
 import { getRestockRequestDetail, patchRestockRequestLifecycle } from '@/app/api/inventory/_utils/restock-request-lifecycle'

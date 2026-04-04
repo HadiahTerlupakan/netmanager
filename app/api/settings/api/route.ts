@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createHandler, apiSuccess } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { clearR2SettingsCache } from '@/lib/utils/r2-client'
 import { logActivitySafe } from '@/lib/logger'
 

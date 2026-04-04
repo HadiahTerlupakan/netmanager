@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import { FinanceService } from '@/modules/finance/services/FinanceService'
+import { FinanceService } from '@/modules/finance'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 const financeService = new FinanceService()

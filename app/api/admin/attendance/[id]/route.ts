@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { Prisma } from '@prisma/client'
 import { isSuperAdmin, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
@@ -53,7 +53,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         // We can check against the fetched record directly without pre-fetching user details again 
         // since we just need to compare with current user's claims. 
         // But `user` from session doesn't have siteId/deptId. We need to fetch it.
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('attendance:site_only') && dbUser?.siteId) {
@@ -99,7 +99,7 @@ export const PATCH = createHandler({
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('attendance:site_only') && dbUser?.siteId) {
@@ -199,7 +199,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('attendance:site_only') && dbUser?.siteId) {

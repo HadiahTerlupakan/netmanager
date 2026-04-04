@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { LogType, Prisma } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
 import { checkSiteRestriction } from '@/modules/roles'

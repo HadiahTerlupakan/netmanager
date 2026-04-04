@@ -21,4 +21,6 @@ export { SupportTicketService } from './services/SupportTicketService'
 export { CustomerUsageService } from './services/CustomerUsageService'
 export { CustomerAuthService } from './services/CustomerAuthService'
 
-
+// Admin Services
+export * from './services/AdminSupportTicketService'
+export * from './services/CustomerPortalService'

@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, createHandler } from '@/lib/api'
 
 export const GET = createHandler({ 

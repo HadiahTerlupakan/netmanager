@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logger } from '@/lib/logger'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
 

@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth/next";
 import * as z from "zod";
 
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/modules/database";
 
 const rejectSchema = z.object({
   notes: z.string().trim().min(1).optional(),

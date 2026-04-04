@@ -3,8 +3,8 @@ import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { serializeRabRevision } from "@/modules/finance/utils/rab-revisions";
-import { prisma } from "@/lib/prisma";
+import { serializeRabRevision } from "@/modules/finance";
+import { prisma } from "@/modules/database";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";

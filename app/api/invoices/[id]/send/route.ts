@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { prismaBilling } from '@/lib/prisma-billing';
 import { sendInvoiceSchema } from '@/lib/validations/invoice'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
@@ -15,7 +15,7 @@ export const POST = createHandler({
   const user = ctx.session!.user
 
   // Fetch user siteId for validation
-  const { prisma: db } = await import('@/lib/prisma');
+  const { prisma: db } = await import('@/modules/database');
   const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
   const userSiteId = dbUser?.siteId
 

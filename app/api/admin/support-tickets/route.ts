@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { supportTicketFilterSchema } from '@/lib/validations/support-ticket'
-import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
+import { getAdminSupportTicketService } from '@/modules/pelanggan'
 import { getSiteFilter } from '@/modules/roles'
 import { logger } from '@/lib/logger'
 

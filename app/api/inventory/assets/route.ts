@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { AssetService } from '@/modules/inventory/services/AssetService'
+import { AssetService } from '@/modules/inventory'
 import { z, ZodError } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'

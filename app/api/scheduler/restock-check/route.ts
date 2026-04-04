@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logger } from '@/lib/logger'
 import { EmailService } from '@/modules/notification'
 

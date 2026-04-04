@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { requireAuth } from '@/lib/auth-helpers';
 import type { TargetAudience } from '@prisma/client';
 import { getSocketServer } from '@/lib/websocket/server';

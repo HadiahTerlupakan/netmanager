@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { convertAndSaveImage, isImageFile } from '@/lib/utils/image-upload'
 import path from 'path'
 import { unlink } from 'fs/promises'

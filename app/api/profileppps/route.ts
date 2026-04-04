@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
 import { getServerSession } from 'next-auth'
@@ -309,7 +309,7 @@ export async function POST(req: NextRequest) {
       const radiusSync = new RadiusSyncService();
       const mode = await radiusSync.getConnectionMode();
       if (mode === 'RADIUS') {
-        const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository');
+        const { RadiusRepository } = await import('@/modules/network');
         const radiusRepo = new RadiusRepository();
         await radiusRepo.syncProfileToRadius(profilePPP.id);
         
@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
       const connectionMode = await radiusSync.getConnectionMode();
       const isRadiusMode = connectionMode === 'RADIUS';
 
-      const { createPPPProfileInMikroTik, getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile');
+      const { createPPPProfileInMikroTik, getRateLimitFromBandwidth } = await import('@/modules/network');
 
       if (isRadiusMode) {
         // console.log('[API ProfilePPP] RADIUS mode: broadcasting profile creation to all active routers');

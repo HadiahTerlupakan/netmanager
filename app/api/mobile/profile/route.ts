@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { prisma } from '@/lib/prisma'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prisma } from '@/modules/database'
+import { prismaMitra } from '@/modules/database'
 
 export async function GET(request: Request) {
     try {
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
         }
 
         // Extract features with canvasing override logic
-        const { getUserFeaturesWithCanvasing } = await import('@/modules/marketing/services/CanvasingAccessService')
+        const { getUserFeaturesWithCanvasing } = await import('@/modules/marketing')
         const features = await getUserFeaturesWithCanvasing(profile.id)
 
         // Check for active leave

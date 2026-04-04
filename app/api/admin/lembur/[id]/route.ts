@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { OvertimeService } from '@/modules/overtime'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { lemburActionSchema } from '@/lib/validations/lembur'
@@ -45,7 +45,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user);
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('lembur:site_only') && dbUser?.siteId) {
@@ -94,7 +94,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user);
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('lembur:site_only') && dbUser?.siteId) {
@@ -202,7 +202,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user);
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('lembur:site_only') && dbUser?.siteId) {

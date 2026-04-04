@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaMitra } from '@/modules/database'
 import { ensurePermission } from '@/lib/rbac'
 import { logger } from '@/lib/logger'
 

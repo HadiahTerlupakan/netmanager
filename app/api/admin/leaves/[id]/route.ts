@@ -1,7 +1,7 @@
 import { isSuperAdmin, getUserPermissions } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getLeaveService } from '@/modules/attendance'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import * as z from 'zod'
 
@@ -41,7 +41,7 @@ export const PATCH = createHandler({
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { siteId: true, departmentId: true } });
         
         if (permissions.includes('izin:site_only') && dbUser?.siteId) {
@@ -95,7 +95,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user)
 
     if (!isSuper) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { siteId: true, departmentId: true } });
 
         if (permissions.includes('izin:site_only') && dbUser?.siteId) {

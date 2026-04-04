@@ -2,7 +2,7 @@ import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import * as z from 'zod';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 
 const addMaterialSchema = z.object({
     barangId: z.string().min(1, 'Barang harus dipilih'),

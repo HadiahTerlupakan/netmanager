@@ -4,7 +4,7 @@ import { LeaveBalanceRepository, DEFAULT_LEAVE_QUOTAS } from '@/modules/attendan
 import { LeaveType } from '@prisma/client'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import * as z from 'zod'
-import { prismaAuth } from '@/lib/prisma'
+import { prismaAuth } from '@/modules/database'
 
 const leaveBalanceRepo = new LeaveBalanceRepository()
 

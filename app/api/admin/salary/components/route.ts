@@ -1,4 +1,4 @@
-import { SalaryComponentRepository } from '@/modules/salary/repositories/SalaryComponentRepository'
+import { SalaryComponentRepository } from '@/modules/salary'
 import { SalaryComponentType } from '@prisma/client'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'

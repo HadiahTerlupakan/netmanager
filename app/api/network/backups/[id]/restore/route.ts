@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { configurationRestoreCreateSchema } from '@/lib/validations/device-backup'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**

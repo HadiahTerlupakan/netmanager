@@ -6,7 +6,7 @@ import { getRoleService } from '@/modules/roles'
 import * as z from 'zod'
 import { logActivitySafe } from '@/lib/logger'
 import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
-import { MAIN_TENANT_ID } from '@/modules/mitra/services/tenant-constants'
+import { MAIN_TENANT_ID } from '@/modules/mitra'
 
 const roleUpdateSchema = z.object({
     name: z.string().min(2),

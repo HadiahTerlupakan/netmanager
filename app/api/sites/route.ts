@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getHybridUser } from "@/lib/hybrid-auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/modules/database";
 
 export async function GET(req: Request) {
   const user = await getHybridUser(req) as { role?: string; siteId?: string; id?: string } | null;

@@ -46,7 +46,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     // Fetch extended user context
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({
         where: { id: user.id },
         select: { id: true, departmentId: true, siteId: true }

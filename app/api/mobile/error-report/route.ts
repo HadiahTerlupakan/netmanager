@@ -5,7 +5,7 @@ import { LogType } from '@prisma/client'
 
 import { logger } from '@/lib/logger'
 import { authenticateMobileRequest } from '@/lib/mobile-api-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { validateRequired } from '@/lib/validation-utils'
 import { apiError, ErrorCodes } from '@/lib/api-response'
 

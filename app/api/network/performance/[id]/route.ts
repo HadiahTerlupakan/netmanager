@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 
 /**

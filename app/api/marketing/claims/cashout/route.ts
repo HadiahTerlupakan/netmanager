@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { verifyAuth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 // POST - Karyawan Cashout Target Accumulation

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 
 export async function POST(request: Request) {

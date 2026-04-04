@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 
 export async function GET() {
   const canvasing = await prisma.canvasing.findMany({

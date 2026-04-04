@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { TicketStatus } from '@prisma/client'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'

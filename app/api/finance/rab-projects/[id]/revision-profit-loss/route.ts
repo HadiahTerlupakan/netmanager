@@ -2,8 +2,8 @@ import { RabExpenseType } from "@prisma/client";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { buildRabRevisionVarianceSummary, getVarianceLabel } from "@/modules/finance/utils/rab-revision-variance";
-import { prisma } from "@/lib/prisma";
+import { buildRabRevisionVarianceSummary, getVarianceLabel } from "@/modules/finance";
+import { prisma } from "@/modules/database";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";

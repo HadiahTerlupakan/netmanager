@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { sendWorkOrderReminder } from '@/modules/work-order'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 

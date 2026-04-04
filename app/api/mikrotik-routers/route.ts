@@ -1,10 +1,10 @@
 import { getMikroTikRouterRepository } from '@/lib/repositories'
 import { mikrotikRouterCreateSchema } from '@/lib/validations/mikrotik'
 import { hasPermission } from '@/lib/rbac'
-import type { MikroTikRouterCreateData } from '@/modules/network/repositories/IMikroTikRouterRepository'
+import type { MikroTikRouterCreateData } from '@/modules/network'
 import { logActivitySafe } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const { searchParams } = req.nextUrl
@@ -122,7 +122,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         if (body.autoConfigure) {
             // console.log('Starting Auto Provisioning...');
             try {
-                const serviceModule = await import('@/modules/network/services/MikroTikProvisioningService');
+                const serviceModule = await import('@/modules/network');
                 if (serviceModule && serviceModule.MikroTikProvisioningService) {
                     const { MikroTikProvisioningService } = serviceModule;
                     const provisioningService = new MikroTikProvisioningService();
@@ -172,7 +172,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         }
 
         try {
-            const { checkSingleMikroTikRouterStatus } = await import('@/modules/network/services/mikrotik-ping-check')
+            const { checkSingleMikroTikRouterStatus } = await import('@/modules/network')
             await checkSingleMikroTikRouterStatus(router.id)
         } catch (err) {
             console.error('Failed to perform initial router check:', err)

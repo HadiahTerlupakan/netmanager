@@ -3,8 +3,8 @@ import { getUserService } from '@/modules/users'
 import { createUserSchema } from '@/lib/validations/user'
 import { logger } from '@/lib/logger'
 import { getSiteFilter, checkSiteRestriction } from '@/modules/roles'
-import { prisma, prismaAuth } from '@/lib/prisma'
-import { getTenantAdminRoleId } from '@/modules/mitra/services/TenantProvisioningService'
+import { prisma, prismaAuth } from '@/modules/database'
+import { getTenantAdminRoleId } from '@/modules/mitra'
 import type { Session } from 'next-auth'
 
 /**
@@ -177,7 +177,7 @@ export const POST = createHandler({
     // Handle leave quotas initialization
     if (body.leaveQuotas && Object.keys(body.leaveQuotas).length > 0) {
       try {
-        const { LeaveBalanceRepository } = await import('@/modules/attendance/repositories/LeaveBalanceRepository')
+        const { LeaveBalanceRepository } = await import('@/modules/attendance')
         const leaveBalanceRepo = new LeaveBalanceRepository()
         const targetYear = new Date().getFullYear()
         

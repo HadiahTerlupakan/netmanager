@@ -2,5 +2,22 @@ export * from './repositories';
 export * from './services/AutomaticBillingService';
 export * from './services/budget-integration';
 export * from './services/payment-gateway/webhook-processing-service';
-
 export * from './services/VoidInvoiceService';
+
+// Services
+export * from './services/FinanceService';
+export * from './services/FinanceStatsService';
+export * from './services/expense-idempotency';
+export * from './services/AutomaticIsolationService';
+export * from './services/BillingAnalyticsService';
+
+// Payment Gateway
+export * from './services/payment-gateway/gateway-manager';
+export * from './services/payment-gateway/providers/midtrans-provider';
+export * from './services/payment-gateway/providers/moota-provider';
+
+// RAB Utils
+export * from './utils/rab-revisions';
+export * from './utils/rab-approval-reminder';
+export * from './utils/rab-bottleneck-metrics';
+export * from './utils/rab-revision-variance';

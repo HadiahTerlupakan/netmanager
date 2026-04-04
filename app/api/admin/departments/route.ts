@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { getDepartmentService } from '@/modules/roles/services/DepartmentService'
+import { getDepartmentService } from '@/modules/roles'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
 const service = getDepartmentService()

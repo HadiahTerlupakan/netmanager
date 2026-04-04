@@ -1,5 +1,5 @@
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { Prisma } from '@prisma/client'
 import { logger, logActivitySafe } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
@@ -35,7 +35,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user)
     
     // Need to fetch siteId
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     const userSiteId = dbUser?.siteId
 
@@ -151,10 +151,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   // NEW: Validate Gudang Access
-  const { validateGudangAccess } = await import('@/modules/inventory/utils/validation');
+  const { validateGudangAccess } = await import('@/modules/inventory');
   
   // Mock session for validation
-  const { prisma: db } = await import('@/lib/prisma');
+  const { prisma: db } = await import('@/modules/database');
   const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true, role: true } });
   
   const mockSession = {

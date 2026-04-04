@@ -1,5 +1,5 @@
 import { networkAlertUpdateSchema } from '@/lib/validations/network-performance'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logActivitySafe } from '@/lib/logger'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 

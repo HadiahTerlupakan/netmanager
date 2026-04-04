@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { getUserPermissions } from '@/lib/auth'
 import { getUserRepository } from '@/lib/repositories'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaMitra } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 
 export async function GET(req: NextRequest) {

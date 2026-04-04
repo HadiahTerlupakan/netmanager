@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { randomUUID } from 'crypto'
 import { TicketStatus } from '@prisma/client'
-import { WhatsAppService } from '@/modules/notification/services/whatsapp/whatsapp-service'
+import { WhatsAppService } from '@/modules/notification'
 import { socketEmitter } from '@/lib/websocket/emitter'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 

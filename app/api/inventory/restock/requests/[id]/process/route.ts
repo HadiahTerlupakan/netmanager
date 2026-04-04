@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { patchRestockRequestStatus } from '@/app/api/inventory/_utils/restock-request-status'
 import { verifyAuth, hasPermission } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export async function PATCH(
   req: NextRequest,

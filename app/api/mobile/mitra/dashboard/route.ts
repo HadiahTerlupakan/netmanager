@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getMitraWalletService } from '@/modules/mitra'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaMitra } from '@/modules/database'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
 

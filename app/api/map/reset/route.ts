@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/modules/database";
 import bcrypt from "bcryptjs";
 import * as z from "zod";
 

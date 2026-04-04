@@ -2,7 +2,7 @@ import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { getInventoryRepository } from '@/lib/repositories'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { validateGudangAccess } from '@/modules/inventory/utils/validation'
+import { validateGudangAccess } from '@/modules/inventory'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import type { Session } from 'next-auth'
 
@@ -35,7 +35,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const isSuper = isSuperAdmin(user)
 
   if (!isSuper && (permissions.includes('masuk:site_only') || permissions.includes('k_barang:site_only'))) {
-      const { prisma } = await import('@/lib/prisma');
+      const { prisma } = await import('@/modules/database');
       const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
       siteId = dbUser?.siteId || undefined
   }
@@ -128,7 +128,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   // Fetch full user to mock session
-  const { prisma } = await import('@/lib/prisma');
+  const { prisma } = await import('@/modules/database');
   const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true, role: true } });
   
   const mockSession = {

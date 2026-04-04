@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma'
-import { MikroTikProvisioningService } from '@/modules/network/services/MikroTikProvisioningService'
+import { prisma } from '@/modules/database'
+import { MikroTikProvisioningService } from '@/modules/network'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
 

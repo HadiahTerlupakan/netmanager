@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { CustomerPortalService } from '@/modules/pelanggan/services/CustomerPortalService'
+import { CustomerPortalService } from '@/modules/pelanggan'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
 const customerPortalService = new CustomerPortalService()

@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { requireAuth } from '@/lib/auth-helpers';
 
 export async function PUT(

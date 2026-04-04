@@ -3,7 +3,7 @@ import {
 } from '@/lib/api'
 import { supportTicketUpdateSchema } from '@/lib/validations/support-ticket'
 import { idSchema } from '@/lib/validations/common'
-import { getAdminSupportTicketService } from '@/modules/pelanggan/services/AdminSupportTicketService'
+import { getAdminSupportTicketService } from '@/modules/pelanggan'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 
@@ -32,7 +32,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     
     let siteId: string | undefined
     if (hasSiteRestriction) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
         siteId = dbUser?.siteId || undefined
     }
@@ -91,7 +91,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
     let siteId: string | undefined
     if (hasSiteRestriction) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
         siteId = dbUser?.siteId || undefined
     }
@@ -149,7 +149,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
     let siteId: string | undefined
     if (hasSiteRestriction) {
-        const { prisma: db } = await import('@/lib/prisma');
+        const { prisma: db } = await import('@/modules/database');
         const dbUser = await db.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
         siteId = dbUser?.siteId || undefined
     }

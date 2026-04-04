@@ -1,5 +1,5 @@
 import { hasPermission } from "@/lib/rbac"
-import { FinanceStatsService } from "@/modules/finance/services/FinanceStatsService"
+import { FinanceStatsService } from "@/modules/finance"
 import { createHandler, apiSuccess, ApiErrors, ErrorCodes, apiError } from "@/lib/api"
 
 export const dynamic = 'force-dynamic'

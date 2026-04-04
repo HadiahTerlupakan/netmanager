@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import type { RabStatus } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { getEnv } from '@/lib/env'
 

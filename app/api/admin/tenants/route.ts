@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
-import { prisma, prismaAuth } from '@/lib/prisma'
+import { prisma, prismaAuth } from '@/modules/database'
 import { apiError, ErrorCodes } from '@/lib/api-response'
-import { provisionTenantData } from '@/modules/mitra/services/TenantProvisioningService'
+import { provisionTenantData } from '@/modules/mitra'
 
 export async function GET(request: Request) {
     try {

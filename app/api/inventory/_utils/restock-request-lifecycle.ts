@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { logger } from '@/lib/logger'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { ProcurementService } from '@/modules/procurement'
 
 const procurementService = new ProcurementService()

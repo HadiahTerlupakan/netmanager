@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { hash } from 'bcryptjs'
 import { updateInvestorSchema } from '@/lib/validations/investor'

@@ -28,7 +28,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/modules/database');
     const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     siteId = dbUser?.siteId || undefined;
   }
@@ -121,7 +121,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/modules/database');
     const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     siteId = dbUser?.siteId || undefined;
   }
@@ -214,7 +214,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/modules/database');
     const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     siteId = dbUser?.siteId || undefined;
   }

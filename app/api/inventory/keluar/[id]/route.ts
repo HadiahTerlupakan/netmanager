@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServerSession, type Session } from 'next-auth'
 import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logger } from '@/lib/logger'
 import { apiError, apiSuccess, ApiErrors, ErrorCodes } from '@/lib/api-response'
 import { hasPermission } from '@/lib/rbac'

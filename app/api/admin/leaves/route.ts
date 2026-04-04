@@ -36,12 +36,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     if (!isSuper) {
         if (permissions.includes('izin:site_only')) {
-             const { prisma: db } = await import('@/lib/prisma');
+             const { prisma: db } = await import('@/modules/database');
              const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { siteId: true } });
              siteId = dbUser?.siteId || undefined
         }
         if (permissions.includes('izin:department_only')) {
-             const { prisma: db } = await import('@/lib/prisma');
+             const { prisma: db } = await import('@/modules/database');
              const dbUser = await db.user.findUnique({ where: { id: user.id, tenantId }, select: { departmentId: true } });
              departmentId = dbUser?.departmentId || undefined
         }

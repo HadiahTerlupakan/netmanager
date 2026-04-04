@@ -2,7 +2,7 @@ import { getWorkOrderService } from '@/modules/work-order';
 import { isSuperAdmin } from '@/lib/auth';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 
 const EMPTY_STATS = {
     total: 0, pending: 0, assigned: 0, inProgress: 0, onHold: 0,

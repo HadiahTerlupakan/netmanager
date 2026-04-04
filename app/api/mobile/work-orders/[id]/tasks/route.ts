@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { WorkOrderRepository } from '@/modules/work-order';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';

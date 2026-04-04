@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { createHandler, apiSuccess } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'

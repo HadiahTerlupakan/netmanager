@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { createHandler } from '@/lib/api'
 import { isSuperAdmin } from '@/lib/auth'
 import { ApiErrors } from '@/lib/api-response'

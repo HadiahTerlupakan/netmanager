@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { RadiusSyncService } from '@/modules/network';
 import { logger } from '@/lib/logger';

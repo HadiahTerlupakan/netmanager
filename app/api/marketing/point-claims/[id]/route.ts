@@ -3,7 +3,7 @@ import { verifyAuth, getUserPermissions } from '@/lib/auth'
 import { isSuperAdminRole } from '@/lib/auth-helpers'
 import { getPointClaimService } from '@/lib/repositories'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prismaMitra } from '@/modules/database'
 
 // GET - Get detail claim
 export async function GET(

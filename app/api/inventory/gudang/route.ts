@@ -65,7 +65,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const permissions = await getUserPermissions(user.id);
   
   // Need to fetch siteId because createHandler session doesn't map it
-  const { prisma } = await import('@/lib/prisma');
+  const { prisma } = await import('@/modules/database');
   const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
   const siteId = dbUser?.siteId
 
@@ -202,7 +202,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user)
     
     // Fetch siteId
-    const { prisma } = await import('@/lib/prisma');
+    const { prisma } = await import('@/modules/database');
     const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
     const userSiteId = dbUser?.siteId
 

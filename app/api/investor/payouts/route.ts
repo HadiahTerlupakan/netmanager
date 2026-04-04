@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 function getSecret(): Uint8Array {
     const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET

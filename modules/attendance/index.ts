@@ -12,3 +12,7 @@ export * from './services/AttendanceTimezoneService'
 export * from './repositories/LeaveBalanceRepository'
 export * from './repositories/HolidayRepository'
 export * from './repositories/LeaveRepository'
+
+// Utils
+export * from './utils/workingDayUtils'
+export * from './utils/calculateWorkingDays'

@@ -6,8 +6,8 @@ import { authOptions } from "@/lib/auth";
 import {
   DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD,
   getRevisionApprovalStatus,
-} from "@/modules/finance/utils/rab-revisions";
-import { prisma } from "@/lib/prisma";
+} from "@/modules/finance";
+import { prisma } from "@/modules/database";
 
 export async function POST(
   _req: NextRequest,

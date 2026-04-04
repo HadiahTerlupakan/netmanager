@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logActivitySafe } from '@/lib/logger'
 
 export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async () => {

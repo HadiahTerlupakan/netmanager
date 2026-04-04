@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServerSession, type Session } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { logger } from '@/lib/logger'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'

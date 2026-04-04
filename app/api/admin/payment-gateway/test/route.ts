@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { MootaProvider } from "@/modules/finance/services/payment-gateway/providers/moota-provider";
-import { MidtransProvider } from "@/modules/finance/services/payment-gateway/providers/midtrans-provider";
+import { MootaProvider } from "@/modules/finance";
+import { MidtransProvider } from "@/modules/finance";
 
 export async function POST(req: NextRequest) {
     try {

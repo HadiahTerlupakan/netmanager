@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prismaBilling } from '@/lib/prisma-billing'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { ensureAdminAccess } from '@/lib/server-auth'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 

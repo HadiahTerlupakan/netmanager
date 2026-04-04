@@ -1,4 +1,4 @@
-import { checkAllMikroTikRouterStatus } from '@/modules/network/services/mikrotik-ping-check'
+import { checkAllMikroTikRouterStatus } from '@/modules/network'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
 

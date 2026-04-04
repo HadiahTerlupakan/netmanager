@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { prismaBilling } from '@/lib/prisma-billing'
 import { getMixRadiusService } from '@/modules/integrations'
 

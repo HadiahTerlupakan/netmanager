@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { HargaPaketService } from '@/modules/network/services/HargaPaketService'
+import { HargaPaketService } from '@/modules/network'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 
 const hargaPaketService = new HargaPaketService()

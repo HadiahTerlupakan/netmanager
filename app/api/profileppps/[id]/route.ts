@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-helpers'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { profilePPPSchema } from '@/lib/validations/profileppp'
 import { sanitizeInput } from '@/lib/utils/sanitize'
-import { deletePPPProfileInMikroTik } from '@/modules/network/services/mikrotik-ppp-profile'
+import { deletePPPProfileInMikroTik } from '@/modules/network'
 import { Prisma } from '@prisma/client'
 
 /**
@@ -134,7 +134,7 @@ export async function GET(
     let ipRange: string | null = null
     if (profilePPP.mikroTikRouterId && profilePPP.mikroTikRouter) {
       try {
-        const { getIPPoolRanges } = await import('@/modules/network/services/mikrotik-ppp-profile')
+        const { getIPPoolRanges } = await import('@/modules/network')
         const poolResult = await getIPPoolRanges(profilePPP.mikroTikRouterId, profilePPP.remoteAddress)
         if (poolResult.success && poolResult.ranges) {
           ipRange = poolResult.ranges
@@ -362,7 +362,7 @@ export async function PUT(
       const radiusSync = new RadiusSyncService();
       const mode = await radiusSync.getConnectionMode();
       if (mode === 'RADIUS') {
-        const { RadiusRepository } = await import('@/modules/network/repositories/RadiusRepository');
+        const { RadiusRepository } = await import('@/modules/network');
         const radiusRepo = new RadiusRepository();
         await radiusRepo.syncProfileToRadius(profilePPP.id);
         
@@ -395,7 +395,7 @@ export async function PUT(
       const connectionMode = await radiusSync.getConnectionMode();
       const isRadiusMode = connectionMode === 'RADIUS';
 
-      const { updatePPPProfileInMikroTik, getRateLimitFromBandwidth } = await import('@/modules/network/services/mikrotik-ppp-profile');
+      const { updatePPPProfileInMikroTik, getRateLimitFromBandwidth } = await import('@/modules/network');
 
       if (isRadiusMode) {
         // console.log('[API ProfilePPP] RADIUS mode: broadcasting profile update to all active routers');

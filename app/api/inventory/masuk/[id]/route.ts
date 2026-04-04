@@ -4,7 +4,7 @@ import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { hasPermission } from '@/lib/rbac'
 import { apiError, apiSuccess, ApiErrors, ErrorCodes } from '@/lib/api-response'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { STOCK_FIELD_MAP } from '@/lib/constants/inventory'
 
 interface UserSession {

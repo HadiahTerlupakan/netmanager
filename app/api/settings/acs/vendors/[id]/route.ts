@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export const PUT = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
   const id = ctx.params.id

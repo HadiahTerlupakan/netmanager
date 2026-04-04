@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/modules/database";
 import * as z from "zod";
 
 const nodeSchema = z.object({

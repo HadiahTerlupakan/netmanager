@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { prismaBilling } from '@/lib/prisma-billing';
-import { CustomerPortalService } from '@/modules/pelanggan/services/CustomerPortalService'
+import { CustomerPortalService } from '@/modules/pelanggan'
 import { CouponService } from '@/modules/coupons'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
                 });
 
                 if (customer) {
-                    const { PaymentGatewayManager } = await import('@/modules/finance/services/payment-gateway/gateway-manager');
+                    const { PaymentGatewayManager } = await import('@/modules/finance');
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const gatewayManager = new PaymentGatewayManager(prisma as any);
 

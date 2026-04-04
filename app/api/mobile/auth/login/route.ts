@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { apiError, ErrorCodes } from '@/lib/api-response'
-import { prismaAuth } from '@/lib/prisma'
-import { prismaMitraAuth } from '@/lib/prisma-mitra'
+import { prismaAuth } from '@/modules/database'
+import { prismaMitraAuth } from '@/modules/database'
 import { compare } from 'bcryptjs'
 import { signMobileToken } from '@/lib/mobile-auth'
-import { getAppVersionService } from '@/modules/app-version/services/AppVersionService'
+import { getAppVersionService } from '@/modules/app-version'
 
 function parseVersionCode(value: unknown): number {
     const parsed = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10)
@@ -189,7 +189,7 @@ export async function POST(req: Request) {
                 isSuperAdmin: user.role?.isSuperAdmin ?? false
             }
             const token = await signMobileToken(tokenPayload)
-            const { getUserFeaturesWithCanvasing } = await import('@/modules/marketing/services/CanvasingAccessService')
+            const { getUserFeaturesWithCanvasing } = await import('@/modules/marketing')
             const features = await getUserFeaturesWithCanvasing(user.id)
 
             return {

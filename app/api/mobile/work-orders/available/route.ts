@@ -1,6 +1,6 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { Prisma } from '@prisma/client';
-import { prismaMitra } from '@/lib/prisma-mitra';
+import { prismaMitra } from '@/modules/database';
 import { randomUUID } from 'crypto';
 import { notifyAdminsAboutMobileAction } from '@/modules/notification';
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'

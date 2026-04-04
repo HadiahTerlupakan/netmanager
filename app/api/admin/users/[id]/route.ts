@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { hash } from 'bcryptjs'
 import { logger } from '@/lib/logger'
 import { emitSocketEvent } from '@/lib/websocket/emit'

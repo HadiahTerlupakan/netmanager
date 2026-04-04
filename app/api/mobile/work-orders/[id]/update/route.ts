@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
-import { prismaMitra } from '@/lib/prisma-mitra';
+import { prisma } from '@/modules/database';
+import { prismaMitra } from '@/modules/database';
 import { WorkOrderRepository } from '@/modules/work-order';
 import { convertAndSaveImage } from '@/lib/utils/image-upload';
 import { format } from 'date-fns';

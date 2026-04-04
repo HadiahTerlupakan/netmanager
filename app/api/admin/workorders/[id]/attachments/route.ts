@@ -2,7 +2,7 @@ import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 import { getWorkOrderService, type UserContext } from '@/modules/work-order'
 import { logActivitySafe } from '@/lib/logger'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const user = ctx.session!.user;

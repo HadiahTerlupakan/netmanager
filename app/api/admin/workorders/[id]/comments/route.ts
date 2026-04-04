@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import { getWorkOrderService } from '@/modules/work-order';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { hasPermission } from '@/lib/rbac';

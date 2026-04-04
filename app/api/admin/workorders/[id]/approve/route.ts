@@ -1,7 +1,7 @@
 import { getWorkOrderService, type UserContext } from '@/modules/work-order';
 import { hasPermission } from '@/lib/rbac';
 import { createNotification } from '@/modules/notification';
-import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
+import { sendPushToUsers } from '@/modules/notification';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
 
 /**
@@ -33,7 +33,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const workOrderService = getWorkOrderService();
 
     // Fetch full user to be safe for UserContext compatibility
-    const { prisma: db } = await import('@/lib/prisma');
+    const { prisma: db } = await import('@/modules/database');
     const dbUser = await db.user.findUnique({
         where: { id: user.id },
         select: { id: true, departmentId: true, siteId: true }

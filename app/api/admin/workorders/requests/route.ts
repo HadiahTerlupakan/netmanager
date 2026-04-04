@@ -2,7 +2,7 @@ import { getWorkOrderService } from '@/modules/work-order';
 import { hasPermission } from '@/lib/rbac';
 import { isSuperAdmin } from '@/lib/auth';
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 
 /**
  * GET /api/admin/workorders/requests

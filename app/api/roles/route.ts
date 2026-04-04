@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from "next-auth"
 import { authConfig } from "@/lib/auth"
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
 import * as z from 'zod'
 import { logActivitySafe } from '@/lib/logger'
 import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
-import { MAIN_TENANT_ID } from '@/modules/mitra/services/tenant-constants'
+import { MAIN_TENANT_ID } from '@/modules/mitra'
 
 const roleSchema = z.object({
     name: z.string().min(2),
