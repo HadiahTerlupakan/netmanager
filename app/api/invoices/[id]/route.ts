@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/modules/database'
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import * as z from 'zod'
 import { createHandler, ApiErrors } from '@/lib/api'
 import { InvoiceStatus } from '@prisma/client-billing'

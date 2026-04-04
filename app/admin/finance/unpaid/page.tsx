@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import UnpaidBillsClient from './UnpaidBillsClient'
 
 export const dynamic = 'force-dynamic'

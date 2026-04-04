@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authConfig } from '@/lib/auth'
-import { LeaveRepository } from '@/modules/attendance/repositories/LeaveRepository'
+import { LeaveRepository } from '@/modules/attendance'
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat('id-ID', {

@@ -1,6 +1,6 @@
 import { Prisma as PrismaBilling } from '@prisma/client-billing';
 import { prisma } from '@/modules/database'
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import { invoiceSchema } from '@/lib/validations/invoice'
 import { randomUUID } from 'crypto'
 import { hasPermission } from '@/lib/rbac'

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { prisma } from '@/modules/database'
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from '@/modules/database'
 import { getMixRadiusService } from '@/modules/integrations'
 
 function getSecret(): Uint8Array {

@@ -1,4 +1,4 @@
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import ReceivablesClient from './ReceivablesClient'
 
 export const dynamic = 'force-dynamic'

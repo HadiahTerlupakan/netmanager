@@ -1,6 +1,6 @@
 import { ensureAdminAccess } from '@/lib/server-auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from '@/modules/database'
 import { AutomaticBillingService } from '@/modules/finance'
 import { sendCustomerPushNotification } from '@/modules/notification'
 

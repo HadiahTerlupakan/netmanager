@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import Link from 'next/link'
 import React from 'react'
 import MapPreview from '@/components/common/MapPreview'

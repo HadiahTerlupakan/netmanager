@@ -2,7 +2,7 @@ import { HolidayRepository } from '@/modules/attendance'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { logger } from '@/lib/logger'
-import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
+import { isPrismaRecordNotFoundError } from '@/modules/database'
 
 const holidayRepo = new HolidayRepository()
 

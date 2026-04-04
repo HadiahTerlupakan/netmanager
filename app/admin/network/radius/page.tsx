@@ -1,6 +1,6 @@
 import { ensurePermission } from '@/lib/rbac'
 import RadiusDashboard from './RadiusDashboard'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'

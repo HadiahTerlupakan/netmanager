@@ -1,5 +1,5 @@
 import { ensurePermission } from '@/lib/rbac'
-import { AssetService } from '@/modules/inventory/services/AssetService'
+import { AssetService } from '@/modules/inventory'
 import { AssetDetailView } from '@/components/inventory/assets/AssetDetailView'
 import Link from 'next/link'
 import { FiArrowLeft } from 'react-icons/fi'

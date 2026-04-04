@@ -1,7 +1,7 @@
 
 import { notFound } from 'next/navigation'
 // Force rebuild
-import { SalaryRepository } from '@/modules/salary/repositories/SalaryRepository'
+import { SalaryRepository } from '@/modules/salary'
 import SlipPrintClient from './SlipPrintClient'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'

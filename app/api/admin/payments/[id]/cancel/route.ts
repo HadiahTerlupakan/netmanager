@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from '@/modules/database'
 import { prisma } from '@/modules/database'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'

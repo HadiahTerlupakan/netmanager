@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from '@/modules/database'
 import { convertAndSaveImage } from '@/lib/utils/image-upload'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
 import { analyzeReceiptWithOCR } from '@/lib/services/receipt-ocr'

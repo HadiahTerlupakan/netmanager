@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
 import { prisma } from '@/modules/database'
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import { CustomerPortalService } from '@/modules/pelanggan'
 import { CouponService } from '@/modules/coupons'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'

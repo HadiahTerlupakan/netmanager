@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import { encryptApiKey } from '@/lib/utils/encryption'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'

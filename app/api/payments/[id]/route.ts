@@ -1,4 +1,4 @@
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 /**

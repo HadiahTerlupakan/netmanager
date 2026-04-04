@@ -1,6 +1,6 @@
 import { ensurePermission } from '@/lib/rbac'
 import MixRadiusClient from './MixRadiusClient'
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/modules/database'
 import { redirect } from 'next/navigation'
 
 export default async function MixRadiusPage() {

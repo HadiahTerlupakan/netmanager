@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { requireCustomerAuth } from '@/lib/customer-auth'
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from '@/modules/database'
 
 export const dynamic = 'force-dynamic'
 

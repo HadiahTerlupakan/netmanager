@@ -1,4 +1,4 @@
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from '@/modules/database'
 import { createHandler, ApiErrors, apiSuccess } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
 import { isSuperAdmin } from '@/lib/auth'

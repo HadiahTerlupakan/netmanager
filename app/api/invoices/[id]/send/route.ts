@@ -1,5 +1,5 @@
 import { prisma } from '@/modules/database';
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import { sendInvoiceSchema } from '@/lib/validations/invoice'
 import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api'
 

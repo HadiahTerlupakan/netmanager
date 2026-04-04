@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
-import { prismaMitra } from '@/lib/prisma-mitra'
+import { prisma } from '@/modules/database'
+import { prismaMitra } from '@/modules/database'
 import IdCardClient from './IdCardClient'
 import type { Metadata } from 'next'
 

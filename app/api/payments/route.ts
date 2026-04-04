@@ -1,7 +1,7 @@
 import { Prisma as PrismaBilling } from '@prisma/client-billing';
 
 import { prisma } from '@/modules/database'
-import { prismaBilling } from '@/lib/prisma-billing';
+import { prismaBilling } from '@/modules/database';
 import { paymentSchema } from '@/lib/validations/payment'
 import { randomUUID } from 'crypto'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'

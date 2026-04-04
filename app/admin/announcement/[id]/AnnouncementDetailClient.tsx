@@ -1,5 +1,5 @@
 
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/modules/database';
 import AnnouncementForm from '../_components/AnnouncementForm';
 import { notFound } from 'next/navigation';
 

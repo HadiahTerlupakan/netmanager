@@ -1,4 +1,4 @@
-import { FinanceService } from '@/modules/finance/services/FinanceService'
+import { FinanceService } from '@/modules/finance'
 import TreasuryClient from './TreasuryClient'
 
 export const dynamic = 'force-dynamic'
