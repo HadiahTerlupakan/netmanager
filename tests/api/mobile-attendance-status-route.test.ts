@@ -11,6 +11,10 @@ vi.mock('@/lib/api', () => ({
         NextResponse.json({ success: true, message, data }, { status }),
 }))
 
+vi.mock('@/modules/database', () => ({
+    prisma: prismaMock,
+}))
+
 describe('mobile attendance status route', () => {
     beforeEach(() => {
         vi.useFakeTimers()

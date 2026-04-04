@@ -60,6 +60,9 @@ vi.mock('@/modules/work-order', () => ({
     constructor() {}
     findById = mockFns.findById
   },
+  workOrderCacheService: {
+    invalidateAllCaches: mockFns.invalidateAllCaches,
+  },
 }))
 
 vi.mock('@/lib/prisma', () => ({
