@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto'
 import { WithdrawStatus, Prisma } from '@prisma/client-mitra'
 import { logger, logActivitySafe } from '@/lib/logger'
+import { AttendanceSettingsService } from '@/modules/attendance'
 import type { WithdrawRequestDTO } from '../dto/MitraDTO'
 import { MitraWithdrawRepository } from '../repositories/MitraWithdrawRepository'
-import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
 
 interface ServiceResult<T = void> {
     success: boolean
@@ -15,11 +15,11 @@ const DEFAULT_MIN_WITHDRAW = 50000
 
 export class MitraWithdrawService {
     private withdrawRepo = new MitraWithdrawRepository()
-    private settingsRepo = new SettingsRepository()
+    private attendanceSettingsService = new AttendanceSettingsService()
 
     private async getMinWithdraw(): Promise<number> {
         try {
-            const setting = await this.settingsRepo.findByKey('mitra_min_withdraw')
+            const setting = await this.attendanceSettingsService.findByKey('mitra_min_withdraw')
             return setting?.value ? parseFloat(setting.value) : DEFAULT_MIN_WITHDRAW
         } catch {
             return DEFAULT_MIN_WITHDRAW

@@ -10,7 +10,7 @@ import { AttendanceRepository } from '../repositories/AttendanceRepository'
 import { OvertimeRepository } from '../../overtime/repositories/OvertimeRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { UserRepository } from '../../users/repositories/UserRepository'
-import { AttendanceEventDispatcher } from '@/modules/events/dispatchers/AttendanceEventDispatcher'
+import { AttendanceEventDispatcher } from '@/modules/events'
 import { logger } from '@/lib/logger'
 
 interface CheckInParams {

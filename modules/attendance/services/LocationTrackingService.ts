@@ -5,7 +5,7 @@ import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { getTimezone } from '@/lib/utils/get-timezone'
 import { LocationTrackingRepository, type LocationData } from '../repositories/LocationTrackingRepository'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
+import { UserRepository } from '@/modules/users'
 
 /**
  * LocationTrackingService - Mengelola data lokasi karyawan selama jam kerja

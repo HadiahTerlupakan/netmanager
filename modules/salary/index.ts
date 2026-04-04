@@ -5,3 +5,4 @@ export { SalaryComponentRepository, type ComponentWithUserAmount } from './repos
 // Services
 export { SalaryCalculatorService } from './services/SalaryCalculatorService'
 export { SalaryAuditService } from './services/SalaryAuditService'
+export { SalaryService, getSalaryService } from './services/SalaryService'

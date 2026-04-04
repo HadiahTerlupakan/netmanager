@@ -1,6 +1,6 @@
 // Email Service using Nodemailer
 import nodemailer from 'nodemailer'
-import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
+import { AttendanceSettingsService } from '@/modules/attendance'
 import { decryptApiKey } from '@/lib/utils/encryption'
 
 export interface EmailConfig {
@@ -30,17 +30,25 @@ export interface SendEmailResult {
 }
 
 export class EmailService {
-    private settingsRepo: SettingsRepository
+    private settingsRepo?: AttendanceSettingsService
 
-    constructor(settingsRepo?: SettingsRepository) {
-        this.settingsRepo = settingsRepo ?? new SettingsRepository()
+    constructor(settingsRepo?: AttendanceSettingsService) {
+        this.settingsRepo = settingsRepo
+    }
+
+    private getSettingsRepo(): AttendanceSettingsService {
+        if (!this.settingsRepo) {
+            this.settingsRepo = new AttendanceSettingsService()
+        }
+
+        return this.settingsRepo
     }
 
     /**
      * Load email configuration from database
      */
     private async loadConfig(): Promise<EmailConfig> {
-        const settings = await this.settingsRepo.findManyByKeys([
+        const settings = await this.getSettingsRepo().findManyByKeys([
             'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_NAME', 'FROM_EMAIL'
         ])
 

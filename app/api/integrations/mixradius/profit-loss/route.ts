@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService';
+import { getMixRadiusService } from '@/modules/integrations';
 import { createHandler, ApiErrors } from "@/lib/api";
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 

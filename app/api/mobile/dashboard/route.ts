@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
 import { prisma } from '@/lib/prisma'
 import { prismaMitra } from '@/lib/prisma-mitra'
-import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
 import { apiError, ErrorCodes } from '@/lib/api-response'
 

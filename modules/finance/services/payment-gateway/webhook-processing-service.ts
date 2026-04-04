@@ -1,0 +1,430 @@
+import type { GatewayPaymentStatus, InvoiceStatus, PaymentMethod, Prisma } from '@prisma/client-billing'
+
+import { prismaBilling, prismaBillingAuth } from '@/lib/prisma-billing'
+import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
+
+import { PaymentGatewayManager } from './gateway-manager'
+import type { WebhookResult } from './provider-interface'
+
+const SIGNATURE_HEADERS = {
+    XENDIT: 'x-callback-token',
+    MIDTRANS: '',
+    TRIPAY: 'x-callback-signature',
+    DUITKU: '',
+    BRI: 'x-signature',
+    BCA: 'x-bca-signature',
+    DANA: 'x-dana-signature',
+    MOOTA: 'signature',
+} as const
+
+type SupportedProvider = keyof typeof SIGNATURE_HEADERS
+
+type ProcessWebhookInput = {
+    providerType: string
+    rawBody: string
+    headers: Headers
+}
+
+export type ProcessWebhookResult = {
+    status: number
+    body: { status?: string; error?: string; message?: string }
+}
+
+const GATEWAY_STATUS_MAP: Record<WebhookResult['status'], GatewayPaymentStatus> = {
+    PAID: 'PAID',
+    PENDING: 'PENDING',
+    EXPIRED: 'EXPIRED',
+    CANCELLED: 'CANCELLED',
+    FAILED: 'FAILED',
+}
+
+const PAYMENT_METHOD_MAP: Record<string, PaymentMethod> = {
+    CASH: 'CASH',
+    BANK_TRANSFER: 'BANK_TRANSFER',
+    BANK: 'BANK_TRANSFER',
+    VA: 'BANK_TRANSFER',
+    EWALLET: 'E_WALLET',
+    E_WALLET: 'E_WALLET',
+    CREDIT_CARD: 'CREDIT_CARD',
+    CARD: 'CREDIT_CARD',
+    DEBIT_CARD: 'DEBIT_CARD',
+    CHECK: 'CHECK',
+    OTHER: 'OTHER',
+}
+
+type BillingTx = Prisma.TransactionClient
+
+export class WebhookProcessingService {
+    private readonly gatewayManager = new PaymentGatewayManager()
+
+    async process(input: ProcessWebhookInput): Promise<ProcessWebhookResult> {
+        const providerType = input.providerType.toUpperCase()
+
+        if (!this.isSupportedProvider(providerType)) {
+            console.warn(`[Webhook] Unknown provider: ${providerType}`)
+            return {
+                status: 400,
+                body: { error: 'Unknown payment provider' },
+            }
+        }
+
+        const payload = this.parsePayload(input.rawBody, providerType)
+        if (!payload) {
+            return {
+                status: 400,
+                body: { error: 'Invalid request body' },
+            }
+        }
+
+        try {
+            const signature = this.extractSignature(providerType, input.headers)
+            let payment = await this.findPaymentByEarlyOrderId(providerType, payload)
+
+            const webhookResult = await this.gatewayManager.processWebhook(
+                providerType,
+                payload,
+                signature,
+                input.rawBody,
+                payment?.tenantId || undefined,
+            )
+
+            const gatewayStatus = GATEWAY_STATUS_MAP[webhookResult.status] ?? 'FAILED'
+
+            if (!payment) {
+                payment = await this.findPaymentAfterWebhook(providerType, webhookResult)
+            }
+
+            if (!payment) {
+                await this.recordUnmatchedMutationForMoota(providerType, webhookResult)
+                console.warn(
+                    `[Webhook] Payment not found for ${providerType === 'MOOTA' ? `amount: ${webhookResult.amount}` : `orderId: ${webhookResult.orderId}`}`,
+                )
+                return {
+                    status: 200,
+                    body: { status: 'ok', message: 'Payment record not found' },
+                }
+            }
+
+            if (payment.gatewayStatus === 'PAID') {
+                console.log(`[Webhook] Payment ${payment.id} already PAID, skipping duplicate event`)
+                return {
+                    status: 200,
+                    body: { status: 'ok', message: 'Already processed' },
+                }
+            }
+
+            await prismaBillingAuth.$transaction(async (tx) => {
+                const currentPayment = await tx.payment.findUnique({ where: { id: payment.id } })
+                if (currentPayment?.gatewayStatus === 'PAID') {
+                    return
+                }
+
+                const paymentUpdate: Prisma.PaymentUpdateInput = {
+                    gatewayStatus,
+                    transactionId: webhookResult.transactionId || null,
+                    gatewayProvider: providerType,
+                }
+
+                const normalizedPaymentMethod = this.normalizePaymentMethod(webhookResult.paymentMethod)
+                if (normalizedPaymentMethod) {
+                    paymentUpdate.paymentMethod = normalizedPaymentMethod
+                }
+
+                if (webhookResult.paidAt) {
+                    paymentUpdate.paymentDate = webhookResult.paidAt
+                }
+
+                await tx.payment.update({
+                    where: { id: payment.id },
+                    data: paymentUpdate,
+                })
+
+                if (gatewayStatus === 'PAID') {
+                    await this.updateInvoicesOnPaymentTx(tx, payment.id, payment.notes)
+                }
+            })
+
+            if (gatewayStatus === 'PAID') {
+                await this.runPostPaidSideEffects(payment.invoiceId, payment.notes)
+            }
+
+            if (gatewayStatus === 'EXPIRED' || gatewayStatus === 'CANCELLED' || gatewayStatus === 'FAILED') {
+                console.log(`[Webhook] Payment ${payment.id} marked as ${gatewayStatus}`)
+            }
+
+            return {
+                status: 200,
+                body: { status: 'ok' },
+            }
+        } catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error))
+            console.error(`[Webhook] Error processing ${providerType}:`, err.message, err.stack)
+
+            if (err.message.includes('Invalid webhook signature')) {
+                return {
+                    status: 401,
+                    body: { status: 'error', message: 'Invalid signature' },
+                }
+            }
+
+            return {
+                status: 500,
+                body: { status: 'error', message: 'Internal server error' },
+            }
+        }
+    }
+
+    private isSupportedProvider(providerType: string): providerType is SupportedProvider {
+        return providerType in SIGNATURE_HEADERS
+    }
+
+    private extractSignature(providerType: SupportedProvider, headers: Headers): string | undefined {
+        const signatureHeader = SIGNATURE_HEADERS[providerType]
+        if (!signatureHeader) {
+            return undefined
+        }
+
+        return headers.get(signatureHeader) ?? undefined
+    }
+
+    private parsePayload(rawBody: string, providerType: string): Record<string, unknown> | null {
+        try {
+            return JSON.parse(rawBody) as Record<string, unknown>
+        } catch {
+            try {
+                const searchParams = new URLSearchParams(rawBody)
+                const payload = Object.fromEntries(searchParams.entries())
+                if (Object.keys(payload).length === 0 && rawBody.length > 0) {
+                    throw new Error('Fallback URLSearchParams yielded empty result')
+                }
+                return payload
+            } catch {
+                console.error(`[Webhook] Invalid body from ${providerType}: Not JSON or Form-Urlencoded`)
+                return null
+            }
+        }
+    }
+
+    private async findPaymentByEarlyOrderId(providerType: SupportedProvider, payload: Record<string, unknown>) {
+        const earlyOrderId = this.extractEarlyOrderId(providerType, payload)
+        if (!earlyOrderId) {
+            return null
+        }
+
+        return prismaBillingAuth.payment.findFirst({
+            where: { reference: earlyOrderId },
+        })
+    }
+
+    private extractEarlyOrderId(providerType: SupportedProvider, payload: Record<string, unknown>): string | undefined {
+        const reader = (field: string): string | undefined => {
+            const value = payload[field]
+            return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+        }
+
+        switch (providerType) {
+            case 'MIDTRANS':
+                return reader('order_id')
+            case 'XENDIT':
+                return reader('external_id')
+            case 'TRIPAY':
+                return reader('merchant_ref')
+            case 'DUITKU':
+                return reader('merchantOrderId')
+            case 'BRI':
+                return reader('custCode') || reader('brivaNo')
+            case 'BCA':
+                return reader('CustomerID') || reader('TransactionID')
+            case 'DANA':
+                return reader('merchantOrderId') || reader('orderId')
+            case 'MOOTA':
+                return undefined
+            default:
+                return undefined
+        }
+    }
+
+    private async findPaymentAfterWebhook(providerType: SupportedProvider, webhookResult: WebhookResult) {
+        if (providerType === 'MOOTA' && webhookResult.amount) {
+            const amountVal = Number(webhookResult.amount)
+            if (!Number.isNaN(amountVal)) {
+                const payment = await prismaBillingAuth.payment.findFirst({
+                    where: { amount: amountVal },
+                    orderBy: { createdAt: 'desc' },
+                })
+                if (payment) {
+                    webhookResult.orderId = payment.reference || payment.id
+                }
+                return payment
+            }
+        }
+
+        return prismaBillingAuth.payment.findFirst({
+            where: { reference: webhookResult.orderId },
+        })
+    }
+
+    private async recordUnmatchedMutationForMoota(providerType: SupportedProvider, webhookResult: WebhookResult) {
+        if (providerType !== 'MOOTA' || !webhookResult.raw) {
+            return
+        }
+
+        const rawData = this.asRecord(webhookResult.raw)
+        const mutationId = this.asString(rawData.mutation_id)
+        if (!mutationId) {
+            return
+        }
+
+        const existing = await prismaBilling.unmatchedMutation.findUnique({
+            where: { transactionId: mutationId },
+        })
+
+        if (existing) {
+            return
+        }
+
+        const amount = Number(rawData.amount)
+        if (Number.isNaN(amount)) {
+            return
+        }
+
+        await prismaBilling.unmatchedMutation.create({
+            data: {
+                provider: 'MOOTA',
+                transactionId: mutationId,
+                amount,
+                description: this.asString(rawData.description) || 'Mutasi masuk dari Moota',
+                type: this.asString(rawData.type) || 'CR',
+                date: this.parseDateOrNow(rawData.date),
+                bankId: this.asString(rawData.bank_id),
+                rawPayload: JSON.parse(JSON.stringify(rawData)),
+                status: 'PENDING',
+            },
+        })
+
+        console.log(`[Webhook] Unmatched mutation recorded: ${mutationId} (${amount})`)
+    }
+
+    private async updateInvoicesOnPaymentTx(tx: BillingTx, paymentId: string, notes: string | null) {
+        let invoiceIds = this.extractInvoiceIdsFromNotes(notes)
+
+        if (invoiceIds.length === 0) {
+            const payment = await tx.payment.findUnique({
+                where: { id: paymentId },
+                select: { invoiceId: true },
+            })
+            if (payment?.invoiceId) {
+                invoiceIds = [payment.invoiceId]
+            }
+        }
+
+        if (invoiceIds.length === 0) {
+            console.log(`[Webhook] No invoices linked to payment ${paymentId}`)
+            return
+        }
+
+        for (const invoiceId of invoiceIds) {
+            const invoice = await tx.invoice.findUnique({
+                where: { id: invoiceId },
+                include: { payment: true },
+            })
+
+            if (!invoice) {
+                console.warn(`[Webhook] Invoice ${invoiceId} not found`)
+                continue
+            }
+
+            const totalPaid = invoice.payment.reduce((sum, payment) => {
+                if (!payment.gatewayStatus || payment.gatewayStatus === 'PAID') {
+                    return sum + BigInt(payment.amount)
+                }
+                return sum
+            }, BigInt(0))
+
+            let invoiceStatus: InvoiceStatus
+            if (totalPaid >= invoice.totalAmount) {
+                invoiceStatus = 'PAID'
+            } else if (totalPaid > BigInt(0)) {
+                invoiceStatus = 'PARTIAL_PAID'
+            } else {
+                invoiceStatus = invoice.status
+            }
+
+            await tx.invoice.update({
+                where: { id: invoiceId },
+                data: {
+                    paidAmount: totalPaid,
+                    status: invoiceStatus,
+                    ...(invoiceStatus === 'PAID' ? { paidAt: new Date() } : {}),
+                },
+            })
+
+            console.log(`[Webhook] Invoice ${invoiceId} updated: status=${invoiceStatus}, paidAmount=${totalPaid}`)
+        }
+    }
+
+    private async runPostPaidSideEffects(invoiceId: string | null, notes: string | null) {
+        const invoiceIds = this.extractInvoiceIdsFromNotes(notes)
+        if (invoiceIds.length === 0 && invoiceId) {
+            invoiceIds.push(invoiceId)
+        }
+
+        for (const invId of invoiceIds) {
+            const invoice = await prismaBillingAuth.invoice.findUnique({ where: { id: invId } })
+            if (invoice?.status !== 'PAID') {
+                continue
+            }
+
+            await AutomaticBillingService.handleInvoicePaid(invId).catch((err) => {
+                console.error(`[Webhook] Error triggering side-effects for invoice ${invId}:`, err)
+            })
+        }
+    }
+
+    private extractInvoiceIdsFromNotes(notes: string | null): string[] {
+        if (!notes) {
+            return []
+        }
+
+        try {
+            const metadata = JSON.parse(notes)
+            if (!metadata || typeof metadata !== 'object' || !Array.isArray(metadata.invoiceIds)) {
+                return []
+            }
+
+            return metadata.invoiceIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+        } catch (error) {
+            console.warn('[Webhook] Failed to parse payment notes metadata:', error)
+            return []
+        }
+    }
+
+    private normalizePaymentMethod(paymentMethod: string | undefined): PaymentMethod | undefined {
+        if (!paymentMethod) {
+            return undefined
+        }
+
+        const normalized = paymentMethod.trim().toUpperCase().replace(/\s+/g, '_')
+        return PAYMENT_METHOD_MAP[normalized] || undefined
+    }
+
+    private asRecord(value: unknown): Record<string, unknown> {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return {}
+        }
+        return value as Record<string, unknown>
+    }
+
+    private asString(value: unknown): string | undefined {
+        return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+    }
+
+    private parseDateOrNow(value: unknown): Date {
+        if (typeof value !== 'string') {
+            return new Date()
+        }
+
+        const parsed = new Date(value)
+        return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+    }
+}

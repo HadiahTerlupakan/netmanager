@@ -8,7 +8,7 @@ import { getTimezone } from '@/lib/utils/get-timezone'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { HolidayRepository } from '../repositories/HolidayRepository'
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
+import { UserRepository } from '@/modules/users'
 
 const attendanceRepo = new AttendanceRepository()
 const leaveRepo = new LeaveRepository()

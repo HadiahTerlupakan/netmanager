@@ -60,7 +60,7 @@ export class VoidInvoiceService {
 
             if (statusChanged) {
                 try {
-                    const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service')
+                    const { RadiusSyncService } = await import('@/modules/network')
                     const radiusService = new RadiusSyncService()
                     await radiusService.handleStatusChange(pelanggan.id, 'ISOLIR')
                 } catch (radiusErr) {

@@ -2,7 +2,7 @@ import { toZonedTime, toDate } from 'date-fns-tz'
 import { startOfDay as fnsStartOfDay, endOfDay as fnsEndOfDay } from 'date-fns'
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
+import { UserRepository } from '@/modules/users'
 import { isOffDayForUser } from '../utils/workingDayUtils'
 
 export class AttendanceValidationService {

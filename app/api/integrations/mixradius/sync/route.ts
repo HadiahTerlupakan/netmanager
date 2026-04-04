@@ -1,6 +1,6 @@
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { syncService } from '@/modules/integrations/services/MixRadiusSyncService'
-import type { MixRadiusCustomerDetail } from '@/modules/integrations/services/MixRadiusService'
+import { syncService } from '@/modules/integrations'
+import type { MixRadiusCustomerDetail } from '@/modules/integrations'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'

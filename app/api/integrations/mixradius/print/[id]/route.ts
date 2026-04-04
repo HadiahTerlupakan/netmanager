@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
 import { createHandler } from '@/lib/api'
 

@@ -12,7 +12,7 @@ vi.mock('next/headers', () => ({
 }))
 
 vi.mock('@/lib/env', () => ({
-  env: { CRON_SECRET: 'cron-secret' },
+  getEnv: () => ({ CRON_SECRET: 'cron-secret' }),
 }))
 
 vi.mock('@/lib/cron-lock', () => ({

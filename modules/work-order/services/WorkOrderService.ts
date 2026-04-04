@@ -14,12 +14,10 @@ import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } fro
 import { workOrderCacheService } from './WorkOrderCacheService'
 import { socketEmitter } from '@/lib/websocket/emitter'
 import { logger, logActivitySafe } from '@/lib/logger'
-import { WorkOrderEventDispatcher } from '@/modules/events/dispatchers/WorkOrderEventDispatcher'
+import { WorkOrderEventDispatcher } from '@/modules/events'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
-import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
-import { CanvasingRepository } from '@/modules/marketing/repositories/CanvasingRepository'
+import { UserRepository } from '@/modules/users'
 import { TicketRepository, WorkOrderTemplateRepository, WarrantyCheckRepository } from '../repositories/WorkOrderSupportRepositories'
 import { WorkOrderMaterialRepository } from '../repositories/WorkOrderMaterialRepository'
 import { randomUUID } from 'crypto'
@@ -83,8 +81,6 @@ export interface ServiceResult<T> {
 export class WorkOrderService {
     private repository: WorkOrderRepository
     private userRepo: UserRepository
-    private settingsRepo: SettingsRepository
-    private canvasingRepo: CanvasingRepository
     private ticketRepo: TicketRepository
     private templateRepo: WorkOrderTemplateRepository
     private warrantyRepo: WarrantyCheckRepository
@@ -93,8 +89,6 @@ export class WorkOrderService {
     constructor(prismaClient?: PrismaClient) {
         this.repository = new WorkOrderRepository(prismaClient)
         this.userRepo = new UserRepository()
-        this.settingsRepo = new SettingsRepository()
-        this.canvasingRepo = new CanvasingRepository(prismaClient)
         this.ticketRepo = new TicketRepository()
         this.templateRepo = new WorkOrderTemplateRepository()
         this.warrantyRepo = new WarrantyCheckRepository()

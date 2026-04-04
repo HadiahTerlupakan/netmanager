@@ -1,4 +1,4 @@
-import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { getUserPermissions } from '@/lib/auth'
 

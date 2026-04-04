@@ -1,10 +1,10 @@
 import { HolidayRepository } from '../repositories/HolidayRepository'
 import { LeaveRepository } from '../repositories/LeaveRepository'
 import { AttendanceRepository } from '../repositories/AttendanceRepository'
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
+import { UserRepository } from '@/modules/users'
 import { randomUUID } from 'crypto'
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
-import { AttendanceEventDispatcher } from '@/modules/events/dispatchers/AttendanceEventDispatcher'
+import { AttendanceEventDispatcher } from '@/modules/events'
 import { logger } from '@/lib/logger'
 
 

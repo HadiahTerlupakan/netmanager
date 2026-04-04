@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-helpers';
-import { RadiusSyncService } from '@/modules/network/services/radius-sync-service';
+import { RadiusSyncService } from '@/modules/network';
 import { logger } from '@/lib/logger';
 import { Status } from '@prisma/client';
 

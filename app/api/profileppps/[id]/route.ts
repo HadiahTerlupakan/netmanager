@@ -358,7 +358,7 @@ export async function PUT(
 
     // Sync to RADIUS if in RADIUS mode
     try {
-      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+      const { RadiusSyncService } = await import('@/modules/network');
       const radiusSync = new RadiusSyncService();
       const mode = await radiusSync.getConnectionMode();
       if (mode === 'RADIUS') {
@@ -390,7 +390,7 @@ export async function PUT(
 
     // Update profile PPP di MikroTik jika ada router atau dalam mode RADIUS
     try {
-      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+      const { RadiusSyncService } = await import('@/modules/network');
       const radiusSync = new RadiusSyncService();
       const connectionMode = await radiusSync.getConnectionMode();
       const isRadiusMode = connectionMode === 'RADIUS';

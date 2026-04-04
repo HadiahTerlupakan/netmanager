@@ -1,5 +1,5 @@
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'

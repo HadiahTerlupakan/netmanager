@@ -13,7 +13,7 @@ import {
     createNotification,
 } from '@/modules/notification';
 import { CanvasingRepository } from '../repositories/CanvasingRepository';
-import { UserRepository } from '@/modules/users/repositories/UserRepository';
+import { UserRepository } from '@/modules/users';
 import { sendPushToUsers } from '@/modules/notification/services/ExpoPushService';
 
 const canvasingRepo = new CanvasingRepository();

@@ -1,6 +1,6 @@
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
-import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
-import { MitraRepository } from '@/modules/mitra/repositories/MitraRepository'
+import { UserRepository } from '@/modules/users'
+import { PelangganRepository } from '@/modules/pelanggan'
+import { MitraRepository } from '@/modules/mitra'
 import { enqueuePushRetry } from './PushRetryQueue'
 
 const userRepo = new UserRepository()

@@ -1,7 +1,7 @@
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
-import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
-import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
-import { RadiusSyncService } from '@/modules/network/services/radius-sync-service'
+import { AttendanceSettingsService } from '@/modules/attendance'
+import { PelangganRepository } from '@/modules/pelanggan'
+import { RadiusSyncService } from '@/modules/network'
 import { logger } from '@/lib/logger'
 import { Status } from '@prisma/client'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
@@ -11,7 +11,7 @@ import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotif
 export class AutomaticIsolationService {
     static async runDailyCheck() {
         try {
-            const settingsRepo = new SettingsRepository()
+            const settingsRepo = new AttendanceSettingsService()
             const billingRepo = new InvoiceRepository()
             const pelangganRepo = new PelangganRepository()
 

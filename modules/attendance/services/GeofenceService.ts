@@ -1,5 +1,5 @@
 import { calculateHaversineDistance } from '@/lib/geo-utils'
-import { UserRepository } from '@/modules/users/repositories/UserRepository'
+import { UserRepository } from '@/modules/users'
 
 type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
 

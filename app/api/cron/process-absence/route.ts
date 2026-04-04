@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { AbsenceService } from '@/modules/attendance/services/AbsenceService'
 import { acquireCronLock } from '@/lib/cron-lock'
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +12,7 @@ function getDateLockKey(date: Date): string {
 
 export async function POST(request: Request) {
     try {
+        const env = getEnv()
         const headersList = await headers()
         const authHeader = headersList.get('authorization')
 

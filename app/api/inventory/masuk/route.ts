@@ -194,7 +194,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     // Publish domain event
-    const { InventoryEventDispatcher } = await import('@/modules/events/dispatchers/InventoryEventDispatcher');
+                const { InventoryEventDispatcher } = await import('@/modules/events');
     await InventoryEventDispatcher.onStockIn({
       barangId,
       barangName: (masukRecord as Record<string, unknown>)?.barang ? ((masukRecord as Record<string, unknown>).barang as Record<string, unknown>)?.nama as string : undefined,

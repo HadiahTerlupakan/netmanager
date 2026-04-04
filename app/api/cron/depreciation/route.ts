@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server'
 import { AssetService } from '@/modules/inventory/services/AssetService'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 
 const assetService = new AssetService()
 
 export async function GET(req: NextRequest) {
     try {
+        const env = getEnv()
         const authHeader = req.headers.get('authorization')
 
         if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {

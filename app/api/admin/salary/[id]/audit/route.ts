@@ -1,4 +1,4 @@
-import { getSalaryService } from '@/modules/salary/services/SalaryService'
+import { getSalaryService } from '@/modules/salary'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 

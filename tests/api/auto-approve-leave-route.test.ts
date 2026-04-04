@@ -28,9 +28,9 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 vi.mock('@/lib/env', () => ({
-  env: {
+  getEnv: () => ({
     CRON_SECRET: 'cron-secret',
-  },
+  }),
 }))
 
 import { POST } from '@/app/api/cron/auto-approve-leave/route'

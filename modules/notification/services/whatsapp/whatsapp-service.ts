@@ -1,15 +1,23 @@
 // WhatsApp Service - Main service for sending WhatsApp messages
 
-import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
+import { AttendanceSettingsService } from '@/modules/attendance'
 import { decryptApiKey } from '@/lib/utils/encryption'
 import { WhatsAppFactory } from './whatsapp-factory'
 import type { WhatsAppConfig, SendMessageParams, SendFileParams, SendResult } from './whatsapp-provider-interface'
 
 export class WhatsAppService {
-    private settingsRepo: SettingsRepository
+    private settingsRepo?: AttendanceSettingsService
 
-    constructor(settingsRepo?: SettingsRepository) {
-        this.settingsRepo = settingsRepo ?? new SettingsRepository()
+    constructor(settingsRepo?: AttendanceSettingsService) {
+        this.settingsRepo = settingsRepo
+    }
+
+    private getSettingsRepo(): AttendanceSettingsService {
+        if (!this.settingsRepo) {
+            this.settingsRepo = new AttendanceSettingsService()
+        }
+
+        return this.settingsRepo
     }
 
     /**
@@ -17,7 +25,7 @@ export class WhatsAppService {
      */
     async isConfigured(): Promise<boolean> {
         try {
-            const settings = await this.settingsRepo.findManyByKeys(['WHATSAPP_API_KEY'])
+            const settings = await this.getSettingsRepo().findManyByKeys(['WHATSAPP_API_KEY'])
 
             const apiKey = settings.find(s => s.key === 'WHATSAPP_API_KEY')?.value
             const envKey = process.env.FONNTE_API_KEY
@@ -33,7 +41,7 @@ export class WhatsAppService {
      * Returns null if not configured
      */
     private async loadConfig(): Promise<WhatsAppConfig | null> {
-        const settings = await this.settingsRepo.findManyByKeys([
+        const settings = await this.getSettingsRepo().findManyByKeys([
             'WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WABLAS_DOMAIN', 'WABLAS_DEVICE_ID'
         ])
 

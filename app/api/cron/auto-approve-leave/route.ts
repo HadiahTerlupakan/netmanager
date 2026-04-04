@@ -1,13 +1,14 @@
 import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-import { getLeaveService } from '@/modules/attendance/services/LeaveService'
+import { getLeaveService } from '@/modules/attendance'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(_request: Request) {
     try {
+        const env = getEnv()
         const headersList = await headers()
         const authHeader = headersList.get('authorization')
 

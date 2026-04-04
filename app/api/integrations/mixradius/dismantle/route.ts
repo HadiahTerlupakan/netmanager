@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { MixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { MixRadiusService } from '@/modules/integrations'
 import { WorkOrderRepository } from '@/modules/work-order/repositories/WorkOrderRepository'
 import { onWorkOrderCreated } from '@/modules/work-order/services/WorkOrderNotifications'
 import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'

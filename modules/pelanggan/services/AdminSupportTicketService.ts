@@ -3,7 +3,7 @@ import { CustomerTicketRepository } from '../repositories/CustomerTicketReposito
 import { logActivitySafe } from '@/lib/logger'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import { closeWoOnTicketClose } from '@/modules/work-order/services/WorkOrderSyncService'
-import { TicketEventDispatcher } from '@/modules/events/dispatchers/TicketEventDispatcher'
+import { TicketEventDispatcher } from '@/modules/events'
 
 /**
  * Service Result type for consistent API responses

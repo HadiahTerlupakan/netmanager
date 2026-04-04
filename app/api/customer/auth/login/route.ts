@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { apiError, apiSuccess, ErrorCodes } from '@/lib/api-response'
 import { setCustomerAuthCookies } from '@/lib/customer-auth'
-import { CustomerAuthService } from '@/modules/pelanggan/services/CustomerAuthService'
+import { CustomerAuthService } from '@/modules/pelanggan'
 
 const authService = new CustomerAuthService()
 

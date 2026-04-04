@@ -97,7 +97,7 @@ export async function PUT(
 
     // RADIUS Sync Hook
     try {
-      const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service')
+      const { RadiusSyncService } = await import('@/modules/network')
       const radiusSync = new RadiusSyncService()
       const mode = await radiusSync.getConnectionMode()
       if (mode === 'RADIUS') {

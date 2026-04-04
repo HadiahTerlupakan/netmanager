@@ -2,12 +2,13 @@ import { headers } from 'next/headers'
 import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
 import { acquireCronLock } from '@/lib/cron-lock'
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(_request: Request) {
     try {
+        const env = getEnv()
         const headersList = await headers()
         const authHeader = headersList.get('authorization')
 

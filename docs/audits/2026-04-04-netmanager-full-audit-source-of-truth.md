@@ -1,7 +1,7 @@
 # Netmanager Full Audit — Source of Truth
 
 Tanggal: 2026-04-04
-Status: ✅ Selesai (lint, typecheck, tests, build hijau)
+Status: ✅ Selesai (phase-1 stabilisasi + phase-2 god-code hardening)
 Owner: Hephaestus (agent execution)
 
 ## 1) Tujuan Audit
@@ -90,4 +90,150 @@ Perintah verifikasi yang dijalankan:
   2) tidak menggunakan suppress type error,
   3) lolos verifikasi end-to-end.
 
-Dokumen ini menjadi baseline audit/repair per 2026-04-04.
+## 8) Phase-2 God Code Audit (lanjutan 2026-04-04)
+
+Fokus lanjutan: menemukan hotspot “god code” (fungsi/file terlalu gemuk, boundary bocor), lalu menerapkan refactor arsitektural ber-impact tinggi tanpa mengubah behavior bisnis inti.
+
+### 8.1 Temuan prioritas tertinggi
+
+- Hotspot file besar: `modules/work-order/repositories/WorkOrderRepository.ts` (~2817 LOC), `modules/integrations/services/MixRadiusService.ts` (~2525 LOC), `modules/network/repositories/RadiusRepository.ts` (~1117 LOC), `modules/work-order/services/WorkOrderService.ts` (~1102 LOC).
+- Hotspot route gemuk:
+  - `app/api/webhooks/[provider]/route.ts` (parsing provider, signature, lookup payment, transaksi invoice, side-effect automation dalam satu fungsi).
+  - `app/api/finance/rab-projects/[id]/route.ts` PATCH (updateData assembly + nested recreate WBS/items/disbursement + investor recompute dalam route).
+- Temuan boundary leakage (hasil review paralel): banyak API masih menyentuh Prisma/repository langsung dan beberapa service lintas modul menembus boundary repository.
+
+### 8.2 Refactor yang diimplementasikan pada fase ini
+
+1. **Thin webhook route (API → service orchestration)**
+   - Route `app/api/webhooks/[provider]/route.ts` dipangkas menjadi adaptor tipis (extract params/body, delegasi ke service, return response).
+   - Logika berat dipindah ke service baru:
+     - `modules/finance/services/payment-gateway/webhook-processing-service.ts`
+   - Cakupan logika yang dipusatkan di service:
+     - validasi provider + parsing payload (JSON/form-urlencoded)
+     - signature extraction per provider
+     - early payment lookup + fallback lookup (termasuk jalur MOOTA)
+     - update status payment + payment method normalization
+     - invoice reconciliation di dalam transaksi
+     - post-paid side-effects (`AutomaticBillingService.handleInvoicePaid`)
+     - pencatatan unmatched mutation untuk MOOTA
+
+2. **Thin RAB PATCH route (API → repository transaction orchestration)**
+   - Orkestrasi transaksi nested dipindah dari route ke repository:
+     - method baru: `RabProjectRepository.updateProjectWithRelations(id, input)`
+   - Route `app/api/finance/rab-projects/[id]/route.ts` PATCH sekarang fokus pada:
+     - auth/permission check
+     - validasi schema
+     - delegasi ke repository
+     - serialisasi response
+   - Repository menangani:
+     - update field project (termasuk relation update untuk `site`)
+     - full replace WBS/items/disbursement ketika payload item diberikan
+     - investor reset/recreate + split CAPEX calculation
+
+### 8.3 Verifikasi fase-2
+
+Perintah yang dijalankan setelah refactor:
+
+1. `npm run typecheck` → **pass**
+2. `npm run test:run -- tests/api/finance/rab-project-revisions-route.test.ts tests/api/finance/rab-project-revision-detail-route.test.ts tests/api/finance/rab-project-revision-profit-loss-route.test.ts` → **3 files passed, 6 tests passed**
+3. `npm run build` → **pass**
+4. `npm run lint` → **pass**
+5. LSP diagnostics pada file yang diubah → **0 error**
+
+Catatan: instruksi AGENTS menyebut `scripts/setup-test-db.sh`, namun file tersebut tidak ada di repository saat verifikasi fase-2, sehingga test dijalankan langsung via Vitest.
+
+### 8.4 Dampak arsitektural
+
+- API layer lebih tipis dan konsisten dengan prinsip modular monolith (route sebagai adapter, orchestration di service/repository).
+- Kompleksitas kognitif route turun signifikan pada dua hotspot high-impact.
+- Fondasi refactor lanjutan lebih aman (WorkOrder/MixRadius/Radius hotspot besar bisa dipecah bertahap dengan pola yang sama).
+
+Dokumen ini menjadi baseline audit/repair per 2026-04-04, termasuk hasil hardening god-code phase-2.
+
+## 9) Phase-3 Layer Consistency Hardening (2026-04-04)
+
+Fokus phase-3: menutup kebocoran boundary lintas layer/modul, menambahkan guardrail executable, dan mendokumentasikan backlog refactor prioritas tinggi berdasarkan audit paralel.
+
+### 9.1 Ringkasan audit boundary (evidence-driven)
+
+Hasil audit paralel internal:
+
+- `app/api/**/route.ts` yang import `@/lib/prisma*`: **248 file**.
+- `app/api/**/route.ts` yang import `@/modules/.../repositories...`: **35 file**.
+- `app/api/**/route.ts` yang deep-import internal module (`@/modules/<name>/...`): **147 file**.
+- UI `app/**/*.tsx` yang import service/repository langsung: **6 file**.
+- Cross-module deep import di `modules/**`: **43 file**.
+- Total deep import offender lintas `app/`, `lib/`, `modules/`: **286**.
+
+Hotspot dominan target module: `attendance`, `network`, `finance`, `integrations`, `work-order`.
+
+### 9.2 Perbaikan yang sudah diterapkan pada phase-3
+
+1. **Public API import compliance (targeted high-impact fixes)**
+   - `app/api/admin/sites/route.ts`
+     - `@/modules/roles/services/SiteService` → `@/modules/roles`
+   - `app/api/customer/auth/login/route.ts`
+     - `@/modules/pelanggan/services/CustomerAuthService` → `@/modules/pelanggan`
+
+2. **Cross-module repository leakage reduction**
+   - `modules/work-order/services/WorkOrderService.ts`
+     - `UserRepository` import diganti ke public API (`@/modules/users`).
+     - dependency internal lintas modul yang tidak terpakai (`SettingsRepository`, `CanvasingRepository`) dihapus.
+
+3. **Attendance settings facade untuk akses lintas modul via service**
+   - Tambah `modules/attendance/services/AttendanceSettingsService.ts`.
+   - Export facade via `modules/attendance/index.ts`.
+   - `modules/mitra/services/MitraWithdrawService.ts`
+     - stop import repository attendance internal.
+     - migrasi ke `AttendanceSettingsService` dari `@/modules/attendance`.
+
+4. **Automated guardrails (warn-mode, non-breaking rollout)**
+   - `eslint.config.mjs` diperkuat dengan `no-restricted-imports` untuk:
+     - melarang UI import repository/service module internal secara langsung;
+     - melarang API route import repository module internal dan deep import `@/modules/*/**`;
+     - memberi sinyal pada akses langsung `@/lib/prisma*` dari UI/API.
+    - Mode awal: `warn` agar rollout tidak memblokir deployment saat baseline violation masih tinggi.
+
+5. **Targeted deep-import remediation gelombang-2 (high-frequency offenders)**
+   - `modules/finance/services/AutomaticBillingService.ts`
+     - akses settings dimigrasi ke `AttendanceSettingsService` (public module API), bukan `SettingsRepository` internal attendance.
+     - dynamic import `RadiusSyncService` dipindah ke `@/modules/network` (public API).
+   - `modules/finance/services/AutomaticIsolationService.ts`
+     - akses settings dimigrasi ke `AttendanceSettingsService`.
+     - `RadiusSyncService` + `PelangganRepository` impor via public module API.
+   - `modules/notification/services/email-service.ts` dan `modules/notification/services/whatsapp/whatsapp-service.ts`
+     - dependency settings dimigrasi ke `AttendanceSettingsService`.
+   - `modules/notification/services/ExpoPushService.ts`
+     - `PelangganRepository` dan `MitraRepository` impor via public module API.
+   - `modules/salary/index.ts`
+     - expose `SalaryService`/`getSalaryService` lewat public API module.
+   - Seluruh route salary admin (`app/api/admin/salary/**`)
+     - `getSalaryService` import dipindah dari deep path service ke `@/modules/salary`.
+   - Route investor + integrations MixRadius terkait (`app/api/investor/**`, `app/api/integrations/mixradius/**`)
+     - import `getMixRadiusService`, `MixRadiusService`, dan tipe terkait dipindah ke `@/modules/integrations`.
+   - Route terkait radius sync (`app/api/profileppps/**`, `app/api/bandwidths/[id]/route.ts`, `app/api/pelanggan-ppp/[id]/status/route.ts`, `modules/finance/services/VoidInvoiceService.ts`)
+     - dynamic import `RadiusSyncService` dipindah ke `@/modules/network`.
+
+### 9.3 Keputusan arsitektural phase-3
+
+- **Keputusan 1**: penegakan boundary dilakukan bertahap dengan guardrail lint berbasis warning dulu, lalu dinaikkan ke error setelah backlog kritis turun.
+- **Keputusan 2**: consumer lintas modul wajib lewat public API module (`@/modules/<module>`), bukan path internal.
+- **Keputusan 3**: akses konfigurasi lintas modul dilakukan via service/facade, bukan repository internal modul lain.
+
+### 9.4 Backlog eksekusi lanjutan (prioritas)
+
+1. Refactor route gemuk berisiko tinggi agar benar-benar thin-controller:
+   - `app/api/admin/workorders/dashboard/route.ts`
+   - `app/api/mobile/leaves/route.ts`
+   - `app/api/finance/rab-projects/[id]/route.ts`
+2. Kurangi dependency `app/api` ke `@/lib/prisma*` dengan memindahkan orchestration ke service/repository per domain.
+3. Perluas module public API untuk use-case lintas modul yang masih memaksa deep import.
+4. Setelah violation kritis turun, ubah guardrail ESLint dari `warn` → `error` untuk boundary rules.
+
+### 9.5 Status rollout phase-3 saat ini
+
+- Enforcement rule sudah aktif dan memberi sinyal otomatis pada pelanggaran boundary baru.
+- Sejumlah offender frekuensi tinggi sudah dimigrasi ke public API module.
+- Baseline violation historis masih besar (terutama direct Prisma di API route), sehingga strategi rollout bertahap `warn -> error` tetap dipertahankan agar aman untuk delivery.
+
+Phase-3 ini menjadi SOT arsitektur boundary saat ini: aturan sudah dieksekusi otomatis, pelanggaran sudah terpetakan kuantitatif, dan remediation path diprioritaskan untuk rollout aman.

@@ -4,16 +4,18 @@ import { sendCustomerPushNotification } from '@/modules/notification/services/Ex
 import { logger } from '@/lib/logger';
 import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
-import { BillingEventDispatcher } from '@/modules/events/dispatchers/BillingEventDispatcher'
-import { SettingsRepository } from '@/modules/attendance/repositories/SettingsRepository'
-import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
+import { BillingEventDispatcher } from '@/modules/events'
+import { AttendanceSettingsService } from '@/modules/attendance'
+import { PelangganRepository } from '@/modules/pelanggan'
 import { PelangganFinanceRepository } from '@/modules/pelanggan/repositories/PelangganFinanceRepository'
 import { InvoiceRepository } from '@/modules/finance/repositories/InvoiceRepository'
 import { PaymentRepository } from '@/modules/finance/repositories/PaymentRepository'
 
 
 export class AutomaticBillingService {
-    private static settingsRepo = new SettingsRepository();
+    private static getSettingsRepo() {
+        return new AttendanceSettingsService();
+    }
     private static pelangganRepo = new PelangganRepository();
     private static pelangganFinanceRepo = new PelangganFinanceRepository();
     private static invoiceRepo = new InvoiceRepository();
@@ -28,7 +30,7 @@ export class AutomaticBillingService {
     static async generateDailyInvoices() {
         try {
             // 1. Get settings
-            const invoiceOtomatisSetting = await this.settingsRepo.findByKey('GENERAL_INVOICE_OTOMATIS');
+            const invoiceOtomatisSetting = await this.getSettingsRepo().findByKey('GENERAL_INVOICE_OTOMATIS');
 
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
@@ -118,7 +120,7 @@ export class AutomaticBillingService {
     static async checkAndGenerateRealtimeInvoice(pelangganId: string) {
         try {
             // 1. Get settings for daysBeforeDue
-            const invoiceOtomatisSetting = await this.settingsRepo.findByKey('GENERAL_INVOICE_OTOMATIS');
+            const invoiceOtomatisSetting = await this.getSettingsRepo().findByKey('GENERAL_INVOICE_OTOMATIS');
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
             // 2. Fetch customer
@@ -323,7 +325,7 @@ export class AutomaticBillingService {
         }
 
         try {
-            const notifAppSetting = await this.settingsRepo.findByKey('GENERAL_NOTIF_APP');
+            const notifAppSetting = await this.getSettingsRepo().findByKey('GENERAL_NOTIF_APP');
             const isPushEnabled = notifAppSetting?.value !== 'false';
 
             if (isPushEnabled) {
@@ -425,7 +427,7 @@ export class AutomaticBillingService {
         }
 
         if (shouldActivate) {
-            const { RadiusSyncService } = await import('@/modules/network/services/radius-sync-service');
+            const { RadiusSyncService } = await import('@/modules/network');
             const radiusService = new RadiusSyncService();
             await radiusService.handleStatusChange(customer.id, 'AKTIF');
         }
@@ -445,7 +447,7 @@ export class AutomaticBillingService {
     static async sendDailyReminders() {
         try {
             // 1. Get settings
-            const settingsParams = await this.settingsRepo.findManyByKeys([
+            const settingsParams = await this.getSettingsRepo().findManyByKeys([
                 'GENERAL_REMINDER_OTOMATIS',
                 'GENERAL_REMINDER_FREQUENCY',
                 'GENERAL_REMINDER_TIME',

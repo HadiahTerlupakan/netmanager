@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 import type { RabStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, ApiErrors } from '@/lib/api-response'
-import { env } from '@/lib/env'
+import { getEnv } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +12,7 @@ const STATUS_SELESAI = 'SELESAI' as RabStatus
 
 export async function POST(_request: Request) {
     try {
+        const env = getEnv()
         const headersList = await headers()
         const authHeader = headersList.get('authorization')
 

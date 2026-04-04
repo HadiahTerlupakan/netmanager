@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 import { prisma } from '@/lib/prisma'
 import { prismaBilling } from '@/lib/prisma-billing'
-import { getMixRadiusService } from '@/modules/integrations/services/MixRadiusService'
+import { getMixRadiusService } from '@/modules/integrations'
 
 function getSecret(): Uint8Array {
     const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
@@ -71,7 +71,7 @@ export async function GET() {
             })
         }
 
-        let mixRadiusCustomers: import('@/modules/integrations/services/MixRadiusService').MixRadiusCustomer[] = []
+        let mixRadiusCustomers: import('@/modules/integrations').MixRadiusCustomer[] = []
         if (mixRadiusOwners.length > 0) {
             try {
                 const service = getMixRadiusService()

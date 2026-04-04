@@ -2,7 +2,7 @@ import { sendPushNotification as sendExpoPush, sendPushToDepartment as sendExpoP
 import { sendPushNotifications as sendBrowserPushNotifications } from './PushNotificationService';
 import { NotificationRepository } from '../repositories/NotificationRepository';
 import { PushSubscriptionRepository } from '../repositories/PushSubscriptionRepository';
-import { UserRepository } from '@/modules/users/repositories/UserRepository';
+import { UserRepository } from '@/modules/users';
 import { Prisma } from '@prisma/client';
 import { socketEmitter } from '@/lib/websocket/emitter';
 import { getPriorityEmoji, getStatusEmoji, getActionEmoji, getWorkOrderTypeLabel } from '@/modules/notification/utils/constants';

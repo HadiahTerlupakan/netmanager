@@ -5,7 +5,7 @@ import { hash } from 'bcryptjs'
 import { afterCustomerCreate } from '@/lib/hooks/radius-sync-hooks'
 import { AutomaticBillingService } from '@/modules/finance/services/AutomaticBillingService'
 import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
-import { CustomerEventDispatcher } from '@/modules/events/dispatchers/CustomerEventDispatcher'
+import { CustomerEventDispatcher } from '@/modules/events'
 import { logger } from '@/lib/logger'
 
 export interface CreatePelangganInput {

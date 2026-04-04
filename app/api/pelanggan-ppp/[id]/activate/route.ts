@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth-helpers'
 import * as z from 'zod'
 import { Prisma } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
-import { CustomerEventDispatcher } from '@/modules/events/dispatchers/CustomerEventDispatcher'
+import { CustomerEventDispatcher } from '@/modules/events'
 
 interface ExtendedUser {
   id: string;
