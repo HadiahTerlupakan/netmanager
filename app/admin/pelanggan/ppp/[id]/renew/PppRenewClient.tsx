@@ -40,7 +40,7 @@ type Tagihan = {
   jatuhTempo: string
 }
 
-export function ClientComponent() {
+export function PppClientRenewForm() {
   const params = useParams()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -576,4 +576,3 @@ export function ClientComponent() {
     </div>
   )
 }
-

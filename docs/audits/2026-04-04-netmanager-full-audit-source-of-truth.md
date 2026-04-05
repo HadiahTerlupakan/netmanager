@@ -237,3 +237,93 @@ Hotspot dominan target module: `attendance`, `network`, `finance`, `integrations
 - Baseline violation historis masih besar (terutama direct Prisma di API route), sehingga strategi rollout bertahap `warn -> error` tetap dipertahankan agar aman untuk delivery.
 
 Phase-3 ini menjadi SOT arsitektur boundary saat ini: aturan sudah dieksekusi otomatis, pelanggaran sudah terpetakan kuantitatif, dan remediation path diprioritaskan untuk rollout aman.
+
+## 10) Phase-4 MikroTik UI Modularization (2026-04-05)
+
+Fokus phase-4: mengurangi God Code dan duplikasi di `/admin/network/mikrotik` tanpa mengubah behavior create/edit/list yang sudah berjalan.
+
+### 10.1 Boundary baru yang menjadi source of truth
+
+Untuk area UI MikroTik, boundary yang sekarang dipakai adalah:
+
+- `app/admin/network/mikrotik/new/MikrotikNewClient.tsx`
+  - tetap owns create-only behavior: POST submit flow, `testPassed` gating, dan routing setelah save.
+- `app/admin/network/mikrotik/[id]/edit/MikrotikEditClient.tsx`
+  - tetap owns edit-only behavior: `loadRouter()`, PATCH submit flow, dan reload data setelah test connection sukses.
+- `app/admin/network/mikrotik/MikroTikRouterList.tsx`
+  - tetap owns list-level modal state dan action orchestration (`delete`, `test connection`, `reconfigure`), tetapi data fetching/search/pagination/socket refresh dipindah ke hook terpisah.
+
+Shared UI/data seams yang sekarang resmi dipakai:
+
+- `app/admin/network/mikrotik/components/mikrotikRouterForm.tsx`
+  - presentational form surface untuk create/edit.
+- `app/admin/network/mikrotik/components/mikrotikRouterTable.tsx`
+  - presentational table, controls, dan pagination untuk list page.
+- `app/admin/network/mikrotik/hooks/useMikrotikFormSettings.ts`
+  - shared settings loader (`pppConnectionMode`, `radiusDefaults`).
+- `app/admin/network/mikrotik/hooks/useMikrotikConnectionTest.ts`
+  - shared test-connection modal flow + validation wrapper.
+- `app/admin/network/mikrotik/hooks/useMikrotikRouterList.ts`
+  - shared list data layer (`fetch`, `debounce`, `pagination`, `socket refresh`).
+- `app/admin/network/mikrotik/mikrotikFormShared.ts`
+  - tetap menjadi helper network/form contract yang dipakai hook-hook di atas.
+
+### 10.2 Keputusan arsitektural phase-4
+
+- Shared extraction dibatasi pada **presentational form/table** dan **local UI hooks**.
+- `POST` create, `PATCH` edit, `testPassed`, `loadRouter`, dan modal ownership tetap lokal di page-level client agar behavior tidak bergeser.
+- List page dipecah menjadi **hook data + presentational table**, tetapi delete/test/reconfigure tetap di parent agar orchestration tetap eksplisit.
+- Route wrappers (`page.tsx`, `new/page.tsx`, `[id]/edit/page.tsx`) tidak diubah karena sudah cukup sebagai permission boundary.
+
+### 10.3 Verifikasi phase-4 MikroTik
+
+Perintah verifikasi yang dijalankan setelah modularization:
+
+1. LSP diagnostics pada file baru/berubah
+   - `MikrotikNewClient.tsx` → 0 error
+   - `MikrotikEditClient.tsx` → 0 error
+   - `MikroTikRouterList.tsx` → 0 error
+   - `components/` → 0 error
+   - `hooks/` → 0 error
+2. `npm run lint` → pass
+3. `npm run typecheck` → pass
+4. `npm run test:run` → pass
+5. `npm run build` → pass
+
+Section ini menjadi SOT untuk boundary UI MikroTik setelah phase-4: shared seams sudah diekstrak, tetapi orchestration penting tetap lokal untuk menjaga parity behavior.
+
+## 11) NetWave-2 Radius Dashboard Local Extraction (2026-04-05)
+
+Fokus wave ini: menurunkan God Code di `/admin/network/radius/RadiusDashboard.tsx` tanpa mengubah endpoint, refresh behavior, ataupun websocket room semantics.
+
+### 11.1 Boundary baru yang menjadi source of truth
+
+Untuk area UI Radius, boundary yang sekarang dipakai adalah:
+
+- `app/admin/network/radius/page.tsx`
+  - tetap owns server-side permission + redirect behavior berdasarkan `PPP_CONNECTION_MODE`.
+- `app/admin/network/radius/RadiusDashboard.tsx`
+  - tetap menjadi shell presentational dashboard dan tetap owns composition terhadap `StatsCards`, `SessionsTable`, dan `SyncControls`, tetapi data/socket orchestration dipindah ke hook lokal.
+- `app/admin/network/radius/hooks/useRadiusDashboardData.ts`
+  - menjadi seam resmi untuk fetch stats, fetch recent sessions, loading/refreshing state, websocket room join/leave, dan event subscription `radius:stats` / `radius:sessions`.
+
+### 11.2 Keputusan arsitektural NetWave-2
+
+- Extraction dibatasi pada **feature-local hook**; tidak dibuat shared dashboard infra lintas modul.
+- `join_room` / `leave_room`, endpoint fetch, dan refresh timing tetap identik dengan perilaku sebelumnya.
+- `SyncControls` tetap dibiarkan feature-specific karena owns mutation + reload timing, sehingga tidak dipaksa menjadi abstraction generik.
+- Route redirect logic di `page.tsx` sengaja tidak diubah.
+
+### 11.3 Verifikasi NetWave-2 Radius
+
+Perintah verifikasi yang dijalankan setelah extraction:
+
+1. LSP diagnostics pada file baru/berubah
+   - `RadiusDashboard.tsx` → 0 error
+   - `hooks/useRadiusDashboardData.ts` → 0 error
+2. `npm run lint` → pass
+3. `npm run typecheck` → pass
+4. `npm run test:run` → pass
+5. `npm run build` → pass
+
+Section ini menjadi SOT untuk boundary UI Radius setelah NetWave-2: dashboard shell tetap lokal di feature, sementara data/socket orchestration dipusatkan ke hook lokal tanpa mengubah kontrak perilaku.
