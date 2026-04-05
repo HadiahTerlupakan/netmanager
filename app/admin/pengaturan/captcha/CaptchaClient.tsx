@@ -1,7 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { HiArrowPath, HiCheckCircle, HiExclamationCircle, HiShieldCheck } from 'react-icons/hi2'
+
+function unwrapApiData<T>(payload: T | { data?: T }): T {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        const nested = (payload as { data?: T }).data
+        if (nested !== undefined) {
+            return nested
+        }
+    }
+
+    return payload as T
+}
 
 export function ClientComponent() {
     const [loading, setLoading] = useState(false)
@@ -14,16 +25,13 @@ export function ClientComponent() {
         secretKey: ''
     })
 
-    useEffect(() => {
-        loadSettings()
-    }, [])
-
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         try {
             setLoading(true)
             const res = await fetch('/api/settings/captcha')
             if (res.ok) {
-                const data = await res.json()
+                const payload = await res.json()
+                const data = unwrapApiData<{ enabled: boolean; siteKey: string; secretKey: string }>(payload)
                 setSettings({
                     enabled: data.enabled,
                     siteKey: data.siteKey,
@@ -36,7 +44,11 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
+
+    useEffect(() => {
+        void loadSettings()
+    }, [loadSettings])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -99,10 +111,11 @@ export function ClientComponent() {
                         {settings.enabled && (
                             <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label htmlFor="captcha-site-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Site Key <span className="text-red-500">*</span>
                                     </label>
                                     <input
+                                        id="captcha-site-key"
                                         type="text"
                                         required={settings.enabled}
                                         value={settings.siteKey}
@@ -112,10 +125,11 @@ export function ClientComponent() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label htmlFor="captcha-secret-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Secret Key <span className="text-red-500">*</span>
                                     </label>
                                     <input
+                                        id="captcha-secret-key"
                                         type="text" // Using text to allow viewing, admin context is secure enough usually, or use password type
                                         required={settings.enabled}
                                         value={settings.secretKey}

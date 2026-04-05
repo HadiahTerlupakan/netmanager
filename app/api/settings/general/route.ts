@@ -1,6 +1,7 @@
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { createHandler, apiSuccess } from '@/lib/api'
 import { invalidateTimezoneCache } from '@/lib/utils/get-timezone'
 import { logActivitySafe } from '@/lib/logger'
+import { generalSettingsSchema } from '@/lib/validations/settings'
 import {
   SettingsRepository,
   GENERAL_SETTINGS_KEYS,
@@ -185,12 +186,14 @@ export const GET = createHandler({ auth: true, permissions: ['umum:read', 'setti
  * POST /api/settings/general
  * Menyimpan pengaturan umum
  */
-export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req, ctx) => {
-  const body: GeneralSettingsPayload = await req.json()
-
-  // Validasi body
-  if (!body || typeof body !== 'object') {
-    return ApiErrors.badRequest('Body request tidak valid')
+export const POST = createHandler({
+  auth: true,
+  permissions: ['settings:update'],
+  schema: generalSettingsSchema,
+}, async (_req, ctx) => {
+  const body: GeneralSettingsPayload = {
+    ...ctx.validated,
+    email: ctx.validated.email ?? '',
   }
 
   await SettingsRepository.upsertMany(buildGeneralSettingsUpserts(body))

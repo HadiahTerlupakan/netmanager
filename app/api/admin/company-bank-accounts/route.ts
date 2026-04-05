@@ -1,42 +1,44 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { hasPermission } from '@/lib/rbac'
+import {
+    companyBankAccountSchema,
+    type CompanyBankAccountInput,
+} from '@/lib/validations/settings'
+import { getCompanyBankAccountService } from '@/modules/finance'
+
+const service = getCompanyBankAccountService()
 
 export const GET = createHandler({
     auth: true,
 }, async (req, ctx) => {
     const { session } = ctx
     if (!session) return ApiErrors.unauthorized()
+    if (!await hasPermission('bank_accounts:read')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat rekening bank perusahaan')
+    }
 
-    const accounts = await prisma.companyBankAccount.findMany({
-        orderBy: { priority: 'asc' }
-    })
+    const result = await service.listAccounts()
+    if (!result.success) {
+        return ApiErrors.internalError(result.error)
+    }
 
-    return apiSuccess(accounts)
+    return apiSuccess(result.data)
 })
 
 export const POST = createHandler({
     auth: true,
-}, async (req, ctx) => {
+    schema: companyBankAccountSchema,
+}, async (_req, ctx) => {
     const { session } = ctx
     if (!session) return ApiErrors.unauthorized()
-
-    const body = await req.json()
-    const { bankName, accountNumber, accountName, description, isActive, priority } = body
-
-    if (!bankName || !accountNumber || !accountName) {
-        return ApiErrors.badRequest('Bank name, account number, and account name are required')
+    if (!await hasPermission('bank_accounts:create')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah rekening bank perusahaan')
     }
 
-    const account = await prisma.companyBankAccount.create({
-        data: {
-            bankName,
-            accountNumber,
-            accountName,
-            description,
-            isActive: isActive ?? true,
-            priority: priority ?? 1
-        }
-    })
+    const result = await service.createAccount(ctx.validated as CompanyBankAccountInput)
+    if (!result.success) {
+        return ApiErrors.internalError(result.error)
+    }
 
-    return apiSuccess(account, { status: 201 })
+    return apiSuccess(result.data, { status: 201 })
 })

@@ -1,6 +1,7 @@
 import { createHandler, apiSuccess } from '@/lib/api'
 import { clearR2SettingsCache } from '@/lib/utils/r2-client'
 import { logActivitySafe } from '@/lib/logger'
+import { apiSettingsSchema } from '@/lib/validations/settings'
 import {
   SettingsRepository,
   API_SETTINGS_KEYS,
@@ -22,8 +23,12 @@ export const GET = createHandler({ auth: true, permissions: ['api:read', 'settin
  * POST /api/settings/api
  * Menyimpan pengaturan API
  */
-export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req, ctx) => {
-  const body: ApiSettingsPostPayload = await req.json()
+export const POST = createHandler({
+  auth: true,
+  permissions: ['settings:update'],
+  schema: apiSettingsSchema,
+}, async (_req, ctx) => {
+  const body: ApiSettingsPostPayload = ctx.validated
   const updates = buildApiSettingsUpserts(body)
   if (updates.length) {
     await SettingsRepository.upsertMany(updates)

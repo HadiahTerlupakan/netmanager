@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
     HiOutlineBanknotes,
     HiOutlinePlus,
@@ -23,6 +23,17 @@ interface CompanyBankAccount {
     createdAt: string
 }
 
+function unwrapApiData<T>(payload: T | { data?: T }): T {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        const nested = (payload as { data?: T }).data
+        if (nested !== undefined) {
+            return nested
+        }
+    }
+
+    return payload as T
+}
+
 export function ClientComponent() {
     const [accounts, setAccounts] = useState<CompanyBankAccount[]>([])
     const [loading, setLoading] = useState(true)
@@ -37,16 +48,13 @@ export function ClientComponent() {
         priority: 1,
     })
 
-    useEffect(() => {
-        fetchAccounts()
-    }, [])
-
-    const fetchAccounts = async () => {
+    const fetchAccounts = useCallback(async () => {
         try {
             setLoading(true)
             const response = await fetch('/api/admin/company-bank-accounts')
             if (response.ok) {
-                const data = await response.json()
+                const payload = await response.json()
+                const data = unwrapApiData<CompanyBankAccount[]>(payload)
                 setAccounts(data)
             }
         } catch (error) {
@@ -54,7 +62,11 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
+
+    useEffect(() => {
+        void fetchAccounts()
+    }, [fetchAccounts])
 
     const handleOpenModal = (account?: CompanyBankAccount) => {
         if (account) {
@@ -163,10 +175,11 @@ export function ClientComponent() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
+                        <button
+                            type="button"
+                            onClick={() => handleOpenModal()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        >
                         <HiOutlinePlus className="w-5 h-5" />
                         Tambah Rekening
                     </button>
@@ -182,6 +195,7 @@ export function ClientComponent() {
                             Belum ada rekening bank yang ditambahkan
                         </p>
                         <button
+                            type="button"
                             onClick={() => handleOpenModal()}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                         >
@@ -213,6 +227,7 @@ export function ClientComponent() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
+                                            type="button"
                                             onClick={() => handleToggleActive(account)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                             title={account.isActive ? 'Nonaktifkan' : 'Aktifkan'}
@@ -224,12 +239,14 @@ export function ClientComponent() {
                                             )}
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => handleOpenModal(account)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                                         >
                                             <HiOutlinePencil className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => handleDelete(account.id)}
                                             className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                         >
@@ -281,6 +298,7 @@ export function ClientComponent() {
                                 {editingAccount ? 'Edit Rekening' : 'Tambah Rekening Baru'}
                             </h3>
                             <button
+                                type="button"
                                 onClick={() => setModalOpen(false)}
                                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
@@ -291,10 +309,11 @@ export function ClientComponent() {
                         {/* Modal Body */}
                         <div className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="bank-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Nama Bank *
                                 </label>
                                 <input
+                                    id="bank-name"
                                     type="text"
                                     value={formData.bankName}
                                     onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
@@ -304,10 +323,11 @@ export function ClientComponent() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="account-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Nomor Rekening *
                                 </label>
                                 <input
+                                    id="account-number"
                                     type="text"
                                     value={formData.accountNumber}
                                     onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
@@ -317,10 +337,11 @@ export function ClientComponent() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="account-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Nama Pemilik Rekening *
                                 </label>
                                 <input
+                                    id="account-name"
                                     type="text"
                                     value={formData.accountName}
                                     onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
@@ -330,10 +351,11 @@ export function ClientComponent() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="account-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Keterangan (Opsional)
                                 </label>
                                 <textarea
+                                    id="account-description"
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="Informasi tambahan untuk pelanggan"
@@ -343,10 +365,11 @@ export function ClientComponent() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="account-priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Priority: {formData.priority}
                                 </label>
                                 <input
+                                    id="account-priority"
                                     type="range"
                                     min="1"
                                     max="10"
@@ -361,16 +384,17 @@ export function ClientComponent() {
 
                             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                                 <div>
-                                    <label className="font-medium text-gray-900 dark:text-white">Status</label>
+                                    <p className="font-medium text-gray-900 dark:text-white">Status</p>
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
                                         Aktifkan rekening untuk pembayaran manual
                                     </p>
                                 </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.isActive}
-                                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                                    <label htmlFor="account-is-active" className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            id="account-is-active"
+                                            type="checkbox"
+                                            checked={formData.isActive}
+                                            onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                                         className="sr-only peer"
                                     />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
@@ -381,12 +405,14 @@ export function ClientComponent() {
                         {/* Modal Footer */}
                         <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800">
                             <button
+                                type="button"
                                 onClick={() => setModalOpen(false)}
                                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 Batal
                             </button>
                             <button
+                                type="button"
                                 onClick={handleSave}
                                 disabled={!formData.bankName || !formData.accountNumber || !formData.accountName}
                                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

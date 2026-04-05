@@ -1,4 +1,11 @@
-import { AppVersionRepository, type AppVersion, type CreateAppVersionDTO, type UpdateAppVersionDTO, type AppVersionWithUser } from '../repositories/AppVersionRepository'
+import {
+    AppVersionRepository,
+    type AppVersion,
+    type CreateAppVersionDTO,
+    type UpdateAppVersionDTO,
+    type AppVersionWithUser,
+    type AppVersionRolloutStats,
+} from '../repositories/AppVersionRepository'
 import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2, getR2ObjectBuffer, getR2ObjectMetadata, getR2Settings } from '@/lib/utils/r2-client'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import fs from 'fs/promises'
@@ -58,6 +65,13 @@ export interface VersionAccessResult extends CheckVersionResult {
     isSupported: boolean
     currentVersionCode: number
     minimumVersion: string | null
+}
+
+export interface AppVersionStatsResult extends AppVersionRolloutStats {
+    latestVersion: {
+        version: string
+        versionCode: number
+    } | null
 }
 
 // Singleton instance
@@ -239,6 +253,29 @@ export class AppVersionService {
      */
     async getVersionById(id: string): Promise<AppVersionWithUser | null> {
         return this.repository.findById(id)
+    }
+
+    async getStats(platform: string = 'android'): Promise<AppVersionStatsResult> {
+        const latestVersion = await this.repository.getLatestVersion(platform)
+
+        if (!latestVersion) {
+            return {
+                updatedCount: 0,
+                outdatedCount: 0,
+                unknownCount: 0,
+                latestVersion: null,
+            }
+        }
+
+        const rolloutStats = await this.repository.getRolloutStatsByVersionCode(latestVersion.versionCode)
+
+        return {
+            ...rolloutStats,
+            latestVersion: {
+                version: latestVersion.version,
+                versionCode: latestVersion.versionCode,
+            }
+        }
     }
 
     /**

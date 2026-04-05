@@ -1,27 +1,28 @@
-import { createHandler, apiSuccess } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { acsVendorSchema, type AcsVendorInput } from '@/lib/validations/settings'
+import { deleteAcsVendor, updateAcsVendor } from '@/modules/settings'
 
-export const PUT = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
+export const PUT = createHandler<AcsVendorInput>({
+  auth: true,
+  permissions: ['acs:update'],
+  schema: acsVendorSchema,
+}, async (_req, ctx) => {
   const id = ctx.params.id
-  const body = await req.json()
-  
-  const updatedVendor = await prisma.acsVendor.update({
-    where: { id },
-    data: {
-      name: body.name,
-      manufacturerPatterns: body.manufacturerPatterns,
-      productPatterns: body.productPatterns,
-      parameterPrefix: body.parameterPrefix,
-      priority: body.priority,
-      enabled: body.enabled,
-      description: body.description
+
+  try {
+    const updatedVendor = await updateAcsVendor(id, ctx.validated)
+    return apiSuccess(updatedVendor)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'VENDOR_NAME_EXISTS') {
+      return ApiErrors.conflict('Nama vendor sudah digunakan')
     }
-  })
-  return apiSuccess(updatedVendor)
+
+    throw error
+  }
 })
 
 export const DELETE = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
   const id = ctx.params.id
-  await prisma.acsVendor.delete({ where: { id } })
+  await deleteAcsVendor(id)
   return apiSuccess({ success: true })
 })

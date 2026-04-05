@@ -1,4 +1,5 @@
 import { prismaAuth as prisma } from '@/lib/prisma'
+import { prismaMitra } from '@/modules/database'
 import type { Prisma, User } from '@prisma/client'
 
 // Infer AppVersion type dari Prisma client
@@ -35,6 +36,12 @@ export interface UpdateAppVersionDTO {
     minVersion?: string
     isActive?: boolean
     publishedAt?: Date
+}
+
+export interface AppVersionRolloutStats {
+    updatedCount: number
+    outdatedCount: number
+    unknownCount: number
 }
 
 export class AppVersionRepository {
@@ -125,6 +132,71 @@ export class AppVersionRepository {
             },
             orderBy: { versionCode: 'desc' }
         })
+    }
+
+    async getRolloutStatsByVersionCode(versionCode: number): Promise<AppVersionRolloutStats> {
+        const [updatedUsers, updatedCustomers, updatedMitra, outdatedUsers, outdatedCustomers, outdatedMitra, unknownUsers, unknownCustomers, unknownMitra] = await Promise.all([
+            prisma.user.count({
+                where: {
+                    isActive: true,
+                    lastVersionCode: { gte: versionCode }
+                }
+            }),
+            prisma.pelanggan.count({
+                where: {
+                    status: 'AKTIF',
+                    lastVersionCode: { gte: versionCode }
+                }
+            }),
+            prismaMitra.mitra.count({
+                where: {
+                    isActive: true,
+                    lastVersionCode: { gte: versionCode }
+                }
+            }),
+            prisma.user.count({
+                where: {
+                    isActive: true,
+                    lastVersionCode: { lt: versionCode }
+                }
+            }),
+            prisma.pelanggan.count({
+                where: {
+                    status: 'AKTIF',
+                    lastVersionCode: { lt: versionCode }
+                }
+            }),
+            prismaMitra.mitra.count({
+                where: {
+                    isActive: true,
+                    lastVersionCode: { lt: versionCode }
+                }
+            }),
+            prisma.user.count({
+                where: {
+                    isActive: true,
+                    lastVersionCode: null
+                }
+            }),
+            prisma.pelanggan.count({
+                where: {
+                    status: 'AKTIF',
+                    lastVersionCode: null
+                }
+            }),
+            prismaMitra.mitra.count({
+                where: {
+                    isActive: true,
+                    lastVersionCode: null
+                }
+            })
+        ])
+
+        return {
+            updatedCount: updatedUsers + updatedCustomers + updatedMitra,
+            outdatedCount: outdatedUsers + outdatedCustomers + outdatedMitra,
+            unknownCount: unknownUsers + unknownCustomers + unknownMitra,
+        }
     }
 
     /**

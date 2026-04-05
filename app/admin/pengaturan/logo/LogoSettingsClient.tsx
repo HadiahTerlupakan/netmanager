@@ -1,12 +1,23 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { HiArrowPath, HiCheckCircle, HiExclamationCircle, HiPhoto, HiXMark } from 'react-icons/hi2'
 import Image from 'next/image'
 
 type LogoSettings = {
   logoInvoice: string | null
   logoAplikasi: string | null
+}
+
+function unwrapApiData<T>(payload: T | { data?: T }): T {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    const nested = (payload as { data?: T }).data
+    if (nested !== undefined) {
+      return nested
+    }
+  }
+
+  return payload as T
 }
 
 export function ClientComponent() {
@@ -23,17 +34,14 @@ export function ClientComponent() {
   const fileInputInvoiceRef = useRef<HTMLInputElement>(null)
   const fileInputAplikasiRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       const res = await fetch('/api/settings/logo')
       if (res.ok) {
-        const data = await res.json()
+        const payload = await res.json()
+        const data = unwrapApiData<LogoSettings>(payload)
         setSettings({
           logoInvoice: data.logoInvoice || null,
           logoAplikasi: data.logoAplikasi || null,
@@ -50,7 +58,11 @@ export function ClientComponent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    void loadSettings()
+  }, [loadSettings])
 
   const handleFileSelect = (type: 'invoice' | 'aplikasi', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -103,7 +115,8 @@ export function ClientComponent() {
         throw new Error(errorData.error || 'Gagal mengupload logo')
       }
 
-      const data = await res.json()
+      const payload = await res.json()
+      const data = unwrapApiData<{ logoPath: string }>(payload)
       
       if (type === 'invoice') {
         setSettings((prev) => ({ ...prev, logoInvoice: data.logoPath }))
@@ -354,4 +367,3 @@ export function ClientComponent() {
     </div>
   )
 }
-

@@ -1,24 +1,19 @@
 import { createHandler, apiSuccess } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { acsWifiSecuritySchema, type AcsWifiSecurityInput } from '@/lib/validations/settings'
+import { deleteAcsWifiSecurity, updateAcsWifiSecurity } from '@/modules/settings'
 
-export const PUT = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
+export const PUT = createHandler<AcsWifiSecurityInput>({
+  auth: true,
+  permissions: ['acs:update'],
+  schema: acsWifiSecuritySchema,
+}, async (_req, ctx) => {
   const id = ctx.params.id
-  const body = await req.json()
-  
-  const updatedConfig = await prisma.acsWifiSecurity.update({
-    where: { id },
-    data: {
-      productClass: body.productClass,
-      parameterPath: body.parameterPath,
-      wpaTypes: body.wpaTypes,
-      encryptTypes: body.encryptTypes
-    }
-  })
+  const updatedConfig = await updateAcsWifiSecurity(id, ctx.validated)
   return apiSuccess(updatedConfig)
 })
 
 export const DELETE = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
   const id = ctx.params.id
-  await prisma.acsWifiSecurity.delete({ where: { id } })
+  await deleteAcsWifiSecurity(id)
   return apiSuccess({ success: true })
 })

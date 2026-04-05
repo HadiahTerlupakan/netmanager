@@ -23,10 +23,11 @@ export const SettingsRepository = {
     }
 
     const keysArray = [...keys]
+    const normalizedTenantId = normalizeTenantId(tenantId)
 
     const settings = await prisma.settings.findMany({
       where: {
-        ...(tenantId !== undefined ? { tenantId } : {}),
+        tenantId: normalizedTenantId,
         key: {
           in: keysArray,
         },
@@ -42,23 +43,49 @@ export const SettingsRepository = {
     }
 
     const now = new Date()
-    await Promise.all(entries.map((entry) => upsertOne(entry, now)))
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        await upsertOne(tx, entry, now)
+      }
+    })
+  },
+
+  deleteManyByKeys: async (keys: ReadonlyArray<string>, tenantId?: string | null): Promise<void> => {
+    if (!keys.length) {
+      return
+    }
+
+    const normalizedTenantId = normalizeTenantId(tenantId)
+
+    await prisma.settings.deleteMany({
+      where: {
+        tenantId: normalizedTenantId,
+        key: {
+          in: [...keys],
+        },
+      },
+    })
   },
 }
 
-async function upsertOne(entry: SettingsUpsertInput, now: Date) {
-  const where: Prisma.SettingsWhereInput = { key: entry.key }
-  if (entry.tenantId !== undefined) {
-    where.tenantId = entry.tenantId
+function normalizeTenantId(tenantId?: string | null): string | null {
+  return tenantId ?? null
+}
+
+async function upsertOne(tx: Prisma.TransactionClient, entry: SettingsUpsertInput, now: Date) {
+  const normalizedTenantId = normalizeTenantId(entry.tenantId)
+  const where: Prisma.SettingsWhereInput = {
+    key: entry.key,
+    tenantId: normalizedTenantId,
   }
 
-  const existing = await prisma.settings.findFirst({ where })
+  const existing = await tx.settings.findFirst({ where })
   const value = entry.value ?? null
   const description = entry.description ?? null
   const encrypted = entry.encrypted ?? false
 
   if (existing) {
-    await prisma.settings.update({
+    await tx.settings.update({
       where: { id: existing.id },
       data: {
         value,
@@ -68,14 +95,14 @@ async function upsertOne(entry: SettingsUpsertInput, now: Date) {
       },
     })
   } else {
-    await prisma.settings.create({
+    await tx.settings.create({
       data: {
         id: randomUUID(),
         key: entry.key,
         value,
         description,
         encrypted,
-        tenantId: entry.tenantId ?? null,
+        tenantId: normalizedTenantId,
         updatedAt: now,
       },
     })

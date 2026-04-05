@@ -1,35 +1,23 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { acsVendorSchema, type AcsVendorInput } from '@/lib/validations/settings'
+import { createAcsVendor, listAcsVendors } from '@/modules/settings'
 
 export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async () => {
-  const vendors = await prisma.acsVendor.findMany({
-    orderBy: [{ priority: 'desc' }, { name: 'asc' }]
-  })
-  return apiSuccess(vendors)
+  return apiSuccess(await listAcsVendors())
 })
 
-export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, async (req) => {
-  const body = await req.json()
-  const { name, manufacturerPatterns, productPatterns, parameterPrefix, priority, enabled } = body
-
-  if (!name || !manufacturerPatterns || !productPatterns) {
-    return ApiErrors.badRequest('Nama, Manufacturer, dan Product Patterns harus diisi')
-  }
-
-  const newVendor = await prisma.acsVendor.create({
-    data: {
-      name,
-      manufacturerPatterns,
-      productPatterns,
-      parameterPrefix,
-      priority: priority || 10,
-      enabled: enabled !== false,
-      // Default paths
-      serviceListPath: 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.*.WANPPPConnection.*.X_BROADCOM_COM_IGMP_VLANID',
-      vlanIdPath: 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.*.WANPPPConnection.*.X_BROADCOM_COM_IGMP_VLANID',
-      description: body.description || ''
+export const POST = createHandler<AcsVendorInput>({
+  auth: true,
+  permissions: ['acs:update'],
+  schema: acsVendorSchema,
+}, async (_req, ctx) => {
+  try {
+    return apiSuccess(await createAcsVendor(ctx.validated))
+  } catch (error) {
+    if (error instanceof Error && error.message === 'VENDOR_NAME_EXISTS') {
+      return ApiErrors.conflict('Nama vendor sudah digunakan')
     }
-  })
 
-  return apiSuccess(newVendor)
+    throw error
+  }
 })

@@ -30,6 +30,17 @@ interface Pagination {
     totalPages: number
 }
 
+function unwrapApiData<T>(payload: T | { data?: T }): T {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        const nested = (payload as { data?: T }).data
+        if (nested !== undefined) {
+            return nested
+        }
+    }
+
+    return payload as T
+}
+
 export function AppVersionClient() {
     // Permission checks
     const { hasPermission } = usePermission()
@@ -50,9 +61,9 @@ export function AppVersionClient() {
     const fetchStats = useCallback(async () => {
         try {
             const res = await fetch('/api/admin/app-version/stats')
-            const data = await res.json()
-            if (data && !data.error) {
-                setStats(data)
+            const payload = await res.json()
+            if (payload && !payload.error) {
+                setStats(unwrapApiData(payload))
             }
         } catch (error: unknown) {
             console.error('Failed to fetch stats:', error)

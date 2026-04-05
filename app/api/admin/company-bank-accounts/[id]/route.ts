@@ -1,33 +1,38 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { hasPermission } from '@/lib/rbac'
+import {
+    companyBankAccountSchema,
+    type CompanyBankAccountInput,
+} from '@/lib/validations/settings'
+import { getCompanyBankAccountService } from '@/modules/finance'
+
+const service = getCompanyBankAccountService()
 
 export const PUT = createHandler({
     auth: true,
-}, async (req, ctx) => {
+    schema: companyBankAccountSchema,
+}, async (_req, ctx) => {
     const { session, params } = ctx
     if (!session) return ApiErrors.unauthorized()
+    if (!await hasPermission('bank_accounts:update')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah rekening bank perusahaan')
+    }
 
     const id = params?.id
     if (!id) {
         return ApiErrors.badRequest('ID account is required')
     }
 
-    const body = await req.json()
-    const { bankName, accountNumber, accountName, description, isActive, priority } = body
-
-    const account = await prisma.companyBankAccount.update({
-        where: { id },
-        data: {
-            bankName,
-            accountNumber,
-            accountName,
-            description,
-            isActive,
-            priority
+    const result = await service.updateAccount(id, ctx.validated as CompanyBankAccountInput)
+    if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound(result.error)
         }
-    })
 
-    return apiSuccess(account)
+        return ApiErrors.internalError(result.error)
+    }
+
+    return apiSuccess(result.data)
 })
 
 export const DELETE = createHandler({
@@ -35,15 +40,23 @@ export const DELETE = createHandler({
 }, async (req, ctx) => {
     const { session, params } = ctx
     if (!session) return ApiErrors.unauthorized()
+    if (!await hasPermission('bank_accounts:delete')) {
+        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus rekening bank perusahaan')
+    }
 
     const id = params?.id
     if (!id) {
         return ApiErrors.badRequest('ID account is required')
     }
 
-    await prisma.companyBankAccount.delete({
-        where: { id }
-    })
+    const result = await service.deleteAccount(id)
+    if (!result.success) {
+        if (result.code === 'NOT_FOUND') {
+            return ApiErrors.notFound(result.error)
+        }
+
+        return ApiErrors.internalError(result.error)
+    }
 
     return apiSuccess(null)
 })

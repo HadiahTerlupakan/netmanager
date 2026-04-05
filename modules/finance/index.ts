@@ -10,6 +10,8 @@ export * from './services/FinanceStatsService';
 export * from './services/expense-idempotency';
 export * from './services/AutomaticIsolationService';
 export * from './services/BillingAnalyticsService';
+export * from './services/CompanyBankAccountService';
+export * from './services/PaymentGatewayConfigService';
 
 // Payment Gateway
 export * from './services/payment-gateway/gateway-manager';

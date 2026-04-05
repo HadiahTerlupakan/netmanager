@@ -1,42 +1,21 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { acsWifiSecuritySchema, type AcsWifiSecurityInput } from '@/lib/validations/settings'
+import { listAcsWifiSecurityConfigs, upsertAcsWifiSecurity } from '@/modules/settings'
 
 export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async () => {
-  const configs = await prisma.acsWifiSecurity.findMany({
-    orderBy: { productClass: 'asc' }
-  })
-  return apiSuccess(configs)
+  return apiSuccess(await listAcsWifiSecurityConfigs())
 })
 
-export const POST = createHandler({ auth: true, permissions: ['acs:update'] }, async (req, ctx) => {
-  const body = await req.json()
-  const { productClass, parameterPath, wpaTypes, encryptTypes } = body
-  const tenantId = ctx.session?.user.tenantId
+export const POST = createHandler<AcsWifiSecurityInput>({
+  auth: true,
+  permissions: ['acs:update'],
+  schema: acsWifiSecuritySchema,
+}, async (_req, ctx) => {
+  const tenantId = ctx.session?.user?.tenantId ?? null
 
-  if (!productClass || !parameterPath) {
-    return ApiErrors.badRequest('Product Class dan Parameter Path harus diisi')
+  if (!tenantId) {
+    return ApiErrors.badRequest('Tenant tidak valid')
   }
 
-  const newConfig = await prisma.acsWifiSecurity.upsert({
-    where: { 
-      tenantId_productClass: {
-        tenantId: tenantId || '',
-        productClass
-      }
-    },
-    update: {
-      parameterPath,
-      wpaTypes,
-      encryptTypes
-    },
-    create: {
-      productClass,
-      parameterPath,
-      wpaTypes,
-      encryptTypes,
-      tenantId
-    }
-  })
-
-  return apiSuccess(newConfig)
+  return apiSuccess(await upsertAcsWifiSecurity(ctx.validated, tenantId))
 })
