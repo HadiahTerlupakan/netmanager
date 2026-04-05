@@ -176,7 +176,7 @@ import {
  * GET /api/settings/general
  * Mengambil pengaturan umum
  */
-export const GET = createHandler({ auth: true }, async () => {
+export const GET = createHandler({ auth: true, permissions: ['umum:read', 'settings:read'] }, async () => {
   const settings = await SettingsRepository.findManyByKeys(GENERAL_SETTINGS_KEYS)
   return apiSuccess(mapGeneralSettingsResponse(settings))
 })
@@ -185,7 +185,7 @@ export const GET = createHandler({ auth: true }, async () => {
  * POST /api/settings/general
  * Menyimpan pengaturan umum
  */
-export const POST = createHandler({ auth: true }, async (req, ctx) => {
+export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req, ctx) => {
   const body: GeneralSettingsPayload = await req.json()
 
   // Validasi body

@@ -1,3 +1,4 @@
+import { decryptApiKey, encryptApiKey } from '@/lib/utils/encryption'
 import type { SettingsRecord, SettingsUpsertInput } from '../repositories/SettingsRepository'
 
 export type ApiSettingsPayload = {
@@ -24,6 +25,24 @@ export const API_SETTINGS_KEYS: string[] = [
   'R2_ENABLED',
 ] as const
 
+function getSettingValue(records: SettingsRecord[], key: string): string {
+  const setting = records.find((item) => item.key === key)
+  if (!setting?.value) {
+    return ''
+  }
+
+  if (setting.encrypted) {
+    try {
+      return decryptApiKey(setting.value)
+    } catch (error) {
+      console.error(`[apiSettings] Failed to decrypt setting key: ${key}`, error)
+      return ''
+    }
+  }
+
+  return setting.value
+}
+
 export function mapApiSettingsResponse(records: SettingsRecord[]): ApiSettingsPayload {
   const settingsMap = new Map(records.map((setting) => [setting.key, setting.value]))
 
@@ -32,7 +51,7 @@ export function mapApiSettingsResponse(records: SettingsRecord[]): ApiSettingsPa
     geminiEnabled: settingsMap.get('GEMINI_ENABLED') === 'true',
     r2AccountId: settingsMap.get('R2_ACCOUNT_ID') || '',
     r2AccessKeyId: settingsMap.get('R2_ACCESS_KEY_ID') || '',
-    r2SecretAccessKey: settingsMap.get('R2_SECRET_ACCESS_KEY') || '',
+    r2SecretAccessKey: getSettingValue(records, 'R2_SECRET_ACCESS_KEY'),
     r2BucketName: settingsMap.get('R2_BUCKET_NAME') || '',
     r2PublicUrl: settingsMap.get('R2_PUBLIC_URL') || '',
     r2Enabled: settingsMap.get('R2_ENABLED') === 'true',
@@ -75,9 +94,10 @@ export function buildApiSettingsUpserts(payload: ApiSettingsPostPayload): Settin
   }
 
   if (payload.r2SecretAccessKey !== undefined) {
+    const secretValue = payload.r2SecretAccessKey?.trim() || ''
     upserts.push({
       key: 'R2_SECRET_ACCESS_KEY',
-      value: payload.r2SecretAccessKey?.trim() || null,
+      value: secretValue ? encryptApiKey(secretValue) : null,
       description: 'Cloudflare R2 Secret Access Key',
       encrypted: true,
     })

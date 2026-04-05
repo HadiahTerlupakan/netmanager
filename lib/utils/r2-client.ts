@@ -2,6 +2,7 @@ import { S3Client, HeadBucketCommand, DeleteObjectCommand, GetObjectCommand, Hea
 import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { prisma } from '@/lib/prisma'
+import { decryptApiKey } from '@/lib/utils/encryption'
 
 // R2 Settings interface
 export interface R2Settings {
@@ -44,17 +45,29 @@ export async function getR2Settings(): Promise<R2Settings | null> {
         })
 
         const settingsMap = new Map(settings.map(s => [s.key, s.value]))
+        const settingsRecordMap = new Map(settings.map(s => [s.key, s]))
 
         // Check if all required settings are present
         const accountId = settingsMap.get('R2_ACCOUNT_ID')
         const accessKeyId = settingsMap.get('R2_ACCESS_KEY_ID')
-        const secretAccessKey = settingsMap.get('R2_SECRET_ACCESS_KEY')
+        const storedSecretAccessKey = settingsMap.get('R2_SECRET_ACCESS_KEY')
+        const secretRecord = settingsRecordMap.get('R2_SECRET_ACCESS_KEY')
         const bucketName = settingsMap.get('R2_BUCKET_NAME')
         const publicUrl = settingsMap.get('R2_PUBLIC_URL')
         const enabled = settingsMap.get('R2_ENABLED')
 
-        if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
+        if (!accountId || !accessKeyId || !storedSecretAccessKey || !bucketName) {
             return null
+        }
+
+        let secretAccessKey = storedSecretAccessKey
+        if (secretRecord?.encrypted) {
+            try {
+                secretAccessKey = decryptApiKey(storedSecretAccessKey)
+            } catch (error) {
+                console.error('Error decrypting R2 secret access key:', error)
+                return null
+            }
         }
 
         const r2Settings: R2Settings = {

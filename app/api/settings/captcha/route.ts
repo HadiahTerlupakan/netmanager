@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { createHandler, apiSuccess } from '@/lib/api'
+import { decryptApiKey, encryptApiKey } from '@/lib/utils/encryption'
 import { prisma } from '@/modules/database'
 
 export const dynamic = 'force-dynamic'
@@ -14,10 +15,22 @@ export const GET = createHandler({ auth: true }, async () => {
         }
     })
 
+    const secretSetting = settings.find(s => s.key === 'captcha_secret_key')
+    let secretKey = secretSetting?.value || ''
+
+    if (secretSetting?.value && secretSetting.encrypted) {
+        try {
+            secretKey = decryptApiKey(secretSetting.value)
+        } catch (error) {
+            console.error('[Captcha Settings GET] Failed to decrypt secret key:', error)
+            secretKey = ''
+        }
+    }
+
     const config = {
         enabled: settings.find(s => s.key === 'captcha_enabled')?.value === 'true',
         siteKey: settings.find(s => s.key === 'captcha_site_key')?.value || '',
-        secretKey: settings.find(s => s.key === 'captcha_secret_key')?.value || ''
+        secretKey
     }
 
     return apiSuccess(config)
@@ -29,10 +42,13 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
     const { enabled, siteKey, secretKey } = body
 
     // Update settings one by one for simplicity and safety
+    const normalizedSecretKey = typeof secretKey === 'string' ? secretKey.trim() : ''
+    const encryptedSecretKey = normalizedSecretKey ? encryptApiKey(normalizedSecretKey) : null
+
     const settingsToSave = [
         { key: 'captcha_enabled', value: String(enabled), description: 'Enable/Disable Cloudflare Turnstile', encrypted: false },
         { key: 'captcha_site_key', value: siteKey, description: 'Cloudflare Turnstile Site Key', encrypted: false },
-        { key: 'captcha_secret_key', value: secretKey, description: 'Cloudflare Turnstile Secret Key', encrypted: true }
+        { key: 'captcha_secret_key', value: encryptedSecretKey, description: 'Cloudflare Turnstile Secret Key', encrypted: Boolean(encryptedSecretKey) }
     ]
 
     for (const setting of settingsToSave) {
@@ -42,7 +58,7 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
         if (existing) {
             await prisma.settings.update({
                 where: { id: existing.id },
-                data: { value: setting.value, updatedAt: new Date() }
+                data: { value: setting.value, encrypted: setting.encrypted, updatedAt: new Date() }
             })
         } else {
             await prisma.settings.create({

@@ -13,7 +13,7 @@ import {
  * GET /api/settings/api
  * Mengambil pengaturan API
  */
-export const GET = createHandler({ auth: true }, async () => {
+export const GET = createHandler({ auth: true, permissions: ['api:read', 'settings:read'] }, async () => {
   const settings = await SettingsRepository.findManyByKeys(API_SETTINGS_KEYS)
   return apiSuccess(mapApiSettingsResponse(settings))
 })
@@ -22,7 +22,7 @@ export const GET = createHandler({ auth: true }, async () => {
  * POST /api/settings/api
  * Menyimpan pengaturan API
  */
-export const POST = createHandler({ auth: true }, async (req, ctx) => {
+export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req, ctx) => {
   const body: ApiSettingsPostPayload = await req.json()
   const updates = buildApiSettingsUpserts(body)
   if (updates.length) {

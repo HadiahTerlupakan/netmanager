@@ -1,6 +1,7 @@
 import type { Registrations, Prisma } from '@prisma/client'
 import { RegistrationStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { decryptApiKey } from '@/lib/utils/encryption'
 import { randomUUID } from 'crypto'
 import type { IRegistrationRepository } from './IRegistrationRepository'
 
@@ -79,8 +80,22 @@ export class RegistrationRepository implements IRegistrationRepository {
     async getSettingValue(key: string): Promise<string | null> {
         const setting = await prisma.settings.findFirst({
             where: { key },
-            select: { value: true }
+            select: { value: true, encrypted: true }
         })
-        return setting?.value ?? null
+
+        if (!setting?.value) {
+            return null
+        }
+
+        if (setting.encrypted) {
+            try {
+                return decryptApiKey(setting.value)
+            } catch (error) {
+                console.error(`[RegistrationRepository] Failed to decrypt setting: ${key}`, error)
+                return setting.value
+            }
+        }
+
+        return setting.value
     }
 }

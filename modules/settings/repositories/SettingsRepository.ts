@@ -5,6 +5,7 @@ import { prisma } from '@/modules/database'
 export type SettingsRecord = {
   key: string
   value: string | null
+  encrypted: boolean
 }
 
 export type SettingsUpsertInput = {
@@ -31,7 +32,7 @@ export const SettingsRepository = {
       },
     })
 
-    return settings.map(({ key, value }) => ({ key, value }))
+    return settings.map(({ key, value, encrypted }) => ({ key, value, encrypted }))
   },
 
   upsertMany: async (entries: SettingsUpsertInput[]): Promise<void> => {

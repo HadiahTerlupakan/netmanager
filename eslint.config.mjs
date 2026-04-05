@@ -11,6 +11,7 @@ const eslintConfig = [
       "scripts/**",
       "temp_genieacs_source/**",
       ".next/**",
+      "tmp/**",
       "out/**",
       "public/sw.js",
       "public/sw.js.map",

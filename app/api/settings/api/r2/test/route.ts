@@ -5,7 +5,7 @@ import { testR2Connection } from '@/lib/utils/r2-client'
  * POST /api/settings/api/r2/test
  * Test koneksi ke Cloudflare R2
  */
-export const POST = createHandler({ auth: true }, async (req) => {
+export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req) => {
     const body = await req.json()
     const { accountId, accessKeyId, secretAccessKey, bucketName } = body
 

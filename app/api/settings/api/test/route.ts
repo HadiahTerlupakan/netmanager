@@ -5,7 +5,7 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
  * POST /api/settings/api/test
  * Test API Key Google Gemini
  */
-export const POST = createHandler({ auth: true }, async (req) => {
+export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req) => {
   const body = await req.json()
   const { apiKey } = body
 
