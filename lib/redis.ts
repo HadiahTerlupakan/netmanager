@@ -6,7 +6,7 @@ export const redis =
   globalForRedis.redis ??
   new Redis(process.env.REDIS_URL ?? 'redis://localhost:6380', {
     maxRetriesPerRequest: 2,
-    lazyConnect: false,
+    lazyConnect: true,
     enableOfflineQueue: false,
     retryStrategy: (times) => {
       // Stop retrying after 3 attempts to avoid log spam
@@ -90,5 +90,3 @@ export async function checkDelay(key: string): Promise<number> {
     return 0
   }
 }
-
-
