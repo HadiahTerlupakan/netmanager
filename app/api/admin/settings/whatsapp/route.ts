@@ -1,8 +1,14 @@
-import { randomUUID } from 'crypto'
-import { prisma } from '@/modules/database'
-import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
+import { encryptApiKey } from '@/lib/utils/encryption'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { getTenantSettingsMap, upsertTenantSettings } from '@/modules/settings'
+
+const WHATSAPP_SETTINGS_FIELDS = [
+    { key: 'WHATSAPP_PROVIDER', defaultValue: 'WABLAS' },
+    { key: 'WHATSAPP_API_KEY', defaultValue: '', decryptValue: true },
+    { key: 'WABLAS_DOMAIN', defaultValue: '' },
+    { key: 'WABLAS_DEVICE_ID', defaultValue: '' },
+] as const
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     const tenantId = ctx.session!.user.tenantId
@@ -11,29 +17,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan WhatsApp')
     }
 
-    // Get WhatsApp settings from Settings table
-    const settings = await prisma.settings.findMany({
-        where: {
-            tenantId,
-            key: {
-                in: ['WHATSAPP_PROVIDER', 'WHATSAPP_API_KEY', 'WABLAS_DOMAIN', 'WABLAS_DEVICE_ID']
-            }
-        }
-    })
-
-    const settingsMap: Record<string, string> = {}
-    for (const setting of settings) {
-        if (setting.key === 'WHATSAPP_API_KEY' && setting.value && setting.encrypted) {
-            try {
-                settingsMap[setting.key] = decryptApiKey(setting.value)
-            } catch (error) {
-                console.error('[WhatsApp Settings GET] Failed to decrypt API key:', error)
-                settingsMap[setting.key] = ''
-            }
-        } else {
-            settingsMap[setting.key] = setting.value || ''
-        }
-    }
+    const settingsMap = await getTenantSettingsMap(tenantId, WHATSAPP_SETTINGS_FIELDS)
 
     return apiSuccess({
         whatsappProvider: settingsMap['WHATSAPP_PROVIDER'] || 'WABLAS',
@@ -77,37 +61,15 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
         settingsToSave.push({ key: 'WABLAS_DOMAIN', value: whatsappDomain.trim(), encrypted: false })
     }
 
-    // Save all settings using findFirst + create/update
-    for (const setting of settingsToSave) {
-        const existing = await prisma.settings.findFirst({
-            where: {
-                key: setting.key,
-                tenantId
-            }
-        })
-        if (existing) {
-            await prisma.settings.update({
-                where: { id: existing.id },
-                data: {
-                    value: setting.value,
-                    encrypted: setting.encrypted,
-                    updatedAt: new Date()
-                }
-            })
-        } else {
-            await prisma.settings.create({
-                data: {
-                    id: randomUUID(),
-                    key: setting.key,
-                    value: setting.value,
-                    encrypted: setting.encrypted,
-                    tenantId,
-                    description: `WhatsApp configuration: ${setting.key}`,
-                    updatedAt: new Date()
-                }
-            })
-        }
-    }
+    await upsertTenantSettings(
+        tenantId,
+        settingsToSave.map((setting) => ({
+            key: setting.key,
+            value: setting.value,
+            encrypted: setting.encrypted,
+            description: `WhatsApp configuration: ${setting.key}`,
+        }))
+    )
 
     return apiSuccess(null, { message: 'Pengaturan WhatsApp berhasil disimpan' })
 })

@@ -17,7 +17,7 @@ export type SettingsUpsertInput = {
 }
 
 export const SettingsRepository = {
-  findManyByKeys: async (keys: ReadonlyArray<string>): Promise<SettingsRecord[]> => {
+  findManyByKeys: async (keys: ReadonlyArray<string>, tenantId?: string | null): Promise<SettingsRecord[]> => {
     if (!keys.length) {
       return []
     }
@@ -26,6 +26,7 @@ export const SettingsRepository = {
 
     const settings = await prisma.settings.findMany({
       where: {
+        ...(tenantId !== undefined ? { tenantId } : {}),
         key: {
           in: keysArray,
         },

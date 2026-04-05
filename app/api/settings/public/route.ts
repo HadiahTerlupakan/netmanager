@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/modules/database'
+import { getPublicPortalSettings } from '@/modules/settings'
 
 /**
  * GET /api/settings/public
@@ -8,47 +8,16 @@ import { prisma } from '@/modules/database'
  */
 export async function GET(_request: NextRequest) {
     try {
-        // Get general settings
-        const generalSettings = await prisma.settings.findFirst({
-            where: { key: 'general' }
-        })
-
-        // Get logo settings
-        const logoSettings = await prisma.settings.findFirst({
-            where: { key: 'logo' }
-        })
-
-        let general: Record<string, unknown> = {}
-        let logo: Record<string, unknown> = {}
-
-        if (generalSettings?.value) {
-            try {
-                general = typeof generalSettings.value === 'string'
-                    ? JSON.parse(generalSettings.value)
-                    : generalSettings.value as Record<string, unknown>
-            } catch {
-                general = {}
-            }
-        }
-
-        if (logoSettings?.value) {
-            try {
-                logo = typeof logoSettings.value === 'string'
-                    ? JSON.parse(logoSettings.value)
-                    : logoSettings.value as Record<string, unknown>
-            } catch {
-                logo = {}
-            }
-        }
+        const settings = await getPublicPortalSettings()
 
         // Return only public-safe settings
         return NextResponse.json({
             success: true,
             data: {
-                namaAplikasi: (general.namaAplikasi as string) || 'NetManager',
-                perusahaan: (general.perusahaan as string) || '',
-                logoAplikasi: (logo.logoAplikasi as string) || null,
-                logoInvoice: (logo.logoInvoice as string) || null,
+                namaAplikasi: settings.namaAplikasi,
+                perusahaan: settings.perusahaan,
+                logoAplikasi: settings.logoAplikasi,
+                logoInvoice: settings.logoInvoice,
             }
         })
     } catch (error) {

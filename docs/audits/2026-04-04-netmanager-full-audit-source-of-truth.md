@@ -327,3 +327,65 @@ Perintah verifikasi yang dijalankan setelah extraction:
 5. `npm run build` → pass
 
 Section ini menjadi SOT untuk boundary UI Radius setelah NetWave-2: dashboard shell tetap lokal di feature, sementara data/socket orchestration dipusatkan ke hook lokal tanpa mengubah kontrak perilaku.
+
+## 12) Phase-5 Settings Layer Consistency + ACS Type Hardening (2026-04-05)
+
+Fokus phase-5: menutup temuan prioritas settings audit pada boundary data contract, deduplikasi route logic tenant settings, dan pengurangan smell di ACS settings tab tanpa mengubah kontrak API yang sudah dipakai client.
+
+### 12.1 Boundary baru yang menjadi source of truth
+
+- `app/api/settings/public/route.ts`
+  - tidak lagi membaca key legacy `general`/`logo`.
+  - sekarang mendelegasikan ke `getPublicPortalSettings`.
+- `modules/settings/services/publicPortalSettings.ts`
+  - menjadi seam resmi untuk pemetaan public-safe payload dari key granular canonical:
+    - `GENERAL_NAMA_APLIKASI`
+    - `GENERAL_PERUSAHAAN`
+    - `LOGO_APLIKASI`
+    - `LOGO_INVOICE`
+- `modules/settings/services/tenantSettings.ts`
+  - menjadi seam resmi tenant-scoped read/write settings untuk endpoint admin email/whatsapp.
+- `app/api/admin/settings/email/route.ts` dan `app/api/admin/settings/whatsapp/route.ts`
+  - sekarang thin-controller: permission + payload shaping + delegasi ke helper tenant settings.
+
+### 12.2 Keputusan arsitektural phase-5
+
+- **Keputusan 1**: contract drift pada `/api/settings/public` diselesaikan dengan canonical key mapping di module service, bukan query legacy key.
+- **Keputusan 2**: logic settings tenant untuk email/whatsapp dikonsolidasikan ke helper modul agar tidak duplikasi query/update loop di route.
+- **Keputusan 3**: repository settings diperluas secara backward-compatible dengan filter `tenantId` opsional pada `findManyByKeys` untuk reuse lintas route tanpa mengubah consumer existing.
+- **Keputusan 4**: untuk smell UI ACS, perbaikan wave ini dibatasi pada type safety + request-helper extraction + accessibility hardening; split komponen penuh ditahan untuk wave berikutnya agar risiko regresi rendah.
+
+### 12.3 Perbaikan konkret yang diterapkan
+
+1. **Public settings contract remediation**
+   - Tambah: `modules/settings/services/publicPortalSettings.ts`
+   - Ubah: `app/api/settings/public/route.ts`
+   - Dampak: response shape tetap sama, data source sekarang konsisten dengan key granular.
+
+2. **Email/WhatsApp route deduplication (tenant-scoped)**
+   - Tambah: `modules/settings/services/tenantSettings.ts`
+   - Ubah: `app/api/admin/settings/email/route.ts`
+   - Ubah: `app/api/admin/settings/whatsapp/route.ts`
+   - Ubah: `modules/settings/repositories/SettingsRepository.ts` (`findManyByKeys(keys, tenantId?)`)
+   - Ubah: `modules/settings/index.ts` (export service baru)
+
+3. **ACS tab type/accessibility hardening**
+   - Ubah: `app/admin/pengaturan/acs/VendorConfigTab.tsx`
+   - Dampak:
+     - menghapus penggunaan `any` pada state utama,
+     - ekstraksi helper request (`fetchAcsList`, `saveAcsResource`, `deleteAcsResource`),
+     - explicit button types,
+     - `label` ↔ `input` association lengkap,
+     - `useEffect` dependency hardening via `useCallback(fetchData)`.
+
+### 12.4 Verifikasi phase-5
+
+Perintah verifikasi yang dijalankan setelah implementasi:
+
+1. LSP diagnostics file yang diubah → **0 error**
+2. `npm run typecheck` → **pass**
+3. `npm run build` → **pass**
+
+Catatan: tidak ada test API spesifik untuk endpoint settings email/whatsapp/public di suite saat ini; verifikasi dilakukan lewat typecheck + build + diagnostics, dan backlog test coverage ditandai sebagai pekerjaan lanjutan.
+
+Section ini menjadi SOT phase-5 untuk area settings: contract public telah dikonsolidasikan, route admin settings lebih tipis dan reusable, serta ACS tab lebih aman secara typing/accessibility tanpa perubahan perilaku endpoint.

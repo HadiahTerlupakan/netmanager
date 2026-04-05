@@ -1,3 +1,5 @@
 export * from './repositories/SettingsRepository'
 export * from './services/generalSettings'
 export * from './services/apiSettings'
+export * from './services/publicPortalSettings'
+export * from './services/tenantSettings'

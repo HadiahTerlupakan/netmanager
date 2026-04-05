@@ -1,9 +1,17 @@
-import { randomUUID } from 'crypto'
-import { prisma } from '@/modules/database'
-import { encryptApiKey, decryptApiKey } from '@/lib/utils/encryption'
+import { encryptApiKey } from '@/lib/utils/encryption'
 import { hasPermission } from '@/lib/rbac'
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
 import { logger } from '@/lib/logger'
+import { getTenantSettingsMap, upsertTenantSettings } from '@/modules/settings'
+
+const EMAIL_SETTINGS_FIELDS = [
+    { key: 'SMTP_HOST', defaultValue: '' },
+    { key: 'SMTP_PORT', defaultValue: '587' },
+    { key: 'SMTP_USER', defaultValue: '' },
+    { key: 'SMTP_PASS', defaultValue: '', decryptValue: true },
+    { key: 'FROM_NAME', defaultValue: '' },
+    { key: 'FROM_EMAIL', defaultValue: '' },
+] as const
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     const tenantId = ctx.session!.user.tenantId
@@ -13,30 +21,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat pengaturan email')
     }
 
-    // Get email settings from Settings table
-    const settings = await prisma.settings.findMany({
-        where: {
-            tenantId,
-            key: {
-                in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'FROM_NAME', 'FROM_EMAIL']
-            }
-        }
-    })
-
-    const settingsMap: Record<string, string> = {}
-    for (const setting of settings) {
-        if (setting.key === 'SMTP_PASS' && setting.value && setting.encrypted) {
-            try {
-                const decryptedPass = decryptApiKey(setting.value)
-                settingsMap[setting.key] = decryptedPass
-            } catch (error) {
-                console.error('[Email Settings GET] Failed to decrypt password:', error)
-                settingsMap[setting.key] = 'DECRYPTION_ERROR'
-            }
-        } else {
-            settingsMap[setting.key] = setting.value || ''
-        }
-    }
+    const settingsMap = await getTenantSettingsMap(tenantId, EMAIL_SETTINGS_FIELDS)
 
     return apiSuccess({
         smtpHost: settingsMap['SMTP_HOST'] || '',
@@ -75,36 +60,15 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
         settingsToSave.push({ key: 'SMTP_PASS', value: encryptedPass, encrypted: true })
     }
 
-    for (const setting of settingsToSave) {
-        const existing = await prisma.settings.findFirst({
-            where: {
-                key: setting.key,
-                tenantId
-            }
-        })
-        if (existing) {
-            await prisma.settings.update({
-                where: { id: existing.id },
-                data: {
-                    value: setting.value,
-                    encrypted: setting.encrypted,
-                    updatedAt: new Date()
-                }
-            })
-        } else {
-            await prisma.settings.create({
-                data: {
-                    id: randomUUID(),
-                    key: setting.key,
-                    value: setting.value,
-                    encrypted: setting.encrypted,
-                    tenantId,
-                    description: `Email configuration: ${setting.key}`,
-                    updatedAt: new Date()
-                }
-            })
-        }
-    }
+    await upsertTenantSettings(
+        tenantId,
+        settingsToSave.map((setting) => ({
+            key: setting.key,
+            value: setting.value,
+            encrypted: setting.encrypted,
+            description: `Email configuration: ${setting.key}`,
+        }))
+    )
 
     await logger.logActivity({
         action: 'UPDATE',
