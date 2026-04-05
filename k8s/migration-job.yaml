@@ -218,6 +218,7 @@ spec:
                     # Clean up any partially-created objects from the failed migration
                     # (idempotent — safe to run even if nothing to clean)
                     psql "$DATABASE_URL" -c "DROP INDEX IF EXISTS \"idx_attendance_user_checkin_date_tenant\"" 2>&1 || true
+                    psql "$DATABASE_URL" -c "DROP INDEX IF EXISTS \"Holiday_date_tenantId_key\"" 2>&1 || true
                     prisma migrate resolve --rolled-back "$mig" 2>&1 || true
                   done
                   echo "✅ Failed migrations rolled back. They will be re-attempted below."
