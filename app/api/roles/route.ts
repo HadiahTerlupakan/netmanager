@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from "next-auth"
 import { authConfig } from "@/lib/auth"
-import { prisma } from '@/modules/database'
 import { hasPermission } from '@/lib/rbac'
 import { getRoleService } from '@/modules/roles'
 import * as z from 'zod'
@@ -41,30 +40,15 @@ export async function GET(req: Request) {
         if (filterRestricted) {
             const session = await getServerSession(authConfig)
 
-            if (session?.user?.id) {
-                // Get current user's role info
-                const currentUser = await prisma.user.findUnique({
-                    where: { id: session.user.id },
-                    select: { roleId: true, role: { select: { name: true } } }
-                })
+            const currentUserRoleContext = await roleService.getCurrentUserRoleContext(session?.user?.id ?? null)
 
-                // console.log('[Roles API] Current user role:', currentUser?.role?.name)
+            const roles = await roleService.getAllRoles({
+                filterRestricted: true,
+                currentUserRoleId: currentUserRoleContext.roleId,
+                currentUserRoleName: currentUserRoleContext.roleName
+            })
 
-                const roles = await roleService.getAllRoles({
-                    filterRestricted: true,
-                    currentUserRoleId: currentUser?.roleId ?? null,
-                    currentUserRoleName: currentUser?.role?.name ?? null
-                })
-
-                return NextResponse.json(roles)
-            } else {
-                // No session - show only non-restricted roles
-                const roles = await roleService.getAllRoles({
-                    filterRestricted: true,
-                    currentUserRoleName: null
-                })
-                return NextResponse.json(roles)
-            }
+            return NextResponse.json(roles)
         }
 
         // No filter - return all roles

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
     HiOutlineCog6Tooth,
     HiOutlineCheckCircle,
@@ -9,29 +9,8 @@ import {
 } from 'react-icons/hi2'
 import PageLoader from '@/components/ui/PageLoader'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
-
-interface GatewayConfig {
-    id: string;
-    provider: string;
-    isEnabled: boolean;
-    isProduction: boolean;
-    priority: number;
-    apiKey?: string;
-    apiSecret?: string;
-    clientKey?: string;
-    merchantId?: string;
-    lastTestedAt?: string;
-    testStatus?: 'SUCCESS' | 'FAILED';
-}
-
-interface FormData {
-    isProduction: boolean;
-    priority: number;
-    apiKey: string;
-    apiSecret: string;
-    clientKey: string;
-    merchantId: string;
-}
+import { usePaymentGatewayConfigs } from '../hooks/usePaymentGatewayConfigs'
+import type { PaymentGatewayFormPayload } from '../hooks/usePaymentGatewayConfigs'
 
 const PROVIDERS = [
     { id: 'XENDIT', name: 'Xendit', icon: HiCube, color: 'text-green-500' },
@@ -45,11 +24,18 @@ const PROVIDERS = [
 ]
 
 export default function PaymentGatewayTab() {
-    const [configs, setConfigs] = useState<GatewayConfig[]>([])
-    const [loading, setLoading] = useState(true)
+    const {
+        configs,
+        loading,
+        saving,
+        testing,
+        toggleProvider,
+        saveConfig,
+        testConnection,
+    } = usePaymentGatewayConfigs()
     const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
     const [modalOpen, setModalOpen] = useState(false)
-    const [formData, setFormData] = useState<FormData>({
+    const [formData, setFormData] = useState<PaymentGatewayFormPayload>({
         isProduction: false,
         priority: 1,
         apiKey: '',
@@ -57,33 +43,10 @@ export default function PaymentGatewayTab() {
         clientKey: '',
         merchantId: '',
     })
-    const [testing, setTesting] = useState(false)
-    const [saving, setSaving] = useState(false)
 
-    useEffect(() => {
-        fetchConfigs()
-    }, [])
-
-    const fetchConfigs = async () => {
-        try {
-            setLoading(true)
-            const response = await fetch('/api/admin/payment-gateway/configs')
-            if (response.ok) {
-                const data = await response.json()
-                // Handle both { data: [...] } and direct array response
-                setConfigs(Array.isArray(data) ? data : (data.data || []))
-            }
-        } catch (error) {
-            console.error('Error fetching configs:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const getProviderConfig = (providerId: string) => {
-        const safeConfigs = Array.isArray(configs) ? configs : []
-        return safeConfigs.find(c => c.provider === providerId)
-    }
+    const getProviderConfig = (providerId: string) => configs.find(config => config.provider === providerId)
+    const webhookBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'
+    const webhookUrl = `${webhookBaseUrl}/api/payment/webhook/${selectedProvider?.toLowerCase()}`
 
     const handleOpenModal = (providerId: string) => {
         const config = getProviderConfig(providerId)
@@ -100,81 +63,37 @@ export default function PaymentGatewayTab() {
     }
 
     const handleToggleEnabled = async (providerId: string, isEnabled: boolean) => {
-        try {
-            const response = await fetch(`/api/admin/payment-gateway/configs/${providerId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isEnabled })
-            })
-
-            if (response.ok) {
-                fetchConfigs()
-            } else {
-                alert('Gagal mengupdate status provider')
-            }
-        } catch (error) {
-            console.error('Error toggling provider:', error)
-            alert('Kesalahan saat mengupdate provider')
+        const result = await toggleProvider(providerId, isEnabled)
+        if (!result.success) {
+            alert(result.message ?? 'Gagal mengupdate status provider')
         }
     }
 
     const handleTestConnection = async () => {
         if (!selectedProvider) return
 
-        try {
-            setTesting(true)
-            const response = await fetch('/api/admin/payment-gateway/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    provider: selectedProvider,
-                    apiKey: formData.apiKey,
-                    apiSecret: formData.apiSecret,
-                    clientKey: formData.clientKey,
-                    merchantId: formData.merchantId,
-                    isProduction: formData.isProduction
-                })
-            })
+        const result = await testConnection({
+            provider: selectedProvider,
+            ...formData,
+        })
 
-            const result = await response.json()
-
-            if (result.success) {
-                alert(`Koneksi berhasil!\n\n${result.message}`)
-            } else {
-                alert(`Koneksi gagal!\n\n${result.message}`)
-            }
-        } catch (error) {
-            console.error('Error testing connection:', error)
-            alert('Kesalahan saat testing koneksi')
-        } finally {
-            setTesting(false)
+        if (result.success) {
+            alert(`Koneksi berhasil!\n\n${result.message ?? 'Tidak ada detail tambahan.'}`)
+        } else {
+            alert(`Koneksi gagal!\n\n${result.message ?? 'Tidak ada detail tambahan.'}`)
         }
     }
 
     const handleSave = async () => {
         if (!selectedProvider) return
 
-        try {
-            setSaving(true)
-            const response = await fetch(`/api/admin/payment-gateway/configs/${selectedProvider}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            })
+        const result = await saveConfig(selectedProvider, formData)
 
-            if (response.ok) {
-                alert('Konfigurasi berhasil disimpan!')
-                setModalOpen(false)
-                fetchConfigs()
-            } else {
-                const error = await response.json()
-                alert(`Gagal menyimpan: ${error.details || error.error}`)
-            }
-        } catch (error) {
-            console.error('Error saving config:', error)
-            alert('Kesalahan saat menyimpan konfigurasi')
-        } finally {
-            setSaving(false)
+        if (result.success) {
+            alert('Konfigurasi berhasil disimpan!')
+            setModalOpen(false)
+        } else {
+            alert(`Gagal menyimpan: ${result.message ?? 'Tidak ada detail tambahan.'}`)
         }
     }
 
@@ -401,12 +320,13 @@ export default function PaymentGatewayTab() {
                         <div className="flex gap-2">
                             <input
                                 type="text"
-                                value={`${process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'}/api/payment/webhook/${selectedProvider?.toLowerCase()}`}
+                                value={webhookUrl}
                                 readOnly
                                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white"
                             />
                             <button
-                                onClick={() => navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook/${selectedProvider?.toLowerCase()}`)}
+                                type="button"
+                                onClick={() => navigator.clipboard.writeText(webhookUrl)}
                                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                             >
                                 Copy

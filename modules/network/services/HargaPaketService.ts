@@ -56,7 +56,6 @@ export class HargaPaketService {
 
         const validData = validation.data
 
-        // Create
         const hargaPaket = await this.repository.create({
             name: validData.name,
             harga: validData.harga,
@@ -75,6 +74,7 @@ export class HargaPaketService {
             ...(validData.discountValue !== undefined ? { discountValue: validData.discountValue } : {}),
             ...(validData.discountDuration !== undefined ? { discountDuration: validData.discountDuration } : {}),
             ...(validData.discountDurationUnit !== undefined ? { discountDurationUnit: validData.discountDurationUnit } : {}),
+            tenantId: data.tenantId,
         })
 
         // Sync MikroTik rate limit if needed
@@ -127,6 +127,7 @@ export class HargaPaketService {
         if (data.description !== undefined) sanitizedData.description = sanitizeInput(data.description)
         if (data.featured !== undefined) sanitizedData.featured = data.featured
         if (data.status !== undefined) sanitizedData.status = data.status
+        if (data.tenantId !== undefined) sanitizedData.tenantId = data.tenantId
         
         // Handle site - can be null to disconnect
         if (data.siteId === null || data.siteId === '') {

@@ -3,6 +3,7 @@ import { prisma } from '@/modules/database'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
 import { AutomaticBillingService } from '@/modules/finance'
+import { hash } from 'bcryptjs'
 import { Status, TipePelanggan } from '@prisma/client'
 import { apiSuccess, ApiErrors, createHandler, apiError } from '@/lib/api'
 
@@ -53,7 +54,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       }
     }
 
-    const { password: _, ...pelangganData } = pelanggan;
+    const { passwordHash: _, ...pelangganData } = pelanggan;
     return apiSuccess(pelangganData);
 })
 
@@ -89,6 +90,7 @@ export const PUT = createHandler({ auth: true, permissions: ['pelanggan:update']
     const email = formData.get('email') as string | null
     const siteIdRaw = formData.get('siteId') as string | null
     const invoiceAction = formData.get('invoiceAction') as string | null
+    const passwordLogin = formData.get('passwordLogin') as string | null
 
     if (!idPelanggan || !nama || !username || !password || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
       return apiError('Semua field wajib harus diisi', 'VALIDATION_ERROR', { status: 400 })
@@ -110,6 +112,7 @@ export const PUT = createHandler({ auth: true, permissions: ['pelanggan:update']
         autoIsolir,
         email: email?.trim() || null,
         siteId: siteIdRaw === '' ? null : siteIdRaw,
+        ...(passwordLogin ? { passwordHash: await hash(passwordLogin.trim(), 12) } : {}),
         // ... other fields would follow same pattern
       }
     })

@@ -40,6 +40,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const body = await req.json()
     const user = ctx.session!.user
 
+    if (user.tenantId) {
+        body.tenantId = user.tenantId
+    }
+
     const { isRestricted, primarySiteId } = checkSiteRestriction(ctx.session as Session | null, 'harga')
 
     if (isRestricted) {

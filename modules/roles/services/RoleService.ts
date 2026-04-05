@@ -1,3 +1,4 @@
+import { prisma } from '@/modules/database'
 import { RoleRepository } from '../repositories/RoleRepository'
 import type { RoleWithCount, RoleWithPermissions, FilterOptions } from '../repositories/RoleRepository'
 import { PermissionRepository } from '../repositories/PermissionRepository'
@@ -12,6 +13,25 @@ export class RoleService {
     constructor() {
         this.roleRepository = new RoleRepository()
         this.permissionRepository = new PermissionRepository()
+    }
+
+    async getCurrentUserRoleContext(userId?: string | null): Promise<{ roleId: string | null, roleName: string | null }> {
+        if (!userId) {
+            return { roleId: null, roleName: null }
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                roleId: true,
+                role: { select: { id: true, name: true } }
+            }
+        })
+
+        return {
+            roleId: user?.roleId ?? null,
+            roleName: user?.role?.name ?? null
+        }
     }
 
     async getAllRoles(filter?: FilterOptions): Promise<RoleWithCount[]> {

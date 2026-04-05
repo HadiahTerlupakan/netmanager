@@ -12,6 +12,7 @@ export interface HargaPaketCreateInput {
     description?: string
     featured?: boolean
     status?: Status
+    tenantId?: string | null
 }
 
 export interface HargaPaketUpdateInput {
@@ -25,12 +26,14 @@ export interface HargaPaketUpdateInput {
     description?: string
     featured?: boolean
     status?: Status
+    tenantId?: string | null
 }
 
 export interface HargaPaketFilterOptions {
     status?: string
     featured?: boolean
     siteId?: string
+    tenantId?: string
 }
 
 /**
@@ -54,6 +57,9 @@ export class HargaPaketRepository {
                 { siteId: options.siteId },
                 { siteId: null },
             ]
+        }
+        if (options.tenantId) {
+            where.tenantId = options.tenantId
         }
 
         return prisma.hargaPaket.findMany({
@@ -89,25 +95,29 @@ export class HargaPaketRepository {
      * Create new harga paket
      */
     async create(data: HargaPaketCreateInput) {
-        const createData: Prisma.HargaPaketCreateInput = {
+        const createData: Prisma.HargaPaketUncheckedCreateInput = {
             id: crypto.randomUUID(),
             updatedAt: new Date(),
             name: data.name,
             harga: data.harga,
             durasi: data.durasi,
             durasiUnit: (data.durasiUnit || 'BULAN') as DurasiUnit,
-            profilePPP: { connect: { id: data.profilePPPId } },
+            profilePPPId: data.profilePPPId,
             description: data.description,
             featured: data.featured ?? false,
             status: data.status || 'AKTIF',
         }
+        
+        if (data.tenantId) {
+            createData.tenantId = data.tenantId
+        }
 
         if (data.siteId && data.siteId.trim() !== '') {
-            createData.site = { connect: { id: data.siteId } }
+            createData.siteId = data.siteId
         }
 
         if (data.bandwidthId && data.bandwidthId.trim() !== '') {
-            createData.bandwidth = { connect: { id: data.bandwidthId } }
+            createData.bandwidthId = data.bandwidthId
         }
 
         return prisma.hargaPaket.create({
@@ -127,7 +137,7 @@ export class HargaPaketRepository {
      * Update harga paket
      */
     async update(id: string, data: HargaPaketUpdateInput) {
-        const updateData: Prisma.HargaPaketUpdateInput = {
+        const updateData: Prisma.HargaPaketUncheckedUpdateInput = {
             updatedAt: new Date(),
         }
 
@@ -135,23 +145,25 @@ export class HargaPaketRepository {
         if (data.harga !== undefined) updateData.harga = data.harga
         if (data.durasi !== undefined) updateData.durasi = data.durasi
         if (data.durasiUnit !== undefined) updateData.durasiUnit = data.durasiUnit as DurasiUnit
-        if (data.profilePPPId !== undefined) updateData.profilePPP = { connect: { id: data.profilePPPId } }
+        if (data.profilePPPId !== undefined) updateData.profilePPPId = data.profilePPPId
         if (data.description !== undefined) updateData.description = data.description
         if (data.featured !== undefined) updateData.featured = data.featured
         if (data.status !== undefined) updateData.status = data.status
 
+        if (data.tenantId !== undefined) updateData.tenantId = data.tenantId
+
         // Handle optional site
         if (data.siteId === null) {
-            updateData.site = { disconnect: true }
+            updateData.siteId = null
         } else if (data.siteId && data.siteId.trim() !== '') {
-            updateData.site = { connect: { id: data.siteId } }
+            updateData.siteId = data.siteId
         }
 
         // Handle optional bandwidth
         if (data.bandwidthId === null) {
-            updateData.bandwidth = { disconnect: true }
+            updateData.bandwidthId = null
         } else if (data.bandwidthId && data.bandwidthId.trim() !== '') {
-            updateData.bandwidth = { connect: { id: data.bandwidthId } }
+            updateData.bandwidthId = data.bandwidthId
         }
 
         return prisma.hargaPaket.update({

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
     HiOutlinePlus,
     HiOutlineBanknotes,
@@ -12,24 +12,20 @@ import {
 import PageLoader from '@/components/ui/PageLoader'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
 import UnmatchedMutationsList from './UnmatchedMutationsList'
-
-interface CompanyBankAccount {
-    id: string
-    bankName: string
-    accountNumber: string
-    accountName: string
-    isActive: boolean
-    priority: number
-    description?: string
-    createdAt: string
-}
+import { useManualTransferAccounts } from '../hooks/useManualTransferAccounts'
+import type { CompanyBankAccount, ManualTransferFormValues } from '../hooks/useManualTransferAccounts'
 
 export default function ManualTransferTab() {
-    const [accounts, setAccounts] = useState<CompanyBankAccount[]>([])
-    const [loading, setLoading] = useState(true)
+    const {
+        accounts,
+        loading,
+        upsertAccount,
+        deleteAccount,
+        toggleAccount,
+    } = useManualTransferAccounts()
     const [modalOpen, setModalOpen] = useState(false)
     const [editingAccount, setEditingAccount] = useState<CompanyBankAccount | null>(null)
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<ManualTransferFormValues>({
         bankName: '',
         accountNumber: '',
         accountName: '',
@@ -37,32 +33,6 @@ export default function ManualTransferTab() {
         isActive: true,
         priority: 1,
     })
-
-    useEffect(() => {
-        fetchAccounts()
-    }, [])
-
-    const fetchAccounts = async () => {
-        try {
-            setLoading(true)
-            const response = await fetch('/api/admin/company-bank-accounts')
-            if (response.ok) {
-                const result = await response.json()
-                if (result.success && Array.isArray(result.data)) {
-                    setAccounts(result.data)
-                } else if (Array.isArray(result)) {
-                    // Fallback in case it's not wrapped in apiSuccess
-                    setAccounts(result)
-                } else {
-                    console.error('Unexpected API response format:', result)
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching bank accounts:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
 
     const handleOpenModal = (account?: CompanyBankAccount) => {
         if (account) {
@@ -90,64 +60,31 @@ export default function ManualTransferTab() {
     }
 
     const handleSave = async () => {
-        try {
-            const url = editingAccount
-                ? `/api/admin/company-bank-accounts/${editingAccount.id}`
-                : '/api/admin/company-bank-accounts'
+        const result = await upsertAccount(formData, editingAccount?.id ?? undefined)
 
-            const response = await fetch(url, {
-                method: editingAccount ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            })
-
-            if (response.ok) {
-                alert(editingAccount ? 'Rekening berhasil diupdate!' : 'Rekening berhasil ditambahkan!')
-                setModalOpen(false)
-                fetchAccounts()
-            } else {
-                const error = await response.json()
-                alert(`Gagal menyimpan: ${error.error}`)
-            }
-        } catch (error) {
-            console.error('Error saving account:', error)
-            alert('Terjadi kesalahan saat menyimpan')
+        if (result.success) {
+            alert(editingAccount ? 'Rekening berhasil diupdate!' : 'Rekening berhasil ditambahkan!')
+            setModalOpen(false)
+        } else {
+            alert(`Gagal menyimpan: ${result.message ?? 'Tidak ada detail tambahan.'}`)
         }
     }
 
     const handleDelete = async (id: string) => {
         if (!confirm('Yakin ingin menghapus rekening ini?')) return
 
-        try {
-            const response = await fetch(`/api/admin/company-bank-accounts/${id}`, {
-                method: 'DELETE',
-            })
-
-            if (response.ok) {
-                alert('Rekening berhasil dihapus!')
-                fetchAccounts()
-            } else {
-                alert('Gagal menghapus rekening')
-            }
-        } catch (error) {
-            console.error('Error deleting account:', error)
-            alert('Terjadi kesalahan saat menghapus')
+        const result = await deleteAccount(id)
+        if (result.success) {
+            alert('Rekening berhasil dihapus!')
+        } else {
+            alert(`Gagal menghapus rekening: ${result.message ?? 'Tidak ada detail tambahan.'}`)
         }
     }
 
     const handleToggleActive = async (account: CompanyBankAccount) => {
-        try {
-            const response = await fetch(`/api/admin/company-bank-accounts/${account.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...account, isActive: !account.isActive }),
-            })
-
-            if (response.ok) {
-                fetchAccounts()
-            }
-        } catch (error) {
-            console.error('Error toggling status:', error)
+        const result = await toggleAccount(account)
+        if (!result.success) {
+            console.error('Error toggling status:', result.message)
         }
     }
 

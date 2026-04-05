@@ -28,6 +28,11 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
     const { id } = ctx.params
     const body = await req.json()
+    const user = ctx.session!.user
+
+    if (user.tenantId) {
+        body.tenantId = user.tenantId
+    }
 
     try {
         const updated = await hargaPaketService.updateHargaPaket(id, body, ctx.session!.user.id)
