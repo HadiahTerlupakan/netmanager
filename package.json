@@ -41,7 +41,6 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.1.81",
     "@auth/prisma-adapter": "^2.11.1",
     "@aws-sdk/client-s3": "^3.1015.0",
     "@aws-sdk/lib-storage": "^3.1015.0",
@@ -98,7 +97,6 @@
     "node-routeros-v2": "^1.6.12",
     "node-telnet": "^1.0.1",
     "nodemailer": "^7.0.13",
-    "oh-my-openagent": "^3.15.2",
     "ol": "^10.8.0",
     "pg": "^8.20.0",
     "prisma": "^7.5.0",
