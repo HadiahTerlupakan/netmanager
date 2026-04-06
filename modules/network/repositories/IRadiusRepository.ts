@@ -117,6 +117,7 @@ export interface IRadiusRepository {
         limit?: number;
         status?: 'active' | 'all';
     }): Promise<{ sessions: IRadiusSessionView[]; total: number }>;
+    getTotalUsageByUsernames(tenantId: string, usernames: string[]): Promise<Record<string, { downloadMB: number; uploadMB: number }>>;
 }
 
 export interface IDashboardStats {

@@ -1,43 +1,7 @@
 import { prisma } from '@/modules/database';
-import { RadiusRepository, RadiusSyncService } from '@/modules/network';
+import { RadiusRepository } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
-
-const ENRICH_CONCURRENCY = 5;
-
-async function enrichUsageFromLiveSessions(
-    sessions: Array<{ username: string | null; nasIpAddress: string; isOnline: boolean; downloadMB: number; uploadMB: number }>,
-    tenantId: string,
-): Promise<void> {
-    const syncService = new RadiusSyncService();
-    const indexes = sessions
-        .map((session, index) => ({ session, index }))
-        .filter(({ session }) => {
-            if (!session.isOnline || !session.username) return false;
-            return session.downloadMB <= 0 && session.uploadMB <= 0;
-        });
-
-    for (let i = 0; i < indexes.length; i += ENRICH_CONCURRENCY) {
-        const chunk = indexes.slice(i, i + ENRICH_CONCURRENCY);
-        await Promise.all(
-            chunk.map(async ({ session }) => {
-                try {
-                    const liveUsage = await syncService.getLiveSessionUsageByUsername(session.username!, tenantId, session.nasIpAddress);
-                    if (liveUsage.success) {
-                        if (typeof liveUsage.downloadMB === 'number') {
-                            session.downloadMB = liveUsage.downloadMB;
-                        }
-                        if (typeof liveUsage.uploadMB === 'number') {
-                            session.uploadMB = liveUsage.uploadMB;
-                        }
-                    }
-                } catch (error) {
-                    console.warn('[RADIUS] Failed live usage enrichment:', error);
-                }
-            })
-        );
-    }
-}
 
 const radiusRepository = new RadiusRepository(prisma);
 
@@ -58,10 +22,26 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         status: status as 'active' | 'all',
     });
 
-    await enrichUsageFromLiveSessions(sessions, tenantId);
+    const usernames = sessions
+        .map((session) => session.username)
+        .filter((username): username is string => Boolean(username));
+
+    const totalUsageByUsername = await radiusRepository.getTotalUsageByUsernames(tenantId, usernames);
+
+    const sessionsWithTotalUsage = sessions.map((session) => {
+        if (!session.username) return session;
+        const totalUsage = totalUsageByUsername[session.username];
+        if (!totalUsage) return session;
+
+        return {
+            ...session,
+            downloadMB: totalUsage.downloadMB,
+            uploadMB: totalUsage.uploadMB,
+        };
+    });
 
     return apiSuccess({
-        sessions,
+        sessions: sessionsWithTotalUsage,
         pagination: {
             page,
             limit,

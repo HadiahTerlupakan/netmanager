@@ -26,6 +26,7 @@ interface SessionUsageData {
 interface PPPActiveSessionRecord extends Record<string, string> {
   '.id'?: string;
   name?: string;
+  interface?: string;
   'bytes-in'?: string;
   'bytes-out'?: string;
   'rx-byte'?: string;
@@ -33,7 +34,6 @@ interface PPPActiveSessionRecord extends Record<string, string> {
   rx?: string;
   tx?: string;
 }
-
 function pickCounter(session: PPPActiveSessionRecord, primary: keyof PPPActiveSessionRecord, fallback: keyof PPPActiveSessionRecord): number {
   const primaryValue = parseCounter(session[primary]);
   if (primaryValue > 0) return primaryValue;
@@ -336,6 +336,12 @@ export class MikroTikPPPSecretService {
     parsedFromInterface?: SessionUsageData;
     parsedFromMonitor?: SessionUsageData;
     finalUsage?: SessionUsageData;
+    interfaceDebug?: {
+      rawInterfaceField: string | null;
+      rawNameField: string | null;
+      candidatesTried: string[];
+    };
+    monitorError?: string;
     error?: string;
   }> {
     try {
@@ -362,29 +368,58 @@ export class MikroTikPPPSecretService {
         const activeSession = sessions?.[0] || null;
         const parsedFromActive = extractSessionUsage(activeSession || undefined);
 
-        const interfaceName = normalizeInterfaceName(activeSession?.name) || null;
+        const candidateInterfaceNames = [
+          normalizeInterfaceName(activeSession?.interface),
+          normalizeInterfaceName(activeSession?.name),
+        ].filter(Boolean);
+
+        const interfaceName = candidateInterfaceNames[0] || null;
         let interfacePrint: PPPActiveSessionRecord | null = null;
         let parsedFromInterface: SessionUsageData | undefined;
 
-        if (interfaceName) {
-          const interfaceStats = await conn.write('/interface/print', [
-            `?name=${interfaceName}`
-          ]) as PPPActiveSessionRecord[];
-          interfacePrint = interfaceStats?.[0] || null;
-          parsedFromInterface = extractSessionUsage(interfacePrint || undefined);
+        for (const candidate of candidateInterfaceNames) {
+          try {
+            const interfaceStats = await conn.write('/interface/print', [
+              `?name=${candidate}`
+            ]) as PPPActiveSessionRecord[];
+            if (interfaceStats?.[0]) {
+              interfacePrint = interfaceStats[0];
+              parsedFromInterface = extractSessionUsage(interfacePrint);
+              break;
+            }
+          } catch {
+            // ignore and try next candidate
+          }
         }
 
         let monitorTraffic: PPPActiveSessionRecord | null = null;
         let parsedFromMonitor: SessionUsageData | undefined;
 
-        if (interfaceName) {
-          const traffic = await conn.write('/interface/monitor-traffic', [
-            `=interface=${interfaceName}`,
-            '=once='
-          ]) as PPPActiveSessionRecord[];
-          monitorTraffic = traffic?.[0] || null;
-          parsedFromMonitor = extractSessionUsage(monitorTraffic || undefined);
+        for (const candidate of candidateInterfaceNames) {
+          try {
+            const traffic = await conn.write('/interface/monitor-traffic', [
+              `=interface=${candidate}`,
+              '=once='
+            ]) as PPPActiveSessionRecord[];
+            if (traffic?.[0]) {
+              monitorTraffic = traffic[0];
+              parsedFromMonitor = extractSessionUsage(monitorTraffic);
+              break;
+            }
+          } catch {
+            // ignore and try next candidate
+          }
         }
+
+        const monitorError = !monitorTraffic && candidateInterfaceNames.length > 0
+          ? 'monitor-traffic lookup failed for all interface candidates'
+          : undefined;
+
+        const interfaceDebug = {
+          rawInterfaceField: activeSession?.interface || null,
+          rawNameField: activeSession?.name || null,
+          candidatesTried: candidateInterfaceNames,
+        };
 
         let finalUsage = parsedFromActive;
         if (finalUsage.downloadBytes <= 0 && finalUsage.uploadBytes <= 0 && parsedFromInterface) {
@@ -406,6 +441,8 @@ export class MikroTikPPPSecretService {
           parsedFromInterface,
           parsedFromMonitor,
           finalUsage,
+          interfaceDebug,
+          ...(monitorError ? { monitorError } : {}),
         };
       } catch (error: unknown) {
         conn.close();

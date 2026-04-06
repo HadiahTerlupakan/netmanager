@@ -1005,6 +1005,44 @@ export class RadiusRepository implements IRadiusRepository {
         };
     }
 
+    async getTotalUsageByUsernames(
+        tenantId: string,
+        usernames: string[],
+    ): Promise<Record<string, { downloadMB: number; uploadMB: number }>> {
+        const uniqueUsernames = Array.from(new Set(usernames.map((username) => username.trim()).filter(Boolean)));
+        if (uniqueUsernames.length === 0) {
+            return {};
+        }
+
+        const grouped = await this.radiusClient.radacct.groupBy({
+            by: ['username'],
+            where: {
+                tenantId,
+                username: { in: uniqueUsernames },
+            },
+            _sum: {
+                acctinputoctets: true,
+                acctoutputoctets: true,
+            },
+        });
+
+        const result: Record<string, { downloadMB: number; uploadMB: number }> = {};
+        for (const row of grouped) {
+            const username = row.username;
+            if (!username) continue;
+
+            const downloadBytes = Number(row._sum.acctoutputoctets ?? 0);
+            const uploadBytes = Number(row._sum.acctinputoctets ?? 0);
+
+            result[username] = {
+                downloadMB: Math.round((downloadBytes / 1048576) * 100) / 100,
+                uploadMB: Math.round((uploadBytes / 1048576) * 100) / 100,
+            };
+        }
+
+        return result;
+    }
+
     /**
      * Get recent sessions with pagination
      */
