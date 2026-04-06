@@ -11,6 +11,14 @@ type Pelanggan = {
   idPelanggan: string
   nama: string
   username: string
+  technicalInfo?: {
+    staticIpAddress?: string | null
+    staticIpSource?: string | null
+    serverRouterName?: string | null
+    serverRouterSource?: string | null
+    odpPortValue?: string | null
+    odpPortSource?: string | null
+  } | null
   tipe: 'REGULER' | 'NON_REGULER'
   alamat?: string | null
   provinsi?: string | null
@@ -584,9 +592,33 @@ export default function PppPrintClient() {
                       </div>
                     )}
                     {showPPPAccount && (
-                      <div className="inline-block text-left bg-white px-3 py-2 rounded border border-gray-200 shadow-sm">
+                      <div className="inline-block text-left bg-white px-3 py-2 rounded border border-gray-200 shadow-sm max-w-[320px]">
                         <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">PPP Account</p>
                         <p className="text-sm font-mono text-gray-700">{pelanggan.username}</p>
+
+                        <div className="mt-2 space-y-1.5 text-xs">
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase">IP Address (Static)</p>
+                            <p className="font-mono text-gray-700">{pelanggan.technicalInfo?.staticIpAddress || '-'}</p>
+                            {pelanggan.technicalInfo?.staticIpSource ? (
+                              <p className="text-[10px] text-gray-400">Sumber: {pelanggan.technicalInfo.staticIpSource}</p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase">Server / Router</p>
+                            <p className="text-gray-700">{pelanggan.technicalInfo?.serverRouterName || '-'}</p>
+                            {pelanggan.technicalInfo?.serverRouterSource ? (
+                              <p className="text-[10px] text-gray-400">Sumber: {pelanggan.technicalInfo.serverRouterSource}</p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase">ODP / Port</p>
+                            <p className="text-gray-700">{pelanggan.technicalInfo?.odpPortValue || '-'}</p>
+                            {pelanggan.technicalInfo?.odpPortSource ? (
+                              <p className="text-[10px] text-gray-400">Sumber: {pelanggan.technicalInfo.odpPortSource}</p>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

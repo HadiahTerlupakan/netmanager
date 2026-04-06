@@ -1,4 +1,5 @@
 import { prisma } from '@/modules/database'
+import { prismaRadius } from '@/lib/prisma-radius'
 import Link from 'next/link'
 import React from 'react'
 import MapPreview from '@/components/common/MapPreview'
@@ -20,10 +21,27 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // Helper component untuk baris data formulir
-const FormField = ({ label, value, className = '' }: { label: string, value: React.ReactNode, className?: string }) => (
+const FormField = ({
+  label,
+  value,
+  className = '',
+  source,
+}: {
+  label: string
+  value: React.ReactNode
+  className?: string
+  source?: string | null
+}) => (
   <div className={`flex flex-col sm:flex-row sm:items-baseline border-b border-gray-100 dark:border-gray-800 py-3 last:border-0 ${className}`}>
     <dt className="w-full sm:w-1/3 text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
-    <dd className="w-full sm:w-2/3 text-sm font-medium text-gray-900 dark:text-white mt-1 sm:mt-0">{value || '-'}</dd>
+    <dd className="w-full sm:w-2/3 text-sm font-medium text-gray-900 dark:text-white mt-1 sm:mt-0">
+      <div className="flex flex-col gap-1">
+        <span>{value || '-'}</span>
+        {source ? (
+          <span className="text-xs font-normal text-gray-400 dark:text-gray-500">Sumber: {source}</span>
+        ) : null}
+      </div>
+    </dd>
   </div>
 )
 
@@ -43,8 +61,18 @@ export async function PppClientDetailView({ params }: { params: Promise<{ id: st
     include: {
       hargaPaket: {
         include: {
-          profilePPP: true,
+          profilePPP: {
+            include: {
+              mikroTikRouter: true,
+            },
+          },
           bandwidth: true,
+        },
+      },
+      odp: {
+        select: {
+          name: true,
+          location: true,
         },
       },
     },
@@ -59,6 +87,85 @@ export async function PppClientDetailView({ params }: { params: Promise<{ id: st
       </div>
     )
   }
+
+  const [staticIpReply, latestRadiusSession] = await Promise.all([
+    prismaRadius.radreply.findFirst({
+      where: pelanggan.tenantId
+        ? {
+          username: pelanggan.username,
+          attribute: 'Framed-IP-Address',
+          OR: [
+            { tenantId: pelanggan.tenantId },
+            { tenantId: null },
+          ],
+        }
+        : {
+          username: pelanggan.username,
+          attribute: 'Framed-IP-Address',
+          tenantId: null,
+        },
+      orderBy: { id: 'desc' },
+      select: { value: true },
+    }),
+    prismaRadius.radacct.findFirst({
+      where: pelanggan.tenantId
+        ? {
+          username: pelanggan.username,
+          OR: [
+            { tenantId: pelanggan.tenantId },
+            { tenantId: null },
+          ],
+        }
+        : {
+          username: pelanggan.username,
+          tenantId: null,
+        },
+      orderBy: [
+        { acctupdatetime: 'desc' },
+        { acctstarttime: 'desc' },
+      ],
+      select: {
+        framedipaddress: true,
+        nasipaddress: true,
+      },
+    }),
+  ])
+
+  const routerByNas = latestRadiusSession?.nasipaddress
+    ? await prisma.mikroTikRouter.findFirst({
+      where: pelanggan.tenantId
+        ? {
+          ipAddress: latestRadiusSession.nasipaddress,
+          OR: [
+            { tenantId: pelanggan.tenantId },
+            { tenantId: null },
+          ],
+        }
+        : { ipAddress: latestRadiusSession.nasipaddress },
+      select: { name: true },
+    })
+    : null
+
+  const staticIpAddress = staticIpReply?.value || latestRadiusSession?.framedipaddress || '-'
+  const staticIpSource = staticIpReply?.value
+    ? 'radreply · Framed-IP-Address'
+    : latestRadiusSession?.framedipaddress
+      ? 'radacct · sesi terakhir'
+      : null
+
+  const serverRouterName = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name || routerByNas?.name || latestRadiusSession?.nasipaddress || '-'
+  const serverRouterSource = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name
+    ? 'Profile PPP · MikroTik Router'
+    : routerByNas?.name
+      ? 'NAS IP · MikroTik Router'
+      : latestRadiusSession?.nasipaddress
+        ? 'radacct · NAS IP'
+        : null
+
+  const odpPortValue = pelanggan.odp?.location
+    ? `${pelanggan.odp.name} · ${pelanggan.odp.location}`
+    : pelanggan.odp?.name || '-'
+  const odpPortSource = pelanggan.odp?.name ? 'Relasi pelanggan · ODP' : null
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -200,9 +307,9 @@ export async function PppClientDetailView({ params }: { params: Promise<{ id: st
                 <div className="bg-gray-50 dark:bg-gray-800/30 rounded-lg px-4 border border-gray-100 dark:border-gray-800">
                   <FormField label="Username PPPoE" value={<code className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 font-mono text-indigo-600 dark:text-indigo-400">{pelanggan.username}</code>} />
                   <FormField label="Profile Plan" value={pelanggan.hargaPaket?.profilePPP?.name || '-'} />
-                  <FormField label="IP Address (Static)" value={'-'} /* Field placeholder if needed */ />
-                  <FormField label="Server / Router" value={'-'} /* Field placeholder if needed */ />
-                  <FormField label="ODP / Port" value={'-'} /* Field placeholder if needed */ />
+                  <FormField label="IP Address (Static)" value={staticIpAddress} source={staticIpSource} />
+                  <FormField label="Server / Router" value={serverRouterName} source={serverRouterSource} />
+                  <FormField label="ODP / Port" value={odpPortValue} source={odpPortSource} />
                   <FormField label="SN Perangkat (ONT)" value={'-'} /* Field placeholder if needed */ />
                 </div>
               </section>
