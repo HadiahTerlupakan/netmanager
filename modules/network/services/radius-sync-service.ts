@@ -176,21 +176,39 @@ export class RadiusSyncService {
         };
     }
 
-    async getLiveSessionUsageByUsername(username: string, tenantId: string): Promise<{
+    async getLiveSessionUsageByUsername(
+        username: string,
+        tenantId: string,
+        nasIpAddress?: string,
+    ): Promise<{
         success: boolean;
         downloadMB?: number;
         uploadMB?: number;
         error?: string;
     }> {
-        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
+        let routerId: string | undefined;
 
-        if (!pelanggan) {
-            return { success: false, error: 'Pelanggan tidak ditemukan untuk tenant ini' };
+        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
+        if (pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter?.id) {
+            routerId = pelanggan.hargaPaket.profilePPP.mikroTikRouter.id;
         }
 
-        const routerId = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.id;
+        if (!routerId && nasIpAddress) {
+            const nasRouter = await this.networkRepo.findRouterByNasIp(nasIpAddress, tenantId);
+            if (nasRouter?.id) {
+                routerId = nasRouter.id;
+            }
+        }
+
         if (!routerId) {
-            return { success: false, error: 'Router pelanggan tidak ditemukan' };
+            const fallbackRouter = await this.networkRepo.findAnyRouterByTenant(tenantId);
+            if (fallbackRouter?.id) {
+                routerId = fallbackRouter.id;
+            }
+        }
+
+        if (!routerId) {
+            return { success: false, error: 'Router tenant tidak ditemukan' };
         }
 
         const usageResult = await this.pppSecretService.getActiveSessionUsage(routerId, username);

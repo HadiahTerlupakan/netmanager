@@ -17,6 +17,12 @@ export interface RouterTenantId {
     tenantId: string | null
 }
 
+export interface RouterBasic {
+    id: string
+    ipAddress: string
+    tenantId: string | null
+}
+
 export interface PelangganWithRouter {
     id: string
     username: string
@@ -74,6 +80,40 @@ export class NetworkRepository {
         return prisma.mikroTikRouter.findUnique({
             where: { id: routerId },
             select: { tenantId: true }
+        })
+    }
+
+    async findRouterByNasIp(nasIpAddress: string, tenantId: string): Promise<RouterBasic | null> {
+        return prisma.mikroTikRouter.findFirst({
+            where: {
+                ipAddress: nasIpAddress,
+                OR: [
+                    { tenantId },
+                    { tenantId: null }
+                ]
+            },
+            select: {
+                id: true,
+                ipAddress: true,
+                tenantId: true
+            }
+        })
+    }
+
+    async findAnyRouterByTenant(tenantId: string): Promise<RouterBasic | null> {
+        return prisma.mikroTikRouter.findFirst({
+            where: {
+                OR: [
+                    { tenantId },
+                    { tenantId: null }
+                ]
+            },
+            orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                ipAddress: true,
+                tenantId: true
+            }
         })
     }
 

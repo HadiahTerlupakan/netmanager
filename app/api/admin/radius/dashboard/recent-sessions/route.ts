@@ -6,7 +6,7 @@ import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
 const ENRICH_CONCURRENCY = 5;
 
 async function enrichUsageFromLiveSessions(
-    sessions: Array<{ username: string | null; isOnline: boolean; downloadMB: number; uploadMB: number }>,
+    sessions: Array<{ username: string | null; nasIpAddress: string; isOnline: boolean; downloadMB: number; uploadMB: number }>,
     tenantId: string,
 ): Promise<void> {
     const syncService = new RadiusSyncService();
@@ -22,7 +22,7 @@ async function enrichUsageFromLiveSessions(
         await Promise.all(
             chunk.map(async ({ session }) => {
                 try {
-                    const liveUsage = await syncService.getLiveSessionUsageByUsername(session.username!, tenantId);
+                    const liveUsage = await syncService.getLiveSessionUsageByUsername(session.username!, tenantId, session.nasIpAddress);
                     if (liveUsage.success) {
                         if (typeof liveUsage.downloadMB === 'number') {
                             session.downloadMB = liveUsage.downloadMB;
