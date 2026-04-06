@@ -46,6 +46,18 @@ function parseCounter(value?: string): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+function normalizeInterfaceName(name?: string): string {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+    return trimmed.slice(1, -1).trim();
+  }
+
+  return trimmed;
+}
+
 function extractSessionUsage(session?: PPPActiveSessionRecord): SessionUsageData {
   if (!session) {
     return { downloadBytes: 0, uploadBytes: 0 };
@@ -350,7 +362,7 @@ export class MikroTikPPPSecretService {
         const activeSession = sessions?.[0] || null;
         const parsedFromActive = extractSessionUsage(activeSession || undefined);
 
-        const interfaceName = activeSession?.name || null;
+        const interfaceName = normalizeInterfaceName(activeSession?.name) || null;
         let interfacePrint: PPPActiveSessionRecord | null = null;
         let parsedFromInterface: SessionUsageData | undefined;
 
