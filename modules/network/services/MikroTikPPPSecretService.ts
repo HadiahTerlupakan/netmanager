@@ -302,6 +302,30 @@ export class MikroTikPPPSecretService {
     routerId: string,
     username: string
   ): Promise<{ success: boolean; usage?: SessionUsageData; error?: string }> {
+    const debug = await this.debugActiveSessionUsage(routerId, username);
+    if (!debug.success || !debug.finalUsage) {
+      return { success: false, ...(debug.error ? { error: debug.error } : {}) };
+    }
+
+    return { success: true, usage: debug.finalUsage };
+  }
+
+  async debugActiveSessionUsage(
+    routerId: string,
+    username: string
+  ): Promise<{
+    success: boolean;
+    routerIpAddress?: string;
+    activeSession?: PPPActiveSessionRecord | null;
+    interfaceName?: string | null;
+    interfacePrint?: PPPActiveSessionRecord | null;
+    monitorTraffic?: PPPActiveSessionRecord | null;
+    parsedFromActive?: SessionUsageData;
+    parsedFromInterface?: SessionUsageData;
+    parsedFromMonitor?: SessionUsageData;
+    finalUsage?: SessionUsageData;
+    error?: string;
+  }> {
     try {
       const routerRepo = getMikroTikRouterRepository();
       const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
@@ -323,36 +347,60 @@ export class MikroTikPPPSecretService {
           `?name=${username}`
         ]) as PPPActiveSessionRecord[];
 
-        let usage = extractSessionUsage(sessions?.[0]);
+        const activeSession = sessions?.[0] || null;
+        const parsedFromActive = extractSessionUsage(activeSession || undefined);
 
-        if (usage.downloadBytes <= 0 && usage.uploadBytes <= 0) {
-          const interfaceName = sessions?.[0]?.name;
-          if (interfaceName) {
-            const interfaceStats = await conn.write('/interface/print', [
-              `?name=${interfaceName}`
-            ]) as PPPActiveSessionRecord[];
+        const interfaceName = activeSession?.name || null;
+        let interfacePrint: PPPActiveSessionRecord | null = null;
+        let parsedFromInterface: SessionUsageData | undefined;
 
-            usage = extractSessionUsage(interfaceStats?.[0]);
+        if (interfaceName) {
+          const interfaceStats = await conn.write('/interface/print', [
+            `?name=${interfaceName}`
+          ]) as PPPActiveSessionRecord[];
+          interfacePrint = interfaceStats?.[0] || null;
+          parsedFromInterface = extractSessionUsage(interfacePrint || undefined);
+        }
 
-            if (usage.downloadBytes <= 0 && usage.uploadBytes <= 0) {
-              const traffic = await conn.write('/interface/monitor-traffic', [
-                `=interface=${interfaceName}`,
-                '=once='
-              ]) as PPPActiveSessionRecord[];
+        let monitorTraffic: PPPActiveSessionRecord | null = null;
+        let parsedFromMonitor: SessionUsageData | undefined;
 
-              usage = extractSessionUsage(traffic?.[0]);
-            }
-          }
+        if (interfaceName) {
+          const traffic = await conn.write('/interface/monitor-traffic', [
+            `=interface=${interfaceName}`,
+            '=once='
+          ]) as PPPActiveSessionRecord[];
+          monitorTraffic = traffic?.[0] || null;
+          parsedFromMonitor = extractSessionUsage(monitorTraffic || undefined);
+        }
+
+        let finalUsage = parsedFromActive;
+        if (finalUsage.downloadBytes <= 0 && finalUsage.uploadBytes <= 0 && parsedFromInterface) {
+          finalUsage = parsedFromInterface;
+        }
+        if (finalUsage.downloadBytes <= 0 && finalUsage.uploadBytes <= 0 && parsedFromMonitor) {
+          finalUsage = parsedFromMonitor;
         }
 
         conn.close();
-        return { success: true, usage };
+        return {
+          success: true,
+          routerIpAddress: router.ipAddress,
+          activeSession,
+          interfaceName,
+          interfacePrint,
+          monitorTraffic,
+          parsedFromActive,
+          parsedFromInterface,
+          parsedFromMonitor,
+          finalUsage,
+        };
       } catch (error: unknown) {
         conn.close();
         throw error;
       }
     } catch (error: unknown) {
-      console.error('[PPPSecretService] getActiveSessionUsage error:', error);
+      console.error('[PPPSecretService] debugActiveSessionUsage error:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
     }

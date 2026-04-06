@@ -176,6 +176,34 @@ export class RadiusSyncService {
         };
     }
 
+    private async resolveRouterForUsername(
+        username: string,
+        tenantId: string,
+        nasIpAddress?: string,
+    ): Promise<{ routerId?: string; source?: 'pelanggan' | 'nas-ip' | 'tenant-fallback' }> {
+        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
+        if (pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter?.id) {
+            return {
+                routerId: pelanggan.hargaPaket.profilePPP.mikroTikRouter.id,
+                source: 'pelanggan',
+            };
+        }
+
+        if (nasIpAddress) {
+            const nasRouter = await this.networkRepo.findRouterByNasIp(nasIpAddress, tenantId);
+            if (nasRouter?.id) {
+                return { routerId: nasRouter.id, source: 'nas-ip' };
+            }
+        }
+
+        const fallbackRouter = await this.networkRepo.findAnyRouterByTenant(tenantId);
+        if (fallbackRouter?.id) {
+            return { routerId: fallbackRouter.id, source: 'tenant-fallback' };
+        }
+
+        return {};
+    }
+
     async getLiveSessionUsageByUsername(
         username: string,
         tenantId: string,
@@ -186,26 +214,7 @@ export class RadiusSyncService {
         uploadMB?: number;
         error?: string;
     }> {
-        let routerId: string | undefined;
-
-        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
-        if (pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter?.id) {
-            routerId = pelanggan.hargaPaket.profilePPP.mikroTikRouter.id;
-        }
-
-        if (!routerId && nasIpAddress) {
-            const nasRouter = await this.networkRepo.findRouterByNasIp(nasIpAddress, tenantId);
-            if (nasRouter?.id) {
-                routerId = nasRouter.id;
-            }
-        }
-
-        if (!routerId) {
-            const fallbackRouter = await this.networkRepo.findAnyRouterByTenant(tenantId);
-            if (fallbackRouter?.id) {
-                routerId = fallbackRouter.id;
-            }
-        }
+        const { routerId } = await this.resolveRouterForUsername(username, tenantId, nasIpAddress);
 
         if (!routerId) {
             return { success: false, error: 'Router tenant tidak ditemukan' };
@@ -223,6 +232,41 @@ export class RadiusSyncService {
             success: true,
             downloadMB: this.toMB(usageResult.usage.downloadBytes),
             uploadMB: this.toMB(usageResult.usage.uploadBytes),
+        };
+    }
+
+    async debugLiveSessionUsageByUsername(
+        username: string,
+        tenantId: string,
+        nasIpAddress?: string,
+    ): Promise<{
+        success: boolean;
+        routerSource?: 'pelanggan' | 'nas-ip' | 'tenant-fallback';
+        routerId?: string;
+        debug?: unknown;
+        error?: string;
+    }> {
+        const { routerId, source } = await this.resolveRouterForUsername(username, tenantId, nasIpAddress);
+
+        if (!routerId) {
+            return { success: false, error: 'Router tenant tidak ditemukan' };
+        }
+
+        const debug = await this.pppSecretService.debugActiveSessionUsage(routerId, username);
+        if (!debug.success) {
+            return {
+                success: false,
+                routerSource: source,
+                routerId,
+                ...(debug.error ? { error: debug.error } : {}),
+            };
+        }
+
+        return {
+            success: true,
+            routerSource: source,
+            routerId,
+            debug,
         };
     }
 
