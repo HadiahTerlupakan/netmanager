@@ -19,7 +19,7 @@ export type ProfilePPP = {
   ipRange?: string | null
   siteId?: string | null
   _count?: {
-    hargaPakets: number
+    hargaPaket: number
   }
 }
 

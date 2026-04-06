@@ -135,7 +135,7 @@ export function ProfilePppTable({
               key: 'paketTerkait',
               header: 'Paket Terkait',
               priority: 'secondary',
-              render: (item: ProfilePPP) => <span className="text-sm text-gray-900 dark:text-white">{item._count?.hargaPakets || 0} paket</span>,
+              render: (item: ProfilePPP) => <span className="text-sm text-gray-900 dark:text-white">{item._count?.hargaPaket || 0} paket</span>,
             },
             {
               key: 'status',
