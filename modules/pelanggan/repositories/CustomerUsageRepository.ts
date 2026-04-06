@@ -19,6 +19,67 @@ export class CustomerUsageRepository {
         })
     }
 
+    async getStaticIpReply(username: string, tenantId?: string | null) {
+        return prismaRadius.radreply.findFirst({
+            where: tenantId
+                ? {
+                    username,
+                    attribute: 'Framed-IP-Address',
+                    OR: [
+                        { tenantId },
+                        { tenantId: null },
+                    ],
+                }
+                : {
+                    username,
+                    attribute: 'Framed-IP-Address',
+                    tenantId: null,
+                },
+            orderBy: { id: 'desc' },
+            select: { value: true },
+        })
+    }
+
+    async getLatestSessionForTechnicalInfo(username: string, tenantId?: string | null) {
+        return prismaRadius.radacct.findFirst({
+            where: tenantId
+                ? {
+                    username,
+                    OR: [
+                        { tenantId },
+                        { tenantId: null },
+                    ],
+                }
+                : {
+                    username,
+                    tenantId: null,
+                },
+            orderBy: [
+                { acctupdatetime: 'desc' },
+                { acctstarttime: 'desc' },
+            ],
+            select: {
+                framedipaddress: true,
+                nasipaddress: true,
+            },
+        })
+    }
+
+    async getRouterNameByNasIp(nasIpAddress: string, tenantId?: string | null) {
+        return prisma.mikroTikRouter.findFirst({
+            where: tenantId
+                ? {
+                    ipAddress: nasIpAddress,
+                    OR: [
+                        { tenantId },
+                        { tenantId: null },
+                    ],
+                }
+                : { ipAddress: nasIpAddress },
+            select: { name: true },
+        })
+    }
+
     /**
      * Get latest RADIUS session for username
      */

@@ -6,6 +6,9 @@ describe('map-settings-utils', () => {
   it('builds settings form state from persisted settings', () => {
     expect(
       buildMapSettingsFormState({
+        id: 1,
+        tenantId: 'tenant-1',
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
         centerLat: '-6.1234',
         centerLng: '106.9876',
         maxZoomIn: '20',

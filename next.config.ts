@@ -59,8 +59,9 @@ const withPWA = withPWAInit({
 const isDev = process.env.NODE_ENV === 'development'
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: __dirname,
   // Enable standalone output for Docker deployment
-  output: 'standalone', 
+  output: 'standalone',
   // Force include prisma CLI and its config package in standalone output
   // This fixes "Cannot find module 'prisma/config'" in Docker
   outputFileTracingIncludes: {

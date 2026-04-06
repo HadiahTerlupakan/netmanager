@@ -1,12 +1,14 @@
 import { prisma } from '@/modules/database'
-import { prismaRadius } from '@/lib/prisma-radius'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
 import { AutomaticBillingService } from '@/modules/finance'
+import { CustomerUsageService } from '@/modules/pelanggan'
 import { hash } from 'bcryptjs'
 import { Status, TipePelanggan } from '@prisma/client'
 import { apiSuccess, ApiErrors, createHandler, apiError } from '@/lib/api'
 import { canAccessSite } from '@/modules/roles'
+
+const customerUsageService = new CustomerUsageService()
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -90,84 +92,15 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     return ApiErrors.forbidden('Anda tidak memiliki akses ke pelanggan di site ini')
   }
 
-  const [staticIpReply, latestRadiusSession] = await Promise.all([
-    prismaRadius.radreply.findFirst({
-      where: pelanggan.tenantId
-        ? {
-          username: pelanggan.username,
-          attribute: 'Framed-IP-Address',
-          OR: [
-            { tenantId: pelanggan.tenantId },
-            { tenantId: null },
-          ],
-        }
-        : {
-          username: pelanggan.username,
-          attribute: 'Framed-IP-Address',
-          tenantId: null,
-        },
-      orderBy: { id: 'desc' },
-      select: { value: true },
-    }),
-    prismaRadius.radacct.findFirst({
-      where: pelanggan.tenantId
-        ? {
-          username: pelanggan.username,
-          OR: [
-            { tenantId: pelanggan.tenantId },
-            { tenantId: null },
-          ],
-        }
-        : {
-          username: pelanggan.username,
-          tenantId: null,
-        },
-      orderBy: [
-        { acctupdatetime: 'desc' },
-        { acctstarttime: 'desc' },
-      ],
-      select: {
-        framedipaddress: true,
-        nasipaddress: true,
-      },
-    }),
-  ])
+  const technicalInfo = await customerUsageService.getTechnicalInfo({
+    username: pelanggan.username,
+    tenantId: pelanggan.tenantId,
+    packageRouterName: pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name,
+    odpName: pelanggan.odp?.name,
+    odpLocation: pelanggan.odp?.location,
+  })
 
-  const routerByNas = latestRadiusSession?.nasipaddress
-    ? await prisma.mikroTikRouter.findFirst({
-      where: pelanggan.tenantId
-        ? {
-          ipAddress: latestRadiusSession.nasipaddress,
-          OR: [
-            { tenantId: pelanggan.tenantId },
-            { tenantId: null },
-          ],
-        }
-        : { ipAddress: latestRadiusSession.nasipaddress },
-      select: { name: true },
-    })
-    : null
-
-  const staticIpAddress = staticIpReply?.value || latestRadiusSession?.framedipaddress || null
-  const staticIpSource = staticIpReply?.value
-    ? 'radreply · Framed-IP-Address'
-    : latestRadiusSession?.framedipaddress
-      ? 'radacct · sesi terakhir'
-      : null
-
-  const serverRouterName = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name || routerByNas?.name || latestRadiusSession?.nasipaddress || null
-  const serverRouterSource = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name
-    ? 'Profile PPP · MikroTik Router'
-    : routerByNas?.name
-      ? 'NAS IP · MikroTik Router'
-      : latestRadiusSession?.nasipaddress
-        ? 'radacct · NAS IP'
-        : null
-
-  const odpPortValue = pelanggan.odp?.location
-    ? `${pelanggan.odp.name} · ${pelanggan.odp.location}`
-    : pelanggan.odp?.name || null
-  const odpPortSource = pelanggan.odp?.name ? 'Relasi pelanggan · ODP' : null
+  const { staticIpAddress, staticIpSource, serverRouterName, serverRouterSource, odpPortValue, odpPortSource } = technicalInfo
 
   return apiSuccess({
     ...sanitizePelangganResponse(pelanggan),

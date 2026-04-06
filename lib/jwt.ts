@@ -22,8 +22,7 @@ interface RefreshTokenPayload {
   exp?: number
 }
 
-// JWT Secret validation - fail hard in production if not set
-const JWT_SECRET = (() => {
+const getJwtSecret = () => {
   const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
@@ -33,7 +32,8 @@ const JWT_SECRET = (() => {
     return 'development-only-secret-do-not-use-in-production'
   }
   return secret
-})()
+}
+
 const JWT_EXPIRES_IN = '15m' // 15 menit untuk access token
 const REFRESH_TOKEN_EXPIRES_IN = '7d' // 7 hari untuk refresh token
 
@@ -61,7 +61,7 @@ export function generatePelangganAccessToken(pelanggan: {
     tenantId: pelanggan.tenantId,
   }
 
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, getJwtSecret(), {
     expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
     issuer: 'netmanager',
     audience: 'pelanggan-portal',
@@ -90,7 +90,7 @@ export async function generatePelangganRefreshToken(pelangganId: string): Promis
     type: 'refresh',
   }
 
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, getJwtSecret(), {
     expiresIn: REFRESH_TOKEN_EXPIRES_IN,
     issuer: 'netmanager',
     audience: 'pelanggan-portal',
@@ -102,7 +102,7 @@ export async function generatePelangganRefreshToken(pelangganId: string): Promis
  */
 export function verifyPelangganAccessToken(token: string): PelangganJWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
+    const decoded = jwt.verify(token, getJwtSecret(), {
       issuer: 'netmanager',
       audience: 'pelanggan-portal',
     }) as PelangganJWTPayload
@@ -122,7 +122,7 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
   valid: boolean
 }> {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
+    const decoded = jwt.verify(token, getJwtSecret(), {
       issuer: 'netmanager',
       audience: 'pelanggan-portal',
     }) as RefreshTokenPayload

@@ -5,20 +5,20 @@ import { withTenantIsolation } from './prisma-extension'
 import 'dotenv/config'
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
-
 const globalForPrismaAuth = globalThis as unknown as { prismaAuth: PrismaClient | undefined }
-
-const connectionString = process.env.DATABASE_URL
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL is not set in environment variables')
-}
-
 const ignoreModels = ['Account', 'Session', 'VerificationToken', 'Tenant']
+
+const getRequiredConnectionString = () => {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is not set in environment variables')
+  }
+  return connectionString
+}
 
 const createPrismaClientBase = (): PrismaClient => {
   const pool = new Pool({
-    connectionString,
+    connectionString: getRequiredConnectionString(),
     max: 10,
     min: 2,
     idleTimeoutMillis: 30000,
@@ -32,10 +32,42 @@ const createPrismaClientBase = (): PrismaClient => {
   })
 }
 
-export const prismaAuth = globalForPrismaAuth.prismaAuth ?? createPrismaClientBase()
-export const prisma = globalForPrisma.prisma ?? prismaAuth.$extends(withTenantIsolation(ignoreModels)) as unknown as PrismaClient
+const createLazyClient = <T extends object>(getClient: () => T): T => new Proxy({} as T, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getClient() as object, prop, receiver)
+  },
+  set(_target, prop, value, receiver) {
+    return Reflect.set(getClient() as object, prop, value, receiver)
+  },
+  has(_target, prop) {
+    return Reflect.has(getClient() as object, prop)
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getClient() as object)
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    return Object.getOwnPropertyDescriptor(getClient() as object, prop)
+  },
+})
 
+const getPrismaAuthClient = () => {
+  if (!globalForPrismaAuth.prismaAuth) {
+    globalForPrismaAuth.prismaAuth = createPrismaClientBase()
+  }
+  return globalForPrismaAuth.prismaAuth
+}
+
+const getPrismaClient = () => {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = getPrismaAuthClient().$extends(withTenantIsolation(ignoreModels)) as unknown as PrismaClient
+  }
+  return globalForPrisma.prisma
+}
+
+export const prismaAuth = createLazyClient(() => getPrismaAuthClient()) as PrismaClient
+export const prisma = createLazyClient(() => getPrismaClient()) as PrismaClient
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
+  void globalForPrisma
+  void globalForPrismaAuth
 }

@@ -1,10 +1,12 @@
 import { prisma } from '@/modules/database'
-import { prismaRadius } from '@/lib/prisma-radius'
+import { CustomerUsageService } from '@/modules/pelanggan'
 import Link from 'next/link'
 import React from 'react'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import CustomerInvoiceHistory from './CustomerInvoiceHistory'
+
+const customerUsageService = new CustomerUsageService()
 
 import {
   HiPencil,
@@ -88,84 +90,20 @@ export async function PppClientDetailView({ params }: { params: Promise<{ id: st
     )
   }
 
-  const [staticIpReply, latestRadiusSession] = await Promise.all([
-    prismaRadius.radreply.findFirst({
-      where: pelanggan.tenantId
-        ? {
-          username: pelanggan.username,
-          attribute: 'Framed-IP-Address',
-          OR: [
-            { tenantId: pelanggan.tenantId },
-            { tenantId: null },
-          ],
-        }
-        : {
-          username: pelanggan.username,
-          attribute: 'Framed-IP-Address',
-          tenantId: null,
-        },
-      orderBy: { id: 'desc' },
-      select: { value: true },
-    }),
-    prismaRadius.radacct.findFirst({
-      where: pelanggan.tenantId
-        ? {
-          username: pelanggan.username,
-          OR: [
-            { tenantId: pelanggan.tenantId },
-            { tenantId: null },
-          ],
-        }
-        : {
-          username: pelanggan.username,
-          tenantId: null,
-        },
-      orderBy: [
-        { acctupdatetime: 'desc' },
-        { acctstarttime: 'desc' },
-      ],
-      select: {
-        framedipaddress: true,
-        nasipaddress: true,
-      },
-    }),
-  ])
+  const technicalInfo = await customerUsageService.getTechnicalInfo({
+    username: pelanggan.username,
+    tenantId: pelanggan.tenantId,
+    packageRouterName: pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name,
+    odpName: pelanggan.odp?.name,
+    odpLocation: pelanggan.odp?.location,
+  })
 
-  const routerByNas = latestRadiusSession?.nasipaddress
-    ? await prisma.mikroTikRouter.findFirst({
-      where: pelanggan.tenantId
-        ? {
-          ipAddress: latestRadiusSession.nasipaddress,
-          OR: [
-            { tenantId: pelanggan.tenantId },
-            { tenantId: null },
-          ],
-        }
-        : { ipAddress: latestRadiusSession.nasipaddress },
-      select: { name: true },
-    })
-    : null
-
-  const staticIpAddress = staticIpReply?.value || latestRadiusSession?.framedipaddress || '-'
-  const staticIpSource = staticIpReply?.value
-    ? 'radreply · Framed-IP-Address'
-    : latestRadiusSession?.framedipaddress
-      ? 'radacct · sesi terakhir'
-      : null
-
-  const serverRouterName = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name || routerByNas?.name || latestRadiusSession?.nasipaddress || '-'
-  const serverRouterSource = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name
-    ? 'Profile PPP · MikroTik Router'
-    : routerByNas?.name
-      ? 'NAS IP · MikroTik Router'
-      : latestRadiusSession?.nasipaddress
-        ? 'radacct · NAS IP'
-        : null
-
-  const odpPortValue = pelanggan.odp?.location
-    ? `${pelanggan.odp.name} · ${pelanggan.odp.location}`
-    : pelanggan.odp?.name || '-'
-  const odpPortSource = pelanggan.odp?.name ? 'Relasi pelanggan · ODP' : null
+  const staticIpAddress = technicalInfo.staticIpAddress || '-'
+  const staticIpSource = technicalInfo.staticIpSource
+  const serverRouterName = technicalInfo.serverRouterName || '-'
+  const serverRouterSource = technicalInfo.serverRouterSource
+  const odpPortValue = technicalInfo.odpPortValue || '-'
+  const odpPortSource = technicalInfo.odpPortSource
 
   const formatRupiah = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {

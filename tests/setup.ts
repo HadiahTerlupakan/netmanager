@@ -183,6 +183,16 @@ vi.mock('@/lib/prisma-mitra', () => ({
   prismaMitraAuth: prismaMock,
 }))
 
+vi.mock('@/lib/prisma-billing', () => ({
+  prismaBilling: prismaMock,
+  prismaBillingAuth: prismaMock,
+}))
+
+vi.mock('@/lib/prisma-radius', () => ({
+  prismaRadius: prismaMock,
+  prismaRadiusAuth: prismaMock,
+}))
+
 vi.mock('@/lib/tenant-context', () => ({
   getTenantIdFromContext: vi.fn().mockResolvedValue({ isSuperAdmin: true })
 }))

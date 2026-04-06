@@ -12,6 +12,53 @@ export class CustomerUsageService {
         this.repository = new CustomerUsageRepository()
     }
 
+    async getTechnicalInfo(input: {
+        username: string
+        tenantId?: string | null
+        packageRouterName?: string | null
+        odpName?: string | null
+        odpLocation?: string | null
+    }) {
+        const [staticIpReply, latestRadiusSession] = await Promise.all([
+            this.repository.getStaticIpReply(input.username, input.tenantId),
+            this.repository.getLatestSessionForTechnicalInfo(input.username, input.tenantId),
+        ])
+
+        const routerByNas = latestRadiusSession?.nasipaddress
+            ? await this.repository.getRouterNameByNasIp(latestRadiusSession.nasipaddress, input.tenantId)
+            : null
+
+        const staticIpAddress = staticIpReply?.value || latestRadiusSession?.framedipaddress || null
+        const staticIpSource = staticIpReply?.value
+            ? 'radreply · Framed-IP-Address'
+            : latestRadiusSession?.framedipaddress
+                ? 'radacct · sesi terakhir'
+                : null
+
+        const serverRouterName = input.packageRouterName || routerByNas?.name || latestRadiusSession?.nasipaddress || null
+        const serverRouterSource = input.packageRouterName
+            ? 'Profile PPP · MikroTik Router'
+            : routerByNas?.name
+                ? 'NAS IP · MikroTik Router'
+                : latestRadiusSession?.nasipaddress
+                    ? 'radacct · NAS IP'
+                    : null
+
+        const odpPortValue = input.odpLocation
+            ? `${input.odpName} · ${input.odpLocation}`
+            : input.odpName || null
+        const odpPortSource = input.odpName ? 'Relasi pelanggan · ODP' : null
+
+        return {
+            staticIpAddress,
+            staticIpSource,
+            serverRouterName,
+            serverRouterSource,
+            odpPortValue,
+            odpPortSource,
+        }
+    }
+
     /**
      * Get customer connection status and usage data
      */
