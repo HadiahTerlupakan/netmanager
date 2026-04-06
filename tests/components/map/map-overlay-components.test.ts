@@ -1,3 +1,4 @@
+import type { DivIcon } from 'leaflet'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
@@ -62,7 +63,7 @@ describe('MapDrawingOverlay', () => {
 describe('MapTempMarkers', () => {
   it('renders every temp marker variant with the expected popup copy and drag handlers', async () => {
     const { MapTempMarkers } = await import('@/components/map/MapTempMarkers')
-    const createTempMarkerIcon = vi.fn((type: string) => ({ type: 'icon', markerType: type }))
+    const createTempMarkerIcon = vi.fn((type: string) => ({ type: 'icon', markerType: type } as unknown as DivIcon))
     const setServerTempPosition = vi.fn()
     const setOdcTempPosition = vi.fn()
     const setOdpTempPosition = vi.fn()
