@@ -213,6 +213,42 @@ beforeEach(() => {
 vi.spyOn(console, 'log').mockImplementation(() => { })
 vi.spyOn(console, 'error').mockImplementation(() => { })
 
+// Mock ioredis globally so modules using BullMQ/ioredis never attempt real network connections in tests
+vi.mock('ioredis', () => {
+  class RedisMock {
+    options: Record<string, unknown>
+
+    constructor(_url?: string, options: Record<string, unknown> = {}) {
+      this.options = options
+    }
+
+    on = vi.fn()
+    connect = vi.fn().mockResolvedValue(undefined)
+    disconnect = vi.fn()
+    quit = vi.fn().mockResolvedValue('OK')
+    duplicate = vi.fn(() => this)
+    get = vi.fn().mockResolvedValue(null)
+    set = vi.fn().mockResolvedValue('OK')
+    setex = vi.fn().mockResolvedValue('OK')
+    del = vi.fn().mockResolvedValue(1)
+    exists = vi.fn().mockResolvedValue(0)
+    keys = vi.fn().mockResolvedValue([])
+    expire = vi.fn().mockResolvedValue(1)
+    incr = vi.fn().mockResolvedValue(1)
+    ttl = vi.fn().mockResolvedValue(-1)
+    hget = vi.fn().mockResolvedValue(null)
+    hset = vi.fn().mockResolvedValue(1)
+    hdel = vi.fn().mockResolvedValue(1)
+    hgetall = vi.fn().mockResolvedValue({})
+    publish = vi.fn().mockResolvedValue(0)
+    subscribe = vi.fn().mockResolvedValue(0)
+  }
+
+  return {
+    default: RedisMock,
+  }
+})
+
 // Mock Redis client globally
 // This prevents errors in CI environments where Redis is not available
 export const redisMock = {
