@@ -3,16 +3,17 @@ import { RadiusRepository } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
 
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (!await hasPermission('radius:read')) {
         return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat sesi RADIUS');
     }
 
     const { searchParams } = req.nextUrl;
     const username = searchParams.get('username') || undefined;
+    const tenantId = ctx.session!.user.tenantId;
 
     const radiusRepo = new RadiusRepository(prisma);
-    const sessions = await radiusRepo.getActiveSessions(username);
+    const sessions = await radiusRepo.getActiveSessions(tenantId, username);
 
     // Convert BigInt to string for JSON serialization
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

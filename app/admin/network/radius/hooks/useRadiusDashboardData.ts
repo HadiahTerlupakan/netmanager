@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 
 import { useSocket, useSocketEvent } from '@/lib/websocket/SocketContext'
 
@@ -34,6 +35,7 @@ export interface RadiusSession {
 
 export function useRadiusDashboardData() {
   const { socket, isConnected } = useSocket()
+  const { data: session } = useSession()
   const [stats, setStats] = useState<RadiusDashboardStats | null>(null)
   const [sessions, setSessions] = useState<RadiusSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,12 +45,14 @@ export function useRadiusDashboardData() {
     if (showRefreshing) setRefreshing(true)
     try {
       const statsRes = await fetch('/api/admin/radius/dashboard/stats')
-      const statsData = await statsRes.json()
+      const statsJson = await statsRes.json()
+      const statsData = statsJson?.data ?? statsJson
       setStats(statsData)
 
       const sessionsRes = await fetch('/api/admin/radius/dashboard/recent-sessions?status=active&limit=50')
-      const sessionsData = await sessionsRes.json()
-      setSessions(sessionsData.sessions || [])
+      const sessionsJson = await sessionsRes.json()
+      const sessionsData = sessionsJson?.data ?? sessionsJson
+      setSessions(sessionsData?.sessions || [])
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
@@ -61,16 +65,22 @@ export function useRadiusDashboardData() {
     void fetchData()
 
     if (socket && isConnected) {
-      socket.emit('join_room', 'admin:radius')
-      console.log('Joined admin:radius room')
+      const tenantId = session?.user?.tenantId
+      if (tenantId) {
+        socket.emit('join_room', `admin:radius:${tenantId}`)
+        console.log(`Joined admin:radius:${tenantId} room`)
+      }
     }
 
     return () => {
       if (socket && isConnected) {
-        socket.emit('leave_room', 'admin:radius')
+        const tenantId = session?.user?.tenantId
+        if (tenantId) {
+          socket.emit('leave_room', `admin:radius:${tenantId}`)
+        }
       }
     }
-  }, [fetchData, socket, isConnected])
+  }, [fetchData, socket, isConnected, session?.user?.tenantId])
 
   const handleStatsUpdate = useCallback((newStats: RadiusDashboardStats) => {
     setStats(newStats)
