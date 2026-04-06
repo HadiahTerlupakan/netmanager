@@ -22,8 +22,8 @@ export default defineConfig({
         '**/index.ts'
       ]
     },
-    testTimeout: 10000,
-    hookTimeout: 10000,
+    testTimeout: process.env.CI ? 20000 : 10000,
+    hookTimeout: process.env.CI ? 30000 : 10000,
   },
   resolve: {
     alias: {

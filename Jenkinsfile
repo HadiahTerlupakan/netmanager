@@ -68,6 +68,8 @@ spec:
                             'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
                             'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
                             'REDIS_URL=redis://localhost:6379',
+                            'NODE_ENV=test',
+                            'ENABLE_INTERNAL_CRON=false',
                             'NEXTAUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
                             'AUTH_SECRET=ci-build-dummy-secret-at-least-32-chars',
                             'NEXTAUTH_URL=http://localhost:3000'
@@ -100,6 +102,8 @@ spec:
                             'DATABASE_URL_BILLING=postgresql://user:pass@localhost:5432/billing',
                             'DATABASE_URL_MITRA=postgresql://user:pass@localhost:5432/mitra',
                             'REDIS_URL=redis://localhost:6379',
+                            'NODE_ENV=test',
+                            'ENABLE_INTERNAL_CRON=false',
                             'NEXTAUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
                             'AUTH_SECRET=ci-test-dummy-secret-at-least-32-chars',
                             'NEXTAUTH_URL=http://localhost:3000'
