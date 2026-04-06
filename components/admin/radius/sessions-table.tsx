@@ -19,9 +19,11 @@ interface Session {
 interface SessionsTableProps {
     sessions: Session[];
     loading?: boolean;
+    onResetConnection?: (username: string) => Promise<void>;
+    resettingUsername?: string | null;
 }
 
-export function SessionsTable({ sessions, loading = false }: SessionsTableProps) {
+export function SessionsTable({ sessions, loading = false, onResetConnection, resettingUsername }: SessionsTableProps) {
     if (loading) {
         return (
             <div className="overflow-x-auto">
@@ -34,6 +36,7 @@ export function SessionsTable({ sessions, loading = false }: SessionsTableProps)
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Started</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uptime</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Usage (↓/↑)</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -45,6 +48,7 @@ export function SessionsTable({ sessions, loading = false }: SessionsTableProps)
                                 <td className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse" /></td>
                                 <td className="px-6 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse" /></td>
                                 <td className="px-6 py-4 text-right"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-auto animate-pulse" /></td>
+                                <td className="px-6 py-4 text-right"><div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-24 ml-auto animate-pulse" /></td>
                             </tr>
                         ))}
                     </tbody>
@@ -72,6 +76,7 @@ export function SessionsTable({ sessions, loading = false }: SessionsTableProps)
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Started</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uptime</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Usage (↓/↑)</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
                     </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:border-gray-700">
@@ -99,6 +104,20 @@ export function SessionsTable({ sessions, loading = false }: SessionsTableProps)
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono text-gray-700 dark:text-gray-300">
                                 {session.downloadMB.toFixed(0)} MB / {session.uploadMB.toFixed(0)} MB
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                                <button
+                                    type="button"
+                                    disabled={!session.username || resettingUsername === session.username}
+                                    onClick={() => {
+                                        if (!session.username || !onResetConnection) return;
+                                        if (!window.confirm(`Reset koneksi untuk ${session.username}?`)) return;
+                                        void onResetConnection(session.username);
+                                    }}
+                                    className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {resettingUsername === session.username ? 'Resetting...' : 'Reset Connection'}
+                                </button>
                             </td>
                         </tr>
                     ))}

@@ -49,6 +49,19 @@ export interface PelangganBasic {
     tenantId: string | null
 }
 
+export interface PelangganWithRouterBasic {
+    id: string
+    username: string
+    tenantId: string | null
+    hargaPaket: {
+        profilePPP: {
+            mikroTikRouter: {
+                id: string
+            } | null
+        } | null
+    } | null
+}
+
 export class NetworkRepository {
     async findActiveTenants(): Promise<ActiveTenant[]> {
         return prisma.tenant.findMany({
@@ -114,6 +127,30 @@ export class NetworkRepository {
                 username: true,
                 status: true,
                 tenantId: true
+            }
+        })
+    }
+
+    async findPelangganWithRouterByUsername(username: string, tenantId: string): Promise<PelangganWithRouterBasic | null> {
+        return prisma.pelanggan.findFirst({
+            where: { username, tenantId },
+            select: {
+                id: true,
+                username: true,
+                tenantId: true,
+                hargaPaket: {
+                    select: {
+                        profilePPP: {
+                            select: {
+                                mikroTikRouter: {
+                                    select: {
+                                        id: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         })
     }

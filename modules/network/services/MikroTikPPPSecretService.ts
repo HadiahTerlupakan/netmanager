@@ -18,6 +18,35 @@ interface PPPSecretData {
   disabled?: boolean;
 }
 
+interface SessionUsageData {
+  downloadBytes: number;
+  uploadBytes: number;
+}
+
+interface PPPActiveSessionRecord extends Record<string, string> {
+  '.id'?: string;
+  'bytes-in'?: string;
+  'bytes-out'?: string;
+}
+
+function parseCounter(value?: string): number {
+  if (!value) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function extractSessionUsage(session?: PPPActiveSessionRecord): SessionUsageData {
+  if (!session) {
+    return { downloadBytes: 0, uploadBytes: 0 };
+  }
+
+  return {
+    // MikroTik: bytes-out = download to customer, bytes-in = upload from customer
+    downloadBytes: parseCounter(session['bytes-out']),
+    uploadBytes: parseCounter(session['bytes-in']),
+  };
+}
+
 interface RouterConfig {
   ipAddress: string;
   apiPort: number;
@@ -249,6 +278,48 @@ export class MikroTikPPPSecretService {
       console.error('[PPPSecretService] disconnectSession error:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       return { success: false, disconnected: 0, error: errorMessage };
+    }
+  }
+
+  /**
+   * Get active PPPoE session usage by username
+   */
+  async getActiveSessionUsage(
+    routerId: string,
+    username: string
+  ): Promise<{ success: boolean; usage?: SessionUsageData; error?: string }> {
+    try {
+      const routerRepo = getMikroTikRouterRepository();
+      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
+      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
+
+      if (!router) {
+        return { success: false, error: 'Router tidak ditemukan' };
+      }
+
+      const conn = await this.connectToRouter({
+        ipAddress: router.ipAddress,
+        apiPort: router.apiPort,
+        apiUsername: router.apiUsernameGenerated || router.apiUsername,
+        apiPassword: router.apiPasswordGenerated || router.apiPassword,
+      });
+
+      try {
+        const sessions = await conn.write('/ppp/active/print', [
+          `?name=${username}`
+        ]) as PPPActiveSessionRecord[];
+
+        const usage = extractSessionUsage(sessions?.[0]);
+        conn.close();
+        return { success: true, usage };
+      } catch (error: unknown) {
+        conn.close();
+        throw error;
+      }
+    } catch (error: unknown) {
+      console.error('[PPPSecretService] getActiveSessionUsage error:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMessage };
     }
   }
 

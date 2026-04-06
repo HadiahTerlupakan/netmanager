@@ -22,6 +22,16 @@ export class RadiusSyncService {
     private pppSecretService: MikroTikPPPSecretService;
     private networkRepo: NetworkRepository;
 
+    private static readonly MB_DIVISOR = 1048576;
+
+    private toMB(bytes: number): number {
+        return Math.round((bytes / RadiusSyncService.MB_DIVISOR) * 100) / 100;
+    }
+
+    private async getPelangganRouterByUsername(username: string, tenantId: string) {
+        return this.networkRepo.findPelangganWithRouterByUsername(username, tenantId);
+    }
+
     constructor(radiusClient?: typeof prismaRadius) {
         this.radiusRepo = new RadiusRepository(undefined, radiusClient);
         this.pppSecretService = new MikroTikPPPSecretService();
@@ -128,6 +138,74 @@ export class RadiusSyncService {
         endDate?: Date
     ) {
         return await this.radiusRepo.getAccountingStats(username, tenantId, startDate, endDate);
+    }
+
+    async disconnectSessionByUsername(username: string, tenantId: string): Promise<{
+        success: boolean;
+        disconnected: number;
+        pelangganId?: string;
+        error?: string;
+    }> {
+        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
+
+        if (!pelanggan) {
+            return {
+                success: false,
+                disconnected: 0,
+                error: 'Pelanggan tidak ditemukan untuk tenant ini',
+            };
+        }
+
+        const routerId = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.id;
+        if (!routerId) {
+            return {
+                success: false,
+                disconnected: 0,
+                pelangganId: pelanggan.id,
+                error: 'Router pelanggan tidak ditemukan',
+            };
+        }
+
+        const result = await this.pppSecretService.disconnectSession(routerId, username);
+
+        return {
+            success: result.success,
+            disconnected: result.disconnected,
+            pelangganId: pelanggan.id,
+            ...(result.error ? { error: result.error } : {}),
+        };
+    }
+
+    async getLiveSessionUsageByUsername(username: string, tenantId: string): Promise<{
+        success: boolean;
+        downloadMB?: number;
+        uploadMB?: number;
+        error?: string;
+    }> {
+        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
+
+        if (!pelanggan) {
+            return { success: false, error: 'Pelanggan tidak ditemukan untuk tenant ini' };
+        }
+
+        const routerId = pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.id;
+        if (!routerId) {
+            return { success: false, error: 'Router pelanggan tidak ditemukan' };
+        }
+
+        const usageResult = await this.pppSecretService.getActiveSessionUsage(routerId, username);
+        if (!usageResult.success || !usageResult.usage) {
+            return {
+                success: false,
+                ...(usageResult.error ? { error: usageResult.error } : {}),
+            };
+        }
+
+        return {
+            success: true,
+            downloadMB: this.toMB(usageResult.usage.downloadBytes),
+            uploadMB: this.toMB(usageResult.usage.uploadBytes),
+        };
     }
 
     /**

@@ -34,6 +34,9 @@ export interface RadiusSession {
 }
 
 export function useRadiusDashboardData() {
+  const [resettingUsername, setResettingUsername] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const { socket, isConnected } = useSocket()
   const { data: session } = useSession()
   const [stats, setStats] = useState<RadiusDashboardStats | null>(null)
@@ -92,6 +95,36 @@ export function useRadiusDashboardData() {
     }
   }, [])
 
+  const resetConnection = useCallback(async (username: string) => {
+    if (!username) return
+    setActionError(null)
+    setActionSuccess(null)
+    setResettingUsername(username)
+
+    try {
+      const response = await fetch('/api/admin/radius/sessions/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+
+      const payload = await response.json()
+      const data = payload?.data ?? payload
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.message || 'Gagal reset koneksi')
+      }
+
+      const disconnected = Number(data?.disconnected ?? 0)
+      setActionSuccess(`Reset koneksi ${username} berhasil (${disconnected} sesi diputus)`)
+      await fetchData(true)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Gagal reset koneksi')
+    } finally {
+      setResettingUsername(null)
+    }
+  }, [fetchData])
+
   useSocketEvent('radius:stats', handleStatsUpdate)
   useSocketEvent('radius:sessions', handleSessionsUpdate)
 
@@ -101,6 +134,12 @@ export function useRadiusDashboardData() {
     loading,
     refreshing,
     isConnected,
+    resettingUsername,
+    actionError,
+    actionSuccess,
+    setActionError,
+    setActionSuccess,
+    resetConnection,
     refresh: fetchData,
   }
 }

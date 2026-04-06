@@ -1,7 +1,43 @@
 import { prisma } from '@/modules/database';
-import { RadiusRepository } from '@/modules/network';
+import { RadiusRepository, RadiusSyncService } from '@/modules/network';
 import { hasPermission } from '@/lib/rbac';
 import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
+
+const ENRICH_CONCURRENCY = 5;
+
+async function enrichUsageFromLiveSessions(
+    sessions: Array<{ username: string | null; isOnline: boolean; downloadMB: number; uploadMB: number }>,
+    tenantId: string,
+): Promise<void> {
+    const syncService = new RadiusSyncService();
+    const indexes = sessions
+        .map((session, index) => ({ session, index }))
+        .filter(({ session }) => {
+            if (!session.isOnline || !session.username) return false;
+            return session.downloadMB <= 0 && session.uploadMB <= 0;
+        });
+
+    for (let i = 0; i < indexes.length; i += ENRICH_CONCURRENCY) {
+        const chunk = indexes.slice(i, i + ENRICH_CONCURRENCY);
+        await Promise.all(
+            chunk.map(async ({ session }) => {
+                try {
+                    const liveUsage = await syncService.getLiveSessionUsageByUsername(session.username!, tenantId);
+                    if (liveUsage.success) {
+                        if (typeof liveUsage.downloadMB === 'number') {
+                            session.downloadMB = liveUsage.downloadMB;
+                        }
+                        if (typeof liveUsage.uploadMB === 'number') {
+                            session.uploadMB = liveUsage.uploadMB;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('[RADIUS] Failed live usage enrichment:', error);
+                }
+            })
+        );
+    }
+}
 
 const radiusRepository = new RadiusRepository(prisma);
 
@@ -21,6 +57,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         limit,
         status: status as 'active' | 'all',
     });
+
+    await enrichUsageFromLiveSessions(sessions, tenantId);
 
     return apiSuccess({
         sessions,

@@ -14,6 +14,12 @@ export default function RadiusDashboard() {
         loading,
         refreshing,
         isConnected,
+        resettingUsername,
+        actionError,
+        actionSuccess,
+        setActionError,
+        setActionSuccess,
+        resetConnection,
         refresh,
     } = useRadiusDashboardData();
 
@@ -82,8 +88,37 @@ export default function RadiusDashboard() {
                         </div>
                     </div>
                 </div>
-                <div className="p-6">
-                    <SessionsTable sessions={sessions} loading={loading} />
+                <div className="p-6 space-y-3">
+                    {actionSuccess && (
+                        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300">
+                            {actionSuccess}
+                            <button
+                                type="button"
+                                onClick={() => setActionSuccess(null)}
+                                className="ml-2 underline"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    )}
+                    {actionError && (
+                        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+                            {actionError}
+                            <button
+                                type="button"
+                                onClick={() => setActionError(null)}
+                                className="ml-2 underline"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    )}
+                    <SessionsTable
+                        sessions={sessions}
+                        loading={loading}
+                        onResetConnection={resetConnection}
+                        resettingUsername={resettingUsername}
+                    />
                 </div>
             </div>
 
