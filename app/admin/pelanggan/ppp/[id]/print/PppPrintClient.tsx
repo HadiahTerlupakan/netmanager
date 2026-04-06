@@ -427,100 +427,101 @@ export default function PppPrintClient() {
 
         {printFormat === 'THERMAL' ? (
           /* THERMAL 58mm Layout */
-          <div className="invoice-paper mx-auto bg-white p-[5mm] pt-[10mm] shadow-2xl print:shadow-none print:p-0" style={{ maxWidth: '58mm', width: '58mm' }}>
-            <div className="text-center mb-4">
-              <h1 className="font-bold text-lg mb-1">{generalSettings?.perusahaan || 'Perusahaan'}</h1>
-              <p className="text-[10px] leading-tight mb-0.5">{generalSettings?.alamat || '-'}</p>
-              <p className="text-[10px] leading-tight">{generalSettings?.nomorHp || '-'}</p>
-              <p className="text-[10px] my-2 border-b border-dashed border-gray-400 pb-2">
-                INV: {invoiceNumber}
+          <div className="invoice-paper mx-auto bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-[5mm] pt-[8mm] shadow-2xl dark:shadow-black/30 print:shadow-none print:p-0" style={{ maxWidth: '58mm', width: '58mm' }}>
+            <div className="text-center mb-3 border-b border-dashed border-gray-300 dark:border-gray-700 pb-3">
+              <h1 className="font-bold text-[15px] leading-tight mb-1 text-gray-900 dark:text-gray-100">{generalSettings?.perusahaan || 'Perusahaan'}</h1>
+              <p className="text-[10px] leading-tight mb-0.5 text-gray-600 dark:text-gray-300">{generalSettings?.alamat || '-'}</p>
+              <p className="text-[10px] leading-tight text-gray-600 dark:text-gray-300">{generalSettings?.nomorHp || '-'}</p>
+              <p className="mt-2 inline-flex items-center rounded-full border border-gray-300 dark:border-gray-600 px-2 py-0.5 text-[9px] font-semibold tracking-wide text-gray-700 dark:text-gray-200">
+                INV {invoiceNumber}
               </p>
             </div>
 
-            <div className="text-[10px] mb-3 space-y-1">
-              <div className="flex justify-between">
-                <span>Pelanggan</span>
-                <span className="font-medium text-right max-w-[50%] truncate">{pelanggan.nama}</span>
+            <div className="mb-3 rounded-md bg-gray-50 dark:bg-gray-800/60 px-2.5 py-2 text-[10px] text-gray-700 dark:text-gray-200">
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-gray-500 dark:text-gray-400">Pelanggan</span>
+                <span className="font-semibold text-right max-w-[55%] truncate">{pelanggan.nama}</span>
               </div>
-              <div className="flex justify-between">
-                <span>ID</span>
-                <span>{pelanggan.idPelanggan}</span>
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-gray-500 dark:text-gray-400">ID</span>
+                <span className="font-medium">{pelanggan.idPelanggan}</span>
               </div>
               {showPPPAccount && (
-                <div className="flex justify-between">
-                  <span>PPP</span>
-                  <span>{pelanggan.username}</span>
+                <div className="flex justify-between gap-2 py-0.5">
+                  <span className="text-gray-500 dark:text-gray-400">PPP</span>
+                  <span className="font-mono text-right max-w-[55%] truncate">{pelanggan.username}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span>Issued</span>
+              <div className="my-1 border-t border-dashed border-gray-300 dark:border-gray-700" />
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-gray-500 dark:text-gray-400">Issued</span>
                 <span>{formatDateShort((currentTagihan as ExtendedTagihan).issueDate || currentTagihan.createdAt as string)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Tempo</span>
+              <div className="flex justify-between gap-2 py-0.5">
+                <span className="text-gray-500 dark:text-gray-400">Tempo</span>
                 <span>{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as ExtendedTagihan).dueDate as string)}</span>
               </div>
-              <div className="flex justify-between font-bold pt-1">
+              <div className="flex justify-between gap-2 pt-1 font-bold">
                 <span>Status</span>
                 <span className="uppercase">{currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID' ? 'PAID' : 'UNPAID'}</span>
               </div>
             </div>
 
-            <div className="border-t border-dashed border-gray-400 py-2 my-2">
-              <div className="text-[10px] font-bold mb-1">Items:</div>
+            <div className="border-t border-b border-dashed border-gray-300 dark:border-gray-700 py-2 my-2">
+              <div className="text-[9px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Items</div>
               {pelanggan.hargaPaket && (
-                <div className="text-[10px] mb-1.5 flex justify-between items-start">
+                <div className="text-[10px] mb-1.5 flex justify-between items-start gap-2">
                   <div className="max-w-[65%]">
-                    <div>{pelanggan.hargaPaket.name}</div>
-                    <div className="text-[9px] text-gray-500">{getPeriodeAktif()}</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100 leading-tight">{pelanggan.hargaPaket.name}</div>
+                    <div className="text-[9px] text-gray-500 dark:text-gray-400">{getPeriodeAktif()}</div>
                   </div>
-                  <div>{formatRupiah(invoiceCalculations?.hargaPaket || 0)}</div>
+                  <div className="font-medium text-right">{formatRupiah(invoiceCalculations?.hargaPaket || 0)}</div>
                 </div>
               )}
 
               {invoiceCalculations?.biayaInstalasi ? (
-                <div className="text-[10px] mb-1.5 flex justify-between">
-                  <span>Instalasi</span>
+                <div className="text-[10px] mb-1 flex justify-between gap-2">
+                  <span className="text-gray-600 dark:text-gray-300">Instalasi</span>
                   <span>{formatRupiah(invoiceCalculations.biayaInstalasi)}</span>
                 </div>
               ) : null}
             </div>
 
-            <div className="border-t border-dashed border-gray-400 py-2 my-2 space-y-1">
-              <div className="flex justify-between text-[10px]">
+            <div className="rounded-md bg-indigo-50/70 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 py-2 px-2.5 my-3 space-y-1">
+              <div className="flex justify-between text-[10px] text-gray-700 dark:text-gray-200">
                 <span>Subtotal</span>
                 <span>{formatRupiah(invoiceCalculations?.subtotal || 0)}</span>
               </div>
               {(invoiceCalculations?.diskon || 0) > 0 && (
-                <div className="flex justify-between text-[10px]">
+                <div className="flex justify-between text-[10px] text-green-700 dark:text-green-300">
                   <span>Diskon</span>
                   <span>- {formatRupiah(invoiceCalculations?.diskon || 0)}</span>
                 </div>
               )}
               {(invoiceCalculations?.ppn || 0) > 0 && (
-                <div className="flex justify-between text-[10px]">
+                <div className="flex justify-between text-[10px] text-gray-700 dark:text-gray-200">
                   <span>PPN/Tax</span>
                   <span>{formatRupiah(invoiceCalculations?.ppn || 0)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-[12px] pt-1 border-t border-gray-300 mt-1">
-                <span>Total</span>
-                <span>{formatRupiah(invoiceCalculations?.total || 0)}</span>
+              <div className="flex justify-between items-baseline border-t border-indigo-200 dark:border-indigo-400/20 pt-1.5 mt-1">
+                <span className="text-[10px] font-bold uppercase tracking-wide">Total</span>
+                <span className="text-[13px] font-bold text-indigo-700 dark:text-indigo-300">{formatRupiah(invoiceCalculations?.total || 0)}</span>
               </div>
             </div>
 
-            <div className="text-center text-[10px] border-t border-dashed border-gray-400 pt-3 mt-4 mb-2">
-              <p>Terima Kasih</p>
+            <div className="text-center text-[10px] border-t border-dashed border-gray-300 dark:border-gray-700 pt-3 mt-3 mb-2 text-gray-600 dark:text-gray-300">
+              <p className="font-medium text-gray-800 dark:text-gray-100">Terima Kasih</p>
               <p>{generalSettings?.perusahaan}</p>
             </div>
           </div>
         ) : (
           /* A4 Invoice Container */
-          <div className="invoice-paper max-w-[210mm] mx-auto bg-white p-[20mm] pt-[30mm] shadow-2xl">
+          <div className="invoice-paper max-w-[210mm] mx-auto bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-[20mm] pt-[28mm] shadow-2xl dark:shadow-black/30">
 
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-gray-200 print:border-gray-800 pb-8 mb-8">
-              <div className="w-[60%]">
+            <div className="flex justify-between items-start gap-10 border-b border-gray-200 dark:border-gray-700 print:border-gray-800 pb-8 mb-8">
+              <div className="w-[58%]">
                 {logoSettings?.logoInvoice ? (
                   <div className="relative h-12 w-full mb-6">
                     <Image
@@ -532,41 +533,41 @@ export default function PppPrintClient() {
                     />
                   </div>
                 ) : (
-                  <div className="h-12 w-12 bg-indigo-50 rounded flex items-center justify-center mb-6 text-indigo-600 font-bold text-xl">
+                  <div className="h-12 w-12 bg-indigo-50 dark:bg-indigo-500/10 rounded flex items-center justify-center mb-6 text-indigo-600 dark:text-indigo-300 font-bold text-xl">
                     {generalSettings?.perusahaan?.charAt(0) || 'C'}
                   </div>
                 )}
-                <div className="text-sm text-gray-500 space-y-1">
-                  <p className="font-semibold text-gray-900 text-lg mb-1">{generalSettings?.perusahaan}</p>
+                <div className="text-sm text-gray-500 dark:text-gray-300 space-y-1">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-1">{generalSettings?.perusahaan}</p>
                   <p>{generalSettings?.alamat}</p>
                   <p>{generalSettings?.nomorHp}</p>
                 </div>
               </div>
 
-              <div className="text-right w-[40%]">
-                <h2 className="text-3xl font-light text-gray-900 tracking-tight mb-3">INVOICE</h2>
+              <div className="text-right w-[42%]">
+                <h2 className="text-3xl font-light text-gray-900 dark:text-gray-100 tracking-tight mb-3">INVOICE</h2>
 
-                <div className="flex justify-end mb-6">
-                  <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID'
-                    ? 'bg-green-50 text-green-700 ring-green-600/20'
-                    : 'bg-red-50 text-red-700 ring-red-600/10'
+                <div className="flex justify-end mb-5">
+                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide ring-1 ring-inset ${currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID'
+                    ? 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/30'
+                    : 'bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30'
                     }`}>
                     {currentTagihan.status === 'LUNAS' || (currentTagihan as ExtendedTagihan).status === 'PAID' ? 'PAID' : 'UNPAID'}
                   </span>
                 </div>
 
-                <dl className="space-y-1.5 text-sm">
-                  <div className="flex justify-end gap-8">
-                    <dt className="text-gray-500 min-w-[80px]">Invoice #</dt>
-                    <dd className="font-mono font-medium text-gray-900">{invoiceNumber}</dd>
+                <dl className="space-y-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 px-4 py-3">
+                  <div className="flex justify-between gap-6">
+                    <dt className="text-gray-500 dark:text-gray-400 min-w-[80px] text-left">Invoice #</dt>
+                    <dd className="font-mono font-medium text-gray-900 dark:text-gray-100 text-right">{invoiceNumber}</dd>
                   </div>
-                  <div className="flex justify-end gap-8">
-                    <dt className="text-gray-500 min-w-[80px]">Issued</dt>
-                    <dd className="font-medium text-gray-900">{formatDateShort((currentTagihan as ExtendedTagihan).issueDate || currentTagihan.createdAt as string)}</dd>
+                  <div className="flex justify-between gap-6">
+                    <dt className="text-gray-500 dark:text-gray-400 min-w-[80px] text-left">Issued</dt>
+                    <dd className="font-medium text-gray-900 dark:text-gray-100 text-right">{formatDateShort((currentTagihan as ExtendedTagihan).issueDate || currentTagihan.createdAt as string)}</dd>
                   </div>
-                  <div className="flex justify-end gap-8">
-                    <dt className="text-gray-500 min-w-[80px]">Due Date</dt>
-                    <dd className="font-medium text-gray-900">{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as ExtendedTagihan).dueDate as string)}</dd>
+                  <div className="flex justify-between gap-6">
+                    <dt className="text-gray-500 dark:text-gray-400 min-w-[80px] text-left">Due Date</dt>
+                    <dd className="font-medium text-gray-900 dark:text-gray-100 text-right">{formatDateShort(currentTagihan.jatuhTempo || (currentTagihan as ExtendedTagihan).dueDate as string)}</dd>
                   </div>
                 </dl>
               </div>
@@ -574,48 +575,48 @@ export default function PppPrintClient() {
 
             {/* Bill To */}
             <div className="mb-12">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Bill To</h3>
-              <div className="invoice-bill-to bg-gray-50 rounded-lg p-6 border border-gray-100/50">
-                <div className="grid grid-cols-2 gap-8">
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-3">Bill To</h3>
+              <div className="invoice-bill-to bg-gray-50 dark:bg-gray-800/70 rounded-xl p-6 border border-gray-100/50 dark:border-gray-700/70 shadow-sm dark:shadow-black/10">
+                <div className="grid grid-cols-2 gap-10">
                   <div>
-                    <p className="text-base font-bold text-gray-900 mb-0.5">{pelanggan.nama}</p>
-                    <p className="text-xs text-gray-400 mb-3">ID: {pelanggan.idPelanggan}</p>
-                    <div className="text-sm text-gray-600 leading-relaxed">
-                      {getAlamatLengkap() || <p className="text-gray-400 italic">No address provided</p>}
+                    <p className="text-base font-bold text-gray-900 dark:text-gray-100 mb-0.5">{pelanggan.nama}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">ID: {pelanggan.idPelanggan}</p>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                      {getAlamatLengkap() || <p className="text-gray-400 dark:text-gray-500 italic">No address provided</p>}
                     </div>
                   </div>
                   <div className="space-y-4 text-right">
                     {(pelanggan.noTelp || pelanggan.email) && (
                       <div className="space-y-1">
-                        {pelanggan.noTelp && <p className="text-sm text-gray-900">{pelanggan.noTelp}</p>}
-                        {pelanggan.email && <p className="text-sm text-gray-600">{pelanggan.email}</p>}
+                        {pelanggan.noTelp && <p className="text-sm text-gray-900 dark:text-gray-100">{pelanggan.noTelp}</p>}
+                        {pelanggan.email && <p className="text-sm text-gray-600 dark:text-gray-300">{pelanggan.email}</p>}
                       </div>
                     )}
                     {showPPPAccount && (
-                      <div className="inline-block text-left bg-white px-3 py-2 rounded border border-gray-200 shadow-sm max-w-[320px]">
-                        <p className="text-[10px] text-gray-400 uppercase font-medium mb-0.5">PPP Account</p>
-                        <p className="text-sm font-mono text-gray-700">{pelanggan.username}</p>
+                      <div className="inline-block w-full max-w-[320px] text-left bg-white dark:bg-gray-900 px-3.5 py-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-black/20 break-words">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-medium tracking-[0.18em] mb-1">PPP Account</p>
+                        <p className="text-sm font-mono text-gray-700 dark:text-gray-100 leading-tight break-all">{pelanggan.username}</p>
 
-                        <div className="mt-2 space-y-1.5 text-xs">
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase">IP Address (Static)</p>
-                            <p className="font-mono text-gray-700">{pelanggan.technicalInfo?.staticIpAddress || '-'}</p>
+                        <div className="mt-3 space-y-2.5 text-xs">
+                          <div className="border-t border-gray-100 dark:border-gray-800 pt-2 first:border-t-0 first:pt-0">
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">IP Address (Static)</p>
+                            <p className="font-mono text-gray-700 dark:text-gray-100 leading-tight break-all">{pelanggan.technicalInfo?.staticIpAddress || '-'}</p>
                             {pelanggan.technicalInfo?.staticIpSource ? (
-                              <p className="text-[10px] text-gray-400">Sumber: {pelanggan.technicalInfo.staticIpSource}</p>
+                              <p className="mt-0.5 text-[10px] leading-tight text-gray-400 dark:text-gray-500 break-words">Sumber: {pelanggan.technicalInfo.staticIpSource}</p>
                             ) : null}
                           </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase">Server / Router</p>
-                            <p className="text-gray-700">{pelanggan.technicalInfo?.serverRouterName || '-'}</p>
+                          <div className="border-t border-gray-100 dark:border-gray-800 pt-2">
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Server / Router</p>
+                            <p className="text-gray-700 dark:text-gray-100 leading-tight break-words">{pelanggan.technicalInfo?.serverRouterName || '-'}</p>
                             {pelanggan.technicalInfo?.serverRouterSource ? (
-                              <p className="text-[10px] text-gray-400">Sumber: {pelanggan.technicalInfo.serverRouterSource}</p>
+                              <p className="mt-0.5 text-[10px] leading-tight text-gray-400 dark:text-gray-500 break-words">Sumber: {pelanggan.technicalInfo.serverRouterSource}</p>
                             ) : null}
                           </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase">ODP / Port</p>
-                            <p className="text-gray-700">{pelanggan.technicalInfo?.odpPortValue || '-'}</p>
+                          <div className="border-t border-gray-100 dark:border-gray-800 pt-2">
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">ODP / Port</p>
+                            <p className="text-gray-700 dark:text-gray-100 leading-tight break-words">{pelanggan.technicalInfo?.odpPortValue || '-'}</p>
                             {pelanggan.technicalInfo?.odpPortSource ? (
-                              <p className="text-[10px] text-gray-400">Sumber: {pelanggan.technicalInfo.odpPortSource}</p>
+                              <p className="mt-0.5 text-[10px] leading-tight text-gray-400 dark:text-gray-500 break-words">Sumber: {pelanggan.technicalInfo.odpPortSource}</p>
                             ) : null}
                           </div>
                         </div>
@@ -627,27 +628,27 @@ export default function PppPrintClient() {
             </div>
 
             {/* Services Table */}
-            <div className="mb-10">
-              <table className="min-w-full divide-y divide-gray-200 print:divide-gray-800 border-t border-gray-200 print:border-gray-800">
+            <div className="mb-12">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 print:divide-gray-800 border-t border-gray-200 dark:border-gray-700 print:border-gray-800">
                 <thead>
-                  <tr className="bg-gray-50/50 print:bg-transparent">
-                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-xs font-semibold text-gray-900 sm:pl-0">Description</th>
-                    <th scope="col" className="px-3 py-3.5 text-center text-xs font-semibold text-gray-900">Period</th>
-                    <th scope="col" className="px-3 py-3.5 text-right text-xs font-semibold text-gray-900">Amount</th>
+                  <tr className="bg-gray-50/70 dark:bg-gray-800/50 print:bg-transparent">
+                    <th scope="col" className="py-4 pl-4 pr-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-900 dark:text-gray-100 sm:pl-0">Description</th>
+                    <th scope="col" className="px-3 py-4 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-900 dark:text-gray-100">Period</th>
+                    <th scope="col" className="px-3 py-4 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-900 dark:text-gray-100">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 print:divide-gray-400 bg-white">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800 print:divide-gray-400 bg-white dark:bg-gray-900">
                   {/* Main Package */}
                   {pelanggan.hargaPaket && (
                     <tr>
-                      <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
-                        <div className="font-medium text-gray-900">{pelanggan.hargaPaket.name}</div>
-                        <div className="text-gray-500 mt-0.5 text-xs">{generalSettings?.deskripsiInvoice || 'Internet Service Subscription'}</div>
+                      <td className="py-4 pl-4 pr-3 text-sm sm:pl-0 align-top">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">{pelanggan.hargaPaket.name}</div>
+                        <div className="text-gray-500 dark:text-gray-400 mt-1 text-xs leading-relaxed">{generalSettings?.deskripsiInvoice || 'Internet Service Subscription'}</div>
                       </td>
-                      <td className="px-3 py-4 text-sm text-gray-500 text-center">
+                      <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center align-top">
                         {getPeriodeAktif()}
                       </td>
-                      <td className="px-3 py-4 text-sm font-medium text-right text-gray-900 tabular-nums">
+                      <td className="px-3 py-4 text-sm font-semibold text-right text-gray-900 dark:text-gray-100 tabular-nums align-top">
                         {formatRupiah(invoiceCalculations?.hargaPaket || 0)}
                       </td>
                     </tr>
@@ -657,10 +658,10 @@ export default function PppPrintClient() {
                   {invoiceCalculations?.biayaInstalasi ? (
                     <tr>
                       <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
-                        <div className="font-medium text-gray-900">Installation Fee</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">Installation Fee</div>
                       </td>
-                      <td className="px-3 py-4 text-sm text-gray-500 text-center">-</td>
-                      <td className="px-3 py-4 text-sm text-right text-gray-900 tabular-nums">
+                      <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">-</td>
+                      <td className="px-3 py-4 text-sm text-right text-gray-900 dark:text-gray-100 tabular-nums">
                         {formatRupiah(invoiceCalculations.biayaInstalasi)}
                       </td>
                     </tr>
@@ -669,10 +670,10 @@ export default function PppPrintClient() {
                   {invoiceCalculations?.biayaSewa ? (
                     <tr>
                       <td className="py-4 pl-4 pr-3 text-sm sm:pl-0">
-                        <div className="font-medium text-gray-900">Device Rental</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">Device Rental</div>
                       </td>
-                      <td className="px-3 py-4 text-sm text-gray-500 text-center">-</td>
-                      <td className="px-3 py-4 text-sm text-right text-gray-900 tabular-nums">
+                      <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">-</td>
+                      <td className="px-3 py-4 text-sm text-right text-gray-900 dark:text-gray-100 tabular-nums">
                         {formatRupiah(invoiceCalculations.biayaSewa)}
                       </td>
                     </tr>
@@ -686,51 +687,51 @@ export default function PppPrintClient() {
             {/* Totals Box */}
             {invoiceCalculations && (
               <div className="flex justify-end mb-12">
-                <div className="w-1/2 sm:w-[40%] space-y-3">
-                  <div className="flex justify-between text-sm text-gray-600">
+                <div className="w-1/2 sm:w-[42%] space-y-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50 p-5 shadow-sm dark:shadow-black/10">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
                     <span>Subtotal</span>
-                    <span className="font-medium text-gray-900">{formatRupiah(invoiceCalculations.subtotal)}</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{formatRupiah(invoiceCalculations.subtotal)}</span>
                   </div>
                   {invoiceCalculations.diskon > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
+                    <div className="flex justify-between text-sm text-green-600 dark:text-green-300">
                       <span>Discount</span>
                       <span className="font-medium">- {formatRupiah(invoiceCalculations.diskon)}</span>
                     </div>
                   )}
                   {invoiceCalculations.ppn > 0 && (
-                    <div className="flex justify-between text-sm text-gray-600">
+                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300">
                       <span>VAT ({pelanggan.usePPN ? (pelanggan.hargaPaket?.ppnPercentage || 11) : 0}%)</span>
-                      <span className="font-medium text-gray-900">{formatRupiah(invoiceCalculations.ppn)}</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{formatRupiah(invoiceCalculations.ppn)}</span>
                     </div>
                   )}
-                  <div className="border-t border-gray-200 pt-3 flex justify-between items-baseline">
-                    <span className="font-bold text-gray-900">Total</span>
-                    <span className="text-2xl font-bold text-indigo-600">{formatRupiah(invoiceCalculations.total)}</span>
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-baseline">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">Total</span>
+                    <span className="text-[28px] leading-none font-bold text-indigo-600 dark:text-indigo-400">{formatRupiah(invoiceCalculations.total)}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Footer Areas */}
-            <div className="grid grid-cols-2 gap-12 pt-8 border-t border-gray-100">
+            <div className="grid grid-cols-2 gap-12 pt-8 border-t border-gray-100 dark:border-gray-800">
               <div>
-                <h4 className="font-semibold text-gray-900 text-sm mb-2">Payment Info</h4>
-                <div className="text-xs text-gray-500 leading-relaxed">
-                  <p>Make all checks payable to <span className="font-medium text-gray-900">{generalSettings?.perusahaan || 'Perusahaan'}</span></p>
-                  <p className="mt-1">For bank transfer, please use the Invoice Number as reference.</p>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-2">Payment Info</h4>
+                <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed space-y-1">
+                  <p>Make all checks payable to <span className="font-medium text-gray-900 dark:text-gray-100">{generalSettings?.perusahaan || 'Perusahaan'}</span></p>
+                  <p>For bank transfer, please use the Invoice Number as reference.</p>
                 </div>
               </div>
               <div className="text-right">
-                <h4 className="font-semibold text-gray-900 text-sm mb-2">Terms & Conditions</h4>
-                <p className="text-xs text-gray-500 leading-relaxed">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-2">Terms & Conditions</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                   Service will be checked automatically upon payment.
                   Please contact support for billing discrepancies.
                 </p>
               </div>
             </div>
 
-            <div className="mt-16 text-center">
-              <p className="text-xs text-gray-400">Thank you for your business!</p>
+            <div className="mt-14 text-center">
+              <p className="text-xs uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">Thank you for your business!</p>
             </div>
 
           </div>

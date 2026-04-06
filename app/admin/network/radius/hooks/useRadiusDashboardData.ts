@@ -214,6 +214,7 @@ export function useRadiusDashboardData() {
   const closeHistoryModal = useCallback(() => {
     setHistoryModalOpen(false)
     setHistoryError(null)
+    setViewingHistoryUsername(null)
   }, [])
 
   const resetConnection = useCallback(async (username: string) => {
