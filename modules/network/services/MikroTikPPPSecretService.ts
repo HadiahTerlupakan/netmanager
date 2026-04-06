@@ -25,8 +25,17 @@ interface SessionUsageData {
 
 interface PPPActiveSessionRecord extends Record<string, string> {
   '.id'?: string;
+  name?: string;
   'bytes-in'?: string;
   'bytes-out'?: string;
+  'rx-byte'?: string;
+  'tx-byte'?: string;
+}
+
+function pickCounter(session: PPPActiveSessionRecord, primary: keyof PPPActiveSessionRecord, fallback: keyof PPPActiveSessionRecord): number {
+  const primaryValue = parseCounter(session[primary]);
+  if (primaryValue > 0) return primaryValue;
+  return parseCounter(session[fallback]);
 }
 
 function parseCounter(value?: string): number {
@@ -41,9 +50,9 @@ function extractSessionUsage(session?: PPPActiveSessionRecord): SessionUsageData
   }
 
   return {
-    // MikroTik: bytes-out = download to customer, bytes-in = upload from customer
-    downloadBytes: parseCounter(session['bytes-out']),
-    uploadBytes: parseCounter(session['bytes-in']),
+    // Prefer bytes-out/bytes-in, fallback to tx-byte/rx-byte if router payload differs
+    downloadBytes: pickCounter(session, 'bytes-out', 'tx-byte'),
+    uploadBytes: pickCounter(session, 'bytes-in', 'rx-byte'),
   };
 }
 
@@ -309,7 +318,20 @@ export class MikroTikPPPSecretService {
           `?name=${username}`
         ]) as PPPActiveSessionRecord[];
 
-        const usage = extractSessionUsage(sessions?.[0]);
+        let usage = extractSessionUsage(sessions?.[0]);
+
+        if (usage.downloadBytes <= 0 && usage.uploadBytes <= 0) {
+          const interfaceName = sessions?.[0]?.name;
+          if (interfaceName) {
+            const traffic = await conn.write('/interface/monitor-traffic', [
+              `=interface=${interfaceName}`,
+              '=once='
+            ]) as PPPActiveSessionRecord[];
+
+            usage = extractSessionUsage(traffic?.[0]);
+          }
+        }
+
         conn.close();
         return { success: true, usage };
       } catch (error: unknown) {

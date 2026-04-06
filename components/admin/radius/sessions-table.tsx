@@ -4,6 +4,18 @@ import { SessionStatusBadge } from './session-status-badge';
 import { formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
+function formatUsage(valueMB: number): string {
+    if (!Number.isFinite(valueMB) || valueMB <= 0) return '0 MB';
+    if (valueMB < 1) {
+        const kb = valueMB * 1024;
+        return `${kb.toFixed(0)} KB`;
+    }
+    if (valueMB < 10) {
+        return `${valueMB.toFixed(2)} MB`;
+    }
+    return `${valueMB.toFixed(0)} MB`;
+}
+
 interface Session {
     radAcctId: string;
     username: string | null;
@@ -103,7 +115,7 @@ export function SessionsTable({ sessions, loading = false, onResetConnection, re
                                 {session.uptimeHours.toFixed(2)} hrs
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono text-gray-700 dark:text-gray-300">
-                                {session.downloadMB.toFixed(0)} MB / {session.uploadMB.toFixed(0)} MB
+                                {formatUsage(session.downloadMB)} / {formatUsage(session.uploadMB)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                 <button

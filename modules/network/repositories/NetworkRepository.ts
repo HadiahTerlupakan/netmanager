@@ -133,7 +133,13 @@ export class NetworkRepository {
 
     async findPelangganWithRouterByUsername(username: string, tenantId: string): Promise<PelangganWithRouterBasic | null> {
         return prisma.pelanggan.findFirst({
-            where: { username, tenantId },
+            where: {
+                username,
+                OR: [
+                    { tenantId },
+                    { tenantId: null }
+                ]
+            },
             select: {
                 id: true,
                 username: true,
