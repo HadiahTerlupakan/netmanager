@@ -11,6 +11,9 @@ import type {
     IRadiusSession,
     IDashboardStats,
     IRadiusSessionView,
+    IRadiusSessionHistoryOptions,
+    IRadiusSessionHistoryResult,
+    IRadiusSessionTotals,
 } from './IRadiusRepository';
 import { parseIpRange } from '@/lib/utils/ip-helpers';
 
@@ -1008,7 +1011,7 @@ export class RadiusRepository implements IRadiusRepository {
     async getTotalUsageByUsernames(
         tenantId: string,
         usernames: string[],
-    ): Promise<Record<string, { downloadMB: number; uploadMB: number }>> {
+    ): Promise<Record<string, IRadiusSessionTotals>> {
         const uniqueUsernames = Array.from(new Set(usernames.map((username) => username.trim()).filter(Boolean)));
         if (uniqueUsernames.length === 0) {
             return {};
@@ -1026,7 +1029,7 @@ export class RadiusRepository implements IRadiusRepository {
             },
         });
 
-        const result: Record<string, { downloadMB: number; uploadMB: number }> = {};
+        const result: Record<string, IRadiusSessionTotals> = {};
         for (const row of grouped) {
             const username = row.username;
             if (!username) continue;
@@ -1041,6 +1044,97 @@ export class RadiusRepository implements IRadiusRepository {
         }
 
         return result;
+    }
+
+    async getUserSessionHistory(
+        tenantId: string,
+        username: string,
+        options: IRadiusSessionHistoryOptions = {},
+    ): Promise<IRadiusSessionHistoryResult> {
+        const { page = 1, limit = 20, startDate, endDate } = options;
+        const skip = (page - 1) * limit;
+
+        const where = {
+            tenantId,
+            username,
+            ...(startDate || endDate
+                ? {
+                    acctstarttime: {
+                        ...(startDate ? { gte: startDate } : {}),
+                        ...(endDate ? { lte: endDate } : {}),
+                    },
+                }
+                : {}),
+        };
+
+        const [total, sessions, summaryRaw] = await Promise.all([
+            this.radiusClient.radacct.count({ where }),
+            this.radiusClient.radacct.findMany({
+                where,
+                orderBy: { acctstarttime: 'desc' },
+                skip,
+                take: limit,
+            }),
+            this.radiusClient.radacct.aggregate({
+                where,
+                _count: { _all: true },
+                _sum: {
+                    acctsessiontime: true,
+                    acctinputoctets: true,
+                    acctoutputoctets: true,
+                },
+            }),
+        ]);
+
+        const items = sessions.map((session: any /* eslint-disable-line @typescript-eslint/no-explicit-any */) => {
+            const inputOctets = session.acctinputoctets ? BigInt(session.acctinputoctets) : BigInt(0);
+            const outputOctets = session.acctoutputoctets ? BigInt(session.acctoutputoctets) : BigInt(0);
+            const totalOctets = inputOctets + outputOctets;
+
+            const uploadMB = Math.round((Number(inputOctets) / 1048576) * 100) / 100;
+            const downloadMB = Math.round((Number(outputOctets) / 1048576) * 100) / 100;
+            const totalMB = Math.round((Number(totalOctets) / 1048576) * 100) / 100;
+
+            return {
+                radAcctId: session.radacctid.toString(),
+                username: session.username,
+                nasIpAddress: session.nasipaddress,
+                framedIpAddress: session.framedipaddress,
+                acctStartTime: session.acctstarttime?.toISOString() || null,
+                acctStopTime: session.acctstoptime?.toISOString() || null,
+                acctSessionTime: session.acctsessiontime?.toString() || '0',
+                acctInputOctets: inputOctets.toString(),
+                acctOutputOctets: outputOctets.toString(),
+                totalOctets: totalOctets.toString(),
+                uploadMB,
+                downloadMB,
+                totalMB,
+                isOnline: session.acctstoptime === null,
+            };
+        });
+
+        const totalInputOctets = summaryRaw._sum.acctinputoctets ? BigInt(summaryRaw._sum.acctinputoctets) : BigInt(0);
+        const totalOutputOctets = summaryRaw._sum.acctoutputoctets ? BigInt(summaryRaw._sum.acctoutputoctets) : BigInt(0);
+        const totalSessionTime = summaryRaw._sum.acctsessiontime ? BigInt(summaryRaw._sum.acctsessiontime) : BigInt(0);
+        const totalOctets = totalInputOctets + totalOutputOctets;
+
+        const summary = {
+            totalSessions: summaryRaw._count._all,
+            activeSessions: items.filter((item) => item.isOnline).length,
+            totalSessionTime: totalSessionTime.toString(),
+            totalInputOctets: totalInputOctets.toString(),
+            totalOutputOctets: totalOutputOctets.toString(),
+            totalOctets: totalOctets.toString(),
+            totalInputMB: Math.round((Number(totalInputOctets) / 1048576) * 100) / 100,
+            totalOutputMB: Math.round((Number(totalOutputOctets) / 1048576) * 100) / 100,
+            totalMB: Math.round((Number(totalOctets) / 1048576) * 100) / 100,
+        };
+
+        return {
+            sessions: items,
+            total,
+            summary,
+        };
     }
 
     /**

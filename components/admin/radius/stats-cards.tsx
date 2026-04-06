@@ -13,6 +13,22 @@ interface StatsCardsProps {
     loading?: boolean;
 }
 
+function formatTrafficFromGB(valueGB: number): string {
+    if (!Number.isFinite(valueGB) || valueGB <= 0) return '0 B';
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let value = valueGB * 1024 * 1024 * 1024;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex++;
+    }
+
+    const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+    return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+}
+
 export function StatsCards({
     totalUsers,
     onlineUsers,
@@ -77,13 +93,13 @@ export function StatsCards({
                     <div>
                         <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Traffic Today</p>
                         <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                            {trafficToday.downloadGB.toFixed(1)} GB
+                            {formatTrafficFromGB(trafficToday.downloadGB)}
                         </p>
                     </div>
                     <HiOutlineCircleStack className="h-8 w-8 text-gray-400" />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                    ↓ {trafficToday.downloadGB.toFixed(1)} GB | ↑ {trafficToday.uploadGB.toFixed(1)} GB
+                    ↓ {formatTrafficFromGB(trafficToday.downloadGB)} | ↑ {formatTrafficFromGB(trafficToday.uploadGB)}
                 </p>
             </div>
         </div>

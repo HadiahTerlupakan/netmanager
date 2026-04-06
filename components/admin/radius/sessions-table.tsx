@@ -5,15 +5,24 @@ import { formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
 function formatUsage(valueMB: number): string {
-    if (!Number.isFinite(valueMB) || valueMB <= 0) return '0 MB';
-    if (valueMB < 1) {
-        const kb = valueMB * 1024;
-        return `${kb.toFixed(0)} KB`;
+    if (!Number.isFinite(valueMB) || valueMB <= 0) return '0 B';
+
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let value = valueMB;
+    let unitIndex = 1;
+
+    if (value < 1) {
+        value *= 1024;
+        unitIndex = 0;
     }
-    if (valueMB < 10) {
-        return `${valueMB.toFixed(2)} MB`;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex++;
     }
-    return `${valueMB.toFixed(0)} MB`;
+
+    const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+    return `${value.toFixed(decimals)} ${units[unitIndex]}`;
 }
 
 interface Session {
@@ -32,10 +41,19 @@ interface SessionsTableProps {
     sessions: Session[];
     loading?: boolean;
     onResetConnection?: (username: string) => Promise<void>;
+    onViewHistory?: (username: string) => Promise<void>;
     resettingUsername?: string | null;
+    viewingHistoryUsername?: string | null;
 }
 
-export function SessionsTable({ sessions, loading = false, onResetConnection, resettingUsername }: SessionsTableProps) {
+export function SessionsTable({
+    sessions,
+    loading = false,
+    onResetConnection,
+    onViewHistory,
+    resettingUsername,
+    viewingHistoryUsername,
+}: SessionsTableProps) {
     if (loading) {
         return (
             <div className="overflow-x-auto">
@@ -118,18 +136,31 @@ export function SessionsTable({ sessions, loading = false, onResetConnection, re
                                 {formatUsage(session.downloadMB)} / {formatUsage(session.uploadMB)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right">
-                                <button
-                                    type="button"
-                                    disabled={!session.username || resettingUsername === session.username}
-                                    onClick={() => {
-                                        if (!session.username || !onResetConnection) return;
-                                        if (!window.confirm(`Reset koneksi untuk ${session.username}?`)) return;
-                                        void onResetConnection(session.username);
-                                    }}
-                                    className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    {resettingUsername === session.username ? 'Resetting...' : 'Reset Connection'}
-                                </button>
+                                <div className="inline-flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={!session.username || viewingHistoryUsername === session.username}
+                                        onClick={() => {
+                                            if (!session.username || !onViewHistory) return;
+                                            void onViewHistory(session.username);
+                                        }}
+                                        className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {viewingHistoryUsername === session.username ? 'Loading...' : 'History'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!session.username || resettingUsername === session.username}
+                                        onClick={() => {
+                                            if (!session.username || !onResetConnection) return;
+                                            if (!window.confirm(`Reset koneksi untuk ${session.username}?`)) return;
+                                            void onResetConnection(session.username);
+                                        }}
+                                        className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {resettingUsername === session.username ? 'Resetting...' : 'Reset Connection'}
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))}

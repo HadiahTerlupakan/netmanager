@@ -140,6 +140,122 @@ export class RadiusSyncService {
         return await this.radiusRepo.getAccountingStats(username, tenantId, startDate, endDate);
     }
 
+    async getCustomerSessionHistory(
+        username: string,
+        tenantId: string,
+        options?: {
+            page?: number;
+            limit?: number;
+            startDate?: Date;
+            endDate?: Date;
+        },
+    ) {
+        return await this.radiusRepo.getUserSessionHistory(tenantId, username, options);
+    }
+
+    async ensureCustomerBelongsToTenant(username: string, tenantId: string): Promise<boolean> {
+        const pelanggan = await this.getPelangganRouterByUsername(username, tenantId);
+        return Boolean(pelanggan);
+    }
+
+    private toISODateEnd(date: Date): Date {
+        const end = new Date(date);
+        end.setHours(23, 59, 59, 999);
+        return end;
+    }
+
+    private toHours(seconds: string): number {
+        const value = Number(seconds || '0');
+        if (!Number.isFinite(value) || value <= 0) return 0;
+        return Math.round((value / 3600) * 100) / 100;
+    }
+
+    private toGBFromMB(mb: number): number {
+        if (!Number.isFinite(mb) || mb <= 0) return 0;
+        return Math.round((mb / 1024) * 100) / 100;
+    }
+
+    private toGBFromOctets(octets: string): number {
+        const value = Number(octets || '0');
+        if (!Number.isFinite(value) || value <= 0) return 0;
+        return Math.round((value / 1073741824) * 100) / 100;
+    }
+
+    private parseHistoryDateParam(value: string | null, endOfDay = false): Date | undefined {
+        if (!value) return undefined;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return undefined;
+        return endOfDay ? this.toISODateEnd(date) : date;
+    }
+
+    async getSessionHistoryView(
+        username: string,
+        tenantId: string,
+        params: {
+            page?: number;
+            limit?: number;
+            startDate?: string | null;
+            endDate?: string | null;
+        },
+    ) {
+        const page = params.page && params.page > 0 ? params.page : 1;
+        const limit = params.limit && params.limit > 0 ? Math.min(params.limit, 100) : 20;
+        const startDate = this.parseHistoryDateParam(params.startDate || null, false);
+        const endDate = this.parseHistoryDateParam(params.endDate || null, true);
+
+        const result = await this.getCustomerSessionHistory(username, tenantId, {
+            page,
+            limit,
+            ...(startDate ? { startDate } : {}),
+            ...(endDate ? { endDate } : {}),
+        });
+
+        const sessions = result.sessions.map((item) => ({
+            ...item,
+            acctSessionHours: this.toHours(item.acctSessionTime),
+            uploadGB: this.toGBFromMB(item.uploadMB),
+            downloadGB: this.toGBFromMB(item.downloadMB),
+            totalGB: this.toGBFromMB(item.totalMB),
+        }));
+
+        const summary = {
+            ...result.summary,
+            totalSessionHours: this.toHours(result.summary.totalSessionTime),
+            totalInputGB: this.toGBFromOctets(result.summary.totalInputOctets),
+            totalOutputGB: this.toGBFromOctets(result.summary.totalOutputOctets),
+            totalGB: this.toGBFromOctets(result.summary.totalOctets),
+        };
+
+        return {
+            username,
+            summary,
+            sessions,
+            pagination: {
+                page,
+                limit,
+                total: result.total,
+                totalPages: Math.ceil(result.total / limit),
+            },
+        };
+    }
+
+    async canGetHistoryForRadiusDashboardUser(username: string, tenantId: string): Promise<boolean> {
+        return this.ensureCustomerBelongsToTenant(username, tenantId);
+    }
+
+    async getHistoryForRadiusDashboardUser(
+        username: string,
+        tenantId: string,
+        params: {
+            page?: number;
+            limit?: number;
+            startDate?: string | null;
+            endDate?: string | null;
+        },
+    ) {
+        return this.getSessionHistoryView(username, tenantId, params);
+    }
+
     async disconnectSessionByUsername(username: string, tenantId: string): Promise<{
         success: boolean;
         disconnected: number;

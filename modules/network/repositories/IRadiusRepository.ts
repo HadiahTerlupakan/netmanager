@@ -117,7 +117,12 @@ export interface IRadiusRepository {
         limit?: number;
         status?: 'active' | 'all';
     }): Promise<{ sessions: IRadiusSessionView[]; total: number }>;
-    getTotalUsageByUsernames(tenantId: string, usernames: string[]): Promise<Record<string, { downloadMB: number; uploadMB: number }>>;
+    getTotalUsageByUsernames(tenantId: string, usernames: string[]): Promise<Record<string, IRadiusSessionTotals>>;
+    getUserSessionHistory(
+        tenantId: string,
+        username: string,
+        options?: IRadiusSessionHistoryOptions,
+    ): Promise<IRadiusSessionHistoryResult>;
 }
 
 export interface IDashboardStats {
@@ -153,4 +158,51 @@ export interface IRadiusSessionView {
     downloadMB: number;
     uploadMB: number;
     isOnline: boolean;
+}
+
+export interface IRadiusSessionHistoryItem {
+    radAcctId: string;
+    username: string | null;
+    nasIpAddress: string;
+    framedIpAddress: string | null;
+    acctStartTime: string | null;
+    acctStopTime: string | null;
+    acctSessionTime: string;
+    acctInputOctets: string;
+    acctOutputOctets: string;
+    totalOctets: string;
+    uploadMB: number;
+    downloadMB: number;
+    totalMB: number;
+    isOnline: boolean;
+}
+
+export interface IRadiusSessionHistorySummary {
+    totalSessions: number;
+    activeSessions: number;
+    totalSessionTime: string;
+    totalInputOctets: string;
+    totalOutputOctets: string;
+    totalOctets: string;
+    totalInputMB: number;
+    totalOutputMB: number;
+    totalMB: number;
+}
+
+export interface IRadiusSessionHistoryResult {
+    sessions: IRadiusSessionHistoryItem[];
+    total: number;
+    summary: IRadiusSessionHistorySummary;
+}
+
+export interface IRadiusSessionHistoryOptions {
+    page?: number;
+    limit?: number;
+    startDate?: Date;
+    endDate?: Date;
+}
+
+export interface IRadiusSessionTotals {
+    downloadMB: number;
+    uploadMB: number;
 }

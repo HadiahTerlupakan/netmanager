@@ -33,8 +33,65 @@ export interface RadiusSession {
   isOnline: boolean
 }
 
+export interface RadiusSessionHistoryData {
+  username: string
+  summary: {
+    totalSessions: number
+    activeSessions: number
+    totalSessionTime: string
+    totalSessionHours: number
+    totalInputOctets: string
+    totalOutputOctets: string
+    totalOctets: string
+    totalInputMB: number
+    totalOutputMB: number
+    totalMB: number
+    totalInputGB: number
+    totalOutputGB: number
+    totalGB: number
+  }
+  sessions: Array<{
+    radAcctId: string
+    username: string | null
+    nasIpAddress: string
+    framedIpAddress: string | null
+    acctStartTime: string | null
+    acctStopTime: string | null
+    acctSessionTime: string
+    acctSessionHours: number
+    acctInputOctets: string
+    acctOutputOctets: string
+    totalOctets: string
+    uploadMB: number
+    downloadMB: number
+    totalMB: number
+    uploadGB: number
+    downloadGB: number
+    totalGB: number
+    isOnline: boolean
+  }>
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  period?: {
+    startDate?: string | null
+    endDate?: string | null
+  }
+}
+
 export function useRadiusDashboardData() {
   const [resettingUsername, setResettingUsername] = useState<string | null>(null)
+  const [viewingHistoryUsername, setViewingHistoryUsername] = useState<string | null>(null)
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyData, setHistoryData] = useState<RadiusSessionHistoryData | null>(null)
+  const [historyStartDate, setHistoryStartDate] = useState('')
+  const [historyEndDate, setHistoryEndDate] = useState('')
+
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const { socket, isConnected } = useSocket()
@@ -95,6 +152,70 @@ export function useRadiusDashboardData() {
     }
   }, [])
 
+  const fetchUserHistory = useCallback(async (
+    username: string,
+    page = 1,
+    startDateParam?: string,
+    endDateParam?: string,
+  ) => {
+    setHistoryLoading(true)
+    setHistoryError(null)
+
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '20',
+      })
+
+      if (startDateParam) params.set('startDate', startDateParam)
+      if (endDateParam) params.set('endDate', endDateParam)
+
+      const response = await fetch(`/api/admin/radius/sessions/${encodeURIComponent(username)}/history?${params.toString()}`)
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload?.error || payload?.message || 'Gagal memuat history sesi')
+      }
+
+      const data = payload?.data ?? payload
+      setHistoryData(data)
+      setViewingHistoryUsername(username)
+      setHistoryModalOpen(true)
+    } catch (error) {
+      setHistoryError(error instanceof Error ? error.message : 'Gagal memuat history sesi')
+      setHistoryModalOpen(true)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  const viewHistory = useCallback(async (username: string) => {
+    if (!username) return
+    await fetchUserHistory(username, 1)
+  }, [fetchUserHistory])
+
+  const changeHistoryPage = useCallback(async (page: number) => {
+    if (!viewingHistoryUsername || page < 1) return
+    await fetchUserHistory(viewingHistoryUsername, page, historyStartDate || undefined, historyEndDate || undefined)
+  }, [fetchUserHistory, historyEndDate, historyStartDate, viewingHistoryUsername])
+
+  const applyHistoryFilter = useCallback(async () => {
+    if (!viewingHistoryUsername) return
+    await fetchUserHistory(viewingHistoryUsername, 1, historyStartDate || undefined, historyEndDate || undefined)
+  }, [fetchUserHistory, historyEndDate, historyStartDate, viewingHistoryUsername])
+
+  const resetHistoryFilter = useCallback(async () => {
+    setHistoryStartDate('')
+    setHistoryEndDate('')
+    if (!viewingHistoryUsername) return
+    await fetchUserHistory(viewingHistoryUsername, 1)
+  }, [fetchUserHistory, viewingHistoryUsername])
+
+  const closeHistoryModal = useCallback(() => {
+    setHistoryModalOpen(false)
+    setHistoryError(null)
+  }, [])
+
   const resetConnection = useCallback(async (username: string) => {
     if (!username) return
     setActionError(null)
@@ -135,10 +256,24 @@ export function useRadiusDashboardData() {
     refreshing,
     isConnected,
     resettingUsername,
+    viewingHistoryUsername,
+    historyModalOpen,
+    historyLoading,
+    historyError,
+    historyData,
+    historyStartDate,
+    historyEndDate,
+    setHistoryStartDate,
+    setHistoryEndDate,
     actionError,
     actionSuccess,
     setActionError,
     setActionSuccess,
+    viewHistory,
+    changeHistoryPage,
+    applyHistoryFilter,
+    resetHistoryFilter,
+    closeHistoryModal,
     resetConnection,
     refresh: fetchData,
   }

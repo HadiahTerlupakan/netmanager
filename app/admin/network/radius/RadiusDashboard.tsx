@@ -4,6 +4,7 @@ import { HiOutlineRefresh } from 'react-icons/hi';
 
 import { StatsCards } from '@/components/admin/radius/stats-cards';
 import { SessionsTable } from '@/components/admin/radius/sessions-table';
+import { SessionHistoryModal } from '@/components/admin/radius/session-history-modal';
 import { SyncControls } from '@/components/admin/radius/sync-controls';
 import { useRadiusDashboardData } from '@/app/admin/network/radius/hooks/useRadiusDashboardData';
 
@@ -15,10 +16,24 @@ export default function RadiusDashboard() {
         refreshing,
         isConnected,
         resettingUsername,
+        viewingHistoryUsername,
+        historyModalOpen,
+        historyLoading,
+        historyError,
+        historyData,
+        historyStartDate,
+        historyEndDate,
+        setHistoryStartDate,
+        setHistoryEndDate,
+        applyHistoryFilter,
+        resetHistoryFilter,
         actionError,
         actionSuccess,
         setActionError,
         setActionSuccess,
+        viewHistory,
+        changeHistoryPage,
+        closeHistoryModal,
         resetConnection,
         refresh,
     } = useRadiusDashboardData();
@@ -116,11 +131,29 @@ export default function RadiusDashboard() {
                     <SessionsTable
                         sessions={sessions}
                         loading={loading}
+                        onViewHistory={viewHistory}
                         onResetConnection={resetConnection}
                         resettingUsername={resettingUsername}
+                        viewingHistoryUsername={viewingHistoryUsername}
                     />
                 </div>
             </div>
+
+            <SessionHistoryModal
+                isOpen={historyModalOpen}
+                onClose={closeHistoryModal}
+                loading={historyLoading}
+                error={historyError}
+                data={historyData}
+                historyStartDate={historyStartDate}
+                historyEndDate={historyEndDate}
+                onChangeStartDate={setHistoryStartDate}
+                onChangeEndDate={setHistoryEndDate}
+                onApplyFilter={applyHistoryFilter}
+                onResetFilter={resetHistoryFilter}
+                onPageChange={changeHistoryPage}
+            />
+
 
             {stats && stats.lastSyncTime && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
