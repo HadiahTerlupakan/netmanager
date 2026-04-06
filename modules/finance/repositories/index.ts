@@ -14,3 +14,4 @@ export * from './RabInvestorRepository';
 export * from './PurchaseOrderRepository';
 export * from './BillingAnalyticsRepository';
 export * from './PaymentGatewayConfigRepository';
+export * from './UnmatchedMutationRepository';

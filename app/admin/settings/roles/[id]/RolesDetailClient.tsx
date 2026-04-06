@@ -165,7 +165,7 @@ export function ClientComponent() {
                         }
                     } else {
                         toast.error(roleData.error || 'Gagal memuat data role')
-                        router.push('/admin/settings/roles')
+                        router.push('/admin/pengaturan/hak-akses')
                     }
                 }
             } catch (error) {
@@ -206,7 +206,7 @@ export function ClientComponent() {
             }
 
             toast.success(isNew ? 'Role berhasil dibuat' : 'Role berhasil diperbarui')
-            router.push('/admin/settings/roles')
+            router.push('/admin/pengaturan/hak-akses')
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Terjadi kesalahan'
             toast.error(message)
@@ -226,7 +226,7 @@ export function ClientComponent() {
         <div className="p-6 max-w-5xl mx-auto">
             <div className="flex items-center gap-4 mb-6">
                 <Link
-                    href="/admin/settings/roles"
+                    href="/admin/pengaturan/hak-akses"
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
                     <FiArrowLeft className="text-xl dark:text-white" />
@@ -838,7 +838,7 @@ export function ClientComponent() {
 
                 <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-700">
                     <Link
-                        href="/admin/settings/roles"
+                                href="/admin/pengaturan/hak-akses"
                         className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                     >
                         Batal

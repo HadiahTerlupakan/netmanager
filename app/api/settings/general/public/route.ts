@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/modules/database'
+import { getPublicGeneralSettings } from '@/modules/settings'
 
 /**
  * GET /api/settings/general/public
@@ -9,39 +9,16 @@ import { prisma } from '@/modules/database'
  */
 export async function GET(_req: NextRequest) {
   try {
-    // Ambil pengaturan umum yang diperlukan untuk invoice
-    const settings = await prisma.settings.findMany({
-      where: {
-        key: {
-          in: [
-            'GENERAL_PERUSAHAAN',
-            'GENERAL_ALAMAT',
-            'GENERAL_NOMOR_HP',
-            'GENERAL_DESKRIPSI_INVOICE',
-          ],
-        },
-      },
-    })
-
-    // Convert ke object
-    const settingsMap = new Map(settings.map((s) => [s.key, s.value]))
-
-    return NextResponse.json({
-      perusahaan: settingsMap.get('GENERAL_PERUSAHAAN') || '',
-      alamat: settingsMap.get('GENERAL_ALAMAT') || '',
-      nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
-      deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
-    })
+    const settings = await getPublicGeneralSettings()
+    return NextResponse.json(settings)
   } catch (error: unknown) {
     console.error('Error fetching public general settings:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
+      { error: 'Terjadi kesalahan server' },
       { status: 500 }
     )
   }
 }
-
-
 
 
 

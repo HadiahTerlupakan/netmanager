@@ -4,32 +4,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mockHasPermission = vi.fn()
 const mockUploadVersion = vi.fn()
 const mockLogActivitySafe = vi.fn()
-const mockDeleteFromR2 = vi.fn()
-const mockWriteFile = vi.fn()
-const mockUnlink = vi.fn()
 
 vi.mock('@/lib/rbac', () => ({
   hasPermission: (...args: unknown[]) => mockHasPermission(...args)
 }))
 
-vi.mock('@/modules/app-version', () => ({
-  getAppVersionService: () => ({
-    uploadVersion: (...args: unknown[]) => mockUploadVersion(...args)
-  })
-}))
+vi.mock('@/modules/app-version', async () => {
+  const actual = await vi.importActual<typeof import('@/modules/app-version')>('@/modules/app-version')
+
+  return {
+    ...actual,
+    getAppVersionService: () => ({
+      uploadVersion: (...args: unknown[]) => mockUploadVersion(...args)
+    })
+  }
+})
 
 vi.mock('@/lib/logger', () => ({
   logActivitySafe: (...args: unknown[]) => mockLogActivitySafe(...args)
 }))
 
-vi.mock('@/lib/utils/r2-client', () => ({
-  deleteFromR2: (...args: unknown[]) => mockDeleteFromR2(...args)
-}))
-
-vi.mock('fs/promises', () => ({
-  writeFile: (...args: unknown[]) => mockWriteFile(...args),
-  unlink: (...args: unknown[]) => mockUnlink(...args)
-}))
 
 vi.mock('@/lib/api', () => ({
   createHandler: (_options: unknown, handler: (req: Request, ctx: { session: { user: { id: string } } }) => unknown) => {
@@ -87,7 +81,7 @@ describe('POST /api/admin/app-version', () => {
     expect(mockUploadVersion).not.toHaveBeenCalled()
   })
 
-  it('cleans up temp APK files when service upload fails', async () => {
+  it('passes APK uploads to the service and propagates upload errors', async () => {
     const formData = new FormData()
     formData.append('apk', new File([Buffer.from('apk')], 'release.apk', { type: 'application/vnd.android.package-archive' }))
 
@@ -101,12 +95,16 @@ describe('POST /api/admin/app-version', () => {
       { params: Promise.resolve({}) }
     )).rejects.toThrow('upload failed')
 
-    expect(mockWriteFile).toHaveBeenCalledTimes(1)
-    expect(mockUnlink).toHaveBeenCalledTimes(1)
-    expect(mockDeleteFromR2).not.toHaveBeenCalled()
+    expect(mockUploadVersion).toHaveBeenCalledTimes(1)
+    const [servicePayload] = mockUploadVersion.mock.calls[0]
+    expect(servicePayload).toMatchObject({
+      platform: 'android',
+      apkFilename: 'release.apk'
+    })
+    expect(servicePayload.apkFile).toBeInstanceOf(File)
   })
 
-  it('deletes orphaned direct-upload objects when metadata save fails', async () => {
+  it('passes direct upload metadata through to the service when validation fails', async () => {
     const formData = new FormData()
     formData.append('uploadedKey', 'uploads/app-version/direct.apk')
     formData.append('uploadedFilename', 'direct.apk')
@@ -122,6 +120,12 @@ describe('POST /api/admin/app-version', () => {
       { params: Promise.resolve({}) }
     )).rejects.toThrow('save failed')
 
-    expect(mockDeleteFromR2).toHaveBeenCalledWith('uploads/app-version/direct.apk')
+    expect(mockUploadVersion).toHaveBeenCalledTimes(1)
+    const [servicePayload] = mockUploadVersion.mock.calls[0]
+    expect(servicePayload).toMatchObject({
+      uploadedKey: 'uploads/app-version/direct.apk',
+      uploadedFilename: 'direct.apk',
+      uploadedSize: 4096
+    })
   })
 })

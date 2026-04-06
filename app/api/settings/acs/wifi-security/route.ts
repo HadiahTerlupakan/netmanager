@@ -2,8 +2,9 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
 import { acsWifiSecuritySchema, type AcsWifiSecurityInput } from '@/lib/validations/settings'
 import { listAcsWifiSecurityConfigs, upsertAcsWifiSecurity } from '@/modules/settings'
 
-export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async () => {
-  return apiSuccess(await listAcsWifiSecurityConfigs())
+export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async (_req, ctx) => {
+  const tenantId = ctx.session?.user?.tenantId ?? null
+  return apiSuccess(await listAcsWifiSecurityConfigs(tenantId))
 })
 
 export const POST = createHandler<AcsWifiSecurityInput>({

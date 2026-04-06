@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
     HiOutlineArrowPath,
     HiOutlineCog6Tooth,
@@ -36,16 +36,13 @@ export function ClientComponent() {
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        fetchSettings()
-    }, [])
-
-    const fetchSettings = async () => {
+    const fetchSettings = useCallback(async () => {
         try {
             setLoading(true)
             const response = await fetch('/api/admin/settings/whatsapp')
             if (response.ok) {
-                const data = await response.json()
+                const payload = await response.json()
+                const data = payload?.data ?? {}
                 setSettings({
                     whatsappProvider: data.whatsappProvider || 'WABLAS',
                     whatsappApiKey: data.whatsappApiKey || '',
@@ -58,7 +55,11 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
+
+    useEffect(() => {
+        fetchSettings()
+    }, [fetchSettings])
 
     const handleSave = async () => {
         try {
@@ -99,18 +100,24 @@ export function ClientComponent() {
                 return
             }
 
-            const response = await fetch('/api/admin/settings/whatsapp/test', {
+            const response = await fetch('/api/admin/settings/whatsapp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone: testPhone })
             })
 
-            const result = await response.json()
+            const payload = await response.json()
 
-            if (result.success) {
-                alert('Pesan percobaan berhasil dikirim!\n\nPeriksa WhatsApp Anda.')
+            if (response.ok && payload?.success && payload.data) {
+                const result = payload.data
+                if (result.success) {
+                    alert('Pesan percobaan berhasil dikirim!\n\nPeriksa WhatsApp Anda.')
+                } else {
+                    alert(`Tes gagal!\n\n${result.message}`)
+                }
             } else {
-                alert(`Tes gagal!\n\n${result.message}`)
+                const message = payload?.error || 'Gagal menjalankan tes WhatsApp'
+                alert(`Tes gagal!\n\n${message}`)
             }
         } catch (error: unknown) {
             console.error('Error testing WhatsApp:', error)
@@ -163,10 +170,11 @@ export function ClientComponent() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 space-y-6">
                     {/* Provider Selection */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="whatsapp-provider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             WhatsApp Provider *
                         </label>
                         <select
+                            id="whatsapp-provider"
                             value={settings.whatsappProvider}
                             onChange={(e) => setSettings({ ...settings, whatsappProvider: e.target.value as WhatsAppSettings['whatsappProvider'] })}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -190,10 +198,11 @@ export function ClientComponent() {
                     {settings.whatsappProvider === 'WABLAS' && (
                         <>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="whatsapp-domain" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Wablas Domain *
                                 </label>
                                 <input
+                                    id="whatsapp-domain"
                                     type="text"
                                     value={settings.whatsappDomain}
                                     onChange={(e) => setSettings({ ...settings, whatsappDomain: e.target.value })}
@@ -206,10 +215,11 @@ export function ClientComponent() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label htmlFor="whatsapp-device-id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Device ID / Token
                                 </label>
                                 <input
+                                    id="whatsapp-device-id"
                                     type="text"
                                     value={settings.whatsappDeviceId}
                                     onChange={(e) => setSettings({ ...settings, whatsappDeviceId: e.target.value })}
@@ -225,10 +235,11 @@ export function ClientComponent() {
 
                     {/* API Key (for all providers) */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="whatsapp-api-key" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             API Key / Token *
                         </label>
                         <input
+                            id="whatsapp-api-key"
                             type="text"
                             value={settings.whatsappApiKey}
                             onChange={(e) => setSettings({ ...settings, whatsappApiKey: e.target.value })}
@@ -270,6 +281,7 @@ export function ClientComponent() {
                     {/* Action Buttons */}
                     <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                         <button
+                            type="button"
                             onClick={handleTest}
                             disabled={testing || !settings.whatsappApiKey}
                             className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
@@ -286,6 +298,7 @@ export function ClientComponent() {
                             )}
                         </button>
                         <button
+                            type="button"
                             onClick={handleSave}
                             disabled={saving || !settings.whatsappApiKey}
                             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"

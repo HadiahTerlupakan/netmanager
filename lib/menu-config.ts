@@ -257,7 +257,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: 'HiOutlineCog6Tooth',
         children: [
             { code: 'PENGATURAN.UMUM', name: 'Umum', path: '/admin/pengaturan/umum', icon: 'HiOutlineCog6Tooth' },
-            { code: 'PENGATURAN.ROLES', name: 'Hak Akses', path: '/admin/settings/roles', icon: 'HiOutlineShieldCheck' },
+            { code: 'PENGATURAN.ROLES', name: 'Hak Akses', path: '/admin/pengaturan/hak-akses', icon: 'HiOutlineShieldCheck' },
             { code: 'PENGATURAN.LOGO', name: 'Logo', path: '/admin/pengaturan/logo', icon: 'HiOutlinePhoto' },
             { code: 'PENGATURAN.EMAIL', name: 'Email', path: '/admin/pengaturan/email', icon: 'HiOutlineEnvelope' },
             { code: 'PENGATURAN.WHATSAPP', name: 'WhatsApp', path: '/admin/pengaturan/whatsapp', icon: 'HiOutlineChatBubbleLeftRight' },

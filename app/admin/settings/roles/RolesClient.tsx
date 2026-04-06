@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePermission } from '@/hooks/use-permission'
 import { toast } from 'react-hot-toast'
@@ -21,11 +21,7 @@ export function ClientComponent() {
     const [loading, setLoading] = useState(true)
     const { hasPermission, isLoading: authLoading } = usePermission()
 
-    useEffect(() => {
-        fetchRoles()
-    }, [])
-
-    const fetchRoles = async () => {
+    const fetchRoles = useCallback(async () => {
         try {
             const res = await fetch('/api/roles')
             if (res.ok) {
@@ -40,7 +36,11 @@ export function ClientComponent() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
+
+    useEffect(() => {
+        fetchRoles()
+    }, [fetchRoles])
 
     const handleDelete = async (id: string, name: string) => {
         if (!confirm(`Apakah Anda yakin ingin menghapus role "${name}"?`)) return
@@ -76,12 +76,12 @@ export function ClientComponent() {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Manajemen Role</h1>
-                    <p className="text-gray-600 dark:text-gray-400">Atur hak akses pengguna aplikasi</p>
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Hak Akses</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Atur role dan permission pengguna aplikasi</p>
                 </div>
                 {hasPermission('roles:create') && (
                     <Link
-                        href="/admin/settings/roles/new"
+                        href="/admin/pengaturan/hak-akses/new"
                         className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white px-4 py-2 rounded-lg flex items-center gap-2"
                     >
                         <FiPlus className="text-white" /> <span className="text-white">Tambah Role</span>
@@ -124,7 +124,7 @@ export function ClientComponent() {
                         <div className="flex justify-end gap-2">
                             {hasPermission('roles:update') && (
                                 <Link
-                                    href={`/admin/settings/roles/${item.id}`}
+                                    href={`/admin/pengaturan/hak-akses/${item.id}`}
                                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                     title="Edit Role"
                                 >
@@ -133,6 +133,7 @@ export function ClientComponent() {
                             )}
                             {hasPermission('roles:delete') && item.name !== 'SUPER_ADMIN' && (
                                 <button
+                                    type="button"
                                     onClick={() => handleDelete(item.id, item.name)}
                                     disabled={(item._count?.user || 0) > 0}
                                     className={`p-2 rounded-lg transition-colors ${(item._count?.user || 0) > 0

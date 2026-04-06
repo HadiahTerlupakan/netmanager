@@ -4,6 +4,8 @@ import path from 'node:path'
 import { exec, execSync } from 'node:child_process'
 import { promisify } from 'node:util'
 
+import { ensurePrismaMigrationHistory, getBackupPrismaConfig } from '../lib/prismaMigrationHistory'
+
 const execAsync = promisify(exec)
 
 const DB_ENV_MAP: Record<string, string> = {
@@ -12,39 +14,6 @@ const DB_ENV_MAP: Record<string, string> = {
   billing: 'DATABASE_URL_BILLING',
   mitra: 'DATABASE_URL_MITRA',
 }
-
-type BackupPrismaConfig = {
-  config: string | null
-  migrationsDir: string
-  schemaPath: string
-}
-
-const BACKUP_PRISMA_CONFIG_MAP: Record<string, BackupPrismaConfig> = {
-  netmanager: {
-    config: null,
-    migrationsDir: 'prisma/migrations',
-    schemaPath: 'prisma/schema.prisma',
-  },
-  radius: {
-    config: 'prisma.radius.config.ts',
-    migrationsDir: 'prisma/radius_migrations',
-    schemaPath: 'prisma/schema.radius.prisma',
-  },
-  billing: {
-    config: 'prisma.billing.config.ts',
-    migrationsDir: 'prisma/billing_migrations',
-    schemaPath: 'prisma/billing.prisma',
-  },
-  mitra: {
-    config: 'prisma.mitra.config.ts',
-    migrationsDir: 'prisma/mitra_migrations',
-    schemaPath: 'prisma/mitra.prisma',
-  },
-} as const
-
-type BackupDatabaseName = keyof typeof BACKUP_PRISMA_CONFIG_MAP
-
-type CommandRunner = (command: string, options: { env: NodeJS.ProcessEnv }) => Promise<unknown>
 
 type ParsedDbConfig = {
   host: string
@@ -156,100 +125,6 @@ function findTsxCommand(): string {
   return 'npx tsx'
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `"'"'`)}'`
-}
-
-function getBackupPrismaConfig(dbName: string) {
-  return BACKUP_PRISMA_CONFIG_MAP[dbName as BackupDatabaseName] ?? null
-}
-
-function getConfigArg(config: string | null): string {
-  return config ? ` --config=${config}` : ''
-}
-
-function parseAppliedCount(stdout: string): number {
-  const normalized = stdout.trim()
-  const appliedCount = Number.parseInt(normalized, 10)
-
-  if (Number.isNaN(appliedCount)) {
-    throw new Error(`Unable to parse Prisma migration count from output: ${stdout}`)
-  }
-
-  return appliedCount
-}
-
-function listMigrationNames(projectRoot: string, dbName: string): string[] {
-  const prismaConfig = getBackupPrismaConfig(dbName)
-
-  if (!prismaConfig) {
-    return []
-  }
-
-  const migrationsRoot = path.join(projectRoot, prismaConfig.migrationsDir)
-
-  return fs
-    .readdirSync(migrationsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right))
-}
-
-async function ensurePrismaMigrationHistory({
-  dbName,
-  database,
-  pgPrefix,
-  psqlBin,
-  prismaBin,
-  projectRoot,
-  env,
-  runCommand,
-}: {
-  dbName: string
-  database: string
-  pgPrefix: string
-  psqlBin: string
-  prismaBin: string
-  projectRoot: string
-  env: NodeJS.ProcessEnv
-  runCommand: CommandRunner
-}) {
-  const prismaConfig = getBackupPrismaConfig(dbName)
-
-  if (!prismaConfig) {
-    return
-  }
-
-  const configArg = getConfigArg(prismaConfig.config)
-  const checkTableCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='_prisma_migrations'"`
-  const getCountCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT count(*) FROM \"_prisma_migrations\""`
-
-  const appliedCountCommand = `
-    EXISTS=$(${checkTableCommand})
-    if [ "$EXISTS" = "1" ]; then
-      ${getCountCommand}
-    else
-      echo "-1"
-    fi
-  `
-
-  const appliedCountResult = (await runCommand(appliedCountCommand, { env })) as { stdout?: string }
-  const appliedCount = parseAppliedCount(appliedCountResult.stdout ?? '')
-
-  if (appliedCount > 0) {
-    return
-  }
-
-  const diffCommand = `cd ${shellQuote(projectRoot)} && ${shellQuote(prismaBin)} migrate diff${configArg} --from-config-datasource --to-schema ${prismaConfig.schemaPath} --exit-code`
-  await runCommand(diffCommand, { env })
-
-  const migrationNames = listMigrationNames(projectRoot, dbName)
-
-  for (const migrationName of migrationNames) {
-    const resolveCommand = `cd ${shellQuote(projectRoot)} && ${shellQuote(prismaBin)} migrate resolve${configArg} --applied ${migrationName}`
-    await runCommand(resolveCommand, { env })
-  }
-}
 
 function shouldRunSeedAfterReset(results: BackupResultItem[]): boolean {
   if (results.length === 0) {

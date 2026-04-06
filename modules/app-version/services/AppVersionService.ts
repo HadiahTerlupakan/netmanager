@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import {
     AppVersionRepository,
     type AppVersion,
@@ -6,7 +7,7 @@ import {
     type AppVersionWithUser,
     type AppVersionRolloutStats,
 } from '../repositories/AppVersionRepository'
-import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2, getR2ObjectBuffer, getR2ObjectMetadata, getR2Settings } from '@/lib/utils/r2-client'
+import { isR2Enabled, uploadToR2, generateR2Key, deleteFromR2, getR2ObjectBuffer, getR2ObjectMetadata, getR2Settings, getPresignedUrl } from '@/lib/utils/r2-client'
 import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
 import fs from 'fs/promises'
 import path from 'path'
@@ -38,6 +39,8 @@ export interface UploadVersionInput {
     apkPath?: string
     apkFilename?: string
     apkSize?: number
+    apkFile?: File
+    cleanupApkPath?: boolean
     createdBy?: string
     // New fields for pre-uploaded files
     uploadedKey?: string
@@ -149,6 +152,18 @@ export class AppVersionService {
             apkBuffer,
             ...(resolvedSize ? { apkSize: resolvedSize } : {}),
             apkUrl
+        }
+    }
+
+    private async persistApkFileToTemp(apkFile: File): Promise<{ path: string; filename: string; size: number }> {
+        const fileExtension = path.extname(apkFile.name)
+        const tempPath = path.join(os.tmpdir(), `apk_upload_${randomUUID()}${fileExtension}`)
+        const arrayBuffer = await apkFile.arrayBuffer()
+        await fs.writeFile(tempPath, Buffer.from(arrayBuffer))
+        return {
+            path: tempPath,
+            filename: apkFile.name,
+            size: apkFile.size
         }
     }
 
@@ -290,6 +305,26 @@ export class AppVersionService {
         let apkSize = input.apkSize
         let uploadedByService = false
 
+        const cleanupPaths = new Set<string>()
+        let resolvedApkPath = input.apkPath
+        let resolvedApkFilename = input.apkFilename
+        let resolvedApkSize = input.apkSize
+
+        if (input.apkFile) {
+            const persisted = await this.persistApkFileToTemp(input.apkFile)
+            resolvedApkPath = persisted.path
+            resolvedApkFilename = resolvedApkFilename || persisted.filename
+            resolvedApkSize = resolvedApkSize ?? persisted.size
+            cleanupPaths.add(persisted.path)
+            if (resolvedApkSize !== undefined) {
+                apkSize = resolvedApkSize
+            }
+        }
+
+        if (input.cleanupApkPath && resolvedApkPath) {
+            cleanupPaths.add(resolvedApkPath)
+        }
+
         try {
             const uploadedApk = await this.loadUploadedApkDetails(input)
 
@@ -301,11 +336,11 @@ export class AppVersionService {
                 apkSize = uploadedApk.apkSize
             }
 
-            if (input.apkBuffer || input.apkPath || uploadedApk.apkBuffer) {
+            if (input.apkBuffer || resolvedApkPath || uploadedApk.apkBuffer) {
                 const apkInfo = await this.parseApkInfo({
                     ...(uploadedApk.apkBuffer ? { buffer: uploadedApk.apkBuffer } : {}),
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
-                    ...(input.apkPath ? { path: input.apkPath } : {})
+                    ...(resolvedApkPath ? { path: resolvedApkPath } : {})
                 })
 
                 if (apkInfo) {
@@ -331,7 +366,6 @@ export class AppVersionService {
             }
 
             // Validate version doesn't already exist
-            // console.log(`[AppVersionService] Checking if version ${version} (code ${versionCode}) already exists...`)
             const exists = await this.repository.exists(version, versionCode)
             if (exists.versionExists) {
                 throw new Error(`Version ${version} sudah ada`)
@@ -340,19 +374,18 @@ export class AppVersionService {
                 throw new Error(`Version code ${versionCode} sudah ada`)
             }
 
-            if (!input.uploadedKey && (input.apkBuffer || input.apkPath) && input.apkFilename) {
+            const filenameForUpload = resolvedApkFilename ?? `netmanager_v${version}.apk`
+            if (!input.uploadedKey && (input.apkBuffer || resolvedApkPath)) {
                 apkUrl = await this.uploadApkFile({
                     ...(input.apkBuffer ? { buffer: input.apkBuffer } : {}),
-                    ...(input.apkPath ? { path: input.apkPath } : {}),
-                    filename: input.apkFilename,
+                    ...(resolvedApkPath ? { path: resolvedApkPath } : {}),
+                    filename: filenameForUpload,
                     version,
                     forceLocal: input.forceLocal
                 })
                 uploadedByService = true
             }
 
-            // Create version record
-            // console.log(`[AppVersionService] Creating version record in database...`)
             const createData: CreateAppVersionDTO = {
                 version,
                 buildNumber,
@@ -369,9 +402,16 @@ export class AppVersionService {
             }
 
             const result = await this.repository.create(createData)
-            // console.log(`[AppVersionService] Version created successfully: ${result.id}`)
             return result
         } catch (error: unknown) {
+            if (input.uploadedKey) {
+                try {
+                    await deleteFromR2(input.uploadedKey)
+                } catch (cleanupError) {
+                    console.warn('Gagal membersihkan APK direct upload setelah create versi gagal:', cleanupError)
+                }
+            }
+
             if (uploadedByService && apkUrl) {
                 try {
                     await this.cleanupStoredApk(apkUrl)
@@ -379,10 +419,32 @@ export class AppVersionService {
                     console.warn('Gagal membersihkan APK setelah create versi gagal:', cleanupError)
                 }
             }
+
             console.error('[AppVersionService] Error in uploadVersion:', error)
             const err = error as { message?: string }
-            // Re-throw with more context
             throw new Error(`Gagal mengunggah versi aplikasi: ${err?.message || 'Terjadi kesalahan'}`)
+        } finally {
+            for (const cleanupPath of cleanupPaths) {
+                try {
+                    await fs.unlink(cleanupPath)
+                } catch (cleanupError) {
+                    console.warn(`[AppVersionService] Failed to cleanup temp APK: ${cleanupPath}`, cleanupError)
+                }
+            }
+        }
+    }
+
+    async createDirectUploadUrl(params: { filename: string; contentType: string; expiresIn?: number }): Promise<{ uploadUrl: string; publicUrl: string; key: string; filename: string }> {
+        const sanitizedFilename = params.filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const key = generateR2Key('app-version', sanitizedFilename)
+        const contentDisposition = `attachment; filename="${sanitizedFilename}"`
+        const { uploadUrl, publicUrl } = await getPresignedUrl(key, params.contentType, params.expiresIn ?? 3600, contentDisposition)
+
+        return {
+            uploadUrl,
+            publicUrl,
+            key,
+            filename: params.filename
         }
     }
 

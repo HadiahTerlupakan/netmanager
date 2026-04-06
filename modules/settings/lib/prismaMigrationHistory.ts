@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-type BackupDatabaseName = 'netmanager' | 'radius' | 'billing' | 'mitra'
+export type BackupDatabaseName = 'netmanager' | 'radius' | 'billing' | 'mitra'
 
-type BackupPrismaConfig = {
+export type BackupPrismaConfig = {
   config: string | null
   migrationsDir: string
   schemaPath: string
@@ -35,7 +35,7 @@ const BACKUP_PRISMA_CONFIG_MAP: Record<BackupDatabaseName, BackupPrismaConfig> =
 }
 
 function shellQuote(value: string) {
-  return `'${value.replace(/'/g, `'"'"'`)}'`
+  return `'${value.replace(/'/g, `"'"'`)}'`
 }
 
 function parseAppliedCount(stdout: string) {
@@ -57,7 +57,7 @@ export function getBackupPrismaConfig(dbName: string): BackupPrismaConfig | null
   return BACKUP_PRISMA_CONFIG_MAP[dbName as BackupDatabaseName] ?? null
 }
 
-export function listMigrationNames(projectRoot: string, dbName: string) {
+function listMigrationNames(projectRoot: string, dbName: string) {
   const prismaConfig = getBackupPrismaConfig(dbName)
 
   if (!prismaConfig) {
@@ -103,7 +103,7 @@ export async function ensurePrismaMigrationHistory({
 
   const configArg = getConfigArg(prismaConfig.config)
   const checkTableCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='_prisma_migrations'"`
-  const getCountCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT count(*) FROM \\"_prisma_migrations\\""`
+  const getCountCommand = `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)} -t -A -c "SELECT count(*) FROM \"_prisma_migrations\""`
   
   const appliedCountCommand = `
     EXISTS=$(${checkTableCommand})

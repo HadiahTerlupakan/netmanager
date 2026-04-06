@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { logActivitySafe } from '@/lib/logger'
 import { SettingsRepository, type SettingsRecord, type SettingsUpsertInput } from '../repositories/SettingsRepository'
 
@@ -110,6 +111,34 @@ export function buildAcsSettingsUpserts(payload: AcsSettingsPayload): SettingsUp
     { key: 'ACS_TELEGRAM_CHAT_IDS', value: payload.telegramChatIds.trim() || null },
     { key: 'ACS_TELEGRAM_BOT_ENABLED', value: payload.telegramBotEnabled ? 'true' : 'false' },
   ]
+}
+
+export type AcsConnectivityTestResult = {
+  reachable: boolean
+  status?: number
+  message: string
+}
+
+export async function testAcsConnectivity(url: string): Promise<AcsConnectivityTestResult> {
+  try {
+    const response = await axios.get(url, {
+      timeout: 5000,
+      validateStatus: () => true,
+    })
+
+    return {
+      reachable: true,
+      status: response.status,
+      message: 'Koneksi ke server ACS berhasil!'
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Tidak dapat menjangkau server'
+    console.error('Test ACS URL Error:', message)
+    return {
+      reachable: false,
+      message: `Koneksi gagal: ${message}`
+    }
+  }
 }
 
 export async function getAcsSettings(): Promise<AcsSettingsPayload> {

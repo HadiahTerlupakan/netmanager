@@ -1,5 +1,5 @@
 import { hasPermission } from '@/lib/rbac'
-import { getPresignedUrl, generateR2Key } from '@/lib/utils/r2-client'
+import { getAppVersionService } from '@/modules/app-version'
 import { apiSuccess, ApiErrors, apiError, ErrorCodes, createHandler } from '@/lib/api'
 
 export const POST = createHandler({ auth: true }, async (req, _ctx) => {
@@ -33,12 +33,8 @@ export const POST = createHandler({ auth: true }, async (req, _ctx) => {
         return apiError('Ukuran file melebihi batas 500MB', ErrorCodes.VALIDATION_ERROR, { status: 400 })
     }
 
-    // Generate key
-    const key = generateR2Key('app-version', filename)
-
-    // Get presigned URL
-    const contentDisposition = `attachment; filename="${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}"`
-    const { uploadUrl, publicUrl } = await getPresignedUrl(key, contentType, 3600, contentDisposition)
+    const service = getAppVersionService()
+    const { uploadUrl, publicUrl, key } = await service.createDirectUploadUrl({ filename, contentType })
 
     return apiSuccess({
         uploadUrl,

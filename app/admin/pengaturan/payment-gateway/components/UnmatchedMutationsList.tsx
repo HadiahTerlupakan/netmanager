@@ -37,8 +37,9 @@ export default function UnmatchedMutationsList() {
             setLoading(true)
             const response = await fetch('/api/finance/unmatched-mutations?status=PENDING')
             if (response.ok) {
-                const data = await response.json()
-                setMutations(data.mutations || [])
+                const payload = await response.json()
+                const nextMutations = Array.isArray(payload?.data) ? payload.data : []
+                setMutations(nextMutations)
             }
         } catch (error) {
             console.error('Error fetching unmatched mutations:', error)
@@ -64,7 +65,7 @@ export default function UnmatchedMutationsList() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id,
+                    mutationId: id,
                     action,
                     invoiceId: action === 'RESOLVE' ? invoiceId : undefined
                 })

@@ -1,20 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { ApiErrors } from '@/lib/api-response'
+import { NextResponse } from 'next/server'
+import { ApiErrors, createHandler } from '@/lib/api'
 import { hasPermission } from '@/lib/rbac'
+import { isMainTenant } from '@/modules/mitra'
 import { resetDatabasesAndSchema } from '@/modules/settings'
 
 const RESET_CONFIRMATION_TEXT = 'RESET DATABASE'
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) {
-    return ApiErrors.unauthorized('Session tidak valid')
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+  const user = ctx.session!.user
+
+  if (!isMainTenant(user.tenantId)) {
+    return ApiErrors.forbidden('Hanya tenant utama yang bisa mengakses fitur reset database')
   }
 
-  const canReset = await hasPermission('backup_database:delete', session.user)
-  if (!canReset) {
+  if (!await hasPermission('backup_database:delete', user)) {
     return ApiErrors.forbidden('Anda tidak memiliki permission untuk reset database')
   }
 
@@ -27,7 +26,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const result = await resetDatabasesAndSchema()
     return NextResponse.json(result)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return ApiErrors.internalError(`Gagal reset backup: ${message}`)
+    console.error('Error resetting settings backup data:', error)
+    return ApiErrors.internalError('Gagal reset backup')
   }
-}
+})

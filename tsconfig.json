@@ -44,6 +44,7 @@
       "./types/declarations"
     ],
     "allowJs": true,
+    "allowArbitraryExtensions": true,
     "plugins": [
       {
         "name": "next"

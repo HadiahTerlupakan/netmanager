@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
     HiOutlineArrowPath,
     HiOutlineEnvelope,
@@ -24,33 +24,38 @@ export function ClientComponent() {
         fromEmail: ''
     })
 
-    useEffect(() => {
-        fetchSettings()
-    }, [])
-
-    const fetchSettings = async () => {
+    const fetchSettings = useCallback(async () => {
         try {
             setLoading(true)
             const response = await fetch('/api/admin/settings/email')
-            if (response.ok) {
-                const data = await response.json()
-                setFormData({
-                    smtpHost: data.smtpHost || '',
-                    smtpPort: data.smtpPort || '587',
-                    smtpUser: data.smtpUser || '',
-                    smtpPass: data.smtpPass || '', // Will be '••••••••' if saved
-                    fromName: data.fromName || '',
-                    fromEmail: data.fromEmail || ''
-                })
+            const payload = await response.json()
+
+            if (!response.ok || !payload.success) {
+                const message = payload.error || payload.message || 'Gagal memuat pengaturan email'
+                throw new Error(message)
             }
+
+            const data = payload.data
+            setFormData({
+                smtpHost: data.smtpHost || '',
+                smtpPort: data.smtpPort || '587',
+                smtpUser: data.smtpUser || '',
+                smtpPass: data.smtpPass || '', // Will be '••••••••' if saved
+                fromName: data.fromName || '',
+                fromEmail: data.fromEmail || ''
+            })
         } catch (error) {
             console.error('Error fetching email settings:', error)
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    useEffect(() => {
+        fetchSettings()
+    }, [fetchSettings])
+
+    const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault()
         setError(null)
         setSuccess(false)
@@ -100,10 +105,11 @@ export function ClientComponent() {
 
             const result = await response.json()
 
-            if (result.success) {
-                alert('Email percobaan berhasil dikirim!')
+            if (response.ok && result.success) {
+                alert(result.message || 'Email percobaan berhasil dikirim!')
             } else {
-                alert(`Tes gagal: ${result.message}`)
+                const message = result.error || result.message || 'Gagal mengirim email percobaan'
+                alert(`Tes gagal: ${message}`)
             }
         } catch (error) {
             console.error('Error testing email:', error)
@@ -137,10 +143,11 @@ export function ClientComponent() {
                 <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 space-y-6">
                     {/* SMTP Host */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="smtp-host" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             SMTP Host *
                         </label>
                         <input
+                            id="smtp-host"
                             type="text"
                             value={formData.smtpHost}
                             onChange={(e) => setFormData({ ...formData, smtpHost: e.target.value })}
@@ -148,17 +155,18 @@ export function ClientComponent() {
                             required
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Example: smtp.gmail.com, smtp.office365.com, mail.yourdomain.com
-                        </p>
-                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Example: smtp.gmail.com, smtp.office365.com, mail.yourdomain.com
+                    </p>
+                </div>
 
                     {/* SMTP Port */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="smtp-port" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             SMTP Port *
                         </label>
                         <select
+                            id="smtp-port"
                             value={formData.smtpPort}
                             onChange={(e) => setFormData({ ...formData, smtpPort: e.target.value })}
                             required
@@ -172,10 +180,11 @@ export function ClientComponent() {
 
                     {/* SMTP User */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="smtp-user" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             SMTP Username / Email *
                         </label>
                         <input
+                            id="smtp-user"
                             type="email"
                             value={formData.smtpUser}
                             onChange={(e) => setFormData({ ...formData, smtpUser: e.target.value })}
@@ -187,10 +196,11 @@ export function ClientComponent() {
 
                     {/* SMTP Password */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="smtp-pass" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             SMTP Password * (Visible for debugging)
                         </label>
                         <input
+                            id="smtp-pass"
                             type="text"
                             value={formData.smtpPass}
                             onChange={(e) => setFormData({ ...formData, smtpPass: e.target.value })}
@@ -210,10 +220,11 @@ export function ClientComponent() {
 
                     {/* From Name */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="from-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             From Name *
                         </label>
                         <input
+                            id="from-name"
                             type="text"
                             value={formData.fromName}
                             onChange={(e) => setFormData({ ...formData, fromName: e.target.value })}
@@ -225,10 +236,11 @@ export function ClientComponent() {
 
                     {/* From Email */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label htmlFor="from-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             From Email *
                         </label>
                         <input
+                            id="from-email"
                             type="email"
                             value={formData.fromEmail}
                             onChange={(e) => setFormData({ ...formData, fromEmail: e.target.value })}

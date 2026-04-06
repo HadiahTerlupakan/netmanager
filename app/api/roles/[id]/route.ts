@@ -1,12 +1,8 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { hasPermission } from '@/lib/rbac'
-import { getRoleService } from '@/modules/roles'
+import { NextRequest, NextResponse } from 'next/server'
+import { getRoleService, RolePolicyError } from '@/modules/roles'
 import * as z from 'zod'
 import { logActivitySafe } from '@/lib/logger'
-import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
-import { MAIN_TENANT_ID } from '@/modules/mitra'
+import { ForbiddenError, UnauthorizedError, withAuth, withPermission, type AuthenticatedHandler } from '@/lib/middleware'
 
 const roleUpdateSchema = z.object({
     name: z.string().min(2),
@@ -19,18 +15,29 @@ const roleUpdateSchema = z.object({
     isSuperAdmin: z.boolean().optional(),
     canApproveRab: z.boolean().optional()
 })
-
-// Fix for Next.js App Router params type
-type Params = {
+type RoleRouteContext = {
     params: Promise<{ id: string }>
 }
 
-export async function GET(req: Request, { params }: Params) {
-    if (!await hasPermission('roles:read')) {
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
+const resolveId = async (routeContext?: unknown): Promise<string | null> => {
+    const ctx = routeContext as RoleRouteContext | undefined
+    if (!ctx?.params) {
+        return null
     }
 
-    const { id } = await params
+    try {
+        const { id } = await ctx.params
+        return id
+    } catch {
+        return null
+    }
+}
+
+const handleGet: AuthenticatedHandler = async (_authCtx, routeContext) => {
+    const id = await resolveId(routeContext)
+    if (!id) {
+        return NextResponse.json({ error: 'Role tidak ditemukan' }, { status: 404 })
+    }
 
     try {
         const roleService = getRoleService()
@@ -47,80 +54,24 @@ export async function GET(req: Request, { params }: Params) {
     }
 }
 
-export async function PUT(req: Request, { params }: Params) {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+const handlePut: AuthenticatedHandler = async ({ request, user }, routeContext) => {
+    const id = await resolveId(routeContext)
+    if (!id) {
+        return NextResponse.json({ error: 'Role tidak ditemukan' }, { status: 404 })
     }
-
-    if (!await hasPermission('roles:update')) {
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
-    }
-
-    const { id } = await params
 
     try {
-        const body = await req.json()
-        // console.log('[ROLES API] PUT received body:', JSON.stringify(body, null, 2))
-
+        const body = await request.json()
         const validated = roleUpdateSchema.parse(body)
-        // console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
-
-        // Sanitize permissions based on panel access flags (safety net)
-        const sanitizedPermissions = await sanitizePermissionsByPanelAccess(
-            validated.permissions,
-            validated.accessAdminPanel ?? false,
-            validated.accessEmployeePanel ?? false
-        )
-
-        const isMain = session?.user?.tenantId === MAIN_TENANT_ID
-
-        // RESTRICTION: Non-main tenants cannot create/update Super Admin roles
-        if (validated.isSuperAdmin && !isMain) {
-            return NextResponse.json({ error: 'Hanya tenant utama yang dapat mengelola role Super Admin' }, { status: 403 })
-        }
-
-        // RESTRICTION: Non-main tenants cannot assign sensitive permissions
-        const restrictedResources = ['backup_database', 'app_version', 'tenants']
-        if (!isMain && sanitizedPermissions.some(p => restrictedResources.includes(p.split(':')[0]))) {
-            return NextResponse.json({ error: 'Hanya tenant utama yang dapat memberikan hak akses administratif sensitif (Backup, App Version, Tenants)' }, { status: 403 })
-        }
-
         const roleService = getRoleService()
-        const updateData: {
-            name: string;
-            permissions: string[];
-            description?: string;
-            accessAdminPanel?: boolean;
-            accessEmployeePanel?: boolean;
-            isRestricted?: boolean;
-            isTechnical?: boolean;
-            isSuperAdmin?: boolean;
-            canApproveRab?: boolean;
-        } = {
-            name: validated.name,
-            permissions: sanitizedPermissions,
-        }
-        if (validated.description !== undefined) updateData.description = validated.description
-        if (validated.accessAdminPanel !== undefined) updateData.accessAdminPanel = validated.accessAdminPanel
-        if (validated.accessEmployeePanel !== undefined) updateData.accessEmployeePanel = validated.accessEmployeePanel
-        if (validated.isRestricted !== undefined) updateData.isRestricted = validated.isRestricted
-        if (validated.isTechnical !== undefined) updateData.isTechnical = validated.isTechnical
-        if (validated.isSuperAdmin !== undefined) updateData.isSuperAdmin = validated.isSuperAdmin
-        if (validated.canApproveRab !== undefined) updateData.canApproveRab = validated.canApproveRab
+        const updatedRole = await roleService.updateRoleWithPolicy(id, validated, {
+            tenantId: user.tenantId ?? null
+        })
 
-        const updatedRole = await roleService.updateRole(id, updateData)
-
-        // Invalidate permission cache for all users with this role
-        // This ensures the changes take effect immediately without re-login
-        const { invalidateRolePermissionCache } = await import('@/lib/auth')
-        await invalidateRolePermissionCache(id)
-
-        // System Log
         logActivitySafe({
             action: 'UPDATE',
             subject: 'Role',
-            userId: session.user.id ?? 'unknown',
+            userId: user.id,
             details: { id, updates: validated }
         })
 
@@ -129,6 +80,9 @@ export async function PUT(req: Request, { params }: Params) {
         console.error('Error updating role:', error)
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.issues[0]?.message || 'Validasi gagal' }, { status: 400 })
+        }
+        if (error instanceof RolePolicyError) {
+            return NextResponse.json({ error: error.message }, { status: error.status })
         }
         if (error instanceof Error) {
             if (error.message === 'Role tidak ditemukan') {
@@ -143,28 +97,20 @@ export async function PUT(req: Request, { params }: Params) {
     }
 }
 
-export async function DELETE(req: Request, { params }: Params) {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-        // DELETE requires auth check for logging mainly, though permission check covers it
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+const handleDelete: AuthenticatedHandler = async ({ user }, routeContext) => {
+    const id = await resolveId(routeContext)
+    if (!id) {
+        return NextResponse.json({ error: 'Role tidak ditemukan' }, { status: 404 })
     }
-
-    if (!await hasPermission('roles:delete')) {
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
-    }
-
-    const { id } = await params
 
     try {
         const roleService = getRoleService()
         await roleService.deleteRole(id)
 
-        // System Log
         logActivitySafe({
             action: 'DELETE',
             subject: 'Role',
-            userId: session.user.id ?? 'unknown',
+            userId: user.id,
             details: { id }
         })
 
@@ -181,5 +127,63 @@ export async function DELETE(req: Request, { params }: Params) {
             }
         }
         return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+    }
+}
+
+const handleAuthError = (error: unknown): NextResponse | null => {
+    if (error instanceof UnauthorizedError) {
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
+    }
+    return null
+}
+
+const guardedGet = withAuth(
+    withPermission('roles:read', handleGet)
+)
+
+const guardedPut = withAuth(
+    withPermission('roles:update', handlePut)
+)
+
+const guardedDelete = withAuth(
+    withPermission('roles:delete', handleDelete)
+)
+
+export const GET = async (request: NextRequest, routeContext?: unknown) => {
+    try {
+        return await guardedGet(request, routeContext)
+    } catch (error) {
+        const response = handleAuthError(error)
+        if (response) {
+            return response
+        }
+        throw error
+    }
+}
+
+export const PUT = async (request: NextRequest, routeContext?: unknown) => {
+    try {
+        return await guardedPut(request, routeContext)
+    } catch (error) {
+        const response = handleAuthError(error)
+        if (response) {
+            return response
+        }
+        throw error
+    }
+}
+
+export const DELETE = async (request: NextRequest, routeContext?: unknown) => {
+    try {
+        return await guardedDelete(request, routeContext)
+    } catch (error) {
+        const response = handleAuthError(error)
+        if (response) {
+            return response
+        }
+        throw error
     }
 }

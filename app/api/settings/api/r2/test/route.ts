@@ -1,34 +1,30 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
-import { testR2Connection } from '@/lib/utils/r2-client'
+import { r2ConnectionTestSchema, type R2ConnectionTestInput } from '@/lib/validations/settings'
+import { testCloudflareR2Connection } from '@/modules/settings'
 
 /**
  * POST /api/settings/api/r2/test
  * Test koneksi ke Cloudflare R2
  */
-export const POST = createHandler({ auth: true, permissions: ['settings:update'] }, async (req) => {
-    const body = await req.json()
-    const { accountId, accessKeyId, secretAccessKey, bucketName } = body
+export const POST = createHandler<R2ConnectionTestInput>(
+  {
+    auth: true,
+    permissions: ['settings:update'],
+    schema: r2ConnectionTestSchema,
+  },
+  async (_req, ctx) => {
+    const payload = ctx.validated
 
-    // Validate required fields
-    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
-        return ApiErrors.badRequest('Semua field wajib diisi untuk test koneksi')
-    }
-
-    // Test connection
-    const result = await testR2Connection({
-        accountId,
-        accessKeyId,
-        secretAccessKey,
-        bucketName,
-        publicUrl: ''
-    })
+    const result = await testCloudflareR2Connection(payload)
 
     if (result.success) {
-        return apiSuccess({
-            success: true,
-            message: 'Koneksi ke Cloudflare R2 berhasil!'
-        })
-    } else {
-        return ApiErrors.badRequest(result.error || 'Koneksi gagal')
+      return apiSuccess({
+        success: true,
+        message: 'Koneksi ke Cloudflare R2 berhasil!',
+      })
     }
-})
+
+    const errorMessage = 'error' in result ? result.error : 'Koneksi gagal'
+    return ApiErrors.badRequest(errorMessage)
+  }
+)

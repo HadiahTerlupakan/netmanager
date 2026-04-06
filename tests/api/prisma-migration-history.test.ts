@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ensurePrismaMigrationHistory,
   getBackupPrismaConfig,
-} from '@/app/api/settings/backup/prisma-migration-history'
+} from '@/modules/settings/lib/prismaMigrationHistory'
 
 const testEnv: NodeJS.ProcessEnv = {
   ...process.env,

@@ -1,12 +1,8 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from "next-auth"
-import { authConfig } from "@/lib/auth"
-import { hasPermission } from '@/lib/rbac'
-import { getRoleService } from '@/modules/roles'
+import { NextRequest, NextResponse } from 'next/server'
+import { getRoleService, RolePolicyError } from '@/modules/roles'
 import * as z from 'zod'
 import { logActivitySafe } from '@/lib/logger'
-import { sanitizePermissionsByPanelAccess } from '@/lib/permission-sanitizer'
-import { MAIN_TENANT_ID } from '@/modules/mitra'
+import { ForbiddenError, UnauthorizedError, withAnyPermission, withAuth, withPermission, type AuthenticatedHandler } from '@/lib/middleware'
 
 const roleSchema = z.object({
     name: z.string().min(2),
@@ -20,39 +16,15 @@ const roleSchema = z.object({
     canApproveRab: z.boolean().optional().default(false)
 })
 
-export async function GET(req: Request) {
-    // Allow access if user has roles:read OR users:create OR users:update permission
-    // This enables users who manage users to see the role dropdown
-    const canReadRoles = await hasPermission('roles:read')
-    const canCreateUsers = await hasPermission('users:create')
-    const canUpdateUsers = await hasPermission('users:update')
-
-    if (!canReadRoles && !canCreateUsers && !canUpdateUsers) {
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
-    }
-
+const handleGet: AuthenticatedHandler = async ({ request, user }) => {
     try {
-        const { searchParams } = new URL(req.url)
+        const { searchParams } = new URL(request.url)
         const filterRestricted = searchParams.get('filterRestricted') === 'true'
 
         const roleService = getRoleService()
+        const currentUserId = filterRestricted ? user.id : null
 
-        if (filterRestricted) {
-            const session = await getServerSession(authConfig)
-
-            const currentUserRoleContext = await roleService.getCurrentUserRoleContext(session?.user?.id ?? null)
-
-            const roles = await roleService.getAllRoles({
-                filterRestricted: true,
-                currentUserRoleId: currentUserRoleContext.roleId,
-                currentUserRoleName: currentUserRoleContext.roleName
-            })
-
-            return NextResponse.json(roles)
-        }
-
-        // No filter - return all roles
-        const roles = await roleService.getAllRoles()
+        const roles = await roleService.getRolesForHakAkses(filterRestricted, currentUserId)
         return NextResponse.json(roles)
     } catch (error) {
         console.error('Error fetching roles:', error)
@@ -60,71 +32,21 @@ export async function GET(req: Request) {
     }
 }
 
-export async function POST(req: Request) {
-    if (!await hasPermission('roles:create')) {
-        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
-    }
-
+const handlePost: AuthenticatedHandler = async ({ request, user }) => {
     try {
-        const body = await req.json()
+        const body = await request.json()
         // console.log('[ROLES API] POST received body:', JSON.stringify(body, null, 2))
         const validated = roleSchema.parse(body)
-        // console.log('[ROLES API] Validated data:', JSON.stringify(validated, null, 2))
-
-        const sanitizedPermissions = await sanitizePermissionsByPanelAccess(
-            validated.permissions,
-            validated.accessAdminPanel ?? false,
-            validated.accessEmployeePanel ?? false
-        )
-
-        const session = await getServerSession(authConfig)
-        const isMain = session?.user?.tenantId === MAIN_TENANT_ID
-
-        // RESTRICTION: Non-main tenants cannot create Super Admin roles
-        if (validated.isSuperAdmin && !isMain) {
-            return NextResponse.json({ error: 'Hanya tenant utama yang dapat membuat role Super Admin' }, { status: 403 })
-        }
-
-        // RESTRICTION: Non-main tenants cannot assign sensitive permissions
-        const restrictedResources = ['backup_database', 'app_version', 'tenants']
-        if (!isMain && sanitizedPermissions.some(p => restrictedResources.includes(p.split(':')[0]))) {
-            return NextResponse.json({ error: 'Hanya tenant utama yang dapat memberikan hak akses administratif sensitif (Backup, App Version, Tenants)' }, { status: 403 })
-        }
-
         const roleService = getRoleService()
-
-        // Build the role data conditionally to avoid passing undefined
-        const roleData: Record<string, unknown> = {
-            name: validated.name,
-            permissions: sanitizedPermissions,
-        }
-
-        // Only include optional properties if they have values
-        if (validated.description !== undefined) roleData.description = validated.description
-        if (validated.accessAdminPanel !== undefined) roleData.accessAdminPanel = validated.accessAdminPanel
-        if (validated.accessEmployeePanel !== undefined) roleData.accessEmployeePanel = validated.accessEmployeePanel
-        if (validated.isRestricted !== undefined) roleData.isRestricted = validated.isRestricted
-        if (validated.isTechnical !== undefined) roleData.isTechnical = validated.isTechnical
-        if (validated.isSuperAdmin !== undefined) roleData.isSuperAdmin = validated.isSuperAdmin
-        if (validated.canApproveRab !== undefined) roleData.canApproveRab = validated.canApproveRab
-
-        const newRole = await roleService.createRole(roleData as {
-            name: string;
-            permissions: string[];
-            description?: string;
-            accessAdminPanel?: boolean;
-            accessEmployeePanel?: boolean;
-            isRestricted?: boolean;
-            isTechnical?: boolean;
-            isSuperAdmin?: boolean;
-            canApproveRab?: boolean;
+        const newRole = await roleService.createRoleWithPolicy(validated, {
+            tenantId: user.tenantId ?? null
         })
 
-        if (session?.user?.id) {
+        if (user.id) {
             logActivitySafe({
                 action: 'CREATE',
                 subject: 'Role',
-                userId: session.user.id,
+                userId: user.id,
                 details: { id: newRole.id, name: newRole.name }
             })
         }
@@ -135,9 +57,54 @@ export async function POST(req: Request) {
         if (error instanceof z.ZodError) {
             return NextResponse.json({ error: error.issues[0]?.message || 'Validasi gagal' }, { status: 400 })
         }
+        if (error instanceof RolePolicyError) {
+            return NextResponse.json({ error: error.message }, { status: error.status })
+        }
         if (error instanceof Error) {
             return NextResponse.json({ error: error.message }, { status: 400 })
         }
         return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+    }
+}
+
+const handleAuthError = (error: unknown): NextResponse | null => {
+    if (error instanceof UnauthorizedError) {
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+        return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 403 })
+    }
+    return null
+}
+
+const guardedGet = withAuth(
+    withAnyPermission(['roles:read', 'users:create', 'users:update'], handleGet)
+)
+
+const guardedPost = withAuth(
+    withPermission('roles:create', handlePost)
+)
+
+export const GET = async (request: NextRequest, routeContext?: unknown) => {
+    try {
+        return await guardedGet(request, routeContext)
+    } catch (error) {
+        const response = handleAuthError(error)
+        if (response) {
+            return response
+        }
+        throw error
+    }
+}
+
+export const POST = async (request: NextRequest, routeContext?: unknown) => {
+    try {
+        return await guardedPost(request, routeContext)
+    } catch (error) {
+        const response = handleAuthError(error)
+        if (response) {
+            return response
+        }
+        throw error
     }
 }

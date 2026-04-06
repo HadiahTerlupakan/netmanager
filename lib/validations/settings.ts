@@ -43,6 +43,18 @@ export const apiSettingsSchema = z.object({
   r2Enabled: z.boolean().optional(),
 })
 
+export const googleGeminiTestSchema = z.object({
+  apiKey: z.string().trim().min(1, 'API Key wajib diisi'),
+})
+
+export const r2ConnectionTestSchema = z.object({
+  accountId: z.string().trim().min(1, 'Account ID wajib diisi'),
+  accessKeyId: z.string().trim().min(1, 'Access Key ID wajib diisi'),
+  secretAccessKey: z.string().trim().min(1, 'Secret Access Key wajib diisi'),
+  bucketName: z.string().trim().min(1, 'Bucket Name wajib diisi'),
+  publicUrl: z.string().optional(),
+})
+
 export const captchaSettingsSchema = z.object({
   enabled: z.boolean(),
   siteKey: z.string().optional().default(''),
@@ -71,6 +83,13 @@ export const captchaSettingsSchema = z.object({
 
 export const logoDeleteSchema = z.object({
   type: logoTypeSchema,
+})
+
+export const ringtoneSettingsSchema = z.object({
+  enabled: z.boolean(),
+  soundType: z.enum(['default', 'custom']),
+  customSoundData: z.string().nullable().optional(),
+  customSoundName: z.string().nullable().optional(),
 })
 
 export const companyBankAccountSchema = z.object({
@@ -150,3 +169,6 @@ export type AcsSettingsInput = z.infer<typeof acsSettingsSchema>
 export type AcsVendorInput = z.infer<typeof acsVendorSchema>
 export type AcsWifiSecurityInput = z.infer<typeof acsWifiSecuritySchema>
 export type AcsTestUrlInput = z.infer<typeof acsTestUrlSchema>
+export type RingtoneSettingsInput = z.infer<typeof ringtoneSettingsSchema>
+export type GoogleGeminiTestInput = z.infer<typeof googleGeminiTestSchema>
+export type R2ConnectionTestInput = z.infer<typeof r2ConnectionTestSchema>

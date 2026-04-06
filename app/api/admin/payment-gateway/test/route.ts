@@ -1,57 +1,47 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { MootaProvider } from "@/modules/finance";
-import { MidtransProvider } from "@/modules/finance";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createHandler } from "@/lib/api";
+import { validateRequestBody } from "@/lib/validation/middleware";
+import { getPaymentGatewayTestService } from "@/modules/finance";
 
-export async function POST(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-        }
+const testService = getPaymentGatewayTestService();
 
-        const body = await req.json();
-        const { provider, apiKey, clientKey, isProduction } = body;
+const paymentGatewayTestSchema = z.object({
+  provider: z.string().trim().min(1, "Provider tidak valid"),
+  apiKey: z.string().nullable().optional(),
+  clientKey: z.string().nullable().optional(),
+  isProduction: z.boolean().optional(),
+});
 
-        let isConnected = false;
-        let message = "Provider not implemented for testing yet.";
+type PaymentGatewayTestRequest = z.infer<typeof paymentGatewayTestSchema>;
 
-        if (provider === 'MOOTA') {
-            const moota = new MootaProvider();
-            moota.initialize({
-                apiKey: apiKey || '',
-                isProduction: isProduction || false
-            });
-            const result = await moota.testConnection();
-            isConnected = result.success;
-            message = isConnected ? "Berhasil terhubung ke Moota API." : "Gagal terhubung ke Moota API. Pastikan API Key benar.";
-        }
-        else if (provider === 'MIDTRANS') {
-            const midtrans = new MidtransProvider();
-            midtrans.initialize({
-                isProduction: isProduction || false,
-                apiKey: apiKey || '',
-                clientKey: clientKey || ''
-            });
-            const result = await midtrans.testConnection();
-            isConnected = result.success;
-            message = isConnected ? "Berhasil terhubung ke Midtrans API." : "Gagal terhubung ke Midtrans API. Pastikan Server Key benar.";
-        }
-        else {
-            // For others, just pretend success for now as we don't have implementations mapped
-            isConnected = true;
-            message = `Simulasi tes koneksi sukses untuk ${provider}. (Belum ada implementasi test aktual)`;
-        }
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["payment_gateway:update"],
+  },
+  async (req) => {
+    const validation = await validateRequestBody(req, paymentGatewayTestSchema);
 
-        return NextResponse.json({ success: isConnected, message });
+    if (!validation.success) {
+      const message = validation.errors?.[0]?.message ?? "Provider tidak valid";
 
-    } catch (error: unknown) {
-        console.error("Test connection error:", error);
-        const err = error as Record<string, unknown>;
-        return NextResponse.json({
-            success: false,
-            message: (err?.message as string) || "Terjadi kesalahan internal saat mengetes koneksi."
-        }, { status: 500 });
+      return NextResponse.json({ success: false, message }, { status: 400 });
     }
-}
+
+    const { provider, apiKey, clientKey, isProduction } = validation.data as PaymentGatewayTestRequest;
+
+    const result = await testService.testConnection({
+      provider,
+      apiKey,
+      clientKey,
+      isProduction,
+    });
+
+    const success = Boolean(result.success);
+    const message =
+      result.message || (success ? "Koneksi berhasil" : "Gagal menghubungkan provider");
+
+    return NextResponse.json({ success, message });
+  }
+);

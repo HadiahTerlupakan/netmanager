@@ -4,8 +4,8 @@ import {
   type AcsWifiSecurityInput,
 } from '../repositories/AcsSettingsRepository'
 
-export async function listAcsWifiSecurityConfigs() {
-  return AcsSettingsRepository.findAllWifiSecurity()
+export async function listAcsWifiSecurityConfigs(tenantId?: string | null) {
+  return AcsSettingsRepository.findWifiSecurityByTenant(tenantId ?? null)
 }
 
 export async function upsertAcsWifiSecurity(payload: AcsWifiSecurityInput, tenantId?: string | null) {

@@ -1,3 +1,4 @@
+import { SettingsRepository } from '../repositories/SettingsRepository'
 import type { SettingsRecord, SettingsUpsertInput } from '../repositories/SettingsRepository'
 
 export type BankAccount = {
@@ -28,6 +29,13 @@ export type GeneralSettingsPayload = {
   notifApp: boolean
   notifWa: boolean
   notifEmail: boolean
+}
+
+export type PublicGeneralSettingsPayload = {
+  perusahaan: string
+  alamat: string
+  nomorHp: string
+  deskripsiInvoice: string
 }
 
 export const GENERAL_SETTINGS_KEYS: string[] = [
@@ -90,6 +98,34 @@ export function mapGeneralSettingsResponse(records: SettingsRecord[]): GeneralSe
     notifApp: settingsMap.get('GENERAL_NOTIF_APP') !== 'false',
     notifWa: settingsMap.get('GENERAL_NOTIF_WA') === 'true',
     notifEmail: settingsMap.get('GENERAL_NOTIF_EMAIL') === 'true',
+  }
+}
+
+export async function getGeneralSettings(): Promise<GeneralSettingsPayload> {
+  const records = await SettingsRepository.findManyByKeys(GENERAL_SETTINGS_KEYS)
+  return mapGeneralSettingsResponse(records)
+}
+
+export async function updateGeneralSettings(payload: GeneralSettingsPayload): Promise<void> {
+  await SettingsRepository.upsertMany(buildGeneralSettingsUpserts(payload))
+}
+
+const PUBLIC_GENERAL_SETTING_KEYS = [
+  'GENERAL_PERUSAHAAN',
+  'GENERAL_ALAMAT',
+  'GENERAL_NOMOR_HP',
+  'GENERAL_DESKRIPSI_INVOICE',
+] as const
+
+export async function getPublicGeneralSettings(): Promise<PublicGeneralSettingsPayload> {
+  const records = await SettingsRepository.findManyByKeys(PUBLIC_GENERAL_SETTING_KEYS)
+  const settingsMap = new Map(records.map((record) => [record.key, record.value]))
+
+  return {
+    perusahaan: settingsMap.get('GENERAL_PERUSAHAAN') || '',
+    alamat: settingsMap.get('GENERAL_ALAMAT') || '',
+    nomorHp: settingsMap.get('GENERAL_NOMOR_HP') || '',
+    deskripsiInvoice: settingsMap.get('GENERAL_DESKRIPSI_INVOICE') || '',
   }
 }
 

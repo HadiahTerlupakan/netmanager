@@ -12,8 +12,10 @@ export * from './services/AutomaticIsolationService';
 export * from './services/BillingAnalyticsService';
 export * from './services/CompanyBankAccountService';
 export * from './services/PaymentGatewayConfigService';
+export * from './services/UnmatchedMutationService';
 
 // Payment Gateway
+export * from './services/PaymentGatewayTestService';
 export * from './services/payment-gateway/gateway-manager';
 export * from './services/payment-gateway/providers/midtrans-provider';
 export * from './services/payment-gateway/providers/moota-provider';

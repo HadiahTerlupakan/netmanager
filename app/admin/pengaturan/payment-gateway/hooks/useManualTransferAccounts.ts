@@ -164,7 +164,14 @@ export function useManualTransferAccounts() {
                 const response = await fetch(`${ACCOUNTS_URL}/${account.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ isActive: !account.isActive }),
+                    body: JSON.stringify({
+                        bankName: account.bankName,
+                        accountNumber: account.accountNumber,
+                        accountName: account.accountName,
+                        description: account.description ?? '',
+                        priority: account.priority,
+                        isActive: !account.isActive,
+                    }),
                 })
 
                 if (response.ok) {

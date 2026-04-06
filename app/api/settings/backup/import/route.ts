@@ -1,13 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { ApiErrors } from '@/lib/api-response'
+import { NextResponse } from 'next/server'
+import { ApiErrors, createHandler } from '@/lib/api'
+import { hasPermission } from '@/lib/rbac'
+import { isMainTenant } from '@/modules/mitra'
 import { importBackupArchive } from '@/modules/settings'
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) {
-    return ApiErrors.unauthorized('Session tidak valid')
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+  const user = ctx.session!.user
+
+  if (!isMainTenant(user.tenantId)) {
+    return ApiErrors.forbidden('Hanya tenant utama yang dapat mengakses backup ini')
+  }
+
+  if (!await hasPermission('backup_database:delete', user)) {
+    return ApiErrors.forbidden('Anda tidak memiliki permission untuk mengunggah backup database')
   }
 
   try {
@@ -21,17 +26,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const result = await importBackupArchive({
       fileBuffer: Buffer.from(await file.arrayBuffer()),
       fileName: file.name,
-      tenantId: session.user.tenantId,
+      tenantId: user.tenantId,
     })
 
     return NextResponse.json(result)
   } catch (error) {
+    console.error('Error importing settings backup:', error)
+
     const message = error instanceof Error ? error.message : String(error)
 
     if (message.includes('Format file tidak valid') || message.includes('tidak berisi data database yang valid')) {
-      return ApiErrors.badRequest(message)
+      return ApiErrors.badRequest('File backup tidak valid atau tidak berisi data database yang valid')
     }
 
-    return ApiErrors.internalError(`Gagal import backup: ${message}`)
+    return ApiErrors.internalError('Gagal import backup')
   }
-}
+})

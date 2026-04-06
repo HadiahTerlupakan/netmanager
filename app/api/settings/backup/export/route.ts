@@ -1,13 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { ApiErrors } from '@/lib/api-response'
+import { NextResponse } from 'next/server'
+import { ApiErrors, createHandler } from '@/lib/api'
+import { hasPermission } from '@/lib/rbac'
+import { isMainTenant } from '@/modules/mitra'
 import { createBackupArchive } from '@/modules/settings'
 
-export async function GET(_req: NextRequest): Promise<NextResponse> {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) {
-    return ApiErrors.unauthorized('Session tidak valid')
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  const user = ctx.session!.user
+
+  if (!isMainTenant(user.tenantId)) {
+    return ApiErrors.forbidden('Hanya tenant utama yang dapat mengakses backup ini')
+  }
+
+  if (!await hasPermission('backup_database:read', user)) {
+    return ApiErrors.forbidden('Anda tidak memiliki permission untuk mengunduh backup database')
   }
 
   try {
@@ -24,7 +29,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return ApiErrors.internalError(`Gagal membuat backup: ${message}`)
+    console.error('Error creating settings backup export:', error)
+    return ApiErrors.internalError('Gagal membuat backup')
   }
-}
+})

@@ -3,10 +3,8 @@ import { invalidateTimezoneCache } from '@/lib/utils/get-timezone'
 import { logActivitySafe } from '@/lib/logger'
 import { generalSettingsSchema } from '@/lib/validations/settings'
 import {
-  SettingsRepository,
-  GENERAL_SETTINGS_KEYS,
-  mapGeneralSettingsResponse,
-  buildGeneralSettingsUpserts,
+  getGeneralSettings,
+  updateGeneralSettings,
   type GeneralSettingsPayload,
 } from '@/modules/settings'
 
@@ -178,8 +176,7 @@ import {
  * Mengambil pengaturan umum
  */
 export const GET = createHandler({ auth: true, permissions: ['umum:read', 'settings:read'] }, async () => {
-  const settings = await SettingsRepository.findManyByKeys(GENERAL_SETTINGS_KEYS)
-  return apiSuccess(mapGeneralSettingsResponse(settings))
+  return apiSuccess(await getGeneralSettings())
 })
 
 /**
@@ -196,7 +193,7 @@ export const POST = createHandler({
     email: ctx.validated.email ?? '',
   }
 
-  await SettingsRepository.upsertMany(buildGeneralSettingsUpserts(body))
+  await updateGeneralSettings(body)
 
   // Invalidate both timezone caches (get-timezone.ts AND AttendanceTimezoneService)
   invalidateTimezoneCache()

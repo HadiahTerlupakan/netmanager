@@ -60,8 +60,18 @@ export const AcsSettingsRepository = {
     await prisma.acsVendor.delete({ where: { id } })
   },
 
-  findAllWifiSecurity: async () => {
+  findWifiSecurityByTenant: async (tenantId?: string | null) => {
+    const whereClause: Prisma.AcsWifiSecurityWhereInput = tenantId
+      ? {
+          OR: [
+            { tenantId: null },
+            { tenantId: tenantId },
+          ],
+        }
+      : { tenantId: null }
+
     return prisma.acsWifiSecurity.findMany({
+      where: whereClause,
       orderBy: { productClass: 'asc' },
     })
   },

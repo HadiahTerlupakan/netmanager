@@ -8,7 +8,7 @@ export type {
     FilterOptions
 } from './repositories/RoleRepository'
 
-export { RoleService, getRoleService } from './services/RoleService'
+export { RoleService, getRoleService, RolePolicyError } from './services/RoleService'
 
 // Site Management
 export { SiteRepository } from './repositories/SiteRepository'

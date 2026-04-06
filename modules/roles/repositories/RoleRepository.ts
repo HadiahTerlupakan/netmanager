@@ -66,6 +66,25 @@ export class RoleRepository {
         })
     }
 
+    async findUserRoleContext(userId?: string | null): Promise<{ roleId: string | null, roleName: string | null }> {
+        if (!userId) {
+            return { roleId: null, roleName: null }
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                roleId: true,
+                role: { select: { id: true, name: true } },
+            },
+        })
+
+        return {
+            roleId: user?.roleId ?? null,
+            roleName: user?.role?.name ?? null,
+        }
+    }
+
     async findById(id: string): Promise<Role | null> {
         return prisma.role.findUnique({
             where: { id }

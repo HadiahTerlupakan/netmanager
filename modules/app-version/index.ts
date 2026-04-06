@@ -4,3 +4,4 @@ export type { CreateAppVersionDTO, UpdateAppVersionDTO, AppVersionWithUser } fro
 
 export { AppVersionService, getAppVersionService } from './services/AppVersionService'
 export type { UploadVersionInput, CheckVersionResult } from './services/AppVersionService'
+export { parseAppVersionUploadForm } from './helpers/parseUploadVersionForm'

@@ -3,14 +3,28 @@
 import { useState, useEffect, useRef } from 'react'
 import { HiOutlineSpeakerWave, HiOutlinePlay, HiOutlinePause, HiOutlineTrash, HiOutlineCloudArrowUp } from 'react-icons/hi2'
 import { Button } from '@/components/ui/Button'
+import type { RingtoneSettingsPayload } from '@/modules/settings'
+
+function unwrapApiData<T>(payload: T | { data?: T }): T {
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+        const nested = (payload as { data?: T }).data
+        if (nested !== undefined) {
+            return nested
+        }
+    }
+
+    return payload as T
+}
 
 export default function RingtoneSettingsClient() {
     const [enabled, setEnabled] = useState(true)
     const [soundType, setSoundType] = useState<'default' | 'custom'>('default')
     const [customSoundData, setCustomSoundData] = useState<string | null>(null)
     const [customSoundName, setCustomSoundName] = useState<string>('Custom Tone')
+    const [serverHydrated, setServerHydrated] = useState(false)
     const [isPlaying, setIsPlaying] = useState(false)
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const saveTimeoutRef = useRef<number | null>(null)
 
     // Load settings from localStorage on mount
     useEffect(() => {
@@ -31,17 +45,114 @@ export default function RingtoneSettingsClient() {
         }
     }, [])
 
+    useEffect(() => {
+        let cancelled = false
+
+        const loadSettings = async () => {
+            try {
+                const response = await fetch('/api/settings/ringtone', { cache: 'no-store' })
+                if (!response.ok) {
+                    const body = await response.text()
+                    console.error('Failed to load ringtone settings:', response.status, body)
+                    return
+                }
+
+                const payload = unwrapApiData<RingtoneSettingsPayload>(await response.json())
+                if (cancelled) return
+
+                setEnabled(payload.enabled)
+                setSoundType(payload.soundType)
+                setCustomSoundData(payload.customSoundData)
+                setCustomSoundName(payload.customSoundName ?? 'Custom Tone')
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to load ringtone settings:', error)
+                }
+            } finally {
+                if (!cancelled) {
+                    setServerHydrated(true)
+                }
+            }
+        }
+
+        void loadSettings()
+
+        return () => {
+            cancelled = true
+        }
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return
+        }
+
+        localStorage.setItem('chat_sound_enabled', String(enabled))
+        localStorage.setItem('chat_sound_type', soundType)
+
+        if (customSoundData) {
+            localStorage.setItem('chat_custom_sound_data', customSoundData)
+            localStorage.setItem('chat_custom_sound_name', customSoundName)
+        } else {
+            localStorage.removeItem('chat_custom_sound_data')
+            localStorage.removeItem('chat_custom_sound_name')
+        }
+    }, [enabled, soundType, customSoundData, customSoundName])
+
+    useEffect(() => {
+        if (!serverHydrated) {
+            return
+        }
+
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current)
+        }
+
+        const normalizedCustomData = customSoundData && customSoundData.length > 0 ? customSoundData : null
+        const normalizedCustomName = normalizedCustomData ? (customSoundName?.trim() || 'Custom Tone') : null
+
+        const save = async () => {
+            try {
+                const response = await fetch('/api/settings/ringtone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enabled,
+                        soundType,
+                        customSoundData: normalizedCustomData,
+                        customSoundName: normalizedCustomName,
+                    }),
+                })
+
+                if (!response.ok) {
+                    const body = await response.text()
+                    console.error('Failed to persist ringtone settings:', response.status, body)
+                }
+            } catch (error) {
+                console.error('Failed to persist ringtone settings:', error)
+            }
+        }
+
+        saveTimeoutRef.current = window.setTimeout(() => {
+            void save()
+        }, 400)
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current)
+            }
+        }
+    }, [enabled, soundType, customSoundData, customSoundName, serverHydrated])
+
     // Ensure audio cleanup
 
     const handleEnableToggle = () => {
         const newVal = !enabled
         setEnabled(newVal)
-        localStorage.setItem('chat_sound_enabled', String(newVal))
     }
 
     const handleTypeChange = (type: 'default' | 'custom') => {
         setSoundType(type)
-        localStorage.setItem('chat_sound_type', type)
     }
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,10 +176,6 @@ export default function RingtoneSettingsClient() {
             setCustomSoundData(base64)
             setCustomSoundName(file.name)
             setSoundType('custom') // Auto switch to custom
-            
-            localStorage.setItem('chat_custom_sound_data', base64)
-            localStorage.setItem('chat_custom_sound_name', file.name)
-            localStorage.setItem('chat_sound_type', 'custom')
         }
         reader.readAsDataURL(file)
     }
@@ -76,11 +183,8 @@ export default function RingtoneSettingsClient() {
     const handleDeleteCustom = () => {
         setCustomSoundData(null)
         setCustomSoundName('Custom Tone')
-        localStorage.removeItem('chat_custom_sound_data')
-        localStorage.removeItem('chat_custom_sound_name')
         if (soundType === 'custom') {
             setSoundType('default')
-            localStorage.setItem('chat_sound_type', 'default')
         }
     }
 
@@ -208,8 +312,9 @@ export default function RingtoneSettingsClient() {
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">Pilihan Nada</h3>
                         
                         {/* Default Option */}
-                        <div 
-                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${soundType === 'default' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
+                        <button 
+                            type="button"
+                            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors text-left focus:outline-none ${soundType === 'default' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
                             onClick={() => handleTypeChange('default')}
                         >
                             <div className="flex items-center gap-3">
@@ -224,14 +329,15 @@ export default function RingtoneSettingsClient() {
                                     <span className="text-sm text-gray-500 dark:text-gray-400">Nada standar aplikasi (/sounds/notification.mp3)</span>
                                 </div>
                             </div>
-                        </div>
+                        </button>
 
                         {/* Custom Option */}
                         <div 
                             className={`p-4 border rounded-lg transition-colors ${soundType === 'custom' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}
                         >
-                            <div 
-                                className="flex items-center justify-between cursor-pointer mb-3"
+                            <button
+                                type="button"
+                                className="flex items-center justify-between cursor-pointer mb-3 w-full text-left focus:outline-none"
                                 onClick={() => handleTypeChange('custom')}
                             >
                                 <div className="flex items-center gap-3">
@@ -246,7 +352,7 @@ export default function RingtoneSettingsClient() {
                                         <span className="text-sm text-gray-500 dark:text-gray-400">Gunakan file audio pilihan Anda</span>
                                     </div>
                                 </div>
-                            </div>
+                            </button>
 
                             {/* Upload Area - Show if custom selected */}
                             {soundType === 'custom' && (
@@ -286,9 +392,10 @@ export default function RingtoneSettingsClient() {
 
                     {/* Preview Button */}
                     <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-                        <button
-                            onClick={handlePreview}
-                            disabled={!enabled || (soundType === 'custom' && !customSoundData)}
+                    <button
+                        type="button"
+                        onClick={handlePreview}
+                        disabled={!enabled || (soundType === 'custom' && !customSoundData)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                                 isPlaying 
                                     ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300' 
@@ -304,7 +411,7 @@ export default function RingtoneSettingsClient() {
             
             <div className="mt-4 text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Pengaturan ini disimpan di browser Anda (LocalStorage) dan bersifat personal untuk perangkat ini.
+                    Pengaturan ini disimpan secara terpusat di server dan tetap dicadangkan di browser untuk respons cepat.
                 </p>
             </div>
         </div>
