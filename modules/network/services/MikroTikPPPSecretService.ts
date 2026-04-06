@@ -30,6 +30,8 @@ interface PPPActiveSessionRecord extends Record<string, string> {
   'bytes-out'?: string;
   'rx-byte'?: string;
   'tx-byte'?: string;
+  rx?: string;
+  tx?: string;
 }
 
 function pickCounter(session: PPPActiveSessionRecord, primary: keyof PPPActiveSessionRecord, fallback: keyof PPPActiveSessionRecord): number {
@@ -49,10 +51,13 @@ function extractSessionUsage(session?: PPPActiveSessionRecord): SessionUsageData
     return { downloadBytes: 0, uploadBytes: 0 };
   }
 
+  const downloadFromPrimary = pickCounter(session, 'bytes-out', 'tx-byte');
+  const uploadFromPrimary = pickCounter(session, 'bytes-in', 'rx-byte');
+
   return {
-    // Prefer bytes-out/bytes-in, fallback to tx-byte/rx-byte if router payload differs
-    downloadBytes: pickCounter(session, 'bytes-out', 'tx-byte'),
-    uploadBytes: pickCounter(session, 'bytes-in', 'rx-byte'),
+    // Prefer cumulative counters from active session or interface stats
+    downloadBytes: downloadFromPrimary > 0 ? downloadFromPrimary : parseCounter(session.tx),
+    uploadBytes: uploadFromPrimary > 0 ? uploadFromPrimary : parseCounter(session.rx),
   };
 }
 
@@ -323,12 +328,20 @@ export class MikroTikPPPSecretService {
         if (usage.downloadBytes <= 0 && usage.uploadBytes <= 0) {
           const interfaceName = sessions?.[0]?.name;
           if (interfaceName) {
-            const traffic = await conn.write('/interface/monitor-traffic', [
-              `=interface=${interfaceName}`,
-              '=once='
+            const interfaceStats = await conn.write('/interface/print', [
+              `?name=${interfaceName}`
             ]) as PPPActiveSessionRecord[];
 
-            usage = extractSessionUsage(traffic?.[0]);
+            usage = extractSessionUsage(interfaceStats?.[0]);
+
+            if (usage.downloadBytes <= 0 && usage.uploadBytes <= 0) {
+              const traffic = await conn.write('/interface/monitor-traffic', [
+                `=interface=${interfaceName}`,
+                '=once='
+              ]) as PPPActiveSessionRecord[];
+
+              usage = extractSessionUsage(traffic?.[0]);
+            }
           }
         }
 
