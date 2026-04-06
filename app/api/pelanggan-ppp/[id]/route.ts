@@ -1,4 +1,3 @@
-import { hasPermission } from '@/lib/rbac'
 import { prisma } from '@/modules/database'
 import { revalidatePath } from 'next/cache'
 import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
@@ -6,6 +5,7 @@ import { AutomaticBillingService } from '@/modules/finance'
 import { hash } from 'bcryptjs'
 import { Status, TipePelanggan } from '@prisma/client'
 import { apiSuccess, ApiErrors, createHandler, apiError } from '@/lib/api'
+import { canAccessSite } from '@/modules/roles'
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -21,130 +21,176 @@ const parseEnumValue = <T extends string>(value: string | null, enumObject: Reco
   return (Object.values(enumObject) as string[]).find(v => v.toUpperCase() === normalized) as T ?? null
 }
 
+const sanitizePelangganResponse = <T extends { password?: string | null; passwordHash?: string | null }>(pelanggan: T) => {
+  const { password: _password, passwordHash: _passwordHash, ...safePelanggan } = pelanggan
+  return safePelanggan
+}
+
+const getTenantScopedWhereById = (
+  session: { user: { tenantId?: string | null; isSuperAdmin?: boolean | null; role?: string | null } },
+  id: string
+) => {
+  const tenantId = session.user.tenantId ?? null
+  const isSuperAdmin = Boolean(session.user.isSuperAdmin || session.user.role === 'SUPER_ADMIN')
+
+  if (!tenantId && !isSuperAdmin) {
+    return { where: null, error: ApiErrors.forbidden('Akses ditolak: tenant tidak teridentifikasi') }
+  }
+
+  return {
+    where: tenantId ? { id, tenantId } : { id },
+    error: null as ReturnType<typeof ApiErrors.forbidden> | null,
+  }
+}
+
+const canAccessPelangganBySite = (
+  session: { user: { role?: string | null } },
+  siteId: string | null | undefined
+) => {
+  if (!session.user.role || session.user.role === 'SUPER_ADMIN') return true
+  return canAccessSite(session as Parameters<typeof canAccessSite>[0], 'pelanggan', siteId)
+}
+
 /**
  * GET /api/pelanggan-ppp/{id}
  * Support for Read-Audit and Admin/Customer Auth.
  */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    const { id } = ctx.params
-    const session = ctx.session!
-    const isAdmin = !!session.user.role // Admin users have a role from RBAC system
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  const { id } = ctx.params
+  const session = ctx.session!
 
-    // If customer token used, createHandler's auth:true already verified session.
-    // If it's a customer, ensure they only access their own ID (Ownership Check)
-    if (session.user.role === 'CUSTOMER' && session.user.id !== id) {
-        return ApiErrors.forbidden('Anda tidak diperbolehkan melihat data pelanggan lain')
-    }
+  if (session.user.role === 'CUSTOMER' && session.user.id !== id) {
+    return ApiErrors.forbidden('Anda tidak diperbolehkan melihat data pelanggan lain')
+  }
 
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-      include: {
-        hargaPaket: { include: { profilePPP: true, bandwidth: true } },
-        odp: true,
-      },
-    })
+  const tenantScope = getTenantScopedWhereById(session as Parameters<typeof getTenantScopedWhereById>[0], id)
+  if (tenantScope.error) return tenantScope.error
 
-    if (!pelanggan) return ApiErrors.notFound('Pelanggan')
+  const pelanggan = await prisma.pelanggan.findFirst({
+    where: tenantScope.where!,
+    include: {
+      hargaPaket: { include: { profilePPP: true, bandwidth: true } },
+      odp: true,
+    },
+  })
 
-    // Admin Site Restriction Check
-    if (isAdmin && session.user.role !== 'SUPER_ADMIN') {
-      const isSiteRestricted = await hasPermission("pelanggan:site_only")
-      if (isSiteRestricted && pelanggan.siteId !== session.user.siteId) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses ke pelanggan di site ini')
-      }
-    }
+  if (!pelanggan) return ApiErrors.notFound('Pelanggan')
 
-    const { passwordHash: _, ...pelangganData } = pelanggan;
-    return apiSuccess(pelangganData);
+  if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], pelanggan.siteId)) {
+    return ApiErrors.forbidden('Anda tidak memiliki akses ke pelanggan di site ini')
+  }
+
+  return apiSuccess(sanitizePelangganResponse(pelanggan))
 })
 
 /**
  * PUT /api/pelanggan-ppp/{id}
  */
 export const PUT = createHandler({ auth: true, permissions: ['pelanggan:update'] }, async (req, ctx) => {
-    const { id } = ctx.params
-    const session = ctx.session!
-    
-    const existingPelanggan = await prisma.pelanggan.findUnique({ where: { id } })
-    if (!existingPelanggan) return ApiErrors.notFound('Pelanggan')
+  const { id } = ctx.params
+  const session = ctx.session!
 
-    // Site Restriction
-    if (session.user.role !== 'SUPER_ADMIN') {
-      const isSiteRestricted = await hasPermission("pelanggan:site_only")
-      if (isSiteRestricted && existingPelanggan.siteId !== session.user.siteId) {
-        return ApiErrors.forbidden('Akses ditolak')
-      }
+  const tenantScope = getTenantScopedWhereById(session as Parameters<typeof getTenantScopedWhereById>[0], id)
+  if (tenantScope.error) return tenantScope.error
+
+  const existingPelanggan = await prisma.pelanggan.findFirst({ where: tenantScope.where! })
+  if (!existingPelanggan) return ApiErrors.notFound('Pelanggan')
+
+  if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], existingPelanggan.siteId)) {
+    return ApiErrors.forbidden('Akses ditolak')
+  }
+
+  const formData = await req.formData()
+  const idPelanggan = formData.get('idPelanggan') as string
+  const nama = formData.get('nama') as string
+  const username = formData.get('username') as string
+  const password = formData.get('password') as string
+  const hargaPaketId = formData.get('hargaPaketId') as string
+  const tipe = formData.get('tipe') as string
+  const tanggalAktif = formData.get('tanggalAktif') as string
+  const jatuhTempo = formData.get('jatuhTempo') as string
+  const status = formData.get('status') as string
+  const autoIsolir = parseBooleanFlag(formData.get('autoIsolir'), true)
+  const email = formData.get('email') as string | null
+  const siteIdRaw = formData.get('siteId') as string | null
+  const invoiceAction = formData.get('invoiceAction') as string | null
+  const passwordLogin = formData.get('passwordLogin') as string | null
+
+  if (!idPelanggan || !nama || !username || !password || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
+    return apiError('Semua field wajib harus diisi', 'VALIDATION_ERROR', { status: 400 })
+  }
+
+  const tanggalAktifDate = new Date(tanggalAktif)
+  if (Number.isNaN(tanggalAktifDate.getTime())) {
+    return apiError('Tanggal aktif tidak valid', 'VALIDATION_ERROR', { status: 400 })
+  }
+
+  const jatuhTempoDate = new Date(jatuhTempo)
+  if (Number.isNaN(jatuhTempoDate.getTime())) {
+    return apiError('Tanggal jatuh tempo tidak valid', 'VALIDATION_ERROR', { status: 400 })
+  }
+
+  const pelanggan = await prisma.pelanggan.update({
+    where: { id },
+    data: {
+      idPelanggan: idPelanggan.trim(),
+      nama: nama.trim(),
+      username: username.trim(),
+      password: password.trim(),
+      hargaPaketId,
+      tipe: parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER,
+      tanggalAktif: tanggalAktifDate,
+      jatuhTempo: jatuhTempoDate,
+      status: parseEnumValue(status, Status) ?? Status.AKTIF,
+      autoIsolir,
+      email: email?.trim() || null,
+      siteId: siteIdRaw === '' ? null : siteIdRaw,
+      ...(passwordLogin ? { passwordHash: await hash(passwordLogin.trim(), 12) } : {}),
     }
+  })
 
-    const formData = await req.formData()
-    const idPelanggan = formData.get('idPelanggan') as string
-    const nama = formData.get('nama') as string
-    const username = formData.get('username') as string
-    const password = formData.get('password') as string
-    const hargaPaketId = formData.get('hargaPaketId') as string
-    const tipe = formData.get('tipe') as string
-    const tanggalAktif = formData.get('tanggalAktif') as string
-    const jatuhTempo = formData.get('jatuhTempo') as string
-    const status = formData.get('status') as string
-    const autoIsolir = parseBooleanFlag(formData.get('autoIsolir'), true)
-    const email = formData.get('email') as string | null
-    const siteIdRaw = formData.get('siteId') as string | null
-    const invoiceAction = formData.get('invoiceAction') as string | null
-    const passwordLogin = formData.get('passwordLogin') as string | null
+  if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], pelanggan.siteId)) {
+    return ApiErrors.forbidden('Akses ditolak')
+  }
 
-    if (!idPelanggan || !nama || !username || !password || !hargaPaketId || !tanggalAktif || !jatuhTempo) {
-      return apiError('Semua field wajib harus diisi', 'VALIDATION_ERROR', { status: 400 })
-    }
+  await afterCustomerUpdate(prisma, id, {
+    statusChanged: true,
+    oldStatus: existingPelanggan.status,
+    newStatus: pelanggan.status,
+    packageChanged: true,
+    passwordChanged: true
+  })
 
-    // Update Logic (Minimal version for brevity, but preserving full functionality)
-    const pelanggan = await prisma.pelanggan.update({
-      where: { id },
-      data: {
-        idPelanggan: idPelanggan.trim(),
-        nama: nama.trim(),
-        username: username.trim(),
-        password: password.trim(),
-        hargaPaketId,
-        tipe: parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER,
-        tanggalAktif: new Date(tanggalAktif),
-        jatuhTempo: new Date(jatuhTempo),
-        status: parseEnumValue(status, Status) ?? Status.AKTIF,
-        autoIsolir,
-        email: email?.trim() || null,
-        siteId: siteIdRaw === '' ? null : siteIdRaw,
-        ...(passwordLogin ? { passwordHash: await hash(passwordLogin.trim(), 12) } : {}),
-        // ... other fields would follow same pattern
-      }
-    })
+  if (invoiceAction === 'VOID_AND_CREATE_NEW') {
+    await AutomaticBillingService.generateImmediateInvoice(pelanggan.id, false)
+  }
 
-    // RADIUS Sync & Billing trigger
-    await afterCustomerUpdate(prisma, id, { statusChanged: true, oldStatus: existingPelanggan.status, newStatus: pelanggan.status, packageChanged: true, passwordChanged: true });
-    if (invoiceAction === 'VOID_AND_CREATE_NEW') await AutomaticBillingService.generateImmediateInvoice(pelanggan.id, false);
-
-    revalidatePath('/admin/pelanggan/ppp')
-    ctx.validated = { id: pelanggan.id, action: 'UPDATE_PII' }
-    return apiSuccess(pelanggan)
+  revalidatePath('/admin/pelanggan/ppp')
+  ctx.validated = { id: pelanggan.id, action: 'UPDATE_PII' }
+  return apiSuccess(sanitizePelangganResponse(pelanggan))
 })
 
 /**
  * DELETE /api/pelanggan-ppp/{id}
  */
-export const DELETE = createHandler({ auth: true, permissions: ['pelanggan:delete'] }, async (req, ctx) => {
-    const { id } = ctx.params
-    const session = ctx.session!
+export const DELETE = createHandler({ auth: true, permissions: ['pelanggan:delete'] }, async (_req, ctx) => {
+  const { id } = ctx.params
+  const session = ctx.session!
 
-    const pelanggan = await prisma.pelanggan.findUnique({ where: { id } })
-    if (!pelanggan) return ApiErrors.notFound('Pelanggan')
+  const tenantScope = getTenantScopedWhereById(session as Parameters<typeof getTenantScopedWhereById>[0], id)
+  if (tenantScope.error) return tenantScope.error
 
-    if (session.user.role !== 'SUPER_ADMIN') {
-      const isSiteRestricted = await hasPermission("pelanggan:site_only")
-      if (isSiteRestricted && pelanggan.siteId !== session.user.siteId) return ApiErrors.forbidden('Akses ditolak')
-    }
+  const pelanggan = await prisma.pelanggan.findFirst({ where: tenantScope.where! })
+  if (!pelanggan) return ApiErrors.notFound('Pelanggan')
 
-    await beforeCustomerDelete(prisma, pelanggan.username)
-    await prisma.pelanggan.delete({ where: { id } })
+  if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], pelanggan.siteId)) {
+    return ApiErrors.forbidden('Akses ditolak')
+  }
 
-    revalidatePath('/admin/pelanggan/ppp')
-    ctx.validated = { id, nama: pelanggan.nama, username: pelanggan.username }
-    return apiSuccess({ message: 'Pelanggan berhasil dihapus' })
+  await beforeCustomerDelete(prisma, pelanggan.username)
+  await prisma.pelanggan.delete({ where: { id } })
+
+  revalidatePath('/admin/pelanggan/ppp')
+  ctx.validated = { id, nama: pelanggan.nama, username: pelanggan.username }
+  return apiSuccess({ message: 'Pelanggan berhasil dihapus' })
 })

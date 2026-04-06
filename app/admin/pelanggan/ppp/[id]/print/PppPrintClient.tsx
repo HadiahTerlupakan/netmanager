@@ -117,13 +117,11 @@ export default function PppPrintClient() {
           throw new Error('Failed to fetch pelanggan data')
         }
         const pelangganData = await pelangganRes.json()
-        // The API returns the raw object directly now, not { pelanggan: ... }
-        if (pelangganData.id) {
-          setPelanggan(pelangganData)
-        } else if (pelangganData.pelanggan) {
-          setPelanggan(pelangganData.pelanggan)
+        const pelangganPayload = pelangganData?.data ?? pelangganData?.pelanggan ?? pelangganData
+        if (pelangganPayload?.id) {
+          setPelanggan(pelangganPayload)
         } else {
-          console.error("Unknown pelanggan format", pelangganData);
+          console.error('Unknown pelanggan format', pelangganData)
         }
 
         // Fetch latest tagihan
@@ -196,8 +194,10 @@ export default function PppPrintClient() {
     }).format(amount)
   }
 
-  const formatDateShort = (dateString: string) => {
+  const formatDateShort = (dateString?: string | null) => {
+    if (!dateString) return '-'
     const date = new Date(dateString)
+    if (Number.isNaN(date.getTime())) return '-'
     const day = String(date.getDate()).padStart(2, '0')
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const year = date.getFullYear()
@@ -404,7 +404,11 @@ export default function PppPrintClient() {
               Cancel
             </button>
             <button
-              onClick={() => window.print()}
+              onClick={() => {
+                if (typeof window.print === 'function') {
+                  window.print()
+                }
+              }}
               className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 dark:bg-indigo-500 rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 shadow-sm flex items-center gap-2"
             >
               <HiPrinter className="w-4 h-4 text-white" />

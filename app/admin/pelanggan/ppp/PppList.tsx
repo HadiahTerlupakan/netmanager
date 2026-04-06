@@ -390,7 +390,7 @@ export default function PelangganPPPPage() {
                 >
                   <HiArrowPathRoundedSquare className="w-4 h-4" />
                 </button>
-                <button onClick={() => window.open(`/admin/pelanggan/ppp/${item.id}/print`, '_blank')} title="Cetak Tagihan" className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 dark:text-purple-400 rounded-lg transition-colors">
+                <button onClick={() => window.open(`/admin/pelanggan/ppp/${item.id}/print`, '_blank', 'noopener,noreferrer')} title="Cetak Tagihan" className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 dark:text-purple-400 rounded-lg transition-colors">
                   <HiPrinter className="w-4 h-4" />
                 </button>
                 <Link href={`/admin/pelanggan/ppp/${item.id}`} title="Detail Pelanggan" className="p-2 text-teal-600 bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 dark:hover:bg-teal-500/20 dark:text-teal-400 rounded-lg transition-colors">

@@ -8,6 +8,11 @@ import { apiSuccess, apiPaginated, ApiErrors, createHandler, apiError } from '@/
 import { createPelangganSchema } from '@/lib/validations/pelanggan'
 import { validateFileSignature } from '@/lib/utils/file-validation'
 
+const sanitizePelangganResponse = <T extends { password?: string | null; passwordHash?: string | null }>(pelanggan: T) => {
+  const { password: _password, passwordHash: _passwordHash, ...safePelanggan } = pelanggan
+  return safePelanggan
+}
+
 /**
  * GET /api/pelanggan-ppp
  * Get all PPPoE customers with Read-Audit support.
@@ -40,8 +45,9 @@ export const GET = createHandler({
 
     const pelangganService = getPelangganService()
     const { data: pelanggans, total } = await pelangganService.getAllPelangganPaginated(filter, page, limit)
+    const safePelanggans = pelanggans.map(sanitizePelangganResponse)
 
-    return apiPaginated(pelanggans, { page, limit, total })
+    return apiPaginated(safePelanggans, { page, limit, total })
 })
 
 /**
@@ -110,5 +116,5 @@ export const POST = createHandler({
     revalidatePath('/api/pelanggan-ppp')
 
     ctx.validated = { id: pelanggan.id, idPelanggan: pelanggan.idPelanggan, nama: pelanggan.nama, username: pelanggan.username } // Sync for audit log
-    return apiSuccess(pelanggan, { status: 201 })
+    return apiSuccess(sanitizePelangganResponse(pelanggan), { status: 201 })
 })
