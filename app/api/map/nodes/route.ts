@@ -1,13 +1,14 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { MappingService } from "@/modules/map";
+import { getMappingAdminService, MappingService } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
 const service = new MappingService();
+const adminService = getMappingAdminService();
 
 // Schema Validation
 const createNodeSchema = z.object({
-  type: z.enum(['olt', 'odc', 'odp', 'ont', 'pole', 'joinbox']),
+  type: z.enum(["olt", "odc", "odp", "ont", "pole", "joinbox"]),
   name: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -30,13 +31,16 @@ const createNodeSchema = z.object({
  *     summary: Get all map nodes
  *     tags: [Map]
  */
-export const GET = createHandler({
-  auth: true,
-  permissions: ["map:read"]
-}, async () => {
-  const nodes = await service.getNodes();
-  return apiSuccess(nodes);
-});
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["map:read"],
+  },
+  async () => {
+    const nodes = await service.getNodes();
+    return apiSuccess(nodes);
+  },
+);
 
 /**
  * @swagger
@@ -45,24 +49,27 @@ export const GET = createHandler({
  *     summary: Create a new map node
  *     tags: [Map]
  */
-export const POST = createHandler({
-  auth: true,
-  permissions: ["map:create"],
-  schema: createNodeSchema
-}, async (req, ctx) => {
-  const body = ctx.validated;
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["map:create"],
+    schema: createNodeSchema,
+  },
+  async (req, ctx) => {
+    const body = ctx.validated;
 
-  const newNode = await service.createNode({
-    nodeId: crypto.randomUUID(),
-    ...body
-  });
-  
-  await logger.logActivity({
-    action: "CREATE",
-    subject: "Node",
-    details: { id: newNode.nodeId, name: newNode.name, type: newNode.type },
-    userId: ctx.session?.user.id
-  });
+    const newNode = await adminService.createNode({
+      nodeId: crypto.randomUUID(),
+      ...body,
+    });
 
-  return apiSuccess(newNode, { status: 201 });
-});
+    await logger.logActivity({
+      action: "CREATE",
+      subject: "Node",
+      details: { id: newNode.nodeId, name: newNode.name, type: newNode.type },
+      userId: ctx.session?.user.id,
+    });
+
+    return apiSuccess(newNode, { status: 201 });
+  },
+);

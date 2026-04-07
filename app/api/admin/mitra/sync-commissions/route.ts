@@ -1,71 +1,35 @@
+import { NextResponse } from "next/server";
+import { ensurePermission } from "@/lib/rbac";
+import { getMitraCommissionSyncService } from "@/modules/mitra";
 
-import { NextResponse } from 'next/server'
-import { prismaMitra } from '@/modules/database'
-import { ensurePermission } from '@/lib/rbac'
-import { logger } from '@/lib/logger'
+const service = getMitraCommissionSyncService();
 
 export async function POST(req: Request) {
-    try {
-        await ensurePermission('mitra:update') // Or a specific payout permission
+  await ensurePermission("mitra:update");
 
-        const body = await req.json()
-        const { mitraId, amount, description, referenceId } = body
+  const body = await req.json();
+  const result = await service.syncCommission({
+    mitraId: body.mitraId,
+    amount: Number(body.amount),
+    description: body.description,
+    referenceId: body.referenceId,
+  });
 
-        if (!mitraId || !amount || !referenceId) {
-            return NextResponse.json({ message: 'Data tidak lengkap' }, { status: 400 })
-        }
+  if (!result.success) {
+    const status =
+      result.code === "VALIDATION_ERROR" || result.code === "DUPLICATE"
+        ? 400
+        : result.code === "NOT_FOUND"
+          ? 404
+          : 500;
+    return NextResponse.json(
+      { success: false, message: result.error },
+      { status },
+    );
+  }
 
-        // 1. Check if this referenceId already exists to prevent double payout
-        const existingTx = await prismaMitra.mitraTransaction.findFirst({
-            where: { referenceId }
-        })
-
-        if (existingTx) {
-            return NextResponse.json({
-                success: false,
-                message: 'Komisi untuk invoice ini sudah pernah disinkronisasi sebelumnya.'
-            }, { status: 400 })
-        }
-
-        // 2. Add transaction to wallet
-        await prismaMitra.$transaction(async (tx) => {
-            // Find wallet
-            const wallet = await tx.mitraWallet.findFirst({
-                where: { mitraId }
-            })
-
-            if (!wallet) {
-                throw new Error('Wallet mitra tidak ditemukan')
-            }
-
-            // Create transaction
-            await tx.mitraTransaction.create({
-                data: {
-                    walletId: wallet.id,
-                    type: 'EARNING',
-                    amount: Number(amount),
-                    description,
-                    referenceId
-                }
-            })
-
-            // Update wallet balance
-            await tx.mitraWallet.update({
-                where: { id: wallet.id },
-                data: {
-                    balance: { increment: Number(amount) },
-                    totalEarnings: { increment: Number(amount) }
-                }
-            })
-        })
-
-        return NextResponse.json({ success: true, message: 'Berhasil mensinkronisasi komisi ke wallet' })
-    } catch (error: unknown) {
-        logger.error('Sync Commission error:', error as Error)
-        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-        return NextResponse.json(
-            { message: errorMessage },
-            { status: 500 }
-        )
-    }
+  return NextResponse.json({
+    success: true,
+    message: "Berhasil mensinkronisasi komisi ke wallet",
+  });
 }

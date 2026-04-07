@@ -1,8 +1,10 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { InventoryRepository } from "@/modules/inventory";
+import { getInventoryBarangService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+
+const service = getInventoryBarangService();
 
 /**
  * @swagger
@@ -159,11 +161,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const search = searchParams.get("search");
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "10");
-  const offset = (page - 1) * limit;
 
   try {
     const dbStart = Date.now();
-    const inventoryRepository = new InventoryRepository();
 
     // Enforce Site Restriction
     const permissions = await getUserPermissions(user.id);
@@ -195,72 +195,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       siteId = dbUser?.siteId || undefined;
     }
 
-    const findAllParams: Parameters<
-      typeof inventoryRepository.findAllBarang
-    >[0] = {
-      skip: offset,
-      take: limit,
-    };
-
-    if (search) findAllParams.search = search;
-    if (gudangId) findAllParams.gudangId = gudangId;
-    if (siteId) findAllParams.siteId = siteId;
-
-    const { items: barangs, total } =
-      await inventoryRepository.findAllBarang(findAllParams);
-
-    // Calculate total stock per item and filter by gudang if needed
-    const barangsWithStock = barangs.map((barang) => {
-      let totalStock = 0;
-      let stockPerGudang: {
-        gudangId: string;
-        gudangKode: string;
-        gudangNama: string;
-        stok: number;
-        stokBaru: number;
-        stokBekas: number;
-        stokRusak: number;
-      }[] = [];
-
-      if (barang.barangGudang) {
-        // Filter stocks by gudangId if specified, otherwise show all
-        const filteredStocks = gudangId
-          ? barang.barangGudang.filter((stock) => stock.gudangId === gudangId)
-          : barang.barangGudang;
-
-        if (filteredStocks.length > 0) {
-          // console.log('DEBUG STOCK ITEM [0]:', JSON.stringify(filteredStocks[0], null, 2))
-        }
-
-        totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0);
-
-        stockPerGudang = filteredStocks.map((stock) => ({
-          gudangId: stock.gudangId,
-          gudangKode: stock.gudang.kode,
-          gudangNama: stock.gudang.nama,
-          stok: stock.stok,
-          stokBaru: (stock as unknown as Record<string, number>).stokBaru || 0,
-          stokBekas:
-            (stock as unknown as Record<string, number>).stokBekas || 0,
-          stokRusak:
-            (stock as unknown as Record<string, number>).stokRusak || 0,
-        }));
-      }
-
-      return {
-        id: barang.id,
-        kode: barang.kode,
-        nama: barang.nama,
-        satuan: barang.satuan,
-        isWorkOrderMaterial: barang.isWorkOrderMaterial,
-        jenis: barang.jenis,
-        kategoriAset: barang.kategoriAset,
-        minStokDefault: barang.minStokDefault || 0,
-        createdAt: barang.createdAt,
-        updatedAt: barang.updatedAt,
-        totalStock,
-        stockPerGudang,
-      };
+    const result = await service.listBarang({
+      userId: user.id,
+      search,
+      gudangId,
+      page,
+      limit,
+      siteId,
     });
 
     logger.dbOperation("findMany", "Barang+BarangGudang", Date.now() - dbStart);
@@ -272,24 +213,16 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       Date.now() - startTime,
       {
         userId: user.id,
-        barangCount: barangsWithStock.length,
+        barangCount: result.barangs.length,
         page,
         limit,
-        total,
+        total: result.pagination.total,
         gudangId,
         search,
       },
     );
 
-    return apiSuccess({
-      barangs: barangsWithStock,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
+    return apiSuccess(result);
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
     logger.error("Error fetching barangs", err, {
@@ -299,15 +232,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     throw error; // Let createHandler handle it
   }
 });
-
-/**
- * Generate automatic barang code
- */
-async function generateBarangCode(): Promise<string> {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `BRG${timestamp.toString().slice(-6)}${random.toString().padStart(3, "0")}`;
-}
 
 /**
  * POST /api/inventory/barang
@@ -333,39 +257,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const dbStart = Date.now();
-    const inventoryRepository = new InventoryRepository();
-
-    // Process user-provided code or generate one
-    let kode: string = body.kode?.trim();
-
-    if (kode) {
-      // Validate uniqueness of user-provided code
-      const isExists = await inventoryRepository.existsBarangByKode(kode);
-      if (isExists) {
-        return ApiErrors.badRequest(
-          `Kode barang "${kode}" sudah digunakan. Silakan gunakan kode lain atau kosongkan field kode.`,
-        );
-      }
-    } else {
-      // Auto-generate unique code if not provided
-      let attempts = 0;
-      const maxAttempts = 10;
-
-      do {
-        kode = await generateBarangCode();
-        const isExists = await inventoryRepository.existsBarangByKode(kode);
-
-        if (!isExists) break;
-        attempts++;
-      } while (attempts < maxAttempts);
-
-      if (attempts >= maxAttempts) {
-        throw new Error("Gagal generate kode unik");
-      }
-    }
-
-    const barang = await inventoryRepository.createBarang({
-      kode,
+    const result = await service.createBarang({
+      userId: user.id,
+      kode: body.kode,
       nama,
       satuan,
       isWorkOrderMaterial,
@@ -383,23 +277,15 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       Date.now() - startTime,
       {
         userId: user.id,
-        barangId: barang.id,
-        kode: barang.kode,
+        barangId: result.barang.id,
+        kode: result.barang.kode,
       },
     );
 
-    // System Log (Persistent)
-    await logger.logActivity({
-      action: "CREATE",
-      subject: "Barang",
-      userId: user.id,
-      details: { id: barang.id, nama: barang.nama, kode: barang.kode },
+    return apiSuccess(result, {
+      status: 201,
+      message: "Barang berhasil dibuat",
     });
-
-    return apiSuccess(
-      { barang },
-      { status: 201, message: "Barang berhasil dibuat" },
-    );
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
     logger.error("Error creating barang", err, {
