@@ -1,14 +1,12 @@
 import { prisma } from '@/modules/database'
 import { revalidatePath } from 'next/cache'
-import { afterCustomerUpdate, beforeCustomerDelete } from '@/lib/hooks/radius-sync-hooks'
-import { AutomaticBillingService } from '@/modules/finance'
-import { CustomerUsageService } from '@/modules/pelanggan'
-import { hash } from 'bcryptjs'
+import { PelangganAdminMutationService, PelangganAdminQueryService } from '@/modules/pelanggan'
 import { Status, TipePelanggan } from '@prisma/client'
 import { apiSuccess, ApiErrors, createHandler, apiError } from '@/lib/api'
 import { canAccessSite } from '@/modules/roles'
 
-const customerUsageService = new CustomerUsageService()
+const pelangganAdminQueryService = new PelangganAdminQueryService()
+const pelangganAdminMutationService = new PelangganAdminMutationService()
 
 const BOOLEAN_TRUE_VALUES = new Set(['true', '1', 'on', 'yes'])
 
@@ -69,49 +67,18 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const tenantScope = getTenantScopedWhereById(session as Parameters<typeof getTenantScopedWhereById>[0], id)
   if (tenantScope.error) return tenantScope.error
 
-  const pelanggan = await prisma.pelanggan.findFirst({
-    where: tenantScope.where!,
-    include: {
-      hargaPaket: {
-        include: {
-          profilePPP: {
-            include: {
-              mikroTikRouter: true,
-            },
-          },
-          bandwidth: true,
-        },
-      },
-      odp: true,
-    },
-  })
+  const result = await pelangganAdminQueryService.getPppDetail(id, session.user.tenantId ?? null)
+  if (!result) return ApiErrors.notFound('Pelanggan')
 
-  if (!pelanggan) return ApiErrors.notFound('Pelanggan')
+  const { pelanggan, technicalInfo } = result
 
   if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], pelanggan.siteId)) {
     return ApiErrors.forbidden('Anda tidak memiliki akses ke pelanggan di site ini')
   }
 
-  const technicalInfo = await customerUsageService.getTechnicalInfo({
-    username: pelanggan.username,
-    tenantId: pelanggan.tenantId,
-    packageRouterName: pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name,
-    odpName: pelanggan.odp?.name,
-    odpLocation: pelanggan.odp?.location,
-  })
-
-  const { staticIpAddress, staticIpSource, serverRouterName, serverRouterSource, odpPortValue, odpPortSource } = technicalInfo
-
   return apiSuccess({
     ...sanitizePelangganResponse(pelanggan),
-    technicalInfo: {
-      staticIpAddress,
-      staticIpSource,
-      serverRouterName,
-      serverRouterSource,
-      odpPortValue,
-      odpPortSource,
-    },
+    technicalInfo,
   })
 })
 
@@ -162,40 +129,31 @@ export const PUT = createHandler({ auth: true, permissions: ['pelanggan:update']
     return apiError('Tanggal jatuh tempo tidak valid', 'VALIDATION_ERROR', { status: 400 })
   }
 
-  const pelanggan = await prisma.pelanggan.update({
-    where: { id },
-    data: {
-      idPelanggan: idPelanggan.trim(),
-      nama: nama.trim(),
-      username: username.trim(),
-      password: password.trim(),
-      hargaPaketId,
-      tipe: parseEnumValue(tipe, TipePelanggan) ?? TipePelanggan.REGULER,
-      tanggalAktif: tanggalAktifDate,
-      jatuhTempo: jatuhTempoDate,
-      status: parseEnumValue(status, Status) ?? Status.AKTIF,
-      autoIsolir,
-      email: email?.trim() || null,
-      siteId: siteIdRaw === '' ? null : siteIdRaw,
-      ...(passwordLogin ? { passwordHash: await hash(passwordLogin.trim(), 12) } : {}),
-    }
-  })
-
-  if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], pelanggan.siteId)) {
+  const parsedSiteId = siteIdRaw === '' ? null : siteIdRaw
+  if (!canAccessPelangganBySite(session as Parameters<typeof canAccessPelangganBySite>[0], parsedSiteId)) {
     return ApiErrors.forbidden('Akses ditolak')
   }
 
-  await afterCustomerUpdate(prisma, id, {
-    statusChanged: true,
-    oldStatus: existingPelanggan.status,
-    newStatus: pelanggan.status,
-    packageChanged: true,
-    passwordChanged: true
+  const pelanggan = await pelangganAdminMutationService.updatePppById({
+    id,
+    existingStatus: existingPelanggan.status,
+    data: {
+      idPelanggan,
+      nama,
+      username,
+      password,
+      hargaPaketId,
+      tipe: parseEnumValue(tipe, TipePelanggan),
+      tanggalAktif: tanggalAktifDate,
+      jatuhTempo: jatuhTempoDate,
+      status: parseEnumValue(status, Status),
+      autoIsolir,
+      email,
+      siteId: parsedSiteId,
+      invoiceAction,
+      passwordLogin,
+    },
   })
-
-  if (invoiceAction === 'VOID_AND_CREATE_NEW') {
-    await AutomaticBillingService.generateImmediateInvoice(pelanggan.id, false)
-  }
 
   revalidatePath('/admin/pelanggan/ppp')
   ctx.validated = { id: pelanggan.id, action: 'UPDATE_PII' }
@@ -219,8 +177,7 @@ export const DELETE = createHandler({ auth: true, permissions: ['pelanggan:delet
     return ApiErrors.forbidden('Akses ditolak')
   }
 
-  await beforeCustomerDelete(prisma, pelanggan.username)
-  await prisma.pelanggan.delete({ where: { id } })
+  await pelangganAdminMutationService.deletePppById(id, pelanggan.username)
 
   revalidatePath('/admin/pelanggan/ppp')
   ctx.validated = { id, nama: pelanggan.nama, username: pelanggan.username }

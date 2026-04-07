@@ -20,7 +20,11 @@ export { CustomerUsageRepository } from './repositories/CustomerUsageRepository'
 export { SupportTicketService } from './services/SupportTicketService'
 export { CustomerUsageService } from './services/CustomerUsageService'
 export { CustomerAuthService } from './services/CustomerAuthService'
+export { PelangganBillingBridgeService } from './services/PelangganBillingBridgeService'
+export { PelangganPushTokenService } from './services/PelangganPushTokenService'
 
 // Admin Services
 export * from './services/AdminSupportTicketService'
 export * from './services/CustomerPortalService'
+export * from './services/PelangganAdminQueryService'
+export * from './services/PelangganAdminMutationService'

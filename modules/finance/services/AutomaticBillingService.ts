@@ -6,20 +6,20 @@ import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
 import { BillingEventDispatcher } from '@/modules/events'
 import { AttendanceSettingsService } from '@/modules/attendance'
-import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
-import { PelangganFinanceRepository } from '@/modules/pelanggan/repositories/PelangganFinanceRepository'
 import { InvoiceRepository } from '@/modules/finance/repositories/InvoiceRepository'
 import { PaymentRepository } from '@/modules/finance/repositories/PaymentRepository'
+import { PelangganBillingBridgeService } from '@/modules/pelanggan/services/PelangganBillingBridgeService'
 
 
 export class AutomaticBillingService {
+    private static pelangganBridge = new PelangganBillingBridgeService();
+    // Keep the bridge owned by the finance service layer so callers stay decoupled from pelanggan repositories.
+    private static invoiceRepo = new InvoiceRepository();
+    private static paymentRepo = new PaymentRepository();
+
     private static getSettingsRepo() {
         return new AttendanceSettingsService();
     }
-    private static pelangganRepo = new PelangganRepository();
-    private static pelangganFinanceRepo = new PelangganFinanceRepository();
-    private static invoiceRepo = new InvoiceRepository();
-    private static paymentRepo = new PaymentRepository();
 
     /**
      * Generate invoices for customers who are due for billing
@@ -33,6 +33,14 @@ export class AutomaticBillingService {
             const invoiceOtomatisSetting = await this.getSettingsRepo().findByKey('GENERAL_INVOICE_OTOMATIS');
 
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
+
+            const pelangganBridge = this.pelangganBridge;
+
+            const createDueEnd = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+            const createDueStart = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+            void createDueEnd;
+            void createDueStart;
+            void pelangganBridge;
 
             // Calculate target date
             const today = new Date();
@@ -49,7 +57,7 @@ export class AutomaticBillingService {
             let hasMore = true;
 
             while (hasMore) {
-                const customers = await this.pelangganRepo.findEligibleForBilling(targetDay, BATCH_SIZE, offset);
+                const customers = await this.pelangganBridge.findEligibleForBilling(targetDay, BATCH_SIZE, offset);
 
                 if (customers.length === 0) {
                     hasMore = false;
@@ -124,7 +132,7 @@ export class AutomaticBillingService {
             const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || '5');
 
             // 2. Fetch customer
-            const customer = await this.pelangganRepo.findByIdWithHargaPaket(pelangganId);
+            const customer = await this.pelangganBridge.findByIdWithHargaPaket(pelangganId);
 
             if (!customer || !customer.hargaPaket || (customer.status !== 'AKTIF' && customer.status !== 'ISOLIR')) {
                 return;
@@ -194,7 +202,7 @@ export class AutomaticBillingService {
     static async generateImmediateInvoice(pelangganId: string, isPaid: boolean = false) {
         try {
             // 1. Fetch customer
-            const customer = await this.pelangganRepo.findByIdWithHargaPaket(pelangganId);
+            const customer = await this.pelangganBridge.findByIdWithHargaPaket(pelangganId);
 
             if (!customer || !customer.hargaPaket) {
                 return;
@@ -372,7 +380,7 @@ export class AutomaticBillingService {
 
         if (!invoice || invoice.status !== 'PAID') return;
 
-        const customer = await this.pelangganFinanceRepo.findById(invoice.pelangganId);
+        const customer = await this.pelangganBridge.findById(invoice.pelangganId);
         if (!customer) return;
 
         const today = new Date();
@@ -421,9 +429,9 @@ export class AutomaticBillingService {
             }
         }
 
-        await this.pelangganFinanceRepo.updateJatuhTempo(customer.id, newJatuhTempo);
+        await this.pelangganBridge.updateJatuhTempo(customer.id, newJatuhTempo);
         if (shouldActivate) {
-            await this.pelangganFinanceRepo.updateStatus(customer.id, 'AKTIF');
+            await this.pelangganBridge.updateStatus(customer.id, 'AKTIF');
         }
 
         if (shouldActivate) {

@@ -1,4 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+
+export const dynamic = 'force-dynamic'
 import { prisma } from '@/modules/database'
 import axios from 'axios'
 

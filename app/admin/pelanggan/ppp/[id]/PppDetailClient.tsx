@@ -1,22 +1,10 @@
-import { prisma } from '@/modules/database'
-import { CustomerUsageService } from '@/modules/pelanggan'
 import Link from 'next/link'
 import React from 'react'
 import MapPreview from '@/components/common/MapPreview'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import CustomerInvoiceHistory from './CustomerInvoiceHistory'
-
-const customerUsageService = new CustomerUsageService()
-
-import {
-  HiPencil,
-  HiOutlineUser,
-  HiOutlineMapPin,
-  HiOutlineServer,
-  HiOutlineCreditCard,
-  HiOutlineDocumentText,
-  HiOutlinePhoto
-} from 'react-icons/hi2'
+import { HiPencil, HiOutlineUser, HiOutlineMapPin, HiOutlineServer, HiOutlineCreditCard, HiOutlineDocumentText, HiOutlinePhoto } from 'react-icons/hi2'
+import { getPppDetailViewModel } from './pppDetailQuery'
 
 // Force dynamic rendering untuk menghindari cache
 export const dynamic = 'force-dynamic'
@@ -58,29 +46,9 @@ const SectionHeader = ({ icon: Icon, title }: { icon: React.ElementType, title: 
 
 export async function PppClientDetailView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const pelanggan = await prisma.pelanggan.findUnique({
-    where: { id },
-    include: {
-      hargaPaket: {
-        include: {
-          profilePPP: {
-            include: {
-              mikroTikRouter: true,
-            },
-          },
-          bandwidth: true,
-        },
-      },
-      odp: {
-        select: {
-          name: true,
-          location: true,
-        },
-      },
-    },
-  })
+  const detail = await getPppDetailViewModel(id)
 
-  if (!pelanggan) {
+  if (!detail) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="bg-red-50 text-red-600 p-4 rounded-lg">
@@ -90,14 +58,7 @@ export async function PppClientDetailView({ params }: { params: Promise<{ id: st
     )
   }
 
-  const technicalInfo = await customerUsageService.getTechnicalInfo({
-    username: pelanggan.username,
-    tenantId: pelanggan.tenantId,
-    packageRouterName: pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name,
-    odpName: pelanggan.odp?.name,
-    odpLocation: pelanggan.odp?.location,
-  })
-
+  const { pelanggan, technicalInfo } = detail
   const staticIpAddress = technicalInfo.staticIpAddress || '-'
   const staticIpSource = technicalInfo.staticIpSource
   const serverRouterName = technicalInfo.serverRouterName || '-'

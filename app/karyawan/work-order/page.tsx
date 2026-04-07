@@ -1,8 +1,8 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getWorkOrderRepository } from '@/lib/repositories';
 import EmployeeWorkOrderList from './EmployeeWorkOrderList';
 import { redirect } from 'next/navigation';
+import { EmployeeWorkOrderQueryService } from '@/modules/work-order';
 
 export default async function WorkOrderPage() {
   const session = await getServerSession(authOptions);
@@ -19,10 +19,8 @@ export default async function WorkOrderPage() {
     redirect('/karyawan/login');
   }
 
-  const workOrderRepo = getWorkOrderRepository();
-  const { workOrders } = await workOrderRepo.findAllForList({
-    assignedToId: userId,
-  });
+  const pageService = new EmployeeWorkOrderQueryService();
+  const { workOrders } = await pageService.getAssignedWorkOrders(userId);
 
   return (
     <div className="container mx-auto p-4 sm:p-8">

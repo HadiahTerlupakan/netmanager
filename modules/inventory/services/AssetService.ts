@@ -2,18 +2,13 @@ import { AssetRepository } from '../repositories/AssetRepository'
 import type { CreateAssetInput, UpdateAssetInput, AssetWithRelations } from '../repositories/AssetRepository'
 import { AssetStatus } from '@prisma/client'
 import { logActivitySafe } from '@/lib/logger'
-import { ExpenseCategoryRepository } from '@/modules/finance/repositories/ExpenseCategoryRepository'
-import { ExpenseRepository } from '@/modules/finance/repositories/ExpenseRepository'
+import { prisma } from '@/lib/prisma'
 
 export class AssetService {
     private assetRepo: AssetRepository
-    private expenseCategoryRepo: ExpenseCategoryRepository
-    private expenseRepo: ExpenseRepository
 
     constructor() {
         this.assetRepo = new AssetRepository()
-        this.expenseCategoryRepo = new ExpenseCategoryRepository()
-        this.expenseRepo = new ExpenseRepository()
     }
 
     async createAsset(data: CreateAssetInput, userId: string) {
@@ -87,82 +82,112 @@ export class AssetService {
      * Use this for ad-hoc or scheduled runs per asset.
      */
     async depreciateAsset(assetId: string, customDate: Date = new Date(), createdById: string) {
-        const asset = await this.assetRepo.findAssetById(assetId)
-        if (!asset) throw new Error('Asset not found')
+        const result = await prisma.$transaction(async (tx) => {
+            const asset = await tx.asset.findUnique({
+                where: { id: assetId },
+                include: { barang: true },
+            })
 
-        if (asset.status !== 'ACTIVE' && asset.status !== 'INSTALLED') {
-            throw new Error(`Asset status is ${asset.status}, cannot depreciate.`)
-        }
+            if (!asset) throw new Error('Asset not found')
 
-        if (asset.currentValue.toNumber() <= asset.residualValue.toNumber()) {
-            return null // No depreciation needed, already at residual value
-        }
+            if (asset.status !== 'ACTIVE' && asset.status !== 'INSTALLED') {
+                throw new Error(`Asset status is ${asset.status}, cannot depreciate.`)
+            }
 
-        // Calculation: Straight Line
-        // (Cost - Residual) / UsefulLife
-        const cost = asset.purchasePrice.toNumber()
-        const residual = asset.residualValue.toNumber()
-        const lifeMonths = asset.usefulLife
+            if (asset.currentValue.toNumber() <= asset.residualValue.toNumber()) {
+                return null // No depreciation needed, already at residual value
+            }
 
-        if (lifeMonths <= 0) throw new Error('Useful life must be > 0')
+            // Calculation: Straight Line
+            // (Cost - Residual) / UsefulLife
+            const cost = asset.purchasePrice.toNumber()
+            const residual = asset.residualValue.toNumber()
+            const lifeMonths = asset.usefulLife
 
-        const monthlyAmount = (cost - residual) / lifeMonths
+            if (lifeMonths <= 0) throw new Error('Useful life must be > 0')
 
-        // Check if remaining value < monthlyAmount
-        let actualAmount = monthlyAmount
-        const currentVal = asset.currentValue.toNumber()
-        
-        // Ensure we don't go below residual
-        if (currentVal - monthlyAmount < residual) {
-            actualAmount = currentVal - residual
-        }
+            const monthlyAmount = (cost - residual) / lifeMonths
 
-        if (actualAmount <= 0) return null
+            // Check if remaining value < monthlyAmount
+            let actualAmount = monthlyAmount
+            const currentVal = asset.currentValue.toNumber()
 
-        // 1. Record in Asset Log & Update Asset Value
-        const log = await this.assetRepo.recordDepreciation(
-            asset.id,
-            actualAmount,
-            `Depreciation for ${customDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`
-        )
+            // Ensure we don't go below residual
+            if (currentVal - monthlyAmount < residual) {
+                actualAmount = currentVal - residual
+            }
 
-        // 2. Create Finance Expense
-        // Find or create "Depreciation" category under ExpenseCategory
-        const depCategory = await this.expenseCategoryRepo.findFirst({
-            tenantId: asset.tenantId,
-            OR: [
-                { name: { contains: 'penyusutan', mode: 'insensitive' } },
-                { name: { contains: 'depreciation', mode: 'insensitive' } }
-            ]
-        })
-        
-        if (!depCategory) {
-            throw new Error('Expense Category for Depreciation (e.g. "Beban Penyusutan") not found. Please create it in Finance Settings.')
-        }
+            if (actualAmount <= 0) return null
 
-        await this.expenseRepo.createDepreciationExpense({
-            amount: BigInt(Math.round(actualAmount)),
-            date: customDate,
-            expenseCategoryId: depCategory.id,
-            category: 'Depresiasi Aset',
-            description: `Penyusutan Aset: ${asset.barang.nama} (${asset.kodeAsset})`,
-            userId: createdById,
-        })
+            // Find depreciation expense category first so we can fail before mutating the asset.
+            const depCategory = await tx.expenseCategory.findFirst({
+                where: {
+                    tenantId: asset.tenantId,
+                    OR: [
+                        { name: { contains: 'penyusutan', mode: 'insensitive' } },
+                        { name: { contains: 'depreciation', mode: 'insensitive' } },
+                    ],
+                },
+            })
 
-        // Log Activity
-        logActivitySafe({
-            action: 'DEPRECIATE',
-            subject: 'Asset',
-            userId: createdById,
-            details: {
-                id: asset.id,
-                kodeAsset: asset.kodeAsset,
-                amount: actualAmount,
-                period: customDate.toISOString()
+            if (!depCategory) {
+                throw new Error('Expense Category for Depreciation (e.g. "Beban Penyusutan") not found. Please create it in Finance Settings.')
+            }
+
+            await tx.expense.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    amount: BigInt(Math.round(actualAmount)),
+                    depreciation: BigInt(Math.round(actualAmount)),
+                    usefulLife: 0,
+                    date: customDate,
+                    category: 'Depresiasi Aset',
+                    expenseCategory: { connect: { id: depCategory.id } },
+                    description: `Penyusutan Aset: ${asset.barang.nama} (${asset.kodeAsset})`,
+                    user: { connect: { id: createdById } },
+                    updatedAt: new Date(),
+                },
+            })
+
+            // 1. Record in Asset Log & Update Asset Value
+            const log = await tx.assetDepreciationLog.create({
+                data: {
+                    id: crypto.randomUUID(),
+                    assetId: asset.id,
+                    amount: actualAmount,
+                    notes: `Depreciation for ${customDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+                    date: new Date(),
+                },
+            })
+
+            await tx.asset.update({
+                where: { id: asset.id },
+                data: {
+                    currentValue: { decrement: actualAmount },
+                },
+            })
+
+            return {
+                log,
+                asset: {
+                    id: asset.id,
+                    kodeAsset: asset.kodeAsset,
+                    amount: actualAmount,
+                    period: customDate.toISOString(),
+                },
             }
         })
 
-        return log
+        if (result?.asset) {
+            logActivitySafe({
+                action: 'DEPRECIATE',
+                subject: 'Asset',
+                userId: createdById,
+                details: result.asset,
+            })
+        }
+
+        return result?.log ?? null
     }
 
     /**

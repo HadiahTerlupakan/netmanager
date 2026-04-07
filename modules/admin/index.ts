@@ -3,6 +3,7 @@
 // Services (public)
 export { DashboardService, getDashboardService } from './services/DashboardService'
 export type { TopEmployee, SystemSummary } from './services/DashboardService'
+export * from './services/AdminDashboardPageService'
 
 // DTOs (public types for API responses)
 export type {

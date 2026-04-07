@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
+import { redirect } from 'next/navigation'
 import { authConfig } from '@/lib/auth'
-import { OvertimeRepository } from '@/modules/overtime'
+import { EmployeeOvertimeQueryService } from '@/modules/overtime'
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat('id-ID', {
@@ -26,8 +27,12 @@ export default async function KaryawanLemburPage() {
   const session = await getServerSession(authConfig)
   const userId = session?.user?.id
 
-  const repo = new OvertimeRepository()
-  const requests = userId ? await repo.findAll({ userId, take: 20 }) : []
+  if (!userId) {
+    redirect('/karyawan/login')
+  }
+
+  const pageService = new EmployeeOvertimeQueryService()
+  const requests = await pageService.getRecentRequests(userId)
 
   return (
     <div className="space-y-6">

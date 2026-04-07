@@ -7,14 +7,70 @@ import { HiOutlineDocumentText, HiOutlineArrowUturnLeft } from 'react-icons/hi2'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
+import { cancelCustomerPayment, fetchCustomerInvoices } from './customerInvoiceHistoryApi'
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+type InvoiceStatus = 'SENT' | 'OVERDUE' | 'PAID' | 'PARTIAL_PAID' | 'CANCELLED' | string
+
+type InvoicePaymentStatus = 'PAID' | 'PENDING' | 'CANCELLED' | string
+
+interface InvoicePayment {
+    id: string
+    amount: number
+    createdAt: string
+    paymentMethod?: string | null
+    gatewayStatus: InvoicePaymentStatus
+    notes?: string | null
+}
+
+interface CustomerInvoiceHistoryItem {
+    id: string
+    invoiceNumber?: string | null
+    createdAt: string
+    dueDate: string
+    totalAmount: number
+    status: InvoiceStatus
+    payment?: InvoicePayment[] | null
+}
+
+interface CustomerInvoicesResponse {
+    success: boolean
+    data?: unknown
+    error?: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+const isInvoicePayment = (value: unknown): value is InvoicePayment => {
+    if (!isRecord(value)) return false
+    return typeof value.id === 'string' &&
+        typeof value.amount === 'number' &&
+        typeof value.createdAt === 'string' &&
+        typeof value.gatewayStatus === 'string'
+}
+
+const isCustomerInvoiceHistoryItem = (value: unknown): value is CustomerInvoiceHistoryItem => {
+    if (!isRecord(value)) return false
+    const payment = value.payment
+    return typeof value.id === 'string' &&
+        typeof value.createdAt === 'string' &&
+        typeof value.dueDate === 'string' &&
+        typeof value.totalAmount === 'number' &&
+        typeof value.status === 'string' &&
+        (value.invoiceNumber === undefined || value.invoiceNumber === null || typeof value.invoiceNumber === 'string') &&
+        (payment === undefined || payment === null || (Array.isArray(payment) && payment.every(isInvoicePayment)))
+}
+
+const parseCustomerInvoices = (response: CustomerInvoicesResponse): CustomerInvoiceHistoryItem[] => {
+    if (!response.success || !Array.isArray(response.data)) {
+        return []
+    }
+
+    return response.data.filter(isCustomerInvoiceHistoryItem)
+}
 
 export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: string }) {
     const router = useRouter()
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [invoices, setInvoices] = useState<any[]>([])
+    const [invoices, setInvoices] = useState<CustomerInvoiceHistoryItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -22,11 +78,16 @@ export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: s
         setIsLoading(true)
         setError(null)
         try {
-            const data = await fetcher(`/api/admin/pelanggan/${pelangganId}/invoices`)
-            if (data.success) {
-                setInvoices(data.data || [])
+            const response = (await fetchCustomerInvoices(pelangganId)) as CustomerInvoicesResponse
+            const parsedInvoices = parseCustomerInvoices(response)
+
+            if (response.success) {
+                setInvoices(parsedInvoices)
+                if (Array.isArray(response.data) && response.data.length > parsedInvoices.length) {
+                    setError('Sebagian data tagihan tidak dapat ditampilkan.')
+                }
             } else {
-                setError(data.error || 'Gagal memuat data tagihan.')
+                setError(response.error || 'Gagal memuat data tagihan.')
             }
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.'
@@ -52,10 +113,7 @@ export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: s
 
         setIsCancelling(true)
         try {
-            const res = await fetch(`/api/admin/payments/${cancellingPaymentId}/cancel`, {
-                method: 'POST'
-            })
-            const result = await res.json()
+            const result = await cancelCustomerPayment(cancellingPaymentId)
             if (result.success) {
                 toast.success('Pembayaran berhasil dibatalkan.')
                 // Refresh data
@@ -103,8 +161,7 @@ export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: s
                     <div className="text-gray-500 text-center py-6">Belum ada riwayat tagihan.</div>
                 ) : (
                     <div className="space-y-6">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {invoices.map((invoice: any) => (
+                        {invoices.map((invoice) => (
                             <div key={invoice.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
@@ -139,8 +196,7 @@ export default function CustomerInvoiceHistory({ pelangganId }: { pelangganId: s
 
                                 {invoice.payment && invoice.payment.length > 0 && (
                                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                        {invoice.payment.map((payment: any) => (
+                                        {invoice.payment.map((payment) => (
                                             <div key={payment.id} className="p-4 flex flex-col sm:flex-row justify-between items-center sm:items-start gap-3 bg-white dark:bg-gray-900">
                                                 <div>
                                                     <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">

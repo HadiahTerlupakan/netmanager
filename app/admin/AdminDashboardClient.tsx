@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authConfig, getUserPermissions } from '@/lib/auth'
-import { getMikroTikRouterRepository } from '@/lib/repositories'
 import {
   HiOutlineServer,
   HiOutlineWifi,
@@ -17,7 +16,7 @@ import {
 } from 'react-icons/hi2'
 import { DashboardSocketUpdate } from '@/components/dashboard/DashboardSocketUpdate'
 import DashboardSiteTable from '@/components/dashboard/DashboardSiteTable'
-import { getDashboardService } from '@/modules/admin'
+import { AdminDashboardPageService } from '@/modules/admin'
 
 
 // Force dynamic rendering to avoid database queries during build
@@ -26,15 +25,20 @@ export const dynamic = 'force-dynamic'
 export async function ClientComponent() {
   const session = await getServerSession(authConfig)
 
-  // If no session, let the layout/middleware handle it, or redirect
   if (!session?.user) {
-    // This usually shouldn't happen if middleware protects /admin
-    return null
+    redirect('/admin/login')
   }
 
   const user = session.user
+  const userId = typeof user.id === 'string' && user.id.trim() ? user.id : null
+  const tenantId = typeof user.tenantId === 'string' && user.tenantId.trim() ? user.tenantId : null
+
+  if (!userId || !tenantId) {
+    redirect('/admin/login')
+  }
+
   // Load permissions from database since session doesn't store them (to reduce cookie size)
-  const permissions = await getUserPermissions(user.id as string)
+  const permissions = await getUserPermissions(userId)
 
   // Use isSuperAdmin helper if available or check boolean flag directly
   const extendedUser = user as { isSuperAdmin?: boolean; role?: string }
@@ -44,21 +48,19 @@ export async function ClientComponent() {
   const hasDashboardAccess = isSuperAdmin || permissions.includes('dashboard:read')
 
   if (!hasDashboardAccess) {
-    console.log(`[AdminDashboard] User ${user.id} (Role: ${user.role}) has no dashboard access. Redirecting to forbidden.`)
+    console.log(`[AdminDashboard] User ${userId} (Role: ${user.role}) has no dashboard access. Redirecting to forbidden.`)
     redirect('/admin/forbidden')
   }
 
-  // Ensure these repos are only called if we are staying on the dashboard
-  const routerRepository = getMikroTikRouterRepository()
-
-  const routerStats = await routerRepository.getStatistics(user.tenantId!)
-
-  const dashboardService = getDashboardService()
-  const topEmployees = await dashboardService.getTopEmployees()
-  const topProblematicSites = await dashboardService.getTopProblematicSites()
-  const topDismantleSites = await dashboardService.getTopDismantleSites()
-  const topInstallationSites = await dashboardService.getTopInstallationSites()
-  const systemSummary = await dashboardService.getSystemSummary()
+  const pageService = new AdminDashboardPageService()
+  const {
+    routerStats,
+    topEmployees,
+    topProblematicSites,
+    topDismantleSites,
+    topInstallationSites,
+    systemSummary,
+  } = await pageService.getDashboardData(tenantId)
 
   return (
     <div className="space-y-8">

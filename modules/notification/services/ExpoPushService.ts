@@ -1,11 +1,11 @@
 import { UserRepository } from '@/modules/users'
-import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
 import { MitraRepository } from '@/modules/mitra'
 import { enqueuePushRetry } from './PushRetryQueue'
+import { PelangganPushTokenService } from '@/modules/pelanggan/services/PelangganPushTokenService'
 
 let userRepo: UserRepository | null = null
-let pelangganRepo: PelangganRepository | null = null
 let mitraRepo: MitraRepository | null = null
+let pelangganPushTokenService: PelangganPushTokenService | null = null
 
 function getUserRepo(): UserRepository {
     if (!userRepo) {
@@ -14,18 +14,18 @@ function getUserRepo(): UserRepository {
     return userRepo
 }
 
-function getPelangganRepo(): PelangganRepository {
-    if (!pelangganRepo) {
-        pelangganRepo = new PelangganRepository()
-    }
-    return pelangganRepo
-}
-
 function getMitraRepo(): MitraRepository {
     if (!mitraRepo) {
         mitraRepo = new MitraRepository()
     }
     return mitraRepo
+}
+
+function getPelangganPushTokenService(): PelangganPushTokenService {
+    if (!pelangganPushTokenService) {
+        pelangganPushTokenService = new PelangganPushTokenService()
+    }
+    return pelangganPushTokenService
 }
 
 interface ExpoPushMessage {
@@ -69,7 +69,7 @@ async function findMitrasByPushTokens(tokens: string[]): Promise<PushTokenRecord
 }
 
 async function findPelangganByPushTokens(tokens: string[]): Promise<PushTokenRecord[]> {
-    return getPelangganRepo().findManyWithPushToken(tokens)
+    return getPelangganPushTokenService().findManyWithPushToken(tokens)
 }
 
 async function handleFailedTokens(failedTokens: FailedToken[], originalMessages: ExpoPushMessage[]) {
@@ -79,12 +79,12 @@ async function handleFailedTokens(failedTokens: FailedToken[], originalMessages:
         await Promise.all([
             getUserRepo().clearPushTokens(tokensToRemove),
             clearPushTokensInMitra(tokensToRemove),
-            getPelangganRepo().clearPushTokens(tokensToRemove)
+            getPelangganPushTokenService().clearPushTokens(tokensToRemove)
         ])
     }
 
     const tokensToRetry = failedTokens.filter(f => f.error !== 'DeviceNotRegistered').map(f => f.token)
-    
+
     if (tokensToRetry.length > 0) {
         const [users, mitras, pelanggans] = await Promise.all([
             findUsersByPushTokens(tokensToRetry),
@@ -93,9 +93,15 @@ async function handleFailedTokens(failedTokens: FailedToken[], originalMessages:
         ])
 
         const tokenToUserId: Record<string, string> = {}
-        for (const u of users) { if (u.pushToken) tokenToUserId[u.pushToken] = u.id }
-        for (const m of mitras) { if (m.pushToken) tokenToUserId[m.pushToken] = m.id }
-        for (const p of pelanggans) { if (p.pushToken) tokenToUserId[p.pushToken] = p.id }
+        for (const u of users) {
+            if (u.pushToken) tokenToUserId[u.pushToken] = u.id
+        }
+        for (const m of mitras) {
+            if (m.pushToken) tokenToUserId[m.pushToken] = m.id
+        }
+        for (const p of pelanggans) {
+            if (p.pushToken) tokenToUserId[p.pushToken] = p.id
+        }
 
         for (const token of tokensToRetry) {
             const msg = originalMessages.find(m => m.to === token)
@@ -106,14 +112,14 @@ async function handleFailedTokens(failedTokens: FailedToken[], originalMessages:
                     title: msg.title,
                     body: msg.body,
                     data: msg.data as Record<string, unknown>,
-                    pushToken: token
+                    pushToken: token,
                 })
             }
         }
     }
 }
 
-async function sendExpoPush(messages: ExpoPushMessage[]): Promise<{ success: boolean, failedTokens: FailedToken[] }> {
+async function sendExpoPush(messages: ExpoPushMessage[]): Promise<{ success: boolean; failedTokens: FailedToken[] }> {
     if (messages.length === 0) return { success: true, failedTokens: [] }
 
     const chunks: ExpoPushMessage[][] = []
@@ -190,14 +196,14 @@ export async function sendPushNotification(
     data?: Record<string, unknown>
 ): Promise<boolean> {
     try {
-        let pushToken: string | null = null;
+        let pushToken: string | null = null
 
         const user = await getUserRepo().findByIdWithPushToken(userId)
-        pushToken = user?.pushToken || null;
+        pushToken = user?.pushToken || null
 
         if (!pushToken) {
             const mitra = await getMitraRepo().findPushTokenById(userId)
-            pushToken = mitra?.pushToken || null;
+            pushToken = mitra?.pushToken || null
         }
 
         if (!pushToken) {
@@ -217,7 +223,6 @@ export async function sendPushNotification(
             await handleFailedTokens(failedTokens, messages)
         }
         return success
-
     } catch (error) {
         console.error('[Push] Error sending notification:', error)
         return false
@@ -231,7 +236,7 @@ export async function sendCustomerPushNotification(
     data?: Record<string, unknown>
 ): Promise<boolean> {
     try {
-        const pelanggan = await getPelangganRepo().findByIdWithPushToken(pelangganId)
+        const pelanggan = await getPelangganPushTokenService().findByIdWithPushToken(pelangganId)
 
         if (!pelanggan?.pushToken) {
             return false
@@ -250,7 +255,6 @@ export async function sendCustomerPushNotification(
             await handleFailedTokens(failedTokens, messages)
         }
         return success
-
     } catch (error) {
         console.error('[Push] Error sending customer notification:', error)
         return false
@@ -266,17 +270,21 @@ export async function sendPushToUsers(
     try {
         const users = await getUserRepo().findManyWithPushTokenAndFilter(userIds)
 
-        const foundUserIds = users.map(u => u.id);
-        const missingUserIds = userIds.filter(id => !foundUserIds.includes(id));
-        let mitras: { id: string, pushToken: string | null }[] = [];
+        const foundUserIds = users.map(u => u.id)
+        const missingUserIds = userIds.filter(id => !foundUserIds.includes(id))
+        let mitras: { id: string, pushToken: string | null }[] = []
 
         if (missingUserIds.length > 0) {
             mitras = await getMitraRepo().findManyWithPushTokenByIds(missingUserIds)
         }
 
         const allTokens: string[] = []
-        for (const u of users) { if (u.pushToken) allTokens.push(u.pushToken) }
-        for (const m of mitras) { if (m.pushToken) allTokens.push(m.pushToken) }
+        for (const u of users) {
+            if (u.pushToken) allTokens.push(u.pushToken)
+        }
+        for (const m of mitras) {
+            if (m.pushToken) allTokens.push(m.pushToken)
+        }
 
         if (allTokens.length === 0) {
             return 0

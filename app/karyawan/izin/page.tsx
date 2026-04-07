@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
+import { redirect } from 'next/navigation'
 import { authConfig } from '@/lib/auth'
-import { LeaveRepository } from '@/modules/attendance'
+import { EmployeeLeaveQueryService } from '@/modules/attendance'
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat('id-ID', {
@@ -24,8 +25,12 @@ export default async function KaryawanIzinPage() {
   const session = await getServerSession(authConfig)
   const userId = session?.user?.id
 
-  const repo = new LeaveRepository()
-  const requests = userId ? await repo.findAll({ userId, take: 20 }) : []
+  if (!userId) {
+    redirect('/karyawan/login')
+  }
+
+  const pageService = new EmployeeLeaveQueryService()
+  const requests = await pageService.getRecentRequests(userId)
 
   return (
     <div className="space-y-6">

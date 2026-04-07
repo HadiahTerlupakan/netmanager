@@ -1,11 +1,11 @@
 import { InvoiceRepository } from '../repositories/InvoiceRepository'
 import { AttendanceSettingsService } from '@/modules/attendance'
-import { PelangganRepository } from '@/modules/pelanggan/repositories/PelangganRepository'
 import { RadiusSyncService } from '@/modules/network'
 import { logger } from '@/lib/logger'
 import { Status } from '@prisma/client'
 import { toStartOfDay } from '@/lib/utils/server-datetime'
 import { notifyCustomerFinanceNotification } from '../utils/customerFinanceNotifications'
+import { PelangganBillingBridgeService } from '@/modules/pelanggan/services/PelangganBillingBridgeService'
 
 
 export class AutomaticIsolationService {
@@ -13,7 +13,7 @@ export class AutomaticIsolationService {
         try {
             const settingsRepo = new AttendanceSettingsService()
             const billingRepo = new InvoiceRepository()
-            const pelangganRepo = new PelangganRepository()
+            const pelangganBridge = new PelangganBillingBridgeService()
 
             const enabledSetting = await settingsRepo.findByKey('GENERAL_AUTO_ISOLASI_ENABLED')
             const isEnabled = enabledSetting?.value !== 'false'
@@ -29,7 +29,7 @@ export class AutomaticIsolationService {
 
             const activeCustomersMap = new Map()
             for (const inv of overdueInvoices) {
-                const pelanggan = await pelangganRepo.findById(inv.pelangganId)
+                const pelanggan = await pelangganBridge.findById(inv.pelangganId)
                 if (pelanggan && pelanggan.status === 'AKTIF' && pelanggan.autoIsolir) {
                     activeCustomersMap.set(pelanggan.id, pelanggan)
                 }
@@ -46,7 +46,7 @@ export class AutomaticIsolationService {
                     const diffTime = Math.abs(today.getTime() - dueDate.getTime())
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-                    await pelangganRepo.update(customer.id, { status: Status.ISOLIR })
+                    await pelangganBridge.update(customer.id, { status: Status.ISOLIR })
 
                     await radiusService.handleStatusChange(customer.id, Status.ISOLIR)
 

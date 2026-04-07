@@ -199,6 +199,8 @@ vi.mock('@/lib/tenant-context', () => ({
 
 // Set default secret for JWT testing
 process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'test-secret-123-at-least-32-chars-long'
+process.env.DATABASE_URL_BILLING = process.env.DATABASE_URL_BILLING || 'postgresql://billing-test:billing-test@localhost:5432/billing_test'
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
 
 // Reset all mocks before each test
 beforeEach(() => {
