@@ -1,13 +1,13 @@
 /**
  * MikroTik PPP Secret Service
- * 
+ *
  * Mengelola PPP Secret di MikroTik Router untuk pelanggan PPP.
  * Digunakan dalam mode API MikroTik (bukan RADIUS).
  */
 
-import { RouterOSAPI } from 'node-routeros-v2';
-import { NetworkRepository } from '../repositories/NetworkRepository';
-import { getMikroTikRouterRepository } from '@/lib/repositories'
+import { RouterOSAPI } from "node-routeros-v2";
+import { NetworkRepository } from "../repositories/NetworkRepository";
+import { MikroTikRouterRepository } from "@/modules/network";
 
 interface PPPSecretData {
   name: string;
@@ -24,17 +24,21 @@ interface SessionUsageData {
 }
 
 interface PPPActiveSessionRecord extends Record<string, string> {
-  '.id'?: string;
+  ".id"?: string;
   name?: string;
   interface?: string;
-  'bytes-in'?: string;
-  'bytes-out'?: string;
-  'rx-byte'?: string;
-  'tx-byte'?: string;
+  "bytes-in"?: string;
+  "bytes-out"?: string;
+  "rx-byte"?: string;
+  "tx-byte"?: string;
   rx?: string;
   tx?: string;
 }
-function pickCounter(session: PPPActiveSessionRecord, primary: keyof PPPActiveSessionRecord, fallback: keyof PPPActiveSessionRecord): number {
+function pickCounter(
+  session: PPPActiveSessionRecord,
+  primary: keyof PPPActiveSessionRecord,
+  fallback: keyof PPPActiveSessionRecord,
+): number {
   const primaryValue = parseCounter(session[primary]);
   if (primaryValue > 0) return primaryValue;
   return parseCounter(session[fallback]);
@@ -47,29 +51,33 @@ function parseCounter(value?: string): number {
 }
 
 function normalizeInterfaceName(name?: string): string {
-  if (!name) return '';
+  if (!name) return "";
   const trimmed = name.trim();
-  if (!trimmed) return '';
+  if (!trimmed) return "";
 
-  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+  if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
     return trimmed.slice(1, -1).trim();
   }
 
   return trimmed;
 }
 
-function extractSessionUsage(session?: PPPActiveSessionRecord): SessionUsageData {
+function extractSessionUsage(
+  session?: PPPActiveSessionRecord,
+): SessionUsageData {
   if (!session) {
     return { downloadBytes: 0, uploadBytes: 0 };
   }
 
-  const downloadFromPrimary = pickCounter(session, 'bytes-out', 'tx-byte');
-  const uploadFromPrimary = pickCounter(session, 'bytes-in', 'rx-byte');
+  const downloadFromPrimary = pickCounter(session, "bytes-out", "tx-byte");
+  const uploadFromPrimary = pickCounter(session, "bytes-in", "rx-byte");
 
   return {
     // Prefer cumulative counters from active session or interface stats
-    downloadBytes: downloadFromPrimary > 0 ? downloadFromPrimary : parseCounter(session.tx),
-    uploadBytes: uploadFromPrimary > 0 ? uploadFromPrimary : parseCounter(session.rx),
+    downloadBytes:
+      downloadFromPrimary > 0 ? downloadFromPrimary : parseCounter(session.tx),
+    uploadBytes:
+      uploadFromPrimary > 0 ? uploadFromPrimary : parseCounter(session.rx),
   };
 }
 
@@ -80,7 +88,7 @@ interface RouterConfig {
   apiPassword: string;
 }
 
-const EXPIRED_PROFILE = 'expired users';
+const EXPIRED_PROFILE = "expired users";
 const CONNECTION_TIMEOUT = 10000;
 
 export class MikroTikPPPSecretService {
@@ -119,17 +127,18 @@ export class MikroTikPPPSecretService {
     };
     profileName: string;
   } | null> {
-    const pelanggan = await this.networkRepo.findPelangganWithRouter(pelangganId);
+    const pelanggan =
+      await this.networkRepo.findPelangganWithRouter(pelangganId);
 
     if (!pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter) {
       return null;
     }
 
     const router = pelanggan.hargaPaket.profilePPP.mikroTikRouter;
-    
+
     const apiUsername = router.apiUsernameGenerated || router.apiUsername;
     const apiPassword = router.apiPasswordGenerated || router.apiPassword;
-    
+
     return {
       router: {
         ipAddress: router.ipAddress,
@@ -148,15 +157,17 @@ export class MikroTikPPPSecretService {
    */
   async createSecret(
     routerId: string,
-    data: PPPSecretData
+    data: PPPSecretData,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const routerRepo = getMikroTikRouterRepository();
+      const routerRepo = new MikroTikRouterRepository();
       const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
+      const router = routerTenant
+        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
+        : null;
 
       if (!router) {
-        return { success: false, error: 'Router tidak ditemukan' };
+        return { success: false, error: "Router tidak ditemukan" };
       }
 
       const conn = await this.connectToRouter({
@@ -167,27 +178,27 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const existing = await conn.write('/ppp/secret/print', [
-          `?name=${data.name}`
-        ]) as Array<Record<string, string>>;
+        const existing = (await conn.write("/ppp/secret/print", [
+          `?name=${data.name}`,
+        ])) as Array<Record<string, string>>;
 
         if (existing && existing.length > 0) {
           const secret = existing[0];
           if (secret) {
-            await conn.write('/ppp/secret/set', [
-              `=.id=${secret['.id']}`,
+            await conn.write("/ppp/secret/set", [
+              `=.id=${secret[".id"]}`,
               `=password=${data.password}`,
               `=profile=${data.profile}`,
-              `=comment=${data.comment || 'added by netmanager'}`,
+              `=comment=${data.comment || "added by netmanager"}`,
             ]);
           }
         } else {
-          await conn.write('/ppp/secret/add', [
+          await conn.write("/ppp/secret/add", [
             `=name=${data.name}`,
             `=password=${data.password}`,
             `=profile=${data.profile}`,
-            `=service=${data.service || 'pppoe'}`,
-            `=comment=${data.comment || 'added by netmanager'}`,
+            `=service=${data.service || "pppoe"}`,
+            `=comment=${data.comment || "added by netmanager"}`,
           ]);
         }
 
@@ -198,8 +209,9 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error('[PPPSecretService] createSecret error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] createSecret error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
     }
   }
@@ -210,15 +222,17 @@ export class MikroTikPPPSecretService {
   async setSecretProfile(
     routerId: string,
     username: string,
-    profileName: string
+    profileName: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const routerRepo = getMikroTikRouterRepository();
+      const routerRepo = new MikroTikRouterRepository();
       const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
+      const router = routerTenant
+        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
+        : null;
 
       if (!router) {
-        return { success: false, error: 'Router tidak ditemukan' };
+        return { success: false, error: "Router tidak ditemukan" };
       }
 
       const conn = await this.connectToRouter({
@@ -229,17 +243,17 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const secrets = await conn.write('/ppp/secret/print', [
-          `?name=${username}`
-        ]) as Array<Record<string, string>>;
+        const secrets = (await conn.write("/ppp/secret/print", [
+          `?name=${username}`,
+        ])) as Array<Record<string, string>>;
 
         if (!secrets || secrets.length === 0 || !secrets[0]) {
           conn.close();
-          return { success: false, error: 'PPP Secret tidak ditemukan' };
+          return { success: false, error: "PPP Secret tidak ditemukan" };
         }
 
-        await conn.write('/ppp/secret/set', [
-          `=.id=${secrets[0]['.id']}`,
+        await conn.write("/ppp/secret/set", [
+          `=.id=${secrets[0][".id"]}`,
           `=profile=${profileName}`,
         ]);
 
@@ -250,8 +264,9 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error('[PPPSecretService] setSecretProfile error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] setSecretProfile error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
     }
   }
@@ -261,15 +276,21 @@ export class MikroTikPPPSecretService {
    */
   async disconnectSession(
     routerId: string,
-    username: string
+    username: string,
   ): Promise<{ success: boolean; disconnected: number; error?: string }> {
     try {
-      const routerRepo = getMikroTikRouterRepository();
+      const routerRepo = new MikroTikRouterRepository();
       const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
+      const router = routerTenant
+        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
+        : null;
 
       if (!router) {
-        return { success: false, disconnected: 0, error: 'Router tidak ditemukan' };
+        return {
+          success: false,
+          disconnected: 0,
+          error: "Router tidak ditemukan",
+        };
       }
 
       const conn = await this.connectToRouter({
@@ -280,16 +301,14 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const sessions = await conn.write('/ppp/active/print', [
-          `?name=${username}`
-        ]) as Array<Record<string, string>>;
+        const sessions = (await conn.write("/ppp/active/print", [
+          `?name=${username}`,
+        ])) as Array<Record<string, string>>;
 
         let disconnected = 0;
         for (const session of sessions || []) {
-          if (session['.id']) {
-            await conn.write('/ppp/active/remove', [
-              `=.id=${session['.id']}`
-            ]);
+          if (session[".id"]) {
+            await conn.write("/ppp/active/remove", [`=.id=${session[".id"]}`]);
             disconnected++;
           }
         }
@@ -301,8 +320,9 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error('[PPPSecretService] disconnectSession error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] disconnectSession error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, disconnected: 0, error: errorMessage };
     }
   }
@@ -312,7 +332,7 @@ export class MikroTikPPPSecretService {
    */
   async getActiveSessionUsage(
     routerId: string,
-    username: string
+    username: string,
   ): Promise<{ success: boolean; usage?: SessionUsageData; error?: string }> {
     const debug = await this.debugActiveSessionUsage(routerId, username);
     if (!debug.success || !debug.finalUsage) {
@@ -324,7 +344,7 @@ export class MikroTikPPPSecretService {
 
   async debugActiveSessionUsage(
     routerId: string,
-    username: string
+    username: string,
   ): Promise<{
     success: boolean;
     routerIpAddress?: string;
@@ -345,12 +365,14 @@ export class MikroTikPPPSecretService {
     error?: string;
   }> {
     try {
-      const routerRepo = getMikroTikRouterRepository();
+      const routerRepo = new MikroTikRouterRepository();
       const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
+      const router = routerTenant
+        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
+        : null;
 
       if (!router) {
-        return { success: false, error: 'Router tidak ditemukan' };
+        return { success: false, error: "Router tidak ditemukan" };
       }
 
       const conn = await this.connectToRouter({
@@ -361,12 +383,14 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const sessions = await conn.write('/ppp/active/print', [
-          `?name=${username}`
-        ]) as PPPActiveSessionRecord[];
+        const sessions = (await conn.write("/ppp/active/print", [
+          `?name=${username}`,
+        ])) as PPPActiveSessionRecord[];
 
         const activeSession = sessions?.[0] || null;
-        const parsedFromActive = extractSessionUsage(activeSession || undefined);
+        const parsedFromActive = extractSessionUsage(
+          activeSession || undefined,
+        );
 
         const candidateInterfaceNames = [
           normalizeInterfaceName(activeSession?.interface),
@@ -379,9 +403,9 @@ export class MikroTikPPPSecretService {
 
         for (const candidate of candidateInterfaceNames) {
           try {
-            const interfaceStats = await conn.write('/interface/print', [
-              `?name=${candidate}`
-            ]) as PPPActiveSessionRecord[];
+            const interfaceStats = (await conn.write("/interface/print", [
+              `?name=${candidate}`,
+            ])) as PPPActiveSessionRecord[];
             if (interfaceStats?.[0]) {
               interfacePrint = interfaceStats[0];
               parsedFromInterface = extractSessionUsage(interfacePrint);
@@ -397,10 +421,10 @@ export class MikroTikPPPSecretService {
 
         for (const candidate of candidateInterfaceNames) {
           try {
-            const traffic = await conn.write('/interface/monitor-traffic', [
+            const traffic = (await conn.write("/interface/monitor-traffic", [
               `=interface=${candidate}`,
-              '=once='
-            ]) as PPPActiveSessionRecord[];
+              "=once=",
+            ])) as PPPActiveSessionRecord[];
             if (traffic?.[0]) {
               monitorTraffic = traffic[0];
               parsedFromMonitor = extractSessionUsage(monitorTraffic);
@@ -411,9 +435,10 @@ export class MikroTikPPPSecretService {
           }
         }
 
-        const monitorError = !monitorTraffic && candidateInterfaceNames.length > 0
-          ? 'monitor-traffic lookup failed for all interface candidates'
-          : undefined;
+        const monitorError =
+          !monitorTraffic && candidateInterfaceNames.length > 0
+            ? "monitor-traffic lookup failed for all interface candidates"
+            : undefined;
 
         const interfaceDebug = {
           rawInterfaceField: activeSession?.interface || null,
@@ -422,10 +447,18 @@ export class MikroTikPPPSecretService {
         };
 
         let finalUsage = parsedFromActive;
-        if (finalUsage.downloadBytes <= 0 && finalUsage.uploadBytes <= 0 && parsedFromInterface) {
+        if (
+          finalUsage.downloadBytes <= 0 &&
+          finalUsage.uploadBytes <= 0 &&
+          parsedFromInterface
+        ) {
           finalUsage = parsedFromInterface;
         }
-        if (finalUsage.downloadBytes <= 0 && finalUsage.uploadBytes <= 0 && parsedFromMonitor) {
+        if (
+          finalUsage.downloadBytes <= 0 &&
+          finalUsage.uploadBytes <= 0 &&
+          parsedFromMonitor
+        ) {
           finalUsage = parsedFromMonitor;
         }
 
@@ -449,8 +482,9 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error('[PPPSecretService] debugActiveSessionUsage error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] debugActiveSessionUsage error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
     }
   }
@@ -460,15 +494,17 @@ export class MikroTikPPPSecretService {
    */
   async deleteSecret(
     routerId: string,
-    username: string
+    username: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const routerRepo = getMikroTikRouterRepository();
+      const routerRepo = new MikroTikRouterRepository();
       const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant ? await routerRepo.findById(routerId, routerTenant.tenantId!) : null;
+      const router = routerTenant
+        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
+        : null;
 
       if (!router) {
-        return { success: false, error: 'Router tidak ditemukan' };
+        return { success: false, error: "Router tidak ditemukan" };
       }
 
       const conn = await this.connectToRouter({
@@ -479,23 +515,23 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const secrets = await conn.write('/ppp/secret/print', [
-          `?name=${username}`
-        ]) as Array<Record<string, string>>;
+        const secrets = (await conn.write("/ppp/secret/print", [
+          `?name=${username}`,
+        ])) as Array<Record<string, string>>;
 
         for (const secret of secrets || []) {
-          if (secret['.id']) {
-            await conn.write('/ppp/secret/remove', [`=.id=${secret['.id']}`]);
+          if (secret[".id"]) {
+            await conn.write("/ppp/secret/remove", [`=.id=${secret[".id"]}`]);
           }
         }
 
-        const activeSessions = await conn.write('/ppp/active/print', [
-          `?name=${username}`
-        ]) as Array<Record<string, string>>;
+        const activeSessions = (await conn.write("/ppp/active/print", [
+          `?name=${username}`,
+        ])) as Array<Record<string, string>>;
 
         for (const session of activeSessions || []) {
-          if (session['.id']) {
-            await conn.write('/ppp/active/remove', [`=.id=${session['.id']}`]);
+          if (session[".id"]) {
+            await conn.write("/ppp/active/remove", [`=.id=${session[".id"]}`]);
           }
         }
 
@@ -506,8 +542,9 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error('[PPPSecretService] deleteSecret error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] deleteSecret error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
     }
   }
@@ -516,17 +553,17 @@ export class MikroTikPPPSecretService {
    * Isolasi pelanggan: Ubah profile ke "expired users" + disconnect
    */
   async isolateCustomer(
-    pelangganId: string
+    pelangganId: string,
   ): Promise<{ success: boolean; logs: string[]; error?: string }> {
     const logs: string[] = [];
 
     try {
       const data = await this.getRouterFromPelanggan(pelangganId);
       if (!data) {
-        return { 
-          success: false, 
-          logs, 
-          error: 'Pelanggan atau router tidak ditemukan' 
+        return {
+          success: false,
+          logs,
+          error: "Pelanggan atau router tidak ditemukan",
         };
       }
 
@@ -534,35 +571,38 @@ export class MikroTikPPPSecretService {
       logs.push(`Connecting to router ${router.ipAddress}`);
 
       const profileResult = await this.setSecretProfile(
-        routerId, 
-        pelanggan.username, 
-        EXPIRED_PROFILE
+        routerId,
+        pelanggan.username,
+        EXPIRED_PROFILE,
       );
-      
+
       if (!profileResult.success) {
-        if (profileResult.error === 'PPP Secret tidak ditemukan') {
-           logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
+        if (profileResult.error === "PPP Secret tidak ditemukan") {
+          logs.push(
+            "Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...",
+          );
         } else {
-           return {
-             success: false,
-             logs,
-             ...(profileResult.error ? { error: profileResult.error } : {})
-           };
+          return {
+            success: false,
+            logs,
+            ...(profileResult.error ? { error: profileResult.error } : {}),
+          };
         }
       } else {
         logs.push(`Profile diubah ke "${EXPIRED_PROFILE}"`);
       }
 
       const disconnectResult = await this.disconnectSession(
-        routerId, 
-        pelanggan.username
+        routerId,
+        pelanggan.username,
       );
       logs.push(`Disconnected ${disconnectResult.disconnected} session(s)`);
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error('[PPPSecretService] isolateCustomer error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] isolateCustomer error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
     }
   }
@@ -571,17 +611,17 @@ export class MikroTikPPPSecretService {
    * Un-isolasi pelanggan: Kembalikan profile normal + disconnect
    */
   async unIsolateCustomer(
-    pelangganId: string
+    pelangganId: string,
   ): Promise<{ success: boolean; logs: string[]; error?: string }> {
     const logs: string[] = [];
 
     try {
       const data = await this.getRouterFromPelanggan(pelangganId);
       if (!data) {
-        return { 
-          success: false, 
-          logs, 
-          error: 'Pelanggan atau router tidak ditemukan' 
+        return {
+          success: false,
+          logs,
+          error: "Pelanggan atau router tidak ditemukan",
         };
       }
 
@@ -589,35 +629,38 @@ export class MikroTikPPPSecretService {
       logs.push(`Connecting to router ${router.ipAddress}`);
 
       const profileResult = await this.setSecretProfile(
-        routerId, 
-        pelanggan.username, 
-        profileName
+        routerId,
+        pelanggan.username,
+        profileName,
       );
-      
+
       if (!profileResult.success) {
-        if (profileResult.error === 'PPP Secret tidak ditemukan') {
-           logs.push('Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...');
+        if (profileResult.error === "PPP Secret tidak ditemukan") {
+          logs.push(
+            "Warning: PPP Secret tidak ditemukan, melanjutkan disconnect session...",
+          );
         } else {
-           return {
-             success: false,
-             logs,
-             ...(profileResult.error ? { error: profileResult.error } : {})
-           };
+          return {
+            success: false,
+            logs,
+            ...(profileResult.error ? { error: profileResult.error } : {}),
+          };
         }
       } else {
         logs.push(`Profile dikembalikan ke "${profileName}"`);
       }
 
       const disconnectResult = await this.disconnectSession(
-        routerId, 
-        pelanggan.username
+        routerId,
+        pelanggan.username,
       );
       logs.push(`Disconnected ${disconnectResult.disconnected} session(s)`);
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error('[PPPSecretService] unIsolateCustomer error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] unIsolateCustomer error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
     }
   }
@@ -626,17 +669,17 @@ export class MikroTikPPPSecretService {
    * Dismantle pelanggan: Hapus secret sepenuhnya
    */
   async dismantleCustomer(
-    pelangganId: string
+    pelangganId: string,
   ): Promise<{ success: boolean; logs: string[]; error?: string }> {
     const logs: string[] = [];
 
     try {
       const data = await this.getRouterFromPelanggan(pelangganId);
       if (!data) {
-        return { 
-          success: false, 
-          logs, 
-          error: 'Pelanggan atau router tidak ditemukan' 
+        return {
+          success: false,
+          logs,
+          error: "Pelanggan atau router tidak ditemukan",
         };
       }
 
@@ -644,16 +687,17 @@ export class MikroTikPPPSecretService {
       logs.push(`Menghapus secret untuk ${pelanggan.username}`);
 
       const result = await this.deleteSecret(routerId, pelanggan.username);
-      
+
       if (!result.success) {
         return { success: false, logs, error: result.error };
       }
-      logs.push('PPP Secret berhasil dihapus');
+      logs.push("PPP Secret berhasil dihapus");
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error('[PPPSecretService] dismantleCustomer error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] dismantleCustomer error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
     }
   }
@@ -662,17 +706,17 @@ export class MikroTikPPPSecretService {
    * Sync PPP Secret saat pelanggan didaftarkan
    */
   async syncNewCustomer(
-    pelangganId: string
+    pelangganId: string,
   ): Promise<{ success: boolean; logs: string[]; error?: string }> {
     const logs: string[] = [];
 
     try {
       const data = await this.getRouterFromPelanggan(pelangganId);
       if (!data) {
-        return { 
-          success: false, 
-          logs, 
-          error: 'Pelanggan atau router tidak ditemukan' 
+        return {
+          success: false,
+          logs,
+          error: "Pelanggan atau router tidak ditemukan",
         };
       }
 
@@ -683,19 +727,20 @@ export class MikroTikPPPSecretService {
         name: pelanggan.username,
         password: pelanggan.password,
         profile: profileName,
-        service: 'pppoe',
+        service: "pppoe",
         comment: `customer: ${pelanggan.nama}`,
       });
 
       if (!result.success) {
         return { success: false, logs, error: result.error };
       }
-      logs.push('PPP Secret berhasil dibuat');
+      logs.push("PPP Secret berhasil dibuat");
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error('[PPPSecretService] syncNewCustomer error:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[PPPSecretService] syncNewCustomer error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
     }
   }

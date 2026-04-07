@@ -1,16 +1,16 @@
-import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { hasPermission } from '@/lib/rbac'
-import { getInventoryRepository } from '@/lib/repositories'
-import { logger, logActivitySafe } from '@/lib/logger'
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { InventoryRepository } from "@/modules/inventory";
+import { logger, logActivitySafe } from "@/lib/logger";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 /**
  * Generate automatic warehouse code
  */
 async function generateGudangCode(): Promise<string> {
-  const timestamp = Date.now()
-  const random = Math.floor(Math.random() * 1000)
-  return `GD${timestamp.toString().slice(-6)}${random.toString().padStart(3, '0')}`
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 1000);
+  return `GD${timestamp.toString().slice(-6)}${random.toString().padStart(3, "0")}`;
 }
 
 /**
@@ -49,66 +49,79 @@ async function generateGudangCode(): Promise<string> {
  *               $ref: '#/components/schemas/Error'
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const startTime = Date.now()
-  const user = ctx.session!.user
+  const startTime = Date.now();
+  const user = ctx.session!.user;
 
   if (!(await hasPermission("gudang:read"))) {
-    return ApiErrors.forbidden('Akses ditolak')
+    return ApiErrors.forbidden("Akses ditolak");
   }
 
-  const inventoryRepository = getInventoryRepository()
+  const inventoryRepository = new InventoryRepository();
 
-  const { searchParams } = req.nextUrl
-  const viewAll = searchParams.get('view') === 'all'
+  const { searchParams } = req.nextUrl;
+  const viewAll = searchParams.get("view") === "all";
 
   // Check for site restriction
   const permissions = await getUserPermissions(user.id);
-  
+
   // Need to fetch siteId because createHandler session doesn't map it
-  const { prisma } = await import('@/modules/database');
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-  const siteId = dbUser?.siteId
+  const { prisma } = await import("@/modules/database");
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { siteId: true },
+  });
+  const siteId = dbUser?.siteId;
 
   // Only restrict if:
   // 1. User has restriction permission
   // 2. User has a site assigned
   // 3. User is NOT requesting (and authorized for) view=all
   //    (Super Admins or users with Admin Panel access can view all)
-  const isSuper = isSuperAdmin(user)
+  const isSuper = isSuperAdmin(user);
   // ONLY Super Admin can bypass site restrictions via view=all
   // Other users with accessAdminPanel must still respect site_only permission
-  const canViewAll = isSuper
+  const canViewAll = isSuper;
 
   // Check strict site restriction
   // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
-  const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
-  let shouldRestrict: boolean = !!(hasRestriction && siteId)
+  const hasRestriction =
+    permissions.includes("gudang:site_only") ||
+    permissions.includes("k_barang:site_only");
+  let shouldRestrict: boolean = !!(hasRestriction && siteId);
 
   if (viewAll && canViewAll) {
-    shouldRestrict = false
+    shouldRestrict = false;
   }
 
   try {
-    const dbStart = Date.now()
-    const gudangs = await inventoryRepository.getAllGudang(shouldRestrict ? { siteId } : undefined)
+    const dbStart = Date.now();
+    const gudangs = await inventoryRepository.getAllGudang(
+      shouldRestrict ? { siteId } : undefined,
+    );
 
-    logger.dbOperation('findMany', 'Gudang', Date.now() - dbStart)
+    logger.dbOperation("findMany", "Gudang", Date.now() - dbStart);
 
-    logger.apiRequest('GET', '/api/inventory/gudang', 200, Date.now() - startTime, {
-      gudangCount: gudangs.length,
-      userId: user.id
-    })
+    logger.apiRequest(
+      "GET",
+      "/api/inventory/gudang",
+      200,
+      Date.now() - startTime,
+      {
+        gudangCount: gudangs.length,
+        userId: user.id,
+      },
+    );
 
-    return apiSuccess({ gudangs })
+    return apiSuccess({ gudangs });
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
-    logger.error('Error fetching gudangs', err, {
-      path: '/api/inventory/gudang',
-      method: 'GET',
-    })
-    throw error // Let createHandler handle it
+    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
+    logger.error("Error fetching gudangs", err, {
+      path: "/api/inventory/gudang",
+      method: "GET",
+    });
+    throw error; // Let createHandler handle it
   }
-})
+});
 
 /**
  * @swagger
@@ -172,46 +185,51 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
  *               $ref: '#/components/schemas/Error'
  */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  const startTime = Date.now()
-  const user = ctx.session!.user
+  const startTime = Date.now();
+  const user = ctx.session!.user;
 
   if (!(await hasPermission("gudang:create"))) {
-    return ApiErrors.forbidden('Akses ditolak')
+    return ApiErrors.forbidden("Akses ditolak");
   }
 
-  const inventoryRepository = getInventoryRepository()
+  const inventoryRepository = new InventoryRepository();
 
-  const body = await req.json()
-  const { nama, lokasi, isActive, siteIds } = body
+  const body = await req.json();
+  const { nama, lokasi, isActive, siteIds } = body;
 
   // Validation
   if (!nama) {
-    return ApiErrors.badRequest('Nama gudang harus diisi')
+    return ApiErrors.badRequest("Nama gudang harus diisi");
   }
 
   // Note: siteIds is optional, gudang-site relationship managed from Site menu
 
   try {
-    const dbStart = Date.now()
+    const dbStart = Date.now();
 
     // Generate automatic gudang code
-    const kode = await generateGudangCode()
+    const kode = await generateGudangCode();
 
     // NEW: Enforce Site Restriction on Creation
     const permissions = await getUserPermissions(user.id);
-    const isSuper = isSuperAdmin(user)
-    
-    // Fetch siteId
-    const { prisma } = await import('@/modules/database');
-    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { siteId: true } });
-    const userSiteId = dbUser?.siteId
+    const isSuper = isSuperAdmin(user);
 
-    let finalSiteIds = siteIds
-    const hasRestriction = permissions.includes('gudang:site_only') || permissions.includes('k_barang:site_only')
+    // Fetch siteId
+    const { prisma } = await import("@/modules/database");
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { siteId: true },
+    });
+    const userSiteId = dbUser?.siteId;
+
+    let finalSiteIds = siteIds;
+    const hasRestriction =
+      permissions.includes("gudang:site_only") ||
+      permissions.includes("k_barang:site_only");
 
     if (!isSuper && hasRestriction) {
       if (userSiteId) {
-        finalSiteIds = [userSiteId] // Force assignment to user's site
+        finalSiteIds = [userSiteId]; // Force assignment to user's site
       }
     }
 
@@ -220,32 +238,38 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       nama,
       isActive: isActive ?? true,
       ...(lokasi ? { lokasi } : {}),
-      ...(finalSiteIds ? { siteIds: finalSiteIds } : {})
-    })
+      ...(finalSiteIds ? { siteIds: finalSiteIds } : {}),
+    });
 
-    logger.dbOperation('create', 'Gudang', Date.now() - dbStart)
+    logger.dbOperation("create", "Gudang", Date.now() - dbStart);
 
-    logger.apiRequest('POST', '/api/inventory/gudang', 201, Date.now() - startTime, {
-      gudangId: gudang.id,
-      kode: gudang.kode,
-      userId: user.id
-    })
+    logger.apiRequest(
+      "POST",
+      "/api/inventory/gudang",
+      201,
+      Date.now() - startTime,
+      {
+        gudangId: gudang.id,
+        kode: gudang.kode,
+        userId: user.id,
+      },
+    );
 
     // System Log
     logActivitySafe({
-      action: 'CREATE',
-      subject: 'Gudang',
+      action: "CREATE",
+      subject: "Gudang",
       details: { id: gudang.id, name: gudang.nama, code: gudang.kode },
-      userId: user.id
-    })
+      userId: user.id,
+    });
 
-    return apiSuccess({ gudang }, { status: 201 })
+    return apiSuccess({ gudang }, { status: 201 });
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Terjadi kesalahan');
-    logger.error('Error creating gudang', err, {
-      path: '/api/inventory/gudang',
-      method: 'POST',
-    })
-    return ApiErrors.internalError('Gagal membuat gudang')
+    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
+    logger.error("Error creating gudang", err, {
+      path: "/api/inventory/gudang",
+      method: "POST",
+    });
+    return ApiErrors.internalError("Gagal membuat gudang");
   }
-})
+});

@@ -1,8 +1,8 @@
-import { getWorkOrderRepository } from '@/lib/repositories'
+import { WorkOrderRepository } from "@/modules/work-order";
 
 export class EmployeeWorkOrderQueryService {
   async getAssignedWorkOrders(userId: string) {
-    const repo = getWorkOrderRepository()
-    return repo.findAllForList({ assignedToId: userId })
+    const repo = new WorkOrderRepository();
+    return repo.findAllForList({ assignedToId: userId });
   }
 }

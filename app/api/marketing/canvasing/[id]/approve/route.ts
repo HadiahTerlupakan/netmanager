@@ -1,35 +1,48 @@
-import { NextRequest } from 'next/server'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { isSuperAdminRole } from '@/lib/auth-helpers'
-import { getCanvasingService } from '@/lib/repositories'
-import { apiSuccess, ApiErrors, apiError, ErrorCodes } from '@/lib/api-response'
+import { NextRequest } from "next/server";
+import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import { isSuperAdminRole } from "@/lib/auth-helpers";
+import { createCanvasingService } from "@/modules/marketing";
+import {
+  apiSuccess,
+  ApiErrors,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api-response";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const { id } = await params
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
+    const { id } = await params;
+    const session = await verifyAuth(req);
+    if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
     // RBAC Check
-    const isSuperAdmin = isSuperAdminRole(session.role)
-    const permissions = await getUserPermissions(session.id)
+    const isSuperAdmin = isSuperAdminRole(session.role);
+    const permissions = await getUserPermissions(session.id);
 
-    if (!isSuperAdmin && !permissions.includes('canvasing:update')) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menyetujui canvasing')
+    if (!isSuperAdmin && !permissions.includes("canvasing:update")) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk menyetujui canvasing",
+      );
     }
 
-    const service = getCanvasingService()
-    const request = await service.approveRequest(id, session.id)
+    const service = createCanvasingService();
+    const request = await service.approveRequest(id, session.id);
 
-    return apiSuccess(request, { message: 'Canvasing berhasil disetujui dan Work Order telah dibuat' })
+    return apiSuccess(request, {
+      message: "Canvasing berhasil disetujui dan Work Order telah dibuat",
+    });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Gagal menyetujui canvasing'
-    if (message.includes('tidak ditemukan')) {
-      return ApiErrors.notFound('Data canvasing')
+    const message =
+      error instanceof Error ? error.message : "Gagal menyetujui canvasing";
+    if (message.includes("tidak ditemukan")) {
+      return ApiErrors.notFound("Data canvasing");
     }
-    if (message.includes('Hanya request PENDING')) {
-      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    if (message.includes("Hanya request PENDING")) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
-    return ApiErrors.internalError(message)
+    return ApiErrors.internalError(message);
   }
 }

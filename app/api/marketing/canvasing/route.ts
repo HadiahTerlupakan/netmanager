@@ -1,29 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { CanvasingStatus } from '@prisma/client'
-import { verifyAuth, getUserPermissions } from '@/lib/auth'
-import { isSuperAdminRole } from '@/lib/auth-helpers'
-import { getCanvasingService } from '@/lib/repositories'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
-
+import { NextRequest, NextResponse } from "next/server";
+import { CanvasingStatus } from "@prisma/client";
+import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import { isSuperAdminRole } from "@/lib/auth-helpers";
+import { createCanvasingService } from "@/modules/marketing";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
+    const session = await verifyAuth(req);
+    if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
     // RBAC Check & Filtering
-    const isSuperAdmin = isSuperAdminRole(session.role)
+    const isSuperAdmin = isSuperAdminRole(session.role);
 
-    const permissions = await getUserPermissions(session.id)
-    const canReadAll = isSuperAdmin || permissions.includes('canvasing:read') || permissions.includes('canvasing:verify')
-    const isSiteRestricted = permissions.includes('canvasing:site_only') && !isSuperAdmin
+    const permissions = await getUserPermissions(session.id);
+    const canReadAll =
+      isSuperAdmin ||
+      permissions.includes("canvasing:read") ||
+      permissions.includes("canvasing:verify");
+    const isSiteRestricted =
+      permissions.includes("canvasing:site_only") && !isSuperAdmin;
 
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status')
-    let salesId = searchParams.get('salesId') || undefined
-    let filterSiteId: string | undefined = searchParams.get('siteId') || undefined
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+    let salesId = searchParams.get("salesId") || undefined;
+    let filterSiteId: string | undefined =
+      searchParams.get("siteId") || undefined;
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
 
     // Logic:
     // 1. If Super Admin -> Can see all (no default filters)
@@ -35,64 +39,69 @@ export async function GET(req: NextRequest) {
     // 2. Site Restriction: If you are a Manager but restricted to 'site_only', you see all data in your site.
     // 3. Super Admin: Sees everything.
 
-    const canVerify = permissions.includes('canvasing:verify')
-    const canViewOthers = isSuperAdmin || canVerify || canReadAll
+    const canVerify = permissions.includes("canvasing:verify");
+    const canViewOthers = isSuperAdmin || canVerify || canReadAll;
 
     // console.log(`[API_CANVASING] User: ${session.email}, isSuperAdmin: ${isSuperAdmin}, canReadAll: ${canReadAll}, canVerify: ${canVerify}, canViewOthers: ${canViewOthers}`)
 
     if (!canViewOthers) {
       // Absolute restriction for regular Sales/Staff
-      salesId = session.id
+      salesId = session.id;
     } else {
       // Manager Logic
       if (isSiteRestricted) {
         if (session.siteId) {
-          filterSiteId = session.siteId
+          filterSiteId = session.siteId;
         } else {
-          return apiSuccess([])
+          return apiSuccess([]);
         }
       }
     }
 
-    const service = getCanvasingService()
-    const filterParams: { status?: CanvasingStatus; salesId?: string; siteId?: string } = {}
-    if (status) filterParams.status = status as CanvasingStatus
-    if (salesId) filterParams.salesId = salesId
-    if (filterSiteId) filterParams.siteId = filterSiteId
-    const result = await service.getAllRequests(filterParams, page, limit)
+    const service = createCanvasingService();
+    const filterParams: {
+      status?: CanvasingStatus;
+      salesId?: string;
+      siteId?: string;
+    } = {};
+    if (status) filterParams.status = status as CanvasingStatus;
+    if (salesId) filterParams.salesId = salesId;
+    if (filterSiteId) filterParams.siteId = filterSiteId;
+    const result = await service.getAllRequests(filterParams, page, limit);
 
     // Return with data wrapper for mobile app compatibility
     return NextResponse.json({
       data: result.data,
       total: result.total,
       page,
-      limit
-    })
+      limit,
+    });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Gagal mengambil data canvasing'
-    return ApiErrors.internalError(message)
+    const message =
+      error instanceof Error ? error.message : "Gagal mengambil data canvasing";
+    return ApiErrors.internalError(message);
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await verifyAuth(req)
-    if (!session) return ApiErrors.unauthorized('Tidak terautentikasi')
+    const session = await verifyAuth(req);
+    if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    const body = await req.json()
+    const body = await req.json();
 
     // Validate required fields
     if (!body.nama || !body.nama.trim()) {
-      return ApiErrors.badRequest('Nama pelanggan wajib diisi')
+      return ApiErrors.badRequest("Nama pelanggan wajib diisi");
     }
     if (!body.noTelpon || !body.noTelpon.trim()) {
-      return ApiErrors.badRequest('Nomor telepon wajib diisi')
+      return ApiErrors.badRequest("Nomor telepon wajib diisi");
     }
     if (!body.alamat || !body.alamat.trim()) {
-      return ApiErrors.badRequest('Alamat wajib diisi')
+      return ApiErrors.badRequest("Alamat wajib diisi");
     }
 
-    const service = getCanvasingService()
+    const service = createCanvasingService();
 
     // Explicitly map and sanitize fields
     const payload = {
@@ -110,13 +119,14 @@ export async function POST(req: NextRequest) {
       foto: body.foto || null,
       fotoKtp: body.fotoKtp || null,
       salesId: session.id,
-    }
+    };
 
-    const request = await service.createRequest(payload)
+    const request = await service.createRequest(payload);
 
-    return apiSuccess(request, { status: 201 })
+    return apiSuccess(request, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Gagal membuat data canvasing'
-    return ApiErrors.internalError(message)
+    const message =
+      error instanceof Error ? error.message : "Gagal membuat data canvasing";
+    return ApiErrors.internalError(message);
   }
 }
