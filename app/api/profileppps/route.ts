@@ -1,18 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/modules/database'
-import { profilePPPSchema } from '@/lib/validations/profileppp'
-import { sanitizeInput } from '@/lib/utils/sanitize'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { hasPermission } from '@/lib/rbac'
-import { randomUUID } from 'crypto'
-import { Prisma } from '@prisma/client'
-import { checkSiteRestriction } from '@/modules/roles'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/modules/database";
+import { profilePPPSchema } from "@/lib/validations/profileppp";
+import { sanitizeInput } from "@/lib/utils/sanitize";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { Prisma } from "@prisma/client";
+import { checkSiteRestriction } from "@/modules/roles";
+import { ProfilePPPService } from "@/modules/network";
+
+const profilePPPService = new ProfilePPPService();
 
 /**
  * GET /api/profileppps
  * Mendapatkan semua data Profile PPP
- * 
+ *
  * @swagger
  * /api/profileppps:
  *   get:
@@ -25,48 +27,48 @@ import { checkSiteRestriction } from '@/modules/roles'
 export async function GET(req: NextRequest) {
   try {
     // Cek autentikasi menggunakan fungsi terpusat
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+      return NextResponse.json(
+        { error: "Tidak terautentikasi" },
+        { status: 401 },
+      );
     }
 
     if (!(await hasPermission("profileppp:read"))) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
     }
 
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status')
-    const siteIdParam = searchParams.get('siteId')
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+    const siteIdParam = searchParams.get("siteId");
 
-    const where: Prisma.ProfilePPPWhereInput = {}
+    const where: Prisma.ProfilePPPWhereInput = {};
     if (status) {
-      where.status = status as 'AKTIF' | 'NONAKTIF'
+      where.status = status as "AKTIF" | "NONAKTIF";
     }
 
     // User restriction logic
-    const { isRestricted, siteIds } = checkSiteRestriction(session, 'profileppp')
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      session,
+      "profileppp",
+    );
 
     if (isRestricted && siteIds.length > 0) {
-      where.OR = [
-        { siteId: { in: siteIds } },
-        { siteId: null },
-      ]
+      where.OR = [{ siteId: { in: siteIds } }, { siteId: null }];
     } else if (siteIdParam) {
-      where.OR = [
-        { siteId: siteIdParam },
-        { siteId: null },
-      ]
+      where.OR = [{ siteId: siteIdParam }, { siteId: null }];
     }
 
     const profilePPPs = await prisma.profilePPP.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       include: {
         site: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
         mikroTikRouter: {
           select: {
@@ -79,15 +81,18 @@ export async function GET(req: NextRequest) {
           select: { hargaPaket: true },
         },
       },
-    })
+    });
 
-    return NextResponse.json(profilePPPs)
+    return NextResponse.json(profilePPPs);
   } catch (error: unknown) {
-    console.error('Error fetching profile PPPs:', error)
+    console.error("Error fetching profile PPPs:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      {
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+      },
+      { status: 500 },
+    );
   }
 }
 
@@ -206,7 +211,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/profileppps
  * Membuat Profile PPP baru
- * 
+ *
  * Alur:
  * 1. Validasi input (termasuk ipRange untuk IP Pool)
  * 2. Simpan Profile PPP ke database (tanpa ipRange, karena tidak disimpan)
@@ -216,212 +221,117 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Cek autentikasi admin menggunakan fungsi terpusat
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+      return NextResponse.json(
+        { error: "Tidak terautentikasi" },
+        { status: 401 },
+      );
     }
 
     if (!(await hasPermission("profileppp:create"))) {
-      return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+      return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
     }
 
-    const body = await req.json()
-
-    // Sanitize input dan convert empty strings to undefined/null
+    const body = await req.json();
     const sanitizedBody = {
       name: body.name ? sanitizeInput(body.name) : undefined,
-      localAddress: body.localAddress ? sanitizeInput(body.localAddress) : undefined,
-      remoteAddress: body.remoteAddress ? sanitizeInput(body.remoteAddress) : undefined,
-      // ipRange: Range IP untuk pool (contoh: "192.168.1.100-192.168.1.200")
-      // Digunakan untuk membuat IP Pool di MikroTik, tidak disimpan di database
-      ipRange: body.ipRange && body.ipRange.trim() ? sanitizeInput(body.ipRange) : undefined,
-      dnsServer: body.dnsServer && body.dnsServer.trim() ? sanitizeInput(body.dnsServer) : undefined,
-      sessionTimeout: body.sessionTimeout !== undefined && body.sessionTimeout !== null && body.sessionTimeout !== '' ? Number(body.sessionTimeout) : undefined,
-      idleTimeout: body.idleTimeout !== undefined && body.idleTimeout !== null && body.idleTimeout !== '' ? Number(body.idleTimeout) : undefined,
-      poolMode: body.poolMode || 'MIKROTIK',
-      // Rate limit diambil dari Bandwidth yang terkait melalui HargaPaket atau bandwidthId langsung
-      mikroTikRouterId: body.mikroTikRouterId && body.mikroTikRouterId.trim() ? body.mikroTikRouterId : undefined,
-      bandwidthId: body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : undefined, // Bandwidth untuk rate limit (opsional)
-      description: body.description && body.description.trim() ? sanitizeInput(body.description) : undefined,
-      status: body.status || 'AKTIF',
-      siteId: body.siteId || undefined
-    }
-
-    // Enforce siteId for restricted users
-    const { isRestricted, primarySiteId } = checkSiteRestriction(session, 'profileppp')
-    if (isRestricted && primarySiteId) {
-      sanitizedBody.siteId = primarySiteId
-    }
-
-    // Log the creation attempt including siteId
-    await import('@/lib/logger').then(({ logger }) => {
-      logger.info('Creating Profile PPP', {
-        userId: session.user.id,
-        siteId: sanitizedBody.siteId,
-        name: sanitizedBody.name
-      })
-    })
-
-    // Validasi data dengan Zod schema
-    const validation = profilePPPSchema.safeParse(sanitizedBody)
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Validasi gagal', details: validation.error.flatten() },
-        { status: 400 }
-      )
-    }
-
-    // Pisahkan ipRange dan bandwidthId dari data untuk Prisma
-    // ipRange tidak disimpan di database, hanya digunakan untuk membuat IP Pool di MikroTik
-    // bandwidthId tidak disimpan di database, hanya digunakan untuk mengambil rate limit
-    const { ipRange: _ipRange, bandwidthId, ...rawPrismaData } = validation.data
-
-    // Buat objek data explicitly untuk Prisma tanpa field yang bisa undefined/bermasalah
-    // dan pastikan field yang optional diberikan nilai yang sesuai.
-    const prismaData = {
-      id: randomUUID(),
-      name: rawPrismaData.name,
-      localAddress: rawPrismaData.localAddress,
-      remoteAddress: rawPrismaData.remoteAddress,
-      dnsServer: rawPrismaData.dnsServer || null,
-      sessionTimeout: rawPrismaData.sessionTimeout || null,
-      idleTimeout: rawPrismaData.idleTimeout || null,
-      poolMode: rawPrismaData.poolMode,
-      description: rawPrismaData.description || null,
-      status: rawPrismaData.status,
-      siteId: rawPrismaData.siteId || null,
-      mikroTikRouterId: rawPrismaData.mikroTikRouterId || null,
-      updatedAt: new Date(),
+      localAddress: body.localAddress
+        ? sanitizeInput(body.localAddress)
+        : undefined,
+      remoteAddress: body.remoteAddress
+        ? sanitizeInput(body.remoteAddress)
+        : undefined,
+      ipRange:
+        body.ipRange && body.ipRange.trim()
+          ? sanitizeInput(body.ipRange)
+          : undefined,
+      dnsServer:
+        body.dnsServer && body.dnsServer.trim()
+          ? sanitizeInput(body.dnsServer)
+          : undefined,
+      sessionTimeout:
+        body.sessionTimeout !== undefined &&
+        body.sessionTimeout !== null &&
+        body.sessionTimeout !== ""
+          ? Number(body.sessionTimeout)
+          : undefined,
+      idleTimeout:
+        body.idleTimeout !== undefined &&
+        body.idleTimeout !== null &&
+        body.idleTimeout !== ""
+          ? Number(body.idleTimeout)
+          : undefined,
+      poolMode: body.poolMode || "MIKROTIK",
+      mikroTikRouterId:
+        body.mikroTikRouterId && body.mikroTikRouterId.trim()
+          ? body.mikroTikRouterId
+          : undefined,
+      bandwidthId:
+        body.bandwidthId && body.bandwidthId.trim()
+          ? body.bandwidthId
+          : undefined,
+      description:
+        body.description && body.description.trim()
+          ? sanitizeInput(body.description)
+          : undefined,
+      status: body.status || "AKTIF",
+      siteId: body.siteId || undefined,
     };
 
-    // Simpan Profile PPP ke database
-    const profilePPP = await prisma.profilePPP.create({
-      data: prismaData,
-      include: {
-        mikroTikRouter: true,
+    const { isRestricted, primarySiteId } = checkSiteRestriction(
+      session,
+      "profileppp",
+    );
+    if (isRestricted && primarySiteId) {
+      sanitizedBody.siteId = primarySiteId;
+    }
+
+    await import("@/lib/logger").then(({ logger }) => {
+      logger.info("Creating Profile PPP", {
+        userId: session.user.id,
+        siteId: sanitizedBody.siteId,
+        name: sanitizedBody.name,
+      });
+    });
+
+    const validation = profilePPPSchema.safeParse(sanitizedBody);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Validasi gagal", details: validation.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const profilePPP = await profilePPPService.createProfilePPP(
+      {
+        user: {
+          id: session.user.id!,
+          tenantId: session.user.tenantId ?? undefined,
+        },
       },
-    })
+      validation.data,
+    );
 
-    // Sync to RADIUS if in RADIUS mode
-    try {
-      const { RadiusSyncService } = await import('@/modules/network');
-      const radiusSync = new RadiusSyncService();
-      const mode = await radiusSync.getConnectionMode();
-      if (mode === 'RADIUS') {
-        const { RadiusRepository } = await import('@/modules/network');
-        const radiusRepo = new RadiusRepository();
-        await radiusRepo.syncProfileToRadius(profilePPP.id);
-        
-        // Sync IP Pool to radippool table if in RADIUS mode and ipRange is provided
-        if (profilePPP.poolMode === 'RADIUS' && sanitizedBody.ipRange) {
-          // Get tenantId from profile or session
-          const tenantId = profilePPP.tenantId || (session.user as { tenantId?: string }).tenantId;
-          if (tenantId) {
-            await radiusRepo.syncIpPoolToRadius(profilePPP.remoteAddress, sanitizedBody.ipRange, tenantId);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[API ProfilePPP] RADIUS sync error during creation:', error);
-    }
-
-    // Update profile PPP di MikroTik jika ada router atau dalam mode RADIUS
-    try {
-      const { RadiusSyncService } = await import('@/modules/network');
-      const radiusSync = new RadiusSyncService();
-      const connectionMode = await radiusSync.getConnectionMode();
-      const isRadiusMode = connectionMode === 'RADIUS';
-
-      const { createPPPProfileInMikroTik, getRateLimitFromBandwidth } = await import('@/modules/network');
-
-      if (isRadiusMode) {
-        // console.log('[API ProfilePPP] RADIUS mode: broadcasting profile creation to all active routers');
-        
-        // Ambil SEMUA router yang relevan untuk profil ini (berdasarkan tenantId atau siteId)
-        const activeRouters = await prisma.mikroTikRouter.findMany({
-          where: {
-            OR: [
-              { tenantId: profilePPP.tenantId },
-              { siteId: profilePPP.siteId }
-            ]
-          }
-        });
-
-        for (const router of activeRouters) {
-          try {
-            const isRadiusPool = validation.data.poolMode === 'RADIUS';
-            // Connection Mode = RADIUS: rate-limit SELALU dari FreeRADIUS
-            // (via Mikrotik-Rate-Limit attribute), TIDAK di-set di profil MikroTik
-            // ipRange & remote-address: berdasarkan poolMode
-
-            const profilePPPDataForMikrotik = {
-              name: validation.data.name,
-              localAddress: validation.data.localAddress,
-              remoteAddress: validation.data.remoteAddress,
-              // ipRange: hanya jika poolMode=MIKROTIK (pool di router)
-              ...(!isRadiusPool && validation.data.ipRange && { ipRange: validation.data.ipRange }),
-              ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
-              ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
-              ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-              // rateLimit: TIDAK di-set karena connection mode RADIUS
-              // FreeRADIUS mengirim Mikrotik-Rate-Limit via reply attributes
-              skipPoolCheck: isRadiusPool,
-              skipRateLimit: true, // Connection Mode RADIUS: rate-limit selalu dari FreeRADIUS
-            };
-
-            await createPPPProfileInMikroTik(
-              router.id,
-              profilePPPDataForMikrotik
-            );
-          } catch (routerErr) {
-            console.error(`[API ProfilePPP] Failed to create profile in router ${router.name}:`, routerErr);
-          }
-        }
-      } else if (validation.data.mikroTikRouterId && profilePPP.mikroTikRouter) {
-        // Mode API MikroTik: Hanya buat di router yang dipilih
-        // poolMode pasti MIKROTIK di mode ini (sudah di-guard di atas)
-        const rateLimit = await getRateLimitFromBandwidth(profilePPP.id, bandwidthId);
-        
-        const profilePPPDataForMikrotik = {
-          name: validation.data.name,
-          localAddress: validation.data.localAddress,
-          remoteAddress: validation.data.remoteAddress,
-          ...(validation.data.ipRange && { ipRange: validation.data.ipRange }),
-          ...(validation.data.dnsServer && { dnsServer: validation.data.dnsServer }),
-          ...(validation.data.sessionTimeout && { sessionTimeout: validation.data.sessionTimeout }),
-          ...(validation.data.idleTimeout && { idleTimeout: validation.data.idleTimeout }),
-          ...(rateLimit && { rateLimit }),
-          skipPoolCheck: false, // Mode API MikroTik selalu buat pool di router
-        };
-
-        await createPPPProfileInMikroTik(
-          validation.data.mikroTikRouterId,
-          profilePPPDataForMikrotik
-        );
-      }
-    } catch (syncError) {
-      console.error('[API ProfilePPP] Error during MikroTik profile broadcast (POST):', syncError);
-    }
-
-    return NextResponse.json(profilePPP, { status: 201 })
+    return NextResponse.json(profilePPP, { status: 201 });
   } catch (error: unknown) {
-    console.error('Error creating profile PPP:', error)
+    console.error("Error creating profile PPP:", error);
 
-    // Handle unique constraint violation
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') {
+      if (error.code === "P2002") {
         return NextResponse.json(
-          { error: 'Nama profile PPP sudah digunakan' },
-          { status: 400 }
-        )
+          { error: "Nama profile PPP sudah digunakan" },
+          { status: 400 },
+        );
       }
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      {
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+      },
+      { status: 500 },
+    );
   }
 }
-

@@ -1,8 +1,5 @@
-import { MikroTikRouterRepository } from "@/modules/network";
 import { mikrotikRouterCreateSchema } from "@/lib/validations/mikrotik";
 import { hasPermission } from "@/lib/rbac";
-import type { MikroTikRouterCreateData } from "@/modules/network";
-import { logActivitySafe } from "@/lib/logger";
 import {
   apiSuccess,
   ApiErrors,
@@ -10,7 +7,10 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { prisma } from "@/modules/database";
+import {
+  MikroTikRouterService,
+  RouterAccessDeniedError,
+} from "@/modules/network";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = req.nextUrl;
@@ -22,44 +22,19 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  const routerRepository = new MikroTikRouterRepository();
   const user = ctx.session!.user;
-
-  // RBAC: Check site restrictions
-  let siteIdFilter: string | undefined = undefined;
-  const isRestricted =
+  const routerService = new MikroTikRouterService();
+  const restrictedToOwnSite =
     (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
 
-  if (isRestricted) {
-    // Fetch user siteId
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    const userSiteId = dbUser?.siteId;
-
-    if (!userSiteId) {
-      return apiSuccess({
-        routers: [],
-        total: 0,
-        page,
-        limit,
-        totalPages: 0,
-      });
-    }
-    siteIdFilter = userSiteId;
-  }
-
-  const tenantId = ctx.session!.user.tenantId;
-  const filters: Record<string, string | undefined> = {};
-  if (search) filters.search = search;
-  if (siteIdFilter) filters.siteId = siteIdFilter;
-
-  const result = await routerRepository.findWithFilters(
-    filters,
-    { page, limit },
-    tenantId,
-  );
+  const result = await routerService.listRouters({
+    userId: user.id,
+    tenantId: user.tenantId,
+    restrictedToOwnSite,
+    search,
+    page,
+    limit,
+  });
 
   return apiSuccess(result);
 });
@@ -79,145 +54,25 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const user = ctx.session!.user;
-  const {
-    name,
-    ipAddress,
-    timezone,
-    apiPort,
-    apiUsername,
-    apiPassword,
-    isolirUrl,
-    description,
-    siteId,
-  } = parsed.data;
-
-  // RBAC: Check site restrictions for creation
-  let finalSiteId = siteId;
-  const isRestricted =
+  const routerService = new MikroTikRouterService();
+  const restrictedToOwnSite =
     (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
 
-  if (isRestricted) {
-    // Fetch user siteId
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    const userSiteId = dbUser?.siteId;
-
-    if (!userSiteId) {
-      return ApiErrors.forbidden(
-        "User tidak memiliki akses site untuk membuat router",
-      );
-    }
-    finalSiteId = userSiteId;
-  }
-
-  // Memaksa semua konfigurasi RADIUS dari environment agar konsisten
-  const forceSecretRadius = process.env.RADIUS_SECRET || "testing123";
-  const forceAuthPort = Number(process.env.RADIUS_AUTH_PORT) || 1812;
-  const forceAcctPort = Number(process.env.RADIUS_ACCT_PORT) || 1813;
-
   try {
-    const routerRepository = new MikroTikRouterRepository();
-    const createData: Record<string, string | number | undefined> = {
-      name,
-      ipAddress,
-      apiPort: Number(apiPort),
-      apiUsername,
-      apiPassword,
-      authPort: forceAuthPort,
-      accountingPort: forceAcctPort,
-      secretRadius: forceSecretRadius,
-    };
-    if (timezone) createData.timezone = timezone;
-    if (isolirUrl) createData.isolirUrl = isolirUrl;
-    if (description) createData.description = description;
-    if (finalSiteId) createData.siteId = finalSiteId;
-    createData.tenantId = user.tenantId;
-
-    const router = await routerRepository.create(
-      createData as unknown as MikroTikRouterCreateData,
-    );
-
-    // Auto Provisioning
-    if (body.autoConfigure) {
-      // console.log('Starting Auto Provisioning...');
-      try {
-        const serviceModule = await import("@/modules/network");
-        if (serviceModule && serviceModule.MikroTikProvisioningService) {
-          const { MikroTikProvisioningService } = serviceModule;
-          const provisioningService = new MikroTikProvisioningService();
-
-          const provisioningResult = await provisioningService.provisionRadius(
-            {
-              ip: ipAddress,
-              port: Number(apiPort),
-              username: apiUsername,
-              password: apiPassword,
-            },
-            null, // auto-detect IP publik
-            forceSecretRadius,
-            isolirUrl,
-            forceAuthPort,
-            forceAcctPort,
-          );
-
-          if (!provisioningResult.success) {
-            console.warn(
-              `Router created but provisioning failed: ${provisioningResult.logs.join(", ")}`,
-            );
-          }
-
-          // console.log('Creating API User...');
-          const apiUserResult = await provisioningService.createApiUser({
-            ip: ipAddress,
-            port: Number(apiPort),
-            username: apiUsername,
-            password: apiPassword,
-          });
-
-          if (
-            apiUserResult.success &&
-            apiUserResult.username &&
-            apiUserResult.password
-          ) {
-            await prisma.mikroTikRouter.update({
-              where: { id: router.id },
-              data: {
-                apiUsernameGenerated: apiUserResult.username,
-                apiPasswordGenerated: apiUserResult.password,
-              },
-            });
-            // console.log(`API User created and saved: ${apiUserResult.username}`);
-          } else {
-            console.warn(
-              `API User creation failed: ${apiUserResult.logs.join(", ")}`,
-            );
-          }
-        }
-      } catch (e: unknown) {
-        console.error("Provisioning CRITICAL error:", e);
-      }
-    }
-
-    try {
-      const { checkSingleMikroTikRouterStatus } =
-        await import("@/modules/network");
-      await checkSingleMikroTikRouterStatus(router.id);
-    } catch (err) {
-      console.error("Failed to perform initial router check:", err);
-    }
-
-    // System Log
-    logActivitySafe({
-      action: "CREATE",
-      subject: "MikroTik Router",
+    const router = await routerService.createRouter({
+      data: parsed.data,
+      autoConfigure: body.autoConfigure,
       userId: user.id,
-      details: { id: router.id, name: name, ip: ipAddress },
+      tenantId: user.tenantId,
+      restrictedToOwnSite,
     });
 
     return apiSuccess({ id: router.id }, { status: 201 });
-  } catch (_e: unknown) {
+  } catch (error: unknown) {
+    if (error instanceof RouterAccessDeniedError) {
+      return ApiErrors.forbidden(error.message);
+    }
+
     return apiError(
       "IP Address sudah terpakai atau terjadi kesalahan",
       ErrorCodes.CONFLICT,

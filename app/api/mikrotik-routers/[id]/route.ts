@@ -1,7 +1,5 @@
 import { hasPermission } from "@/lib/rbac";
-import { MikroTikRouterRepository } from "@/modules/network";
 import { mikrotikRouterUpdateSchema } from "@/lib/validations/mikrotik";
-import { logActivitySafe } from "@/lib/logger";
 import {
   apiSuccess,
   ApiErrors,
@@ -9,35 +7,39 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { prisma } from "@/modules/database";
+import {
+  MikroTikRouterService,
+  RouterAccessDeniedError,
+  RouterNotFoundError,
+} from "@/modules/network";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
-  const tenantId = ctx.session!.user.tenantId;
-  const routerRepository = new MikroTikRouterRepository();
-  const router = await routerRepository.findById(id, tenantId);
-
-  if (!router) {
-    return ApiErrors.notFound("Router");
-  }
-
   const user = ctx.session!.user;
-  const isRestricted =
+  const routerService = new MikroTikRouterService();
+  const restrictedToOwnSite =
     (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
 
-  if (isRestricted) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
+  try {
+    const router = await routerService.getRouterById({
+      id,
+      tenantId: user.tenantId,
+      userId: user.id,
+      restrictedToOwnSite,
     });
-    const userSiteId = dbUser?.siteId;
 
-    if (!userSiteId || router.siteId !== userSiteId) {
+    return apiSuccess({ router });
+  } catch (error: unknown) {
+    if (error instanceof RouterNotFoundError) {
+      return ApiErrors.notFound("Router");
+    }
+
+    if (error instanceof RouterAccessDeniedError) {
       return ApiErrors.forbidden("Akses ditolak");
     }
-  }
 
-  return apiSuccess({ router });
+    throw error;
+  }
 });
 
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
@@ -51,66 +53,31 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
       details: parsed.error.flatten(),
     });
   }
-  const data = parsed.data;
+
   const user = ctx.session!.user;
-  const tenantId = user.tenantId;
+  const routerService = new MikroTikRouterService();
+  const restrictedToOwnSite =
+    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
 
   try {
-    const routerRepository = new MikroTikRouterRepository();
-    const existingRouter = await routerRepository.findById(id, tenantId);
-    if (!existingRouter) {
-      return ApiErrors.notFound("Router");
-    }
-
-    const isRestricted =
-      (await hasPermission("mikrotik:site_only")) &&
-      user.role !== "SUPER_ADMIN";
-    if (isRestricted) {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { siteId: true },
-      });
-      const userSiteId = dbUser?.siteId;
-
-      if (!userSiteId || existingRouter.siteId !== userSiteId) {
-        return ApiErrors.forbidden("Akses ditolak");
-      }
-      // Force siteId to remain unchanged or set to user's site
-      data.siteId = userSiteId;
-    }
-
-    const updateData: Record<string, unknown> = {};
-    if (data.name) updateData.name = data.name;
-    if (data.ipAddress) updateData.ipAddress = data.ipAddress;
-    if (data.timezone !== undefined) updateData.timezone = data.timezone;
-    if (data.apiPort !== undefined) updateData.apiPort = data.apiPort;
-    if (data.apiUsername !== undefined)
-      updateData.apiUsername = data.apiUsername;
-    if (data.apiPassword !== undefined)
-      updateData.apiPassword = data.apiPassword;
-
-    // Memaksa semua konfigurasi RADIUS dari environment agar konsisten
-    updateData.authPort = Number(process.env.RADIUS_AUTH_PORT) || 1812;
-    updateData.accountingPort = Number(process.env.RADIUS_ACCT_PORT) || 1813;
-    updateData.secretRadius = process.env.RADIUS_SECRET || "testing123";
-    if (data.isolirUrl !== undefined) updateData.isolirUrl = data.isolirUrl;
-    if (data.description !== undefined)
-      updateData.description = data.description;
-    if (data.siteId !== undefined) updateData.siteId = data.siteId;
-    updateData.tenantId = tenantId;
-
-    await routerRepository.update(id, updateData, tenantId);
-
-    // System Log
-    logActivitySafe({
-      action: "UPDATE",
-      subject: "MikroTik Router",
+    await routerService.updateRouter({
+      id,
+      data: parsed.data,
       userId: user.id,
-      details: { id, changes: data },
+      tenantId: user.tenantId,
+      restrictedToOwnSite,
     });
 
     return apiSuccess({ success: true });
-  } catch (_e: unknown) {
+  } catch (error: unknown) {
+    if (error instanceof RouterNotFoundError) {
+      return ApiErrors.notFound("Router");
+    }
+
+    if (error instanceof RouterAccessDeniedError) {
+      return ApiErrors.forbidden("Akses ditolak");
+    }
+
     return apiError(
       "Gagal mengupdate router atau IP Address sudah terpakai",
       ErrorCodes.CONFLICT,
@@ -122,67 +89,24 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const user = ctx.session!.user;
-  const tenantId = user.tenantId;
+  const routerService = new MikroTikRouterService();
+  const restrictedToOwnSite =
+    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
 
   try {
-    const routerRepository = new MikroTikRouterRepository();
-    const router = await routerRepository.findById(id, tenantId);
-
-    if (router) {
-      const isRestricted =
-        (await hasPermission("mikrotik:site_only")) &&
-        user.role !== "SUPER_ADMIN";
-      if (isRestricted) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { siteId: true },
-        });
-        const userSiteId = dbUser?.siteId;
-
-        if (!userSiteId || router.siteId !== userSiteId) {
-          return ApiErrors.forbidden("Akses ditolak");
-        }
-      }
-
-      // Auto Deprovisioning
-      try {
-        const { MikroTikProvisioningService } =
-          await import("@/modules/network");
-        const provisioningService = new MikroTikProvisioningService();
-
-        // console.log(`Deprovisioning router ${router.ipAddress}...`);
-        const result = await provisioningService.deprovisionRadius(
-          {
-            ip: router.ipAddress,
-            port: router.apiPort,
-            username: router.apiUsername,
-            password: router.apiPassword,
-          },
-          null, // auto-detect IP publik
-          router.isolirUrl,
-        );
-        if (!result.success) {
-          console.warn(`Deprovisioning failed: ${result.logs.join(", ")}`);
-        } else {
-          // console.log(`Deprovisioning success: ${result.logs.join(', ')}`);
-        }
-      } catch (e) {
-        console.error("Failed to auto-deprovision:", e);
-      }
-    }
-
-    await routerRepository.delete(id, tenantId);
-
-    // System Log
-    logActivitySafe({
-      action: "DELETE",
-      subject: "MikroTik Router",
+    await routerService.deleteRouter({
+      id,
       userId: user.id,
-      details: { id },
+      tenantId: user.tenantId,
+      restrictedToOwnSite,
     });
 
     return apiSuccess({ success: true });
-  } catch (_e: unknown) {
+  } catch (error: unknown) {
+    if (error instanceof RouterAccessDeniedError) {
+      return ApiErrors.forbidden("Akses ditolak");
+    }
+
     return apiError("Gagal menghapus router", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

@@ -10,6 +10,7 @@ export * from "./services/AutoCheckoutService";
 export * from "./services/AttendanceSettingsService";
 export * from "./services/AttendanceTimezoneService";
 export * from "./services/EmployeeLeaveQueryService";
+export * from "./services/MobileLeaveRequestService";
 export * from "./repositories/AttendanceRepository";
 export * from "./repositories/LeaveBalanceRepository";
 export * from "./repositories/HolidayRepository";
