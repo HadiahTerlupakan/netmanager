@@ -8,6 +8,7 @@ beforeEach(() => {
   vi.doUnmock('@/lib/prisma-billing')
   vi.doUnmock('@/lib/prisma-radius')
   vi.doUnmock('@/lib/prisma-mitra')
+  vi.doMock('dotenv/config', () => ({}))
   process.env = { ...originalEnv }
   delete process.env.DATABASE_URL
   delete process.env.DATABASE_URL_BILLING
