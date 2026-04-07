@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { WorkOrderStatus } from "@prisma/client";
 import { prismaMock } from "../../setup";
+import { onWorkOrderCreated } from "@/modules/work-order/services/WorkOrderNotifications";
 import { WorkOrderService } from "@/modules/work-order/services/WorkOrderService";
 
 // Mock the dependencies
@@ -251,6 +252,48 @@ describe("WorkOrderService", () => {
         expect.objectContaining({ siteId: "site-1" }),
       );
     });
+
+    it("still returns success when non-fatal create side effects throw", async () => {
+      const createdWorkOrder: {
+        id: string;
+        workOrderNumber: string;
+        title: string;
+        type: string;
+        priority: string;
+        status: string;
+        departmentId: string | null;
+        siteId: string | null;
+        assignedToId: string | null;
+        createdAt: Date;
+      } = {
+        id: "wo-1",
+        workOrderNumber: "WO-001",
+        title: "Test",
+        type: "INSTALLATION",
+        priority: "MEDIUM",
+        status: "OPEN",
+        departmentId: null,
+        siteId: null,
+        assignedToId: null,
+        createdAt: new Date(),
+      };
+
+      repositoryMock.create.mockResolvedValue(createdWorkOrder);
+      vi.mocked(onWorkOrderCreated).mockRejectedValueOnce(new Error("boom"));
+
+      const result = await service.createWorkOrder(
+        {
+          type: "INSTALLATION",
+          title: "Test",
+          description: "Desc",
+        },
+        { id: "user-1", role: "USER", permissions: [] },
+      );
+
+      expect(onWorkOrderCreated).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(createdWorkOrder);
+    });
   });
 
   describe("delete and status not-found normalization", () => {
@@ -260,7 +303,7 @@ describe("WorkOrderService", () => {
       permissions: [] as string[],
     };
 
-    it("returns NOT_FOUND when access helper cannot find the work order", async () => {
+    it("returns NOT_FOUND when access validation cannot find the work order", async () => {
       repositoryMock.findById.mockResolvedValue(null);
 
       const result = await service.getWorkOrderById("wo-missing", userContext);
@@ -268,7 +311,7 @@ describe("WorkOrderService", () => {
       expect(result).toEqual({
         success: false,
         error: "Work order tidak ditemukan",
-        code: "FETCH_ERROR",
+        code: "NOT_FOUND",
       });
     });
 

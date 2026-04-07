@@ -1,9 +1,7 @@
-import { logger } from "@/lib/logger";
-
 import type { CreateWorkOrderData } from "../repositories/IWorkOrderRepository";
 import type { WarrantyCheckRepository } from "../repositories/WorkOrderSupportRepositories";
-
 import type { CreateWorkOrderInput, UserContext } from "./WorkOrderService";
+import { isSuperAdminContext } from "./work-order-access";
 
 type WorkOrderWarrantyRepository = Pick<
   WarrantyCheckRepository,
@@ -17,13 +15,12 @@ export async function prepareWorkOrderCreateData(params: {
 }): Promise<CreateWorkOrderData> {
   const { input, userContext, warrantyRepo } = params;
   const {
-    role,
     permissions = [],
     siteId: userSiteId,
     departmentId: userDeptId,
     id: createdById,
   } = userContext;
-  const isSuperAdmin = role === "SUPER_ADMIN";
+  const isSuperAdmin = isSuperAdminContext(userContext);
 
   if (!input.type || !input.title || !input.description) {
     throw new Error("Tipe, judul, dan deskripsi wajib diisi");
@@ -94,10 +91,6 @@ export async function prepareWorkOrderCreateData(params: {
             warrantyOwnerId: mitra.id,
             warrantySla: new Date(Date.now() + slaMs),
           };
-
-          logger.info(
-            `[Warranty] Auto-assigned Warranty ticket to Mitra ${mitra.id} (SLA: ${slaJam}h) for Pelanggan ${normalizedInput.pelangganId}`,
-          );
         }
       }
     }

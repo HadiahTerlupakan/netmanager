@@ -1,29 +1,33 @@
+import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
 import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { UserContext } from "./WorkOrderService";
 
-type WorkOrderAccessRepository = Pick<WorkOrderRepository, "findById">;
+export function isSuperAdminContext(
+  userContext: Pick<UserContext, "role" | "isSuperAdmin">,
+): boolean {
+  const { role, isSuperAdmin } = userContext;
+  return Boolean(isSuperAdmin || role === "SUPER_ADMIN" || role === "Super Admin");
+}
 
 export async function validateWorkOrderAccess(params: {
-  repository: WorkOrderAccessRepository;
+  repository: Pick<WorkOrderRepository, "findById">;
   workOrderId: string;
   userContext: UserContext;
-}): Promise<void> {
+}): Promise<WorkOrderWithRelations | null> {
   const { repository, workOrderId, userContext } = params;
   const {
-    role,
     permissions = [],
     departmentId: userDeptId,
     siteId: userSiteId,
-    isSuperAdmin: userIsSuperAdmin,
   } = userContext;
-
-  const isSuperAdmin =
-    userIsSuperAdmin || role === "SUPER_ADMIN" || role === "Super Admin";
-  if (isSuperAdmin) return;
 
   const workOrder = await repository.findById(workOrderId);
   if (!workOrder) {
-    throw new Error("Work order tidak ditemukan");
+    return null;
+  }
+
+  if (isSuperAdminContext(userContext)) {
+    return workOrder;
   }
 
   if (
@@ -39,4 +43,6 @@ export async function validateWorkOrderAccess(params: {
   ) {
     throw new Error("Akses ditolak: Site berbeda");
   }
+
+  return workOrder;
 }

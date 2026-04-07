@@ -294,11 +294,9 @@ export class WorkOrderService {
     userContext?: UserContext,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
-      if (userContext) {
-        await this.validateWorkOrderAccess(id, userContext);
-      }
-
-      const workOrder = await this.repository.findById(id);
+      const workOrder = userContext
+        ? await this.validateWorkOrderAccess(id, userContext)
+        : await this.repository.findById(id);
 
       if (!workOrder) {
         return {
@@ -866,8 +864,8 @@ export class WorkOrderService {
   private async validateWorkOrderAccess(
     workOrderId: string,
     userContext: UserContext,
-  ): Promise<void> {
-    await validateWorkOrderAccessHelper({
+  ): Promise<WorkOrderWithRelations | null> {
+    return validateWorkOrderAccessHelper({
       repository: this.repository,
       workOrderId,
       userContext,
