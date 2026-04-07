@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_OPTIONS='--no-deprecation' tsx watch server.ts",
+    "prepare": "husky",
     "build": "NODE_OPTIONS='--no-deprecation' NODE_ENV=production next build --webpack",
     "start": "NODE_ENV=production tsx server.ts",
     "worker": "tsx worker.ts",
