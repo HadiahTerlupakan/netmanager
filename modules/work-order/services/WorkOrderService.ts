@@ -1,1096 +1,1076 @@
 /**
  * WorkOrderService
- * 
+ *
  * Centralized business logic for Work Order operations.
  * This service encapsulates validation, notifications, socket events, and logging.
  * Routes should call this service instead of directly using repositories.
  */
 
-import type { WorkOrderStatus, WorkOrderPriority, WorkOrderType, PrismaClient } from '@prisma/client'
-import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
-import { WorkOrderRepository } from '../repositories/WorkOrderRepository'
-import type { WorkOrderFilters, WorkOrderWithRelations, CreateWorkOrderData } from '../repositories/IWorkOrderRepository'
-import { onWorkOrderCreated, onWorkOrderStatusChanged, onWorkOrderAssigned } from './WorkOrderNotifications'
-import { workOrderCacheService } from './WorkOrderCacheService'
-import { socketEmitter } from '@/lib/websocket/emitter'
-import { logger, logActivitySafe } from '@/lib/logger'
-import { WorkOrderEventDispatcher } from '@/modules/events'
-import { format } from 'date-fns'
-import { id as localeId } from 'date-fns/locale'
-import { UserRepository } from '@/modules/users'
-import { TicketRepository, WorkOrderTemplateRepository, WarrantyCheckRepository } from '../repositories/WorkOrderSupportRepositories'
-import { WorkOrderMaterialRepository } from '../repositories/WorkOrderMaterialRepository'
-import { randomUUID } from 'crypto'
+import type {
+  WorkOrderStatus,
+  WorkOrderPriority,
+  WorkOrderType,
+  PrismaClient,
+} from "@prisma/client";
+import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+import { logger } from "@/lib/logger";
+import { UserRepository } from "@/modules/users";
+
+import type {
+  WorkOrderFilters,
+  WorkOrderWithRelations,
+} from "../repositories/IWorkOrderRepository";
+import { WorkOrderMaterialRepository } from "../repositories/WorkOrderMaterialRepository";
+import {
+  TicketRepository,
+  WorkOrderTemplateRepository,
+  WarrantyCheckRepository,
+} from "../repositories/WorkOrderSupportRepositories";
+import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
+import { validateWorkOrderAccess as validateWorkOrderAccessHelper } from "./work-order-access";
+import { prepareWorkOrderCreateData } from "./work-order-create-preparation";
+import {
+  broadcastWorkOrderCreatedSafely,
+  invalidateWorkOrderCaches,
+  linkWorkOrderToTicketSafely,
+  logWorkOrderActivity,
+  notifyWorkOrderCreatedSafely,
+  publishWorkOrderAssignmentSideEffects,
+  publishWorkOrderCreatedEvent,
+  publishWorkOrderStatusSideEffects,
+} from "./work-order-side-effects";
+import { WorkOrderEventDispatcher } from "@/modules/events";
 
 // Types
 export interface UserContext {
-    id: string
-    role?: string
-    permissions?: string[]
-    siteId?: string
-    departmentId?: string
-    isSuperAdmin?: boolean
+  id: string;
+  role?: string;
+  permissions?: string[];
+  siteId?: string;
+  departmentId?: string;
+  isSuperAdmin?: boolean;
 }
 
 export interface CreateWorkOrderInput {
-    type: WorkOrderType
-    title: string
-    description: string
-    priority?: WorkOrderPriority
-    pelangganId?: string
-    departmentId?: string
-    siteId?: string
-    scheduledDate?: Date | string
-    ticketId?: string
-    isInternal?: boolean
+  type: WorkOrderType;
+  title: string;
+  description: string;
+  priority?: WorkOrderPriority;
+  pelangganId?: string;
+  departmentId?: string;
+  siteId?: string;
+  scheduledDate?: Date | string;
+  ticketId?: string;
+  isInternal?: boolean;
 }
 
 export interface UpdateWorkOrderInput {
-    title?: string
-    description?: string
-    priority?: WorkOrderPriority
-    status?: WorkOrderStatus
-    scheduledDate?: Date | string
-    departmentId?: string
-    siteId?: string
-    assignedToId?: string
-    resolutionNotes?: string
+  title?: string;
+  description?: string;
+  priority?: WorkOrderPriority;
+  status?: WorkOrderStatus;
+  scheduledDate?: Date | string;
+  departmentId?: string;
+  siteId?: string;
+  assignedToId?: string;
+  resolutionNotes?: string;
 }
 
 export interface WorkOrderListOptions {
-    page?: number
-    limit?: number
-    filters?: WorkOrderFilters
-    userId?: string
-    userPermissions?: string[]
-    userDepartmentId?: string
-    userSiteId?: string
-    userRole?: string
+  page?: number;
+  limit?: number;
+  filters?: WorkOrderFilters;
+  userId?: string;
+  userPermissions?: string[];
+  userDepartmentId?: string;
+  userSiteId?: string;
+  userRole?: string;
 }
 
 export interface ServiceResult<T> {
-    success: boolean
-    data?: T
-    error?: string
-    code?: string
+  success: boolean;
+  data?: T;
+  error?: string;
+  code?: string;
 }
 
 /**
  * WorkOrderService - Business logic layer for Work Orders
  */
 export class WorkOrderService {
-    private repository: WorkOrderRepository
-    private userRepo: UserRepository
-    private ticketRepo: TicketRepository
-    private templateRepo: WorkOrderTemplateRepository
-    private warrantyRepo: WarrantyCheckRepository
-    private materialRepo: WorkOrderMaterialRepository
+  private repository: WorkOrderRepository;
+  private userRepo: UserRepository;
+  private ticketRepo: TicketRepository;
+  private templateRepo: WorkOrderTemplateRepository;
+  private warrantyRepo: WarrantyCheckRepository;
+  private materialRepo: WorkOrderMaterialRepository;
 
-    constructor(prismaClient?: PrismaClient) {
-        this.repository = new WorkOrderRepository(prismaClient)
-        this.userRepo = new UserRepository()
-        this.ticketRepo = new TicketRepository()
-        this.templateRepo = new WorkOrderTemplateRepository()
-        this.warrantyRepo = new WarrantyCheckRepository()
-        this.materialRepo = new WorkOrderMaterialRepository(prismaClient)
-    }
+  constructor(prismaClient?: PrismaClient) {
+    this.repository = new WorkOrderRepository(prismaClient);
+    this.userRepo = new UserRepository();
+    this.ticketRepo = new TicketRepository();
+    this.templateRepo = new WorkOrderTemplateRepository();
+    this.warrantyRepo = new WarrantyCheckRepository();
+    this.materialRepo = new WorkOrderMaterialRepository(prismaClient);
+  }
 
-    // ==================== LIST OPERATIONS ====================
+  // ==================== LIST OPERATIONS ====================
 
-    /**
-     * Get paginated list of work orders with site/department restrictions
-     */
-    async getWorkOrders(options: WorkOrderListOptions): Promise<ServiceResult<{
-        workOrders: unknown[]
-        total: number
-        page: number
-        totalPages: number
-    }>> {
-        try {
-            const {
-                page = 1,
-                limit = 20,
-                filters = {},
-                userPermissions = [],
-                userDepartmentId,
-                userSiteId,
-                userRole,
-            } = options
+  /**
+   * Get paginated list of work orders with site/department restrictions
+   */
+  async getWorkOrders(options: WorkOrderListOptions): Promise<
+    ServiceResult<{
+      workOrders: unknown[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>
+  > {
+    try {
+      const {
+        page = 1,
+        limit = 20,
+        filters = {},
+        userPermissions = [],
+        userDepartmentId,
+        userSiteId,
+        userRole,
+      } = options;
 
-            const appliedFilters = { ...filters }
+      const appliedFilters = { ...filters };
 
-            // Apply department restriction
-            const hasDepartmentRestriction = userPermissions.includes('workorders:department_only')
-            const isSuperAdmin = userRole === 'SUPER_ADMIN'
+      // Apply department restriction
+      const hasDepartmentRestriction = userPermissions.includes(
+        "workorders:department_only",
+      );
+      const isSuperAdmin = userRole === "SUPER_ADMIN";
 
-            if (hasDepartmentRestriction && !isSuperAdmin) {
-                if (!userDepartmentId) {
-                    return {
-                        success: true,
-                        data: {
-                            workOrders: [],
-                            total: 0,
-                            page,
-                            totalPages: 0,
-                        },
-                    }
-                }
-                appliedFilters.departmentId = userDepartmentId
-            }
-
-            // Apply site restriction
-            const hasSiteRestriction = userPermissions.includes('workorders:site_only')
-            if (hasSiteRestriction && !isSuperAdmin) {
-                if (!userSiteId) {
-                    return {
-                        success: true,
-                        data: {
-                            workOrders: [],
-                            total: 0,
-                            page,
-                            totalPages: 0,
-                        },
-                    }
-                }
-                appliedFilters.siteId = userSiteId
-            }
-
-            // Use optimized query for list views
-            const result = await this.repository.findAllForList(appliedFilters, page, limit)
-
-            return { success: true, data: result }
-        } catch (error) {
-            logger.error('WorkOrderService.getWorkOrders failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Gagal mengambil daftar work order', code: 'FETCH_ERROR' }
+      if (hasDepartmentRestriction && !isSuperAdmin) {
+        if (!userDepartmentId) {
+          return {
+            success: true,
+            data: {
+              workOrders: [],
+              total: 0,
+              page,
+              totalPages: 0,
+            },
+          };
         }
-    }
+        appliedFilters.departmentId = userDepartmentId;
+      }
 
-    /**
-     * Get work order requests (status = REQUESTED)
-     */
-    async getWorkOrderRequests(
-        filters: { departmentId?: string; siteId?: string; search?: string },
-        page: number = 1,
-        limit: number = 20
-    ): Promise<ServiceResult<{
-        workOrders: unknown[]
-        total: number
-        page: number
-        totalPages: number
-    }>> {
-        try {
-            const result = await this.repository.findAllRequests(filters, page, limit)
-            return { success: true, data: result }
-        } catch (error) {
-            logger.error('WorkOrderService.getWorkOrderRequests failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Gagal mengambil daftar permintaan work order', code: 'FETCH_ERROR' }
+      // Apply site restriction
+      const hasSiteRestriction = userPermissions.includes(
+        "workorders:site_only",
+      );
+      if (hasSiteRestriction && !isSuperAdmin) {
+        if (!userSiteId) {
+          return {
+            success: true,
+            data: {
+              workOrders: [],
+              total: 0,
+              page,
+              totalPages: 0,
+            },
+          };
         }
+        appliedFilters.siteId = userSiteId;
+      }
+
+      // Use optimized query for list views
+      const result = await this.repository.findAllForList(
+        appliedFilters,
+        page,
+        limit,
+      );
+
+      return { success: true, data: result };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.getWorkOrders failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal mengambil daftar work order",
+        code: "FETCH_ERROR",
+      };
     }
+  }
 
-    /**
-     * Get work order statistics
-     */
-    async getStatistics(filters: { departmentId?: string; siteId?: string; assignedToId?: string }): Promise<ServiceResult<unknown>> {
-        try {
-            const stats = await this.repository.getStatistics(filters)
-            return { success: true, data: stats }
-        } catch (error) {
-            logger.error('WorkOrderService.getStatistics failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Gagal mengambil statistik', code: 'FETCH_ERROR' }
-        }
+  /**
+   * Get work order requests (status = REQUESTED)
+   */
+  async getWorkOrderRequests(
+    filters: { departmentId?: string; siteId?: string; search?: string },
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<
+    ServiceResult<{
+      workOrders: unknown[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>
+  > {
+    try {
+      const result = await this.repository.findAllRequests(
+        filters,
+        page,
+        limit,
+      );
+      return { success: true, data: result };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.getWorkOrderRequests failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal mengambil daftar permintaan work order",
+        code: "FETCH_ERROR",
+      };
     }
+  }
 
-    /**
-     * Get recent work orders
-     */
-    async getRecentWorkOrders(limit: number = 5, filters: { departmentId?: string }): Promise<ServiceResult<unknown[]>> {
-        try {
-            const workOrders = await this.repository.getRecentWorkOrders(limit, filters)
-            return { success: true, data: workOrders }
-        } catch (error) {
-            logger.error('WorkOrderService.getRecentWorkOrders failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Gagal mengambil work order terbaru', code: 'FETCH_ERROR' }
-        }
+  /**
+   * Get work order statistics
+   */
+  async getStatistics(filters: {
+    departmentId?: string;
+    siteId?: string;
+    assignedToId?: string;
+  }): Promise<ServiceResult<unknown>> {
+    try {
+      const stats = await this.repository.getStatistics(filters);
+      return { success: true, data: stats };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.getStatistics failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal mengambil statistik",
+        code: "FETCH_ERROR",
+      };
     }
+  }
 
-    /**
-     * Get single work order by ID
-     */
-    async getWorkOrderById(id: string, userContext?: UserContext): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            if (userContext) {
-                await this.validateWorkOrderAccess(id, userContext)
-            }
-
-            const workOrder = await this.repository.findById(id)
-
-            if (!workOrder) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            return { success: true, data: workOrder }
-        } catch (error) {
-            logger.error('WorkOrderService.getWorkOrderById failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal mengambil work order',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'FETCH_ERROR'
-            }
-        }
+  /**
+   * Get recent work orders
+   */
+  async getRecentWorkOrders(
+    limit: number = 5,
+    filters: { departmentId?: string },
+  ): Promise<ServiceResult<unknown[]>> {
+    try {
+      const workOrders = await this.repository.getRecentWorkOrders(
+        limit,
+        filters,
+      );
+      return { success: true, data: workOrders };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.getRecentWorkOrders failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal mengambil work order terbaru",
+        code: "FETCH_ERROR",
+      };
     }
+  }
 
-    // ==================== CREATE OPERATIONS ====================
+  /**
+   * Get single work order by ID
+   */
+  async getWorkOrderById(
+    id: string,
+    userContext?: UserContext,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      if (userContext) {
+        await this.validateWorkOrderAccess(id, userContext);
+      }
 
-    /**
-     * Create new work order with validation, notifications, and logging
-     */
-    async createWorkOrder(
-        input: CreateWorkOrderInput,
-        userContext: UserContext
-    ): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            const { role, permissions = [], siteId: userSiteId, departmentId: userDeptId, id: createdById } = userContext
-            const isSuperAdmin = role === 'SUPER_ADMIN'
+      const workOrder = await this.repository.findById(id);
 
-            // Validation
-            if (!input.type || !input.title || !input.description) {
-                return {
-                    success: false,
-                    error: 'Tipe, judul, dan deskripsi wajib diisi',
-                    code: 'VALIDATION_ERROR',
-                }
-            }
+      if (!workOrder) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-            // Site restriction
-            if (permissions.includes('workorders:site_only') && !isSuperAdmin) {
-                if (input.siteId && input.siteId !== userSiteId) {
-                    return {
-                        success: false,
-                        error: 'Akses ditolak: Anda hanya dapat membuat work order untuk site Anda',
-                        code: 'FORBIDDEN',
-                    }
-                }
-                input.siteId = userSiteId
-            }
-
-            // Department restriction
-            if (permissions.includes('workorders:department_only') && !isSuperAdmin) {
-                if (input.departmentId && input.departmentId !== userDeptId) {
-                    return {
-                        success: false,
-                        error: 'Akses ditolak: Anda hanya dapat membuat work order untuk departemen Anda',
-                        code: 'FORBIDDEN',
-                    }
-                }
-                input.departmentId = userDeptId
-            }
-
-            // Create work order - ensure scheduledDate is Date or undefined
-            const { scheduledDate: rawScheduledDate, ...restInput } = input
-            let createData: Record<string, unknown> = {
-                ...restInput,
-                createdById,
-                ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
-            }
-
-            // --- WARRANTY CHECK LOGIC ---
-            if (input.pelangganId && (input.type === 'TROUBLESHOOT' || input.type === 'MAINTENANCE')) {
-                // Find the most recent completed work order for this customer that was done by a Mitra
-                const lastCompletedWo = await this.warrantyRepo.findLastCompletedWoByMitra(input.pelangganId);
-
-                if (lastCompletedWo && lastCompletedWo.assignedMitraId && lastCompletedWo.completedAt) {
-                    const mitra = await this.warrantyRepo.findMitraById(lastCompletedWo.assignedMitraId);
-
-                    if (mitra) {
-                        const garansiHari = mitra.garansiHari || 0;
-
-                        if (garansiHari > 0) {
-                            const garansiMs = garansiHari * 24 * 60 * 60 * 1000;
-                            const expirationDate = new Date(lastCompletedWo.completedAt.getTime() + garansiMs);
-
-                            // Check if currently still within warranty duration
-                            if (new Date() <= expirationDate) {
-                                const slaJam = mitra.slaGaransiJam || 24;
-                                const slaMs = slaJam * 60 * 60 * 1000;
-
-                                createData = {
-                                    ...createData,
-                                    isWarranty: true,
-                                    warrantyOwnerId: mitra.id,
-                                    warrantySla: new Date(Date.now() + slaMs)
-                                };
-
-                                logger.info(`[Warranty] Auto-assigned Warranty ticket to Mitra ${mitra.id} (SLA: ${slaJam}h) for Pelanggan ${input.pelangganId}`);
-                            }
-                        }
-                    }
-                }
-            }
-            // --- END WARRANTY CHECK LOGIC ---
-
-            const workOrder = await this.repository.create(createData as unknown as CreateWorkOrderData)
-
-            // Trigger notifications
-            await this.notifyWorkOrderCreated(workOrder, userContext.id)
-
-            // Publish domain event
-            await WorkOrderEventDispatcher.onCreated({
-                workOrderId: workOrder.id,
-                workOrderNumber: workOrder.workOrderNumber,
-                title: workOrder.title,
-                type: workOrder.type,
-                priority: workOrder.priority,
-                departmentId: workOrder.departmentId,
-                siteId: workOrder.siteId,
-                assignedToId: workOrder.assignedToId,
-                triggeredBy: createdById,
-            }).catch(err => logger.error('Failed to publish WORK_ORDER_CREATED event', err instanceof Error ? err : undefined))
-
-            // Broadcast socket event
-            this.broadcastWorkOrderCreated(workOrder)
-
-            // Link to ticket if present
-            if (input.ticketId) {
-                await this.linkToTicket(workOrder, input.ticketId, createdById)
-            }
-
-            // Log activity
-            await this.logActivity('CREATE', 'Work Order', createdById, {
-                id: workOrder.id,
-                number: workOrder.workOrderNumber,
-                title: workOrder.title,
-            })
-
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
-
-            return { success: true, data: workOrder as WorkOrderWithRelations }
-        } catch (error) {
-            logger.error('WorkOrderService.createWorkOrder failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Gagal membuat work order', code: 'CREATE_ERROR' }
-        }
+      return { success: true, data: workOrder };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.getWorkOrderById failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal mengambil work order",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "FETCH_ERROR",
+      };
     }
+  }
 
-    // ==================== UPDATE OPERATIONS ====================
+  // ==================== CREATE OPERATIONS ====================
 
-    /**
-     * Update work order
-     */
-    async updateWorkOrder(
-        id: string,
-        input: UpdateWorkOrderInput,
-        userContext: UserContext
-    ): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(id, userContext)
+  /**
+   * Create new work order with validation, notifications, and logging
+   */
+  async createWorkOrder(
+    input: CreateWorkOrderInput,
+    userContext: UserContext,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      const createdById = userContext.id;
+      const createData = await prepareWorkOrderCreateData({
+        input,
+        userContext,
+        warrantyRepo: this.warrantyRepo,
+      });
 
-            // Check exists
-            const existing = await this.repository.findById(id)
-            if (!existing) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
+      const workOrder = await this.repository.create(createData);
 
-            // Update - ensure scheduledDate is Date or undefined
-            const { scheduledDate: rawScheduledDate, ...restInput } = input
-            const updateData = {
-                ...restInput,
-                ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
-            }
+      await notifyWorkOrderCreatedSafely(workOrder, userContext.id);
+      await publishWorkOrderCreatedEvent({
+        workOrder,
+        triggeredBy: createdById,
+      });
+      broadcastWorkOrderCreatedSafely(workOrder);
 
-            const updated = await this.repository.update(id, updateData)
+      if (input.ticketId) {
+        await linkWorkOrderToTicketSafely({
+          ticketRepo: this.ticketRepo,
+          workOrder,
+          ticketId: input.ticketId,
+          userId: createdById,
+        });
+      }
 
-            // Log activity
-            await this.logActivity('UPDATE', 'Work Order', userContext.id, {
-                id: updated.id,
-                number: updated.workOrderNumber,
-                changes: input,
-            })
+      logWorkOrderActivity("CREATE", "Work Order", createdById, {
+        id: workOrder.id,
+        number: workOrder.workOrderNumber,
+        title: workOrder.title,
+      });
 
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
+      await invalidateWorkOrderCaches();
 
-            // Refetch with relations
-            const result = await this.repository.findById(id)
-            return { success: true, data: result as WorkOrderWithRelations }
-        } catch (error) {
-            logger.error('WorkOrderService.updateWorkOrder failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal mengupdate work order',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'UPDATE_ERROR'
-            }
-        }
-    }
-
-    /**
-     * Update work order status with notifications
-     */
-    async updateStatus(
-        id: string,
-        status: WorkOrderStatus,
-        userContext: UserContext,
-        resolutionNotes?: string
-    ): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(id, userContext)
-
-            const existing = await this.repository.findById(id)
-            if (!existing) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            const previousStatus = existing.status
-            const userId = userContext.id
-
-            // Update status
-            if (status === 'COMPLETED' && resolutionNotes) {
-                await this.repository.complete(id, resolutionNotes, userId)
-            } else {
-                await this.repository.updateStatus(id, status, userId)
-            }
-
-            // Fetch full WO data for notification
-            const fullWorkOrder = await this.repository.findById(id)
-
-            // Notify status change
-            if (fullWorkOrder) {
-                await onWorkOrderStatusChanged(
-                    {
-                        id: fullWorkOrder.id,
-                        workOrderNumber: fullWorkOrder.workOrderNumber,
-                        title: fullWorkOrder.title,
-                        type: fullWorkOrder.type,
-                        priority: fullWorkOrder.priority,
-                        departmentId: fullWorkOrder.departmentId,
-                        siteId: fullWorkOrder.siteId,
-                        assignedToId: fullWorkOrder.assignedToId,
-                    },
-                    previousStatus,
-                    status,
-                    userId
-                )
-
-                // Publish domain event
-                if (status === 'COMPLETED') {
-                    await WorkOrderEventDispatcher.onCompleted({
-                        workOrderId: fullWorkOrder.id,
-                        workOrderNumber: fullWorkOrder.workOrderNumber,
-                        title: fullWorkOrder.title,
-                        departmentId: fullWorkOrder.departmentId,
-                        siteId: fullWorkOrder.siteId,
-                        assignedToId: fullWorkOrder.assignedToId,
-                        triggeredBy: userId,
-                    }).catch(err => logger.error('Failed to publish WORK_ORDER_COMPLETED event', err instanceof Error ? err : undefined))
-                } else {
-                    await WorkOrderEventDispatcher.onUpdated({
-                        workOrderId: fullWorkOrder.id,
-                        workOrderNumber: fullWorkOrder.workOrderNumber,
-                        title: fullWorkOrder.title,
-                        updateMessage: `Status changed from ${previousStatus} to ${status}`,
-                        departmentId: fullWorkOrder.departmentId,
-                        siteId: fullWorkOrder.siteId,
-                        assignedToId: fullWorkOrder.assignedToId,
-                        triggeredBy: userId,
-                    }).catch(err => logger.error('Failed to publish WORK_ORDER_UPDATED event', err instanceof Error ? err : undefined))
-                }
-            }
-
-            // Log activity
-            await this.logActivity('STATUS_CHANGE', 'Work Order', userId, {
-                id,
-                from: previousStatus,
-                to: status,
-            })
-
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
-
-            const result = await this.repository.findById(id)
-            return { success: true, data: result as WorkOrderWithRelations }
-        } catch (error) {
-            logger.error('WorkOrderService.updateStatus failed', error instanceof Error ? error : undefined)
-            if (isPrismaRecordNotFoundError(error) || (error instanceof Error && error.message === 'Work order tidak ditemukan')) {
-                return {
-                    success: false,
-                    error: 'Work order tidak ditemukan',
-                    code: 'NOT_FOUND'
-                }
-            }
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal mengupdate status',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'STATUS_ERROR'
-            }
-        }
-    }
-
-    // ==================== ASSIGNMENT OPERATIONS ====================
-
-    /**
-     * Assign work order to employee
-     */
-    async assignWorkOrder(
-        id: string,
-        employeeId: string,
-        userContext: UserContext,
-        role?: string
-    ): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(id, userContext)
-
-            const existing = await this.repository.findById(id)
-            if (!existing) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            // Validate employee status
-            const employee = await this.userRepo.findById(employeeId)
-
-            if (!employee) {
-                return { success: false, error: 'Karyawan tidak ditemukan', code: 'EMPLOYEE_NOT_FOUND' }
-            }
-
-            if (!(employee as { isActive: boolean }).isActive) {
-                return {
-                    success: false,
-                    error: `Tidak dapat menugaskan work order ke karyawan yang tidak aktif: ${(employee as { name: string | null }).name || 'Tidak Diketahui'}`,
-                    code: 'EMPLOYEE_INACTIVE'
-                }
-            }
-
-            const assignedById = userContext.id
-
-            // Assign
-            await this.repository.assign(id, employeeId, role, assignedById)
-
-            // Notify
-            const fullWorkOrder = await this.repository.findById(id)
-            if (fullWorkOrder) {
-                await onWorkOrderAssigned(
-                    {
-                        id: fullWorkOrder.id,
-                        workOrderNumber: fullWorkOrder.workOrderNumber,
-                        title: fullWorkOrder.title,
-                        type: fullWorkOrder.type,
-                        priority: fullWorkOrder.priority,
-                        departmentId: fullWorkOrder.departmentId,
-                        siteId: fullWorkOrder.siteId,
-                        assignedToId: fullWorkOrder.assignedToId,
-                    },
-                    undefined,
-                    assignedById
-                )
-
-                // Publish domain event
-                await WorkOrderEventDispatcher.onAssigned({
-                    workOrderId: fullWorkOrder.id,
-                    workOrderNumber: fullWorkOrder.workOrderNumber,
-                    title: fullWorkOrder.title,
-                    assignedToId: employeeId,
-                    assignedToName: employee.name || undefined,
-                    departmentId: fullWorkOrder.departmentId,
-                    siteId: fullWorkOrder.siteId,
-                    triggeredBy: assignedById,
-                }).catch(err => logger.error('Failed to publish WORK_ORDER_ASSIGNED event', err instanceof Error ? err : undefined))
-            }
-
-            // Log activity
-            await this.logActivity('ASSIGN', 'Work Order', assignedById, {
-                id,
-                employeeId,
-                role,
-            })
-
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
-
-            const result = await this.repository.findById(id)
-            return { success: true, data: result as WorkOrderWithRelations }
-        } catch (error) {
-            logger.error('WorkOrderService.assignWorkOrder failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menugaskan work order',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'ASSIGN_ERROR'
-            }
-        }
-    }
-
-    // ==================== APPROVAL OPERATIONS ====================
-
-    /**
-     * Approve work order request
-     */
-    async approveRequest(
-        id: string,
-        userContext: UserContext
-    ): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(id, userContext)
-
-            const existing = await this.repository.findById(id)
-            if (!existing) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            if (existing.status !== 'REQUESTED') {
-                return {
-                    success: false,
-                    error: 'Hanya work order dengan status REQUESTED yang dapat disetujui',
-                    code: 'INVALID_STATUS',
-                }
-            }
-
-            const approvedById = userContext.id
-            await this.repository.approveRequest(id, approvedById)
-
-            // Log activity
-            await this.logActivity('APPROVE', 'Work Order', approvedById, {
-                id,
-                number: existing.workOrderNumber,
-            })
-
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
-
-            const result = await this.repository.findById(id)
-            return { success: true, data: result as WorkOrderWithRelations }
-        } catch (error) {
-            logger.error('WorkOrderService.approveRequest failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menyetujui permintaan',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'APPROVE_ERROR'
-            }
-        }
-    }
-
-    /**
-     * Reject work order request
-     */
-    async rejectRequest(
-        id: string,
-        userContext: UserContext,
-        reason: string
-    ): Promise<ServiceResult<WorkOrderWithRelations>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(id, userContext)
-
-            if (!reason) {
-                return { success: false, error: 'Alasan penolakan wajib diisi', code: 'VALIDATION_ERROR' }
-            }
-
-            const existing = await this.repository.findById(id)
-            if (!existing) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            if (existing.status !== 'REQUESTED') {
-                return {
-                    success: false,
-                    error: 'Hanya work order dengan status REQUESTED yang dapat ditolak',
-                    code: 'INVALID_STATUS',
-                }
-            }
-
-            const rejectedById = userContext.id
-            await this.repository.rejectRequest(id, rejectedById, reason)
-
-            // Log activity
-            await this.logActivity('REJECT', 'Work Order', rejectedById, {
-                id,
-                number: existing.workOrderNumber,
-                reason,
-            })
-
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
-
-            const result = await this.repository.findById(id)
-            return { success: true, data: result as WorkOrderWithRelations }
-        } catch (error) {
-            logger.error('WorkOrderService.rejectRequest failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menolak permintaan',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'REJECT_ERROR'
-            }
-        }
-    }
-
-    // ==================== DELETE OPERATIONS ====================
-
-    /**
-     * Delete work order
-     */
-    async deleteWorkOrder(id: string, userContext: UserContext): Promise<ServiceResult<void>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(id, userContext)
-
-            const existing = await this.repository.findById(id)
-            if (!existing) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
-
-            const deletedById = userContext.id
-            await this.repository.delete(id)
-
-            // Log activity
-            await this.logActivity('DELETE', 'Work Order', deletedById, {
-                id,
-                number: existing.workOrderNumber,
-            })
-
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
-
-            return { success: true }
-        } catch (error) {
-            logger.error('WorkOrderService.deleteWorkOrder failed', error instanceof Error ? error : undefined)
-            if (isPrismaRecordNotFoundError(error) || (error instanceof Error && error.message === 'Work order tidak ditemukan')) {
-                return {
-                    success: false,
-                    error: 'Work order tidak ditemukan',
-                    code: 'NOT_FOUND'
-                }
-            }
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menghapus work order',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'DELETE_ERROR'
-            }
-        }
-    }
-
-    // ==================== MATERIAL & TEMPLATE OPERATIONS ====================
-
-    /**
-     * Add material usage to work order
-     */
-    async addMaterial(
-        workOrderId: string,
-        barangId: string,
-        quantity: number,
-        userContext: UserContext,
-        notes?: string,
-        preferredGudangId?: string
-    ): Promise<ServiceResult<unknown>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(workOrderId, userContext)
-
-            const actorId = userContext.id
-            const material = await this.materialRepo.addMaterialWithStockDeduction(
-                workOrderId,
-                barangId,
-                quantity,
-                actorId,
-                notes ?? null,
-                preferredGudangId
-            )
-
-            return { success: true, data: material }
-        } catch (error) {
-            logger.error('WorkOrderService.createTasksFromTemplate failed', error instanceof Error ? error : undefined)
-            return { success: false, error: 'Gagal membuat tugas dari template', code: 'CREATE_TASKS_ERROR' }
-        }
-    }
-
-    // ==================== PRIVATE HELPERS ====================
-
-    /**
-     * Validate user access to a specific work order based on RBAC and restrictions
-     */
-    private async validateWorkOrderAccess(workOrderId: string, userContext: UserContext): Promise<void> {
-        const { role, permissions = [], departmentId: userDeptId, siteId: userSiteId, isSuperAdmin: userIsSuperAdmin } = userContext
-
-        // Bypass for SUPER_ADMIN
-        const isSuperAdmin = userIsSuperAdmin || role === 'SUPER_ADMIN' || role === 'Super Admin'
-        if (isSuperAdmin) return
-
-        // Fetch work order to check its department/site
-        const workOrder = await this.repository.findById(workOrderId)
-        if (!workOrder) {
-            throw new Error('Work order tidak ditemukan')
+      return { success: true, data: workOrder as WorkOrderWithRelations };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.createWorkOrder failed",
+        error instanceof Error ? error : undefined,
+      );
+      if (error instanceof Error) {
+        if (error.message === "Tipe, judul, dan deskripsi wajib diisi") {
+          return {
+            success: false,
+            error: error.message,
+            code: "VALIDATION_ERROR",
+          };
         }
 
-        // Check department restriction
-        if (permissions.includes('workorders:department_only')) {
-            if (workOrder.departmentId !== userDeptId) {
-                throw new Error('Akses ditolak: Departemen berbeda')
-            }
+        if (error.message.includes("Akses ditolak")) {
+          return { success: false, error: error.message, code: "FORBIDDEN" };
         }
-
-        // Check site restriction
-        if (permissions.includes('workorders:site_only')) {
-            if (workOrder.siteId !== userSiteId) {
-                throw new Error('Akses ditolak: Site berbeda')
-            }
-        }
+      }
+      return {
+        success: false,
+        error: "Gagal membuat work order",
+        code: "CREATE_ERROR",
+      };
     }
+  }
 
-    private async notifyWorkOrderCreated(workOrder: unknown, triggeredByUserId?: string): Promise<void> {
-        try {
-            const wo = workOrder as {
-                id: string;
-                workOrderNumber: string;
-                title: string;
-                type: string;
-                priority: string;
-                departmentId?: string | null;
-                siteId?: string | null;
-                assignedToId?: string | null;
-            };
-            await onWorkOrderCreated({
-                id: wo.id,
-                workOrderNumber: wo.workOrderNumber,
-                title: wo.title,
-                type: wo.type,
-                priority: wo.priority,
-                departmentId: wo.departmentId,
-                siteId: wo.siteId,
-                assignedToId: wo.assignedToId,
-            }, triggeredByUserId)
-        } catch (err) {
-            logger.error('Failed to send work order notification', err instanceof Error ? err : undefined)
-        }
+  // ==================== UPDATE OPERATIONS ====================
+
+  /**
+   * Update work order
+   */
+  async updateWorkOrder(
+    id: string,
+    input: UpdateWorkOrderInput,
+    userContext: UserContext,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(id, userContext);
+
+      // Check exists
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+
+      // Update - ensure scheduledDate is Date or undefined
+      const { scheduledDate: rawScheduledDate, ...restInput } = input;
+      const updateData = {
+        ...restInput,
+        ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
+      };
+
+      const updated = await this.repository.update(id, updateData);
+
+      logWorkOrderActivity("UPDATE", "Work Order", userContext.id, {
+        id: updated.id,
+        number: updated.workOrderNumber,
+        changes: input,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      // Refetch with relations
+      const result = await this.repository.findById(id);
+      return { success: true, data: result as WorkOrderWithRelations };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.updateWorkOrder failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengupdate work order",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "UPDATE_ERROR",
+      };
     }
+  }
 
-    private broadcastWorkOrderCreated(workOrder: unknown): void {
-        try {
-            const wo = workOrder as {
-                id: string;
-                workOrderNumber: string;
-                title: string;
-                type: string;
-                status: string;
-                priority: string;
-                departmentId?: string | null;
-                assignedToId?: string | null;
-                createdAt: Date;
-            };
-            socketEmitter.newWorkOrder({
-                id: wo.id,
-                workOrderNumber: wo.workOrderNumber,
-                title: wo.title,
-                type: wo.type,
-                status: wo.status as WorkOrderStatus,
-                priority: wo.priority as WorkOrderPriority,
-                departmentId: wo.departmentId || undefined,
-                assignedToId: wo.assignedToId || undefined,
-                createdAt: wo.createdAt.toISOString(),
-            }, wo.departmentId || undefined)
-        } catch (err) {
-            logger.error('Failed to broadcast work order event', err instanceof Error ? err : undefined)
-        }
+  /**
+   * Update work order status with notifications
+   */
+  async updateStatus(
+    id: string,
+    status: WorkOrderStatus,
+    userContext: UserContext,
+    resolutionNotes?: string,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(id, userContext);
+
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+
+      const previousStatus = existing.status;
+      const userId = userContext.id;
+
+      // Update status
+      if (status === "COMPLETED" && resolutionNotes) {
+        await this.repository.complete(id, resolutionNotes, userId);
+      } else {
+        await this.repository.updateStatus(id, status, userId);
+      }
+
+      const fullWorkOrder = await this.repository.findById(id);
+
+      if (fullWorkOrder) {
+        await publishWorkOrderStatusSideEffects({
+          workOrder: fullWorkOrder,
+          previousStatus,
+          status,
+          userId,
+        });
+      }
+
+      logWorkOrderActivity("STATUS_CHANGE", "Work Order", userId, {
+        id,
+        from: previousStatus,
+        to: status,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      const result = await this.repository.findById(id);
+      return { success: true, data: result as WorkOrderWithRelations };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.updateStatus failed",
+        error instanceof Error ? error : undefined,
+      );
+      if (
+        isPrismaRecordNotFoundError(error) ||
+        (error instanceof Error &&
+          error.message === "Work order tidak ditemukan")
+      ) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal mengupdate status",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "STATUS_ERROR",
+      };
     }
+  }
 
-    private async linkToTicket(
-        workOrder: unknown,
-        ticketId: string,
-        userId: string
-    ): Promise<void> {
-        try {
-            const wo = workOrder as {
-                workOrderNumber: string;
-                title: string;
-                type: string;
-                scheduledDate?: Date | string | null;
-            };
-            const scheduledTime = wo.scheduledDate
-                ? format(new Date(wo.scheduledDate), 'dd MMMM yyyy HH:mm', { locale: localeId })
-                : 'Belum Dijadwalkan'
+  // ==================== ASSIGNMENT OPERATIONS ====================
 
-            const replyMessage = `Work Order #${wo.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
-                `Judul: ${wo.title}\n` +
-                `Tipe: ${wo.type}\n` +
-                `Jadwal: ${scheduledTime}`
+  /**
+   * Assign work order to employee
+   */
+  async assignWorkOrder(
+    id: string,
+    employeeId: string,
+    userContext: UserContext,
+    role?: string,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(id, userContext);
 
-            await this.ticketRepo.createReply({
-                id: randomUUID(),
-                ticketId,
-                message: replyMessage,
-                isFromAdmin: true,
-                senderId: userId,
-            })
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-            await this.ticketRepo.updateTicketStatus(ticketId, 'IN_PROGRESS')
-        } catch (err) {
-            logger.error('Failed to link work order to ticket', err instanceof Error ? err : undefined)
-        }
+      // Validate employee status
+      const employee = await this.userRepo.findById(employeeId);
+
+      if (!employee) {
+        return {
+          success: false,
+          error: "Karyawan tidak ditemukan",
+          code: "EMPLOYEE_NOT_FOUND",
+        };
+      }
+
+      if (!(employee as { isActive: boolean }).isActive) {
+        return {
+          success: false,
+          error: `Tidak dapat menugaskan work order ke karyawan yang tidak aktif: ${(employee as { name: string | null }).name || "Tidak Diketahui"}`,
+          code: "EMPLOYEE_INACTIVE",
+        };
+      }
+
+      const assignedById = userContext.id;
+
+      // Assign
+      await this.repository.assign(id, employeeId, role, assignedById);
+
+      const fullWorkOrder = await this.repository.findById(id);
+      if (fullWorkOrder) {
+        await publishWorkOrderAssignmentSideEffects({
+          workOrder: fullWorkOrder,
+          employeeId,
+          employeeName: employee.name || undefined,
+          assignedById,
+        });
+      }
+
+      logWorkOrderActivity("ASSIGN", "Work Order", assignedById, {
+        id,
+        employeeId,
+        role,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      const result = await this.repository.findById(id);
+      return { success: true, data: result as WorkOrderWithRelations };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.assignWorkOrder failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Gagal menugaskan work order",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "ASSIGN_ERROR",
+      };
     }
+  }
 
-    private logActivity(
-        action: string,
-        subject: string,
-        userId: string,
-        details: Record<string, unknown>
-    ): void {
-        logActivitySafe({ action, subject, userId, details })
+  // ==================== APPROVAL OPERATIONS ====================
+
+  /**
+   * Approve work order request
+   */
+  async approveRequest(
+    id: string,
+    userContext: UserContext,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(id, userContext);
+
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+
+      if (existing.status !== "REQUESTED") {
+        return {
+          success: false,
+          error:
+            "Hanya work order dengan status REQUESTED yang dapat disetujui",
+          code: "INVALID_STATUS",
+        };
+      }
+
+      const approvedById = userContext.id;
+      await this.repository.approveRequest(id, approvedById);
+
+      logWorkOrderActivity("APPROVE", "Work Order", approvedById, {
+        id,
+        number: existing.workOrderNumber,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      const result = await this.repository.findById(id);
+      return { success: true, data: result as WorkOrderWithRelations };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.approveRequest failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Gagal menyetujui permintaan",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "APPROVE_ERROR",
+      };
     }
+  }
 
-    // ==================== COMMENT & TASK OPERATIONS ====================
+  /**
+   * Reject work order request
+   */
+  async rejectRequest(
+    id: string,
+    userContext: UserContext,
+    reason: string,
+  ): Promise<ServiceResult<WorkOrderWithRelations>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(id, userContext);
 
-    /**
-     * Add a comment to a work order
-     */
-    async addComment(
-        workOrderId: string,
-        message: string,
-        userContext: UserContext
-    ): Promise<ServiceResult<unknown>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(workOrderId, userContext)
+      if (!reason) {
+        return {
+          success: false,
+          error: "Alasan penolakan wajib diisi",
+          code: "VALIDATION_ERROR",
+        };
+      }
 
-            const comment = await this.repository.addComment(workOrderId, message, userContext.id)
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
 
-            // Publish domain event
-            await WorkOrderEventDispatcher.onActivity({
-                workOrderId,
-                activityId: (comment as { id: string }).id,
-                activityType: 'comment',
-                message,
-                triggeredBy: userContext.id,
-            }).catch(err => logger.error('Failed to publish WORK_ORDER_ACTIVITY event', err instanceof Error ? err : undefined))
+      if (existing.status !== "REQUESTED") {
+        return {
+          success: false,
+          error: "Hanya work order dengan status REQUESTED yang dapat ditolak",
+          code: "INVALID_STATUS",
+        };
+      }
 
-            return { success: true, data: comment }
-        } catch (error) {
-            logger.error('Gagal menambahkan komentar', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menambahkan komentar',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'OPERATION_FAILED'
-            }
-        }
+      const rejectedById = userContext.id;
+      await this.repository.rejectRequest(id, rejectedById, reason);
+
+      logWorkOrderActivity("REJECT", "Work Order", rejectedById, {
+        id,
+        number: existing.workOrderNumber,
+        reason,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      const result = await this.repository.findById(id);
+      return { success: true, data: result as WorkOrderWithRelations };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.rejectRequest failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal menolak permintaan",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "REJECT_ERROR",
+      };
     }
+  }
 
-    /**
-     * Add a task to a work order
-     */
-    async addTask(
-        workOrderId: string,
-        taskData: {
-            title: string
-            description?: string
-            order?: number
-        },
-        userContext: UserContext
-    ): Promise<ServiceResult<unknown>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(workOrderId, userContext)
+  // ==================== DELETE OPERATIONS ====================
 
-            const task = await this.repository.addTask({
-                workOrderId,
-                title: taskData.title,
-                ...(taskData.description && { description: taskData.description }),
-                ...(taskData.order !== undefined && { order: taskData.order }),
-            })
-            return { success: true, data: task }
-        } catch (error) {
-            logger.error('Gagal menambahkan tugas', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menambahkan tugas',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'OPERATION_FAILED'
-            }
-        }
+  /**
+   * Delete work order
+   */
+  async deleteWorkOrder(
+    id: string,
+    userContext: UserContext,
+  ): Promise<ServiceResult<void>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(id, userContext);
+
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+
+      const deletedById = userContext.id;
+      await this.repository.delete(id);
+
+      logWorkOrderActivity("DELETE", "Work Order", deletedById, {
+        id,
+        number: existing.workOrderNumber,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      return { success: true };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.deleteWorkOrder failed",
+        error instanceof Error ? error : undefined,
+      );
+      if (
+        isPrismaRecordNotFoundError(error) ||
+        (error instanceof Error &&
+          error.message === "Work order tidak ditemukan")
+      ) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal menghapus work order",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "DELETE_ERROR",
+      };
     }
-    /**
-     * Add attachment to work order
-     */
-    async addAttachment(
-        workOrderId: string,
-        data: {
-            fileName: string
-            filePath: string
-            fileSize: number
-            fileType: string
-            caption?: string
-        },
-        userContext: UserContext
-    ): Promise<ServiceResult<unknown>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(workOrderId, userContext)
+  }
 
-            const attachment = await this.repository.addAttachment(
-                workOrderId,
-                data.fileName,
-                data.filePath,
-                data.fileSize,
-                data.fileType,
-                data.caption,
-                userContext.id
-            )
+  // ==================== MATERIAL & TEMPLATE OPERATIONS ====================
 
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
+  /**
+   * Add material usage to work order
+   */
+  async addMaterial(
+    workOrderId: string,
+    barangId: string,
+    quantity: number,
+    userContext: UserContext,
+    notes?: string,
+    preferredGudangId?: string,
+  ): Promise<ServiceResult<unknown>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(workOrderId, userContext);
 
-            return { success: true, data: attachment }
-        } catch (error) {
-            logger.error('WorkOrderService.addAttachment failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menambahkan lampiran',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'UPLOAD_ERROR'
-            }
-        }
+      const actorId = userContext.id;
+      const material = await this.materialRepo.addMaterialWithStockDeduction(
+        workOrderId,
+        barangId,
+        quantity,
+        actorId,
+        notes ?? null,
+        preferredGudangId,
+      );
+
+      return { success: true, data: material };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.createTasksFromTemplate failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error: "Gagal membuat tugas dari template",
+        code: "CREATE_TASKS_ERROR",
+      };
     }
+  }
 
-    /**
-     * Delete attachment from work order
-     */
-    async deleteAttachment(
-        workOrderId: string,
-        attachmentId: string,
-        userContext: UserContext
-    ): Promise<ServiceResult<void>> {
-        try {
-            // Validate access
-            await this.validateWorkOrderAccess(workOrderId, userContext)
+  // ==================== PRIVATE HELPERS ====================
 
-            // Check if attachment exists and belongs to work order
-            const workOrder = await this.repository.findById(workOrderId)
-            if (!workOrder) {
-                return { success: false, error: 'Work order tidak ditemukan', code: 'NOT_FOUND' }
-            }
+  /**
+   * Validate user access to a specific work order based on RBAC and restrictions
+   */
+  private async validateWorkOrderAccess(
+    workOrderId: string,
+    userContext: UserContext,
+  ): Promise<void> {
+    await validateWorkOrderAccessHelper({
+      repository: this.repository,
+      workOrderId,
+      userContext,
+    });
+  }
 
-            const attachment = workOrder.attachments?.find(a => a.id === attachmentId)
-            if (!attachment) {
-                return { success: false, error: 'Lampiran tidak ditemukan pada work order ini', code: 'NOT_FOUND' }
-            }
+  // ==================== COMMENT & TASK OPERATIONS ====================
 
-            await this.repository.deleteAttachment(attachmentId, userContext.id)
+  /**
+   * Add a comment to a work order
+   */
+  async addComment(
+    workOrderId: string,
+    message: string,
+    userContext: UserContext,
+  ): Promise<ServiceResult<unknown>> {
+    try {
+      await this.validateWorkOrderAccess(workOrderId, userContext);
 
-            // Invalidate cache
-            await workOrderCacheService.invalidateAllCaches()
+      const comment = await this.repository.addComment(
+        workOrderId,
+        message,
+        userContext.id,
+      );
 
-            return { success: true }
-        } catch (error) {
-            logger.error('WorkOrderService.deleteAttachment failed', error instanceof Error ? error : undefined)
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Gagal menghapus lampiran',
-                code: error instanceof Error && error.message.includes('Akses ditolak') ? 'FORBIDDEN' : 'DELETE_ERROR'
-            }
-        }
+      await WorkOrderEventDispatcher.onActivity({
+        workOrderId,
+        activityId: (comment as { id: string }).id,
+        activityType: "comment",
+        message,
+        triggeredBy: userContext.id,
+      }).catch((err) =>
+        logger.error(
+          "Failed to publish WORK_ORDER_ACTIVITY event",
+          err instanceof Error ? err : undefined,
+        ),
+      );
+
+      return { success: true, data: comment };
+    } catch (error) {
+      logger.error(
+        "Gagal menambahkan komentar",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal menambahkan komentar",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "OPERATION_FAILED",
+      };
     }
+  }
+
+  /**
+   * Add a task to a work order
+   */
+  async addTask(
+    workOrderId: string,
+    taskData: {
+      title: string;
+      description?: string;
+      order?: number;
+    },
+    userContext: UserContext,
+  ): Promise<ServiceResult<unknown>> {
+    try {
+      await this.validateWorkOrderAccess(workOrderId, userContext);
+
+      const task = await this.repository.addTask({
+        workOrderId,
+        title: taskData.title,
+        ...(taskData.description && { description: taskData.description }),
+        ...(taskData.order !== undefined && { order: taskData.order }),
+      });
+      return { success: true, data: task };
+    } catch (error) {
+      logger.error(
+        "Gagal menambahkan tugas",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal menambahkan tugas",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "OPERATION_FAILED",
+      };
+    }
+  }
+  /**
+   * Add attachment to work order
+   */
+  async addAttachment(
+    workOrderId: string,
+    data: {
+      fileName: string;
+      filePath: string;
+      fileSize: number;
+      fileType: string;
+      caption?: string;
+    },
+    userContext: UserContext,
+  ): Promise<ServiceResult<unknown>> {
+    try {
+      await this.validateWorkOrderAccess(workOrderId, userContext);
+
+      const attachment = await this.repository.addAttachment(
+        workOrderId,
+        data.fileName,
+        data.filePath,
+        data.fileSize,
+        data.fileType,
+        data.caption,
+        userContext.id,
+      );
+
+      await invalidateWorkOrderCaches();
+
+      return { success: true, data: attachment };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.addAttachment failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal menambahkan lampiran",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "UPLOAD_ERROR",
+      };
+    }
+  }
+
+  /**
+   * Delete attachment from work order
+   */
+  async deleteAttachment(
+    workOrderId: string,
+    attachmentId: string,
+    userContext: UserContext,
+  ): Promise<ServiceResult<void>> {
+    try {
+      // Validate access
+      await this.validateWorkOrderAccess(workOrderId, userContext);
+
+      // Check if attachment exists and belongs to work order
+      const workOrder = await this.repository.findById(workOrderId);
+      if (!workOrder) {
+        return {
+          success: false,
+          error: "Work order tidak ditemukan",
+          code: "NOT_FOUND",
+        };
+      }
+
+      const attachment = workOrder.attachments?.find(
+        (a) => a.id === attachmentId,
+      );
+      if (!attachment) {
+        return {
+          success: false,
+          error: "Lampiran tidak ditemukan pada work order ini",
+          code: "NOT_FOUND",
+        };
+      }
+
+      await this.repository.deleteAttachment(attachmentId, userContext.id);
+
+      await invalidateWorkOrderCaches();
+
+      return { success: true };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.deleteAttachment failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Gagal menghapus lampiran",
+        code:
+          error instanceof Error && error.message.includes("Akses ditolak")
+            ? "FORBIDDEN"
+            : "DELETE_ERROR",
+      };
+    }
+  }
 }
 
 // Singleton instance
-let workOrderServiceInstance: WorkOrderService | null = null
+let workOrderServiceInstance: WorkOrderService | null = null;
 
 export function getWorkOrderService(): WorkOrderService {
-    if (!workOrderServiceInstance) {
-        workOrderServiceInstance = new WorkOrderService()
-    }
-    return workOrderServiceInstance
+  if (!workOrderServiceInstance) {
+    workOrderServiceInstance = new WorkOrderService();
+  }
+  return workOrderServiceInstance;
 }

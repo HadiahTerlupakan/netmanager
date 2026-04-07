@@ -1,25 +1,37 @@
-import { NextRequest } from 'next/server'
-import { getServerSession, type Session } from 'next-auth'
-import { authConfig, getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { logger } from '@/lib/logger'
-import { hasPermission } from '@/lib/rbac'
-import { apiError, apiSuccess, ApiErrors, ErrorCodes } from '@/lib/api-response'
-import { prisma } from '@/modules/database'
-import { STOCK_FIELD_MAP } from '@/lib/constants/inventory'
+import { NextRequest } from "next/server";
+import { getServerSession, type Session } from "next-auth";
+import { authConfig, getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import { hasPermission } from "@/lib/rbac";
+import {
+  apiError,
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+} from "@/lib/api-response";
+import {
+  getInventoryStockMovementService,
+  type InventoryStockMovementService,
+} from "@/modules/inventory";
 
 interface UserSession {
-  id: string
-  siteId?: string | null
-  role?: string
-  isSuperAdmin?: boolean
+  id: string;
+  siteId?: string | null;
+  role?: string;
+  isSuperAdmin?: boolean;
 }
 
-async function requireAdmin(): Promise<{ session: Session; user: UserSession } | null> {
-  const session = await getServerSession(authConfig) as Session | null
+const stockMovementService = getInventoryStockMovementService();
+
+async function requireAdmin(): Promise<{
+  session: Session;
+  user: UserSession;
+} | null> {
+  const session = (await getServerSession(authConfig)) as Session | null;
   if (!session?.user) {
-    return null
+    return null;
   }
-  return { session, user: session.user as UserSession }
+  return { session, user: session.user as UserSession };
 }
 
 /**
@@ -27,47 +39,32 @@ async function requireAdmin(): Promise<{ session: Session; user: UserSession } |
  * Returns the record if user has access, null otherwise
  */
 async function validateMasukSiteAccess(
-  masukId: string,
+  record: Awaited<ReturnType<InventoryStockMovementService["getMasukRecord"]>>,
   user: UserSession,
-  permissions: string[]
-): Promise<{ allowed: boolean; record?: unknown; error?: string }> {
-  const isSuper = isSuperAdmin(user)
-  if (isSuper) {
-    const record = await prisma.barangMasuk.findUnique({
-      where: { id: masukId },
-      include: {
-        barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-        gudang: { select: { id: true, kode: true, nama: true, sites: { select: { id: true } } } }
-      }
-    })
-    return record ? { allowed: true, record } : { allowed: false, error: 'Record tidak ditemukan' }
-  }
-
-  // Check site restriction
-  const hasSiteRestriction = permissions.includes('masuk:site_only') ||
-    permissions.includes('k_barang:site_only') ||
-    permissions.includes('gudang:site_only')
-
-  const record = await prisma.barangMasuk.findUnique({
-    where: { id: masukId },
-    include: {
-      barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-      gudang: { select: { id: true, kode: true, nama: true, sites: { select: { id: true } } } }
-    }
-  })
-
+  permissions: string[],
+): Promise<{ allowed: boolean; error?: string }> {
   if (!record) {
-    return { allowed: false, error: 'Record tidak ditemukan' }
+    return { allowed: false, error: "Record tidak ditemukan" };
   }
+
+  if (isSuperAdmin(user)) {
+    return { allowed: true };
+  }
+
+  const hasSiteRestriction =
+    permissions.includes("masuk:site_only") ||
+    permissions.includes("k_barang:site_only") ||
+    permissions.includes("gudang:site_only");
 
   if (hasSiteRestriction && user.siteId) {
-    const gudangSiteIds = record.gudang.sites?.map((s: { id: string }) => s.id) || []
+    const gudangSiteIds =
+      record.gudang.sites?.map((s: { id: string }) => s.id) || [];
     if (!gudangSiteIds.includes(user.siteId)) {
-      return { allowed: false, error: 'Anda tidak memiliki akses ke data ini' }
+      return { allowed: false, error: "Anda tidak memiliki akses ke data ini" };
     }
   }
 
-  return { allowed: true, record }
+  return { allowed: true };
 }
 
 /**
@@ -76,48 +73,64 @@ async function validateMasukSiteAccess(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now()
+  const startTime = Date.now();
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdmin();
     if (!auth) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/masuk/[id]')
-      return ApiErrors.unauthorized('Session tidak valid')
+      logger.warn(
+        "Unauthorized access attempt to GET /api/inventory/masuk/[id]",
+      );
+      return ApiErrors.unauthorized("Session tidak valid");
     }
 
-    const { user } = auth
+    const { user } = auth;
 
     // Permission check
-    if (!await hasPermission('masuk:read', user)) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat data barang masuk')
+    if (!(await hasPermission("masuk:read", user))) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk melihat data barang masuk",
+      );
     }
 
-    const { id } = await params
-    const permissions = await getUserPermissions(user.id)
+    const { id } = await params;
+    const permissions = await getUserPermissions(user.id);
 
     // Validate site access
-    const accessCheck = await validateMasukSiteAccess(id, user, permissions)
-    if (!accessCheck.allowed) {
-      if (accessCheck.error === 'Record tidak ditemukan') {
-        return ApiErrors.notFound('Record barang masuk')
-      }
-      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+    const masuk = await stockMovementService.getMasukRecord(id);
+
+    if (!masuk) {
+      return ApiErrors.notFound("Record barang masuk");
     }
 
-    logger.apiRequest('GET', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
-      userId: user.id,
-      masukId: id,
-    })
+    const accessCheck = await validateMasukSiteAccess(masuk, user, permissions);
+    if (!accessCheck.allowed) {
+      if (accessCheck.error === "Record tidak ditemukan") {
+        return ApiErrors.notFound("Record barang masuk");
+      }
+      return ApiErrors.forbidden(accessCheck.error || "Akses ditolak");
+    }
 
-    return apiSuccess({ masuk: accessCheck.record })
+    logger.apiRequest(
+      "GET",
+      "/api/inventory/masuk/[id]",
+      200,
+      Date.now() - startTime,
+      {
+        userId: user.id,
+        masukId: id,
+      },
+    );
+
+    return apiSuccess({ masuk });
   } catch (error) {
-    const err = error as Error
-    logger.error('Error fetching barang masuk', err, {
-      path: '/api/inventory/masuk/[id]',
-      method: 'GET',
-    })
-    return ApiErrors.internalError('Gagal memuat data barang masuk')
+    const err = error as Error;
+    logger.error("Error fetching barang masuk", err, {
+      path: "/api/inventory/masuk/[id]",
+      method: "GET",
+    });
+    return ApiErrors.internalError("Gagal memuat data barang masuk");
   }
 }
 
@@ -127,153 +140,101 @@ export async function GET(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now()
+  const startTime = Date.now();
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdmin();
     if (!auth) {
-      logger.warn('Unauthorized access attempt to PUT /api/inventory/masuk/[id]')
-      return ApiErrors.unauthorized('Session tidak valid')
+      logger.warn(
+        "Unauthorized access attempt to PUT /api/inventory/masuk/[id]",
+      );
+      return ApiErrors.unauthorized("Session tidak valid");
     }
 
-    const { user } = auth
+    const { user } = auth;
 
     // Permission check
-    if (!await hasPermission('masuk:update', user)) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah data barang masuk')
+    if (!(await hasPermission("masuk:update", user))) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk mengubah data barang masuk",
+      );
     }
 
-    const { id } = await params
-    const permissions = await getUserPermissions(user.id)
+    const { id } = await params;
+    const permissions = await getUserPermissions(user.id);
+    const masuk = await stockMovementService.getMasukRecord(id);
 
     // Validate site access before allowing update
-    const accessCheck = await validateMasukSiteAccess(id, user, permissions)
+    const accessCheck = await validateMasukSiteAccess(masuk, user, permissions);
     if (!accessCheck.allowed) {
-      if (accessCheck.error === 'Record tidak ditemukan') {
-        return ApiErrors.notFound('Record barang masuk')
+      if (accessCheck.error === "Record tidak ditemukan") {
+        return ApiErrors.notFound("Record barang masuk");
       }
-      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+      return ApiErrors.forbidden(accessCheck.error || "Akses ditolak");
     }
 
-    const body = await req.json()
-    const { jumlah, kondisi, keterangan } = body
+    const body = await req.json();
+    const { jumlah, kondisi, keterangan } = body;
 
     // Validation
     if (!jumlah || jumlah <= 0) {
-      return apiError('Jumlah harus diisi dengan angka positif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+      return apiError(
+        "Jumlah harus diisi dengan angka positif",
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400 },
+      );
     }
 
     try {
-      const dbStart = Date.now()
+      const dbStart = Date.now();
 
-      await prisma.$transaction(async (tx) => {
-        // Get current record
-        const currentRecord = await tx.barangMasuk.findUnique({
-          where: { id },
-          include: {
-            barang: true,
-            gudang: true
-          }
-        })
-
-        if (!currentRecord) {
-          throw new Error('Record barang masuk tidak ditemukan')
-        }
-
-        // Calculate stock difference
-        const stockDifference = jumlah - currentRecord.jumlah
-
-        // Update the record
-        await tx.barangMasuk.update({
-          where: { id },
-          data: {
-            jumlah,
-            kondisi: kondisi || currentRecord.kondisi,
-            keterangan
-          }
-        })
-
-        // Update stock in BarangGudang
-        const currentStock = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId: currentRecord.barangId, gudangId: currentRecord.gudangId } }
-        })
-
-        if (currentStock) {
-          const newTotalStock = currentStock.stok + stockDifference
-          if (newTotalStock < 0) {
-            throw new Error('Stok tidak bisa negatif')
-          }
-
-          const oldKondisi = currentRecord.kondisi as keyof typeof STOCK_FIELD_MAP
-          const newKondisi = (kondisi || currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP
-          const oldStockField = STOCK_FIELD_MAP[oldKondisi] || 'stokBaru'
-          const newStockField = STOCK_FIELD_MAP[newKondisi] || 'stokBaru'
-
-          const updateData: Record<string, number> = { stok: newTotalStock }
-
-          if (oldStockField === newStockField) {
-            const newConditionStock = Number((currentStock as Record<string, unknown>)[oldStockField] || 0) + stockDifference
-            if (newConditionStock < 0) throw new Error(`Stok ${newKondisi} tidak bisa negatif`)
-            updateData[newStockField] = newConditionStock
-          } else {
-            const oldConditionStock = Number((currentStock as Record<string, unknown>)[oldStockField] || 0) - currentRecord.jumlah
-            if (oldConditionStock < 0) throw new Error(`Stok ${oldKondisi} tidak bisa negatif`)
-
-            const newConditionStock = Number((currentStock as Record<string, unknown>)[newStockField] || 0) + jumlah
-            updateData[oldStockField] = oldConditionStock
-            updateData[newStockField] = newConditionStock
-          }
-
-          await tx.barangGudang.update({
-            where: { barangId_gudangId: { barangId: currentRecord.barangId, gudangId: currentRecord.gudangId } },
-            data: updateData
-          })
-        } else {
-          // If no stock record exists, create one
-          const newKondisi = (kondisi || currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP
-          const newStockField = STOCK_FIELD_MAP[newKondisi] || 'stokBaru'
-
-          await tx.barangGudang.create({
-            data: {
-              id: crypto.randomUUID(),
-              barangId: currentRecord.barangId,
-              gudangId: currentRecord.gudangId,
-              stok: jumlah,
-              [newStockField]: jumlah,
-              updatedAt: new Date()
-            }
-          })
-        }
-
-        logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
-      })
-
-      logger.apiRequest('PUT', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
-        userId: user.id,
-        masukId: id,
+      await stockMovementService.updateMasuk({
+        id,
         jumlah,
-      })
+        kondisi,
+        keterangan,
+      });
 
-      return apiSuccess(null, { message: 'Barang masuk berhasil diperbarui' })
+      logger.dbOperation(
+        "transaction",
+        "BarangMasuk+BarangGudang",
+        Date.now() - dbStart,
+      );
+
+      logger.apiRequest(
+        "PUT",
+        "/api/inventory/masuk/[id]",
+        200,
+        Date.now() - startTime,
+        {
+          userId: user.id,
+          masukId: id,
+          jumlah,
+        },
+      );
+
+      return apiSuccess(null, { message: "Barang masuk berhasil diperbarui" });
     } finally {
       // do not disconnect shared prisma client
     }
   } catch (error) {
-    const err = error as Error
-    logger.error('Error updating barang masuk', err, {
-      path: '/api/inventory/masuk/[id]',
-      method: 'PUT',
-    })
+    const err = error as Error;
+    logger.error("Error updating barang masuk", err, {
+      path: "/api/inventory/masuk/[id]",
+      method: "PUT",
+    });
 
-    if (err.message === 'Record barang masuk tidak ditemukan') {
-      return ApiErrors.notFound('Record barang masuk')
+    if (err.message === "Record barang masuk tidak ditemukan") {
+      return ApiErrors.notFound("Record barang masuk");
     }
-    if (err.message === 'Stok tidak bisa negatif') {
-      return apiError('Stok tidak bisa negatif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+    if (err.message === "Stok tidak bisa negatif") {
+      return apiError("Stok tidak bisa negatif", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
     }
 
-    return ApiErrors.internalError('Gagal memperbarui barang masuk')
+    return ApiErrors.internalError("Gagal memperbarui barang masuk");
   }
 }
 
@@ -283,107 +244,79 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now()
+  const startTime = Date.now();
   try {
-    const auth = await requireAdmin()
+    const auth = await requireAdmin();
     if (!auth) {
-      logger.warn('Unauthorized access attempt to DELETE /api/inventory/masuk/[id]')
-      return ApiErrors.unauthorized('Session tidak valid')
+      logger.warn(
+        "Unauthorized access attempt to DELETE /api/inventory/masuk/[id]",
+      );
+      return ApiErrors.unauthorized("Session tidak valid");
     }
 
-    const { user } = auth
+    const { user } = auth;
 
     // Permission check
-    if (!await hasPermission('masuk:delete', user)) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data barang masuk')
+    if (!(await hasPermission("masuk:delete", user))) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk menghapus data barang masuk",
+      );
     }
 
-    const { id } = await params
-    const permissions = await getUserPermissions(user.id)
+    const { id } = await params;
+    const permissions = await getUserPermissions(user.id);
+    const masuk = await stockMovementService.getMasukRecord(id);
 
     // Validate site access before allowing delete
-    const accessCheck = await validateMasukSiteAccess(id, user, permissions)
+    const accessCheck = await validateMasukSiteAccess(masuk, user, permissions);
     if (!accessCheck.allowed) {
-      if (accessCheck.error === 'Record tidak ditemukan') {
-        return ApiErrors.notFound('Record barang masuk')
+      if (accessCheck.error === "Record tidak ditemukan") {
+        return ApiErrors.notFound("Record barang masuk");
       }
-      return ApiErrors.forbidden(accessCheck.error || 'Akses ditolak')
+      return ApiErrors.forbidden(accessCheck.error || "Akses ditolak");
     }
 
     try {
-      const dbStart = Date.now()
+      const dbStart = Date.now();
 
-      await prisma.$transaction(async (tx) => {
-        // Get the record to be deleted
-        const masukRecord = await tx.barangMasuk.findUnique({
-          where: { id },
-          include: {
-            barang: true,
-            gudang: true
-          }
-        })
+      await stockMovementService.deleteMasuk(id);
 
-        if (!masukRecord) {
-          throw new Error('Record barang masuk tidak ditemukan')
-        }
+      logger.dbOperation(
+        "transaction",
+        "BarangMasuk+BarangGudang",
+        Date.now() - dbStart,
+      );
 
-        // Reduce stock from BarangGudang
-        const currentStock = await tx.barangGudang.findUnique({
-          where: { barangId_gudangId: { barangId: masukRecord.barangId, gudangId: masukRecord.gudangId } }
-        })
+      logger.apiRequest(
+        "DELETE",
+        "/api/inventory/masuk/[id]",
+        200,
+        Date.now() - startTime,
+        {
+          userId: user.id,
+          masukId: id,
+        },
+      );
 
-        if (currentStock) {
-          const newStock = Math.max(0, currentStock.stok - masukRecord.jumlah)
-          const stockField = STOCK_FIELD_MAP[masukRecord.kondisi as keyof typeof STOCK_FIELD_MAP] || 'stokBaru'
-
-          if (newStock === 0) {
-            // If stock becomes 0, delete the BarangGudang record
-            await tx.barangGudang.delete({
-              where: { barangId_gudangId: { barangId: masukRecord.barangId, gudangId: masukRecord.gudangId } }
-            })
-          } else {
-            // Update with reduced stock
-            const newConditionStock = Math.max(0, Number((currentStock as Record<string, unknown>)[stockField] || 0) - masukRecord.jumlah)
-            await tx.barangGudang.update({
-              where: { barangId_gudangId: { barangId: masukRecord.barangId, gudangId: masukRecord.gudangId } },
-              data: {
-                stok: newStock,
-                [stockField]: newConditionStock
-              }
-            })
-          }
-        }
-
-        // Delete the record
-        await tx.barangMasuk.delete({
-          where: { id }
-        })
-
-        logger.dbOperation('transaction', 'BarangMasuk+BarangGudang', Date.now() - dbStart)
-      })
-
-      logger.apiRequest('DELETE', '/api/inventory/masuk/[id]', 200, Date.now() - startTime, {
-        userId: user.id,
-        masukId: id,
-      })
-
-      return apiSuccess(null, { message: 'Record barang masuk berhasil dihapus dan stok dikurangi' })
+      return apiSuccess(null, {
+        message: "Record barang masuk berhasil dihapus dan stok dikurangi",
+      });
     } finally {
       // do not disconnect shared prisma client
     }
   } catch (error) {
-    const err = error as Error
-    logger.error('Error deleting barang masuk', err, {
-      path: '/api/inventory/masuk/[id]',
-      method: 'DELETE',
-    })
+    const err = error as Error;
+    logger.error("Error deleting barang masuk", err, {
+      path: "/api/inventory/masuk/[id]",
+      method: "DELETE",
+    });
 
-    if (err.message === 'Record barang masuk tidak ditemukan') {
-      return ApiErrors.notFound('Record barang masuk')
+    if (err.message === "Record barang masuk tidak ditemukan") {
+      return ApiErrors.notFound("Record barang masuk");
     }
 
-    return ApiErrors.internalError('Gagal menghapus record barang masuk')
+    return ApiErrors.internalError("Gagal menghapus record barang masuk");
   }
 }
