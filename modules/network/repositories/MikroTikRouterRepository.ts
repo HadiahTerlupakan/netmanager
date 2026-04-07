@@ -161,6 +161,12 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         ...(data.apiPort !== undefined && { apiPort: data.apiPort }),
         ...(data.apiUsername !== undefined && { apiUsername: data.apiUsername }),
         ...(data.apiPassword !== undefined && { apiPassword: data.apiPassword }),
+        ...(data.apiUsernameGenerated !== undefined && {
+          apiUsernameGenerated: data.apiUsernameGenerated,
+        }),
+        ...(data.apiPasswordGenerated !== undefined && {
+          apiPasswordGenerated: data.apiPasswordGenerated,
+        }),
         ...(data.authPort !== undefined && { authPort: data.authPort }),
         ...(data.accountingPort !== undefined && { accountingPort: data.accountingPort }),
         ...(data.secretRadius !== undefined && { secretRadius: data.secretRadius }),
@@ -180,8 +186,9 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       const secretChanged = data.secretRadius && data.secretRadius !== existingRouter.secretRadius;
       const nameChanged = data.name && data.name !== existingRouter.name;
       const descChanged = data.description !== undefined;
+      const portChanged = data.apiPort !== undefined;
 
-      if (ipChanged || secretChanged || nameChanged || descChanged) {
+      if (ipChanged || secretChanged || nameChanged || descChanged || portChanged) {
         try {
           const targetIp = existingRouter.ipAddress; // Look up by OLD IP
           const existingNas = await this.radiusRepo.getNasByIp(targetIp, existingRouter.tenantId!);

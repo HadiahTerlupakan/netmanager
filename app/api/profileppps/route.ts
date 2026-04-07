@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/modules/database";
-import { profilePPPSchema } from "@/lib/validations/profileppp";
-import { sanitizeInput } from "@/lib/utils/sanitize";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -234,86 +232,27 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const sanitizedBody = {
-      name: body.name ? sanitizeInput(body.name) : undefined,
-      localAddress: body.localAddress
-        ? sanitizeInput(body.localAddress)
-        : undefined,
-      remoteAddress: body.remoteAddress
-        ? sanitizeInput(body.remoteAddress)
-        : undefined,
-      ipRange:
-        body.ipRange && body.ipRange.trim()
-          ? sanitizeInput(body.ipRange)
-          : undefined,
-      dnsServer:
-        body.dnsServer && body.dnsServer.trim()
-          ? sanitizeInput(body.dnsServer)
-          : undefined,
-      sessionTimeout:
-        body.sessionTimeout !== undefined &&
-        body.sessionTimeout !== null &&
-        body.sessionTimeout !== ""
-          ? Number(body.sessionTimeout)
-          : undefined,
-      idleTimeout:
-        body.idleTimeout !== undefined &&
-        body.idleTimeout !== null &&
-        body.idleTimeout !== ""
-          ? Number(body.idleTimeout)
-          : undefined,
-      poolMode: body.poolMode || "MIKROTIK",
-      mikroTikRouterId:
-        body.mikroTikRouterId && body.mikroTikRouterId.trim()
-          ? body.mikroTikRouterId
-          : undefined,
-      bandwidthId:
-        body.bandwidthId && body.bandwidthId.trim()
-          ? body.bandwidthId
-          : undefined,
-      description:
-        body.description && body.description.trim()
-          ? sanitizeInput(body.description)
-          : undefined,
-      status: body.status || "AKTIF",
-      siteId: body.siteId || undefined,
-    };
-
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
+    const result = await profilePPPService.createProfilePPPFromRequest({
       session,
-      "profileppp",
-    );
-    if (isRestricted && primarySiteId) {
-      sanitizedBody.siteId = primarySiteId;
-    }
-
-    await import("@/lib/logger").then(({ logger }) => {
-      logger.info("Creating Profile PPP", {
-        userId: session.user.id,
-        siteId: sanitizedBody.siteId,
-        name: sanitizedBody.name,
-      });
-    });
-
-    const validation = profilePPPSchema.safeParse(sanitizedBody);
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: "Validasi gagal", details: validation.error.flatten() },
-        { status: 400 },
-      );
-    }
-
-    const profilePPP = await profilePPPService.createProfilePPP(
-      {
+      sessionContext: {
         user: {
           id: session.user.id!,
           tenantId: session.user.tenantId ?? undefined,
         },
       },
-      validation.data,
-    );
+      body,
+    });
 
-    return NextResponse.json(profilePPP, { status: 201 });
+    if (!result.success) {
+      return NextResponse.json(
+        result.details
+          ? { error: result.error, details: result.details }
+          : { error: result.error },
+        { status: result.status },
+      );
+    }
+
+    return NextResponse.json(result.profilePPP, { status: 201 });
   } catch (error: unknown) {
     console.error("Error creating profile PPP:", error);
 

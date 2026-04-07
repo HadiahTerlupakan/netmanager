@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
+import type { Session } from "next-auth";
 import { prisma } from "@/modules/database";
-import { type ProfilePPPSchema } from "@/lib/validations/profileppp";
+import {
+  profilePPPSchema,
+  type ProfilePPPSchema,
+} from "@/lib/validations/profileppp";
+import { sanitizeInput } from "@/lib/utils/sanitize";
+import { checkSiteRestriction } from "@/modules/roles";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { RadiusSyncService } from "./radius-sync-service";
 import {
@@ -14,6 +20,19 @@ interface SessionContext {
     id: string;
     tenantId?: string;
   };
+}
+
+interface CreateProfilePPPInput {
+  session: Session | null;
+  sessionContext: SessionContext;
+  body: Record<string, unknown>;
+}
+
+interface UpdateProfilePPPInput {
+  session: Session | null;
+  sessionContext: SessionContext;
+  id: string;
+  body: Record<string, unknown>;
 }
 
 interface ProfilePPPRecord {
@@ -39,6 +58,94 @@ interface ProfilePPPRecord {
 export class ProfilePPPService {
   private async getRadiusSyncService(): Promise<RadiusSyncService> {
     return new RadiusSyncService();
+  }
+
+  private sanitizeProfilePPPBody(body: Record<string, unknown>) {
+    return {
+      name: typeof body.name === "string" ? sanitizeInput(body.name) : undefined,
+      localAddress:
+        typeof body.localAddress === "string"
+          ? sanitizeInput(body.localAddress)
+          : undefined,
+      remoteAddress:
+        typeof body.remoteAddress === "string"
+          ? sanitizeInput(body.remoteAddress)
+          : undefined,
+      ipRange:
+        typeof body.ipRange === "string" && body.ipRange.trim()
+          ? sanitizeInput(body.ipRange)
+          : undefined,
+      dnsServer:
+        typeof body.dnsServer === "string" && body.dnsServer.trim()
+          ? sanitizeInput(body.dnsServer)
+          : undefined,
+      sessionTimeout:
+        body.sessionTimeout !== undefined &&
+        body.sessionTimeout !== null &&
+        body.sessionTimeout !== ""
+          ? Number(body.sessionTimeout)
+          : undefined,
+      idleTimeout:
+        body.idleTimeout !== undefined &&
+        body.idleTimeout !== null &&
+        body.idleTimeout !== ""
+          ? Number(body.idleTimeout)
+          : undefined,
+      poolMode:
+        typeof body.poolMode === "string" && body.poolMode
+          ? body.poolMode
+          : "MIKROTIK",
+      mikroTikRouterId:
+        typeof body.mikroTikRouterId === "string" && body.mikroTikRouterId.trim()
+          ? body.mikroTikRouterId
+          : undefined,
+      bandwidthId:
+        typeof body.bandwidthId === "string" && body.bandwidthId.trim()
+          ? body.bandwidthId
+          : undefined,
+      description:
+        typeof body.description === "string" && body.description.trim()
+          ? sanitizeInput(body.description)
+          : undefined,
+      status:
+        typeof body.status === "string" && body.status ? body.status : "AKTIF",
+      siteId:
+        typeof body.siteId === "string" && body.siteId.trim()
+          ? body.siteId
+          : undefined,
+    };
+  }
+
+  private validateProfilePPPBody(body: Record<string, unknown>) {
+    return profilePPPSchema.safeParse(this.sanitizeProfilePPPBody(body));
+  }
+
+  private applyRestrictedSite(
+    session: Session | null,
+    data: ProfilePPPSchema,
+  ): ProfilePPPSchema {
+    const { isRestricted, primarySiteId } = checkSiteRestriction(
+      session,
+      "profileppp",
+    );
+
+    if (!isRestricted || !primarySiteId) {
+      return data;
+    }
+
+    return {
+      ...data,
+      siteId: primarySiteId,
+    };
+  }
+
+  private async findProfileForUpdate(id: string): Promise<ProfilePPPRecord | null> {
+    return prisma.profilePPP.findUnique({
+      where: { id },
+      include: {
+        mikroTikRouter: true,
+      },
+    });
   }
 
   private buildCreatePrismaData(data: ProfilePPPSchema) {
@@ -324,6 +431,25 @@ export class ProfilePPPService {
     }
   }
 
+  async createProfilePPPFromRequest(input: CreateProfilePPPInput) {
+    const validation = this.validateProfilePPPBody(input.body);
+    if (!validation.success) {
+      return {
+        success: false as const,
+        status: 400,
+        error: "Validasi gagal",
+        details: validation.error.flatten(),
+      };
+    }
+
+    const data = this.applyRestrictedSite(input.session, validation.data);
+
+    return {
+      success: true as const,
+      profilePPP: await this.createProfilePPP(input.sessionContext, data),
+    };
+  }
+
   async createProfilePPP(session: SessionContext, data: ProfilePPPSchema) {
     await import("@/lib/logger").then(({ logger }) => {
       logger.info("Creating Profile PPP", {
@@ -344,6 +470,39 @@ export class ProfilePPPService {
     await this.syncMikroTikOnCreate(profilePPP, data, data.bandwidthId);
 
     return profilePPP;
+  }
+
+  async updateProfilePPPFromRequest(input: UpdateProfilePPPInput) {
+    const oldProfile = await this.findProfileForUpdate(input.id);
+    if (!oldProfile) {
+      return {
+        success: false as const,
+        status: 404,
+        error: "Profile PPP tidak ditemukan",
+      };
+    }
+
+    const validation = this.validateProfilePPPBody(input.body);
+    if (!validation.success) {
+      return {
+        success: false as const,
+        status: 400,
+        error: "Validasi gagal",
+        details: validation.error.flatten(),
+      };
+    }
+
+    const data = this.applyRestrictedSite(input.session, validation.data);
+
+    return {
+      success: true as const,
+      profilePPP: await this.updateProfilePPP(
+        input.sessionContext,
+        input.id,
+        oldProfile,
+        data,
+      ),
+    };
   }
 
   async updateProfilePPP(

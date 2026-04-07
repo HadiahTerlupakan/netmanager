@@ -7,6 +7,7 @@ const eslintConfig = [
   {
     ignores: [
       ".worktrees/**",
+      ".claude/worktrees/**",
       "prisma/generated/**",
       "scripts/**",
       "temp_genieacs_source/**",

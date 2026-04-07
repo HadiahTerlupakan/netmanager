@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/modules/database";
-import { profilePPPSchema } from "@/lib/validations/profileppp";
-import { sanitizeInput } from "@/lib/utils/sanitize";
 import { deletePPPProfileInMikroTik } from "@/modules/network";
 import { ProfilePPPService } from "@/modules/network";
 import { Prisma } from "@prisma/client";
@@ -299,89 +297,28 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    // Ambil data profile lama untuk cek router sebelumnya
-    const oldProfile = await prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        mikroTikRouter: true,
-      },
-    });
-
-    if (!oldProfile) {
-      return NextResponse.json(
-        { error: "Profile PPP tidak ditemukan" },
-        { status: 404 },
-      );
-    }
-
-    // Sanitize input dan convert empty strings to undefined/null
-    const sanitizedBody = {
-      name: body.name ? sanitizeInput(body.name) : undefined,
-      localAddress: body.localAddress
-        ? sanitizeInput(body.localAddress)
-        : undefined,
-      remoteAddress: body.remoteAddress
-        ? sanitizeInput(body.remoteAddress)
-        : undefined,
-      // ipRange: Range IP untuk pool (contoh: "192.168.1.100-192.168.1.200")
-      // Digunakan untuk membuat/update IP Pool di MikroTik, tidak disimpan di database
-      ipRange:
-        body.ipRange && body.ipRange.trim()
-          ? sanitizeInput(body.ipRange)
-          : undefined,
-      dnsServer:
-        body.dnsServer && body.dnsServer.trim()
-          ? sanitizeInput(body.dnsServer)
-          : undefined,
-      sessionTimeout:
-        body.sessionTimeout !== undefined &&
-        body.sessionTimeout !== null &&
-        body.sessionTimeout !== ""
-          ? Number(body.sessionTimeout)
-          : null,
-      idleTimeout:
-        body.idleTimeout !== undefined &&
-        body.idleTimeout !== null &&
-        body.idleTimeout !== ""
-          ? Number(body.idleTimeout)
-          : null,
-      poolMode: body.poolMode || "MIKROTIK",
-      // Rate limit diambil dari Bandwidth yang terkait melalui HargaPaket atau bandwidthId langsung
-      mikroTikRouterId:
-        body.mikroTikRouterId && body.mikroTikRouterId.trim()
-          ? body.mikroTikRouterId
-          : null,
-      bandwidthId:
-        body.bandwidthId && body.bandwidthId.trim() ? body.bandwidthId : null, // Bandwidth untuk rate limit (opsional)
-      description:
-        body.description && body.description.trim()
-          ? sanitizeInput(body.description)
-          : null,
-      status: body.status || "AKTIF",
-    };
-
-    // Validasi data dengan Zod schema
-    const validation = profilePPPSchema.safeParse(sanitizedBody);
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: "Validasi gagal", details: validation.error.flatten() },
-        { status: 400 },
-      );
-    }
-
-    const profilePPP = await profilePPPService.updateProfilePPP(
-      {
+    const result = await profilePPPService.updateProfilePPPFromRequest({
+      session,
+      sessionContext: {
         user: {
           id: session.user.id!,
           tenantId: session.user.tenantId ?? undefined,
         },
       },
       id,
-      oldProfile as typeof oldProfile & { tenantId?: string | null },
-      validation.data,
-    );
+      body,
+    });
 
-    return NextResponse.json(profilePPP);
+    if (!result.success) {
+      return NextResponse.json(
+        result.details
+          ? { error: result.error, details: result.details }
+          : { error: result.error },
+        { status: result.status },
+      );
+    }
+
+    return NextResponse.json(result.profilePPP);
   } catch (error: unknown) {
     console.error("Error updating profile PPP:", error);
 

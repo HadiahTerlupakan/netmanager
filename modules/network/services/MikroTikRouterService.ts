@@ -523,13 +523,16 @@ export class MikroTikRouterService {
       return result;
     }
 
-    await prisma.mikroTikRouter.update({
-      where: { id: router.id },
-      data: {
-        ...(result.username && { apiUsernameGenerated: result.username }),
-        ...(result.password && { apiPasswordGenerated: result.password }),
-      },
-    });
+    const credentialUpdate: MikroTikRouterUpdateData = {
+      ...(result.username && { apiUsernameGenerated: result.username }),
+      ...(result.password && { apiPasswordGenerated: result.password }),
+    };
+
+    await this.routerRepository.update(
+      router.id,
+      credentialUpdate,
+      params.tenantId,
+    );
 
     try {
       await logActivitySafe({

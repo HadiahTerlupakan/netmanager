@@ -21,6 +21,8 @@ export interface MikroTikRouterUpdateData {
   apiPort?: number
   apiUsername?: string
   apiPassword?: string
+  apiUsernameGenerated?: string | null
+  apiPasswordGenerated?: string | null
   authPort?: number
   accountingPort?: number
   secretRadius?: string
