@@ -8,7 +8,6 @@ const NextAuth =
 import _CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prismaAuth } from "@/lib/prisma";
-import { UserRepository } from "@/modules/users";
 import { compare } from "bcryptjs";
 import { checkRateLimit } from "@/lib/redis";
 import { redis } from "@/lib/redis";
@@ -189,13 +188,31 @@ export const authConfig: NextAuthOptions = {
             }
           }
 
-          const userRepository = new UserRepository();
           let user = null;
 
-          // Login with email
+          // Login with email. This must use the unfiltered client because the user
+          // is not authenticated yet, so there is no tenant context to resolve.
           console.log("[AUTH] Attempting email login");
-          user = await userRepository.findByEmail(identifier);
+          user = await prismaAuth.user.findUnique({
+            where: { email: identifier },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              phone: true,
+              departmentId: true,
+              siteId: true,
+              isActive: true,
+              createdAt: true,
+              passwordHash: true,
+            },
+          });
           console.log("[AUTH] User found by email:", !!user);
+
+          if (!user?.passwordHash) {
+            user = null;
+          }
 
           if (!user) {
             console.log("[AUTH] No user found for identifier:", identifier);
