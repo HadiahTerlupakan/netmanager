@@ -6,34 +6,49 @@
  * Routes should call this service instead of directly using repositories.
  */
 
+import { randomUUID } from "crypto";
+
 import type {
   WorkOrderStatus,
   WorkOrderPriority,
   WorkOrderType,
   PrismaClient,
 } from "@prisma/client";
+import { prisma as defaultPrisma } from "@/lib/prisma";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { logger } from "@/lib/logger";
+import { InventoryRepository } from "@/modules/inventory";
 import { UserRepository } from "@/modules/users";
 
 import type {
   WorkOrderFilters,
   WorkOrderWithRelations,
 } from "../repositories/IWorkOrderRepository";
-import { WorkOrderMaterialRepository } from "../repositories/WorkOrderMaterialRepository";
+import {
+  WorkOrderMaterialRepository,
+  type MobileWorkOrderMaterialInput,
+  type MobileWorkOrderMaterialResult,
+} from "../repositories/WorkOrderMaterialRepository";
 import {
   TicketRepository,
   WorkOrderTemplateRepository,
   WarrantyCheckRepository,
 } from "../repositories/WorkOrderSupportRepositories";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
-import { validateWorkOrderAccess as validateWorkOrderAccessHelper } from "./work-order-access";
+import {
+  validateMobileWorkOrderMaterialAccess,
+  validateMobileWorkOrderMaterialReturnAccess,
+  validateWorkOrderAccess as validateWorkOrderAccessHelper,
+} from "./work-order-access";
 import { prepareWorkOrderCreateData } from "./work-order-create-preparation";
 import {
   broadcastWorkOrderCreatedSafely,
   invalidateWorkOrderCaches,
   linkWorkOrderToTicketSafely,
+  logMobileMaterialReturnActivity,
   logWorkOrderActivity,
+  notifyMobileWorkOrderMaterialActionSafely,
+  notifyMobileWorkOrderMaterialReturnSafely,
   notifyWorkOrderCreatedSafely,
   publishWorkOrderAssignmentSideEffects,
   publishWorkOrderCreatedEvent,
@@ -44,10 +59,12 @@ import { WorkOrderEventDispatcher } from "@/modules/events";
 // Types
 export interface UserContext {
   id: string;
+  name?: string;
   role?: string;
   permissions?: string[];
   siteId?: string;
   departmentId?: string;
+  tenantId?: string;
   isSuperAdmin?: boolean;
 }
 
@@ -94,6 +111,23 @@ export interface ServiceResult<T> {
   code?: string;
 }
 
+export interface MobileWorkOrderMaterialReturnInput {
+  barangId: string;
+  gudangId: string;
+  jumlah: number;
+  kondisi?: "BARU" | "BEKAS" | "RUSAK";
+}
+
+export interface MobileWorkOrderMaterialReturnResult {
+  id: string;
+  nama: string;
+  jumlah: number;
+  satuan: string;
+  kondisi: string;
+  barangId: string;
+  gudangId: string;
+}
+
 /**
  * WorkOrderService - Business logic layer for Work Orders
  */
@@ -104,14 +138,18 @@ export class WorkOrderService {
   private templateRepo: WorkOrderTemplateRepository;
   private warrantyRepo: WarrantyCheckRepository;
   private materialRepo: WorkOrderMaterialRepository;
+  private inventoryRepo: InventoryRepository;
+  private prismaClient: PrismaClient;
 
   constructor(prismaClient?: PrismaClient) {
-    this.repository = new WorkOrderRepository(prismaClient);
+    this.prismaClient = prismaClient ?? defaultPrisma;
+    this.repository = new WorkOrderRepository(this.prismaClient);
     this.userRepo = new UserRepository();
     this.ticketRepo = new TicketRepository();
     this.templateRepo = new WorkOrderTemplateRepository();
     this.warrantyRepo = new WarrantyCheckRepository();
-    this.materialRepo = new WorkOrderMaterialRepository(prismaClient);
+    this.materialRepo = new WorkOrderMaterialRepository(this.prismaClient);
+    this.inventoryRepo = new InventoryRepository();
   }
 
   // ==================== LIST OPERATIONS ====================
@@ -852,6 +890,202 @@ export class WorkOrderService {
         success: false,
         error: "Gagal membuat tugas dari template",
         code: "CREATE_TASKS_ERROR",
+      };
+    }
+  }
+
+  async addMobileMaterials(
+    workOrderId: string,
+    items: MobileWorkOrderMaterialInput[],
+    userContext: UserContext,
+    triggeredByName?: string,
+  ): Promise<ServiceResult<{ items: MobileWorkOrderMaterialResult[] }>> {
+    try {
+      const workOrder = await validateMobileWorkOrderMaterialAccess({
+        repository: this.repository,
+        workOrderId,
+        userContext,
+      });
+
+      const results =
+        await this.materialRepo.addMobileMaterialsWithStockDeduction({
+          workOrder: {
+            id: workOrder.id,
+            tenantId: workOrder.tenantId,
+            workOrderNumber: workOrder.workOrderNumber,
+            title: workOrder.title,
+            status: workOrder.status,
+          },
+          items,
+          actorId: userContext.id,
+        });
+
+      const materialList = results
+        .map((m) => `${m.nama} (${m.jumlah})`)
+        .join(", ");
+      await notifyMobileWorkOrderMaterialActionSafely({
+        workOrderId: workOrder.id,
+        workOrderNumber: workOrder.workOrderNumber,
+        title: workOrder.title,
+        actionType: "MATERIAL_PICKUP",
+        actionMessage: `Mengambil barang: ${materialList}`,
+        triggeredByUserId: userContext.id,
+        triggeredByName: triggeredByName || undefined,
+        ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+        ...(workOrder.siteId && { siteId: workOrder.siteId }),
+      });
+
+      return { success: true, data: { items: results } };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.addMobileMaterials failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+        code:
+          error instanceof Error &&
+          (error.message.includes("Akses ditolak") ||
+            error.message.includes("tidak memiliki akses"))
+            ? "FORBIDDEN"
+            : error instanceof Error &&
+                (error.message.includes("wajib") ||
+                  error.message.includes("harus") ||
+                  error.message.includes("Stok") ||
+                  error.message.includes("Data stok"))
+              ? "VALIDATION_ERROR"
+              : error instanceof Error &&
+                  error.message.includes("tidak ditemukan")
+                ? "NOT_FOUND"
+                : "INTERNAL_ERROR",
+      };
+    }
+  }
+
+  async returnMobileMaterials(
+    workOrderId: string,
+    items: MobileWorkOrderMaterialReturnInput[],
+    userContext: UserContext,
+    triggeredByName?: string,
+  ): Promise<ServiceResult<{ items: MobileWorkOrderMaterialReturnResult[] }>> {
+    try {
+      const workOrder = await validateMobileWorkOrderMaterialReturnAccess({
+        repository: this.repository,
+        workOrderId,
+        userContext,
+      });
+
+      const tenantId = workOrder.tenantId || userContext.tenantId;
+      const results = await this.prismaClient.$transaction(async (tx) => {
+        const createdItems: MobileWorkOrderMaterialReturnResult[] = [];
+
+        for (const item of items) {
+          const kondisi = item.kondisi || "BEKAS";
+          const masuk = await this.inventoryRepo.addStockInTransaction(tx, {
+            barangId: item.barangId,
+            gudangId: item.gudangId,
+            jumlah: item.jumlah,
+            kondisi,
+            userId: userContext.id,
+            keterangan: `Pengembalian dari Work Order ${workOrder.workOrderNumber} - ${workOrder.title}`,
+            tenantId: tenantId || undefined,
+          });
+
+          const masukWithBarang = masuk as typeof masuk & {
+            barang: { nama: string; satuan: string };
+          };
+
+          createdItems.push({
+            id: masuk.id,
+            nama: masukWithBarang.barang.nama,
+            jumlah: item.jumlah,
+            satuan: masukWithBarang.barang.satuan,
+            kondisi,
+            barangId: item.barangId,
+            gudangId: item.gudangId,
+          });
+        }
+
+        await tx.$executeRaw`
+          UPDATE "WorkOrders"
+          SET "returnedMaterials" = COALESCE("returnedMaterials", '[]'::jsonb) || ${JSON.stringify(createdItems)}::jsonb,
+              "updatedAt" = NOW()
+          WHERE "id" = ${workOrder.id}
+        `;
+
+        const materialList = createdItems
+          .map((m) => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`)
+          .join(", ");
+
+        await tx.workOrderUpdates.create({
+          data: {
+            id: randomUUID(),
+            workOrderId: workOrder.id,
+            createdById: userContext.id,
+            updateType: "MATERIAL_RETURN",
+            message: `Mengembalikan barang: ${materialList}`,
+            oldStatus: workOrder.status,
+            newStatus: workOrder.status,
+            ...(tenantId ? { tenantId } : {}),
+          },
+        });
+
+        return createdItems;
+      });
+
+      const materialList = results
+        .map((m) => `${m.nama} (${m.jumlah})`)
+        .join(", ");
+      await notifyMobileWorkOrderMaterialReturnSafely({
+        workOrderId: workOrder.id,
+        workOrderNumber: workOrder.workOrderNumber,
+        title: workOrder.title,
+        actionType: "MATERIAL_RETURN",
+        actionMessage: `Mengembalikan barang: ${materialList}`,
+        triggeredByUserId: userContext.id,
+        triggeredByName: triggeredByName || undefined,
+        ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+        ...(workOrder.siteId && { siteId: workOrder.siteId }),
+      });
+
+      logMobileMaterialReturnActivity({
+        userId: userContext.id,
+        tenantId: tenantId || undefined,
+        workOrderId: workOrder.id,
+        workOrderNumber: workOrder.workOrderNumber,
+        items: results,
+      });
+
+      await invalidateWorkOrderCaches();
+
+      return { success: true, data: { items: results } };
+    } catch (error) {
+      logger.error(
+        "WorkOrderService.returnMobileMaterials failed",
+        error instanceof Error ? error : undefined,
+      );
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+        code:
+          error instanceof Error &&
+          (error.message.includes("Akses ditolak") ||
+            error.message.includes("tidak memiliki akses"))
+            ? "FORBIDDEN"
+            : error instanceof Error &&
+                (error.message.includes("wajib") ||
+                  error.message.includes("harus") ||
+                  error.message.includes("Stok") ||
+                  error.message.includes("Data stok") ||
+                  error.message.includes("Kondisi"))
+              ? "VALIDATION_ERROR"
+              : error instanceof Error &&
+                  error.message.includes("tidak ditemukan")
+                ? "NOT_FOUND"
+                : "INTERNAL_ERROR",
       };
     }
   }

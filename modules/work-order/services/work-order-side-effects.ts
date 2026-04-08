@@ -7,8 +7,21 @@ import { id as localeId } from "date-fns/locale";
 import { logger, logActivitySafe } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { WorkOrderEventDispatcher } from "@/modules/events";
+import { notifyAdminsAboutMobileAction } from "@/modules/notification";
 
 import type { TicketRepository } from "../repositories/WorkOrderSupportRepositories";
+
+export type MobileWorkOrderMaterialNotificationInput = {
+  workOrderId: string;
+  workOrderNumber: string;
+  title: string;
+  actionType: string;
+  actionMessage: string;
+  triggeredByUserId: string;
+  triggeredByName?: string;
+  departmentId?: string;
+  siteId?: string;
+};
 import { workOrderCacheService } from "./WorkOrderCacheService";
 import {
   onWorkOrderAssigned,
@@ -264,4 +277,53 @@ export function logWorkOrderActivity(
 
 export async function invalidateWorkOrderCaches(): Promise<void> {
   await workOrderCacheService.invalidateAllCaches();
+}
+
+export async function notifyMobileWorkOrderMaterialActionSafely(
+  input: MobileWorkOrderMaterialNotificationInput,
+): Promise<void> {
+  try {
+    await notifyAdminsAboutMobileAction(input);
+  } catch (err) {
+    logger.error(
+      "Failed to notify admins about mobile material action",
+      err instanceof Error ? err : undefined,
+    );
+  }
+}
+
+export function logMobileMaterialReturnActivity(input: {
+  userId: string;
+  tenantId?: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  items: Array<{
+    id: string;
+    nama: string;
+    jumlah: number;
+    satuan: string;
+    kondisi: string;
+    barangId: string;
+    gudangId: string;
+  }>;
+}): void {
+  const { userId, tenantId, workOrderId, workOrderNumber, items } = input;
+
+  logActivitySafe({
+    action: "CREATE",
+    subject: "MaterialReturn",
+    userId,
+    ...(tenantId ? { tenantId } : {}),
+    details: {
+      workOrderId,
+      workOrderNumber,
+      items,
+    },
+  });
+}
+
+export async function notifyMobileWorkOrderMaterialReturnSafely(
+  input: MobileWorkOrderMaterialNotificationInput,
+): Promise<void> {
+  await notifyMobileWorkOrderMaterialActionSafely(input);
 }

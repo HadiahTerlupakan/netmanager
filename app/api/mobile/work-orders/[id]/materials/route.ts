@@ -1,201 +1,164 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/modules/database'
-import { Prisma } from '@prisma/client'
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { randomUUID } from 'crypto'
-import { notifyAdminsAboutMobileAction } from '@/modules/notification'
-import { apiError, ErrorCodes } from '@/lib/api-response'
-
-interface UsedMaterial {
-    id: string;
-    nama: string;
-    jumlah: number;
-    satuan: string;
-    kondisi: string;
-    barangId: string;
-    gudangId: string;
-}
+import { NextRequest, NextResponse } from "next/server";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
+import { WorkOrderService } from "@/modules/work-order";
 
 // POST - Add materials/barang to work order (creates barang keluar)
 export async function POST(
-    req: NextRequest,
-    params: { params: Promise<{ id: string }> } // Correct params type for Next.js 15
+  req: NextRequest,
+  params: { params: Promise<{ id: string }> },
 ) {
-    try {
-        const authResult = await getMobileAuthPayload(req)
-        if (authResult instanceof NextResponse) {
-            return authResult
-        }
-
-        const decoded = authResult
-        const userId = decoded.id as string
-        const tenantId = decoded.tenantId as string
-
-        // Fetch user to get name (for accurate notifications)
-        const user = await prisma.user.findFirst({
-            where: { id: userId, tenantId },
-            select: { name: true }
-        })
-
-        const { id } = await params.params
-        const body = await req.json()
-        const { items } = body
-
-        if (!items || !Array.isArray(items) || items.length === 0) {
-            return apiError('Items wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        const workOrder = await prisma.workOrders.findFirst({
-            where: { id, tenantId },
-            include: {
-                assignments: { select: { userId: true, status: true } }
-            }
-        })
-
-        if (!workOrder) {
-            return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
-        }
-
-        // Check if user is authorized (lead technician OR approved partner)
-        const isAssignedTo = workOrder.assignedToId === userId
-        const isApprovedPartner = workOrder.assignments.some(
-            (a) => a.userId === userId && a.status === 'APPROVED'
-        )
-
-        if (!isAssignedTo && !isApprovedPartner) {
-            return apiError('Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.', ErrorCodes.FORBIDDEN, { status: 403 })
-        }
-
-        if (!['ASSIGNED', 'IN_PROGRESS'].includes(workOrder.status)) {
-            return apiError('Work order harus dalam status ASSIGNED atau IN_PROGRESS', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        // Process each item - create barang keluar and update stock
-        const results = await prisma.$transaction(async (tx) => {
-            const createdItems = []
-
-            for (const item of items) {
-                const { barangId, gudangId, jumlah, kondisi } = item
-                const jumlahInt = Math.floor(jumlah)
-                const itemKondisi = kondisi || 'BARU'
-
-                if (jumlahInt <= 0) {
-                    throw new Error('Jumlah harus angka bulat positif')
-                }
-
-                // Check stock specifically for the condition
-                const barangGudang = await tx.barangGudang.findFirst({
-                    where: {
-                        barangId,
-                        gudangId,
-                        tenantId
-                    },
-                    include: { barang: true }
-                })
-
-                if (!barangGudang) {
-                    throw new Error('Data stok tidak ditemukan di gudang ini')
-                }
-
-                // Determine which stock field to check
-                let availableStock = 0
-                if (itemKondisi === 'BARU') availableStock = barangGudang.stokBaru
-                else if (itemKondisi === 'BEKAS') availableStock = barangGudang.stokBekas
-                else if (itemKondisi === 'RUSAK') availableStock = barangGudang.stokRusak
-                else availableStock = barangGudang.stok // Fallback
-
-                if (availableStock < jumlahInt) {
-                    throw new Error(`Stok ${itemKondisi} tidak mencukupi untuk barang ${barangGudang.barang.nama}. Tersedia: ${availableStock}`)
-                }
-
-                // Create barang keluar
-                const keluar = await tx.barangKeluar.create({
-                    data: {
-                        id: randomUUID(),
-                        barangId,
-                        gudangId,
-                        jumlah: jumlahInt,
-                        kondisi: itemKondisi,
-                        userId: userId,
-                        purpose: `Work Order: ${workOrder.workOrderNumber}`,
-                        keterangan: `Digunakan untuk work order ${workOrder.workOrderNumber} - ${workOrder.title}`,
-                        tenantId
-                    },
-                    include: { barang: true }
-                })
-
-                // Update stock - precisely for the condition and total
-                const updateData: Prisma.BarangGudangUpdateInput = {
-                    stok: { decrement: jumlahInt }
-                }
-                
-                if (itemKondisi === 'BARU') updateData.stokBaru = { decrement: jumlahInt }
-                else if (itemKondisi === 'BEKAS') updateData.stokBekas = { decrement: jumlahInt }
-                else if (itemKondisi === 'RUSAK') updateData.stokRusak = { decrement: jumlahInt }
-
-                await tx.barangGudang.update({
-                    where: { id: barangGudang.id },
-                    data: updateData
-                })
-
-
-                createdItems.push({
-                    id: keluar.id,
-                    nama: keluar.barang.nama,
-                    jumlah: jumlahInt,
-                    satuan: keluar.barang.satuan,
-                    kondisi: itemKondisi,
-                    barangId,
-                    gudangId
-                })
-            }
-
-            // Update work order usedMaterials
-            const existingMaterials = (workOrder.usedMaterials as unknown as UsedMaterial[]) || []
-            await tx.workOrders.update({
-                where: { id, tenantId },
-                data: {
-                    usedMaterials: [...existingMaterials, ...createdItems]
-                }
-            })
-
-            // Log to Activity Timeline
-            const materialList = createdItems.map(m => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`).join(', ')
-            await tx.workOrderUpdates.create({
-                data: {
-                    id: randomUUID(),
-                    workOrderId: id,
-                    createdById: userId,
-                    updateType: 'MATERIAL_PICKUP',
-                    message: `Mengambil barang: ${materialList}`,
-                    oldStatus: workOrder.status,
-                    newStatus: workOrder.status,
-                    tenantId
-                }
-            })
-
-            return createdItems
-        })
-
-        // Notify Admin Portal about material pickup
-        const materialList = results.map(m => `${m.nama} (${m.jumlah})`).join(', ')
-        await notifyAdminsAboutMobileAction({
-            workOrderId: id,
-            workOrderNumber: workOrder.workOrderNumber,
-            title: workOrder.title,
-            actionType: 'MATERIAL_PICKUP',
-            actionMessage: `Mengambil barang: ${materialList}`,
-            triggeredByUserId: userId,
-            triggeredByName: (user?.name as string) || (decoded.name as string),
-            ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
-            ...(workOrder.siteId && { siteId: workOrder.siteId }),
-        })
-
-        return NextResponse.json({ success: true, items: results })
-    } catch (error) {
-        console.error('Error adding materials to work order (mobile):', error)
-        return NextResponse.json({
-            error: error instanceof Error ? error.message : 'Terjadi kesalahan server'
-        }, { status: 500 })
+  try {
+    const authResult = await getMobileAuthPayload(req);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const decoded = authResult;
+    const userId = decoded.id as string;
+    const userName = (decoded.name as string) || undefined;
+
+    const { id } = await params.params;
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError("Body request tidak valid", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return apiError("Body request tidak valid", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+
+    const { items } = body as { items?: unknown };
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return apiError("Items wajib diisi", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+
+    for (const item of items) {
+      if (!item || typeof item !== "object") {
+        return apiError(
+          "Item material tidak valid",
+          ErrorCodes.VALIDATION_ERROR,
+          { status: 400 },
+        );
+      }
+
+      const { barangId, gudangId, jumlah, kondisi } = item as {
+        barangId?: unknown;
+        gudangId?: unknown;
+        jumlah?: unknown;
+        kondisi?: unknown;
+      };
+
+      if (typeof barangId !== "string" || !barangId.trim()) {
+        return apiError("barangId wajib diisi", ErrorCodes.VALIDATION_ERROR, {
+          status: 400,
+        });
+      }
+
+      if (typeof gudangId !== "string" || !gudangId.trim()) {
+        return apiError("gudangId wajib diisi", ErrorCodes.VALIDATION_ERROR, {
+          status: 400,
+        });
+      }
+
+      if (typeof jumlah !== "number" || Number.isNaN(jumlah)) {
+        return apiError(
+          "jumlah wajib berupa angka",
+          ErrorCodes.VALIDATION_ERROR,
+          { status: 400 },
+        );
+      }
+
+      if (
+        kondisi !== undefined &&
+        kondisi !== "BARU" &&
+        kondisi !== "BEKAS" &&
+        kondisi !== "RUSAK"
+      ) {
+        return apiError("kondisi tidak valid", ErrorCodes.VALIDATION_ERROR, {
+          status: 400,
+        });
+      }
+    }
+
+    const workOrderService = new WorkOrderService();
+    const result = await workOrderService.addMobileMaterials(
+      id,
+      items,
+      {
+        id: userId,
+        name: userName,
+        role: decoded.role as string | undefined,
+        siteId: decoded.siteId as string | undefined,
+        departmentId: decoded.departmentId as string | undefined,
+        tenantId: decoded.tenantId as string | undefined,
+        isSuperAdmin: Boolean(decoded.isSuperAdmin),
+      },
+      userName,
+    );
+
+    if (!result.success || !result.data) {
+      const code = result.code ?? "INTERNAL_ERROR";
+      const status =
+        code === "FORBIDDEN"
+          ? 403
+          : code === "NOT_FOUND"
+            ? 404
+            : code === "VALIDATION_ERROR"
+              ? 400
+              : 500;
+      const errorCode =
+        code === "FORBIDDEN"
+          ? ErrorCodes.FORBIDDEN
+          : code === "NOT_FOUND"
+            ? ErrorCodes.NOT_FOUND
+            : code === "VALIDATION_ERROR"
+              ? ErrorCodes.VALIDATION_ERROR
+              : ErrorCodes.INTERNAL_ERROR;
+
+      return apiError(result.error || "Terjadi kesalahan server", errorCode, {
+        status,
+      });
+    }
+
+    return NextResponse.json({ success: true, items: result.data.items });
+  } catch (error) {
+    logger.error(
+      "Error adding materials to work order (mobile)",
+      error instanceof Error ? error : undefined,
+    );
+
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan server";
+    if (message.includes("tidak ditemukan")) {
+      return apiError(message, ErrorCodes.NOT_FOUND, { status: 404 });
+    }
+    if (
+      message.includes("Akses ditolak") ||
+      message.includes("tidak memiliki akses")
+    ) {
+      return apiError(message, ErrorCodes.FORBIDDEN, { status: 403 });
+    }
+    if (
+      message.includes("wajib") ||
+      message.includes("harus") ||
+      message.includes("Stok") ||
+      message.includes("Data stok")
+    ) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+    }
+
+    return apiError(message, ErrorCodes.INTERNAL_ERROR, { status: 500 });
+  }
 }
