@@ -21,7 +21,6 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "@prisma/client-radius": [
         "./prisma/generated/radius"
@@ -36,7 +35,7 @@
         "./*"
       ],
       "@/types/*": [
-        "types/*"
+        "./types/*"
       ]
     },
     "typeRoots": [
