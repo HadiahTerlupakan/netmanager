@@ -1,9 +1,24 @@
-import { prisma } from '@/modules/database'
-import { CustomerUsageService } from './CustomerUsageService'
+import { prisma } from "@/modules/database";
+import { CustomerUsageService } from "./CustomerUsageService";
 
-export type PppTechnicalInfo = Awaited<ReturnType<CustomerUsageService['getTechnicalInfo']>>
+export type PppTechnicalInfo = Awaited<
+  ReturnType<CustomerUsageService["getTechnicalInfo"]>
+>;
 
-const customerUsageService = new CustomerUsageService()
+const customerUsageService = new CustomerUsageService();
+
+const sanitizePelangganResponse = <
+  T extends { password?: string | null; passwordHash?: string | null },
+>(
+  pelanggan: T,
+): Omit<T, "password" | "passwordHash"> => {
+  const {
+    password: _password,
+    passwordHash: _passwordHash,
+    ...safePelanggan
+  } = pelanggan;
+  return safePelanggan;
+};
 
 export class PelangganAdminQueryService {
   async getPppDetail(id: string, tenantId?: string | null) {
@@ -27,9 +42,9 @@ export class PelangganAdminQueryService {
           },
         },
       },
-    })
+    });
 
-    if (!pelanggan) return null
+    if (!pelanggan) return null;
 
     const technicalInfo = await customerUsageService.getTechnicalInfo({
       username: pelanggan.username,
@@ -37,9 +52,9 @@ export class PelangganAdminQueryService {
       packageRouterName: pelanggan.hargaPaket?.profilePPP?.mikroTikRouter?.name,
       odpName: pelanggan.odp?.name,
       odpLocation: pelanggan.odp?.location,
-    })
+    });
 
-    return { pelanggan, technicalInfo }
+    return { pelanggan: sanitizePelangganResponse(pelanggan), technicalInfo };
   }
 
   async getPppMutationContext(id: string, tenantId?: string | null) {
@@ -52,6 +67,6 @@ export class PelangganAdminQueryService {
         siteId: true,
         nama: true,
       },
-    })
+    });
   }
 }

@@ -1,63 +1,67 @@
-import { prisma } from '@/modules/database'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { hash } from 'bcryptjs'
-import { investorSchema } from '@/lib/validations/investor'
+import { NextResponse } from "next/server";
 
-export const GET = createHandler({ 
-    auth: true, 
-    permissions: ['investors:read'] 
-}, async () => {
-    const investors = await prisma.investor.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: {
-            _count: {
-                select: { rabProjects: true }
-            }
-        }
-    })
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { investorSchema } from "@/lib/validations/investor";
+import {
+  createInvestor,
+  getInvestors,
+} from "@/modules/finance/services/InvestorAdminService";
 
-    // Sembunyikan field sensitif dan pastikan serialisasi BigInt jika ada (lewat apiSuccess)
-    const safeInvestors = investors.map(({ passwordHash: _, ...investor }) => investor)
+function internalError(message: string) {
+  return NextResponse.json({ success: false, error: message }, { status: 500 });
+}
 
-    return apiSuccess(safeInvestors)
-})
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["investors:read"],
+  },
+  async () => {
+    const result = await getInvestors();
 
-export const POST = createHandler({ 
-    auth: true, 
-    permissions: ['investors:create'],
-    schema: investorSchema
-}, async (req, ctx) => {
-    const { username, password, namaLengkap, perusahaan, noTelp, email, tenantId } = ctx.validated
-
-    if (!password) {
-        return ApiErrors.badRequest('Password wajib diisi untuk membuat investor baru')
+    if (!result.success) {
+      return internalError(result.error || "Gagal mengambil daftar investor");
     }
 
-    const existingUser = await prisma.investor.findUnique({
-        where: { username }
-    })
+    return apiSuccess(result.data);
+  },
+);
 
-    if (existingUser) {
-        return ApiErrors.badRequest('Username sudah digunakan')
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["investors:create"],
+    schema: investorSchema,
+  },
+  async (_req, ctx) => {
+    const {
+      username,
+      password,
+      namaLengkap,
+      perusahaan,
+      noTelp,
+      email,
+      tenantId,
+    } = ctx.validated;
+
+    const result = await createInvestor({
+      username,
+      password,
+      namaLengkap,
+      perusahaan,
+      noTelp,
+      email,
+      tenantId,
+    });
+
+    if (!result.success) {
+      if (result.code === "BAD_REQUEST") {
+        return ApiErrors.badRequest(result.error || "Gagal membuat investor");
+      }
+
+      return internalError(result.error || "Gagal membuat investor");
     }
 
-    const passwordHash = await hash(password, 12)
-
-    const investor = await prisma.investor.create({
-        data: {
-            username,
-            passwordHash,
-            namaLengkap,
-            perusahaan,
-            noTelp,
-            email,
-            tenantId,
-            isActive: true
-        }
-    })
-
-    // Remove passwords before returning
-    const { passwordHash: _, ...safeInvestor } = investor
-
-    return apiSuccess(safeInvestor, { status: 201 })
-})
+    return apiSuccess(result.data, { status: 201 });
+  },
+);

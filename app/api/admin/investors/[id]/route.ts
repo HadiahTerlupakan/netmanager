@@ -1,160 +1,128 @@
-import { prisma } from '@/modules/database'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { hash } from 'bcryptjs'
-import { updateInvestorSchema } from '@/lib/validations/investor'
+import { NextResponse } from "next/server";
 
-export const GET = createHandler({ 
-    auth: true, 
-    permissions: ['investors:read'] 
-}, async (_req, ctx) => {
-    const { id } = ctx.params
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { updateInvestorSchema } from "@/lib/validations/investor";
+import {
+  deleteInvestorById,
+  getInvestorById,
+  toggleInvestorActive,
+  updateInvestorById,
+} from "@/modules/finance/services/InvestorAdminService";
 
-    const investor = await prisma.investor.findUnique({
-        where: { id },
-        select: {
-            id: true,
-            username: true,
-            namaLengkap: true,
-            perusahaan: true,
-            email: true,
-            noTelp: true,
-            isActive: true,
-            createdAt: true,
-            updatedAt: true,
-        }
-    })
+function internalError(message: string) {
+  return NextResponse.json({ success: false, error: message }, { status: 500 });
+}
 
-    if (!investor) {
-        return ApiErrors.notFound('Investor tidak ditemukan')
-    }
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["investors:read"],
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
 
-    return apiSuccess(investor)
-})
-
-export const PUT = createHandler({ 
-    auth: true, 
-    permissions: ['investors:update'] 
-}, async (req, ctx) => {
-    const { id } = ctx.params
-    const body = await req.json()
-    
-    // Validate with schema
-    const validatedData = updateInvestorSchema.parse({ ...body, id })
-    const { username, password, namaLengkap, perusahaan, email, noTelp } = validatedData
-
-    // Cek existing
-    const existingInvestor = await prisma.investor.findUnique({
-        where: { id }
-    })
-
-    if (!existingInvestor) {
-        return ApiErrors.notFound('Investor tidak ditemukan')
-    }
-
-    // Cek username duplicate if changed
-    if (username && username !== existingInvestor.username) {
-        const checkUsername = await prisma.investor.findUnique({
-            where: { username }
-        })
-        if (checkUsername) {
-            return ApiErrors.badRequest('Username sudah digunakan')
-        }
-    }
-
-    // Cek email duplicate if changed
-    if (email && email !== existingInvestor.email) {
-        const checkEmail = await prisma.investor.findUnique({
-            where: { email }
-        })
-        if (checkEmail) {
-            return ApiErrors.badRequest('Email sudah digunakan')
-        }
-    }
-
-    const updateData: {
-        username: string;
-        namaLengkap: string;
-        perusahaan: string | null;
-        email: string;
-        noTelp: string | null;
-        passwordHash?: string;
-    } = {
-        username: username || existingInvestor.username,
-        namaLengkap: namaLengkap || existingInvestor.namaLengkap,
-        perusahaan: perusahaan ?? existingInvestor.perusahaan,
-        email: email || existingInvestor.email,
-        noTelp: noTelp ?? existingInvestor.noTelp,
-    }
-
-    if (password && password.trim() !== '') {
-        updateData.passwordHash = await hash(password, 12)
-    }
-
-    const updatedInvestor = await prisma.investor.update({
-        where: { id },
-        data: updateData
-    })
-
-    ctx.validated = { id, username, namaLengkap, companies: perusahaan, email } // Sync for audit log (exclude password)
-
-    // Remove passwords before returning
-    const { passwordHash: _, ...safeInvestor } = updatedInvestor
-
-    return apiSuccess(safeInvestor)
-})
-
-export const PATCH = createHandler({ 
-    auth: true, 
-    permissions: ['investors:update'] 
-}, async (req, ctx) => {
-    const { id } = ctx.params
-    const { isActive } = await req.json()
-
-    const existingInvestor = await prisma.investor.findUnique({
-        where: { id }
-    })
-
-    if (!existingInvestor) {
-        return ApiErrors.notFound('Investor tidak ditemukan')
-    }
-
-    const updatedInvestor = await prisma.investor.update({
-        where: { id },
-        data: { isActive }
-    })
-
-    ctx.validated = { id, isActive } // Sync for audit log
-    return apiSuccess(updatedInvestor)
-})
-
-export const DELETE = createHandler({ 
-    auth: true, 
-    permissions: ['investors:delete'] 
-}, async (_req, ctx) => {
-    const { id } = ctx.params
-
-    // Check relation
-    const investor = await prisma.investor.findUnique({
-        where: { id },
-        include: {
-            _count: {
-                select: { rabProjects: true, payouts: true }
-            }
-        }
-    })
+    const investor = await getInvestorById(id);
 
     if (!investor) {
-        return ApiErrors.notFound('Investor tidak ditemukan')
+      return ApiErrors.notFound("Investor tidak ditemukan");
     }
 
-    if (investor._count.rabProjects > 0 || investor._count.payouts > 0) {
-        return ApiErrors.badRequest('Gagal menghapus investor karena masih terkait dengan Proyek RAB atau riwayat Payout. Silakan Nonaktifkan akun saja.')
+    return apiSuccess(investor);
+  },
+);
+
+export const PUT = createHandler(
+  {
+    auth: true,
+    permissions: ["investors:update"],
+  },
+  async (req, ctx) => {
+    const { id } = ctx.params;
+    const body = await req.json();
+    const validatedData = updateInvestorSchema.parse({ ...body, id });
+    const { username, password, namaLengkap, perusahaan, email, noTelp } =
+      validatedData;
+
+    const result = await updateInvestorById(id, {
+      username,
+      password,
+      namaLengkap,
+      perusahaan,
+      email,
+      noTelp,
+    });
+
+    if (!result.success) {
+      if (result.code === "NOT_FOUND") {
+        return ApiErrors.notFound(result.error || "Investor tidak ditemukan");
+      }
+
+      if (result.code === "BAD_REQUEST") {
+        return ApiErrors.badRequest(
+          result.error || "Gagal memperbarui investor",
+        );
+      }
+
+      return internalError(result.error || "Gagal memperbarui investor");
     }
 
-    await prisma.investor.delete({
-        where: { id }
-    })
+    ctx.validated = { id, username, namaLengkap, companies: perusahaan, email };
 
-    ctx.validated = { id, deletedAt: new Date(), username: investor.username } // Sync for audit log
-    return apiSuccess({ message: 'Investor berhasil dihapus' })
-})
+    return apiSuccess(result.data);
+  },
+);
+
+export const PATCH = createHandler(
+  {
+    auth: true,
+    permissions: ["investors:update"],
+  },
+  async (req, ctx) => {
+    const { id } = ctx.params;
+    const { isActive } = await req.json();
+
+    const result = await toggleInvestorActive(id, isActive);
+
+    if (!result.success) {
+      if (result.code === "NOT_FOUND") {
+        return ApiErrors.notFound(result.error || "Investor tidak ditemukan");
+      }
+
+      return internalError(result.error || "Gagal memperbarui status investor");
+    }
+
+    ctx.validated = { id, isActive };
+    return apiSuccess(result.data);
+  },
+);
+
+export const DELETE = createHandler(
+  {
+    auth: true,
+    permissions: ["investors:delete"],
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+
+    const result = await deleteInvestorById(id);
+
+    if (!result.success) {
+      if (result.code === "NOT_FOUND") {
+        return ApiErrors.notFound(result.error || "Investor tidak ditemukan");
+      }
+
+      if (result.code === "BAD_REQUEST") {
+        return ApiErrors.badRequest(result.error || "Gagal menghapus investor");
+      }
+
+      return internalError(result.error || "Gagal menghapus investor");
+    }
+
+    ctx.validated = {
+      id,
+      deletedAt: new Date(),
+      username: result.data?.username,
+    };
+    return apiSuccess({ message: "Investor berhasil dihapus" });
+  },
+);
