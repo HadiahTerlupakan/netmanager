@@ -7,6 +7,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json ./
+COPY scripts/run-husky-prepare.js ./scripts/run-husky-prepare.js
 
 # Install dependencies (Optimized for CI/Build stability)
 RUN npm config set fetch-retries 5 \

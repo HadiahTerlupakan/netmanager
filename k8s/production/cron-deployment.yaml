@@ -37,7 +37,7 @@ spec:
               memory: "512Mi"
           livenessProbe:
             exec:
-              command: ["pgrep", "-f", "node"]
+              command: ["pgrep", "-f", "crond"]
             initialDelaySeconds: 30
             periodSeconds: 60
             failureThreshold: 3
