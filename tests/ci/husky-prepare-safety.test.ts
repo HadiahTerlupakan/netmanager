@@ -5,13 +5,48 @@ import { describe, expect, it } from "vitest";
 
 import { shouldInstallHusky } from "../../scripts/run-husky-prepare.js";
 
-function readPackageJson(): { scripts?: Record<string, string> } {
+function readPackageJson(): {
+  scripts?: Record<string, string>;
+} {
   return JSON.parse(
     readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
   );
 }
 
+function readHuskyPrepareScript(): string {
+  return readFileSync(
+    resolve(process.cwd(), "scripts", "run-husky-prepare.js"),
+    "utf8",
+  );
+}
+
+function readHuskyPreCommitHook(): string {
+  return readFileSync(resolve(process.cwd(), ".husky", "pre-commit"), "utf8");
+}
+
 describe("Husky prepare safety", () => {
+  it("resolves direct execution against the real script file URL", () => {
+    const script = readHuskyPrepareScript();
+
+    expect(script).toContain("pathToFileURL(resolve(entrypoint)).href");
+  });
+
+  it("keeps the generated Husky pre-commit hook intact", () => {
+    expect(readHuskyPreCommitHook()).toContain("npx lint-staged");
+  });
+
+  it("uses Husky's supported entrypoint instead of husky/bin.js", () => {
+    const script = readHuskyPrepareScript();
+
+    expect(script).not.toContain("husky/bin.js");
+  });
+
+  it("regenerates Prisma clients after dependency installation", () => {
+    const packageJson = readPackageJson();
+
+    expect(packageJson.scripts?.postinstall).toBe("npm run prisma:generate");
+  });
+
   it("routes prepare through a repo-controlled wrapper script", () => {
     const packageJson = readPackageJson();
 
