@@ -1,12 +1,11 @@
 import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
+import { firebaseRealtimeService } from "@/lib/realtime";
 import { MikroTikRouterRepository } from "@/modules/network";
-import { type Server as SocketIOServer } from "socket.io";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 
 class MikroTikMonitor {
   private intervalId: ReturnType<typeof setTimeout> | null = null;
   private readonly CHECK_INTERVAL = 60000 * 5;
-  private io: SocketIOServer | null = null;
   private errorCount: number = 0;
   private readonly MAX_ERRORS = 5;
   private networkRepo: NetworkRepository;
@@ -15,9 +14,7 @@ class MikroTikMonitor {
     this.networkRepo = new NetworkRepository();
   }
 
-  public setSocketServer(io: SocketIOServer) {
-    this.io = io;
-  }
+  public setSocketServer(_io?: unknown) {}
 
   public start() {
     if (this.intervalId) {
@@ -65,6 +62,15 @@ class MikroTikMonitor {
 
   private async checkStatus() {
     try {
+      const scope = { kind: "admin", id: "mikrotik" } as const;
+      const hasActiveConsumers =
+        await firebaseRealtimeService.hasActiveScopeConsumers(scope);
+
+      if (!hasActiveConsumers) {
+        this.errorCount = 0;
+        return;
+      }
+
       const updatedCount = await checkAllMikroTikRouterStatus();
 
       const routerRepository = new MikroTikRouterRepository();
@@ -73,12 +79,12 @@ class MikroTikMonitor {
 
       for (const tenant of tenants) {
         try {
-          const _stats = await routerRepository.getStatistics(tenant.id);
-          if (this.io) {
-            this.io
-              .to(`admin:mikrotik:${tenant.id}`)
-              .emit("mikrotik:stats", _stats);
-          }
+          const stats = await routerRepository.getStatistics(tenant.id);
+          await firebaseRealtimeService.publish({
+            type: "mikrotik.update",
+            scope,
+            payload: stats,
+          });
         } catch (e) {
           console.error(
             `[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`,
@@ -87,16 +93,16 @@ class MikroTikMonitor {
         }
       }
 
-      if (this.errorCount > 0) {
-      }
       this.errorCount = 0;
 
-      if (this.io) {
-        this.io.emit("mikrotik:update", {
+      await firebaseRealtimeService.publish({
+        type: "mikrotik.update",
+        scope,
+        payload: {
           timestamp: new Date(),
           updatedCount,
-        });
-      }
+        },
+      });
     } catch (error: unknown) {
       this.errorCount++;
 

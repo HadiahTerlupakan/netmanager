@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSocket } from "../SocketContext";
+import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useSession } from "next-auth/react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 
@@ -30,7 +30,7 @@ interface UseRealtimePaymentApprovalsReturn {
 
 export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn {
   const { data: session } = useSession();
-  const { isConnected } = useSocket();
+  const { isConnected } = useRealtime();
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
 

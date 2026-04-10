@@ -17,6 +17,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { getWithAuth, deleteWithAuth } from "@/lib/api-client";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 
 interface BarangKeluar {
@@ -130,6 +131,8 @@ export function KeluarTable({
   useEffect(() => {
     fetchKeluarList();
   }, [fetchKeluarList, refreshTrigger]);
+
+  useRealtimeScope({ kind: "admin", id: "inventory" });
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {

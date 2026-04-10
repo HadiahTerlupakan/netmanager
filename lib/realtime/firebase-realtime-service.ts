@@ -2,7 +2,11 @@ import { randomUUID } from "crypto";
 
 import { db, realtimeDb, messaging } from "@/lib/firebase/admin";
 
-import { buildPresencePath, buildScopeChannel } from "./channel-map";
+import {
+  buildPresencePath,
+  buildScopeChannel,
+  buildScopeConsumerPath,
+} from "./channel-map";
 import type {
   PresenceSnapshot,
   RealtimeEnvelope,
@@ -54,6 +58,18 @@ class FirebaseRealtimeService {
     }
 
     return snapshot;
+  }
+
+  async hasActiveScopeConsumers(scope: RealtimeScope): Promise<boolean> {
+    if (!realtimeDb) {
+      return false;
+    }
+
+    const snapshot = await realtimeDb
+      .ref(buildScopeConsumerPath(scope))
+      .once("value");
+
+    return snapshot.exists();
   }
 
   async sendPush(input: {

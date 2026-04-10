@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSocket } from "../SocketContext";
+import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { usePermission } from "@/hooks/use-permission";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 
 export interface WorkOrderNotification {
   id: string;
@@ -40,7 +41,7 @@ export function useRealtimeWorkOrders(
   options: UseRealtimeWorkOrdersOptions = {},
 ): UseRealtimeWorkOrdersResult {
   const { limit = 5, autoFetch = true, enabled = true } = options;
-  const { isConnected } = useSocket();
+  const { isConnected } = useRealtime();
   const { hasPermission, isLoading: isPermissionLoading } = usePermission();
 
   const [notifications, setNotifications] = useState<WorkOrderNotification[]>(
@@ -151,6 +152,12 @@ export function useRealtimeWorkOrders(
       fetchNotifications();
     },
     [fetchNotifications],
+  );
+
+  useRealtimeScope(
+    enabled && hasPermission("workorders:read")
+      ? { kind: "admin", id: "workorders" }
+      : null,
   );
 
   useRealtimeEvent("notification.new", handleNewNotification);

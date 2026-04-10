@@ -20,10 +20,6 @@ vi.mock("@/lib/firebase/admin", () => ({
   },
 }));
 
-vi.mock("@/lib/websocket/server", () => ({
-  getSocketServer: vi.fn(() => null),
-}));
-
 describe("FirebaseRealtimeService", () => {
   beforeEach(() => {
     vi.clearAllMocks();

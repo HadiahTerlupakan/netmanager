@@ -7,7 +7,7 @@ import {
   getInvestorById,
   toggleInvestorActive,
   updateInvestorById,
-} from "@/modules/finance/services/InvestorAdminService";
+} from "@/modules/finance";
 
 function internalError(message: string) {
   return NextResponse.json({ success: false, error: message }, { status: 500 });

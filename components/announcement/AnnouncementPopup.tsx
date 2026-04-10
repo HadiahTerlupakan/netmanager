@@ -5,7 +5,7 @@ import { HiXMark, HiMegaphone } from "react-icons/hi2";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
-import { useSocketEvent } from "@/hooks/useSocket";
+import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 
 interface Announcement {
   id: string;
@@ -54,7 +54,7 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     [portal],
   );
 
-  useSocketEvent("announcement:new", handleNewAnnouncement);
+  useRealtimeEvent("announcement.new", handleNewAnnouncement);
 
   // Fetch existing announcements on mount
   useEffect(() => {

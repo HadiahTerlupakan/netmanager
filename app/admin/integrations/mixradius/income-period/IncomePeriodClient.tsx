@@ -647,7 +647,7 @@ export default function IncomePeriodClient() {
       calcROI();
     }, 500);
     return () => clearTimeout(timer);
-  }, [rabProject, calculateNetIncome, parseNumber, groups.length]);
+  }, [rabProject, calculateNetIncome, parseNumber, feeConfig, groups.length]);
 
   const handleSaveFees = async (newFees: FeeConfig) => {
     try {

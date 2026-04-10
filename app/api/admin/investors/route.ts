@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { investorSchema } from "@/lib/validations/investor";
-import {
-  createInvestor,
-  getInvestors,
-} from "@/modules/finance/services/InvestorAdminService";
+import { createInvestor, getInvestors } from "@/modules/finance";
 
 function internalError(message: string) {
   return NextResponse.json({ success: false, error: message }, { status: 500 });

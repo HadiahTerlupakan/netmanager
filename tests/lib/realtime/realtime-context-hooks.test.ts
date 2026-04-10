@@ -7,6 +7,7 @@ const markerRealtimeState = vi.fn(() => ({
   isConnected: true,
   lastError: null,
   reconnect: vi.fn(),
+  subscribeScope: vi.fn(),
 }));
 const markerRealtimeSubscription = vi.fn();
 
@@ -16,22 +17,23 @@ vi.mock("@/lib/realtime/RealtimeContext", () => ({
   useRealtimeSubscription: markerRealtimeSubscription,
 }));
 
-describe("SocketContext bridge", () => {
-  it("re-exports the realtime provider and delegates socket hooks to it", async () => {
-    const { SocketProvider, useSocket, useSocketEvent } =
-      await import("@/lib/websocket/SocketContext");
+describe("RealtimeContext hooks", () => {
+  it("exposes the canonical provider and subscription hooks", async () => {
+    const { RealtimeProvider, useRealtime, useRealtimeSubscription } =
+      await import("@/lib/realtime/RealtimeContext");
     const handler = vi.fn();
 
-    expect(SocketProvider).toBe(markerProvider);
-    expect(useSocket()).toEqual({
+    expect(RealtimeProvider).toBe(markerProvider);
+    expect(useRealtime()).toEqual({
       socket: null,
       transport: null,
       isConnected: true,
       lastError: null,
       reconnect: expect.any(Function),
+      subscribeScope: expect.any(Function),
     });
 
-    useSocketEvent("workorder:update", handler);
+    useRealtimeSubscription("workorder:update", handler);
 
     expect(markerRealtimeState).toHaveBeenCalledTimes(1);
     expect(markerRealtimeSubscription).toHaveBeenCalledWith(

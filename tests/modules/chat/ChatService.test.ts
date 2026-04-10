@@ -14,7 +14,6 @@ const mockChatRepository = {
 
 const mockSendPushToUsers = vi.fn().mockResolvedValue(undefined);
 const mockChatMessage = vi.fn();
-const mockEmitSocketEvent = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/modules/chat/repositories/ChatRepository", () => ({
   ChatRepository: class MockChatRepository {
@@ -33,10 +32,6 @@ vi.mock("@/lib/websocket/emitter", () => ({
   socketEmitter: {
     chatMessage: mockChatMessage,
   },
-}));
-
-vi.mock("@/lib/websocket/emit", () => ({
-  emitSocketEvent: mockEmitSocketEvent,
 }));
 
 import { ChatService } from "@/modules/chat/services/ChatService";
@@ -85,6 +80,5 @@ describe("ChatService", () => {
       isOwn: false,
       isBroadcast: true,
     });
-    expect(mockEmitSocketEvent).not.toHaveBeenCalled();
   });
 });

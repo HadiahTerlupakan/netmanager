@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSocket } from "../SocketContext";
+import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload, type CountPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 
@@ -33,13 +33,13 @@ interface UseRealtimeNotificationsResult {
 }
 
 /**
- * Hook for real-time notifications with WebSocket
+ * Hook for real-time notifications
  */
 export function useRealtimeNotifications(
   options: UseRealtimeNotificationsOptions = {},
 ): UseRealtimeNotificationsResult {
   const { limit = 5, autoFetch = true, excludeTypes = [] } = options;
-  const { isConnected } = useSocket();
+  const { isConnected } = useRealtime();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);

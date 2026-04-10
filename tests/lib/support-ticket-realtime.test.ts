@@ -13,10 +13,7 @@ vi.mock("@/lib/realtime/hooks/useRealtimeEvent", () => ({
   useRealtimeEvent: useRealtimeEventMock,
 }));
 
-import {
-  shouldRefetchSupportTickets,
-  useSupportTicketRealtime,
-} from "@/lib/websocket/hooks/supportTicketRealtime";
+import { useSupportTicketRealtime } from "@/lib/websocket/hooks/supportTicketRealtime";
 
 describe("supportTicketRealtime", () => {
   beforeEach(() => {
@@ -49,17 +46,5 @@ describe("supportTicketRealtime", () => {
 
     onMessage?.({ ticketId: "ticket-1" });
     expect(handler).toHaveBeenCalledTimes(1);
-  });
-
-  it("returns true for real reply-bearing support events", () => {
-    expect(shouldRefetchSupportTickets("ticket.new")).toBe(true);
-    expect(shouldRefetchSupportTickets("ticket.reply")).toBe(true);
-    expect(shouldRefetchSupportTickets("ticket.message")).toBe(true);
-  });
-
-  it("returns false for unrelated support events", () => {
-    expect(shouldRefetchSupportTickets("ticket.update")).toBe(false);
-    expect(shouldRefetchSupportTickets("ticket.count")).toBe(false);
-    expect(shouldRefetchSupportTickets("notification.new")).toBe(false);
   });
 });

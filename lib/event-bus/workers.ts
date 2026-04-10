@@ -1,5 +1,6 @@
 import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
+import { firebaseRealtimeService } from "@/lib/realtime";
 import type {
   EventJobData,
   NotificationJobData,
@@ -7,6 +8,34 @@ import type {
   OutboxJobData,
 } from "./queues";
 import { QUEUE_NAMES, EVENT_NAMES } from "./types";
+
+const ATTENDANCE_ADMIN_SCOPE = { kind: "admin" as const, id: "notifications" };
+const ATTENDANCE_REALTIME_EVENTS = {
+  [EVENT_NAMES.ATTENDANCE_CHECKIN]: "attendance.checkin",
+  [EVENT_NAMES.ATTENDANCE_ABSENT]: "attendance.absent",
+} as const;
+
+function publishAdminAttendanceEvent(
+  eventName: keyof typeof ATTENDANCE_REALTIME_EVENTS,
+  payload: Record<string, unknown>,
+) {
+  return firebaseRealtimeService.publish({
+    type: ATTENDANCE_REALTIME_EVENTS[eventName],
+    scope: ATTENDANCE_ADMIN_SCOPE,
+    payload,
+  });
+}
+
+function publishWebsocketNotification(data: NotificationJobData) {
+  if (data.event === "attendance:absent") {
+    return publishAdminAttendanceEvent(
+      EVENT_NAMES.ATTENDANCE_ABSENT,
+      data.data ?? {},
+    );
+  }
+
+  return null;
+}
 
 // ============================================
 // REDIS CONNECTION FACTORY
@@ -321,9 +350,7 @@ function registerDefaultHandlers(): void {
   registerEventHandler(EVENT_NAMES.ATTENDANCE_CHECKIN, async (job) => {
     const { payload } = job.data;
     try {
-      const { socketEmitter } = await import("@/lib/websocket/emitter");
-      // Notify admin room about check-in
-      socketEmitter.broadcast("attendance:checkin", {
+      await publishAdminAttendanceEvent(EVENT_NAMES.ATTENDANCE_CHECKIN, {
         userId: payload.userId,
         attendanceId: payload.attendanceId,
         timestamp: payload.timestamp,
@@ -336,19 +363,10 @@ function registerDefaultHandlers(): void {
   registerEventHandler(EVENT_NAMES.ATTENDANCE_ABSENT, async (job) => {
     const { payload } = job.data;
     try {
-      // Create notification for absent users
-      const { addNotificationJob } = await import("./queues");
-      await addNotificationJob({
-        type: "websocket",
-        title: "Ketidakhadiran",
-        body: `${payload.userName || "Karyawan"} tidak hadir`,
-        room: "admin:notifications",
-        event: "attendance:absent",
-        data: {
-          userId: payload.userId,
-          attendanceId: payload.attendanceId,
-          timestamp: payload.timestamp,
-        },
+      await publishAdminAttendanceEvent(EVENT_NAMES.ATTENDANCE_ABSENT, {
+        userId: payload.userId,
+        attendanceId: payload.attendanceId,
+        timestamp: payload.timestamp,
       });
     } catch (error) {
       console.error("[Worker] Attendance absent handler error:", error);
@@ -440,8 +458,12 @@ async function processNotificationJob(
     case "websocket": {
       if (!data.room || !data.event) break;
       try {
-        const { socketEmitter } = await import("@/lib/websocket/emitter");
-        socketEmitter.broadcast(data.event, data.data);
+        const published = publishWebsocketNotification(data);
+        if (!published) {
+          console.warn(
+            `[Worker] Unsupported websocket notification event: ${data.event}`,
+          );
+        }
       } catch (error) {
         console.error("[Worker] WebSocket emit failed:", error);
       }

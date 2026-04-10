@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPresencePath,
   buildScopeChannel,
+  buildScopeConsumerPath,
   getEventSubscriptionNames,
   LEGACY_TO_REALTIME_EVENT,
 } from "@/lib/realtime/channel-map";
@@ -24,6 +25,9 @@ describe("realtime channel mapping", () => {
       "admin/streams/notifications/events",
     );
     expect(buildPresencePath("user-1")).toBe("presence/users/user-1");
+    expect(
+      buildScopeConsumerPath({ kind: "admin", id: "mikrotik" }, "user-1"),
+    ).toBe("presence/scopes/admin%3Amikrotik/consumers/user-1");
   });
 
   it("normalizes legacy Socket.IO names into the Firebase event contract", () => {

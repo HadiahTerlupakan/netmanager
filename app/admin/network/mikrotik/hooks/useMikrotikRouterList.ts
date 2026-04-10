@@ -4,6 +4,7 @@ import { toast } from "react-hot-toast";
 
 import { useDebounce } from "@/hooks/useDebounce";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 
 export type MikrotikRouterListItem = {
   id: string;
@@ -87,6 +88,8 @@ export function useMikrotikRouterList() {
   useEffect(() => {
     void fetchRouters();
   }, [fetchRouters]);
+
+  useRealtimeScope({ kind: "admin", id: "mikrotik" });
 
   useRealtimeEvent<MikroTikUpdateData>("mikrotik.update", () => {
     void fetchRouters();

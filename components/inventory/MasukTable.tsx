@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import {
   FiEdit,
   FiTrash2,
@@ -120,6 +121,8 @@ export function MasukTable({
   useEffect(() => {
     fetchMasukList();
   }, [fetchMasukList, refreshTrigger]);
+
+  useRealtimeScope({ kind: "admin", id: "inventory" });
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {

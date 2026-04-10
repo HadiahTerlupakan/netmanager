@@ -1,10 +1,3 @@
-// WebSocket module exports
-export {
-  SocketProvider,
-  useSocket,
-  useSocketEvent,
-  createSocketTransport,
-} from "./SocketContext";
 export { SOCKET_EVENTS } from "./types";
 export type {
   NotificationPayload,
@@ -15,7 +8,6 @@ export type {
   SocketData,
 } from "./types";
 
-// Hooks
 export { useRealtimeNotifications } from "./hooks/useRealtimeNotifications";
 export type { Notification } from "./hooks/useRealtimeNotifications";
 export { useRealtimeSupportTickets } from "./hooks/useRealtimeSupportTickets";
@@ -23,6 +15,5 @@ export type { TicketPreview } from "./hooks/useRealtimeSupportTickets";
 export { useRealtimeWorkOrderActivity } from "./hooks/useRealtimeWorkOrderActivity";
 export type { ActivityItem } from "./hooks/useRealtimeWorkOrderActivity";
 
-// Server-side exports (only import in server components/API routes)
+// Server-side helper
 // import { socketEmitter } from '@/lib/websocket/emitter'
-// import { initializeSocketServer, getSocketServer } from '@/lib/websocket/server'

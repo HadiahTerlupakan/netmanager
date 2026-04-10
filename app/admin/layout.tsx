@@ -1,15 +1,19 @@
-import Sidebar from '@/components/layout/Sidebar'
-import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
-import SocketProviderWrapper from '@/components/providers/SocketProviderWrapper'
-import { ToastProvider } from '@/components/ui/Toast'
-import ErrorBoundary from '@/components/common/ErrorBoundary'
-import AnnouncementBanner from '@/components/announcement/AnnouncementBanner'
-import ForceLogoutListener from '@/components/auth/ForceLogoutListener'
+import Sidebar from "@/components/layout/Sidebar";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import RealtimeProviderWrapper from "@/components/providers/RealtimeProviderWrapper";
+import { ToastProvider } from "@/components/ui/Toast";
+import ErrorBoundary from "@/components/common/ErrorBoundary";
+import AnnouncementBanner from "@/components/announcement/AnnouncementBanner";
+import ForceLogoutListener from "@/components/auth/ForceLogoutListener";
 
-import { ensureAdminAccess } from '@/lib/server-auth'
+import { ensureAdminAccess } from "@/lib/server-auth";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Catatan: Subdomain routing di-handle oleh middleware
   // Di development, tetap bisa akses langsung dari localhost
   // Di production, bisa enforce subdomain dengan meng-uncomment kode di bawah
@@ -20,13 +24,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   //   redirect(`${protocol}://admin.${host.split(':')[0]}${host.includes(':') ? ':' + host.split(':')[1] : ''}`)
   // }
 
-  await ensureAdminAccess() // Strict check for admin portal access
+  await ensureAdminAccess(); // Strict check for admin portal access
 
   // Akses ke admin portal diizinkan untuk semua user yang terautentikasi.
   // Menu yang muncul diatur oleh Sidebar berdasarkan custom role permissions.
   // Jika user tidak memiliki permission apapun, mereka akan melihat dashboard kosong.
   return (
-    <SocketProviderWrapper>
+    <RealtimeProviderWrapper>
       <ToastProvider>
         <ForceLogoutListener />
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
@@ -36,17 +40,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Navbar />
             <main className="flex-1 overflow-y-auto">
               <div className="p-6">
-                <ErrorBoundary>
-                  {children}
-                </ErrorBoundary>
+                <ErrorBoundary>{children}</ErrorBoundary>
               </div>
             </main>
             <Footer />
           </div>
         </div>
       </ToastProvider>
-    </SocketProviderWrapper>
-  )
+    </RealtimeProviderWrapper>
+  );
 }
-
-

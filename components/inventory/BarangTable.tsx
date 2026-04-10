@@ -6,6 +6,7 @@ import { FiEdit, FiTrash2, FiEye, FiSearch } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { usePermission } from "@/hooks/use-permission";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +51,8 @@ export function BarangTable() {
 
   // Debounce search to reduce API calls
   const debouncedSearch = useDebounce(search, 500);
+
+  useRealtimeScope({ kind: "admin", id: "inventory" });
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {

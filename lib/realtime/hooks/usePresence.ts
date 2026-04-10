@@ -6,10 +6,10 @@ import { onValue, ref } from "firebase/database";
 import { extractOnlineUserIds } from "@/lib/realtime/client-utils";
 import { getRealtimeClientServices } from "@/lib/realtime/client";
 import type { PresenceSnapshot as RealtimePresenceSnapshot } from "@/lib/realtime/contracts";
-import { useSocket } from "@/lib/websocket/SocketContext";
+import { useRealtime } from "@/lib/realtime/RealtimeContext";
 
 export function usePresence() {
-  const { isConnected } = useSocket();
+  const { isConnected } = useRealtime();
   const { realtimeDatabase } = getRealtimeClientServices();
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const refreshPresence = useCallback(() => {}, []);

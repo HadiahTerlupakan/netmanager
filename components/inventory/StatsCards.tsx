@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import {
   HiOutlineCube,
   HiOutlineArchiveBox,
@@ -78,6 +79,8 @@ export function StatsCards() {
       setLoading(false);
     }
   };
+
+  useRealtimeScope({ kind: "admin", id: "inventory" });
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {

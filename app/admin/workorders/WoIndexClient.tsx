@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import {
   HiClock,
   HiCheckCircle,
@@ -159,6 +160,8 @@ export function ClientComponent() {
   } | null>(null);
   const [performancePeriod, setPerformancePeriod] =
     useState<string>("all_time");
+
+  useRealtimeScope({ kind: "admin", id: "workorders" });
 
   // Trend states
   const [trendStartDate, setTrendStartDate] = useState<string>(() => {

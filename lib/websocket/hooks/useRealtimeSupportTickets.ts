@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { type TicketPayload, type CountPayload } from "../types";
 import { usePermission } from "@/hooks/use-permission";
-import { shouldRefetchSupportTickets } from "./supportTicketRealtime";
 
 export interface TicketPreview {
   id: string;
@@ -23,6 +24,16 @@ export interface TicketPreview {
     isFromAdmin: boolean;
     createdAt: string;
   } | null;
+}
+
+interface AdminTicketSessionUser {
+  primarySiteId?: string | null;
+  siteIds?: string[];
+  siteId?: string | null;
+}
+
+interface AdminTicketSession {
+  user?: AdminTicketSessionUser;
 }
 
 interface UseRealtimeSupportTicketsOptions {
@@ -46,25 +57,41 @@ export function useRealtimeSupportTickets(
   options: UseRealtimeSupportTicketsOptions = {},
 ): UseRealtimeSupportTicketsResult {
   const { limit = 5, autoFetch = true, enabled = true } = options;
+  const { data: session } = useSession();
+  const sessionUser = (session as AdminTicketSession | null)?.user;
   const { isConnected } = useRealtime();
   const { hasPermission, isLoading: isPermissionLoading } = usePermission();
 
   const [tickets, setTickets] = useState<TicketPreview[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(enabled); // Only loading if enabled
+  const [loading, setLoading] = useState(enabled);
   const lastCountRef = useRef(0);
+  const canReadSupportTickets = hasPermission("support:read");
+  const adminSiteId =
+    sessionUser?.primarySiteId ||
+    sessionUser?.siteIds?.[0] ||
+    sessionUser?.siteId ||
+    null;
+  const adminTicketScope =
+    enabled && !isPermissionLoading && canReadSupportTickets && adminSiteId
+      ? { kind: "admin" as const, id: `tickets.site.${adminSiteId}` }
+      : null;
 
-  // Fetch tickets from API
+  useRealtimeScope(adminTicketScope);
+
+  const shouldHandleAdminTicketEvents = !!adminTicketScope;
+
   const fetchTickets = useCallback(async () => {
-    // Skip if explicitly disabled
     if (!enabled) {
       setLoading(false);
       return;
     }
 
-    // Skip if permissions are loading or user doesn't have access
-    if (isPermissionLoading) return;
-    if (!hasPermission("support:read")) {
+    if (isPermissionLoading) {
+      return;
+    }
+
+    if (!canReadSupportTickets) {
       setLoading(false);
       return;
     }
@@ -79,7 +106,6 @@ export function useRealtimeSupportTickets(
         const data = await countRes.json();
         const newCount = data.count || 0;
 
-        // Check if count increased (new ticket)
         if (newCount > lastCountRef.current && lastCountRef.current > 0) {
           console.log("[Tickets] New ticket detected!");
         }
@@ -97,87 +123,86 @@ export function useRealtimeSupportTickets(
     } finally {
       setLoading(false);
     }
-  }, [limit, enabled, hasPermission, isPermissionLoading]);
+  }, [limit, enabled, canReadSupportTickets, isPermissionLoading]);
 
-  // Initial fetch
   useEffect(() => {
     if (autoFetch && !isPermissionLoading && enabled) {
-      fetchTickets();
+      void fetchTickets();
     }
   }, [autoFetch, fetchTickets, isPermissionLoading, enabled]);
 
-  // Handle new ticket from WebSocket
+  const playSound = useCallback(() => {
+    try {
+      const audio = new Audio("/sounds/notification.mp3");
+      audio.play().catch((_err) => console.log("Audio play failed:", _err));
+    } catch (_error) {
+      // Ignore audio errors
+    }
+  }, []);
+
   const handleNewTicket = useCallback(
     (payload: TicketPayload) => {
-      console.log("[Tickets] New ticket received:", payload.ticketNumber);
-
-      // Play notification sound
-      try {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.play().catch((_err) => console.log("Audio play failed:", _err));
-      } catch (_error) {
-        // Ignore audio errors
+      if (!shouldHandleAdminTicketEvents) {
+        return;
       }
 
-      // Refetch to get complete ticket data with relations
-      fetchTickets();
+      console.log("[Tickets] New ticket received:", payload.ticketNumber);
+      playSound();
+      void fetchTickets();
     },
-    [fetchTickets],
+    [fetchTickets, playSound, shouldHandleAdminTicketEvents],
   );
 
-  // Handle ticket update from WebSocket
-  const handleTicketUpdate = useCallback((payload: TicketPayload) => {
-    console.log("[Tickets] Ticket updated:", payload.ticketNumber);
-    // Update the specific ticket in the list
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === payload.id
-          ? { ...t, status: payload.status, priority: payload.priority }
-          : t,
-      ),
-    );
-  }, []);
+  const handleTicketUpdate = useCallback(
+    (payload: TicketPayload) => {
+      if (!shouldHandleAdminTicketEvents) {
+        return;
+      }
 
-  // Handle ticket reply from WebSocket
+      console.log("[Tickets] Ticket updated:", payload.ticketNumber);
+      setTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === payload.id
+            ? {
+                ...ticket,
+                status: payload.status,
+                priority: payload.priority,
+              }
+            : ticket,
+        ),
+      );
+    },
+    [shouldHandleAdminTicketEvents],
+  );
+
   const handleTicketReply = useCallback(
     (payload: TicketPayload) => {
+      if (!shouldHandleAdminTicketEvents) {
+        return;
+      }
+
       console.log("[Tickets] Ticket reply:", payload.ticketNumber);
-
-      // Play notification sound
-      try {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.play().catch((_err) => console.log("Audio play failed:", _err));
-      } catch (_error) {
-        // Ignore audio errors
-      }
-
-      // Refetch to get updated lastReply
-      fetchTickets();
+      playSound();
+      void fetchTickets();
     },
-    [fetchTickets],
+    [fetchTickets, playSound, shouldHandleAdminTicketEvents],
   );
 
-  const handleTicketMessage = useCallback(
-    (payload: TicketPayload) => {
-      console.log("[Tickets] Ticket message:", payload.ticketNumber);
-
-      if (shouldRefetchSupportTickets("ticket.message")) {
-        fetchTickets();
+  const handleCountUpdate = useCallback(
+    (payload: CountPayload) => {
+      if (!shouldHandleAdminTicketEvents) {
+        return;
       }
-    },
-    [fetchTickets],
-  );
 
-  // Handle count update from WebSocket
-  const handleCountUpdate = useCallback((payload: CountPayload) => {
-    setUnreadCount(payload.count);
-    lastCountRef.current = payload.count;
-  }, []);
+      setUnreadCount(payload.count);
+      lastCountRef.current = payload.count;
+    },
+    [shouldHandleAdminTicketEvents],
+  );
 
   useRealtimeEvent<TicketPayload>("ticket.new", handleNewTicket);
   useRealtimeEvent<TicketPayload>("ticket.update", handleTicketUpdate);
   useRealtimeEvent<TicketPayload>("ticket.reply", handleTicketReply);
-  useRealtimeEvent<TicketPayload>("ticket.message", handleTicketMessage);
   useRealtimeEvent<CountPayload>("ticket.count", handleCountUpdate);
 
   return {

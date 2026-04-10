@@ -4,7 +4,6 @@ vi.unmock("@/lib/websocket/emitter");
 
 const mockFns = vi.hoisted(() => ({
   publish: vi.fn().mockResolvedValue(undefined),
-  getSocketServer: vi.fn(() => null),
 }));
 
 vi.mock("@/lib/realtime", () => ({
@@ -35,16 +34,12 @@ vi.mock("@/lib/realtime", () => ({
   },
 }));
 
-vi.mock("@/lib/websocket/server", () => ({
-  getSocketServer: mockFns.getSocketServer,
-}));
-
 describe("socketEmitter Firebase adapter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("publishes notifyUser through FirebaseRealtimeService", async () => {
+  it("publishes notifyUser through FirebaseRealtimeService without consulting Socket.IO", async () => {
     const { socketEmitter } = await import("@/lib/websocket/emitter");
 
     socketEmitter.notifyUser("user-1", {
@@ -65,6 +60,35 @@ describe("socketEmitter Firebase adapter", () => {
         priority: "HIGH",
         title: "Hello",
         message: "World",
+        createdAt: "2026-04-09T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("publishes notifyAdmins through FirebaseRealtimeService without consulting Socket.IO", async () => {
+    const { socketEmitter } = await import("@/lib/websocket/emitter");
+
+    socketEmitter.notifyAdmins(
+      {
+        id: "notif-admin-1",
+        type: "INFO",
+        priority: "LOW",
+        title: "Admin hello",
+        message: "For site admins",
+        createdAt: "2026-04-09T00:00:00.000Z",
+      },
+      "site-1",
+    );
+
+    expect(mockFns.publish).toHaveBeenCalledWith({
+      type: "notification.new",
+      scope: { kind: "admin", id: "notifications.site.site-1" },
+      payload: {
+        id: "notif-admin-1",
+        type: "INFO",
+        priority: "LOW",
+        title: "Admin hello",
+        message: "For site admins",
         createdAt: "2026-04-09T00:00:00.000Z",
       },
     });
@@ -226,6 +250,61 @@ describe("socketEmitter Firebase adapter", () => {
         senderName: "Admin",
         createdAt: "2026-04-09T00:00:00.000Z",
         isOwn: false,
+      },
+    });
+  });
+
+  it("publishes profileRefresh without consulting Socket.IO", async () => {
+    const { socketEmitter } = await import("@/lib/websocket/emitter");
+
+    socketEmitter.profileRefresh("user-9");
+
+    expect(mockFns.publish).toHaveBeenCalledWith({
+      type: "profile.refresh",
+      scope: { kind: "user", id: "user-9" },
+      payload: expect.objectContaining({
+        timestamp: expect.any(String),
+      }),
+    });
+  });
+
+  it("fans out inventoryUpdate to admin and user scopes without consulting Socket.IO", async () => {
+    const { socketEmitter } = await import("@/lib/websocket/emitter");
+
+    socketEmitter.inventoryUpdate({
+      type: "masuk",
+      userId: "user-3",
+      barangId: "barang-1",
+      gudangId: "gudang-1",
+      jumlah: 2,
+      totalStok: 10,
+      siteId: "site-1",
+    });
+
+    expect(mockFns.publish).toHaveBeenNthCalledWith(1, {
+      type: "inventory.update",
+      scope: { kind: "admin", id: "inventory.site.site-1" },
+      payload: {
+        type: "masuk",
+        userId: "user-3",
+        barangId: "barang-1",
+        gudangId: "gudang-1",
+        jumlah: 2,
+        totalStok: 10,
+        siteId: "site-1",
+      },
+    });
+    expect(mockFns.publish).toHaveBeenNthCalledWith(2, {
+      type: "inventory.update",
+      scope: { kind: "user", id: "user-3" },
+      payload: {
+        type: "masuk",
+        userId: "user-3",
+        barangId: "barang-1",
+        gudangId: "gudang-1",
+        jumlah: 2,
+        totalStok: 10,
+        siteId: "site-1",
       },
     });
   });

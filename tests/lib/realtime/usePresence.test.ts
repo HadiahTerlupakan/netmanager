@@ -5,7 +5,7 @@ const refMock = vi.fn((...args: unknown[]) => {
   return { path };
 });
 const getDatabaseMock = vi.fn(() => ({ kind: "database" }));
-const useSocketMock = vi.fn();
+const useRealtimeMock = vi.fn();
 
 const mockRealtimeClientServices = {
   firebaseApp: { name: "shared-app" },
@@ -92,7 +92,6 @@ const mockUseMemo = vi.fn((factory: () => unknown, _deps?: unknown[]) =>
   factory(),
 );
 const mockUseRef = vi.fn((value: unknown) => ({ current: value }));
-const mockUseSocketEvent = vi.fn();
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -113,9 +112,8 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("@/lib/websocket/SocketContext", () => ({
-  useSocket: () => useSocketMock(),
-  useSocketEvent: mockUseSocketEvent,
+vi.mock("@/lib/realtime/RealtimeContext", () => ({
+  useRealtime: () => useRealtimeMock(),
 }));
 
 vi.mock("@/lib/realtime/client", () => ({
@@ -134,13 +132,12 @@ describe("usePresence", () => {
     refMock.mockClear();
     getDatabaseMock.mockClear();
     onValueMock.mockClear();
-    useSocketMock.mockReset();
+    useRealtimeMock.mockReset();
     mockUseState.mockClear();
     mockUseEffect.mockClear();
     mockUseCallback.mockClear();
     mockUseMemo.mockClear();
     mockUseRef.mockClear();
-    mockUseSocketEvent.mockClear();
     mockRealtimeClientServices.realtimeDatabase = { kind: "database" };
     presenceSnapshotHandler = null;
     onlineUsersState = new Set();
@@ -151,7 +148,7 @@ describe("usePresence", () => {
   });
 
   it("reads the global presence/users path and returns an empty list when the snapshot is empty", async () => {
-    useSocketMock.mockReturnValue({
+    useRealtimeMock.mockReturnValue({
       socket: { emit: vi.fn() },
       isConnected: true,
     });
@@ -184,12 +181,11 @@ describe("usePresence", () => {
     expect(secondRender.isConnected).toBe(true);
     expect(secondRender.onlineUserIds).toEqual([]);
     expect(secondRender.refreshPresence).toBe(firstRender.refreshPresence);
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
     expect(mockUseCallback).toHaveBeenCalledWith(expect.any(Function), []);
   });
 
   it("extracts online user ids from the RTDB snapshot while preserving provider connectivity", async () => {
-    useSocketMock.mockReturnValue({
+    useRealtimeMock.mockReturnValue({
       socket: { emit: vi.fn() },
       isConnected: false,
     });
@@ -223,12 +219,11 @@ describe("usePresence", () => {
     expect(rerender.isConnected).toBe(false);
     expect(rerender.onlineUserIds).toEqual(["user-1", "user-2"]);
     expect(rerender.refreshPresence).toBeTypeOf("function");
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
     expect(mockUseCallback).toHaveBeenCalledWith(expect.any(Function), []);
   });
 
   it("subscribes after the RTDB client becomes available on a later render", async () => {
-    useSocketMock.mockReturnValue({
+    useRealtimeMock.mockReturnValue({
       socket: { emit: vi.fn() },
       isConnected: true,
     });
@@ -255,7 +250,7 @@ describe("usePresence", () => {
   });
 
   it("cleans up the RTDB presence listener when the database dependency changes", async () => {
-    useSocketMock.mockReturnValue({
+    useRealtimeMock.mockReturnValue({
       socket: { emit: vi.fn() },
       isConnected: true,
     });

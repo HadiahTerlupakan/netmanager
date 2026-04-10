@@ -28,11 +28,6 @@ const mockDynamic = vi.fn((_loader?: unknown, _options?: unknown) => {
   };
 });
 const mockIcon = vi.fn(() => null);
-const mockUseSocketEvent = vi.fn();
-const mockUseSocket = vi.fn(() => ({
-  socket: null as null,
-  isConnected: true,
-}));
 const mockUseRealtime = vi.fn(() => ({
   isConnected: true,
   socket: null as null,
@@ -88,6 +83,8 @@ const mockUseSession = vi.fn(() => ({
       role: "ADMIN",
       accessAdminPanel: true,
       tenantId: "tenant-1",
+      primarySiteId: "site-1",
+      siteIds: ["site-1"],
     },
   },
   status: "authenticated",
@@ -117,11 +114,6 @@ vi.mock("@/hooks/use-toast", () => ({
 
 vi.mock("react-hot-toast", () => ({
   toast: { error: vi.fn() },
-}));
-
-vi.mock("@/hooks/useSocket", () => ({
-  useSocket: mockUseSocket,
-  useSocketEvent: mockUseSocketEvent,
 }));
 
 vi.mock("@/components/ui/PageLoader", () => ({
@@ -1215,9 +1207,11 @@ vi.mock("date-fns/locale", () => ({
   id: mockLocale,
 }));
 
-vi.mock("socket.io-client", () => ({
-  io: mockIo,
-}));
+vi.mock("socket.io-client", () => {
+  throw new Error(
+    "socket.io-client should not be imported in realtime boundary tests",
+  );
+});
 
 vi.mock("@/lib/chat/shouldNotifyForChatMessage", () => ({
   shouldNotifyForChatMessage: mockShouldNotifyForChatMessage,
@@ -1259,11 +1253,6 @@ vi.mock("react-icons/hi2", () => ({
   HiOutlinePhoto: mockIcon,
   HiOutlineMagnifyingGlass: mockIcon,
   HiOutlineMegaphone: mockIcon,
-}));
-
-vi.mock("@/lib/websocket/SocketContext", () => ({
-  useSocket: mockUseSocket,
-  useSocketEvent: mockUseSocketEvent,
 }));
 
 vi.mock("@/lib/realtime/RealtimeContext", () => ({
@@ -1324,8 +1313,6 @@ beforeEach(() => {
   mockImage.mockClear();
   mockDynamic.mockClear();
   mockIcon.mockClear();
-  mockUseSocket.mockClear();
-  mockUseSocketEvent.mockClear();
   mockUseRealtime.mockClear();
   mockIo.mockClear();
   fetchMock.mockClear();
@@ -1375,52 +1362,64 @@ describe("realtime hook boundaries", () => {
     );
   });
 
-  it("subscribes inventory barang table through the realtime event boundary", async () => {
+  it("subscribes inventory barang table through the realtime scope and event boundaries", async () => {
     const { BarangTable } = await import("@/components/inventory/BarangTable");
 
     BarangTable();
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "inventory",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "inventory.update",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes inventory stats through the realtime event boundary", async () => {
+  it("subscribes inventory stats through the realtime scope and event boundaries", async () => {
     const { StatsCards } = await import("@/components/inventory/StatsCards");
 
     StatsCards();
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "inventory",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "inventory.update",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes inventory masuk table through the realtime event boundary", async () => {
+  it("subscribes inventory masuk table through the realtime scope and event boundaries", async () => {
     const { MasukTable } = await import("@/components/inventory/MasukTable");
 
     MasukTable({});
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "inventory",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "inventory.update",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes inventory keluar table through the realtime event boundary", async () => {
+  it("subscribes inventory keluar table through the realtime scope and event boundaries", async () => {
     const { KeluarTable } = await import("@/components/inventory/KeluarTable");
 
     KeluarTable({});
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "inventory",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "inventory.update",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
   it("subscribes live map through realtime scope and event boundaries", async () => {
@@ -1455,8 +1454,6 @@ describe("realtime hook boundaries", () => {
       "admin.location.update",
       expect.any(Function),
     );
-    expect(mockUseSocket).not.toHaveBeenCalled();
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
   it("subscribes chat page through the realtime event boundary instead of raw socket listeners", async () => {
@@ -1494,16 +1491,18 @@ describe("realtime hook boundaries", () => {
       "chat.message",
       expect.any(Function),
     );
-    expect(mockUseSocket).not.toHaveBeenCalled();
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes the workorder dashboard through normalized realtime events", async () => {
+  it("subscribes the workorder dashboard through realtime scope and normalized events", async () => {
     const workordersIndexModule =
       await import("@/app/admin/workorders/WoIndexClient");
 
     workordersIndexModule.ClientComponent();
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "workorders",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "workorder.new",
       expect.any(Function),
@@ -1516,7 +1515,6 @@ describe("realtime hook boundaries", () => {
       "workorder.assigned",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
   it("subscribes the workorder detail page through realtime scope and event boundaries", async () => {
@@ -1537,34 +1535,38 @@ describe("realtime hook boundaries", () => {
       "workorder.update",
       expect.any(Function),
     );
-    expect(mockUseSocket).not.toHaveBeenCalled();
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes the mikrotik dashboard refresher through normalized realtime events", async () => {
+  it("subscribes the mikrotik dashboard refresher through realtime scope and normalized events", async () => {
     const dashboardSocketModule =
       await import("@/components/dashboard/DashboardSocketUpdate");
 
     dashboardSocketModule.DashboardSocketUpdate();
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "mikrotik",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "mikrotik.update",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes the mikrotik router list through normalized realtime events", async () => {
+  it("subscribes the mikrotik router list through realtime scope and normalized events", async () => {
     const { useMikrotikRouterList } =
       await import("@/app/admin/network/mikrotik/hooks/useMikrotikRouterList");
 
     useMikrotikRouterList();
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "mikrotik",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "mikrotik.update",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
   it("subscribes realtime notifications through normalized notification events", async () => {
@@ -1581,7 +1583,6 @@ describe("realtime hook boundaries", () => {
       "notification.count",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
   it("subscribes customer notifications through normalized announcement and ticket events", async () => {
@@ -1602,7 +1603,34 @@ describe("realtime hook boundaries", () => {
       "ticket.reply",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
+  });
+
+  it("subscribes admin support tickets through site-scoped ticket streams", async () => {
+    const { useRealtimeSupportTickets } =
+      await import("@/lib/websocket/hooks/useRealtimeSupportTickets");
+
+    useRealtimeSupportTickets();
+
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "tickets.site.site-1",
+    });
+    expect(useRealtimeEventMock).toHaveBeenCalledWith(
+      "ticket.new",
+      expect.any(Function),
+    );
+    expect(useRealtimeEventMock).toHaveBeenCalledWith(
+      "ticket.update",
+      expect.any(Function),
+    );
+    expect(useRealtimeEventMock).toHaveBeenCalledWith(
+      "ticket.reply",
+      expect.any(Function),
+    );
+    expect(useRealtimeEventMock).toHaveBeenCalledWith(
+      "ticket.count",
+      expect.any(Function),
+    );
   });
 
   it("subscribes payment approvals through normalized payment pending events", async () => {
@@ -1615,7 +1643,6 @@ describe("realtime hook boundaries", () => {
       "payment.pending.new",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
   it("subscribes workorder notifications through normalized notification and workorder events", async () => {
@@ -1640,20 +1667,96 @@ describe("realtime hook boundaries", () => {
       "workorder.new",
       expect.any(Function),
     );
-    expect(mockUseSocketEvent).not.toHaveBeenCalled();
   });
 
-  it("subscribes announcement popup through the shared socket boundary instead of creating a raw socket client", async () => {
+  it("subscribes announcement popup through normalized realtime announcement events", async () => {
     const announcementPopupModule =
       await import("@/components/announcement/AnnouncementPopup");
     const AnnouncementPopup = announcementPopupModule.default;
 
     AnnouncementPopup({ portal: "customer" });
 
-    expect(mockUseSocketEvent).toHaveBeenCalledWith(
-      "announcement:new",
+    expect(useRealtimeEventMock).toHaveBeenCalledWith(
+      "announcement.new",
       expect.any(Function),
     );
     expect(mockIo).not.toHaveBeenCalled();
+  });
+
+  it("filters customer announcement popup payloads to customer audiences only", async () => {
+    const announcementPopupModule =
+      await import("@/components/announcement/AnnouncementPopup");
+    const AnnouncementPopup = announcementPopupModule.default;
+    const localStorageMock = window.localStorage;
+    const setAnnouncements = vi.fn();
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: localStorageMock,
+      writable: true,
+    });
+    const setCurrentIndex = vi.fn();
+    const setIsVisible = vi.fn();
+    const setLoading = vi.fn();
+
+    localStorageMock.getItem = vi.fn(() => "[]");
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue([]),
+    });
+    mockUseState
+      .mockImplementationOnce(() => [[], setAnnouncements])
+      .mockImplementationOnce(() => [0, setCurrentIndex])
+      .mockImplementationOnce(() => [false, setIsVisible])
+      .mockImplementationOnce(() => [true, setLoading]);
+
+    AnnouncementPopup({ portal: "customer" });
+
+    const announcementHandler = useRealtimeEventMock.mock.calls.find(
+      ([eventName]) => eventName === "announcement.new",
+    )?.[1] as
+      | ((payload: {
+          id: string;
+          title: string;
+          content: string;
+          createdAt: string;
+          target?: string;
+          isPinned: boolean;
+        }) => void)
+      | undefined;
+
+    expect(announcementHandler).toBeTypeOf("function");
+
+    announcementHandler?.({
+      id: "customer-announcement",
+      title: "Info pelanggan",
+      content: "Untuk pelanggan",
+      createdAt: "2026-03-08T11:00:00.000Z",
+      target: "CUSTOMER",
+      isPinned: true,
+    });
+
+    expect(setAnnouncements).toHaveBeenCalledTimes(1);
+    const updateAnnouncements = setAnnouncements.mock.calls[0]?.[0] as
+      | ((items: Array<{ id: string }>) => Array<{ id: string }>)
+      | undefined;
+    expect(updateAnnouncements).toBeTypeOf("function");
+    expect(updateAnnouncements?.([])).toEqual([
+      expect.objectContaining({ id: "customer-announcement" }),
+    ]);
+    expect(setCurrentIndex).toHaveBeenCalledWith(0);
+    expect(setIsVisible).toHaveBeenCalledWith(true);
+
+    announcementHandler?.({
+      id: "admin-announcement",
+      title: "Info admin",
+      content: "Untuk admin",
+      createdAt: "2026-03-08T12:00:00.000Z",
+      target: "ADMIN",
+      isPinned: false,
+    });
+
+    expect(setAnnouncements).toHaveBeenCalledTimes(1);
+    expect(setCurrentIndex).toHaveBeenCalledTimes(1);
+    expect(setIsVisible).toHaveBeenCalledTimes(1);
   });
 });

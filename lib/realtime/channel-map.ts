@@ -55,3 +55,17 @@ export function buildScopeChannel(scope: RealtimeScope): string {
 export function buildPresencePath(userId: string): string {
   return `presence/users/${userId}`;
 }
+
+export function buildScopeConsumerPath(
+  scope: RealtimeScope,
+  userId?: string,
+): string {
+  const scopeKey = encodeURIComponent(`${scope.kind}:${scope.id}`);
+  const basePath = `presence/scopes/${scopeKey}/consumers`;
+
+  if (!userId) {
+    return basePath;
+  }
+
+  return `${basePath}/${userId}`;
+}

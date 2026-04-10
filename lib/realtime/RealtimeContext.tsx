@@ -11,150 +11,322 @@ import {
   type ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
-import { io, type Socket } from "socket.io-client";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import { onDisconnect, ref, set } from "firebase/database";
 
-import { getEventSubscriptionNames } from "@/lib/realtime/channel-map";
+import {
+  LEGACY_TO_REALTIME_EVENT,
+  buildPresencePath,
+  buildScopeChannel,
+  buildScopeConsumerPath,
+  getEventSubscriptionNames,
+} from "@/lib/realtime/channel-map";
+import { getRealtimeClientServices } from "@/lib/realtime/client";
+import type {
+  PresenceSnapshot,
+  RealtimeEnvelope,
+  RealtimeScope,
+} from "@/lib/realtime/contracts";
+
+type TransportSource = {
+  emit?: (...args: unknown[]) => unknown;
+  on?: (...args: unknown[]) => unknown;
+  off?: (...args: unknown[]) => unknown;
+};
+
+type SessionUser = {
+  id?: string;
+  role?: string;
+  departmentId?: string | null;
+  siteId?: string | null;
+  accessAdminPanel?: boolean;
+};
 
 export interface RealtimeTransport {
-  emit: Socket["emit"];
-  on: Socket["on"];
-  off: Socket["off"];
+  emit: (...args: unknown[]) => void;
+  on: (...args: unknown[]) => void;
+  off: (...args: unknown[]) => void;
 }
 
 export interface RealtimeConnectionState {
-  socket: Socket | null;
+  socket: null;
   transport: RealtimeTransport | null;
   isConnected: boolean;
   lastError: string | null;
   reconnect: () => void;
+  subscribeScope?: (scope: RealtimeScope) => () => void;
 }
 
-export function createRealtimeTransport(socket: Socket): RealtimeTransport {
+interface RealtimeContextValue extends RealtimeConnectionState {
+  firestore: ReturnType<typeof getRealtimeClientServices>["firestore"];
+  scopes: RealtimeScope[];
+}
+
+function noop(): void {}
+
+export function createRealtimeTransport(
+  source?: TransportSource,
+): RealtimeTransport {
   return {
-    emit: socket.emit.bind(socket),
-    on: socket.on.bind(socket),
-    off: socket.off.bind(socket),
+    emit: (...args: unknown[]) => {
+      source?.emit?.(...args);
+    },
+    on: (...args: unknown[]) => {
+      source?.on?.(...args);
+    },
+    off: (...args: unknown[]) => {
+      source?.off?.(...args);
+    },
   };
 }
 
-const RealtimeContext = createContext<RealtimeConnectionState | null>(null);
+const DEFAULT_TRANSPORT = createRealtimeTransport();
+const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
 interface RealtimeProviderProps {
   children: ReactNode;
+  userOverride?: SessionUser | null;
+  statusOverride?: "authenticated" | "unauthenticated" | "loading";
 }
 
-export function RealtimeProvider({ children }: RealtimeProviderProps) {
-  const { data: session, status } = useSession();
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastError, setLastError] = useState<string | null>(null);
+function resolveAuthStatus(
+  sessionStatus: "authenticated" | "unauthenticated" | "loading",
+  statusOverride?: "authenticated" | "unauthenticated" | "loading",
+) {
+  return statusOverride ?? sessionStatus;
+}
+
+function resolveRealtimeUser(
+  sessionUser: SessionUser | undefined,
+  userOverride?: SessionUser | null,
+): SessionUser | undefined {
+  if (userOverride === null) {
+    return undefined;
+  }
+
+  return userOverride ?? sessionUser;
+}
+
+function serializeScope(scope: RealtimeScope): string {
+  return `${scope.kind}:${scope.id}`;
+}
+
+function dedupeScopes(scopes: RealtimeScope[]): RealtimeScope[] {
+  const seen = new Set<string>();
+
+  return scopes.filter((scope) => {
+    const key = serializeScope(scope);
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function getDefaultScopes(user: SessionUser): RealtimeScope[] {
+  if (!user.id) {
+    return [];
+  }
+
+  const scopes: RealtimeScope[] = [{ kind: "user", id: user.id }];
+
+  if (user.departmentId) {
+    scopes.push({ kind: "department", id: user.departmentId });
+  }
+
+  if (user.accessAdminPanel) {
+    scopes.push({ kind: "admin", id: "notifications" });
+
+    if (user.siteId) {
+      scopes.push({ kind: "admin", id: `notifications.site.${user.siteId}` });
+    }
+  }
+
+  return scopes;
+}
+
+export function RealtimeProvider({
+  children,
+  userOverride,
+  statusOverride,
+}: RealtimeProviderProps) {
+  const { data: session, status: sessionStatus } = useSession();
+  const [dynamicScopes, setDynamicScopes] = useState<RealtimeScope[]>([]);
+  const [reconnectVersion, setReconnectVersion] = useState(0);
+  const scopeRegistryRef = useRef(
+    new Map<string, { scope: RealtimeScope; count: number }>(),
+  );
+  const services = useMemo(() => getRealtimeClientServices(), []);
+  const status = resolveAuthStatus(sessionStatus, statusOverride);
+  const user = resolveRealtimeUser(
+    session?.user as SessionUser | undefined,
+    userOverride,
+  );
+
+  const scopes = useMemo(
+    () =>
+      dedupeScopes([...(user ? getDefaultScopes(user) : []), ...dynamicScopes]),
+    [dynamicScopes, user],
+  );
+
+  const syncDynamicScopes = useCallback(() => {
+    const nextScopes = Array.from(scopeRegistryRef.current.values()).map(
+      (entry) => entry.scope,
+    );
+    setDynamicScopes(nextScopes);
+  }, []);
 
   useEffect(() => {
-    if (status !== "authenticated" || !session?.user) {
-      return;
-    }
+    syncDynamicScopes();
+  }, [syncDynamicScopes]);
 
-    const user = session.user as {
-      id?: string;
-      role?: string;
-      departmentId?: string;
-      accessAdminPanel?: boolean;
-    };
+  const subscribeScope = useCallback(
+    (scope: RealtimeScope) => {
+      const key = serializeScope(scope);
+      const current = scopeRegistryRef.current.get(key);
 
-    if (!user.id) {
-      console.warn("[WS] No user ID available for socket connection");
-      return;
-    }
+      if (current) {
+        current.count += 1;
+      } else {
+        scopeRegistryRef.current.set(key, { scope, count: 1 });
+      }
 
-    const socketInstance = io({
-      path: "/api/socket",
-      withCredentials: true,
-      auth: {
-        userId: user.id,
-        userRole: user.role || "USER",
-        departmentId: user.departmentId,
-        accessAdminPanel: user.accessAdminPanel,
-      },
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-      transports: ["websocket"],
-      autoConnect: true,
-    });
+      syncDynamicScopes();
 
-    socketInstance.on("connect", () => {
-      setIsConnected(true);
-      setLastError(null);
-    });
+      return () => {
+        const active = scopeRegistryRef.current.get(key);
+        if (!active) {
+          return;
+        }
 
-    socketInstance.on("disconnect", () => {
-      setIsConnected(false);
-    });
+        if (active.count <= 1) {
+          scopeRegistryRef.current.delete(key);
+        } else {
+          active.count -= 1;
+        }
 
-    socketInstance.on("connect_error", (error) => {
-      setLastError(error.message);
-      setIsConnected(false);
-    });
-
-    socketInstance.on("reconnect", () => {
-      setIsConnected(true);
-      setLastError(null);
-    });
-
-    socketInstance.on("reconnect_failed", () => {
-      setLastError("Koneksi terputus. Silakan refresh halaman.");
-    });
-
-    queueMicrotask(() => {
-      setSocket(socketInstance);
-    });
-
-    return () => {
-      socketInstance.disconnect();
-      setSocket(null);
-      setIsConnected(false);
-    };
-  }, [session, status]);
+        syncDynamicScopes();
+      };
+    },
+    [syncDynamicScopes],
+  );
 
   const reconnect = useCallback(() => {
-    if (socket?.connected) {
-      socket.disconnect();
-      socket.connect();
-      return;
-    }
+    setReconnectVersion((value) => value + 1);
+  }, []);
 
-    socket?.connect();
-  }, [socket]);
+  const isConnected =
+    status === "authenticated" &&
+    Boolean(user?.id) &&
+    Boolean(services.firestore);
+  const lastError =
+    status === "authenticated" && user?.id && !services.firestore
+      ? "Firebase realtime client belum tersedia."
+      : null;
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (
-        document.visibilityState === "visible" &&
-        socket &&
-        !socket.connected
-      ) {
-        socket.connect();
-      }
+    if (status !== "authenticated" || !user?.id || !services.realtimeDatabase) {
+      return noop;
+    }
+
+    const presenceRef = ref(
+      services.realtimeDatabase,
+      buildPresencePath(user.id),
+    );
+    const createSnapshot = (online: boolean): PresenceSnapshot => {
+      const timestamp = new Date().toISOString();
+
+      return {
+        userId: user.id as string,
+        isOnline: online,
+        source: "web",
+        updatedAt: timestamp,
+        lastSeenAt: timestamp,
+      };
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void onDisconnect(presenceRef).set(createSnapshot(false)).catch(noop);
+    void set(presenceRef, createSnapshot(true)).catch(noop);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void set(presenceRef, createSnapshot(false)).catch(noop);
     };
-  }, [socket]);
+  }, [services.realtimeDatabase, status, user?.id, reconnectVersion]);
 
-  const transport = useMemo(
-    () => (socket ? createRealtimeTransport(socket) : null),
-    [socket],
+  useEffect(() => {
+    if (status !== "authenticated" || !user?.id || !services.realtimeDatabase) {
+      return noop;
+    }
+
+    const adminScopes = scopes.filter(
+      (scope) =>
+        scope.kind === "admin" &&
+        (scope.id === "mikrotik" || scope.id.startsWith("radius:")),
+    );
+
+    if (adminScopes.length === 0) {
+      return noop;
+    }
+
+    const uniqueConsumerPaths = Array.from(
+      new Set(
+        adminScopes.map((scope) =>
+          buildScopeConsumerPath(scope, user.id as string),
+        ),
+      ),
+    );
+    const timestamp = new Date().toISOString();
+
+    uniqueConsumerPaths.forEach((path) => {
+      const consumerRef = ref(services.realtimeDatabase, path);
+      const snapshot = {
+        userId: user.id as string,
+        source: "web" as const,
+        updatedAt: timestamp,
+      };
+
+      void onDisconnect(consumerRef).remove().catch(noop);
+      void set(consumerRef, snapshot).catch(noop);
+    });
+
+    return () => {
+      uniqueConsumerPaths.forEach((path) => {
+        void set(ref(services.realtimeDatabase, path), null).catch(noop);
+      });
+    };
+  }, [services.realtimeDatabase, scopes, status, user?.id, reconnectVersion]);
+
+  const value = useMemo<RealtimeContextValue>(
+    () => ({
+      socket: null,
+      transport: DEFAULT_TRANSPORT,
+      firestore: services.firestore,
+      scopes,
+      isConnected,
+      lastError,
+      reconnect,
+      subscribeScope,
+    }),
+    [
+      services.firestore,
+      scopes,
+      isConnected,
+      lastError,
+      reconnect,
+      subscribeScope,
+    ],
   );
 
   return (
-    <RealtimeContext.Provider
-      value={{ socket, transport, isConnected, lastError, reconnect }}
-    >
+    <RealtimeContext.Provider value={value}>
       {children}
     </RealtimeContext.Provider>
   );
@@ -174,34 +346,70 @@ export function useRealtimeSubscription<TPayload>(
   event: string,
   handler: (payload: TPayload) => void,
 ) {
-  const { socket, transport, isConnected } = useRealtime();
+  const { firestore, scopes, isConnected } = useRealtime();
   const handlerRef = useRef(handler);
 
   useEffect(() => {
     handlerRef.current = handler;
   }, [handler]);
 
-  const activeTransport =
-    transport ?? (socket ? createRealtimeTransport(socket) : null);
+  const subscriptionEvents = useMemo(() => {
+    const canonicalEvent =
+      LEGACY_TO_REALTIME_EVENT[
+        event as keyof typeof LEGACY_TO_REALTIME_EVENT
+      ] ?? event;
+
+    return new Set([
+      event,
+      canonicalEvent,
+      ...getEventSubscriptionNames(canonicalEvent),
+    ]);
+  }, [event]);
 
   useEffect(() => {
-    if (!activeTransport || !isConnected) {
+    if (!firestore || !isConnected || scopes.length === 0) {
       return;
     }
 
-    const listener = (payload: TPayload) => {
-      handlerRef.current(payload);
-    };
-    const subscriptionEvents = getEventSubscriptionNames(event);
+    const unsubscribes = scopes.map((scope) => {
+      const seenDocumentIds = new Set<string>();
+      let hydrated = false;
+      const channelQuery = query(
+        collection(firestore, buildScopeChannel(scope)),
+        orderBy("createdAt", "desc"),
+        limit(20),
+      );
 
-    subscriptionEvents.forEach((subscriptionEvent) => {
-      activeTransport.on(subscriptionEvent, listener);
+      return onSnapshot(channelQuery, (snapshot) => {
+        if (!hydrated) {
+          snapshot.docs.forEach((document) => {
+            seenDocumentIds.add(document.id);
+          });
+          hydrated = true;
+          return;
+        }
+
+        snapshot.docChanges().forEach((change) => {
+          if (change.type !== "added" || seenDocumentIds.has(change.doc.id)) {
+            return;
+          }
+
+          seenDocumentIds.add(change.doc.id);
+          const data = change.doc.data() as Partial<RealtimeEnvelope<TPayload>>;
+
+          if (!data.type || !subscriptionEvents.has(data.type)) {
+            return;
+          }
+
+          handlerRef.current((data.payload ?? data) as TPayload);
+        });
+      });
     });
 
     return () => {
-      subscriptionEvents.forEach((subscriptionEvent) => {
-        activeTransport.off(subscriptionEvent, listener);
+      unsubscribes.forEach((unsubscribe) => {
+        unsubscribe();
       });
     };
-  }, [activeTransport, event, isConnected]);
+  }, [firestore, isConnected, scopes, subscriptionEvents]);
 }

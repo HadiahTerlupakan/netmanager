@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSocket } from "../SocketContext";
+import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 
@@ -44,14 +44,14 @@ interface UseCustomerNotificationsResult {
 }
 
 /**
- * Hook for real-time customer notifications with WebSocket
+ * Hook for real-time customer notifications
  * Uses customer-specific endpoints
  */
 export function useCustomerNotifications(
   options: UseCustomerNotificationsOptions = {},
 ): UseCustomerNotificationsResult {
   const { limit = 5, autoFetch = true } = options;
-  const { isConnected } = useSocket();
+  const { isConnected } = useRealtime();
 
   const [notifications, setNotifications] = useState<CustomerNotification[]>(
     [],

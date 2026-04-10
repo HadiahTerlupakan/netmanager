@@ -12,6 +12,8 @@ export type RealtimeEventType =
   | "workorder.activity"
   | "inventory.update"
   | "chat.message"
+  | "attendance.checkin"
+  | "attendance.absent"
   | "announcement.new"
   | "payment.pending.new"
   | "mikrotik.update"
