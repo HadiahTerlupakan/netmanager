@@ -524,12 +524,15 @@ export class AttendanceService {
       throw new Error("NO_ACTIVE_SESSION");
     }
 
+    const checkOutTime = offlineTime || new Date();
+
     // 2. Calculate warning for FLEXIBLE users
     let warning: string | undefined;
     if (attendance.user.workingHourMode === "FLEXIBLE") {
       const checkInTime = new Date(attendance.checkIn).getTime();
-      const now = Date.now();
-      const durationHours = (now - checkInTime) / (1000 * 60 * 60);
+      const effectiveCheckoutTime = checkOutTime.getTime();
+      const durationHours =
+        (effectiveCheckoutTime - checkInTime) / (1000 * 60 * 60);
       const targetHours = attendance.user.flexibleTargetHour || 8;
 
       if (durationHours < targetHours) {
@@ -571,8 +574,6 @@ export class AttendanceService {
       : attendance.notes;
 
     // 5. Update record
-    const checkOutTime = offlineTime || new Date();
-
     const updateData: Prisma.AttendanceUncheckedUpdateInput = {
       checkOut: checkOutTime,
       checkOutPhoto: photoUrl,

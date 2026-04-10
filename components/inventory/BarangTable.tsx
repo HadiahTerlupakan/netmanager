@@ -1,190 +1,198 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
-import { FiEdit, FiTrash2, FiEye, FiSearch } from 'react-icons/fi'
-import { Button } from '@/components/ui/Button'
-import { ResponsiveTable, type Column } from '@/components/ui/ResponsiveTable'
-import { useSocketEvent } from '@/hooks/useSocket'
-import { usePermission } from '@/hooks/use-permission'
-import { useDebounce } from '@/hooks/useDebounce'
-import { useToast } from '@/hooks/use-toast'
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { FiEdit, FiTrash2, FiEye, FiSearch } from "react-icons/fi";
+import { Button } from "@/components/ui/Button";
+import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { usePermission } from "@/hooks/use-permission";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useToast } from "@/hooks/use-toast";
 
 interface Barang {
-  id: string
-  kode: string
-  nama: string
-  satuan: string
-  totalStock: number
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
+  totalStock: number;
   stockPerGudang: Array<{
-    gudangId: string
-    gudangKode: string
-    gudangNama: string
-    stok: number
-  }>
-  createdAt: string
-  updatedAt: string
+    gudangId: string;
+    gudangKode: string;
+    gudangNama: string;
+    stok: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function BarangTable() {
-  const { hasPermission } = usePermission()
-  const canUpdate = hasPermission('barang:update')
-  const canDelete = hasPermission('barang:delete')
-  const { showToast } = useToast()
+  const { hasPermission } = usePermission();
+  const canUpdate = hasPermission("barang:update");
+  const canDelete = hasPermission("barang:delete");
+  const { showToast } = useToast();
 
-  const [barangs, setBarangs] = useState<Barang[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [gudangId, setGudangId] = useState('')
-  const [gudangs, setGudangs] = useState<{ id: string; kode: string; nama: string }[]>([])
-  const [page, setPage] = useState(1)
+  const [barangs, setBarangs] = useState<Barang[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [gudangId, setGudangId] = useState("");
+  const [gudangs, setGudangs] = useState<
+    { id: string; kode: string; nama: string }[]
+  >([]);
+  const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
-    totalPages: 0
-  })
+    totalPages: 0,
+  });
 
   // Debounce search to reduce API calls
-  const debouncedSearch = useDebounce(search, 500)
+  const debouncedSearch = useDebounce(search, 500);
 
   // Listen for inventory updates
-  useSocketEvent('inventory:update', () => {
-    fetchBarangs()
-  })
+  useRealtimeEvent("inventory.update", () => {
+    fetchBarangs();
+  });
 
   // Fetch gudangs for filter
   useEffect(() => {
     async function fetchGudangs() {
       try {
-        const response = await fetch('/api/inventory/gudang?view=all')
-        const data = await response.json()
-        const result = data.data || data
-        setGudangs(result.gudangs || [])
+        const response = await fetch("/api/inventory/gudang?view=all");
+        const data = await response.json();
+        const result = data.data || data;
+        setGudangs(result.gudangs || []);
       } catch (error) {
-        console.error('Failed to fetch gudangs:', error)
+        console.error("Failed to fetch gudangs:", error);
       }
     }
 
-    fetchGudangs()
-  }, [])
+    fetchGudangs();
+  }, []);
 
   // Fetch barang data
   const fetchBarangs = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '10',
+        limit: "10",
         ...(debouncedSearch && { search: debouncedSearch }),
-        ...(gudangId && { gudangId })
-      })
+        ...(gudangId && { gudangId }),
+      });
 
-      const response = await fetch(`/api/inventory/barang?${params}`)
-      const data = await response.json()
+      const response = await fetch(`/api/inventory/barang?${params}`);
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Gagal memuat data')
+        throw new Error(data.error || "Gagal memuat data");
       }
 
-      const result = data.data || data
+      const result = data.data || data;
 
-      setBarangs(result.barangs || [])
-      setPagination(prev => result.pagination || prev)
+      setBarangs(result.barangs || []);
+      setPagination((prev) => result.pagination || prev);
     } catch (error) {
-      console.error('Failed to fetch barang:', error)
-      setError(error instanceof Error ? error.message : 'Gagal memuat data')
+      console.error("Failed to fetch barang:", error);
+      setError(error instanceof Error ? error.message : "Gagal memuat data");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [debouncedSearch, gudangId, page])
+  }, [debouncedSearch, gudangId, page]);
 
   useEffect(() => {
-    fetchBarangs()
-  }, [fetchBarangs])
+    fetchBarangs();
+  }, [fetchBarangs]);
 
   const handleDelete = async (id: string, kode: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus barang ${kode}?`)) {
-      return
+      return;
     }
 
     try {
       const response = await fetch(`/api/inventory/barang/${id}`, {
-        method: 'DELETE',
-      })
+        method: "DELETE",
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Gagal menghapus barang')
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Gagal menghapus barang");
       }
 
       // Show success toast
-      showToast('success', `Barang ${kode} berhasil dihapus`)
+      showToast("success", `Barang ${kode} berhasil dihapus`);
 
       // Soft refresh - reload data without full page reload
-      await fetchBarangs()
+      await fetchBarangs();
     } catch (error) {
-      console.error('Failed to delete barang:', error)
-      showToast('error', error instanceof Error ? error.message : 'Gagal menghapus barang')
+      console.error("Failed to delete barang:", error);
+      showToast(
+        "error",
+        error instanceof Error ? error.message : "Gagal menghapus barang",
+      );
     }
-  }
+  };
 
   // Define columns for ResponsiveTable
   const columns: Column<Barang>[] = [
     {
-      key: 'kode',
-      header: 'Kode',
-      priority: 'primary',
+      key: "kode",
+      header: "Kode",
+      priority: "primary",
       render: (item) => (
         <span className="text-sm font-medium text-gray-900 dark:text-white">
           {item.kode}
         </span>
-      )
+      ),
     },
     {
-      key: 'nama',
-      header: 'Nama Barang',
-      priority: 'primary',
+      key: "nama",
+      header: "Nama Barang",
+      priority: "primary",
       render: (item) => (
         <div className="text-sm text-gray-900 dark:text-white font-medium">
           {item.nama}
         </div>
-      )
+      ),
     },
     {
-      key: 'satuan',
-      header: 'Satuan',
-      priority: 'secondary',
-      align: 'center',
+      key: "satuan",
+      header: "Satuan",
+      priority: "secondary",
+      align: "center",
       render: (item) => (
         <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
           {item.satuan}
         </span>
-      )
+      ),
     },
     {
-      key: 'totalStock',
-      header: 'Total Stok',
-      priority: 'primary',
-      align: 'center',
+      key: "totalStock",
+      header: "Total Stok",
+      priority: "primary",
+      align: "center",
       render: (item) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${item.totalStock === 0
-          ? 'bg-red-100 text-red-800'
-          : item.totalStock < 5
-            ? 'bg-yellow-100 text-yellow-800'
-            : 'bg-green-100 text-green-800'
-          }`}>
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            item.totalStock === 0
+              ? "bg-red-100 text-red-800"
+              : item.totalStock < 5
+                ? "bg-yellow-100 text-yellow-800"
+                : "bg-green-100 text-green-800"
+          }`}
+        >
           {item.totalStock}
         </span>
-      )
+      ),
     },
     {
-      key: 'stockPerGudang',
-      header: 'Stok per Gudang',
-      priority: 'tertiary',
+      key: "stockPerGudang",
+      header: "Stok per Gudang",
+      priority: "tertiary",
       render: (item) => (
         <div className="max-w-xs">
           {item.stockPerGudang.length === 0 ? (
@@ -201,12 +209,13 @@ export function BarangTable() {
                     {stock.gudangNama}:
                   </span>
                   <span
-                    className={`px-1.5 py-0.5 text-xs rounded ${stock.stok === 0
-                      ? 'bg-red-100 text-red-800'
-                      : stock.stok < 5
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-green-100 text-green-800'
-                      }`}
+                    className={`px-1.5 py-0.5 text-xs rounded ${
+                      stock.stok === 0
+                        ? "bg-red-100 text-red-800"
+                        : stock.stok < 5
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-green-100 text-green-800"
+                    }`}
                   >
                     {stock.stok}
                   </span>
@@ -220,20 +229,20 @@ export function BarangTable() {
             </div>
           )}
         </div>
-      )
+      ),
     },
     {
-      key: 'updatedAt',
-      header: 'Update',
-      priority: 'tertiary',
-      align: 'center',
+      key: "updatedAt",
+      header: "Update",
+      priority: "tertiary",
+      align: "center",
       render: (item) => (
         <span className="text-sm text-gray-500 dark:text-gray-400">
-          {new Date(item.updatedAt).toLocaleDateString('id-ID')}
+          {new Date(item.updatedAt).toLocaleDateString("id-ID")}
         </span>
-      )
-    }
-  ]
+      ),
+    },
+  ];
 
   // Render actions for each row
   const renderActions = (item: Barang) => (
@@ -266,7 +275,7 @@ export function BarangTable() {
         </Button>
       )}
     </div>
-  )
+  );
 
   return (
     <div>
@@ -287,8 +296,8 @@ export function BarangTable() {
             placeholder="Cari barang..."
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
+              setSearch(e.target.value);
+              setPage(1);
             }}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
@@ -298,8 +307,8 @@ export function BarangTable() {
           <select
             value={gudangId}
             onChange={(e) => {
-              setGudangId(e.target.value)
-              setPage(1)
+              setGudangId(e.target.value);
+              setPage(1);
             }}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
@@ -328,12 +337,13 @@ export function BarangTable() {
       {pagination.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 gap-3">
           <div className="text-sm text-gray-700 dark:text-gray-300">
-            Menampilkan {((page - 1) * pagination.limit) + 1} hingga{' '}
-            {Math.min(page * pagination.limit, pagination.total)} dari{' '}
+            Menampilkan {(page - 1) * pagination.limit + 1} hingga{" "}
+            {Math.min(page * pagination.limit, pagination.total)} dari{" "}
             {pagination.total} data
           </div>
           <div className="flex items-center space-x-2">
-            <Button onClick={() => setPage(page - 1)}
+            <Button
+              onClick={() => setPage(page - 1)}
               disabled={page === 1}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
@@ -342,7 +352,8 @@ export function BarangTable() {
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Page {page} of {pagination.totalPages}
             </span>
-            <Button onClick={() => setPage(page + 1)}
+            <Button
+              onClick={() => setPage(page + 1)}
               disabled={page === pagination.totalPages}
               className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             >
@@ -352,5 +363,5 @@ export function BarangTable() {
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,329 +1,363 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { HiOutlineMapPin, HiOutlineUsers, HiOutlineClock, HiOutlineArrowPath, HiMagnifyingGlass, HiOutlineSignal, HiOutlineMap, HiOutlineSquares2X2 } from 'react-icons/hi2'
-import { formatDistanceToNow, format } from 'date-fns'
-import { id } from 'date-fns/locale'
-import { Button } from '@/components/ui/Button'
-import { useSocket } from '@/hooks/useSocket'
-import dynamic from 'next/dynamic'
-import Image from 'next/image'
+import { useState, useEffect, useCallback } from "react";
+import {
+  HiOutlineMapPin,
+  HiOutlineUsers,
+  HiOutlineClock,
+  HiOutlineArrowPath,
+  HiMagnifyingGlass,
+  HiOutlineSignal,
+  HiOutlineMap,
+  HiOutlineSquares2X2,
+} from "react-icons/hi2";
+import { formatDistanceToNow, format } from "date-fns";
+import { id } from "date-fns/locale";
+import { Button } from "@/components/ui/Button";
+import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
+import { useRealtime } from "@/lib/realtime/RealtimeContext";
+import dynamic from "next/dynamic";
+import Image from "next/image";
 
 // Dynamic import untuk Map component (OpenLayers needs client-side only)
 const EmployeeLocationMap = dynamic(
-    () => import('@/components/attendance/EmployeeLocationMap'),
-    { ssr: false, loading: () => <div className="h-[500px] bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse flex items-center justify-center"><span className="text-gray-400 dark:text-gray-500">Memuat peta...</span></div> }
-)
+  () => import("@/components/attendance/EmployeeLocationMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[500px] bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse flex items-center justify-center">
+        <span className="text-gray-400 dark:text-gray-500">Memuat peta...</span>
+      </div>
+    ),
+  },
+);
 
 interface EmployeeLocation {
-    userId: string
-    userName: string
-    userImage: string | null
-    siteName: string | null
-    departmentName: string | null
-    latitude: number
-    longitude: number
-    accuracy: number | null
-    speed?: number | null
-    heading?: number | null
-    isMoving: boolean
-    batteryLevel: number | null
-    recordedAt: string
-    checkInTime: string
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  siteName: string | null;
+  departmentName: string | null;
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  speed?: number | null;
+  heading?: number | null;
+  isMoving: boolean;
+  batteryLevel: number | null;
+  recordedAt: string;
+  checkInTime: string;
 }
 
 export default function LiveMapClient() {
-    const { socket, isConnected } = useSocket()
-    const [locations, setLocations] = useState<EmployeeLocation[]>([])
-    const [tenantId, setTenantId] = useState<string | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [searchQuery, setSearchQuery] = useState('')
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-    const [viewMode, setViewMode] = useState<'map' | 'cards'>('map') // Default to map view
+  const { isConnected } = useRealtime();
+  const [locations, setLocations] = useState<EmployeeLocation[]>([]);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [viewMode, setViewMode] = useState<"map" | "cards">("map"); // Default to map view
 
-    const fetchLocations = useCallback(async () => {
-        try {
-            // Only set loading on initial load or manual refresh, not background refresh
-            if (!locations?.length) setLoading(true)
+  const fetchLocations = useCallback(async () => {
+    try {
+      // Only set loading on initial load or manual refresh, not background refresh
+      if (!locations?.length) setLoading(true);
 
-            const res = await fetch('/api/admin/location/live')
-            const data = await res.json()
+      const res = await fetch("/api/admin/location/live");
+      const data = await res.json();
 
-            if (data.success) {
-                console.log('[LiveMapClient] API Response:', data)
-                setLocations(data.data.locations || [])
-                setTenantId(data.data.tenantId || null)
-                setLastUpdated(new Date())
-                setError(null)
-            } else {
-                setError(data.error || 'Gagal mengambil lokasi')
-            }
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Gagal mengambil lokasi')
-        } finally {
-            setLoading(false)
-        }
-    }, [locations?.length]) // Use optional chaining just in case, though initialized as []
+      if (data.success) {
+        console.log("[LiveMapClient] API Response:", data);
+        setLocations(data.data.locations || []);
+        setTenantId(data.data.tenantId || null);
+        setLastUpdated(new Date());
+        setError(null);
+      } else {
+        setError(data.error || "Gagal mengambil lokasi");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal mengambil lokasi");
+    } finally {
+      setLoading(false);
+    }
+  }, [locations?.length]); // Use optional chaining just in case, though initialized as []
 
-    useEffect(() => {
-        fetchLocations()
-    }, [fetchLocations])
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
 
-    // Real-time updates via Socket.io
-    useEffect(() => {
-        if (!socket || !tenantId) return
+  useRealtimeScope(
+    tenantId ? { kind: "admin", id: `location:${tenantId}` } : null,
+  );
 
-        const roomName = `admin:location:${tenantId}`
+  const handleLocationUpdate = useCallback(
+    (data: EmployeeLocation) => {
+      setLocations((prev) => {
+        const index = prev.findIndex((p) => p.userId === data.userId);
 
-        // Join the location tracking room
-        socket.emit('join:room', roomName)
-
-        const handleLocationUpdate = (data: EmployeeLocation) => {
-            // console.log('[LiveMap] Received update:', data)
-            setLocations(prev => {
-                const index = prev.findIndex(p => p.userId === data.userId)
-
-                // If user not found, they might be new - trigger fetch
-                if (index === -1) {
-                    // Trigger fetch outside setState to avoid anti-pattern
-                    setTimeout(() => fetchLocations(), 0)
-                    return prev
-                }
-
-                // Update existing user location
-                const newLocations = [...prev]
-                const existingLocation = newLocations[index]
-
-                if (existingLocation) {
-                    newLocations[index] = {
-                        ...existingLocation,
-                        latitude: data.latitude,
-                        longitude: data.longitude,
-                        heading: data.heading,
-                        isMoving: data.isMoving,
-                        batteryLevel: data.batteryLevel,
-                        recordedAt: data.recordedAt,
-                        accuracy: data.accuracy,
-                        speed: data.speed
-                    }
-                }
-
-                return newLocations
-            })
-            setLastUpdated(new Date())
+        if (index === -1) {
+          setTimeout(() => fetchLocations(), 0);
+          return prev;
         }
 
-        socket.on('admin:location:update', handleLocationUpdate)
+        const newLocations = [...prev];
+        const existingLocation = newLocations[index];
 
-        return () => {
-            socket.off('admin:location:update', handleLocationUpdate)
-            socket.emit('leave:room', roomName)
+        if (existingLocation) {
+          newLocations[index] = {
+            ...existingLocation,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            heading: data.heading,
+            isMoving: data.isMoving,
+            batteryLevel: data.batteryLevel,
+            recordedAt: data.recordedAt,
+            accuracy: data.accuracy,
+            speed: data.speed,
+          };
         }
-    }, [socket, fetchLocations, tenantId])
 
-    // Polling fallback when socket is disconnected
-    useEffect(() => {
-        // If socket is connected, we don't need polling
-        if (isConnected) return
+        return newLocations;
+      });
+      setLastUpdated(new Date());
+    },
+    [fetchLocations],
+  );
 
-        // If disconnected, poll every 15 seconds
-        const intervalId = setInterval(() => {
-            fetchLocations()
-        }, 15000)
+  useRealtimeEvent<EmployeeLocation>(
+    "admin.location.update",
+    handleLocationUpdate,
+  );
 
-        return () => clearInterval(intervalId)
-    }, [isConnected, fetchLocations])
+  // Polling fallback when socket is disconnected
+  useEffect(() => {
+    // If socket is connected, we don't need polling
+    if (isConnected) return;
 
-    // Filter locations by search
-    const safeLocations = Array.isArray(locations) ? locations : []
-    const filteredLocations = safeLocations.filter(loc =>
-        loc.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        loc.siteName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        loc.departmentName?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    // If disconnected, poll every 15 seconds
+    const intervalId = setInterval(() => {
+      fetchLocations();
+    }, 15000);
 
-    return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-            {/* Header */}
-            <div className="mb-6">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                            <HiOutlineMapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                            Live Tracking - Lokasi Karyawan
-                        </h1>
-                        <p className="text-gray-500 dark:text-gray-400 mt-1">
-                            Pantau lokasi karyawan yang sedang aktif bekerja secara real-time
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-4 flex-wrap">
-                        {/* View Toggle */}
-                        <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('map')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === 'map'
-                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700/50'
-                                    }`}
-                            >
-                                <HiOutlineMap className="w-4 h-4" />
-                                Map
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('cards')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === 'cards'
-                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700/50'
-                                    }`}
-                            >
-                                <HiOutlineSquares2X2 className="w-4 h-4" />
-                                Cards
-                            </button>
-                        </div>
-                        {/* Stats Badge */}
-                        <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full">
-                            <HiOutlineUsers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            <span className="font-semibold text-blue-800 dark:text-blue-200">{locations.length} Aktif</span>
-                        </div>
+    return () => clearInterval(intervalId);
+  }, [isConnected, fetchLocations]);
 
-                        {/* Manual Refresh */}
-                        <Button onClick={fetchLocations}
-                            disabled={loading}
+  // Filter locations by search
+  const safeLocations = Array.isArray(locations) ? locations : [];
+  const filteredLocations = safeLocations.filter(
+    (loc) =>
+      loc.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loc.siteName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      loc.departmentName?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
-                        >
-                            <HiOutlineArrowPath className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                            Refresh
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Last Updated */}
-                {lastUpdated && (
-                    <p className="text-sm text-gray-400 mt-2">
-                        Terakhir diperbarui: {formatDistanceToNow(lastUpdated, { addSuffix: true, locale: id })}
-                    </p>
-                )}
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <HiOutlineMapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              Live Tracking - Lokasi Karyawan
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              Pantau lokasi karyawan yang sedang aktif bekerja secara real-time
+            </p>
+          </div>
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* View Toggle */}
+            <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("map")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                  viewMode === "map"
+                    ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700/50"
+                }`}
+              >
+                <HiOutlineMap className="w-4 h-4" />
+                Map
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("cards")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                  viewMode === "cards"
+                    ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700/50"
+                }`}
+              >
+                <HiOutlineSquares2X2 className="w-4 h-4" />
+                Cards
+              </button>
+            </div>
+            {/* Stats Badge */}
+            <div className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full">
+              <HiOutlineUsers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span className="font-semibold text-blue-800 dark:text-blue-200">
+                {locations.length} Aktif
+              </span>
             </div>
 
-            {/* Search Bar */}
-            <div className="mb-6 relative">
-                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                    type="text"
-                    placeholder="Cari karyawan, site, atau departemen..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
-                />
-            </div>
-
-            {/* Error Message */}
-            {error && (
-                <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
-                    {error}
-                </div>
-            )}
-
-            {/* Map View */}
-            {viewMode === 'map' && (
-                <div className="mb-6">
-                    <EmployeeLocationMap
-                        locations={filteredLocations}
-                        height={500}
-                    />
-                </div>
-            )}
-
-            {/* Cards View */}
-            {viewMode === 'cards' && (
-                <>
-                    {/* Employee Cards Grid */}
-                    {filteredLocations.length === 0 ? (
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-12 text-center border border-gray-100 dark:border-gray-700">
-                            <HiOutlineUsers className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
-                                {loading ? 'Memuat...' : 'Tidak Ada Karyawan Aktif'}
-                            </h3>
-                            <p className="text-gray-400 dark:text-gray-500">
-                                {loading ? 'Mengambil data lokasi...' : 'Belum ada karyawan yang check-in hari ini'}
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {filteredLocations.map((loc) => (
-                                <div
-                                    key={loc.userId}
-                                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100 dark:border-gray-700"
-                                >
-                                    {/* Header with Avatar */}
-                                    <div className="flex items-center gap-3 mb-4">
-                                        {loc.userImage ? (
-                                            <div className="relative w-12 h-12">
-                                                <Image
-                                                    src={loc.userImage}
-                                                    alt={loc.userName}
-                                                    fill
-                                                    className="rounded-full object-cover"
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                                <span className="text-white font-bold text-lg">{loc.userName[0]}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-gray-800 dark:text-white truncate">{loc.userName}</p>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{loc.departmentName || '-'}</p>
-                                        </div>
-                                        {loc.isMoving && (
-                                            <span className="flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
-                                                <HiOutlineSignal className="w-3 h-3" />
-                                                Moving
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Location Info */}
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                                            <HiOutlineMapPin className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                                            <span className="truncate">{loc.siteName || 'Unknown'}</span>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                                            <HiOutlineClock className="w-4 h-4 text-green-500 dark:text-green-400" />
-                                            <span>Check-in: {format(new Date(loc.checkInTime), 'HH:mm')}</span>
-                                        </div>
-
-                                        {/* Coordinates */}
-                                        <div className="flex items-center gap-2 text-gray-400 text-xs">
-                                            <span>📍 {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Footer */}
-                                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-400">
-                                        <span>
-                                            Update: {formatDistanceToNow(new Date(loc.recordedAt), { addSuffix: true, locale: id })}
-                                        </span>
-                                        {loc.batteryLevel !== null && (
-                                            <span className={`px-2 py-1 rounded ${loc.batteryLevel > 0.5 ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' :
-                                                    loc.batteryLevel > 0.2 ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400' :
-                                                        'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                                                }`}>
-                                                🔋 {Math.round(loc.batteryLevel * 100)}%
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </>
-            )}
+            {/* Manual Refresh */}
+            <Button onClick={fetchLocations} disabled={loading}>
+              <HiOutlineArrowPath
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+          </div>
         </div>
-    )
+
+        {/* Last Updated */}
+        {lastUpdated && (
+          <p className="text-sm text-gray-400 mt-2">
+            Terakhir diperbarui:{" "}
+            {formatDistanceToNow(lastUpdated, { addSuffix: true, locale: id })}
+          </p>
+        )}
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6 relative">
+        <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <input
+          type="text"
+          placeholder="Cari karyawan, site, atau departemen..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+        />
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {/* Map View */}
+      {viewMode === "map" && (
+        <div className="mb-6">
+          <EmployeeLocationMap locations={filteredLocations} height={500} />
+        </div>
+      )}
+
+      {/* Cards View */}
+      {viewMode === "cards" && (
+        <>
+          {/* Employee Cards Grid */}
+          {filteredLocations.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-12 text-center border border-gray-100 dark:border-gray-700">
+              <HiOutlineUsers className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                {loading ? "Memuat..." : "Tidak Ada Karyawan Aktif"}
+              </h3>
+              <p className="text-gray-400 dark:text-gray-500">
+                {loading
+                  ? "Mengambil data lokasi..."
+                  : "Belum ada karyawan yang check-in hari ini"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredLocations.map((loc) => (
+                <div
+                  key={loc.userId}
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100 dark:border-gray-700"
+                >
+                  {/* Header with Avatar */}
+                  <div className="flex items-center gap-3 mb-4">
+                    {loc.userImage ? (
+                      <div className="relative w-12 h-12">
+                        <Image
+                          src={loc.userImage}
+                          alt={loc.userName}
+                          fill
+                          className="rounded-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">
+                          {loc.userName[0]}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 dark:text-white truncate">
+                        {loc.userName}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                        {loc.departmentName || "-"}
+                      </p>
+                    </div>
+                    {loc.isMoving && (
+                      <span className="flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
+                        <HiOutlineSignal className="w-3 h-3" />
+                        Moving
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Location Info */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                      <HiOutlineMapPin className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                      <span className="truncate">
+                        {loc.siteName || "Unknown"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                      <HiOutlineClock className="w-4 h-4 text-green-500 dark:text-green-400" />
+                      <span>
+                        Check-in: {format(new Date(loc.checkInTime), "HH:mm")}
+                      </span>
+                    </div>
+
+                    {/* Coordinates */}
+                    <div className="flex items-center gap-2 text-gray-400 text-xs">
+                      <span>
+                        📍 {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-400">
+                    <span>
+                      Update:{" "}
+                      {formatDistanceToNow(new Date(loc.recordedAt), {
+                        addSuffix: true,
+                        locale: id,
+                      })}
+                    </span>
+                    {loc.batteryLevel !== null && (
+                      <span
+                        className={`px-2 py-1 rounded ${
+                          loc.batteryLevel > 0.5
+                            ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+                            : loc.batteryLevel > 0.2
+                              ? "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400"
+                              : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        🔋 {Math.round(loc.batteryLevel * 100)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }

@@ -1,327 +1,492 @@
-import { getSocketServer } from './server'
 import {
-    SOCKET_EVENTS,
-    type NotificationPayload,
-    type TicketPayload,
-    type WorkOrderPayload,
-    type CountPayload,
-} from './types'
+  firebaseRealtimeService,
+  LEGACY_TO_REALTIME_EVENT,
+} from "@/lib/realtime";
 
-const INTERNAL_WS_SECRET = process.env.INTERNAL_WS_SECRET || ''
-const WS_SERVER_URL = process.env.WS_SERVER_URL || 'http://localhost:3000'
+import { getSocketServer } from "./server";
+import {
+  SOCKET_EVENTS,
+  type CountPayload,
+  type NotificationPayload,
+  type TicketPayload,
+  type WorkOrderPayload,
+} from "./types";
 
-/**
- * Fallback: Emit via internal HTTP endpoint when Socket.io server is not available
- * in the current process (e.g., API routes in development mode)
- */
-async function emitViaHttp(event: string, room: string, payload: unknown): Promise<boolean> {
-    try {
-        const response = await fetch(`${WS_SERVER_URL}/_internal/emit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event, room, payload, secret: INTERNAL_WS_SECRET }),
-        })
-        if (response.ok) {
-            console.log(`[WS HTTP] Emitted ${event} to ${room}`)
-            return true
-        } else {
-            console.error(`[WS HTTP] Failed to emit ${event}:`, await response.text())
-            return false
-        }
-    } catch (error) {
-        console.error(`[WS HTTP] Error emitting ${event}:`, error)
-        return false
-    }
+type LegacyRealtimeEvent = keyof typeof LEGACY_TO_REALTIME_EVENT;
+
+type RealtimeScopeInput = {
+  kind: "user" | "department" | "admin" | "workorder" | "ticket";
+  id: string;
+};
+
+function publishLegacyEvent(
+  event: LegacyRealtimeEvent,
+  scope: RealtimeScopeInput,
+  payload: unknown,
+) {
+  return firebaseRealtimeService.publish({
+    type: LEGACY_TO_REALTIME_EVENT[event],
+    scope,
+    payload,
+  });
 }
 
-/**
- * Socket emitter helper for server-side code
- * Use this to emit WebSocket events from API routes and services
- */
+function adminScope(stream: string, siteId?: string): RealtimeScopeInput {
+  return {
+    kind: "admin",
+    id: siteId ? `${stream}.site.${siteId}` : stream,
+  };
+}
+
+function dispatchRealtime(
+  event: LegacyRealtimeEvent,
+  scope: RealtimeScopeInput,
+  payload: unknown,
+  emitLegacy?: () => void,
+) {
+  if (emitLegacy) {
+    emitLegacy();
+  }
+
+  void publishLegacyEvent(event, scope, payload).catch((error) => {
+    console.error(
+      `[Realtime] Failed to publish ${event} to ${scope.kind}:${scope.id}`,
+      error,
+    );
+  });
+}
+
 export const socketEmitter = {
-    /**
-     * Emit notification to a specific user
-     */
-    notifyUser(userId: string, notification: NotificationPayload) {
-        const io = getSocketServer()
-        if (io) {
-            io.to(`user:${userId}`).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
-            console.log(`[WS] Emitted notification to user:${userId}`)
-        } else {
-            emitViaHttp(SOCKET_EVENTS.NOTIFICATION_NEW, `user:${userId}`, notification)
-        }
-    },
+  notifyUser(userId: string, notification: NotificationPayload) {
+    const io = getSocketServer();
+    dispatchRealtime(
+      "notification:new",
+      { kind: "user", id: userId },
+      notification,
+      io
+        ? () => {
+            io.to(`user:${userId}`).emit(
+              SOCKET_EVENTS.NOTIFICATION_NEW,
+              notification,
+            );
+          }
+        : undefined,
+    );
+  },
 
-    /**
-     * Emit notification to all users in a department
-     */
-    notifyDepartment(departmentId: string, notification: NotificationPayload) {
-        const io = getSocketServer()
-        if (io) {
-            io.to(`department:${departmentId}`).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
-            console.log(`[WS] Emitted notification to department:${departmentId}`)
-        } else {
-            emitViaHttp(SOCKET_EVENTS.NOTIFICATION_NEW, `department:${departmentId}`, notification)
-        }
-    },
+  notifyDepartment(departmentId: string, notification: NotificationPayload) {
+    const io = getSocketServer();
+    dispatchRealtime(
+      "notification:new",
+      { kind: "department", id: departmentId },
+      notification,
+      io
+        ? () => {
+            io.to(`department:${departmentId}`).emit(
+              SOCKET_EVENTS.NOTIFICATION_NEW,
+              notification,
+            );
+          }
+        : undefined,
+    );
+  },
 
-    /**
-     * Emit notification to all admins (optionally segmented by site)
-     */
-    notifyAdmins(notification: NotificationPayload, siteId?: string) {
-        const io = getSocketServer()
-        const room = siteId ? `admin:notifications:site:${siteId}` : 'admin:notifications'
-        if (io) {
-            io.to(room).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification)
-            console.log(`[WS] Emitted notification to ${room}`)
-        } else {
-            emitViaHttp(SOCKET_EVENTS.NOTIFICATION_NEW, room, notification)
-        }
-    },
+  notifyAdmins(notification: NotificationPayload, siteId?: string) {
+    const io = getSocketServer();
+    const scope = adminScope("notifications", siteId);
+    const room = siteId
+      ? `admin:notifications:site:${siteId}`
+      : "admin:notifications";
 
-    /**
-     * Update notification count for a user
-     */
-    updateNotificationCount(userId: string, count: number) {
-        const io = getSocketServer()
-        if (io) {
-            const payload: CountPayload = { count }
-            io.to(`user:${userId}`).emit(SOCKET_EVENTS.NOTIFICATION_COUNT, payload)
-        }
-    },
+    dispatchRealtime(
+      "notification:new",
+      scope,
+      notification,
+      io
+        ? () => {
+            io.to(room).emit(SOCKET_EVENTS.NOTIFICATION_NEW, notification);
+          }
+        : undefined,
+    );
+  },
 
-    /**
-     * Emit new support ticket to all admins (optionally segmented by site)
-     */
-    newTicket(ticket: TicketPayload, siteId?: string) {
-        const io = getSocketServer()
-        if (io) {
-            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
-            io.to(room).emit(SOCKET_EVENTS.TICKET_NEW, ticket)
-            console.log(`[WS] Emitted new ticket to ${room}: ${ticket.ticketNumber}`)
-        }
-    },
+  updateNotificationCount(userId: string, count: number) {
+    const io = getSocketServer();
+    const payload: CountPayload = { count };
 
-    /**
-     * Emit ticket update to all admins (optionally segmented by site)
-     */
-    updateTicket(ticket: TicketPayload, siteId?: string) {
-        const io = getSocketServer()
-        if (io) {
-            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
-            io.to(room).emit(SOCKET_EVENTS.TICKET_UPDATE, ticket)
-        }
-    },
+    dispatchRealtime(
+      "notification:count",
+      { kind: "user", id: userId },
+      payload,
+      io
+        ? () => {
+            io.to(`user:${userId}`).emit(
+              SOCKET_EVENTS.NOTIFICATION_COUNT,
+              payload,
+            );
+          }
+        : undefined,
+    );
+  },
 
-    /**
-     * Emit ticket reply notification
-     */
-    ticketReply(ticket: TicketPayload, siteId?: string, targetUserId?: string) {
-        const io = getSocketServer()
-        if (io) {
-            // Notify admins
-            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
-            io.to(room).emit(SOCKET_EVENTS.TICKET_REPLY, ticket)
+  newTicket(ticket: TicketPayload, siteId?: string) {
+    const io = getSocketServer();
+    const scope = adminScope("tickets", siteId);
+    const room = siteId ? `admin:tickets:site:${siteId}` : "admin:tickets";
 
-            // If target user specified (e.g., customer), notify them too
+    dispatchRealtime(
+      "ticket:new",
+      scope,
+      ticket,
+      io
+        ? () => {
+            io.to(room).emit(SOCKET_EVENTS.TICKET_NEW, ticket);
+          }
+        : undefined,
+    );
+  },
+
+  updateTicket(ticket: TicketPayload, siteId?: string) {
+    const io = getSocketServer();
+    const scope = adminScope("tickets", siteId);
+    const room = siteId ? `admin:tickets:site:${siteId}` : "admin:tickets";
+
+    dispatchRealtime(
+      "ticket:update",
+      scope,
+      ticket,
+      io
+        ? () => {
+            io.to(room).emit(SOCKET_EVENTS.TICKET_UPDATE, ticket);
+          }
+        : undefined,
+    );
+  },
+
+  ticketReply(ticket: TicketPayload, siteId?: string, targetUserId?: string) {
+    const io = getSocketServer();
+    const scope = adminScope("tickets", siteId);
+    const room = siteId ? `admin:tickets:site:${siteId}` : "admin:tickets";
+
+    dispatchRealtime(
+      "ticket:reply",
+      scope,
+      ticket,
+      io
+        ? () => {
+            io.to(room).emit(SOCKET_EVENTS.TICKET_REPLY, ticket);
             if (targetUserId) {
-                io.to(`user:${targetUserId}`).emit(SOCKET_EVENTS.TICKET_REPLY, ticket)
+              io.to(`user:${targetUserId}`).emit(
+                SOCKET_EVENTS.TICKET_REPLY,
+                ticket,
+              );
             }
-        }
+          }
+        : undefined,
+    );
+
+    if (targetUserId) {
+      dispatchRealtime(
+        "ticket:reply",
+        { kind: "user", id: targetUserId },
+        ticket,
+      );
+    }
+  },
+
+  ticketMessage(
+    ticketId: string,
+    reply: {
+      id: string;
+      message: string;
+      isFromAdmin: boolean;
+      createdAt: string;
+      sender?: { id: string; name: string; image?: string } | null;
+      attachments?: string[] | null;
     },
+  ) {
+    const io = getSocketServer();
+    const payload = { ticketId, reply };
 
-    /**
-     * Emit real-time chat message to ticket room
-     * This is for instant message display in chat UI
-     */
-    ticketMessage(ticketId: string, reply: {
-        id: string
-        message: string
-        isFromAdmin: boolean
-        createdAt: string
-        sender?: { id: string; name: string; image?: string } | null
-        attachments?: string[] | null
-    }) {
-        const io = getSocketServer()
-        const payload = { ticketId, reply }
-        const room = `ticket:${ticketId}`
+    dispatchRealtime(
+      "ticket:message",
+      { kind: "ticket", id: ticketId },
+      payload,
+      io
+        ? () => {
+            io.to(`ticket:${ticketId}`).emit(
+              SOCKET_EVENTS.TICKET_MESSAGE,
+              payload,
+            );
+          }
+        : undefined,
+    );
+  },
 
-        if (io) {
-            // Direct emit when Socket.io server is available in this process
-            io.to(room).emit(SOCKET_EVENTS.TICKET_MESSAGE, payload)
-            console.log(`[WS] Emitted chat message to ${room}`)
+  updateTicketCount(count: number, siteId?: string) {
+    const io = getSocketServer();
+    const payload: CountPayload = { count };
+    const scope = adminScope("tickets", siteId);
+    const room = siteId ? `admin:tickets:site:${siteId}` : "admin:tickets";
 
-            // Debug: Check how many sockets are in the room
-            const roomData = io.sockets.adapter.rooms.get(room)
-            console.log(`[WS DEBUG] Sockets in room ${room}:`, roomData?.size || 0)
-        } else {
-            // Fallback: Use internal HTTP endpoint for cross-process emit
-            console.log(`[WS] Socket server not in this process, using HTTP fallback for ${room}`)
-            emitViaHttp(SOCKET_EVENTS.TICKET_MESSAGE, room, payload)
-        }
-    },
+    dispatchRealtime(
+      "ticket:count",
+      scope,
+      payload,
+      io
+        ? () => {
+            io.to(room).emit(SOCKET_EVENTS.TICKET_COUNT, payload);
+          }
+        : undefined,
+    );
+  },
 
-    /**
-     * Update ticket count for admins (optionally segmented by site)
-     */
-    updateTicketCount(count: number, siteId?: string) {
-        const io = getSocketServer()
-        if (io) {
-            const payload: CountPayload = { count }
-            const room = siteId ? `admin:tickets:site:${siteId}` : 'admin:tickets'
-            io.to(room).emit(SOCKET_EVENTS.TICKET_COUNT, payload)
-        }
-    },
+  newWorkOrder(
+    workOrder: WorkOrderPayload,
+    departmentId?: string,
+    siteId?: string,
+  ) {
+    const io = getSocketServer();
+    const adminRoom = siteId
+      ? `admin:workorders:site:${siteId}`
+      : "admin:workorders";
 
-    /**
-     * Emit new work order notification
-     */
-    newWorkOrder(workOrder: WorkOrderPayload, departmentId?: string, siteId?: string) {
-        const io = getSocketServer()
-        if (io) {
-            const adminRoom = siteId ? `admin:workorders:site:${siteId}` : 'admin:workorders'
-            io.to(adminRoom).emit(SOCKET_EVENTS.WORKORDER_NEW, workOrder)
-
+    dispatchRealtime(
+      "workorder:new",
+      adminScope("workorders", siteId),
+      workOrder,
+      io
+        ? () => {
+            io.to(adminRoom).emit(SOCKET_EVENTS.WORKORDER_NEW, workOrder);
             if (departmentId) {
-                io.to(`department:${departmentId}`).emit(SOCKET_EVENTS.WORKORDER_NEW, workOrder)
+              io.to(`department:${departmentId}`).emit(
+                SOCKET_EVENTS.WORKORDER_NEW,
+                workOrder,
+              );
             }
-        }
-    },
+          }
+        : undefined,
+    );
 
-    /**
-     * Emit work order update
-     */
-    updateWorkOrder(workOrder: WorkOrderPayload, siteId?: string) {
-        const io = getSocketServer()
-        if (io) {
-            const adminRoom = siteId ? `admin:workorders:site:${siteId}` : 'admin:workorders'
-            io.to(adminRoom).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
+    if (departmentId) {
+      dispatchRealtime(
+        "workorder:new",
+        { kind: "department", id: departmentId },
+        workOrder,
+      );
+    }
+  },
 
-            // Notify assigned user if exists
+  updateWorkOrder(workOrder: WorkOrderPayload, siteId?: string) {
+    const io = getSocketServer();
+    const adminRoom = siteId
+      ? `admin:workorders:site:${siteId}`
+      : "admin:workorders";
+
+    dispatchRealtime(
+      "workorder:update",
+      adminScope("workorders", siteId),
+      workOrder,
+      io
+        ? () => {
+            io.to(adminRoom).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder);
             if (workOrder.assignedToId) {
-                io.to(`user:${workOrder.assignedToId}`).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
+              io.to(`user:${workOrder.assignedToId}`).emit(
+                SOCKET_EVENTS.WORKORDER_UPDATE,
+                workOrder,
+              );
             }
-
-            // Notify anyone viewing this specific work order
             if (workOrder.id) {
-                io.to(`workorder:${workOrder.id}`).emit(SOCKET_EVENTS.WORKORDER_UPDATE, workOrder)
+              io.to(`workorder:${workOrder.id}`).emit(
+                SOCKET_EVENTS.WORKORDER_UPDATE,
+                workOrder,
+              );
             }
-        }
+          }
+        : undefined,
+    );
+
+    if (workOrder.assignedToId) {
+      dispatchRealtime(
+        "workorder:update",
+        { kind: "user", id: workOrder.assignedToId },
+        workOrder,
+      );
+    }
+
+    if (workOrder.id) {
+      dispatchRealtime(
+        "workorder:update",
+        { kind: "workorder", id: workOrder.id },
+        workOrder,
+      );
+    }
+  },
+
+  workOrderAssigned(workOrder: WorkOrderPayload, assignedToId: string) {
+    const io = getSocketServer();
+    dispatchRealtime(
+      "workorder:assigned",
+      { kind: "user", id: assignedToId },
+      workOrder,
+      io
+        ? () => {
+            io.to(`user:${assignedToId}`).emit(
+              SOCKET_EVENTS.WORKORDER_ASSIGNED,
+              workOrder,
+            );
+          }
+        : undefined,
+    );
+  },
+
+  workOrderActivity(
+    workOrderId: string,
+    activity: {
+      id: string;
+      type: "comment" | "update" | "attachment";
+      message?: string;
+      updateType?: string;
+      createdAt: string;
+      createdBy?: {
+        id: string;
+        firstName?: string;
+        lastName?: string;
+        name?: string;
+      } | null;
+      attachment?: {
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileType: string;
+        caption?: string | null;
+      } | null;
     },
+  ) {
+    const io = getSocketServer();
+    const payload = { workOrderId, activity };
 
-    /**
-     * Emit work order assignment notification
-     */
-    workOrderAssigned(workOrder: WorkOrderPayload, assignedToId: string) {
-        const io = getSocketServer()
-        if (io) {
-            io.to(`user:${assignedToId}`).emit(SOCKET_EVENTS.WORKORDER_ASSIGNED, workOrder)
-        }
+    dispatchRealtime(
+      "workorder:activity",
+      { kind: "workorder", id: workOrderId },
+      payload,
+      io
+        ? () => {
+            io.to(`workorder:${workOrderId}`).emit(
+              SOCKET_EVENTS.WORKORDER_ACTIVITY,
+              payload,
+            );
+          }
+        : undefined,
+    );
+  },
+
+  inventoryUpdate(data: {
+    type: "masuk" | "keluar";
+    userId: string;
+    barangId?: string;
+    gudangId?: string;
+    jumlah?: number;
+    totalStok?: number;
+    siteId?: string;
+  }) {
+    const io = getSocketServer();
+    const adminRoom = data.siteId
+      ? `admin:inventory:site:${data.siteId}`
+      : "admin:inventory";
+
+    dispatchRealtime(
+      "inventory:update",
+      adminScope("inventory", data.siteId),
+      data,
+      io
+        ? () => {
+            io.to(adminRoom).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data);
+            io.to(`user:${data.userId}`).emit(
+              SOCKET_EVENTS.INVENTORY_UPDATE,
+              data,
+            );
+          }
+        : undefined,
+    );
+
+    dispatchRealtime(
+      "inventory:update",
+      { kind: "user", id: data.userId },
+      data,
+    );
+  },
+
+  chatMessage(
+    userId: string,
+    payload: {
+      id: string;
+      content: string | null;
+      imageUrl?: string | null;
+      conversationId: string;
+      senderId: string;
+      senderName: string;
+      createdAt: string;
+      isOwn: boolean;
+      isBroadcast?: boolean;
     },
+  ) {
+    const io = getSocketServer();
 
-    /**
-     * Emit real-time activity update for Work Order Activity Timeline
-     * This includes comments, status updates, and attachments
-     */
-    workOrderActivity(workOrderId: string, activity: {
-        id: string
-        type: 'comment' | 'update' | 'attachment'
-        message?: string
-        updateType?: string
-        createdAt: string
-        createdBy?: { id: string; firstName?: string; lastName?: string; name?: string } | null
-        attachment?: { id: string; fileName: string; filePath: string; fileType: string; caption?: string | null } | null
-    }) {
-        const io = getSocketServer()
-        const payload = { workOrderId, activity }
-        const room = `workorder:${workOrderId}`
+    dispatchRealtime(
+      "chat:message",
+      { kind: "user", id: userId },
+      payload,
+      io
+        ? () => {
+            io.to(`user:${userId}`).emit("chat:message", payload);
+          }
+        : undefined,
+    );
+  },
 
-        if (io) {
-            // Direct emit when Socket.io server is available in this process
-            io.to(room).emit(SOCKET_EVENTS.WORKORDER_ACTIVITY, payload)
-            console.log(`[WS] Emitted activity to ${room}`)
+  broadcast(event: string, data: unknown) {
+    const io = getSocketServer();
+    if (io) {
+      io.emit(event, data);
+    }
+  },
 
-            // Debug: Check how many sockets are in the room
-            const roomData = io.sockets.adapter.rooms.get(room)
-            console.log(`[WS DEBUG] Sockets in room ${room}:`, roomData?.size || 0)
-        } else {
-            // Fallback: Use internal HTTP endpoint for cross-process emit
-            console.log(`[WS] Socket server not in this process, using HTTP fallback for ${room}`)
-            emitViaHttp(SOCKET_EVENTS.WORKORDER_ACTIVITY, room, payload)
-        }
-    },
+  forceLogout(userId: string) {
+    const io = getSocketServer();
+    const payload = {
+      message: "Sesi Anda telah diakhiri oleh administrator",
+      timestamp: new Date().toISOString(),
+    };
 
-    /**
-     * Emit inventory update event (broadcast to admin and user)
-     */
-    inventoryUpdate(data: {
-        type: 'masuk' | 'keluar',
-        userId: string,
-        barangId?: string,
-        gudangId?: string,
-        jumlah?: number,
-        totalStok?: number,
-        siteId?: string
-    }) {
-        const io = getSocketServer()
-        if (io) {
-            // Broadcast to admin:inventory room
-            const adminRoom = data.siteId ? `admin:inventory:site:${data.siteId}` : 'admin:inventory'
-            io.to(adminRoom).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
+    dispatchRealtime(
+      "session:forceLogout",
+      { kind: "user", id: userId },
+      payload,
+      io
+        ? () => {
+            io.to(`user:${userId}`).emit(SOCKET_EVENTS.FORCE_LOGOUT, payload);
+          }
+        : undefined,
+    );
+  },
 
-            // Also emit to the user who made the transaction (for mobile real-time stats)
-            io.to(`user:${data.userId}`).emit(SOCKET_EVENTS.INVENTORY_UPDATE, data)
+  profileRefresh(userId: string) {
+    const io = getSocketServer();
+    const payload = { timestamp: new Date().toISOString() };
 
-            console.log(`[WS] Emitted inventory update: ${data.type} to ${adminRoom} and user:${data.userId}`)
-        } else {
-            // Fallback via HTTP
-            emitViaHttp(SOCKET_EVENTS.INVENTORY_UPDATE, `user:${data.userId}`, data)
-        }
-    },
-
-    /**
-     * Broadcast to all connected clients (use sparingly)
-     */
-    broadcast(event: string, data: unknown) {
-        const io = getSocketServer()
-        if (io) {
-            io.emit(event, data)
-        }
-    },
-
-    /**
-     * Force logout a specific user by emitting session:forceLogout event
-     * This will be received by both web and mobile clients
-     */
-    forceLogout(userId: string) {
-        const io = getSocketServer()
-        if (io) {
-            io.to(`user:${userId}`).emit(SOCKET_EVENTS.FORCE_LOGOUT, {
-                message: 'Sesi Anda telah diakhiri oleh administrator',
-                timestamp: new Date().toISOString()
-            })
-            console.log(`[WS] Emitted force logout to user:${userId}`)
-        } else {
-            // Fallback via HTTP
-            emitViaHttp(SOCKET_EVENTS.FORCE_LOGOUT, `user:${userId}`, {
-                message: 'Sesi Anda telah diakhiri oleh administrator',
-                timestamp: new Date().toISOString()
-            })
-        }
-    },
-
-    /**
-     * Push profile refresh signal to a specific user (e.g., Mitra)
-     * Used when admin changes profile flags like requiresFaceVerification
-     */
-    profileRefresh(userId: string) {
-        const io = getSocketServer()
-        const payload = { timestamp: new Date().toISOString() }
-        if (io) {
-            io.to(`user:${userId}`).emit(SOCKET_EVENTS.PROFILE_REFRESH, payload)
-            console.log(`[WS] Emitted profile:refresh to user:${userId}`)
-        } else {
-            emitViaHttp(SOCKET_EVENTS.PROFILE_REFRESH, `user:${userId}`, payload)
-        }
-    },
-}
+    dispatchRealtime(
+      "profile:refresh",
+      { kind: "user", id: userId },
+      payload,
+      io
+        ? () => {
+            io.to(`user:${userId}`).emit(
+              SOCKET_EVENTS.PROFILE_REFRESH,
+              payload,
+            );
+          }
+        : undefined,
+    );
+  },
+};

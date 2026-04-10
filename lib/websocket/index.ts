@@ -1,22 +1,27 @@
 // WebSocket module exports
-export { SocketProvider, useSocket, useSocketEvent } from './SocketContext'
-export { SOCKET_EVENTS } from './types'
+export {
+  SocketProvider,
+  useSocket,
+  useSocketEvent,
+  createSocketTransport,
+} from "./SocketContext";
+export { SOCKET_EVENTS } from "./types";
 export type {
-    NotificationPayload,
-    TicketPayload,
-    WorkOrderPayload,
-    CountPayload,
-    SocketAuthData,
-    SocketData,
-} from './types'
+  NotificationPayload,
+  TicketPayload,
+  WorkOrderPayload,
+  CountPayload,
+  SocketAuthData,
+  SocketData,
+} from "./types";
 
 // Hooks
-export { useRealtimeNotifications } from './hooks/useRealtimeNotifications'
-export type { Notification } from './hooks/useRealtimeNotifications'
-export { useRealtimeSupportTickets } from './hooks/useRealtimeSupportTickets'
-export type { TicketPreview } from './hooks/useRealtimeSupportTickets'
-export { useRealtimeWorkOrderActivity } from './hooks/useRealtimeWorkOrderActivity'
-export type { ActivityItem } from './hooks/useRealtimeWorkOrderActivity'
+export { useRealtimeNotifications } from "./hooks/useRealtimeNotifications";
+export type { Notification } from "./hooks/useRealtimeNotifications";
+export { useRealtimeSupportTickets } from "./hooks/useRealtimeSupportTickets";
+export type { TicketPreview } from "./hooks/useRealtimeSupportTickets";
+export { useRealtimeWorkOrderActivity } from "./hooks/useRealtimeWorkOrderActivity";
+export type { ActivityItem } from "./hooks/useRealtimeWorkOrderActivity";
 
 // Server-side exports (only import in server components/API routes)
 // import { socketEmitter } from '@/lib/websocket/emitter'
