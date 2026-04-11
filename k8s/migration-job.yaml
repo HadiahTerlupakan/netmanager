@@ -184,8 +184,17 @@ spec:
               echo "Running netmanager migrations"
               echo "======================================"
 
+              sanitize_psql_url() {
+                node -e 'const url = new URL(process.argv[1]); ["schema", "connection_limit", "pool_timeout"].forEach((name) => url.searchParams.delete(name)); process.stdout.write(url.toString())' "$1"
+              }
+
+              DATABASE_URL_PSQL=$(sanitize_psql_url "$DATABASE_URL")
+              RADIUS_DATABASE_URL_PSQL=$(sanitize_psql_url "$RADIUS_DATABASE_URL")
+              DATABASE_URL_BILLING_PSQL=$(sanitize_psql_url "$DATABASE_URL_BILLING")
+              DATABASE_URL_MITRA_PSQL=$(sanitize_psql_url "$DATABASE_URL_MITRA")
+
               # Check if it's a fresh database by checking for a known table
-              IS_FRESH=$(psql "$DATABASE_URL" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'User')")
+              IS_FRESH=$(psql "$DATABASE_URL_PSQL" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'User')")
 
               if [ "$IS_FRESH" = "f" ]; then
                 echo "🌱 Fresh database detected. Running all migrations from scratch..."
@@ -195,7 +204,7 @@ spec:
 
                 # Apply tenant schema baseline before resolving it so tenant-aware follow-up migrations
                 # do not run against databases that still lack tenantId columns.
-                psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql
+                psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql
                 prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
                 prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
                 prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
@@ -204,7 +213,7 @@ spec:
                 # Fix partially-applied migration: complete remaining changes via idempotent SQL
                 # then mark as applied so Prisma does not try to re-run the full SQL.
                 echo "🔧 Running idempotent fix for sync_schema_changes..."
-                psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1
+                psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1
                 prisma migrate resolve --applied 20260326004412_sync_schema_changes 2>&1 || true
 
                 # =============================================
@@ -214,15 +223,15 @@ spec:
                 # The migration SQL must be idempotent to handle re-runs safely.
                 # =============================================
                 echo "🔍 Checking for failed migrations to roll back..."
-                FAILED_MIGRATIONS=$(psql "$DATABASE_URL" -tAc "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL")
+                FAILED_MIGRATIONS=$(psql "$DATABASE_URL_PSQL" -tAc "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL")
                 if [ -n "$FAILED_MIGRATIONS" ]; then
                   echo "⚠️ Found failed migrations, rolling back for re-attempt:"
                   echo "$FAILED_MIGRATIONS" | while IFS= read -r mig; do
                     echo "   Rolling back: $mig"
                     # Clean up any partially-created objects from the failed migration
                     # (idempotent — safe to run even if nothing to clean)
-                    psql "$DATABASE_URL" -c "DROP INDEX IF EXISTS \"idx_attendance_user_checkin_date_tenant\"" 2>&1 || true
-                    psql "$DATABASE_URL" -c "DROP INDEX IF EXISTS \"Holiday_date_tenantId_key\"" 2>&1 || true
+                    psql "$DATABASE_URL_PSQL" -c "DROP INDEX IF EXISTS \"idx_attendance_user_checkin_date_tenant\"" 2>&1 || true
+                    psql "$DATABASE_URL_PSQL" -c "DROP INDEX IF EXISTS \"Holiday_date_tenantId_key\"" 2>&1 || true
                     prisma migrate resolve --rolled-back "$mig" 2>&1 || true
                   done
                   echo "✅ Failed migrations rolled back. They will be re-attempted below."
@@ -240,7 +249,7 @@ spec:
 
               if [ "$IS_FRESH" != "f" ]; then
                 prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
-                psql "$RADIUS_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql
+                psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql
                 prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
               fi
               prisma migrate deploy --config=prisma.radius.config.ts
@@ -252,7 +261,7 @@ spec:
 
               if [ "$IS_FRESH" != "f" ]; then
                 prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
-                psql "$DATABASE_URL_BILLING" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql
+                psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql
                 prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
               fi
               prisma migrate deploy --config=prisma.billing.config.ts
@@ -264,7 +273,7 @@ spec:
 
               if [ "$IS_FRESH" != "f" ]; then
                 prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
-                psql "$DATABASE_URL_MITRA" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql
+                psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql
                 prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
               fi
               prisma migrate deploy --config=prisma.mitra.config.ts

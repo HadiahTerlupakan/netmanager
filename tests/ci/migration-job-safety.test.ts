@@ -25,19 +25,19 @@ describe("migration job safety", () => {
     );
 
     const mainApply =
-      'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql';
+      'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql';
     const mainResolve =
       "prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true";
     const radiusApply =
-      'psql "$RADIUS_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql';
+      'psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql';
     const radiusResolve =
       "prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true";
     const billingApply =
-      'psql "$DATABASE_URL_BILLING" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql';
+      'psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql';
     const billingResolve =
       "prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true";
     const mitraApply =
-      'psql "$DATABASE_URL_MITRA" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql';
+      'psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql';
     const mitraResolve =
       "prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true";
 
@@ -59,6 +59,48 @@ describe("migration job safety", () => {
     );
   });
 
+  it("sanitizes Prisma-specific query parameters before using psql database URLs", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    expect(migrationJob).toContain("sanitize_psql_url()");
+    expect(migrationJob).toContain(
+      '["schema", "connection_limit", "pool_timeout"].forEach((name) => url.searchParams.delete(name))',
+    );
+    expect(migrationJob).toContain(
+      'DATABASE_URL_PSQL=$(sanitize_psql_url "$DATABASE_URL")',
+    );
+    expect(migrationJob).toContain(
+      'RADIUS_DATABASE_URL_PSQL=$(sanitize_psql_url "$RADIUS_DATABASE_URL")',
+    );
+    expect(migrationJob).toContain(
+      'DATABASE_URL_BILLING_PSQL=$(sanitize_psql_url "$DATABASE_URL_BILLING")',
+    );
+    expect(migrationJob).toContain(
+      'DATABASE_URL_MITRA_PSQL=$(sanitize_psql_url "$DATABASE_URL_MITRA")',
+    );
+    expect(migrationJob).toContain(
+      'psql "$DATABASE_URL_PSQL" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = \'User\')"',
+    );
+    expect(migrationJob).toContain(
+      'psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).toContain(
+      'psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).toContain(
+      'psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).not.toContain(
+      'psql "$DATABASE_URL_BILLING" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).not.toContain(
+      'psql "$DATABASE_URL_MITRA" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql',
+    );
+  });
+
   it("fails fast when the partial sync schema fix cannot be applied", () => {
     const migrationJob = readFileSync(
       resolve(process.cwd(), "k8s", "migration-job.yaml"),
@@ -66,10 +108,10 @@ describe("migration job safety", () => {
     );
 
     expect(migrationJob).toContain(
-      'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1',
+      'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1',
     );
     expect(migrationJob).not.toContain(
-      'psql "$DATABASE_URL" -f /app/scripts/fix-partial-sync-schema.sql 2>&1 || true',
+      'psql "$DATABASE_URL_PSQL" -f /app/scripts/fix-partial-sync-schema.sql 2>&1 || true',
     );
   });
 
