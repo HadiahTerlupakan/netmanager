@@ -161,7 +161,9 @@ services:
       - netmanager-network
 
   freeradius:
-    build: ./radius
+    build:
+      context: .
+      dockerfile: radius/Dockerfile
     image: netmanager-radius:local
     container_name: netmanager-freeradius
     restart: unless-stopped
