@@ -1,29 +1,100 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 
-describe('migration job safety', () => {
-  it('classifies optional backfill steps explicitly and supports strict mode', () => {
-    const migrationJob = readFileSync(resolve(process.cwd(), 'k8s', 'migration-job.yaml'), 'utf8')
+describe("migration job safety", () => {
+  it("classifies optional backfill steps explicitly and supports strict mode", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
 
-    expect(migrationJob).toContain('run_optional_step()')
-    expect(migrationJob).toContain('FAIL_ON_OPTIONAL_MIGRATION_ERRORS')
-    expect(migrationJob).toContain('OPTIONAL_FAILURES=$((OPTIONAL_FAILURES + 1))')
-    expect(migrationJob).toContain('Optional migration steps completed with')
-  })
+    expect(migrationJob).toContain("run_optional_step()");
+    expect(migrationJob).toContain("FAIL_ON_OPTIONAL_MIGRATION_ERRORS");
+    expect(migrationJob).toContain(
+      "OPTIONAL_FAILURES=$((OPTIONAL_FAILURES + 1))",
+    );
+    expect(migrationJob).toContain("Optional migration steps completed with");
+  });
 
-  it('aligns Jenkins migration wait budget with the Job deadline and captures richer diagnostics on failure', () => {
-    const jenkinsfile = readFileSync(resolve(process.cwd(), 'Jenkinsfile'), 'utf8')
+  it("applies tenant schema baselines before resolving them on existing databases", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
 
-    expect(jenkinsfile).toContain('MAX_WAIT_SECONDS=1800')
-    expect(jenkinsfile).toContain('POLL_INTERVAL=10')
-    expect(jenkinsfile).toContain('MAX_ATTEMPTS=\\$((MAX_WAIT_SECONDS / POLL_INTERVAL))')
-    expect(jenkinsfile).not.toContain('for i in $(seq 1 60)')
-    expect(jenkinsfile).not.toContain('⚠️ Job timeout (10 menit).')
-    expect(jenkinsfile).toContain('kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true')
-    expect(jenkinsfile).toContain('-l job-name=netmanager-migration-job')
-    expect(jenkinsfile).toContain('kubectl describe pod "\\$POD_NAME" --namespace=${NAMESPACE} || true')
-    expect(jenkinsfile).toContain('kubectl logs "\\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true')
-  })
-})
+    const mainApply =
+      'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql';
+    const mainResolve =
+      "prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true";
+    const radiusApply =
+      'psql "$RADIUS_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql';
+    const radiusResolve =
+      "prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true";
+    const billingApply =
+      'psql "$DATABASE_URL_BILLING" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql';
+    const billingResolve =
+      "prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true";
+    const mitraApply =
+      'psql "$DATABASE_URL_MITRA" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql';
+    const mitraResolve =
+      "prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true";
+
+    expect(migrationJob).toContain(mainApply);
+    expect(migrationJob.indexOf(mainApply)).toBeLessThan(
+      migrationJob.indexOf(mainResolve),
+    );
+    expect(migrationJob).toContain(radiusApply);
+    expect(migrationJob.indexOf(radiusApply)).toBeLessThan(
+      migrationJob.indexOf(radiusResolve),
+    );
+    expect(migrationJob).toContain(billingApply);
+    expect(migrationJob.indexOf(billingApply)).toBeLessThan(
+      migrationJob.indexOf(billingResolve),
+    );
+    expect(migrationJob).toContain(mitraApply);
+    expect(migrationJob.indexOf(mitraApply)).toBeLessThan(
+      migrationJob.indexOf(mitraResolve),
+    );
+  });
+
+  it("fails fast when the partial sync schema fix cannot be applied", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    expect(migrationJob).toContain(
+      'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1',
+    );
+    expect(migrationJob).not.toContain(
+      'psql "$DATABASE_URL" -f /app/scripts/fix-partial-sync-schema.sql 2>&1 || true',
+    );
+  });
+
+  it("aligns Jenkins migration wait budget with the Job deadline and captures richer diagnostics on failure", () => {
+    const jenkinsfile = readFileSync(
+      resolve(process.cwd(), "Jenkinsfile"),
+      "utf8",
+    );
+
+    expect(jenkinsfile).toContain("MAX_WAIT_SECONDS=1800");
+    expect(jenkinsfile).toContain("POLL_INTERVAL=10");
+    expect(jenkinsfile).toContain(
+      "MAX_ATTEMPTS=\\$((MAX_WAIT_SECONDS / POLL_INTERVAL))",
+    );
+    expect(jenkinsfile).not.toContain("for i in $(seq 1 60)");
+    expect(jenkinsfile).not.toContain("⚠️ Job timeout (10 menit).");
+    expect(jenkinsfile).toContain(
+      "kubectl describe job netmanager-migration-job --namespace=${NAMESPACE} || true",
+    );
+    expect(jenkinsfile).toContain("-l job-name=netmanager-migration-job");
+    expect(jenkinsfile).toContain(
+      'kubectl describe pod "\\$POD_NAME" --namespace=${NAMESPACE} || true',
+    );
+    expect(jenkinsfile).toContain(
+      'kubectl logs "\\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true',
+    );
+  });
+});
