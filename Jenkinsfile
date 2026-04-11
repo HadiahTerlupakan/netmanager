@@ -384,6 +384,9 @@ spec:
                             netmanager-radius)
                               kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s
                               ;;
+                            netmanager-redis)
+                              kubectl rollout status deployment/netmanager-redis --namespace=${NAMESPACE} --timeout=300s
+                              ;;
                             *)
                               echo "Unknown deployment for rollout status: \$1" >&2
                               return 1
@@ -395,7 +398,7 @@ spec:
                           rollout_restart "\$deployment"
                         done
 
-                        for deployment in netmanager-app netmanager-cron netmanager-radius; do
+                        for deployment in netmanager-app netmanager-cron netmanager-radius netmanager-redis; do
                           rollout_status "\$deployment"
                         done
                         """
