@@ -4,7 +4,7 @@ metadata:
   name: netmanager-app
   namespace: netmanager-staging
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
