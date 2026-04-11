@@ -26,6 +26,7 @@ import {
 } from "./modules/notification/services/PushRetryQueue";
 import { prisma } from "./lib/prisma";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
+import { isPublicUploadPath } from "./lib/upload/upload-policy";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "0.0.0.0";
@@ -254,23 +255,27 @@ app.prepare().then(() => {
     };
 
     if (pathname?.startsWith("/uploads/") && req.method === "GET") {
-      const token = await getToken({
-        req: req as unknown as import("next-auth/jwt").GetTokenParams["req"],
-        secret: process.env.NEXTAUTH_SECRET,
-      });
+      if (isPublicUploadPath(pathname)) {
+        // Public attendance uploads stay readable even when R2 falls back to local storage.
+      } else {
+        const token = await getToken({
+          req: req as unknown as import("next-auth/jwt").GetTokenParams["req"],
+          secret: process.env.NEXTAUTH_SECRET,
+        });
 
-      if (!token) {
-        console.warn(
-          `[Server] Unauthorized access attempt to ${pathname} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
-        );
-        res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(
-          JSON.stringify({
-            error:
-              "Sesi tidak valid atau telah berakhir. Silakan login kembali.",
-          }),
-        );
-        return;
+        if (!token) {
+          console.warn(
+            `[Server] Unauthorized access attempt to ${pathname} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
+          );
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error:
+                "Sesi tidak valid atau telah berakhir. Silakan login kembali.",
+            }),
+          );
+          return;
+        }
       }
 
       const fs = await import("fs");
