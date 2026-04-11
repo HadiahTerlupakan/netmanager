@@ -43,17 +43,28 @@ describe("admin users edit safety", () => {
 
     expect(clientFile).toContain("const canViewLeaveQuotas");
     expect(clientFile).toContain("const canManageLeaveQuotas");
-    expect(clientFile).toContain("hasPermission('users:read')");
-    expect(clientFile).toContain("hasPermission('attendance:read')");
-    expect(clientFile).toContain("hasPermission('attendance:update')");
+    expect(clientFile).toMatch(/hasPermission\((["'])users:read\1\)/);
+    expect(clientFile).toMatch(/hasPermission\((["'])attendance:read\1\)/);
+    expect(clientFile).toMatch(/hasPermission\((["'])attendance:update\1\)/);
     expect(clientFile).toContain("{canViewLeaveQuotas && (");
     expect(clientFile).toContain("{canManageLeaveQuotas && (");
 
-    expect(routeFile).toContain(
-      "permissions: ['attendance:read', 'attendance:update', 'users:read']",
+    expect(routeFile).toMatch(
+      /permissions:\s*\[\s*["']attendance:read["'],\s*["']attendance:update["'],\s*["']users:read["']\s*\]/,
     );
-    expect(routeFile).toContain(
-      "permissions: ['attendance:update', 'users:update']",
+    expect(routeFile).toMatch(
+      /permissions:\s*\[\s*["']attendance:update["'],\s*["']users:update["']\s*\]/,
+    );
+  });
+
+  it("renders overtime inputs without any casts", () => {
+    const clientFile = readUsersDetailClient();
+
+    expect(clientFile).not.toContain(
+      "(formData as any)[`overtimeCalcType${item.key}`]",
+    );
+    expect(clientFile).not.toContain(
+      "(formData as any)[`overtimeRate${item.key}`]",
     );
   });
 });
