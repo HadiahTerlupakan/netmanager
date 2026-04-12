@@ -3,7 +3,13 @@ import {
   getMixRadiusService,
   type FetchCustomersParams,
 } from "@/modules/integrations";
-import { apiSuccess, apiError, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  apiError,
+  ApiErrors,
+  createHandler,
+  ErrorCodes,
+} from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +68,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return apiSuccess(data);
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "MixRadiusConfigError") {
-      return apiError(error.message, "MIXRADIUS_CONFIG_ERROR", {
+      return apiError(error.message, ErrorCodes.MIXRADIUS_CONFIG_ERROR, {
         status: 503,
         details: { isConfigError: true },
       });

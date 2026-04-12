@@ -266,8 +266,10 @@ export class UserRepository {
         isSales: data.isSales || false,
         canvasingTarget:
           data.canvasingTarget !== undefined ? data.canvasingTarget : 50,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        targetSchema: (data.targetSchema as any) || "MONTHLY_RESET",
+        targetSchema:
+          (data.targetSchema as
+            | Prisma.UserCreateInput["targetSchema"]
+            | undefined) || "MONTHLY_RESET",
         // Salary configuration
         basicSalary: data.basicSalary || 0,
         payPeriodDay: data.payPeriodDay || 25,
@@ -279,15 +281,18 @@ export class UserRepository {
         overtimeRateNormal: data.overtimeRateNormal || 0,
         overtimeRateHoliday: data.overtimeRateHoliday || 0,
         overtimeRateNational: data.overtimeRateNational || 0,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         overtimeCalcTypeNormal:
-          (data.overtimeCalcTypeNormal as any) || "PER_HOUR",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (data.overtimeCalcTypeNormal as
+            | Prisma.UserCreateInput["overtimeCalcTypeNormal"]
+            | undefined) || "PER_HOUR",
         overtimeCalcTypeHoliday:
-          (data.overtimeCalcTypeHoliday as any) || "PER_HOUR",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (data.overtimeCalcTypeHoliday as
+            | Prisma.UserCreateInput["overtimeCalcTypeHoliday"]
+            | undefined) || "PER_HOUR",
         overtimeCalcTypeNational:
-          (data.overtimeCalcTypeNational as any) || "PER_HOUR",
+          (data.overtimeCalcTypeNational as
+            | Prisma.UserCreateInput["overtimeCalcTypeNational"]
+            | undefined) || "PER_HOUR",
         // Tenant Support: Allow manual tenantId for Super Admin bypass
         ...(data.tenantId && { tenantId: data.tenantId }),
       },
@@ -625,9 +630,7 @@ export class UserRepository {
     });
   }
 
-  async findByIdsWithDetails(
-    userIds: string[],
-  ): Promise<
+  async findByIdsWithDetails(userIds: string[]): Promise<
     Array<{
       id: string;
       name: string;

@@ -50,6 +50,9 @@ vi.mock("@/lib/api", () => ({
     forbidden: (message = "Forbidden") =>
       NextResponse.json({ success: false, error: message }, { status: 403 }),
   },
+  ErrorCodes: {
+    MIXRADIUS_CONFIG_ERROR: "MIXRADIUS_CONFIG_ERROR",
+  },
 }));
 
 import { GET } from "@/app/api/integrations/mixradius/customers/route";
