@@ -1,33 +1,39 @@
-import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { getMixRadiusService, type FetchCustomersParams } from '@/modules/integrations'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import {
+  getMixRadiusService,
+  type FetchCustomersParams,
+} from "@/modules/integrations";
+import { apiSuccess, apiError, ApiErrors, createHandler } from "@/lib/api";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
+  const user = ctx.session!.user;
 
   // RBAC permission check
-  const permissions = await getUserPermissions(user.id)
-  const isSuper = isSuperAdmin(user)
-  const hasAccess = isSuper || permissions.includes('*') || permissions.includes('mixradius:read');
+  const permissions = await getUserPermissions(user.id);
+  const isSuper = isSuperAdmin(user);
+  const hasAccess =
+    isSuper ||
+    permissions.includes("*") ||
+    permissions.includes("mixradius:read");
 
   if (!hasAccess) {
-    return ApiErrors.forbidden()
+    return ApiErrors.forbidden();
   }
 
   // Parse query parameters
-  const { searchParams } = req.nextUrl
-  const start = parseInt(searchParams.get('start') || '0', 10)
-  const length = parseInt(searchParams.get('length') || '10', 10)
-  const search = searchParams.get('search') || ''
-  const searchType = searchParams.get('searchType') || 'all'
-  const authStatus = searchParams.get('authStatus') || undefined
-  const sortBy = searchParams.get('sortBy') || undefined
-  const sortDir = (searchParams.get('sortDir') as 'asc' | 'desc') || undefined
-  const forceRefresh = searchParams.get('forceRefresh') === 'true'
+  const { searchParams } = req.nextUrl;
+  const start = parseInt(searchParams.get("start") || "0", 10);
+  const length = parseInt(searchParams.get("length") || "10", 10);
+  const search = searchParams.get("search") || "";
+  const searchType = searchParams.get("searchType") || "all";
+  const authStatus = searchParams.get("authStatus") || undefined;
+  const sortBy = searchParams.get("sortBy") || undefined;
+  const sortDir = (searchParams.get("sortDir") as "asc" | "desc") || undefined;
+  const forceRefresh = searchParams.get("forceRefresh") === "true";
 
-  const service = getMixRadiusService()
+  const service = getMixRadiusService();
 
   const params: FetchCustomersParams = {
     start,
@@ -36,29 +42,31 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     searchType,
     sortBy,
     sortDir,
-    forceRefresh
-  }
+    forceRefresh,
+  };
 
-  if (authStatus) params.authStatus = authStatus
-  if (searchParams.get('ownerName')) params.ownerName = searchParams.get('ownerName') || undefined
-  if (searchParams.get('groupId')) params.groupId = searchParams.get('groupId') || undefined
-  if (searchParams.get('onlineStatus')) params.onlineStatus = searchParams.get('onlineStatus') as 'online' | 'offline'
-  if (searchParams.get('siteId')) params.siteId = searchParams.get('siteId') || undefined
+  if (authStatus) params.authStatus = authStatus;
+  if (searchParams.get("ownerName"))
+    params.ownerName = searchParams.get("ownerName") || undefined;
+  if (searchParams.get("groupId"))
+    params.groupId = searchParams.get("groupId") || undefined;
+  if (searchParams.get("onlineStatus"))
+    params.onlineStatus = searchParams.get("onlineStatus") as
+      | "online"
+      | "offline";
+  if (searchParams.get("siteId"))
+    params.siteId = searchParams.get("siteId") || undefined;
 
   try {
-    const data = await service.fetchCustomersPPP(params)
-    return apiSuccess(data)
+    const data = await service.fetchCustomersPPP(params);
+    return apiSuccess(data);
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'MixRadiusConfigError') {
-      return apiSuccess({
-        error: error.message,
-        isConfigError: true,
-        draw: 1,
-        recordsTotal: 0,
-        recordsFiltered: 0,
-        data: []
-      })
+    if (error instanceof Error && error.name === "MixRadiusConfigError") {
+      return apiError(error.message, "MIXRADIUS_CONFIG_ERROR", {
+        status: 503,
+        details: { isConfigError: true },
+      });
     }
-    throw error
+    throw error;
   }
-})
+});

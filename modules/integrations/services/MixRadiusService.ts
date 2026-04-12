@@ -369,6 +369,8 @@ export class MixRadiusService {
   async fetchCustomersPPP(
     params: FetchCustomersParams = {},
   ): Promise<MixRadiusCustomerResponse> {
+    await this.loadCredentials();
+
     const { result, cache } = await fetchMixRadiusCustomersPPP({
       client: this.client,
       baseUrl: this.credentials.baseUrl,
@@ -678,9 +680,7 @@ export class MixRadiusService {
    * Fetch profit report directly from MixRadius HTML (Scraping)
    * Mengambil data pendapatan, transaksi, fee, dan pajak
    */
-  async fetchProfitReport(
-    _groupId?: string,
-  ): Promise<{
+  async fetchProfitReport(_groupId?: string): Promise<{
     income: number[];
     transactions: number[];
     sellerFees: number[];
