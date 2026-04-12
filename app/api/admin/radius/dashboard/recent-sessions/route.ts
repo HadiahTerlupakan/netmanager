@@ -1,52 +1,61 @@
-import { prisma } from '@/modules/database';
-import { RadiusRepository } from '@/modules/network';
-import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
+import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
+import { RadiusDashboardService } from "@/modules/network";
 
-const radiusRepository = new RadiusRepository(prisma);
+const radiusDashboardService = new RadiusDashboardService();
+const allowedStatusValues = ["active", "all"] as const;
 
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat sesi RADIUS');
+function parseRecentSessionsStatus(statusParam: string | null) {
+  const status = statusParam ?? "active";
+
+  if (
+    !allowedStatusValues.includes(
+      status as (typeof allowedStatusValues)[number],
+    )
+  ) {
+    return null;
+  }
+
+  return status as (typeof allowedStatusValues)[number];
+}
+
+export const GET = createHandler(
+  { auth: true, permissions: ["radius:read"] },
+  async (req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
     }
 
-    const tenantId = ctx.session!.user.tenantId;
-    const { searchParams } = req.nextUrl;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const status = searchParams.get('status') || 'active'; // active | all
+    const searchParams = req.nextUrl.searchParams;
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const statusParam = searchParams.get("status");
 
-    const { sessions, total } = await radiusRepository.getRecentSessions(tenantId, {
-        page,
-        limit,
-        status: status as 'active' | 'all',
+    const page = pageParam ? Number(pageParam) : 1;
+    const limit = limitParam ? Number(limitParam) : 50;
+    const status = parseRecentSessionsStatus(statusParam);
+
+    if (!Number.isFinite(page) || page < 1) {
+      return ApiErrors.badRequest("Query parameter page tidak valid");
+    }
+
+    if (!Number.isFinite(limit) || limit < 1) {
+      return ApiErrors.badRequest("Query parameter limit tidak valid");
+    }
+
+    if (!status) {
+      return ApiErrors.badRequest(
+        "Query parameter status harus bernilai active atau all",
+      );
+    }
+
+    const result = await radiusDashboardService.getRecentSessions({
+      tenantId,
+      page,
+      limit,
+      status,
     });
 
-    const usernames = sessions
-        .map((session) => session.username)
-        .filter((username): username is string => Boolean(username));
-
-    const totalUsageByUsername = await radiusRepository.getTotalUsageByUsernames(tenantId, usernames);
-
-    const sessionsWithTotalUsage = sessions.map((session) => {
-        if (!session.username) return session;
-        const totalUsage = totalUsageByUsername[session.username];
-        if (!totalUsage) return session;
-
-        return {
-            ...session,
-            downloadMB: totalUsage.downloadMB,
-            uploadMB: totalUsage.uploadMB,
-        };
-    });
-
-    return apiSuccess({
-        sessions: sessionsWithTotalUsage,
-        pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-        },
-    });
-})
+    return apiSuccess(result);
+  },
+);

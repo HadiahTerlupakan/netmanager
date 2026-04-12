@@ -1,16 +1,17 @@
-import { prisma } from '@/modules/database';
-import { RadiusRepository } from '@/modules/network';
-import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api';
+import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
+import { RadiusDashboardService } from "@/modules/network";
 
-const radiusRepository = new RadiusRepository(prisma);
+const radiusDashboardService = new RadiusDashboardService();
 
-export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-    if (!await hasPermission('radius:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat statistik RADIUS');
+export const GET = createHandler(
+  { auth: true, permissions: ["radius:read"] },
+  async (_req, ctx) => {
+    const tenantId = ctx.session?.user.tenantId;
+    if (!tenantId) {
+      return ApiErrors.forbidden("Tenant tidak valid");
     }
 
-    const tenantId = ctx.session!.user.tenantId;
-    const stats = await radiusRepository.getDashboardStats(tenantId);
+    const stats = await radiusDashboardService.getStats({ tenantId });
     return apiSuccess(stats);
-})
+  },
+);

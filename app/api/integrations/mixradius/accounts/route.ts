@@ -1,91 +1,117 @@
-import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { logger } from '@/lib/logger'
-import { mixRadiusConfigRepo } from '@/modules/integrations'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import {
+  mixRadiusConfigRepo,
+  IntegrationFactory,
+} from "@/modules/integrations";
+import {
+  apiSuccess,
+  apiError,
+  ApiErrors,
+  ErrorCodes,
+  createHandler,
+} from "@/lib/api";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
-  const isSuper = isSuperAdmin(user)
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  const user = ctx.session!.user;
+  const isSuper = isSuperAdmin(user);
 
   if (!isSuper) {
-    const permissions = await getUserPermissions(user.id)
-    const hasAccess = permissions.includes('mixradius_accounts:read') ||
-      permissions.includes('mixradius:read') ||
-      permissions.includes('*')
+    const permissions = await getUserPermissions(user.id);
+    const hasAccess =
+      permissions.includes("mixradius_accounts:read") ||
+      permissions.includes("mixradius:read") ||
+      permissions.includes("*");
     if (!hasAccess) {
-      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:read')
+      return ApiErrors.forbidden(
+        "Akses ditolak. Anda memerlukan permission: mixradius_accounts:read",
+      );
     }
   }
 
-  const configs = await mixRadiusConfigRepo.getAllConfigs()
-  return apiSuccess(configs)
-})
+  const configs = await mixRadiusConfigRepo.getAllConfigs();
+  return apiSuccess(configs);
+});
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
-  const isSuper = isSuperAdmin(user)
+  const user = ctx.session!.user;
+  const isSuper = isSuperAdmin(user);
 
   if (!isSuper) {
-    const permissions = await getUserPermissions(user.id)
-    const hasAccess = permissions.includes('mixradius_accounts:create') ||
-      permissions.includes('mixradius:create') ||
-      permissions.includes('*')
+    const permissions = await getUserPermissions(user.id);
+    const hasAccess =
+      permissions.includes("mixradius_accounts:create") ||
+      permissions.includes("mixradius:create") ||
+      permissions.includes("*");
     if (!hasAccess) {
-      return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_accounts:create')
+      return ApiErrors.forbidden(
+        "Akses ditolak. Anda memerlukan permission: mixradius_accounts:create",
+      );
     }
   }
 
-  const body = await req.json()
-  // Support both apiUrl (DB) and baseUrl (UI)
-  const apiUrl = body.apiUrl || body.baseUrl
-  const name = body.name || 'Default'
-  const { username, password } = body
-  const isDefault = body.isDefault !== undefined ? body.isDefault : (body.isActive !== undefined ? body.isActive : false)
-  // Support optional apiKey from UI
-  const apiKey = body.apiKey || 'default-api-key'
+  const body = await req.json();
+  const name = body.name || "Default";
+  const rawBaseUrl = body.apiUrl || body.baseUrl || "";
+  const username = body.username;
+  const password = body.password;
+  const isDefault =
+    body.isDefault !== undefined
+      ? body.isDefault
+      : body.isActive !== undefined
+        ? body.isActive
+        : false;
+  const apiKey = body.apiKey || "default-api-key";
 
-  const missingFields: string[] = []
-  if (!apiUrl) missingFields.push('API URL')
-  if (!username) missingFields.push('Username')
-  if (!password) missingFields.push('Password')
+  const missingFields: string[] = [];
+  if (!rawBaseUrl.trim()) missingFields.push("API URL");
+  if (!username) missingFields.push("Username");
+  if (!password) missingFields.push("Password");
 
   if (missingFields.length > 0) {
     return apiError(
-      `Data berikut wajib diisi: ${missingFields.join(', ')}`,
+      `Data berikut wajib diisi: ${missingFields.join(", ")}`,
       ErrorCodes.VALIDATION_ERROR,
-      { details: { missingFields }, status: 400 }
-    )
+      { details: { missingFields }, status: 400 },
+    );
   }
 
-  if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+  const configInput = IntegrationFactory.createMixRadiusConfig({
+    name,
+    baseUrl: rawBaseUrl,
+    username,
+    password,
+  });
+  const validation = IntegrationFactory.validateUrl(configInput.baseUrl);
+  if (!validation.isValid) {
     return apiError(
-      'API URL harus diawali dengan http:// atau https://',
+      validation.error || "API URL tidak valid",
       ErrorCodes.VALIDATION_ERROR,
-      { status: 400 }
-    )
+      { status: 400 },
+    );
   }
 
   const newConfig = await mixRadiusConfigRepo.createConfig({
-    name,
-    apiUrl,
+    name: configInput.name,
+    apiUrl: configInput.baseUrl,
     apiKey,
-    username,
-    password,
+    username: configInput.username,
+    password: configInput.password,
     isDefault: isDefault || false,
     lastSyncedAt: null,
-    tenantId: user.tenantId!
-  })
+    tenantId: user.tenantId!,
+  });
 
   await logger.logActivity({
     userId: user.id,
-    action: 'CREATE',
-    subject: 'mixradius_config',
+    action: "CREATE",
+    subject: "mixradius_config",
     details: { id: newConfig.id, apiUrl: newConfig.apiUrl },
-    ipAddress: req.headers.get('x-forwarded-for') || 'unknown',
-    userAgent: req.headers.get('user-agent') || 'unknown',
-  })
+    ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+    userAgent: req.headers.get("user-agent") || "unknown",
+  });
 
-  return apiSuccess(newConfig, { status: 201 })
-})
+  return apiSuccess(newConfig, { status: 201 });
+});

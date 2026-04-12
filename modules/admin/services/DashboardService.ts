@@ -10,7 +10,6 @@ import {
   buildTopEmployeeScores,
   sortTopEmployeeScores,
   summarizeAttendance,
-  summarizeMarketingClaims,
   summarizeWorkOrders,
 } from "./dashboard-helpers";
 
@@ -51,6 +50,21 @@ export type SystemSummary = {
   };
 };
 
+type DashboardTenantInput = {
+  tenantId: string;
+};
+
+type DashboardLimitInput = {
+  tenantId: string;
+  limit?: number;
+};
+
+export type SiteStat = {
+  siteId: string;
+  siteName: string;
+  count: number;
+};
+
 export class DashboardService {
   private attendanceRepo = new AttendanceRepository();
   private workOrderRepo = new WorkOrderRepository();
@@ -61,21 +75,29 @@ export class DashboardService {
   /**
    * Get Integrated System Summary
    */
-  async getSystemSummary(): Promise<SystemSummary> {
+  async getSystemSummary(input: DashboardTenantInput): Promise<SystemSummary> {
     const { startOfDay, endOfDay } = buildTodayRange();
 
-    const inventory = await this.inventoryRepo.findAllBarang({ take: 1 });
-    const claims = await this.pointClaimRepo.findAll();
-    const marketing = summarizeMarketingClaims(claims);
+    const inventory = await this.inventoryRepo.findAllBarang({
+      take: 1,
+      tenantId: input.tenantId,
+    });
+    const marketing = await this.pointClaimRepo.getDashboardSummary(
+      input.tenantId,
+    );
 
     const { startDate: woStartDate } = buildRecentRange(30);
-    const woStats = await this.workOrderRepo.getStatistics({
-      dateFrom: woStartDate,
-    });
+    const woStats = await this.workOrderRepo.getStatistics(
+      { dateFrom: woStartDate },
+      input.tenantId,
+    );
 
     const dailyAttendance = await this.attendanceRepo.getDailyStats(
       startOfDay,
       endOfDay,
+      undefined,
+      undefined,
+      input.tenantId,
     );
     const attendance = summarizeAttendance(dailyAttendance[0]);
 
@@ -94,12 +116,23 @@ export class DashboardService {
    * Get Top Employees based on integrated score (Attendance + WorkOrder)
    * Score = Attendance Days + Completed Work Orders
    */
-  async getTopEmployees(limit: number = 5): Promise<TopEmployee[]> {
+  async getTopEmployees(input: DashboardLimitInput): Promise<TopEmployee[]> {
+    const limit = input.limit ?? 5;
     const { startDate, endDate } = buildRecentRange(30);
 
     const [attendanceStats, workOrderStats] = await Promise.all([
-      this.attendanceRepo.getUserAttendanceStats(startDate, endDate),
-      this.workOrderRepo.getUserWorkOrderStats(startDate, endDate),
+      this.attendanceRepo.getUserAttendanceStats(
+        startDate,
+        endDate,
+        undefined,
+        undefined,
+        input.tenantId,
+      ),
+      this.workOrderRepo.getUserWorkOrderStats(
+        startDate,
+        endDate,
+        input.tenantId,
+      ),
     ]);
 
     const userScores = buildTopEmployeeScores(attendanceStats, workOrderStats);
@@ -109,23 +142,24 @@ export class DashboardService {
 
     const users = await this.userRepo.findManyWithFullDetails(
       sortedIds.map(([id]) => id),
+      input.tenantId,
     );
 
     return sortedIds
       .map(([userId, score], index): TopEmployee => {
         const user = users.find(
-          (u: {
+          (candidate: {
             id: string;
             name: string | null;
             image: string | null;
             sites: { name: string } | null;
             departments: { name: string } | null;
-          }) => u.id === userId,
+          }) => candidate.id === userId,
         );
         return {
           userId,
           name: user?.name || "Unknown",
-          role: null as string | null,
+          role: user?.role?.name || null,
           department: user?.departments?.name || null,
           site: user?.sites?.name || null,
           avatar: user?.image || null,
@@ -143,7 +177,10 @@ export class DashboardService {
   /**
    * Get Top Problematic Sites (High TROUBLESHOOT count)
    */
-  async getTopProblematicSites(limit: number = 5) {
+  async getTopProblematicSites(
+    input: DashboardLimitInput,
+  ): Promise<SiteStat[]> {
+    const limit = input.limit ?? 5;
     const { startDate, endDate } = buildRecentRange(30);
 
     return this.workOrderRepo.getSiteStatsByType(
@@ -151,13 +188,15 @@ export class DashboardService {
       limit,
       startDate,
       endDate,
+      input.tenantId,
     );
   }
 
   /**
    * Get Top Dismantle Sites (High DISCONNECTION count)
    */
-  async getTopDismantleSites(limit: number = 5) {
+  async getTopDismantleSites(input: DashboardLimitInput): Promise<SiteStat[]> {
+    const limit = input.limit ?? 5;
     const { startDate, endDate } = buildRecentRange(30);
 
     return this.workOrderRepo.getSiteStatsByType(
@@ -165,13 +204,17 @@ export class DashboardService {
       limit,
       startDate,
       endDate,
+      input.tenantId,
     );
   }
 
   /**
    * Get Top Installation Sites (High INSTALLATION count)
    */
-  async getTopInstallationSites(limit: number = 5) {
+  async getTopInstallationSites(
+    input: DashboardLimitInput,
+  ): Promise<SiteStat[]> {
+    const limit = input.limit ?? 5;
     const { startDate, endDate } = buildRecentRange(30);
 
     return this.workOrderRepo.getSiteStatsByType(
@@ -179,6 +222,7 @@ export class DashboardService {
       limit,
       startDate,
       endDate,
+      input.tenantId,
     );
   }
 }

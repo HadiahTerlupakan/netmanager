@@ -1,34 +1,27 @@
-import { getDashboardService } from "./DashboardService";
-import { MikroTikRouterRepository } from "@/modules/network";
+import { AdminDashboardComposer } from "./dashboard/AdminDashboardComposer";
+import type { AdminDashboardViewModel } from "./dashboard/admin-dashboard.contracts";
+
+type AdminDashboardPageInput = {
+  tenantId: string;
+  viewerName: string;
+  now: Date;
+};
 
 export class AdminDashboardPageService {
-  async getDashboardData(tenantId: string) {
-    const routerRepository = new MikroTikRouterRepository();
-    const dashboardService = getDashboardService();
+  private readonly composer = new AdminDashboardComposer();
 
-    const [
-      routerStats,
-      topEmployees,
-      topProblematicSites,
-      topDismantleSites,
-      topInstallationSites,
-      systemSummary,
-    ] = await Promise.all([
-      routerRepository.getStatistics(tenantId),
-      dashboardService.getTopEmployees(),
-      dashboardService.getTopProblematicSites(),
-      dashboardService.getTopDismantleSites(),
-      dashboardService.getTopInstallationSites(),
-      dashboardService.getSystemSummary(),
-    ]);
+  async getDashboardData(
+    inputOrTenantId: AdminDashboardPageInput | string,
+  ): Promise<AdminDashboardViewModel> {
+    const normalizedInput =
+      typeof inputOrTenantId === "string"
+        ? {
+            tenantId: inputOrTenantId,
+            viewerName: "Admin",
+            now: new Date(),
+          }
+        : inputOrTenantId;
 
-    return {
-      routerStats,
-      topEmployees,
-      topProblematicSites,
-      topDismantleSites,
-      topInstallationSites,
-      systemSummary,
-    };
+    return this.composer.compose(normalizedInput);
   }
 }

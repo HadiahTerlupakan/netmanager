@@ -134,11 +134,13 @@ typescript-errors.log
 .kilocode/
 .playwright-mcp/
 .expo/
+.superpowers/
 
 # Temporary
 /tmp/
 /plans/
 MEMORY.md
+
 
 
 # Worktrees

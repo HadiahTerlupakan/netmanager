@@ -16,3 +16,4 @@ export * from "./services/MikroTikRouterService";
 export * from "./services/ProfilePPPService";
 export * from "./services/mikrotik-ping-check";
 export * from "./services/mikrotik-ppp-profile";
+export { RadiusDashboardService } from "./services/dashboard/RadiusDashboardService";

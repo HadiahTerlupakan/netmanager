@@ -1,6 +1,7 @@
 import type { AxiosInstance } from "axios";
 
 import { mixRadiusConfigRepo } from "@/modules/integrations/repositories/MixRadiusConfigRepository";
+import { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
 
 import {
   MixRadiusConfigError,
@@ -14,23 +15,41 @@ export type MixRadiusSessionState = {
 };
 
 export async function loadMixRadiusCredentials(): Promise<MixRadiusCredentials> {
-  try {
-    const activeConfig = await mixRadiusConfigRepo.getActiveConfig();
-    if (activeConfig) {
-      return {
-        username: activeConfig.username,
-        password: activeConfig.password,
-        baseUrl: activeConfig.apiUrl.replace(/\/$/, ""),
-      };
+  const activeConfig = await mixRadiusConfigRepo.getActiveConfig();
+  if (activeConfig) {
+    const baseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
+      activeConfig.apiUrl,
+    );
+    const validation = IntegrationFactory.validateUrl(baseUrl);
+
+    if (!validation.isValid) {
+      throw new MixRadiusConfigError(
+        "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
+      );
     }
-  } catch {
-    // silent fallback to env
+
+    return {
+      username: activeConfig.username,
+      password: activeConfig.password,
+      baseUrl,
+    };
+  }
+
+  const baseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
+    process.env.MIXRADIUS_URL || "",
+  );
+  const validation = IntegrationFactory.validateUrl(baseUrl);
+
+  if (!validation.isValid) {
+    throw new MixRadiusConfigError(
+      "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
+    );
   }
 
   return {
     username: process.env.MIXRADIUS_USERNAME || "",
     password: process.env.MIXRADIUS_PASSWORD || "",
-    baseUrl: (process.env.MIXRADIUS_URL || "").replace(/\/$/, ""),
+    baseUrl,
   };
 }
 
@@ -52,7 +71,12 @@ export async function loginMixRadius(params: {
     }
   }
 
-  if (!credentials.baseUrl || !credentials.baseUrl.startsWith("http")) {
+  const normalizedBaseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
+    credentials.baseUrl,
+  );
+  const validation = IntegrationFactory.validateUrl(normalizedBaseUrl);
+
+  if (!validation.isValid) {
     console.warn("[MixRadius] Invalid or missing Base URL");
     throw new MixRadiusConfigError(
       "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
@@ -67,7 +91,7 @@ export async function loginMixRadius(params: {
   }
 
   try {
-    await client.get(`${credentials.baseUrl}/rad-admin`);
+    await client.get(`${normalizedBaseUrl}/rad-admin`);
     await randomDelay(800, 2000);
 
     const formData = new URLSearchParams({
@@ -76,13 +100,13 @@ export async function loginMixRadius(params: {
     });
 
     const loginResponse = await client.post(
-      `${credentials.baseUrl}/rad-admin/post`,
+      `${normalizedBaseUrl}/rad-admin/post`,
       formData.toString(),
       {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Referer: `${credentials.baseUrl}/rad-admin`,
-          Origin: credentials.baseUrl,
+          Referer: `${normalizedBaseUrl}/rad-admin`,
+          Origin: normalizedBaseUrl,
         },
         maxRedirects: 5,
       },
@@ -95,7 +119,7 @@ export async function loginMixRadius(params: {
         loginExpiresAt: Date.now() + 50 * 60 * 1000,
         loggedInCredentials: {
           username: credentials.username,
-          baseUrl: credentials.baseUrl,
+          baseUrl: normalizedBaseUrl,
         },
       };
     }

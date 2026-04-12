@@ -670,6 +670,25 @@ import { getToken } from "next-auth/jwt";
 
 import { verifyMobileToken } from "@/lib/mobile-auth";
 
+export interface CanonicalAdminUser {
+  role?: string | null;
+  isSuperAdmin?: boolean | null;
+}
+
+export function isSuperAdminUser(
+  user: CanonicalAdminUser | undefined | null,
+): boolean {
+  if (!user) {
+    return false;
+  }
+
+  if (user.isSuperAdmin === true) {
+    return true;
+  }
+
+  return user.role === "SUPER_ADMIN" || user.role === "Super Admin";
+}
+
 export interface UserSession {
   id: string;
   email: string;
@@ -945,11 +964,5 @@ export async function hasPermission(
 export function isSuperAdmin(
   user: { role?: string | null; isSuperAdmin?: boolean } | undefined | null,
 ): boolean {
-  if (!user) return false;
-  // Check the boolean flag first (new schema)
-  if (user.isSuperAdmin === true) return true;
-
-  // Fallback to legacy string check
-  if (!user.role) return false;
-  return user.role === "SUPER_ADMIN" || user.role === "Super Admin";
+  return isSuperAdminUser(user);
 }

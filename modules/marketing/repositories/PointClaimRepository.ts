@@ -1,12 +1,13 @@
-import { PrismaClient, PointClaimStatus, Prisma } from '@prisma/client'
-import type { PointClaim } from '@prisma/client'
-import type { 
-  IPointClaimRepository, 
-  CreatePointClaimInput, 
+import { PrismaClient, PointClaimStatus, Prisma } from "@prisma/client";
+import type { PointClaim } from "@prisma/client";
+import type {
+  IPointClaimRepository,
+  CreatePointClaimInput,
   UpdatePointClaimInput,
   PointClaimWithRelations,
-  PointSummary
-} from './IPointClaimRepository'
+  PointSummary,
+  PointClaimDashboardSummary,
+} from "./IPointClaimRepository";
 
 export class PointClaimRepository implements IPointClaimRepository {
   constructor(private readonly db: PrismaClient) {}
@@ -17,10 +18,11 @@ export class PointClaimRepository implements IPointClaimRepository {
         canvasingId: data.canvasingId,
         salesId: data.salesId,
         buktiUrls: data.buktiUrls,
-        buktiMetadata: (data.buktiMetadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        buktiMetadata: (data.buktiMetadata ??
+          Prisma.JsonNull) as Prisma.InputJsonValue,
         keterangan: data.keterangan ?? null,
       },
-    })
+    });
   }
 
   async findById(id: string): Promise<PointClaimWithRelations | null> {
@@ -55,24 +57,26 @@ export class PointClaimRepository implements IPointClaimRepository {
           },
         },
       },
-    }) as Promise<PointClaimWithRelations | null>
+    }) as Promise<PointClaimWithRelations | null>;
   }
 
   async findByCanvasingId(canvasingId: string): Promise<PointClaim | null> {
     return this.db.pointClaim.findUnique({
       where: { canvasingId },
-    })
+    });
   }
 
-  async findAll(filters?: { 
-    status?: PointClaimStatus
-    salesId?: string 
+  async findAll(filters?: {
+    status?: PointClaimStatus;
+    salesId?: string;
+    tenantId?: string;
   }): Promise<PointClaimWithRelations[]> {
     return this.db.pointClaim.findMany({
       where: {
         AND: [
           filters?.status ? { status: filters.status } : {},
           filters?.salesId ? { salesId: filters.salesId } : {},
+          filters?.tenantId ? { tenantId: filters.tenantId } : {},
         ],
       },
       include: {
@@ -104,21 +108,52 @@ export class PointClaimRepository implements IPointClaimRepository {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
-    }) as Promise<PointClaimWithRelations[]>
+      orderBy: { createdAt: "desc" },
+    }) as Promise<PointClaimWithRelations[]>;
+  }
+
+  async getDashboardSummary(
+    tenantId?: string,
+  ): Promise<PointClaimDashboardSummary> {
+    const [approved, pending] = await Promise.all([
+      this.db.pointClaim.aggregate({
+        where: {
+          status: "APPROVED",
+          ...(tenantId ? { tenantId } : {}),
+        },
+        _sum: {
+          pointValue: true,
+        },
+        _count: {
+          _all: true,
+        },
+      }),
+      this.db.pointClaim.count({
+        where: {
+          status: "PENDING",
+          ...(tenantId ? { tenantId } : {}),
+        },
+      }),
+    ]);
+
+    return {
+      totalPoints: approved._sum.pointValue ?? 0,
+      approvedClaims: approved._count._all,
+      pendingClaims: pending,
+    };
   }
 
   async update(id: string, data: UpdatePointClaimInput): Promise<PointClaim> {
     return this.db.pointClaim.update({
       where: { id },
       data,
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
     await this.db.pointClaim.delete({
       where: { id },
-    })
+    });
   }
 
   async getPointSummaryBySales(salesId: string): Promise<PointSummary> {
@@ -138,35 +173,41 @@ export class PointClaimRepository implements IPointClaimRepository {
           },
         },
       },
-    })
+    });
 
-    let woInProgressPoints = 0
-    let woCompletedPoints = 0
-    let claimPoints = 0
-    let approvedClaims = 0
-    let pendingClaims = 0
+    let woInProgressPoints = 0;
+    let woCompletedPoints = 0;
+    let claimPoints = 0;
+    let approvedClaims = 0;
+    let pendingClaims = 0;
 
     for (const canvasing of canvasings) {
-      const woStatus = canvasing.workOrder?.status
+      const woStatus = canvasing.workOrder?.status;
 
       // Poin WO In Progress (5 poin)
-      if (woStatus && ['IN_PROGRESS', 'COMPLETED', 'VERIFIED', 'CLOSED'].includes(woStatus)) {
-        woInProgressPoints += 5
+      if (
+        woStatus &&
+        ["IN_PROGRESS", "COMPLETED", "VERIFIED", "CLOSED"].includes(woStatus)
+      ) {
+        woInProgressPoints += 5;
       }
 
       // Poin WO Completed (+3 poin)
-      if (woStatus && ['COMPLETED', 'VERIFIED', 'CLOSED'].includes(woStatus)) {
-        woCompletedPoints += 3
+      if (woStatus && ["COMPLETED", "VERIFIED", "CLOSED"].includes(woStatus)) {
+        woCompletedPoints += 3;
       }
 
       // Poin Claim (+2 poin jika approved)
-      const claim = canvasing.pointClaims as { status: string; pointValue: number } | null
+      const claim = canvasing.pointClaims as {
+        status: string;
+        pointValue: number;
+      } | null;
       if (claim) {
-        if (claim.status === 'APPROVED') {
-          claimPoints += claim.pointValue
-          approvedClaims++
-        } else if (claim.status === 'PENDING') {
-          pendingClaims++
+        if (claim.status === "APPROVED") {
+          claimPoints += claim.pointValue;
+          approvedClaims++;
+        } else if (claim.status === "PENDING") {
+          pendingClaims++;
         }
       }
     }
@@ -178,6 +219,6 @@ export class PointClaimRepository implements IPointClaimRepository {
       woInProgressPoints,
       woCompletedPoints,
       claimPoints,
-    }
+    };
   }
 }
