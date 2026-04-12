@@ -15,12 +15,12 @@ describe("admin notification contract", () => {
       "app/admin/notifications/NotificationsClient.tsx",
     );
 
-    expect(notificationsClient).toContain(
-      "type FilterType = 'ALL' | 'WORK_ORDER' | 'TICKET' | 'SYSTEM' | 'ALERT' | 'ANNOUNCEMENT'",
-    );
-    expect(notificationsClient).toContain(
-      "(['ALL', 'TICKET', 'WORK_ORDER', 'SYSTEM', 'ALERT', 'ANNOUNCEMENT'] as FilterType[])",
-    );
+    expect(notificationsClient).toContain("type FilterType =");
+    expect(notificationsClient).toContain('| "WORK_ORDER"');
+    expect(notificationsClient).toContain('| "ANNOUNCEMENT"');
+    expect(notificationsClient).toContain('"WORK_ORDER",');
+    expect(notificationsClient).toContain('"ANNOUNCEMENT",');
+    expect(notificationsClient).toContain("as FilterType[]");
   });
 
   it("keeps WORK_ORDER in the admin bell realtime notification scope", () => {

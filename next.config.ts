@@ -10,6 +10,7 @@ const withPWA = withPWAInit({
   customWorkerSrc: "worker",
   customWorkerDest: "public",
   customWorkerPrefix: "worker",
+  publicExcludes: ["!uploads/**", "!uploads/attendance/**"],
   // Exclude uploads folder from precaching (files are stored in CDN/R2)
   // This prevents 404 errors when files are moved/deleted
   workboxOptions: {
