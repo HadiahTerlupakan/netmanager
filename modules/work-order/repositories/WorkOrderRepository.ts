@@ -106,12 +106,14 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
         // Destructure pelangganId to handle it separately
         const { pelangganId, ...restData } = data;
+        const persistedTenantId = generationTenantId ?? null;
 
         const result = await this.prisma.workOrders.create({
           data: {
             id: randomUUID(),
             updatedAt: new Date(),
             workOrderNumber,
+            tenantId: persistedTenantId,
             type: restData.type,
             title: restData.title,
             description: restData.description,
@@ -1081,7 +1083,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const workOrderNumber = await this.generateWorkOrderNumber();
+        const { tenantId: contextTenantId } = await getTenantIdFromContext();
+        const persistedTenantId = data.tenantId ?? contextTenantId ?? null;
+        const workOrderNumber = await this.generateWorkOrderNumber(
+          persistedTenantId ?? undefined,
+        );
 
         const { pelangganId, requestedById, ...restData } = data;
 
@@ -1090,6 +1096,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
             id: randomUUID(),
             updatedAt: new Date(),
             workOrderNumber,
+            tenantId: persistedTenantId,
             type: restData.type,
             title: restData.title,
             description: restData.description,
