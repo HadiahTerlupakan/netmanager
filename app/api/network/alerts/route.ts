@@ -1,9 +1,12 @@
-
-import { randomUUID } from 'crypto'
-import { networkAlertCreateSchema, networkAlertQuerySchema } from '@/lib/validations/network-performance'
-import { prisma } from '@/modules/database'
-import { logActivitySafe } from '@/lib/logger'
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { randomUUID } from "crypto";
+import {
+  networkAlertCreateSchema,
+  networkAlertQuerySchema,
+} from "@/lib/validations/network-performance";
+import { prisma } from "@/modules/database";
+import { logActivitySafe } from "@/lib/logger";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import * as z from "zod";
 
 /**
  * @swagger
@@ -90,73 +93,79 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {
-    const { searchParams } = req.nextUrl
-    const queryParams = Object.fromEntries(searchParams.entries())
+  const { searchParams } = req.nextUrl;
+  const queryParams = Object.fromEntries(searchParams.entries());
 
-    const parsed = networkAlertQuerySchema.safeParse(queryParams)
-    if (!parsed.success) {
-      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
-    }
+  const parsed = networkAlertQuerySchema.safeParse(queryParams);
+  if (!parsed.success) {
+    return ApiErrors.badRequest("Invalid query parameters", {
+      errors: z.flattenError(parsed.error),
+    });
+  }
 
-    const filters = parsed.data
-    const where: Record<string, unknown> = { isActive: true }
+  const filters = parsed.data;
+  const where: Record<string, unknown> = { isActive: true };
 
-    if (filters.deviceId) where.deviceId = filters.deviceId
-    if (filters.deviceType) where.deviceType = filters.deviceType
-    if (filters.status) where.status = filters.status
-    if (filters.severity) where.severity = filters.severity
-    if (filters.alertType) where.alertType = filters.alertType
-    if (filters.acknowledged !== undefined) where.acknowledged = filters.acknowledged
-    if (filters.resolved !== undefined) where.resolved = filters.resolved
+  if (filters.deviceId) where.deviceId = filters.deviceId;
+  if (filters.deviceType) where.deviceType = filters.deviceType;
+  if (filters.status) where.status = filters.status;
+  if (filters.severity) where.severity = filters.severity;
+  if (filters.alertType) where.alertType = filters.alertType;
+  if (filters.acknowledged !== undefined)
+    where.acknowledged = filters.acknowledged;
+  if (filters.resolved !== undefined) where.resolved = filters.resolved;
 
-    const page = filters.page || 1
-    const limit = filters.limit || 20
-    const skip = (page - 1) * limit
+  const page = filters.page || 1;
+  const limit = filters.limit || 20;
+  const skip = (page - 1) * limit;
 
-    const orderBy: Record<string, string> = {}
-    if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
-    } else {
-      orderBy.createdAt = 'desc'
-    }
+  const orderBy: Record<string, string> = {};
+  if (filters.sortBy) {
+    orderBy[filters.sortBy] = filters.sortOrder || "desc";
+  } else {
+    orderBy.createdAt = "desc";
+  }
 
-    try {
-      const [data, total] = await Promise.all([
-        prisma.networkAlerts.findMany({
-          where,
-          orderBy,
-          skip,
-          take: limit,
-        }),
-        prisma.networkAlerts.count({ where }),
-      ])
+  try {
+    const [data, total] = await Promise.all([
+      prisma.networkAlerts.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      prisma.networkAlerts.count({ where }),
+    ]);
 
+    return apiSuccess({
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (prismaError: unknown) {
+    // Handle case where model doesn't exist yet
+    if (
+      prismaError instanceof Error &&
+      (prismaError as unknown as Record<string, unknown>).code === "P2021"
+    ) {
       return apiSuccess({
-        data,
+        data: [],
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: 0,
+          totalPages: 0,
         },
-      })
-    } catch (prismaError: unknown) {
-      // Handle case where model doesn't exist yet
-      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return apiSuccess({
-          data: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            totalPages: 0,
-          },
-          message: 'Network alerts will be available after database migration'
-        })
-      }
-      throw prismaError
+        message: "Network alerts will be available after database migration",
+      });
     }
-})
+    throw prismaError;
+  }
+});
 
 /**
  * @swagger
@@ -236,11 +245,13 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
  *       500:
  *         description: Server error
  */
-export const POST = createHandler({ 
+export const POST = createHandler(
+  {
     auth: true,
-    schema: networkAlertCreateSchema
-}, async (req, ctx) => {
-    const data = ctx.validated
+    schema: networkAlertCreateSchema,
+  },
+  async (req, ctx) => {
+    const data = ctx.validated;
 
     try {
       const result = await prisma.networkAlerts.create({
@@ -259,22 +270,33 @@ export const POST = createHandler({
           autoResolveTime: data.autoResolveTime ?? null,
           updatedAt: new Date(),
         },
-      })
+      });
 
       // System Log
       logActivitySafe({
-        action: 'CREATE',
-        subject: 'Network Alert',
+        action: "CREATE",
+        subject: "Network Alert",
         userId: ctx.session!.user.id,
-        details: { id: result.id, title: data.title, severity: data.severity, deviceId: data.deviceId }
-      })
+        details: {
+          id: result.id,
+          title: data.title,
+          severity: data.severity,
+          deviceId: data.deviceId,
+        },
+      });
 
-      return apiSuccess({ id: result.id }, { status: 201 })
+      return apiSuccess({ id: result.id }, { status: 201 });
     } catch (prismaError: unknown) {
       // Handle case where model doesn't exist yet
-      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return ApiErrors.internalError('Network alerts will be available after database migration')
+      if (
+        prismaError instanceof Error &&
+        (prismaError as unknown as Record<string, unknown>).code === "P2021"
+      ) {
+        return ApiErrors.internalError(
+          "Network alerts will be available after database migration",
+        );
       }
-      throw prismaError
+      throw prismaError;
     }
-})
+  },
+);

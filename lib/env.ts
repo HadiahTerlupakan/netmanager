@@ -1,40 +1,40 @@
-import * as z from 'zod'
+import * as z from "zod";
 
 const envSchema = z.object({
   // Database
-  DATABASE_URL: z.string().url(),
-  
+  DATABASE_URL: z.url(),
+
   // Auth
   NEXTAUTH_SECRET: z.string().min(32),
-  NEXTAUTH_URL: z.string().url().optional(),
-  
+  NEXTAUTH_URL: z.url().optional(),
+
   // Redis
   REDIS_URL: z.string().optional(),
-  
+
   // R2/S3
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().optional(),
   R2_ENDPOINT: z.string().optional(),
   R2_PUBLIC_URL: z.string().optional(),
-  
-
 
   // Cron Security
   CRON_SECRET: z.string().min(32).optional(), // Optional for now to avoid breaking existing setups, but recommended
 
   // Node Environment
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-})
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
+});
 
-type Env = z.infer<typeof envSchema>
+type Env = z.infer<typeof envSchema>;
 
-let parsedEnv: Env | null = null
+let parsedEnv: Env | null = null;
 
 export function getEnv(): Env {
   if (!parsedEnv) {
-    parsedEnv = envSchema.parse(process.env)
+    parsedEnv = envSchema.parse(process.env);
   }
 
-  return parsedEnv
+  return parsedEnv;
 }

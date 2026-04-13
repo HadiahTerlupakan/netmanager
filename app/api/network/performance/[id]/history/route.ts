@@ -1,15 +1,17 @@
-import * as z from 'zod'
-import { prisma } from '@/modules/database'
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import * as z from "zod";
+import { prisma } from "@/modules/database";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 const historyQuerySchema = z.object({
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.iso.datetime().optional(),
+  endDate: z.iso.datetime().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  sortBy: z.enum(['timestamp', 'cpuUsage', 'memoryUsage', 'temperature']).default('timestamp'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
-})
+  sortBy: z
+    .enum(["timestamp", "cpuUsage", "memoryUsage", "temperature"])
+    .default("timestamp"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+});
 
 /**
  * @swagger
@@ -83,70 +85,78 @@ const historyQuerySchema = z.object({
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    const { id } = ctx.params
-    const { searchParams } = req.nextUrl
-    const queryParams = Object.fromEntries(searchParams.entries())
-    
-    const parsed = historyQuerySchema.safeParse(queryParams)
-    if (!parsed.success) {
-      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
-    }
+  const { id } = ctx.params;
+  const { searchParams } = req.nextUrl;
+  const queryParams = Object.fromEntries(searchParams.entries());
 
-    const filters = parsed.data
-    const where: Record<string, unknown> = { deviceId: id }
+  const parsed = historyQuerySchema.safeParse(queryParams);
+  if (!parsed.success) {
+    return ApiErrors.badRequest("Invalid query parameters", {
+      errors: z.flattenError(parsed.error),
+    });
+  }
 
-    if (filters.startDate || filters.endDate) {
-      const timestamp: Record<string, Date> = {}
-      if (filters.startDate) timestamp.gte = new Date(filters.startDate)
-      if (filters.endDate) timestamp.lte = new Date(filters.endDate)
-      where.timestamp = timestamp
-    }
+  const filters = parsed.data;
+  const where: Record<string, unknown> = { deviceId: id };
 
-    const page = filters.page || 1
-    const limit = filters.limit || 20
-    const skip = (page - 1) * limit
+  if (filters.startDate || filters.endDate) {
+    const timestamp: Record<string, Date> = {};
+    if (filters.startDate) timestamp.gte = new Date(filters.startDate);
+    if (filters.endDate) timestamp.lte = new Date(filters.endDate);
+    where.timestamp = timestamp;
+  }
 
-    const orderBy: Record<string, string> = {}
-    if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
-    } else {
-      orderBy.timestamp = 'desc'
-    }
+  const page = filters.page || 1;
+  const limit = filters.limit || 20;
+  const skip = (page - 1) * limit;
 
-    try {
-      const [data, total] = await Promise.all([
-        prisma.networkPerformance.findMany({
-          where,
-          orderBy,
-          skip,
-          take: limit,
-        }),
-        prisma.networkPerformance.count({ where }),
-      ])
+  const orderBy: Record<string, string> = {};
+  if (filters.sortBy) {
+    orderBy[filters.sortBy] = filters.sortOrder || "desc";
+  } else {
+    orderBy.timestamp = "desc";
+  }
 
+  try {
+    const [data, total] = await Promise.all([
+      prisma.networkPerformance.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      prisma.networkPerformance.count({ where }),
+    ]);
+
+    return apiSuccess({
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (prismaError: unknown) {
+    // Handle case where model doesn't exist yet
+    if (
+      prismaError &&
+      typeof prismaError === "object" &&
+      "code" in prismaError &&
+      prismaError.code === "P2021"
+    ) {
       return apiSuccess({
-        data,
+        data: [],
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: 0,
+          totalPages: 0,
         },
-      })
-    } catch (prismaError: unknown) {
-      // Handle case where model doesn't exist yet
-      if (prismaError && typeof prismaError === 'object' && 'code' in prismaError && prismaError.code === 'P2021') {
-        return apiSuccess({
-          data: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            totalPages: 0,
-          },
-          message: 'Network performance monitoring will be available after database migration'
-        })
-      }
-      throw prismaError
+        message:
+          "Network performance monitoring will be available after database migration",
+      });
     }
-})
+    throw prismaError;
+  }
+});

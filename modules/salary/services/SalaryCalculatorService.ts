@@ -61,6 +61,101 @@ interface OvertimeStats {
   totalCount: number;
 }
 
+type PayrollEvaluationSummary = {
+  workDate: Date;
+  finalStatus: string | null;
+  holidayState: string | null;
+  overtimeMinutesApproved: number;
+  overtimeMinutesHeld: number;
+  payrollHoldState: string | null;
+};
+
+function createAttendanceStats(workDays: number): AttendanceStats {
+  return { present: 0, late: 0, absent: 0, sick: 0, permit: 0, workDays };
+}
+
+function applyAttendanceStatus(stats: AttendanceStats, status: string | null) {
+  if (status === "ON_TIME") stats.present++;
+  else if (status === "LATE") {
+    stats.present++;
+    stats.late++;
+  } else if (status === "ALPHA" || status === "ABSENT") stats.absent++;
+  else if (status === "SICK") stats.sick++;
+  else if (status === "PERMIT") stats.permit++;
+}
+
+function createOvertimeStats(): OvertimeStats {
+  return {
+    totalMinutes: 0,
+    normalMinutes: 0,
+    holidayMinutes: 0,
+    nationalHolidayMinutes: 0,
+    normalCount: 0,
+    holidayCount: 0,
+    nationalCount: 0,
+    totalCount: 0,
+  };
+}
+
+function applyOvertimeMinutes(
+  stats: OvertimeStats,
+  minutes: number,
+  isNationalHoliday: boolean,
+  isHolidayOvertime: boolean,
+) {
+  if (minutes <= 0) {
+    return;
+  }
+
+  stats.totalMinutes += minutes;
+  stats.totalCount++;
+
+  if (isNationalHoliday) {
+    stats.nationalHolidayMinutes += minutes;
+    stats.nationalCount++;
+    return;
+  }
+
+  if (isHolidayOvertime) {
+    stats.holidayMinutes += minutes;
+    stats.holidayCount++;
+    return;
+  }
+
+  stats.normalMinutes += minutes;
+  stats.normalCount++;
+}
+
+function getDateKey(date: Date | null | undefined): string | null {
+  if (!date) {
+    return null;
+  }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function createPayrollEvaluationMap(
+  payrollEvaluations: PayrollEvaluationSummary[],
+): Map<string, PayrollEvaluationSummary> {
+  const evaluationMap = new Map<string, PayrollEvaluationSummary>();
+
+  for (const evaluation of payrollEvaluations) {
+    const dateKey = getDateKey(evaluation.workDate);
+    if (dateKey) {
+      evaluationMap.set(dateKey, evaluation);
+    }
+  }
+
+  return evaluationMap;
+}
+
+function isNationalHolidayState(holidayState: string | null): boolean {
+  return holidayState === "LIBUR_NASIONAL";
+}
+
 export type UserCalculationData = {
   id: string;
   name: string | null;
@@ -142,9 +237,16 @@ export class SalaryCalculatorService {
       user.payPeriodDay ?? 25,
     );
 
+    const payrollEvaluations =
+      await this.attendanceRepo.findManyPayrollEvaluationsByUserAndDateRange({
+        userId,
+        startDate,
+        endDate,
+      });
+
     const [attendanceStats, overtimeStats, woStats] = await Promise.all([
-      this.getAttendanceStats(userId, startDate, endDate),
-      this.getOvertimeStats(userId, startDate, endDate),
+      this.getAttendanceStats(userId, startDate, endDate, payrollEvaluations),
+      this.getOvertimeStats(userId, startDate, endDate, payrollEvaluations),
       this.getWorkOrderStats(userId, startDate, endDate),
     ]);
 
@@ -564,31 +666,16 @@ export class SalaryCalculatorService {
     userId: string,
     startDate: Date,
     endDate: Date,
+    payrollEvaluations: PayrollEvaluationSummary[],
   ): Promise<AttendanceStats> {
-    const attendances =
-      await this.attendanceRepoForSalary.findByUserAndDateRange(
+    const [attendances, userWorkDays] = await Promise.all([
+      this.attendanceRepoForSalary.findByUserAndDateRange(
         userId,
         startDate,
         endDate,
-      );
-
-    let present = 0;
-    let late = 0;
-    let absent = 0;
-    let sick = 0;
-    let permit = 0;
-
-    for (const a of attendances) {
-      if (a.status === "ON_TIME") present++;
-      else if (a.status === "LATE") {
-        present++;
-        late++;
-      } else if (a.status === "ALPHA" || a.status === "ABSENT") absent++;
-      else if (a.status === "SICK") sick++;
-      else if (a.status === "PERMIT") permit++;
-    }
-
-    const userWorkDays = await this.userRepository.findWorkDays(userId);
+      ),
+      this.userRepository.findWorkDays(userId),
+    ]);
 
     const workDays = this.calculateWorkDays(
       startDate,
@@ -596,7 +683,32 @@ export class SalaryCalculatorService {
       userWorkDays?.workDays || "Senin,Selasa,Rabu,Kamis,Jumat,Sabtu",
     );
 
-    return { present, late, absent, sick, permit, workDays };
+    const stats = createAttendanceStats(workDays);
+    const evaluationMap = createPayrollEvaluationMap(payrollEvaluations);
+    const processedDateKeys = new Set<string>();
+
+    for (const attendance of attendances) {
+      const dateKey = getDateKey(attendance.checkIn);
+      const evaluation = dateKey ? evaluationMap.get(dateKey) : undefined;
+      const status = evaluation?.finalStatus ?? attendance.status;
+
+      applyAttendanceStatus(stats, status);
+
+      if (dateKey) {
+        processedDateKeys.add(dateKey);
+      }
+    }
+
+    for (const evaluation of payrollEvaluations) {
+      const dateKey = getDateKey(evaluation.workDate);
+      if (!dateKey || processedDateKeys.has(dateKey)) {
+        continue;
+      }
+
+      applyAttendanceStatus(stats, evaluation.finalStatus);
+    }
+
+    return stats;
   }
 
   private calculateWorkDays(
@@ -645,6 +757,7 @@ export class SalaryCalculatorService {
     userId: string,
     startDate: Date,
     endDate: Date,
+    payrollEvaluations: PayrollEvaluationSummary[],
   ): Promise<OvertimeStats> {
     const overtimes =
       await this.overtimeRepoForSalary.findApprovedByUserAndDateRange(
@@ -653,41 +766,44 @@ export class SalaryCalculatorService {
         endDate,
       );
 
-    let totalMinutes = 0;
-    let normalMinutes = 0;
-    let holidayMinutes = 0;
-    let nationalHolidayMinutes = 0;
+    const stats = createOvertimeStats();
+    const evaluationMap = createPayrollEvaluationMap(payrollEvaluations);
+    const processedEvaluationDateKeys = new Set<string>();
 
-    let normalCount = 0;
-    let holidayCount = 0;
-    let nationalCount = 0;
+    for (const overtime of overtimes) {
+      const overtimeDate = overtime.startTime ?? overtime.createdAt;
+      const dateKey = getDateKey(overtimeDate);
+      const evaluation = dateKey ? evaluationMap.get(dateKey) : undefined;
 
-    for (const ot of overtimes) {
-      const duration = ot.duration || 0;
-      totalMinutes += duration;
-
-      if (ot.isNationalHoliday) {
-        nationalHolidayMinutes += duration;
-        nationalCount++;
-      } else if (ot.isHolidayOvertime) {
-        holidayMinutes += duration;
-        holidayCount++;
-      } else {
-        normalMinutes += duration;
-        normalCount++;
+      if (!evaluation) {
+        applyOvertimeMinutes(
+          stats,
+          overtime.duration || 0,
+          Boolean(overtime.isNationalHoliday),
+          Boolean(overtime.isHolidayOvertime),
+        );
+        continue;
       }
+
+      if (!dateKey || processedEvaluationDateKeys.has(dateKey)) {
+        continue;
+      }
+
+      const isNationalHoliday = isNationalHolidayState(evaluation.holidayState);
+      const isHolidayOvertime =
+        evaluation.finalStatus === "DAY_OFF" ? !isNationalHoliday : false;
+
+      applyOvertimeMinutes(
+        stats,
+        evaluation.overtimeMinutesApproved,
+        isNationalHoliday,
+        isHolidayOvertime,
+      );
+
+      processedEvaluationDateKeys.add(dateKey);
     }
 
-    return {
-      totalMinutes,
-      normalMinutes,
-      holidayMinutes,
-      nationalHolidayMinutes,
-      normalCount,
-      holidayCount,
-      nationalCount,
-      totalCount: overtimes.length,
-    };
+    return stats;
   }
 
   private async getWorkOrderStats(

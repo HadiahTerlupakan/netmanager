@@ -20,9 +20,9 @@ const leaveBalanceRepo = new LeaveBalanceRepository();
  * Validation schema for setting leave quota
  */
 const setQuotaSchema = z.object({
-  userId: z.string().uuid("Invalid user ID"),
+  userId: z.uuid({ error: "Invalid user ID" }),
   year: z.number().int().min(2000).max(2100).optional(),
-  quotas: z.record(z.nativeEnum(LeaveType), z.number().int().min(0).max(365)),
+  quotas: z.record(z.enum(LeaveType), z.number().int().min(0).max(365)),
 });
 
 /**
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     if (!parseResult.success) {
       return apiError("Data tidak valid", ErrorCodes.VALIDATION_ERROR, {
         status: 400,
-        details: parseResult.error.flatten().fieldErrors,
+        details: z.flattenError(parseResult.error).fieldErrors,
       });
     }
 

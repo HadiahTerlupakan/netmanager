@@ -59,22 +59,20 @@ describe("mobile attendance route parity", () => {
     } as never);
   });
 
-  it("ignores _offline_meta for check-in and uses server-side time only", async () => {
+  it("forwards capturedAt as offlineTime for check-in json payload", async () => {
     const { POST } = await import("@/app/api/mobile/attendance/check-in/route");
-    const formData = new FormData();
-    formData.set("location", "HQ");
-    formData.set(
-      "_offline_meta",
-      JSON.stringify({
-        capturedAt: "2026-03-08T01:00:00.000Z",
-        signature: "valid-signature",
-      }),
-    );
+    const capturedAt = "2026-03-08T01:00:00.000Z";
 
     const response = await POST(
       new NextRequest("http://localhost/api/mobile/attendance/check-in", {
         method: "POST",
-        body: formData,
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+          capturedAt,
+        }),
       }),
       {
         session: { user: { id: "user-1", tenantId: "tenant-1" } },
@@ -84,7 +82,91 @@ describe("mobile attendance route parity", () => {
     expect(response.status).toBe(200);
     const checkInSpy = vi.mocked(AttendanceService.prototype.checkIn);
     expect(checkInSpy).toHaveBeenCalledTimes(1);
-    expect(checkInSpy.mock.calls[0]?.[0].offlineTime).toBeUndefined();
+    expect(checkInSpy.mock.calls[0]?.[0].offlineTime).toBeInstanceOf(Date);
+    expect(checkInSpy.mock.calls[0]?.[0].offlineTime?.toISOString()).toBe(
+      capturedAt,
+    );
+  });
+
+  it("rejects invalid capturedAt on check-in json payload", async () => {
+    const { POST } = await import("@/app/api/mobile/attendance/check-in/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-in", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+          capturedAt: "invalid-date",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect(
+      vi.mocked(AttendanceService.prototype.checkIn),
+    ).not.toHaveBeenCalled();
+  });
+
+  it("forwards capturedAt as offlineTime for check-out json payload", async () => {
+    const { POST } =
+      await import("@/app/api/mobile/attendance/check-out/route");
+    const capturedAt = "2026-03-08T09:15:00.000Z";
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-out", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+          capturedAt,
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(200);
+    const checkOutSpy = vi.mocked(AttendanceService.prototype.checkOut);
+    expect(checkOutSpy).toHaveBeenCalledTimes(1);
+    expect(checkOutSpy.mock.calls[0]?.[0].offlineTime).toBeInstanceOf(Date);
+    expect(checkOutSpy.mock.calls[0]?.[0].offlineTime?.toISOString()).toBe(
+      capturedAt,
+    );
+  });
+
+  it("rejects invalid capturedAt on check-out json payload", async () => {
+    const { POST } =
+      await import("@/app/api/mobile/attendance/check-out/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-out", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+          capturedAt: "invalid-date",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect(
+      vi.mocked(AttendanceService.prototype.checkOut),
+    ).not.toHaveBeenCalled();
   });
 
   it("accepts trusted tenant host photoUrl on check-out json payload", async () => {
@@ -117,5 +199,95 @@ describe("mobile attendance route parity", () => {
     expect(checkOutSpy.mock.calls[0]?.[0].photoUrl).toBe(
       "https://tenant.example.com/uploads/attendance.jpg",
     );
+  });
+
+  it("returns canonical evaluation fields after check-in mutation", async () => {
+    vi.spyOn(AttendanceService.prototype, "checkIn").mockResolvedValueOnce({
+      attendance: {
+        id: "checkin-1",
+        checkIn: new Date("2026-04-01T01:00:00.000Z"),
+        status: "ON_TIME",
+        location: "HQ",
+        geofenceStatus: "INSIDE",
+        geofenceSiteName: "Kantor Pusat",
+      },
+      evaluation: {
+        finalStatus: "PERMIT",
+        reviewState: "PENDING_REVIEW",
+        payrollHoldState: "NONE",
+        reasonCodes: ["APPROVED_LEAVE_OVERRIDES_ATTENDANCE"],
+      },
+    } as never);
+
+    const { POST } = await import("@/app/api/mobile/attendance/check-in/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-in", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+          photoUrl: "/uploads/attendance.jpg",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        finalStatus: "PERMIT",
+        reviewState: "PENDING_REVIEW",
+        payrollHoldState: "NONE",
+      },
+    });
+  });
+
+  it("returns canonical evaluation fields after check-out mutation", async () => {
+    vi.spyOn(AttendanceService.prototype, "checkOut").mockResolvedValueOnce({
+      attendance: {
+        id: "checkout-1",
+        checkIn: new Date("2026-04-01T01:00:00.000Z"),
+        checkOut: new Date("2026-04-01T09:00:00.000Z"),
+        status: "ON_TIME",
+      },
+      warning: "Jam kerja Anda belum penuh.",
+      evaluation: {
+        finalStatus: "PERMIT",
+        reviewState: "PENDING_REVIEW",
+        payrollHoldState: "ALLOWANCE_HELD",
+        reasonCodes: ["APPROVED_LEAVE_OVERRIDES_ATTENDANCE"],
+      },
+    } as never);
+
+    const { POST } =
+      await import("@/app/api/mobile/attendance/check-out/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-out", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+          photoUrl: "/uploads/attendance.jpg",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        finalStatus: "PERMIT",
+        reviewState: "PENDING_REVIEW",
+        payrollHoldState: "ALLOWANCE_HELD",
+      },
+    });
   });
 });

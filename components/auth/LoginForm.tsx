@@ -1,130 +1,153 @@
-"use client"
-import * as React from 'react'
-import { useForm } from 'react-hook-form'
-import * as z from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { HiLockClosed } from 'react-icons/hi2'
-import { getAdminUrl, getSubdomainFromWindow } from '@/lib/utils/subdomain-client'
-import { Button } from '@/components/ui/Button'
+"use client";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { HiLockClosed } from "react-icons/hi2";
+import {
+  getAdminUrl,
+  getSubdomainFromWindow,
+} from "@/lib/utils/subdomain-client";
+import { Button } from "@/components/ui/Button";
 
 const schema = z.object({
-  email: z.string().min(1, 'Email wajib diisi').email('Email tidak valid'),
-  password: z.string().min(6, 'Minimal 6 karakter'),
-})
+  email: z
+    .string()
+    .min(1, "Email wajib diisi")
+    .pipe(z.email({ error: "Email tidak valid" })),
+  password: z.string().min(6, "Minimal 6 karakter"),
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 export default function LoginForm() {
-  const router = useRouter()
-  const search = useSearchParams()
-  const errorParam = search.get('error')
+  const router = useRouter();
+  const search = useSearchParams();
+  const errorParam = search.get("error");
 
   // Map error codes to human-readable messages
   const getErrorMessage = (code: string | null) => {
-    if (!code) return null
+    if (!code) return null;
     switch (code) {
-      case 'AccessDenied':
-        return 'Akses ditolak. Anda tidak memiliki izin untuk mengakses portal ini.'
-      case 'CredentialsSignin':
-        return 'Email atau password salah.'
-      case 'SessionRequired':
-        return 'Silakan masuk untuk melanjutkan.'
+      case "AccessDenied":
+        return "Akses ditolak. Anda tidak memiliki izin untuk mengakses portal ini.";
+      case "CredentialsSignin":
+        return "Email atau password salah.";
+      case "SessionRequired":
+        return "Silakan masuk untuk melanjutkan.";
       default:
-        return 'Terjadi kesalahan saat login. Silakan coba lagi.'
+        return "Terjadi kesalahan saat login. Silakan coba lagi.";
     }
-  }
+  };
 
-  const errorMessage = getErrorMessage(errorParam)
+  const errorMessage = getErrorMessage(errorParam);
   // Check if we're on employee portal - if so, default callback to /karyawan
-  const isEmployeePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/karyawan')
-  const defaultCallback = isEmployeePortal ? '/karyawan' : '/admin'
-  const callbackUrlParam = search.get('callbackUrl') || defaultCallback
+  const isEmployeePortal =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/karyawan");
+  const defaultCallback = isEmployeePortal ? "/karyawan" : "/admin";
+  const callbackUrlParam = search.get("callbackUrl") || defaultCallback;
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const res = await signIn('credentials', {
+      const res = await signIn("credentials", {
         redirect: false,
         email: values.email,
         password: values.password,
-        portal: isEmployeePortal ? 'employee' : 'admin',
+        portal: isEmployeePortal ? "employee" : "admin",
         callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth
-      })
+      });
 
       if (!res) {
-        setError('password', { message: 'Terjadi kesalahan saat login. Silakan coba lagi.' })
-        return
+        setError("password", {
+          message: "Terjadi kesalahan saat login. Silakan coba lagi.",
+        });
+        return;
       }
 
       if (res.error) {
-        console.error('[LoginForm] Login error:', res.error)
+        console.error("[LoginForm] Login error:", res.error);
 
         // Jika error terkait rate limiting, redirect ke halaman error
-        if (res.error.includes('Terlalu banyak percobaan') || res.error.includes('rate limit')) {
-          const errorUrl = `/error?error=${encodeURIComponent(res.error)}`
-          router.push(errorUrl)
-          return
+        if (
+          res.error.includes("Terlalu banyak percobaan") ||
+          res.error.includes("rate limit")
+        ) {
+          const errorUrl = `/error?error=${encodeURIComponent(res.error)}`;
+          router.push(errorUrl);
+          return;
         }
 
         // Error database connection
-        if (res.error.includes('Database connection error')) {
-          setError('password', { message: 'Tidak dapat terhubung ke database. Silakan coba lagi beberapa saat.' })
-          return
+        if (res.error.includes("Database connection error")) {
+          setError("password", {
+            message:
+              "Tidak dapat terhubung ke database. Silakan coba lagi beberapa saat.",
+          });
+          return;
         }
 
         // Error lainnya (email/password salah atau error umum)
-        if (res.error.includes('credentials') || res.error.includes('password')) {
-          setError('password', { message: 'Email atau password salah' })
+        if (
+          res.error.includes("credentials") ||
+          res.error.includes("password")
+        ) {
+          setError("password", { message: "Email atau password salah" });
         } else {
-          setError('password', { message: res.error || 'Login gagal. Silakan periksa kredensial Anda.' })
+          setError("password", {
+            message:
+              res.error || "Login gagal. Silakan periksa kredensial Anda.",
+          });
         }
-        return
+        return;
       }
 
       // Cek apakah kita sudah di admin subdomain
-      const subdomain = getSubdomainFromWindow()
+      const subdomain = getSubdomainFromWindow();
       // Extract path dari res.url (bisa berisi URL lengkap atau path relatif)
       const targetPathBase = res.url
-        ? (res.url.startsWith('http') ? new URL(res.url).pathname : res.url)
-        : callbackUrlParam
-      let targetPath = targetPathBase
+        ? res.url.startsWith("http")
+          ? new URL(res.url).pathname
+          : res.url
+        : callbackUrlParam;
+      let targetPath = targetPathBase;
 
       // Use the appropriate callback based on portal type
       if (isEmployeePortal) {
         // For employee portal, ensure we stay on employee routes
-        if (!targetPath.startsWith('/karyawan')) {
-          targetPath = '/karyawan'
+        if (!targetPath.startsWith("/karyawan")) {
+          targetPath = "/karyawan";
         }
       } else {
         // For admin portal, ensure we stay on admin routes
-        if (!targetPath.startsWith('/admin')) {
-          targetPath = '/admin'
+        if (!targetPath.startsWith("/admin")) {
+          targetPath = "/admin";
         }
       }
 
       // Di development atau localhost
-      const isLocalhost = typeof window !== 'undefined' && (
-        window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.endsWith('.localhost')
-      )
+      const isLocalhost =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname.endsWith(".localhost"));
 
-      console.log('[LoginForm] Login successful, redirecting...', {
+      console.log("[LoginForm] Login successful, redirecting...", {
         targetPath,
         subdomain,
         isLocalhost,
         isEmployeePortal,
         hostname: window.location.hostname,
-        currentPath: window.location.pathname
-      })
+        currentPath: window.location.pathname,
+      });
 
       // KASUS KHUSUS LOCALHOST:
       // Kita tetap di localhost:3000 agar session cookie valid
@@ -132,25 +155,27 @@ export default function LoginForm() {
       if (isLocalhost) {
         // Untuk localhost, gunakan window.location untuk memastikan redirect terjadi
         // dan session cookie ter-set dengan benar
-        console.log('[LoginForm] Using window.location redirect for localhost')
-        window.location.assign(targetPath)
-        return
+        console.log("[LoginForm] Using window.location redirect for localhost");
+        window.location.assign(targetPath);
+        return;
       }
 
       // Default behavior
-      if (subdomain === 'admin') {
-        router.push(targetPath)
-        return
+      if (subdomain === "admin") {
+        router.push(targetPath);
+        return;
       }
 
       // Di production dengan subdomain, redirect ke admin subdomain dengan URL lengkap
-      const adminUrl = getAdminUrl(targetPath)
-      window.location.assign(adminUrl)
+      const adminUrl = getAdminUrl(targetPath);
+      window.location.assign(adminUrl);
     } catch (error) {
-      console.error('[LoginForm] Unexpected error:', error)
-      setError('password', { message: 'Terjadi kesalahan tak terduga. Silakan coba lagi.' })
+      console.error("[LoginForm] Unexpected error:", error);
+      setError("password", {
+        message: "Terjadi kesalahan tak terduga. Silakan coba lagi.",
+      });
     }
-  }
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -164,7 +189,10 @@ export default function LoginForm() {
       {/* Credentials Form */}
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             Email
           </label>
           <input
@@ -172,14 +200,19 @@ export default function LoginForm() {
             type="email"
             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
             placeholder="masukkan email Anda"
-            {...register('email')}
+            {...register("email")}
           />
           {errors.email?.message && (
-            <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">{errors.email.message}</p>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">
+              {errors.email.message}
+            </p>
           )}
         </div>
         <div className="space-y-2">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             Password
           </label>
           <input
@@ -187,13 +220,16 @@ export default function LoginForm() {
             type="password"
             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
             placeholder="masukkan password Anda"
-            {...register('password')}
+            {...register("password")}
           />
           {errors.password?.message && (
-            <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">{errors.password.message}</p>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">
+              {errors.password.message}
+            </p>
           )}
         </div>
-        <Button type="submit"
+        <Button
+          type="submit"
           disabled={isSubmitting}
           loading={isSubmitting}
           size="lg"
@@ -204,5 +240,5 @@ export default function LoginForm() {
         </Button>
       </form>
     </div>
-  )
+  );
 }

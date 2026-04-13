@@ -1,10 +1,11 @@
+import { NextResponse } from "next/server";
 import {
   AttendanceService,
   AttendanceIdempotencyService,
   AttendancePhotoService,
   AttendanceTimezoneService,
 } from "@/modules/attendance";
-import { apiSuccess, apiError, ErrorCodes, createHandler } from "@/lib/api";
+import { apiError, ErrorCodes, createHandler } from "@/lib/api";
 
 export const POST = createHandler({ auth: true }, async (request, ctx) => {
   const userSession = ctx.session!.user;
@@ -76,6 +77,18 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
       location = body.location;
       notes = body.notes;
       bodyRequestId = body.requestId;
+
+      if (typeof body.capturedAt === "string") {
+        const parsedCapturedAt = new Date(body.capturedAt);
+        if (Number.isNaN(parsedCapturedAt.getTime())) {
+          return apiError(
+            "Format capturedAt tidak valid",
+            ErrorCodes.VALIDATION_ERROR,
+            { status: 400 },
+          );
+        }
+        offlineCapturedAt = parsedCapturedAt;
+      }
 
       if (body.latitude !== undefined && body.longitude !== undefined) {
         const { validateCoordinates } = await import("@/lib/validation-utils");
@@ -173,9 +186,11 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
         const replayPayload = await idempotencyService.getReplay<{
           success: boolean;
           data: unknown;
+          message?: string;
+          warning?: string;
         }>(userId, "check-in", resolvedRequestId);
         if (replayPayload)
-          return apiSuccess(replayPayload, {
+          return NextResponse.json(replayPayload, {
             headers: { "X-Idempotent-Replay": "true" },
           });
       }
@@ -193,7 +208,7 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
         );
     }
 
-    const attendance = await attendanceService.checkIn({
+    const result = await attendanceService.checkIn({
       userId,
       photoUrl,
       location,
@@ -205,17 +220,26 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
       offlineTime: offlineCapturedAt,
     });
 
+    const responsePayload = {
+      success: true,
+      data: {
+        ...result.attendance,
+        ...result.evaluation,
+        canonical: result.evaluation,
+      },
+    };
+
     if (resolvedRequestId && payloadHash) {
       await idempotencyService.complete(
         userId,
         "check-in",
         resolvedRequestId,
         payloadHash,
-        { success: true, data: attendance },
+        responsePayload,
       );
     }
 
-    return apiSuccess(attendance);
+    return NextResponse.json(responsePayload);
   } catch (error: unknown) {
     if (userId && resolvedRequestId) {
       const idempotencyService = new AttendanceIdempotencyService();

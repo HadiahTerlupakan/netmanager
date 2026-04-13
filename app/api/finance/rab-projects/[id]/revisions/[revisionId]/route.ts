@@ -1,4 +1,8 @@
-import { RabExpenseType, RabItemCategory, RabRevisionStatus } from "@prisma/client";
+import {
+  RabExpenseType,
+  RabItemCategory,
+  RabRevisionStatus,
+} from "@prisma/client";
 import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
@@ -19,9 +23,11 @@ const revisionItemSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
   quantity: z.number().min(1),
-  unitPrice: z.union([z.string(), z.number()]).transform((value) => BigInt(Math.round(Number(value)))),
-  category: z.nativeEnum(RabItemCategory).default(RabItemCategory.HARDWARE),
-  expenseType: z.nativeEnum(RabExpenseType).default(RabExpenseType.CAPEX),
+  unitPrice: z
+    .union([z.string(), z.number()])
+    .transform((value) => BigInt(Math.round(Number(value)))),
+  category: z.enum(RabItemCategory).default(RabItemCategory.HARDWARE),
+  expenseType: z.enum(RabExpenseType).default(RabExpenseType.CAPEX),
   expenseCategoryId: z.string().nullable().optional(),
   wbsId: z.string().nullable().optional(),
   sortOrder: z.number().optional(),
@@ -33,12 +39,18 @@ const updateRevisionSchema = z.object({
     .union([z.string(), z.number()])
     .optional()
     .transform((value) =>
-      value === undefined || value === null || value === "" ? undefined : BigInt(Math.round(Number(value))),
+      value === undefined || value === null || value === ""
+        ? undefined
+        : BigInt(Math.round(Number(value))),
     ),
   items: z.array(revisionItemSchema).optional(),
 });
 
-async function assertRevisionAccess(user: { id: string; role?: string; isSuperAdmin?: boolean }) {
+async function assertRevisionAccess(user: {
+  id: string;
+  role?: string;
+  isSuperAdmin?: boolean;
+}) {
   const hasAccess =
     isSuperAdmin(user) ||
     (await hasPermission("expense:update")) ||
@@ -106,7 +118,9 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   if (existingRevision.status !== RabRevisionStatus.DRAFT) {
-    return ApiErrors.badRequest("Hanya revisi dengan status DRAFT yang dapat diubah");
+    return ApiErrors.badRequest(
+      "Hanya revisi dengan status DRAFT yang dapat diubah",
+    );
   }
 
   const snapshotItems = payload.items
@@ -126,7 +140,10 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
         })),
       )
     : normalizeRevisionSnapshotItems(existingRevision.items);
-  const totals = calculateRevisionTotals(snapshotItems, payload.projectedOpex ?? existingRevision.totalOpex);
+  const totals = calculateRevisionTotals(
+    snapshotItems,
+    payload.projectedOpex ?? existingRevision.totalOpex,
+  );
 
   const revision = await prisma.rabRevision.update({
     where: { id: existingRevision.id },

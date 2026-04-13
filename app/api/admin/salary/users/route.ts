@@ -7,26 +7,20 @@ import { EmployeeType, RateType, PtkpStatus } from "@prisma/client";
 const service = getSalaryUserService();
 
 const addSalaryUserSchema = z.object({
-  userId: z.string().uuid("User ID wajib diisi"),
+  userId: z.uuid({ error: "User ID wajib diisi" }),
   basicSalary: z.number().min(0).optional().default(0),
-  employeeType: z.nativeEnum(EmployeeType).optional().default("KARYAWAN"),
+  employeeType: z.enum(EmployeeType).optional().default("KARYAWAN"),
   overtimeRateNormal: z.number().min(0).optional(),
-  overtimeCalcTypeNormal: z.nativeEnum(RateType).optional().default("PER_HOUR"),
+  overtimeCalcTypeNormal: z.enum(RateType).optional().default("PER_HOUR"),
   overtimeRateHoliday: z.number().min(0).optional(),
-  overtimeCalcTypeHoliday: z
-    .nativeEnum(RateType)
-    .optional()
-    .default("PER_HOUR"),
+  overtimeCalcTypeHoliday: z.enum(RateType).optional().default("PER_HOUR"),
   overtimeRateNational: z.number().min(0).optional(),
-  overtimeCalcTypeNational: z
-    .nativeEnum(RateType)
-    .optional()
-    .default("PER_HOUR"),
+  overtimeCalcTypeNational: z.enum(RateType).optional().default("PER_HOUR"),
   woIncentiveRate: z.number().min(0).optional(),
   lateDeductionRate: z.number().min(0).optional(),
   absentDeductionRate: z.number().min(0).optional(),
   joinDate: z.string().optional().nullable(),
-  ptkpStatus: z.nativeEnum(PtkpStatus).optional().nullable(),
+  ptkpStatus: z.enum(PtkpStatus).optional().nullable(),
   bpjsKesehatan: z.boolean().optional(),
   bpjsKetenagakerjaan: z.boolean().optional(),
 });
@@ -54,7 +48,7 @@ export const POST = createHandler(
     auth: true,
     schema: addSalaryUserSchema,
   },
-  async (req, ctx) => {
+  async (_req, ctx) => {
     if (!(await hasPermission("salary:create"))) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk menambah user ke penggajian",

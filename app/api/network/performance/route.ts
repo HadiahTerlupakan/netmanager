@@ -1,13 +1,14 @@
-import { randomUUID } from 'crypto'
-import { networkPerformanceQuerySchema } from '@/lib/validations/network-performance'
-import { prisma } from '@/modules/database'
-import { Prisma } from '@prisma/client'
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { randomUUID } from "crypto";
+import { networkPerformanceQuerySchema } from "@/lib/validations/network-performance";
+import { prisma } from "@/modules/database";
+import { Prisma } from "@prisma/client";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import * as z from "zod";
 
 // Import dynamically in POST handler or define static if needed.
 // To use with createHandler schema option, we should import it.
 // Assuming it's safe to import.
-import { networkPerformanceCreateSchema } from '@/lib/validations/network-performance'
+import { networkPerformanceCreateSchema } from "@/lib/validations/network-performance";
 
 /**
  * @swagger
@@ -84,77 +85,85 @@ import { networkPerformanceCreateSchema } from '@/lib/validations/network-perfor
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {
-    const { searchParams } = req.nextUrl
-    const queryParams = Object.fromEntries(searchParams.entries())
+  const { searchParams } = req.nextUrl;
+  const queryParams = Object.fromEntries(searchParams.entries());
 
-    const parsed = networkPerformanceQuerySchema.safeParse(queryParams)
-    if (!parsed.success) {
-      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
-    }
+  const parsed = networkPerformanceQuerySchema.safeParse(queryParams);
+  if (!parsed.success) {
+    return ApiErrors.badRequest("Invalid query parameters", {
+      errors: z.flattenError(parsed.error),
+    });
+  }
 
-    const filters = parsed.data
-    const where: Record<string, unknown> = {}
+  const filters = parsed.data;
+  const where: Record<string, unknown> = {};
 
-    if (filters.deviceId) where.deviceId = filters.deviceId
-    if (filters.deviceType) where.deviceType = filters.deviceType
+  if (filters.deviceId) where.deviceId = filters.deviceId;
+  if (filters.deviceType) where.deviceType = filters.deviceType;
 
-    if (filters.startDate || filters.endDate) {
-      const timestamp: Record<string, Date> = {}
-      if (filters.startDate) timestamp.gte = new Date(filters.startDate)
-      if (filters.endDate) timestamp.lte = new Date(filters.endDate)
-      where.timestamp = timestamp
-    }
+  if (filters.startDate || filters.endDate) {
+    const timestamp: Record<string, Date> = {};
+    if (filters.startDate) timestamp.gte = new Date(filters.startDate);
+    if (filters.endDate) timestamp.lte = new Date(filters.endDate);
+    where.timestamp = timestamp;
+  }
 
-    const page = filters.page || 1
-    const limit = filters.limit || 20
-    const skip = (page - 1) * limit
+  const page = filters.page || 1;
+  const limit = filters.limit || 20;
+  const skip = (page - 1) * limit;
 
-    const orderBy: Record<string, string> = {}
-    if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
-    } else {
-      orderBy.timestamp = 'desc'
-    }
+  const orderBy: Record<string, string> = {};
+  if (filters.sortBy) {
+    orderBy[filters.sortBy] = filters.sortOrder || "desc";
+  } else {
+    orderBy.timestamp = "desc";
+  }
 
-    // Using a simple approach without repository pattern for now
-    // This will work once the Prisma schema is updated and migrations are run
-    try {
-      const [data, total] = await Promise.all([
-        prisma.networkPerformance.findMany({
-          where: where as Prisma.NetworkPerformanceWhereInput,
-          orderBy,
-          skip,
-          take: limit,
-        }),
-        prisma.networkPerformance.count({ where: where as Prisma.NetworkPerformanceWhereInput }),
-      ])
+  // Using a simple approach without repository pattern for now
+  // This will work once the Prisma schema is updated and migrations are run
+  try {
+    const [data, total] = await Promise.all([
+      prisma.networkPerformance.findMany({
+        where: where as Prisma.NetworkPerformanceWhereInput,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      prisma.networkPerformance.count({
+        where: where as Prisma.NetworkPerformanceWhereInput,
+      }),
+    ]);
 
+    return apiSuccess({
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (prismaError: unknown) {
+    // Handle case where model doesn't exist yet
+    if (
+      prismaError instanceof Error &&
+      (prismaError as unknown as Record<string, unknown>).code === "P2021"
+    ) {
       return apiSuccess({
-        data,
+        data: [],
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: 0,
+          totalPages: 0,
         },
-      })
-    } catch (prismaError: unknown) {
-      // Handle case where model doesn't exist yet
-      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return apiSuccess({
-          data: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            totalPages: 0,
-          },
-          message: 'Network performance monitoring will be available after database migration'
-        })
-      }
-      throw prismaError
+        message:
+          "Network performance monitoring will be available after database migration",
+      });
     }
-})
+    throw prismaError;
+  }
+});
 
 /**
  * @swagger
@@ -260,11 +269,13 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
  *       500:
  *         description: Server error
  */
-export const POST = createHandler({ 
+export const POST = createHandler(
+  {
     auth: true,
-    schema: networkPerformanceCreateSchema
-}, async (req, ctx) => {
-    const data = ctx.validated
+    schema: networkPerformanceCreateSchema,
+  },
+  async (req, ctx) => {
+    const data = ctx.validated;
 
     try {
       const result = await prisma.networkPerformance.create({
@@ -292,10 +303,11 @@ export const POST = createHandler({
           customMetrics: data.customMetrics ?? null,
           updatedAt: new Date(),
         },
-      })
+      });
 
-      return apiSuccess({ id: result.id }, { status: 201 })
+      return apiSuccess({ id: result.id }, { status: 201 });
     } catch (prismaError: unknown) {
-      throw prismaError
+      throw prismaError;
     }
-})
+  },
+);

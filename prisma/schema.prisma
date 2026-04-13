@@ -119,6 +119,61 @@ model Attendance {
   @@unique([userId, checkInDate, tenantId], map: "idx_attendance_user_checkin_date_tenant")
 }
 
+model AttendanceEvaluation {
+  id                      String                    @id @default(cuid())
+  tenantId                String
+  userId                  String
+  workDate                DateTime
+  finalStatus             AttendanceStatus
+  reviewState             String
+  rawPresenceState        String?
+  workMinutes             Int                       @default(0)
+  lateMinutes             Int                       @default(0)
+  overtimeMinutesApproved Int                       @default(0)
+  overtimeMinutesHeld     Int                       @default(0)
+  payrollHoldState        String                    @default("NONE")
+  holidayState            String?
+  leaveState              String?
+  scheduleState           String?
+  evidenceQuality         String?
+  reasonCodes             Json                      @default("[]")
+  anomalyCodes            Json                      @default("[]")
+  sourceRefs              Json                      @default("{}")
+  evaluationVersion       Int                       @default(1)
+  evaluatedAt             DateTime                  @default(now())
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  audits                  AttendanceEvaluationAudit[]
+  tenant                  Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                    User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, workDate])
+  @@index([tenantId, workDate])
+  @@index([tenantId, reviewState])
+}
+
+model AttendanceEvaluationAudit {
+  id                String                @id @default(cuid())
+  evaluationId      String?
+  tenantId          String
+  userId            String
+  workDate          DateTime
+  action            String
+  previousSnapshot  Json?
+  nextSnapshot      Json?
+  reason            String
+  actorType         String
+  actorId           String?
+  evaluationVersion Int
+  createdAt         DateTime              @default(now())
+  evaluation        AttendanceEvaluation? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, workDate])
+  @@index([evaluationId])
+}
+
 model EmployeeLocation {
   id           String   @id @default(uuid())
   userId       String
@@ -1073,6 +1128,8 @@ model User {
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
+  attendanceEvaluation                       AttendanceEvaluation[]
+  attendanceEvaluationAudit                  AttendanceEvaluationAudit[]
   conversation_participants                  ConversationParticipant[]
   expense                                    Expense[]
   leaveBalances                              LeaveBalance[]
@@ -3101,6 +3158,8 @@ model Tenant {
   announcement            Announcement[]
   announcementRead        AnnouncementRead[]
   attendance              Attendance[]
+  attendanceEvaluation    AttendanceEvaluation[]
+  attendanceEvaluationAudit AttendanceEvaluationAudit[]
   bandwidth               Bandwidth[]
   conversation            Conversation[]
   conversationParticipant ConversationParticipant[]

@@ -128,6 +128,70 @@ export class AttendanceRepository {
     };
   }
 
+  async getEvaluationStatsByDateRange(
+    startDate: Date,
+    endDate: Date,
+    siteId?: string,
+    departmentId?: string,
+  ) {
+    let userIds: string[] | undefined = undefined;
+    if (siteId || departmentId) {
+      const users = await prisma.user.findMany({
+        where: {
+          ...(siteId && { siteId }),
+          ...(departmentId && { departmentId }),
+        },
+        select: { id: true },
+      });
+      userIds = users.map((u) => u.id);
+
+      if (userIds.length === 0) {
+        return {
+          total: 0,
+          avgDurationMinutes: 0,
+          statusCounts: {},
+        };
+      }
+    }
+
+    const where = {
+      workDate: { gte: startDate, lte: endDate },
+      ...(userIds !== undefined ? { userId: { in: userIds } } : {}),
+    };
+
+    const [statusCounts, total, avgWorkMinutes] = await Promise.all([
+      prisma.attendanceEvaluation.groupBy({
+        by: ["finalStatus"],
+        where,
+        _count: { _all: true },
+      }),
+      prisma.attendanceEvaluation.count({ where }),
+      prisma.attendanceEvaluation.aggregate({
+        where,
+        _avg: { workMinutes: true },
+      }),
+    ]);
+
+    return {
+      total,
+      avgDurationMinutes: avgWorkMinutes._avg.workMinutes
+        ? Math.round(avgWorkMinutes._avg.workMinutes)
+        : 0,
+      statusCounts: statusCounts.reduce(
+        (
+          acc: Record<string, number>,
+          curr: { finalStatus: string | null; _count: { _all: number } },
+        ) => {
+          if (curr.finalStatus) {
+            acc[curr.finalStatus] = curr._count._all;
+          }
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+    };
+  }
+
   async getDailyStats(
     startDate: Date,
     endDate: Date,
@@ -932,6 +996,76 @@ export class AttendanceRepository {
     });
   }
 
+  async findLatestEvaluationForUser(params: {
+    userId: string;
+    tenantId?: string;
+    workDate?: Date;
+  }) {
+    return prisma.attendanceEvaluation.findFirst({
+      where: {
+        userId: params.userId,
+        ...(params.tenantId ? { tenantId: params.tenantId } : {}),
+        ...(params.workDate ? { workDate: params.workDate } : {}),
+      },
+      orderBy: { evaluatedAt: "desc" },
+    });
+  }
+
+  async findManyEvaluationLookups(params: {
+    tenantId: string;
+    userIds: string[];
+    workDates: Date[];
+  }) {
+    if (params.userIds.length === 0 || params.workDates.length === 0) {
+      return [];
+    }
+
+    return prisma.attendanceEvaluation.findMany({
+      where: {
+        tenantId: params.tenantId,
+        userId: { in: params.userIds },
+        workDate: { in: params.workDates },
+      },
+      select: {
+        tenantId: true,
+        userId: true,
+        workDate: true,
+        finalStatus: true,
+        reviewState: true,
+        leaveState: true,
+        holidayState: true,
+        payrollHoldState: true,
+        evidenceQuality: true,
+        reasonCodes: true,
+        anomalyCodes: true,
+      },
+    });
+  }
+
+  async findManyPayrollEvaluationsByUserAndDateRange(params: {
+    userId: string;
+    startDate: Date;
+    endDate: Date;
+    tenantId?: string;
+  }) {
+    return prisma.attendanceEvaluation.findMany({
+      where: {
+        userId: params.userId,
+        workDate: { gte: params.startDate, lte: params.endDate },
+        ...(params.tenantId ? { tenantId: params.tenantId } : {}),
+      },
+      orderBy: { workDate: "asc" },
+      select: {
+        workDate: true,
+        finalStatus: true,
+        holidayState: true,
+        overtimeMinutesApproved: true,
+        overtimeMinutesHeld: true,
+        payrollHoldState: true,
+      },
+    });
+  }
+
   async findManyForHistory(params: {
     userId: string;
     skip: number;
@@ -947,6 +1081,59 @@ export class AttendanceRepository {
 
   async countByUserId(userId: string) {
     return prisma.attendance.count({ where: { userId } });
+  }
+
+  async upsertAttendanceEvaluation(
+    data: Prisma.AttendanceEvaluationUncheckedCreateInput,
+  ) {
+    return prisma.attendanceEvaluation.upsert({
+      where: {
+        tenantId_userId_workDate: {
+          tenantId: data.tenantId,
+          userId: data.userId,
+          workDate: data.workDate,
+        },
+      },
+      create: data,
+      update: data,
+    });
+  }
+
+  async createAttendanceEvaluationAudit(
+    data: Prisma.AttendanceEvaluationAuditUncheckedCreateInput,
+  ) {
+    return prisma.attendanceEvaluationAudit.create({ data });
+  }
+
+  async recordEvaluationChange(data: {
+    evaluation: Prisma.AttendanceEvaluationUncheckedCreateInput;
+    audit: Omit<
+      Prisma.AttendanceEvaluationAuditUncheckedCreateInput,
+      "evaluationId"
+    >;
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const evaluation = await tx.attendanceEvaluation.upsert({
+        where: {
+          tenantId_userId_workDate: {
+            tenantId: data.evaluation.tenantId,
+            userId: data.evaluation.userId,
+            workDate: data.evaluation.workDate,
+          },
+        },
+        create: data.evaluation,
+        update: data.evaluation,
+      });
+
+      await tx.attendanceEvaluationAudit.create({
+        data: {
+          ...data.audit,
+          evaluationId: evaluation.id,
+        },
+      });
+
+      return evaluation;
+    });
   }
 
   async findManyForAnalytics(params: {

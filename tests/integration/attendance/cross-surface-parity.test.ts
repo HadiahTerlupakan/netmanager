@@ -1,48 +1,85 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 
 import {
-    crossSurfaceAttendanceFixtures,
-    getCrossSurfaceAttendanceFixture,
-    type CrossSurfaceAttendanceFixture,
-    type WorkerWebAttendanceStatus,
-} from '../../fixtures/attendance/crossSurfaceAttendanceFixtures'
+  crossSurfaceAttendanceFixtures,
+  getCrossSurfaceAttendanceFixture,
+  type CrossSurfaceAttendanceFixture,
+  type WorkerWebAttendanceStatus,
+} from "../../fixtures/attendance/crossSurfaceAttendanceFixtures";
 
 const requiredFixtureIds = [
-    'same-day-open-session',
-    'same-day-checked-out-session',
-    'overnight-shift-still-active',
-    'stale-flexible-session',
-    'no-checkout-system-closure',
-    'outside-geofence-warn-accepted',
-]
+  "same-day-open-session",
+  "same-day-checked-out-session",
+  "overnight-shift-still-active",
+  "stale-flexible-session",
+  "no-checkout-system-closure",
+  "outside-geofence-warn-accepted",
+];
 
-function deriveWorkerWebStatus(fixture: CrossSurfaceAttendanceFixture): WorkerWebAttendanceStatus {
-    const checkIn = new Date(fixture.attendance.checkIn)
+function isOvernightShiftSessionActive(
+  fixture: CrossSurfaceAttendanceFixture,
+): boolean {
+  if (
+    fixture.attendance.user?.workingHourMode !== "SHIFT" ||
+    !fixture.attendance.user.shift ||
+    fixture.attendance.checkOut
+  ) {
+    return false;
+  }
 
-    if (Number.isNaN(checkIn.getTime())) {
-        return 'idle'
-    }
+  const [startHour = 0] =
+    fixture.attendance.user.shift.startTime?.split(":").map(Number) ?? [];
+  const [endHour = 0, endMinute = 0] =
+    fixture.attendance.user.shift.endTime?.split(":").map(Number) ?? [];
+  const isOvernightShift = endHour < startHour;
 
-    const now = new Date(fixture.now)
+  if (!isOvernightShift) {
+    return false;
+  }
 
-    if (now.toDateString() !== checkIn.toDateString()) {
-        return 'idle'
-    }
+  const checkIn = new Date(fixture.attendance.checkIn);
+  const shiftEnd = new Date(checkIn);
+  shiftEnd.setDate(shiftEnd.getDate() + 1);
+  shiftEnd.setHours(endHour, endMinute, 0, 0);
 
-    return fixture.attendance.checkOut ? 'checked-out' : 'checked-in'
+  return new Date(fixture.now) <= shiftEnd;
 }
 
-describe('attendance cross-surface parity fixtures', () => {
-    it('defines the required attendance scenarios for Task 1', () => {
-        expect(crossSurfaceAttendanceFixtures.map((fixture) => fixture.id)).toEqual(
-            expect.arrayContaining(requiredFixtureIds)
-        )
-    })
+function deriveWorkerWebStatus(
+  fixture: CrossSurfaceAttendanceFixture,
+): WorkerWebAttendanceStatus {
+  const checkIn = new Date(fixture.attendance.checkIn);
 
-    it.each(requiredFixtureIds)('documents current worker web status for %s', (fixtureId) => {
-        const fixture = getCrossSurfaceAttendanceFixture(fixtureId)
+  if (Number.isNaN(checkIn.getTime())) {
+    return "idle";
+  }
 
-        expect(fixture).toBeDefined()
-        expect(deriveWorkerWebStatus(fixture!)).toBe(fixture!.expected.workerWebStatus)
-    })
-})
+  const now = new Date(fixture.now);
+  const sameDay = now.toDateString() === checkIn.toDateString();
+
+  if (!sameDay && !isOvernightShiftSessionActive(fixture)) {
+    return "idle";
+  }
+
+  return fixture.attendance.checkOut ? "checked-out" : "checked-in";
+}
+
+describe("attendance cross-surface parity fixtures", () => {
+  it("defines the required attendance scenarios for Task 1", () => {
+    expect(crossSurfaceAttendanceFixtures.map((fixture) => fixture.id)).toEqual(
+      expect.arrayContaining(requiredFixtureIds),
+    );
+  });
+
+  it.each(requiredFixtureIds)(
+    "documents current worker web status for %s",
+    (fixtureId) => {
+      const fixture = getCrossSurfaceAttendanceFixture(fixtureId);
+
+      expect(fixture).toBeDefined();
+      expect(deriveWorkerWebStatus(fixture!)).toBe(
+        fixture!.expected.workerWebStatus,
+      );
+    },
+  );
+});

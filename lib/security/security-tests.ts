@@ -5,96 +5,96 @@
  * security measures are working correctly.
  */
 
-import { verify, sign } from 'jsonwebtoken'
-import * as z from 'zod'
-import * as fs from 'fs'
-import * as path from 'path'
+import { verify, sign } from "jsonwebtoken";
+import * as z from "zod";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface SecurityTestResult {
-  testName: string
-  status: 'PASS' | 'FAIL' | 'WARN'
-  message: string
-  details?: unknown
-  recommendations?: string[]
+  testName: string;
+  status: "PASS" | "FAIL" | "WARN";
+  message: string;
+  details?: unknown;
+  recommendations?: string[];
 }
 
 export class SecurityTests {
-  private results: SecurityTestResult[] = []
+  private results: SecurityTestResult[] = [];
 
   /**
    * Add test result
    */
   private addResult(result: SecurityTestResult): void {
-    this.results.push(result)
+    this.results.push(result);
   }
 
   /**
    * Get all test results
    */
   getResults(): SecurityTestResult[] {
-    return this.results
+    return this.results;
   }
 
   /**
    * Get test summary
    */
   getSummary(): {
-    total: number
-    passed: number
-    failed: number
-    warnings: number
-    score: number
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+    score: number;
   } {
-    const total = this.results.length
-    const passed = this.results.filter(r => r.status === 'PASS').length
-    const failed = this.results.filter(r => r.status === 'FAIL').length
-    const warnings = this.results.filter(r => r.status === 'WARN').length
-    const score = total > 0 ? Math.round((passed / total) * 100) : 0
+    const total = this.results.length;
+    const passed = this.results.filter((r) => r.status === "PASS").length;
+    const failed = this.results.filter((r) => r.status === "FAIL").length;
+    const warnings = this.results.filter((r) => r.status === "WARN").length;
+    const score = total > 0 ? Math.round((passed / total) * 100) : 0;
 
-    return { total, passed, failed, warnings, score }
+    return { total, passed, failed, warnings, score };
   }
 
   /**
    * Test 1: Environment Variable Security
    */
   testEnvironmentSecurity(): void {
-    const issues: string[] = []
+    const issues: string[] = [];
 
     // Check for default secrets
-    if (process.env.NEXTAUTH_SECRET === 'dev_secret_change_later') {
-      issues.push('NEXTAUTH_SECRET is using default development value')
+    if (process.env.NEXTAUTH_SECRET === "dev_secret_change_later") {
+      issues.push("NEXTAUTH_SECRET is using default development value");
     }
 
-    if (process.env.DATABASE_PASSWORD === 'netmgr') {
-      issues.push('Database password is default value')
+    if (process.env.DATABASE_PASSWORD === "netmgr") {
+      issues.push("Database password is default value");
     }
 
     // Check for empty critical variables
-    const criticalVars = ['DATABASE_URL', 'NEXTAUTH_SECRET']
-    criticalVars.forEach(varName => {
+    const criticalVars = ["DATABASE_URL", "NEXTAUTH_SECRET"];
+    criticalVars.forEach((varName) => {
       if (!process.env[varName]) {
-        issues.push(`${varName} is not set`)
+        issues.push(`${varName} is not set`);
       }
-    })
+    });
 
     if (issues.length === 0) {
       this.addResult({
-        testName: 'Environment Security',
-        status: 'PASS',
-        message: 'All environment variables are properly configured'
-      })
+        testName: "Environment Security",
+        status: "PASS",
+        message: "All environment variables are properly configured",
+      });
     } else {
       this.addResult({
-        testName: 'Environment Security',
-        status: issues.some(i => i.includes('default')) ? 'FAIL' : 'WARN',
-        message: 'Environment security issues found',
+        testName: "Environment Security",
+        status: issues.some((i) => i.includes("default")) ? "FAIL" : "WARN",
+        message: "Environment security issues found",
         details: issues,
         recommendations: [
-          'Set strong, unique secrets for production',
-          'Use proper secret management system',
-          'Rotate secrets regularly'
-        ]
-      })
+          "Set strong, unique secrets for production",
+          "Use proper secret management system",
+          "Rotate secrets regularly",
+        ],
+      });
     }
   }
 
@@ -105,37 +105,37 @@ export class SecurityTests {
     try {
       // Test JWT signing and verification
       const testPayload = {
-        userId: 'test-user',
-        role: 'ADMIN',
-        type: 'TEST'
-      }
+        userId: "test-user",
+        role: "ADMIN",
+        type: "TEST",
+      };
 
-      const secret = process.env.NEXTAUTH_SECRET || 'test-secret'
-      const token = sign(testPayload, secret, { expiresIn: '1h' })
+      const secret = process.env.NEXTAUTH_SECRET || "test-secret";
+      const token = sign(testPayload, secret, { expiresIn: "1h" });
 
-      const decoded = verify(token, secret) as { userId: string; type: string }
+      const decoded = verify(token, secret) as { userId: string; type: string };
 
-      if (decoded.userId === 'test-user' && decoded.type === 'TEST') {
+      if (decoded.userId === "test-user" && decoded.type === "TEST") {
         this.addResult({
-          testName: 'JWT Security',
-          status: 'PASS',
-          message: 'JWT implementation is working correctly'
-        })
+          testName: "JWT Security",
+          status: "PASS",
+          message: "JWT implementation is working correctly",
+        });
       } else {
         this.addResult({
-          testName: 'JWT Security',
-          status: 'FAIL',
-          message: 'JWT payload mismatch',
-          details: { expected: testPayload, actual: decoded }
-        })
+          testName: "JWT Security",
+          status: "FAIL",
+          message: "JWT payload mismatch",
+          details: { expected: testPayload, actual: decoded },
+        });
       }
     } catch (_error) {
       this.addResult({
-        testName: 'JWT Security',
-        status: 'FAIL',
-        message: 'JWT implementation error',
-        details: _error
-      })
+        testName: "JWT Security",
+        status: "FAIL",
+        message: "JWT implementation error",
+        details: _error,
+      });
     }
   }
 
@@ -143,33 +143,33 @@ export class SecurityTests {
    * Test 3: CORS Configuration
    */
   testCORSConfiguration(): void {
-    const nodeEnv = process.env.NODE_ENV
-    const corsOrigin = process.env.CORS_ORIGIN
+    const nodeEnv = process.env.NODE_ENV;
+    const corsOrigin = process.env.CORS_ORIGIN;
 
-    if (nodeEnv === 'production') {
-      if (!corsOrigin || corsOrigin === '*') {
+    if (nodeEnv === "production") {
+      if (!corsOrigin || corsOrigin === "*") {
         this.addResult({
-          testName: 'CORS Configuration',
-          status: 'FAIL',
-          message: 'Production CORS is too permissive',
+          testName: "CORS Configuration",
+          status: "FAIL",
+          message: "Production CORS is too permissive",
           recommendations: [
-            'Set specific allowed origins',
-            'Remove wildcard CORS in production'
-          ]
-        })
+            "Set specific allowed origins",
+            "Remove wildcard CORS in production",
+          ],
+        });
       } else {
         this.addResult({
-          testName: 'CORS Configuration',
-          status: 'PASS',
-          message: 'CORS is properly configured for production'
-        })
+          testName: "CORS Configuration",
+          status: "PASS",
+          message: "CORS is properly configured for production",
+        });
       }
     } else {
       this.addResult({
-        testName: 'CORS Configuration',
-        status: 'PASS',
-        message: 'Development CORS configuration is acceptable'
-      })
+        testName: "CORS Configuration",
+        status: "PASS",
+        message: "Development CORS configuration is acceptable",
+      });
     }
   }
 
@@ -178,34 +178,34 @@ export class SecurityTests {
    */
   testSecurityHeaders(): void {
     const requiredHeaders = [
-      'X-Frame-Options',
-      'X-Content-Type-Options',
-      'X-XSS-Protection',
-      'Referrer-Policy',
-      'Content-Security-Policy'
-    ]
+      "X-Frame-Options",
+      "X-Content-Type-Options",
+      "X-XSS-Protection",
+      "Referrer-Policy",
+      "Content-Security-Policy",
+    ];
 
     // This would be tested by making actual HTTP requests
     // For now, we'll validate the implementation exists
     try {
       // Check if CORS implementation exists
       // Using dynamic import in try-catch for optional dependency check
-      void import('@/lib/middleware/cors')
+      void import("@/lib/middleware/cors");
 
       this.addResult({
-        testName: 'Security Headers',
-        status: 'PASS',
-        message: 'Security headers implementation found',
+        testName: "Security Headers",
+        status: "PASS",
+        message: "Security headers implementation found",
         details: {
-          configuredHeaders: requiredHeaders
-        }
-      })
+          configuredHeaders: requiredHeaders,
+        },
+      });
     } catch (_error) {
       this.addResult({
-        testName: 'Security Headers',
-        status: 'FAIL',
-        message: 'Security headers implementation not found'
-      })
+        testName: "Security Headers",
+        status: "FAIL",
+        message: "Security headers implementation not found",
+      });
     }
   }
 
@@ -216,45 +216,45 @@ export class SecurityTests {
     try {
       // Test schema validation
       const testSchema = z.object({
-        email: z.string().email(),
-        amount: z.number().positive().max(1000000)
-      })
+        email: z.email(),
+        amount: z.number().positive().max(1000000),
+      });
 
       // Test valid input
       const validResult = testSchema.safeParse({
-        email: 'test@example.com',
-        amount: 100
-      })
+        email: "test@example.com",
+        amount: 100,
+      });
 
       // Test invalid input
       const invalidResult = testSchema.safeParse({
-        email: 'invalid-email',
-        amount: -50
-      })
+        email: "invalid-email",
+        amount: -50,
+      });
 
       if (validResult.success && !invalidResult.success) {
         this.addResult({
-          testName: 'Input Validation',
-          status: 'PASS',
-          message: 'Input validation is working correctly'
-        })
+          testName: "Input Validation",
+          status: "PASS",
+          message: "Input validation is working correctly",
+        });
       } else {
         this.addResult({
-          testName: 'Input Validation',
-          status: 'FAIL',
-          message: 'Input validation logic error',
+          testName: "Input Validation",
+          status: "FAIL",
+          message: "Input validation logic error",
           details: {
             validResult,
-            invalidResult
-          }
-        })
+            invalidResult,
+          },
+        });
       }
     } catch (_error) {
       this.addResult({
-        testName: 'Input Validation',
-        status: 'FAIL',
-        message: 'Input validation library not found'
-      })
+        testName: "Input Validation",
+        status: "FAIL",
+        message: "Input validation library not found",
+      });
     }
   }
 
@@ -264,23 +264,32 @@ export class SecurityTests {
   testRateLimiting(): void {
     try {
       // Check if rate limiting implementation exists
-      void import('@/lib/middleware/advanced-rate-limit')
+      void import("@/lib/middleware/advanced-rate-limit");
 
       this.addResult({
-        testName: 'Rate Limiting',
-        status: 'PASS',
-        message: 'Advanced rate limiting implementation found',
+        testName: "Rate Limiting",
+        status: "PASS",
+        message: "Advanced rate limiting implementation found",
         details: {
-          algorithms: ['fixed-window', 'sliding-window', 'token-bucket', 'exponential-backoff'],
-          features: ['burst protection', 'user-specific limits', 'custom responses']
-        }
-      })
+          algorithms: [
+            "fixed-window",
+            "sliding-window",
+            "token-bucket",
+            "exponential-backoff",
+          ],
+          features: [
+            "burst protection",
+            "user-specific limits",
+            "custom responses",
+          ],
+        },
+      });
     } catch (_error) {
       this.addResult({
-        testName: 'Rate Limiting',
-        status: 'FAIL',
-        message: 'Rate limiting implementation not found'
-      })
+        testName: "Rate Limiting",
+        status: "FAIL",
+        message: "Rate limiting implementation not found",
+      });
     }
   }
 
@@ -290,22 +299,27 @@ export class SecurityTests {
   testDatabaseSecurity(): void {
     try {
       // Check if database security implementation exists
-      void import('@/lib/database/security')
+      void import("@/lib/database/security");
 
       this.addResult({
-        testName: 'Database Security',
-        status: 'PASS',
-        message: 'Database security implementation found',
+        testName: "Database Security",
+        status: "PASS",
+        message: "Database security implementation found",
         details: {
-          features: ['row-level security', 'data encryption', 'audit logging', 'connection security']
-        }
-      })
+          features: [
+            "row-level security",
+            "data encryption",
+            "audit logging",
+            "connection security",
+          ],
+        },
+      });
     } catch (_error) {
       this.addResult({
-        testName: 'Database Security',
-        status: 'FAIL',
-        message: 'Database security implementation not found'
-      })
+        testName: "Database Security",
+        status: "FAIL",
+        message: "Database security implementation not found",
+      });
     }
   }
 
@@ -315,42 +329,52 @@ export class SecurityTests {
   testFileUploadSecurity(): void {
     try {
       // Check if Sharp is installed for image processing
-      const uploadRoute = path.join(process.cwd(), 'app/api/upload/payment-proof/route.ts')
+      const uploadRoute = path.join(
+        process.cwd(),
+        "app/api/upload/payment-proof/route.ts",
+      );
 
       if (fs.existsSync(uploadRoute)) {
-        const content = fs.readFileSync(uploadRoute, 'utf8')
+        const content = fs.readFileSync(uploadRoute, "utf8");
 
-        if (content.includes('sharp') &&
-            content.includes('validateFileUpload') &&
-            content.includes('userUploadQuotas')) {
+        if (
+          content.includes("sharp") &&
+          content.includes("validateFileUpload") &&
+          content.includes("userUploadQuotas")
+        ) {
           this.addResult({
-            testName: 'File Upload Security',
-            status: 'PASS',
-            message: 'File upload security implementation is comprehensive',
+            testName: "File Upload Security",
+            status: "PASS",
+            message: "File upload security implementation is comprehensive",
             details: {
-              features: ['image processing', 'EXIF removal', 'content verification', 'quota management']
-            }
-          })
+              features: [
+                "image processing",
+                "EXIF removal",
+                "content verification",
+                "quota management",
+              ],
+            },
+          });
         } else {
           this.addResult({
-            testName: 'File Upload Security',
-            status: 'WARN',
-            message: 'File upload security partially implemented'
-          })
+            testName: "File Upload Security",
+            status: "WARN",
+            message: "File upload security partially implemented",
+          });
         }
       } else {
         this.addResult({
-          testName: 'File Upload Security',
-          status: 'FAIL',
-          message: 'File upload route not found'
-        })
+          testName: "File Upload Security",
+          status: "FAIL",
+          message: "File upload route not found",
+        });
       }
     } catch (_error) {
       this.addResult({
-        testName: 'File Upload Security',
-        status: 'FAIL',
-        message: 'Error checking file upload security'
-      })
+        testName: "File Upload Security",
+        status: "FAIL",
+        message: "Error checking file upload security",
+      });
     }
   }
 
@@ -359,22 +383,27 @@ export class SecurityTests {
    */
   testErrorHandlingSecurity(): void {
     try {
-      void import('@/lib/utils/secure-error-handler')
+      void import("@/lib/utils/secure-error-handler");
 
       this.addResult({
-        testName: 'Error Handling Security',
-        status: 'PASS',
-        message: 'Secure error handling implementation found',
+        testName: "Error Handling Security",
+        status: "PASS",
+        message: "Secure error handling implementation found",
         details: {
-          features: ['classified errors', 'generic messages', 'request tracking', 'audit logging']
-        }
-      })
+          features: [
+            "classified errors",
+            "generic messages",
+            "request tracking",
+            "audit logging",
+          ],
+        },
+      });
     } catch (_error) {
       this.addResult({
-        testName: 'Error Handling Security',
-        status: 'FAIL',
-        message: 'Secure error handling not found'
-      })
+        testName: "Error Handling Security",
+        status: "FAIL",
+        message: "Secure error handling not found",
+      });
     }
   }
 
@@ -383,49 +412,49 @@ export class SecurityTests {
    */
   testDependencySecurity(): void {
     try {
-      const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+      const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
-      const vulnerabilities: string[] = []
+      const vulnerabilities: string[] = [];
 
       // Check for known vulnerable dependencies
       const vulnerablePackages = [
-        'lodash',
-        'request',
-        'node-fetch',
-        'axios' // Check for old versions
-      ]
+        "lodash",
+        "request",
+        "node-fetch",
+        "axios", // Check for old versions
+      ];
 
-      Object.keys(packageJson.dependencies || {}).forEach(dep => {
-        const baseDep = dep.replace(/[@\d.]/g, '').split('/')[0]
+      Object.keys(packageJson.dependencies || {}).forEach((dep) => {
+        const baseDep = dep.replace(/[@\d.]/g, "").split("/")[0];
         if (baseDep && vulnerablePackages.includes(baseDep)) {
-          vulnerabilities.push(dep)
+          vulnerabilities.push(dep);
         }
-      })
+      });
 
       if (vulnerabilities.length === 0) {
         this.addResult({
-          testName: 'Dependency Security',
-          status: 'PASS',
-          message: 'No known vulnerable dependencies found'
-        })
+          testName: "Dependency Security",
+          status: "PASS",
+          message: "No known vulnerable dependencies found",
+        });
       } else {
         this.addResult({
-          testName: 'Dependency Security',
-          status: 'WARN',
-          message: 'Potentially vulnerable dependencies found',
+          testName: "Dependency Security",
+          status: "WARN",
+          message: "Potentially vulnerable dependencies found",
           details: { vulnerabilities },
           recommendations: [
-            'Run npm audit to check for vulnerabilities',
-            'Update dependencies to latest versions'
-          ]
-        })
+            "Run npm audit to check for vulnerabilities",
+            "Update dependencies to latest versions",
+          ],
+        });
       }
     } catch (_error) {
       this.addResult({
-        testName: 'Dependency Security',
-        status: 'FAIL',
-        message: 'Error checking dependencies'
-      })
+        testName: "Dependency Security",
+        status: "FAIL",
+        message: "Error checking dependencies",
+      });
     }
   }
 
@@ -433,43 +462,43 @@ export class SecurityTests {
    * Run all security tests
    */
   async runAllTests(): Promise<SecurityTestResult[]> {
-    console.log('🔒 Running Security Tests...\n')
+    console.log("🔒 Running Security Tests...\n");
 
-    this.testEnvironmentSecurity()
-    this.testJWTSecurity()
-    this.testCORSConfiguration()
-    this.testSecurityHeaders()
-    this.testInputValidation()
-    this.testRateLimiting()
-    this.testDatabaseSecurity()
-    this.testFileUploadSecurity()
-    this.testErrorHandlingSecurity()
-    this.testDependencySecurity()
+    this.testEnvironmentSecurity();
+    this.testJWTSecurity();
+    this.testCORSConfiguration();
+    this.testSecurityHeaders();
+    this.testInputValidation();
+    this.testRateLimiting();
+    this.testDatabaseSecurity();
+    this.testFileUploadSecurity();
+    this.testErrorHandlingSecurity();
+    this.testDependencySecurity();
 
-    const summary = this.getSummary()
+    const summary = this.getSummary();
 
-    console.log('\n📊 Security Test Results:')
-    console.log(`Total Tests: ${summary.total}`)
-    console.log(`✅ Passed: ${summary.passed}`)
-    console.log(`❌ Failed: ${summary.failed}`)
-    console.log(`⚠️  Warnings: ${summary.warnings}`)
-    console.log(`📈 Score: ${summary.score}%\n`)
+    console.log("\n📊 Security Test Results:");
+    console.log(`Total Tests: ${summary.total}`);
+    console.log(`✅ Passed: ${summary.passed}`);
+    console.log(`❌ Failed: ${summary.failed}`);
+    console.log(`⚠️  Warnings: ${summary.warnings}`);
+    console.log(`📈 Score: ${summary.score}%\n`);
 
     if (summary.failed > 0) {
-      console.log('🚨 Failed Tests:')
+      console.log("🚨 Failed Tests:");
       this.results
-        .filter(r => r.status === 'FAIL')
-        .forEach(r => console.log(`  ❌ ${r.testName}: ${r.message}`))
+        .filter((r) => r.status === "FAIL")
+        .forEach((r) => console.log(`  ❌ ${r.testName}: ${r.message}`));
     }
 
     if (summary.warnings > 0) {
-      console.log('⚠️  Warnings:')
+      console.log("⚠️  Warnings:");
       this.results
-        .filter(r => r.status === 'WARN')
-        .forEach(r => console.log(`  ⚠️  ${r.testName}: ${r.message}`))
+        .filter((r) => r.status === "WARN")
+        .forEach((r) => console.log(`  ⚠️  ${r.testName}: ${r.message}`));
     }
 
-    return this.results
+    return this.results;
   }
 }
 
@@ -477,8 +506,8 @@ export class SecurityTests {
  * Quick security check function
  */
 export function quickSecurityCheck(): Promise<SecurityTestResult[]> {
-  const tests = new SecurityTests()
-  return tests.runAllTests()
+  const tests = new SecurityTests();
+  return tests.runAllTests();
 }
 
-export default SecurityTests
+export default SecurityTests;

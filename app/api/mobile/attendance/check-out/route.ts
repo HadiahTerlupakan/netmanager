@@ -1,8 +1,9 @@
+import { NextResponse } from "next/server";
 import { AttendanceService } from "@/modules/attendance";
 import { AttendanceIdempotencyService } from "@/modules/attendance";
 import { AttendancePhotoService } from "@/modules/attendance";
 import { validateCoordinates } from "@/lib/validation-utils";
-import { apiSuccess, apiError, ErrorCodes, createHandler } from "@/lib/api";
+import { apiError, ErrorCodes, createHandler } from "@/lib/api";
 
 export const POST = createHandler({ auth: true }, async (request, ctx) => {
   const userSession = ctx.session!.user;
@@ -26,6 +27,18 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
       location = body.location;
       notes = body.notes;
       bodyRequestId = body.requestId;
+
+      if (typeof body.capturedAt === "string") {
+        const parsedCapturedAt = new Date(body.capturedAt);
+        if (Number.isNaN(parsedCapturedAt.getTime())) {
+          return apiError(
+            "Format capturedAt tidak valid",
+            ErrorCodes.VALIDATION_ERROR,
+            { status: 400 },
+          );
+        }
+        offlineTime = parsedCapturedAt;
+      }
 
       if (body.photoUrl) {
         if (body.photoUrl.startsWith("/uploads/")) {
@@ -157,10 +170,11 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
         const replayPayload = await idempotencyService.getReplay<{
           success: boolean;
           data: unknown;
+          message?: string;
           warning?: string;
         }>(userId, "check-out", resolvedRequestId);
         if (replayPayload)
-          return apiSuccess(replayPayload, {
+          return NextResponse.json(replayPayload, {
             headers: { "X-Idempotent-Replay": "true" },
           });
       }
@@ -189,23 +203,28 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
         longitude,
         offlineTime,
       });
+      const responsePayload = {
+        success: true,
+        data: {
+          ...result.attendance,
+          ...result.evaluation,
+          canonical: result.evaluation,
+        },
+        ...(result.warning
+          ? { warning: result.warning, message: result.warning }
+          : {}),
+      };
+
       if (resolvedRequestId && payloadHash) {
         await idempotencyService.complete(
           userId,
           "check-out",
           resolvedRequestId,
           payloadHash,
-          {
-            success: true,
-            data: result.attendance,
-            ...(result.warning && { warning: result.warning }),
-          },
+          responsePayload,
         );
       }
-      return apiSuccess(
-        result.attendance,
-        result.warning ? { message: result.warning } : undefined,
-      );
+      return NextResponse.json(responsePayload);
     } catch (error: unknown) {
       if (error instanceof Error && error.message === "OUTSIDE_GEOFENCE")
         return apiError(

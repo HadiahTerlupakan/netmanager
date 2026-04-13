@@ -11,6 +11,7 @@ import {
   MikroTikRouterService,
   RouterAccessDeniedError,
 } from "@/modules/network";
+import * as z from "zod";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = req.nextUrl;
@@ -49,7 +50,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   if (!parsed.success) {
     return apiError("Data tidak valid", ErrorCodes.VALIDATION_ERROR, {
       status: 400,
-      details: parsed.error.flatten(),
+      details: z.flattenError(parsed.error),
     });
   }
 

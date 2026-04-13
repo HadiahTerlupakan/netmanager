@@ -2,16 +2,23 @@ import { GeofenceService } from "./GeofenceService";
 import { AttendanceValidationService } from "./AttendanceValidationService";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import { AttendanceSessionPolicyService } from "./AttendanceSessionPolicyService";
+import {
+  AttendanceDailyEvaluator,
+  type AttendanceEvaluationInput,
+} from "./AttendanceDailyEvaluator";
+import { AttendanceEvaluationAuditService } from "./AttendanceEvaluationAuditService";
 import { AttendanceStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { ATTENDANCE_CONSTANTS } from "@/modules/attendance/utils/constants";
 import { redis } from "@/lib/redis";
+import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { OvertimeRepository } from "@/modules/overtime";
 import { LeaveRepository } from "../repositories/LeaveRepository";
+import { HolidayRepository } from "../repositories/HolidayRepository";
 import { UserRepository } from "@/modules/users";
 import { AttendanceEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
+import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
 
 interface CheckInParams {
   userId: string;
@@ -77,6 +84,20 @@ type AttendancePolicyScheduleContext = {
   } | null;
 } | null;
 
+type PersistedAttendanceEvaluationRow = Awaited<
+  ReturnType<AttendanceRepository["findLatestEvaluationForUser"]>
+>;
+
+type CurrentAttendanceEvaluationRow = Pick<
+  AttendanceEvaluationResult,
+  "finalStatus" | "reviewState" | "reasonCodes" | "anomalyCodes"
+> | null;
+
+export type HistoricalAttendanceRecomputeResult = {
+  processedCount: number;
+  evaluations: AttendanceEvaluationResult[];
+};
+
 export type CurrentAttendanceStatusResult = {
   status: CurrentAttendanceUiStatus;
   checkInTime: string | null;
@@ -134,9 +155,93 @@ function isSameAttendanceDay(a: Date, b: Date, timezone: string): boolean {
   );
 }
 
+function normalizeReasonCodes(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function normalizeSourceRefs(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function mapPersistedAttendanceEvaluation(
+  evaluation: PersistedAttendanceEvaluationRow,
+): AttendanceEvaluationResult | null {
+  if (!evaluation) {
+    return null;
+  }
+
+  return {
+    tenantId: evaluation.tenantId,
+    userId: evaluation.userId,
+    workDate: evaluation.workDate,
+    finalStatus: evaluation.finalStatus,
+    reviewState:
+      evaluation.reviewState as AttendanceEvaluationResult["reviewState"],
+    rawPresenceState: evaluation.rawPresenceState,
+    workMinutes: evaluation.workMinutes,
+    lateMinutes: evaluation.lateMinutes,
+    overtimeMinutesApproved: evaluation.overtimeMinutesApproved,
+    overtimeMinutesHeld: evaluation.overtimeMinutesHeld,
+    payrollHoldState:
+      evaluation.payrollHoldState as AttendanceEvaluationResult["payrollHoldState"],
+    holidayState: evaluation.holidayState,
+    leaveState: evaluation.leaveState,
+    scheduleState: evaluation.scheduleState,
+    evidenceQuality: evaluation.evidenceQuality,
+    reasonCodes: normalizeReasonCodes(evaluation.reasonCodes),
+    anomalyCodes: normalizeReasonCodes(evaluation.anomalyCodes),
+    sourceRefs: normalizeSourceRefs(evaluation.sourceRefs),
+    evaluationVersion: evaluation.evaluationVersion,
+    evaluatedAt: evaluation.evaluatedAt,
+  };
+}
+
+function getCurrentAttendanceWarningMessage(
+  evaluation: CurrentAttendanceEvaluationRow,
+  fallbackWarningMessage: string | null,
+): string | null {
+  if (!evaluation) {
+    return fallbackWarningMessage;
+  }
+
+  const [firstReason] = normalizeReasonCodes(evaluation.reasonCodes);
+  return firstReason ?? fallbackWarningMessage;
+}
+
+function mapCurrentAttendanceStatusResult(params: {
+  attendance: CurrentAttendanceRow;
+  evaluation: CurrentAttendanceEvaluationRow;
+  timezone: string;
+  status: CurrentAttendanceUiStatus;
+  warningMessage: string | null;
+}): CurrentAttendanceStatusResult {
+  const { attendance, evaluation, timezone, status, warningMessage } = params;
+
+  return {
+    status,
+    checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
+    checkOutTime: formatCurrentAttendanceTime(attendance.checkOut, timezone),
+    warningMessage,
+    sourceAttendanceId: attendance.id,
+    checkInAt: attendance.checkIn.toISOString(),
+    checkOutAt: attendance.checkOut?.toISOString() ?? null,
+    attendanceStatus: evaluation?.finalStatus ?? attendance.status,
+    workingHourMode: attendance.user?.workingHourMode ?? null,
+    flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
+    shift: attendance.user?.shift ?? null,
+  };
+}
+
 function buildIdleCurrentAttendanceStatus(
   attendance?: CurrentAttendanceRow | null,
   warningMessage: string | null = null,
+  evaluation?: CurrentAttendanceEvaluationRow,
 ): CurrentAttendanceStatusResult {
   return {
     status: "idle",
@@ -146,7 +251,7 @@ function buildIdleCurrentAttendanceStatus(
     sourceAttendanceId: attendance?.id ?? null,
     checkInAt: attendance?.checkIn?.toISOString() ?? null,
     checkOutAt: attendance?.checkOut?.toISOString() ?? null,
-    attendanceStatus: attendance?.status ?? null,
+    attendanceStatus: evaluation?.finalStatus ?? attendance?.status ?? null,
     workingHourMode: attendance?.user?.workingHourMode ?? null,
     flexibleTargetHour: attendance?.user?.flexibleTargetHour ?? null,
     shift: attendance?.user?.shift ?? null,
@@ -159,6 +264,11 @@ export class AttendanceService {
   private timezoneService: AttendanceTimezoneService;
   private attendanceRepo: AttendanceRepository;
   private userRepo: UserRepository;
+  private attendanceEvaluator: AttendanceDailyEvaluator;
+  private evaluationAuditService: AttendanceEvaluationAuditService;
+  private leaveRepo: LeaveRepository;
+  private holidayRepo: HolidayRepository;
+  private overtimeRepo: OvertimeRepository;
 
   constructor() {
     this.geofenceService = new GeofenceService();
@@ -166,6 +276,168 @@ export class AttendanceService {
     this.timezoneService = new AttendanceTimezoneService();
     this.attendanceRepo = new AttendanceRepository();
     this.userRepo = new UserRepository();
+    this.attendanceEvaluator = new AttendanceDailyEvaluator();
+    this.evaluationAuditService = new AttendanceEvaluationAuditService();
+    this.leaveRepo = new LeaveRepository();
+    this.holidayRepo = new HolidayRepository();
+    this.overtimeRepo = new OvertimeRepository();
+  }
+
+  private getEvaluationWindow(referenceTime: Date, timezone: string) {
+    const workDate = toStartOfDay(referenceTime, timezone);
+
+    return {
+      workDate,
+      startOfDay: workDate,
+      endOfDay: toEndOfDay(referenceTime, timezone),
+    };
+  }
+
+  private async buildAttendanceEvaluationInput(params: {
+    attendance: {
+      tenantId: string;
+      userId: string;
+      checkIn: Date;
+      checkOut: Date | null;
+      status: AttendanceStatus;
+      geofenceStatus?: string | null;
+      geofenceSiteName?: string | null;
+    };
+    timezone: string;
+    workingHourMode:
+      | CachedUserAttendanceSettings["workingHourMode"]
+      | null
+      | undefined;
+  }): Promise<AttendanceEvaluationInput> {
+    const { attendance, timezone, workingHourMode } = params;
+    const { workDate, startOfDay, endOfDay } = this.getEvaluationWindow(
+      attendance.checkOut ?? attendance.checkIn,
+      timezone,
+    );
+
+    const [persistedAttendance, leave, holiday, overtime] = await Promise.all([
+      this.attendanceRepo.findFirstByUserAndDateRange(
+        attendance.userId,
+        attendance.tenantId,
+        startOfDay,
+        endOfDay,
+      ),
+      this.leaveRepo.findActiveLeaveForUserOnDate(
+        attendance.userId,
+        startOfDay,
+        endOfDay,
+        attendance.tenantId,
+      ),
+      this.holidayRepo.findFirstByTenantAndDateRange(
+        attendance.tenantId,
+        startOfDay,
+        endOfDay,
+      ),
+      this.overtimeRepo.findActiveRequestByDate(
+        attendance.userId,
+        attendance.tenantId,
+        startOfDay,
+        endOfDay,
+      ),
+    ]);
+
+    const effectiveAttendance = persistedAttendance ?? attendance;
+
+    return {
+      tenantId: attendance.tenantId,
+      userId: attendance.userId,
+      workDate,
+      attendance: {
+        status: effectiveAttendance.status as AttendanceStatus,
+        checkIn: effectiveAttendance.checkIn,
+        checkOut: effectiveAttendance.checkOut,
+        geofenceStatus:
+          typeof effectiveAttendance.geofenceStatus === "string"
+            ? effectiveAttendance.geofenceStatus
+            : null,
+        geofenceSiteName:
+          typeof effectiveAttendance.geofenceSiteName === "string"
+            ? effectiveAttendance.geofenceSiteName
+            : null,
+      },
+      leave: leave
+        ? {
+            type: leave.type,
+            approved: true,
+          }
+        : null,
+      holiday: holiday
+        ? {
+            description: holiday.description,
+          }
+        : null,
+      approvedOvertime:
+        overtime?.status === "APPROVED"
+          ? (overtime as unknown as Record<string, unknown>)
+          : null,
+      schedule:
+        workingHourMode === "FIXED" ||
+        workingHourMode === "SHIFT" ||
+        workingHourMode === "FLEXIBLE"
+          ? {
+              workingHourMode,
+            }
+          : null,
+    };
+  }
+
+  private async recomputeAttendanceEvaluation(params: {
+    attendance: {
+      tenantId: string;
+      userId: string;
+      checkIn: Date;
+      checkOut: Date | null;
+      status: AttendanceStatus;
+      geofenceStatus?: string | null;
+      geofenceSiteName?: string | null;
+    };
+    timezone: string;
+    workingHourMode:
+      | CachedUserAttendanceSettings["workingHourMode"]
+      | null
+      | undefined;
+    actorId: string;
+    audit: {
+      reason: string;
+      actorType: string;
+    };
+  }): Promise<AttendanceEvaluationResult> {
+    const { attendance, timezone, workingHourMode, actorId, audit } = params;
+    const { workDate } = this.getEvaluationWindow(
+      attendance.checkOut ?? attendance.checkIn,
+      timezone,
+    );
+
+    const [evaluationInput, previousEvaluationRow] = await Promise.all([
+      this.buildAttendanceEvaluationInput({
+        attendance,
+        timezone,
+        workingHourMode,
+      }),
+      this.attendanceRepo.findLatestEvaluationForUser({
+        userId: attendance.userId,
+        tenantId: attendance.tenantId,
+        workDate,
+      }),
+    ]);
+
+    const nextEvaluation =
+      await this.attendanceEvaluator.evaluate(evaluationInput);
+
+    await this.evaluationAuditService.recordEvaluationChange({
+      previous: mapPersistedAttendanceEvaluation(previousEvaluationRow),
+      next: nextEvaluation,
+      reason: audit.reason,
+      actorType: audit.actorType,
+      actorId,
+    });
+
+    return nextEvaluation;
   }
 
   private getScheduleEndTimeForPolicy(
@@ -227,7 +499,7 @@ export class AttendanceService {
       ),
     });
 
-    if (!decision.shouldAutoCheckout && !decision.isStaleFlexibleSession) {
+    if (decision.isStaleFlexibleSession || !decision.shouldAutoCheckout) {
       throw new Error("DUPLICATE_ENTRY");
     }
   }
@@ -247,21 +519,17 @@ export class AttendanceService {
 
     // 1. Timezone & Date Context
     // Use offlineTime if provided (trusted for sync), else server time
-    const checkInTime = offlineTime || new Date();
-
-    // Get timezone from service if not provided
-    const tz = timezone || (await this.timezoneService.getTimezone());
-
-    // Use timezone service to get effective date
-    const { now: nowInTz, startOfDay: effectiveToday } =
-      this.timezoneService.getEffectiveDate(tz);
+    const tz = timezone || (await this.timezoneService.getTimezone(tenantId));
+    const { now: currentTime } = this.timezoneService.getEffectiveDate(tz);
+    const checkInTime = offlineTime || currentTime;
+    const effectiveToday = toStartOfDay(checkInTime, tz);
 
     // 2. Cross-Module Validation (Leave & Holiday)
     // Check using the User's Timezone Date
     const eligibility = await this.validationService.validateCheckInEligibility(
       userId,
       tz,
-      nowInTz,
+      checkInTime,
       tenantId,
     );
     if (!eligibility.isValid) {
@@ -294,7 +562,7 @@ export class AttendanceService {
     await this.assertNoActiveSessionConflict(
       userId,
       userDetails,
-      nowInTz,
+      checkInTime,
       tenantId,
     );
 
@@ -370,6 +638,28 @@ export class AttendanceService {
 
     try {
       const result = await this.attendanceRepo.create(createData);
+      const normalizedTenantId = result.tenantId ?? tenantId;
+
+      if (!normalizedTenantId) {
+        throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
+      }
+
+      const evaluation = await this.recomputeAttendanceEvaluation({
+        attendance: {
+          tenantId: normalizedTenantId,
+          userId: result.userId,
+          checkIn: result.checkIn,
+          checkOut: result.checkOut,
+          status: result.status,
+        },
+        timezone: tz,
+        workingHourMode: userDetails?.workingHourMode,
+        actorId: userId,
+        audit: {
+          reason: "attendance mutation recompute",
+          actorType: "user",
+        },
+      });
 
       // Publish domain event
       AttendanceEventDispatcher.onCheckIn({
@@ -388,7 +678,10 @@ export class AttendanceService {
         ),
       );
 
-      return result;
+      return {
+        attendance: result,
+        evaluation,
+      };
     } catch (error) {
       // P2002 = Unique constraint violation → duplicate check-in caught by DB
       if (
@@ -411,9 +704,6 @@ export class AttendanceService {
     effectiveToday: Date,
     tenantId?: string,
   ) {
-    // Skip for flexible users
-    if (userDetails?.workingHourMode === "FLEXIBLE") return;
-
     const sessionPolicyService = new AttendanceSessionPolicyService();
 
     const staleSessions = await this.attendanceRepo.findManyStaleSessions({
@@ -463,24 +753,16 @@ export class AttendanceService {
             ),
           });
 
-          if (
-            !decision.shouldAutoCheckout ||
-            !decision.autoCheckoutAt ||
-            !decision.nextStatus
-          ) {
+          const updateData = sessionPolicyService.buildAutoCheckoutUpdate({
+            decision,
+            existingNotes: session.notes,
+          });
+
+          if (!updateData) {
             return;
           }
 
-          const autoNote = ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE;
-          const newNotes = session.notes
-            ? `${session.notes} ${autoNote}`
-            : autoNote;
-
-          await this.attendanceRepo.update(session.id, {
-            checkOut: decision.autoCheckoutAt,
-            notes: newNotes,
-            status: decision.nextStatus,
-          });
+          await this.attendanceRepo.update(session.id, updateData);
         },
       ),
     );
@@ -501,6 +783,7 @@ export class AttendanceService {
     tenantId?: string;
   }): Promise<{
     attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>;
+    evaluation: AttendanceEvaluationResult;
     warning?: string;
   }> {
     const {
@@ -588,6 +871,28 @@ export class AttendanceService {
       attendance.id,
       updateData,
     );
+    const normalizedTenantId = updatedAttendance.tenantId ?? tenantId;
+
+    if (!normalizedTenantId) {
+      throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
+    }
+
+    const evaluation = await this.recomputeAttendanceEvaluation({
+      attendance: {
+        tenantId: normalizedTenantId,
+        userId: updatedAttendance.userId,
+        checkIn: updatedAttendance.checkIn,
+        checkOut: updatedAttendance.checkOut,
+        status: updatedAttendance.status,
+      },
+      timezone: await this.timezoneService.getTimezone(normalizedTenantId),
+      workingHourMode: attendance.user.workingHourMode,
+      actorId: userId,
+      audit: {
+        reason: "attendance mutation recompute",
+        actorType: "user",
+      },
+    });
 
     // Publish domain event
     AttendanceEventDispatcher.onCheckOut({
@@ -609,11 +914,13 @@ export class AttendanceService {
 
     const result: {
       attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>;
+      evaluation: AttendanceEvaluationResult;
       warning?: string;
     } = {
       attendance: updatedAttendance as Prisma.AttendanceGetPayload<{
         include: { user: true };
       }>,
+      evaluation,
     };
     if (warning) result.warning = warning;
 
@@ -632,6 +939,7 @@ export class AttendanceService {
 
     const [
       stats,
+      evaluationStats,
       dailyStats,
       groupedBySite,
       groupedByDept,
@@ -645,6 +953,12 @@ export class AttendanceService {
       userLeaveStats,
     ] = await Promise.all([
       repository.getStatsByDateRange(startDate, endDate, siteId, departmentId),
+      repository.getEvaluationStatsByDateRange(
+        startDate,
+        endDate,
+        siteId,
+        departmentId,
+      ),
       repository.getDailyStats(startDate, endDate, siteId, departmentId),
       repository.getGroupedStats(startDate, endDate, "site"),
       repository.getGroupedStats(startDate, endDate, "department"),
@@ -878,9 +1192,11 @@ export class AttendanceService {
     const lateCount = stats.statusCounts["LATE"] || 0;
     const lateRate = stats.total > 0 ? (lateCount / stats.total) * 100 : 0;
 
-    const alphaCount =
-      (stats.statusCounts["ALPHA"] || 0) + (stats.statusCounts["ABSENT"] || 0);
-    const alphaRate = stats.total > 0 ? (alphaCount / stats.total) * 100 : 0;
+    const alphaCount = evaluationStats.statusCounts["ABSENT"] || 0;
+    const alphaRate =
+      evaluationStats.total > 0
+        ? (alphaCount / evaluationStats.total) * 100
+        : 0;
 
     // Build Employee Summary for "Rekap Karyawan" tab
     // Create maps for quick lookup
@@ -988,19 +1304,76 @@ export class AttendanceService {
     };
   }
 
+  async recomputeHistoricalAttendanceEvaluations(params: {
+    userId: string;
+    tenantId: string;
+    startDate: Date;
+    endDate: Date;
+    actorId: string;
+  }): Promise<HistoricalAttendanceRecomputeResult> {
+    const { userId, tenantId, startDate, endDate, actorId } = params;
+    const timezone = await this.timezoneService.getTimezone(tenantId);
+    const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
+    const attendances = await this.attendanceRepo.findMany({
+      where: {
+        userId,
+        tenantId,
+        checkIn: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      orderBy: { checkIn: "asc" },
+    });
+
+    const evaluations: AttendanceEvaluationResult[] = [];
+
+    for (const attendance of attendances) {
+      const evaluation = await this.recomputeAttendanceEvaluation({
+        attendance: {
+          tenantId: attendance.tenantId ?? tenantId,
+          userId: attendance.userId,
+          checkIn: attendance.checkIn,
+          checkOut: attendance.checkOut,
+          status: attendance.status,
+        },
+        timezone,
+        workingHourMode: userDetails?.workingHourMode,
+        actorId,
+        audit: {
+          reason: "historical attendance recompute",
+          actorType: "admin",
+        },
+      });
+
+      evaluations.push(evaluation);
+    }
+
+    return {
+      processedCount: evaluations.length,
+      evaluations,
+    };
+  }
+
   async getCurrentAttendanceStatus(
     userId: string,
     options?: { tenantId?: string },
   ): Promise<CurrentAttendanceStatusResult> {
     const sessionPolicyService = new AttendanceSessionPolicyService();
 
-    // Fetch timezone for accurate time display
     const timezone = await this.timezoneService.getTimezone(options?.tenantId);
-
-    const attendance = (await this.attendanceRepo.findFirstForCurrentStatus({
-      userId,
-      tenantId: options?.tenantId,
-    })) as CurrentAttendanceRow | null;
+    const effectiveDate = this.timezoneService.getEffectiveDate(timezone);
+    const [attendance, evaluation] = await Promise.all([
+      this.attendanceRepo.findFirstForCurrentStatus({
+        userId,
+        tenantId: options?.tenantId,
+      }) as Promise<CurrentAttendanceRow | null>,
+      this.attendanceRepo.findLatestEvaluationForUser({
+        userId,
+        tenantId: options?.tenantId,
+        workDate: effectiveDate.startOfDay,
+      }) as Promise<CurrentAttendanceEvaluationRow>,
+    ]);
 
     const decision = attendance
       ? sessionPolicyService.resolve({
@@ -1011,59 +1384,60 @@ export class AttendanceService {
       : null;
 
     if (!attendance) {
-      return buildIdleCurrentAttendanceStatus();
+      return buildIdleCurrentAttendanceStatus(undefined, null, evaluation);
     }
+
+    const evaluationWarningMessage = getCurrentAttendanceWarningMessage(
+      evaluation,
+      null,
+    );
 
     if (decision?.isStaleFlexibleSession) {
       return buildIdleCurrentAttendanceStatus(
         attendance,
-        `Sesi fleksibel lama sejak ${formatCurrentAttendanceWarningDate(attendance.checkIn, timezone)} belum checkout.`,
+        getCurrentAttendanceWarningMessage(
+          evaluation,
+          `Sesi fleksibel lama sejak ${formatCurrentAttendanceWarningDate(attendance.checkIn, timezone)} belum checkout.`,
+        ),
+        evaluation,
       );
     }
 
-    const now = new Date();
-    const sameDay = isSameAttendanceDay(attendance.checkIn, now, timezone);
+    const sameDay = isSameAttendanceDay(
+      attendance.checkIn,
+      new Date(),
+      timezone,
+    );
     const shouldAppearActive =
       decision?.isOvernightShiftActive ||
       attendance.user?.workingHourMode === "FLEXIBLE" ||
       sameDay;
 
     if (!attendance.checkOut && shouldAppearActive) {
-      return {
+      return mapCurrentAttendanceStatusResult({
+        attendance,
+        evaluation,
+        timezone,
         status: "checked-in",
-        checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
-        checkOutTime: null,
-        warningMessage: null,
-        sourceAttendanceId: attendance.id,
-        checkInAt: attendance.checkIn.toISOString(),
-        checkOutAt: null,
-        attendanceStatus: attendance.status,
-        workingHourMode: attendance.user?.workingHourMode ?? null,
-        flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
-        shift: attendance.user?.shift ?? null,
-      };
+        warningMessage: evaluationWarningMessage,
+      });
     }
 
     if (attendance.checkOut && sameDay) {
-      return {
+      return mapCurrentAttendanceStatusResult({
+        attendance,
+        evaluation,
+        timezone,
         status: "checked-out",
-        checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
-        checkOutTime: formatCurrentAttendanceTime(
-          attendance.checkOut,
-          timezone,
-        ),
-        warningMessage: null,
-        sourceAttendanceId: attendance.id,
-        checkInAt: attendance.checkIn.toISOString(),
-        checkOutAt: attendance.checkOut.toISOString(),
-        attendanceStatus: attendance.status,
-        workingHourMode: attendance.user?.workingHourMode ?? null,
-        flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
-        shift: attendance.user?.shift ?? null,
-      };
+        warningMessage: evaluationWarningMessage,
+      });
     }
 
-    return buildIdleCurrentAttendanceStatus(attendance);
+    return buildIdleCurrentAttendanceStatus(
+      attendance,
+      evaluationWarningMessage,
+      evaluation,
+    );
   }
 
   async getAttendanceConfig(userId: string) {

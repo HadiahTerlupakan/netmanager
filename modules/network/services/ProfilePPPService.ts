@@ -9,6 +9,7 @@ import { sanitizeInput } from "@/lib/utils/sanitize";
 import { checkSiteRestriction } from "@/modules/roles";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { RadiusSyncService } from "./radius-sync-service";
+import * as z from "zod";
 import {
   createPPPProfileInMikroTik,
   getRateLimitFromBandwidth,
@@ -62,7 +63,8 @@ export class ProfilePPPService {
 
   private sanitizeProfilePPPBody(body: Record<string, unknown>) {
     return {
-      name: typeof body.name === "string" ? sanitizeInput(body.name) : undefined,
+      name:
+        typeof body.name === "string" ? sanitizeInput(body.name) : undefined,
       localAddress:
         typeof body.localAddress === "string"
           ? sanitizeInput(body.localAddress)
@@ -96,7 +98,8 @@ export class ProfilePPPService {
           ? body.poolMode
           : "MIKROTIK",
       mikroTikRouterId:
-        typeof body.mikroTikRouterId === "string" && body.mikroTikRouterId.trim()
+        typeof body.mikroTikRouterId === "string" &&
+        body.mikroTikRouterId.trim()
           ? body.mikroTikRouterId
           : undefined,
       bandwidthId:
@@ -139,7 +142,9 @@ export class ProfilePPPService {
     };
   }
 
-  private async findProfileForUpdate(id: string): Promise<ProfilePPPRecord | null> {
+  private async findProfileForUpdate(
+    id: string,
+  ): Promise<ProfilePPPRecord | null> {
     return prisma.profilePPP.findUnique({
       where: { id },
       include: {
@@ -438,7 +443,7 @@ export class ProfilePPPService {
         success: false as const,
         status: 400,
         error: "Validasi gagal",
-        details: validation.error.flatten(),
+        details: z.flattenError(validation.error),
       };
     }
 
@@ -488,7 +493,7 @@ export class ProfilePPPService {
         success: false as const,
         status: 400,
         error: "Validasi gagal",
-        details: validation.error.flatten(),
+        details: z.flattenError(validation.error),
       };
     }
 

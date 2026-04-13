@@ -1,115 +1,117 @@
-import { beforeEach, vi } from 'vitest'
-import { mockReset } from 'vitest-mock-extended'
+import { beforeEach, vi } from "vitest";
+import { mockReset } from "vitest-mock-extended";
 
 // Force the timezone to Jakarta for all tests so that CI (UTC) behaves identically to local development
-process.env.TZ = 'Asia/Jakarta'
+process.env.TZ = "Asia/Jakarta";
 // Define a simplified mock type to avoid Prisma's circular type references (TS2615)
 // This is a known issue with Prisma 7.x and vitest-mock-extended
 // See: https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MockFn = any
+type MockFn = any;
 
 type MockModel = {
-  findMany: MockFn
-  findUnique: MockFn
-  findFirst: MockFn
-  create: MockFn
-  createMany: MockFn
-  update: MockFn
-  updateMany: MockFn
-  delete: MockFn
-  deleteMany: MockFn
-  upsert: MockFn
-  count: MockFn
-  aggregate: MockFn
-  groupBy: MockFn
-}
+  findMany: MockFn;
+  findUnique: MockFn;
+  findFirst: MockFn;
+  create: MockFn;
+  createMany: MockFn;
+  update: MockFn;
+  updateMany: MockFn;
+  delete: MockFn;
+  deleteMany: MockFn;
+  upsert: MockFn;
+  count: MockFn;
+  aggregate: MockFn;
+  groupBy: MockFn;
+};
 
 export type MockPrismaClient = {
   // All model names as dynamic keys returning MockModel
-  user: MockModel
-  role: MockModel
-  permission: MockModel
-  pelanggan: MockModel
-  invoice: MockModel
-  payment: MockModel
-  paket: MockModel
-  bandwidth: MockModel
-  mikrotikRouter: MockModel
-  attendance: MockModel
-  leave: MockModel
-  workOrders: MockModel
-  supportTickets: MockModel
-  ticketReplies: MockModel
-  inventory: MockModel
-  site: MockModel
-  department: MockModel
-  notifications: MockModel
-  announcement: MockModel
-  leaveBalance: MockModel
-  overtime: MockModel
-  shift: MockModel
-  holiday: MockModel
-  salary: MockModel
-  salaryComponent: MockModel
-  mitra: MockModel
-  mitraWallet: MockModel
-  mitraTransaction: MockModel
-  withdrawRequest: MockModel
-  leaveRequest: MockModel
-  canvasing: MockModel
-  pointClaim: MockModel
-  coupon: MockModel
-  purchaseOrder: MockModel
-  purchaseRequest: MockModel
-  supplier: MockModel
-  odc: MockModel
-  odcOutput: MockModel
-  odp: MockModel
-  odpOutput: MockModel
-  onu: MockModel
-  onuType: MockModel
-  barang: MockModel
-  gudang: MockModel
-  stokBarang: MockModel
-  barangGudang: MockModel
-  barangMasuk: MockModel
-  barangKeluar: MockModel
-  transferBarang: MockModel
-  stockOpname: MockModel
-  asset: MockModel
-  speedProfile: MockModel
-  profilePpp: MockModel
-  hargaPaket: MockModel
-  registration: MockModel
-  systemLog: MockModel
-  loginLog: MockModel
-  appVersion: MockModel
-  settings: MockModel
-  locationHistory: MockModel
-  workOrderTasks: MockModel
-  workOrderAssignments: MockModel
-  workOrderUpdates: MockModel
-  workOrderComment: MockModel
-  workOrderAttachment: MockModel
-  workOrderMaterial: MockModel
-  workOrderTemplate: MockModel
-  workOrderSla: MockModel
-  workOrderEscalation: MockModel
-  chatMessage: MockModel
-  conversation: MockModel
-  pushToken: MockModel
+  user: MockModel;
+  role: MockModel;
+  permission: MockModel;
+  pelanggan: MockModel;
+  invoice: MockModel;
+  payment: MockModel;
+  paket: MockModel;
+  bandwidth: MockModel;
+  mikrotikRouter: MockModel;
+  attendance: MockModel;
+  leave: MockModel;
+  workOrders: MockModel;
+  supportTickets: MockModel;
+  ticketReplies: MockModel;
+  inventory: MockModel;
+  site: MockModel;
+  department: MockModel;
+  notifications: MockModel;
+  announcement: MockModel;
+  leaveBalance: MockModel;
+  overtime: MockModel;
+  shift: MockModel;
+  holiday: MockModel;
+  attendanceEvaluation: MockModel;
+  attendanceEvaluationAudit: MockModel;
+  salary: MockModel;
+  salaryComponent: MockModel;
+  mitra: MockModel;
+  mitraWallet: MockModel;
+  mitraTransaction: MockModel;
+  withdrawRequest: MockModel;
+  leaveRequest: MockModel;
+  canvasing: MockModel;
+  pointClaim: MockModel;
+  coupon: MockModel;
+  purchaseOrder: MockModel;
+  purchaseRequest: MockModel;
+  supplier: MockModel;
+  odc: MockModel;
+  odcOutput: MockModel;
+  odp: MockModel;
+  odpOutput: MockModel;
+  onu: MockModel;
+  onuType: MockModel;
+  barang: MockModel;
+  gudang: MockModel;
+  stokBarang: MockModel;
+  barangGudang: MockModel;
+  barangMasuk: MockModel;
+  barangKeluar: MockModel;
+  transferBarang: MockModel;
+  stockOpname: MockModel;
+  asset: MockModel;
+  speedProfile: MockModel;
+  profilePpp: MockModel;
+  hargaPaket: MockModel;
+  registration: MockModel;
+  systemLog: MockModel;
+  loginLog: MockModel;
+  appVersion: MockModel;
+  settings: MockModel;
+  locationHistory: MockModel;
+  workOrderTasks: MockModel;
+  workOrderAssignments: MockModel;
+  workOrderUpdates: MockModel;
+  workOrderComment: MockModel;
+  workOrderAttachment: MockModel;
+  workOrderMaterial: MockModel;
+  workOrderTemplate: MockModel;
+  workOrderSla: MockModel;
+  workOrderEscalation: MockModel;
+  chatMessage: MockModel;
+  conversation: MockModel;
+  pushToken: MockModel;
   // Prisma client methods
-  $connect: MockFn
-  $disconnect: MockFn
-  $transaction: MockFn
-  $queryRaw: MockFn
-  $queryRawUnsafe: MockFn
-  $executeRaw: MockFn
+  $connect: MockFn;
+  $disconnect: MockFn;
+  $transaction: MockFn;
+  $queryRaw: MockFn;
+  $queryRawUnsafe: MockFn;
+  $executeRaw: MockFn;
   // Allow any other model access
-  [key: string]: MockModel | MockFn
-}
+  [key: string]: MockModel | MockFn;
+};
 
 // Create deep mock without instantiating real PrismaClient
 // This avoids needing DATABASE_URL for tests
@@ -128,138 +130,144 @@ const createMock = (): MockPrismaClient => {
     count: vi.fn(),
     aggregate: vi.fn(),
     groupBy: vi.fn(),
-  })
+  });
 
   // Base methods that are always present
   const baseMock: Record<string, MockFn> = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
     $transaction: vi.fn().mockImplementation((callback) => {
-      if (typeof callback === 'function') {
-        return callback(prismaMock)
+      if (typeof callback === "function") {
+        return callback(prismaMock);
       }
-      return Promise.resolve(callback)
+      return Promise.resolve(callback);
     }),
     $queryRaw: vi.fn(),
     $queryRawUnsafe: vi.fn(),
     $executeRaw: vi.fn(),
-  }
+  };
 
   // Use Proxy to create models on demand
-  const cache = new Map<string, MockModel>()
-  
+  const cache = new Map<string, MockModel>();
+
   const proxy = new Proxy(baseMock, {
     get(target, prop) {
-      if (prop === '_cache') return cache
-      if (typeof prop === 'string' && prop in target) {
-        return target[prop]
+      if (prop === "_cache") return cache;
+      if (typeof prop === "string" && prop in target) {
+        return target[prop];
       }
 
-      if (typeof prop === 'string' && !prop.startsWith('$')) {
+      if (typeof prop === "string" && !prop.startsWith("$")) {
         if (!cache.has(prop)) {
-          cache.set(prop, createMockModel())
+          cache.set(prop, createMockModel());
         }
-        return cache.get(prop)
+        return cache.get(prop);
       }
 
-      return undefined
-    }
-  }) as unknown as MockPrismaClient
-  
-  return proxy
-}
+      return undefined;
+    },
+  }) as unknown as MockPrismaClient;
+
+  return proxy;
+};
 
 // Export with simplified type - the actual mock still has all Prisma methods
-export const prismaMock = createMock()
+export const prismaMock = createMock();
 
 // Mock the prisma modules
-vi.mock('@/lib/prisma', () => ({
+vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
   prismaAuth: prismaMock,
-}))
+}));
 
-vi.mock('@/lib/prisma-mitra', () => ({
+vi.mock("@/lib/prisma-mitra", () => ({
   prismaMitra: prismaMock,
   prismaMitraAuth: prismaMock,
-}))
+}));
 
-vi.mock('@/lib/prisma-billing', () => ({
+vi.mock("@/lib/prisma-billing", () => ({
   prismaBilling: prismaMock,
   prismaBillingAuth: prismaMock,
-}))
+}));
 
-vi.mock('@/lib/prisma-radius', () => ({
+vi.mock("@/lib/prisma-radius", () => ({
   prismaRadius: prismaMock,
   prismaRadiusAuth: prismaMock,
-}))
+}));
 
-vi.mock('@/lib/tenant-context', () => ({
-  getTenantIdFromContext: vi.fn().mockResolvedValue({ isSuperAdmin: true })
-}))
+vi.mock("@/lib/tenant-context", () => ({
+  getTenantIdFromContext: vi.fn().mockResolvedValue({ isSuperAdmin: true }),
+}));
 
 // Set default secret for JWT testing
-process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'test-secret-123-at-least-32-chars-long'
-process.env.DATABASE_URL_BILLING = process.env.DATABASE_URL_BILLING || 'postgresql://billing-test:billing-test@localhost:5432/billing_test'
-process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test'
+process.env.NEXTAUTH_SECRET =
+  process.env.NEXTAUTH_SECRET || "test-secret-123-at-least-32-chars-long";
+process.env.DATABASE_URL_BILLING =
+  process.env.DATABASE_URL_BILLING ||
+  "postgresql://billing-test:billing-test@localhost:5432/billing_test";
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL || "postgresql://test:test@localhost:5432/test";
 
 // Reset all mocks before each test
 beforeEach(() => {
-  const pMock = prismaMock as unknown as MockPrismaClient & { _cache?: Map<string, MockModel> }
-  mockReset(pMock as unknown as MockPrismaClient)
-  
+  const pMock = prismaMock as unknown as MockPrismaClient & {
+    _cache?: Map<string, MockModel>;
+  };
+  mockReset(pMock as unknown as MockPrismaClient);
+
   // Reset all cached model mocks
   if (pMock._cache) {
     pMock._cache.forEach((model: MockModel) => {
-      Object.values(model).forEach(mock => {
-        if (typeof mock === 'function' && 'mockReset' in mock) {
-          (mock as unknown as { mockReset: () => void }).mockReset()
-        } else if (typeof mock === 'function') {
-          vi.mocked(mock).mockReset()
+      Object.values(model).forEach((mock) => {
+        if (typeof mock === "function" && "mockReset" in mock) {
+          (mock as unknown as { mockReset: () => void }).mockReset();
+        } else if (typeof mock === "function") {
+          vi.mocked(mock).mockReset();
         }
-      })
-    })
+      });
+    });
   }
-})
+});
 
 // Mock console methods to reduce noise in tests
-vi.spyOn(console, 'log').mockImplementation(() => { })
-vi.spyOn(console, 'error').mockImplementation(() => { })
+vi.spyOn(console, "log").mockImplementation(() => {});
+vi.spyOn(console, "error").mockImplementation(() => {});
 
 // Mock ioredis globally so modules using BullMQ/ioredis never attempt real network connections in tests
-vi.mock('ioredis', () => {
+vi.mock("ioredis", () => {
   class RedisMock {
-    options: Record<string, unknown>
+    options: Record<string, unknown>;
 
     constructor(_url?: string, options: Record<string, unknown> = {}) {
-      this.options = options
+      this.options = options;
     }
 
-    on = vi.fn()
-    connect = vi.fn().mockResolvedValue(undefined)
-    disconnect = vi.fn()
-    quit = vi.fn().mockResolvedValue('OK')
-    duplicate = vi.fn(() => this)
-    get = vi.fn().mockResolvedValue(null)
-    set = vi.fn().mockResolvedValue('OK')
-    setex = vi.fn().mockResolvedValue('OK')
-    del = vi.fn().mockResolvedValue(1)
-    exists = vi.fn().mockResolvedValue(0)
-    keys = vi.fn().mockResolvedValue([])
-    expire = vi.fn().mockResolvedValue(1)
-    incr = vi.fn().mockResolvedValue(1)
-    ttl = vi.fn().mockResolvedValue(-1)
-    hget = vi.fn().mockResolvedValue(null)
-    hset = vi.fn().mockResolvedValue(1)
-    hdel = vi.fn().mockResolvedValue(1)
-    hgetall = vi.fn().mockResolvedValue({})
-    publish = vi.fn().mockResolvedValue(0)
-    subscribe = vi.fn().mockResolvedValue(0)
+    on = vi.fn();
+    connect = vi.fn().mockResolvedValue(undefined);
+    disconnect = vi.fn();
+    quit = vi.fn().mockResolvedValue("OK");
+    duplicate = vi.fn(() => this);
+    get = vi.fn().mockResolvedValue(null);
+    set = vi.fn().mockResolvedValue("OK");
+    setex = vi.fn().mockResolvedValue("OK");
+    del = vi.fn().mockResolvedValue(1);
+    exists = vi.fn().mockResolvedValue(0);
+    keys = vi.fn().mockResolvedValue([]);
+    expire = vi.fn().mockResolvedValue(1);
+    incr = vi.fn().mockResolvedValue(1);
+    ttl = vi.fn().mockResolvedValue(-1);
+    hget = vi.fn().mockResolvedValue(null);
+    hset = vi.fn().mockResolvedValue(1);
+    hdel = vi.fn().mockResolvedValue(1);
+    hgetall = vi.fn().mockResolvedValue({});
+    publish = vi.fn().mockResolvedValue(0);
+    subscribe = vi.fn().mockResolvedValue(0);
   }
 
   return {
     default: RedisMock,
-  }
-})
+  };
+});
 
 // Mock Redis client globally
 // This prevents errors in CI environments where Redis is not available
@@ -280,15 +288,15 @@ export const redisMock = {
   publish: vi.fn(),
   subscribe: vi.fn(),
   on: vi.fn(),
-}
+};
 
-vi.mock('@/lib/redis', () => ({
+vi.mock("@/lib/redis", () => ({
   redis: redisMock,
-}))
+}));
 
 // Mock the WebSocket emitter globally using vi.mock
 // This replaces the module completely preventing any network calls
-vi.mock('@/lib/websocket/emitter', () => ({
+vi.mock("@/lib/websocket/emitter", () => ({
   socketEmitter: {
     notifyUser: vi.fn(),
     notifyDepartment: vi.fn(),
@@ -306,5 +314,5 @@ vi.mock('@/lib/websocket/emitter', () => ({
     inventoryUpdate: vi.fn(),
     broadcast: vi.fn(),
     forceLogout: vi.fn(),
-  }
-}))
+  },
+}));

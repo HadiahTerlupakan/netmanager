@@ -35,15 +35,26 @@ describe("AttendanceService flexible checkout warning", () => {
     vi.spyOn(AttendanceRepository.prototype, "update").mockImplementation(
       async (_id, data) =>
         ({
-          ...data,
           id: "att-1",
-          user: { name: "Test User" },
+          userId: "user-1",
+          tenantId: "tenant-1",
+          checkIn: new Date("2026-04-09T08:00:00.000Z"),
+          checkOut: data.checkOut,
+          status: "ON_TIME",
+          notes: data.notes ?? null,
+          user: {
+            name: "Test User",
+            workingHourMode: "FLEXIBLE",
+            flexibleTargetHour: 8,
+            attendanceGeofencePolicy: "WARN",
+          },
         }) as never,
     );
 
     const service = new AttendanceService();
     const result = await service.checkOut({
       userId: "user-1",
+      tenantId: "tenant-1",
       photoUrl: null,
       location: "HQ",
       offlineTime: new Date("2026-04-09T12:00:00.000Z"),

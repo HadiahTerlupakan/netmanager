@@ -6,13 +6,13 @@ import * as z from "zod";
 const service = getSalaryUserService();
 
 const assignComponentSchema = z.object({
-  componentId: z.string().uuid("Component ID wajib diisi"),
+  componentId: z.uuid({ error: "Component ID wajib diisi" }),
   amount: z.number().min(0).optional().default(0),
   notes: z.string().max(500).optional(),
 });
 
 // GET - Get user's salary components
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   if (!(await hasPermission("salary:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat komponen gaji",
@@ -35,7 +35,7 @@ export const POST = createHandler(
     auth: true,
     schema: assignComponentSchema,
   },
-  async (req, ctx) => {
+  async (_req, ctx) => {
     if (!(await hasPermission("salary:update"))) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk mengubah komponen gaji",

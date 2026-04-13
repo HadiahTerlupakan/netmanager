@@ -8,24 +8,24 @@ const service = getSalaryUserService();
 
 const updateSalaryConfigSchema = z.object({
   basicSalary: z.union([z.number(), z.string()]).optional().nullable(),
-  employeeType: z.nativeEnum(EmployeeType).optional(),
+  employeeType: z.enum(EmployeeType).optional(),
   overtimeRateNormal: z.union([z.number(), z.string()]).optional().nullable(),
-  overtimeCalcTypeNormal: z.nativeEnum(RateType).optional(),
+  overtimeCalcTypeNormal: z.enum(RateType).optional(),
   overtimeRateHoliday: z.union([z.number(), z.string()]).optional().nullable(),
-  overtimeCalcTypeHoliday: z.nativeEnum(RateType).optional(),
+  overtimeCalcTypeHoliday: z.enum(RateType).optional(),
   overtimeRateNational: z.union([z.number(), z.string()]).optional().nullable(),
-  overtimeCalcTypeNational: z.nativeEnum(RateType).optional(),
+  overtimeCalcTypeNational: z.enum(RateType).optional(),
   woIncentiveRate: z.union([z.number(), z.string()]).optional().nullable(),
   lateDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
   absentDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
   joinDate: z.string().optional().nullable(),
-  ptkpStatus: z.nativeEnum(PtkpStatus).optional().nullable(),
+  ptkpStatus: z.enum(PtkpStatus).optional().nullable(),
   bpjsKesehatan: z.boolean().optional(),
   bpjsKetenagakerjaan: z.boolean().optional(),
 });
 
 // GET - Get user salary details
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   if (!(await hasPermission("salary:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat data gaji",
@@ -107,7 +107,7 @@ export const PUT = createHandler(
 );
 
 // DELETE - Remove user from salary list
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   if (!(await hasPermission("salary:delete"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk menghapus dari penggajian",

@@ -1,9 +1,13 @@
-import { randomUUID } from 'crypto'
-import { deviceBackupCreateSchema, deviceBackupQuerySchema } from '@/lib/validations/device-backup'
-import { prisma } from '@/modules/database'
-import { logActivitySafe } from '@/lib/logger'
-import { Prisma } from '@prisma/client'
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { randomUUID } from "crypto";
+import {
+  deviceBackupCreateSchema,
+  deviceBackupQuerySchema,
+} from "@/lib/validations/device-backup";
+import { prisma } from "@/modules/database";
+import { logActivitySafe } from "@/lib/logger";
+import { Prisma } from "@prisma/client";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import * as z from "zod";
 
 /**
  * @swagger
@@ -92,77 +96,84 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {
-    const { searchParams } = req.nextUrl
-    const queryParams = Object.fromEntries(searchParams.entries())
+  const { searchParams } = req.nextUrl;
+  const queryParams = Object.fromEntries(searchParams.entries());
 
-    const parsed = deviceBackupQuerySchema.safeParse(queryParams)
-    if (!parsed.success) {
-      return ApiErrors.badRequest('Invalid query parameters', { errors: parsed.error.flatten() })
-    }
+  const parsed = deviceBackupQuerySchema.safeParse(queryParams);
+  if (!parsed.success) {
+    return ApiErrors.badRequest("Invalid query parameters", {
+      errors: z.flattenError(parsed.error),
+    });
+  }
 
-    const filters = parsed.data
-    const where: Record<string, unknown> = {}
+  const filters = parsed.data;
+  const where: Record<string, unknown> = {};
 
-    if (filters.deviceId) where.deviceId = filters.deviceId
-    if (filters.deviceType) where.deviceType = filters.deviceType
-    if (filters.backupType) where.backupType = filters.backupType
-    if (filters.status) where.status = filters.status
+  if (filters.deviceId) where.deviceId = filters.deviceId;
+  if (filters.deviceType) where.deviceType = filters.deviceType;
+  if (filters.backupType) where.backupType = filters.backupType;
+  if (filters.status) where.status = filters.status;
 
-    if (filters.startDate || filters.endDate) {
-      const createdAt: Record<string, Date> = {}
-      if (filters.startDate) createdAt.gte = new Date(filters.startDate)
-      if (filters.endDate) createdAt.lte = new Date(filters.endDate)
-      where.createdAt = createdAt
-    }
+  if (filters.startDate || filters.endDate) {
+    const createdAt: Record<string, Date> = {};
+    if (filters.startDate) createdAt.gte = new Date(filters.startDate);
+    if (filters.endDate) createdAt.lte = new Date(filters.endDate);
+    where.createdAt = createdAt;
+  }
 
-    const page = filters.page || 1
-    const limit = filters.limit || 20
-    const skip = (page - 1) * limit
+  const page = filters.page || 1;
+  const limit = filters.limit || 20;
+  const skip = (page - 1) * limit;
 
-    const orderBy: Record<string, string> = {}
-    if (filters.sortBy) {
-      orderBy[filters.sortBy] = filters.sortOrder || 'desc'
-    } else {
-      orderBy.createdAt = 'desc'
-    }
+  const orderBy: Record<string, string> = {};
+  if (filters.sortBy) {
+    orderBy[filters.sortBy] = filters.sortOrder || "desc";
+  } else {
+    orderBy.createdAt = "desc";
+  }
 
-    try {
-      const [data, total] = await Promise.all([
-        prisma.deviceBackups.findMany({
-          where: where as Prisma.DeviceBackupsWhereInput,
-          orderBy,
-          skip,
-          take: limit,
-        }),
-        prisma.deviceBackups.count({ where: where as Prisma.DeviceBackupsWhereInput }),
-      ])
+  try {
+    const [data, total] = await Promise.all([
+      prisma.deviceBackups.findMany({
+        where: where as Prisma.DeviceBackupsWhereInput,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      prisma.deviceBackups.count({
+        where: where as Prisma.DeviceBackupsWhereInput,
+      }),
+    ]);
 
+    return apiSuccess({
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (prismaError: unknown) {
+    // Handle case where model doesn't exist yet
+    if (
+      prismaError instanceof Error &&
+      (prismaError as unknown as Record<string, unknown>).code === "P2021"
+    ) {
       return apiSuccess({
-        data,
+        data: [],
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: 0,
+          totalPages: 0,
         },
-      })
-    } catch (prismaError: unknown) {
-      // Handle case where model doesn't exist yet
-      if (prismaError instanceof Error && (prismaError as unknown as Record<string, unknown>).code === 'P2021') {
-        return apiSuccess({
-          data: [],
-          pagination: {
-            page,
-            limit,
-            total: 0,
-            totalPages: 0,
-          },
-          message: 'Device backups will be available after database migration'
-        })
-      }
-      throw prismaError
+        message: "Device backups will be available after database migration",
+      });
     }
-})
+    throw prismaError;
+  }
+});
 
 /**
  * @swagger
@@ -236,11 +247,13 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
  *       500:
  *         description: Server error
  */
-export const POST = createHandler({ 
+export const POST = createHandler(
+  {
     auth: true,
-    schema: deviceBackupCreateSchema
-}, async (req, ctx) => {
-    const data = ctx.validated
+    schema: deviceBackupCreateSchema,
+  },
+  async (req, ctx) => {
+    const data = ctx.validated;
 
     try {
       const result = await prisma.deviceBackups.create({
@@ -265,18 +278,23 @@ export const POST = createHandler({
           isAutoCleanup: data.isAutoCleanup,
           updatedAt: new Date(),
         },
-      })
+      });
 
       // System Log
       logActivitySafe({
-        action: 'CREATE',
-        subject: 'Device Backup',
+        action: "CREATE",
+        subject: "Device Backup",
         userId: ctx.session!.user.id,
-        details: { id: result.id, name: data.backupName, deviceId: data.deviceId }
-      })
+        details: {
+          id: result.id,
+          name: data.backupName,
+          deviceId: data.deviceId,
+        },
+      });
 
-      return apiSuccess({ id: result.id }, { status: 201 })
+      return apiSuccess({ id: result.id }, { status: 201 });
     } catch (prismaError: unknown) {
-      throw prismaError
+      throw prismaError;
     }
-})
+  },
+);
