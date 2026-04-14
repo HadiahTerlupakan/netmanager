@@ -8,6 +8,7 @@ import { PushSubscriptionRepository } from "../repositories/PushSubscriptionRepo
 import { UserRepository } from "@/modules/users";
 import { Prisma } from "@prisma/client";
 import { socketEmitter } from "@/lib/websocket/emitter";
+import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
 import {
   getPriorityEmoji,
   getStatusEmoji,
@@ -111,6 +112,17 @@ export async function createNotification(data: CreateNotificationData) {
   if (data.userId) {
     socketEmitter.notifyUser(data.userId, wsPayload);
     browserRecipientIds.add(data.userId);
+
+    const directRecipient = await userRepo.findByIdWithPushToken(data.userId);
+    if (directRecipient?.fcmTokens?.length) {
+      sendFCMNotification(directRecipient.fcmTokens, data.title, data.message, {
+        notificationId: notification.id,
+        url: data.link || "/employee/notifications",
+        sourceType: data.sourceType || "",
+        sourceId: data.sourceId || "",
+      }).catch((err) => console.error("[FCM Push] Error:", err));
+    }
+
     if (!data.skipExpoPush) {
       sendExpoPush(data.userId, data.title, data.message, {
         link: data.link || undefined,
@@ -127,9 +139,23 @@ export async function createNotification(data: CreateNotificationData) {
         data.departmentId,
         data.siteId,
       );
+    const departmentFcmTokens = departmentRecipients.flatMap(
+      (recipient) => recipient.fcmTokens ?? [],
+    );
+
     for (const recipient of departmentRecipients) {
       browserRecipientIds.add(recipient.id);
     }
+
+    if (departmentFcmTokens.length > 0) {
+      sendFCMNotification(departmentFcmTokens, data.title, data.message, {
+        notificationId: notification.id,
+        url: data.link || "/employee/notifications",
+        sourceType: data.sourceType || "",
+        sourceId: data.sourceId || "",
+      }).catch((err) => console.error("[FCM Push Dept] Error:", err));
+    }
+
     if (!data.skipExpoPush) {
       sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
         link: data.link || undefined,
@@ -145,6 +171,16 @@ export async function createNotification(data: CreateNotificationData) {
     data.type === "ALERT"
   ) {
     socketEmitter.notifyAdmins(wsPayload, data.siteId);
+
+    const adminTokens = await getAdminTokens();
+    if (adminTokens.length > 0) {
+      sendFCMNotification(adminTokens, data.title, data.message, {
+        notificationId: notification.id,
+        url: data.link || "/employee/notifications",
+        sourceType: data.sourceType || "",
+        sourceId: data.sourceId || "",
+      }).catch((err) => console.error("[FCM Push Admin] Error:", err));
+    }
   }
 
   if (browserRecipientIds.size > 0) {

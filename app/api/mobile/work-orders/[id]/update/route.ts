@@ -1,6 +1,10 @@
 import { prisma } from "@/modules/database";
 import { prismaMitra } from "@/modules/database";
-import { WorkOrderRepository } from "@/modules/work-order";
+import {
+  WorkOrderRepository,
+  validateMobileAssignedWorkOrderAccess,
+  syncWoStatusToTicket,
+} from "@/modules/work-order";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { format } from "date-fns";
 import { notifyAdminsAboutMobileAction } from "@/modules/notification";
@@ -12,18 +16,6 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
-
-// Valid status transitions
-const _VALID_TRANSITIONS: Record<string, string[]> = {
-  PENDING: ["ASSIGNED"],
-  ASSIGNED: ["IN_PROGRESS", "CANCELLED"],
-  IN_PROGRESS: ["ON_HOLD", "COMPLETED", "CANCELLED"],
-  ON_HOLD: ["IN_PROGRESS", "CANCELLED"],
-  COMPLETED: ["VERIFIED", "IN_PROGRESS"], // Allow re-open
-  VERIFIED: ["CLOSED"],
-  CLOSED: [],
-  CANCELLED: [],
-};
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
@@ -52,19 +44,15 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   if (!workOrder) return ApiErrors.notFound("Work Order tidak ditemukan");
 
-  // Authorization Check
-  const isAssignedTo = workOrder.assignedToId === userId;
-  const isAssignedMitra = workOrder.assignedMitraId === userId;
-  const isAssignmentMember = workOrder.assignments.some(
-    (a) => a.userId === userId && a.status !== "REJECTED",
-  );
-  const isCreator = workOrder.createdById === userId;
-
-  if (!isAssignedTo && !isAssignedMitra && !isAssignmentMember && !isCreator) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk mengubah Work Order ini",
-    );
-  }
+  const mobileUserContext = {
+    id: userId,
+    name: user.name ?? undefined,
+    role: user.role as string | undefined,
+    permissions: [] as string[],
+    siteId: user.siteId as string | undefined,
+    tenantId: user.tenantId as string | undefined,
+    isSuperAdmin: Boolean(user.isSuperAdmin),
+  };
 
   let action: string | undefined;
   let notes: string | undefined;
@@ -114,6 +102,38 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       status: 400,
     });
 
+  const allowedStatuses =
+    action === "CLAIM"
+      ? ["PENDING"]
+      : ["ASSIGNED", "IN_PROGRESS", "ON_HOLD", "COMPLETED"];
+  const invalidStatusMessage =
+    action === "CLAIM"
+      ? "Hanya WO berstatus PENDING yang dapat diklaim"
+      : "Work order tidak dapat diubah pada status ini";
+
+  try {
+    await validateMobileAssignedWorkOrderAccess({
+      repository,
+      workOrderId,
+      userContext: mobileUserContext,
+      allowedStatuses,
+      invalidStatusMessage,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan server";
+    if (message.includes("tidak ditemukan")) {
+      return ApiErrors.notFound("Work Order tidak ditemukan");
+    }
+    if (
+      message.includes("Akses ditolak") ||
+      message.includes("tidak memiliki akses")
+    ) {
+      return ApiErrors.forbidden(message);
+    }
+    return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
+
   let locationStr = "Loc: Unknown";
   const coords =
     latitude && longitude
@@ -137,6 +157,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       );
     }
     await repository.start(workOrderId, userIdForDb, timestamp);
+    await syncWoStatusToTicket(workOrderId, "IN_PROGRESS");
     if (notes)
       await repository.addUpdate({
         workOrderId,
@@ -205,6 +226,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       }
     }
     await repository.complete(workOrderId, notes, userIdForDb, timestamp);
+    await syncWoStatusToTicket(workOrderId, "COMPLETED");
 
     // Mitra Commission
     try {
@@ -284,6 +306,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       userIdForDb,
       timestamp,
     );
+    await syncWoStatusToTicket(workOrderId, "ON_HOLD");
     if (notes)
       await repository.addUpdate({
         workOrderId,

@@ -63,23 +63,31 @@ export async function GET(request: NextRequest) {
     }
     const result = await mixRadius.fetchCustomersPPP(params);
 
-    // Map to simpler format for mobile
-    const customers = result.data.map((c) => ({
-      id: c.id,
-      memberId: c.member_id,
-      username: c.username,
-      fullname: c.fullname,
-      phone: c.phonenumber,
-      address: c.address,
-      planName: c.plan_name,
-      ownerName: c.owner_name,
-      status: c.auth_status,
-      isOnline: c.online || false, // Status koneksi dari active sessions
+    const customers = result.data.map((customer) => ({
+      id: customer.id,
+      member_id: customer.member_id,
+      username: customer.username,
+      fullname: customer.fullname,
+      address: customer.address ?? "",
+      phonenumber: customer.phonenumber ?? "",
+      plan_name: customer.plan_name ?? "",
+      auth_status: customer.auth_status,
+      expired_on: customer.expired_on,
+      owner_name: customer.owner_name ?? "",
+      online: customer.online || false,
+      active_session_ip: customer.active_session_ip,
     }));
+
+    const totalCustomers = customers.length;
 
     return NextResponse.json({
       success: true,
-      data: customers,
+      data: {
+        draw: result.draw ?? 1,
+        recordsTotal: result.recordsTotal ?? totalCustomers,
+        recordsFiltered: result.recordsFiltered ?? totalCustomers,
+        data: customers,
+      },
     });
   } catch (error) {
     console.error("Error searching MixRadius customers:", error);

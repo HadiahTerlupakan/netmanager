@@ -70,7 +70,7 @@ export class MobileWorkOrderRequestService {
     } as CreateWorkOrderData & { requestedById: string });
 
     await this.broadcastNewWorkOrder(workOrder, departmentId);
-    await this.notifyAdmins(workOrder, userName, tenantId);
+    void this.notifyAdmins(workOrder, userName, tenantId);
 
     return workOrder;
   }
@@ -168,6 +168,7 @@ export class MobileWorkOrderRequestService {
             userId: adminId,
             sourceType: "WORK_ORDER",
             sourceId: workOrder.id,
+            skipExpoPush: true,
           }).catch((error) => console.error("Notification error:", error)),
         ),
       );

@@ -1,26 +1,76 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
+
+export interface TenantContextResult {
+  tenantId: string | null;
+  isSuperAdmin: boolean;
+}
+
+const requestTenantContextStorage =
+  new AsyncLocalStorage<TenantContextResult>();
+const requestHeadersTenantContextCache = new WeakMap<
+  object,
+  TenantContextResult
+>();
+
+export function runWithRequestTenantContext<T>(
+  tenantContext: TenantContextResult,
+  callback: () => Promise<T>,
+): Promise<T> {
+  return requestTenantContextStorage.run(tenantContext, callback);
+}
+
+function getCachedTenantContextForRequest(
+  requestHeaders: unknown,
+): TenantContextResult | null {
+  if (!requestHeaders || typeof requestHeaders !== "object") {
+    return null;
+  }
+
+  return requestHeadersTenantContextCache.get(requestHeaders) ?? null;
+}
+
+function cacheTenantContextForRequest(
+  requestHeaders: unknown,
+  tenantContext: TenantContextResult,
+): TenantContextResult {
+  if (requestHeaders && typeof requestHeaders === "object") {
+    requestHeadersTenantContextCache.set(requestHeaders, tenantContext);
+  }
+
+  return tenantContext;
+}
 
 /**
  * Safely get tenant context from request headers/cookies.
  * Handles both Web (NextAuth) and Mobile (JWT) authentication.
  * Gracefully fails when called outside of a request context (e.g. cron, startup).
  */
-export async function getTenantIdFromContext(): Promise<{
-  tenantId: string | null;
-  isSuperAdmin: boolean;
-}> {
+export async function getTenantIdFromContext(): Promise<TenantContextResult> {
+  const cachedTenantContext = requestTenantContextStorage.getStore();
+  if (cachedTenantContext) {
+    return cachedTenantContext;
+  }
+
   // Determine if we are running within a standard Next.js request lifecycle.
   // This helps distinguish between regular API calls and background/system tasks.
   let isNextRequest = false;
+  let requestHeaders: Headers | null = null;
   try {
     const { headers } = await import("next/headers");
     if (headers) {
-      await headers();
+      requestHeaders = await headers();
       isNextRequest = true;
     }
   } catch (_e) {
     // Not in a Next.js App Router context.
+  }
+
+  const cachedRequestTenantContext =
+    getCachedTenantContextForRequest(requestHeaders);
+  if (cachedRequestTenantContext) {
+    return cachedRequestTenantContext;
   }
 
   // If we are NOT in a standard Next.js request context BUT we are running via the
@@ -28,7 +78,10 @@ export async function getTenantIdFromContext(): Promise<{
   // This allows these internal/system operations to bypass automatic isolation filters.
   const globalObj = globalThis as Record<string, unknown>;
   if (!isNextRequest && globalObj.IS_CUSTOM_SERVER) {
-    return { tenantId: null, isSuperAdmin: true };
+    return cacheTenantContextForRequest(requestHeaders, {
+      tenantId: null,
+      isSuperAdmin: true,
+    });
   }
 
   try {
@@ -49,7 +102,10 @@ export async function getTenantIdFromContext(): Promise<{
 
     // 1a. Cron internal bearer secret should bypass mobile JWT verification.
     if (authHeader === `Bearer ${process.env.CRON_SECRET}`) {
-      return { tenantId: null, isSuperAdmin: true };
+      return cacheTenantContextForRequest(requestHeaders, {
+        tenantId: null,
+        isSuperAdmin: true,
+      });
     }
 
     // 1b. Mobile App Bearer Token logic
@@ -61,10 +117,10 @@ export async function getTenantIdFromContext(): Promise<{
         const mobilePayload = await verifyMobileToken(token);
         if (mobilePayload) {
           const mp = mobilePayload as Record<string, unknown>;
-          return {
+          return cacheTenantContextForRequest(requestHeaders, {
             tenantId: (mp.tenantId as string) || null,
             isSuperAdmin: !!mp.isSuperAdmin,
-          };
+          });
         }
       }
     }
@@ -88,10 +144,10 @@ export async function getTenantIdFromContext(): Promise<{
             !!token.isSuperAdmin ||
             token.role === "SUPER_ADMIN" ||
             token.role === "Super Admin";
-          return {
+          return cacheTenantContextForRequest(requestHeaders, {
             tenantId: (token.tenantId as string) || null,
             isSuperAdmin,
-          };
+          });
         }
 
         // 2b. Check for Investor Auth Cookie
@@ -107,10 +163,10 @@ export async function getTenantIdFromContext(): Promise<{
           try {
             const { payload } = await jwtVerify(investorToken, secret);
             if (payload && payload.tenantId) {
-              return {
+              return cacheTenantContextForRequest(requestHeaders, {
                 tenantId: payload.tenantId as string,
                 isSuperAdmin: false,
-              };
+              });
             }
           } catch (err) {
             console.error(
@@ -132,10 +188,10 @@ export async function getTenantIdFromContext(): Promise<{
             const { payload } = await jwtVerify(customerToken, secret);
             const tenantId = (payload as { tenantId?: string }).tenantId;
             if (payload && tenantId) {
-              return {
+              return cacheTenantContextForRequest(requestHeaders, {
                 tenantId,
                 isSuperAdmin: false,
-              };
+              });
             }
           } catch {
             // Silently ignore invalid customer tokens
@@ -149,5 +205,8 @@ export async function getTenantIdFromContext(): Promise<{
     // Usually means it was called outside of a context
   }
 
-  return { tenantId: null, isSuperAdmin: false };
+  return cacheTenantContextForRequest(requestHeaders, {
+    tenantId: null,
+    isSuperAdmin: false,
+  });
 }

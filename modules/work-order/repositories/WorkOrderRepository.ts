@@ -1010,13 +1010,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
 
     const updatedWo = await this.update(id, woUpdateData);
 
-    const { syncWoStatusToTicket } =
-      await import("../services/WorkOrderSyncService");
-    await syncWoStatusToTicket(id, status);
-
-    // NOTE: Notification moved to Service layer to avoid duplication
-    // Repository should not send notifications directly
-
+    // NOTE: Side effects live in Service/route layer to avoid repository coupling
     return updatedWo;
   }
 
@@ -1301,23 +1295,14 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     role?: string,
     _triggeredByUserId?: string,
   ): Promise<WorkOrders> {
-    await this.prisma.workOrders.update({
-      where: { id },
-      data: {
-        assignedToId: employeeId,
-        status: "ASSIGNED",
-      },
+    await this.update(id, {
+      assignedToId: employeeId,
+      status: "ASSIGNED",
     });
 
     await this.addAssignment(id, employeeId, role || "Lead");
 
-    const wo = (await this.findById(id)) as WorkOrders;
-
-    // console.log(`[RepoDebug] Assigning WO ${id} to ${employeeId} by ${triggeredByUserId}`);
-
-    // NOTE: Notification moved to Service layer
-
-    return wo;
+    return (await this.findById(id)) as WorkOrders;
   }
 
   async unassign(id: string): Promise<WorkOrders> {

@@ -205,4 +205,32 @@ describe("WorkOrderRepository - IDOR Protection", () => {
       }),
     );
   });
+
+  it("should isolate assign to the current tenant", async () => {
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-A",
+      isSuperAdmin: false,
+    });
+    prismaMock.workOrders.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.workOrderAssignments.create.mockResolvedValue({
+      id: "assign-1",
+      workOrderId: "wo-1",
+      userId: "user-1",
+      role: "Lead",
+    } as never);
+    prismaMock.workOrders.findFirst.mockResolvedValue({
+      id: "wo-1",
+      tenantId: "tenant-A",
+      assignedToId: "user-1",
+      status: "ASSIGNED",
+    } as unknown as WorkOrders);
+
+    await repository.assign("wo-1", "user-1", "Lead");
+
+    expect(prismaMock.workOrders.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "wo-1", tenantId: "tenant-A" },
+      }),
+    );
+  });
 });

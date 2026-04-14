@@ -9,7 +9,7 @@ type MobileWorkOrderMaterialAccessWorkOrder = WorkOrderWithRelations & {
   }>;
 };
 
-async function validateMobileAssignedWorkOrderAccess(params: {
+export async function validateMobileAssignedWorkOrderAccess(params: {
   repository: Pick<WorkOrderRepository, "findById">;
   workOrderId: string;
   userContext: UserContext;

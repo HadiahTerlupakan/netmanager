@@ -55,6 +55,7 @@ import {
   publishWorkOrderStatusSideEffects,
 } from "./work-order-side-effects";
 import { WorkOrderEventDispatcher } from "@/modules/events";
+import { syncWoStatusToTicket } from "./WorkOrderSyncService";
 
 // Types
 export interface UserContext {
@@ -537,6 +538,8 @@ export class WorkOrderService {
           userId,
         });
       }
+
+      await syncWoStatusToTicket(id, status);
 
       logWorkOrderActivity("STATUS_CHANGE", "Work Order", userId, {
         id,

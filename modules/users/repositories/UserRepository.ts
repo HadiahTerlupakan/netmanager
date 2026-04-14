@@ -714,10 +714,10 @@ export class UserRepository {
     departmentId?: string,
     siteId?: string,
     excludeUserId?: string,
-  ): Promise<Array<{ id: string }>> {
+  ): Promise<Array<{ id: string; fcmTokens: string[] }>> {
     const where: Prisma.UserWhereInput = {
       isActive: true,
-      pushToken: { not: null },
+      OR: [{ pushToken: { not: null } }, { fcmTokens: { isEmpty: false } }],
     };
     if (departmentId) where.departmentId = departmentId;
     if (siteId) where.siteId = siteId;
@@ -725,16 +725,18 @@ export class UserRepository {
 
     return prisma.user.findMany({
       where,
-      select: { id: true },
+      select: { id: true, fcmTokens: true },
     });
   }
 
-  async findByIdWithPushToken(
-    userId: string,
-  ): Promise<{ id: string; pushToken: string | null } | null> {
+  async findByIdWithPushToken(userId: string): Promise<{
+    id: string;
+    pushToken: string | null;
+    fcmTokens: string[];
+  } | null> {
     return prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, pushToken: true },
+      select: { id: true, pushToken: true, fcmTokens: true },
     });
   }
 

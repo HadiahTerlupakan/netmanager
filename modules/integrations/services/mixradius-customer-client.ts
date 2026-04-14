@@ -690,34 +690,13 @@ export async function fetchMixRadiusCustomerDetail(
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
 
-    if (isMixRadiusConfigError(message)) {
-      return {
-        id: customerId,
-        member_id: "",
-        username: "",
-        password: "",
-        fullname: "Integration Not Configured",
-        email: "",
-        phonenumber: "",
-        address: "",
-        remote_address: "",
-        plan_name: "",
-        payment_type: "",
-        subscription_type: "",
-        trx_status: "",
-        identity_number: "",
-        created_at: "",
-        renewed_on: "",
-        expired_on: "",
-        auth_status: "",
-        note: "",
-        bind_mac: "",
-        mac_address: "",
-        total: "",
-        latitude: "",
-        longitude: "",
-        invoices: [],
-      } as MixRadiusCustomerDetail;
+    if (
+      error instanceof MixRadiusConfigError ||
+      isMixRadiusConfigError(message)
+    ) {
+      throw error instanceof MixRadiusConfigError
+        ? error
+        : getCustomerConfigError(message, "fetchCustomerDetail");
     }
 
     console.error("[MixRadius] Fetch customer detail error:", message);

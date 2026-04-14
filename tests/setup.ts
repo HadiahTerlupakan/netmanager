@@ -197,6 +197,9 @@ vi.mock("@/lib/prisma-radius", () => ({
 
 vi.mock("@/lib/tenant-context", () => ({
   getTenantIdFromContext: vi.fn().mockResolvedValue({ isSuperAdmin: true }),
+  runWithRequestTenantContext: vi.fn(
+    async (_tenantContext, callback: () => Promise<unknown>) => callback(),
+  ),
 }));
 
 // Set default secret for JWT testing
