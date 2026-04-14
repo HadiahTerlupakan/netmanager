@@ -3,6 +3,7 @@ import { LeaveStatus, LeaveType, Prisma } from "@prisma/client";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
+import { validateTukarLiburRules } from "./LeaveService";
 import { prisma } from "@/lib/prisma";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
 import { createNotification } from "@/modules/notification/services/NotificationService";
@@ -64,6 +65,38 @@ export class MobileLeaveRequestService {
         tenantId,
       );
 
+      if (type === "TUKAR_LIBUR") {
+        const validation = await validateTukarLiburRules(
+          {
+            userId,
+            tenantId,
+            startDate: start,
+            replacementDate: replacementDate
+              ? new Date(replacementDate)
+              : undefined,
+            workDays: userData?.workDays || null,
+          },
+          {
+            isHoliday: async (date, currentTenantId) => {
+              const holiday = await prisma.holiday.findFirst({
+                where: {
+                  date,
+                  tenantId: currentTenantId,
+                },
+              });
+
+              return { isHoliday: Boolean(holiday) };
+            },
+          },
+        );
+
+        if ("error" in validation) {
+          return apiError(validation.error, ErrorCodes.VALIDATION_ERROR, {
+            status: 400,
+          });
+        }
+      }
+
       if (userData?.workingHourMode !== "FLEXIBLE" && type !== "TUKAR_LIBUR") {
         const hasEnough = await this.leaveBalanceRepository.hasEnoughDays(
           userId,
@@ -100,57 +133,6 @@ export class MobileLeaveRequestService {
           ErrorCodes.VALIDATION_ERROR,
           { status: 400 },
         );
-      }
-
-      if (type === "TUKAR_LIBUR") {
-        if (!replacementDate) {
-          return apiError(
-            "Tanggal pengganti wajib diisi untuk Tukar Libur",
-            ErrorCodes.VALIDATION_ERROR,
-            { status: 400 },
-          );
-        }
-
-        if (userData?.workDays) {
-          const workDays = userData.workDays.split(",").map((d) => d.trim());
-          const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-          const replacement = new Date(replacementDate);
-
-          const startDayName = days[start.getDay()];
-          const replacementDayName = days[replacement.getDay()];
-          const formatDate = (date: Date) => date.toISOString().split("T")[0];
-
-          if (!startDayName || !workDays.includes(startDayName)) {
-            return NextResponse.json(
-              {
-                error: `Tanggal izin (${startDate}) harus merupakan Hari Kerja.`,
-              },
-              { status: 400 },
-            );
-          }
-
-          const isOffDay = replacementDayName
-            ? !workDays.includes(replacementDayName)
-            : false;
-          const formattedReplacementDate = formatDate(replacement);
-          const holiday = formattedReplacementDate
-            ? await prisma.holiday.findFirst({
-                where: {
-                  date: new Date(formattedReplacementDate),
-                  tenantId,
-                },
-              })
-            : null;
-
-          if (!isOffDay && !holiday) {
-            return NextResponse.json(
-              {
-                error: `Tanggal pengganti (${replacementDate}) harus merupakan Hari Libur atau Tanggal Merah.`,
-              },
-              { status: 400 },
-            );
-          }
-        }
       }
 
       const attachments: string[] = [];

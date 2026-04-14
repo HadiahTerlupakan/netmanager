@@ -230,7 +230,7 @@ export class WorkOrderMaterialRepository {
       }
 
       await tx.$executeRaw`
-                UPDATE "WorkOrders"
+                UPDATE "work_orders"
                 SET "usedMaterials" = COALESCE("usedMaterials", '[]'::jsonb) || ${JSON.stringify(createdItems)}::jsonb,
                     "updatedAt" = NOW()
                 WHERE "id" = ${workOrder.id}

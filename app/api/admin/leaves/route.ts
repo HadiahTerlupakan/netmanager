@@ -23,6 +23,11 @@ const createLeaveSchema = z.object({
     .string()
     .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
   reason: z.string().min(1, "Alasan wajib diisi").max(500),
+  replacementDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format")
+    .optional()
+    .nullable(),
   attachmentUrl: z.url().optional().nullable(),
 });
 
@@ -92,8 +97,15 @@ export const POST = createHandler(
       );
     }
 
-    const { userId, type, startDate, endDate, reason, attachmentUrl } =
-      ctx.validated;
+    const {
+      userId,
+      type,
+      startDate,
+      endDate,
+      reason,
+      replacementDate,
+      attachmentUrl,
+    } = ctx.validated;
     const user = ctx.session!.user;
     const tenantId = user.tenantId;
 
@@ -104,6 +116,9 @@ export const POST = createHandler(
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         reason,
+        ...(replacementDate
+          ? { replacementDate: new Date(replacementDate) }
+          : {}),
         ...(attachmentUrl ? { attachmentUrl } : {}),
       },
       user.id,

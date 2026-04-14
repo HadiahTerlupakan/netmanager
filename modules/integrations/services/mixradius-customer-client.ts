@@ -259,17 +259,21 @@ export async function fetchMixRadiusCustomersPPP(
         select: { owners: true },
       });
 
-      const allowedOwners = new Set(
-        groups.flatMap((group) =>
-          group.owners.map((owner) =>
-            owner.split(/[—–-]/)[0].trim().toLowerCase(),
-          ),
-        ),
-      );
-      allData = allData.filter(
-        (item) =>
-          item.owner_name && allowedOwners.has(item.owner_name.toLowerCase()),
-      );
+      const allowedOwners = new Set<string>();
+      groups.forEach((group) => {
+        group.owners.forEach((owner) => {
+          const lower = owner.toLowerCase().trim();
+          allowedOwners.add(lower);
+          allowedOwners.add(lower.split(/[—–-]/)[0].trim());
+        });
+      });
+
+      allData = allData.filter((item) => {
+        if (!item.owner_name) return false;
+        const ownerLower = item.owner_name.toLowerCase().trim();
+        const ownerPrefix = ownerLower.split(/[—–-]/)[0].trim();
+        return allowedOwners.has(ownerLower) || allowedOwners.has(ownerPrefix);
+      });
     }
 
     if (filters.authStatus === "Isolir") {
