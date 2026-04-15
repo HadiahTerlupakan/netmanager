@@ -56,6 +56,30 @@ const ALASAN_LABELS: Record<string, string> = {
   lainnya: "Lainnya",
 };
 
+function ensureTenantConsistency(input: {
+  barangTenantId?: string | null;
+  gudangTenantId?: string | null;
+  currentStockTenantId?: string | null;
+}) {
+  const { barangTenantId, gudangTenantId, currentStockTenantId } = input;
+
+  if (barangTenantId && gudangTenantId && barangTenantId !== gudangTenantId) {
+    throw new Error(
+      "Barang tidak berada dalam tenant yang sama dengan gudang tujuan",
+    );
+  }
+
+  if (
+    currentStockTenantId &&
+    gudangTenantId &&
+    currentStockTenantId !== gudangTenantId
+  ) {
+    throw new Error(
+      "Barang tidak berada dalam tenant yang sama dengan gudang tujuan",
+    );
+  }
+}
+
 export class InventoryOpnameService {
   async listOpname(input: ListInventoryOpnameInput) {
     const offset = (input.page - 1) * input.limit;
@@ -77,7 +101,9 @@ export class InventoryOpnameService {
     });
 
     if (!isSuper && permissions.includes("opname:site_only")) {
-      if (!dbUser?.siteId) {
+      const siteId = dbUser?.siteId ?? input.user.siteId;
+
+      if (!siteId) {
         return {
           opnameList: [],
           pagination: {
@@ -92,7 +118,7 @@ export class InventoryOpnameService {
       where.gudang = {
         sites: {
           some: {
-            id: dbUser.siteId,
+            id: siteId,
           },
         },
       };
@@ -167,6 +193,12 @@ export class InventoryOpnameService {
       if (!gudang) {
         throw new Error("Gudang tidak ditemukan atau tidak aktif");
       }
+
+      ensureTenantConsistency({
+        barangTenantId: barang.tenantId,
+        gudangTenantId: access.gudang?.tenantId ?? gudang.tenantId,
+        currentStockTenantId: currentStock?.tenantId,
+      });
 
       const stokSistem = currentStock?.stok || 0;
       const selisih = input.stokFisik - stokSistem;
@@ -315,7 +347,7 @@ export class InventoryOpnameService {
     return {
       user: {
         ...user,
-        siteId: dbUser?.siteId,
+        siteId: dbUser?.siteId ?? user.siteId,
         role: dbUser?.role || user.role,
       },
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
