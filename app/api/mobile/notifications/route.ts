@@ -37,12 +37,20 @@ export async function GET(request: NextRequest) {
       : Math.min(Math.max(limitParam, 1), 50);
     const offset = Number.isNaN(cursorParam) ? 0 : Math.max(cursorParam, 0);
 
+    const permissions = Array.isArray(authResult.permissions)
+      ? authResult.permissions
+      : [];
+    const siteId = permissions.includes("site_only")
+      ? authResult.siteId || undefined
+      : undefined;
+
     const { notifications, total } = await getNotificationsForUser(userId, {
       limit,
       offset,
+      siteId,
     });
 
-    const unreadCount = await getUnreadCount(userId);
+    const unreadCount = await getUnreadCount(userId, undefined, siteId);
 
     const normalizeMarketingLink = (rawLink: string | null) => {
       if (!rawLink) return "/(app)/marketing/canvasing";
@@ -166,20 +174,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, notificationId } = body;
 
+    const permissions = Array.isArray(authResult.permissions)
+      ? authResult.permissions
+      : [];
+    const siteId = permissions.includes("site_only")
+      ? authResult.siteId || undefined
+      : undefined;
+
     if (action === "markAllRead") {
-      await markAllAsRead(userId);
+      await markAllAsRead(userId, undefined, siteId);
       return NextResponse.json({
         success: true,
         message: "Semua notifikasi ditandai sudah dibaca",
       });
     } else if (action === "markRead" && notificationId) {
-      const permissions = Array.isArray(authResult.permissions)
-        ? authResult.permissions
-        : [];
-      const siteId = permissions.includes("site_only")
-        ? authResult.siteId || undefined
-        : undefined;
-
       const notification = await getReadableNotificationForUser(
         notificationId,
         userId,

@@ -223,6 +223,58 @@ describe("mobile notifications route", () => {
     expect(mockFns.markAsRead).not.toHaveBeenCalled();
   });
 
+  it("passes site-only restriction to list and unread count queries", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValueOnce({
+      userId: "user-1",
+      permissions: ["site_only"],
+      siteId: "site-9",
+    });
+    mockFns.getNotificationsForUser.mockResolvedValueOnce({
+      notifications: [],
+      total: 0,
+    });
+    mockFns.getUnreadCount.mockResolvedValueOnce(0);
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/mobile/notifications?limit=10"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.getNotificationsForUser).toHaveBeenCalledWith("user-1", {
+      limit: 10,
+      offset: 0,
+      siteId: "site-9",
+    });
+    expect(mockFns.getUnreadCount).toHaveBeenCalledWith(
+      "user-1",
+      undefined,
+      "site-9",
+    );
+  });
+
+  it("passes site-only restriction to mark all notifications as read", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValueOnce({
+      userId: "user-1",
+      permissions: ["site_only"],
+      siteId: "site-9",
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/notifications", {
+        method: "POST",
+        body: JSON.stringify({ action: "markAllRead" }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.markAllAsRead).toHaveBeenCalledWith(
+      "user-1",
+      undefined,
+      "site-9",
+    );
+  });
+
   it("passes site-only restriction to the single notification guard", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValueOnce({
       userId: "user-1",
