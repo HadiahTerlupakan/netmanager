@@ -210,11 +210,10 @@ export const POST = createHandler(
 
           const updatePromises = Object.entries(body.leaveQuotas).map(
             ([type, quota]) =>
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               leaveBalanceRepo.upsertQuota(
                 user.id,
                 targetYear,
-                type as any,
+                type as Parameters<typeof leaveBalanceRepo.upsertQuota>[2],
                 quota as number,
               ),
           );

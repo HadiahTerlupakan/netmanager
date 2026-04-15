@@ -1,10 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/modules/database";
 import { prismaBilling } from "@/modules/database";
 import * as z from "zod";
 import { createHandler, ApiErrors } from "@/lib/api";
 import { InvoiceStatus } from "@prisma/client-billing";
 import { hasPermission } from "@/lib/rbac";
+
+type InvoiceUpdatePayload = z.infer<typeof updateSchema>;
+type InvoiceItemInput = NonNullable<
+  InvoiceUpdatePayload["invoiceItem"]
+>[number];
+
+type InvoiceUpdateData = Omit<
+  InvoiceUpdatePayload,
+  "invoiceItem" | "subtotal" | "taxAmount" | "discountAmount" | "totalAmount"
+> & {
+  subtotal?: bigint;
+  taxAmount?: bigint;
+  discountAmount?: bigint;
+  totalAmount?: bigint;
+};
 
 const updateSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -39,10 +54,9 @@ const updateSchema = z.object({
 });
 
 // GET /api/invoices/[id]
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GET = createHandler(
   { auth: true },
-  async (_req: any, ctx: any) => {
+  async (_req: NextRequest, ctx) => {
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
@@ -103,116 +117,124 @@ export const GET = createHandler(
 );
 
 // PUT /api/invoices/[id]
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const PUT = createHandler({ auth: true }, async (req: any, ctx: any) => {
-  const { id } = ctx.params;
-  const user = ctx.session!.user;
+export const PUT = createHandler(
+  { auth: true },
+  async (req: NextRequest, ctx) => {
+    const { id } = ctx.params;
+    const user = ctx.session!.user;
 
-  const existingInvoice = await prismaBilling.invoice.findUnique({
-    where: { id },
-  });
-
-  if (!existingInvoice) {
-    return ApiErrors.notFound("Invoice");
-  }
-
-  const isRestricted =
-    (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
-
-  let userSiteId: string | undefined;
-  if (isRestricted) {
-    const { prisma: db } = await import("@/modules/database");
-    const dbUser = await db.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
+    const existingInvoice = await prismaBilling.invoice.findUnique({
+      where: { id },
     });
-    userSiteId = dbUser?.siteId || undefined;
+
+    if (!existingInvoice) {
+      return ApiErrors.notFound("Invoice");
+    }
+
+    const isRestricted =
+      (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
+
+    let userSiteId: string | undefined;
+    if (isRestricted) {
+      const { prisma: db } = await import("@/modules/database");
+      const dbUser = await db.user.findUnique({
+        where: { id: user.id },
+        select: { siteId: true },
+      });
+      userSiteId = dbUser?.siteId || undefined;
+
+      if (
+        existingInvoice.siteId &&
+        userSiteId &&
+        existingInvoice.siteId !== userSiteId
+      ) {
+        return ApiErrors.forbidden("Akses ditolak");
+      }
+    }
+
+    const body = await req.json();
+    const validatedData = updateSchema.parse(body);
 
     if (
-      existingInvoice.siteId &&
+      validatedData.siteId &&
       userSiteId &&
-      existingInvoice.siteId !== userSiteId
+      validatedData.siteId !== userSiteId
     ) {
-      return ApiErrors.forbidden("Akses ditolak");
+      return ApiErrors.forbidden("Akses ditolak untuk mengubah site");
     }
-  }
 
-  const body = await req.json();
-  const validatedData = updateSchema.parse(body);
+    const {
+      invoiceItem,
+      subtotal,
+      taxAmount,
+      discountAmount,
+      totalAmount,
+      ...restInvoiceData
+    } = validatedData;
 
-  if (
-    validatedData.siteId &&
-    userSiteId &&
-    validatedData.siteId !== userSiteId
-  ) {
-    return ApiErrors.forbidden("Akses ditolak untuk mengubah site");
-  }
+    const updatedInvoice = await prismaBilling.$transaction(async (tx) => {
+      if (invoiceItem && invoiceItem.length > 0) {
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: id },
+        });
 
-  const { invoiceItem, ...invoiceData } = validatedData;
+        await tx.invoiceItem.createMany({
+          data: invoiceItem.map((item: InvoiceItemInput) => ({
+            id: item.id || crypto.randomUUID(),
+            invoiceId: id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: BigInt(item.unitPrice),
+            totalPrice: BigInt(item.totalPrice),
+          })),
+        });
+      }
 
-  const updatedInvoice = await prismaBilling.$transaction(async (tx) => {
-    if (invoiceItem && invoiceItem.length > 0) {
-      await tx.invoiceItem.deleteMany({
-        where: { invoiceId: id },
+      const updateData: InvoiceUpdateData = {
+        ...restInvoiceData,
+        ...(subtotal !== undefined ? { subtotal: BigInt(subtotal) } : {}),
+        ...(taxAmount !== undefined ? { taxAmount: BigInt(taxAmount) } : {}),
+        ...(discountAmount !== undefined
+          ? { discountAmount: BigInt(discountAmount) }
+          : {}),
+        ...(totalAmount !== undefined
+          ? { totalAmount: BigInt(totalAmount) }
+          : {}),
+      };
+
+      return tx.invoice.update({
+        where: { id },
+        data: updateData,
+        include: {
+          invoiceItem: true,
+        },
       });
-
-      await tx.invoiceItem.createMany({
-        data: invoiceItem.map((item) => ({
-          id: item.id || crypto.randomUUID(),
-          invoiceId: id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: BigInt(item.unitPrice),
-          totalPrice: BigInt(item.totalPrice),
-        })),
-      });
-    } // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {
-      ...invoiceData,
-    };
-
-    if (updateData.subtotal !== undefined)
-      updateData.subtotal = BigInt(updateData.subtotal);
-    if (updateData.taxAmount !== undefined)
-      updateData.taxAmount = BigInt(updateData.taxAmount);
-    if (updateData.discountAmount !== undefined)
-      updateData.discountAmount = BigInt(updateData.discountAmount);
-    if (updateData.totalAmount !== undefined)
-      updateData.totalAmount = BigInt(updateData.totalAmount);
-
-    return tx.invoice.update({
-      where: { id },
-      data: updateData,
-      include: {
-        invoiceItem: true,
-      },
     });
-  });
 
-  const pelanggan = await prisma.pelanggan.findUnique({
-    where: { id: updatedInvoice.pelangganId },
-  });
+    const pelanggan = await prisma.pelanggan.findUnique({
+      where: { id: updatedInvoice.pelangganId },
+    });
 
-  return NextResponse.json({
-    ...updatedInvoice,
-    pelanggan,
-    subtotal: Number(updatedInvoice.subtotal),
-    taxAmount: Number(updatedInvoice.taxAmount),
-    discountAmount: Number(updatedInvoice.discountAmount),
-    totalAmount: Number(updatedInvoice.totalAmount),
-    paidAmount: Number(updatedInvoice.paidAmount),
-    invoiceItem: updatedInvoice.invoiceItem.map((item) => ({
-      ...item,
-      unitPrice: Number(item.unitPrice),
-      totalPrice: Number(item.totalPrice),
-    })),
-  });
-});
+    return NextResponse.json({
+      ...updatedInvoice,
+      pelanggan,
+      subtotal: Number(updatedInvoice.subtotal),
+      taxAmount: Number(updatedInvoice.taxAmount),
+      discountAmount: Number(updatedInvoice.discountAmount),
+      totalAmount: Number(updatedInvoice.totalAmount),
+      paidAmount: Number(updatedInvoice.paidAmount),
+      invoiceItem: updatedInvoice.invoiceItem.map((item) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+      })),
+    });
+  },
+);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const DELETE = createHandler(
   { auth: true },
-  async (_req: any, ctx: any) => {
+  async (_req: NextRequest, ctx) => {
     const { id } = ctx.params;
     const user = ctx.session!.user;
 

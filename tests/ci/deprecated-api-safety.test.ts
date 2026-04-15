@@ -139,4 +139,16 @@ describe("deprecated API safety", () => {
       expect(readProjectFile(file)).not.toContain("getSiteFilter(");
     }
   });
+
+  it("keeps invoice detail route aligned with createHandler typing", () => {
+    const routeFile = readProjectFile("app/api/invoices/[id]/route.ts");
+
+    expect(routeFile).not.toContain("ctx: RouteContext");
+    expect(routeFile).not.toContain(
+      "updateSchema.parse(body) as InvoiceUpdateData",
+    );
+    expect(routeFile).toContain(
+      "const validatedData = updateSchema.parse(body);",
+    );
+  });
 });

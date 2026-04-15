@@ -128,14 +128,20 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
         amount: d.amount.toString(),
       })),
     })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    actualAchievements: ((project as any).actualAchievements || []).map(
-      (a: any) => ({
-        ...a,
-        actualRevenue: a.actualRevenue.toString(),
-        actualOpex: a.actualOpex.toString(),
-      }),
-    ),
+    actualAchievements: (
+      (
+        project as {
+          actualAchievements?: Array<{
+            actualRevenue: bigint;
+            actualOpex: bigint;
+          }>;
+        }
+      ).actualAchievements ?? []
+    ).map((achievement) => ({
+      ...achievement,
+      actualRevenue: achievement.actualRevenue.toString(),
+      actualOpex: achievement.actualOpex.toString(),
+    })),
   };
 
   return apiSuccess(serialized);
