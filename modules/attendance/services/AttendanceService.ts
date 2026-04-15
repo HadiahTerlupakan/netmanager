@@ -93,6 +93,8 @@ type CurrentAttendanceEvaluationRow = Pick<
   "finalStatus" | "reviewState" | "reasonCodes" | "anomalyCodes"
 > | null;
 
+const USER_SCHEDULE_CACHE_TTL_SECONDS = 60;
+
 export type HistoricalAttendanceRecomputeResult = {
   processedCount: number;
   evaluations: AttendanceEvaluationResult[];
@@ -540,14 +542,33 @@ export class AttendanceService {
     const cacheKey = `user:schedule:${userId}`;
     let userDetails: CachedUserAttendanceSettings | null = null;
 
-    const cachedRaw = await redis.get(cacheKey);
-    if (cachedRaw) {
-      userDetails = JSON.parse(cachedRaw) as CachedUserAttendanceSettings;
-    } else {
+    try {
+      const cachedRaw = await redis.get(cacheKey);
+      if (cachedRaw) {
+        userDetails = JSON.parse(cachedRaw) as CachedUserAttendanceSettings;
+      }
+    } catch (error) {
+      logger.error(
+        `Failed to read attendance schedule cache for ${cacheKey}`,
+        error instanceof Error ? error : undefined,
+      );
+    }
+
+    if (!userDetails) {
       userDetails = await this.userRepo.findAttendanceSettingsById(userId);
-      // Cache for 60 seconds in Redis
       if (userDetails) {
-        await redis.setex(cacheKey, 60, JSON.stringify(userDetails));
+        try {
+          await redis.setex(
+            cacheKey,
+            USER_SCHEDULE_CACHE_TTL_SECONDS,
+            JSON.stringify(userDetails),
+          );
+        } catch (error) {
+          logger.error(
+            `Failed to write attendance schedule cache for ${cacheKey}`,
+            error instanceof Error ? error : undefined,
+          );
+        }
       }
     }
 

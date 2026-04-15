@@ -178,6 +178,12 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
             headers: { "X-Idempotent-Replay": "true" },
           });
       }
+      if (beginState === "unavailable")
+        return apiError(
+          "Layanan absensi sementara tidak tersedia. Coba lagi beberapa saat.",
+          ErrorCodes.INTERNAL_ERROR,
+          { status: 503 },
+        );
       if (beginState === "hash-mismatch")
         return apiError(
           "Idempotency key sudah digunakan untuk payload berbeda",
@@ -216,13 +222,23 @@ export const POST = createHandler({ auth: true }, async (request, ctx) => {
       };
 
       if (resolvedRequestId && payloadHash) {
-        await idempotencyService.complete(
-          userId,
-          "check-out",
-          resolvedRequestId,
-          payloadHash,
-          responsePayload,
-        );
+        try {
+          await idempotencyService.complete(
+            userId,
+            "check-out",
+            resolvedRequestId,
+            payloadHash,
+            responsePayload,
+          );
+        } catch (finalizeError: unknown) {
+          const message =
+            finalizeError instanceof Error
+              ? finalizeError.message
+              : String(finalizeError);
+          console.error(
+            `[AttendanceIdempotency] Failed to finalize check-out key "${resolvedRequestId}": ${message}`,
+          );
+        }
       }
       return NextResponse.json(responsePayload);
     } catch (error: unknown) {

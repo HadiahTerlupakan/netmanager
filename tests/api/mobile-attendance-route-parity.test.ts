@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
+import { AttendanceIdempotencyService } from "@/modules/attendance/services/AttendanceIdempotencyService";
 import { AttendanceTimezoneService } from "@/modules/attendance/services/AttendanceTimezoneService";
 
 const verifySignatureMock = vi.hoisted(() => vi.fn());
@@ -38,6 +39,7 @@ vi.mock("@/lib/api", () => ({
     CONFLICT: "CONFLICT",
     OUTSIDE_GEOFENCE: "OUTSIDE_GEOFENCE",
     NO_ACTIVE_SESSION: "NO_ACTIVE_SESSION",
+    INTERNAL_ERROR: "INTERNAL_ERROR",
   },
 }));
 
@@ -199,6 +201,140 @@ describe("mobile attendance route parity", () => {
     expect(checkOutSpy.mock.calls[0]?.[0].photoUrl).toBe(
       "https://tenant.example.com/uploads/attendance.jpg",
     );
+  });
+
+  it("returns 503 when check-in idempotency storage is unavailable", async () => {
+    vi.spyOn(
+      AttendanceIdempotencyService.prototype,
+      "begin",
+    ).mockResolvedValueOnce("unavailable");
+
+    const { POST } = await import("@/app/api/mobile/attendance/check-in/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-in", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "req-unavailable",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(503);
+    expect(
+      vi.mocked(AttendanceService.prototype.checkIn),
+    ).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when check-out idempotency storage is unavailable", async () => {
+    vi.spyOn(
+      AttendanceIdempotencyService.prototype,
+      "begin",
+    ).mockResolvedValueOnce("unavailable");
+
+    const { POST } =
+      await import("@/app/api/mobile/attendance/check-out/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-out", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "req-unavailable",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(503);
+    expect(
+      vi.mocked(AttendanceService.prototype.checkOut),
+    ).not.toHaveBeenCalled();
+  });
+
+  it("still returns success when check-in finalization to idempotency storage fails", async () => {
+    vi.spyOn(
+      AttendanceIdempotencyService.prototype,
+      "begin",
+    ).mockResolvedValueOnce("started");
+    vi.spyOn(
+      AttendanceIdempotencyService.prototype,
+      "complete",
+    ).mockRejectedValueOnce(new Error("redis unavailable"));
+    const releaseSpy = vi
+      .spyOn(AttendanceIdempotencyService.prototype, "release")
+      .mockResolvedValueOnce();
+
+    const { POST } = await import("@/app/api/mobile/attendance/check-in/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-in", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "req-finalize-fail",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      vi.mocked(AttendanceService.prototype.checkIn),
+    ).toHaveBeenCalledTimes(1);
+    expect(releaseSpy).not.toHaveBeenCalled();
+  });
+
+  it("still returns success when check-out finalization to idempotency storage fails", async () => {
+    vi.spyOn(
+      AttendanceIdempotencyService.prototype,
+      "begin",
+    ).mockResolvedValueOnce("started");
+    vi.spyOn(
+      AttendanceIdempotencyService.prototype,
+      "complete",
+    ).mockRejectedValueOnce(new Error("redis unavailable"));
+    const releaseSpy = vi
+      .spyOn(AttendanceIdempotencyService.prototype, "release")
+      .mockResolvedValueOnce();
+
+    const { POST } =
+      await import("@/app/api/mobile/attendance/check-out/route");
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/attendance/check-out", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": "req-finalize-fail",
+        },
+        body: JSON.stringify({
+          location: "HQ",
+        }),
+      }),
+      {
+        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      } as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      vi.mocked(AttendanceService.prototype.checkOut),
+    ).toHaveBeenCalledTimes(1);
+    expect(releaseSpy).not.toHaveBeenCalled();
   });
 
   it("returns canonical evaluation fields after check-in mutation", async () => {

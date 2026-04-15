@@ -1,141 +1,221 @@
-import { prisma } from '@/lib/prisma'
-import { Prisma } from '@prisma/client'
-import { redis } from '@/lib/redis'
-import { toStartOfDay, toEndOfDay } from '@/lib/utils/server-datetime'
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { redis } from "@/lib/redis";
+import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 
+const HOLIDAY_CACHE_TTL_SECONDS = 86400;
 
-type Holiday = Prisma.HolidayGetPayload<object>
+type Holiday = Prisma.HolidayGetPayload<object>;
 
 export class HolidayRepository {
-    async create(data: Omit<Prisma.HolidayUncheckedCreateInput, 'tenantId'>, tenantId: string) {
-        const holiday = await prisma.holiday.create({ 
-            data: { ...data, tenantId } 
-        })
-        // Invalidate holiday cache after creating new holiday
-        await this.invalidateCache(tenantId)
-        return holiday
+  async create(
+    data: Omit<Prisma.HolidayUncheckedCreateInput, "tenantId">,
+    tenantId: string,
+  ) {
+    const holiday = await prisma.holiday.create({
+      data: { ...data, tenantId },
+    });
+    // Invalidate holiday cache after creating new holiday
+    await this.invalidateCache(tenantId);
+    return holiday;
+  }
+
+  async update(
+    id: string,
+    data: Prisma.HolidayUncheckedUpdateInput,
+    tenantId: string,
+  ) {
+    const holiday = await prisma.holiday.update({
+      where: { id, tenantId },
+      data,
+    });
+    // Invalidate holiday cache after updating
+    await this.invalidateCache(tenantId);
+    return holiday;
+  }
+
+  async delete(id: string, tenantId: string) {
+    const holiday = await prisma.holiday.delete({
+      where: { id, tenantId },
+    });
+    // Invalidate holiday cache after deleting
+    await this.invalidateCache(tenantId);
+    return holiday;
+  }
+
+  async findMany(
+    tenantId: string,
+    params?: {
+      where?: Prisma.HolidayWhereInput;
+      orderBy?: Prisma.HolidayOrderByWithRelationInput;
+    },
+  ) {
+    return prisma.holiday.findMany({
+      ...params,
+      where: {
+        ...params?.where,
+        tenantId,
+      },
+    });
+  }
+
+  async isHoliday(
+    date: Date,
+    tenantId: string,
+  ): Promise<{ isHoliday: boolean; holiday?: Holiday | null }> {
+    const startOfDay = new Date(date);
+    startOfDay.setTime(toStartOfDay(startOfDay).getTime());
+
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setTime(toEndOfDay(endOfDay).getTime());
+
+    let cacheVersion = "0";
+    try {
+      const version = await redis.get(`holiday:${tenantId}:version`);
+      if (version) cacheVersion = version;
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
+        error,
+      );
     }
 
-    async update(id: string, data: Prisma.HolidayUncheckedUpdateInput, tenantId: string) {
-        const holiday = await prisma.holiday.update({
-            where: { id, tenantId },
-            data
-        })
-        // Invalidate holiday cache after updating
-        await this.invalidateCache(tenantId)
-        return holiday
+    const cacheKey = `holiday:${tenantId}:v${cacheVersion}:${startOfDay.getTime()}`;
+
+    try {
+      const cachedRaw = await redis.get(cacheKey);
+      if (cachedRaw)
+        return JSON.parse(cachedRaw) as {
+          isHoliday: boolean;
+          holiday?: Holiday | null;
+        };
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to read holiday cache for ${cacheKey}:`,
+        error,
+      );
     }
 
-    async delete(id: string, tenantId: string) {
-        const holiday = await prisma.holiday.delete({
-            where: { id, tenantId }
-        })
-        // Invalidate holiday cache after deleting
-        await this.invalidateCache(tenantId)
-        return holiday
+    const holiday = await prisma.holiday.findFirst({
+      where: {
+        date: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+        tenantId,
+      },
+    });
+
+    const result = {
+      isHoliday: !!holiday,
+      holiday,
+    };
+
+    try {
+      await redis.setex(
+        cacheKey,
+        HOLIDAY_CACHE_TTL_SECONDS,
+        JSON.stringify(result),
+      );
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to write holiday cache for ${cacheKey}:`,
+        error,
+      );
     }
 
-    async findMany(tenantId: string, params?: {
-        where?: Prisma.HolidayWhereInput
-        orderBy?: Prisma.HolidayOrderByWithRelationInput
-    }) {
-        return prisma.holiday.findMany({
-            ...params,
-            where: {
-                ...params?.where,
-                tenantId
-            }
-        })
+    return result;
+  }
+
+  async getHolidaysByYear(year: number, tenantId: string): Promise<Holiday[]> {
+    let cacheVersion = "0";
+    try {
+      const version = await redis.get(`holiday:${tenantId}:version`);
+      if (version) cacheVersion = version;
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
+        error,
+      );
     }
 
-    async isHoliday(date: Date, tenantId: string): Promise<{ isHoliday: boolean, holiday?: Holiday | null }> {
-        const startOfDay = new Date(date)
-        startOfDay.setTime(toStartOfDay(startOfDay).getTime())
+    const cacheKey = `holidays:${tenantId}:v${cacheVersion}:year:${year}`;
 
-        const endOfDay = new Date(startOfDay)
-        endOfDay.setTime(toEndOfDay(endOfDay).getTime())
-
-        const cacheKey = `holiday:${tenantId}:${startOfDay.getTime()}`
-        const cachedRaw = await redis.get(cacheKey)
-
-        if (cachedRaw) return JSON.parse(cachedRaw) as { isHoliday: boolean, holiday?: Holiday | null }
-
-        const holiday = await prisma.holiday.findFirst({
-            where: {
-                date: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                },
-                tenantId
-            }
-        })
-
-        const result = {
-            isHoliday: !!holiday,
-            holiday
-        }
-
-        // Cache result for 24 hours
-        await redis.setex(cacheKey, 86400, JSON.stringify(result))
-
-        return result
+    try {
+      const cachedRaw = await redis.get(cacheKey);
+      if (cachedRaw) return JSON.parse(cachedRaw) as Holiday[];
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to read holidays-by-year cache for ${cacheKey}:`,
+        error,
+      );
     }
 
-    async getHolidaysByYear(year: number, tenantId: string): Promise<Holiday[]> {
-        // Check cache first (24h TTL)
-        const cacheKey = `holidays:${tenantId}:year:${year}`
-        const cachedRaw = await redis.get(cacheKey)
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31, 23, 59, 59);
 
-        if (cachedRaw) return JSON.parse(cachedRaw) as Holiday[]
-        
-        const startDate = new Date(year, 0, 1) // Jan 1st
-        const endDate = new Date(year, 11, 31, 23, 59, 59) // Dec 31st
+    const holidays = await prisma.holiday.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        tenantId,
+      },
+      orderBy: {
+        date: "asc",
+      },
+    });
 
-        const holidays = await prisma.holiday.findMany({
-            where: {
-                date: {
-                    gte: startDate,
-                    lte: endDate
-                },
-                tenantId
-            },
-            orderBy: {
-                date: 'asc'
-            }
-        })
-        
-        // Cache result for 24 hours
-        await redis.setex(cacheKey, 86400, JSON.stringify(holidays))
-        
-        return holidays
-    }
-    
-    /**
-     * Invalidate all holiday-related cache entries
-     * Call this after creating, updating, or deleting holidays
-     */
-    async invalidateCache(tenantId: string): Promise<void> {
-        const keys1 = await redis.keys(`holiday:${tenantId}:*`)
-        const keys2 = await redis.keys(`holidays:${tenantId}:*`)
-        const allKeys = [...keys1, ...keys2]
-        if (allKeys.length > 0) {
-            await redis.del(...allKeys)
-        }
+    try {
+      await redis.setex(
+        cacheKey,
+        HOLIDAY_CACHE_TTL_SECONDS,
+        JSON.stringify(holidays),
+      );
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to write holidays-by-year cache for ${cacheKey}:`,
+        error,
+      );
     }
 
-    /**
-     * Find holiday for a tenant on a specific date range.
-     * Used by AttendanceAlertService for auto-alpha processing.
-     */
-    async findFirstByTenantAndDateRange(tenantId: string, startOfDay: Date, endOfDay: Date) {
-        return prisma.holiday.findFirst({
-            where: {
-                tenantId,
-                date: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
-            }
-        })
+    return holidays;
+  }
+
+  /**
+   * Invalidate all holiday-related cache entries
+   * Call this after creating, updating, or deleting holidays
+   */
+  async invalidateCache(tenantId: string): Promise<void> {
+    try {
+      await redis.incr(`holiday:${tenantId}:version`);
+    } catch (error) {
+      console.error(
+        `[HolidayRepository] Failed to invalidate holiday cache for tenant ${tenantId}:`,
+        error,
+      );
+      throw error;
     }
+  }
+
+  /**
+   * Find holiday for a tenant on a specific date range.
+   * Used by AttendanceAlertService for auto-alpha processing.
+   */
+  async findFirstByTenantAndDateRange(
+    tenantId: string,
+    startOfDay: Date,
+    endOfDay: Date,
+  ) {
+    return prisma.holiday.findFirst({
+      where: {
+        tenantId,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+    });
+  }
 }

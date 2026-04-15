@@ -9,8 +9,12 @@ import _CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prismaAuth } from "@/lib/prisma";
 import { compare } from "bcryptjs";
-import { checkRateLimit } from "@/lib/redis";
 import { redis } from "@/lib/redis";
+import {
+  checkStrictLoginRateLimit,
+  isLoginRateLimitEnabled,
+  LOGIN_RATE_LIMIT_UNAVAILABLE_MESSAGE,
+} from "@/lib/security/login-rate-limit";
 
 // Fix for default import interop in tsx/ESM
 const CredentialsProvider =
@@ -30,19 +34,6 @@ async function validateDatabaseConnection(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("[AUTH] Database connection failed:", error);
-    return false;
-  }
-}
-
-// Redis connection validation
-async function validateRedisConnection(): Promise<boolean> {
-  try {
-    console.log("[AUTH] Validating Redis connection...");
-    await redis.ping();
-    console.log("[AUTH] Redis connection: OK");
-    return true;
-  } catch (error) {
-    console.error("[AUTH] Redis connection failed:", error);
     return false;
   }
 }
@@ -166,25 +157,20 @@ export const authConfig: NextAuthOptions = {
             );
           }
 
-          // Validate Redis connection for rate limiting
-          // Only apply rate limiting in production (opt-out via DISABLE_RATE_LIMIT=true)
-          const rateLimitEnabled =
-            process.env.NODE_ENV !== "production"
-              ? false
-              : process.env.DISABLE_RATE_LIMIT !== "true";
-          if (rateLimitEnabled) {
-            const redisConnected = await validateRedisConnection();
-            if (redisConnected) {
-              // Rate limit percobaan login per identifier (mis. 500x per 5 menit untuk dev)
-              const allowed = await checkRateLimit(
-                `login:${identifier}`,
-                500,
-                300,
-              );
-              if (!allowed) {
-                console.log("[AUTH] Rate limit exceeded for:", identifier);
-                throw new Error("Terlalu banyak percobaan. Coba lagi nanti.");
-              }
+          if (isLoginRateLimitEnabled()) {
+            const rateLimitResult = await checkStrictLoginRateLimit(
+              `login:${identifier}`,
+              500,
+              300,
+            );
+
+            if (rateLimitResult === "unavailable") {
+              throw new Error(LOGIN_RATE_LIMIT_UNAVAILABLE_MESSAGE);
+            }
+
+            if (rateLimitResult === "rate_limited") {
+              console.log("[AUTH] Rate limit exceeded for:", identifier);
+              throw new Error("Terlalu banyak percobaan. Coba lagi nanti.");
             }
           }
 

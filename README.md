@@ -44,8 +44,8 @@ Buat file `.env` di root direktori dengan konfigurasi berikut:
 # Database
 DATABASE_URL="postgresql://netmgr:netmgr@localhost:5433/netmanager"
 
-# Redis (opsional)
-REDIS_URL="redis://localhost:6380"
+# Redis
+REDIS_URL="redis://localhost:6379"
 
 # NextAuth
 NEXTAUTH_URL="http://localhost:3000"
@@ -196,8 +196,9 @@ Konfigurasi dapat diubah melalui environment variables di `docker-compose.yml` a
 
 ### Redis
 
-- **Port:** `6380`
-- **URL:** `redis://localhost:6380`
+- **Port:** `6379`
+- **URL:** `redis://localhost:6379`
+- **Catatan:** Redis dipakai untuk cache, rate limiting, cron locking, idempotency, dan queue processing. Untuk production, set `REDIS_URL` secara eksplisit melalui secret/env deployment.
 
 ### FreeRADIUS
 

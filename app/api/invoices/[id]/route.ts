@@ -81,7 +81,7 @@ async function getRestrictedInvoiceOrNotFound(id: string, userId: string) {
     return null;
   }
 
-  const invoice = await prismaBilling.invoice.findFirst({
+  return prismaBilling.invoice.findFirst({
     where: {
       id,
       siteId: userSiteId,
@@ -91,12 +91,6 @@ async function getRestrictedInvoiceOrNotFound(id: string, userId: string) {
       payment: true,
     },
   });
-
-  if (!invoice) {
-    return null;
-  }
-
-  return invoice;
 }
 
 async function getInvoiceByAccessMode(
@@ -117,6 +111,16 @@ async function getInvoiceByAccessMode(
       payment: true,
     },
   });
+}
+
+async function getUserRestrictedSiteId(userId: string) {
+  const { prisma: db } = await import("@/modules/database");
+  const dbUser = await db.user.findUnique({
+    where: { id: userId },
+    select: { siteId: true },
+  });
+
+  return dbUser?.siteId || undefined;
 }
 
 function formatInvoiceResponse(invoice: InvoiceResponseShape) {
@@ -184,27 +188,21 @@ export const PUT = createHandler(
 
     const isRestricted =
       (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
-
-    let userSiteId: string | undefined;
-    if (isRestricted) {
-      const { prisma: db } = await import("@/modules/database");
-      const dbUser = await db.user.findUnique({
-        where: { id: user.id },
-        select: { siteId: true },
-      });
-      userSiteId = dbUser?.siteId || undefined;
-
-      if (
-        existingInvoice.siteId &&
-        userSiteId &&
-        existingInvoice.siteId !== userSiteId
-      ) {
-        return ApiErrors.forbidden("Akses ditolak");
-      }
-    }
+    const userSiteId = isRestricted
+      ? await getUserRestrictedSiteId(user.id)
+      : undefined;
 
     const body = await req.json();
     const validatedData = updateSchema.parse(body);
+
+    if (
+      isRestricted &&
+      validatedData.siteId &&
+      userSiteId &&
+      validatedData.siteId !== userSiteId
+    ) {
+      return ApiErrors.forbidden("Akses ditolak untuk mengubah site");
+    }
 
     const {
       invoiceItem,
@@ -243,9 +241,7 @@ export const PUT = createHandler(
         ...(discountAmount !== undefined
           ? { discountAmount: BigInt(discountAmount) }
           : {}),
-        ...(totalAmount !== undefined
-          ? { totalAmount: BigInt(totalAmount) }
-          : {}),
+        ...(totalAmount !== undefined ? { totalAmount: BigInt(totalAmount) } : {}),
       };
 
       return tx.invoice.update({
@@ -263,9 +259,8 @@ export const PUT = createHandler(
     });
 
     return NextResponse.json({
-      ...updatedInvoice,
-      pelanggan,
       ...formatInvoiceResponse(updatedInvoice),
+      pelanggan,
     });
   },
 );
@@ -280,26 +275,6 @@ export const DELETE = createHandler(
 
     if (!existingInvoice) {
       return ApiErrors.notFound("Invoice");
-    }
-
-    const isRestricted =
-      (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
-
-    if (isRestricted) {
-      const { prisma: db } = await import("@/modules/database");
-      const dbUser = await db.user.findUnique({
-        where: { id: user.id },
-        select: { siteId: true },
-      });
-      const userSiteId = dbUser?.siteId;
-
-      if (
-        existingInvoice.siteId &&
-        userSiteId &&
-        existingInvoice.siteId !== userSiteId
-      ) {
-        return ApiErrors.forbidden("Akses ditolak");
-      }
     }
 
     await prismaBilling.invoice.delete({

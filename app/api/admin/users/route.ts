@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { checkSiteRestriction } from "@/modules/roles";
 import { prisma, prismaAuth } from "@/modules/database";
 import { getTenantAdminRoleId } from "@/modules/mitra";
+import { LeaveType } from "@prisma/client";
 import type { Session } from "next-auth";
 
 /**
@@ -213,7 +214,7 @@ export const POST = createHandler(
               leaveBalanceRepo.upsertQuota(
                 user.id,
                 targetYear,
-                type as Parameters<typeof leaveBalanceRepo.upsertQuota>[2],
+                type as LeaveType,
                 quota as number,
               ),
           );
@@ -221,11 +222,16 @@ export const POST = createHandler(
           logger.info("Leave quotas initialized for new user", {
             userId: user.id,
           });
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (err: any) {
-          logger.error("Failed to init leave quotas for new user", err, {
-            userId: user.id,
-          });
+        } catch (err: unknown) {
+          const leaveQuotaError =
+            err instanceof Error ? err : new Error(String(err));
+          logger.error(
+            "Failed to init leave quotas for new user",
+            leaveQuotaError,
+            {
+              userId: user.id,
+            },
+          );
         }
       }
 
