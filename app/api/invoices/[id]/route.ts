@@ -7,9 +7,6 @@ import { InvoiceStatus } from "@prisma/client-billing";
 import { hasPermission } from "@/lib/rbac";
 
 type InvoiceUpdatePayload = z.infer<typeof updateSchema>;
-type InvoiceItemInput = NonNullable<
-  InvoiceUpdatePayload["invoiceItem"]
->[number];
 
 type InvoiceUpdateData = Omit<
   InvoiceUpdatePayload,
@@ -19,6 +16,25 @@ type InvoiceUpdateData = Omit<
   taxAmount?: bigint;
   discountAmount?: bigint;
   totalAmount?: bigint;
+};
+
+type InvoiceResponseShape = {
+  pelangganId: string;
+  subtotal: bigint;
+  taxAmount: bigint;
+  discountAmount: bigint;
+  totalAmount: bigint;
+  paidAmount: bigint;
+  invoiceItem: Array<{
+    unitPrice: bigint;
+    totalPrice: bigint;
+    [key: string]: unknown;
+  }>;
+  payment?: Array<{
+    amount: bigint;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
 };
 
 const updateSchema = z.object({
@@ -53,6 +69,82 @@ const updateSchema = z.object({
     .optional(),
 });
 
+async function getRestrictedInvoiceOrNotFound(id: string, userId: string) {
+  const { prisma: db } = await import("@/modules/database");
+  const dbUser = await db.user.findUnique({
+    where: { id: userId },
+    select: { siteId: true },
+  });
+  const userSiteId = dbUser?.siteId;
+
+  if (!userSiteId) {
+    return null;
+  }
+
+  const invoice = await prismaBilling.invoice.findFirst({
+    where: {
+      id,
+      siteId: userSiteId,
+    },
+    include: {
+      invoiceItem: true,
+      payment: true,
+    },
+  });
+
+  if (!invoice) {
+    return null;
+  }
+
+  return invoice;
+}
+
+async function getInvoiceByAccessMode(
+  id: string,
+  user: { id: string; role?: string | null },
+) {
+  const isRestricted =
+    (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
+
+  if (isRestricted) {
+    return getRestrictedInvoiceOrNotFound(id, user.id);
+  }
+
+  return prismaBilling.invoice.findUnique({
+    where: { id },
+    include: {
+      invoiceItem: true,
+      payment: true,
+    },
+  });
+}
+
+function formatInvoiceResponse(invoice: InvoiceResponseShape) {
+  const payments = invoice.payment ?? [];
+
+  return {
+    ...invoice,
+    subtotal: Number(invoice.subtotal),
+    taxAmount: Number(invoice.taxAmount),
+    discountAmount: Number(invoice.discountAmount),
+    totalAmount: Number(invoice.totalAmount),
+    paidAmount: Number(invoice.paidAmount),
+    invoiceItem: invoice.invoiceItem.map(
+      (item: InvoiceResponseShape["invoiceItem"][number]) => ({
+        ...item,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+      }),
+    ),
+    payment: payments.map(
+      (payment: NonNullable<InvoiceResponseShape["payment"]>[number]) => ({
+        ...payment,
+        amount: Number(payment.amount),
+      }),
+    ),
+  };
+}
+
 // GET /api/invoices/[id]
 export const GET = createHandler(
   { auth: true },
@@ -60,58 +152,19 @@ export const GET = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const invoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-      include: {
-        invoiceItem: true,
-        payment: true,
-      },
-    });
+    const invoice = await getInvoiceByAccessMode(id, user);
 
     if (!invoice) {
       return ApiErrors.notFound("Invoice");
     }
 
-    // RBAC: Check site restrictions
-    const isRestricted =
-      (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
-
-    if (isRestricted) {
-      const { prisma: db } = await import("@/modules/database");
-      const dbUser = await db.user.findUnique({
-        where: { id: user.id },
-        select: { siteId: true },
-      });
-      const userSiteId = dbUser?.siteId;
-
-      if (invoice.siteId && userSiteId && invoice.siteId !== userSiteId) {
-        return ApiErrors.forbidden("Akses ditolak");
-      }
-    }
-
-    // Manually stitch pelanggan data
     const pelanggan = await prisma.pelanggan.findUnique({
       where: { id: invoice.pelangganId },
     });
 
-    // Format for BigInt and include pelanggan
     return NextResponse.json({
-      ...invoice,
+      ...formatInvoiceResponse(invoice),
       pelanggan,
-      subtotal: Number(invoice.subtotal),
-      taxAmount: Number(invoice.taxAmount),
-      discountAmount: Number(invoice.discountAmount),
-      totalAmount: Number(invoice.totalAmount),
-      paidAmount: Number(invoice.paidAmount),
-      invoiceItem: invoice.invoiceItem.map((item) => ({
-        ...item,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalPrice),
-      })),
-      payment: invoice.payment.map((p) => ({
-        ...p,
-        amount: Number(p.amount),
-      })),
     });
   },
 );
@@ -123,9 +176,7 @@ export const PUT = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const existingInvoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-    });
+    const existingInvoice = await getInvoiceByAccessMode(id, user);
 
     if (!existingInvoice) {
       return ApiErrors.notFound("Invoice");
@@ -155,14 +206,6 @@ export const PUT = createHandler(
     const body = await req.json();
     const validatedData = updateSchema.parse(body);
 
-    if (
-      validatedData.siteId &&
-      userSiteId &&
-      validatedData.siteId !== userSiteId
-    ) {
-      return ApiErrors.forbidden("Akses ditolak untuk mengubah site");
-    }
-
     const {
       invoiceItem,
       subtotal,
@@ -172,6 +215,8 @@ export const PUT = createHandler(
       ...restInvoiceData
     } = validatedData;
 
+    const updateSiteId = isRestricted ? userSiteId : validatedData.siteId;
+
     const updatedInvoice = await prismaBilling.$transaction(async (tx) => {
       if (invoiceItem && invoiceItem.length > 0) {
         await tx.invoiceItem.deleteMany({
@@ -179,7 +224,7 @@ export const PUT = createHandler(
         });
 
         await tx.invoiceItem.createMany({
-          data: invoiceItem.map((item: InvoiceItemInput) => ({
+          data: invoiceItem.map((item) => ({
             id: item.id || crypto.randomUUID(),
             invoiceId: id,
             description: item.description,
@@ -192,6 +237,7 @@ export const PUT = createHandler(
 
       const updateData: InvoiceUpdateData = {
         ...restInvoiceData,
+        ...(isRestricted ? { siteId: updateSiteId } : {}),
         ...(subtotal !== undefined ? { subtotal: BigInt(subtotal) } : {}),
         ...(taxAmount !== undefined ? { taxAmount: BigInt(taxAmount) } : {}),
         ...(discountAmount !== undefined
@@ -207,6 +253,7 @@ export const PUT = createHandler(
         data: updateData,
         include: {
           invoiceItem: true,
+          payment: true,
         },
       });
     });
@@ -218,16 +265,7 @@ export const PUT = createHandler(
     return NextResponse.json({
       ...updatedInvoice,
       pelanggan,
-      subtotal: Number(updatedInvoice.subtotal),
-      taxAmount: Number(updatedInvoice.taxAmount),
-      discountAmount: Number(updatedInvoice.discountAmount),
-      totalAmount: Number(updatedInvoice.totalAmount),
-      paidAmount: Number(updatedInvoice.paidAmount),
-      invoiceItem: updatedInvoice.invoiceItem.map((item) => ({
-        ...item,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalPrice),
-      })),
+      ...formatInvoiceResponse(updatedInvoice),
     });
   },
 );
@@ -238,9 +276,7 @@ export const DELETE = createHandler(
     const { id } = ctx.params;
     const user = ctx.session!.user;
 
-    const existingInvoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-    });
+    const existingInvoice = await getInvoiceByAccessMode(id, user);
 
     if (!existingInvoice) {
       return ApiErrors.notFound("Invoice");

@@ -2,7 +2,7 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { InventoryRepository } from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
-import { validateGudangAccess } from "@/modules/inventory";
+import { validateGudangSiteAccess } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import type { Session } from "next-auth";
 
@@ -183,7 +183,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.badRequest("fotoMetadata harus berupa object JSON");
   }
 
-  // Fetch full user to mock session for validateGudangAccess
+  // Fetch full user to mock session for validateGudangSiteAccess
   const { prisma } = await import("@/modules/database");
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
@@ -199,7 +199,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   };
 
-  const access = await validateGudangAccess(mockSession as Session, gudangId);
+  const access = await validateGudangSiteAccess(
+    mockSession as Session,
+    gudangId,
+  );
   if (!access.allowed) {
     return ApiErrors.forbidden(
       access.error || "Anda tidak memiliki akses ke gudang ini",

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 
-import { validateGudangAccess } from "@/modules/inventory/utils/validation";
+import { validateGudangSiteAccess } from "@/modules/inventory/utils/validation";
 import { prismaMock } from "../../setup";
 
-describe("validateGudangAccess", () => {
+describe("validateGudangSiteAccess", () => {
   beforeEach(() => {
     vi.mocked(prismaMock.gudang.findUnique).mockReset();
   });
@@ -25,7 +25,7 @@ describe("validateGudangAccess", () => {
       },
     } as Session;
 
-    const result = await validateGudangAccess(session, "gudang-1");
+    const result = await validateGudangSiteAccess(session, "gudang-1");
 
     expect(result.allowed).toBe(true);
     expect(result.gudang).toEqual({

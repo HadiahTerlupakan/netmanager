@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Session } from "next-auth";
 import type { UserSession } from "@/lib/auth";
 
-export type ValidatedGudangAccess = {
+export type ValidatedGudangSiteAccessResult = {
   allowed: boolean;
   error?: string;
   gudang?: {
@@ -15,7 +15,7 @@ export type ValidatedGudangAccess = {
 };
 
 /**
- * Validate if user has access to the target Gudang based on RBAC and Site restrictions.
+ * Validate site-scoped akses user ke Gudang berdasarkan RBAC dan Site restrictions.
  * Rules:
  * 1. SUPER_ADMIN -> Allowed
  * 2. User WITHOUT 'k_barang:site_only' -> Allowed (Assumes global access or access managed by other means)
@@ -25,10 +25,10 @@ function getLegacySiteId(user: UserSession): string | undefined {
   return Reflect.get(user, "siteId") as string | undefined;
 }
 
-export async function validateGudangAccess(
+export async function validateGudangSiteAccess(
   session: Session,
   gudangId: string,
-): Promise<ValidatedGudangAccess> {
+): Promise<ValidatedGudangSiteAccessResult> {
   // 1. Check Super Admin
   const user = session.user as UserSession;
   const userRole = user.role;

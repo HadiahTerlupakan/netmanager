@@ -1,12 +1,13 @@
 import { randomUUID } from "crypto";
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import type { Prisma } from "@prisma/client";
 import type { Session } from "next-auth";
 
-import { validateGudangAccess } from "../utils/validation";
+import { validateGudangSiteAccess } from "../utils/validation";
 
 type InventoryUserContext = {
   id: string;
@@ -80,8 +81,20 @@ function ensureTenantConsistency(input: {
   }
 }
 
+async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
+  const tenantContext = await getTenantIdFromContext();
+  const isSuper = isSuperAdmin(user as never) || tenantContext.isSuperAdmin;
+
+  if (!isSuper && !tenantContext.tenantId) {
+    throw new Error(
+      "SECURITY_BREACH: tenant context is required for non-superadmin inventory opname access",
+    );
+  }
+}
+
 export class InventoryOpnameService {
   async listOpname(input: ListInventoryOpnameInput) {
+    await ensureTenantContextForNonSuperAdmin(input.user);
     const offset = (input.page - 1) * input.limit;
     const where: Prisma.StockOpnameWhereInput = {};
 
@@ -165,8 +178,12 @@ export class InventoryOpnameService {
   }
 
   async createOpname(input: CreateInventoryOpnameInput) {
+    await ensureTenantContextForNonSuperAdmin(input.user);
     const accessSession = await this.buildGudangAccessSession(input.user);
-    const access = await validateGudangAccess(accessSession, input.gudangId);
+    const access = await validateGudangSiteAccess(
+      accessSession,
+      input.gudangId,
+    );
 
     if (!access.allowed) {
       throw new Error(access.error || "Akses ditolak");

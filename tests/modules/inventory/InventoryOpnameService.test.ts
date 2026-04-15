@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getInventoryOpnameService } from "@/modules/inventory/services/InventoryOpnameService";
 import { prismaMock } from "../../setup";
 
@@ -9,12 +10,25 @@ vi.mock("@/lib/auth", () => ({
   isSuperAdmin: vi.fn(),
 }));
 
+vi.mock("@/lib/tenant-context", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+
+  return {
+    ...actual,
+    getTenantIdFromContext: vi.fn(),
+  };
+});
+
 describe("InventoryOpnameService", () => {
   const service = getInventoryOpnameService();
 
   beforeEach(() => {
     vi.mocked(getUserPermissions).mockResolvedValue([]);
     vi.mocked(isSuperAdmin).mockReturnValue(false);
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-1",
+      isSuperAdmin: false,
+    });
     prismaMock.$transaction.mockImplementation(
       async (
         callback: (tx: typeof prismaMock) => Promise<unknown>,
@@ -81,5 +95,58 @@ describe("InventoryOpnameService", () => {
 
     expect(findManyArgs?.where?.gudang?.sites?.some?.id).toBe("site-fallback");
     expect(countArgs?.where?.gudang?.sites?.some?.id).toBe("site-fallback");
+  });
+
+  it("rejects createOpname when tenant context is missing for non-superadmin", async () => {
+    vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+      tenantId: null,
+      isSuperAdmin: false,
+    });
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      siteId: null,
+      role: null,
+    });
+
+    await expect(
+      service.createOpname({
+        user: {
+          id: "user-1",
+          name: "Admin",
+          email: "admin@example.com",
+          role: "ADMIN",
+          permissions: ["k_barang:site_only"],
+          siteId: "site-legacy",
+        },
+        barangId: "barang-1",
+        gudangId: "gudang-1",
+        stokFisik: 10,
+      }),
+    ).rejects.toThrow(
+      "SECURITY_BREACH: tenant context is required for non-superadmin inventory opname access",
+    );
+  });
+
+  it("rejects listOpname when tenant context is missing for non-superadmin", async () => {
+    vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+      tenantId: null,
+      isSuperAdmin: false,
+    });
+
+    await expect(
+      service.listOpname({
+        user: {
+          id: "user-1",
+          name: "Admin",
+          email: "admin@example.com",
+          role: "ADMIN",
+          permissions: [],
+          siteId: "site-fallback",
+        },
+        page: 1,
+        limit: 10,
+      }),
+    ).rejects.toThrow(
+      "SECURITY_BREACH: tenant context is required for non-superadmin inventory opname access",
+    );
   });
 });
