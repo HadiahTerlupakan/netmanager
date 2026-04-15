@@ -96,27 +96,21 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain("Validate Registry Configuration");
-    expect(jenkinsfile).toContain('REGISTRY_URL = ""');
-    expect(jenkinsfile).toContain('REGISTRY_NAMESPACE = ""');
-    expect(jenkinsfile).toContain('REGISTRY_CREDENTIALS_ID = ""');
+    expect(jenkinsfile).not.toContain('REGISTRY_URL = ""');
+    expect(jenkinsfile).not.toContain('REGISTRY_NAMESPACE = ""');
+    expect(jenkinsfile).not.toContain('REGISTRY_CREDENTIALS_ID = ""');
+    expect(jenkinsfile).not.toContain('withEnv(["REGISTRY_URL_LEGACY=');
     expect(jenkinsfile).toContain(
-      "def getRuntimeConfig = { String preferredName, String legacyName ->",
+      "env.REGISTRY_URL = normalizeRegistryUrl(env.NETMANAGER_REGISTRY_URL ?: env.REGISTRY_URL ?: '')",
     );
     expect(jenkinsfile).toContain(
-      "def preferredValue = (System.getenv(preferredName) ?: '').trim()",
+      "env.REGISTRY_NAMESPACE = (env.NETMANAGER_REGISTRY_NAMESPACE ?: env.REGISTRY_NAMESPACE ?: '').trim()",
     );
     expect(jenkinsfile).toContain(
-      "def legacyValue = (System.getenv(legacyName) ?: '').trim()",
+      "env.REGISTRY_CREDENTIALS_ID = (env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: env.REGISTRY_CREDENTIALS_ID ?: '').trim()",
     );
-    expect(jenkinsfile).toContain(
-      "env.REGISTRY_URL = normalizeRegistryUrl(getRuntimeConfig('NETMANAGER_REGISTRY_URL', 'REGISTRY_URL'))",
-    );
-    expect(jenkinsfile).toContain(
-      "env.REGISTRY_NAMESPACE = getRuntimeConfig('NETMANAGER_REGISTRY_NAMESPACE', 'REGISTRY_NAMESPACE').trim()",
-    );
-    expect(jenkinsfile).toContain(
-      "env.REGISTRY_CREDENTIALS_ID = getRuntimeConfig('NETMANAGER_REGISTRY_CREDENTIALS_ID', 'REGISTRY_CREDENTIALS_ID').trim()",
-    );
+    expect(jenkinsfile).not.toContain("System.getenv(");
+    expect(jenkinsfile).not.toContain("RUNTIME_REGISTRY_URL");
     expect(jenkinsfile).toContain(
       "NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.",
     );

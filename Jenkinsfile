@@ -49,9 +49,6 @@ spec:
         DOCKER_BUILDKIT = "1"
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
         IMAGE_VERSION = "${((env.GIT_COMMIT ?: 'nogit').take(12))}-${env.BUILD_NUMBER ?: '0'}"
-        REGISTRY_URL = ""
-        REGISTRY_NAMESPACE = ""
-        REGISTRY_CREDENTIALS_ID = ""
         APP_IMAGE_REF = ""
         CRON_IMAGE_REF = ""
         RADIUS_IMAGE_REF = ""
@@ -82,16 +79,9 @@ spec:
                         }
                     }
 
-                    def getRuntimeConfig = { String preferredName, String legacyName ->
-                        def preferredValue = (System.getenv(preferredName) ?: '').trim()
-                        def legacyValue = (System.getenv(legacyName) ?: '').trim()
-
-                        return preferredValue ?: legacyValue
-                    }
-
-                    env.REGISTRY_URL = normalizeRegistryUrl(getRuntimeConfig('NETMANAGER_REGISTRY_URL', 'REGISTRY_URL'))
-                    env.REGISTRY_NAMESPACE = getRuntimeConfig('NETMANAGER_REGISTRY_NAMESPACE', 'REGISTRY_NAMESPACE').trim()
-                    env.REGISTRY_CREDENTIALS_ID = getRuntimeConfig('NETMANAGER_REGISTRY_CREDENTIALS_ID', 'REGISTRY_CREDENTIALS_ID').trim()
+                    env.REGISTRY_URL = normalizeRegistryUrl(env.NETMANAGER_REGISTRY_URL ?: env.REGISTRY_URL ?: '')
+                    env.REGISTRY_NAMESPACE = (env.NETMANAGER_REGISTRY_NAMESPACE ?: env.REGISTRY_NAMESPACE ?: '').trim()
+                    env.REGISTRY_CREDENTIALS_ID = (env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: env.REGISTRY_CREDENTIALS_ID ?: '').trim()
 
                     requireValue(env.REGISTRY_URL, 'NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.')
                     requireValue(env.REGISTRY_NAMESPACE, 'NETMANAGER_REGISTRY_NAMESPACE (atau REGISTRY_NAMESPACE) wajib disediakan di runtime Jenkins.')
