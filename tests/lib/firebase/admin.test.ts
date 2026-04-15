@@ -86,10 +86,34 @@ describe("firebase admin bootstrap", () => {
     );
   });
 
+  it("skips realtime database bootstrap when database url is missing", async () => {
+    process.env.FIREBASE_PROJECT_ID = "demo-project";
+    process.env.FIREBASE_CLIENT_EMAIL = "firebase-adminsdk@example.com";
+    process.env.FIREBASE_PRIVATE_KEY = "private-key";
+    const existingApp = { name: "[DEFAULT]" };
+    initializeAppMock.mockReturnValue(existingApp);
+
+    const firebaseAdminModule = await import("@/lib/firebase/admin");
+
+    expect(certMock).toHaveBeenCalledWith({
+      projectId: "demo-project",
+      clientEmail: "firebase-adminsdk@example.com",
+      privateKey: "private-key",
+    });
+    expect(initializeAppMock).toHaveBeenCalledTimes(1);
+    expect(firebaseAdminModule.firebaseAdminApp).toBe(existingApp);
+    expect(getMessagingMock).toHaveBeenCalledWith(existingApp);
+    expect(getFirestoreMock).toHaveBeenCalledWith(existingApp);
+    expect(getDatabaseMock).not.toHaveBeenCalled();
+    expect(firebaseAdminModule.realtimeDb).toBeNull();
+  });
+
   it("reuses an existing firebase app when one is already initialized", async () => {
     const existingApp = { name: "[DEFAULT]" };
     getAppsMock.mockReturnValue([existingApp]);
     getAppMock.mockReturnValue(existingApp);
+    process.env.FIREBASE_DATABASE_URL =
+      "https://demo-project-default-rtdb.firebaseio.com";
 
     const firebaseAdminModule = await import("@/lib/firebase/admin");
 

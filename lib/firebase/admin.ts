@@ -41,6 +41,7 @@ export const messaging = firebaseAdminApp
   ? getMessaging(firebaseAdminApp)
   : null;
 export const db = firebaseAdminApp ? getFirestore(firebaseAdminApp) : null;
-export const realtimeDb = firebaseAdminApp
-  ? getDatabase(firebaseAdminApp)
-  : null;
+export const realtimeDb =
+  firebaseAdminApp && process.env.FIREBASE_DATABASE_URL
+    ? getDatabase(firebaseAdminApp)
+    : null;
