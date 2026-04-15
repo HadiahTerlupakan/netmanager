@@ -96,14 +96,26 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain("Validate Registry Configuration");
+    expect(jenkinsfile).toContain('REGISTRY_URL = ""');
+    expect(jenkinsfile).toContain('REGISTRY_NAMESPACE = ""');
+    expect(jenkinsfile).toContain('REGISTRY_CREDENTIALS_ID = ""');
     expect(jenkinsfile).toContain(
-      "REGISTRY_URL = \"${env.NETMANAGER_REGISTRY_URL ?: env.REGISTRY_URL ?: ''}\"",
+      "def getRuntimeConfig = { String preferredName, String legacyName ->",
     );
     expect(jenkinsfile).toContain(
-      "REGISTRY_NAMESPACE = \"${env.NETMANAGER_REGISTRY_NAMESPACE ?: env.REGISTRY_NAMESPACE ?: ''}\"",
+      "def preferredValue = (System.getenv(preferredName) ?: '').trim()",
     );
     expect(jenkinsfile).toContain(
-      "REGISTRY_CREDENTIALS_ID = \"${env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: env.REGISTRY_CREDENTIALS_ID ?: ''}\"",
+      "def legacyValue = (System.getenv(legacyName) ?: '').trim()",
+    );
+    expect(jenkinsfile).toContain(
+      "env.REGISTRY_URL = normalizeRegistryUrl(getRuntimeConfig('NETMANAGER_REGISTRY_URL', 'REGISTRY_URL'))",
+    );
+    expect(jenkinsfile).toContain(
+      "env.REGISTRY_NAMESPACE = getRuntimeConfig('NETMANAGER_REGISTRY_NAMESPACE', 'REGISTRY_NAMESPACE').trim()",
+    );
+    expect(jenkinsfile).toContain(
+      "env.REGISTRY_CREDENTIALS_ID = getRuntimeConfig('NETMANAGER_REGISTRY_CREDENTIALS_ID', 'REGISTRY_CREDENTIALS_ID').trim()",
     );
     expect(jenkinsfile).toContain(
       "NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.",
