@@ -6,12 +6,14 @@ import {
   type ProfilePPPSchema,
 } from "@/lib/validations/profileppp";
 import { sanitizeInput } from "@/lib/utils/sanitize";
-import { checkSiteRestriction } from "@/modules/roles";
+import { isSuperAdmin } from "@/lib/auth";
+import { canAccessSite, checkSiteRestriction } from "@/modules/roles";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { RadiusSyncService } from "./radius-sync-service";
 import * as z from "zod";
 import {
   createPPPProfileInMikroTik,
+  deletePPPProfileInMikroTik,
   getRateLimitFromBandwidth,
   updatePPPProfileInMikroTik,
 } from "./mikrotik-ppp-profile";
@@ -36,6 +38,11 @@ interface UpdateProfilePPPInput {
   body: Record<string, unknown>;
 }
 
+interface DeleteProfilePPPInput {
+  session: Session | null;
+  id: string;
+}
+
 interface ProfilePPPRecord {
   id: string;
   name: string;
@@ -55,6 +62,33 @@ interface ProfilePPPRecord {
     name: string;
   } | null;
 }
+
+interface DeleteProfilePPPRecord {
+  id: string;
+  name: string;
+  remoteAddress: string;
+  siteId: string | null;
+  mikroTikRouterId: string | null;
+  mikroTikRouter: {
+    id: string;
+    name: string;
+  } | null;
+  hargaPaket: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
+type DeleteProfilePPPResult =
+  | {
+      success: true;
+      message: string;
+    }
+  | {
+      success: false;
+      status: number;
+      error: string;
+    };
 
 export class ProfilePPPService {
   private async getRadiusSyncService(): Promise<RadiusSyncService> {
@@ -151,6 +185,68 @@ export class ProfilePPPService {
         mikroTikRouter: true,
       },
     });
+  }
+
+  private async findProfileForDelete(
+    id: string,
+  ): Promise<DeleteProfilePPPRecord | null> {
+    return prisma.profilePPP.findUnique({
+      where: { id },
+      include: {
+        mikroTikRouter: true,
+        hargaPaket: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+  }
+
+  private buildDeleteBlockedMessage(profile: DeleteProfilePPPRecord): string {
+    const paketNames = profile.hargaPaket
+      .slice(0, 3)
+      .map((paket) => paket.name)
+      .join(", ");
+    const moreCount =
+      profile.hargaPaket.length > 3
+        ? ` dan ${profile.hargaPaket.length - 3} lainnya`
+        : "";
+
+    return `Profile PPP "${profile.name}" tidak dapat dihapus karena masih digunakan oleh ${profile.hargaPaket.length} paket (${paketNames}${moreCount}). Hapus atau ubah profile pada paket tersebut terlebih dahulu.`;
+  }
+
+  private async cleanupProfileInMikroTik(
+    profile: DeleteProfilePPPRecord,
+  ): Promise<DeleteProfilePPPResult | null> {
+    if (!profile.mikroTikRouterId) {
+      return null;
+    }
+
+    try {
+      const result = await deletePPPProfileInMikroTik(
+        profile.mikroTikRouterId,
+        profile.name,
+        profile.remoteAddress,
+      );
+
+      if (result.success) {
+        return null;
+      }
+
+      return {
+        success: false,
+        status: 502,
+        error: result.error || "Gagal menghapus profile PPP di MikroTik",
+      };
+    } catch (error: unknown) {
+      return {
+        success: false,
+        status: 502,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Gagal menghapus profile PPP di MikroTik",
+      };
+    }
   }
 
   private buildCreatePrismaData(data: ProfilePPPSchema) {
@@ -533,6 +629,69 @@ export class ProfilePPPService {
     );
 
     return profilePPP;
+  }
+
+  async deleteProfilePPPFromRequest(
+    input: DeleteProfilePPPInput,
+  ): Promise<DeleteProfilePPPResult> {
+    if (!input.session?.user) {
+      return {
+        success: false,
+        status: 401,
+        error: "Autentikasi diperlukan",
+      };
+    }
+
+    const permissions = input.session.user.permissions || [];
+    if (
+      !isSuperAdmin(input.session.user) &&
+      !permissions.includes("profileppp:delete")
+    ) {
+      return {
+        success: false,
+        status: 403,
+        error: "Akses ditolak",
+      };
+    }
+
+    const profile = await this.findProfileForDelete(input.id);
+    if (!profile) {
+      return {
+        success: false,
+        status: 404,
+        error: "Profile PPP tidak ditemukan",
+      };
+    }
+
+    if (!canAccessSite(input.session, "profileppp", profile.siteId)) {
+      return {
+        success: false,
+        status: 403,
+        error: "Anda tidak memiliki akses ke profile PPP di site ini",
+      };
+    }
+
+    if (profile.hargaPaket.length > 0) {
+      return {
+        success: false,
+        status: 400,
+        error: this.buildDeleteBlockedMessage(profile),
+      };
+    }
+
+    const cleanupError = await this.cleanupProfileInMikroTik(profile);
+    if (cleanupError) {
+      return cleanupError;
+    }
+
+    await prisma.profilePPP.delete({
+      where: { id: input.id },
+    });
+
+    return {
+      success: true,
+      message: "Profile PPP berhasil dihapus",
+    };
   }
 }
 

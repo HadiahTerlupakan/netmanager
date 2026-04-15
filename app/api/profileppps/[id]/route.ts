@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/modules/database";
-import { deletePPPProfileInMikroTik } from "@/modules/network";
 import { ProfilePPPService } from "@/modules/network";
 import { Prisma } from "@prisma/client";
 
@@ -418,72 +417,19 @@ export async function DELETE(
     }
 
     const { id } = await params;
-
-    // Ambil data profile sebelum dihapus untuk cek relasi dan hapus di MikroTik
-    const profile = await prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        mikroTikRouter: true,
-        hargaPaket: {
-          select: { id: true, name: true },
-        },
-      },
+    const result = await profilePPPService.deleteProfilePPPFromRequest({
+      session,
+      id,
     });
 
-    if (!profile) {
+    if (result.success === false) {
       return NextResponse.json(
-        { error: "Profile PPP tidak ditemukan" },
-        { status: 404 },
+        { error: result.error },
+        { status: result.status },
       );
     }
 
-    // Cek apakah ada HargaPaket yang masih menggunakan profile ini
-    if (profile.hargaPaket && profile.hargaPaket.length > 0) {
-      const paketNames = profile.hargaPaket
-        .slice(0, 3)
-        .map((p) => p.name)
-        .join(", ");
-      const moreCount =
-        profile.hargaPaket.length > 3
-          ? ` dan ${profile.hargaPaket.length - 3} lainnya`
-          : "";
-      return NextResponse.json(
-        {
-          error: `Profile PPP "${profile.name}" tidak dapat dihapus karena masih digunakan oleh ${profile.hargaPaket.length} paket (${paketNames}${moreCount}). Hapus atau ubah profile pada paket tersebut terlebih dahulu.`,
-        },
-        { status: 400 },
-      );
-    }
-
-    // Hapus dari database
-    await prisma.profilePPP.delete({
-      where: { id },
-    });
-
-    // Hapus profile PPP di MikroTik jika ada router
-    // Juga hapus IP Pool yang terkait jika dibuat oleh netmanager
-    if (profile.mikroTikRouterId && profile.mikroTikRouter) {
-      try {
-        const mikrotikResult = await deletePPPProfileInMikroTik(
-          profile.mikroTikRouterId,
-          profile.name,
-          profile.remoteAddress, // Kirim remoteAddress untuk menghapus IP Pool yang terkait
-        );
-
-        if (!mikrotikResult.success) {
-          console.error(
-            "Failed to delete PPP profile in MikroTik:",
-            mikrotikResult.error,
-          );
-          // Jangan gagalkan request, hanya log error
-        }
-      } catch (mikrotikError: unknown) {
-        console.error("Error deleting PPP profile in MikroTik:", mikrotikError);
-        // Jangan gagalkan request, hanya log error
-      }
-    }
-
-    return NextResponse.json({ message: "Profile PPP berhasil dihapus" });
+    return NextResponse.json({ message: result.message });
   } catch (error: unknown) {
     console.error("Error deleting profile PPP:", error);
 
