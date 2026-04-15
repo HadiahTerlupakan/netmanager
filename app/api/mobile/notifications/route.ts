@@ -1,127 +1,210 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { getNotificationsForUser, getReadableNotificationForUser, getUnreadCount, markAsRead, markAllAsRead } from '@/modules/notification'
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { NextRequest, NextResponse } from "next/server";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import {
+  getNotificationsForUser,
+  getReadableNotificationForUser,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+} from "@/modules/notification";
+import { apiError, ErrorCodes } from "@/lib/api-response";
 
 // GET - Get notifications for current user
 export async function GET(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request)
-        if (authResult instanceof NextResponse) {
-            return authResult
-        }
-
-        const userId = authResult.userId as string
-        if (!userId) {
-            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
-        }
-
-        const limitParam = Number.parseInt(request.nextUrl.searchParams.get('limit') || '15', 10)
-        const cursorParam = Number.parseInt(request.nextUrl.searchParams.get('cursor') || '0', 10)
-        const limit = Number.isNaN(limitParam) ? 15 : Math.min(Math.max(limitParam, 1), 50)
-        const offset = Number.isNaN(cursorParam) ? 0 : Math.max(cursorParam, 0)
-
-        const { notifications, total } = await getNotificationsForUser(userId, {
-            limit,
-            offset,
-        })
-
-        const unreadCount = await getUnreadCount(userId)
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                notifications: notifications.map(n => {
-                    let link = n.link
-
-                    const normalizeMarketingLink = (rawLink: string | null) => {
-                        if (!rawLink) return '/(app)/marketing/canvasing'
-                        if (rawLink.startsWith('/(app)/marketing/canvasing')) {
-                            return rawLink
-                        }
-                        if (rawLink.startsWith('/admin/marketing/canvasing')) {
-                            return rawLink.replace('/admin/marketing/canvasing', '/(app)/marketing/canvasing')
-                        }
-                        if (rawLink.startsWith('/marketing/canvasing')) {
-                            return rawLink.replace('/marketing/canvasing', '/(app)/marketing/canvasing')
-                        }
-                        return rawLink
-                    }
-
-                    // Fix links for mobile navigation
-                    if (n.sourceType === 'WORK_ORDER' && n.sourceId) {
-                        link = `/(app)/work-order-detail/${n.sourceId}`
-                    } else if (n.sourceType === 'LEAVE') {
-                        link = '/(app)/izin'
-                    } else if (n.sourceType === 'OVERTIME') {
-                        link = '/(app)/lembur'
-                    } else if (n.sourceType === 'ATTENDANCE') {
-                        link = '/(app)/absensi'
-                    } else if (n.sourceType === 'CANVASING' || n.sourceType === 'POINT_CLAIM') {
-                        link = normalizeMarketingLink(n.link)
-                    } else if (n.sourceType === 'INVENTORY') {
-                        link = '/(app)/barang'
-                    }
-
-                    return {
-                        id: n.id,
-                        type: n.type,
-                        title: n.title,
-                        message: n.message,
-                        link: link,
-                        isRead: n.isRead,
-                        sourceType: n.sourceType,
-                        sourceId: n.sourceId,
-                        createdAt: n.createdAt.toISOString()
-                    }
-                }),
-                unreadCount,
-                nextCursor: offset + notifications.length < total ? String(offset + notifications.length) : null,
-            }
-        })
-    } catch (error: unknown) {
-        console.error('Error fetching notifications:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+  try {
+    const authResult = await getMobileAuthPayload(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const userId = authResult.userId as string;
+    if (!userId) {
+      return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
+        status: 401,
+      });
+    }
+
+    const limitParam = Number.parseInt(
+      request.nextUrl.searchParams.get("limit") || "15",
+      10,
+    );
+    const cursorParam = Number.parseInt(
+      request.nextUrl.searchParams.get("cursor") || "0",
+      10,
+    );
+    const limit = Number.isNaN(limitParam)
+      ? 15
+      : Math.min(Math.max(limitParam, 1), 50);
+    const offset = Number.isNaN(cursorParam) ? 0 : Math.max(cursorParam, 0);
+
+    const { notifications, total } = await getNotificationsForUser(userId, {
+      limit,
+      offset,
+    });
+
+    const unreadCount = await getUnreadCount(userId);
+
+    const normalizeMarketingLink = (rawLink: string | null) => {
+      if (!rawLink) return "/(app)/marketing/canvasing";
+      if (rawLink.startsWith("/(app)/marketing/canvasing")) {
+        return rawLink;
+      }
+      if (rawLink.startsWith("/admin/marketing/canvasing")) {
+        return rawLink.replace(
+          "/admin/marketing/canvasing",
+          "/(app)/marketing/canvasing",
+        );
+      }
+      if (rawLink.startsWith("/marketing/canvasing")) {
+        return rawLink.replace(
+          "/marketing/canvasing",
+          "/(app)/marketing/canvasing",
+        );
+      }
+      return rawLink;
+    };
+
+    const normalizeMobileNotificationCopy = (notification: {
+      title: string;
+      message: string;
+      sourceType: string | null;
+    }) => {
+      if (notification.sourceType !== "WORK_ORDER") {
+        return {
+          title: notification.title,
+          message: notification.message,
+        };
+      }
+
+      const normalizedTitle =
+        notification.title === "📝 WO Request Baru"
+          ? "Work Order Baru"
+          : notification.title.replace(/^[^\p{L}\p{N}]+/u, "").trim();
+
+      const normalizedMessage = notification.message.replace(
+        /^[^:]+ mengajukan:\s*/u,
+        "",
+      );
+
+      return {
+        title: normalizedTitle,
+        message: normalizedMessage,
+      };
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        notifications: notifications.map((n) => {
+          let link = n.link;
+
+          if (n.sourceType === "WORK_ORDER" && n.sourceId) {
+            link = `/(app)/work-order-detail/${n.sourceId}`;
+          } else if (n.sourceType === "LEAVE") {
+            link = "/(app)/izin";
+          } else if (n.sourceType === "OVERTIME") {
+            link = "/(app)/lembur";
+          } else if (n.sourceType === "ATTENDANCE") {
+            link = "/(app)/absensi";
+          } else if (
+            n.sourceType === "CANVASING" ||
+            n.sourceType === "POINT_CLAIM"
+          ) {
+            link = normalizeMarketingLink(n.link);
+          } else if (n.sourceType === "INVENTORY") {
+            link = "/(app)/barang";
+          }
+
+          const normalizedCopy = normalizeMobileNotificationCopy({
+            title: n.title,
+            message: n.message,
+            sourceType: n.sourceType,
+          });
+
+          return {
+            id: n.id,
+            type: n.type,
+            title: normalizedCopy.title,
+            message: normalizedCopy.message,
+            link: link,
+            isRead: n.isRead,
+            sourceType: n.sourceType,
+            sourceId: n.sourceId,
+            createdAt: n.createdAt.toISOString(),
+          };
+        }),
+        unreadCount,
+        nextCursor:
+          offset + notifications.length < total
+            ? String(offset + notifications.length)
+            : null,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Error fetching notifications:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Terjadi kesalahan";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
 }
 
 // POST - Mark notification(s) as read
 export async function POST(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request)
-        if (authResult instanceof NextResponse) {
-            return authResult
-        }
-
-        const userId = authResult.userId as string
-        if (!userId) {
-            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 })
-        }
-
-        const body = await request.json()
-        const { action, notificationId } = body
-
-        if (action === 'markAllRead') {
-            await markAllAsRead(userId)
-            return NextResponse.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca' })
-        } else if (action === 'markRead' && notificationId) {
-            const permissions = Array.isArray(authResult.permissions) ? authResult.permissions : []
-            const siteId = permissions.includes('site_only') ? authResult.siteId || undefined : undefined
-
-            const notification = await getReadableNotificationForUser(notificationId, userId, { siteId })
-            if (!notification) {
-                return apiError('Notifikasi tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 })
-            }
-
-            await markAsRead(notificationId)
-            return NextResponse.json({ success: true, message: 'Notifikasi ditandai sudah dibaca' })
-        }
-
-        return apiError('Aksi tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    } catch (error: unknown) {
-        console.error('Error updating notifications:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan'
-        return NextResponse.json({ error: errorMessage }, { status: 500 })
+  try {
+    const authResult = await getMobileAuthPayload(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const userId = authResult.userId as string;
+    if (!userId) {
+      return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
+        status: 401,
+      });
+    }
+
+    const body = await request.json();
+    const { action, notificationId } = body;
+
+    if (action === "markAllRead") {
+      await markAllAsRead(userId);
+      return NextResponse.json({
+        success: true,
+        message: "Semua notifikasi ditandai sudah dibaca",
+      });
+    } else if (action === "markRead" && notificationId) {
+      const permissions = Array.isArray(authResult.permissions)
+        ? authResult.permissions
+        : [];
+      const siteId = permissions.includes("site_only")
+        ? authResult.siteId || undefined
+        : undefined;
+
+      const notification = await getReadableNotificationForUser(
+        notificationId,
+        userId,
+        { siteId },
+      );
+      if (!notification) {
+        return apiError("Notifikasi tidak ditemukan", ErrorCodes.NOT_FOUND, {
+          status: 404,
+        });
+      }
+
+      await markAsRead(notificationId);
+      return NextResponse.json({
+        success: true,
+        message: "Notifikasi ditandai sudah dibaca",
+      });
+    }
+
+    return apiError("Aksi tidak valid", ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+    });
+  } catch (error: unknown) {
+    console.error("Error updating notifications:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Terjadi kesalahan";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
 }
