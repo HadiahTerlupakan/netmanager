@@ -13,7 +13,7 @@ import {
 } from "react-icons/hi2";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
-import { useRealtimeNotifications } from "@/lib/websocket/hooks/useRealtimeNotifications";
+import { useRealtimeNotifications } from "@/lib/realtime/hooks/useRealtimeNotifications";
 import { getPriorityColor } from "@/lib/utils/priority-helpers";
 
 export function AdminNotificationBell() {

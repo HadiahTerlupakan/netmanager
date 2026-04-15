@@ -33,6 +33,48 @@ describe("admin notification contract", () => {
     );
   });
 
+  it("registers web FCM once from the navbar notification shell", () => {
+    const navbar = readSource("components/layout/Navbar.tsx");
+    const adminNotificationBell = readSource(
+      "components/notifications/AdminNotificationBell.tsx",
+    );
+    const paymentApprovalBell = readSource(
+      "components/notifications/PaymentApprovalBell.tsx",
+    );
+
+    expect(navbar).toContain("@/hooks/useFCM");
+    expect(navbar).toContain("useFCM();");
+    expect(adminNotificationBell).not.toContain("@/hooks/useFCM");
+    expect(adminNotificationBell).not.toContain("useFCM();");
+    expect(paymentApprovalBell).not.toContain("@/hooks/useFCM");
+    expect(paymentApprovalBell).not.toContain("useFCM()");
+  });
+
+  it("uses the realtime notification hook from the firebase realtime namespace", () => {
+    const adminNotificationBell = readSource(
+      "components/notifications/AdminNotificationBell.tsx",
+    );
+    const notificationBell = readSource(
+      "components/notifications/NotificationBell.tsx",
+    );
+    const karyawanNotificationBell = readSource(
+      "components/karyawan/KaryawanNotificationBell.tsx",
+    );
+
+    expect(adminNotificationBell).toContain(
+      "@/lib/realtime/hooks/useRealtimeNotifications",
+    );
+    expect(notificationBell).toContain(
+      "@/lib/realtime/hooks/useRealtimeNotifications",
+    );
+    expect(karyawanNotificationBell).toContain(
+      "@/lib/realtime/hooks/useRealtimeNotifications",
+    );
+    expect(adminNotificationBell).not.toContain(
+      "@/lib/websocket/hooks/useRealtimeNotifications",
+    );
+  });
+
   it("keeps unread-count aligned with the same admin visibility scope as the list route", () => {
     const notificationsRoute = readSource("app/api/notifications/route.ts");
     const unreadCountRoute = readSource(

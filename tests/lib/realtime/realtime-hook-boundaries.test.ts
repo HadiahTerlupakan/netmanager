@@ -1571,7 +1571,7 @@ describe("realtime hook boundaries", () => {
 
   it("subscribes realtime notifications through normalized notification events", async () => {
     const { useRealtimeNotifications } =
-      await import("@/lib/websocket/hooks/useRealtimeNotifications");
+      await import("@/lib/realtime/hooks/useRealtimeNotifications");
 
     useRealtimeNotifications();
 
