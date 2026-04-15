@@ -49,9 +49,9 @@ spec:
         DOCKER_BUILDKIT = "1"
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
         IMAGE_VERSION = "${((env.GIT_COMMIT ?: 'nogit').take(12))}-${env.BUILD_NUMBER ?: '0'}"
-        REGISTRY_URL = "${env.NETMANAGER_REGISTRY_URL ?: ''}"
-        REGISTRY_NAMESPACE = "${env.NETMANAGER_REGISTRY_NAMESPACE ?: ''}"
-        REGISTRY_CREDENTIALS_ID = "${env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: ''}"
+        REGISTRY_URL = "${env.NETMANAGER_REGISTRY_URL ?: env.REGISTRY_URL ?: ''}"
+        REGISTRY_NAMESPACE = "${env.NETMANAGER_REGISTRY_NAMESPACE ?: env.REGISTRY_NAMESPACE ?: ''}"
+        REGISTRY_CREDENTIALS_ID = "${env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: env.REGISTRY_CREDENTIALS_ID ?: ''}"
         APP_IMAGE_REF = ""
         CRON_IMAGE_REF = ""
         RADIUS_IMAGE_REF = ""
@@ -86,9 +86,9 @@ spec:
                     env.REGISTRY_NAMESPACE = (env.REGISTRY_NAMESPACE ?: '').trim()
                     env.REGISTRY_CREDENTIALS_ID = (env.REGISTRY_CREDENTIALS_ID ?: '').trim()
 
-                    requireValue(env.REGISTRY_URL, 'NETMANAGER_REGISTRY_URL wajib disediakan di runtime Jenkins.')
-                    requireValue(env.REGISTRY_NAMESPACE, 'NETMANAGER_REGISTRY_NAMESPACE wajib disediakan di runtime Jenkins.')
-                    requireValue(env.REGISTRY_CREDENTIALS_ID, 'NETMANAGER_REGISTRY_CREDENTIALS_ID wajib disediakan di runtime Jenkins.')
+                    requireValue(env.REGISTRY_URL, 'NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.')
+                    requireValue(env.REGISTRY_NAMESPACE, 'NETMANAGER_REGISTRY_NAMESPACE (atau REGISTRY_NAMESPACE) wajib disediakan di runtime Jenkins.')
+                    requireValue(env.REGISTRY_CREDENTIALS_ID, 'NETMANAGER_REGISTRY_CREDENTIALS_ID (atau REGISTRY_CREDENTIALS_ID) wajib disediakan di runtime Jenkins.')
 
                     env.REGISTRY_PATH = "${env.REGISTRY_URL}/${env.REGISTRY_NAMESPACE}"
                     env.APP_IMAGE_REF = "${env.REGISTRY_PATH}/${DOCKER_IMAGE}:${IMAGE_VERSION}"

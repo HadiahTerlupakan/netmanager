@@ -97,13 +97,22 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
 
     expect(jenkinsfile).toContain("Validate Registry Configuration");
     expect(jenkinsfile).toContain(
-      "NETMANAGER_REGISTRY_URL wajib disediakan di runtime Jenkins.",
+      "REGISTRY_URL = \"${env.NETMANAGER_REGISTRY_URL ?: env.REGISTRY_URL ?: ''}\"",
     );
     expect(jenkinsfile).toContain(
-      "NETMANAGER_REGISTRY_NAMESPACE wajib disediakan di runtime Jenkins.",
+      "REGISTRY_NAMESPACE = \"${env.NETMANAGER_REGISTRY_NAMESPACE ?: env.REGISTRY_NAMESPACE ?: ''}\"",
     );
     expect(jenkinsfile).toContain(
-      "NETMANAGER_REGISTRY_CREDENTIALS_ID wajib disediakan di runtime Jenkins.",
+      "REGISTRY_CREDENTIALS_ID = \"${env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: env.REGISTRY_CREDENTIALS_ID ?: ''}\"",
+    );
+    expect(jenkinsfile).toContain(
+      "NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.",
+    );
+    expect(jenkinsfile).toContain(
+      "NETMANAGER_REGISTRY_NAMESPACE (atau REGISTRY_NAMESPACE) wajib disediakan di runtime Jenkins.",
+    );
+    expect(jenkinsfile).toContain(
+      "NETMANAGER_REGISTRY_CREDENTIALS_ID (atau REGISTRY_CREDENTIALS_ID) wajib disediakan di runtime Jenkins.",
     );
     expect(jenkinsfile).toContain("Backup Previous Env Image");
     expect(jenkinsfile).toContain("Push Images to Registry");
