@@ -44,7 +44,7 @@ export function buildScopeChannel(scope: RealtimeScope): string {
     case "department":
       return `departments/${scope.id}/events`;
     case "admin":
-      return `admin/streams/${scope.id}/events`;
+      return `admins/${scope.id}/events`;
     case "workorder":
       return `workorders/${scope.id}/events`;
     case "ticket":

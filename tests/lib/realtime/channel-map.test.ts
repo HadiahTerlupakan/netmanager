@@ -22,7 +22,10 @@ describe("realtime channel mapping", () => {
       "tickets/ticket-1/events",
     );
     expect(buildScopeChannel({ kind: "admin", id: "notifications" })).toBe(
-      "admin/streams/notifications/events",
+      "admins/notifications/events",
+    );
+    expect(buildScopeChannel({ kind: "admin", id: "location:tenant-1" })).toBe(
+      "admins/location:tenant-1/events",
     );
     expect(buildPresencePath("user-1")).toBe("presence/users/user-1");
     expect(

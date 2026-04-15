@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/realtime/channel-map", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/realtime/channel-map")
+  >("@/lib/realtime/channel-map");
+
+  return {
+    ...actual,
+    buildScopeChannel: vi.fn(actual.buildScopeChannel),
+  };
+});
+
 vi.unmock("@/lib/websocket/emitter");
 
 const addMock = vi.fn();
@@ -81,6 +92,38 @@ describe("FirebaseRealtimeService", () => {
         createdAt: "2026-04-09T00:00:00.000Z",
       },
     });
+  });
+
+  it("publishes admin scopes to a valid Firestore collection path", async () => {
+    const { firebaseRealtimeService } = await import("@/lib/realtime");
+
+    await firebaseRealtimeService.publish({
+      type: "attendance.checkin",
+      scope: { kind: "admin", id: "notifications" },
+      payload: { attendanceId: "att-1" },
+    });
+
+    expect(collectionMock).toHaveBeenCalledWith("admins/notifications/events");
+    expect(addMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws before writing when the mapped Firestore collection path is invalid", async () => {
+    const realtimeChannelMap = await import("@/lib/realtime/channel-map");
+    const { firebaseRealtimeService } = await import("@/lib/realtime");
+
+    vi.mocked(realtimeChannelMap.buildScopeChannel).mockReturnValueOnce(
+      "admin/streams/notifications/events",
+    );
+
+    await expect(
+      firebaseRealtimeService.publish({
+        type: "attendance.checkin",
+        scope: { kind: "admin", id: "notifications" },
+        payload: { attendanceId: "att-2" },
+      }),
+    ).rejects.toThrow("Invalid Firestore collection path");
+
+    expect(addMock).not.toHaveBeenCalled();
   });
 
   it("writes online presence snapshots into Realtime Database", async () => {

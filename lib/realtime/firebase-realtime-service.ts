@@ -22,6 +22,18 @@ interface PublishInput<TPayload = unknown> {
   triggeredBy?: string;
 }
 
+function assertValidCollectionPath(path: string): void {
+  const segments = path.split("/");
+
+  if (!path || segments.some((segment) => segment.length === 0)) {
+    throw new Error(`Invalid Firestore collection path: ${path}`);
+  }
+
+  if (segments.length % 2 === 0) {
+    throw new Error(`Invalid Firestore collection path: ${path}`);
+  }
+}
+
 class FirebaseRealtimeService {
   async publish<TPayload>(input: PublishInput<TPayload>) {
     const envelope: RealtimeEnvelope<TPayload> = {
@@ -37,6 +49,7 @@ class FirebaseRealtimeService {
     const channel = buildScopeChannel(input.scope);
 
     if (db) {
+      assertValidCollectionPath(channel);
       await db.collection(channel).add(envelope);
     }
 
