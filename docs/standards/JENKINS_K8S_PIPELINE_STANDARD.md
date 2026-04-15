@@ -116,14 +116,17 @@ Jika memakai loop, manifest harus diproses dengan urutan stabil, misalnya `find 
 
 ### Wajib
 
-- verifikasi image load/pull harus fail jika image tidak benar-benar tersedia
-- `imagePullPolicy` dan strategy distribusi image harus konsisten dengan topologi cluster
+- image harus didistribusikan lewat registry push/pull yang eksplisit
+- pipeline harus fail-fast jika konfigurasi registry atau credential belum tersedia
+- verifikasi image harus memeriksa **exact image refs/tag** yang benar-benar dipakai workload, bukan grep generik nama project
+- `imagePullPolicy` dan strategy distribusi image harus konsisten dengan immutable refs yang dipublish ke registry
+- jika registry private dipakai, cluster pull auth (`imagePullSecrets` / registry secret) **wajib tersedia** sebelum workload dinyatakan siap atau rollout dianggap sukses
 
 ### Perlu perhatian khusus
 
-- `imagePullPolicy: Never` berarti deploy bergantung penuh pada suksesnya image import ke node yang benar
-- kalau cluster multi-node, strategi ini harus diaudit ketat
-- verifikasi image harus memeriksa **exact image refs/tag** yang benar-benar dipakai workload, bukan grep generik nama project
+- staging dan production tidak boleh bergantung pada import lokal ke node K3s
+- backup tag untuk environment image harus berasal dari registry env tag (`*-prev`), bukan dari image lokal node
+- reference image di manifest harus dirender oleh pipeline, bukan hardcoded ke placeholder lokal
 
 ---
 
@@ -185,16 +188,11 @@ Perubahan yang sudah diterapkan mengikuti standar ini:
 - apply infra migration tidak lagi menelan failure dengan `|| true`
 - deploy manifest tidak lagi memakai `find | xargs kubectl apply`
 - CI install/build path sudah diarahkan ke `npm ci`
-- image verification di stage load tidak lagi ditoleransi dengan `|| true`
-
-Sisa risiko operasional yang masih perlu dipertimbangkan terpisah dari standar ini:
-
-- apakah backup production harus hard-fail sepenuhnya
-- apakah image distribution berbasis local k3s import tetap cukup aman untuk topologi cluster
-- apakah script backfill migration yang sekarang optional perlu dinaikkan menjadi critical
+- image verification di stage registry push tidak lagi ditoleransi dengan `|| true`
+- distribusi image sekarang berbasis registry push/pull dengan credential yang eksplisit
 
 ### Current explicit policies
 
 - production migration backup: **hard-fail by default**, override hanya dengan `ALLOW_MIGRATION_WITHOUT_BACKUP=true`
 - optional migration scripts: tetap non-critical by default, tetapi dilaporkan jelas dan bisa dibuat strict dengan `FAIL_ON_OPTIONAL_MIGRATION_ERRORS=true`
-- staging image distribution: tetap memakai `imagePullPolicy: Never`, tetapi Jenkins wajib memverifikasi **exact app/cron/radius image refs** setelah import
+- staging dan production image distribution: memakai registry refs yang dirender pipeline, bukan import lokal ke node K3s

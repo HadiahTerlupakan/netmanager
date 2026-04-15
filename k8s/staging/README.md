@@ -6,6 +6,7 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
 - `namespace.yaml`: Membuat namespace `netmanager-staging`.
 - `configmap.yaml`: Konfigurasi environment variable non-sensitif.
 - `secrets.yaml`: Template untuk kredensial (semua harus diisi dalam bentuk plain text di `stringData` atau base64 di `data`).
+- `registry-secret.yaml`: Template/placeholder untuk registry pull auth. Gunakan secret ekuivalen yang aman atau mekanisme secret manager; jangan commit secret live.
 - `db-statefulset.yaml`: Deployment PostgreSQL dengan volume persistensi.
 - `redis-deployment.yaml`: Deployment Redis.
 - `app-deployment.yaml`: Deployment aplikasi Next.js (NetManager).
@@ -19,10 +20,11 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
    ```
 
 2. **Konfigurasi Kredensial**
-   `secrets.yaml` di folder ini adalah **template**, bukan tempat menyimpan secret live secara permanen di repo.
+   `secrets.yaml` dan `registry-secret.yaml` di folder ini adalah **template**, bukan tempat menyimpan secret live secara permanen di repo.
    
    **Sangat disarankan:** gunakan SOPS / SealedSecrets / secret manager. Jika terpaksa memakai template ini untuk staging lokal, isi nilainya di salinan lokal yang tidak di-commit, lalu jalankan:
    ```bash
+   kubectl apply -f registry-secret.yaml
    kubectl apply -f secrets.yaml
    kubectl apply -f configmap.yaml
    ```
@@ -34,7 +36,7 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
    ```
 
 4. **Deploy Aplikasi**
-   Pastikan image `netmanager-app:staging` sudah tersedia di registry Anda.
+   Pastikan pipeline merender placeholder image menjadi ref registry yang valid sebelum apply manifest.
    ```bash
    kubectl apply -f app-deployment.yaml
    ```
@@ -57,4 +59,4 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
 - Lihat standar hygiene di `docs/standards/GIT_JENKINS_SECRET_HYGIENE.md`.
 - **Cert-Manager**: Pastikan `cert-manager` sudah terinstal di cluster untuk otomatisasi SSL (Let's Encrypt).
 - **Multiple Databases**: Jika aplikasi membutuhkan database terpisah untuk Radius, Billing, dan Mitra (seperti di Docker Compose), Anda bisa mereplikasi `db-statefulset.yaml` atau menggunakan managed database service.
-- **Image Registry**: Sesuaikan field `image` di `app-deployment.yaml` dengan registry (Docker Hub/GHCR/private) yang Anda gunakan.
+- **Image Registry**: Pastikan pipeline merender placeholder `{{APP_IMAGE}}`, `{{CRON_IMAGE}}`, dan `{{RADIUS_IMAGE}}` menjadi ref registry yang valid saat deploy.

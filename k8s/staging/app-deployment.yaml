@@ -18,6 +18,8 @@ spec:
       labels:
         app: netmanager-app
     spec:
+      imagePullSecrets:
+        - name: netmanager-staging-registry
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -35,8 +37,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: app
-          image: netmanager-app:staging
-          imagePullPolicy: Never
+          image: "{{APP_IMAGE}}"
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           envFrom:

@@ -12,6 +12,11 @@ spec:
       labels:
         app: netmanager-migration
     spec:
+      imagePullSecrets:
+        - name: "{{REGISTRY_SECRET}}"
+      # Jenkins renders {{REGISTRY_SECRET}} to one of these namespace-specific secrets:
+      # - name: netmanager-staging-registry
+      # - name: netmanager-production-registry
       restartPolicy: Never
       securityContext:
         fsGroup: 1001

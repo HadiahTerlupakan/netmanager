@@ -13,10 +13,12 @@ spec:
       labels:
         app: netmanager-radius
     spec:
+      imagePullSecrets:
+        - name: netmanager-production-registry
       terminationGracePeriodSeconds: 30
       containers:
         - name: radius
-          image: netmanager-radius:production
+          image: "{{RADIUS_IMAGE}}"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 1812

@@ -1,6 +1,6 @@
 # 🚀 Panduan Deployment NetManager
 
-Panduan lengkap untuk deploy NetManager ke VPS Ubuntu 22.04.
+Panduan lengkap untuk bootstrap awal, deployment rutin via Jenkins + Kubernetes, dan recovery manual NetManager di VPS Ubuntu 22.04.
 
 ---
 
@@ -65,47 +65,40 @@ Tambahkan DNS records di domain provider (Cloudflare, dll):
 
 ## 🚀 Langkah 3: Deploy Aplikasi
 
-### Opsi A: Menggunakan Git (Rekomendasi) ✅
+### Jalur Utama: Jenkins + Kubernetes ✅
 
-```bash
-# 1. SSH ke server sebagai user deploy
-ssh deploy@IP_SERVER
-cd /opt/netmanager
+Untuk **staging** dan **production**, gunakan pipeline **Jenkins** sebagai jalur utama. Pipeline ini menangani:
+- build image immutable (`APP_IMAGE_REF`, `CRON_IMAGE_REF`, `RADIUS_IMAGE_REF`)
+- migration job di Kubernetes
+- render manifest Kubernetes dengan image ref immutable
+- verifikasi rollout sebelum dianggap sukses
 
-# 2. Clone repository (pertama kali)
-git clone https://github.com/YOUR_USERNAME/netmanager.git .
+Alur umumnya:
+1. Trigger pipeline Jenkins untuk environment yang dituju
+2. Pipeline membangun image dan menyimpan immutable image ref
+3. Migration job dijalankan di Kubernetes dengan guard pipeline
+4. Deployment merender manifest lalu apply ke Kubernetes
+5. Pipeline memverifikasi rollout selesai sebelum menutup job
 
-# 3. Setup environment
-cp .env.production.example .env
-./deploy.sh secrets      # Generate credentials
-nano .env                 # Edit dan paste credentials
+> **Catatan**: Jalur ini adalah source of truth untuk update rutin staging/production. Jangan gunakan update manual sebagai default.
 
-# 4. Deploy
-./deploy.sh deploy ssl
-```
+> **Registry private**: jika workload memakai registry privat, secret pull auth cluster (`imagePullSecrets` / registry secret) **harus sudah dibootstrap di namespace target sebelum rollout rutin dianggap siap**. Template/placeholder untuk secret registry ada di `k8s/staging/registry-secret.yaml` dan `k8s/production/registry-secret.yaml`; isi nilainya lewat mekanisme aman, jangan commit secret live ke repo.
 
-**Update dengan Git:**
-```bash
-cd /opt/netmanager
-git pull
-./deploy.sh update
-```
+### Jalur Manual: Bootstrap / Legacy / Emergency Only ⚠️
 
----
+Jalur manual di bawah ini hanya dipertahankan untuk:
+- bootstrap awal server saat Jenkins/Kubernetes belum siap
+- recovery darurat jika pipeline gagal total
+- workflow legacy yang sedang dimigrasikan
 
-### Opsi B: Deploy dari Komputer Lokal (tanpa Git)
-
-```bash
-# Dari folder proyek di komputer lokal
-./quick-deploy.sh deploy@IP_SERVER
-```
+Jangan gunakan langkah manual ini untuk update rutin staging/production.
 
 ## ⚙️ Langkah 4: Konfigurasi Environment
 
 ### A. Buat File .env
 
 ```bash
-# Di server
+# Di server untuk bootstrap awal / recovery manual
 cd /opt/netmanager
 cp .env.production.example .env
 nano .env
@@ -141,14 +134,20 @@ COOKIE_DOMAIN=radpro.id
 
 ## 🎯 Langkah 5: Jalankan Deployment
 
+### Rutin Staging/Production
+
+> Untuk deployment rutin staging/production, gunakan Jenkins + Kubernetes. Langkah manual di bawah ini **bukan** jalur normal update.
+
+### Bootstrap Awal / Recovery Manual
+
 ```bash
-# Deploy dengan SSL (Let's Encrypt)
+# Deploy dengan SSL (Let's Encrypt) — bootstrap awal atau emergency recovery
 ./deploy.sh deploy ssl
 
-# Atau tanpa SSL (jika di belakang Cloudflare)
+# Atau tanpa SSL (jika di belakang Cloudflare) — bootstrap awal atau emergency recovery
 ./deploy.sh deploy nginx
 
-# Atau direct port 3000 (development)
+# Atau direct port 3000 (development lokal / smoke test)
 ./deploy.sh deploy
 ```
 
@@ -171,35 +170,34 @@ curl -I https://radpro.id
 
 ## 🔄 Update Aplikasi
 
-### Update Kode (Tanpa Perubahan Database)
+### Update Kode, Schema, dan Rollout
+
+Untuk staging dan production, update aplikasi, migrasi schema, dan verifikasi rollout harus dilakukan melalui **Jenkins + Kubernetes**. Jangan menjalankan rebuild container atau `docker exec` migration sebagai jalur normal, karena itu melewati backup/migration guard pipeline.
+
+Jika ada perubahan schema atau seed, pipeline akan menjalankan migration job terkontrol sebelum rollout image baru.
+
+### Bootstrap / Legacy / Emergency Recovery Path
+
+> ⚠️ **Warning**: Jalur di bawah ini hanya untuk bootstrap awal, recovery darurat, atau legacy workflow yang belum dimigrasikan. Ini **bypass** guard pipeline Jenkins/Kubernetes, jadi jangan dipakai untuk update rutin staging/production. Untuk seed manual, gunakan hanya saat recovery data atau bootstrap awal.
 
 ```bash
-# Di server VPS
-cd ~/netmanager
-git pull
-docker compose -f docker-compose.production.yml --profile ssl up -d --force-recreate --build app
-```
-
-### Update Kode + Schema Database
-
-```bash
-# Di server VPS
+# Hanya jika pipeline tidak bisa dipakai dan perlu recovery manual
 cd ~/netmanager
 git pull
 
-# Rebuild app
+# Recovery lama berbasis Compose
 docker compose -f docker-compose.production.yml --profile ssl up -d --force-recreate --build app
 
-# Jalankan migration
+# Recovery schema manual (legacy)
 docker exec -it netmanager-app npx prisma migrate deploy
 
-# Jika ada data seed baru
+# Recovery seed manual (legacy)
 docker exec -it netmanager-app npx tsx prisma/seed.ts
 ```
 
 ### Reset Database (Development Only!)
 
-> ⚠️ **Warning**: Ini akan menghapus semua data!
+> ⚠️ **Warning**: Ini akan menghapus semua data! Jalur ini hanya untuk development lokal dan tidak untuk staging/production.
 
 ```bash
 # Reset database ke schema terbaru
@@ -216,19 +214,34 @@ docker restart netmanager-app
 
 ## 📊 Perintah Berguna
 
+### Observability / Read-Only
+
+Gunakan perintah ini untuk memantau kondisi sistem atau membantu diagnosis tanpa mengubah state aplikasi.
+
 | Perintah | Fungsi |
 |----------|--------|
 | `./deploy.sh status` | Lihat status semua services |
 | `./deploy.sh logs app` | Lihat logs aplikasi |
 | `./deploy.sh logs db` | Lihat logs database |
+
+### Maintenance / Backup / Recovery Manual
+
+Perintah berikut boleh mengubah data atau state, jadi pisahkan dari observability read-only.
+
+| Perintah | Fungsi |
+|----------|--------|
 | `./deploy.sh backup` | Backup database |
-| `./deploy.sh restart` | Restart semua services |
-| `./deploy.sh stop` | Stop semua services |
-| `./deploy.sh seed` | Seed database (data awal) |
+| `./deploy.sh restart` | Restart semua services — hanya saat bootstrap/recovery manual |
+| `./deploy.sh stop` | Stop semua services — hanya saat bootstrap/recovery manual |
+| `./deploy.sh seed` | Seed database (data awal) — hanya bootstrap awal / recovery data |
+
+> ⚠️ **Catatan**: Semua perintah di atas hanya untuk bootstrap awal, recovery darurat, atau workflow legacy yang belum dimigrasikan. Jangan dipakai sebagai operasi rutin staging/production. Untuk staging/production tetap gunakan Jenkins + Kubernetes.
 
 ---
 
 ## 🔥 Troubleshooting
+
+> ⚠️ **Catatan**: Bagian ini untuk recovery/legacy/manual handling, bukan jalur operasi rutin staging/production. Untuk update normal tetap gunakan Jenkins + Kubernetes.
 
 ### SSL Certificate Error
 
@@ -285,7 +298,9 @@ sudo chown -R 1001:1001 uploads
 
 ---
 
-## 🏗️ Arsitektur Deployment
+## 🏗️ Arsitektur Bootstrap / Manual / Legacy / Recovery
+
+> Diagram berikut menggambarkan topologi bootstrap/recovery manual atau legacy yang masih dipertahankan. Untuk update rutin staging/production, jalur resmi tetap Jenkins + Kubernetes.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
