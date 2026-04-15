@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { getUserPermissions } from "@/lib/auth";
+import { getMitraMobileCapabilities } from "@/lib/mobile-auth";
 import { UserRepository } from "@/modules/users";
 import { prismaMitra } from "@/modules/database";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
       if (!mitra.isActive)
         return ApiErrors.forbidden("Akun Mitra Anda tidak aktif");
 
+      const { features } = getMitraMobileCapabilities(mitra.mitraType);
+
       const userData: {
         id: string;
         name: string;
@@ -48,13 +50,7 @@ export async function GET(req: NextRequest) {
         name: mitra.name,
         email: mitra.email,
         role: "MITRA",
-        features: [
-          "m_dashboard",
-          "m_mitra_wallet",
-          "m_mitra_withdraw",
-          ...(mitra.mitraType === "MITRA_SALES" ? ["m_canvasing"] : []),
-          ...(mitra.mitraType === "MITRA_TEKNISI" ? ["m_work_order"] : []),
-        ],
+        features,
         employeeType: mitra.mitraType,
         isSales: mitra.mitraType === "MITRA_SALES",
         image: null,
@@ -75,7 +71,9 @@ export async function GET(req: NextRequest) {
     if (user.isActive === false)
       return ApiErrors.forbidden("Akun Anda tidak aktif");
 
-    const permissions = await getUserPermissions(session.id);
+    const { getUserFeaturesWithCanvasing } =
+      await import("@/modules/marketing");
+    const features = await getUserFeaturesWithCanvasing(session.id);
 
     // Format response matching the mobile app's User type expectations
     const userData = {
@@ -83,7 +81,7 @@ export async function GET(req: NextRequest) {
       name: user.name,
       email: user.email,
       role: session.role,
-      features: permissions,
+      features,
       employeeType:
         (user as unknown as { employeeType?: string }).employeeType ||
         "KARYAWAN",

@@ -1057,6 +1057,8 @@ model SystemLog {
   subject   String
   details   String?
   userId    String?
+  actorType String?
+  actorId   String?
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
@@ -1067,6 +1069,7 @@ model SystemLog {
   @@index([createdAt])
   @@index([type])
   @@index([userId])
+  @@index([actorType, actorId])
   @@index([tenantId])
 }
 

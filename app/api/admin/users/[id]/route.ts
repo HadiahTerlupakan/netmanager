@@ -57,6 +57,7 @@ export const GET = createHandler(
         canvasingTarget: true,
         targetSchema: true,
         isSales: true,
+        isAttendanceRequired: true,
         shiftId: true,
         basicSalary: true,
         payPeriodDay: true,

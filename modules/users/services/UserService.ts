@@ -1,281 +1,311 @@
-import { UserRepository } from '../repositories/UserRepository'
-import type { UserWithRelations } from '../repositories/UserRepository'
-import { WorkingHourMode, Prisma } from '@prisma/client'
-import type { User } from '@prisma/client'
-import { hash } from 'bcryptjs'
-import { checkGlobalIdentifier } from '@/lib/validations/global-identifier'
-import { redis } from '@/lib/redis'
-import { invalidatePermissionCache } from '@/lib/auth'
+import { UserRepository } from "../repositories/UserRepository";
+import type { UserWithRelations } from "../repositories/UserRepository";
+import { WorkingHourMode, Prisma } from "@prisma/client";
+import type { User } from "@prisma/client";
+import { hash } from "bcryptjs";
+import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
+import { redis } from "@/lib/redis";
+import { invalidatePermissionCache } from "@/lib/auth";
 
 export interface CreateUserInput {
-    email: string
-    name?: string
-    password: string
-    phone?: string
-    departmentId?: string
-    siteId?: string
-    roleId?: string
-    isActive?: boolean
-    // Working Hours Settings
-    workingHourMode?: string
-    attendanceGeofencePolicy?: string
-    startWorkTime?: string
-    endWorkTime?: string
-    workDays?: string
-    flexibleTargetHour?: number
-    shiftId?: string | null
-    // Sales Feature
-    isSales?: boolean
-    canvasingTarget?: number
-    targetSchema?: string
-    isAttendanceRequired?: boolean
-    tenantId?: string | null
-    // Salary configuration
-    basicSalary?: number
-    payPeriodDay?: number
-    payDay?: number
-    woIncentiveEnabled?: boolean
-    woIncentiveRate?: number
-    lateDeductionRate?: number
-    absentDeductionRate?: number
-    overtimeRateNormal?: number
-    overtimeRateHoliday?: number
-    overtimeRateNational?: number
-    overtimeCalcTypeNormal?: string
-    overtimeCalcTypeHoliday?: string
-    overtimeCalcTypeNational?: string
+  email: string;
+  name?: string;
+  password: string;
+  phone?: string;
+  departmentId?: string;
+  siteId?: string;
+  roleId?: string;
+  isActive?: boolean;
+  // Working Hours Settings
+  workingHourMode?: string;
+  attendanceGeofencePolicy?: string;
+  startWorkTime?: string;
+  endWorkTime?: string;
+  workDays?: string;
+  flexibleTargetHour?: number;
+  shiftId?: string | null;
+  // Sales Feature
+  isSales?: boolean;
+  canvasingTarget?: number;
+  targetSchema?: string;
+  isAttendanceRequired?: boolean;
+  tenantId?: string | null;
+  // Salary configuration
+  basicSalary?: number;
+  payPeriodDay?: number;
+  payDay?: number;
+  woIncentiveEnabled?: boolean;
+  woIncentiveRate?: number;
+  lateDeductionRate?: number;
+  absentDeductionRate?: number;
+  overtimeRateNormal?: number;
+  overtimeRateHoliday?: number;
+  overtimeRateNational?: number;
+  overtimeCalcTypeNormal?: string;
+  overtimeCalcTypeHoliday?: string;
+  overtimeCalcTypeNational?: string;
 }
 
-type AttendanceGeofencePolicy = 'STRICT' | 'WARN' | 'DISABLED'
+type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
 
 export interface UpdateUserInput {
-    email?: string
-    name?: string
-    phone?: string
-    departmentId?: string | null
-    siteId?: string | null
-    roleId?: string | null
-    isActive?: boolean
-    tenantId?: string | null
-    // Working Hours
-    workingHourMode?: string
-    attendanceGeofencePolicy?: string
-    startWorkTime?: string | null
-    endWorkTime?: string | null
-    workDays?: string | null
-    flexibleTargetHour?: number | null
-    shiftId?: string | null
-    isSales?: boolean
-    canvasingTarget?: number
-    targetSchema?: string
-    isAttendanceRequired?: boolean
-    // Salary configuration
-    basicSalary?: number
-    payPeriodDay?: number
-    payDay?: number
-    woIncentiveEnabled?: boolean
-    woIncentiveRate?: number
-    lateDeductionRate?: number
-    absentDeductionRate?: number
-    overtimeRateNormal?: number
-    overtimeRateHoliday?: number
-    overtimeRateNational?: number
-    overtimeCalcTypeNormal?: string
-    overtimeCalcTypeHoliday?: string
-    overtimeCalcTypeNational?: string
+  email?: string;
+  name?: string;
+  phone?: string;
+  departmentId?: string | null;
+  siteId?: string | null;
+  roleId?: string | null;
+  isActive?: boolean;
+  tenantId?: string | null;
+  // Working Hours
+  workingHourMode?: string;
+  attendanceGeofencePolicy?: string;
+  startWorkTime?: string | null;
+  endWorkTime?: string | null;
+  workDays?: string | null;
+  flexibleTargetHour?: number | null;
+  shiftId?: string | null;
+  isSales?: boolean;
+  canvasingTarget?: number;
+  targetSchema?: string;
+  isAttendanceRequired?: boolean;
+  // Salary configuration
+  basicSalary?: number;
+  payPeriodDay?: number;
+  payDay?: number;
+  woIncentiveEnabled?: boolean;
+  woIncentiveRate?: number;
+  lateDeductionRate?: number;
+  absentDeductionRate?: number;
+  overtimeRateNormal?: number;
+  overtimeRateHoliday?: number;
+  overtimeRateNational?: number;
+  overtimeCalcTypeNormal?: string;
+  overtimeCalcTypeHoliday?: string;
+  overtimeCalcTypeNational?: string;
 }
 
 export class UserService {
-    private userRepository: UserRepository
+  private userRepository: UserRepository;
 
-    constructor() {
-        this.userRepository = new UserRepository()
+  constructor() {
+    this.userRepository = new UserRepository();
+  }
+
+  async getAllUsers(
+    params: {
+      siteId?: string;
+      tenantId?: string;
+      roleName?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+      isActive?: boolean;
+    } = {},
+  ): Promise<{
+    data: UserWithRelations[];
+    total: number;
+    active: number;
+    inactive: number;
+  }> {
+    return this.userRepository.findAll(params);
+  }
+
+  async getUser(id: string): Promise<User | null> {
+    return this.userRepository.findById(id);
+  }
+
+  async getUserWithRelations(id: string): Promise<UserWithRelations | null> {
+    return this.userRepository.findByIdWithRelations(id);
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findByEmail(email);
+  }
+
+  async createUser(data: CreateUserInput): Promise<User> {
+    // Check if email already exists globally
+    const globalCheck = await checkGlobalIdentifier(data.email);
+    if (globalCheck.exists) {
+      throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`);
     }
 
-    async getAllUsers(params: {
-        siteId?: string;
-        tenantId?: string;
-        roleName?: string;
-        page?: number;
-        limit?: number;
-        search?: string;
-        isActive?: boolean;
-    } = {}): Promise<{ data: UserWithRelations[], total: number, active: number, inactive: number }> {
-        return this.userRepository.findAll(params)
+    // Hash password
+    const passwordHash = await hash(data.password, 10);
+
+    // Create user with working hours settings
+    const user = await this.userRepository.create({
+      email: data.email,
+      name: data.name || null,
+      passwordHash,
+      phone: data.phone || null,
+      departmentId: data.departmentId || null,
+      siteId: data.siteId || null,
+      roleId: data.roleId || null,
+      isActive: data.isActive,
+      // Working Hours Settings
+      workingHourMode:
+        (data.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED,
+      attendanceGeofencePolicy:
+        (data.attendanceGeofencePolicy as AttendanceGeofencePolicy) || "WARN",
+      startWorkTime: data.startWorkTime || "09:00",
+      endWorkTime: data.endWorkTime || "17:00",
+      workDays: data.workDays || "Mon,Tue,Wed,Thu,Fri",
+      flexibleTargetHour: data.flexibleTargetHour || 8,
+      shiftId: data.shiftId || null,
+      // Sales Feature
+      isSales: data.isSales || false,
+      canvasingTarget: data.canvasingTarget,
+      targetSchema: data.targetSchema,
+      isAttendanceRequired: data.isAttendanceRequired ?? true,
+      tenantId: data.tenantId || null,
+      // Salary configuration
+      basicSalary: data.basicSalary,
+      payPeriodDay: data.payPeriodDay,
+      payDay: data.payDay,
+      woIncentiveEnabled: data.woIncentiveEnabled,
+      woIncentiveRate: data.woIncentiveRate,
+      lateDeductionRate: data.lateDeductionRate,
+      absentDeductionRate: data.absentDeductionRate,
+      overtimeRateNormal: data.overtimeRateNormal,
+      overtimeRateHoliday: data.overtimeRateHoliday,
+      overtimeRateNational: data.overtimeRateNational,
+      overtimeCalcTypeNormal: data.overtimeCalcTypeNormal,
+      overtimeCalcTypeHoliday: data.overtimeCalcTypeHoliday,
+      overtimeCalcTypeNational: data.overtimeCalcTypeNational,
+    });
+
+    // Invalidate permission cache for new user
+    await invalidatePermissionCache(user.id);
+
+    return user;
+  }
+
+  async updateUser(id: string, data: UpdateUserInput): Promise<User> {
+    // Check if user exists
+    const existingUser = await this.userRepository.findById(id);
+    if (!existingUser) {
+      throw new Error("User tidak ditemukan");
     }
 
-    async getUser(id: string): Promise<User | null> {
-        return this.userRepository.findById(id)
+    // If email is being changed, check if new email is available globally
+    if (data.email && data.email !== existingUser.email) {
+      const globalCheck = await checkGlobalIdentifier(
+        data.email,
+        undefined,
+        id,
+      );
+      if (globalCheck.exists) {
+        throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`);
+      }
     }
 
-    async getUserWithRelations(id: string): Promise<UserWithRelations | null> {
-        return this.userRepository.findByIdWithRelations(id)
+    const updateData: Prisma.UserUncheckedUpdateInput = {};
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    if (data.departmentId !== undefined)
+      updateData.departmentId = data.departmentId || null;
+    if (data.siteId !== undefined) updateData.siteId = data.siteId || null;
+
+    // Working Hours
+    if (data.workingHourMode !== undefined)
+      updateData.workingHourMode = data.workingHourMode as WorkingHourMode;
+    if (data.attendanceGeofencePolicy !== undefined)
+      updateData.attendanceGeofencePolicy =
+        data.attendanceGeofencePolicy as AttendanceGeofencePolicy;
+    if (data.startWorkTime !== undefined)
+      updateData.startWorkTime = data.startWorkTime;
+    if (data.endWorkTime !== undefined)
+      updateData.endWorkTime = data.endWorkTime;
+    if (data.workDays !== undefined) updateData.workDays = data.workDays;
+    if (data.flexibleTargetHour !== undefined)
+      updateData.flexibleTargetHour = data.flexibleTargetHour;
+    if (data.shiftId !== undefined) updateData.shiftId = data.shiftId || null;
+
+    if (data.isSales !== undefined) updateData.isSales = data.isSales;
+    if (data.isAttendanceRequired !== undefined)
+      updateData.isAttendanceRequired = data.isAttendanceRequired;
+
+    if (data.roleId !== undefined) {
+      updateData.roleId = data.roleId || null;
+    }
+    if (data.tenantId !== undefined) {
+      updateData.tenantId = data.tenantId || null;
     }
 
-    async getUserByEmail(email: string): Promise<User | null> {
-        return this.userRepository.findByEmail(email)
+    const updatedUser = await this.userRepository.update(id, updateData);
+
+    // Invalidate attendance schedule cache in Redis
+    await redis.del(`user:schedule:${id}`);
+
+    // Invalidate permission cache when role changes
+    if (data.roleId !== undefined) {
+      await invalidatePermissionCache(id);
+      // console.log(`[UserService] Permission cache invalidated for user: ${id}`)
     }
 
-    async createUser(data: CreateUserInput): Promise<User> {
-        // Check if email already exists globally
-        const globalCheck = await checkGlobalIdentifier(data.email)
-        if (globalCheck.exists) {
-            throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`)
-        }
+    return updatedUser;
+  }
 
-        // Hash password
-        const passwordHash = await hash(data.password, 10)
-
-        // Create user with working hours settings
-        const user = await this.userRepository.create({
-            email: data.email,
-            name: data.name || null,
-            passwordHash,
-            phone: data.phone || null,
-            departmentId: data.departmentId || null,
-            siteId: data.siteId || null,
-            roleId: data.roleId || null,
-            isActive: data.isActive,
-            // Working Hours Settings
-            workingHourMode: (data.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED,
-            attendanceGeofencePolicy: (data.attendanceGeofencePolicy as AttendanceGeofencePolicy) || 'WARN',
-            startWorkTime: data.startWorkTime || '09:00',
-            endWorkTime: data.endWorkTime || '17:00',
-            workDays: data.workDays || 'Mon,Tue,Wed,Thu,Fri',
-            flexibleTargetHour: data.flexibleTargetHour || 8,
-            shiftId: data.shiftId || null,
-            // Sales Feature
-            isSales: data.isSales || false,
-            canvasingTarget: data.canvasingTarget,
-            targetSchema: data.targetSchema,
-            isAttendanceRequired: data.isAttendanceRequired ?? true,
-            tenantId: data.tenantId || null,
-            // Salary configuration
-            basicSalary: data.basicSalary,
-            payPeriodDay: data.payPeriodDay,
-            payDay: data.payDay,
-            woIncentiveEnabled: data.woIncentiveEnabled,
-            woIncentiveRate: data.woIncentiveRate,
-            lateDeductionRate: data.lateDeductionRate,
-            absentDeductionRate: data.absentDeductionRate,
-            overtimeRateNormal: data.overtimeRateNormal,
-            overtimeRateHoliday: data.overtimeRateHoliday,
-            overtimeRateNational: data.overtimeRateNational,
-            overtimeCalcTypeNormal: data.overtimeCalcTypeNormal,
-            overtimeCalcTypeHoliday: data.overtimeCalcTypeHoliday,
-            overtimeCalcTypeNational: data.overtimeCalcTypeNational,
-        })
-
-        // Invalidate permission cache for new user
-        await invalidatePermissionCache(user.id)
-
-        return user
+  async deleteUser(id: string): Promise<User> {
+    // Check if user exists
+    const existingUser = await this.userRepository.findById(id);
+    if (!existingUser) {
+      throw new Error("User tidak ditemukan");
     }
 
-    async updateUser(id: string, data: UpdateUserInput): Promise<User> {
-        // Check if user exists
-        const existingUser = await this.userRepository.findById(id)
-        if (!existingUser) {
-            throw new Error('User tidak ditemukan')
-        }
+    return this.userRepository.delete(id);
+  }
 
-        // If email is being changed, check if new email is available globally
-        if (data.email && data.email !== existingUser.email) {
-            const globalCheck = await checkGlobalIdentifier(data.email, undefined, id)
-            if (globalCheck.exists) {
-                throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`)
-            }
-        }
-
-        const updateData: Prisma.UserUncheckedUpdateInput = {}
-        if (data.email !== undefined) updateData.email = data.email
-        if (data.name !== undefined) updateData.name = data.name
-        if (data.phone !== undefined) updateData.phone = data.phone
-        if (data.isActive !== undefined) updateData.isActive = data.isActive
-
-        if (data.departmentId !== undefined) updateData.departmentId = data.departmentId || null
-        if (data.siteId !== undefined) updateData.siteId = data.siteId || null
-        
-        // Working Hours
-        if (data.workingHourMode !== undefined) updateData.workingHourMode = data.workingHourMode as WorkingHourMode
-        if (data.attendanceGeofencePolicy !== undefined) updateData.attendanceGeofencePolicy = data.attendanceGeofencePolicy as AttendanceGeofencePolicy
-        if (data.startWorkTime !== undefined) updateData.startWorkTime = data.startWorkTime
-        if (data.endWorkTime !== undefined) updateData.endWorkTime = data.endWorkTime
-        if (data.workDays !== undefined) updateData.workDays = data.workDays
-        if (data.flexibleTargetHour !== undefined) updateData.flexibleTargetHour = data.flexibleTargetHour
-        if (data.shiftId !== undefined) updateData.shiftId = data.shiftId || null
-
-        if (data.isSales !== undefined) updateData.isSales = data.isSales
-        if (data.isAttendanceRequired !== undefined) updateData.isAttendanceRequired = data.isAttendanceRequired
-
-        if (data.roleId !== undefined) {
-            updateData.roleId = data.roleId || null
-        }
-        if (data.tenantId !== undefined) {
-            updateData.tenantId = data.tenantId || null
-        }
-
-        const updatedUser = await this.userRepository.update(id, updateData)
-
-        // Invalidate attendance schedule cache in Redis
-        await redis.del(`user:schedule:${id}`)
-
-        // Invalidate permission cache when role changes
-        if (data.roleId !== undefined) {
-            await invalidatePermissionCache(id)
-            // console.log(`[UserService] Permission cache invalidated for user: ${id}`)
-        }
-
-        return updatedUser
+  async updateWorkingHours(
+    id: string,
+    data: {
+      workingHourMode: WorkingHourMode;
+      startWorkTime?: string | null;
+      endWorkTime?: string | null;
+      workDays?: string | null;
+      flexibleTargetHour?: number | null;
+      shiftId?: string | null;
+    },
+  ): Promise<User> {
+    // Validation logic
+    if (data.workingHourMode === WorkingHourMode.FIXED) {
+      if (!data.startWorkTime || !data.endWorkTime) {
+        throw new Error(
+          "Waktu mulai dan waktu selesai diperlukan untuk mode Fixed",
+        );
+      }
+      if (!data.workDays) {
+        throw new Error("Hari kerja diperlukan untuk mode Fixed");
+      }
     }
 
-    async deleteUser(id: string): Promise<User> {
-        // Check if user exists
-        const existingUser = await this.userRepository.findById(id)
-        if (!existingUser) {
-            throw new Error('User tidak ditemukan')
-        }
-
-        return this.userRepository.delete(id)
+    if (data.workingHourMode === WorkingHourMode.FLEXIBLE) {
+      // Optional: Add specific validation for Flexible mode if needed
     }
 
-    async updateWorkingHours(id: string, data: {
-        workingHourMode: WorkingHourMode
-        startWorkTime?: string | null
-        endWorkTime?: string | null
-        workDays?: string | null
-        flexibleTargetHour?: number | null
-        shiftId?: string | null
-    }): Promise<User> {
-        // Validation logic
-        if (data.workingHourMode === WorkingHourMode.FIXED) {
-            if (!data.startWorkTime || !data.endWorkTime) {
-                throw new Error('Waktu mulai dan waktu selesai diperlukan untuk mode Fixed')
-            }
-            if (!data.workDays) {
-                throw new Error('Hari kerja diperlukan untuk mode Fixed')
-            }
-        }
-
-        if (data.workingHourMode === WorkingHourMode.FLEXIBLE) {
-            // Optional: Add specific validation for Flexible mode if needed
-        }
-
-        const updatedUser = await this.userRepository.updateWorkingHours(id, data)
-
-        // Invalidate attendance schedule cache in Redis to ensure immediate effect
-        await redis.del(`user:schedule:${id}`)
-
-        return updatedUser
+    if (data.workingHourMode === WorkingHourMode.SHIFT && !data.shiftId) {
+      throw new Error("Shift wajib dipilih untuk mode Shift");
     }
+
+    const updatedUser = await this.userRepository.updateWorkingHours(id, data);
+
+    // Invalidate attendance schedule cache in Redis to ensure immediate effect
+    await redis.del(`user:schedule:${id}`);
+
+    return updatedUser;
+  }
 }
 
 // Singleton instance
-let userServiceInstance: UserService | null = null
+let userServiceInstance: UserService | null = null;
 
 export function getUserService(): UserService {
-    if (!userServiceInstance) {
-        userServiceInstance = new UserService()
-    }
-    return userServiceInstance
+  if (!userServiceInstance) {
+    userServiceInstance = new UserService();
+  }
+  return userServiceInstance;
 }

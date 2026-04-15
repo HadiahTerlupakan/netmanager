@@ -9,6 +9,7 @@ export * from "./services/GeofenceService";
 export * from "./services/AutoCheckoutService";
 export * from "./services/AttendanceSettingsService";
 export * from "./services/AttendanceTimezoneService";
+export * from "./services/AttendanceValidationService";
 export * from "./services/EmployeeLeaveQueryService";
 export * from "./services/MobileLeaveRequestService";
 export * from "./repositories/AttendanceRepository";

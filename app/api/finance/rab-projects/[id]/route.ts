@@ -68,8 +68,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const project = await (prisma as any).rabProject.findUnique({
+  const project = await prisma.rabProject.findUnique({
     where: { id },
     include: {
       items: {
@@ -77,14 +76,11 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
           disbursements: true,
         },
       },
-      fundingSources: true,
       wbsGroups: true,
       actualAchievements: {
         orderBy: [{ year: "asc" }, { month: "asc" }],
       },
       site: { select: { name: true } },
-      mixRadiusGroup: { select: { name: true, owners: true } },
-      mixRadiusInvestorSite: { select: { name: true } },
       creator: { select: { name: true } },
       investors: true,
       revisions: {
@@ -117,25 +113,20 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     contingencyAmount: project.contingencyAmount?.toString() || "0",
     revisionCount: _count?.revisions || 0,
     latestRevision: revisions?.[0] || null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    items: project.items.map((i: any) => ({
-      ...i,
-      unitPrice: i.unitPrice.toString(),
-      totalPrice: i.totalPrice.toString(),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      disbursements: (i.disbursements || []).map((d: any) => ({
-        ...d,
-        amount: d.amount.toString(),
+    items: project.items.map((item) => ({
+      ...item,
+      unitPrice: item.unitPrice.toString(),
+      totalPrice: item.totalPrice.toString(),
+      disbursements: (item.disbursements || []).map((disbursement) => ({
+        ...disbursement,
+        amount: disbursement.amount.toString(),
       })),
     })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    actualAchievements: ((project as any).actualAchievements || []).map(
-      (a: any) => ({
-        ...a,
-        actualRevenue: a.actualRevenue.toString(),
-        actualOpex: a.actualOpex.toString(),
-      }),
-    ),
+    actualAchievements: project.actualAchievements.map((achievement) => ({
+      ...achievement,
+      actualRevenue: achievement.actualRevenue.toString(),
+      actualOpex: achievement.actualOpex.toString(),
+    })),
   };
 
   return apiSuccess(serialized);

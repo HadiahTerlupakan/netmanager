@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { hasMobilePermission } from "@/lib/mobile-auth";
 import { prisma } from "@/modules/database";
 import { prismaMitra } from "@/modules/database";
 import { InventoryRepository } from "@/modules/inventory";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { logger } from "@/lib/logger";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { isSuperAdmin } from "@/lib/auth";
+import {
+  getAssignedInventorySiteIds,
+  hasGudangSiteAccess,
+  isInventorySiteRestricted,
+} from "@/modules/inventory/utils/validation";
 
 // POST - Create barang keluar (mobile)
 export async function POST(request: NextRequest) {
@@ -18,6 +25,14 @@ export async function POST(request: NextRequest) {
     const payload = authResult;
     const tenantId = payload.tenantId as string;
     const userId = payload.id as string;
+    const permissions = payload.permissions as string[] | undefined;
+
+    if (!hasMobilePermission(permissions, "m_barang_keluar:create")) {
+      return apiError("Akses inventory keluar ditolak", ErrorCodes.FORBIDDEN, {
+        status: 403,
+      });
+    }
+
     const body = await request.json();
     const {
       barangId,
@@ -35,16 +50,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fetch user to check permissions
     const user = await prisma.user.findFirst({
       where: { id: userId, tenantId },
       include: {
         role: { include: { permission: true } },
         sites: true,
+        userSites: {
+          select: { siteId: true },
+        },
       },
     });
 
-    // Fallback: check Mitra table
     const mitra = !user
       ? await prismaMitra.mitra.findUnique({
           where: { id: userId },
@@ -58,7 +74,58 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check stock
+    if (mitra) {
+      return apiError(
+        "Mutasi inventory untuk mitra belum tersedia",
+        ErrorCodes.FORBIDDEN,
+        {
+          status: 403,
+        },
+      );
+    }
+
+    const targetGudang = await prisma.gudang.findFirst({
+      where: { id: gudangId, tenantId },
+      include: { sites: { select: { id: true } } },
+    });
+
+    if (!targetGudang) {
+      return apiError("Gudang tidak ditemukan", ErrorCodes.NOT_FOUND, {
+        status: 404,
+      });
+    }
+
+    const userPermissions =
+      user.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
+    const allowedSiteIds = getAssignedInventorySiteIds({
+      primarySite: user.sites ? { id: user.sites.id } : null,
+      userSites: user.userSites || null,
+    });
+    const isRestricted = isInventorySiteRestricted({
+      actorType: "user",
+      isSuperAdmin: isSuperAdmin({ role: user.role?.name }),
+      permissions: userPermissions,
+    });
+
+    if (isRestricted) {
+      if (allowedSiteIds.length === 0) {
+        return apiError(
+          "Akses ditolak: Tidak ada site yang ditugaskan",
+          ErrorCodes.FORBIDDEN,
+          { status: 403 },
+        );
+      }
+
+      const gudangSiteIds = targetGudang.sites.map((site) => site.id);
+      if (!hasGudangSiteAccess(gudangSiteIds, allowedSiteIds)) {
+        return apiError(
+          "Akses ditolak: Gudang di luar site Anda",
+          ErrorCodes.FORBIDDEN,
+          { status: 403 },
+        );
+      }
+    }
+
     const barangGudang = await prisma.barangGudang.findFirst({
       where: {
         barangId,
@@ -70,7 +137,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Check available stock based on kondisi
     const stockField =
       kondisi === "BEKAS"
         ? "stokBekas"
@@ -90,48 +156,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for Site-Based Restriction Policy (only for User, Mitra skips)
-    const userPermissions =
-      user?.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
-    const isSuper = user
-      ? user.role?.name === "SUPER_ADMIN" || user.role?.name === "Super Admin"
-      : false;
-    const isSiteRestricted = user
-      ? !isSuper && userPermissions.includes("k_barang:site_only")
-      : false;
-
-    if (isSiteRestricted && user) {
-      if (!user.sites?.id) {
-        return apiError(
-          "Akses ditolak: Tidak ada site yang ditugaskan",
-          ErrorCodes.FORBIDDEN,
-          { status: 403 },
-        );
-      }
-
-      // Verify the target gudang belongs to user's site
-      const targetGudang = await prisma.gudang.findFirst({
-        where: { id: gudangId, tenantId },
-        include: { sites: { select: { id: true } } },
-      });
-
-      if (!targetGudang) {
-        return apiError("Gudang not found", ErrorCodes.NOT_FOUND, {
-          status: 404,
-        });
-      }
-
-      const gudangSiteIds = targetGudang.sites.map((s) => s.id);
-      if (!gudangSiteIds.includes(user.sites?.id || "")) {
-        return apiError(
-          "Akses ditolak: Gudang di luar site Anda",
-          ErrorCodes.FORBIDDEN,
-          { status: 403 },
-        );
-      }
-    }
-
-    // Use Repository for consistency
     const inventoryRepository = new InventoryRepository();
 
     const result = await inventoryRepository.removeStock({
@@ -142,21 +166,19 @@ export async function POST(request: NextRequest) {
       keterangan,
       tujuanPenggunaan,
       fotoBukti: fotoBukti || [],
-      userId,
+      userId: user.id,
       tenantId,
       tanggal: new Date(),
     });
 
-    // Emit real-time update via WebSocket
     socketEmitter.inventoryUpdate({
       type: "keluar",
-      userId,
+      userId: user.id,
       barangId,
       gudangId,
       jumlah,
     });
 
-    // Log activity
     await logger.logActivity({
       action: "CREATE",
       subject: "Inventory Out (Mobile)",
@@ -169,7 +191,7 @@ export async function POST(request: NextRequest) {
         keterangan,
         tujuanPenggunaan,
       },
-      userId,
+      userId: user.id,
       tenantId,
     });
 

@@ -219,6 +219,47 @@ describe("mobile attendance status route", () => {
     });
   });
 
+  it("treats tukar libur replacement day as attendance-eligible even on a holiday", async () => {
+    vi.setSystemTime(new Date("2026-03-20T02:24:00.000Z"));
+    prismaMock.holiday.findFirst.mockResolvedValue({
+      id: "holiday-replacement-day",
+      date: new Date("2026-03-20T00:00:00.000Z"),
+      description: "Hari Raya",
+      tenantId: "tenant-1",
+    });
+    prismaMock.leaveRequest.findFirst.mockResolvedValue({
+      id: "leave-1",
+      userId: "user-1",
+      tenantId: "tenant-1",
+      type: "TUKAR_LIBUR",
+      status: "APPROVED",
+      startDate: new Date("2026-03-18T00:00:00.000Z"),
+      replacementDate: new Date("2026-03-20T00:00:00.000Z"),
+    });
+
+    const response = await getMobileAttendanceStatus(
+      new NextRequest("http://localhost/api/mobile/attendance/status"),
+      {
+        session: {
+          user: {
+            id: "user-1",
+            tenantId: "tenant-1",
+          },
+        },
+      } as never,
+    );
+
+    const body = await response.json();
+
+    expect(body.today).toMatchObject({
+      isHoliday: false,
+      holidayName: null,
+      isOffDay: false,
+      isTukarLiburWorkDay: true,
+      isTukarLiburLeaveDay: false,
+    });
+  });
+
   it("does not report yesterday holiday as today during early morning WIB requests", async () => {
     prismaMock.holiday.findFirst
       .mockResolvedValueOnce({

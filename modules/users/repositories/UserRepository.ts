@@ -474,6 +474,7 @@ export class UserRepository {
       where: {
         tenantId,
         isActive: true,
+        isAttendanceRequired: true,
         ...(userId ? { id: userId } : {}),
         role: {
           name: { not: "SUPER_ADMIN" },

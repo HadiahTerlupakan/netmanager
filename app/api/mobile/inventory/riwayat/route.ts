@@ -1,208 +1,228 @@
-
-import { NextRequest, NextResponse } from 'next/server';
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { prisma } from '@/modules/database';
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { NextRequest, NextResponse } from "next/server";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { hasAnyMobilePermission } from "@/lib/mobile-auth";
+import { prisma } from "@/modules/database";
+import { prismaMitra } from "@/modules/database";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { isSuperAdmin } from "@/lib/auth";
+import {
+  buildGudangSiteFilter,
+  getAssignedInventorySiteIds,
+  isInventorySiteRestricted,
+} from "@/modules/inventory/utils/validation";
 
 // GET - Get transaction history for mobile (Optimized)
 export async function GET(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request);
-        if (authResult instanceof NextResponse) {
-            return authResult;
-        }
-
-        const payload = authResult
-        const tenantId = payload.tenantId as string;
-        const userId = payload.id as string;
-        const searchParams = request.nextUrl.searchParams;
-        const filterType = searchParams.get('type'); // 'masuk' | 'keluar' | 'all'
-        
-        // Cursor-based pagination parameters
-        // Cursor format: "timestamp_id" (isoDate_uuid) or just isoDate?
-        // Let's use skip/take for simplify migration first, or timestamp as cursor.
-        // Using timestamp as cursor is good for infinite scroll.
-        // But simplified Approach for now: Page/Limit or just Limit with Cursor.
-        // Let's use simplified "cursor" = last timestamp.
-        
-        const cursorValues = searchParams.get('cursor'); // Timestamp string of last item
-        const limit = 20; // Default limit
-
-        // Fetch user to check permissions
-        const user = await prisma.user.findFirst({
-            where: { id: userId , tenantId },
-            include: { 
-                role: { include: { permission: true } },
-                sites: true
-            }
-        });
-
-        if (!user) {
-            return apiError('User tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
-        }
-
-        // Check for Site-Based Restriction Policy
-        const userPermissions = user.role?.permission.map(p => `${p.resource}:${p.action}`) || [];
-        const isSiteRestricted = userPermissions.includes('k_barang:site_only');
-
-        const whereClauseMasuk: Record<string, unknown> = { userId };
-        const whereClauseKeluar: Record<string, unknown> = { userId };
-
-        if (isSiteRestricted && user.sites?.id) {
-            // Filter transactions where the specific Gudang belongs to the user's Site
-            whereClauseMasuk.gudang = { sites: { some: { id: user.sites?.id } } };
-            whereClauseKeluar.gudang = { sites: { some: { id: user.sites?.id } } };
-        }
-        
-        // Handle cursor timestamp for pagination
-        if (cursorValues) {
-             const cursorDate = new Date(cursorValues);
-             whereClauseMasuk.tanggal = { lt: cursorDate };
-             whereClauseKeluar.tanggal = { lt: cursorDate };
-        }
-
-        let transactions: Record<string, unknown>[] = [];
-
-        if (filterType === 'masuk') {
-            const barangMasuk = await prisma.barangMasuk.findMany({
-                where: whereClauseMasuk,
-                include: {
-                    barang: { select: { kode: true, nama: true, satuan: true } },
-                    gudang: { select: { nama: true } }
-                },
-                orderBy: { tanggal: 'desc' },
-                take: limit + 1
-            });
-            
-            transactions = barangMasuk.map(m => ({
-                id: m.id,
-                type: 'masuk' as const,
-                barang: m.barang,
-                gudang: m.gudang,
-                jumlah: m.jumlah,
-                kondisi: m.kondisi,
-                keterangan: m.keterangan,
-                tanggal: m.tanggal.toISOString()
-            }));
-            
-        } else if (filterType === 'keluar') {
-             const barangKeluar = await prisma.barangKeluar.findMany({
-                where: whereClauseKeluar,
-                include: {
-                    barang: { select: { kode: true, nama: true, satuan: true } },
-                    gudang: { select: { nama: true } }
-                },
-                orderBy: { tanggal: 'desc' },
-                take: limit + 1
-            });
-            
-            transactions = barangKeluar.map(k => ({
-                id: k.id,
-                type: 'keluar' as const,
-                barang: k.barang,
-                gudang: k.gudang,
-                jumlah: k.jumlah,
-                kondisi: k.kondisi,
-                keterangan: k.keterangan,
-                tanggal: k.tanggal.toISOString()
-            }));
-
-        } else {
-            // Fetch combined (all) - Tricky for cursor based without knowing "next" source.
-            // Simplified "Feed" Approach: Fetch 'limit' from BOTH, merge, sort, take 'limit'.
-            // This is acceptable because 'limit' is small (20).
-            
-            const [barangMasuk, barangKeluar] = await Promise.all([
-                prisma.barangMasuk.findMany({
-                    where: whereClauseMasuk,
-                    include: {
-                        barang: { select: { kode: true, nama: true, satuan: true } },
-                        gudang: { select: { nama: true } }
-                    },
-                    orderBy: { tanggal: 'desc' },
-                    take: limit
-                }),
-                prisma.barangKeluar.findMany({
-                    where: whereClauseKeluar,
-                    include: {
-                        barang: { select: { kode: true, nama: true, satuan: true } },
-                        gudang: { select: { nama: true } }
-                    },
-                    orderBy: { tanggal: 'desc' },
-                    take: limit
-                })
-            ]);
-
-            const merged = [
-                ...barangMasuk.map(m => ({
-                    id: m.id,
-                    type: 'masuk' as const,
-                    barang: m.barang,
-                    gudang: m.gudang,
-                    jumlah: m.jumlah,
-                    kondisi: m.kondisi,
-                    keterangan: m.keterangan,
-                    tanggal: m.tanggal.toISOString(),
-                    rawDate: m.tanggal 
-                })),
-                ...barangKeluar.map(k => ({
-                    id: k.id,
-                    type: 'keluar' as const,
-                    barang: k.barang,
-                    gudang: k.gudang,
-                    jumlah: k.jumlah,
-                    kondisi: k.kondisi,
-                    keterangan: k.keterangan,
-                    tanggal: k.tanggal.toISOString(),
-                    rawDate: k.tanggal
-                }))
-            ];
-            
-            // Sort merged results
-            transactions = merged.sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
-        }
-
-        // Apply Final Limit for combined result (if 'all') or single (if filter)
-        // Check next cursor.
-        let nextCursor = null;
-        
-        if (transactions.length > limit) {
-             const nextItem = transactions[limit - 1]; // The 20th item
-             nextCursor = nextItem.tanggal;
-             transactions = transactions.slice(0, limit);
-        } else if (transactions.length === limit && filterType !== 'all') {
-             // If exactly limit, we don't know if there is more unless we fetched limit+1
-             // My logic for single tables fetched limit+1.
-             // But for 'all' I fetched limit from both.
-             // If 'all', I have potential up to 40 items. I slice 20.
-             // If I have < 20 items total, no cursor.
-             // If I have > 20 items, nextCursor is 20th item's date.
-        }
-
-        // Logic fix for 'all' nextCursor:
-        // If I fetched 20 from A and 20 from B. I have 40.
-        // I sort and take top 20.
-        // Next cursor is the date of the LAST item in the top 20.
-        // Clientside asks for cursor < last_date.
-        
-        if (transactions.length > 0) {
-            // Only set next cursor if we likely have more data
-            // For 'all' - if we got full 'limit' from either source, assume more exists?
-            // Actually, simply returning the last item's date as nextCursor is standard for infinite scroll.
-            // Client: If received items < limit, stop.
-            if (transactions.length === limit) { 
-               nextCursor = transactions[transactions.length - 1].tanggal;
-            }
-        }
-
-        return NextResponse.json({ 
-            success: true,
-            data: transactions.map(({ rawDate: _, ...rest }) => rest), // Remove internal helper
-            nextCursor,
-        });
-
-    } catch (error) {
-        console.error('Mobile Inventory History Error:', error);
-        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+  try {
+    const authResult = await getMobileAuthPayload(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    const payload = authResult;
+    const tenantId = payload.tenantId as string;
+    const userId = payload.id as string;
+    const permissions = payload.permissions as string[] | undefined;
+    const searchParams = request.nextUrl.searchParams;
+
+    if (
+      !hasAnyMobilePermission(permissions, [
+        "m_barang:read",
+        "m_barang_masuk:read",
+        "m_barang_keluar:read",
+      ])
+    ) {
+      return apiError("Akses inventory ditolak", ErrorCodes.FORBIDDEN, {
+        status: 403,
+      });
+    }
+    const filterType = searchParams.get("type");
+    const cursorValues = searchParams.get("cursor");
+    const limit = 20;
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      include: {
+        role: { include: { permission: true } },
+        sites: true,
+        userSites: {
+          select: { siteId: true },
+        },
+      },
+    });
+
+    const mitra = !user
+      ? await prismaMitra.mitra.findUnique({
+          where: { id: userId },
+          select: { id: true, siteId: true },
+        })
+      : null;
+
+    if (!user && !mitra) {
+      return apiError("User tidak ditemukan", ErrorCodes.NOT_FOUND, {
+        status: 404,
+      });
+    }
+
+    if (mitra) {
+      return apiError(
+        "Riwayat inventory untuk mitra belum tersedia",
+        ErrorCodes.FORBIDDEN,
+        { status: 403 },
+      );
+    }
+
+    const userPermissions =
+      user.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
+    const allowedSiteIds = getAssignedInventorySiteIds({
+      primarySite: user.sites ? { id: user.sites.id } : null,
+      userSites: user.userSites || null,
+    });
+    const isRestricted = isInventorySiteRestricted({
+      actorType: "user",
+      isSuperAdmin: isSuperAdmin({ role: user.role?.name }),
+      permissions: userPermissions,
+    });
+
+    const whereClauseMasuk: Record<string, unknown> = { userId: user.id };
+    const whereClauseKeluar: Record<string, unknown> = { userId: user.id };
+
+    if (isRestricted) {
+      if (allowedSiteIds.length === 0) {
+        return apiError(
+          "Akses ditolak: Tidak ada site yang ditugaskan",
+          ErrorCodes.FORBIDDEN,
+          { status: 403 },
+        );
+      }
+
+      whereClauseMasuk.gudang = buildGudangSiteFilter(allowedSiteIds);
+      whereClauseKeluar.gudang = buildGudangSiteFilter(allowedSiteIds);
+    }
+
+    if (cursorValues) {
+      const cursorDate = new Date(cursorValues);
+      whereClauseMasuk.tanggal = { lt: cursorDate };
+      whereClauseKeluar.tanggal = { lt: cursorDate };
+    }
+
+    let transactions: Record<string, unknown>[] = [];
+
+    if (filterType === "masuk") {
+      const barangMasuk = await prisma.barangMasuk.findMany({
+        where: whereClauseMasuk,
+        include: {
+          barang: { select: { kode: true, nama: true, satuan: true } },
+          gudang: { select: { nama: true } },
+        },
+        orderBy: { tanggal: "desc" },
+        take: limit + 1,
+      });
+
+      transactions = barangMasuk.map((m) => ({
+        id: m.id,
+        type: "masuk" as const,
+        barang: m.barang,
+        gudang: m.gudang,
+        jumlah: m.jumlah,
+        kondisi: m.kondisi,
+        keterangan: m.keterangan,
+        tanggal: m.tanggal.toISOString(),
+      }));
+    } else if (filterType === "keluar") {
+      const barangKeluar = await prisma.barangKeluar.findMany({
+        where: whereClauseKeluar,
+        include: {
+          barang: { select: { kode: true, nama: true, satuan: true } },
+          gudang: { select: { nama: true } },
+        },
+        orderBy: { tanggal: "desc" },
+        take: limit + 1,
+      });
+
+      transactions = barangKeluar.map((k) => ({
+        id: k.id,
+        type: "keluar" as const,
+        barang: k.barang,
+        gudang: k.gudang,
+        jumlah: k.jumlah,
+        kondisi: k.kondisi,
+        keterangan: k.keterangan,
+        tanggal: k.tanggal.toISOString(),
+      }));
+    } else {
+      const [barangMasuk, barangKeluar] = await Promise.all([
+        prisma.barangMasuk.findMany({
+          where: whereClauseMasuk,
+          include: {
+            barang: { select: { kode: true, nama: true, satuan: true } },
+            gudang: { select: { nama: true } },
+          },
+          orderBy: { tanggal: "desc" },
+          take: limit,
+        }),
+        prisma.barangKeluar.findMany({
+          where: whereClauseKeluar,
+          include: {
+            barang: { select: { kode: true, nama: true, satuan: true } },
+            gudang: { select: { nama: true } },
+          },
+          orderBy: { tanggal: "desc" },
+          take: limit,
+        }),
+      ]);
+
+      const merged = [
+        ...barangMasuk.map((m) => ({
+          id: m.id,
+          type: "masuk" as const,
+          barang: m.barang,
+          gudang: m.gudang,
+          jumlah: m.jumlah,
+          kondisi: m.kondisi,
+          keterangan: m.keterangan,
+          tanggal: m.tanggal.toISOString(),
+          rawDate: m.tanggal,
+        })),
+        ...barangKeluar.map((k) => ({
+          id: k.id,
+          type: "keluar" as const,
+          barang: k.barang,
+          gudang: k.gudang,
+          jumlah: k.jumlah,
+          kondisi: k.kondisi,
+          keterangan: k.keterangan,
+          tanggal: k.tanggal.toISOString(),
+          rawDate: k.tanggal,
+        })),
+      ];
+
+      transactions = merged.sort(
+        (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
+      );
+    }
+
+    let nextCursor = null;
+
+    if (transactions.length > limit) {
+      const nextItem = transactions[limit - 1];
+      nextCursor = nextItem.tanggal;
+      transactions = transactions.slice(0, limit);
+    }
+
+    if (transactions.length > 0 && transactions.length === limit) {
+      nextCursor = transactions[transactions.length - 1].tanggal;
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: transactions.map(({ rawDate: _, ...rest }) => rest),
+      nextCursor,
+    });
+  } catch (error) {
+    console.error("Mobile Inventory History Error:", error);
+    return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
+      status: 500,
+    });
+  }
 }

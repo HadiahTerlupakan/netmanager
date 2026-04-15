@@ -572,7 +572,7 @@ export const authConfig: NextAuthOptions = {
             sessionUser.canApproveRab = dbUser.role?.canApproveRab ?? false;
           }
 
-          // Don't include permissions in session - they will be loaded at runtime
+          sessionUser.permissions = await getUserPermissions(userId);
           sessionUser.permissionsCount = dbUser.role?.permission.length || 0;
           sessionUser.departmentId = token.departmentId; // Keep from token
           sessionUser.departmentName = dbUser.departments?.name;
@@ -765,8 +765,11 @@ export async function verifyAuth(
       return null;
     }
 
+    const userId = (token.id as string) || "";
+    const permissions = userId ? await getUserPermissions(userId) : [];
+
     return {
-      id: (token.id as string) || "",
+      id: userId,
       email: (token.email as string) || "",
       name: (token.name as string) || null,
       tenantId: (token.tenantId as string | null) || null,
@@ -777,7 +780,7 @@ export async function verifyAuth(
         (token.siteIds as string[]) ||
         (token.siteId ? [token.siteId as string] : []),
       primarySiteId: token.primarySiteId as string | undefined,
-      permissions: token.permissions as string[] | undefined,
+      permissions,
       isSuperAdmin: (token.isSuperAdmin as boolean) || false,
       canApproveRab: (token.canApproveRab as boolean) || false,
     };

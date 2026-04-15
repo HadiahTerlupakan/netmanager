@@ -25,18 +25,30 @@ vi.mock("@/lib/firebase/messaging", () => ({
   getAdminTokens: firebaseMessagingMocks.getAdminTokens,
 }));
 
+vi.mock("@/lib/tenant-context", () => ({
+  getTenantIdFromContext: vi.fn(),
+}));
+
 import {
   createNotification,
+  getNotificationsForUser,
   getReadableNotificationForUser,
+  getUnreadCount,
+  markAllAsRead,
   markAsRead,
   notifyNewPointClaim,
 } from "@/modules/notification/services/NotificationService";
 import { sendPushNotification as sendExpoPush } from "@/modules/notification/services/ExpoPushService";
 import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 
 describe("NotificationService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: null,
+      isSuperAdmin: true,
+    });
     prismaMock.pushSubscriptions.findMany.mockResolvedValue([]);
   });
 
@@ -378,6 +390,206 @@ describe("NotificationService", () => {
           }),
         }),
       );
+    });
+  });
+
+  describe("getNotificationsForUser", () => {
+    it("includes site scope parity for site-only inbox queries", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        departmentId: "dept-1",
+      });
+      prismaMock.notifications.findMany.mockResolvedValueOnce([]);
+      prismaMock.notifications.count.mockResolvedValueOnce(0);
+
+      await getNotificationsForUser("user-1", {
+        limit: 10,
+        offset: 5,
+        siteId: "site-9",
+      });
+
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        select: { departmentId: true },
+      });
+      expect(prismaMock.notifications.findMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          OR: [
+            { userId: "user-1" },
+            {
+              AND: [
+                { departmentId: "dept-1" },
+                { OR: [{ siteId: "site-9" }, { siteId: null }] },
+              ],
+            },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        skip: 5,
+      });
+      expect(prismaMock.notifications.count).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          OR: [
+            { userId: "user-1" },
+            {
+              AND: [
+                { departmentId: "dept-1" },
+                { OR: [{ siteId: "site-9" }, { siteId: null }] },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it("falls back to NONE department when the user has no department", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        departmentId: null,
+      });
+      prismaMock.notifications.findMany.mockResolvedValueOnce([]);
+      prismaMock.notifications.count.mockResolvedValueOnce(0);
+
+      await getNotificationsForUser("user-no-dept", {
+        limit: 20,
+      });
+
+      expect(prismaMock.notifications.findMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          OR: [
+            { userId: "user-no-dept" },
+            {
+              AND: [{ departmentId: "NONE" }, {}],
+            },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        skip: 0,
+      });
+      expect(prismaMock.notifications.count).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          OR: [
+            { userId: "user-no-dept" },
+            {
+              AND: [{ departmentId: "NONE" }, {}],
+            },
+          ],
+        },
+      });
+    });
+  });
+
+  describe("getUnreadCount", () => {
+    it("passes site scope parity into the unread raw query for site-only users", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ count: BigInt(2) }]);
+
+      const count = await getUnreadCount("user-1", undefined, "site-9");
+
+      expect(count).toBe(2);
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+
+      const unreadRawCall = prismaMock.$queryRaw.mock.calls[0];
+      expect(unreadRawCall[2]).toMatchObject({
+        strings: ['AND n."tenantId" = ', ""],
+        values: ["tenant-1"],
+      });
+      expect(unreadRawCall[3]).toBe("user-1");
+      expect(unreadRawCall[4]).toBe("user-1");
+      expect(unreadRawCall[5]).toMatchObject({
+        strings: ['AND ("siteId" = ', ' OR "siteId" IS NULL)'],
+        values: ["site-9"],
+      });
+    });
+  });
+
+  describe("markAllAsRead", () => {
+    it("keeps site scope parity for site-only bulk read updates", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        departmentId: "dept-1",
+      });
+      prismaMock.notifications.updateMany.mockResolvedValueOnce({
+        count: 3,
+      });
+
+      const result = await markAllAsRead("user-1", undefined, "site-9");
+
+      expect(result).toEqual({ count: 3 });
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        select: { departmentId: true },
+      });
+      expect(prismaMock.notifications.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          isRead: false,
+          OR: [
+            { userId: "user-1" },
+            {
+              AND: [
+                { departmentId: "dept-1" },
+                { OR: [{ siteId: "site-9" }, { siteId: null }] },
+              ],
+            },
+          ],
+        },
+        data: {
+          isRead: true,
+          readAt: expect.any(Date),
+        },
+      });
+    });
+
+    it("falls back to NONE department for users without a department", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        departmentId: null,
+      });
+      prismaMock.notifications.updateMany.mockResolvedValueOnce({
+        count: 0,
+      });
+
+      const result = await markAllAsRead("user-no-dept");
+
+      expect(result).toEqual({ count: 0 });
+      expect(prismaMock.notifications.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          isRead: false,
+          OR: [
+            { userId: "user-no-dept" },
+            {
+              AND: [{ departmentId: "NONE" }, {}],
+            },
+          ],
+        },
+        data: {
+          isRead: true,
+          readAt: expect.any(Date),
+        },
+      });
     });
   });
 
