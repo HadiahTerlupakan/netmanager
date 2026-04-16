@@ -125,9 +125,11 @@ describe("POST /api/mobile/auth/refresh", () => {
     });
     expect(mockGetMobileTokenDetails).toHaveBeenCalledWith(
       "refresh-token-value",
+      99,
     );
     expect(mockVerifyMobileRefreshToken).toHaveBeenCalledWith(
       "refresh-token-value",
+      99,
     );
     expect(mockSignMobileToken).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -391,6 +393,15 @@ describe("POST /api/mobile/auth/refresh", () => {
               appVersionName: "1.0.0",
             }
           : null,
+    );
+    mockEvaluateVersionAccess.mockImplementation(
+      async (versionCode: number) => ({
+        isSupported: versionCode >= 50,
+        minimumVersion: 50,
+        latestVersion: 55,
+        isForceUpdate: true,
+        updateAvailable: true,
+      }),
     );
     mockSignMobileToken.mockResolvedValue("next-access-token");
     mockSignMobileRefreshToken.mockResolvedValue("next-refresh-token");

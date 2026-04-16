@@ -131,20 +131,20 @@ describe("createHandler mobile auth", () => {
     expect(mockVerifyMobileToken).toHaveBeenCalledTimes(1);
   });
 
-  it("mengabaikan header versi request saat bearer token diverifikasi", async () => {
+  it("meneruskan header versi request saat bearer token diverifikasi", async () => {
     const route = createHandler({ auth: true }, async (_req, ctx) => {
       return NextResponse.json({ user: ctx.session?.user });
     });
 
     mockGetMobileTokenDetails.mockResolvedValue({
       payload: { sub: "user-1", appVersionCode: 54 },
-      versionCode: 54,
+      versionCode: 100,
       versionAccess: {
         isSupported: true,
         updateAvailable: false,
         isForceUpdate: false,
-        currentVersion: "1.0.54",
-        currentVersionCode: 54,
+        currentVersion: "1.0.100",
+        currentVersionCode: 100,
         minimumVersion: null,
         latestVersion: null,
       },
@@ -169,8 +169,8 @@ describe("createHandler mobile auth", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token");
-    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token");
+    expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token", 100);
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token", 100);
   });
 
   it("tetap memakai tenant context request saat prisma tenant isolation berjalan", async () => {

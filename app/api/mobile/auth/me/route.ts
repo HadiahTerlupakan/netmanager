@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { getUserPermissions } from "@/lib/auth";
 import { UserRepository } from "@/modules/users";
 import { prismaMitra } from "@/modules/database";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -70,7 +69,9 @@ export async function GET(req: NextRequest) {
     if (user.isActive === false)
       return ApiErrors.forbidden("Akun Anda tidak aktif");
 
-    const permissions = await getUserPermissions(session.id);
+    const { getUserFeaturesWithCanvasing } =
+      await import("@/modules/marketing");
+    const features = await getUserFeaturesWithCanvasing(session.id);
 
     // Format response matching the mobile app's User type expectations
     const userData = {
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
       name: user.name,
       email: user.email,
       role: session.role,
-      features: permissions,
+      features,
       employeeType:
         (user as unknown as { employeeType?: string }).employeeType ||
         "KARYAWAN",

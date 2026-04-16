@@ -125,7 +125,7 @@ describe("Mobile API auth helper", () => {
     }
   });
 
-  it("ignores request version header for authenticated requests", async () => {
+  it("meneruskan request version header untuk authenticated requests", async () => {
     const payload = {
       sub: "user-1",
       userId: "user-1",
@@ -137,11 +137,11 @@ describe("Mobile API auth helper", () => {
       latestVersion: null,
       updateAvailable: false,
       isForceUpdate: false,
-      currentVersionCode: 54,
+      currentVersionCode: 100,
     };
     mockGetMobileTokenDetails.mockResolvedValueOnce({
       payload,
-      versionCode: 54,
+      versionCode: 100,
       versionAccess,
     });
     mockVerifyMobileToken.mockResolvedValueOnce(payload);
@@ -153,13 +153,7 @@ describe("Mobile API auth helper", () => {
     const result = await authenticateMobileRequest(request);
 
     expect("payload" in result).toBe(true);
-    expect(mockGetMobileTokenDetails).toHaveBeenCalledWith(
-      "valid-token",
-      undefined,
-    );
-    expect(mockVerifyMobileToken).toHaveBeenCalledWith(
-      "valid-token",
-      undefined,
-    );
+    expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token", 100);
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token", 100);
   });
 });

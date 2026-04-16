@@ -42,7 +42,7 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      'find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do',
+      'find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "registry-secret.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do',
     );
     expect(jenkinsfile).not.toContain(
       'find ${K8S_DIR}/ -name "*.yaml" ! -name "secrets.yaml" | xargs -I {} kubectl apply -f {} --namespace=${NAMESPACE}',
@@ -53,10 +53,13 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      "kubectl rollout restart deployment/netmanager-cron --namespace=${NAMESPACE}",
+      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${CRON_IMAGE_REF}"',
     );
     expect(jenkinsfile).toContain(
-      "kubectl rollout status deployment/netmanager-cron --namespace=${NAMESPACE} --timeout=300s",
+      'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE}',
+    );
+    expect(jenkinsfile).toContain(
+      'kubectl rollout status deployment/"\\$deployment_name" --namespace=${NAMESPACE} --timeout=600s',
     );
   });
 
@@ -64,16 +67,13 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      "kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE}",
-    );
-    expect(jenkinsfile).toContain(
-      "kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s",
+      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${RADIUS_IMAGE_REF}"',
     );
     expect(jenkinsfile).not.toContain(
-      "kubectl rollout restart deployment/netmanager-radius --namespace=${NAMESPACE} || true",
+      'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE} || true',
     );
     expect(jenkinsfile).not.toContain(
-      "kubectl rollout status deployment/netmanager-radius --namespace=${NAMESPACE} --timeout=300s || true",
+      'kubectl rollout status deployment/"\\$deployment_name" --namespace=${NAMESPACE} --timeout=600s || true',
     );
   });
 

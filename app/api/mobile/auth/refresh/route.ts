@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { getMobileRequestVersionCode } from "@/lib/mobile-api-auth";
 import { prismaAuth } from "@/modules/database";
 import {
   getMobileTokenDetails,
@@ -126,8 +127,26 @@ async function tryRefreshCustomerToken(refreshToken: string) {
   };
 }
 
-async function tryRefreshMobileToken(refreshToken: string) {
-  const details = await getMobileTokenDetails(refreshToken);
+function resolveTrustedMobileRefreshVersion(input: {
+  payloadVersionCode?: number | null;
+  detailsVersionCode: number;
+}) {
+  const payloadVersionCode = Number(input.payloadVersionCode ?? 0);
+  if (Number.isInteger(payloadVersionCode) && payloadVersionCode > 0) {
+    return payloadVersionCode;
+  }
+
+  return input.detailsVersionCode;
+}
+
+async function tryRefreshMobileToken(
+  refreshToken: string,
+  versionCodeOverride?: number,
+) {
+  const details =
+    versionCodeOverride === undefined
+      ? await getMobileTokenDetails(refreshToken)
+      : await getMobileTokenDetails(refreshToken, versionCodeOverride);
   if (!details) {
     return { kind: "invalid" as const };
   }
@@ -139,14 +158,36 @@ async function tryRefreshMobileToken(refreshToken: string) {
     };
   }
 
-  const payload = await verifyMobileRefreshToken(refreshToken);
+  const payload =
+    versionCodeOverride === undefined
+      ? await verifyMobileRefreshToken(refreshToken)
+      : await verifyMobileRefreshToken(refreshToken, versionCodeOverride);
   if (!payload) {
     return { kind: "invalid" as const };
   }
 
+  const trustedVersionCode = resolveTrustedMobileRefreshVersion({
+    payloadVersionCode:
+      typeof payload.appVersionCode === "number"
+        ? payload.appVersionCode
+        : null,
+    detailsVersionCode: details.versionCode,
+  });
+  const unsupportedVersionResponse =
+    await buildUnsupportedVersionResponse(trustedVersionCode);
+  if (unsupportedVersionResponse) {
+    return {
+      kind: "unsupported" as const,
+      details: {
+        ...details,
+        versionCode: trustedVersionCode,
+      },
+    };
+  }
+
   const tokenPayload = {
     ...payload,
-    appVersionCode: details.versionCode || payload.appVersionCode || 0,
+    appVersionCode: trustedVersionCode || payload.appVersionCode || 0,
     appVersionName: payload.appVersionName ?? null,
   };
 
@@ -174,6 +215,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const versionCodeOverride = getMobileRequestVersionCode(request);
+
     const customerTokens = await tryRefreshCustomerToken(refreshToken);
     if (customerTokens?.kind === "unsupported") {
       return customerTokens.response;
@@ -187,7 +230,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const mobileTokens = await tryRefreshMobileToken(refreshToken);
+    const mobileTokens = await tryRefreshMobileToken(
+      refreshToken,
+      versionCodeOverride,
+    );
     if (mobileTokens.kind === "unsupported") {
       return apiError(
         "Aplikasi harus diperbarui untuk melanjutkan.",

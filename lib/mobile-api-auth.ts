@@ -17,6 +17,22 @@ function unauthorizedResponse(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 401 });
 }
 
+export function getMobileRequestVersionCode(
+  request: Pick<Request, "headers">,
+): number | undefined {
+  const rawVersionCode = request.headers.get("x-app-version-code");
+  if (!rawVersionCode) {
+    return undefined;
+  }
+
+  const versionCode = Number(rawVersionCode);
+  if (!Number.isInteger(versionCode) || versionCode <= 0) {
+    return undefined;
+  }
+
+  return versionCode;
+}
+
 export async function authenticateMobileRequest(
   request: Request,
 ): Promise<MobileAuthResult> {
@@ -30,12 +46,20 @@ export async function authenticateMobileRequest(
     return { response: unauthorizedResponse("Token tidak tersedia") };
   }
 
-  const details = await getMobileTokenDetails(token);
+  const versionCodeOverride = getMobileRequestVersionCode(request);
+
+  const details =
+    versionCodeOverride === undefined
+      ? await getMobileTokenDetails(token)
+      : await getMobileTokenDetails(token, versionCodeOverride);
   if (!details) {
     return { response: unauthorizedResponse("Token tidak valid") };
   }
 
-  const payload = await verifyMobileToken(token);
+  const payload =
+    versionCodeOverride === undefined
+      ? await verifyMobileToken(token)
+      : await verifyMobileToken(token, versionCodeOverride);
   if (!payload) {
     return { response: unauthorizedResponse("Token tidak valid") };
   }
