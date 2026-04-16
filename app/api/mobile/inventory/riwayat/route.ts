@@ -84,6 +84,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (actorScope.isRestricted && actorScope.allowedSiteIds.length === 0) {
+      return apiError(
+        "Akses ditolak: Tidak ada site yang ditugaskan",
+        ErrorCodes.FORBIDDEN,
+        { status: 403 },
+      );
+    }
+
     const whereClauseMasuk: Record<string, unknown> = {
       tenantId,
       ...buildInventoryActorFilter(actorScope.actor),
