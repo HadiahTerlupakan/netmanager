@@ -65,10 +65,8 @@ RUN --mount=type=cache,target=/app/.next/cache \
     npm run build
 
 # Prune devDependencies AFTER build so only production deps remain.
-# This ensures the runner stage gets a complete, working node_modules
-# without needing fragile per-module COPY commands.
-RUN npm prune --omit=dev --legacy-peer-deps && \
-    npm run prisma:generate
+# The builder already generated Prisma clients before build, so pruning is enough here.
+RUN npm prune --omit=dev --legacy-peer-deps
 
 
 # ==============================================================================

@@ -51,3 +51,7 @@ backups
 # Development tools
 .eslintcache
 tsconfig.tsbuildinfo
+
+tmp/
+.worktrees/
+.claude/

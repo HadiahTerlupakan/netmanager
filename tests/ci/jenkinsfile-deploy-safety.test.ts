@@ -87,4 +87,89 @@ describe("Jenkinsfile deploy safety", () => {
       "kubectl rollout status deployment/netmanager-redis --namespace=${NAMESPACE} --timeout=300s || true",
     );
   });
+
+  it("handles kubectl get deployment failures with an explicit snapshot-read warning", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const deployBlock = jenkinsfile.slice(deployStageIndex);
+    const snapshotFunctionStart = deployBlock.indexOf("get_current_image() {");
+    const snapshotFunctionEnd = deployBlock.indexOf("render_manifest() {");
+    const snapshotFunctionBlock = deployBlock.slice(
+      snapshotFunctionStart,
+      snapshotFunctionEnd,
+    );
+    const snapshotBlockIndex = deployBlock.indexOf(
+      'APP_PREVIOUS_IMAGE="\\$(get_current_image netmanager-app app)"',
+    );
+
+    expect(deployStageIndex).toBeGreaterThanOrEqual(0);
+    expect(snapshotFunctionStart).toBeGreaterThanOrEqual(0);
+    expect(snapshotFunctionEnd).toBeGreaterThan(snapshotFunctionStart);
+    expect(snapshotFunctionBlock).toContain(
+      'if ! deployment_snapshot="\\$(kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath=\'{range .spec.template.spec.containers[*]}{.name}={.image}{"\\n"}{end}\')"; then',
+    );
+    expect(snapshotFunctionBlock).toContain(
+      'echo "⚠️ Gagal membaca snapshot image dari deployment/\\$deployment_name container/\\$container_name; lanjutkan tanpa snapshot" >&2',
+    );
+    expect(snapshotFunctionBlock).toContain(
+      'kubectl get deployment "\\$deployment_name"',
+    );
+    expect(snapshotFunctionBlock).toContain(
+      'awk -F= -v name="\\$container_name"',
+    );
+    expect(snapshotFunctionBlock).not.toContain("2>/dev/null || true");
+    expect(snapshotFunctionBlock).toContain(
+      'echo "⚠️ Tidak ada snapshot image sebelumnya untuk deployment/\\$deployment_name container/\\$container_name"',
+    );
+    expect(snapshotFunctionBlock).toContain(
+      'if [ -z "\\$current_image" ]; then',
+    );
+    expect(snapshotBlockIndex).toBeGreaterThanOrEqual(0);
+  });
+
+  it("forces rollout restart when previous image snapshot is empty", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const rolloutWorkloadIndex = jenkinsfile.indexOf(
+      "rollout_workload() {",
+      deployStageIndex,
+    );
+
+    expect(deployStageIndex).toBeGreaterThanOrEqual(0);
+    expect(rolloutWorkloadIndex).toBeGreaterThan(deployStageIndex);
+    expect(jenkinsfile).toContain('local previous_image="\\$2"');
+    expect(jenkinsfile).toContain('local target_image="\\$3"');
+    expect(jenkinsfile).toContain(
+      'if [ -z "\\$previous_image" ] || [ "\\$previous_image" = "\\$target_image" ]; then',
+    );
+    expect(jenkinsfile).toContain(
+      'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE}',
+    );
+    expect(jenkinsfile).toContain(
+      'kubectl rollout status deployment/"\\$deployment_name" --namespace=${NAMESPACE} --timeout=600s',
+    );
+  });
+
+  it("keeps the snapshot container contract on app, cron, and radius", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain(
+      'APP_PREVIOUS_IMAGE="\\$(get_current_image netmanager-app app)"',
+    );
+    expect(jenkinsfile).toContain(
+      'CRON_PREVIOUS_IMAGE="\\$(get_current_image netmanager-cron cron)"',
+    );
+    expect(jenkinsfile).toContain(
+      'RADIUS_PREVIOUS_IMAGE="\\$(get_current_image netmanager-radius radius)"',
+    );
+    expect(jenkinsfile).not.toContain(
+      "get_current_image netmanager-app app-container",
+    );
+    expect(jenkinsfile).not.toContain(
+      "get_current_image netmanager-cron cron-container",
+    );
+    expect(jenkinsfile).not.toContain(
+      "get_current_image netmanager-radius radius-container",
+    );
+  });
 });

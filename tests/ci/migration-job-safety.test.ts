@@ -115,6 +115,51 @@ describe("migration job safety", () => {
     );
   });
 
+  it("fails the job when optional migration steps report failures", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    expect(migrationJob).toContain('if [ "$OPTIONAL_FAILURES" -gt 0 ]; then');
+    expect(migrationJob).toContain("exit 1");
+    expect(migrationJob).not.toContain(
+      "Optional migration steps completed with 0 failure(s)",
+    );
+  });
+
+  it("does not force success exit codes from tenant optional migration scripts", () => {
+    const backfillTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "backfill-tenant.ts"),
+      "utf8",
+    );
+    const migrateLegacyTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "migrate-legacy-tenant.ts"),
+      "utf8",
+    );
+    const fixTenantProvision = readFileSync(
+      resolve(process.cwd(), "scripts", "fix-tenant-provision.ts"),
+      "utf8",
+    );
+
+    expect(backfillTenant).not.toContain("process.exit(0)");
+    expect(migrateLegacyTenant).not.toContain("process.exit(0)");
+    expect(fixTenantProvision).not.toContain("process.exit(0)");
+  });
+
+  it("fails fix-tenant-provision when users cannot be re-assigned to any tenant role", () => {
+    const fixTenantProvision = readFileSync(
+      resolve(process.cwd(), "scripts", "fix-tenant-provision.ts"),
+      "utf8",
+    );
+
+    expect(fixTenantProvision).toContain(
+      'console.log(`  ❌ No suitable role found for user "${user.name}"`)',
+    );
+    expect(fixTenantProvision).toContain("optionalFailureCount");
+    expect(fixTenantProvision).toContain("process.exitCode = 1");
+  });
+
   it("aligns Jenkins migration wait budget with the Job deadline and captures richer diagnostics on failure", () => {
     const jenkinsfile = readFileSync(
       resolve(process.cwd(), "Jenkinsfile"),

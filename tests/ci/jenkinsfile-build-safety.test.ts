@@ -19,6 +19,12 @@ function readManifest(relativePath: string): string {
   return readFileSync(resolve(process.cwd(), relativePath), "utf8");
 }
 
+function readPackageJson(): { scripts: Record<string, string> } {
+  return JSON.parse(readManifest("package.json")) as {
+    scripts: Record<string, string>;
+  };
+}
+
 function extractDockerConfigJson(relativePath: string): string {
   const manifest = readManifest(relativePath);
   const match = manifest.match(/\.dockerconfigjson:\s*'([^']+)'/);
@@ -66,6 +72,16 @@ function getDockerfileStageBlock(
   return nextStageStart === -1
     ? dockerfile.slice(stageStart)
     : dockerfile.slice(stageStart, nextStageStart);
+}
+
+function getDockerfileBlockAfter(dockerfile: string, marker: string): string {
+  const markerIndex = dockerfile.indexOf(marker);
+
+  if (markerIndex === -1) {
+    return "";
+  }
+
+  return dockerfile.slice(markerIndex + marker.length);
 }
 
 describe("Jenkinsfile and Dockerfile build safety", () => {
@@ -298,22 +314,52 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     );
   });
 
-  it("copies Prisma schema inputs and runs prisma generate after the app source copy in the builder stage", () => {
+  it("excludes transient build directories and keeps Prisma generate explicit in CI and Docker build paths", () => {
+    const dockerignore = readManifest(".dockerignore");
+    const packageJson = readPackageJson();
+    const jenkinsfile = readJenkinsfile();
     const dockerfile = readDockerfile();
     const builderStage = getDockerfileStageBlock(dockerfile, "builder");
-    const appCopyIndex = builderStage.indexOf("COPY . .");
-    const prismaGenerateIndex = builderStage.indexOf(
-      "RUN npm run prisma:generate",
+    const dockerfileAfterPrune = getDockerfileBlockAfter(
+      dockerfile,
+      "RUN npm prune --omit=dev --legacy-peer-deps",
+    );
+    const prismaGenerateMatches =
+      dockerfile.match(/RUN npm run prisma:generate/g) ?? [];
+    const npmCiMatches =
+      dockerfile.match(
+        /npm ci --legacy-peer-deps --no-audit --prefer-offline --ignore-scripts/g,
+      ) ?? [];
+    const generateAfterPruneMatches =
+      dockerfileAfterPrune.match(/npm run prisma:generate/g) ?? [];
+    const installIndex = jenkinsfile.indexOf(
+      "npm ci --no-audit --prefer-offline --ignore-scripts",
+    );
+    const explicitGenerateIndex = jenkinsfile.indexOf(
+      "npm run prisma:generate-parallel",
     );
 
+    expect(dockerignore).toContain("tmp/");
+    expect(dockerignore).toContain(".worktrees/");
+    expect(dockerignore).toContain(".claude/");
+    expect(packageJson.scripts.postinstall).toBe("npm run prisma:generate");
+    expect(jenkinsfile).toContain("--ignore-scripts");
+    expect(jenkinsfile).toContain("npm run prisma:generate-parallel");
+    expect(installIndex).toBeGreaterThan(-1);
+    expect(explicitGenerateIndex).toBeGreaterThan(-1);
+    expect(installIndex).toBeLessThan(explicitGenerateIndex);
+    expect(jenkinsfile).not.toContain(
+      "npm ci --no-audit --prefer-offline && npm run prisma:generate-parallel",
+    );
     expect(builderStage).toContain("FROM node:24-alpine AS builder");
     expect(builderStage).toContain(
       "COPY --from=deps /app/node_modules ./node_modules",
     );
-
-    expect(appCopyIndex).toBeGreaterThan(-1);
-    expect(prismaGenerateIndex).toBeGreaterThan(-1);
-    expect(appCopyIndex).toBeLessThan(prismaGenerateIndex);
+    expect(builderStage).toContain("COPY . .");
+    expect(prismaGenerateMatches).toHaveLength(1);
+    expect(npmCiMatches).toHaveLength(1);
+    expect(generateAfterPruneMatches).toHaveLength(0);
+    expect(dockerfileAfterPrune).not.toContain("npm run prisma:generate");
   });
 
   it("renders deployment manifests with quoted image placeholders for pipeline substitution", () => {
@@ -334,32 +380,36 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     }
   });
 
-  it("avoids rollout restart when manifest apply already changes the deployment image", () => {
+  it("forces rollout restart when the deployment snapshot is empty or already matches the target image", () => {
     const jenkinsfile = readJenkinsfile();
     const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
     const appImageSnapshotIndex = jenkinsfile.indexOf(
       'APP_PREVIOUS_IMAGE="\\$(get_current_image netmanager-app app)"',
       deployStageIndex,
     );
-    const manifestLoopIndex = jenkinsfile.indexOf(
-      'find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml"',
+    const rolloutWorkloadIndex = jenkinsfile.indexOf(
+      "rollout_workload() {",
       deployStageIndex,
     );
 
     expect(jenkinsfile).toContain("get_current_image() {");
     expect(deployStageIndex).toBeGreaterThan(-1);
     expect(appImageSnapshotIndex).toBeGreaterThan(-1);
-    expect(manifestLoopIndex).toBeGreaterThan(-1);
-    expect(appImageSnapshotIndex).toBeLessThan(manifestLoopIndex);
+    expect(rolloutWorkloadIndex).toBeGreaterThan(-1);
+    expect(appImageSnapshotIndex).toBeLessThan(rolloutWorkloadIndex);
     expect(jenkinsfile).toContain('local previous_image="\\$2"');
-    expect(jenkinsfile).toMatch(
-      /if \[ -n "\\\$previous_image" \] && \[ "\\\$previous_image" = "\\\$target_image" \]; then/,
+    expect(jenkinsfile).toContain('local target_image="\\$3"');
+    expect(jenkinsfile).toContain(
+      'if [ -z "\\$previous_image" ] || [ "\\$previous_image" = "\\$target_image" ]; then',
+    );
+    expect(jenkinsfile).toContain(
+      'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE}',
+    );
+    expect(jenkinsfile).toContain(
+      'kubectl rollout status deployment/"\\$deployment_name" --namespace=${NAMESPACE} --timeout=600s',
     );
     expect(jenkinsfile).toContain(
       'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"',
-    );
-    expect(jenkinsfile).not.toContain(
-      'local current_image="\\$(get_current_image "\\$deployment_name" "\\$container_name")"',
     );
   });
 

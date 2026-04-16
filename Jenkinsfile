@@ -127,7 +127,7 @@ spec:
                                 npm config set fetch-retries 5
                                 npm config set fetch-retry-mintimeout 20000
                                 npm config set fetch-retry-maxtimeout 120000
-                                npm ci --no-audit --prefer-offline
+                                npm ci --no-audit --prefer-offline --ignore-scripts
                                 npm run prisma:generate-parallel
                                 echo "Running Lint and Typecheck in parallel..."
                                 npm run lint & LINT_PID=\$!
@@ -392,8 +392,22 @@ spec:
                         get_current_image() {
                           local deployment_name="\$1"
                           local container_name="\$2"
+                          local deployment_snapshot
+                          local current_image
 
-                          kubectl get deployment "\$deployment_name" -n ${NAMESPACE} -o jsonpath='{range .spec.template.spec.containers[*]}{.name}={.image}{"\n"}{end}' 2>/dev/null | awk -F= -v name="\$container_name" '\$1 == name { print \$2; exit }' || true
+                          if ! deployment_snapshot="\$(kubectl get deployment "\$deployment_name" -n ${NAMESPACE} -o jsonpath='{range .spec.template.spec.containers[*]}{.name}={.image}{"\n"}{end}')"; then
+                            echo "⚠️ Gagal membaca snapshot image dari deployment/\$deployment_name container/\$container_name; lanjutkan tanpa snapshot" >&2
+                            printf '%s\n' ""
+                            return 0
+                          fi
+
+                          current_image="\$(printf '%s\n' "\$deployment_snapshot" | awk -F= -v name="\$container_name" '\$1 == name { print \$2; exit }')"
+
+                          if [ -z "\$current_image" ]; then
+                            echo "⚠️ Tidak ada snapshot image sebelumnya untuk deployment/\$deployment_name container/\$container_name" >&2
+                          fi
+
+                          printf '%s\n' "\$current_image"
                         }
 
                         render_manifest() {
@@ -431,8 +445,8 @@ spec:
                           local previous_image="\$2"
                           local target_image="\$3"
 
-                          if [ -n "\$previous_image" ] && [ "\$previous_image" = "\$target_image" ]; then
-                            echo "Image deployment/\$deployment_name sudah sesuai target; forcing restart untuk rollout konfigurasi non-image."
+                          if [ -z "\$previous_image" ] || [ "\$previous_image" = "\$target_image" ]; then
+                            echo "Image deployment/\$deployment_name belum pasti berubah; forcing restart untuk rollout konfigurasi non-image."
                             kubectl rollout restart deployment/"\$deployment_name" --namespace=${NAMESPACE}
                           fi
 

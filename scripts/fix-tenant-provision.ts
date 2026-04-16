@@ -1,92 +1,113 @@
 /**
  * Fix script: Provision data for existing tenant (PT.ANGIN RIBUT)
- * 
+ *
  * Usage: npx tsx scripts/fix-tenant-provision.ts
  */
-import { prismaAuth } from '../lib/prisma'
-import { provisionTenantData, getTenantAdminRoleId } from '../modules/mitra/services/TenantProvisioningService'
-import { MAIN_TENANT_ID } from '../modules/mitra/services/tenant-constants'
+import { prismaAuth } from "../lib/prisma";
+import {
+  provisionTenantData,
+  getTenantAdminRoleId,
+} from "../modules/mitra/services/TenantProvisioningService";
+import { MAIN_TENANT_ID } from "../modules/mitra/services/tenant-constants";
+
+let optionalFailureCount = 0;
 
 async function main() {
-  console.log('🔧 Fixing tenant provisioning for existing tenants...\n')
+  console.log("🔧 Fixing tenant provisioning for existing tenants...\n");
 
   // Find all tenants except main
   const tenants = await prismaAuth.tenant.findMany({
-    where: { id: { not: MAIN_TENANT_ID } }
-  })
+    where: { id: { not: MAIN_TENANT_ID } },
+  });
 
-  console.log(`Found ${tenants.length} non-main tenant(s):\n`)
+  console.log(`Found ${tenants.length} non-main tenant(s):\n`);
 
   for (const tenant of tenants) {
-    console.log(`\n━━━ Tenant: ${tenant.name} (${tenant.id}) ━━━`)
+    console.log(`\n━━━ Tenant: ${tenant.name} (${tenant.id}) ━━━`);
 
     // Check if already provisioned
     const existingRoles = await prismaAuth.role.count({
-      where: { tenantId: tenant.id }
-    })
+      where: { tenantId: tenant.id },
+    });
 
     if (existingRoles > 0) {
-      console.log(`  ⚠️  Already has ${existingRoles} roles, skipping provisioning.`)
+      console.log(
+        `  ⚠️  Already has ${existingRoles} roles, skipping provisioning.`,
+      );
     } else {
-      console.log(`  📦 Provisioning data...`)
-      const result = await provisionTenantData(prismaAuth, tenant.id)
-      console.log(`  ✅ Created: ${result.rolesCreated} roles, ${result.permissionsCreated} permissions, ${result.settingsCreated} settings`)
+      console.log(`  📦 Provisioning data...`);
+      const result = await provisionTenantData(prismaAuth, tenant.id);
+      console.log(
+        `  ✅ Created: ${result.rolesCreated} roles, ${result.permissionsCreated} permissions, ${result.settingsCreated} settings`,
+      );
     }
 
     // Fix users pointing to main tenant roles
     const usersInTenant = await prismaAuth.user.findMany({
       where: { tenantId: tenant.id },
-      select: { id: true, name: true, roleId: true }
-    })
+      select: { id: true, name: true, roleId: true },
+    });
 
     for (const user of usersInTenant) {
-      if (!user.roleId) continue
+      if (!user.roleId) continue;
 
       // Check if user's role belongs to a different tenant
       const userRole = await prismaAuth.role.findUnique({
         where: { id: user.roleId },
-        select: { id: true, name: true, tenantId: true }
-      })
+        select: { id: true, name: true, tenantId: true },
+      });
 
       if (userRole && userRole.tenantId !== tenant.id) {
-        console.log(`  🔄 User "${user.name}" points to role "${userRole.name}" from tenant ${userRole.tenantId}`)
-        
+        console.log(
+          `  🔄 User "${user.name}" points to role "${userRole.name}" from tenant ${userRole.tenantId}`,
+        );
+
         // Find the equivalent role in this tenant
         const correctRole = await prismaAuth.role.findFirst({
           where: { name: userRole.name, tenantId: tenant.id },
-          select: { id: true }
-        })
+          select: { id: true },
+        });
 
         if (correctRole) {
           await prismaAuth.user.update({
             where: { id: user.id },
-            data: { roleId: correctRole.id }
-          })
-          console.log(`  ✅ Re-assigned to correct tenant role (${correctRole.id})`)
+            data: { roleId: correctRole.id },
+          });
+          console.log(
+            `  ✅ Re-assigned to correct tenant role (${correctRole.id})`,
+          );
         } else {
           // Assign to admin role of this tenant
-          const adminRoleId = await getTenantAdminRoleId(prismaAuth, tenant.id)
+          const adminRoleId = await getTenantAdminRoleId(prismaAuth, tenant.id);
           if (adminRoleId) {
             await prismaAuth.user.update({
               where: { id: user.id },
-              data: { roleId: adminRoleId }
-            })
-            console.log(`  ✅ Assigned to admin role (${adminRoleId}) as fallback`)
+              data: { roleId: adminRoleId },
+            });
+            console.log(
+              `  ✅ Assigned to admin role (${adminRoleId}) as fallback`,
+            );
           } else {
-            console.log(`  ❌ No suitable role found for user "${user.name}"`)
+            optionalFailureCount += 1;
+            console.log(`  ❌ No suitable role found for user "${user.name}"`);
           }
         }
       }
     }
   }
 
-  console.log('\n✅ Done!')
-  await prismaAuth.$disconnect()
+  console.log("\n✅ Done!");
+  await prismaAuth.$disconnect();
 }
 
-main().catch(error => {
-  console.error('❌ Error:', error)
-  process.exit(1)
-}).finally(() => {
-  process.exit(0)
-})
+main()
+  .catch((error) => {
+    console.error("❌ Error:", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prismaAuth.$disconnect();
+    if (optionalFailureCount > 0) {
+      process.exitCode = 1;
+    }
+  });

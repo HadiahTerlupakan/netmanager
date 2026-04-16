@@ -315,6 +315,8 @@ spec:
 
               if [ "$OPTIONAL_FAILURES" -gt 0 ]; then
                 echo "⚠️ Optional migration steps completed with $OPTIONAL_FAILURES failure(s)"
+                echo "❌ Failing migration job because optional backfill did not fully succeed"
+                exit 1
               fi
 
               echo ""
