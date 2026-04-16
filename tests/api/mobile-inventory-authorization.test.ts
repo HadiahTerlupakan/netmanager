@@ -12,6 +12,11 @@ const mockFns = vi.hoisted(() => ({
   barangGudangFindFirst: vi.fn(),
   barangMasukFindMany: vi.fn(),
   barangKeluarFindMany: vi.fn(),
+  inventoryAddStock: vi.fn(),
+  inventoryRemoveStock: vi.fn(),
+  inventoryGetStockLevel: vi.fn(),
+  loggerLogActivity: vi.fn(),
+  socketInventoryUpdate: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile-api-auth", () => ({
@@ -48,6 +53,28 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
+vi.mock("@/modules/inventory", () => ({
+  InventoryRepository: class {
+    addStock = (...args: unknown[]) => mockFns.inventoryAddStock(...args);
+    removeStock = (...args: unknown[]) => mockFns.inventoryRemoveStock(...args);
+    getStockLevel = (...args: unknown[]) =>
+      mockFns.inventoryGetStockLevel(...args);
+  },
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    logActivity: (...args: unknown[]) => mockFns.loggerLogActivity(...args),
+  },
+}));
+
+vi.mock("@/lib/websocket/emitter", () => ({
+  socketEmitter: {
+    inventoryUpdate: (...args: unknown[]) =>
+      mockFns.socketInventoryUpdate(...args),
+  },
+}));
+
 vi.mock("@/lib/api-response", () => ({
   apiError: (message: string, _code?: string, init?: { status?: number }) =>
     NextResponse.json(
@@ -76,6 +103,7 @@ describe("mobile inventory authorization", () => {
   it("rejects gudang access without inventory capability", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-1",
+      userId: "user-1",
       tenantId: "tenant-1",
       permissions: ["m_dashboard:read"],
     });
@@ -93,6 +121,7 @@ describe("mobile inventory authorization", () => {
   it("rejects barang keluar access without outgoing inventory permission", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-1",
+      userId: "user-1",
       tenantId: "tenant-1",
       permissions: ["m_dashboard:read"],
     });
@@ -112,6 +141,7 @@ describe("mobile inventory authorization", () => {
   it("rejects riwayat access without read permission", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-1",
+      userId: "user-1",
       tenantId: "tenant-1",
       permissions: ["m_dashboard:read"],
     });
@@ -129,6 +159,7 @@ describe("mobile inventory authorization", () => {
   it("rejects barang masuk mutation without create permission", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-1",
+      userId: "user-1",
       tenantId: "tenant-1",
       permissions: ["m_barang:read"],
     });
@@ -150,6 +181,7 @@ describe("mobile inventory authorization", () => {
   it("rejects barang keluar mutation without create permission", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-1",
+      userId: "user-1",
       tenantId: "tenant-1",
       permissions: ["m_barang:read"],
     });
@@ -168,17 +200,23 @@ describe("mobile inventory authorization", () => {
     expect(mockFns.userFindFirst).not.toHaveBeenCalled();
   });
 
-  it("rejects mitra inventory masuk mutation while persistence is user-only", async () => {
+  it("allows mitra inventory masuk mutation via actor-aware repository flow", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "mitra-1",
+      userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang_masuk:create"],
+      permissions: ["m_barang_masuk"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-1",
       siteId: "site-1",
     });
+    mockFns.gudangFindFirst.mockResolvedValue({
+      id: "g-1",
+      sites: [{ id: "site-1" }],
+    });
+    mockFns.inventoryAddStock.mockResolvedValue({ id: "masuk-1" });
 
     const response = await postMasuk(
       new NextRequest("http://localhost/api/mobile/inventory/masuk", {
@@ -189,21 +227,42 @@ describe("mobile inventory authorization", () => {
     );
     const json = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(json.error).toBe("Mutasi inventory untuk mitra belum tersedia");
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(mockFns.inventoryAddStock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        barangId: "b-1",
+        gudangId: "g-1",
+        jumlah: 1,
+        actor: { type: "mitra", id: "mitra-1" },
+        tenantId: "tenant-1",
+      }),
+    );
   });
 
-  it("rejects mitra inventory keluar mutation while persistence is user-only", async () => {
+  it("allows mitra inventory keluar mutation via actor-aware repository flow", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "mitra-1",
+      userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang_keluar:create"],
+      permissions: ["m_barang_keluar"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-1",
       siteId: "site-1",
     });
+    mockFns.gudangFindFirst.mockResolvedValue({
+      id: "g-1",
+      sites: [{ id: "site-1" }],
+    });
+    mockFns.barangGudangFindFirst.mockResolvedValue({
+      stokBaru: 3,
+      barang: { nama: "ONU" },
+    });
+    mockFns.inventoryRemoveStock.mockResolvedValue({ id: "keluar-1" });
+    mockFns.inventoryGetStockLevel.mockResolvedValue(2);
+    mockFns.loggerLogActivity.mockResolvedValue(undefined);
 
     const response = await postKeluar(
       new NextRequest("http://localhost/api/mobile/inventory/keluar", {
@@ -214,28 +273,72 @@ describe("mobile inventory authorization", () => {
     );
     const json = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(json.error).toBe("Mutasi inventory untuk mitra belum tersedia");
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(mockFns.inventoryRemoveStock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        barangId: "b-1",
+        gudangId: "g-1",
+        jumlah: 1,
+        actor: { type: "mitra", id: "mitra-1" },
+        tenantId: "tenant-1",
+      }),
+    );
+    expect(mockFns.loggerLogActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: { type: "mitra", id: "mitra-1" },
+      }),
+    );
   });
 
-  it("rejects mitra inventory history while history remains user-bound", async () => {
+  it("allows mitra inventory history with actor-aware filters", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "mitra-1",
+      userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang:read", "m_barang_masuk:read"],
+      permissions: ["m_barang"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
       id: "mitra-1",
       siteId: "site-1",
     });
+    mockFns.barangMasukFindMany.mockResolvedValue([
+      {
+        id: "masuk-1",
+        barang: { kode: "BRG-1", nama: "ONU", satuan: "pcs" },
+        gudang: { nama: "Gudang A" },
+        jumlah: 1,
+        kondisi: "BARU",
+        keterangan: "restock",
+        tanggal: new Date("2026-04-16T10:00:00.000Z"),
+      },
+    ]);
+    mockFns.barangKeluarFindMany.mockResolvedValue([]);
 
     const response = await getRiwayat(
       new NextRequest("http://localhost/api/mobile/inventory/riwayat"),
     );
     const json = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(json.error).toBe("Riwayat inventory untuk mitra belum tersedia");
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.data).toHaveLength(1);
+    expect(mockFns.barangMasukFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "tenant-1",
+          actorType: "mitra",
+          actorId: "mitra-1",
+          gudang: {
+            sites: {
+              some: {
+                id: { in: ["site-1"] },
+              },
+            },
+          },
+        }),
+      }),
+    );
   });
 });

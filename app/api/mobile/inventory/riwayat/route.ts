@@ -3,15 +3,31 @@ import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { hasAnyMobilePermission } from "@/lib/mobile-auth";
 import { prisma } from "@/modules/database";
 import { prismaMitra } from "@/modules/database";
-import { apiError, ErrorCodes } from "@/lib/api-response";
 import { isSuperAdmin } from "@/lib/auth";
+import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   buildGudangSiteFilter,
   getAssignedInventorySiteIds,
   isInventorySiteRestricted,
 } from "@/modules/inventory/utils/validation";
 
-// GET - Get transaction history for mobile (Optimized)
+function buildActorFilter(actor: {
+  type: "user" | "mitra";
+  id: string;
+}): Record<string, unknown> {
+  if (actor.type === "user") {
+    return {
+      OR: [{ userId: actor.id }, { actorType: "user", actorId: actor.id }],
+    };
+  }
+
+  return {
+    actorType: "mitra",
+    actorId: actor.id,
+  };
+}
+
+// GET - Get transaction history for mobile
 export async function GET(request: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(request);
@@ -21,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     const payload = authResult;
     const tenantId = payload.tenantId as string;
-    const userId = payload.id as string;
+    const actorId = payload.userId as string;
     const permissions = payload.permissions as string[] | undefined;
     const searchParams = request.nextUrl.searchParams;
 
@@ -36,12 +52,13 @@ export async function GET(request: NextRequest) {
         status: 403,
       });
     }
+
     const filterType = searchParams.get("type");
-    const cursorValues = searchParams.get("cursor");
+    const cursorValue = searchParams.get("cursor");
     const limit = 20;
 
     const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
+      where: { id: actorId, tenantId },
       include: {
         role: { include: { permission: true } },
         sites: true,
@@ -53,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     const mitra = !user
       ? await prismaMitra.mitra.findUnique({
-          where: { id: userId },
+          where: { id: actorId },
           select: { id: true, siteId: true },
         })
       : null;
@@ -64,49 +81,53 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (mitra) {
+    const actor = user
+      ? { type: "user" as const, id: user.id }
+      : { type: "mitra" as const, id: mitra!.id };
+    const userPermissions =
+      user?.role?.permission.map(
+        (permission) => `${permission.resource}:${permission.action}`,
+      ) || [];
+    const allowedSiteIds = getAssignedInventorySiteIds({
+      primarySite: user?.sites ? { id: user.sites.id } : null,
+      userSites: user?.userSites || null,
+      mitraSiteId: mitra?.siteId,
+    });
+    const isRestricted = isInventorySiteRestricted({
+      actorType: actor.type,
+      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
+      permissions: userPermissions,
+    });
+
+    if (isRestricted && allowedSiteIds.length === 0) {
       return apiError(
-        "Riwayat inventory untuk mitra belum tersedia",
+        "Akses ditolak: Tidak ada site yang ditugaskan",
         ErrorCodes.FORBIDDEN,
         { status: 403 },
       );
     }
 
-    const userPermissions =
-      user.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
-    const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user.sites ? { id: user.sites.id } : null,
-      userSites: user.userSites || null,
-    });
-    const isRestricted = isInventorySiteRestricted({
-      actorType: "user",
-      isSuperAdmin: isSuperAdmin({ role: user.role?.name }),
-      permissions: userPermissions,
-    });
-
-    const whereClauseMasuk: Record<string, unknown> = { userId: user.id };
-    const whereClauseKeluar: Record<string, unknown> = { userId: user.id };
+    const whereClauseMasuk: Record<string, unknown> = {
+      tenantId,
+      ...buildActorFilter(actor),
+    };
+    const whereClauseKeluar: Record<string, unknown> = {
+      tenantId,
+      ...buildActorFilter(actor),
+    };
 
     if (isRestricted) {
-      if (allowedSiteIds.length === 0) {
-        return apiError(
-          "Akses ditolak: Tidak ada site yang ditugaskan",
-          ErrorCodes.FORBIDDEN,
-          { status: 403 },
-        );
-      }
-
       whereClauseMasuk.gudang = buildGudangSiteFilter(allowedSiteIds);
       whereClauseKeluar.gudang = buildGudangSiteFilter(allowedSiteIds);
     }
 
-    if (cursorValues) {
-      const cursorDate = new Date(cursorValues);
+    if (cursorValue) {
+      const cursorDate = new Date(cursorValue);
       whereClauseMasuk.tanggal = { lt: cursorDate };
       whereClauseKeluar.tanggal = { lt: cursorDate };
     }
 
-    let transactions: Record<string, unknown>[] = [];
+    let transactions: Array<Record<string, unknown> & { rawDate?: Date }> = [];
 
     if (filterType === "masuk") {
       const barangMasuk = await prisma.barangMasuk.findMany({
@@ -119,15 +140,15 @@ export async function GET(request: NextRequest) {
         take: limit + 1,
       });
 
-      transactions = barangMasuk.map((m) => ({
-        id: m.id,
+      transactions = barangMasuk.map((masuk) => ({
+        id: masuk.id,
         type: "masuk" as const,
-        barang: m.barang,
-        gudang: m.gudang,
-        jumlah: m.jumlah,
-        kondisi: m.kondisi,
-        keterangan: m.keterangan,
-        tanggal: m.tanggal.toISOString(),
+        barang: masuk.barang,
+        gudang: masuk.gudang,
+        jumlah: masuk.jumlah,
+        kondisi: masuk.kondisi,
+        keterangan: masuk.keterangan,
+        tanggal: masuk.tanggal.toISOString(),
       }));
     } else if (filterType === "keluar") {
       const barangKeluar = await prisma.barangKeluar.findMany({
@@ -140,15 +161,15 @@ export async function GET(request: NextRequest) {
         take: limit + 1,
       });
 
-      transactions = barangKeluar.map((k) => ({
-        id: k.id,
+      transactions = barangKeluar.map((keluar) => ({
+        id: keluar.id,
         type: "keluar" as const,
-        barang: k.barang,
-        gudang: k.gudang,
-        jumlah: k.jumlah,
-        kondisi: k.kondisi,
-        keterangan: k.keterangan,
-        tanggal: k.tanggal.toISOString(),
+        barang: keluar.barang,
+        gudang: keluar.gudang,
+        jumlah: keluar.jumlah,
+        kondisi: keluar.kondisi,
+        keterangan: keluar.keterangan,
+        tanggal: keluar.tanggal.toISOString(),
       }));
     } else {
       const [barangMasuk, barangKeluar] = await Promise.all([
@@ -172,51 +193,47 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
-      const merged = [
-        ...barangMasuk.map((m) => ({
-          id: m.id,
+      transactions = [
+        ...barangMasuk.map((masuk) => ({
+          id: masuk.id,
           type: "masuk" as const,
-          barang: m.barang,
-          gudang: m.gudang,
-          jumlah: m.jumlah,
-          kondisi: m.kondisi,
-          keterangan: m.keterangan,
-          tanggal: m.tanggal.toISOString(),
-          rawDate: m.tanggal,
+          barang: masuk.barang,
+          gudang: masuk.gudang,
+          jumlah: masuk.jumlah,
+          kondisi: masuk.kondisi,
+          keterangan: masuk.keterangan,
+          tanggal: masuk.tanggal.toISOString(),
+          rawDate: masuk.tanggal,
         })),
-        ...barangKeluar.map((k) => ({
-          id: k.id,
+        ...barangKeluar.map((keluar) => ({
+          id: keluar.id,
           type: "keluar" as const,
-          barang: k.barang,
-          gudang: k.gudang,
-          jumlah: k.jumlah,
-          kondisi: k.kondisi,
-          keterangan: k.keterangan,
-          tanggal: k.tanggal.toISOString(),
-          rawDate: k.tanggal,
+          barang: keluar.barang,
+          gudang: keluar.gudang,
+          jumlah: keluar.jumlah,
+          kondisi: keluar.kondisi,
+          keterangan: keluar.keterangan,
+          tanggal: keluar.tanggal.toISOString(),
+          rawDate: keluar.tanggal,
         })),
-      ];
-
-      transactions = merged.sort(
-        (a, b) => b.rawDate.getTime() - a.rawDate.getTime(),
+      ].sort(
+        (left, right) =>
+          (right.rawDate?.getTime() || 0) - (left.rawDate?.getTime() || 0),
       );
     }
 
-    let nextCursor = null;
+    let nextCursor: string | null = null;
 
     if (transactions.length > limit) {
-      const nextItem = transactions[limit - 1];
-      nextCursor = nextItem.tanggal;
+      nextCursor = String(transactions[limit - 1].tanggal);
       transactions = transactions.slice(0, limit);
-    }
-
-    if (transactions.length > 0 && transactions.length === limit) {
-      nextCursor = transactions[transactions.length - 1].tanggal;
+    } else if (transactions.length === limit) {
+      nextCursor = String(transactions[transactions.length - 1].tanggal);
     }
 
     return NextResponse.json({
       success: true,
-      data: transactions.map(({ rawDate: _, ...rest }) => rest),
+      data: transactions.map(({ rawDate: _, ...transaction }) => transaction),
       nextCursor,
     });
   } catch (error) {
