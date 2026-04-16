@@ -235,7 +235,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     );
     const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
     const firstSecretCheckIndex = jenkinsfile.indexOf(
-      'kubectl get secret "${REGISTRY_SECRET}" --namespace=${NAMESPACE} >/dev/null',
+      'kubectl get secret "\\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null',
       migrationStageIndex,
     );
     const migrationBackupIndex = jenkinsfile.indexOf(
@@ -246,8 +246,12 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       "kubectl delete job netmanager-migration-job",
       migrationStageIndex,
     );
+    const migrationJobRenderIndex = jenkinsfile.indexOf(
+      "-e 's|{{REGISTRY_SECRET}}|\\$REGISTRY_SECRET|g'",
+      migrationStageIndex,
+    );
     const deploySecretCheckIndex = jenkinsfile.indexOf(
-      'kubectl get secret "${REGISTRY_SECRET}" --namespace=${NAMESPACE} >/dev/null',
+      'kubectl get secret "\\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null',
       deployStageIndex,
     );
     const deployAppSnapshotIndex = jenkinsfile.indexOf(
@@ -263,11 +267,13 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       'echo "Verifying registry pull auth secret in ${NAMESPACE}..."',
     );
     expect(jenkinsfile).toContain('REGISTRY_SECRET="${NAMESPACE}-registry"');
+    expect(jenkinsfile).not.toContain("${REGISTRY_SECRET}");
     expect(firstSecretCheckIndex).toBeGreaterThan(-1);
     expect(migrationBackupIndex).toBeGreaterThan(-1);
     expect(firstSecretCheckIndex).toBeLessThan(migrationBackupIndex);
     expect(migrationDeleteJobIndex).toBeGreaterThan(-1);
     expect(firstSecretCheckIndex).toBeLessThan(migrationDeleteJobIndex);
+    expect(migrationJobRenderIndex).toBeGreaterThan(-1);
     expect(deploySecretCheckIndex).toBeGreaterThan(-1);
     expect(deployAppSnapshotIndex).toBeGreaterThan(-1);
     expect(deploySecretCheckIndex).toBeLessThan(deployAppSnapshotIndex);

@@ -268,7 +268,7 @@ spec:
                         set -euo pipefail
                         REGISTRY_SECRET="${NAMESPACE}-registry"
                         echo "Verifying registry pull auth secret in ${NAMESPACE}..."
-                        kubectl get secret "${REGISTRY_SECRET}" --namespace=${NAMESPACE} >/dev/null
+                        kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null
                         """
 
                         if (isProduction) {
@@ -314,7 +314,7 @@ spec:
                         REGISTRY_SECRET="${NAMESPACE}-registry"
                         sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \
                             -e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g' \
-                            -e 's|{{REGISTRY_SECRET}}|${REGISTRY_SECRET}|g' \
+                            -e 's|{{REGISTRY_SECRET}}|\$REGISTRY_SECRET|g' \
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
 
@@ -409,7 +409,7 @@ spec:
                         REGISTRY_SECRET="${NAMESPACE}-registry"
 
                         echo "Verifying registry pull auth secret in ${NAMESPACE}..."
-                        kubectl get secret "${REGISTRY_SECRET}" --namespace=${NAMESPACE} >/dev/null
+                        kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null
 
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"
