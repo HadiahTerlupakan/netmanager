@@ -247,6 +247,10 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       migrationStageIndex,
     );
     const migrationJobRenderIndex = jenkinsfile.indexOf(
+      "-e 's|{{REGISTRY_SECRET}}|${NAMESPACE}-registry|g'",
+      migrationStageIndex,
+    );
+    const migrationJobLiteralSecretRenderIndex = jenkinsfile.indexOf(
       "-e 's|{{REGISTRY_SECRET}}|\\$REGISTRY_SECRET|g'",
       migrationStageIndex,
     );
@@ -274,6 +278,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(migrationDeleteJobIndex).toBeGreaterThan(-1);
     expect(firstSecretCheckIndex).toBeLessThan(migrationDeleteJobIndex);
     expect(migrationJobRenderIndex).toBeGreaterThan(-1);
+    expect(migrationJobLiteralSecretRenderIndex).toBe(-1);
     expect(deploySecretCheckIndex).toBeGreaterThan(-1);
     expect(deployAppSnapshotIndex).toBeGreaterThan(-1);
     expect(deploySecretCheckIndex).toBeLessThan(deployAppSnapshotIndex);

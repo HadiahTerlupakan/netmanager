@@ -311,10 +311,9 @@ spec:
 
                         sh """
                         set -euo pipefail
-                        REGISTRY_SECRET="${NAMESPACE}-registry"
                         sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \
                             -e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g' \
-                            -e 's|{{REGISTRY_SECRET}}|\$REGISTRY_SECRET|g' \
+                            -e 's|{{REGISTRY_SECRET}}|${NAMESPACE}-registry|g' \
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
 
