@@ -97,15 +97,15 @@ spec:
                     requireValue(env.REGISTRY_CREDENTIALS_ID, 'NETMANAGER_REGISTRY_CREDENTIALS_ID (atau REGISTRY_CREDENTIALS_ID) wajib disediakan di runtime Jenkins.')
 
                     env.REGISTRY_PATH = "${env.REGISTRY_URL}/${env.REGISTRY_NAMESPACE}"
-                    env.APP_IMAGE_REF = "${env.REGISTRY_PATH}/${DOCKER_IMAGE}:${IMAGE_VERSION}"
-                    env.CRON_IMAGE_REF = "${env.REGISTRY_PATH}/${CRON_IMAGE}:${IMAGE_VERSION}"
-                    env.RADIUS_IMAGE_REF = "${env.REGISTRY_PATH}/${RADIUS_IMAGE}:${IMAGE_VERSION}"
-                    env.APP_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    env.CRON_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${CRON_IMAGE}:${DOCKER_TAG}"
-                    env.RADIUS_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${RADIUS_IMAGE}:${DOCKER_TAG}"
-                    env.APP_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${DOCKER_IMAGE}:${DOCKER_TAG}-prev"
-                    env.CRON_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${CRON_IMAGE}:${DOCKER_TAG}-prev"
-                    env.RADIUS_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${RADIUS_IMAGE}:${DOCKER_TAG}-prev"
+                    env.APP_IMAGE_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.IMAGE_VERSION}"
+                    env.CRON_IMAGE_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.IMAGE_VERSION}"
+                    env.RADIUS_IMAGE_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.IMAGE_VERSION}"
+                    env.APP_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
+                    env.CRON_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.DOCKER_TAG}"
+                    env.RADIUS_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.DOCKER_TAG}"
+                    env.APP_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.DOCKER_TAG}-prev"
+                    env.CRON_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.DOCKER_TAG}-prev"
+                    env.RADIUS_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.DOCKER_TAG}-prev"
 
                     echo "Registry configured: ${env.REGISTRY_PATH}"
                     echo "Immutable refs: ${env.APP_IMAGE_REF}, ${env.CRON_IMAGE_REF}, ${env.RADIUS_IMAGE_REF}"
@@ -197,9 +197,9 @@ spec:
                                   fi
                                 }
 
-                                backup_image "${APP_IMAGE_ENV_REF}" "${APP_IMAGE_PREV_REF}"
-                                backup_image "${CRON_IMAGE_ENV_REF}" "${CRON_IMAGE_PREV_REF}"
-                                backup_image "${RADIUS_IMAGE_ENV_REF}" "${RADIUS_IMAGE_PREV_REF}"
+                                backup_image "${env.APP_IMAGE_ENV_REF}" "${env.APP_IMAGE_PREV_REF}"
+                                backup_image "${env.CRON_IMAGE_ENV_REF}" "${env.CRON_IMAGE_PREV_REF}"
+                                backup_image "${env.RADIUS_IMAGE_ENV_REF}" "${env.RADIUS_IMAGE_PREV_REF}"
                             """
                         }
                     }
@@ -219,14 +219,14 @@ spec:
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
-                            docker build -t ${APP_IMAGE_REF} -t ${APP_IMAGE_ENV_REF} \
+                            docker build -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
                                 --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
                                 --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
                                 --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
                                 .
 
-                            docker build -t ${CRON_IMAGE_REF} -t ${CRON_IMAGE_ENV_REF} ./cron
-                            docker build -t ${RADIUS_IMAGE_REF} -t ${RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .
+                            docker build -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron
+                            docker build -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .
                             rm -rf .secrets
                         """
                     }
@@ -251,12 +251,12 @@ spec:
                                   echo "Verified pushed ref: \$image_ref"
                                 }
 
-                                push_and_verify "${APP_IMAGE_REF}"
-                                push_and_verify "${APP_IMAGE_ENV_REF}"
-                                push_and_verify "${CRON_IMAGE_REF}"
-                                push_and_verify "${CRON_IMAGE_ENV_REF}"
-                                push_and_verify "${RADIUS_IMAGE_REF}"
-                                push_and_verify "${RADIUS_IMAGE_ENV_REF}"
+                                push_and_verify "${env.APP_IMAGE_REF}"
+                                push_and_verify "${env.APP_IMAGE_ENV_REF}"
+                                push_and_verify "${env.CRON_IMAGE_REF}"
+                                push_and_verify "${env.CRON_IMAGE_ENV_REF}"
+                                push_and_verify "${env.RADIUS_IMAGE_REF}"
+                                push_and_verify "${env.RADIUS_IMAGE_ENV_REF}"
                             """
                         }
                     }
@@ -322,7 +322,7 @@ spec:
                         set -euo pipefail
                         REGISTRY_SECRET="${NAMESPACE}-registry"
                         sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \
-                            -e 's|{{IMAGE_TAG}}|${APP_IMAGE_REF}|g' \
+                            -e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g' \
                             -e 's|{{REGISTRY_SECRET}}|${REGISTRY_SECRET}|g' \
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
@@ -409,9 +409,9 @@ spec:
                         render_manifest() {
                           local manifest="\$1"
                           sed \
-                            -e 's|{{APP_IMAGE}}|${APP_IMAGE_REF}|g' \
-                            -e 's|{{CRON_IMAGE}}|${CRON_IMAGE_REF}|g' \
-                            -e 's|{{RADIUS_IMAGE}}|${RADIUS_IMAGE_REF}|g' \
+                            -e 's|{{APP_IMAGE}}|${env.APP_IMAGE_REF}|g' \
+                            -e 's|{{CRON_IMAGE}}|${env.CRON_IMAGE_REF}|g' \
+                            -e 's|{{RADIUS_IMAGE}}|${env.RADIUS_IMAGE_REF}|g' \
                             "\$manifest"
                         }
 
@@ -449,9 +449,9 @@ spec:
                           kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=600s
                         }
 
-                        rollout_workload netmanager-app "\$APP_PREVIOUS_IMAGE" "${APP_IMAGE_REF}"
-                        rollout_workload netmanager-cron "\$CRON_PREVIOUS_IMAGE" "${CRON_IMAGE_REF}"
-                        rollout_workload netmanager-radius "\$RADIUS_PREVIOUS_IMAGE" "${RADIUS_IMAGE_REF}"
+                        rollout_workload netmanager-app "\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"
+                        rollout_workload netmanager-cron "\$CRON_PREVIOUS_IMAGE" "${env.CRON_IMAGE_REF}"
+                        rollout_workload netmanager-radius "\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_IMAGE_REF}"
 
                         kubectl rollout status deployment/netmanager-redis --namespace=${NAMESPACE} --timeout=300s
                         """

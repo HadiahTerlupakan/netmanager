@@ -131,13 +131,76 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).toContain("Backup Previous Env Image");
     expect(jenkinsfile).toContain("Push Images to Registry");
     expect(jenkinsfile).toContain("docker login");
-    expect(jenkinsfile).toContain('push_and_verify "${APP_IMAGE_REF}"');
-    expect(jenkinsfile).toContain('push_and_verify "${CRON_IMAGE_REF}"');
-    expect(jenkinsfile).toContain('push_and_verify "${RADIUS_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('push_and_verify "${env.APP_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('push_and_verify "${env.CRON_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('push_and_verify "${env.RADIUS_IMAGE_REF}"');
     expect(jenkinsfile).not.toContain(
       "chroot /host /usr/local/bin/k3s ctr images import -",
     );
     expect(jenkinsfile).not.toContain("docker run --rm -i --privileged");
+  });
+
+  it("binds runtime image refs through env to avoid Groovy missing property errors", () => {
+    const jenkinsfile = readJenkinsfile();
+    const envScopedImageRefs = [
+      'env.APP_IMAGE_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.IMAGE_VERSION}"',
+      'env.CRON_IMAGE_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.IMAGE_VERSION}"',
+      'env.RADIUS_IMAGE_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.IMAGE_VERSION}"',
+      'env.APP_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"',
+      'env.CRON_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.DOCKER_TAG}"',
+      'env.RADIUS_IMAGE_ENV_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.DOCKER_TAG}"',
+      'env.APP_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.DOCKER_TAG}-prev"',
+      'env.CRON_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.DOCKER_TAG}-prev"',
+      'env.RADIUS_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.DOCKER_TAG}-prev"',
+      'backup_image "${env.APP_IMAGE_ENV_REF}" "${env.APP_IMAGE_PREV_REF}"',
+      'backup_image "${env.CRON_IMAGE_ENV_REF}" "${env.CRON_IMAGE_PREV_REF}"',
+      'backup_image "${env.RADIUS_IMAGE_ENV_REF}" "${env.RADIUS_IMAGE_PREV_REF}"',
+      "docker build -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF}",
+      "docker build -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron",
+      "docker build -t ${env.RADIUS_IMAGE_REF} -t ${env.RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .",
+      'push_and_verify "${env.APP_IMAGE_REF}"',
+      'push_and_verify "${env.APP_IMAGE_ENV_REF}"',
+      'push_and_verify "${env.CRON_IMAGE_REF}"',
+      'push_and_verify "${env.CRON_IMAGE_ENV_REF}"',
+      'push_and_verify "${env.RADIUS_IMAGE_REF}"',
+      'push_and_verify "${env.RADIUS_IMAGE_ENV_REF}"',
+      "-e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g'",
+      "-e 's|{{APP_IMAGE}}|${env.APP_IMAGE_REF}|g'",
+      "-e 's|{{CRON_IMAGE}}|${env.CRON_IMAGE_REF}|g'",
+      "-e 's|{{RADIUS_IMAGE}}|${env.RADIUS_IMAGE_REF}|g'",
+      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"',
+      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${env.CRON_IMAGE_REF}"',
+      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_IMAGE_REF}"',
+    ];
+    const bareImageRefs = [
+      'backup_image "${APP_IMAGE_ENV_REF}" "${APP_IMAGE_PREV_REF}"',
+      'backup_image "${CRON_IMAGE_ENV_REF}" "${CRON_IMAGE_PREV_REF}"',
+      'backup_image "${RADIUS_IMAGE_ENV_REF}" "${RADIUS_IMAGE_PREV_REF}"',
+      "docker build -t ${APP_IMAGE_REF} -t ${APP_IMAGE_ENV_REF}",
+      "docker build -t ${CRON_IMAGE_REF} -t ${CRON_IMAGE_ENV_REF} ./cron",
+      "docker build -t ${RADIUS_IMAGE_REF} -t ${RADIUS_IMAGE_ENV_REF} -f radius/Dockerfile .",
+      'push_and_verify "${APP_IMAGE_REF}"',
+      'push_and_verify "${APP_IMAGE_ENV_REF}"',
+      'push_and_verify "${CRON_IMAGE_REF}"',
+      'push_and_verify "${CRON_IMAGE_ENV_REF}"',
+      'push_and_verify "${RADIUS_IMAGE_REF}"',
+      'push_and_verify "${RADIUS_IMAGE_ENV_REF}"',
+      "-e 's|{{IMAGE_TAG}}|${APP_IMAGE_REF}|g'",
+      "-e 's|{{APP_IMAGE}}|${APP_IMAGE_REF}|g'",
+      "-e 's|{{CRON_IMAGE}}|${CRON_IMAGE_REF}|g'",
+      "-e 's|{{RADIUS_IMAGE}}|${RADIUS_IMAGE_REF}|g'",
+      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${APP_IMAGE_REF}"',
+      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${CRON_IMAGE_REF}"',
+      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${RADIUS_IMAGE_REF}"',
+    ];
+
+    for (const imageRef of envScopedImageRefs) {
+      expect(jenkinsfile).toContain(imageRef);
+    }
+
+    for (const imageRef of bareImageRefs) {
+      expect(jenkinsfile).not.toContain(imageRef);
+    }
   });
 
   it("does not auto-apply placeholder registry secret templates during deploy", () => {
@@ -263,7 +326,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       /if \[ -n "\\\$previous_image" \] && \[ "\\\$previous_image" = "\\\$target_image" \]; then/,
     );
     expect(jenkinsfile).toContain(
-      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${APP_IMAGE_REF}"',
+      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"',
     );
     expect(jenkinsfile).not.toContain(
       'local current_image="\\$(get_current_image "\\$deployment_name" "\\$container_name")"',

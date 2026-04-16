@@ -53,7 +53,7 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${CRON_IMAGE_REF}"',
+      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${env.CRON_IMAGE_REF}"',
     );
     expect(jenkinsfile).toContain(
       'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE}',
@@ -67,7 +67,7 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${RADIUS_IMAGE_REF}"',
+      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_IMAGE_REF}"',
     );
     expect(jenkinsfile).not.toContain(
       'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE} || true',
