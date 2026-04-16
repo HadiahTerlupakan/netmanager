@@ -203,6 +203,25 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     }
   });
 
+  it("does not predeclare runtime image refs as empty environment placeholders", () => {
+    const jenkinsfile = readJenkinsfile();
+    const runtimeImageRefPlaceholders = [
+      'APP_IMAGE_REF = ""',
+      'CRON_IMAGE_REF = ""',
+      'RADIUS_IMAGE_REF = ""',
+      'APP_IMAGE_ENV_REF = ""',
+      'CRON_IMAGE_ENV_REF = ""',
+      'RADIUS_IMAGE_ENV_REF = ""',
+      'APP_IMAGE_PREV_REF = ""',
+      'CRON_IMAGE_PREV_REF = ""',
+      'RADIUS_IMAGE_PREV_REF = ""',
+    ];
+
+    for (const placeholder of runtimeImageRefPlaceholders) {
+      expect(jenkinsfile).not.toContain(placeholder);
+    }
+  });
+
   it("does not auto-apply placeholder registry secret templates during deploy", () => {
     const jenkinsfile = readJenkinsfile();
 
