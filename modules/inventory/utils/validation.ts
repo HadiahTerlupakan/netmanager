@@ -22,6 +22,37 @@ interface InventoryAssignedSiteInput {
   mitraSiteId?: string | null;
 }
 
+interface InventoryActorScopeUser {
+  id: string;
+  role?: {
+    name?: string | null;
+    permission?: Array<{
+      resource: string;
+      action: string;
+    }>;
+  } | null;
+  sites?: SiteRef | null;
+  userSites?: UserSiteAssignment[] | null;
+}
+
+interface InventoryActorScopeMitra {
+  id: string;
+  siteId?: string | null;
+}
+
+interface InventoryActorScopeInput {
+  user?: InventoryActorScopeUser | null;
+  mitra?: InventoryActorScopeMitra | null;
+  isSuperAdmin?: boolean;
+}
+
+interface InventoryActorScopeResult {
+  actor: { type: "user" | "mitra"; id: string; userId?: string };
+  allowedSiteIds: string[];
+  isRestricted: boolean;
+  userPermissions: string[];
+}
+
 export type ValidatedGudangSiteAccessResult = {
   allowed: boolean;
   error?: string;
@@ -168,4 +199,69 @@ export function hasGudangSiteAccess(
   }
 
   return gudangSiteIds.some((siteId) => allowedSiteIds.includes(siteId));
+}
+
+export function resolveInventoryActorScope(
+  input: InventoryActorScopeInput,
+): InventoryActorScopeResult | null {
+  const userPermissions =
+    input.user?.role?.permission?.map(
+      (permission) => `${permission.resource}:${permission.action}`,
+    ) || [];
+  const allowedSiteIds = getAssignedInventorySiteIds({
+    primarySite: input.user?.sites ? { id: input.user.sites.id } : null,
+    userSites: input.user?.userSites || null,
+    mitraSiteId: input.mitra?.siteId,
+  });
+  const isRestricted = isInventorySiteRestricted({
+    actorType: input.mitra ? "mitra" : "user",
+    isSuperAdmin: input.isSuperAdmin || false,
+    permissions: userPermissions,
+  });
+
+  if (!input.user && !input.mitra) {
+    return null;
+  }
+
+  if (input.user) {
+    return {
+      actor: { type: "user", id: input.user.id, userId: input.user.id },
+      allowedSiteIds,
+      isRestricted,
+      userPermissions,
+    };
+  }
+
+  return {
+    actor: { type: "mitra", id: input.mitra!.id },
+    allowedSiteIds,
+    isRestricted,
+    userPermissions,
+  };
+}
+
+export function validateInventoryGudangAccess(input: {
+  isRestricted: boolean;
+  allowedSiteIds: string[];
+  gudangSiteIds: string[];
+}): { allowed: boolean; error?: string } {
+  if (!input.isRestricted) {
+    return { allowed: true };
+  }
+
+  if (input.allowedSiteIds.length === 0) {
+    return {
+      allowed: false,
+      error: "Akses ditolak: Tidak ada site yang ditugaskan",
+    };
+  }
+
+  if (!hasGudangSiteAccess(input.gudangSiteIds, input.allowedSiteIds)) {
+    return {
+      allowed: false,
+      error: "Akses ditolak: Gudang di luar site Anda",
+    };
+  }
+
+  return { allowed: true };
 }

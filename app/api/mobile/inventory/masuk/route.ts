@@ -5,13 +5,12 @@ import { prisma } from "@/modules/database";
 import { prismaMitra } from "@/modules/database";
 import { InventoryRepository } from "@/modules/inventory";
 import { socketEmitter } from "@/lib/websocket/emitter";
-import { isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { isSuperAdmin } from "@/lib/auth";
 import {
-  getAssignedInventorySiteIds,
-  hasGudangSiteAccess,
-  isInventorySiteRestricted,
-} from "@/modules/inventory/utils/validation";
+  resolveInventoryActorScope,
+  validateInventoryGudangAccess,
+} from "@/modules/inventory";
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,30 +72,19 @@ export async function POST(request: NextRequest) {
         })
       : null;
 
-    if (!user && !mitra) {
+    const inventoryScope = resolveInventoryActorScope({
+      user,
+      mitra,
+      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
+    });
+
+    if (!inventoryScope) {
       return apiError("User tidak ditemukan", ErrorCodes.NOT_FOUND, {
         status: 404,
       });
     }
 
-    const actor = user
-      ? { type: "user" as const, id: user.id, userId: user.id }
-      : { type: "mitra" as const, id: mitra!.id };
-
-    const userPermissions =
-      user?.role?.permission.map(
-        (permission) => `${permission.resource}:${permission.action}`,
-      ) || [];
-    const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user?.sites ? { id: user.sites.id } : null,
-      userSites: user?.userSites || null,
-      mitraSiteId: mitra?.siteId,
-    });
-    const isRestricted = isInventorySiteRestricted({
-      actorType: mitra ? "mitra" : "user",
-      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
-      permissions: userPermissions,
-    });
+    const { actor, allowedSiteIds, isRestricted } = inventoryScope;
 
     const targetGudang = await prisma.gudang.findFirst({
       where: { id: gudangId, tenantId },
@@ -109,23 +97,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (isRestricted) {
-      if (allowedSiteIds.length === 0) {
-        return apiError(
-          "Akses ditolak: Tidak ada site yang ditugaskan",
-          ErrorCodes.FORBIDDEN,
-          { status: 403 },
-        );
-      }
+    const gudangAccess = validateInventoryGudangAccess({
+      isRestricted,
+      allowedSiteIds,
+      gudangSiteIds: targetGudang.sites.map((site) => site.id),
+    });
 
-      const gudangSiteIds = targetGudang.sites.map((site) => site.id);
-      if (!hasGudangSiteAccess(gudangSiteIds, allowedSiteIds)) {
-        return apiError(
-          "Akses ditolak: Gudang di luar site Anda",
-          ErrorCodes.FORBIDDEN,
-          { status: 403 },
-        );
-      }
+    if (!gudangAccess.allowed) {
+      return apiError(
+        gudangAccess.error || "Akses ditolak",
+        ErrorCodes.FORBIDDEN,
+        {
+          status: 403,
+        },
+      );
     }
 
     const inventoryRepository = new InventoryRepository();

@@ -53,14 +53,20 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
-vi.mock("@/modules/inventory", () => ({
-  InventoryRepository: class {
-    addStock = (...args: unknown[]) => mockFns.inventoryAddStock(...args);
-    removeStock = (...args: unknown[]) => mockFns.inventoryRemoveStock(...args);
-    getStockLevel = (...args: unknown[]) =>
-      mockFns.inventoryGetStockLevel(...args);
-  },
-}));
+vi.mock("@/modules/inventory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/inventory")>();
+
+  return {
+    ...actual,
+    InventoryRepository: class {
+      addStock = (...args: unknown[]) => mockFns.inventoryAddStock(...args);
+      removeStock = (...args: unknown[]) =>
+        mockFns.inventoryRemoveStock(...args);
+      getStockLevel = (...args: unknown[]) =>
+        mockFns.inventoryGetStockLevel(...args);
+    },
+  };
+});
 
 vi.mock("@/lib/logger", () => ({
   logger: {
@@ -94,6 +100,7 @@ import { GET as getBarang } from "@/app/api/mobile/inventory/barang/route";
 import { GET as getRiwayat } from "@/app/api/mobile/inventory/riwayat/route";
 import { POST as postMasuk } from "@/app/api/mobile/inventory/masuk/route";
 import { POST as postKeluar } from "@/app/api/mobile/inventory/keluar/route";
+import { resolveInventoryActorScope } from "@/modules/inventory";
 
 describe("mobile inventory authorization", () => {
   beforeEach(() => {
@@ -205,7 +212,7 @@ describe("mobile inventory authorization", () => {
       id: "mitra-1",
       userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang_masuk"],
+      permissions: ["m_barang_masuk:create"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
@@ -240,12 +247,27 @@ describe("mobile inventory authorization", () => {
     );
   });
 
+  it("resolves mitra inventory scope consistently for mobile mutation routes", () => {
+    expect(
+      resolveInventoryActorScope({
+        mitra: { id: "mitra-1", siteId: "site-1" },
+        isSuperAdmin: false,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        actor: { type: "mitra", id: "mitra-1" },
+        allowedSiteIds: ["site-1"],
+        isRestricted: true,
+      }),
+    );
+  });
+
   it("allows mitra inventory keluar mutation via actor-aware repository flow", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "mitra-1",
       userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang_keluar"],
+      permissions: ["m_barang_keluar:create"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
@@ -284,9 +306,20 @@ describe("mobile inventory authorization", () => {
         tenantId: "tenant-1",
       }),
     );
+    expect(mockFns.socketInventoryUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "keluar",
+        userId: "mitra-1",
+        barangId: "b-1",
+        gudangId: "g-1",
+        jumlah: 1,
+        totalStok: 2,
+      }),
+    );
     expect(mockFns.loggerLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         actor: { type: "mitra", id: "mitra-1" },
+        tenantId: "tenant-1",
       }),
     );
   });
