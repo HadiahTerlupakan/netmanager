@@ -201,6 +201,22 @@ export function hasGudangSiteAccess(
   return gudangSiteIds.some((siteId) => allowedSiteIds.includes(siteId));
 }
 
+export function buildInventoryActorFilter(actor: {
+  type: "user" | "mitra";
+  id: string;
+}): Record<string, unknown> {
+  if (actor.type === "user") {
+    return {
+      OR: [{ userId: actor.id }, { actorType: "user", actorId: actor.id }],
+    };
+  }
+
+  return {
+    actorType: "mitra",
+    actorId: actor.id,
+  };
+}
+
 export function resolveInventoryActorScope(
   input: InventoryActorScopeInput,
 ): InventoryActorScopeResult | null {

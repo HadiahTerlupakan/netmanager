@@ -7,25 +7,9 @@ import { isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   buildGudangSiteFilter,
-  getAssignedInventorySiteIds,
-  isInventorySiteRestricted,
-} from "@/modules/inventory/utils/validation";
-
-function buildActorFilter(actor: {
-  type: "user" | "mitra";
-  id: string;
-}): Record<string, unknown> {
-  if (actor.type === "user") {
-    return {
-      OR: [{ userId: actor.id }, { actorType: "user", actorId: actor.id }],
-    };
-  }
-
-  return {
-    actorType: "mitra",
-    actorId: actor.id,
-  };
-}
+  buildInventoryActorFilter,
+  resolveInventoryActorScope,
+} from "@/modules/inventory";
 
 // GET - Get transaction history for mobile
 export async function GET(request: NextRequest) {
@@ -81,44 +65,41 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const actor = user
-      ? { type: "user" as const, id: user.id }
-      : { type: "mitra" as const, id: mitra!.id };
-    const userPermissions =
-      user?.role?.permission.map(
-        (permission) => `${permission.resource}:${permission.action}`,
-      ) || [];
-    const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user?.sites ? { id: user.sites.id } : null,
-      userSites: user?.userSites || null,
-      mitraSiteId: mitra?.siteId,
-    });
-    const isRestricted = isInventorySiteRestricted({
-      actorType: actor.type,
+    const actorScope = resolveInventoryActorScope({
+      user: user
+        ? {
+            id: user.id,
+            role: user.role,
+            sites: user.sites,
+            userSites: user.userSites,
+          }
+        : null,
+      mitra,
       isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
-      permissions: userPermissions,
     });
 
-    if (isRestricted && allowedSiteIds.length === 0) {
-      return apiError(
-        "Akses ditolak: Tidak ada site yang ditugaskan",
-        ErrorCodes.FORBIDDEN,
-        { status: 403 },
-      );
+    if (!actorScope) {
+      return apiError("User tidak ditemukan", ErrorCodes.NOT_FOUND, {
+        status: 404,
+      });
     }
 
     const whereClauseMasuk: Record<string, unknown> = {
       tenantId,
-      ...buildActorFilter(actor),
+      ...buildInventoryActorFilter(actorScope.actor),
     };
     const whereClauseKeluar: Record<string, unknown> = {
       tenantId,
-      ...buildActorFilter(actor),
+      ...buildInventoryActorFilter(actorScope.actor),
     };
 
-    if (isRestricted) {
-      whereClauseMasuk.gudang = buildGudangSiteFilter(allowedSiteIds);
-      whereClauseKeluar.gudang = buildGudangSiteFilter(allowedSiteIds);
+    if (actorScope.isRestricted) {
+      whereClauseMasuk.gudang = buildGudangSiteFilter(
+        actorScope.allowedSiteIds,
+      );
+      whereClauseKeluar.gudang = buildGudangSiteFilter(
+        actorScope.allowedSiteIds,
+      );
     }
 
     if (cursorValue) {

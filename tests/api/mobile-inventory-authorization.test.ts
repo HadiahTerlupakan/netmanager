@@ -100,7 +100,10 @@ import { GET as getBarang } from "@/app/api/mobile/inventory/barang/route";
 import { GET as getRiwayat } from "@/app/api/mobile/inventory/riwayat/route";
 import { POST as postMasuk } from "@/app/api/mobile/inventory/masuk/route";
 import { POST as postKeluar } from "@/app/api/mobile/inventory/keluar/route";
-import { resolveInventoryActorScope } from "@/modules/inventory";
+import {
+  buildInventoryActorFilter,
+  resolveInventoryActorScope,
+} from "@/modules/inventory";
 
 describe("mobile inventory authorization", () => {
   beforeEach(() => {
@@ -258,6 +261,138 @@ describe("mobile inventory authorization", () => {
         actor: { type: "mitra", id: "mitra-1" },
         allowedSiteIds: ["site-1"],
         isRestricted: true,
+      }),
+    );
+  });
+
+  it("builds actor filters that keep riwayat user access aware", () => {
+    expect(buildInventoryActorFilter({ type: "user", id: "user-1" })).toEqual({
+      OR: [{ userId: "user-1" }, { actorType: "user", actorId: "user-1" }],
+    });
+  });
+
+  it("builds actor filters that keep riwayat mitra access strict", () => {
+    expect(buildInventoryActorFilter({ type: "mitra", id: "mitra-1" })).toEqual(
+      {
+        actorType: "mitra",
+        actorId: "mitra-1",
+      },
+    );
+  });
+
+  it("resolves user inventory scope and keeps read routes site-restricted", () => {
+    expect(
+      resolveInventoryActorScope({
+        user: {
+          id: "user-1",
+          role: {
+            name: "OPERATOR",
+            permission: [{ resource: "k_barang", action: "site_only" }],
+          },
+          sites: { id: "site-primary" },
+          userSites: [{ siteId: "site-assigned" }],
+        },
+        isSuperAdmin: false,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        actor: { type: "user", id: "user-1", userId: "user-1" },
+        allowedSiteIds: ["site-assigned", "site-primary"],
+        isRestricted: true,
+        userPermissions: ["k_barang:site_only"],
+      }),
+    );
+  });
+
+  it("keeps gudang read site-filtered for mitra actors", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValue({
+      id: "mitra-2",
+      userId: "mitra-2",
+      tenantId: "tenant-1",
+      permissions: ["m_barang:read"],
+    });
+    mockFns.userFindFirst.mockResolvedValue(null);
+    mockFns.mitraFindUnique.mockResolvedValue({
+      id: "mitra-2",
+      siteId: "site-2",
+    });
+    mockFns.gudangFindMany.mockResolvedValue([{ id: "g-2", nama: "Gudang B" }]);
+
+    const response = await getGudang(
+      new NextRequest("http://localhost/api/mobile/inventory/gudang"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.gudangList).toHaveLength(1);
+    expect(mockFns.gudangFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "tenant-1",
+          sites: {
+            some: {
+              id: { in: ["site-2"] },
+            },
+          },
+        }),
+      }),
+    );
+  });
+
+  it("keeps barang read site-filtered for user actors", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValue({
+      id: "user-2",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      permissions: ["m_barang:read"],
+    });
+    mockFns.userFindFirst.mockResolvedValue({
+      id: "user-2",
+      role: {
+        name: "OPERATOR",
+        permission: [{ resource: "k_barang", action: "site_only" }],
+      },
+      sites: { id: "site-1" },
+      userSites: [{ siteId: "site-3" }],
+    });
+    mockFns.barangGudangFindMany.mockResolvedValue([
+      {
+        barang: {
+          id: "b-1",
+          kode: "BRG-1",
+          nama: "Router",
+          satuan: "unit",
+          isWorkOrderMaterial: false,
+        },
+        stok: 4,
+        stokBaru: 4,
+        stokBekas: 0,
+        stokRusak: 0,
+      },
+    ]);
+
+    const response = await getBarang(
+      new NextRequest(
+        "http://localhost/api/mobile/inventory/barang?gudangId=g-1&mode=keluar",
+      ),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.barangList).toHaveLength(1);
+    expect(mockFns.barangGudangFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          gudangId: "g-1",
+          tenantId: "tenant-1",
+          gudang: {
+            sites: {
+              some: {
+                id: { in: ["site-3", "site-1"] },
+              },
+            },
+          },
+        }),
       }),
     );
   });

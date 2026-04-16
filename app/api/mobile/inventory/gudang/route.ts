@@ -7,9 +7,9 @@ import { isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   buildGudangSiteFilter,
-  getAssignedInventorySiteIds,
-  isInventorySiteRestricted,
-} from "@/modules/inventory/utils/validation";
+  resolveInventoryActorScope,
+  validateInventoryGudangAccess,
+} from "@/modules/inventory";
 
 // GET - Get gudang list for mobile
 export async function GET(req: NextRequest) {
@@ -54,24 +54,24 @@ export async function GET(req: NextRequest) {
         })
       : null;
 
-    if (!user && !mitra) {
+    const actorScope = resolveInventoryActorScope({
+      user: user
+        ? {
+            id: user.id,
+            role: user.role,
+            sites: user.sites,
+            userSites: user.userSites,
+          }
+        : null,
+      mitra,
+      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
+    });
+
+    if (!actorScope) {
       return apiError("User tidak ditemukan", ErrorCodes.NOT_FOUND, {
         status: 404,
       });
     }
-
-    const userPermissions =
-      user?.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
-    const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user?.sites ? { id: user.sites.id } : null,
-      userSites: user?.userSites || null,
-      mitraSiteId: mitra?.siteId,
-    });
-    const isRestricted = isInventorySiteRestricted({
-      actorType: mitra ? "mitra" : "user",
-      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
-      permissions: userPermissions,
-    });
 
     const { searchParams } = new URL(req.url);
     const workOrderId = searchParams.get("workOrderId");
@@ -81,23 +81,37 @@ export async function GET(req: NextRequest) {
         select: { siteId: true },
       });
 
-      if (workOrder?.siteId && !allowedSiteIds.includes(workOrder.siteId)) {
-        allowedSiteIds.push(workOrder.siteId);
+      if (
+        workOrder?.siteId &&
+        !actorScope.allowedSiteIds.includes(workOrder.siteId)
+      ) {
+        actorScope.allowedSiteIds.push(workOrder.siteId);
       }
     }
 
     const whereClause: Record<string, unknown> = { isActive: true, tenantId };
 
-    if (isRestricted) {
-      if (allowedSiteIds.length === 0) {
+    if (actorScope.isRestricted) {
+      const accessResult = validateInventoryGudangAccess({
+        isRestricted: actorScope.isRestricted,
+        allowedSiteIds: actorScope.allowedSiteIds,
+        gudangSiteIds: actorScope.allowedSiteIds,
+      });
+
+      if (!accessResult.allowed && actorScope.allowedSiteIds.length === 0) {
         return apiError(
-          "Akses ditolak: Tidak ada site yang ditugaskan",
+          accessResult.error || "Akses ditolak",
           ErrorCodes.FORBIDDEN,
-          { status: 403 },
+          {
+            status: 403,
+          },
         );
       }
 
-      Object.assign(whereClause, buildGudangSiteFilter(allowedSiteIds));
+      Object.assign(
+        whereClause,
+        buildGudangSiteFilter(actorScope.allowedSiteIds),
+      );
     }
 
     const gudangs = await prisma.gudang.findMany({

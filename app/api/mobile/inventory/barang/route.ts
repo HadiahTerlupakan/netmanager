@@ -8,9 +8,8 @@ import { isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   buildGudangSiteFilter,
-  getAssignedInventorySiteIds,
-  isInventorySiteRestricted,
-} from "@/modules/inventory/utils/validation";
+  resolveInventoryActorScope,
+} from "@/modules/inventory";
 
 // GET - Get barang list for mobile
 // Query params:
@@ -70,26 +69,26 @@ export async function GET(req: NextRequest) {
         })
       : null;
 
-    if (!user && !mitra) {
+    const actorScope = resolveInventoryActorScope({
+      user: user
+        ? {
+            id: user.id,
+            role: user.role,
+            sites: user.sites,
+            userSites: user.userSites,
+          }
+        : null,
+      mitra,
+      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
+    });
+
+    if (!actorScope) {
       return apiError("User tidak ditemukan", ErrorCodes.NOT_FOUND, {
         status: 404,
       });
     }
 
-    const userPermissions =
-      user?.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
-    const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user?.sites ? { id: user.sites.id } : null,
-      userSites: user?.userSites || null,
-      mitraSiteId: mitra?.siteId,
-    });
-    const isRestricted = isInventorySiteRestricted({
-      actorType: mitra ? "mitra" : "user",
-      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
-      permissions: userPermissions,
-    });
-
-    if (isRestricted && allowedSiteIds.length === 0) {
+    if (actorScope.isRestricted && actorScope.allowedSiteIds.length === 0) {
       return apiError(
         "Akses ditolak: Tidak ada site yang ditugaskan",
         ErrorCodes.FORBIDDEN,
@@ -101,10 +100,10 @@ export async function GET(req: NextRequest) {
     if (mode === "masuk") {
       const barangWhere: Prisma.BarangWhereInput = { tenantId };
 
-      if (isRestricted) {
+      if (actorScope.isRestricted) {
         barangWhere.barangGudang = {
           some: {
-            gudang: buildGudangSiteFilter(allowedSiteIds),
+            gudang: buildGudangSiteFilter(actorScope.allowedSiteIds),
           },
         };
       }
@@ -143,8 +142,8 @@ export async function GET(req: NextRequest) {
       tenantId,
     };
 
-    if (isRestricted) {
-      whereClause.gudang = buildGudangSiteFilter(allowedSiteIds);
+    if (actorScope.isRestricted) {
+      whereClause.gudang = buildGudangSiteFilter(actorScope.allowedSiteIds);
     }
 
     // Get barang with stock in the specified gudang using BarangGudang
