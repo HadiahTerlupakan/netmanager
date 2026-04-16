@@ -38,6 +38,33 @@ async function buildUnsupportedVersionResponse(versionCode: number) {
   );
 }
 
+function resolveTrustedCustomerVersion(
+  verified: Awaited<ReturnType<typeof verifyPelangganRefreshToken>>,
+  customer: {
+    lastVersionCode: number | null;
+    lastVersionName: string | null;
+  },
+) {
+  const tokenVersionCode = verified.appVersionCode ?? 0;
+  const persistedVersionCode = customer.lastVersionCode ?? 0;
+  const shouldUsePersistedVersion = persistedVersionCode > tokenVersionCode;
+
+  if (shouldUsePersistedVersion) {
+    return {
+      trustedVersionCode: persistedVersionCode,
+      trustedVersionName:
+        customer.lastVersionName ?? verified.appVersionName ?? null,
+    };
+  }
+
+  return {
+    trustedVersionCode:
+      verified.appVersionCode ?? customer.lastVersionCode ?? 0,
+    trustedVersionName:
+      verified.appVersionName ?? customer.lastVersionName ?? null,
+  };
+}
+
 async function tryRefreshCustomerToken(refreshToken: string) {
   const verified = await verifyPelangganRefreshToken(refreshToken);
   if (!verified.valid) {
@@ -62,10 +89,8 @@ async function tryRefreshCustomerToken(refreshToken: string) {
     return null;
   }
 
-  const trustedVersionCode =
-    verified.appVersionCode ?? customer.lastVersionCode ?? 0;
-  const trustedVersionName =
-    verified.appVersionName ?? customer.lastVersionName ?? null;
+  const { trustedVersionCode, trustedVersionName } =
+    resolveTrustedCustomerVersion(verified, customer);
 
   const unsupportedVersionResponse =
     await buildUnsupportedVersionResponse(trustedVersionCode);

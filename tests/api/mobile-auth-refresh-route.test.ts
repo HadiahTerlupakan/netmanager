@@ -233,6 +233,64 @@ describe("POST /api/mobile/auth/refresh", () => {
     );
   });
 
+  it("prefers persisted customer version when it is newer than refresh token metadata", async () => {
+    mockVerifyPelangganRefreshToken.mockResolvedValue({
+      id: "cust-1",
+      valid: true,
+      appVersionCode: 40,
+      appVersionName: "1.0.0",
+    });
+    mockFindCustomer.mockResolvedValue({
+      id: "cust-1",
+      idPelanggan: "PEL-1",
+      nama: "Customer One",
+      username: "cust-one",
+      status: "AKTIF",
+      tenantId: "tenant-1",
+      lastVersionCode: 55,
+      lastVersionName: "1.2.3",
+    });
+    mockEvaluateVersionAccess.mockImplementation(
+      async (versionCode: number) => ({
+        isSupported: versionCode >= 50,
+        minimumVersion: 50,
+        latestVersion: 55,
+        isForceUpdate: true,
+        updateAvailable: true,
+      }),
+    );
+    mockGeneratePelangganAccessToken.mockReturnValue("customer-access-token");
+    mockGeneratePelangganRefreshToken.mockResolvedValue(
+      "customer-refresh-token",
+    );
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/auth/refresh", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-app-version-code": "99",
+          "x-app-version-name": "9.9.9",
+        },
+        body: JSON.stringify({ refreshToken: "customer-refresh-token-old" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(55);
+    expect(mockGeneratePelangganAccessToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appVersionCode: 55,
+        appVersionName: "1.2.3",
+      }),
+      "7d",
+    );
+    expect(mockGeneratePelangganRefreshToken).toHaveBeenCalledWith("cust-1", {
+      appVersionCode: 55,
+      appVersionName: "1.2.3",
+    });
+  });
+
   it("rejects missing refresh token payload", async () => {
     const response = await POST(
       new NextRequest("http://localhost/api/mobile/auth/refresh", {
@@ -396,7 +454,7 @@ describe("POST /api/mobile/auth/refresh", () => {
     expect(mockGeneratePelangganRefreshToken).not.toHaveBeenCalled();
   });
 
-  it("returns 426 when spoofed request version header hides unsupported customer refresh token version", async () => {
+  it("returns 426 when spoofed request version header cannot override unsupported customer refresh version", async () => {
     mockVerifyPelangganRefreshToken.mockResolvedValue({
       id: "cust-1",
       valid: true,
@@ -410,8 +468,8 @@ describe("POST /api/mobile/auth/refresh", () => {
       username: "cust-one",
       status: "AKTIF",
       tenantId: "tenant-1",
-      lastVersionCode: 55,
-      lastVersionName: "1.2.3",
+      lastVersionCode: 40,
+      lastVersionName: "1.0.0",
     });
     mockEvaluateVersionAccess.mockImplementation(
       async (versionCode: number) => ({
