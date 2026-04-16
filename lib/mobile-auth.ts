@@ -168,18 +168,7 @@ export function hasAnyMobilePermission(
   );
 }
 
-function resolveVersionCode(
-  payload: MobileTokenPayload,
-  versionCodeOverride?: number | null,
-): number {
-  if (
-    typeof versionCodeOverride === "number" &&
-    Number.isFinite(versionCodeOverride) &&
-    versionCodeOverride > 0
-  ) {
-    return versionCodeOverride;
-  }
-
+function resolveVersionCode(payload: MobileTokenPayload): number {
   const tokenVersionCode = Number(
     payload.appVersionCode ?? payload.versionCode ?? 0,
   );
@@ -190,12 +179,12 @@ function resolveVersionCode(
 
 export async function getMobileTokenDetails(
   token: string,
-  versionCodeOverride?: number | null,
+  _versionCodeOverride?: number | null,
 ): Promise<MobileTokenDetails | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     const mobilePayload = payload as MobileTokenPayload;
-    const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
+    const versionCode = resolveVersionCode(mobilePayload);
     const versionAccess =
       await getAppVersionService().evaluateVersionAccess(versionCode);
 
@@ -213,11 +202,11 @@ export async function getMobileTokenDetails(
 async function verifyValidatedMobileToken(
   token: string,
   expectedType: "access" | "refresh",
-  versionCodeOverride?: number | null,
+  _versionCodeOverride?: number | null,
 ): Promise<MobileTokenPayload | null> {
   try {
     console.log("[MOBILE_AUTH] Verifying token...");
-    const details = await getMobileTokenDetails(token, versionCodeOverride);
+    const details = await getMobileTokenDetails(token);
     if (!details) {
       console.log("[MOBILE_AUTH] Token details could not be parsed");
       return null;
@@ -392,14 +381,14 @@ async function verifyValidatedMobileToken(
 
 export async function verifyMobileToken(
   token: string,
-  versionCodeOverride?: number | null,
+  _versionCodeOverride?: number | null,
 ): Promise<MobileTokenPayload | null> {
-  return verifyValidatedMobileToken(token, "access", versionCodeOverride);
+  return verifyValidatedMobileToken(token, "access");
 }
 
 export async function verifyMobileRefreshToken(
   token: string,
-  versionCodeOverride?: number | null,
+  _versionCodeOverride?: number | null,
 ): Promise<MobileTokenPayload | null> {
-  return verifyValidatedMobileToken(token, "refresh", versionCodeOverride);
+  return verifyValidatedMobileToken(token, "refresh");
 }

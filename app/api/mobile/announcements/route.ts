@@ -13,21 +13,15 @@ const PORTAL_TARGETS: Record<MobileAnnouncementPortal, TargetAudience[]> = {
 };
 
 function resolvePortal(
-  request: NextRequest,
   role?: string | null,
+  isSuperAdmin?: boolean,
 ): MobileAnnouncementPortal {
-  const portal = request.nextUrl.searchParams.get("portal");
-
-  if (portal === "customer" || portal === "employee" || portal === "admin") {
-    return portal;
-  }
-
   const normalizedRole = role?.toUpperCase() ?? "";
   if (normalizedRole.includes("CUSTOMER")) {
     return "customer";
   }
 
-  if (normalizedRole.includes("ADMIN")) {
+  if (isSuperAdmin || normalizedRole.includes("ADMIN")) {
     return "admin";
   }
 
@@ -69,7 +63,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const portal = resolvePortal(request, authResult.role);
+    const portal = resolvePortal(authResult.role, authResult.isSuperAdmin);
     const now = new Date();
     const announcements = await prisma.announcement.findMany({
       where: buildAnnouncementWhere(tenantId, portal, now),

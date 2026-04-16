@@ -88,19 +88,17 @@ describe("GET /api/mobile/announcements", () => {
     });
   });
 
-  it("respects explicit customer portal targeting", async () => {
+  it("ignores admin portal override for non-admin mobile users", async () => {
     prismaMock.announcement.findMany.mockResolvedValueOnce([] as never);
 
     await GET(
-      new NextRequest(
-        "http://localhost/api/mobile/announcements?portal=customer",
-      ),
+      new NextRequest("http://localhost/api/mobile/announcements?portal=admin"),
     );
 
     expect(prismaMock.announcement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          target: { in: ["ALL", "CUSTOMER"] },
+          target: { in: ["ALL", "EMPLOYEE"] },
         }),
       }),
     );

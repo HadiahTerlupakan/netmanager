@@ -1,16 +1,16 @@
-import { readFileSync } from 'fs'
-import { join } from 'path'
-import { describe, expect, it } from 'vitest'
+import { readFileSync } from "fs";
+import { join } from "path";
+import { describe, expect, it } from "vitest";
 
-describe('AttendanceClient day off display consumer', () => {
-  it('uses differentiated DAY_OFF labels instead of one generic Libur/Tukar Libur label', () => {
+describe("AttendanceClient day off display consumer", () => {
+  it("uses differentiated DAY_OFF labels instead of one generic Libur/Tukar Libur label", () => {
     const content = readFileSync(
-      join(process.cwd(), 'app', 'admin', 'attendance', 'AttendanceClient.tsx'),
-      'utf8'
-    )
+      join(process.cwd(), "app", "admin", "attendance", "AttendanceClient.tsx"),
+      "utf8",
+    );
 
-    expect(content).toContain('getDayOffDisplayLabel')
-    expect(content).toContain("item.status === 'DAY_OFF'")
-    expect(content).toContain('label: getDayOffDisplayLabel(item)')
-  })
-})
+    expect(content).toContain("getDayOffDisplayLabel");
+    expect(content).toMatch(/item\.status === ["']DAY_OFF["']/);
+    expect(content).toMatch(/label:\s*getDayOffDisplayLabel\(item\)/);
+  });
+});

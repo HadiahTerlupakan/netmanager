@@ -12,29 +12,33 @@ import {
   generatePelangganRefreshToken,
   verifyPelangganRefreshToken,
 } from "@/lib/jwt";
+import { getAppVersionService } from "@/modules/app-version";
 
-function parseVersionCode(value: string | null): number {
-  const parsed = Number.parseInt(String(value ?? ""), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
+async function buildUnsupportedVersionResponse(versionCode: number) {
+  const versionAccess =
+    await getAppVersionService().evaluateVersionAccess(versionCode);
 
-function resolveVersionFromRequest(request: NextRequest) {
-  const versionCode = parseVersionCode(
-    request.headers.get("x-app-version-code"),
+  if (versionAccess.isSupported) {
+    return null;
+  }
+
+  return apiError(
+    "Aplikasi harus diperbarui untuk melanjutkan.",
+    ErrorCodes.APP_VERSION_UNSUPPORTED,
+    {
+      status: 426,
+      details: {
+        currentVersionCode: versionCode,
+        minimumVersion: versionAccess.minimumVersion,
+        latestVersion: versionAccess.latestVersion,
+        isForceUpdate: versionAccess.isForceUpdate,
+        updateAvailable: versionAccess.updateAvailable,
+      },
+    },
   );
-  const versionName = request.headers.get("x-app-version-name");
-
-  return {
-    versionCode,
-    versionName: versionName?.trim() || null,
-  };
 }
 
-async function tryRefreshCustomerToken(
-  refreshToken: string,
-  versionCode: number,
-  versionName: string | null,
-) {
+async function tryRefreshCustomerToken(refreshToken: string) {
   const verified = await verifyPelangganRefreshToken(refreshToken);
   if (!verified.valid) {
     return null;
@@ -49,11 +53,27 @@ async function tryRefreshCustomerToken(
       username: true,
       status: true,
       tenantId: true,
+      lastVersionCode: true,
+      lastVersionName: true,
     },
   });
 
   if (!customer || customer.status !== "AKTIF") {
     return null;
+  }
+
+  const trustedVersionCode =
+    verified.appVersionCode ?? customer.lastVersionCode ?? 0;
+  const trustedVersionName =
+    verified.appVersionName ?? customer.lastVersionName ?? null;
+
+  const unsupportedVersionResponse =
+    await buildUnsupportedVersionResponse(trustedVersionCode);
+  if (unsupportedVersionResponse) {
+    return {
+      kind: "unsupported" as const,
+      response: unsupportedVersionResponse,
+    };
   }
 
   const token = generatePelangganAccessToken(
@@ -64,28 +84,25 @@ async function tryRefreshCustomerToken(
       username: customer.username,
       status: customer.status,
       tenantId: customer.tenantId,
-      appVersionCode: versionCode || undefined,
-      appVersionName: versionName,
+      appVersionCode: trustedVersionCode || undefined,
+      appVersionName: trustedVersionName,
     },
     "7d",
   );
-  const nextRefreshToken = await generatePelangganRefreshToken(customer.id);
+  const nextRefreshToken = await generatePelangganRefreshToken(customer.id, {
+    appVersionCode: trustedVersionCode || undefined,
+    appVersionName: trustedVersionName,
+  });
 
   return {
+    kind: "success" as const,
     token,
     refreshToken: nextRefreshToken,
   };
 }
 
-async function tryRefreshMobileToken(
-  refreshToken: string,
-  versionCode: number,
-  versionName: string | null,
-) {
-  const details = await getMobileTokenDetails(
-    refreshToken,
-    versionCode || null,
-  );
+async function tryRefreshMobileToken(refreshToken: string) {
+  const details = await getMobileTokenDetails(refreshToken);
   if (!details) {
     return { kind: "invalid" as const };
   }
@@ -97,18 +114,15 @@ async function tryRefreshMobileToken(
     };
   }
 
-  const payload = await verifyMobileRefreshToken(
-    refreshToken,
-    versionCode || null,
-  );
+  const payload = await verifyMobileRefreshToken(refreshToken);
   if (!payload) {
     return { kind: "invalid" as const };
   }
 
   const tokenPayload = {
     ...payload,
-    appVersionCode: versionCode || payload.appVersionCode || 0,
-    appVersionName: versionName ?? payload.appVersionName ?? null,
+    appVersionCode: details.versionCode || payload.appVersionCode || 0,
+    appVersionName: payload.appVersionName ?? null,
   };
 
   const token = await signMobileToken(tokenPayload);
@@ -135,14 +149,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { versionCode, versionName } = resolveVersionFromRequest(request);
+    const customerTokens = await tryRefreshCustomerToken(refreshToken);
+    if (customerTokens?.kind === "unsupported") {
+      return customerTokens.response;
+    }
 
-    const customerTokens = await tryRefreshCustomerToken(
-      refreshToken,
-      versionCode,
-      versionName,
-    );
-    if (customerTokens) {
+    if (customerTokens?.kind === "success") {
       return NextResponse.json({
         success: true,
         token: customerTokens.token,
@@ -150,11 +162,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const mobileTokens = await tryRefreshMobileToken(
-      refreshToken,
-      versionCode,
-      versionName,
-    );
+    const mobileTokens = await tryRefreshMobileToken(refreshToken);
     if (mobileTokens.kind === "unsupported") {
       return apiError(
         "Aplikasi harus diperbarui untuk melanjutkan.",

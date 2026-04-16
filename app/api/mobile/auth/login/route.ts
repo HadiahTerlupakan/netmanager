@@ -146,8 +146,23 @@ export async function POST(req: Request) {
       }
 
       // Success
+      if (parsedVersionCode > 0) {
+        await prismaAuth.pelanggan.update({
+          where: { id: customer.id },
+          data: {
+            lastVersionCode: parsedVersionCode,
+            lastVersionName: body.versionName || null,
+            lastVersionUpdate: new Date(),
+          },
+        });
+      }
+
       const { generatePelangganAccessToken, generatePelangganRefreshToken } =
         await import("@/lib/jwt");
+      const customerVersionMetadata = {
+        appVersionCode: parsedVersionCode || undefined,
+        appVersionName: body.versionName || null,
+      };
       const token = generatePelangganAccessToken(
         {
           id: customer.id,
@@ -155,13 +170,15 @@ export async function POST(req: Request) {
           nama: customer.nama,
           username: customer.username,
           status: customer.status,
-          appVersionCode: parsedVersionCode,
-          appVersionName: body.versionName || null,
           tenantId: customer.tenantId,
+          ...customerVersionMetadata,
         },
         "7d",
       );
-      const refreshToken = await generatePelangganRefreshToken(customer.id);
+      const refreshToken = await generatePelangganRefreshToken(
+        customer.id,
+        customerVersionMetadata,
+      );
 
       return {
         found: true,

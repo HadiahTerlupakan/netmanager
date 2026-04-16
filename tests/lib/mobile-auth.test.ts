@@ -77,7 +77,7 @@ describe("mobile-auth version overrides", () => {
     mockMitraFindUnique.mockResolvedValue(null);
   });
 
-  it("uses explicit version override when reading token details", async () => {
+  it("uses token appVersionCode when reading token details even if an override is supplied", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 54 },
     });
@@ -85,46 +85,39 @@ describe("mobile-auth version overrides", () => {
       isSupported: true,
       updateAvailable: false,
       isForceUpdate: false,
-      currentVersion: "1.0.60",
-      currentVersionCode: 100,
+      currentVersion: "1.0.54",
+      currentVersionCode: 54,
       minimumVersion: null,
       latestVersion: null,
     });
 
     const details = await getMobileTokenDetails("token-1", 100);
 
-    expect(details?.versionCode).toBe(100);
-    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(100);
+    expect(details?.versionCode).toBe(54);
+    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(54);
   });
 
-  it("accepts a supported request version even when token appVersionCode is stale", async () => {
+  it("rejects unsupported token appVersionCode even if a newer override is supplied", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 2, appVersionCode: 54 },
     });
     mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: true,
-      updateAvailable: false,
-      isForceUpdate: false,
+      isSupported: false,
+      updateAvailable: true,
+      isForceUpdate: true,
       currentVersion: "1.0.60",
-      currentVersionCode: 100,
-      minimumVersion: null,
+      currentVersionCode: 60,
+      minimumVersion: 55,
       latestVersion: null,
-    });
-    mockUserFindUnique.mockResolvedValueOnce({
-      tokenVersion: 2,
-      isActive: true,
-      isSales: false,
-      siteId: null,
-      role: {
-        name: "ADMIN",
-        permission: [],
-      },
     });
 
     const payload = await verifyMobileToken("token-1", 100);
 
-    expect(payload?.userId).toBe("user-1");
-    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(100);
+    expect(payload).toBeNull();
+    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(54);
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
+    expect(mockPelangganFindUnique).not.toHaveBeenCalled();
+    expect(mockMitraFindUnique).not.toHaveBeenCalled();
   });
 
   it("builds Mitra teknisi capabilities from the centralized helper", () => {

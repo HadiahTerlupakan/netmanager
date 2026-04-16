@@ -126,7 +126,51 @@ describe("createHandler mobile auth", () => {
       tenantId: "tenant-1",
       isSuperAdmin: false,
     });
+    expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token");
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token");
     expect(mockVerifyMobileToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("mengabaikan header versi request saat bearer token diverifikasi", async () => {
+    const route = createHandler({ auth: true }, async (_req, ctx) => {
+      return NextResponse.json({ user: ctx.session?.user });
+    });
+
+    mockGetMobileTokenDetails.mockResolvedValue({
+      payload: { sub: "user-1", appVersionCode: 54 },
+      versionCode: 54,
+      versionAccess: {
+        isSupported: true,
+        updateAvailable: false,
+        isForceUpdate: false,
+        currentVersion: "1.0.54",
+        currentVersionCode: 54,
+        minimumVersion: null,
+        latestVersion: null,
+      },
+    });
+    mockVerifyMobileToken.mockResolvedValue({
+      userId: "user-1",
+      role: "TEKNISI",
+      tenantId: "tenant-1",
+      siteId: "site-1",
+      permissions: [],
+      isSuperAdmin: false,
+    });
+
+    const response = await route(
+      new NextRequest("http://localhost/api/test", {
+        headers: {
+          Authorization: "Bearer valid-token",
+          "x-app-version-code": "100",
+        },
+      }),
+      { params: Promise.resolve({}) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetMobileTokenDetails).toHaveBeenCalledWith("valid-token");
+    expect(mockVerifyMobileToken).toHaveBeenCalledWith("valid-token");
   });
 
   it("tetap memakai tenant context request saat prisma tenant isolation berjalan", async () => {

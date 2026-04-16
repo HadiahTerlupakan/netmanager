@@ -157,21 +157,8 @@ export function createHandler<T = unknown>(
               const { verifyMobileToken, getMobileTokenDetails } =
                 await import("@/lib/mobile-auth");
 
-              // Extract version code for compatibility check
-              const rawVersionCode = request.headers.get("x-app-version-code");
-              const requestVersionCode = rawVersionCode
-                ? Number(rawVersionCode)
-                : null;
-              const validVersionCode =
-                requestVersionCode && Number.isFinite(requestVersionCode)
-                  ? requestVersionCode
-                  : null;
-
               // Check version liveness first for specific 426 response
-              const details = await getMobileTokenDetails(
-                token,
-                validVersionCode,
-              );
+              const details = await getMobileTokenDetails(token);
               if (details && !details.versionAccess.isSupported) {
                 return apiError(
                   "Aplikasi harus diperbarui untuk melanjutkan.",
@@ -189,7 +176,7 @@ export function createHandler<T = unknown>(
                 );
               }
 
-              const payload = await verifyMobileToken(token, validVersionCode);
+              const payload = await verifyMobileToken(token);
 
               if (payload) {
                 ctx.session = {

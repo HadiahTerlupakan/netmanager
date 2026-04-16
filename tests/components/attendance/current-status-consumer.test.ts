@@ -38,14 +38,15 @@ describe("AttendancePageContent current status consumer", () => {
       "utf8",
     );
 
+    expect(pageContent).toContain('currentStatus.workingHourMode === "SHIFT"');
     expect(pageContent).toContain(
-      "const [workingHourMode, setWorkingHourMode] = useState<'FIXED' | 'SHIFT' | 'FLEXIBLE'>('FIXED')",
+      'currentStatus.workingHourMode === "FLEXIBLE"',
     );
     expect(pageContent).not.toContain(
-      "setWorkingHourMode(currentStatus.workingHourMode === 'FLEXIBLE' ? 'FLEXIBLE' : 'FIXED')",
+      'setWorkingHourMode(currentStatus.workingHourMode === "FLEXIBLE" ? "FLEXIBLE" : "FIXED")',
     );
     expect(indicatorContent).toContain(
-      "workingHourMode: 'FIXED' | 'SHIFT' | 'FLEXIBLE'",
+      'workingHourMode: "FIXED" | "SHIFT" | "FLEXIBLE"',
     );
   });
 
@@ -56,10 +57,10 @@ describe("AttendancePageContent current status consumer", () => {
     );
 
     expect(cardContent).toContain(
-      "const [workingHourMode, setWorkingHourMode] = useState<'FIXED' | 'SHIFT' | 'FLEXIBLE'>('FIXED')",
+      "const [workingHourMode, setWorkingHourMode] = useState<",
     );
-    expect(cardContent).not.toContain(
-      "const [workingHourMode, setWorkingHourMode] = useState<'FIXED' | 'FLEXIBLE'>('FIXED')",
-    );
+    expect(cardContent).toContain('"FIXED" | "SHIFT" | "FLEXIBLE"');
+    expect(cardContent).toContain("workingHourMode={workingHourMode}");
+    expect(cardContent).not.toContain('"FIXED" | "FLEXIBLE"');
   });
 });
