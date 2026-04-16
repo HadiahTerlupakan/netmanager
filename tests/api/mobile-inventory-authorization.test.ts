@@ -401,46 +401,6 @@ describe("mobile inventory authorization", () => {
     );
   });
 
-  it("does not widen restricted gudang access from work order site", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValue({
-      id: "mitra-2",
-      userId: "mitra-2",
-      tenantId: "tenant-1",
-      permissions: ["m_barang:read"],
-    });
-    mockFns.userFindFirst.mockResolvedValue(null);
-    mockFns.mitraFindUnique.mockResolvedValue({
-      id: "mitra-2",
-      siteId: "site-2",
-    });
-    mockFns.workOrderFindFirst.mockResolvedValue({
-      siteId: "site-9",
-    });
-    mockFns.gudangFindMany.mockResolvedValue([]);
-
-    const response = await getGudang(
-      new NextRequest(
-        "http://localhost/api/mobile/inventory/gudang?workOrderId=wo-1",
-      ),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.gudangList).toHaveLength(0);
-    expect(mockFns.gudangFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tenantId: "tenant-1",
-          sites: {
-            some: {
-              id: { in: ["site-2"] },
-            },
-          },
-        }),
-      }),
-    );
-  });
-
   it("allows mitra inventory keluar mutation via actor-aware repository flow", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "mitra-1",

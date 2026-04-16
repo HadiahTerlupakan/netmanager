@@ -8,7 +8,6 @@ import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   buildGudangSiteFilter,
   resolveInventoryActorScope,
-  validateInventoryGudangAccess,
 } from "@/modules/inventory";
 
 // GET - Get gudang list for mobile
@@ -73,18 +72,28 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const { searchParams } = new URL(req.url);
+    const workOrderId = searchParams.get("workOrderId");
+    if (workOrderId) {
+      const workOrder = await prisma.workOrders.findFirst({
+        where: { id: workOrderId, tenantId },
+        select: { siteId: true },
+      });
+
+      if (
+        workOrder?.siteId &&
+        !actorScope.allowedSiteIds.includes(workOrder.siteId)
+      ) {
+        actorScope.allowedSiteIds.push(workOrder.siteId);
+      }
+    }
+
     const whereClause: Record<string, unknown> = { isActive: true, tenantId };
 
     if (actorScope.isRestricted) {
-      const accessResult = validateInventoryGudangAccess({
-        isRestricted: actorScope.isRestricted,
-        allowedSiteIds: actorScope.allowedSiteIds,
-        gudangSiteIds: actorScope.allowedSiteIds,
-      });
-
-      if (!accessResult.allowed && actorScope.allowedSiteIds.length === 0) {
+      if (actorScope.allowedSiteIds.length === 0) {
         return apiError(
-          accessResult.error || "Akses ditolak",
+          "Akses ditolak: Tidak ada site yang ditugaskan",
           ErrorCodes.FORBIDDEN,
           {
             status: 403,
