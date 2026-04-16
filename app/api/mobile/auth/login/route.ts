@@ -87,22 +87,19 @@ export async function POST(req: Request) {
 
       if (!customer) return { found: false };
 
-      // User found, check password
-      // Prefer bcrypt hash comparison; fall back to legacy plaintext if hash not yet set
       let isPasswordValid = false;
       if (customer.passwordHash) {
         isPasswordValid = await compare(password, customer.passwordHash);
       } else {
-        // Legacy fallback: passwordHash not yet set, compare plaintext
-        // TODO: migrate this customer's password to bcrypt hash
         console.warn(
           `[MobileAuth] WARNING: Customer ${customer.id} is using legacy plaintext password. Please migrate to bcrypt hash.`,
         );
         isPasswordValid = customer.password === password;
       }
 
-      if (!isPasswordValid)
+      if (!isPasswordValid) {
         return { found: true, success: false, error: "Password salah" };
+      }
 
       const unsupportedVersionResponse =
         await buildUnsupportedVersionResponse(parsedVersionCode);
@@ -114,7 +111,6 @@ export async function POST(req: Request) {
         };
       }
 
-      // Success
       if (parsedVersionCode > 0) {
         await prismaAuth.pelanggan.update({
           where: { id: customer.id },
@@ -170,7 +166,6 @@ export async function POST(req: Request) {
       };
     };
 
-    // Helper: Try Login as Employee
     const tryEmployeeLogin = async (): Promise<LoginResult> => {
       const user = await prismaAuth.user.findFirst({
         where: { email: { equals: email, mode: "insensitive" } },
@@ -178,22 +173,23 @@ export async function POST(req: Request) {
       });
 
       if (!user) return { found: false };
-      if (!user.passwordHash) return { found: false }; // Treat no password as not found/inactive
+      if (!user.passwordHash) return { found: false };
 
       const isValid = await compare(password, user.passwordHash);
-      if (!isValid)
+      if (!isValid) {
         return { found: true, success: false, error: "Password salah" };
+      }
 
-      // Check Access
       const hasMobileAccess =
         user.role?.accessEmployeePanel || user.role?.name === "SUPER_ADMIN";
-      if (!hasMobileAccess)
+      if (!hasMobileAccess) {
         return {
           found: true,
           success: false,
           error: "Akun tidak memiliki akses mobile app",
           status: 403,
         };
+      }
 
       const unsupportedVersionResponse =
         await buildUnsupportedVersionResponse(parsedVersionCode);
@@ -205,7 +201,6 @@ export async function POST(req: Request) {
         };
       }
 
-      // Update version
       if (parsedVersionCode > 0) {
         await prismaAuth.user.update({
           where: { id: user.id },
@@ -254,7 +249,6 @@ export async function POST(req: Request) {
       };
     };
 
-    // Helper: Try Login as Mitra
     const tryMitraLogin = async (): Promise<LoginResult> => {
       const mitra = await prismaMitraAuth.mitra.findFirst({
         where: { email: { equals: email, mode: "insensitive" } },
@@ -262,17 +256,19 @@ export async function POST(req: Request) {
 
       if (!mitra) return { found: false };
       if (!mitra.passwordHash) return { found: false };
-      if (!mitra.isActive)
+      if (!mitra.isActive) {
         return {
           found: true,
           success: false,
           error: "Akun mitra tidak aktif",
           status: 403,
         };
+      }
 
       const isValid = await compare(password, mitra.passwordHash);
-      if (!isValid)
+      if (!isValid) {
         return { found: true, success: false, error: "Password salah" };
+      }
 
       const unsupportedVersionResponse =
         await buildUnsupportedVersionResponse(parsedVersionCode);
@@ -296,7 +292,6 @@ export async function POST(req: Request) {
       };
       const token = await signMobileToken(tokenPayload);
       const refreshToken = await signMobileRefreshToken(tokenPayload);
-
       const features = getMitraMobileFeatures(mitra.mitraType);
 
       return {
@@ -318,7 +313,6 @@ export async function POST(req: Request) {
       };
     };
 
-    // EXECUTION FLOW
     let result: LoginResult;
 
     if (targetType === "MITRA") {
@@ -356,7 +350,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Final Response Handler
     if (!result.found) {
       return apiError("Email/ID tidak ditemukan", ErrorCodes.UNAUTHORIZED, {
         status: 401,
