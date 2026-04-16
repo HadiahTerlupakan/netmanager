@@ -5,8 +5,8 @@ import { logger } from "@/lib/logger";
 import { checkSiteRestriction } from "@/modules/roles";
 import { prisma, prismaAuth } from "@/modules/database";
 import { getTenantAdminRoleId } from "@/modules/mitra";
-import type { Session } from "next-auth";
 import { LeaveType } from "@prisma/client";
+import type { Session } from "next-auth";
 
 /**
  * @swagger
@@ -222,12 +222,12 @@ export const POST = createHandler(
           logger.info("Leave quotas initialized for new user", {
             userId: user.id,
           });
-        } catch (error) {
-          const caughtError =
-            error instanceof Error ? error : new Error(String(error));
+        } catch (err: unknown) {
+          const leaveQuotaError =
+            err instanceof Error ? err : new Error(String(err));
           logger.error(
             "Failed to init leave quotas for new user",
-            caughtError,
+            leaveQuotaError,
             {
               userId: user.id,
             },

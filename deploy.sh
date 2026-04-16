@@ -113,6 +113,7 @@ generate_secrets() {
     echo "  VAPID_SUBJECT=mailto:admin@radpro.id"
     echo ""
     echo "============================================"
+    log_info "Runtime Redis URL dibentuk dari REDIS_PASSWORD melalui Compose menjadi redis://:<REDIS_PASSWORD>@redis:6379"
     log_warning "Salin nilai-nilai di atas ke file .env Anda!"
 }
 

@@ -3,12 +3,49 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+type ImagePullSecretRef = {
+  name: string;
+};
+
 function readJenkinsfile(): string {
   return readFileSync(resolve(process.cwd(), "Jenkinsfile"), "utf8");
 }
 
 function readDockerfile(): string {
   return readFileSync(resolve(process.cwd(), "Dockerfile"), "utf8");
+}
+
+function readManifest(relativePath: string): string {
+  return readFileSync(resolve(process.cwd(), relativePath), "utf8");
+}
+
+function extractDockerConfigJson(relativePath: string): string {
+  const manifest = readManifest(relativePath);
+  const match = manifest.match(/\.dockerconfigjson:\s*'([^']+)'/);
+
+  if (!match) {
+    throw new Error(`Missing .dockerconfigjson in ${relativePath}`);
+  }
+
+  return match[1];
+}
+
+function extractImagePullSecrets(relativePath: string): ImagePullSecretRef[] {
+  const manifest = readManifest(relativePath);
+  const imagePullSecretsSection = manifest.match(
+    /imagePullSecrets:\n((?:\s+- name:.*\n)+)/,
+  );
+
+  if (!imagePullSecretsSection) {
+    throw new Error(`Missing imagePullSecrets in ${relativePath}`);
+  }
+
+  return imagePullSecretsSection[1]
+    .trim()
+    .split("\n")
+    .map((line) => line.match(/- name:\s+"?([^"\n]+)"?$/))
+    .filter((match): match is RegExpMatchArray => match !== null)
+    .map((match) => ({ name: match[1] }));
 }
 
 function getDockerfileStageBlock(
@@ -55,33 +92,108 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(dockerfile).not.toContain("|| npm install");
   });
 
-  it("enforces pipefail for backup and image loading checks", () => {
+  it("enforces registry validation and push-before-deploy flow", () => {
     const jenkinsfile = readJenkinsfile();
 
-    expect(jenkinsfile).toContain("set -euo pipefail");
-    expect(jenkinsfile).toMatch(/grep -F .*DOCKER_IMAGE.*DOCKER_TAG/);
-    expect(jenkinsfile).toMatch(/grep -F .*CRON_IMAGE.*DOCKER_TAG/);
-    expect(jenkinsfile).toMatch(/grep -F .*RADIUS_IMAGE.*DOCKER_TAG/);
-    expect(jenkinsfile).not.toContain("grep netmanager || true");
+    expect(jenkinsfile).toContain("Validate Registry Configuration");
+    expect(jenkinsfile).not.toContain('REGISTRY_URL = ""');
+    expect(jenkinsfile).not.toContain('REGISTRY_NAMESPACE = ""');
+    expect(jenkinsfile).not.toContain('REGISTRY_CREDENTIALS_ID = ""');
+    expect(jenkinsfile).not.toContain('withEnv(["REGISTRY_URL_LEGACY=');
+    expect(jenkinsfile).toContain(
+      "env.REGISTRY_URL = normalizeRegistryUrl(env.NETMANAGER_REGISTRY_URL ?: env.REGISTRY_URL ?: '')",
+    );
+    expect(jenkinsfile).toContain(
+      "env.REGISTRY_NAMESPACE = (env.NETMANAGER_REGISTRY_NAMESPACE ?: env.REGISTRY_NAMESPACE ?: '').trim()",
+    );
+    expect(jenkinsfile).toContain(
+      "env.REGISTRY_CREDENTIALS_ID = (env.NETMANAGER_REGISTRY_CREDENTIALS_ID ?: env.REGISTRY_CREDENTIALS_ID ?: '').trim()",
+    );
+    expect(jenkinsfile).not.toContain("System.getenv(");
+    expect(jenkinsfile).not.toContain("RUNTIME_REGISTRY_URL");
+    expect(jenkinsfile).toContain(
+      "NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.",
+    );
+    expect(jenkinsfile).toContain(
+      "NETMANAGER_REGISTRY_NAMESPACE (atau REGISTRY_NAMESPACE) wajib disediakan di runtime Jenkins.",
+    );
+    expect(jenkinsfile).toContain(
+      "NETMANAGER_REGISTRY_CREDENTIALS_ID (atau REGISTRY_CREDENTIALS_ID) wajib disediakan di runtime Jenkins.",
+    );
+    expect(jenkinsfile).toContain("Backup Previous Env Image");
+    expect(jenkinsfile).toContain("Push Images to Registry");
+    expect(jenkinsfile).toContain("docker login");
+    expect(jenkinsfile).toContain('push_and_verify "${APP_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('push_and_verify "${CRON_IMAGE_REF}"');
+    expect(jenkinsfile).toContain('push_and_verify "${RADIUS_IMAGE_REF}"');
+    expect(jenkinsfile).not.toContain(
+      "chroot /host /usr/local/bin/k3s ctr images import -",
+    );
+    expect(jenkinsfile).not.toContain("docker run --rm -i --privileged");
   });
 
-  it("verifies imported k3s images without shell command substitution escaping the helper container", () => {
+  it("does not auto-apply placeholder registry secret templates during deploy", () => {
     const jenkinsfile = readJenkinsfile();
 
-    expect(jenkinsfile).toContain(
-      'sh -c "chroot /host /usr/local/bin/k3s ctr images list" > .k3s-images.txt',
+    expect(jenkinsfile).toContain('! -name "registry-secret.yaml"');
+  });
+
+  it("fails fast when namespace registry pull secret is missing before migration or deploy rollout", () => {
+    const jenkinsfile = readJenkinsfile();
+    const migrationStageIndex = jenkinsfile.indexOf(
+      "stage('Database Migration (Zero Downtime K8s Job)')",
     );
-    expect(jenkinsfile).toContain(
-      'grep -F "${DOCKER_IMAGE}:${DOCKER_TAG}" .k3s-images.txt',
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const firstSecretCheckIndex = jenkinsfile.indexOf(
+      'kubectl get secret "${REGISTRY_SECRET}" --namespace=${NAMESPACE} >/dev/null',
+      migrationStageIndex,
     );
-    expect(jenkinsfile).toContain(
-      'grep -F "${CRON_IMAGE}:${DOCKER_TAG}" .k3s-images.txt',
+    const migrationBackupIndex = jenkinsfile.indexOf(
+      "def backupStatus = sh(",
+      migrationStageIndex,
     );
-    expect(jenkinsfile).toContain(
-      'grep -F "${RADIUS_IMAGE}:${DOCKER_TAG}" .k3s-images.txt',
+    const migrationDeleteJobIndex = jenkinsfile.indexOf(
+      "kubectl delete job netmanager-migration-job",
+      migrationStageIndex,
     );
-    expect(jenkinsfile).not.toContain(
-      "IMAGES=\\$(chroot /host /usr/local/bin/k3s ctr images list)",
+    const deploySecretCheckIndex = jenkinsfile.indexOf(
+      'kubectl get secret "${REGISTRY_SECRET}" --namespace=${NAMESPACE} >/dev/null',
+      deployStageIndex,
+    );
+    const deployAppSnapshotIndex = jenkinsfile.indexOf(
+      'APP_PREVIOUS_IMAGE="\\$(get_current_image netmanager-app app)"',
+      deployStageIndex,
+    );
+    const deployApplyNamespaceIndex = jenkinsfile.indexOf(
+      "kubectl apply -f ${K8S_DIR}/namespace.yaml",
+      deployStageIndex,
+    );
+
+    expect(jenkinsfile).toContain(
+      'echo "Verifying registry pull auth secret in ${NAMESPACE}..."',
+    );
+    expect(jenkinsfile).toContain('REGISTRY_SECRET="${NAMESPACE}-registry"');
+    expect(firstSecretCheckIndex).toBeGreaterThan(-1);
+    expect(migrationBackupIndex).toBeGreaterThan(-1);
+    expect(firstSecretCheckIndex).toBeLessThan(migrationBackupIndex);
+    expect(migrationDeleteJobIndex).toBeGreaterThan(-1);
+    expect(firstSecretCheckIndex).toBeLessThan(migrationDeleteJobIndex);
+    expect(deploySecretCheckIndex).toBeGreaterThan(-1);
+    expect(deployAppSnapshotIndex).toBeGreaterThan(-1);
+    expect(deploySecretCheckIndex).toBeLessThan(deployAppSnapshotIndex);
+    expect(deployApplyNamespaceIndex).toBeGreaterThan(-1);
+    expect(deploySecretCheckIndex).toBeLessThan(deployApplyNamespaceIndex);
+  });
+
+  it("documents deploy flow as rendered manifest apply instead of kubectl set image", () => {
+    const deploymentGuide = readManifest("DEPLOYMENT.md");
+
+    expect(deploymentGuide).not.toContain("kubectl set image");
+    expect(deploymentGuide).toContain(
+      "- render manifest Kubernetes dengan image ref immutable",
+    );
+    expect(deploymentGuide).toContain(
+      "4. Deployment merender manifest lalu apply ke Kubernetes",
     );
   });
 
@@ -103,6 +215,53 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(appCopyIndex).toBeLessThan(prismaGenerateIndex);
   });
 
+  it("renders deployment manifests with quoted image placeholders for pipeline substitution", () => {
+    const manifests = [
+      "k8s/staging/app-deployment.yaml",
+      "k8s/staging/cron-deployment.yaml",
+      "k8s/staging/radius-deployment.yaml",
+      "k8s/production/app-deployment.yaml",
+      "k8s/production/cron-deployment.yaml",
+      "k8s/production/radius-deployment.yaml",
+    ];
+
+    for (const manifestPath of manifests) {
+      const manifest = readManifest(manifestPath);
+
+      expect(manifest).not.toMatch(/image:\s+\{\{[A-Z_]+\}\}/);
+      expect(manifest).toMatch(/image:\s+"\{\{[A-Z_]+\}\}"/);
+    }
+  });
+
+  it("avoids rollout restart when manifest apply already changes the deployment image", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const appImageSnapshotIndex = jenkinsfile.indexOf(
+      'APP_PREVIOUS_IMAGE="\\$(get_current_image netmanager-app app)"',
+      deployStageIndex,
+    );
+    const manifestLoopIndex = jenkinsfile.indexOf(
+      'find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml"',
+      deployStageIndex,
+    );
+
+    expect(jenkinsfile).toContain("get_current_image() {");
+    expect(deployStageIndex).toBeGreaterThan(-1);
+    expect(appImageSnapshotIndex).toBeGreaterThan(-1);
+    expect(manifestLoopIndex).toBeGreaterThan(-1);
+    expect(appImageSnapshotIndex).toBeLessThan(manifestLoopIndex);
+    expect(jenkinsfile).toContain('local previous_image="\\$2"');
+    expect(jenkinsfile).toMatch(
+      /if \[ -n "\\\$previous_image" \] && \[ "\\\$previous_image" = "\\\$target_image" \]; then/,
+    );
+    expect(jenkinsfile).toContain(
+      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${APP_IMAGE_REF}"',
+    );
+    expect(jenkinsfile).not.toContain(
+      'local current_image="\\$(get_current_image "\\$deployment_name" "\\$container_name")"',
+    );
+  });
+
   it("fails production migration by default when backup fails unless explicit override is set", () => {
     const jenkinsfile = readJenkinsfile();
 
@@ -110,5 +269,61 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).toContain(
       "Pre-migration backup failed; aborting production migration",
     );
+  });
+
+  it("declares registry pull auth secrets and wires them into all private-image workloads", () => {
+    const registrySecretManifests = [
+      "k8s/staging/registry-secret.yaml",
+      "k8s/production/registry-secret.yaml",
+    ];
+
+    const workloadManifests = [
+      "k8s/staging/app-deployment.yaml",
+      "k8s/staging/cron-deployment.yaml",
+      "k8s/staging/radius-deployment.yaml",
+      "k8s/production/app-deployment.yaml",
+      "k8s/production/cron-deployment.yaml",
+      "k8s/production/radius-deployment.yaml",
+      "k8s/migration-job.yaml",
+    ];
+
+    for (const manifestPath of registrySecretManifests) {
+      const manifest = readManifest(manifestPath);
+      const dockerConfigJson = JSON.parse(
+        extractDockerConfigJson(manifestPath),
+      );
+
+      expect(manifest).toContain("type: kubernetes.io/dockerconfigjson");
+      expect(manifest).toMatch(
+        /name:\s+netmanager-(staging|production)-registry/,
+      );
+      expect(manifest).toContain(".dockerconfigjson");
+      expect(dockerConfigJson).toEqual({
+        auths: {
+          REGISTRY_URL: {
+            username: "REGISTRY_USERNAME",
+            password: "REGISTRY_PASSWORD",
+            auth: "REGISTRY_AUTH",
+          },
+        },
+      });
+    }
+
+    for (const manifestPath of workloadManifests) {
+      const manifest = readManifest(manifestPath);
+
+      expect(manifest).toMatch(/imagePullSecrets:/);
+
+      const imagePullSecrets = extractImagePullSecrets(manifestPath);
+
+      if (manifestPath === "k8s/migration-job.yaml") {
+        expect(imagePullSecrets).toEqual([{ name: "{{REGISTRY_SECRET}}" }]);
+      } else {
+        expect(imagePullSecrets).toHaveLength(1);
+        expect(imagePullSecrets[0].name).toMatch(
+          /^netmanager-(staging|production)-registry$/,
+        );
+      }
+    }
   });
 });

@@ -2,7 +2,7 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { InventoryRepository } from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
-import { validateGudangAccess } from "@/modules/inventory";
+import { validateGudangSiteAccess } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import type { Session } from "next-auth";
 
@@ -173,7 +173,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   };
 
-  const access = await validateGudangAccess(mockSession as Session, gudangId);
+  const access = await validateGudangSiteAccess(
+    mockSession as Session,
+    gudangId,
+  );
   if (!access.allowed) {
     return ApiErrors.forbidden(
       access.error || "Anda tidak memiliki akses ke gudang ini",

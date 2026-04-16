@@ -13,11 +13,13 @@ spec:
       labels:
         app: netmanager-cron
     spec:
+      imagePullSecrets:
+        - name: netmanager-staging-registry
       terminationGracePeriodSeconds: 60
       containers:
         - name: cron
-          image: netmanager-cron:staging
-          imagePullPolicy: Never
+          image: "{{CRON_IMAGE}}"
+          imagePullPolicy: IfNotPresent
           env:
             - name: APP_URL
               value: "http://netmanager-app"

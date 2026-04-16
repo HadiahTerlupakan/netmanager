@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth, isSuperAdmin, getUserPermissions } from '@/lib/auth';
-import { ApiErrors } from '@/lib/api-response';
-import { logger } from '@/lib/logger';
+import { NextRequest, NextResponse } from "next/server";
+import { verifyAuth, isSuperAdmin, getUserPermissions } from "@/lib/auth";
+import { ApiErrors } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
+import { runWithRequestTenantContext } from "@/lib/tenant-context";
 
 export type SecureContext = {
   user: {
@@ -18,10 +19,15 @@ export type SecureContext = {
 
 type HandlerFunction = (
   req: NextRequest,
-  ctx: SecureContext & { params?: Record<string, string | string[] | undefined> }
+  ctx: SecureContext & {
+    params?: Record<string, string | string[] | undefined>;
+  },
 ) => Promise<NextResponse>;
 
-type PermissionRequirement = string | string[] | ((user: SecureContext['user']) => boolean | Promise<boolean>);
+type PermissionRequirement =
+  | string
+  | string[]
+  | ((user: SecureContext["user"]) => boolean | Promise<boolean>);
 
 interface SecureOptions {
   /**
@@ -44,11 +50,13 @@ interface SecureOptions {
  * @param handler The API route handler function
  * @param options Security options (permissions, etc.)
  */
-export function secure(
-  handler: HandlerFunction,
-  options: SecureOptions = {}
-) {
-  return async (req: NextRequest, { params }: { params?: Promise<Record<string, string | string[] | undefined>> } = {}) => {
+export function secure(handler: HandlerFunction, options: SecureOptions = {}) {
+  return async (
+    req: NextRequest,
+    {
+      params,
+    }: { params?: Promise<Record<string, string | string[] | undefined>> } = {},
+  ) => {
     const path = req.nextUrl.pathname;
     const method = req.method;
 
@@ -59,7 +67,7 @@ export function secure(
       // 1. Verify Authentication
       const user = await verifyAuth(req);
       if (!user) {
-        return ApiErrors.unauthorized('Session tidak valid');
+        return ApiErrors.unauthorized("Session tidak valid");
       }
 
       // 2. Prepare Context
@@ -81,27 +89,38 @@ export function secure(
         } else {
           let hasAccess = false;
 
-          if (typeof permission === 'function') {
+          if (typeof permission === "function") {
             hasAccess = await permission(context.user);
           } else if (Array.isArray(permission)) {
             // Allow if user has ANY of the permissions in the array
-            hasAccess = permission.some(p => userPermissions.includes(p));
+            hasAccess = permission.some((p) => userPermissions.includes(p));
           } else {
             // Single permission string
             hasAccess = userPermissions.includes(permission);
           }
 
           if (!hasAccess) {
-            const requiredPerm = Array.isArray(permission) ? permission.join(' OR ') : permission;
-            logger.warn(`Access denied for ${user.email} on ${method} ${path}. Required: ${requiredPerm}`);
-            return ApiErrors.forbidden(`Akses ditolak. Anda memerlukan permission: ${requiredPerm}`);
+            const requiredPerm = Array.isArray(permission)
+              ? permission.join(" OR ")
+              : permission;
+            logger.warn(
+              `Access denied for ${user.email} on ${method} ${path}. Required: ${requiredPerm}`,
+            );
+            return ApiErrors.forbidden(
+              `Akses ditolak. Anda memerlukan permission: ${requiredPerm}`,
+            );
           }
         }
       }
 
       // 4. Execute Handler
-      return await handler(req, { ...context, params: resolvedParams });
-
+      return await runWithRequestTenantContext(
+        {
+          tenantId: user.tenantId ?? null,
+          isSuperAdmin: isSuper,
+        },
+        async () => handler(req, { ...context, params: resolvedParams }),
+      );
     } catch (error) {
       // 5. Global Error Handling
       console.error(`[SecureHandler] Error in ${method} ${path}:`, error);
@@ -109,10 +128,12 @@ export function secure(
       if (error instanceof Error) {
         // If it's already a known API error response structure, return strictly
         // Otherwise wrap it
-        return ApiErrors.internalError(error.message || 'Terjadi kesalahan internal server');
+        return ApiErrors.internalError(
+          error.message || "Terjadi kesalahan internal server",
+        );
       }
 
-      return ApiErrors.internalError('Terjadi kesalahan yang tidak diketahui');
+      return ApiErrors.internalError("Terjadi kesalahan yang tidak diketahui");
     }
   };
 }

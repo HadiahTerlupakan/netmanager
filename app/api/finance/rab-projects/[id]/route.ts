@@ -105,6 +105,18 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   const { revisions, _count, ...projectData } = project;
+  const actualAchievements =
+    (
+      project as {
+        actualAchievements?: Array<
+          {
+            actualRevenue: { toString(): string };
+            actualOpex: { toString(): string };
+          } & Record<string, unknown>
+        >;
+      }
+    ).actualAchievements || [];
+
   const serialized = {
     ...projectData,
     projectedRevenue: project.projectedRevenue.toString(),
@@ -122,7 +134,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
         amount: disbursement.amount.toString(),
       })),
     })),
-    actualAchievements: project.actualAchievements.map((achievement) => ({
+    actualAchievements: actualAchievements.map((achievement) => ({
       ...achievement,
       actualRevenue: achievement.actualRevenue.toString(),
       actualOpex: achievement.actualOpex.toString(),

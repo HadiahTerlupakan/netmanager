@@ -1,12 +1,13 @@
 import { randomUUID } from "crypto";
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import type { Prisma } from "@prisma/client";
 import type { Session } from "next-auth";
 
-import { validateGudangAccess } from "../utils/validation";
+import { validateGudangSiteAccess } from "../utils/validation";
 
 type InventoryUserContext = {
   id: string;
@@ -56,8 +57,44 @@ const ALASAN_LABELS: Record<string, string> = {
   lainnya: "Lainnya",
 };
 
+function ensureTenantConsistency(input: {
+  barangTenantId?: string | null;
+  gudangTenantId?: string | null;
+  currentStockTenantId?: string | null;
+}) {
+  const { barangTenantId, gudangTenantId, currentStockTenantId } = input;
+
+  if (barangTenantId && gudangTenantId && barangTenantId !== gudangTenantId) {
+    throw new Error(
+      "Barang tidak berada dalam tenant yang sama dengan gudang tujuan",
+    );
+  }
+
+  if (
+    currentStockTenantId &&
+    gudangTenantId &&
+    currentStockTenantId !== gudangTenantId
+  ) {
+    throw new Error(
+      "Barang tidak berada dalam tenant yang sama dengan gudang tujuan",
+    );
+  }
+}
+
+async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
+  const tenantContext = await getTenantIdFromContext();
+  const isSuper = isSuperAdmin(user as never) || tenantContext.isSuperAdmin;
+
+  if (!isSuper && !tenantContext.tenantId) {
+    throw new Error(
+      "SECURITY_BREACH: tenant context is required for non-superadmin inventory opname access",
+    );
+  }
+}
+
 export class InventoryOpnameService {
   async listOpname(input: ListInventoryOpnameInput) {
+    await ensureTenantContextForNonSuperAdmin(input.user);
     const offset = (input.page - 1) * input.limit;
     const where: Prisma.StockOpnameWhereInput = {};
 
@@ -77,7 +114,9 @@ export class InventoryOpnameService {
     });
 
     if (!isSuper && permissions.includes("opname:site_only")) {
-      if (!dbUser?.siteId) {
+      const siteId = dbUser?.siteId ?? input.user.siteId;
+
+      if (!siteId) {
         return {
           opnameList: [],
           pagination: {
@@ -92,7 +131,7 @@ export class InventoryOpnameService {
       where.gudang = {
         sites: {
           some: {
-            id: dbUser.siteId,
+            id: siteId,
           },
         },
       };
@@ -139,8 +178,12 @@ export class InventoryOpnameService {
   }
 
   async createOpname(input: CreateInventoryOpnameInput) {
+    await ensureTenantContextForNonSuperAdmin(input.user);
     const accessSession = await this.buildGudangAccessSession(input.user);
-    const access = await validateGudangAccess(accessSession, input.gudangId);
+    const access = await validateGudangSiteAccess(
+      accessSession,
+      input.gudangId,
+    );
 
     if (!access.allowed) {
       throw new Error(access.error || "Akses ditolak");
@@ -167,6 +210,12 @@ export class InventoryOpnameService {
       if (!gudang) {
         throw new Error("Gudang tidak ditemukan atau tidak aktif");
       }
+
+      ensureTenantConsistency({
+        barangTenantId: barang.tenantId,
+        gudangTenantId: access.gudang?.tenantId ?? gudang.tenantId,
+        currentStockTenantId: currentStock?.tenantId,
+      });
 
       const stokSistem = currentStock?.stok || 0;
       const selisih = input.stokFisik - stokSistem;
@@ -315,7 +364,7 @@ export class InventoryOpnameService {
     return {
       user: {
         ...user,
-        siteId: dbUser?.siteId,
+        siteId: dbUser?.siteId ?? user.siteId,
         role: dbUser?.role || user.role,
       },
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),

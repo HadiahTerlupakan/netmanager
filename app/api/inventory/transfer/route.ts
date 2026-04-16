@@ -3,7 +3,7 @@ import type { Session } from "next-auth";
 import { hasPermission } from "@/lib/rbac";
 import { InventoryRepository } from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
-import { validateGudangAccess } from "@/modules/inventory";
+import { validateGudangSiteAccess } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 /**
@@ -143,21 +143,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.badRequest("fotoBukti harus berupa array URL foto");
   }
 
-  // Use session directly because verifyAuth returns full user session but ctx.session is limited.
-  // Ideally createHandler should pass full session or we should adapt helpers.
-  // validateGudangAccess expects { user: ... }. ctx.session matches mostly.
-  // But validateGudangAccess might need more fields.
-  // Let's check validateGudangAccess signature. It likely takes the session object.
-  // Since I don't have the original session object from getServerSession, I'll mock it or rely on structure compatibility.
-  // `ctx.session` has `user: { id, email, name, role }`.
-  // If `validateGudangAccess` needs permissions or siteId, it might fail or fetch them.
-  // Let's assume it fetches if needed or I should pass a "enriched" session.
-  // To be safe, I'll rely on the helper fetching permissions/siteId internally or I'll re-fetch user.
-  // Looking at the imports in the original file, `validateGudangAccess` is from `@/lib/inventory-validation`.
-  // I will pass `ctx.session` and hope it works, or inspect `validateGudangAccess` if I could.
-  // To be absolutely safe, I'll reconstruct a session-like object with siteId if I can fetch it.
-
-  // Re-fetch full user for validation helpers if needed
+  // Re-fetch full user so the site-scoped gudang access helper sees siteId and role.
   const { prisma } = await import("@/modules/database");
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
@@ -173,7 +159,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   };
 
-  const accessDari = await validateGudangAccess(
+  const accessDari = await validateGudangSiteAccess(
     mockSession as Session,
     dariGudangId,
   );
@@ -181,7 +167,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden(`Gudang Sumber: ${accessDari.error}`);
   }
 
-  const accessKe = await validateGudangAccess(
+  const accessKe = await validateGudangSiteAccess(
     mockSession as Session,
     keGudangId,
   );

@@ -21,11 +21,11 @@ function getClientBlock(config: string, clientName: string): string {
 }
 
 describe("FreeRADIUS clients safety", () => {
-  it("hardens the all_routers client block with message authenticator and proxy state checks", () => {
+  it("does not define a wildcard fallback NAS client", () => {
     const config = readRadiusClientsConfig();
     const clientBlock = getClientBlock(config, "all_routers");
 
-    expect(clientBlock).toContain("require_message_authenticator = yes");
-    expect(clientBlock).toContain("limit_proxy_state = yes");
+    expect(clientBlock).toBe("");
+    expect(config).not.toContain("0.0.0.0/0");
   });
 });

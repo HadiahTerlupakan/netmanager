@@ -241,10 +241,11 @@ export class UserService {
     // Invalidate attendance schedule cache in Redis
     await redis.del(`user:schedule:${id}`);
 
-    // Invalidate permission cache when role changes
-    if (data.roleId !== undefined) {
+    const shouldInvalidateAuthCache =
+      data.roleId !== undefined || data.isActive !== undefined;
+
+    if (shouldInvalidateAuthCache) {
       await invalidatePermissionCache(id);
-      // console.log(`[UserService] Permission cache invalidated for user: ${id}`)
     }
 
     return updatedUser;

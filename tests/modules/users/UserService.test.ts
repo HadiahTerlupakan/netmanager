@@ -1,17 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { prismaMock } from "../../setup";
+import { prismaMock, redisMock } from "../../setup";
 import {
   UserService,
   type CreateUserInput,
 } from "@/modules/users/services/UserService";
 import { WorkingHourMode, type User } from "@prisma/client";
 
-// Mock bcryptjs
 vi.mock("bcryptjs", () => ({
   hash: vi.fn().mockResolvedValue("hashed_password"),
 }));
 
-// Mock UserRepository to use prismaMock
 vi.mock("@/modules/users/repositories/UserRepository", () => ({
   UserRepository: class MockUserRepository {
     findAll = vi.fn().mockImplementation(() => prismaMock.user.findMany());
@@ -35,14 +33,12 @@ vi.mock("@/modules/users/repositories/UserRepository", () => ({
       .mockImplementation((data: unknown) =>
         prismaMock.user.create({ data: data as unknown as User }),
       );
-    update = vi
-      .fn()
-      .mockImplementation((id: string, data: unknown) =>
-        prismaMock.user.update({
-          where: { id },
-          data: data as unknown as User,
-        }),
-      );
+    update = vi.fn().mockImplementation((id: string, data: unknown) =>
+      prismaMock.user.update({
+        where: { id },
+        data: data as unknown as User,
+      }),
+    );
     delete = vi
       .fn()
       .mockImplementation((id: string) =>
@@ -76,7 +72,6 @@ describe("UserService", () => {
     };
 
     it("should reject duplicate email", async () => {
-      // Mock: Email sudah terdaftar
       prismaMock.user.findFirst.mockResolvedValueOnce({
         id: "existing-user",
         email: "newuser@example.com",
@@ -90,7 +85,6 @@ describe("UserService", () => {
     it("should hash password before creating user", async () => {
       const { hash } = await import("bcryptjs");
 
-      // Mock: Email not exists
       prismaMock.user.findFirst.mockResolvedValueOnce(null);
       prismaMock.user.create.mockResolvedValueOnce({
         id: "new-user-id",
@@ -128,13 +122,10 @@ describe("UserService", () => {
     });
 
     it("should reject duplicate email when updating", async () => {
-      // Mock: User exists
       prismaMock.user.findUnique.mockResolvedValueOnce({
         id: "user-1",
         email: "original@example.com",
       } as unknown as User);
-
-      // Mock: New email already taken by another user
       prismaMock.user.findFirst.mockResolvedValueOnce({
         id: "another-user",
         email: "taken@example.com",
@@ -160,13 +151,32 @@ describe("UserService", () => {
         name: "New Name",
       } as unknown as User);
 
-      // Update name only, keeping same email
       const result = await service.updateUser("user-1", {
         email: "same@example.com",
         name: "New Name",
       });
 
       expect(result.name).toBe("New Name");
+    });
+
+    it("should invalidate permission and session caches when user is deactivated", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: "user-1",
+        email: "user@example.com",
+        isActive: true,
+      } as unknown as User);
+      prismaMock.user.update.mockResolvedValueOnce({
+        id: "user-1",
+        email: "user@example.com",
+        isActive: false,
+      } as unknown as User);
+
+      await service.updateUser("user-1", { isActive: false });
+
+      expect(redisMock.del).toHaveBeenCalledWith(
+        "permissions:user-1",
+        "session:user-1",
+      );
     });
   });
 
@@ -197,7 +207,6 @@ describe("UserService", () => {
       await expect(
         service.updateWorkingHours("user-1", {
           workingHourMode: WorkingHourMode.FIXED,
-          // Missing startWorkTime and endWorkTime
         }),
       ).rejects.toThrow(
         "Waktu mulai dan waktu selesai diperlukan untuk mode Fixed",
@@ -210,7 +219,6 @@ describe("UserService", () => {
           workingHourMode: WorkingHourMode.FIXED,
           startWorkTime: "08:00",
           endWorkTime: "17:00",
-          // Missing workDays
         }),
       ).rejects.toThrow("Hari kerja diperlukan untuk mode Fixed");
     });

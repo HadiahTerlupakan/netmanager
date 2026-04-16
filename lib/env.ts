@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-const envSchema = z.object({
+const baseEnvSchema = z.object({
   // Database
   DATABASE_URL: z.url(),
 
@@ -19,7 +19,7 @@ const envSchema = z.object({
   R2_PUBLIC_URL: z.string().optional(),
 
   // Cron Security
-  CRON_SECRET: z.string().min(32).optional(), // Optional for now to avoid breaking existing setups, but recommended
+  CRON_SECRET: z.string().min(32).optional(),
 
   // Node Environment
   NODE_ENV: z
@@ -27,13 +27,21 @@ const envSchema = z.object({
     .default("development"),
 });
 
-type Env = z.infer<typeof envSchema>;
+export type Env = z.infer<typeof baseEnvSchema>;
 
 let parsedEnv: Env | null = null;
 
+function validateRedisUrl(env: Env): void {
+  if (env.NODE_ENV === "production" && !env.REDIS_URL) {
+    throw new Error("REDIS_URL is required in production environment");
+  }
+}
+
 export function getEnv(): Env {
   if (!parsedEnv) {
-    parsedEnv = envSchema.parse(process.env);
+    const env = baseEnvSchema.parse(process.env);
+    validateRedisUrl(env);
+    parsedEnv = env;
   }
 
   return parsedEnv;
