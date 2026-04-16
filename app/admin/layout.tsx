@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import AnnouncementBanner from "@/components/announcement/AnnouncementBanner";
 import ForceLogoutListener from "@/components/auth/ForceLogoutListener";
+import { PushNotificationManager } from "@/components/notifications/PushNotificationManager";
 
 import { ensureAdminAccess } from "@/lib/server-auth";
 
@@ -37,6 +38,9 @@ export default async function AdminLayout({
           <Sidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <AnnouncementBanner portal="admin" />
+            <div className="px-6 pt-4">
+              <PushNotificationManager />
+            </div>
             <Navbar />
             <main className="flex-1 overflow-y-auto">
               <div className="p-6">

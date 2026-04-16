@@ -50,6 +50,24 @@ describe("admin notification contract", () => {
     expect(paymentApprovalBell).not.toContain("useFCM()");
   });
 
+  it("normalizes admin foreground FCM payloads through the shared helper", () => {
+    const useFcm = readSource("hooks/useFCM.ts");
+
+    expect(useFcm).toContain(
+      "@/lib/notifications/normalizeForegroundNotificationPayload",
+    );
+    expect(useFcm).toContain("normalizeForegroundNotificationPayload({");
+  });
+
+  it("mounts browser push onboarding in the admin shell", () => {
+    const adminLayout = readSource("app/admin/layout.tsx");
+
+    expect(adminLayout).toContain(
+      "@/components/notifications/PushNotificationManager",
+    );
+    expect(adminLayout).toContain("<PushNotificationManager");
+  });
+
   it("uses the realtime notification hook from the firebase realtime namespace", () => {
     const adminNotificationBell = readSource(
       "components/notifications/AdminNotificationBell.tsx",
