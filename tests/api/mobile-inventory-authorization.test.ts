@@ -343,6 +343,59 @@ describe("mobile inventory authorization", () => {
     );
   });
 
+  it("does not widen restricted gudang access from work order site", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValue({
+      id: "user-3",
+      userId: "user-3",
+      tenantId: "tenant-1",
+      permissions: ["m_barang:read"],
+    });
+    mockFns.userFindFirst.mockResolvedValue({
+      id: "user-3",
+      role: {
+        name: "OPERATOR",
+        permission: [{ resource: "k_barang", action: "site_only" }],
+      },
+      sites: { id: "site-1" },
+      userSites: [{ siteId: "site-1" }],
+    });
+    mockFns.workOrderFindFirst.mockResolvedValue({ siteId: "site-2" });
+    mockFns.gudangFindMany.mockResolvedValue([{ id: "g-1", nama: "Gudang A" }]);
+
+    const response = await getGudang(
+      new NextRequest(
+        "http://localhost/api/mobile/inventory/gudang?workOrderId=wo-1",
+      ),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.gudangList).toHaveLength(1);
+    expect(mockFns.gudangFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "tenant-1",
+          sites: {
+            some: {
+              id: { in: ["site-1"] },
+            },
+          },
+        }),
+      }),
+    );
+    expect(mockFns.gudangFindMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sites: {
+            some: {
+              id: { in: ["site-1", "site-2"] },
+            },
+          },
+        }),
+      }),
+    );
+  });
+
   it("keeps barang read site-filtered for user actors", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-2",
@@ -461,6 +514,42 @@ describe("mobile inventory authorization", () => {
         tenantId: "tenant-1",
       }),
     );
+  });
+
+  it("allows bare-feature permission for barang keluar", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValue({
+      id: "mitra-2",
+      userId: "mitra-2",
+      tenantId: "tenant-1",
+      permissions: ["m_barang_keluar"],
+    });
+    mockFns.userFindFirst.mockResolvedValue(null);
+    mockFns.mitraFindUnique.mockResolvedValue({
+      id: "mitra-2",
+      siteId: "site-1",
+    });
+    mockFns.gudangFindFirst.mockResolvedValue({
+      id: "g-1",
+      sites: [{ id: "site-1" }],
+    });
+    mockFns.barangGudangFindFirst.mockResolvedValue({
+      stokBaru: 3,
+      barang: { nama: "ONU" },
+    });
+    mockFns.inventoryRemoveStock.mockResolvedValue({ id: "keluar-2" });
+    mockFns.inventoryGetStockLevel.mockResolvedValue(2);
+    mockFns.loggerLogActivity.mockResolvedValue(undefined);
+
+    const response = await postKeluar(
+      new NextRequest("http://localhost/api/mobile/inventory/keluar", {
+        method: "POST",
+        body: JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.inventoryRemoveStock).toHaveBeenCalledTimes(1);
   });
 
   it("allows mitra inventory history with actor-aware filters", async () => {

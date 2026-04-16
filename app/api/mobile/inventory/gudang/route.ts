@@ -72,22 +72,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const { searchParams } = new URL(req.url);
-    const workOrderId = searchParams.get("workOrderId");
-    if (workOrderId) {
-      const workOrder = await prisma.workOrders.findFirst({
-        where: { id: workOrderId, tenantId },
-        select: { siteId: true },
-      });
-
-      if (
-        workOrder?.siteId &&
-        !actorScope.allowedSiteIds.includes(workOrder.siteId)
-      ) {
-        actorScope.allowedSiteIds.push(workOrder.siteId);
-      }
-    }
-
     const whereClause: Record<string, unknown> = { isActive: true, tenantId };
 
     if (actorScope.isRestricted) {
