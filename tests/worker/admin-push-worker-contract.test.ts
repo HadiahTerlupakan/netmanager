@@ -11,26 +11,28 @@ function readWorkerSource() {
 }
 
 describe("admin push worker contract", () => {
-  it("keeps the push event wired to browser notifications", () => {
+  it("delegates push payload parsing to the runtime helper", () => {
     const workerSource = readWorkerSource();
 
-    expect(workerSource).toContain("self.addEventListener('push'");
-    expect(workerSource).toContain("self.registration.showNotification");
+    expect(workerSource).toContain(
+      "resolvePushNotificationPayloadFromEventData",
+    );
+    expect(workerSource).not.toContain("event.data.json()");
+    expect(workerSource).not.toContain("event.data.text()");
   });
 
-  it("keeps click navigation wired for browser notifications", () => {
+  it("delegates notification click actions to the runtime helper", () => {
     const workerSource = readWorkerSource();
 
-    expect(workerSource).toContain("self.addEventListener('notificationclick'");
-    expect(workerSource).toContain("self.clients.matchAll");
-    expect(workerSource).toContain("self.clients.openWindow");
+    expect(workerSource).toContain("handleNotificationClickAction");
+    expect(workerSource).not.toContain('event.action === "open"');
   });
 
   it("keeps push subscription recovery wired", () => {
     const workerSource = readWorkerSource();
 
     expect(workerSource).toContain(
-      "self.addEventListener('pushsubscriptionchange'",
+      'self.addEventListener("pushsubscriptionchange"',
     );
     expect(workerSource).toContain("recoverPushSubscription");
   });

@@ -2,8 +2,37 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   applyNotificationClick,
+  handleNotificationClickAction,
   normalizePushNotificationPayload,
+  resolvePushNotificationPayloadFromEventData,
 } from "../../worker/pushNotificationRuntime";
+
+describe("resolvePushNotificationPayloadFromEventData", () => {
+  it("uses json payload when event data can be parsed", () => {
+    const payload = resolvePushNotificationPayloadFromEventData({
+      json: () => ({
+        title: "Event title",
+        body: "Event body",
+      }),
+      text: () => "fallback text",
+    });
+
+    expect(payload.title).toBe("Event title");
+    expect(payload.body).toBe("Event body");
+  });
+
+  it("falls back to text payload when json parsing fails", () => {
+    const payload = resolvePushNotificationPayloadFromEventData({
+      json: () => {
+        throw new Error("bad json");
+      },
+      text: () => "Raw body text",
+    });
+
+    expect(payload.title).toBe("NetManager");
+    expect(payload.body).toBe("Raw body text");
+  });
+});
 
 describe("normalizePushNotificationPayload", () => {
   it("keeps the top-level browser push payload shape working", () => {
@@ -59,6 +88,34 @@ describe("normalizePushNotificationPayload", () => {
     expect(payload.icon).toBe("/icons/icon-192x192.png");
     expect(payload.badge).toBe("/icons/icon-72x72.png");
     expect(payload.data).toEqual({});
+  });
+});
+
+describe("handleNotificationClickAction", () => {
+  it("ignores non-open notification click actions", async () => {
+    const openWindow = vi.fn();
+
+    await handleNotificationClickAction({
+      action: "dismiss",
+      clients: [],
+      notificationData: { url: "/admin/notifications/123" },
+      openWindow,
+    });
+
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it("delegates open actions to applyNotificationClick", async () => {
+    const openWindow = vi.fn().mockResolvedValue(undefined);
+
+    await handleNotificationClickAction({
+      action: "open",
+      clients: [],
+      notificationData: { url: "/admin/notifications/123" },
+      openWindow,
+    });
+
+    expect(openWindow).toHaveBeenCalledWith("/admin/notifications/123");
   });
 });
 

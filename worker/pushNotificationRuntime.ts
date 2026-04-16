@@ -27,6 +27,32 @@ export type NotificationClickContext = {
   openWindow?: (url: string) => Promise<unknown> | unknown;
 };
 
+export type PushEventDataLike = {
+  json: () => unknown;
+  text: () => string;
+};
+
+export type NotificationClickActionContext = NotificationClickContext & {
+  action?: string;
+};
+
+/** Resolve and normalize payload data from a push event data payload. */
+export function resolvePushNotificationPayloadFromEventData(
+  eventData: PushEventDataLike | null | undefined,
+): NormalizedPushNotificationPayload {
+  if (!eventData) {
+    return normalizePushNotificationPayload({});
+  }
+
+  try {
+    return normalizePushNotificationPayload(
+      eventData.json() as PushNotificationPayloadInput,
+    );
+  } catch {
+    return normalizePushNotificationPayload({ body: eventData.text() });
+  }
+}
+
 /** Normalize push payloads from browser push and nested notification shapes. */
 export function normalizePushNotificationPayload(
   input: PushNotificationPayloadInput,
@@ -59,6 +85,20 @@ export function normalizePushNotificationPayload(
     badge,
     data: payloadData,
   };
+}
+
+/** Apply the notification click behavior for the worker background path. */
+export async function handleNotificationClickAction({
+  action,
+  clients,
+  notificationData,
+  openWindow,
+}: NotificationClickActionContext): Promise<void> {
+  if (action && action !== "open") {
+    return;
+  }
+
+  await applyNotificationClick({ clients, notificationData, openWindow });
 }
 
 /** Apply the notification click behavior for the worker background path. */
