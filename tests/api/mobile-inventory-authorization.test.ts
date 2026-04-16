@@ -219,7 +219,7 @@ describe("mobile inventory authorization", () => {
       id: "mitra-1",
       userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang_masuk"],
+      permissions: ["m_barang_masuk:create"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
@@ -446,7 +446,7 @@ describe("mobile inventory authorization", () => {
       id: "mitra-1",
       userId: "mitra-1",
       tenantId: "tenant-1",
-      permissions: ["m_barang_keluar"],
+      permissions: ["m_barang_keluar:create"],
     });
     mockFns.userFindFirst.mockResolvedValue(null);
     mockFns.mitraFindUnique.mockResolvedValue({
