@@ -3,6 +3,7 @@ import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { hasMobilePermission } from "@/lib/mobile-auth";
 import { prisma } from "@/modules/database";
 import { prismaMitra } from "@/modules/database";
+import { InventoryRepository } from "@/modules/inventory";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -12,7 +13,6 @@ import {
   isInventorySiteRestricted,
 } from "@/modules/inventory/utils/validation";
 
-// POST - Create barang masuk (mobile)
 export async function POST(request: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(request);
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     const payload = authResult;
     const tenantId = payload.tenantId as string;
-    const userId = payload.id as string;
+    const actorId = payload.userId as string;
     const permissions = payload.permissions as string[] | undefined;
 
     if (!hasMobilePermission(permissions, "m_barang_masuk:create")) {
@@ -40,16 +40,23 @@ export async function POST(request: NextRequest) {
       keterangan,
       supplier,
       fotoBukti,
+      fotoMetadata,
     } = body;
+    const parsedJumlah = Number(jumlah);
 
-    if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
+    if (
+      !barangId ||
+      !gudangId ||
+      !Number.isFinite(parsedJumlah) ||
+      parsedJumlah <= 0
+    ) {
       return apiError("Data tidak lengkap", ErrorCodes.VALIDATION_ERROR, {
         status: 400,
       });
     }
 
     const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
+      where: { id: actorId, tenantId },
       include: {
         role: { include: { permission: true } },
         sites: true,
@@ -61,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const mitra = !user
       ? await prismaMitra.mitra.findUnique({
-          where: { id: userId },
+          where: { id: actorId },
           select: { id: true, siteId: true },
         })
       : null;
@@ -72,23 +79,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (mitra) {
-      return apiError(
-        "Mutasi inventory untuk mitra belum tersedia",
-        ErrorCodes.FORBIDDEN,
-        { status: 403 },
-      );
-    }
+    const actor = user
+      ? { type: "user" as const, id: user.id, userId: user.id }
+      : { type: "mitra" as const, id: mitra!.id };
 
     const userPermissions =
-      user.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
+      user?.role?.permission.map(
+        (permission) => `${permission.resource}:${permission.action}`,
+      ) || [];
     const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user.sites ? { id: user.sites.id } : null,
-      userSites: user.userSites || null,
+      primarySite: user?.sites ? { id: user.sites.id } : null,
+      userSites: user?.userSites || null,
+      mitraSiteId: mitra?.siteId,
     });
     const isRestricted = isInventorySiteRestricted({
-      actorType: "user",
-      isSuperAdmin: isSuperAdmin({ role: user.role?.name }),
+      actorType: mitra ? "mitra" : "user",
+      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
       permissions: userPermissions,
     });
 
@@ -122,57 +128,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const stockField =
-      kondisi === "BEKAS"
-        ? "stokBekas"
-        : kondisi === "RUSAK"
-          ? "stokRusak"
-          : "stokBaru";
-
-    const result = await prisma.$transaction(async (tx) => {
-      const masuk = await tx.barangMasuk.create({
-        data: {
-          id: crypto.randomUUID(),
-          barangId,
-          gudangId,
-          jumlah,
-          kondisi: kondisi || "BARU",
-          keterangan,
-          supplier,
-          fotoBukti: fotoBukti || [],
-          userId: user.id,
-        },
-        include: { barang: true, gudang: true },
-      });
-
-      await tx.barangGudang.upsert({
-        where: {
-          barangId_gudangId: { barangId, gudangId },
-        },
-        create: {
-          id: crypto.randomUUID(),
-          barangId,
-          gudangId,
-          stok: jumlah,
-          [stockField]: jumlah,
-          updatedAt: new Date(),
-        },
-        update: {
-          stok: { increment: jumlah },
-          [stockField]: { increment: jumlah },
-          updatedAt: new Date(),
-        },
-      });
-
-      return masuk;
+    const inventoryRepository = new InventoryRepository();
+    const result = await inventoryRepository.addStock({
+      barangId,
+      gudangId,
+      jumlah: parsedJumlah,
+      kondisi: kondisi || "BARU",
+      keterangan,
+      supplier,
+      fotoBukti: fotoBukti || [],
+      fotoMetadata: fotoMetadata || null,
+      actor,
+      tenantId,
+      tanggal: new Date(),
     });
 
     socketEmitter.inventoryUpdate({
       type: "masuk",
-      userId: user.id,
+      userId: actor.id,
       barangId,
       gudangId,
-      jumlah,
+      jumlah: parsedJumlah,
     });
 
     return NextResponse.json({

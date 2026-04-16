@@ -4,7 +4,7 @@ import { prismaAuth } from "@/modules/database";
 import { prismaMitraAuth } from "@/modules/database";
 import { compare } from "bcryptjs";
 import {
-  getMitraMobileCapabilities,
+  getMitraMobileFeatures,
   signMobileRefreshToken,
   signMobileToken,
 } from "@/lib/mobile-auth";
@@ -43,17 +43,8 @@ async function buildUnsupportedVersionResponse(versionCode: number) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    // DEBUG LOGGING
-    console.log(
-      "[MobileAuth] Login Request Body:",
-      JSON.stringify(body, null, 2),
-    );
-
     const { email, password, versionCode, loginType } = body;
     const parsedVersionCode = parseVersionCode(versionCode);
-
-    // IMPORTANT: Log what we received to debug why "loginType" might be wrong
-    console.log(`[MobileAuth] Parsed: email=${email}, loginType=${loginType}`);
 
     if (!email || !password) {
       return apiError(
@@ -63,29 +54,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // SMART LOGIN - AUTO DETECT
-    // If loginType is provided, try that first.
-    // If not found in that table, fallback to the other table SILENTLY.
+    const targetType = loginType || "EMPLOYEE";
 
-    const targetType = loginType || "EMPLOYEE"; // Default to EMPLOYEE if undefined
-
-    // Strategy:
-    // 1. Try Primary Target (based on tab)
-    // 2. If user NOT FOUND, try Secondary Target
-    // 3. If user FOUND but password wrong, FAIL (don't try other to prevent ambiguity)
-
-    // ==========================================
-    // ATTEMPT 1: Primary Target
-    // ==========================================
-    if (targetType === "CUSTOMER") {
-      // ... Customer Logic ...
-      // If not found -> try employee
-    } else {
-      // ... Employee Logic ...
-      // If not found -> try customer
-    }
-
-    // Helper Types
     type FailedLoginResult = {
       found: true;
       success: false;
@@ -103,7 +73,6 @@ export async function POST(req: Request) {
       | FailedLoginResult
       | SuccessfulLoginResult;
 
-    // Helper: Try Login as Customer
     const tryCustomerLogin = async (): Promise<LoginResult> => {
       const customer = await prismaAuth.pelanggan.findFirst({
         where: {
@@ -328,7 +297,7 @@ export async function POST(req: Request) {
       const token = await signMobileToken(tokenPayload);
       const refreshToken = await signMobileRefreshToken(tokenPayload);
 
-      const { features } = getMitraMobileCapabilities(mitra.mitraType);
+      const features = getMitraMobileFeatures(mitra.mitraType);
 
       return {
         found: true,

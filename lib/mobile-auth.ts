@@ -13,7 +13,6 @@ function getSecret(): Uint8Array {
 }
 
 async function getMobileTokenVersion(payload: Record<string, unknown>) {
-  let tokenVersion = 0;
   try {
     const id = (payload.id || payload.sub) as string;
     const role = payload.role as string | undefined;
@@ -34,12 +33,11 @@ async function getMobileTokenVersion(payload: Record<string, unknown>) {
       where: { id },
       select: { tokenVersion: true },
     });
-    tokenVersion = user?.tokenVersion ?? 0;
+    return user?.tokenVersion ?? 0;
   } catch (error) {
     console.error("[MOBILE_AUTH] Error fetching tokenVersion:", error);
+    return 0;
   }
-
-  return tokenVersion;
 }
 
 function buildMobileJwtPayload(
@@ -104,58 +102,54 @@ export interface MobileTokenDetails {
   versionAccess: VersionAccessResult;
 }
 
+export function getMitraMobileFeatures(mitraType?: string | null): string[] {
+  return [
+    "m_dashboard",
+    "m_mitra_wallet",
+    "m_mitra_withdraw",
+    ...(mitraType === "MITRA_SALES" ? ["m_canvasing"] : []),
+    ...(mitraType === "MITRA_TEKNISI"
+      ? ["m_work_order", "m_barang", "m_barang_masuk", "m_barang_keluar"]
+      : []),
+  ];
+}
+
 export function getMitraMobileCapabilities(mitraType?: string | null): {
   features: string[];
   permissions: string[];
 } {
-  const baseFeatures = ["m_dashboard", "m_mitra_wallet", "m_mitra_withdraw"];
-  const basePermissions = ["m_dashboard:read"];
+  const features = getMitraMobileFeatures(mitraType);
+  const permissions = ["m_dashboard:read"];
 
   if (mitraType === "MITRA_SALES") {
-    return {
-      features: [...baseFeatures, "m_canvasing"],
-      permissions: [
-        ...basePermissions,
-        "m_canvasing:read",
-        "m_canvasing:create",
-      ],
-    };
+    permissions.push("m_canvasing:read", "m_canvasing:create");
   }
 
   if (mitraType === "MITRA_TEKNISI") {
-    return {
-      features: [
-        ...baseFeatures,
-        "m_work_order",
-        "m_barang",
-        "m_barang_masuk",
-        "m_barang_keluar",
-      ],
-      permissions: [
-        ...basePermissions,
-        "m_work_order:read",
-        "m_barang:read",
-        "m_barang_masuk:read",
-        "m_barang_masuk:create",
-        "m_barang_keluar:read",
-        "m_barang_keluar:create",
-      ],
-    };
+    permissions.push(
+      "m_work_order:read",
+      "m_barang:read",
+      "m_barang_masuk:read",
+      "m_barang_masuk:create",
+      "m_barang_keluar:read",
+      "m_barang_keluar:create",
+    );
   }
 
-  return {
-    features: baseFeatures,
-    permissions: basePermissions,
-  };
+  return { features, permissions };
 }
 
 export function hasMobilePermission(
   permissions: string[] | undefined,
   requiredPermission: string,
 ): boolean {
+  const availablePermissions = permissions ?? [];
+  const featureAlias = requiredPermission.split(":")[0];
+
   return (
-    (permissions ?? []).includes("*") ||
-    (permissions ?? []).includes(requiredPermission)
+    availablePermissions.includes("*") ||
+    availablePermissions.includes(requiredPermission) ||
+    availablePermissions.includes(featureAlias)
   );
 }
 
@@ -168,7 +162,18 @@ export function hasAnyMobilePermission(
   );
 }
 
-function resolveVersionCode(payload: MobileTokenPayload): number {
+function resolveVersionCode(
+  payload: MobileTokenPayload,
+  versionCodeOverride?: number | null,
+): number {
+  if (
+    typeof versionCodeOverride === "number" &&
+    Number.isFinite(versionCodeOverride) &&
+    versionCodeOverride > 0
+  ) {
+    return versionCodeOverride;
+  }
+
   const tokenVersionCode = Number(
     payload.appVersionCode ?? payload.versionCode ?? 0,
   );
@@ -179,12 +184,12 @@ function resolveVersionCode(payload: MobileTokenPayload): number {
 
 export async function getMobileTokenDetails(
   token: string,
-  _versionCodeOverride?: number | null,
+  versionCodeOverride?: number | null,
 ): Promise<MobileTokenDetails | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret());
     const mobilePayload = payload as MobileTokenPayload;
-    const versionCode = resolveVersionCode(mobilePayload);
+    const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
     const versionAccess =
       await getAppVersionService().evaluateVersionAccess(versionCode);
 
@@ -202,13 +207,11 @@ export async function getMobileTokenDetails(
 async function verifyValidatedMobileToken(
   token: string,
   expectedType: "access" | "refresh",
-  _versionCodeOverride?: number | null,
+  versionCodeOverride?: number | null,
 ): Promise<MobileTokenPayload | null> {
   try {
-    console.log("[MOBILE_AUTH] Verifying token...");
-    const details = await getMobileTokenDetails(token);
+    const details = await getMobileTokenDetails(token, versionCodeOverride);
     if (!details) {
-      console.log("[MOBILE_AUTH] Token details could not be parsed");
       return null;
     }
 
@@ -217,13 +220,8 @@ async function verifyValidatedMobileToken(
     const tokenType = payload.type === "refresh" ? "refresh" : "access";
 
     if (tokenType !== expectedType) {
-      console.log(
-        `[MOBILE_AUTH] Invalid token type for ${userId}. Expected ${expectedType}, received ${tokenType}`,
-      );
       return null;
     }
-
-    console.log("[MOBILE_AUTH] Token payload verified for user:", userId);
 
     if (!versionAccess.isSupported) {
       console.log(
@@ -233,7 +231,7 @@ async function verifyValidatedMobileToken(
     }
 
     const dbUser = await prismaAuth.user.findUnique({
-      where: { id: userId as string },
+      where: { id: userId },
       select: {
         tokenVersion: true,
         isActive: true,
@@ -249,13 +247,8 @@ async function verifyValidatedMobileToken(
     });
 
     if (!dbUser) {
-      console.log(
-        "[MOBILE_AUTH] User not found in User table, checking Pelanggan...",
-        userId,
-      );
-
       const customer = await prismaAuth.pelanggan.findUnique({
-        where: { id: userId as string },
+        where: { id: userId },
         select: {
           id: true,
           nama: true,
@@ -267,18 +260,12 @@ async function verifyValidatedMobileToken(
       });
 
       if (customer) {
-        console.log("[MOBILE_AUTH] Customer found:", customer.nama);
-
-        if (customer.status !== "AKTIF") {
-          console.log("[MOBILE_AUTH] Customer is inactive:", userId);
-          return null;
-        }
-
+        const customerTokenVersion = customer.tokenVersion ?? 0;
         const tokenVersion = (payload.tokenVersion as number) ?? 0;
-        if (customer.tokenVersion > tokenVersion) {
-          console.log(
-            `[MOBILE_AUTH] Customer token version mismatch for ${userId}. DB: ${customer.tokenVersion}, Token: ${tokenVersion}`,
-          );
+        if (
+          customer.status !== "AKTIF" ||
+          customerTokenVersion > tokenVersion
+        ) {
           return null;
         }
 
@@ -291,15 +278,11 @@ async function verifyValidatedMobileToken(
           isSales: false,
           siteId: null,
           tenantId: customer.tenantId,
-        } as unknown as MobileTokenPayload;
+        } as MobileTokenPayload;
       }
 
-      console.log(
-        "[MOBILE_AUTH] Customer not found, checking Mitra...",
-        userId,
-      );
       const mitra = await prismaMitraAuth.mitra.findUnique({
-        where: { id: userId as string },
+        where: { id: userId },
         select: {
           id: true,
           name: true,
@@ -310,42 +293,25 @@ async function verifyValidatedMobileToken(
         },
       });
 
-      if (mitra) {
-        console.log("[MOBILE_AUTH] Mitra found:", mitra.name);
-
-        if (!mitra.isActive) {
-          console.log("[MOBILE_AUTH] Mitra is inactive:", userId);
-          return null;
-        }
-
-        const capabilities = getMitraMobileCapabilities(mitra.mitraType);
-
-        return {
-          ...payload,
-          sub: mitra.id,
-          userId: mitra.id,
-          role: "MITRA",
-          permissions: capabilities.permissions,
-          isSales: mitra.mitraType === "MITRA_SALES",
-          siteId: mitra.siteId,
-          tenantId: mitra.tenantId,
-        } as unknown as MobileTokenPayload;
+      if (!mitra || !mitra.isActive) {
+        return null;
       }
 
-      console.log("[MOBILE_AUTH] User/Customer/Mitra not found in DB:", userId);
-      return null;
+      return {
+        ...payload,
+        sub: mitra.id,
+        userId: mitra.id,
+        role: "MITRA",
+        permissions: getMitraMobileFeatures(mitra.mitraType),
+        isSales: mitra.mitraType === "MITRA_SALES",
+        siteId: mitra.siteId,
+        tenantId: mitra.tenantId,
+      } as MobileTokenPayload;
     }
 
-    if (!dbUser.isActive) {
-      console.log("[MOBILE_AUTH] User is inactive:", userId);
-      return null;
-    }
-
+    const userTokenVersion = dbUser.tokenVersion ?? 0;
     const tokenVersion = (payload.tokenVersion as number) ?? 0;
-    if (dbUser.tokenVersion > tokenVersion) {
-      console.log(
-        `[MOBILE_AUTH] Token revoked for user ${userId}. DB version: ${dbUser.tokenVersion}, Token version: ${tokenVersion}`,
-      );
+    if (!dbUser.isActive || userTokenVersion > tokenVersion) {
       return null;
     }
 
@@ -357,10 +323,9 @@ async function verifyValidatedMobileToken(
     const permissions = isSuperAdmin
       ? ["*"]
       : dbUser.role?.permission.map(
-          (p: { resource: string; action: string }) =>
-            `${p.resource}:${p.action}`,
+          (permission: { resource: string; action: string }) =>
+            `${permission.resource}:${permission.action}`,
         ) || [];
-    console.log(`[MOBILE_AUTH] Permissions for ${userId}:`, permissions.length);
 
     return {
       ...payload,
@@ -372,7 +337,7 @@ async function verifyValidatedMobileToken(
       siteId: dbUser.siteId,
       tenantId: dbUser.tenantId,
       isSuperAdmin,
-    } as unknown as MobileTokenPayload;
+    } as MobileTokenPayload;
   } catch (error) {
     console.error("[MOBILE_AUTH] Token verification failed:", error);
     return null;
@@ -381,14 +346,14 @@ async function verifyValidatedMobileToken(
 
 export async function verifyMobileToken(
   token: string,
-  _versionCodeOverride?: number | null,
+  versionCodeOverride?: number | null,
 ): Promise<MobileTokenPayload | null> {
-  return verifyValidatedMobileToken(token, "access");
+  return verifyValidatedMobileToken(token, "access", versionCodeOverride);
 }
 
 export async function verifyMobileRefreshToken(
   token: string,
-  _versionCodeOverride?: number | null,
+  versionCodeOverride?: number | null,
 ): Promise<MobileTokenPayload | null> {
-  return verifyValidatedMobileToken(token, "refresh");
+  return verifyValidatedMobileToken(token, "refresh", versionCodeOverride);
 }

@@ -1293,6 +1293,8 @@ model BarangKeluar {
   customer            String?
   isHilang            Boolean              @default(false)
   userId              String?
+  actorType           String?
+  actorId             String?
   purpose             String?
   createdAt           DateTime             @default(now())
   fotoBukti           String[]
@@ -1311,6 +1313,7 @@ model BarangKeluar {
   @@index([tanggal])
   @@index([transferId])
   @@index([tenantId])
+  @@index([actorType, actorId])
   @@map("barang_keluar")
 }
 
@@ -1336,6 +1339,8 @@ model BarangMasuk {
   fotoBukti           String[]
   fotoMetadata        Json?
   userId              String?
+  actorType           String?
+  actorId             String?
   hargaBeliSatuan     Int?                 @default(0)
   tenantId            String?
   barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
@@ -1350,6 +1355,7 @@ model BarangMasuk {
   @@index([tanggal])
   @@index([transferId])
   @@index([tenantId])
+  @@index([actorType, actorId])
   @@map("barang_masuk")
 }
 
@@ -2581,6 +2587,8 @@ model Asset {
   status           AssetStatus            @default(ACTIVE)
   location         String?
   assignedTo       String?
+  assignedActorType String?
+  assignedActorId  String?
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   tenantId         String?
@@ -2593,6 +2601,7 @@ model Asset {
   @@index([barangId])
   @@index([status])
   @@index([assignedTo])
+  @@index([assignedActorType, assignedActorId])
   @@index([tenantId])
   @@map("assets")
 }

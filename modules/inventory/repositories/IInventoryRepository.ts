@@ -30,6 +30,12 @@ export type BarangKeluarWithRelations = BarangKeluar & {
 };
 
 // Input types
+export interface InventoryActorInput {
+  type: "user" | "mitra";
+  id: string;
+  userId?: string;
+}
+
 export interface CreateBarangInput {
   kode: string;
   nama: string;
@@ -59,8 +65,10 @@ export interface CreateBarangMasukInput {
   hargaBeliSatuan?: number;
   kondisi?: KondisiBarang;
   keterangan?: string;
+  supplier?: string;
   fotoBukti?: string[];
   fotoMetadata?: Record<string, unknown>;
+  actor?: InventoryActorInput;
   userId?: string;
   tanggal?: Date;
   tenantId?: string;
@@ -74,6 +82,7 @@ export interface CreateBarangKeluarInput {
   keterangan?: string;
   tujuanPenggunaan?: string;
   isHilang?: boolean;
+  actor?: InventoryActorInput;
   userId?: string;
   fotoBukti?: string[];
   fotoMetadata?: Record<string, unknown>;

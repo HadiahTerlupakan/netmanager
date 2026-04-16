@@ -19,7 +19,44 @@ import type {
   UpdateGudangInput,
   CreateTransferInput,
   BarangDetail,
+  InventoryActorInput,
 } from "./IInventoryRepository";
+
+type InventoryActorRecord = {
+  actorType: string | null;
+  actorId: string | null;
+  userId: string | null;
+};
+
+function resolveInventoryActor(input: {
+  actor?: InventoryActorInput;
+  userId?: string;
+}): InventoryActorRecord {
+  if (input.actor) {
+    return {
+      actorType: input.actor.type,
+      actorId: input.actor.id,
+      userId:
+        input.actor.type === "user"
+          ? input.actor.userId || input.actor.id
+          : null,
+    };
+  }
+
+  if (!input.userId) {
+    return {
+      actorType: null,
+      actorId: null,
+      userId: null,
+    };
+  }
+
+  return {
+    actorType: "user",
+    actorId: input.userId,
+    userId: input.userId,
+  };
+}
 
 export class InventoryRepository implements IInventoryRepository {
   private db: PrismaClient;
@@ -255,6 +292,8 @@ export class InventoryRepository implements IInventoryRepository {
     tx: Prisma.TransactionClient,
     data: CreateBarangMasukInput,
   ): Promise<BarangMasuk> {
+    const actor = resolveInventoryActor(data);
+
     if (data.tenantId) {
       const [barang, gudang] = await Promise.all([
         tx.barang.findFirst({
@@ -280,7 +319,10 @@ export class InventoryRepository implements IInventoryRepository {
         hargaBeliSatuan: data.hargaBeliSatuan || 0,
         kondisi: data.kondisi || "BARU",
         keterangan: data.keterangan || null,
-        userId: data.userId || null,
+        supplier: data.supplier || null,
+        userId: actor.userId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
         tanggal: data.tanggal || new Date(),
         fotoBukti: data.fotoBukti || [],
         fotoMetadata:
@@ -326,6 +368,8 @@ export class InventoryRepository implements IInventoryRepository {
             (masuk as unknown as { gudang: { nama: string } | null }).gudang
               ?.nama || "Gudang Utama",
           assignedTo: null,
+          assignedActorType: null,
+          assignedActorId: null,
           tenantId: data.tenantId || null,
         });
       }
@@ -367,6 +411,8 @@ export class InventoryRepository implements IInventoryRepository {
 
   async removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar> {
     return this.db.$transaction(async (tx) => {
+      const actor = resolveInventoryActor(data);
+
       // Ensure integer quantity
       if (Math.floor(data.jumlah) !== data.jumlah)
         throw new Error("Jumlah tidak boleh angka desimal");
@@ -431,7 +477,9 @@ export class InventoryRepository implements IInventoryRepository {
           keterangan: data.keterangan || null,
           tujuanPenggunaan: data.tujuanPenggunaan || null,
           isHilang: data.isHilang || false,
-          userId: data.userId || null,
+          userId: actor.userId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
           tanggal: data.tanggal || new Date(),
           fotoBukti: data.fotoBukti || [],
           fotoMetadata:
@@ -465,7 +513,9 @@ export class InventoryRepository implements IInventoryRepository {
             data: {
               status: "INSTALLED",
               location: `Deployed (Ref: ${keluarWithRelations.keterangan || "Barang Keluar"})`,
-              assignedTo: data.userId || null,
+              assignedTo: actor.userId,
+              assignedActorType: actor.actorType,
+              assignedActorId: actor.actorId,
             },
           });
         }

@@ -64,20 +64,23 @@ vi.mock("@/lib/prisma-mitra", () => ({
 
 import {
   getMitraMobileCapabilities,
+  getMitraMobileFeatures,
   getMobileTokenDetails,
   hasAnyMobilePermission,
   hasMobilePermission,
+  verifyMobileRefreshToken,
   verifyMobileToken,
 } from "@/lib/mobile-auth";
 
 describe("mobile-auth version overrides", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserFindUnique.mockResolvedValue(null);
     mockPelangganFindUnique.mockResolvedValue(null);
     mockMitraFindUnique.mockResolvedValue(null);
   });
 
-  it("uses token appVersionCode when reading token details even if an override is supplied", async () => {
+  it("uses explicit version override when reading token details", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 54 },
     });
@@ -85,39 +88,48 @@ describe("mobile-auth version overrides", () => {
       isSupported: true,
       updateAvailable: false,
       isForceUpdate: false,
-      currentVersion: "1.0.54",
-      currentVersionCode: 54,
+      currentVersion: "1.0.60",
+      currentVersionCode: 100,
       minimumVersion: null,
       latestVersion: null,
     });
 
     const details = await getMobileTokenDetails("token-1", 100);
 
-    expect(details?.versionCode).toBe(54);
-    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(54);
+    expect(details?.versionCode).toBe(100);
+    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(100);
   });
 
-  it("rejects unsupported token appVersionCode even if a newer override is supplied", async () => {
+  it("accepts a supported request version even when token appVersionCode is stale", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 2, appVersionCode: 54 },
     });
     mockEvaluateVersionAccess.mockResolvedValueOnce({
-      isSupported: false,
-      updateAvailable: true,
-      isForceUpdate: true,
+      isSupported: true,
+      updateAvailable: false,
+      isForceUpdate: false,
       currentVersion: "1.0.60",
-      currentVersionCode: 60,
-      minimumVersion: 55,
+      currentVersionCode: 100,
+      minimumVersion: null,
       latestVersion: null,
+    });
+    mockUserFindUnique.mockResolvedValueOnce({
+      tokenVersion: 2,
+      isActive: true,
+      isSales: false,
+      siteId: null,
+      tenantId: "tenant-1",
+      role: {
+        name: "ADMIN",
+        isSuperAdmin: false,
+        permission: [],
+      },
     });
 
     const payload = await verifyMobileToken("token-1", 100);
 
-    expect(payload).toBeNull();
-    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(54);
-    expect(mockUserFindUnique).not.toHaveBeenCalled();
-    expect(mockPelangganFindUnique).not.toHaveBeenCalled();
-    expect(mockMitraFindUnique).not.toHaveBeenCalled();
+    expect(payload?.userId).toBe("user-1");
+    expect(mockEvaluateVersionAccess).toHaveBeenCalledWith(100);
   });
 
   it("builds Mitra teknisi capabilities from the centralized helper", () => {
@@ -145,7 +157,7 @@ describe("mobile-auth version overrides", () => {
 
   it("returns Mitra permission snapshot from verifyMobileToken", async () => {
     mockJwtVerify.mockResolvedValueOnce({
-      payload: { sub: "mitra-1", tokenVersion: 1, appVersionCode: 54 },
+      payload: { sub: "mitra-1", tokenVersion: 1, appVersionCode: 100 },
     });
     mockEvaluateVersionAccess.mockResolvedValueOnce({
       isSupported: true,
@@ -156,8 +168,6 @@ describe("mobile-auth version overrides", () => {
       minimumVersion: null,
       latestVersion: null,
     });
-    mockUserFindUnique.mockResolvedValueOnce(null);
-    mockPelangganFindUnique.mockResolvedValueOnce(null);
     mockMitraFindUnique.mockResolvedValueOnce({
       id: "mitra-1",
       name: "Mitra Teknisi",
@@ -171,19 +181,19 @@ describe("mobile-auth version overrides", () => {
 
     expect(payload?.role).toBe("MITRA");
     expect(payload?.permissions).toEqual(
-      expect.arrayContaining([
-        "m_dashboard:read",
-        "m_work_order:read",
-        "m_barang:read",
-        "m_barang_masuk:create",
-        "m_barang_keluar:create",
-      ]),
+      getMitraMobileFeatures("MITRA_TEKNISI"),
     );
+    expect(payload?.permissions).toContain("m_barang_masuk");
   });
 
   it("returns wildcard permission for super admin mobile tokens", async () => {
     mockJwtVerify.mockResolvedValueOnce({
-      payload: { sub: "admin-1", tokenVersion: 3, appVersionCode: 54 },
+      payload: {
+        sub: "admin-1",
+        tokenVersion: 3,
+        type: "access",
+        appVersionCode: 100,
+      },
     });
     mockEvaluateVersionAccess.mockResolvedValueOnce({
       isSupported: true,
@@ -216,6 +226,79 @@ describe("mobile-auth version overrides", () => {
     ).toBe(true);
     expect(
       hasAnyMobilePermission(payload?.permissions, ["m_barang:read"]),
+    ).toBe(true);
+  });
+
+  it("rejects access verification for refresh tokens", async () => {
+    mockJwtVerify.mockResolvedValueOnce({
+      payload: {
+        sub: "user-1",
+        tokenVersion: 1,
+        type: "refresh",
+        appVersionCode: 100,
+      },
+    });
+    mockEvaluateVersionAccess.mockResolvedValueOnce({
+      isSupported: true,
+      updateAvailable: false,
+      isForceUpdate: false,
+      currentVersion: "1.0.60",
+      currentVersionCode: 100,
+      minimumVersion: null,
+      latestVersion: null,
+    });
+
+    const payload = await verifyMobileToken("token-1", 100);
+
+    expect(payload).toBeNull();
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("accepts refresh verification for refresh tokens", async () => {
+    mockJwtVerify.mockResolvedValueOnce({
+      payload: {
+        sub: "user-1",
+        tokenVersion: 1,
+        type: "refresh",
+        appVersionCode: 100,
+      },
+    });
+    mockEvaluateVersionAccess.mockResolvedValueOnce({
+      isSupported: true,
+      updateAvailable: false,
+      isForceUpdate: false,
+      currentVersion: "1.0.60",
+      currentVersionCode: 100,
+      minimumVersion: null,
+      latestVersion: null,
+    });
+    mockUserFindUnique.mockResolvedValueOnce({
+      tokenVersion: 1,
+      isActive: true,
+      isSales: false,
+      siteId: null,
+      tenantId: "tenant-1",
+      role: {
+        name: "ADMIN",
+        isSuperAdmin: false,
+        permission: [],
+      },
+    });
+
+    const payload = await verifyMobileRefreshToken("token-1", 100);
+
+    expect(payload?.userId).toBe("user-1");
+    expect(mockUserFindUnique).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("mobile-auth permission aliases", () => {
+  it("accepts bare feature aliases for permission-style checks", () => {
+    expect(
+      hasMobilePermission(["m_barang_masuk"], "m_barang_masuk:create"),
+    ).toBe(true);
+    expect(
+      hasMobilePermission(["m_barang_keluar"], "m_barang_keluar:create"),
     ).toBe(true);
   });
 });

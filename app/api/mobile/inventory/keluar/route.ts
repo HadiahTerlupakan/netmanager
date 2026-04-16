@@ -14,7 +14,6 @@ import {
   isInventorySiteRestricted,
 } from "@/modules/inventory/utils/validation";
 
-// POST - Create barang keluar (mobile)
 export async function POST(request: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(request);
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const payload = authResult;
     const tenantId = payload.tenantId as string;
-    const userId = payload.id as string;
+    const actorId = payload.userId as string;
     const permissions = payload.permissions as string[] | undefined;
 
     if (!hasMobilePermission(permissions, "m_barang_keluar:create")) {
@@ -42,16 +41,23 @@ export async function POST(request: NextRequest) {
       keterangan,
       tujuanPenggunaan,
       fotoBukti,
+      fotoMetadata,
     } = body;
+    const parsedJumlah = Number(jumlah);
 
-    if (!barangId || !gudangId || !jumlah || jumlah <= 0) {
+    if (
+      !barangId ||
+      !gudangId ||
+      !Number.isFinite(parsedJumlah) ||
+      parsedJumlah <= 0
+    ) {
       return apiError("Data tidak lengkap", ErrorCodes.VALIDATION_ERROR, {
         status: 400,
       });
     }
 
     const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
+      where: { id: actorId, tenantId },
       include: {
         role: { include: { permission: true } },
         sites: true,
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const mitra = !user
       ? await prismaMitra.mitra.findUnique({
-          where: { id: userId },
+          where: { id: actorId },
           select: { id: true, siteId: true },
         })
       : null;
@@ -74,15 +80,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (mitra) {
-      return apiError(
-        "Mutasi inventory untuk mitra belum tersedia",
-        ErrorCodes.FORBIDDEN,
-        {
-          status: 403,
-        },
-      );
-    }
+    const actor = user
+      ? { type: "user" as const, id: user.id, userId: user.id }
+      : { type: "mitra" as const, id: mitra!.id };
 
     const targetGudang = await prisma.gudang.findFirst({
       where: { id: gudangId, tenantId },
@@ -96,14 +96,17 @@ export async function POST(request: NextRequest) {
     }
 
     const userPermissions =
-      user.role?.permission.map((p) => `${p.resource}:${p.action}`) || [];
+      user?.role?.permission.map(
+        (permission) => `${permission.resource}:${permission.action}`,
+      ) || [];
     const allowedSiteIds = getAssignedInventorySiteIds({
-      primarySite: user.sites ? { id: user.sites.id } : null,
-      userSites: user.userSites || null,
+      primarySite: user?.sites ? { id: user.sites.id } : null,
+      userSites: user?.userSites || null,
+      mitraSiteId: mitra?.siteId,
     });
     const isRestricted = isInventorySiteRestricted({
-      actorType: "user",
-      isSuperAdmin: isSuperAdmin({ role: user.role?.name }),
+      actorType: mitra ? "mitra" : "user",
+      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
       permissions: userPermissions,
     });
 
@@ -121,7 +124,9 @@ export async function POST(request: NextRequest) {
         return apiError(
           "Akses ditolak: Gudang di luar site Anda",
           ErrorCodes.FORBIDDEN,
-          { status: 403 },
+          {
+            status: 403,
+          },
         );
       }
     }
@@ -147,7 +152,7 @@ export async function POST(request: NextRequest) {
       ? (barangGudang as unknown as Record<string, number>)[stockField] || 0
       : 0;
 
-    if (!barangGudang || availableStock < jumlah) {
+    if (!barangGudang || availableStock < parsedJumlah) {
       return NextResponse.json(
         {
           error: `Stok ${kondisi || "BARU"} tidak mencukupi. Tersedia: ${availableStock}`,
@@ -157,26 +162,31 @@ export async function POST(request: NextRequest) {
     }
 
     const inventoryRepository = new InventoryRepository();
-
     const result = await inventoryRepository.removeStock({
       barangId,
       gudangId,
-      jumlah,
+      jumlah: parsedJumlah,
       kondisi: kondisi || "BARU",
       keterangan,
       tujuanPenggunaan,
       fotoBukti: fotoBukti || [],
-      userId: user.id,
+      fotoMetadata: fotoMetadata || null,
+      actor,
       tenantId,
       tanggal: new Date(),
     });
+    const totalStok = await inventoryRepository.getStockLevel(
+      barangId,
+      gudangId,
+    );
 
     socketEmitter.inventoryUpdate({
       type: "keluar",
-      userId: user.id,
+      userId: actor.id,
       barangId,
       gudangId,
-      jumlah,
+      jumlah: parsedJumlah,
+      totalStok,
     });
 
     await logger.logActivity({
@@ -185,13 +195,13 @@ export async function POST(request: NextRequest) {
       details: {
         barangId,
         namaBarang: barangGudang?.barang?.nama,
-        jumlah,
+        jumlah: parsedJumlah,
         kondisi,
         gudangId,
         keterangan,
         tujuanPenggunaan,
       },
-      userId: user.id,
+      actor,
       tenantId,
     });
 

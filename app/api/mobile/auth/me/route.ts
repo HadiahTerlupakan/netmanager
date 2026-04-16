@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { getMitraMobileCapabilities } from "@/lib/mobile-auth";
+import { getUserPermissions } from "@/lib/auth";
 import { UserRepository } from "@/modules/users";
 import { prismaMitra } from "@/modules/database";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { getMitraMobileFeatures } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,8 +32,6 @@ export async function GET(req: NextRequest) {
       if (!mitra.isActive)
         return ApiErrors.forbidden("Akun Mitra Anda tidak aktif");
 
-      const { features } = getMitraMobileCapabilities(mitra.mitraType);
-
       const userData: {
         id: string;
         name: string;
@@ -50,7 +49,7 @@ export async function GET(req: NextRequest) {
         name: mitra.name,
         email: mitra.email,
         role: "MITRA",
-        features,
+        features: getMitraMobileFeatures(mitra.mitraType),
         employeeType: mitra.mitraType,
         isSales: mitra.mitraType === "MITRA_SALES",
         image: null,
@@ -71,9 +70,7 @@ export async function GET(req: NextRequest) {
     if (user.isActive === false)
       return ApiErrors.forbidden("Akun Anda tidak aktif");
 
-    const { getUserFeaturesWithCanvasing } =
-      await import("@/modules/marketing");
-    const features = await getUserFeaturesWithCanvasing(session.id);
+    const permissions = await getUserPermissions(session.id);
 
     // Format response matching the mobile app's User type expectations
     const userData = {
@@ -81,7 +78,7 @@ export async function GET(req: NextRequest) {
       name: user.name,
       email: user.email,
       role: session.role,
-      features,
+      features: permissions,
       employeeType:
         (user as unknown as { employeeType?: string }).employeeType ||
         "KARYAWAN",

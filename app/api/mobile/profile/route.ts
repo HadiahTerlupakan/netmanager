@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { getMitraMobileCapabilities } from "@/lib/mobile-auth";
 import { prisma } from "@/modules/database";
 import { prismaMitra } from "@/modules/database";
+import { getMitraMobileFeatures } from "@/lib/mobile-auth";
 
 export async function GET(request: Request) {
   try {
@@ -14,7 +14,6 @@ export async function GET(request: Request) {
 
     const user = authResult;
 
-    // Handle Mitra users - separate table
     if (user.role === "MITRA") {
       const mitra = await prismaMitra.mitra.findFirst({
         where: {
@@ -42,7 +41,6 @@ export async function GET(request: Request) {
         });
       }
 
-      // Fetch site from main DB
       const sites = mitra.siteId
         ? await prisma.sites.findFirst({
             where: {
@@ -53,14 +51,14 @@ export async function GET(request: Request) {
           })
         : null;
 
-      const { features } = getMitraMobileCapabilities(mitra.mitraType);
+      const features = getMitraMobileFeatures(mitra.mitraType);
 
       return apiSuccess({
         id: mitra.id,
         name: mitra.name,
         email: mitra.email,
         phone: mitra.phone,
-        image: mitra.fotoDiri, // Use face verification selfie as profile photo
+        image: mitra.fotoDiri,
         nik: mitra.nik,
         fotoDiri: mitra.fotoDiri,
         createdAt: mitra.createdAt.toISOString(),
@@ -76,7 +74,7 @@ export async function GET(request: Request) {
         sites: sites ? [sites] : [],
         role: { id: "mitra", name: "MITRA" },
         features,
-        isOnLeave: false, // Mitra don't have leave system
+        isOnLeave: false,
       });
     }
 
