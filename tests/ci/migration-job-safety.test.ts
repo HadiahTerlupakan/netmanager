@@ -137,6 +137,8 @@ describe("migration job safety", () => {
     expect(migrationJob).toContain(
       'if [ "${SKIP_OPTIONAL_BACKFILL:-false}" = "true" ]; then',
     );
+    expect(migrationJob).toContain("name: SKIP_OPTIONAL_BACKFILL");
+    expect(migrationJob).toContain('value: "{{SKIP_OPTIONAL_BACKFILL}}"');
     expect(migrationJob).toContain(
       "⏭️ SKIP_OPTIONAL_BACKFILL=true, skipping optional tenant backfill and repair steps",
     );

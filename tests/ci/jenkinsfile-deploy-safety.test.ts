@@ -172,4 +172,18 @@ describe("Jenkinsfile deploy safety", () => {
       "get_current_image netmanager-radius radius-container",
     );
   });
+
+  it("renders explicit optional backfill policy into the migration job", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain(
+      'SKIP_OPTIONAL_BACKFILL="\\$(if [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"',
+    );
+    expect(jenkinsfile).toContain(
+      'echo "Migration optional backfill policy: SKIP_OPTIONAL_BACKFILL=\\$SKIP_OPTIONAL_BACKFILL"',
+    );
+    expect(jenkinsfile).toContain(
+      "-e 's|{{SKIP_OPTIONAL_BACKFILL}}|\\$SKIP_OPTIONAL_BACKFILL|g' \\",
+    );
+  });
 });
