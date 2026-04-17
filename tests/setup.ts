@@ -240,16 +240,79 @@ vi.spyOn(console, "error").mockImplementation(() => {});
 vi.mock("ioredis", () => {
   class RedisMock {
     options: Record<string, unknown>;
+    status = "ready";
+    private maxListeners = 10;
+    private listeners = new Map<
+      string | symbol,
+      Set<(...args: unknown[]) => void>
+    >();
 
     constructor(_url?: string, options: Record<string, unknown> = {}) {
       this.options = options;
     }
 
-    on = vi.fn();
+    private addListener(
+      event: string | symbol,
+      listener: (...args: unknown[]) => void,
+      once = false,
+    ) {
+      const wrapped = once
+        ? (...args: unknown[]) => {
+            this.removeListener(event, wrapped);
+            listener(...args);
+          }
+        : listener;
+
+      const currentListeners = this.listeners.get(event) ?? new Set();
+      currentListeners.add(wrapped);
+      this.listeners.set(event, currentListeners);
+      return this;
+    }
+
+    on = vi.fn(
+      (event: string | symbol, listener: (...args: unknown[]) => void) =>
+        this.addListener(event, listener),
+    );
+    once = vi.fn(
+      (event: string | symbol, listener: (...args: unknown[]) => void) =>
+        this.addListener(event, listener, true),
+    );
+    off = vi.fn(
+      (event: string | symbol, listener: (...args: unknown[]) => void) =>
+        this.removeListener(event, listener),
+    );
+    removeListener = vi.fn(
+      (event: string | symbol, listener: (...args: unknown[]) => void) => {
+        this.listeners.get(event)?.delete(listener);
+        return this;
+      },
+    );
+    emit = vi.fn((event: string | symbol, ...args: unknown[]) => {
+      for (const listener of this.listeners.get(event) ?? []) {
+        listener(...args);
+      }
+      return true;
+    });
+    getMaxListeners = vi.fn(() => this.maxListeners);
+    setMaxListeners = vi.fn((count: number) => {
+      this.maxListeners = count;
+      return this;
+    });
+    defineCommand = vi.fn();
+    info = vi
+      .fn()
+      .mockResolvedValue("redis_version:7.2.0\nmaxmemory_policy:noeviction");
     connect = vi.fn().mockResolvedValue(undefined);
-    disconnect = vi.fn();
-    quit = vi.fn().mockResolvedValue("OK");
-    duplicate = vi.fn(() => this);
+    disconnect = vi.fn(() => {
+      this.status = "end";
+      this.emit("end");
+    });
+    quit = vi.fn().mockImplementation(async () => {
+      this.status = "end";
+      this.emit("end");
+      return "OK";
+    });
+    duplicate = vi.fn(() => new RedisMock(undefined, this.options));
     get = vi.fn().mockResolvedValue(null);
     set = vi.fn().mockResolvedValue("OK");
     setex = vi.fn().mockResolvedValue("OK");
