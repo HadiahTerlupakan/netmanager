@@ -25,19 +25,19 @@ describe("migration job safety", () => {
     );
 
     const mainApply =
-      'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql';
+      'psql_quiet_idempotent_sql "$DATABASE_URL_PSQL" prisma/migrations/20260314015651_init_tenant_schema/migration.sql';
     const mainResolve =
       'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260314015651_init_tenant_schema';
     const radiusApply =
-      'psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql';
+      'psql_quiet_idempotent_sql "$RADIUS_DATABASE_URL_PSQL" prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql';
     const radiusResolve =
       'resolve_migration_if_unapplied "$RADIUS_DATABASE_URL_PSQL" 20260314015652_init_tenant_schema --config=prisma.radius.config.ts';
     const billingApply =
-      'psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql';
+      'psql_quiet_idempotent_sql "$DATABASE_URL_BILLING_PSQL" prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql';
     const billingResolve =
       'resolve_migration_if_unapplied "$DATABASE_URL_BILLING_PSQL" 20260314015654_init_tenant_schema --config=prisma.billing.config.ts';
     const mitraApply =
-      'psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql';
+      'psql_quiet_idempotent_sql "$DATABASE_URL_MITRA_PSQL" prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql';
     const mitraResolve =
       'resolve_migration_if_unapplied "$DATABASE_URL_MITRA_PSQL" 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts';
 
@@ -123,7 +123,7 @@ describe("migration job safety", () => {
     );
 
     const syncSchemaFix =
-      'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1';
+      'psql_quiet_idempotent_sql "$DATABASE_URL_PSQL" /app/scripts/fix-partial-sync-schema.sql';
     const syncSchemaResolve =
       'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260326004412_sync_schema_changes';
 
@@ -159,13 +159,13 @@ describe("migration job safety", () => {
       'psql "$DATABASE_URL_PSQL" -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = \'User\')"',
     );
     expect(migrationJob).toContain(
-      'psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql',
+      'psql_quiet_idempotent_sql "$RADIUS_DATABASE_URL_PSQL" prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql',
     );
     expect(migrationJob).toContain(
-      'psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql',
+      'psql_quiet_idempotent_sql "$DATABASE_URL_BILLING_PSQL" prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql',
     );
     expect(migrationJob).toContain(
-      'psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql',
+      'psql_quiet_idempotent_sql "$DATABASE_URL_MITRA_PSQL" prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql',
     );
     expect(migrationJob).not.toContain(
       'psql "$DATABASE_URL_BILLING" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql',
@@ -182,10 +182,32 @@ describe("migration job safety", () => {
     );
 
     expect(migrationJob).toContain(
-      'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1',
+      'psql_quiet_idempotent_sql "$DATABASE_URL_PSQL" /app/scripts/fix-partial-sync-schema.sql',
     );
     expect(migrationJob).not.toContain(
       'psql "$DATABASE_URL_PSQL" -f /app/scripts/fix-partial-sync-schema.sql 2>&1 || true',
+    );
+  });
+
+  it("suppresses PostgreSQL NOTICE spam only for idempotent SQL replays", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    expect(migrationJob).toContain("psql_quiet_idempotent_sql()");
+    expect(migrationJob).toContain('PGOPTIONS="--client-min-messages=warning"');
+    expect(migrationJob).toContain(
+      'psql_quiet_idempotent_sql "$RADIUS_DATABASE_URL_PSQL" prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).toContain(
+      'psql_quiet_idempotent_sql "$DATABASE_URL_BILLING_PSQL" prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).toContain(
+      'psql_quiet_idempotent_sql "$DATABASE_URL_MITRA_PSQL" prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql',
+    );
+    expect(migrationJob).not.toContain(
+      'PGOPTIONS="--client-min-messages=warning" prisma migrate deploy',
     );
   });
 

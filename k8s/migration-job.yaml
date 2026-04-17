@@ -222,6 +222,14 @@ spec:
                 prisma migrate resolve --applied "$migration_name" "$@" 2>&1
               }
 
+              psql_quiet_idempotent_sql() {
+                local database_url="$1"
+                local sql_file="$2"
+
+                PGOPTIONS="--client-min-messages=warning" \
+                  psql "$database_url" -v ON_ERROR_STOP=1 -f "$sql_file" 2>&1
+              }
+
               DATABASE_URL_PSQL=$(sanitize_psql_url "$DATABASE_URL")
               RADIUS_DATABASE_URL_PSQL=$(sanitize_psql_url "$RADIUS_DATABASE_URL")
               DATABASE_URL_BILLING_PSQL=$(sanitize_psql_url "$DATABASE_URL_BILLING")
@@ -238,7 +246,7 @@ spec:
 
                 # Apply tenant schema baseline before resolving it so tenant-aware follow-up migrations
                 # do not run against databases that still lack tenantId columns.
-                psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql
+                psql_quiet_idempotent_sql "$DATABASE_URL_PSQL" prisma/migrations/20260314015651_init_tenant_schema/migration.sql
                 resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260314015651_init_tenant_schema
                 resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260315020000_tenant_unique_constraints
                 resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260318064750_add_pelanggan_username_unique_index
@@ -247,7 +255,7 @@ spec:
                 # Fix partially-applied migration: complete remaining changes via idempotent SQL
                 # then mark as applied so Prisma does not try to re-run the full SQL.
                 echo "🔧 Running idempotent fix for sync_schema_changes..."
-                psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1
+                psql_quiet_idempotent_sql "$DATABASE_URL_PSQL" /app/scripts/fix-partial-sync-schema.sql
                 resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260326004412_sync_schema_changes
 
                 # =============================================
@@ -283,7 +291,7 @@ spec:
 
               if [ "$IS_FRESH" != "f" ]; then
                 resolve_migration_if_unapplied "$RADIUS_DATABASE_URL_PSQL" 20260313000000_init_squashed --config=prisma.radius.config.ts
-                psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql
+                psql_quiet_idempotent_sql "$RADIUS_DATABASE_URL_PSQL" prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql
                 resolve_migration_if_unapplied "$RADIUS_DATABASE_URL_PSQL" 20260314015652_init_tenant_schema --config=prisma.radius.config.ts
               fi
               prisma migrate deploy --config=prisma.radius.config.ts
@@ -295,7 +303,7 @@ spec:
 
               if [ "$IS_FRESH" != "f" ]; then
                 resolve_migration_if_unapplied "$DATABASE_URL_BILLING_PSQL" 20260313000000_init_squashed --config=prisma.billing.config.ts
-                psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql
+                psql_quiet_idempotent_sql "$DATABASE_URL_BILLING_PSQL" prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql
                 resolve_migration_if_unapplied "$DATABASE_URL_BILLING_PSQL" 20260314015654_init_tenant_schema --config=prisma.billing.config.ts
               fi
               prisma migrate deploy --config=prisma.billing.config.ts
@@ -307,7 +315,7 @@ spec:
 
               if [ "$IS_FRESH" != "f" ]; then
                 resolve_migration_if_unapplied "$DATABASE_URL_MITRA_PSQL" 20260313000000_init_squashed --config=prisma.mitra.config.ts
-                psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql
+                psql_quiet_idempotent_sql "$DATABASE_URL_MITRA_PSQL" prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql
                 resolve_migration_if_unapplied "$DATABASE_URL_MITRA_PSQL" 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts
               fi
               prisma migrate deploy --config=prisma.mitra.config.ts
