@@ -173,7 +173,7 @@ describe("Jenkinsfile deploy safety", () => {
     );
   });
 
-  it("renders explicit optional backfill policy into the migration job", () => {
+  it("renders the resolved optional backfill value into the migration job", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
@@ -183,6 +183,9 @@ describe("Jenkinsfile deploy safety", () => {
       'echo "Migration optional backfill policy: SKIP_OPTIONAL_BACKFILL=\\$SKIP_OPTIONAL_BACKFILL"',
     );
     expect(jenkinsfile).toContain(
+      '-e "s|{{SKIP_OPTIONAL_BACKFILL}}|\\${SKIP_OPTIONAL_BACKFILL}|g" \\',
+    );
+    expect(jenkinsfile).not.toContain(
       "-e 's|{{SKIP_OPTIONAL_BACKFILL}}|\\$SKIP_OPTIONAL_BACKFILL|g' \\",
     );
   });

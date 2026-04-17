@@ -316,7 +316,7 @@ spec:
                         sed -e 's|{{NAMESPACE}}|${NAMESPACE}|g' \
                             -e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g' \
                             -e 's|{{REGISTRY_SECRET}}|${NAMESPACE}-registry|g' \
-                            -e 's|{{SKIP_OPTIONAL_BACKFILL}}|\$SKIP_OPTIONAL_BACKFILL|g' \
+                            -e "s|{{SKIP_OPTIONAL_BACKFILL}}|\${SKIP_OPTIONAL_BACKFILL}|g" \
                             k8s/migration-job.yaml | kubectl apply -f -
                         """
 
