@@ -15,7 +15,7 @@ describe("AttendanceValidationService", () => {
     });
   });
 
-  it("allows check-in on tukar libur replacement day even when the calendar marks a holiday", async () => {
+  it("blocks check-in on tukar libur replacement day when the calendar marks a holiday", async () => {
     const service = new AttendanceValidationService();
 
     prismaMock.leaveRequest.findFirst
@@ -38,6 +38,10 @@ describe("AttendanceValidationService", () => {
       "tenant-1",
     );
 
-    expect(result).toEqual({ isValid: true });
+    expect(result).toEqual({
+      isValid: false,
+      reason: "Hari ini adalah hari libur: Hari Raya",
+      type: "HOLIDAY",
+    });
   });
 });

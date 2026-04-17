@@ -111,8 +111,7 @@ export class AttendanceValidationService {
     if (tukarLiburFlags.isTukarLiburWorkDay) isOffDay = false;
     if (tukarLiburFlags.isTukarLiburLeaveDay) isOffDay = true;
 
-    const isHoliday =
-      holidayInfo.isHoliday && !tukarLiburFlags.isTukarLiburWorkDay;
+    const isHoliday = holidayInfo.isHoliday;
 
     return {
       isHoliday,

@@ -37,7 +37,7 @@ describe("mobile attendance history route", () => {
     prismaMock.leaveRequest.findFirst.mockResolvedValue(null);
   });
 
-  it("treats tukar libur replacement day as attendance-eligible even on a holiday", async () => {
+  it("keeps holiday metadata active on tukar libur replacement day when the calendar marks a holiday", async () => {
     vi.setSystemTime(new Date("2026-03-20T02:24:00.000Z"));
     prismaMock.holiday.findFirst.mockResolvedValue({
       id: "holiday-replacement-day",
@@ -77,8 +77,8 @@ describe("mobile attendance history route", () => {
 
     expect(response.status).toBe(200);
     expect(body.today).toMatchObject({
-      isHoliday: false,
-      holidayName: null,
+      isHoliday: true,
+      holidayName: "Hari Raya",
       isOffDay: false,
       isTukarLiburWorkDay: true,
       isTukarLiburLeaveDay: false,
