@@ -20,6 +20,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./"),
+      "node-cron": path.resolve(
+        __dirname,
+        "./node_modules/node-cron/dist/cjs/node-cron.js",
+      ),
       "@prisma/client-radius": path.resolve(
         __dirname,
         "./prisma/generated/radius",
