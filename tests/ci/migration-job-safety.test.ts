@@ -147,6 +147,26 @@ describe("migration job safety", () => {
     expect(fixTenantProvision).not.toContain("process.exit(0)");
   });
 
+  it("keeps migrate-legacy-tenant aligned with safe nullable tenant backfill rules", () => {
+    const migrateLegacyTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "migrate-legacy-tenant.ts"),
+      "utf8",
+    );
+
+    expect(migrateLegacyTenant).toContain(
+      'field.name === "tenantId" && !field.isRequired',
+    );
+    expect(migrateLegacyTenant).toContain(
+      "const uniqueFields = model.uniqueFields ?? []",
+    );
+    expect(migrateLegacyTenant).toContain(
+      'uniqueFields.some((fields) => fields.includes("tenantId"))',
+    );
+    expect(migrateLegacyTenant).not.toContain(
+      'model.fields.some((f) => f.name === "tenantId")',
+    );
+  });
+
   it("fails fix-tenant-provision when users cannot be re-assigned to any tenant role", () => {
     const fixTenantProvision = readFileSync(
       resolve(process.cwd(), "scripts", "fix-tenant-provision.ts"),
@@ -158,6 +178,22 @@ describe("migration job safety", () => {
     );
     expect(fixTenantProvision).toContain("optionalFailureCount");
     expect(fixTenantProvision).toContain("process.exitCode = 1");
+  });
+
+  it("manages its own Prisma pool lifecycle so tenant provisioning fix can exit cleanly", () => {
+    const fixTenantProvision = readFileSync(
+      resolve(process.cwd(), "scripts", "fix-tenant-provision.ts"),
+      "utf8",
+    );
+
+    expect(fixTenantProvision).toContain(
+      'import { PrismaPg } from "@prisma/adapter-pg"',
+    );
+    expect(fixTenantProvision).toContain('import { Pool } from "pg"');
+    expect(fixTenantProvision).toContain("await pool.end()");
+    expect(fixTenantProvision).not.toContain(
+      'import { prismaAuth } from "../lib/prisma"',
+    );
   });
 
   it("backfills only models whose tenantId can actually be null", () => {

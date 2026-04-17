@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
@@ -12,29 +12,50 @@ import { MAIN_TENANT_NAME } from "../modules/mitra/services/tenant-constants";
  * Script ini TIDAK membuat tenant baru atau mengubah ID.
  */
 
-async function main() {
+function getDatabaseUrl() {
   const connectionString = process.env.DATABASE_URL;
+
   if (!connectionString) {
-    console.error("❌ DATABASE_URL tidak ditemukan di .env");
-    process.exit(1);
+    throw new Error("DATABASE_URL is required");
   }
 
-  const pool = new Pool({ connectionString });
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter });
+  return connectionString;
+}
 
+function createPrismaClient() {
+  const pool = new Pool({ connectionString: getDatabaseUrl() });
+  const adapter = new PrismaPg(pool);
+  const client = new PrismaClient({ adapter, log: ["error", "warn"] });
+
+  return { client, pool };
+}
+
+function isTenantBackfillCandidate(model: Prisma.DMMF.Model) {
+  const hasNullableTenantId = model.fields.some(
+    (field) => field.name === "tenantId" && !field.isRequired,
+  );
+
+  if (!hasNullableTenantId) {
+    return false;
+  }
+
+  const uniqueFields = model.uniqueFields ?? [];
+  return !uniqueFields.some((fields) => fields.includes("tenantId"));
+}
+
+const { client: prisma, pool } = createPrismaClient();
+
+async function main() {
   console.log("🚀 [migrate-legacy-tenant] Checking for orphaned data...");
 
   let optionalFailureCount = 0;
 
   try {
-    // Cari tenant NETMANAGER (sudah dibuat/direname oleh backfill-tenant.ts)
     let tenant = await prisma.tenant.findFirst({
       where: { name: MAIN_TENANT_NAME },
     });
 
     if (!tenant) {
-      // Fallback: cari tenant apapun yang paling lama
       tenant = await prisma.tenant.findFirst({
         orderBy: { createdAt: "asc" },
       });
@@ -47,9 +68,8 @@ async function main() {
 
     console.log(`✅ Using tenant: "${tenant.name}" (${tenant.id})`);
 
-    // Backfill semua model secara dinamis (menggunakan Prisma DMMF)
-    const modelsWithTenantId = Prisma.dmmf.datamodel.models.filter((model) =>
-      model.fields.some((f) => f.name === "tenantId"),
+    const modelsWithTenantId = Prisma.dmmf.datamodel.models.filter(
+      isTenantBackfillCandidate,
     );
 
     let totalUpdated = 0;
@@ -60,20 +80,24 @@ async function main() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const delegate = (prisma as any)[delegateProp];
 
-      if (delegate && delegate.updateMany) {
-        try {
-          const result = await delegate.updateMany({
-            where: { tenantId: null },
-            data: { tenantId: tenant.id },
-          });
-          if (result.count > 0) {
-            console.log(`  🔹 ${model.name}: Updated ${result.count} records`);
-            totalUpdated += result.count;
-          }
-        } catch {
-          optionalFailureCount += 1;
-          // Skip models yang mungkin tidak ada di environment tertentu
+      if (!delegate?.updateMany) {
+        continue;
+      }
+
+      try {
+        const result = await delegate.updateMany({
+          where: { tenantId: null },
+          data: { tenantId: tenant.id },
+        });
+
+        if (result.count > 0) {
+          console.log(`  🔹 ${model.name}: Updated ${result.count} records`);
+          totalUpdated += result.count;
         }
+      } catch (error) {
+        optionalFailureCount += 1;
+        const message = (error as Error).message.split("\n")[0];
+        console.error(`  ❌ ${model.name}: ${message}`);
       }
     }
 

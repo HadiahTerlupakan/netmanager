@@ -1,22 +1,39 @@
-/**
- * Fix script: Provision data for existing tenant (PT.ANGIN RIBUT)
- *
- * Usage: npx tsx scripts/fix-tenant-provision.ts
- */
-import { prismaAuth } from "../lib/prisma";
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+
 import {
   provisionTenantData,
   getTenantAdminRoleId,
 } from "../modules/mitra/services/TenantProvisioningService";
 import { MAIN_TENANT_ID } from "../modules/mitra/services/tenant-constants";
 
+const { client: prisma, pool } = createPrismaClient();
 let optionalFailureCount = 0;
+
+function getDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required");
+  }
+
+  return databaseUrl;
+}
+
+function createPrismaClient() {
+  const pool = new Pool({ connectionString: getDatabaseUrl() });
+  const adapter = new PrismaPg(pool);
+  const client = new PrismaClient({ adapter, log: ["error", "warn"] });
+
+  return { client, pool };
+}
 
 async function main() {
   console.log("🔧 Fixing tenant provisioning for existing tenants...\n");
 
-  // Find all tenants except main
-  const tenants = await prismaAuth.tenant.findMany({
+  const tenants = await prisma.tenant.findMany({
     where: { id: { not: MAIN_TENANT_ID } },
   });
 
@@ -25,8 +42,7 @@ async function main() {
   for (const tenant of tenants) {
     console.log(`\n━━━ Tenant: ${tenant.name} (${tenant.id}) ━━━`);
 
-    // Check if already provisioned
-    const existingRoles = await prismaAuth.role.count({
+    const existingRoles = await prisma.role.count({
       where: { tenantId: tenant.id },
     });
 
@@ -35,15 +51,14 @@ async function main() {
         `  ⚠️  Already has ${existingRoles} roles, skipping provisioning.`,
       );
     } else {
-      console.log(`  📦 Provisioning data...`);
-      const result = await provisionTenantData(prismaAuth, tenant.id);
+      console.log("  📦 Provisioning data...");
+      const result = await provisionTenantData(prisma, tenant.id);
       console.log(
         `  ✅ Created: ${result.rolesCreated} roles, ${result.permissionsCreated} permissions, ${result.settingsCreated} settings`,
       );
     }
 
-    // Fix users pointing to main tenant roles
-    const usersInTenant = await prismaAuth.user.findMany({
+    const usersInTenant = await prisma.user.findMany({
       where: { tenantId: tenant.id },
       select: { id: true, name: true, roleId: true },
     });
@@ -51,8 +66,7 @@ async function main() {
     for (const user of usersInTenant) {
       if (!user.roleId) continue;
 
-      // Check if user's role belongs to a different tenant
-      const userRole = await prismaAuth.role.findUnique({
+      const userRole = await prisma.role.findUnique({
         where: { id: user.roleId },
         select: { id: true, name: true, tenantId: true },
       });
@@ -62,42 +76,41 @@ async function main() {
           `  🔄 User "${user.name}" points to role "${userRole.name}" from tenant ${userRole.tenantId}`,
         );
 
-        // Find the equivalent role in this tenant
-        const correctRole = await prismaAuth.role.findFirst({
+        const correctRole = await prisma.role.findFirst({
           where: { name: userRole.name, tenantId: tenant.id },
           select: { id: true },
         });
 
         if (correctRole) {
-          await prismaAuth.user.update({
+          await prisma.user.update({
             where: { id: user.id },
             data: { roleId: correctRole.id },
           });
           console.log(
             `  ✅ Re-assigned to correct tenant role (${correctRole.id})`,
           );
-        } else {
-          // Assign to admin role of this tenant
-          const adminRoleId = await getTenantAdminRoleId(prismaAuth, tenant.id);
-          if (adminRoleId) {
-            await prismaAuth.user.update({
-              where: { id: user.id },
-              data: { roleId: adminRoleId },
-            });
-            console.log(
-              `  ✅ Assigned to admin role (${adminRoleId}) as fallback`,
-            );
-          } else {
-            optionalFailureCount += 1;
-            console.log(`  ❌ No suitable role found for user "${user.name}"`);
-          }
+          continue;
         }
+
+        const adminRoleId = await getTenantAdminRoleId(prisma, tenant.id);
+        if (adminRoleId) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { roleId: adminRoleId },
+          });
+          console.log(
+            `  ✅ Assigned to admin role (${adminRoleId}) as fallback`,
+          );
+          continue;
+        }
+
+        optionalFailureCount += 1;
+        console.log(`  ❌ No suitable role found for user "${user.name}"`);
       }
     }
   }
 
   console.log("\n✅ Done!");
-  await prismaAuth.$disconnect();
 }
 
 main()
@@ -106,7 +119,9 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prismaAuth.$disconnect();
+    await prisma.$disconnect();
+    await pool.end();
+
     if (optionalFailureCount > 0) {
       process.exitCode = 1;
     }
