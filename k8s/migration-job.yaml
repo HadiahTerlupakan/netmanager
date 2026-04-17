@@ -309,9 +309,16 @@ spec:
                 fi
               }
 
-              run_optional_step "multi-tenant data backfill" tsx scripts/backfill-tenant.ts
-              run_optional_step "tenant provisioning fix" tsx scripts/fix-tenant-provision.ts
-              run_optional_step "legacy data migration (NETMANAGER)" tsx scripts/migrate-legacy-tenant.ts
+              if [ "${SKIP_OPTIONAL_BACKFILL:-false}" = "true" ]; then
+                echo "⏭️ SKIP_OPTIONAL_BACKFILL=true, skipping optional tenant backfill and repair steps"
+                echo "⏭️ Skipped optional step: multi-tenant data backfill"
+                echo "⏭️ Skipped optional step: tenant provisioning fix"
+                echo "⏭️ Skipped optional step: legacy data migration (NETMANAGER)"
+              else
+                run_optional_step "multi-tenant data backfill" tsx scripts/backfill-tenant.ts
+                run_optional_step "tenant provisioning fix" tsx scripts/fix-tenant-provision.ts
+                run_optional_step "legacy data migration (NETMANAGER)" tsx scripts/migrate-legacy-tenant.ts
+              fi
 
               if [ "$OPTIONAL_FAILURES" -gt 0 ]; then
                 echo "⚠️ Optional migration steps completed with $OPTIONAL_FAILURES failure(s)"

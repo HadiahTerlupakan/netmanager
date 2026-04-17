@@ -128,6 +128,29 @@ describe("migration job safety", () => {
     );
   });
 
+  it("supports explicitly skipping optional tenant backfill steps", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    expect(migrationJob).toContain(
+      'if [ "${SKIP_OPTIONAL_BACKFILL:-false}" = "true" ]; then',
+    );
+    expect(migrationJob).toContain(
+      "⏭️ SKIP_OPTIONAL_BACKFILL=true, skipping optional tenant backfill and repair steps",
+    );
+    expect(migrationJob).toContain(
+      "⏭️ Skipped optional step: multi-tenant data backfill",
+    );
+    expect(migrationJob).toContain(
+      "⏭️ Skipped optional step: tenant provisioning fix",
+    );
+    expect(migrationJob).toContain(
+      "⏭️ Skipped optional step: legacy data migration (NETMANAGER)",
+    );
+  });
+
   it("does not force success exit codes from tenant optional migration scripts", () => {
     const backfillTenant = readFileSync(
       resolve(process.cwd(), "scripts", "backfill-tenant.ts"),
