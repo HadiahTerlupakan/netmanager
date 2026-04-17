@@ -160,6 +160,47 @@ describe("migration job safety", () => {
     expect(fixTenantProvision).toContain("process.exitCode = 1");
   });
 
+  it("backfills only models whose tenantId can actually be null", () => {
+    const backfillTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "backfill-tenant.ts"),
+      "utf8",
+    );
+
+    expect(backfillTenant).toContain(
+      'field.name === "tenantId" && !field.isRequired',
+    );
+    expect(backfillTenant).not.toContain(
+      'model.fields.some((f) => f.name === "tenantId")',
+    );
+  });
+
+  it("manages its own Prisma pool lifecycle so the backfill process can exit cleanly", () => {
+    const backfillTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "backfill-tenant.ts"),
+      "utf8",
+    );
+
+    expect(backfillTenant).toContain(
+      'import { PrismaPg } from "@prisma/adapter-pg"',
+    );
+    expect(backfillTenant).toContain('import { Pool } from "pg"');
+    expect(backfillTenant).toContain("await pool.end()");
+    expect(backfillTenant).not.toContain(
+      'import { prismaAuth as prisma } from "../lib/prisma"',
+    );
+  });
+
+  it("skips models whose tenant backfill can collide with tenant-scoped unique constraints", () => {
+    const backfillTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "backfill-tenant.ts"),
+      "utf8",
+    );
+
+    expect(backfillTenant).toContain("model.uniqueFields.some");
+    expect(backfillTenant).toContain('fields.includes("tenantId")');
+    expect(backfillTenant).not.toContain("const modelsWithTenantId");
+  });
+
   it("aligns Jenkins migration wait budget with the Job deadline and captures richer diagnostics on failure", () => {
     const jenkinsfile = readFileSync(
       resolve(process.cwd(), "Jenkinsfile"),

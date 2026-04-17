@@ -173,7 +173,7 @@ This project follows a **Modular Monolith** architecture.
 - **Styling**: Tailwind CSS
 - **Database**: PostgreSQL (via Prisma ORM)
 - **Cache/Queue**: Redis (via ioredis)
-- **Real-time**: Socket.IO with Redis adapter
+- **Real-time**: Firebase Realtime Database / Firestore listeners
 - **State Management**: React Hooks / SWR
 - **Validation**: Zod (used in API and Forms)
 - **Testing**: Vitest (unit/integration), Playwright (E2E)
