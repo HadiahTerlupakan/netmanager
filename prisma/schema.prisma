@@ -2017,6 +2017,7 @@ model WorkOrderAssignments {
   user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workOrders   WorkOrders @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
+  @@unique([workOrderId, userId, role, tenantId], map: "uniq_work_order_partner_assignment")
   @@index([userId])
   @@index([mitraId])
   @@index([workOrderId])
