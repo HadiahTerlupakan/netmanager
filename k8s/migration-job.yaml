@@ -195,6 +195,33 @@ spec:
                 node -e 'const url = new URL(process.argv[1]); ["schema", "connection_limit", "pool_timeout"].forEach((name) => url.searchParams.delete(name)); process.stdout.write(url.toString())' "$1"
               }
 
+              has_prisma_migration_record() {
+                local database_url="$1"
+                local migration_name="$2"
+                local has_migrations_table
+
+                has_migrations_table=$(psql "$database_url" -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = '_prisma_migrations')" | tr -d '[:space:]')
+                if [ "$has_migrations_table" != "t" ]; then
+                  printf 'f'
+                  return 0
+                fi
+
+                psql "$database_url" -tAc "SELECT EXISTS (SELECT 1 FROM _prisma_migrations WHERE migration_name = '$migration_name' AND rolled_back_at IS NULL)" | tr -d '[:space:]'
+              }
+
+              resolve_migration_if_unapplied() {
+                local database_url="$1"
+                local migration_name="$2"
+                shift 2
+
+                if [ "$(has_prisma_migration_record "$database_url" "$migration_name")" = "t" ]; then
+                  echo "ℹ️ Migration already marked applied, skipping resolve: $migration_name"
+                  return 0
+                fi
+
+                prisma migrate resolve --applied "$migration_name" "$@" 2>&1
+              }
+
               DATABASE_URL_PSQL=$(sanitize_psql_url "$DATABASE_URL")
               RADIUS_DATABASE_URL_PSQL=$(sanitize_psql_url "$RADIUS_DATABASE_URL")
               DATABASE_URL_BILLING_PSQL=$(sanitize_psql_url "$DATABASE_URL_BILLING")
@@ -207,12 +234,12 @@ spec:
                 echo "🌱 Fresh database detected. Running all migrations from scratch..."
               else
                 echo "🔄 Existing database detected. Applying baseline resolutions..."
-                prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260313000000_init_squashed
 
                 # Apply tenant schema baseline before resolving it so tenant-aware follow-up migrations
                 # do not run against databases that still lack tenantId columns.
                 psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql
-                prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260314015651_init_tenant_schema
                 prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
                 prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
                 prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true
@@ -255,9 +282,9 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true
+                resolve_migration_if_unapplied "$RADIUS_DATABASE_URL_PSQL" 20260313000000_init_squashed --config=prisma.radius.config.ts
                 psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql
-                prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true
+                resolve_migration_if_unapplied "$RADIUS_DATABASE_URL_PSQL" 20260314015652_init_tenant_schema --config=prisma.radius.config.ts
               fi
               prisma migrate deploy --config=prisma.radius.config.ts
 
@@ -267,9 +294,9 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_BILLING_PSQL" 20260313000000_init_squashed --config=prisma.billing.config.ts
                 psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql
-                prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_BILLING_PSQL" 20260314015654_init_tenant_schema --config=prisma.billing.config.ts
               fi
               prisma migrate deploy --config=prisma.billing.config.ts
 
@@ -279,9 +306,9 @@ spec:
               echo "======================================"
 
               if [ "$IS_FRESH" != "f" ]; then
-                prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_MITRA_PSQL" 20260313000000_init_squashed --config=prisma.mitra.config.ts
                 psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql
-                prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_MITRA_PSQL" 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts
               fi
               prisma migrate deploy --config=prisma.mitra.config.ts
 

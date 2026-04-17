@@ -18,7 +18,7 @@ describe("migration job safety", () => {
     expect(migrationJob).toContain("Optional migration steps completed with");
   });
 
-  it("applies tenant schema baselines before resolving them on existing databases", () => {
+  it("applies tenant schema baselines before conditionally resolving them on existing databases", () => {
     const migrationJob = readFileSync(
       resolve(process.cwd(), "k8s", "migration-job.yaml"),
       "utf8",
@@ -27,19 +27,19 @@ describe("migration job safety", () => {
     const mainApply =
       'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql';
     const mainResolve =
-      "prisma migrate resolve --applied 20260314015651_init_tenant_schema 2>&1 || true";
+      'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260314015651_init_tenant_schema';
     const radiusApply =
       'psql "$RADIUS_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/radius_migrations/20260314015652_init_tenant_schema/migration.sql';
     const radiusResolve =
-      "prisma migrate resolve --applied 20260314015652_init_tenant_schema --config=prisma.radius.config.ts 2>&1 || true";
+      'resolve_migration_if_unapplied "$RADIUS_DATABASE_URL_PSQL" 20260314015652_init_tenant_schema --config=prisma.radius.config.ts';
     const billingApply =
       'psql "$DATABASE_URL_BILLING_PSQL" -v ON_ERROR_STOP=1 -f prisma/billing_migrations/20260314015654_init_tenant_schema/migration.sql';
     const billingResolve =
-      "prisma migrate resolve --applied 20260314015654_init_tenant_schema --config=prisma.billing.config.ts 2>&1 || true";
+      'resolve_migration_if_unapplied "$DATABASE_URL_BILLING_PSQL" 20260314015654_init_tenant_schema --config=prisma.billing.config.ts';
     const mitraApply =
       'psql "$DATABASE_URL_MITRA_PSQL" -v ON_ERROR_STOP=1 -f prisma/mitra_migrations/20260314015655_init_tenant_schema/migration.sql';
     const mitraResolve =
-      "prisma migrate resolve --applied 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts 2>&1 || true";
+      'resolve_migration_if_unapplied "$DATABASE_URL_MITRA_PSQL" 20260314015655_init_tenant_schema --config=prisma.mitra.config.ts';
 
     expect(migrationJob).toContain(mainApply);
     expect(migrationJob.indexOf(mainApply)).toBeLessThan(
@@ -56,6 +56,39 @@ describe("migration job safety", () => {
     expect(migrationJob).toContain(mitraApply);
     expect(migrationJob.indexOf(mitraApply)).toBeLessThan(
       migrationJob.indexOf(mitraResolve),
+    );
+  });
+
+  it("checks prisma migration records before resolving applied baselines to avoid noisy P3008 logs", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    expect(migrationJob).toContain("has_prisma_migration_record()");
+    expect(migrationJob).toContain("resolve_migration_if_unapplied()");
+    expect(migrationJob).toContain("table_name = '_prisma_migrations'");
+    expect(migrationJob).toContain("migration_name = '$migration_name'");
+    expect(migrationJob).toContain(
+      'if [ "$(has_prisma_migration_record "$database_url" "$migration_name")" = "t" ]; then',
+    );
+    expect(migrationJob).toContain(
+      'echo "ℹ️ Migration already marked applied, skipping resolve: $migration_name"',
+    );
+    expect(migrationJob).toContain(
+      'prisma migrate resolve --applied "$migration_name" "$@" 2>&1',
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260313000000_init_squashed 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.radius.config.ts 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true",
     );
   });
 
