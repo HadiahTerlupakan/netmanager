@@ -47,7 +47,8 @@ function isTenantBackfillCandidate(model: Prisma.DMMF.Model) {
     return false;
   }
 
-  return !model.uniqueFields.some((fields) => fields.includes("tenantId"));
+  const uniqueFields = model.uniqueFields ?? [];
+  return !uniqueFields.some((fields) => fields.includes("tenantId"));
 }
 
 function getTenantBackfillModels() {

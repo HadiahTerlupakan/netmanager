@@ -196,8 +196,13 @@ describe("migration job safety", () => {
       "utf8",
     );
 
-    expect(backfillTenant).toContain("model.uniqueFields.some");
-    expect(backfillTenant).toContain('fields.includes("tenantId")');
+    expect(backfillTenant).toContain(
+      "const uniqueFields = model.uniqueFields ?? []",
+    );
+    expect(backfillTenant).toContain(
+      'uniqueFields.some((fields) => fields.includes("tenantId"))',
+    );
+    expect(backfillTenant).not.toContain("model.uniqueFields.some");
     expect(backfillTenant).not.toContain("const modelsWithTenantId");
   });
 
