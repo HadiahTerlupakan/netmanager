@@ -398,7 +398,7 @@ spec:
                           local deployment_snapshot
                           local current_image
 
-                          if ! deployment_snapshot="\$(kubectl get deployment "\$deployment_name" -n ${NAMESPACE} -o jsonpath='{range .spec.template.spec.containers[*]}{.name}={.image}{"\n"}{end}')"; then
+                          if ! deployment_snapshot="\$(kubectl get deployment "\$deployment_name" -n ${NAMESPACE} -o jsonpath='{range .spec.template.spec.containers[*]}{.name}={.image}{"\\n"}{end}')"; then
                             echo "⚠️ Gagal membaca snapshot image dari deployment/\$deployment_name container/\$container_name; lanjutkan tanpa snapshot" >&2
                             printf '%s\n' ""
                             return 0

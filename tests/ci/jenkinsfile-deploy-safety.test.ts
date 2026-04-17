@@ -106,7 +106,7 @@ describe("Jenkinsfile deploy safety", () => {
     expect(snapshotFunctionStart).toBeGreaterThanOrEqual(0);
     expect(snapshotFunctionEnd).toBeGreaterThan(snapshotFunctionStart);
     expect(snapshotFunctionBlock).toContain(
-      'if ! deployment_snapshot="\\$(kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath=\'{range .spec.template.spec.containers[*]}{.name}={.image}{"\\n"}{end}\')"; then',
+      'if ! deployment_snapshot="\\$(kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath=\'{range .spec.template.spec.containers[*]}{.name}={.image}{"\\\\n"}{end}\')"; then',
     );
     expect(snapshotFunctionBlock).toContain(
       'echo "⚠️ Gagal membaca snapshot image dari deployment/\\$deployment_name container/\\$container_name; lanjutkan tanpa snapshot" >&2',
@@ -147,6 +147,28 @@ describe("Jenkinsfile deploy safety", () => {
     );
     expect(jenkinsfile).toContain(
       'kubectl rollout status deployment/"\\$deployment_name" --namespace=${NAMESPACE} --timeout=600s',
+    );
+  });
+
+  it("escapes jsonpath newlines safely when reading deployment image snapshots", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const deployBlock = jenkinsfile.slice(deployStageIndex);
+    const snapshotFunctionStart = deployBlock.indexOf("get_current_image() {");
+    const snapshotFunctionEnd = deployBlock.indexOf("render_manifest() {");
+    const snapshotFunctionBlock = deployBlock.slice(
+      snapshotFunctionStart,
+      snapshotFunctionEnd,
+    );
+
+    expect(deployStageIndex).toBeGreaterThanOrEqual(0);
+    expect(snapshotFunctionStart).toBeGreaterThanOrEqual(0);
+    expect(snapshotFunctionEnd).toBeGreaterThan(snapshotFunctionStart);
+    expect(snapshotFunctionBlock).toContain(
+      'kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath=\'{range .spec.template.spec.containers[*]}{.name}={.image}{"\\\\n"}{end}\'',
+    );
+    expect(snapshotFunctionBlock).not.toContain(
+      'kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath=\'{range .spec.template.spec.containers[*]}{.name}={.image}{"\\n"}{end}\'',
     );
   });
 
