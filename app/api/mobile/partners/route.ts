@@ -3,7 +3,7 @@ import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { prisma } from "@/modules/database";
 import { Prisma } from "@prisma/client";
 import { ApiErrors, apiError, ErrorCodes } from "@/lib/api-response";
-import { filterInvitablePartnersToday } from "@/modules/work-order/services/partner-invite-availability";
+import { filterInvitablePartnersToday } from "@/modules/work-order";
 
 export async function GET(request: NextRequest) {
   try {

@@ -6,7 +6,7 @@ import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   canInvitePartnerToday,
   PARTNER_ON_LEAVE_ERROR_MESSAGE,
-} from "@/modules/work-order/services/partner-invite-availability";
+} from "@/modules/work-order";
 
 const DUPLICATE_PARTNER_ASSIGNMENT_ERROR_MESSAGE =
   "User sudah ditambahkan sebagai partner di work order ini";
