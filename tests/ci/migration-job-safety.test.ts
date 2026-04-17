@@ -87,8 +87,31 @@ describe("migration job safety", () => {
     expect(migrationJob).not.toContain(
       "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true",
     );
+    expect(migrationJob).toContain(
+      'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260326004412_sync_schema_changes',
+    );
     expect(migrationJob).not.toContain(
       "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260326004412_sync_schema_changes 2>&1 || true",
+    );
+  });
+
+  it("applies the partial sync schema repair before conditionally resolving that migration", () => {
+    const migrationJob = readFileSync(
+      resolve(process.cwd(), "k8s", "migration-job.yaml"),
+      "utf8",
+    );
+
+    const syncSchemaFix =
+      'psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1';
+    const syncSchemaResolve =
+      'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260326004412_sync_schema_changes';
+
+    expect(migrationJob).toContain(syncSchemaFix);
+    expect(migrationJob.indexOf(syncSchemaFix)).toBeLessThan(
+      migrationJob.indexOf(syncSchemaResolve),
     );
   });
 

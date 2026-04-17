@@ -248,7 +248,7 @@ spec:
                 # then mark as applied so Prisma does not try to re-run the full SQL.
                 echo "🔧 Running idempotent fix for sync_schema_changes..."
                 psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f /app/scripts/fix-partial-sync-schema.sql 2>&1
-                prisma migrate resolve --applied 20260326004412_sync_schema_changes 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260326004412_sync_schema_changes
 
                 # =============================================
                 # Resolve failed migrations (P3009 recovery)
