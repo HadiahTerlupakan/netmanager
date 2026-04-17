@@ -88,10 +88,28 @@ describe("migration job safety", () => {
       "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.billing.config.ts 2>&1 || true",
     );
     expect(migrationJob).toContain(
+      'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260315020000_tenant_unique_constraints',
+    );
+    expect(migrationJob).toContain(
+      'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260318064750_add_pelanggan_username_unique_index',
+    );
+    expect(migrationJob).toContain(
+      'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260318065456_add_session_expires_index',
+    );
+    expect(migrationJob).toContain(
       'resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260326004412_sync_schema_changes',
     );
     expect(migrationJob).not.toContain(
       "prisma migrate resolve --applied 20260313000000_init_squashed --config=prisma.mitra.config.ts 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true",
+    );
+    expect(migrationJob).not.toContain(
+      "prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true",
     );
     expect(migrationJob).not.toContain(
       "prisma migrate resolve --applied 20260326004412_sync_schema_changes 2>&1 || true",

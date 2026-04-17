@@ -240,9 +240,9 @@ spec:
                 # do not run against databases that still lack tenantId columns.
                 psql "$DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -f prisma/migrations/20260314015651_init_tenant_schema/migration.sql
                 resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260314015651_init_tenant_schema
-                prisma migrate resolve --applied 20260315020000_tenant_unique_constraints 2>&1 || true
-                prisma migrate resolve --applied 20260318064750_add_pelanggan_username_unique_index 2>&1 || true
-                prisma migrate resolve --applied 20260318065456_add_session_expires_index 2>&1 || true
+                resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260315020000_tenant_unique_constraints
+                resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260318064750_add_pelanggan_username_unique_index
+                resolve_migration_if_unapplied "$DATABASE_URL_PSQL" 20260318065456_add_session_expires_index
 
                 # Fix partially-applied migration: complete remaining changes via idempotent SQL
                 # then mark as applied so Prisma does not try to re-run the full SQL.
