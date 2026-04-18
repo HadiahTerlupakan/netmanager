@@ -39,12 +39,12 @@ spec:
               memory: 256Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "netmanager"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "netmanager"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
@@ -111,12 +111,12 @@ spec:
               memory: 256Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "billing"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "billing"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
@@ -183,12 +183,12 @@ spec:
               memory: 256Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "mitra"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "mitra"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
@@ -255,12 +255,12 @@ spec:
               memory: 256Mi
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "radius"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "netmgr"]
+              command: ["pg_isready", "-U", "netmgr", "-d", "radius"]
             initialDelaySeconds: 15
             periodSeconds: 20
           volumeMounts:
