@@ -280,6 +280,7 @@ describe("WorkOrderRepository", () => {
   describe("assign", () => {
     it("should set assignedToId and change status to ASSIGNED", async () => {
       prismaMock.workOrders.updateMany.mockResolvedValueOnce({ count: 1 });
+      prismaMock.workOrderAssignments.findFirst.mockResolvedValueOnce(null);
       prismaMock.workOrderAssignments.create.mockResolvedValueOnce(
         {} as unknown as WorkOrderAssignments,
       );
@@ -309,6 +310,55 @@ describe("WorkOrderRepository", () => {
           role: "Lead",
         }),
       });
+    });
+  });
+
+  describe("addAssignment", () => {
+    it("should return existing assignment without creating duplicate", async () => {
+      const existingAssignment = {
+        id: "assignment-1",
+        workOrderId: "wo-1",
+        userId: "user-1",
+        role: "Lead",
+        status: "PENDING",
+      } as unknown as WorkOrderAssignments;
+
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce(
+        createWoMock() as unknown as WorkOrders,
+      );
+      prismaMock.workOrderAssignments.findFirst.mockResolvedValueOnce(
+        existingAssignment,
+      );
+
+      const result = await repository.addAssignment("wo-1", "user-1", "Lead");
+
+      expect(result).toBe(existingAssignment);
+      expect(prismaMock.workOrderAssignments.create).not.toHaveBeenCalled();
+    });
+
+    it("should return existing assignment when create hits unique constraint", async () => {
+      const existingAssignment = {
+        id: "assignment-1",
+        workOrderId: "wo-1",
+        userId: "user-1",
+        role: "Lead",
+        status: "PENDING",
+      } as unknown as WorkOrderAssignments;
+
+      prismaMock.workOrders.findFirst.mockResolvedValueOnce(
+        createWoMock() as unknown as WorkOrders,
+      );
+      prismaMock.workOrderAssignments.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(existingAssignment);
+      prismaMock.workOrderAssignments.create.mockRejectedValueOnce({
+        code: "P2002",
+      });
+
+      const result = await repository.addAssignment("wo-1", "user-1", "Lead");
+
+      expect(result).toBe(existingAssignment);
+      expect(prismaMock.workOrderAssignments.create).toHaveBeenCalledTimes(1);
     });
   });
 

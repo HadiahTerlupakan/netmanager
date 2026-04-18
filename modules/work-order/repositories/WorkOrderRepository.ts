@@ -1321,20 +1321,61 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     role?: string,
   ): Promise<WorkOrderAssignments> {
     const tenantWhere = await this.getTenantWhere();
+    const normalizedRole = role ?? null;
     // Verify parent WO exists in this tenant
     const wo = await this.prisma.workOrders.findFirst({
       where: { id: workOrderId, ...tenantWhere },
     });
     if (!wo) throw new Error("Work order not found or access denied");
 
-    return this.prisma.workOrderAssignments.create({
-      data: {
-        id: randomUUID(),
-        workOrderId,
-        userId,
-        role: role ?? null,
+    const existingAssignment = await this.prisma.workOrderAssignments.findFirst(
+      {
+        where: {
+          workOrderId,
+          userId,
+          role: normalizedRole,
+          workOrders: tenantWhere,
+        },
       },
-    });
+    );
+
+    if (existingAssignment) {
+      return existingAssignment;
+    }
+
+    try {
+      return await this.prisma.workOrderAssignments.create({
+        data: {
+          id: randomUUID(),
+          workOrderId,
+          userId,
+          role: normalizedRole,
+        },
+      });
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "P2002"
+      ) {
+        const duplicateAssignment =
+          await this.prisma.workOrderAssignments.findFirst({
+            where: {
+              workOrderId,
+              userId,
+              role: normalizedRole,
+              workOrders: tenantWhere,
+            },
+          });
+
+        if (duplicateAssignment) {
+          return duplicateAssignment;
+        }
+      }
+
+      throw error;
+    }
   }
 
   async removeAssignment(assignmentId: string): Promise<void> {
