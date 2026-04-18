@@ -9,11 +9,74 @@ NC='\033[0m'
 
 cd "$(git rev-parse --show-toplevel)"
 
+JENKINS_STAGING_POLL_INTERVAL_SECONDS=15
+JENKINS_STAGING_MAX_ATTEMPTS=80
+
 require_clean_worktree() {
   if [[ -n "$(git status --porcelain)" ]]; then
     echo -e "${RED}Working tree tidak clean. Commit atau stash dulu sebelum deploy prod.${NC}" >&2
     exit 1
   fi
+}
+
+read_staging_build_result() {
+  local checkout_marker="$1"
+
+  ssh radpro@radpro.id "CHECKOUT_MARKER='$checkout_marker' python3 - <<'PY'
+import os, re
+from pathlib import Path
+checkout_marker = os.environ['CHECKOUT_MARKER']
+base = Path('/var/lib/jenkins/jobs/netmanager-staging/builds')
+matches = []
+for log_path in base.glob('*/log'):
+    try:
+        if checkout_marker in log_path.read_text(errors='ignore'):
+            matches.append(log_path)
+    except OSError:
+        continue
+if not matches:
+    print('PENDING', end='')
+    raise SystemExit
+build_dir = max(matches, key=lambda path: int(path.parent.name)).parent
+build_xml = build_dir / 'build.xml'
+try:
+    text = build_xml.read_text(errors='ignore')
+except OSError:
+    print('PENDING', end='')
+    raise SystemExit
+match = re.search(r'<result>([^<]+)</result>', text)
+print(match.group(1) if match else 'PENDING', end='')
+PY"
+}
+
+wait_for_staging_success() {
+  local promotion_sha="$1"
+  local checkout_marker="Checking out Revision ${promotion_sha} (refs/remotes/origin/staging)"
+  local build_result=""
+  local build_state=""
+  local attempt=1
+
+  while [ "$attempt" -le "$JENKINS_STAGING_MAX_ATTEMPTS" ]; do
+    echo "Menunggu Jenkins staging menyelesaikan commit ${promotion_sha}..."
+    build_state="$(read_staging_build_result "$checkout_marker")"
+
+    if [ "$build_state" = "SUCCESS" ]; then
+      build_result="SUCCESS"
+      echo "Jenkins staging sudah hijau untuk ${promotion_sha}."
+      return 0
+    fi
+
+    if [ "$build_state" != "PENDING" ]; then
+      echo -e "${RED}Jenkins staging selesai dengan status ${build_state} untuk ${promotion_sha}.${NC}" >&2
+      exit 1
+    fi
+
+    sleep "$JENKINS_STAGING_POLL_INTERVAL_SECONDS"
+    attempt=$((attempt + 1))
+  done
+
+  echo -e "${RED}Timeout menunggu Jenkins staging untuk ${promotion_sha}.${NC}" >&2
+  exit 1
 }
 
 echo -e "${GREEN}Starting Production Deployment...${NC}"
@@ -31,6 +94,7 @@ echo -e "${YELLOW}Pastikan pipeline staging untuk origin/staging sudah hijau seb
 
 PROMOTION_SHA="$(git rev-parse origin/staging)"
 echo "Promoting commit ${PROMOTION_SHA} from origin/staging to main..."
+wait_for_staging_success "${PROMOTION_SHA}"
 
 echo "Switching to main branch..."
 git switch main

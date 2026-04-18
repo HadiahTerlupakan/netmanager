@@ -37,10 +37,11 @@ export const GET = createHandler(
     };
 
     // Get site and tenant filters
-    const { primarySiteId: siteIdFilter } = checkSiteRestriction(
+    const { isRestricted, primarySiteId } = checkSiteRestriction(
       sessionWithPermissions as Session,
       "users",
     );
+    const siteIdFilter = isRestricted ? primarySiteId || undefined : undefined;
     let tenantIdFilter = req.nextUrl.searchParams.get("tenantId") || undefined;
     const roleNameFilter =
       req.nextUrl.searchParams.get("roleName") || undefined;

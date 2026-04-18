@@ -24,4 +24,23 @@ describe("deploy-prod.sh safety", () => {
     );
     expect(script).not.toContain("Production deployment successful");
   });
+
+  it("waits for the promoted staging SHA to finish successfully before pushing main", () => {
+    const script = readDeployProdScript();
+
+    expect(script).toContain("wait_for_staging_success() {");
+    expect(script).toContain('local promotion_sha="$1"');
+    expect(script).toContain(
+      'echo "Menunggu Jenkins staging menyelesaikan commit ${promotion_sha}..."',
+    );
+    expect(script).toContain("ssh radpro@radpro.id");
+    expect(script).toContain(
+      "Checking out Revision ${promotion_sha} (refs/remotes/origin/staging)",
+    );
+    expect(script).toContain('build_result="SUCCESS"');
+    expect(script).toContain('wait_for_staging_success "${PROMOTION_SHA}"');
+    expect(
+      script.indexOf('wait_for_staging_success "${PROMOTION_SHA}"'),
+    ).toBeLessThan(script.indexOf('echo "Switching to main branch..."'));
+  });
 });
