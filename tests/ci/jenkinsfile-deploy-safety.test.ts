@@ -241,4 +241,29 @@ describe("Jenkinsfile deploy safety", () => {
       "assert_cluster_image_contract netmanager-radius radius",
     );
   });
+
+  it("blocks production deploy before applying manifests when any node reports Ready=False or DiskPressure=True", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const deployBlock = jenkinsfile.slice(deployStageIndex);
+    const preflightIndex = deployBlock.indexOf(
+      "require_cluster_nodes_ready_for_production_change before-production-rollout",
+    );
+    const applyIndex = deployBlock.indexOf(
+      "kubectl apply -f ${K8S_DIR}/namespace.yaml",
+    );
+
+    expect(deployStageIndex).toBeGreaterThanOrEqual(0);
+    expect(preflightIndex).toBeGreaterThanOrEqual(0);
+    expect(applyIndex).toBeGreaterThan(preflightIndex);
+    expect(deployBlock).toContain(
+      "require_cluster_nodes_ready_for_production_change before-production-rollout",
+    );
+    expect(deployBlock).toContain(
+      "require_cluster_nodes_ready_for_production_change() {",
+    );
+    expect(deployBlock).toContain(
+      'echo "✅ Cluster node preflight aman untuk \\$change_label"',
+    );
+  });
 });

@@ -387,4 +387,35 @@ describe("migration job safety", () => {
       'kubectl logs "\\$POD_NAME" --namespace=${NAMESPACE} --tail=100 || true',
     );
   });
+
+  it("blocks production migration when any node reports Ready=False or DiskPressure=True", () => {
+    const jenkinsfile = readFileSync(
+      resolve(process.cwd(), "Jenkinsfile"),
+      "utf8",
+    );
+    const migrationStageIndex = jenkinsfile.indexOf(
+      "stage('Database Migration (Zero Downtime K8s Job)')",
+    );
+    const preflightIndex = jenkinsfile.indexOf(
+      "require_cluster_nodes_ready_for_production_change before-production-migration",
+      migrationStageIndex,
+    );
+
+    expect(migrationStageIndex).toBeGreaterThanOrEqual(0);
+    expect(preflightIndex).toBeGreaterThan(migrationStageIndex);
+    expect(jenkinsfile).toContain(
+      "require_cluster_nodes_ready_for_production_change() {",
+    );
+    expect(jenkinsfile).toContain(
+      'node_snapshot="\\$(kubectl get nodes -o jsonpath=\'{range .items[*]}{.metadata.name}{"\\\\t"}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\\\\n"}{end}\')"',
+    );
+    expect(jenkinsfile).toContain(
+      'if printf \"%s\\n\" \"\\$node_snapshot\" | grep -Eq \"Ready=False|DiskPressure=True\"; then',
+    );
+    expect(jenkinsfile).toContain(
+      'echo "❌ Cluster production tidak sehat untuk perubahan workload: ada node Ready=False atau DiskPressure=True" >&2',
+    );
+    expect(jenkinsfile).toContain("kubectl describe nodes || true");
+    expect(jenkinsfile).toContain("kubectl top nodes || true");
+  });
 });

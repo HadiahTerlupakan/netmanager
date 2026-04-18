@@ -326,9 +326,30 @@ spec:
                           echo "  --docker-password=<registry-token>"
                           exit 1
                         fi
+
+                        require_cluster_nodes_ready_for_production_change() {
+                          local change_label="\$1"
+                          local node_snapshot
+
+                          node_snapshot="\$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\t"}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\\n"}{end}')"
+                          if printf "%s\n" "\$node_snapshot" | grep -Eq "Ready=False|DiskPressure=True"; then
+                            echo "❌ Cluster production tidak sehat untuk perubahan workload: ada node Ready=False atau DiskPressure=True" >&2
+                            printf "%s\n" "\$node_snapshot" >&2
+                            kubectl describe nodes || true
+                            kubectl top nodes || true
+                            exit 1
+                          fi
+
+                          echo "✅ Cluster node preflight aman untuk \$change_label"
+                        }
                         """
 
                         if (isProduction) {
+                            sh """
+                            set -euo pipefail
+                            require_cluster_nodes_ready_for_production_change before-production-migration
+                            """
+
                             echo "🔒 PRODUCTION: Creating database backup before migration..."
                             def allowMigrationWithoutBackup = env.ALLOW_MIGRATION_WITHOUT_BACKUP == 'true'
                             def backupStatus = sh(
@@ -484,6 +505,22 @@ spec:
                           esac
                         }
 
+                        require_cluster_nodes_ready_for_production_change() {
+                          local change_label="\$1"
+                          local node_snapshot
+
+                          node_snapshot="\$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\t"}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\\n"}{end}')"
+                          if printf "%s\n" "\$node_snapshot" | grep -Eq "Ready=False|DiskPressure=True"; then
+                            echo "❌ Cluster production tidak sehat untuk perubahan workload: ada node Ready=False atau DiskPressure=True" >&2
+                            printf "%s\n" "\$node_snapshot" >&2
+                            kubectl describe nodes || true
+                            kubectl top nodes || true
+                            exit 1
+                          fi
+
+                          echo "✅ Cluster node preflight aman untuk \$change_label"
+                        }
+
                         render_manifest_to_file() {
                           local manifest="\$1"
                           local rendered_manifest="\$2"
@@ -552,6 +589,7 @@ spec:
                           assert_cluster_image_contract netmanager-app app
                           assert_cluster_image_contract netmanager-cron cron
                           assert_cluster_image_contract netmanager-radius radius
+                          require_cluster_nodes_ready_for_production_change before-production-rollout
                         fi
 
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
