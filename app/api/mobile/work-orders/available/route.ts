@@ -253,7 +253,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  updatedWorkOrder = await prisma.workOrders.findFirst({
+  const updatedWorkOrder = await prisma.workOrders.findFirst({
     where: { id: workOrderId, tenantId },
   });
 
