@@ -99,6 +99,12 @@ Internally verify every few steps:
 - Never end with a question unless absolutely critical
 - Match response length to task complexity
 
+[WORKTREE POLICY]
+- Jangan gunakan git worktree untuk project ini
+- Kerjakan perubahan langsung di repository utama saat ini
+- Gunakan worktree hanya jika saya meminta secara eksplisit
+- Alasan: saya kerja sendiri dan ingin perubahan langsung terlihat di repo aktif
+
 <!-- ==================== PROJECT KNOWLEDGE ==================== -->
 
 ## Commands
