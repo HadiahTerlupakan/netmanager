@@ -81,6 +81,19 @@ export const attendanceFilterSchema = z
 export type AttendanceFilter = z.infer<typeof attendanceFilterSchema>;
 
 /**
+ * Request body validation for bulk delete attendance
+ */
+export const attendanceBulkDeleteSchema = z
+  .object({
+    ids: z.array(z.uuid()).min(1),
+  })
+  .transform(({ ids }) => ({
+    ids: [...new Set(ids)],
+  }));
+
+export type AttendanceBulkDelete = z.infer<typeof attendanceBulkDeleteSchema>;
+
+/**
  * Request body validation for updating attendance
  */
 export const attendanceUpdateSchema = z.object({

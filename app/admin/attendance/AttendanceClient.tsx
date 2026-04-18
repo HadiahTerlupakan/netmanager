@@ -33,6 +33,11 @@ import {
   formatTimeDisplay,
 } from "@/lib/utils/datetime";
 import { validateDateRange, validateRequired } from "@/lib/utils/validation";
+import {
+  areAllAttendanceIdsSelected,
+  toggleAttendanceSelection,
+  toggleCurrentPageAttendanceSelection,
+} from "@/app/admin/attendance/attendance-selection";
 
 interface Attendance {
   id: string;
@@ -68,8 +73,13 @@ export function ClientComponent() {
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>(
+    [],
+  );
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
   // Options
@@ -107,6 +117,12 @@ export function ClientComponent() {
 
   // Summary
   const [summary, setSummary] = useState<Record<string, number>>({});
+
+  const currentPageIds = attendances.map((attendance) => attendance.id);
+  const isAllCurrentPageSelected = areAllAttendanceIdsSelected(
+    selectedAttendanceIds,
+    currentPageIds,
+  );
 
   // Handle rate limit countdown
   useEffect(() => {
@@ -155,7 +171,7 @@ export function ClientComponent() {
       try {
         const params: Record<string, string> = {
           page: page.toString(),
-          limit: "10",
+          limit: pageSize.toString(),
           startDate: debouncedStartDate,
           endDate: debouncedEndDate || "",
         };
@@ -190,6 +206,7 @@ export function ClientComponent() {
     },
     [
       page,
+      pageSize,
       debouncedStartDate,
       debouncedEndDate,
       debouncedSiteId,
@@ -228,6 +245,52 @@ export function ClientComponent() {
         }
         showToast("error", formatErrorMessage(error));
       }
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedAttendanceIds.length === 0 || isBulkDeleting) return;
+
+    if (
+      !window.confirm(
+        `Apakah Anda yakin ingin menghapus ${selectedAttendanceIds.length} data absensi terpilih?`,
+      )
+    ) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const response = await fetchWithHandling<{
+        requestedCount: number;
+        deletedCount: number;
+        deletedIds: string[];
+        skippedCount: number;
+      }>("/api/admin/attendance", {
+        method: "DELETE",
+        body: JSON.stringify({ ids: selectedAttendanceIds }),
+      });
+
+      const deletedCount = response.data?.deletedCount || 0;
+      const skippedCount = response.data?.skippedCount || 0;
+
+      showToast(
+        "success",
+        skippedCount > 0
+          ? `${deletedCount} data absensi dihapus, ${skippedCount} data dilewati`
+          : `${deletedCount} data absensi berhasil dihapus`,
+      );
+      setSelectedAttendanceIds([]);
+      fetchAttendances();
+    } catch (error) {
+      if (isFetchError(error)) {
+        if (error.retryAfter) {
+          setRetryCountdown(error.retryAfter);
+        }
+        showToast("error", formatErrorMessage(error));
+      }
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -310,7 +373,48 @@ export function ClientComponent() {
   };
 
   // Define columns for ResponsiveTable
+  const selectionColumn: Column<Attendance> = {
+    key: "selection",
+    header: (
+      <input
+        type="checkbox"
+        checked={isAllCurrentPageSelected}
+        disabled={isBulkDeleting}
+        onChange={(event) => {
+          if (isBulkDeleting) return;
+
+          const updatedIds = toggleCurrentPageAttendanceSelection(
+            selectedAttendanceIds,
+            currentPageIds,
+            event.target.checked,
+          );
+          setSelectedAttendanceIds(updatedIds);
+        }}
+        aria-label="Pilih semua data halaman ini"
+      />
+    ),
+    priority: "primary",
+    render: (item) => (
+      <input
+        type="checkbox"
+        checked={selectedAttendanceIds.includes(item.id)}
+        disabled={isBulkDeleting}
+        onChange={() => {
+          if (isBulkDeleting) return;
+
+          const updatedIds = toggleAttendanceSelection(
+            selectedAttendanceIds,
+            item.id,
+          );
+          setSelectedAttendanceIds(updatedIds);
+        }}
+        aria-label={`Pilih data absensi ${item.user.name || item.user.email}`}
+      />
+    ),
+  };
+
   const columns: Column<Attendance>[] = [
+    ...(canDelete ? [selectionColumn] : []),
     {
       key: "user",
       header: "Karyawan",
@@ -889,6 +993,7 @@ export function ClientComponent() {
             onChange={(e) => {
               setStartDate(e.target.value);
               setPage(1);
+              setSelectedAttendanceIds([]);
             }}
             className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
@@ -907,6 +1012,7 @@ export function ClientComponent() {
             onChange={(e) => {
               setEndDate(e.target.value);
               setPage(1);
+              setSelectedAttendanceIds([]);
             }}
             className="border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
@@ -930,6 +1036,7 @@ export function ClientComponent() {
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setPage(1);
+                setSelectedAttendanceIds([]);
               }}
               className="border rounded pl-10 pr-3 py-2 text-sm w-full dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -948,6 +1055,7 @@ export function ClientComponent() {
             onChange={(e) => {
               setSiteId(e.target.value);
               setPage(1);
+              setSelectedAttendanceIds([]);
             }}
             className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
@@ -972,6 +1080,7 @@ export function ClientComponent() {
             onChange={(e) => {
               setDepartmentId(e.target.value);
               setPage(1);
+              setSelectedAttendanceIds([]);
             }}
             className="border rounded px-3 py-2 text-sm w-40 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
@@ -996,6 +1105,7 @@ export function ClientComponent() {
             onChange={(e) => {
               setStatusDetail(e.target.value);
               setPage(1);
+              setSelectedAttendanceIds([]);
             }}
             className="border rounded px-3 py-2 text-sm w-48 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           >
@@ -1030,6 +1140,15 @@ export function ClientComponent() {
           <Button variant="success" onClick={handleExport}>
             <FaFileExport /> Export CSV
           </Button>
+          {canDelete && (
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={selectedAttendanceIds.length === 0 || isBulkDeleting}
+            >
+              <MdDelete /> Hapus Terpilih
+            </Button>
+          )}
           {hasPermission("attendance:create") && (
             <Button
               variant="default"
@@ -1071,6 +1190,22 @@ export function ClientComponent() {
           emptyMessage="Tidak ada data ditemukan"
           loadingMessage="Memuat data..."
           renderActions={renderActions}
+          itemsPerPage={pageSize}
+          itemsPerPageOptions={[10, 20, 30, 40, 50, 100]}
+          onItemsPerPageChange={(value) => {
+            if (value === "all") {
+              return;
+            }
+
+            const nextPageSize = Number(value);
+            if (Number.isNaN(nextPageSize)) {
+              return;
+            }
+
+            setPageSize(nextPageSize);
+            setPage(1);
+            setSelectedAttendanceIds([]);
+          }}
         />
 
         <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
@@ -1078,7 +1213,10 @@ export function ClientComponent() {
             variant="outline"
             size="sm"
             disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
+            onClick={() => {
+              setPage((p) => p - 1);
+              setSelectedAttendanceIds([]);
+            }}
           >
             Sebelumnya
           </Button>
@@ -1089,7 +1227,10 @@ export function ClientComponent() {
             variant="outline"
             size="sm"
             disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => {
+              setPage((p) => p + 1);
+              setSelectedAttendanceIds([]);
+            }}
           >
             Selanjutnya
           </Button>

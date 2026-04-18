@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/modules/database";
 import { Prisma } from "@prisma/client";
 import { apiPaginatedWithSummary, ApiErrors } from "@/lib/api-response";
-import { attendanceFilterSchema } from "@/lib/validations/attendance";
-import { createHandler } from "@/lib/api";
+import {
+  attendanceBulkDeleteSchema,
+  attendanceFilterSchema,
+} from "@/lib/validations/attendance";
+import { createHandler, apiSuccess } from "@/lib/api";
+import { logActivitySafe } from "@/lib/logger";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -589,4 +593,110 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     paginatedData.map((item) => enrichAttendanceRow(item, null)),
     { page, limit, total, summary },
   );
+});
+
+export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+  const user = ctx.session!.user;
+  const tenantId = user.tenantId;
+
+  if (!tenantId) {
+    return ApiErrors.badRequest("Tenant ID tidak ditemukan");
+  }
+
+  if (!(await hasPermission("attendance:delete"))) {
+    return ApiErrors.forbidden("Akses ditolak");
+  }
+
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    return ApiErrors.badRequest("Data tidak valid");
+  }
+
+  const parseResult = attendanceBulkDeleteSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    return ApiErrors.badRequest("Data tidak valid", {
+      errors: z.flattenError(parseResult.error).fieldErrors,
+    });
+  }
+
+  const attendanceWhere: Prisma.AttendanceWhereInput = {
+    tenantId,
+    id: { in: parseResult.data.ids },
+  };
+
+  const permissions = await getUserPermissions(user.id);
+  const isSuper = isSuperAdmin(user);
+
+  if (!isSuper) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { siteId: true, departmentId: true },
+    });
+    const userScope: Prisma.UserWhereInput = {};
+    const hasSiteOnlyScope = permissions.includes("attendance:site_only");
+    const hasDepartmentOnlyScope = permissions.includes(
+      "attendance:department_only",
+    );
+
+    if (hasSiteOnlyScope) {
+      if (!dbUser?.siteId) {
+        attendanceWhere.user = { id: "__NO_SCOPE_MATCH__" };
+      } else {
+        userScope.siteId = dbUser.siteId;
+      }
+    }
+
+    if (hasDepartmentOnlyScope) {
+      if (!dbUser?.departmentId) {
+        attendanceWhere.user = { id: "__NO_SCOPE_MATCH__" };
+      } else {
+        userScope.departmentId = dbUser.departmentId;
+      }
+    }
+
+    if (
+      attendanceWhere.user?.id !== "__NO_SCOPE_MATCH__" &&
+      Object.keys(userScope).length > 0
+    ) {
+      attendanceWhere.user = userScope;
+    }
+  }
+
+  const deletableAttendances = await prisma.attendance.findMany({
+    where: attendanceWhere,
+    select: { id: true },
+  });
+
+  const deletedIds = deletableAttendances.map((attendance) => attendance.id);
+
+  if (deletedIds.length > 0) {
+    await prisma.attendance.deleteMany({
+      where: {
+        tenantId,
+        id: { in: deletedIds },
+      },
+    });
+  }
+
+  logActivitySafe({
+    action: "DELETE",
+    subject: "Attendance",
+    userId: user.id,
+    details: {
+      ids: deletedIds,
+      requestedCount: parseResult.data.ids.length,
+      deletedCount: deletedIds.length,
+    },
+  });
+
+  return apiSuccess({
+    requestedCount: parseResult.data.ids.length,
+    deletedCount: deletedIds.length,
+    deletedIds,
+    skippedCount: parseResult.data.ids.length - deletedIds.length,
+  });
 });
