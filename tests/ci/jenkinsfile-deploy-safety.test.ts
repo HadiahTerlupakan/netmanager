@@ -53,7 +53,7 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${env.CRON_IMAGE_REF}"',
+      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${env.CRON_DEPLOY_REF}"',
     );
     expect(jenkinsfile).toContain(
       'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE}',
@@ -67,7 +67,7 @@ describe("Jenkinsfile deploy safety", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_IMAGE_REF}"',
+      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_DEPLOY_REF}"',
     );
     expect(jenkinsfile).not.toContain(
       'kubectl rollout restart deployment/"\\$deployment_name" --namespace=${NAMESPACE} || true',
@@ -93,7 +93,7 @@ describe("Jenkinsfile deploy safety", () => {
     const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
     const deployBlock = jenkinsfile.slice(deployStageIndex);
     const snapshotFunctionStart = deployBlock.indexOf("get_current_image() {");
-    const snapshotFunctionEnd = deployBlock.indexOf("render_manifest() {");
+    const snapshotFunctionEnd = deployBlock.indexOf("validate_image_ref() {");
     const snapshotFunctionBlock = deployBlock.slice(
       snapshotFunctionStart,
       snapshotFunctionEnd,
@@ -155,7 +155,7 @@ describe("Jenkinsfile deploy safety", () => {
     const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
     const deployBlock = jenkinsfile.slice(deployStageIndex);
     const snapshotFunctionStart = deployBlock.indexOf("get_current_image() {");
-    const snapshotFunctionEnd = deployBlock.indexOf("render_manifest() {");
+    const snapshotFunctionEnd = deployBlock.indexOf("validate_image_ref() {");
     const snapshotFunctionBlock = deployBlock.slice(
       snapshotFunctionStart,
       snapshotFunctionEnd,
@@ -209,6 +209,36 @@ describe("Jenkinsfile deploy safety", () => {
     );
     expect(jenkinsfile).not.toContain(
       "-e 's|{{SKIP_OPTIONAL_BACKFILL}}|\\$SKIP_OPTIONAL_BACKFILL|g' \\",
+    );
+  });
+
+  it("blocks production rollout when the active deployment image drifts from the Jenkins annotation contract", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain("assert_cluster_image_contract() {");
+    expect(jenkinsfile).toContain(
+      'local expected_annotation="deploy.radpro.id/image-ref"',
+    );
+    expect(jenkinsfile).toContain(
+      'current_annotation="\\$(kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath="{.spec.template.metadata.annotations.deploy\\\\.radpro\\\\.id/image-ref}")"',
+    );
+    expect(jenkinsfile).toContain(
+      'if [ "\\$current_annotation" != "\\$current_image" ]; then',
+    );
+    expect(jenkinsfile).toContain(
+      'echo "❌ Drift terdeteksi pada deployment/\\$deployment_name: image aktif \\$current_image tidak cocok dengan annotation \\$current_annotation" >&2',
+    );
+    expect(jenkinsfile).toContain(
+      'if [ "${NAMESPACE}" = "netmanager-production" ]; then',
+    );
+    expect(jenkinsfile).toContain(
+      "assert_cluster_image_contract netmanager-app app",
+    );
+    expect(jenkinsfile).toContain(
+      "assert_cluster_image_contract netmanager-cron cron",
+    );
+    expect(jenkinsfile).toContain(
+      "assert_cluster_image_contract netmanager-radius radius",
     );
   });
 });

@@ -12,6 +12,9 @@ spec:
     metadata:
       labels:
         app: netmanager-cron
+      annotations:
+        deploy.radpro.id/managed-by: "jenkins"
+        deploy.radpro.id/image-ref: "{{CRON_IMAGE}}"
     spec:
       imagePullSecrets:
         - name: netmanager-production-registry

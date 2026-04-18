@@ -181,12 +181,15 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       'push_and_verify "${env.RADIUS_IMAGE_REF}"',
       'push_and_verify "${env.RADIUS_IMAGE_ENV_REF}"',
       "-e 's|{{IMAGE_TAG}}|${env.APP_IMAGE_REF}|g'",
-      "-e 's|{{APP_IMAGE}}|${env.APP_IMAGE_REF}|g'",
-      "-e 's|{{CRON_IMAGE}}|${env.CRON_IMAGE_REF}|g'",
-      "-e 's|{{RADIUS_IMAGE}}|${env.RADIUS_IMAGE_REF}|g'",
-      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"',
-      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${env.CRON_IMAGE_REF}"',
-      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_IMAGE_REF}"',
+      "-e 's|{{APP_IMAGE}}|${env.APP_DEPLOY_REF}|g'",
+      "-e 's|{{CRON_IMAGE}}|${env.CRON_DEPLOY_REF}|g'",
+      "-e 's|{{RADIUS_IMAGE}}|${env.RADIUS_DEPLOY_REF}|g'",
+      "env.APP_DEPLOY_REF = resolveDeployImageRef('netmanager-app', env.APP_IMAGE_REF, params.RECOVERY_APP_IMAGE)",
+      "env.CRON_DEPLOY_REF = resolveDeployImageRef('netmanager-cron', env.CRON_IMAGE_REF, params.RECOVERY_CRON_IMAGE)",
+      "env.RADIUS_DEPLOY_REF = resolveDeployImageRef('netmanager-radius', env.RADIUS_IMAGE_REF, params.RECOVERY_RADIUS_IMAGE)",
+      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_DEPLOY_REF}"',
+      'rollout_workload netmanager-cron "\\$CRON_PREVIOUS_IMAGE" "${env.CRON_DEPLOY_REF}"',
+      'rollout_workload netmanager-radius "\\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_DEPLOY_REF}"',
     ];
     const bareImageRefs = [
       'backup_image "${APP_IMAGE_ENV_REF}" "${APP_IMAGE_PREV_REF}"',
@@ -231,6 +234,9 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       'APP_IMAGE_PREV_REF = ""',
       'CRON_IMAGE_PREV_REF = ""',
       'RADIUS_IMAGE_PREV_REF = ""',
+      'APP_DEPLOY_REF = ""',
+      'CRON_DEPLOY_REF = ""',
+      'RADIUS_DEPLOY_REF = ""',
     ];
 
     for (const placeholder of runtimeImageRefPlaceholders) {
@@ -372,6 +378,29 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(dockerfileAfterPrune).not.toContain("npm run prisma:generate");
   });
 
+  it("keeps production deployment manifests annotated with the rendered official image ref", () => {
+    const appManifest = readManifest("k8s/production/app-deployment.yaml");
+    const cronManifest = readManifest("k8s/production/cron-deployment.yaml");
+    const radiusManifest = readManifest(
+      "k8s/production/radius-deployment.yaml",
+    );
+
+    expect(appManifest).toContain('deploy.radpro.id/managed-by: "jenkins"');
+    expect(appManifest).toContain(
+      'deploy.radpro.id/image-ref: "{{APP_IMAGE}}"',
+    );
+
+    expect(cronManifest).toContain('deploy.radpro.id/managed-by: "jenkins"');
+    expect(cronManifest).toContain(
+      'deploy.radpro.id/image-ref: "{{CRON_IMAGE}}"',
+    );
+
+    expect(radiusManifest).toContain('deploy.radpro.id/managed-by: "jenkins"');
+    expect(radiusManifest).toContain(
+      'deploy.radpro.id/image-ref: "{{RADIUS_IMAGE}}"',
+    );
+  });
+
   it("renders deployment manifests with quoted image placeholders for pipeline substitution", () => {
     const manifests = [
       "k8s/staging/app-deployment.yaml",
@@ -388,6 +417,22 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       expect(manifest).not.toMatch(/image:\s+\{\{[A-Z_]+\}\}/);
       expect(manifest).toMatch(/image:\s+"\{\{[A-Z_]+\}\}"/);
     }
+  });
+
+  it("renders deployment manifests to files and rejects non-registry image refs", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain("validate_image_ref() {");
+    expect(jenkinsfile).toContain('case "\\$image_ref" in');
+    expect(jenkinsfile).toContain('"${REGISTRY_PATH}/"* )');
+    expect(jenkinsfile).toContain(
+      'echo "❌ Image ref untuk \\$workload harus memakai registry resmi: \\$image_ref" >&2',
+    );
+    expect(jenkinsfile).toContain("render_manifest_to_file() {");
+    expect(jenkinsfile).toContain(
+      'grep -q "{{APP_IMAGE}}\\|{{CRON_IMAGE}}\\|{{RADIUS_IMAGE}}" "\\$rendered_manifest"',
+    );
+    expect(jenkinsfile).toContain('kubectl apply -f "\\$rendered_manifest"');
   });
 
   it("forces rollout restart when the deployment snapshot is empty or already matches the target image", () => {
@@ -419,7 +464,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       'kubectl rollout status deployment/"\\$deployment_name" --namespace=${NAMESPACE} --timeout=600s',
     );
     expect(jenkinsfile).toContain(
-      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"',
+      'rollout_workload netmanager-app "\\$APP_PREVIOUS_IMAGE" "${env.APP_DEPLOY_REF}"',
     );
   });
 

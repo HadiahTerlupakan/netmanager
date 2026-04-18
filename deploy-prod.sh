@@ -29,11 +29,13 @@ git pull --ff-only origin staging
 
 echo -e "${YELLOW}Pastikan pipeline staging untuk origin/staging sudah hijau sebelum promosi ke production.${NC}"
 
+PROMOTION_SHA="$(git rev-parse origin/staging)"
+echo "Promoting commit ${PROMOTION_SHA} from origin/staging to main..."
+
 echo "Switching to main branch..."
 git switch main
 git pull --ff-only origin main
 
-echo "Promoting origin/staging into main..."
 git merge --ff-only origin/staging
 
 echo "Pushing to main branch..."
@@ -42,4 +44,6 @@ git push origin main
 echo "Returning to staging branch..."
 git switch staging
 
-echo -e "${GREEN}Promotion to main selesai. Check Jenkins production pipeline for progress.${NC}"
+echo -e "${GREEN}Git promotion selesai.${NC}"
+echo -e "${YELLOW}Deploy production resmi berjalan di Jenkins job branch main.${NC}"
+echo -e "${YELLOW}Pantau hasil akhir deploy di Jenkins production sebelum menganggap production sehat.${NC}"

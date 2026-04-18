@@ -17,6 +17,9 @@ spec:
     metadata:
       labels:
         app: netmanager-app
+      annotations:
+        deploy.radpro.id/managed-by: "jenkins"
+        deploy.radpro.id/image-ref: "{{APP_IMAGE}}"
     spec:
       imagePullSecrets:
         - name: netmanager-production-registry

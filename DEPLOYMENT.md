@@ -65,6 +65,13 @@ Tambahkan DNS records di domain provider (Cloudflare, dll):
 
 ## 🚀 Langkah 3: Deploy Aplikasi
 
+## Aturan Operasional Production
+
+- Production hanya boleh berubah melalui Jenkins production.
+- `deploy-prod.sh` hanya mempromosikan `origin/staging` ke `main`.
+- Rancher/kubectl manual bukan jalur deploy atau recovery yang sah.
+- Jika Jenkins production gagal karena drift atau missing secret, selesaikan lewat guardrail resmi dan rerun Jenkins.
+
 ### Jalur Utama: Jenkins + Kubernetes ✅
 
 Untuk **staging** dan **production**, gunakan pipeline **Jenkins** sebagai jalur utama. Pipeline ini menangani:
@@ -112,6 +119,20 @@ Alur umumnya:
 > ```bash
 > kubectl get secret netmanager-production-registry --namespace=netmanager-production
 > ```
+
+## Recovery Production Resmi
+
+Gunakan Jenkins job recovery production dengan `DEPLOY_MODE=recovery`.
+Isi image immutable yang known-good untuk:
+- `RECOVERY_APP_IMAGE`
+- `RECOVERY_CRON_IMAGE`
+- `RECOVERY_RADIUS_IMAGE`
+
+Syarat recovery:
+- branch/job mengarah ke `main`
+- image memakai registry resmi
+- secret `netmanager-production-registry` tersedia
+- jangan gunakan patch manual dari Rancher
 
 ### Jalur Manual: Bootstrap / Legacy / Emergency Only ⚠️
 

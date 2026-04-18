@@ -42,6 +42,13 @@ spec:
         }
     }
 
+    parameters {
+        choice(name: 'DEPLOY_MODE', choices: ['normal', 'recovery'], description: 'normal = build+deploy biasa, recovery = deploy known-good image tanpa build baru')
+        string(name: 'RECOVERY_APP_IMAGE', defaultValue: '', description: 'Immutable image ref app untuk recovery production')
+        string(name: 'RECOVERY_CRON_IMAGE', defaultValue: '', description: 'Immutable image ref cron untuk recovery production')
+        string(name: 'RECOVERY_RADIUS_IMAGE', defaultValue: '', description: 'Immutable image ref radius untuk recovery production')
+    }
+
     environment {
         DOCKER_IMAGE = "netmanager-app"
         CRON_IMAGE = "netmanager-cron"
@@ -82,6 +89,7 @@ spec:
                     env.REGISTRY_URL = normalizeRegistryUrl(getRuntimeConfig('NETMANAGER_REGISTRY_URL', 'REGISTRY_URL'))
                     env.REGISTRY_NAMESPACE = getRuntimeConfig('NETMANAGER_REGISTRY_NAMESPACE', 'REGISTRY_NAMESPACE')
                     env.REGISTRY_CREDENTIALS_ID = getRuntimeConfig('NETMANAGER_REGISTRY_CREDENTIALS_ID', 'REGISTRY_CREDENTIALS_ID')
+                    env.DEPLOY_MODE = "${params.DEPLOY_MODE ?: 'normal'}"
 
                     requireValue(env.REGISTRY_URL, 'NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.')
                     requireValue(env.REGISTRY_NAMESPACE, 'NETMANAGER_REGISTRY_NAMESPACE (atau REGISTRY_NAMESPACE) wajib disediakan di runtime Jenkins.')
@@ -98,8 +106,34 @@ spec:
                     env.CRON_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.CRON_IMAGE}:${env.DOCKER_TAG}-prev"
                     env.RADIUS_IMAGE_PREV_REF = "${env.REGISTRY_PATH}/${env.RADIUS_IMAGE}:${env.DOCKER_TAG}-prev"
 
+                    def resolveDeployImageRef = { String workload, String defaultRef, String recoveryOverride ->
+                        def trimmedOverride = (recoveryOverride ?: '').trim()
+
+                        if (env.DEPLOY_MODE != 'recovery') {
+                            return defaultRef
+                        }
+
+                        requireValue(trimmedOverride, "Recovery mode mewajibkan image override untuk ${workload}.")
+
+                        if (!trimmedOverride.startsWith("${env.REGISTRY_PATH}/")) {
+                            error("Recovery image untuk ${workload} harus memakai registry resmi: ${trimmedOverride}")
+                        }
+
+                        return trimmedOverride
+                    }
+
+                    if (env.DEPLOY_MODE == 'recovery' && env.BRANCH_NAME != 'main') {
+                        error('Recovery mode hanya boleh dijalankan untuk branch main.')
+                    }
+
+                    env.APP_DEPLOY_REF = resolveDeployImageRef('netmanager-app', env.APP_IMAGE_REF, params.RECOVERY_APP_IMAGE)
+                    env.CRON_DEPLOY_REF = resolveDeployImageRef('netmanager-cron', env.CRON_IMAGE_REF, params.RECOVERY_CRON_IMAGE)
+                    env.RADIUS_DEPLOY_REF = resolveDeployImageRef('netmanager-radius', env.RADIUS_IMAGE_REF, params.RECOVERY_RADIUS_IMAGE)
+
                     echo "Registry configured: ${env.REGISTRY_PATH}"
+                    echo "Deploy mode: ${env.DEPLOY_MODE}"
                     echo "Immutable refs: ${env.APP_IMAGE_REF}, ${env.CRON_IMAGE_REF}, ${env.RADIUS_IMAGE_REF}"
+                    echo "Deploy refs: ${env.APP_DEPLOY_REF}, ${env.CRON_DEPLOY_REF}, ${env.RADIUS_DEPLOY_REF}"
                     echo "Env refs: ${env.APP_IMAGE_ENV_REF}, ${env.CRON_IMAGE_ENV_REF}, ${env.RADIUS_IMAGE_ENV_REF}"
                 }
             }
@@ -165,6 +199,9 @@ spec:
         }
 
         stage('Backup Previous Env Image') {
+            when {
+                expression { env.DEPLOY_MODE != 'recovery' }
+            }
             steps {
                 container('docker') {
                     script {
@@ -199,6 +236,9 @@ spec:
         }
 
         stage('Build Image') {
+            when {
+                expression { env.DEPLOY_MODE != 'recovery' }
+            }
             steps {
                 container('docker') {
                     script {
@@ -226,6 +266,9 @@ spec:
         }
 
         stage('Push Images to Registry') {
+            when {
+                expression { env.DEPLOY_MODE != 'recovery' }
+            }
             steps {
                 container('docker') {
                     script {
@@ -256,6 +299,9 @@ spec:
         }
 
         stage('Database Migration (Zero Downtime K8s Job)') {
+            when {
+                expression { env.DEPLOY_MODE != 'recovery' }
+            }
             options {
                 timeout(time: 35, unit: 'MINUTES')
             }
@@ -424,13 +470,58 @@ spec:
                           printf '%s\n' "\$current_image"
                         }
 
-                        render_manifest() {
+                        validate_image_ref() {
+                          local workload="\$1"
+                          local image_ref="\$2"
+
+                          case "\$image_ref" in
+                            "${REGISTRY_PATH}/"* )
+                              ;;
+                            *)
+                              echo "❌ Image ref untuk \$workload harus memakai registry resmi: \$image_ref" >&2
+                              exit 1
+                              ;;
+                          esac
+                        }
+
+                        render_manifest_to_file() {
                           local manifest="\$1"
+                          local rendered_manifest="\$2"
+
                           sed \
-                            -e 's|{{APP_IMAGE}}|${env.APP_IMAGE_REF}|g' \
-                            -e 's|{{CRON_IMAGE}}|${env.CRON_IMAGE_REF}|g' \
-                            -e 's|{{RADIUS_IMAGE}}|${env.RADIUS_IMAGE_REF}|g' \
-                            "\$manifest"
+                            -e 's|{{APP_IMAGE}}|${env.APP_DEPLOY_REF}|g' \
+                            -e 's|{{CRON_IMAGE}}|${env.CRON_DEPLOY_REF}|g' \
+                            -e 's|{{RADIUS_IMAGE}}|${env.RADIUS_DEPLOY_REF}|g' \
+                            "\$manifest" > "\$rendered_manifest"
+
+                          if grep -q "{{APP_IMAGE}}\|{{CRON_IMAGE}}\|{{RADIUS_IMAGE}}" "\$rendered_manifest"; then
+                            echo "❌ Render manifest masih menyisakan placeholder pada \$manifest" >&2
+                            exit 1
+                          fi
+                        }
+
+                        assert_cluster_image_contract() {
+                          local deployment_name="\$1"
+                          local container_name="\$2"
+                          local expected_annotation="deploy.radpro.id/image-ref"
+                          local current_image
+                          local current_annotation
+
+                          current_image="\$(get_current_image "\$deployment_name" "\$container_name")"
+
+                          if [ -z "\$current_image" ]; then
+                            echo "ℹ️ deployment/\$deployment_name belum punya image aktif; skip drift check"
+                            return 0
+                          fi
+
+                          current_annotation="\$(kubectl get deployment "\$deployment_name" -n ${NAMESPACE} -o jsonpath="{.spec.template.metadata.annotations.deploy\\.radpro\\.id/image-ref}")"
+
+                          validate_image_ref "\$deployment_name" "\$current_image"
+
+                          if [ "\$current_annotation" != "\$current_image" ]; then
+                            echo "❌ Drift terdeteksi pada deployment/\$deployment_name: image aktif \$current_image tidak cocok dengan annotation \$current_annotation" >&2
+                            exit 1
+                          fi
                         }
 
                         REGISTRY_SECRET="${NAMESPACE}-registry"
@@ -449,15 +540,28 @@ spec:
                           exit 1
                         fi
 
+                        validate_image_ref netmanager-app "${env.APP_DEPLOY_REF}"
+                        validate_image_ref netmanager-cron "${env.CRON_DEPLOY_REF}"
+                        validate_image_ref netmanager-radius "${env.RADIUS_DEPLOY_REF}"
+
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"
                         RADIUS_PREVIOUS_IMAGE="\$(get_current_image netmanager-radius radius)"
+
+                        if [ "${NAMESPACE}" = "netmanager-production" ]; then
+                          assert_cluster_image_contract netmanager-app app
+                          assert_cluster_image_contract netmanager-cron cron
+                          assert_cluster_image_contract netmanager-radius radius
+                        fi
 
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
                         find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "registry-secret.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do
                           case "\$manifest" in
                             *app-deployment.yaml|*cron-deployment.yaml|*radius-deployment.yaml)
-                              render_manifest "\$manifest" | kubectl apply -f -
+                              rendered_manifest="\$(mktemp)"
+                              render_manifest_to_file "\$manifest" "\$rendered_manifest"
+                              kubectl apply -f "\$rendered_manifest"
+                              rm -f "\$rendered_manifest"
                               ;;
                             *)
                               kubectl apply -f "\$manifest" --namespace=${NAMESPACE}
@@ -478,9 +582,9 @@ spec:
                           kubectl rollout status deployment/"\$deployment_name" --namespace=${NAMESPACE} --timeout=600s
                         }
 
-                        rollout_workload netmanager-app "\$APP_PREVIOUS_IMAGE" "${env.APP_IMAGE_REF}"
-                        rollout_workload netmanager-cron "\$CRON_PREVIOUS_IMAGE" "${env.CRON_IMAGE_REF}"
-                        rollout_workload netmanager-radius "\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_IMAGE_REF}"
+                        rollout_workload netmanager-app "\$APP_PREVIOUS_IMAGE" "${env.APP_DEPLOY_REF}"
+                        rollout_workload netmanager-cron "\$CRON_PREVIOUS_IMAGE" "${env.CRON_DEPLOY_REF}"
+                        rollout_workload netmanager-radius "\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_DEPLOY_REF}"
 
                         kubectl rollout status deployment/netmanager-redis --namespace=${NAMESPACE} --timeout=300s
                         """
