@@ -14,15 +14,15 @@ metadata:
 spec:
   containers:
   - name: jnlp
-    image: jenkins/inbound-agent:latest
+    image: jenkins/inbound-agent:3355.v388858a_47b_33-17-rhel-ubi9-jdk21
     imagePullPolicy: IfNotPresent
   - name: node
-    image: node:24-alpine
+    image: node:24.15.0-alpine3.23
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
   - name: docker
-    image: docker:cli
+    image: docker:29.4.0-cli-alpine3.23
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
@@ -30,7 +30,7 @@ spec:
     - name: docker-sock
       mountPath: /var/run/docker.sock
   - name: kubectl
-    image: dtzar/helm-kubectl:latest
+    image: dtzar/helm-kubectl:4.1.3
     imagePullPolicy: IfNotPresent
     command: ['cat']
     tty: true
@@ -471,8 +471,25 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        echo "Cleaning up Docker system and build cache..."
-                        sh "set -euo pipefail; docker system prune -f || true"
+                        echo "Removing pipeline-managed images from the shared Docker daemon..."
+                        sh """
+                            set -euo pipefail
+
+                            remove_local_image() {
+                              local image_ref="\$1"
+                              docker image rm -f "\$image_ref" >/dev/null 2>&1 || true
+                            }
+
+                            remove_local_image "${env.APP_IMAGE_REF}"
+                            remove_local_image "${env.APP_IMAGE_ENV_REF}"
+                            remove_local_image "${env.APP_IMAGE_PREV_REF}"
+                            remove_local_image "${env.CRON_IMAGE_REF}"
+                            remove_local_image "${env.CRON_IMAGE_ENV_REF}"
+                            remove_local_image "${env.CRON_IMAGE_PREV_REF}"
+                            remove_local_image "${env.RADIUS_IMAGE_REF}"
+                            remove_local_image "${env.RADIUS_IMAGE_ENV_REF}"
+                            remove_local_image "${env.RADIUS_IMAGE_PREV_REF}"
+                        """
                     }
                 }
             }

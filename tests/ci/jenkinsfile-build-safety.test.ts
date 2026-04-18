@@ -477,4 +477,52 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       }
     }
   });
+
+  it("pins Jenkins pod agent images to explicit non-floating versions", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain(
+      "image: jenkins/inbound-agent:3355.v388858a_47b_33-17-rhel-ubi9-jdk21",
+    );
+    expect(jenkinsfile).toContain("image: node:24.15.0-alpine3.23");
+    expect(jenkinsfile).toContain("image: docker:29.4.0-cli-alpine3.23");
+    expect(jenkinsfile).toContain("image: dtzar/helm-kubectl:4.1.3");
+    expect(jenkinsfile).not.toContain("image: jenkins/inbound-agent:latest");
+    expect(jenkinsfile).not.toContain("image: node:24-alpine");
+    expect(jenkinsfile).not.toContain("image: docker:cli");
+    expect(jenkinsfile).not.toContain("image: dtzar/helm-kubectl:latest");
+  });
+
+  it("cleans up only pipeline-managed images instead of pruning the shared host Docker daemon", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain(
+      "Removing pipeline-managed images from the shared Docker daemon...",
+    );
+    expect(jenkinsfile).toContain("remove_local_image() {");
+    expect(jenkinsfile).toContain('remove_local_image "${env.APP_IMAGE_REF}"');
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.APP_IMAGE_ENV_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.APP_IMAGE_PREV_REF}"',
+    );
+    expect(jenkinsfile).toContain('remove_local_image "${env.CRON_IMAGE_REF}"');
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.CRON_IMAGE_ENV_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.CRON_IMAGE_PREV_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.RADIUS_IMAGE_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.RADIUS_IMAGE_ENV_REF}"',
+    );
+    expect(jenkinsfile).toContain(
+      'remove_local_image "${env.RADIUS_IMAGE_PREV_REF}"',
+    );
+    expect(jenkinsfile).not.toContain("docker system prune -f");
+  });
 });
