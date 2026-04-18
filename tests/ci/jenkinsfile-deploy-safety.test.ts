@@ -225,6 +225,11 @@ describe("Jenkinsfile deploy safety", () => {
     expect(jenkinsfile).toContain(
       'current_annotation="\\$(kubectl get deployment "\\$deployment_name" -n ${NAMESPACE} -o jsonpath="{.spec.template.metadata.annotations.deploy\\\\.radpro\\\\.id/image-ref}")"',
     );
+    expect(jenkinsfile).toContain('if [ -z "\\$current_annotation" ]; then');
+    expect(jenkinsfile).toContain(
+      'echo "⚠️ deployment/\\$deployment_name belum punya annotation \\$expected_annotation; izinkan rollout untuk bootstrap contract" >&2',
+    );
+    expect(jenkinsfile).toContain("return 0");
     expect(jenkinsfile).toContain(
       'if [ "\\$current_annotation" != "\\$current_image" ]; then',
     );
@@ -242,6 +247,31 @@ describe("Jenkinsfile deploy safety", () => {
     );
     expect(jenkinsfile).toContain(
       "assert_cluster_image_contract netmanager-radius radius",
+    );
+  });
+
+  it("bootstraps the deployment image annotation contract from rendered production manifests", () => {
+    const appManifest = readFileSync(
+      resolve(process.cwd(), "k8s", "production", "app-deployment.yaml"),
+      "utf8",
+    );
+    const cronManifest = readFileSync(
+      resolve(process.cwd(), "k8s", "production", "cron-deployment.yaml"),
+      "utf8",
+    );
+    const radiusManifest = readFileSync(
+      resolve(process.cwd(), "k8s", "production", "radius-deployment.yaml"),
+      "utf8",
+    );
+
+    expect(appManifest).toContain(
+      'deploy.radpro.id/image-ref: "{{APP_IMAGE}}"',
+    );
+    expect(cronManifest).toContain(
+      'deploy.radpro.id/image-ref: "{{CRON_IMAGE}}"',
+    );
+    expect(radiusManifest).toContain(
+      'deploy.radpro.id/image-ref: "{{RADIUS_IMAGE}}"',
     );
   });
 

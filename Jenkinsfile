@@ -586,6 +586,11 @@ spec:
 
                           validate_image_ref "\$deployment_name" "\$current_image"
 
+                          if [ -z "\$current_annotation" ]; then
+                            echo "⚠️ deployment/\$deployment_name belum punya annotation \$expected_annotation; izinkan rollout untuk bootstrap contract" >&2
+                            return 0
+                          fi
+
                           if [ "\$current_annotation" != "\$current_image" ]; then
                             echo "❌ Drift terdeteksi pada deployment/\$deployment_name: image aktif \$current_image tidak cocok dengan annotation \$current_annotation" >&2
                             exit 1
