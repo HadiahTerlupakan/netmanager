@@ -390,8 +390,10 @@ describe("migration job safety", () => {
     );
 
     expect(migrateLegacyTenant).toContain(
-      'const prismaRequiredTenantModels = new Set(["AttendanceEvaluation", "AttendanceEvaluationAudit"])',
+      "const prismaRequiredTenantModels = new Set([",
     );
+    expect(migrateLegacyTenant).toContain('  "AttendanceEvaluation",');
+    expect(migrateLegacyTenant).toContain('  "AttendanceEvaluationAudit",');
     expect(migrateLegacyTenant).toContain(
       "if (prismaRequiredTenantModels.has(model.name))",
     );

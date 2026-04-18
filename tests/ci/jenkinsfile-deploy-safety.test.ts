@@ -195,17 +195,20 @@ describe("Jenkinsfile deploy safety", () => {
     );
   });
 
-  it("renders the resolved optional backfill value into the migration job", () => {
+  it("skips optional backfill by default for production and staging migration jobs", () => {
     const jenkinsfile = readJenkinsfile();
 
     expect(jenkinsfile).toContain(
-      'SKIP_OPTIONAL_BACKFILL="\\$(if [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"',
+      'SKIP_OPTIONAL_BACKFILL="\\$(if [ "${NAMESPACE}" = "netmanager-production" ] || [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"',
     );
     expect(jenkinsfile).toContain(
       'echo "Migration optional backfill policy: SKIP_OPTIONAL_BACKFILL=\\$SKIP_OPTIONAL_BACKFILL"',
     );
     expect(jenkinsfile).toContain(
       '-e "s|{{SKIP_OPTIONAL_BACKFILL}}|\\${SKIP_OPTIONAL_BACKFILL}|g" \\',
+    );
+    expect(jenkinsfile).not.toContain(
+      'SKIP_OPTIONAL_BACKFILL="\\$(if [ "${NAMESPACE}" = "netmanager-staging" ]; then echo true; else echo false; fi)"',
     );
     expect(jenkinsfile).not.toContain(
       "-e 's|{{SKIP_OPTIONAL_BACKFILL}}|\\$SKIP_OPTIONAL_BACKFILL|g' \\",
