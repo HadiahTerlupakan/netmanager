@@ -494,7 +494,7 @@ spec:
                             -e 's|{{RADIUS_IMAGE}}|${env.RADIUS_DEPLOY_REF}|g' \
                             "\$manifest" > "\$rendered_manifest"
 
-                          if grep -q "{{APP_IMAGE}}\|{{CRON_IMAGE}}\|{{RADIUS_IMAGE}}" "\$rendered_manifest"; then
+                          if grep -Eq '{{APP_IMAGE}}|{{CRON_IMAGE}}|{{RADIUS_IMAGE}}' "\$rendered_manifest"; then
                             echo "❌ Render manifest masih menyisakan placeholder pada \$manifest" >&2
                             exit 1
                           fi

@@ -430,7 +430,7 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     );
     expect(jenkinsfile).toContain("render_manifest_to_file() {");
     expect(jenkinsfile).toContain(
-      'grep -q "{{APP_IMAGE}}\\|{{CRON_IMAGE}}\\|{{RADIUS_IMAGE}}" "\\$rendered_manifest"',
+      "grep -Eq '{{APP_IMAGE}}|{{CRON_IMAGE}}|{{RADIUS_IMAGE}}' \"\\$rendered_manifest\"",
     );
     expect(jenkinsfile).toContain('kubectl apply -f "\\$rendered_manifest"');
   });
