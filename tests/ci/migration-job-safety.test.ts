@@ -359,8 +359,42 @@ describe("migration job safety", () => {
     expect(backfillTenant).toContain(
       'uniqueFields.some((fields) => fields.includes("tenantId"))',
     );
+    expect(backfillTenant).toContain(
+      'model.name === "WorkOrderAssignments" || model.name === "WorkOrders"',
+    );
     expect(backfillTenant).not.toContain("model.uniqueFields.some");
     expect(backfillTenant).not.toContain("const modelsWithTenantId");
+  });
+
+  it("skips legacy tenant migration models whose tenant backfill can collide with tenant-scoped unique constraints", () => {
+    const migrateLegacyTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "migrate-legacy-tenant.ts"),
+      "utf8",
+    );
+
+    expect(migrateLegacyTenant).toContain(
+      "const uniqueFields = model.uniqueFields ?? []",
+    );
+    expect(migrateLegacyTenant).toContain(
+      'uniqueFields.some((fields) => fields.includes("tenantId"))',
+    );
+    expect(migrateLegacyTenant).toContain(
+      'model.name === "WorkOrderAssignments" || model.name === "WorkOrders"',
+    );
+  });
+
+  it("skips legacy tenant migration models whose tenantId is now required in Prisma", () => {
+    const migrateLegacyTenant = readFileSync(
+      resolve(process.cwd(), "scripts", "migrate-legacy-tenant.ts"),
+      "utf8",
+    );
+
+    expect(migrateLegacyTenant).toContain(
+      'const prismaRequiredTenantModels = new Set(["AttendanceEvaluation", "AttendanceEvaluationAudit"])',
+    );
+    expect(migrateLegacyTenant).toContain(
+      "if (prismaRequiredTenantModels.has(model.name))",
+    );
   });
 
   it("aligns Jenkins migration wait budget with the Job deadline and captures richer diagnostics on failure", () => {

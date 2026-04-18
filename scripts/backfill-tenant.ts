@@ -47,6 +47,10 @@ function isTenantBackfillCandidate(model: Prisma.DMMF.Model) {
     return false;
   }
 
+  if (model.name === "WorkOrderAssignments" || model.name === "WorkOrders") {
+    return false;
+  }
+
   const uniqueFields = model.uniqueFields ?? [];
   return !uniqueFields.some((fields) => fields.includes("tenantId"));
 }

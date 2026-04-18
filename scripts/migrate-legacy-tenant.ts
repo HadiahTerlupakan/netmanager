@@ -30,12 +30,25 @@ function createPrismaClient() {
   return { client, pool };
 }
 
+const prismaRequiredTenantModels = new Set([
+  "AttendanceEvaluation",
+  "AttendanceEvaluationAudit",
+]);
+
 function isTenantBackfillCandidate(model: Prisma.DMMF.Model) {
   const hasNullableTenantId = model.fields.some(
     (field) => field.name === "tenantId" && !field.isRequired,
   );
 
   if (!hasNullableTenantId) {
+    return false;
+  }
+
+  if (prismaRequiredTenantModels.has(model.name)) {
+    return false;
+  }
+
+  if (model.name === "WorkOrderAssignments" || model.name === "WorkOrders") {
     return false;
   }
 
