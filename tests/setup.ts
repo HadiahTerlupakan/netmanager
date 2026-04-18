@@ -298,7 +298,11 @@ vi.mock("ioredis", () => {
       this.maxListeners = count;
       return this;
     });
-    defineCommand = vi.fn();
+    defineCommand = vi.fn((name: string) => {
+      const command = vi.fn().mockResolvedValue(1);
+      Object.assign(this, { [name]: command });
+      return this;
+    });
     info = vi
       .fn()
       .mockResolvedValue("redis_version:7.2.0\nmaxmemory_policy:noeviction");
