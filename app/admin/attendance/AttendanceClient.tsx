@@ -1190,6 +1190,12 @@ export function ClientComponent() {
           emptyMessage="Tidak ada data ditemukan"
           loadingMessage="Memuat data..."
           renderActions={renderActions}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(nextPage) => {
+            setPage(nextPage);
+            setSelectedAttendanceIds([]);
+          }}
           itemsPerPage={pageSize}
           itemsPerPageOptions={[10, 20, 30, 40, 50, 100]}
           onItemsPerPageChange={(value) => {
@@ -1207,34 +1213,6 @@ export function ClientComponent() {
             setSelectedAttendanceIds([]);
           }}
         />
-
-        <div className="px-6 py-3 flex flex-col sm:flex-row justify-between items-center border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1}
-            onClick={() => {
-              setPage((p) => p - 1);
-              setSelectedAttendanceIds([]);
-            }}
-          >
-            Sebelumnya
-          </Button>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            Halaman {page} dari {totalPages} ({totalItems} Data)
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === totalPages}
-            onClick={() => {
-              setPage((p) => p + 1);
-              setSelectedAttendanceIds([]);
-            }}
-          >
-            Selanjutnya
-          </Button>
-        </div>
       </div>
 
       <Modal

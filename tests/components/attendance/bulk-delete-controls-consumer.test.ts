@@ -11,7 +11,7 @@ describe("AttendanceClient bulk delete controls consumer", () => {
 
     expect(content).toContain("const [pageSize, setPageSize] = useState(10)");
     expect(content).toContain(
-      "const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>([])",
+      "const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<string[]>(",
     );
     expect(content).toContain(
       "const [isBulkDeleting, setIsBulkDeleting] = useState(false)",
@@ -21,6 +21,10 @@ describe("AttendanceClient bulk delete controls consumer", () => {
     expect(content).toContain(
       "itemsPerPageOptions={[10, 20, 30, 40, 50, 100]}",
     );
+    expect(content).toContain("page={page}");
+    expect(content).toContain("totalPages={totalPages}");
+    expect(content).toContain("onPageChange={(nextPage) => {");
+    expect(content).toContain("setPage(nextPage)");
     expect(content).toContain("const nextPageSize = Number(value)");
     expect(content).toContain("if (Number.isNaN(nextPageSize))");
     expect(content).toContain("setPageSize(nextPageSize)");
