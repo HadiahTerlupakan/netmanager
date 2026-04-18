@@ -347,6 +347,37 @@ spec:
                         if (isProduction) {
                             sh """
                             set -euo pipefail
+                            REGISTRY_SECRET="${NAMESPACE}-registry"
+                            echo "Verifying registry pull auth secret in ${NAMESPACE}..."
+                            if ! kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null 2>&1; then
+                              echo "Registry pull auth secret \"\$REGISTRY_SECRET\" tidak ditemukan di namespace ${NAMESPACE}."
+                              echo "Pipeline sengaja tidak meng-apply template placeholder ${K8S_DIR}/registry-secret.yaml."
+                              echo "Bootstrap secret live di cluster terlebih dahulu sebelum menjalankan ulang pipeline ini."
+                              echo "Contoh bootstrap:"
+                              echo "kubectl create secret docker-registry \"\$REGISTRY_SECRET\" \\\"
+                              echo "  --namespace=${NAMESPACE} \\\"
+                              echo "  --docker-server=${REGISTRY_URL} \\\"
+                              echo "  --docker-username=<registry-username> \\\"
+                              echo "  --docker-password=<registry-token>"
+                              exit 1
+                            fi
+
+                            require_cluster_nodes_ready_for_production_change() {
+                              local change_label="\$1"
+                              local node_snapshot
+
+                              node_snapshot="\$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\\t"}{range .status.conditions[*]}{.type}={.status}{" "}{end}{"\\n"}{end}')"
+                              if printf "%s\n" "\$node_snapshot" | grep -Eq "Ready=False|DiskPressure=True"; then
+                                echo "❌ Cluster production tidak sehat untuk perubahan workload: ada node Ready=False atau DiskPressure=True" >&2
+                                printf "%s\n" "\$node_snapshot" >&2
+                                kubectl describe nodes || true
+                                kubectl top nodes || true
+                                exit 1
+                              fi
+
+                              echo "✅ Cluster node preflight aman untuk \$change_label"
+                            }
+
                             require_cluster_nodes_ready_for_production_change before-production-migration
                             """
 

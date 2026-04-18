@@ -418,4 +418,34 @@ describe("migration job safety", () => {
     expect(jenkinsfile).toContain("kubectl describe nodes || true");
     expect(jenkinsfile).toContain("kubectl top nodes || true");
   });
+
+  it("runs the production node preflight in the same shell block where the helper is defined", () => {
+    const jenkinsfile = readFileSync(
+      resolve(process.cwd(), "Jenkinsfile"),
+      "utf8",
+    );
+    const migrationStageIndex = jenkinsfile.indexOf(
+      "stage('Database Migration (Zero Downtime K8s Job)')",
+    );
+    const helperIndex = jenkinsfile.indexOf(
+      "require_cluster_nodes_ready_for_production_change() {",
+      migrationStageIndex,
+    );
+    const helperInvocationIndex = jenkinsfile.indexOf(
+      "require_cluster_nodes_ready_for_production_change before-production-migration",
+      helperIndex,
+    );
+    const backupIndex = jenkinsfile.indexOf(
+      'echo "🔒 PRODUCTION: Creating database backup before migration..."',
+      helperIndex,
+    );
+
+    expect(migrationStageIndex).toBeGreaterThanOrEqual(0);
+    expect(helperIndex).toBeGreaterThan(migrationStageIndex);
+    expect(helperInvocationIndex).toBeGreaterThan(helperIndex);
+    expect(backupIndex).toBeGreaterThan(helperInvocationIndex);
+    expect(jenkinsfile).not.toContain(
+      'sh """\n                            set -euo pipefail\n                            require_cluster_nodes_ready_for_production_change before-production-migration\n                            """',
+    );
+  });
 });
