@@ -299,4 +299,30 @@ describe("Jenkinsfile deploy safety", () => {
       'echo "✅ Cluster node preflight aman untuk \\$change_label"',
     );
   });
+
+  it("checks rendered deployment manifests with literal placeholder matching", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const deployBlock = jenkinsfile.slice(deployStageIndex);
+    const renderFunctionStart = deployBlock.indexOf(
+      "render_manifest_to_file() {",
+    );
+    const renderFunctionEnd = deployBlock.indexOf(
+      "assert_cluster_image_contract() {",
+    );
+    const renderFunctionBlock = deployBlock.slice(
+      renderFunctionStart,
+      renderFunctionEnd,
+    );
+
+    expect(deployStageIndex).toBeGreaterThanOrEqual(0);
+    expect(renderFunctionStart).toBeGreaterThanOrEqual(0);
+    expect(renderFunctionEnd).toBeGreaterThan(renderFunctionStart);
+    expect(renderFunctionBlock).toContain(
+      'grep -Fq -e "{{APP_IMAGE}}" -e "{{CRON_IMAGE}}" -e "{{RADIUS_IMAGE}}" "\\$rendered_manifest"',
+    );
+    expect(renderFunctionBlock).not.toContain(
+      "grep -Eq '{{APP_IMAGE}}|{{CRON_IMAGE}}|{{RADIUS_IMAGE}}'",
+    );
+  });
 });

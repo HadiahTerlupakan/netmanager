@@ -244,9 +244,15 @@ export class OvertimeService {
       throw new Error("Data Start Time corrupt.");
     }
 
-    const endTime = data.timestamp || new Date();
-    const durationMs =
-      endTime.getTime() - new Date(overtime.startTime).getTime();
+    const maxDurationMs = 8 * 60 * 60 * 1000;
+    const startTime = new Date(overtime.startTime);
+    const requestedEndTime = data.timestamp || new Date();
+    const autoCheckoutTime = new Date(startTime.getTime() + maxDurationMs);
+    const endTime =
+      requestedEndTime.getTime() > autoCheckoutTime.getTime()
+        ? autoCheckoutTime
+        : requestedEndTime;
+    const durationMs = endTime.getTime() - startTime.getTime();
     const durationMinutes = Math.round(durationMs / 60000);
 
     // Prevent negative duration if clocks are messed up
@@ -254,7 +260,7 @@ export class OvertimeService {
 
     return this.repository.update(overtimeId, {
       status: OvertimeStatus.COMPLETED,
-      endTime: endTime,
+      endTime,
       endPhoto: data.photo,
       endLocation: data.location,
       duration: validDuration,
