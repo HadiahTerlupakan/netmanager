@@ -287,6 +287,16 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
       'echo "Verifying registry pull auth secret in ${NAMESPACE}..."',
     );
     expect(jenkinsfile).toContain('REGISTRY_SECRET="${NAMESPACE}-registry"');
+    expect(jenkinsfile).toContain("Registry pull auth secret");
+    expect(jenkinsfile).toContain("tidak ditemukan di namespace ${NAMESPACE}.");
+    expect(jenkinsfile).toContain(
+      "Pipeline sengaja tidak meng-apply template placeholder ${K8S_DIR}/registry-secret.yaml.",
+    );
+    expect(jenkinsfile).toContain(
+      "Bootstrap secret live di cluster terlebih dahulu sebelum menjalankan ulang pipeline ini.",
+    );
+    expect(jenkinsfile).toContain("kubectl create secret docker-registry");
+    expect(jenkinsfile).toContain("--docker-server=${REGISTRY_URL}");
     expect(jenkinsfile).not.toContain("${REGISTRY_SECRET}");
     expect(firstSecretCheckIndex).toBeGreaterThan(-1);
     expect(migrationBackupIndex).toBeGreaterThan(-1);

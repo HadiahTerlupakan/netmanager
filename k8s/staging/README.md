@@ -21,12 +21,41 @@ Manifest di folder ini disiapkan untuk lingkungan staging aplikasi NetManager di
 
 2. **Konfigurasi Kredensial**
    `secrets.yaml` dan `registry-secret.yaml` di folder ini adalah **template**, bukan tempat menyimpan secret live secara permanen di repo.
-   
+
+   **Penting:** pipeline Jenkins **sengaja tidak** meng-apply `registry-secret.yaml` placeholder. Jika secret registry belum ada, pipeline akan fail-fast sebelum migration atau rollout.
+
    **Sangat disarankan:** gunakan SOPS / SealedSecrets / secret manager. Jika terpaksa memakai template ini untuk staging lokal, isi nilainya di salinan lokal yang tidak di-commit, lalu jalankan:
    ```bash
    kubectl apply -f registry-secret.yaml
    kubectl apply -f secrets.yaml
    kubectl apply -f configmap.yaml
+   ```
+
+   **Contoh bootstrap staging secret**:
+   ```bash
+   kubectl create secret docker-registry netmanager-staging-registry \
+     --namespace=netmanager-staging \
+     --docker-server=ghcr.io \
+     --docker-username='<registry-username>' \
+     --docker-password='<registry-token>'
+   ```
+
+   Jika secret perlu diperbarui, gunakan pola replace aman berikut:
+   ```bash
+   kubectl delete secret netmanager-staging-registry \
+     --namespace=netmanager-staging \
+     --ignore-not-found
+
+   kubectl create secret docker-registry netmanager-staging-registry \
+     --namespace=netmanager-staging \
+     --docker-server=ghcr.io \
+     --docker-username='<registry-username>' \
+     --docker-password='<registry-token>'
+   ```
+
+   Verifikasi sebelum rerun pipeline:
+   ```bash
+   kubectl get secret netmanager-staging-registry --namespace=netmanager-staging
    ```
 
 3. **Deploy Infrastruktur (DB & Redis)**

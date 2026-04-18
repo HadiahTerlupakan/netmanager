@@ -83,6 +83,35 @@ Alur umumnya:
 > **Catatan**: Jalur ini adalah source of truth untuk update rutin staging/production. Jangan gunakan update manual sebagai default.
 
 > **Registry private**: jika workload memakai registry privat, secret pull auth cluster (`imagePullSecrets` / registry secret) **harus sudah dibootstrap di namespace target sebelum rollout rutin dianggap siap**. Template/placeholder untuk secret registry ada di `k8s/staging/registry-secret.yaml` dan `k8s/production/registry-secret.yaml`; isi nilainya lewat mekanisme aman, jangan commit secret live ke repo.
+>
+> **Penting**: pipeline Jenkins **sengaja tidak** meng-apply `registry-secret.yaml` placeholder. Jika secret belum ada, pipeline akan fail-fast sebelum migration atau rollout.
+>
+> **Contoh bootstrap production secret**:
+> ```bash
+> kubectl create secret docker-registry netmanager-production-registry \
+>   --namespace=netmanager-production \
+>   --docker-server=ghcr.io \
+>   --docker-username='<registry-username>' \
+>   --docker-password='<registry-token>'
+> ```
+>
+> Jika secret perlu diperbarui, gunakan pola replace aman berikut:
+> ```bash
+> kubectl delete secret netmanager-production-registry \
+>   --namespace=netmanager-production \
+>   --ignore-not-found
+>
+> kubectl create secret docker-registry netmanager-production-registry \
+>   --namespace=netmanager-production \
+>   --docker-server=ghcr.io \
+>   --docker-username='<registry-username>' \
+>   --docker-password='<registry-token>'
+> ```
+>
+> Verifikasi sebelum rerun pipeline:
+> ```bash
+> kubectl get secret netmanager-production-registry --namespace=netmanager-production
+> ```
 
 ### Jalur Manual: Bootstrap / Legacy / Emergency Only ⚠️
 

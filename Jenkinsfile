@@ -268,7 +268,18 @@ spec:
                         set -euo pipefail
                         REGISTRY_SECRET="${NAMESPACE}-registry"
                         echo "Verifying registry pull auth secret in ${NAMESPACE}..."
-                        kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null
+                        if ! kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null 2>&1; then
+                          echo "Registry pull auth secret \"\$REGISTRY_SECRET\" tidak ditemukan di namespace ${NAMESPACE}."
+                          echo "Pipeline sengaja tidak meng-apply template placeholder ${K8S_DIR}/registry-secret.yaml."
+                          echo "Bootstrap secret live di cluster terlebih dahulu sebelum menjalankan ulang pipeline ini."
+                          echo "Contoh bootstrap:"
+                          echo "kubectl create secret docker-registry \"\$REGISTRY_SECRET\" \\\"
+                          echo "  --namespace=${NAMESPACE} \\\"
+                          echo "  --docker-server=${REGISTRY_URL} \\\"
+                          echo "  --docker-username=<registry-username> \\\"
+                          echo "  --docker-password=<registry-token>"
+                          exit 1
+                        fi
                         """
 
                         if (isProduction) {
@@ -425,7 +436,18 @@ spec:
                         REGISTRY_SECRET="${NAMESPACE}-registry"
 
                         echo "Verifying registry pull auth secret in ${NAMESPACE}..."
-                        kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null
+                        if ! kubectl get secret "\$REGISTRY_SECRET" --namespace=${NAMESPACE} >/dev/null 2>&1; then
+                          echo "Registry pull auth secret \"\$REGISTRY_SECRET\" tidak ditemukan di namespace ${NAMESPACE}."
+                          echo "Pipeline sengaja tidak meng-apply template placeholder ${K8S_DIR}/registry-secret.yaml."
+                          echo "Bootstrap secret live di cluster terlebih dahulu sebelum menjalankan ulang pipeline ini."
+                          echo "Contoh bootstrap:"
+                          echo "kubectl create secret docker-registry \"\$REGISTRY_SECRET\" \\\"
+                          echo "  --namespace=${NAMESPACE} \\\"
+                          echo "  --docker-server=${REGISTRY_URL} \\\"
+                          echo "  --docker-username=<registry-username> \\\"
+                          echo "  --docker-password=<registry-token>"
+                          exit 1
+                        fi
 
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"
