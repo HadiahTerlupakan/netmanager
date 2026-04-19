@@ -1,8 +1,31 @@
+import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type { AttendanceStatus } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { HolidayRepository } from "./HolidayRepository";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+
+export type AttendanceCorrectionSource = Prisma.AttendanceGetPayload<{
+  include: {
+    user: {
+      include: { shift: true };
+    };
+  };
+}>;
+
+function buildActiveAttendanceWhere(
+  where: Prisma.AttendanceWhereInput,
+): Prisma.AttendanceWhereInput {
+  return {
+    ...where,
+    correctedAt: null,
+  };
+}
+
+function appendActiveAttendanceRawFilter(query: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`${query} AND a."correctedAt" IS NULL`;
+}
 
 export class AttendanceRepository {
   async findMany<T extends Prisma.AttendanceFindManyArgs>(
@@ -69,10 +92,10 @@ export class AttendanceRepository {
       }
     }
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       ...(userIds !== undefined && { userId: { in: userIds } }),
-    };
+    });
 
     const statusCounts = await prisma.attendance.groupBy({
       by: ["status"],
@@ -101,6 +124,8 @@ export class AttendanceRepository {
     if (effectiveTenantId) {
       query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;
     }
+
+    query = appendActiveAttendanceRawFilter(query);
 
     if (userIds !== undefined) {
       query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`;
@@ -237,6 +262,8 @@ export class AttendanceRepository {
       query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;
     }
 
+    query = appendActiveAttendanceRawFilter(query);
+
     if (userIds !== undefined) {
       query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`;
     }
@@ -349,7 +376,7 @@ export class AttendanceRepository {
         ? "___MISSING_TENANT_ID___"
         : contextTenantId);
 
-    const query = Prisma.sql`
+    let query = Prisma.sql`
             SELECT
                 a."userId",
                 COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
@@ -359,8 +386,10 @@ export class AttendanceRepository {
             WHERE a."checkIn" >= ${startDate}
             AND a."checkIn" <= ${endDate}
             ${!isSuperAdmin ? Prisma.sql`AND a."tenantId" = ${effectiveTenantId}` : Prisma.empty}
-            GROUP BY a."userId"
         `;
+
+    query = appendActiveAttendanceRawFilter(query);
+    query = Prisma.sql`${query} GROUP BY a."userId"`;
 
     const userStats =
       await prisma.$queryRaw<
@@ -434,11 +463,11 @@ export class AttendanceRepository {
       if (userIds.length === 0) return [];
     }
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       status: { in: ["ON_TIME", "LATE"] },
       ...(userIds !== undefined && { userId: { in: userIds } }),
-    };
+    });
 
     const groups = await prisma.attendance.groupBy({
       by: ["userId"],
@@ -492,11 +521,11 @@ export class AttendanceRepository {
     userIds = usersMatch.map((u) => u.id);
     if (userIds.length === 0) return [];
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       status: { in: ["ALPHA", "ABSENT"] },
       userId: { in: userIds },
-    };
+    });
 
     const groups = await prisma.attendance.groupBy({
       by: ["userId"],
@@ -551,12 +580,12 @@ export class AttendanceRepository {
       if (userIds.length === 0) return [];
     }
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       status: { in: ["ON_TIME", "LATE"] },
       ...(userIds !== undefined && { userId: { in: userIds } }),
       ...(tenantId ? { tenantId } : {}),
-    };
+    });
 
     return prisma.attendance.groupBy({
       by: ["userId"],
@@ -582,11 +611,11 @@ export class AttendanceRepository {
     const userIds = usersMatch.map((u) => u.id);
     if (userIds.length === 0) return [];
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       status: { in: ["ALPHA", "ABSENT"] },
       userId: { in: userIds },
-    };
+    });
 
     return prisma.attendance.groupBy({
       by: ["userId"],
@@ -614,11 +643,11 @@ export class AttendanceRepository {
       if (userIds.length === 0) return [];
     }
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       status: { in: ["ON_TIME", "LATE"] },
       ...(userIds !== undefined && { userId: { in: userIds } }),
-    };
+    });
 
     return prisma.attendance.findMany({
       where,
@@ -671,6 +700,8 @@ export class AttendanceRepository {
       query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;
     }
 
+    query = appendActiveAttendanceRawFilter(query);
+
     if (userIds !== undefined) {
       query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`;
     }
@@ -707,11 +738,11 @@ export class AttendanceRepository {
       if (userIds.length === 0) return [];
     }
 
-    const where: Prisma.AttendanceWhereInput = {
+    const where = buildActiveAttendanceWhere({
       checkIn: { gte: startDate, lte: endDate },
       status: "LATE",
       ...(userIds !== undefined && { userId: { in: userIds } }),
-    };
+    });
 
     return prisma.attendance.groupBy({
       by: ["userId"],
@@ -762,6 +793,125 @@ export class AttendanceRepository {
           },
         },
       },
+    });
+  }
+
+  async findCorrectionSourceById(
+    id: string,
+  ): Promise<AttendanceCorrectionSource | null> {
+    return prisma.attendance.findUnique({
+      where: { id },
+      include: {
+        user: {
+          include: {
+            shift: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createCorrectedAttendance(data: Prisma.AttendanceUncheckedCreateInput) {
+    return prisma.attendance.create({
+      data,
+    });
+  }
+
+  async markAttendanceAsCorrected(input: {
+    sourceAttendanceId: string;
+    correctedById: string;
+    correctionReason: string;
+    correctionNotes: string | null;
+    correctionEvidencePhotoUrl: string;
+    replacementAttendanceId: string;
+  }) {
+    return prisma.attendance.update({
+      where: {
+        id: input.sourceAttendanceId,
+      },
+      data: {
+        correctedAt: new Date(),
+        correctedById: input.correctedById,
+        correctionReason: input.correctionReason,
+        correctionNotes: input.correctionNotes,
+        correctionEvidencePhotoUrl: input.correctionEvidencePhotoUrl,
+        correctionReplacementAttendanceId: input.replacementAttendanceId,
+      },
+    });
+  }
+
+  async applyMissedCheckInCorrection(input: {
+    createData: Prisma.AttendanceUncheckedCreateInput;
+    sourceAttendanceId: string;
+    correctedById: string;
+    correctionReason: string;
+    correctionNotes: string | null;
+    correctionEvidencePhotoUrl: string;
+    evaluationChange?: {
+      evaluation: Prisma.AttendanceEvaluationUncheckedCreateInput;
+      audit: Omit<
+        Prisma.AttendanceEvaluationAuditUncheckedCreateInput,
+        "evaluationId"
+      >;
+    };
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const createdAttendance = await tx.attendance.create({
+        data: {
+          ...input.createData,
+          id: input.createData.id || randomUUID(),
+        },
+      });
+
+      const updateResult = await tx.attendance.updateMany({
+        where: {
+          id: input.sourceAttendanceId,
+          correctedAt: null,
+          status: { in: ["ABSENT", "ALPHA"] },
+        },
+        data: {
+          correctedAt: new Date(),
+          correctedById: input.correctedById,
+          correctionReason: input.correctionReason,
+          correctionNotes: input.correctionNotes,
+          correctionEvidencePhotoUrl: input.correctionEvidencePhotoUrl,
+          correctionReplacementAttendanceId: createdAttendance.id,
+        },
+      });
+
+      if (updateResult.count !== 1) {
+        throw new AppError(
+          "Record mangkir ini sudah pernah dikoreksi",
+          409,
+          "CONFLICT",
+        );
+      }
+
+      if (input.evaluationChange) {
+        const evaluation = await tx.attendanceEvaluation.upsert({
+          where: {
+            tenantId_userId_workDate: {
+              tenantId: input.evaluationChange.evaluation.tenantId,
+              userId: input.evaluationChange.evaluation.userId,
+              workDate: input.evaluationChange.evaluation.workDate,
+            },
+          },
+          create: input.evaluationChange.evaluation,
+          update: input.evaluationChange.evaluation,
+        });
+
+        await tx.attendanceEvaluationAudit.create({
+          data: {
+            ...input.evaluationChange.audit,
+            evaluationId: evaluation.id,
+          },
+        });
+      }
+
+      return {
+        id: createdAttendance.id,
+        status: createdAttendance.status,
+      };
     });
   }
 

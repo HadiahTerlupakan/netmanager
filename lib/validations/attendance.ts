@@ -114,6 +114,30 @@ export const attendanceUpdateSchema = z.object({
 
 export type AttendanceUpdate = z.infer<typeof attendanceUpdateSchema>;
 
+const correctionReasonSchema = z.string().trim().min(1).max(500);
+const correctionNotesSchema = z.string().trim().max(500).optional().nullable();
+
+export const attendanceMissedCheckInCorrectionSchema = z
+  .object({
+    checkIn: z.iso.datetime(),
+    checkOut: z.iso.datetime().optional().nullable(),
+    reason: correctionReasonSchema,
+    notes: correctionNotesSchema,
+    evidencePhotoUrl: z.string().min(1),
+  })
+  .refine(
+    (data) =>
+      !data.checkOut || new Date(data.checkOut) >= new Date(data.checkIn),
+    {
+      message: "Jam check-out harus lebih besar atau sama dengan jam check-in",
+      path: ["checkOut"],
+    },
+  );
+
+export type AttendanceMissedCheckInCorrection = z.infer<
+  typeof attendanceMissedCheckInCorrectionSchema
+>;
+
 /**
  * Check-in request validation
  */

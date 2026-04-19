@@ -37,6 +37,11 @@ type AdminAttendanceRow = {
   checkOut: Date | null;
   status: string;
   notes?: string | null;
+  correctedAt?: Date | null;
+  correctionReason?: string | null;
+  correctionReplacementAttendanceId?: string | null;
+  correctionSourceAttendanceId?: string | null;
+  correctionSource?: string | null;
 };
 
 const CANONICAL_STATUS_DETAILS = new Set([
@@ -415,16 +420,29 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         email: true,
         image: true,
         workingHourMode: true,
+        startWorkTime: true,
+        endWorkTime: true,
         workDays: true,
+        shift: {
+          select: {
+            startTime: true,
+            endTime: true,
+          },
+        },
         departments: { select: { name: true } },
         sites: { select: { name: true } },
       },
     },
   };
 
+  const activeAttendanceWhere = {
+    ...where,
+    correctedAt: null,
+  } as Prisma.AttendanceWhereInput;
+
   if (isExport) {
     const allAttendances = await prisma.attendance.findMany({
-      where,
+      where: activeAttendanceWhere,
       include: includeUser,
       orderBy: { checkIn: "desc" },
     });
@@ -552,7 +570,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       );
     const total = filteredAttendances.length;
     const summary = buildSummaryFromAttendances(
-      filteredAttendances,
+      filteredAttendances.filter((item) => !item.correctedAt),
       evaluationMap,
       timezone,
     );
@@ -576,7 +594,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     prisma.attendance.count({ where }),
     prisma.attendance.groupBy({
       by: ["status"],
-      where,
+      where: activeAttendanceWhere,
       _count: { _all: true },
     }),
   ]);

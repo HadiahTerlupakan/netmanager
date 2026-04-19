@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prismaMock } from "../../setup";
 import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
@@ -84,5 +84,82 @@ describe("AttendanceRepository absence parity", () => {
         }),
       }),
     );
+  });
+
+  it("rejects atomic missed check-in correction when source was already corrected", async () => {
+    const transactionClient = {
+      attendance: {
+        create: vi.fn().mockResolvedValue({
+          id: "attendance-corrected-1",
+          status: "ON_TIME",
+        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      attendanceEvaluation: {
+        upsert: vi.fn(),
+      },
+      attendanceEvaluationAudit: {
+        create: vi.fn(),
+      },
+    };
+
+    prismaMock.$transaction.mockImplementationOnce(
+      async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
+        callback(transactionClient),
+    );
+
+    const createData = {
+      id: "attendance-corrected-1",
+      tenantId: "tenant-1",
+      userId: "user-1",
+      checkIn: new Date("2026-04-17T01:00:00.000Z"),
+      checkInDate: new Date("2026-04-16T17:00:00.000Z"),
+      checkOut: new Date("2026-04-17T10:00:00.000Z"),
+      checkInPhoto: "/uploads/employee/attendance/admin-1-proof.webp",
+      status: "ON_TIME" as const,
+      notes: null as string | null,
+      location: "Manual correction by admin",
+      checkOutLocation: "Auto-filled from schedule",
+      geofenceStatus: "MANUAL",
+      correctionSource: "ADMIN_MISSED_CHECKIN",
+      correctionSourceAttendanceId: "attendance-absent-1",
+      updatedAt: new Date("2026-04-17T02:00:00.000Z"),
+    };
+
+    await expect(
+      repository.applyMissedCheckInCorrection({
+        createData: createData as unknown as Parameters<
+          AttendanceRepository["applyMissedCheckInCorrection"]
+        >[0]["createData"],
+        sourceAttendanceId: "attendance-absent-1",
+        correctedById: "admin-1",
+        correctionReason: "Karyawan hadir tetapi lupa absen masuk",
+        correctionNotes: null,
+        correctionEvidencePhotoUrl:
+          "/uploads/employee/attendance/admin-1-proof.webp",
+      }),
+    ).rejects.toMatchObject({
+      message: "Record mangkir ini sudah pernah dikoreksi",
+      statusCode: 409,
+      code: "CONFLICT",
+    });
+
+    expect(transactionClient.attendance.create).toHaveBeenCalledTimes(1);
+    expect(transactionClient.attendance.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: "attendance-absent-1",
+        correctedAt: null,
+        status: { in: ["ABSENT", "ALPHA"] },
+      }),
+      data: expect.objectContaining({
+        correctionReplacementAttendanceId: "attendance-corrected-1",
+      }),
+    });
+    expect(
+      transactionClient.attendanceEvaluation.upsert,
+    ).not.toHaveBeenCalled();
+    expect(
+      transactionClient.attendanceEvaluationAudit.create,
+    ).not.toHaveBeenCalled();
   });
 });

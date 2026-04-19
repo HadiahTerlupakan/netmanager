@@ -1,321 +1,372 @@
-import { prisma } from '@/lib/prisma'
-import { type IOvertimeRepository } from './IOvertimeRepository'
-import { Prisma } from '@prisma/client'
-import type { Overtime } from '@prisma/client'
-import { OvertimeStatus } from '@prisma/client'
-import { randomUUID } from 'crypto'
-import { getTenantIdFromContext } from '@/lib/tenant-context'
+import { prisma } from "@/lib/prisma";
+import {
+  type CancelOvertimeAutoCheckoutScheduleInput,
+  type CompleteOvertimeAutoCheckoutScheduleInput,
+  type CompleteScheduledAutoCheckoutInput,
+  type IOvertimeRepository,
+  type OvertimeAutoCheckoutScheduleRecord,
+  type UpsertOvertimeAutoCheckoutScheduleInput,
+} from "./IOvertimeRepository";
+import { Prisma } from "@prisma/client";
+import type { Overtime } from "@prisma/client";
+import { OvertimeStatus } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 
 export class OvertimeRepository implements IOvertimeRepository {
-    async findActiveRequestByDate(userId: string, tenantId: string | undefined, startOfDay: Date, endOfDay: Date): Promise<Overtime | null> {
-        return prisma.overtime.findFirst({
-            where: {
-                userId,
-                tenantId,
-                createdAt: {
-                    gte: startOfDay,
-                    lte: endOfDay,
-                },
-                status: {
-                    in: [OvertimeStatus.PENDING, OvertimeStatus.APPROVED, OvertimeStatus.IN_PROGRESS]
-                }
-            }
-        })
+  async findActiveRequestByDate(
+    userId: string,
+    tenantId: string | undefined,
+    startOfDay: Date,
+    endOfDay: Date,
+  ): Promise<Overtime | null> {
+    return prisma.overtime.findFirst({
+      where: {
+        userId,
+        tenantId,
+        createdAt: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+        status: {
+          in: [
+            OvertimeStatus.PENDING,
+            OvertimeStatus.APPROVED,
+            OvertimeStatus.IN_PROGRESS,
+          ],
+        },
+      },
+    });
+  }
+
+  async findById(id: string, tenantId?: string): Promise<Overtime | null> {
+    return prisma.overtime.findFirst({
+      where: { id, tenantId },
+      include: {
+        user: true,
+        attendance: true,
+      },
+    });
+  }
+
+  async findAll(filters?: {
+    userId?: string;
+    status?: OvertimeStatus;
+    startDate?: Date;
+    endDate?: Date;
+    siteId?: string;
+    departmentId?: string;
+    holidayType?: string;
+    skip?: number;
+    take?: number;
+    tenantId?: string;
+  }): Promise<Overtime[]> {
+    const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId };
+
+    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.status) where.status = filters.status;
+    if (filters?.startDate && filters?.endDate) {
+      where.createdAt = {
+        gte: filters.startDate,
+        lte: filters.endDate,
+      };
     }
 
-    async findById(id: string, tenantId?: string): Promise<Overtime | null> {
-        return prisma.overtime.findFirst({
-            where: { id, tenantId },
-            include: {
-                user: true,
-                attendance: true,
-            },
-        })
+    if (filters?.siteId || filters?.departmentId) {
+      where.user = {
+        ...(filters.siteId && { siteId: filters.siteId }),
+        ...(filters.departmentId && { departmentId: filters.departmentId }),
+      };
     }
 
-    async findAll(filters?: {
-        userId?: string
-        status?: OvertimeStatus
-        startDate?: Date
-        endDate?: Date
-        siteId?: string
-        departmentId?: string
-        holidayType?: string
-        skip?: number
-        take?: number
-        tenantId?: string
-    }): Promise<Overtime[]> {
-        const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId }
-
-        if (filters?.userId) where.userId = filters.userId
-        if (filters?.status) where.status = filters.status
-        if (filters?.startDate && filters?.endDate) {
-            where.createdAt = {
-                gte: filters.startDate,
-                lte: filters.endDate,
-            }
-        }
-
-        if (filters?.siteId || filters?.departmentId) {
-            where.user = {
-                ...(filters.siteId && { siteId: filters.siteId }),
-                ...(filters.departmentId && { departmentId: filters.departmentId })
-            }
-        }
-
-        // Holiday Filters
-        if (filters?.holidayType) {
-            switch (filters.holidayType) {
-                case 'REGULAR':
-                    where.isHolidayOvertime = false
-                    break
-                case 'NATIONAL':
-                    where.isNationalHoliday = true
-                    break
-                case 'COLLECTIVE':
-                    where.AND = [
-                        { isHolidayOvertime: true },
-                        { isNationalHoliday: false },
-                        { isOffDay: false },
-                    ]
-                    break
-                case 'OFFDAY':
-                    where.isOffDay = true
-                    break
-                case 'ALL_HOLIDAY':
-                    where.isHolidayOvertime = true
-                    break
-            }
-        }
-
-        return prisma.overtime.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            include: {
-                user: {
-                    select: {
-                        name: true,
-                        email: true,
-                        image: true,
-                        workDays: true,
-                        workingHourMode: true,
-                        sites: { select: { name: true } },
-                        departments: { select: { name: true } }
-                    }
-                },
-
-                attendance: true,
-            },
-            skip: filters?.skip,
-            take: filters?.take,
-        })
+    // Holiday Filters
+    if (filters?.holidayType) {
+      switch (filters.holidayType) {
+        case "REGULAR":
+          where.isHolidayOvertime = false;
+          break;
+        case "NATIONAL":
+          where.isNationalHoliday = true;
+          break;
+        case "COLLECTIVE":
+          where.AND = [
+            { isHolidayOvertime: true },
+            { isNationalHoliday: false },
+            { isOffDay: false },
+          ];
+          break;
+        case "OFFDAY":
+          where.isOffDay = true;
+          break;
+        case "ALL_HOLIDAY":
+          where.isHolidayOvertime = true;
+          break;
+      }
     }
 
-    async count(filters?: {
-        userId?: string
-        status?: OvertimeStatus
-        startDate?: Date
-        endDate?: Date
-        siteId?: string
-        departmentId?: string
-        holidayType?: string
-        tenantId?: string
-    }): Promise<number> {
-        const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId }
+    return prisma.overtime.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            image: true,
+            workDays: true,
+            workingHourMode: true,
+            sites: { select: { name: true } },
+            departments: { select: { name: true } },
+          },
+        },
 
-        if (filters?.userId) where.userId = filters.userId
-        if (filters?.status) where.status = filters.status
-        if (filters?.startDate && filters?.endDate) {
-            where.createdAt = {
-                gte: filters.startDate,
-                lte: filters.endDate,
-            }
-        }
+        attendance: true,
+      },
+      skip: filters?.skip,
+      take: filters?.take,
+    });
+  }
 
-        if (filters?.siteId || filters?.departmentId) {
-            where.user = {
-                ...(filters.siteId && { siteId: filters.siteId }),
-                ...(filters.departmentId && { departmentId: filters.departmentId })
-            }
-        }
+  async count(filters?: {
+    userId?: string;
+    status?: OvertimeStatus;
+    startDate?: Date;
+    endDate?: Date;
+    siteId?: string;
+    departmentId?: string;
+    holidayType?: string;
+    tenantId?: string;
+  }): Promise<number> {
+    const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId };
 
-        // Holiday Filters
-        if (filters?.holidayType) {
-            switch (filters.holidayType) {
-                case 'REGULAR':
-                    where.isHolidayOvertime = false
-                    break
-                case 'NATIONAL':
-                    where.isNationalHoliday = true
-                    break
-                case 'COLLECTIVE':
-                    where.AND = [
-                        { isHolidayOvertime: true },
-                        { isNationalHoliday: false },
-                        { isOffDay: false },
-                    ]
-                    break
-                case 'OFFDAY':
-                    where.isOffDay = true
-                    break
-                case 'ALL_HOLIDAY':
-                    where.isHolidayOvertime = true
-                    break
-            }
-        }
-
-        return prisma.overtime.count({ where })
+    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.status) where.status = filters.status;
+    if (filters?.startDate && filters?.endDate) {
+      where.createdAt = {
+        gte: filters.startDate,
+        lte: filters.endDate,
+      };
     }
 
-    async countByStatus(filters?: {
-        userId?: string,
-        startDate?: Date,
-        endDate?: Date,
-        siteId?: string,
-        departmentId?: string
-        tenantId?: string
-    }) {
-        const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId }
-
-        if (filters?.userId) where.userId = filters.userId
-        if (filters?.startDate && filters?.endDate) {
-            where.createdAt = { gte: filters.startDate, lte: filters.endDate }
-        }
-        if (filters?.siteId || filters?.departmentId) {
-            where.user = {
-                ...(filters.siteId && { siteId: filters.siteId }),
-                ...(filters.departmentId && { departmentId: filters.departmentId })
-            }
-        }
-
-        const groups = await prisma.overtime.groupBy({
-            by: ['status'],
-            where,
-            _count: { _all: true }
-        })
-
-        return groups.reduce((acc: Record<string, number>, curr: { status: string, _count: { _all: number } }) => {
-            acc[curr.status] = curr._count._all
-            return acc
-        }, {} as Record<string, number>)
+    if (filters?.siteId || filters?.departmentId) {
+      where.user = {
+        ...(filters.siteId && { siteId: filters.siteId }),
+        ...(filters.departmentId && { departmentId: filters.departmentId }),
+      };
     }
 
-    async create(data: Omit<Prisma.OvertimeCreateInput, 'id' | 'updatedAt'>): Promise<Overtime> {
-        return prisma.overtime.create({
-            data: {
-                ...data,
-                id: randomUUID(),
-                updatedAt: new Date(),
-            } as Prisma.OvertimeCreateInput,
-        })
+    // Holiday Filters
+    if (filters?.holidayType) {
+      switch (filters.holidayType) {
+        case "REGULAR":
+          where.isHolidayOvertime = false;
+          break;
+        case "NATIONAL":
+          where.isNationalHoliday = true;
+          break;
+        case "COLLECTIVE":
+          where.AND = [
+            { isHolidayOvertime: true },
+            { isNationalHoliday: false },
+            { isOffDay: false },
+          ];
+          break;
+        case "OFFDAY":
+          where.isOffDay = true;
+          break;
+        case "ALL_HOLIDAY":
+          where.isHolidayOvertime = true;
+          break;
+      }
     }
 
-    async update(id: string, data: Prisma.OvertimeUpdateInput): Promise<Overtime> {
-        return prisma.overtime.update({
-            where: { id },
-            data: {
-                ...data,
-                updatedAt: new Date(),
-            },
-        })
+    return prisma.overtime.count({ where });
+  }
+
+  async countByStatus(filters?: {
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    siteId?: string;
+    departmentId?: string;
+    tenantId?: string;
+  }) {
+    const where: Prisma.OvertimeWhereInput = { tenantId: filters?.tenantId };
+
+    if (filters?.userId) where.userId = filters.userId;
+    if (filters?.startDate && filters?.endDate) {
+      where.createdAt = { gte: filters.startDate, lte: filters.endDate };
+    }
+    if (filters?.siteId || filters?.departmentId) {
+      where.user = {
+        ...(filters.siteId && { siteId: filters.siteId }),
+        ...(filters.departmentId && { departmentId: filters.departmentId }),
+      };
     }
 
-    async delete(id: string): Promise<void> {
-        await prisma.overtime.delete({
-            where: { id },
-        })
+    const groups = await prisma.overtime.groupBy({
+      by: ["status"],
+      where,
+      _count: { _all: true },
+    });
+
+    return groups.reduce(
+      (
+        acc: Record<string, number>,
+        curr: { status: string; _count: { _all: number } },
+      ) => {
+        acc[curr.status] = curr._count._all;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+  }
+
+  async create(
+    data: Omit<Prisma.OvertimeCreateInput, "id" | "updatedAt">,
+  ): Promise<Overtime> {
+    return prisma.overtime.create({
+      data: {
+        ...data,
+        id: randomUUID(),
+        updatedAt: new Date(),
+      } as Prisma.OvertimeCreateInput,
+    });
+  }
+
+  async update(
+    id: string,
+    data: Prisma.OvertimeUpdateInput,
+  ): Promise<Overtime> {
+    return prisma.overtime.update({
+      where: { id },
+      data: {
+        ...data,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.overtime.delete({
+      where: { id },
+    });
+  }
+
+  async getStatsByDateRange(
+    startDate: Date,
+    endDate: Date,
+    siteId?: string,
+    departmentId?: string,
+    tenantId?: string,
+  ) {
+    const where: Prisma.OvertimeWhereInput = {
+      createdAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+      tenantId,
+    };
+
+    if (siteId || departmentId) {
+      where.user = {
+        ...(siteId && { siteId }),
+        ...(departmentId && { departmentId }),
+      };
     }
 
-    async getStatsByDateRange(startDate: Date, endDate: Date, siteId?: string, departmentId?: string, tenantId?: string) {
-        const where: Prisma.OvertimeWhereInput = {
-            createdAt: {
-                gte: startDate,
-                lte: endDate
-            },
-            tenantId
-        }
+    const stats = await prisma.overtime.aggregate({
+      _count: { _all: true },
+      _sum: { duration: true },
+      where,
+    });
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
-        }
+    return {
+      totalRequests: stats._count._all,
+      totalDuration: stats._sum.duration || 0,
+    };
+  }
 
-        const stats = await prisma.overtime.aggregate({
-            _count: { _all: true },
-            _sum: { duration: true },
-            where
-        })
+  async getDailyStats(
+    startDate: Date,
+    endDate: Date,
+    siteId?: string,
+    departmentId?: string,
+  ) {
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    const effectiveTenantId =
+      !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
 
-        return {
-            totalRequests: stats._count._all,
-            totalDuration: stats._sum.duration || 0
-        }
-    }
-
-    async getDailyStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
-        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
-
-        let query = Prisma.sql`
+    let query = Prisma.sql`
             SELECT
                 TO_CHAR(o."createdAt", 'YYYY-MM-DD') as date,
                 COUNT(*)::int as requests,
                 SUM(o.duration)::int as duration
             FROM "Overtime" o
-        `
+        `;
 
-        if (siteId || departmentId) {
-            query = Prisma.sql`${query} JOIN "User" u ON o."userId" = u.id`
-        }
-
-        query = Prisma.sql`${query} 
-            WHERE o."createdAt" >= ${startDate}
-            AND o."createdAt" <= ${endDate}
-        `
-
-        if (!isSuperAdmin) {
-            query = Prisma.sql`${query} AND o."tenantId" = ${effectiveTenantId}`
-        }
-
-        if (siteId) {
-            query = Prisma.sql`${query} AND u."siteId" = ${siteId}`
-        }
-        if (departmentId) {
-            query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`
-        }
-        
-        query = Prisma.sql`${query} GROUP BY TO_CHAR(o."createdAt", 'YYYY-MM-DD')`
-
-        const stats = await prisma.$queryRaw<{ date: string, requests: number, duration: number }[]>(query)
-
-        return stats.map((s: { date: string, requests: number, duration: number }) => ({
-            date: s.date,
-            requests: Number(s.requests),
-            duration: Number(s.duration || 0)
-        })).sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date))
+    if (siteId || departmentId) {
+      query = Prisma.sql`${query} JOIN "User" u ON o."userId" = u.id`;
     }
 
-    async getGroupedStats(startDate: Date, endDate: Date, groupBy: 'department' | 'site') {
-        let groupByColumn = Prisma.sql``
-        let groupByNameColumn = Prisma.sql``
-        let joinTable = Prisma.sql``
+    query = Prisma.sql`${query} 
+            WHERE o."createdAt" >= ${startDate}
+            AND o."createdAt" <= ${endDate}
+        `;
 
-        if (groupBy === 'site') {
-            groupByColumn = Prisma.sql`u."siteId"`
-            joinTable = Prisma.sql`JOIN "sites" s ON u."siteId" = s.id`
-            groupByNameColumn = Prisma.sql`s.name`
-        } else {
-            groupByColumn = Prisma.sql`u."departmentId"`
-            joinTable = Prisma.sql`JOIN "departments" d ON u."departmentId" = d.id`
-            groupByNameColumn = Prisma.sql`d.name`
-        }
+    if (!isSuperAdmin) {
+      query = Prisma.sql`${query} AND o."tenantId" = ${effectiveTenantId}`;
+    }
 
-        const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
-        const effectiveTenantId = (!isSuperAdmin && !tenantId) ? '___MISSING_TENANT_ID___' : tenantId
+    if (siteId) {
+      query = Prisma.sql`${query} AND u."siteId" = ${siteId}`;
+    }
+    if (departmentId) {
+      query = Prisma.sql`${query} AND u."departmentId" = ${departmentId}`;
+    }
 
-        const query = Prisma.sql`
+    query = Prisma.sql`${query} GROUP BY TO_CHAR(o."createdAt", 'YYYY-MM-DD')`;
+
+    const stats =
+      await prisma.$queryRaw<
+        { date: string; requests: number; duration: number }[]
+      >(query);
+
+    return stats
+      .map((s: { date: string; requests: number; duration: number }) => ({
+        date: s.date,
+        requests: Number(s.requests),
+        duration: Number(s.duration || 0),
+      }))
+      .sort((a: { date: string }, b: { date: string }) =>
+        a.date.localeCompare(b.date),
+      );
+  }
+
+  async getGroupedStats(
+    startDate: Date,
+    endDate: Date,
+    groupBy: "department" | "site",
+  ) {
+    let groupByColumn = Prisma.sql``;
+    let groupByNameColumn = Prisma.sql``;
+    let joinTable = Prisma.sql``;
+
+    if (groupBy === "site") {
+      groupByColumn = Prisma.sql`u."siteId"`;
+      joinTable = Prisma.sql`JOIN "sites" s ON u."siteId" = s.id`;
+      groupByNameColumn = Prisma.sql`s.name`;
+    } else {
+      groupByColumn = Prisma.sql`u."departmentId"`;
+      joinTable = Prisma.sql`JOIN "departments" d ON u."departmentId" = d.id`;
+      groupByNameColumn = Prisma.sql`d.name`;
+    }
+
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    const effectiveTenantId =
+      !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
+
+    const query = Prisma.sql`
             SELECT
                 ${groupByNameColumn} as name,
                 COUNT(*)::int as requests,
@@ -327,71 +378,254 @@ export class OvertimeRepository implements IOvertimeRepository {
             AND o."createdAt" <= ${endDate}
             ${!isSuperAdmin ? Prisma.sql`AND o."tenantId" = ${effectiveTenantId}` : Prisma.empty}
             GROUP BY ${groupByColumn}, ${groupByNameColumn}
-        `
+        `;
 
-        const stats = await prisma.$queryRaw<{ name: string, requests: number, duration: number }[]>(query)
+    const stats =
+      await prisma.$queryRaw<
+        { name: string; requests: number; duration: number }[]
+      >(query);
 
-        return stats.map((s: { name: string, requests: number, duration: number }) => ({
-            name: s.name,
-            requests: Number(s.requests),
-            duration: Number(s.duration || 0)
-        }))
+    return stats.map(
+      (s: { name: string; requests: number; duration: number }) => ({
+        name: s.name,
+        requests: Number(s.requests),
+        duration: Number(s.duration || 0),
+      }),
+    );
+  }
+
+  async getTopEmployees(
+    startDate: Date,
+    endDate: Date,
+    limit: number = 5,
+    siteId?: string,
+    departmentId?: string,
+  ) {
+    const where: Prisma.OvertimeWhereInput = {
+      createdAt: { gte: startDate, lte: endDate },
+      status: { in: ["APPROVED", "COMPLETED"] },
+    };
+
+    if (siteId || departmentId) {
+      where.user = {
+        ...(siteId && { siteId }),
+        ...(departmentId && { departmentId }),
+      };
     }
 
-    async getTopEmployees(startDate: Date, endDate: Date, limit: number = 5, siteId?: string, departmentId?: string) {
-        const where: Prisma.OvertimeWhereInput = {
-            createdAt: { gte: startDate, lte: endDate },
-            status: { in: ['APPROVED', 'COMPLETED'] }
-        }
+    const groups = await prisma.overtime.groupBy({
+      by: ["userId"],
+      where,
+      _sum: { duration: true },
+    });
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
-        }
+    // Sort by total duration desc
+    groups.sort(
+      (
+        a: { _sum: { duration: number | null } },
+        b: { _sum: { duration: number | null } },
+      ) => (b._sum.duration || 0) - (a._sum.duration || 0),
+    );
+    const topIds = groups.slice(0, limit);
 
-        const groups = await prisma.overtime.groupBy({
-            by: ['userId'],
-            where,
-            _sum: { duration: true }
-        })
+    const users = await prisma.user.findMany({
+      where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        sites: { select: { name: true } },
+        departments: { select: { name: true } },
+      },
+    });
 
-        // Sort by total duration desc
-        groups.sort((a: { _sum: { duration: number | null } }, b: { _sum: { duration: number | null } }) => (b._sum.duration || 0) - (a._sum.duration || 0))
-        const topIds = groups.slice(0, limit)
+    return topIds
+      .map((g: { userId: string; _sum: { duration: number | null } }) => {
+        const user = users.find((u: { id: string }) => u.id === g.userId);
+        return {
+          user,
+          totalDuration: g._sum.duration || 0,
+        };
+      })
+      .filter(
+        (item: { user: { id: string } | undefined }) => item.user != null,
+      );
+  }
 
-        const users = await prisma.user.findMany({
-            where: { id: { in: topIds.map((g: { userId: string }) => g.userId) } },
-            select: { id: true, name: true, image: true, sites: { select: { name: true } }, departments: { select: { name: true } } }
-        })
+  async getUserOvertimeStats(
+    startDate: Date,
+    endDate: Date,
+    siteId?: string,
+    departmentId?: string,
+  ) {
+    const where: Prisma.OvertimeWhereInput = {
+      createdAt: { gte: startDate, lte: endDate },
+      status: { in: ["APPROVED", "COMPLETED"] },
+    };
 
-        return topIds.map((g: { userId: string, _sum: { duration: number | null } }) => {
-            const user = users.find((u: { id: string }) => u.id === g.userId)
-            return {
-                user,
-                totalDuration: g._sum.duration || 0
-            }
-        }).filter((item: { user: { id: string } | undefined }) => item.user != null)
+    if (siteId || departmentId) {
+      where.user = {
+        ...(siteId && { siteId }),
+        ...(departmentId && { departmentId }),
+      };
     }
 
-    async getUserOvertimeStats(startDate: Date, endDate: Date, siteId?: string, departmentId?: string) {
-        const where: Prisma.OvertimeWhereInput = {
-            createdAt: { gte: startDate, lte: endDate },
-            status: { in: ['APPROVED', 'COMPLETED'] }
+    return prisma.overtime.groupBy({
+      by: ["userId"],
+      where,
+      _sum: { duration: true },
+    });
+  }
+
+  async findAutoCheckoutScheduleById(
+    id: string,
+  ): Promise<OvertimeAutoCheckoutScheduleRecord | null> {
+    return prisma.overtimeAutoCheckoutSchedule.findUnique({
+      where: { id },
+    }) as Promise<OvertimeAutoCheckoutScheduleRecord | null>;
+  }
+
+  async findAutoCheckoutScheduleByOvertimeId(
+    overtimeId: string,
+  ): Promise<OvertimeAutoCheckoutScheduleRecord | null> {
+    return prisma.overtimeAutoCheckoutSchedule.findUnique({
+      where: { overtimeId },
+    }) as Promise<OvertimeAutoCheckoutScheduleRecord | null>;
+  }
+
+  async findSchedulesForRehydration(
+    _now: Date,
+  ): Promise<OvertimeAutoCheckoutScheduleRecord[]> {
+    return prisma.overtimeAutoCheckoutSchedule.findMany({
+      where: {
+        scheduleStatus: "SCHEDULED",
+      },
+      orderBy: { scheduledFor: "asc" },
+    }) as Promise<OvertimeAutoCheckoutScheduleRecord[]>;
+  }
+
+  async attachAutoCheckoutJobId(
+    overtimeId: string,
+    jobId: string,
+  ): Promise<OvertimeAutoCheckoutScheduleRecord> {
+    return prisma.overtimeAutoCheckoutSchedule.update({
+      where: { overtimeId },
+      data: { jobId },
+    }) as Promise<OvertimeAutoCheckoutScheduleRecord>;
+  }
+
+  async upsertAutoCheckoutSchedule(
+    input: UpsertOvertimeAutoCheckoutScheduleInput,
+  ): Promise<OvertimeAutoCheckoutScheduleRecord> {
+    const current = await prisma.overtimeAutoCheckoutSchedule.findUnique({
+      where: { overtimeId: input.overtimeId },
+      select: { version: true },
+    });
+
+    const nextVersion = (current?.version ?? 0) + 1;
+
+    return prisma.overtimeAutoCheckoutSchedule.upsert({
+      where: { overtimeId: input.overtimeId },
+      create: {
+        overtimeId: input.overtimeId,
+        scheduledFor: input.scheduledFor,
+        jobId: input.jobId ?? null,
+        version: nextVersion,
+        scheduleStatus: "SCHEDULED",
+      },
+      update: {
+        scheduledFor: input.scheduledFor,
+        jobId: input.jobId ?? null,
+        version: nextVersion,
+        scheduleStatus: "SCHEDULED",
+        cancelledAt: null,
+        executedAt: null,
+        lastError: null,
+      },
+    }) as Promise<OvertimeAutoCheckoutScheduleRecord>;
+  }
+
+  cancelAutoCheckoutSchedule(input: CancelOvertimeAutoCheckoutScheduleInput) {
+    return prisma.overtimeAutoCheckoutSchedule.updateMany({
+      where: {
+        overtimeId: input.overtimeId,
+        scheduleStatus: "SCHEDULED",
+      },
+      data: {
+        scheduleStatus: "CANCELLED",
+        cancelledAt: input.cancelledAt,
+        jobId: null,
+      },
+    });
+  }
+
+  async completeAutoCheckoutSchedule(
+    input: CompleteOvertimeAutoCheckoutScheduleInput,
+  ): Promise<OvertimeAutoCheckoutScheduleRecord> {
+    return prisma.overtimeAutoCheckoutSchedule.update({
+      where: { overtimeId: input.overtimeId },
+      data: {
+        scheduleStatus: input.scheduleStatus,
+        executedAt: input.executedAt,
+        lastError: input.lastError,
+        jobId: null,
+      },
+    }) as Promise<OvertimeAutoCheckoutScheduleRecord>;
+  }
+
+  async completeScheduledAutoCheckout(
+    input: CompleteScheduledAutoCheckoutInput,
+  ): Promise<boolean> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const scheduleResult = await tx.overtimeAutoCheckoutSchedule.updateMany(
+          {
+            where: {
+              id: input.scheduleId,
+              overtimeId: input.overtimeId,
+              version: input.version,
+              scheduleStatus: "SCHEDULED",
+            },
+            data: {
+              scheduleStatus: "COMPLETED",
+              executedAt: input.executedAt,
+              lastError: null,
+              jobId: null,
+            },
+          },
+        );
+
+        if (scheduleResult.count !== 1) {
+          return false;
         }
 
-        if (siteId || departmentId) {
-            where.user = {
-                ...(siteId && { siteId }),
-                ...(departmentId && { departmentId })
-            }
+        const overtimeResult = await tx.overtime.updateMany({
+          where: {
+            id: input.overtimeId,
+            status: OvertimeStatus.IN_PROGRESS,
+          },
+          data: {
+            status: OvertimeStatus.COMPLETED,
+            endTime: input.endTime,
+            duration: input.duration,
+            updatedAt: new Date(),
+          },
+        });
+
+        if (overtimeResult.count !== 1) {
+          throw new Error("OVERTIME_AUTO_CHECKOUT_CONFLICT");
         }
 
-        return prisma.overtime.groupBy({
-            by: ['userId'],
-            where,
-            _sum: { duration: true }
-        })
+        return true;
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "OVERTIME_AUTO_CHECKOUT_CONFLICT"
+      ) {
+        return false;
+      }
+      throw error;
     }
+  }
 }

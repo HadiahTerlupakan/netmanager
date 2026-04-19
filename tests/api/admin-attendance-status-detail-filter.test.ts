@@ -224,4 +224,71 @@ describe("admin attendance status detail filter", () => {
       }),
     );
   });
+
+  it("returns corrected metadata so admin list can disable correction button", async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([
+      {
+        id: "attendance-absent-1",
+        tenantId: "tenant-1",
+        userId: "user-1",
+        checkIn: new Date("2026-04-17T10:00:00.000Z"),
+        checkOut: null,
+        status: "ABSENT",
+        correctedAt: new Date("2026-04-18T02:00:00.000Z"),
+        correctionReplacementAttendanceId: "attendance-corrected-1",
+        correctionReason: "Karyawan hadir tetapi lupa check-in",
+        notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
+        user: {
+          name: "User 1",
+          email: "user1@example.com",
+          image: null,
+          workingHourMode: "FIXED",
+          workDays: ["MONDAY"],
+          departments: { name: "Ops" },
+          sites: { name: "HQ" },
+        },
+      },
+    ]);
+
+    const response = await getAdminAttendance(
+      new NextRequest(
+        "http://localhost/api/admin/attendance?page=1&limit=20&statusDetail=ABSENT&startDate=2026-04-01&endDate=2026-04-30",
+      ),
+      { session: { user: { id: "admin-1", tenantId: "tenant-1" } } } as never,
+    );
+
+    const json = await response.json();
+
+    expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ correctedAt: null }),
+      }),
+    );
+    expect(json.data[0].correctionReplacementAttendanceId).toBe(
+      "attendance-corrected-1",
+    );
+    expect(json.data[0].correctedAt).toBeTruthy();
+    expect(json.data[0].correctionReason).toBe(
+      "Karyawan hadir tetapi lupa check-in",
+    );
+  });
+
+  it("excludes corrected source rows from summary counts", async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([]);
+    prismaMock.attendance.count.mockResolvedValue(0);
+    prismaMock.attendance.groupBy.mockResolvedValue([]);
+
+    await getAdminAttendance(
+      new NextRequest(
+        "http://localhost/api/admin/attendance?page=1&limit=20&startDate=2026-04-01&endDate=2026-04-30",
+      ),
+      { session: { user: { id: "admin-1", tenantId: "tenant-1" } } } as never,
+    );
+
+    expect(prismaMock.attendance.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ correctedAt: null }),
+      }),
+    );
+  });
 });

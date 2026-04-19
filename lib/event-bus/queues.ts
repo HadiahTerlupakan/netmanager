@@ -39,6 +39,7 @@ let _eventQueue: Queue | null = null;
 let _notificationQueue: Queue | null = null;
 let _webhookQueue: Queue | null = null;
 let _outboxQueue: Queue | null = null;
+let _overtimeAutoCheckoutQueue: Queue | null = null;
 
 function getQueue(name: QueueName): Queue {
   switch (name) {
@@ -98,6 +99,23 @@ function getQueue(name: QueueName): Queue {
       }
       return _outboxQueue;
 
+    case QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT:
+      if (!_overtimeAutoCheckoutQueue) {
+        _overtimeAutoCheckoutQueue = new Queue(
+          QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
+          {
+            connection: createRedisConnection(),
+            defaultJobOptions: {
+              attempts: 3,
+              backoff: { type: "exponential", delay: 1000 },
+              removeOnComplete: { age: 3600 * 24 },
+              removeOnFail: { age: 3600 * 24 * 7 },
+            },
+          },
+        );
+      }
+      return _overtimeAutoCheckoutQueue;
+
     default:
       throw new Error(`Unknown queue: ${name}`);
   }
@@ -145,6 +163,12 @@ export interface OutboxJobData {
   eventName: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: Record<string, any>;
+}
+
+export interface OvertimeAutoCheckoutJobData {
+  overtimeId: string;
+  scheduleId: string;
+  version: number;
 }
 
 /**
@@ -251,6 +275,41 @@ export async function addOutboxRecurringJob(
   );
 }
 
+/**
+ * Add delayed overtime auto-checkout job.
+ */
+export async function addOvertimeAutoCheckoutJob(
+  data: OvertimeAutoCheckoutJobData,
+  options: { delay: number; jobId: string },
+): Promise<void> {
+  const queue = getQueue(QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT);
+  await queue.add("overtime-auto-checkout", data, {
+    jobId: options.jobId,
+    delay: options.delay,
+    attempts: 3,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: { age: 3600 * 24 },
+    removeOnFail: { age: 3600 * 24 * 7 },
+  });
+}
+
+/**
+ * Remove delayed overtime auto-checkout job by id.
+ */
+export async function getOvertimeAutoCheckoutJob(jobId: string) {
+  const queue = getQueue(QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT);
+  return queue.getJob(jobId);
+}
+
+export async function removeOvertimeAutoCheckoutJob(
+  jobId: string,
+): Promise<void> {
+  const job = await getOvertimeAutoCheckoutJob(jobId);
+  if (job) {
+    await job.remove();
+  }
+}
+
 // ============================================
 // QUEUE STATISTICS
 // ============================================
@@ -313,6 +372,9 @@ export async function closeAllQueues(): Promise<void> {
   if (_notificationQueue) closePromises.push(_notificationQueue.close());
   if (_webhookQueue) closePromises.push(_webhookQueue.close());
   if (_outboxQueue) closePromises.push(_outboxQueue.close());
+  if (_overtimeAutoCheckoutQueue) {
+    closePromises.push(_overtimeAutoCheckoutQueue.close());
+  }
 
   await Promise.allSettled(closePromises);
 
@@ -320,6 +382,7 @@ export async function closeAllQueues(): Promise<void> {
   _notificationQueue = null;
   _webhookQueue = null;
   _outboxQueue = null;
+  _overtimeAutoCheckoutQueue = null;
 
   console.log("[BullMQ] All queues closed");
 }

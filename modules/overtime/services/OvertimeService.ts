@@ -4,18 +4,32 @@ import { createNotification } from "../../notification/services/NotificationServ
 import { HolidayRepository, AttendanceRepository } from "@/modules/attendance";
 import { UserRepository } from "@/modules/users";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
+import { OvertimeAutoCheckoutSchedulerService } from "./OvertimeAutoCheckoutSchedulerService";
 
 export class OvertimeService {
   private repository: OvertimeRepository;
   private holidayRepository: HolidayRepository;
   private userRepository: UserRepository;
   private attendanceRepository: AttendanceRepository;
+  private autoCheckoutScheduler: OvertimeAutoCheckoutSchedulerService;
+
+  private logSchedulerError(
+    action: "schedule" | "cancel",
+    overtimeId: string,
+    error: unknown,
+  ) {
+    console.error(
+      `[Overtime] Failed to ${action} auto checkout for ${overtimeId}`,
+      error,
+    );
+  }
 
   constructor() {
     this.repository = new OvertimeRepository();
     this.holidayRepository = new HolidayRepository();
     this.userRepository = new UserRepository();
     this.attendanceRepository = new AttendanceRepository();
+    this.autoCheckoutScheduler = new OvertimeAutoCheckoutSchedulerService();
   }
 
   // 1. Create Request - Bisa kapan saja selama hari itu (tidak perlu absen dulu)
@@ -184,19 +198,32 @@ export class OvertimeService {
       holidayDesc = "Hari Libur Karyawan";
     }
 
-    return this.repository.update(overtimeId, {
+    const updatedOvertime = await this.repository.update(overtimeId, {
       status: OvertimeStatus.IN_PROGRESS,
       startTime: data.timestamp || new Date(),
       startPhoto: data.photo,
       startLocation: data.location,
-      // Connect attendance hanya jika ada (hari kerja biasa)
       attendance: attendance ? { connect: { id: attendance.id } } : undefined,
-      // NEW: Save holiday/off-day info
       isHolidayOvertime: isHoliday || isOffDay,
       isNationalHoliday: isHoliday && holiday?.isNational === true,
-      isOffDay: isOffDay && !isHoliday, // Prioritas: Holiday > OffDay
+      isOffDay: isOffDay && !isHoliday,
       holidayDescription: holidayDesc,
     });
+
+    if (!updatedOvertime.startTime) {
+      throw new Error("Data Start Time corrupt.");
+    }
+
+    try {
+      await this.autoCheckoutScheduler.schedule({
+        overtimeId: updatedOvertime.id,
+        startTime: updatedOvertime.startTime,
+      });
+    } catch (error) {
+      this.logSchedulerError("schedule", updatedOvertime.id, error);
+    }
+
+    return updatedOvertime;
   }
 
   /**
@@ -258,13 +285,21 @@ export class OvertimeService {
     // Prevent negative duration if clocks are messed up
     const validDuration = durationMinutes > 0 ? durationMinutes : 0;
 
-    return this.repository.update(overtimeId, {
+    const completedOvertime = await this.repository.update(overtimeId, {
       status: OvertimeStatus.COMPLETED,
       endTime,
       endPhoto: data.photo,
       endLocation: data.location,
       duration: validDuration,
     });
+
+    try {
+      await this.autoCheckoutScheduler.cancel(overtimeId);
+    } catch (error) {
+      this.logSchedulerError("cancel", overtimeId, error);
+    }
+
+    return completedOvertime;
   }
 
   async getHistory(userId: string, tenantId?: string) {

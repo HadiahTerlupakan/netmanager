@@ -42,6 +42,21 @@ vi.mock("@/modules/notification/services/NotificationService", () => ({
   createNotification: vi.fn().mockResolvedValue({ id: "notif-1" }),
 }));
 
+const mockAutoCheckoutScheduler = {
+  schedule: vi.fn(),
+  cancel: vi.fn(),
+};
+
+vi.mock(
+  "@/modules/overtime/services/OvertimeAutoCheckoutSchedulerService",
+  () => ({
+    OvertimeAutoCheckoutSchedulerService: class MockOvertimeAutoCheckoutSchedulerService {
+      schedule = mockAutoCheckoutScheduler.schedule;
+      cancel = mockAutoCheckoutScheduler.cancel;
+    },
+  }),
+);
+
 // Mock prisma for attendance check
 vi.mock("@/lib/prisma", async () => {
   const { prismaMock } = await import("../../setup");
@@ -55,9 +70,13 @@ import { OvertimeService } from "@/modules/overtime/services/OvertimeService";
 
 describe("OvertimeService", () => {
   let service: OvertimeService;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     service = new OvertimeService();
   });
 
@@ -188,6 +207,63 @@ describe("OvertimeService", () => {
     });
   });
 
+  describe("startOvertime", () => {
+    it("should schedule auto checkout after overtime starts", async () => {
+      const startTime = new Date("2026-04-18T10:00:00.000Z");
+
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: "overtime-1",
+        userId: "user-1",
+        status: OvertimeStatus.APPROVED,
+      });
+      mockOvertimeRepo.update.mockResolvedValueOnce({
+        id: "overtime-1",
+        status: OvertimeStatus.IN_PROGRESS,
+        startTime,
+      });
+
+      await service.startOvertime("user-1", "overtime-1", {
+        photo: "start-photo.jpg",
+        location: "Office",
+        timestamp: startTime,
+      });
+
+      expect(mockAutoCheckoutScheduler.schedule).toHaveBeenCalledWith({
+        overtimeId: "overtime-1",
+        startTime,
+      });
+    });
+
+    it("should still succeed when scheduling auto checkout fails", async () => {
+      const startTime = new Date("2026-04-18T10:00:00.000Z");
+      const scheduleError = new Error("redis unavailable");
+
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: "overtime-1",
+        userId: "user-1",
+        status: OvertimeStatus.APPROVED,
+      });
+      mockOvertimeRepo.update.mockResolvedValueOnce({
+        id: "overtime-1",
+        status: OvertimeStatus.IN_PROGRESS,
+        startTime,
+      });
+      mockAutoCheckoutScheduler.schedule.mockRejectedValueOnce(scheduleError);
+
+      const result = await service.startOvertime("user-1", "overtime-1", {
+        photo: "start-photo.jpg",
+        location: "Office",
+        timestamp: startTime,
+      });
+
+      expect(result.status).toBe(OvertimeStatus.IN_PROGRESS);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "[Overtime] Failed to schedule auto checkout for overtime-1",
+        scheduleError,
+      );
+    });
+  });
+
   describe("stopOvertime", () => {
     it("should auto checkout at 8 hours from overtime start", async () => {
       const startTime = new Date("2026-04-18T10:00:00.000Z");
@@ -220,8 +296,80 @@ describe("OvertimeService", () => {
         endLocation: "Office",
         duration: 480,
       });
+      expect(mockAutoCheckoutScheduler.cancel).toHaveBeenCalledWith(
+        "overtime-1",
+      );
       expect(result.endTime).toEqual(autoCheckoutTime);
       expect(result.duration).toBe(480);
+    });
+
+    it("should keep requested end time when stopping before 8 hours", async () => {
+      const startTime = new Date("2026-04-18T10:00:00.000Z");
+      const requestedEndTime = new Date("2026-04-18T15:30:00.000Z");
+
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: "overtime-1",
+        userId: "user-1",
+        status: OvertimeStatus.IN_PROGRESS,
+        startTime,
+      });
+      mockOvertimeRepo.update.mockResolvedValueOnce({
+        id: "overtime-1",
+        status: OvertimeStatus.COMPLETED,
+        endTime: requestedEndTime,
+        duration: 330,
+      });
+
+      const result = await service.stopOvertime("user-1", "overtime-1", {
+        photo: "stop-photo.jpg",
+        location: "Office",
+        timestamp: requestedEndTime,
+      });
+
+      expect(mockOvertimeRepo.update).toHaveBeenCalledWith("overtime-1", {
+        status: OvertimeStatus.COMPLETED,
+        endTime: requestedEndTime,
+        endPhoto: "stop-photo.jpg",
+        endLocation: "Office",
+        duration: 330,
+      });
+      expect(mockAutoCheckoutScheduler.cancel).toHaveBeenCalledWith(
+        "overtime-1",
+      );
+      expect(result.endTime).toEqual(requestedEndTime);
+      expect(result.duration).toBe(330);
+    });
+
+    it("should still succeed when cancelling auto checkout fails", async () => {
+      const startTime = new Date("2026-04-18T10:00:00.000Z");
+      const requestedEndTime = new Date("2026-04-18T15:30:00.000Z");
+      const cancelError = new Error("redis unavailable");
+
+      mockOvertimeRepo.findById.mockResolvedValueOnce({
+        id: "overtime-1",
+        userId: "user-1",
+        status: OvertimeStatus.IN_PROGRESS,
+        startTime,
+      });
+      mockOvertimeRepo.update.mockResolvedValueOnce({
+        id: "overtime-1",
+        status: OvertimeStatus.COMPLETED,
+        endTime: requestedEndTime,
+        duration: 330,
+      });
+      mockAutoCheckoutScheduler.cancel.mockRejectedValueOnce(cancelError);
+
+      const result = await service.stopOvertime("user-1", "overtime-1", {
+        photo: "stop-photo.jpg",
+        location: "Office",
+        timestamp: requestedEndTime,
+      });
+
+      expect(result.status).toBe(OvertimeStatus.COMPLETED);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "[Overtime] Failed to cancel auto checkout for overtime-1",
+        cancelError,
+      );
     });
   });
 

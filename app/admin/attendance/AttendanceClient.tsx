@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { FaSearch, FaFileExport, FaBuilding } from "react-icons/fa";
 import {
   MdDelete,
+  MdFactCheck,
   MdLocationOn,
   MdEdit,
   MdSave,
@@ -13,6 +14,7 @@ import Image from "next/image";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { MissedCheckInCorrectionModal } from "@/app/admin/attendance/components/MissedCheckInCorrectionModal";
 import { usePermission } from "@/hooks/use-permission";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -50,11 +52,22 @@ interface Attendance {
   displayStatus?: string | null;
   notes: string | null;
   location: string | null;
+  correctedAt?: string | null;
+  correctionReason?: string | null;
+  correctionReplacementAttendanceId?: string | null;
+  correctionSourceAttendanceId?: string | null;
+  correctionSource?: string | null;
   user: {
     name: string | null;
     email: string;
     image: string | null;
-    workingHourMode?: string;
+    workingHourMode?: string | null;
+    startWorkTime?: string | null;
+    endWorkTime?: string | null;
+    shift?: {
+      startTime?: string | null;
+      endTime?: string | null;
+    } | null;
     departments: {
       name: string;
     } | null;
@@ -64,11 +77,23 @@ interface Attendance {
   };
 }
 
+function canCorrectMissedCheckInAttendance(item: Attendance) {
+  const normalizedDisplayStatus = item.displayStatus?.trim().toUpperCase();
+
+  return (
+    ["ABSENT", "ALPHA"].includes(item.status) ||
+    normalizedDisplayStatus === "TIDAK HADIR"
+  );
+}
+
 export function ClientComponent() {
   const { hasPermission } = usePermission();
   const { showToast } = useToast();
   const canUpdate = hasPermission("attendance:update");
   const canDelete = hasPermission("attendance:delete");
+  const canCorrectMissedCheckIn = hasPermission(
+    "attendance:correct-missed-checkin",
+  );
 
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -295,6 +320,92 @@ export function ClientComponent() {
   };
 
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedCorrectionAttendance, setSelectedCorrectionAttendance] =
+    useState<Attendance | null>(null);
+
+  const handleOpenCorrectionModal = (item: Attendance) => {
+    setSelectedCorrectionAttendance(item);
+  };
+
+  const handleCloseCorrectionModal = () => {
+    setSelectedCorrectionAttendance(null);
+  };
+
+  const handleSubmitCorrection = async (
+    attendanceId: string,
+    payload: {
+      checkIn: string;
+      checkOut: string | null;
+      reason: string;
+      notes: string | null;
+      photo: File;
+    },
+  ) => {
+    const formData = new FormData();
+    formData.append("checkIn", payload.checkIn);
+    if (payload.checkOut) {
+      formData.append("checkOut", payload.checkOut);
+    }
+    formData.append("reason", payload.reason);
+    if (payload.notes) {
+      formData.append("notes", payload.notes);
+    }
+    formData.append("photo", payload.photo);
+
+    try {
+      const response = await fetch(
+        `/api/admin/attendance/${attendanceId}/correct-missed-checkin`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+      const result = await response.json();
+
+      if (!response.ok) {
+        const fetchError = new Error(
+          result.error || result.message || "Gagal menyimpan koreksi absen",
+        ) as Error & {
+          status: number;
+          details?: Record<string, string[]>;
+          retryAfter?: number;
+        };
+
+        fetchError.status = response.status;
+        fetchError.details = result.details;
+
+        const retryAfter = response.headers.get("Retry-After");
+        if (retryAfter) {
+          fetchError.retryAfter = Number.parseInt(retryAfter, 10);
+        }
+
+        throw fetchError;
+      }
+
+      showToast(
+        "success",
+        result.message || "Koreksi missed check-in berhasil disimpan",
+      );
+      handleCloseCorrectionModal();
+      fetchAttendances();
+    } catch (error) {
+      if (isFetchError(error)) {
+        if (error.retryAfter) {
+          setRetryCountdown(error.retryAfter);
+        }
+        showToast("error", formatErrorMessage(error));
+        return;
+      }
+
+      showToast(
+        "error",
+        error instanceof Error
+          ? error.message
+          : "Gagal menyimpan koreksi absen",
+      );
+      throw error;
+    }
+  };
 
   const handleExport = () => {
     const params: Record<string, string> = {
@@ -843,6 +954,16 @@ export function ClientComponent() {
               >
                 {config.label}
               </span>
+              {item.correctedAt && (
+                <span className="px-2 inline-flex text-[10px] leading-5 font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                  Sudah Dikoreksi
+                </span>
+              )}
+              {item.correctionSourceAttendanceId && (
+                <span className="px-2 inline-flex text-[10px] leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  Koreksi Admin
+                </span>
+              )}
             </div>
             {item.notes && (
               <div
@@ -903,6 +1024,20 @@ export function ClientComponent() {
 
   const renderActions = (item: Attendance) => (
     <>
+      {canCorrectMissedCheckIn && canCorrectMissedCheckInAttendance(item) && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleOpenCorrectionModal(item)}
+          disabled={Boolean(item.correctedAt)}
+          className="text-amber-600 dark:text-amber-400"
+          title={
+            item.correctedAt ? "Sudah dikoreksi admin" : "Koreksi Lupa Absen"
+          }
+        >
+          <MdFactCheck size={18} />
+        </Button>
+      )}
       {canUpdate && (
         <Button
           variant="ghost"
@@ -1214,6 +1349,13 @@ export function ClientComponent() {
           }}
         />
       </div>
+
+      <MissedCheckInCorrectionModal
+        attendance={selectedCorrectionAttendance}
+        isOpen={Boolean(selectedCorrectionAttendance)}
+        onClose={handleCloseCorrectionModal}
+        onSubmit={handleSubmitCorrection}
+      />
 
       <Modal
         isOpen={!!selectedPhoto}

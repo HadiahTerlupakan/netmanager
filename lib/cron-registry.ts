@@ -81,31 +81,6 @@ export class CronRegistry {
         ),
       );
 
-    // Start Overtime Auto Checkout Service (Every minute)
-    import("../modules/overtime/services/OvertimeAutoCheckoutService")
-      .then(({ OvertimeAutoCheckoutService }) => {
-        const overtimeAutoCheckoutTask = cron.schedule(
-          "* * * * *",
-          async () => {
-            if (!(await canRunCronJob("overtimeAutoCheckout", 55))) return;
-            console.log("[Cron] Running overtime auto-checkout");
-            OvertimeAutoCheckoutService.runAutoCheckout().catch((err) =>
-              console.error("[Cron] Overtime auto-checkout failed:", err),
-            );
-          },
-        );
-        this.tasks.set("overtimeAutoCheckout", overtimeAutoCheckoutTask);
-        console.log(
-          "[CronRegistry] Overtime auto checkout cron scheduled (Every minute)",
-        );
-      })
-      .catch((err) =>
-        console.error(
-          "[CronRegistry] Failed to start Overtime Auto Checkout Service:",
-          err,
-        ),
-      );
-
     // Start Location Cleanup Service (Daily at 02:00 AM)
     import("../modules/attendance/services/LocationTrackingService")
       .then(({ LocationTrackingService }) => {

@@ -40,7 +40,7 @@
  */
 
 // Core Event Bus
-export { eventBus } from './event-bus'
+export { eventBus } from "./event-bus";
 
 // Types & Constants
 export {
@@ -49,7 +49,7 @@ export {
   QUEUE_NAMES,
   JOB_PRIORITIES,
   EVENT_METADATA,
-} from './types'
+} from "./types";
 
 export type {
   EventName,
@@ -75,7 +75,7 @@ export type {
   NotificationPayload,
   PushNotificationPayload,
   SystemEventPayload,
-} from './types'
+} from "./types";
 
 // Outbox (for transactional event persistence)
 export {
@@ -83,7 +83,7 @@ export {
   saveToOutboxTx,
   getOutboxStats,
   cleanupOldEvents,
-} from './outbox'
+} from "./outbox";
 
 // Queues (for direct queue access)
 export {
@@ -93,14 +93,14 @@ export {
   addOutboxJob,
   getQueueStats,
   closeAllQueues,
-} from './queues'
+} from "./queues";
 
 export type {
   EventJobData,
   NotificationJobData,
   WebhookJobData,
   OutboxJobData,
-} from './queues'
+} from "./queues";
 
 // Workers (for startup/shutdown)
 export {
@@ -108,27 +108,32 @@ export {
   stopWorkers,
   registerEventHandler,
   getWorkerStatus,
-} from './workers'
+  rehydrateOvertimeAutoCheckoutJobs,
+} from "./workers";
 
 // Outbox Processor (for polling)
 export {
   startOutboxProcessor,
   stopOutboxProcessor,
   runOutboxCycle,
-} from './outbox-processor'
+} from "./outbox-processor";
 
 /**
  * Initialize the full event-driven system.
  * Call this once during application startup (in server.ts).
  */
 export async function initializeEventBus(): Promise<void> {
-  const { startWorkers } = await import('./workers')
-  const { startOutboxProcessor } = await import('./outbox-processor')
+  const { startWorkers, rehydrateOvertimeAutoCheckoutJobs } =
+    await import("./workers");
+  const { startOutboxProcessor } = await import("./outbox-processor");
 
-  startWorkers()
-  startOutboxProcessor()
+  startWorkers();
+  await rehydrateOvertimeAutoCheckoutJobs();
+  startOutboxProcessor();
 
-  console.log('[EventBus] Initialized: workers + outbox processor')
+  console.log(
+    "[EventBus] Initialized: workers + overtime rehydration + outbox processor",
+  );
 }
 
 /**
@@ -136,13 +141,13 @@ export async function initializeEventBus(): Promise<void> {
  * Call this during application shutdown (SIGTERM/SIGINT).
  */
 export async function shutdownEventBus(): Promise<void> {
-  const { stopWorkers } = await import('./workers')
-  const { stopOutboxProcessor } = await import('./outbox-processor')
-  const { closeAllQueues } = await import('./queues')
+  const { stopWorkers } = await import("./workers");
+  const { stopOutboxProcessor } = await import("./outbox-processor");
+  const { closeAllQueues } = await import("./queues");
 
-  stopOutboxProcessor()
-  await stopWorkers()
-  await closeAllQueues()
+  stopOutboxProcessor();
+  await stopWorkers();
+  await closeAllQueues();
 
-  console.log('[EventBus] Shutdown complete')
+  console.log("[EventBus] Shutdown complete");
 }

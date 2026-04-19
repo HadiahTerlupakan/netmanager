@@ -37,5 +37,6 @@ export default defineConfig({
         "./prisma/generated/mitra",
       ),
     },
+    extensions: [".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs", ".json"],
   },
 });

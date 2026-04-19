@@ -10,18 +10,19 @@
 // ============================================
 
 export const EVENT_CATEGORIES = {
-  BILLING: 'billing',
-  NOTIFICATION: 'notification',
-  WORK_ORDER: 'work_order',
-  TICKET: 'ticket',
-  INVENTORY: 'inventory',
-  ATTENDANCE: 'attendance',
-  CUSTOMER: 'customer',
-  NETWORK: 'network',
-  SYSTEM: 'system',
-} as const
+  BILLING: "billing",
+  NOTIFICATION: "notification",
+  WORK_ORDER: "work_order",
+  TICKET: "ticket",
+  INVENTORY: "inventory",
+  ATTENDANCE: "attendance",
+  CUSTOMER: "customer",
+  NETWORK: "network",
+  SYSTEM: "system",
+} as const;
 
-export type EventCategory = (typeof EVENT_CATEGORIES)[keyof typeof EVENT_CATEGORIES]
+export type EventCategory =
+  (typeof EVENT_CATEGORIES)[keyof typeof EVENT_CATEGORIES];
 
 // ============================================
 // EVENT NAMES (Central Registry)
@@ -29,57 +30,57 @@ export type EventCategory = (typeof EVENT_CATEGORIES)[keyof typeof EVENT_CATEGOR
 
 export const EVENT_NAMES = {
   // Billing Events
-  INVOICE_CREATED: 'billing:invoice.created',
-  INVOICE_PAID: 'billing:invoice.paid',
-  INVOICE_OVERDUE: 'billing:invoice.overdue',
-  PAYMENT_RECEIVED: 'billing:payment.received',
-  PAYMENT_FAILED: 'billing:payment.failed',
+  INVOICE_CREATED: "billing:invoice.created",
+  INVOICE_PAID: "billing:invoice.paid",
+  INVOICE_OVERDUE: "billing:invoice.overdue",
+  PAYMENT_RECEIVED: "billing:payment.received",
+  PAYMENT_FAILED: "billing:payment.failed",
 
   // Customer Events
-  CUSTOMER_CREATED: 'customer:created',
-  CUSTOMER_UPDATED: 'customer:updated',
-  CUSTOMER_SUSPENDED: 'customer:suspended',
-  CUSTOMER_ACTIVATED: 'customer:activated',
+  CUSTOMER_CREATED: "customer:created",
+  CUSTOMER_UPDATED: "customer:updated",
+  CUSTOMER_SUSPENDED: "customer:suspended",
+  CUSTOMER_ACTIVATED: "customer:activated",
 
   // Work Order Events
-  WORK_ORDER_CREATED: 'workorder:created',
-  WORK_ORDER_ASSIGNED: 'workorder:assigned',
-  WORK_ORDER_UPDATED: 'workorder:updated',
-  WORK_ORDER_COMPLETED: 'workorder:completed',
-  WORK_ORDER_ACTIVITY: 'workorder:activity',
+  WORK_ORDER_CREATED: "workorder:created",
+  WORK_ORDER_ASSIGNED: "workorder:assigned",
+  WORK_ORDER_UPDATED: "workorder:updated",
+  WORK_ORDER_COMPLETED: "workorder:completed",
+  WORK_ORDER_ACTIVITY: "workorder:activity",
 
   // Ticket Events
-  TICKET_CREATED: 'ticket:created',
-  TICKET_REPLY: 'ticket:reply',
-  TICKET_STATUS_CHANGED: 'ticket:status_changed',
+  TICKET_CREATED: "ticket:created",
+  TICKET_REPLY: "ticket:reply",
+  TICKET_STATUS_CHANGED: "ticket:status_changed",
 
   // Inventory Events
-  INVENTORY_STOCK_IN: 'inventory:stock_in',
-  INVENTORY_STOCK_OUT: 'inventory:stock_out',
-  INVENTORY_LOW_STOCK: 'inventory:low_stock',
+  INVENTORY_STOCK_IN: "inventory:stock_in",
+  INVENTORY_STOCK_OUT: "inventory:stock_out",
+  INVENTORY_LOW_STOCK: "inventory:low_stock",
 
   // Attendance Events
-  ATTENDANCE_CHECKIN: 'attendance:checkin',
-  ATTENDANCE_CHECKOUT: 'attendance:checkout',
-  ATTENDANCE_ABSENT: 'attendance:absent',
+  ATTENDANCE_CHECKIN: "attendance:checkin",
+  ATTENDANCE_CHECKOUT: "attendance:checkout",
+  ATTENDANCE_ABSENT: "attendance:absent",
 
   // Network Events
-  NETWORK_DEVICE_ONLINE: 'network:device.online',
-  NETWORK_DEVICE_OFFLINE: 'network:device.offline',
-  NETWORK_RADIUS_UPDATE: 'network:radius.update',
+  NETWORK_DEVICE_ONLINE: "network:device.online",
+  NETWORK_DEVICE_OFFLINE: "network:device.offline",
+  NETWORK_RADIUS_UPDATE: "network:radius.update",
 
   // Notification Events
-  NOTIFICATION_CREATED: 'notification:created',
-  NOTIFICATION_PUSH_SENT: 'notification:push_sent',
-  NOTIFICATION_PUSH_FAILED: 'notification:push_failed',
+  NOTIFICATION_CREATED: "notification:created",
+  NOTIFICATION_PUSH_SENT: "notification:push_sent",
+  NOTIFICATION_PUSH_FAILED: "notification:push_failed",
 
   // System Events
-  SYSTEM_USER_LOGIN: 'system:user.login',
-  SYSTEM_USER_LOGOUT: 'system:user.logout',
-  SYSTEM_ERROR: 'system:error',
-} as const
+  SYSTEM_USER_LOGIN: "system:user.login",
+  SYSTEM_USER_LOGOUT: "system:user.logout",
+  SYSTEM_ERROR: "system:error",
+} as const;
 
-export type EventName = (typeof EVENT_NAMES)[keyof typeof EVENT_NAMES]
+export type EventName = (typeof EVENT_NAMES)[keyof typeof EVENT_NAMES];
 
 // ============================================
 // EVENT PAYLOADS
@@ -87,170 +88,170 @@ export type EventName = (typeof EVENT_NAMES)[keyof typeof EVENT_NAMES]
 
 export interface BaseEventPayload {
   /** Tenant ID for multi-tenant isolation */
-  tenantId?: string
+  tenantId?: string;
   /** User ID who triggered the event */
-  triggeredBy?: string
+  triggeredBy?: string;
   /** Timestamp when the event occurred */
-  timestamp?: string
+  timestamp?: string;
 }
 
 export interface InvoiceCreatedPayload extends BaseEventPayload {
-  invoiceId: string
-  pelangganId: string
-  amount: number
-  dueDate: string
+  invoiceId: string;
+  pelangganId: string;
+  amount: number;
+  dueDate: string;
 }
 
 export interface InvoicePaidPayload extends BaseEventPayload {
-  invoiceId: string
-  pelangganId: string
-  amount: number
-  paidAt: string
-  paymentMethod?: string
+  invoiceId: string;
+  pelangganId: string;
+  amount: number;
+  paidAt: string;
+  paymentMethod?: string;
 }
 
 export interface CustomerCreatedPayload extends BaseEventPayload {
-  customerId: string
-  customerName: string
-  packageId?: string
+  customerId: string;
+  customerName: string;
+  packageId?: string;
 }
 
 export interface CustomerStatusPayload extends BaseEventPayload {
-  customerId: string
-  customerName: string
-  oldStatus: string
-  newStatus: string
+  customerId: string;
+  customerName: string;
+  oldStatus: string;
+  newStatus: string;
 }
 
 export interface WorkOrderCreatedPayload extends BaseEventPayload {
-  workOrderId: string
-  workOrderNumber: string
-  title: string
-  type: string
-  priority: string
-  departmentId?: string
-  siteId?: string
-  assignedToId?: string
+  workOrderId: string;
+  workOrderNumber: string;
+  title: string;
+  type: string;
+  priority: string;
+  departmentId?: string;
+  siteId?: string;
+  assignedToId?: string;
 }
 
 export interface WorkOrderAssignedPayload extends BaseEventPayload {
-  workOrderId: string
-  workOrderNumber: string
-  title: string
-  assignedToId: string
-  assignedToName?: string
-  departmentId?: string
-  siteId?: string
+  workOrderId: string;
+  workOrderNumber: string;
+  title: string;
+  assignedToId: string;
+  assignedToName?: string;
+  departmentId?: string;
+  siteId?: string;
 }
 
 export interface WorkOrderUpdatedPayload extends BaseEventPayload {
-  workOrderId: string
-  workOrderNumber: string
-  title: string
-  updateMessage: string
-  updatedByName?: string
-  departmentId?: string
-  siteId?: string
-  assignedToId?: string
-  excludeUserIds?: string[]
+  workOrderId: string;
+  workOrderNumber: string;
+  title: string;
+  updateMessage: string;
+  updatedByName?: string;
+  departmentId?: string;
+  siteId?: string;
+  assignedToId?: string;
+  excludeUserIds?: string[];
 }
 
 export interface WorkOrderCompletedPayload extends BaseEventPayload {
-  workOrderId: string
-  workOrderNumber: string
-  title: string
-  completedByName?: string
-  departmentId?: string
-  siteId?: string
-  assignedToId?: string
+  workOrderId: string;
+  workOrderNumber: string;
+  title: string;
+  completedByName?: string;
+  departmentId?: string;
+  siteId?: string;
+  assignedToId?: string;
 }
 
 export interface WorkOrderActivityPayload extends BaseEventPayload {
-  workOrderId: string
-  activityId: string
-  activityType: 'comment' | 'update' | 'attachment'
-  message?: string
-  userName?: string
+  workOrderId: string;
+  activityId: string;
+  activityType: "comment" | "update" | "attachment";
+  message?: string;
+  userName?: string;
 }
 
 export interface TicketCreatedPayload extends BaseEventPayload {
-  ticketId: string
-  ticketNumber: string
-  subject: string
-  priority: string
-  pelangganNama?: string
-  siteId?: string
+  ticketId: string;
+  ticketNumber: string;
+  subject: string;
+  priority: string;
+  pelangganNama?: string;
+  siteId?: string;
 }
 
 export interface TicketReplyPayload extends BaseEventPayload {
-  ticketId: string
-  ticketNumber: string
-  replyId: string
-  message: string
-  isFromAdmin: boolean
-  siteId?: string
-  targetUserId?: string
+  ticketId: string;
+  ticketNumber: string;
+  replyId: string;
+  message: string;
+  isFromAdmin: boolean;
+  siteId?: string;
+  targetUserId?: string;
 }
 
 export interface InventoryPayload extends BaseEventPayload {
-  type: 'masuk' | 'keluar'
-  barangId: string
-  barangName?: string
-  gudangId?: string
-  jumlah: number
-  totalStok?: number
-  userId: string
-  siteId?: string
+  type: "masuk" | "keluar";
+  barangId: string;
+  barangName?: string;
+  gudangId?: string;
+  jumlah: number;
+  totalStok?: number;
+  userId: string;
+  siteId?: string;
 }
 
 export interface AttendancePayload extends BaseEventPayload {
-  userId: string
-  userName?: string
-  attendanceId: string
-  type: 'checkin' | 'checkout' | 'absent'
-  timestamp: string
-  location?: { lat: number; lng: number }
+  userId: string;
+  userName?: string;
+  attendanceId: string;
+  type: "checkin" | "checkout" | "absent";
+  timestamp: string;
+  location?: { lat: number; lng: number };
 }
 
 export interface NetworkDevicePayload extends BaseEventPayload {
-  deviceId: string
-  deviceName: string
-  deviceType: 'mikrotik' | 'radius'
-  status: 'online' | 'offline'
-  tenantId: string
-  stats?: Record<string, unknown>
+  deviceId: string;
+  deviceName: string;
+  deviceType: "mikrotik" | "radius";
+  status: "online" | "offline";
+  tenantId: string;
+  stats?: Record<string, unknown>;
 }
 
 export interface NotificationPayload extends BaseEventPayload {
-  notificationId: string
-  title: string
-  message: string
-  userId?: string
-  departmentId?: string
-  type: string
-  priority: string
-  link?: string
-  sourceType?: string
-  sourceId?: string
+  notificationId: string;
+  title: string;
+  message: string;
+  userId?: string;
+  departmentId?: string;
+  type: string;
+  priority: string;
+  link?: string;
+  sourceType?: string;
+  sourceId?: string;
 }
 
 export interface PushNotificationPayload extends BaseEventPayload {
-  userId: string
-  title: string
-  body: string
-  data?: Record<string, unknown>
-  pushToken?: string
+  userId: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  pushToken?: string;
   subscription?: {
-    endpoint: string
-    p256dh: string
-    auth: string
-  }
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+  };
 }
 
 export interface SystemEventPayload extends BaseEventPayload {
-  userId?: string
-  action: string
-  details?: Record<string, unknown>
+  userId?: string;
+  action: string;
+  details?: Record<string, unknown>;
 }
 
 // ============================================
@@ -258,38 +259,38 @@ export interface SystemEventPayload extends BaseEventPayload {
 // ============================================
 
 export interface EventPayloadMap {
-  [EVENT_NAMES.INVOICE_CREATED]: InvoiceCreatedPayload
-  [EVENT_NAMES.INVOICE_PAID]: InvoicePaidPayload
-  [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload
-  [EVENT_NAMES.PAYMENT_RECEIVED]: InvoicePaidPayload
-  [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload
-  [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload
-  [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload
-  [EVENT_NAMES.CUSTOMER_SUSPENDED]: CustomerStatusPayload
-  [EVENT_NAMES.CUSTOMER_ACTIVATED]: CustomerStatusPayload
-  [EVENT_NAMES.WORK_ORDER_CREATED]: WorkOrderCreatedPayload
-  [EVENT_NAMES.WORK_ORDER_ASSIGNED]: WorkOrderAssignedPayload
-  [EVENT_NAMES.WORK_ORDER_UPDATED]: WorkOrderUpdatedPayload
-  [EVENT_NAMES.WORK_ORDER_COMPLETED]: WorkOrderCompletedPayload
-  [EVENT_NAMES.WORK_ORDER_ACTIVITY]: WorkOrderActivityPayload
-  [EVENT_NAMES.TICKET_CREATED]: TicketCreatedPayload
-  [EVENT_NAMES.TICKET_REPLY]: TicketReplyPayload
-  [EVENT_NAMES.TICKET_STATUS_CHANGED]: TicketCreatedPayload
-  [EVENT_NAMES.INVENTORY_STOCK_IN]: InventoryPayload
-  [EVENT_NAMES.INVENTORY_STOCK_OUT]: InventoryPayload
-  [EVENT_NAMES.INVENTORY_LOW_STOCK]: InventoryPayload
-  [EVENT_NAMES.ATTENDANCE_CHECKIN]: AttendancePayload
-  [EVENT_NAMES.ATTENDANCE_CHECKOUT]: AttendancePayload
-  [EVENT_NAMES.ATTENDANCE_ABSENT]: AttendancePayload
-  [EVENT_NAMES.NETWORK_DEVICE_ONLINE]: NetworkDevicePayload
-  [EVENT_NAMES.NETWORK_DEVICE_OFFLINE]: NetworkDevicePayload
-  [EVENT_NAMES.NETWORK_RADIUS_UPDATE]: NetworkDevicePayload
-  [EVENT_NAMES.NOTIFICATION_CREATED]: NotificationPayload
-  [EVENT_NAMES.NOTIFICATION_PUSH_SENT]: PushNotificationPayload
-  [EVENT_NAMES.NOTIFICATION_PUSH_FAILED]: PushNotificationPayload
-  [EVENT_NAMES.SYSTEM_USER_LOGIN]: SystemEventPayload
-  [EVENT_NAMES.SYSTEM_USER_LOGOUT]: SystemEventPayload
-  [EVENT_NAMES.SYSTEM_ERROR]: SystemEventPayload
+  [EVENT_NAMES.INVOICE_CREATED]: InvoiceCreatedPayload;
+  [EVENT_NAMES.INVOICE_PAID]: InvoicePaidPayload;
+  [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload;
+  [EVENT_NAMES.PAYMENT_RECEIVED]: InvoicePaidPayload;
+  [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
+  [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
+  [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
+  [EVENT_NAMES.CUSTOMER_SUSPENDED]: CustomerStatusPayload;
+  [EVENT_NAMES.CUSTOMER_ACTIVATED]: CustomerStatusPayload;
+  [EVENT_NAMES.WORK_ORDER_CREATED]: WorkOrderCreatedPayload;
+  [EVENT_NAMES.WORK_ORDER_ASSIGNED]: WorkOrderAssignedPayload;
+  [EVENT_NAMES.WORK_ORDER_UPDATED]: WorkOrderUpdatedPayload;
+  [EVENT_NAMES.WORK_ORDER_COMPLETED]: WorkOrderCompletedPayload;
+  [EVENT_NAMES.WORK_ORDER_ACTIVITY]: WorkOrderActivityPayload;
+  [EVENT_NAMES.TICKET_CREATED]: TicketCreatedPayload;
+  [EVENT_NAMES.TICKET_REPLY]: TicketReplyPayload;
+  [EVENT_NAMES.TICKET_STATUS_CHANGED]: TicketCreatedPayload;
+  [EVENT_NAMES.INVENTORY_STOCK_IN]: InventoryPayload;
+  [EVENT_NAMES.INVENTORY_STOCK_OUT]: InventoryPayload;
+  [EVENT_NAMES.INVENTORY_LOW_STOCK]: InventoryPayload;
+  [EVENT_NAMES.ATTENDANCE_CHECKIN]: AttendancePayload;
+  [EVENT_NAMES.ATTENDANCE_CHECKOUT]: AttendancePayload;
+  [EVENT_NAMES.ATTENDANCE_ABSENT]: AttendancePayload;
+  [EVENT_NAMES.NETWORK_DEVICE_ONLINE]: NetworkDevicePayload;
+  [EVENT_NAMES.NETWORK_DEVICE_OFFLINE]: NetworkDevicePayload;
+  [EVENT_NAMES.NETWORK_RADIUS_UPDATE]: NetworkDevicePayload;
+  [EVENT_NAMES.NOTIFICATION_CREATED]: NotificationPayload;
+  [EVENT_NAMES.NOTIFICATION_PUSH_SENT]: PushNotificationPayload;
+  [EVENT_NAMES.NOTIFICATION_PUSH_FAILED]: PushNotificationPayload;
+  [EVENT_NAMES.SYSTEM_USER_LOGIN]: SystemEventPayload;
+  [EVENT_NAMES.SYSTEM_USER_LOGOUT]: SystemEventPayload;
+  [EVENT_NAMES.SYSTEM_ERROR]: SystemEventPayload;
 }
 
 // ============================================
@@ -297,79 +298,272 @@ export interface EventPayloadMap {
 // ============================================
 
 export const QUEUE_NAMES = {
-  EVENTS: 'radpro-events',
-  NOTIFICATIONS: 'radpro-notifications',
-  WEBHOOKS: 'radpro-webhooks',
-  OUTBOX: 'radpro-outbox',
-} as const
+  EVENTS: "radpro-events",
+  NOTIFICATIONS: "radpro-notifications",
+  WEBHOOKS: "radpro-webhooks",
+  OUTBOX: "radpro-outbox",
+  OVERTIME_AUTO_CHECKOUT: "radpro-overtime-auto-checkout",
+} as const;
 
-export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES]
+export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
 // ============================================
 // JOB PRIORITIES
 // ============================================
 
 export const JOB_PRIORITIES = {
-  CRITICAL: 1,  // Force logout, payment events
-  HIGH: 2,      // Notifications, urgent alerts
-  NORMAL: 3,    // Work orders, tickets
-  LOW: 4,       // Inventory, analytics
-} as const
+  CRITICAL: 1, // Force logout, payment events
+  HIGH: 2, // Notifications, urgent alerts
+  NORMAL: 3, // Work orders, tickets
+  LOW: 4, // Inventory, analytics
+} as const;
 
 // ============================================
 // EVENT METADATA
 // ============================================
 
 export interface EventMetadata {
-  name: EventName
-  category: EventCategory
-  priority: number
+  name: EventName;
+  category: EventCategory;
+  priority: number;
   /** Whether this event should be persisted in the outbox */
-  persistent: boolean
+  persistent: boolean;
   /** Whether this event should be processed asynchronously via BullMQ */
-  async: boolean
+  async: boolean;
 }
 
 /** Map event names to their metadata */
 export const EVENT_METADATA: Record<EventName, EventMetadata> = {
-  [EVENT_NAMES.INVOICE_CREATED]: { name: EVENT_NAMES.INVOICE_CREATED, category: 'billing', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.INVOICE_PAID]: { name: EVENT_NAMES.INVOICE_PAID, category: 'billing', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
-  [EVENT_NAMES.INVOICE_OVERDUE]: { name: EVENT_NAMES.INVOICE_OVERDUE, category: 'billing', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
-  [EVENT_NAMES.PAYMENT_RECEIVED]: { name: EVENT_NAMES.PAYMENT_RECEIVED, category: 'billing', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
-  [EVENT_NAMES.PAYMENT_FAILED]: { name: EVENT_NAMES.PAYMENT_FAILED, category: 'billing', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
+  [EVENT_NAMES.INVOICE_CREATED]: {
+    name: EVENT_NAMES.INVOICE_CREATED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVOICE_PAID]: {
+    name: EVENT_NAMES.INVOICE_PAID,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVOICE_OVERDUE]: {
+    name: EVENT_NAMES.INVOICE_OVERDUE,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PAYMENT_RECEIVED]: {
+    name: EVENT_NAMES.PAYMENT_RECEIVED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PAYMENT_FAILED]: {
+    name: EVENT_NAMES.PAYMENT_FAILED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.CUSTOMER_CREATED]: { name: EVENT_NAMES.CUSTOMER_CREATED, category: 'customer', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.CUSTOMER_UPDATED]: { name: EVENT_NAMES.CUSTOMER_UPDATED, category: 'customer', priority: JOB_PRIORITIES.LOW, persistent: false, async: true },
-  [EVENT_NAMES.CUSTOMER_SUSPENDED]: { name: EVENT_NAMES.CUSTOMER_SUSPENDED, category: 'customer', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
-  [EVENT_NAMES.CUSTOMER_ACTIVATED]: { name: EVENT_NAMES.CUSTOMER_ACTIVATED, category: 'customer', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
+  [EVENT_NAMES.CUSTOMER_CREATED]: {
+    name: EVENT_NAMES.CUSTOMER_CREATED,
+    category: "customer",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.CUSTOMER_UPDATED]: {
+    name: EVENT_NAMES.CUSTOMER_UPDATED,
+    category: "customer",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.CUSTOMER_SUSPENDED]: {
+    name: EVENT_NAMES.CUSTOMER_SUSPENDED,
+    category: "customer",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.CUSTOMER_ACTIVATED]: {
+    name: EVENT_NAMES.CUSTOMER_ACTIVATED,
+    category: "customer",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.WORK_ORDER_CREATED]: { name: EVENT_NAMES.WORK_ORDER_CREATED, category: 'work_order', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.WORK_ORDER_ASSIGNED]: { name: EVENT_NAMES.WORK_ORDER_ASSIGNED, category: 'work_order', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
-  [EVENT_NAMES.WORK_ORDER_UPDATED]: { name: EVENT_NAMES.WORK_ORDER_UPDATED, category: 'work_order', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.WORK_ORDER_COMPLETED]: { name: EVENT_NAMES.WORK_ORDER_COMPLETED, category: 'work_order', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.WORK_ORDER_ACTIVITY]: { name: EVENT_NAMES.WORK_ORDER_ACTIVITY, category: 'work_order', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
+  [EVENT_NAMES.WORK_ORDER_CREATED]: {
+    name: EVENT_NAMES.WORK_ORDER_CREATED,
+    category: "work_order",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.WORK_ORDER_ASSIGNED]: {
+    name: EVENT_NAMES.WORK_ORDER_ASSIGNED,
+    category: "work_order",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.WORK_ORDER_UPDATED]: {
+    name: EVENT_NAMES.WORK_ORDER_UPDATED,
+    category: "work_order",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.WORK_ORDER_COMPLETED]: {
+    name: EVENT_NAMES.WORK_ORDER_COMPLETED,
+    category: "work_order",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.WORK_ORDER_ACTIVITY]: {
+    name: EVENT_NAMES.WORK_ORDER_ACTIVITY,
+    category: "work_order",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.TICKET_CREATED]: { name: EVENT_NAMES.TICKET_CREATED, category: 'ticket', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.TICKET_REPLY]: { name: EVENT_NAMES.TICKET_REPLY, category: 'ticket', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
-  [EVENT_NAMES.TICKET_STATUS_CHANGED]: { name: EVENT_NAMES.TICKET_STATUS_CHANGED, category: 'ticket', priority: JOB_PRIORITIES.NORMAL, persistent: true, async: true },
+  [EVENT_NAMES.TICKET_CREATED]: {
+    name: EVENT_NAMES.TICKET_CREATED,
+    category: "ticket",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.TICKET_REPLY]: {
+    name: EVENT_NAMES.TICKET_REPLY,
+    category: "ticket",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.TICKET_STATUS_CHANGED]: {
+    name: EVENT_NAMES.TICKET_STATUS_CHANGED,
+    category: "ticket",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.INVENTORY_STOCK_IN]: { name: EVENT_NAMES.INVENTORY_STOCK_IN, category: 'inventory', priority: JOB_PRIORITIES.LOW, persistent: false, async: true },
-  [EVENT_NAMES.INVENTORY_STOCK_OUT]: { name: EVENT_NAMES.INVENTORY_STOCK_OUT, category: 'inventory', priority: JOB_PRIORITIES.LOW, persistent: false, async: true },
-  [EVENT_NAMES.INVENTORY_LOW_STOCK]: { name: EVENT_NAMES.INVENTORY_LOW_STOCK, category: 'inventory', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
+  [EVENT_NAMES.INVENTORY_STOCK_IN]: {
+    name: EVENT_NAMES.INVENTORY_STOCK_IN,
+    category: "inventory",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.INVENTORY_STOCK_OUT]: {
+    name: EVENT_NAMES.INVENTORY_STOCK_OUT,
+    category: "inventory",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.INVENTORY_LOW_STOCK]: {
+    name: EVENT_NAMES.INVENTORY_LOW_STOCK,
+    category: "inventory",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.ATTENDANCE_CHECKIN]: { name: EVENT_NAMES.ATTENDANCE_CHECKIN, category: 'attendance', priority: JOB_PRIORITIES.NORMAL, persistent: false, async: true },
-  [EVENT_NAMES.ATTENDANCE_CHECKOUT]: { name: EVENT_NAMES.ATTENDANCE_CHECKOUT, category: 'attendance', priority: JOB_PRIORITIES.NORMAL, persistent: false, async: true },
-  [EVENT_NAMES.ATTENDANCE_ABSENT]: { name: EVENT_NAMES.ATTENDANCE_ABSENT, category: 'attendance', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
+  [EVENT_NAMES.ATTENDANCE_CHECKIN]: {
+    name: EVENT_NAMES.ATTENDANCE_CHECKIN,
+    category: "attendance",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.ATTENDANCE_CHECKOUT]: {
+    name: EVENT_NAMES.ATTENDANCE_CHECKOUT,
+    category: "attendance",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.ATTENDANCE_ABSENT]: {
+    name: EVENT_NAMES.ATTENDANCE_ABSENT,
+    category: "attendance",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.NETWORK_DEVICE_ONLINE]: { name: EVENT_NAMES.NETWORK_DEVICE_ONLINE, category: 'network', priority: JOB_PRIORITIES.NORMAL, persistent: false, async: true },
-  [EVENT_NAMES.NETWORK_DEVICE_OFFLINE]: { name: EVENT_NAMES.NETWORK_DEVICE_OFFLINE, category: 'network', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
-  [EVENT_NAMES.NETWORK_RADIUS_UPDATE]: { name: EVENT_NAMES.NETWORK_RADIUS_UPDATE, category: 'network', priority: JOB_PRIORITIES.NORMAL, persistent: false, async: true },
+  [EVENT_NAMES.NETWORK_DEVICE_ONLINE]: {
+    name: EVENT_NAMES.NETWORK_DEVICE_ONLINE,
+    category: "network",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.NETWORK_DEVICE_OFFLINE]: {
+    name: EVENT_NAMES.NETWORK_DEVICE_OFFLINE,
+    category: "network",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.NETWORK_RADIUS_UPDATE]: {
+    name: EVENT_NAMES.NETWORK_RADIUS_UPDATE,
+    category: "network",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: false,
+    async: true,
+  },
 
-  [EVENT_NAMES.NOTIFICATION_CREATED]: { name: EVENT_NAMES.NOTIFICATION_CREATED, category: 'notification', priority: JOB_PRIORITIES.NORMAL, persistent: false, async: true },
-  [EVENT_NAMES.NOTIFICATION_PUSH_SENT]: { name: EVENT_NAMES.NOTIFICATION_PUSH_SENT, category: 'notification', priority: JOB_PRIORITIES.LOW, persistent: false, async: false },
-  [EVENT_NAMES.NOTIFICATION_PUSH_FAILED]: { name: EVENT_NAMES.NOTIFICATION_PUSH_FAILED, category: 'notification', priority: JOB_PRIORITIES.HIGH, persistent: true, async: true },
+  [EVENT_NAMES.NOTIFICATION_CREATED]: {
+    name: EVENT_NAMES.NOTIFICATION_CREATED,
+    category: "notification",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: false,
+    async: true,
+  },
+  [EVENT_NAMES.NOTIFICATION_PUSH_SENT]: {
+    name: EVENT_NAMES.NOTIFICATION_PUSH_SENT,
+    category: "notification",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: false,
+    async: false,
+  },
+  [EVENT_NAMES.NOTIFICATION_PUSH_FAILED]: {
+    name: EVENT_NAMES.NOTIFICATION_PUSH_FAILED,
+    category: "notification",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
 
-  [EVENT_NAMES.SYSTEM_USER_LOGIN]: { name: EVENT_NAMES.SYSTEM_USER_LOGIN, category: 'system', priority: JOB_PRIORITIES.LOW, persistent: false, async: false },
-  [EVENT_NAMES.SYSTEM_USER_LOGOUT]: { name: EVENT_NAMES.SYSTEM_USER_LOGOUT, category: 'system', priority: JOB_PRIORITIES.LOW, persistent: false, async: false },
-  [EVENT_NAMES.SYSTEM_ERROR]: { name: EVENT_NAMES.SYSTEM_ERROR, category: 'system', priority: JOB_PRIORITIES.CRITICAL, persistent: true, async: true },
-}
+  [EVENT_NAMES.SYSTEM_USER_LOGIN]: {
+    name: EVENT_NAMES.SYSTEM_USER_LOGIN,
+    category: "system",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: false,
+    async: false,
+  },
+  [EVENT_NAMES.SYSTEM_USER_LOGOUT]: {
+    name: EVENT_NAMES.SYSTEM_USER_LOGOUT,
+    category: "system",
+    priority: JOB_PRIORITIES.LOW,
+    persistent: false,
+    async: false,
+  },
+  [EVENT_NAMES.SYSTEM_ERROR]: {
+    name: EVENT_NAMES.SYSTEM_ERROR,
+    category: "system",
+    priority: JOB_PRIORITIES.CRITICAL,
+    persistent: true,
+    async: true,
+  },
+};

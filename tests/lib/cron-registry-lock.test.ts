@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockAcquireCronLock = vi.hoisted(() => vi.fn());
@@ -40,5 +43,15 @@ describe("cron registry lock helper", () => {
     const result = await canRunCronJob("billing", 82800);
 
     expect(result).toBe(false);
+  });
+
+  it("does not keep the legacy overtime auto checkout cron registration", () => {
+    const file = readFileSync(
+      resolve(process.cwd(), "lib/cron-registry.ts"),
+      "utf8",
+    );
+
+    expect(file).not.toContain("overtimeAutoCheckout");
+    expect(file).not.toContain("[Cron] Running overtime auto-checkout");
   });
 });

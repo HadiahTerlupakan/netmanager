@@ -175,11 +175,14 @@ export class EmployeeLoanRepository {
 
 export class AttendanceRepositoryForSalary {
   async findByUserAndDateRange(userId: string, startDate: Date, endDate: Date) {
+    const where = {
+      userId,
+      checkIn: { gte: startDate, lte: endDate },
+      correctedAt: null,
+    } as Prisma.AttendanceWhereInput;
+
     return prisma.attendance.findMany({
-      where: {
-        userId,
-        checkIn: { gte: startDate, lte: endDate },
-      },
+      where,
       select: {
         status: true,
         checkIn: true,

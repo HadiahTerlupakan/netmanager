@@ -1,43 +1,56 @@
 import { OvertimeStatus } from "@prisma/client";
 
+import type { OvertimeAutoCheckoutJobData } from "@/lib/event-bus/queues";
+
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
 
-const MAX_OVERTIME_DURATION_MINUTES = 8 * 60;
-const MAX_OVERTIME_DURATION_MS = MAX_OVERTIME_DURATION_MINUTES * 60 * 1000;
+export const MAX_OVERTIME_DURATION_MINUTES = 8 * 60;
 
 export class OvertimeAutoCheckoutService {
-  static async runAutoCheckout() {
+  static async runScheduledAutoCheckout(
+    job: OvertimeAutoCheckoutJobData,
+  ): Promise<"completed" | "skipped"> {
     const overtimeRepository = new OvertimeRepository();
-    const activeOvertimes = await overtimeRepository.findAll({
-      status: OvertimeStatus.IN_PROGRESS,
-    });
-    const now = new Date();
-    let updatedCount = 0;
+    const schedule = await overtimeRepository.findAutoCheckoutScheduleById(
+      job.scheduleId,
+    );
 
-    for (const overtime of activeOvertimes) {
-      if (!overtime.startTime) {
-        continue;
-      }
-
-      const startTime = new Date(overtime.startTime);
-      const autoCheckoutTime = new Date(
-        startTime.getTime() + MAX_OVERTIME_DURATION_MS,
-      );
-
-      if (now.getTime() < autoCheckoutTime.getTime()) {
-        continue;
-      }
-
-      await overtimeRepository.update(overtime.id, {
-        status: OvertimeStatus.COMPLETED,
-        endTime: autoCheckoutTime,
-        duration: MAX_OVERTIME_DURATION_MINUTES,
-      });
-      updatedCount++;
+    if (!schedule || schedule.scheduleStatus !== "SCHEDULED") {
+      return "skipped";
     }
 
-    return updatedCount;
+    if (
+      schedule.overtimeId !== job.overtimeId ||
+      schedule.version !== job.version
+    ) {
+      return "skipped";
+    }
+
+    const now = new Date();
+    if (schedule.scheduledFor.getTime() > now.getTime()) {
+      return "skipped";
+    }
+
+    const overtime = await overtimeRepository.findById(job.overtimeId);
+    if (!overtime || overtime.status !== OvertimeStatus.IN_PROGRESS) {
+      await overtimeRepository.completeAutoCheckoutSchedule({
+        overtimeId: job.overtimeId,
+        executedAt: now,
+        scheduleStatus: "FAILED",
+        lastError: "OVERTIME_AUTO_CHECKOUT_STALE",
+      });
+      return "skipped";
+    }
+
+    const didComplete = await overtimeRepository.completeScheduledAutoCheckout({
+      scheduleId: schedule.id,
+      overtimeId: job.overtimeId,
+      version: job.version,
+      executedAt: now,
+      endTime: schedule.scheduledFor,
+      duration: MAX_OVERTIME_DURATION_MINUTES,
+    });
+
+    return didComplete ? "completed" : "skipped";
   }
 }
-
-export { MAX_OVERTIME_DURATION_MINUTES };

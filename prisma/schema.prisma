@@ -85,29 +85,42 @@ model AnnouncementRead {
 }
 
 model Attendance {
-  id                       String           @id
-  userId                   String
-  checkIn                  DateTime         @default(now())
-  checkInDate              DateTime?
-  checkOut                 DateTime?
-  checkInPhoto             String?
-  checkOutPhoto            String?
-  status                   AttendanceStatus @default(ON_TIME)
-  notes                    String?
-  location                 String?
-  checkOutLocation         String?
-  createdAt                DateTime         @default(now())
-  updatedAt                DateTime
-  geofenceStatus           String?
-  geofenceDistance         Float?
-  geofenceSiteName         String?
-  checkOutGeofenceStatus   String?
-  checkOutGeofenceDistance Float?
-  geofenceMeta             Json?
-  tenantId                 String?
-  tenant                   Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user                     User             @relation(fields: [userId], references: [id])
-  overtime                 Overtime[]
+  id                               String           @id
+  userId                           String
+  checkIn                          DateTime         @default(now())
+  checkInDate                      DateTime?
+  checkOut                         DateTime?
+  checkInPhoto                     String?
+  checkOutPhoto                    String?
+  status                           AttendanceStatus @default(ON_TIME)
+  notes                            String?
+  location                         String?
+  checkOutLocation                 String?
+  createdAt                        DateTime         @default(now())
+  updatedAt                        DateTime
+  geofenceStatus                   String?
+  geofenceDistance                 Float?
+  geofenceSiteName                 String?
+  checkOutGeofenceStatus           String?
+  checkOutGeofenceDistance         Float?
+  geofenceMeta                     Json?
+  tenantId                         String?
+  correctedAt                      DateTime?
+  correctedById                    String?
+  correctionReason                 String?
+  correctionNotes                  String?
+  correctionEvidencePhotoUrl       String?
+  correctionReplacementAttendanceId String?
+  correctionSourceAttendanceId     String?
+  correctionSource                 String?
+  tenant                           Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                             User             @relation(fields: [userId], references: [id])
+  correctedBy                      User?            @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id])
+  correctionReplacementAttendance  Attendance?      @relation("AttendanceCorrectionReplacement", fields: [correctionReplacementAttendanceId], references: [id])
+  correctionReplacementSources     Attendance[]     @relation("AttendanceCorrectionReplacement")
+  correctionSourceAttendance       Attendance?      @relation("AttendanceCorrectionSource", fields: [correctionSourceAttendanceId], references: [id])
+  correctionSourceReplacements     Attendance[]     @relation("AttendanceCorrectionSource")
+  overtime                         Overtime[]
 
   @@index([checkIn])
   @@index([status])
@@ -116,7 +129,12 @@ model Attendance {
   @@index([userId, checkIn(sort: Desc)], map: "idx_attendance_user_checkin")
   @@index([userId, checkOut(sort: Desc)], map: "idx_attendance_user_checkout")
   @@index([tenantId])
+  @@index([tenantId, correctedAt])
+  @@index([correctionReplacementAttendanceId])
+  @@index([correctionSourceAttendanceId])
   @@unique([userId, checkInDate, tenantId], map: "idx_attendance_user_checkin_date_tenant")
+  @@unique([correctionReplacementAttendanceId])
+  @@unique([correctionSourceAttendanceId])
 }
 
 model AttendanceEvaluation {
@@ -763,36 +781,55 @@ model OtbCore {
 }
 
 model Overtime {
-  id                 String         @id
-  userId             String
-  attendanceId       String?
-  reason             String
-  startTime          DateTime?
-  endTime            DateTime?
-  startPhoto         String?
-  startLocation      String?
-  endPhoto           String?
-  endLocation        String?
-  duration           Int?
-  status             OvertimeStatus @default(PENDING)
-  rejectionReason    String?
-  approvedBy         String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime
-  holidayDescription String?
-  isHolidayOvertime  Boolean        @default(false)
-  isNationalHoliday  Boolean        @default(false)
-  isOffDay           Boolean        @default(false)
-  tenantId           String?
-  attendance         Attendance?    @relation(fields: [attendanceId], references: [id])
-  tenant             Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user               User           @relation(fields: [userId], references: [id])
+  id                   String                        @id
+  userId               String
+  attendanceId         String?
+  reason               String
+  startTime            DateTime?
+  endTime              DateTime?
+  startPhoto           String?
+  startLocation        String?
+  endPhoto             String?
+  endLocation          String?
+  duration             Int?
+  status               OvertimeStatus                @default(PENDING)
+  rejectionReason      String?
+  approvedBy           String?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime
+  holidayDescription   String?
+  isHolidayOvertime    Boolean                       @default(false)
+  isNationalHoliday    Boolean                       @default(false)
+  isOffDay             Boolean                       @default(false)
+  tenantId             String?
+  attendance           Attendance?                   @relation(fields: [attendanceId], references: [id])
+  autoCheckoutSchedule OvertimeAutoCheckoutSchedule?
+  tenant               Tenant?                       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                 User                          @relation(fields: [userId], references: [id])
 
   @@index([startTime])
   @@index([status])
   @@index([userId])
   @@index([userId, status], map: "idx_overtime_user_status")
   @@index([tenantId])
+}
+
+model OvertimeAutoCheckoutSchedule {
+  id             String                             @id @default(cuid())
+  overtimeId     String                             @unique
+  scheduledFor   DateTime
+  jobId          String?
+  version        Int                                @default(1)
+  scheduleStatus OvertimeAutoCheckoutScheduleStatus @default(SCHEDULED)
+  executedAt     DateTime?
+  cancelledAt    DateTime?
+  lastError      String?
+  createdAt      DateTime                           @default(now())
+  updatedAt      DateTime                           @updatedAt
+  overtime       Overtime                           @relation(fields: [overtimeId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleStatus, scheduledFor])
+  @@index([jobId])
 }
 
 model Pelanggan {
@@ -1131,6 +1168,7 @@ model User {
   account                                    Account[]
   announcement                               Announcement[]
   attendance                                 Attendance[]
+  attendanceCorrections                      Attendance[]               @relation("AttendanceCorrectedBy")
   attendanceEvaluation                       AttendanceEvaluation[]
   attendanceEvaluationAudit                  AttendanceEvaluationAudit[]
   conversation_participants                  ConversationParticipant[]
@@ -3434,6 +3472,13 @@ enum OvertimeStatus {
   IN_PROGRESS
   COMPLETED
   REJECTED
+}
+
+enum OvertimeAutoCheckoutScheduleStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  FAILED
 }
 
 enum PeriodType {

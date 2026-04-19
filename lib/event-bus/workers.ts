@@ -6,6 +6,7 @@ import type {
   NotificationJobData,
   WebhookJobData,
   OutboxJobData,
+  OvertimeAutoCheckoutJobData,
 } from "./queues";
 import { QUEUE_NAMES, EVENT_NAMES } from "./types";
 
@@ -525,6 +526,70 @@ async function processOutboxJob(job: Job<OutboxJobData>): Promise<void> {
   }
 }
 
+function createOvertimeAutoCheckoutJobId(
+  scheduleId: string,
+  version: number,
+): string {
+  return `overtime:auto-checkout:${scheduleId}:v${version}`;
+}
+
+async function processOvertimeAutoCheckoutJob(
+  job: Job<OvertimeAutoCheckoutJobData>,
+): Promise<void> {
+  const { OvertimeAutoCheckoutService } =
+    await import("@/modules/overtime/services/OvertimeAutoCheckoutService");
+  await OvertimeAutoCheckoutService.runScheduledAutoCheckout(job.data);
+}
+
+export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
+  const { OvertimeRepository } = await import("@/modules/overtime");
+  const { addOvertimeAutoCheckoutJob, getOvertimeAutoCheckoutJob } =
+    await import("./queues");
+
+  const repository = new OvertimeRepository();
+  const startupTime = new Date();
+  const schedules = await repository.findSchedulesForRehydration(startupTime);
+
+  for (const schedule of schedules) {
+    const jobId = createOvertimeAutoCheckoutJobId(
+      schedule.id,
+      schedule.version,
+    );
+    const candidateJobIds = [
+      ...new Set([schedule.jobId, jobId].filter(Boolean)),
+    ];
+
+    let hasActiveJob = false;
+    for (const candidateJobId of candidateJobIds) {
+      const existingJob = await getOvertimeAutoCheckoutJob(candidateJobId);
+      if (existingJob) {
+        hasActiveJob = true;
+        break;
+      }
+    }
+
+    if (hasActiveJob) {
+      continue;
+    }
+
+    const delay = Math.max(
+      schedule.scheduledFor.getTime() - startupTime.getTime(),
+      0,
+    );
+
+    await addOvertimeAutoCheckoutJob(
+      {
+        overtimeId: schedule.overtimeId,
+        scheduleId: schedule.id,
+        version: schedule.version,
+      },
+      { jobId, delay },
+    );
+
+    await repository.attachAutoCheckoutJobId(schedule.overtimeId, jobId);
+  }
+}
+
 // ============================================
 // WORKER INSTANCES
 // ============================================
@@ -614,7 +679,23 @@ export function startWorkers(): void {
     },
   );
 
-  workers = [eventWorker, notificationWorker, webhookWorker, outboxWorker];
+  // Overtime Auto Checkout Worker
+  const overtimeAutoCheckoutWorker = new Worker<OvertimeAutoCheckoutJobData>(
+    QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
+    processOvertimeAutoCheckoutJob,
+    {
+      connection: connection.duplicate(),
+      concurrency: 5,
+    },
+  );
+
+  workers = [
+    eventWorker,
+    notificationWorker,
+    webhookWorker,
+    outboxWorker,
+    overtimeAutoCheckoutWorker,
+  ];
 
   // Event listeners for monitoring
   for (const worker of workers) {
