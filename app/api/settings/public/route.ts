@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getPublicPortalSettings } from '@/modules/settings'
+import { NextRequest, NextResponse } from "next/server";
+import { getPublicPortalSettings } from "@/modules/settings";
 
 /**
  * GET /api/settings/public
@@ -7,37 +7,37 @@ import { getPublicPortalSettings } from '@/modules/settings'
  * No authentication required
  */
 export async function GET(_request: NextRequest) {
-    try {
-        const settings = await getPublicPortalSettings()
+  try {
+    const settings = await getPublicPortalSettings();
 
-        // Return only public-safe settings
-        return NextResponse.json({
-            success: true,
-            data: {
-                namaAplikasi: settings.namaAplikasi,
-                perusahaan: settings.perusahaan,
-                logoAplikasi: settings.logoAplikasi,
-                logoInvoice: settings.logoInvoice,
-            }
-        })
-    } catch (error) {
-        console.error('[API] Get public settings error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal memuat pengaturan' },
-            { status: 500 }
-        )
-    }
+    // Return only public-safe settings
+    return NextResponse.json({
+      success: true,
+      data: {
+        namaAplikasi: settings.namaAplikasi,
+        perusahaan: settings.perusahaan,
+        appLogoUrl: settings.appLogoUrl,
+        logoInvoice: settings.logoInvoice,
+      },
+    });
+  } catch (error) {
+    console.error("[API] Get public settings error:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal memuat pengaturan" },
+      { status: 500 },
+    );
+  }
 }
 
 /**
  * OPTIONS handler for CORS preflight
  */
 export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 204,
-        headers: {
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-        },
-    })
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
 }

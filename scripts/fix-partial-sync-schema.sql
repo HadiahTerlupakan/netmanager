@@ -90,6 +90,42 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'barang_masuk' AND column_name = 'actorType'
+  ) THEN
+    ALTER TABLE "barang_masuk" ADD COLUMN "actorType" TEXT;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'barang_masuk' AND column_name = 'actorId'
+  ) THEN
+    ALTER TABLE "barang_masuk" ADD COLUMN "actorId" TEXT;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'barang_keluar' AND column_name = 'actorType'
+  ) THEN
+    ALTER TABLE "barang_keluar" ADD COLUMN "actorType" TEXT;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'barang_keluar' AND column_name = 'actorId'
+  ) THEN
+    ALTER TABLE "barang_keluar" ADD COLUMN "actorId" TEXT;
+  END IF;
+END $$;
+
 -- =====================
 -- 4. Create new unique indexes (idempotent)
 -- =====================

@@ -1,52 +1,57 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { mergeSettingsPayload } from "@/lib/settings/mergeSettingsPayload";
 
 type GeneralSettings = {
-    perusahaan: string;
-    namaAplikasi: string;
-    alamat: string;
-    nomorHp: string;
-    deskripsiInvoice: string;
-    rekeningBank: unknown[];
-    invoiceOtomatis: string;
-    disablePerpanjanganPaket: string;
-    timezone: string;
-    pppConnectionMode?: 'RADIUS' | 'MIKROTIK_API';
-    logoInvoice?: string | null;
-    logoAplikasi?: string | null;
+  perusahaan: string;
+  namaAplikasi: string;
+  alamat: string;
+  nomorHp: string;
+  deskripsiInvoice: string;
+  rekeningBank: unknown[];
+  invoiceOtomatis: string;
+  disablePerpanjanganPaket: string;
+  timezone: string;
+  pppConnectionMode?: "RADIUS" | "MIKROTIK_API";
+  logoInvoice?: string | null;
+  logoAplikasi?: string | null;
 };
 
 export function useSettings() {
-    const [settings, setSettings] = useState<GeneralSettings | null>(null);
-    const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<GeneralSettings | null>(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchSettings() {
-            try {
-                const [generalRes, logoRes] = await Promise.all([
-                    fetch('/api/settings/general'),
-                    fetch('/api/settings/logo')
-                ]);
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const [generalRes, logoRes] = await Promise.all([
+          fetch("/api/settings/general"),
+          fetch("/api/settings/logo"),
+        ]);
 
-                if (generalRes.ok) {
-                    const response = await generalRes.json();
-                    const generalData = response.data; // Access nested data object
-                    let logoData = {};
+        if (generalRes.ok) {
+          const generalPayload = await generalRes.json();
+          let logoPayload: unknown;
 
-                    if (logoRes.ok) {
-                        logoData = await logoRes.json();
-                    }
+          if (logoRes.ok) {
+            logoPayload = await logoRes.json();
+          }
 
-                    setSettings({ ...generalData, ...logoData });
-                }
-            } catch (error) {
-                console.error('Failed to fetch settings:', error);
-            } finally {
-                setLoading(false);
-            }
+          setSettings(
+            mergeSettingsPayload(
+              generalPayload,
+              logoPayload,
+            ) as GeneralSettings,
+          );
         }
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-        fetchSettings();
-    }, []);
+    fetchSettings();
+  }, []);
 
-    return { settings, loading };
+  return { settings, loading };
 }

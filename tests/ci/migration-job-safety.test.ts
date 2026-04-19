@@ -189,6 +189,64 @@ describe("migration job safety", () => {
     );
   });
 
+  it("repairs missing inventory actor columns in the partial sync schema fix", () => {
+    const fixPartialSyncSchema = readFileSync(
+      resolve(process.cwd(), "scripts", "fix-partial-sync-schema.sql"),
+      "utf8",
+    );
+
+    expect(fixPartialSyncSchema).toContain(
+      "WHERE table_name = 'barang_masuk' AND column_name = 'actorType'",
+    );
+    expect(fixPartialSyncSchema).toContain(
+      'ALTER TABLE "barang_masuk" ADD COLUMN "actorType" TEXT;',
+    );
+    expect(fixPartialSyncSchema).toContain(
+      "WHERE table_name = 'barang_masuk' AND column_name = 'actorId'",
+    );
+    expect(fixPartialSyncSchema).toContain(
+      'ALTER TABLE "barang_masuk" ADD COLUMN "actorId" TEXT;',
+    );
+    expect(fixPartialSyncSchema).toContain(
+      "WHERE table_name = 'barang_keluar' AND column_name = 'actorType'",
+    );
+    expect(fixPartialSyncSchema).toContain(
+      'ALTER TABLE "barang_keluar" ADD COLUMN "actorType" TEXT;',
+    );
+    expect(fixPartialSyncSchema).toContain(
+      "WHERE table_name = 'barang_keluar' AND column_name = 'actorId'",
+    );
+    expect(fixPartialSyncSchema).toContain(
+      'ALTER TABLE "barang_keluar" ADD COLUMN "actorId" TEXT;',
+    );
+  });
+
+  it("ships a dedicated migration for inventory actor columns", () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        "prisma",
+        "migrations",
+        "20260420054500_add_inventory_actor_columns",
+        "migration.sql",
+      ),
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      'ALTER TABLE "barang_masuk" ADD COLUMN "actorType" TEXT;',
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "barang_masuk" ADD COLUMN "actorId" TEXT;',
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "barang_keluar" ADD COLUMN "actorType" TEXT;',
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "barang_keluar" ADD COLUMN "actorId" TEXT;',
+    );
+  });
+
   it("suppresses PostgreSQL NOTICE spam only for idempotent SQL replays", () => {
     const migrationJob = readFileSync(
       resolve(process.cwd(), "k8s", "migration-job.yaml"),

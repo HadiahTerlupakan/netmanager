@@ -1,8 +1,15 @@
-"use client"
-import Image from 'next/image';
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useState, useEffect, useMemo, createContext, useContext, useCallback } from 'react'
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  createContext,
+  useContext,
+  useCallback,
+} from "react";
 import {
   HiOutlineChartBar,
   HiOutlineGlobeAlt,
@@ -68,23 +75,29 @@ import {
   HiOutlineArrowsRightLeft,
   HiOutlineNoSymbol,
   HiOutlineBanknotes,
-} from 'react-icons/hi2'
-import { useSettings } from '@/hooks/useSettings'
-import { usePermission } from '@/hooks/use-permission'
-import { useSession, signOut } from 'next-auth/react'
+} from "react-icons/hi2";
+import { useSettings } from "@/hooks/useSettings";
+import {
+  DEFAULT_PUBLIC_APP_LOGO_URL,
+  DEFAULT_PUBLIC_APP_NAME,
+  usePublicBranding,
+} from "@/hooks/usePublicBranding";
+import { usePermission } from "@/hooks/use-permission";
+import { useSession, signOut } from "next-auth/react";
+import { SidebarBrandingLogo } from "@/components/layout/SidebarBrandingLogo";
 
 // Context for sidebar state
 const SidebarContext = createContext<{
-  isOpen: boolean
-  setIsOpen: (open: boolean) => void
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
 }>({
   isOpen: false,
-  setIsOpen: () => { },
-})
+  setIsOpen: () => {},
+});
 
-export const useSidebar = () => useContext(SidebarContext)
+export const useSidebar = () => useContext(SidebarContext);
 
-import { ADMIN_MENU_CONFIG, type MenuConfig } from '@/lib/menu-config'
+import { ADMIN_MENU_CONFIG, type MenuConfig } from "@/lib/menu-config";
 
 // Icon Mapping
 const IconMap: Record<string, React.ElementType> = {
@@ -152,150 +165,161 @@ const IconMap: Record<string, React.ElementType> = {
   HiOutlineArrowsRightLeft,
   HiOutlineNoSymbol,
   HiOutlineBanknotes,
-}
+};
 
 const getIcon = (name: string | undefined, className: string) => {
   if (!name || !IconMap[name]) return null;
   const Icon = IconMap[name];
   return <Icon className={className} />;
-}
+};
 
 export default function Sidebar() {
-  const pathname = usePathname()
-  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set())
-  const { settings } = useSettings()
-  const { data: session } = useSession()
-  const appName = settings?.namaAplikasi || 'NetManager'
-  const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname();
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+  const { settings } = useSettings();
+  const { branding } = usePublicBranding();
+  const { data: session } = useSession();
+  const appName =
+    branding?.namaAplikasi || settings?.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;
+  const logoUrl = branding?.appLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
+  const [isOpen, setIsOpen] = useState(false);
 
-  const { hasPermission } = usePermission()
+  const { hasPermission } = usePermission();
 
-    // Filter menu items based on permissions
-    const filterNavItem = useCallback((item: MenuConfig): MenuConfig | null => {
+  // Filter menu items based on permissions
+  const filterNavItem = useCallback(
+    (item: MenuConfig): MenuConfig | null => {
       if (!item) return null;
 
       // HIDE RADIUS menu if mode is MIKROTIK_API
-      if (settings?.pppConnectionMode === 'MIKROTIK_API') {
-        const isRadiusMenu = 
-          item.code === 'NETWORK.RADIUS' || 
-          item.code === 'INTEGRATION.MIXRADIUS' || 
-          item.code.startsWith('INTEGRATION.MIXRADIUS_');
-        
+      if (settings?.pppConnectionMode === "MIKROTIK_API") {
+        const isRadiusMenu =
+          item.code === "NETWORK.RADIUS" ||
+          item.code === "INTEGRATION.MIXRADIUS" ||
+          item.code.startsWith("INTEGRATION.MIXRADIUS_");
+
         if (isRadiusMenu) {
-          return null
+          return null;
         }
       }
 
-      let filteredChildren: MenuConfig[] | undefined = undefined
+      let filteredChildren: MenuConfig[] | undefined = undefined;
 
       if (item.children && Array.isArray(item.children)) {
         filteredChildren = item.children
           .map(filterNavItem)
-          .filter((child): child is MenuConfig => child !== null)
+          .filter((child): child is MenuConfig => child !== null);
       }
 
       // Special case: If INTEGRATION menu has no children left (because all were RADIUS), hide the parent too
-      if (item.code === 'INTEGRATION' && (!filteredChildren || filteredChildren.length === 0)) {
-        return null
+      if (
+        item.code === "INTEGRATION" &&
+        (!filteredChildren || filteredChildren.length === 0)
+      ) {
+        return null;
       }
 
       // Use the last part of the code (e.g. "NETWORK.MIKROTIK" -> "MIKROTIK")
       const permissionResource = item.code
-        ? (item.code.includes('.') ? item.code.split('.').pop()! : item.code)
-        : ''
+        ? item.code.includes(".")
+          ? item.code.split(".").pop()!
+          : item.code
+        : "";
 
       const hasItemPermission = permissionResource
         ? hasPermission(`${permissionResource.toLowerCase()}:read`)
-        : true
+        : true;
 
-      // If it has children, and some are visible, we should show this parent 
-      // EVEN IF the parent permission itself is false. 
+      // If it has children, and some are visible, we should show this parent
+      // EVEN IF the parent permission itself is false.
       // (This allows "NETWORK.MIKROTIK" access to implicitly show "Network" menu)
       if (filteredChildren && filteredChildren.length > 0) {
-        return { ...item, children: filteredChildren }
+        return { ...item, children: filteredChildren };
       }
 
       // If no children (or no visible children), strictly respect the item's own permission
       if (!hasItemPermission) {
-        return null
+        return null;
       }
 
-      return { ...item, children: filteredChildren }
-    }, [hasPermission, settings?.pppConnectionMode])
+      return { ...item, children: filteredChildren };
+    },
+    [hasPermission, settings?.pppConnectionMode],
+  );
 
-    const allNavItems = ADMIN_MENU_CONFIG
+  const allNavItems = ADMIN_MENU_CONFIG;
 
-    const navItems = useMemo(() => {
-      if (!allNavItems || !Array.isArray(allNavItems)) return [];
-      return allNavItems
-        .map(filterNavItem)
-        .filter((item): item is MenuConfig => item !== null)
-    }, [allNavItems, filterNavItem])
+  const navItems = useMemo(() => {
+    if (!allNavItems || !Array.isArray(allNavItems)) return [];
+    return allNavItems
+      .map(filterNavItem)
+      .filter((item): item is MenuConfig => item !== null);
+  }, [allNavItems, filterNavItem]);
 
-    // Auto-expand menu
-    useEffect(() => {
-      const menusToExpand: string[] = []
-      navItems?.forEach((item) => {
-        if (item.children) {
-          // Parent is active if any child is active
-          const hasActiveChild = item.children.some(
-            (child) => {
-              const childPath = child.path || ''
-              if (child.exact) {
-                return pathname === childPath
-              }
-              return pathname === childPath || pathname?.startsWith(childPath + '/')
-            }
-          )
-          // Use item.code as key for expansion tracking since path might be null for parents
-          if (hasActiveChild && !expandedMenus.has(item.code)) {
-            menusToExpand.push(item.code)
+  // Auto-expand menu
+  useEffect(() => {
+    const menusToExpand: string[] = [];
+    navItems?.forEach((item) => {
+      if (item.children) {
+        // Parent is active if any child is active
+        const hasActiveChild = item.children.some((child) => {
+          const childPath = child.path || "";
+          if (child.exact) {
+            return pathname === childPath;
           }
+          return (
+            pathname === childPath || pathname?.startsWith(childPath + "/")
+          );
+        });
+        // Use item.code as key for expansion tracking since path might be null for parents
+        if (hasActiveChild && !expandedMenus.has(item.code)) {
+          menusToExpand.push(item.code);
         }
-      })
-
-      if (menusToExpand.length > 0) {
-        setExpandedMenus((prev) => {
-          const newSet = new Set(prev)
-          menusToExpand.forEach(code => newSet.add(code))
-          return newSet
-        })
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname])
+    });
+
+    if (menusToExpand.length > 0) {
+      setExpandedMenus((prev) => {
+        const newSet = new Set(prev);
+        menusToExpand.forEach((code) => newSet.add(code));
+        return newSet;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const toggleMenu = (code: string) => {
     setExpandedMenus((prev) => {
-      const newSet = new Set(prev)
+      const newSet = new Set(prev);
       if (newSet.has(code)) {
-        newSet.delete(code)
+        newSet.delete(code);
       } else {
-        newSet.add(code)
+        newSet.add(code);
       }
-      return newSet
-    })
-  }
+      return newSet;
+    });
+  };
 
-  const isMenuExpanded = (code: string) => expandedMenus.has(code)
+  const isMenuExpanded = (code: string) => expandedMenus.has(code);
 
   // Mobile toggle integration
   useEffect(() => {
-    const win = window as Window & { toggleAdminSidebar?: () => void }
-    win.toggleAdminSidebar = () => setIsOpen(!isOpen)
+    const win = window as Window & { toggleAdminSidebar?: () => void };
+    win.toggleAdminSidebar = () => setIsOpen(!isOpen);
     return () => {
-      delete win.toggleAdminSidebar
-    }
-  }, [isOpen])
+      delete win.toggleAdminSidebar;
+    };
+  }, [isOpen]);
 
   // Close on route change (mobile)
   useEffect(() => {
     const handleRouteChange = () => {
       if (window.innerWidth < 768) {
-        setIsOpen(false)
+        setIsOpen(false);
       }
-    }
-    handleRouteChange()
-  }, [pathname])
+    };
+    handleRouteChange();
+  }, [pathname]);
 
   return (
     <SidebarContext.Provider value={{ isOpen, setIsOpen }}>
@@ -309,8 +333,9 @@ export default function Sidebar() {
         )}
 
         <aside
-          className={`fixed md:sticky top-0 left-0 h-screen w-72 shrink-0 bg-white dark:bg-gray-950 border-r border-gray-100 dark:border-gray-800 z-50 transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-            } shadow-2xl md:shadow-none`}
+          className={`fixed md:sticky top-0 left-0 h-screen w-72 shrink-0 bg-white dark:bg-gray-950 border-r border-gray-100 dark:border-gray-800 z-50 transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) flex flex-col ${
+            isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          } shadow-2xl md:shadow-none`}
         >
           {/* Modern Logo Section */}
           <div className="h-24 flex items-center px-8 relative overflow-hidden shrink-0">
@@ -319,21 +344,25 @@ export default function Sidebar() {
             </div>
 
             <div className="relative z-10 flex items-center gap-3 w-full">
-              <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white transform rotate-3 hover:rotate-6 transition-transform duration-300">
-                <span className="font-bold text-xl">{appName.charAt(0)}</span>
-              </div>
+              <SidebarBrandingLogo appName={appName} logoUrl={logoUrl} />
               <div className="flex flex-col justify-center overflow-hidden">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight leading-none" title={appName}>
+                <h2
+                  className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight leading-none"
+                  title={appName}
+                >
                   {appName}
                 </h2>
                 <div className="flex flex-col mt-1.5 gap-0.5">
-                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider truncate leading-tight" title={session?.user?.tenantName || ''}>
-                    {session?.user?.tenantName || 'Main Tenant'}
+                  <span
+                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider truncate leading-tight"
+                    title={session?.user?.tenantName || ""}
+                  >
+                    {session?.user?.tenantName || "Main Tenant"}
                   </span>
                   <div className="flex items-center gap-1">
                     <div className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />
                     <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest leading-none">
-                      {session?.user?.role?.replace(/_/g, ' ') || 'User'}
+                      {session?.user?.role?.replace(/_/g, " ") || "User"}
                     </span>
                   </div>
                 </div>
@@ -353,22 +382,30 @@ export default function Sidebar() {
             <div className="space-y-1">
               {navItems?.map((item, index) => {
                 // Render section header if this item starts a new section
-                const prevItem = index > 0 ? navItems[index - 1] : null
-                const showSectionHeader = item.section && item.section !== prevItem?.section
-                const itemPath = item.path || '' // Fallback for parent items
+                const prevItem = index > 0 ? navItems[index - 1] : null;
+                const showSectionHeader =
+                  item.section && item.section !== prevItem?.section;
+                const itemPath = item.path || ""; // Fallback for parent items
                 const isActive = item.exact
                   ? pathname === itemPath
-                  : (itemPath && (pathname === itemPath || pathname?.startsWith(itemPath + '/')))
+                  : itemPath &&
+                    (pathname === itemPath ||
+                      pathname?.startsWith(itemPath + "/"));
 
-                const hasChildren = item.children && item.children.length > 0
-                const isExpanded = hasChildren ? isMenuExpanded(item.code) : false
-                const hasActiveChild = hasChildren && item.children?.some(
-                  (child) => {
-                    const childPath = child.path || ''
-                    if (child.exact) return pathname === childPath
-                    return pathname === childPath || pathname?.startsWith(childPath + '/')
-                  }
-                )
+                const hasChildren = item.children && item.children.length > 0;
+                const isExpanded = hasChildren
+                  ? isMenuExpanded(item.code)
+                  : false;
+                const hasActiveChild =
+                  hasChildren &&
+                  item.children?.some((child) => {
+                    const childPath = child.path || "";
+                    if (child.exact) return pathname === childPath;
+                    return (
+                      pathname === childPath ||
+                      pathname?.startsWith(childPath + "/")
+                    );
+                  });
 
                 // Section header component
                 const SectionHeader = showSectionHeader ? (
@@ -377,7 +414,7 @@ export default function Sidebar() {
                       {item.section}
                     </h3>
                   </div>
-                ) : null
+                ) : null;
 
                 if (hasChildren) {
                   return (
@@ -386,10 +423,11 @@ export default function Sidebar() {
                       <div className="space-y-1 mb-1">
                         <button
                           onClick={() => toggleMenu(item.code)}
-                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${isActive || hasActiveChild
-                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
-                            }`}
+                          className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden ${
+                            isActive || hasActiveChild
+                              ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10"
+                              : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200"
+                          }`}
                         >
                           {/* Active Indicator Line */}
                           {(isActive || hasActiveChild) && (
@@ -397,54 +435,65 @@ export default function Sidebar() {
                           )}
 
                           <div className="flex items-center gap-3.5 z-10">
-                            <span className={`transition-colors duration-200 ${isActive || hasActiveChild ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                            <span
+                              className={`transition-colors duration-200 ${isActive || hasActiveChild ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`}
+                            >
                               {getIcon(item.icon, "w-5 h-5")}
                             </span>
                             <span>{item.name}</span>
                           </div>
                           <HiChevronDown
-                            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180 text-indigo-500' : ''}`}
+                            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ease-in-out ${isExpanded ? "rotate-180 text-indigo-500" : ""}`}
                           />
                         </button>
 
                         <div
-                          className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 translate-y-0' : 'grid-rows-[0fr] opacity-0 -translate-y-2'}`}
+                          className={`grid transition-all duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr] opacity-100 translate-y-0" : "grid-rows-[0fr] opacity-0 -translate-y-2"}`}
                         >
                           <div className="overflow-hidden">
                             <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-6 my-1 pl-3 space-y-1">
                               {item.children?.map((child) => {
-                                const childPath = child.path || '#'
+                                const childPath = child.path || "#";
                                 const isChildActive = child.exact
                                   ? pathname === childPath
-                                  : pathname === childPath || pathname?.startsWith(childPath + '/')
+                                  : pathname === childPath ||
+                                    pathname?.startsWith(childPath + "/");
 
                                 return (
                                   <Link
                                     key={childPath}
                                     href={childPath}
-                                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group/child ${isChildActive
-                                      ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
-                                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/40'
-                                      }`}
+                                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 group/child ${
+                                      isChildActive
+                                        ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20"
+                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+                                    }`}
                                   >
                                     {child.icon ? (
-                                      <span className={`transition-colors duration-200 ${isChildActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                                      <span
+                                        className={`transition-colors duration-200 ${isChildActive ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`}
+                                      >
                                         {getIcon(child.icon, "w-4 h-4")}
                                       </span>
                                     ) : (
-                                      <span className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${isChildActive ? 'bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : 'bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400'
-                                        }`} />
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                                          isChildActive
+                                            ? "bg-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30"
+                                            : "bg-gray-300 dark:bg-gray-600 group-hover/child:bg-gray-400"
+                                        }`}
+                                      />
                                     )}
                                     <span>{child.name}</span>
                                   </Link>
-                                )
+                                );
                               })}
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  )
+                  );
                 }
 
                 return (
@@ -452,23 +501,26 @@ export default function Sidebar() {
                     {SectionHeader}
                     <Link
                       href={itemPath}
-                      className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${isActive
-                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200'
-                        }`}
+                      className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative overflow-hidden mb-1 ${
+                        isActive
+                          ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/10 shadow-sm shadow-indigo-100/50 dark:shadow-none"
+                          : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200"
+                      }`}
                     >
                       {/* Active Indicator Line */}
                       {isActive && (
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-500 rounded-r-full" />
                       )}
 
-                      <div className={`transition-colors duration-200 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'}`}>
+                      <div
+                        className={`transition-colors duration-200 ${isActive ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300"}`}
+                      >
                         {getIcon(item.icon, "w-5 h-5")}
                       </div>
                       <span>{item.name}</span>
                     </Link>
                   </div>
-                )
+                );
               })}
             </div>
           </nav>
@@ -478,19 +530,25 @@ export default function Sidebar() {
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-100 to-violet-100 dark:from-indigo-900 dark:to-violet-900 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm shrink-0 relative overflow-hidden">
                 {session?.user?.image ? (
-                  <Image width={40} height={40} src={session.user.image} alt={session.user.name || 'User'} className="object-cover" />
+                  <Image
+                    width={40}
+                    height={40}
+                    src={session.user.image}
+                    alt={session.user.name || "User"}
+                    className="object-cover"
+                  />
                 ) : (
                   <span className="text-lg font-bold text-indigo-600 dark:text-indigo-300">
-                    {(session?.user?.name || 'U').charAt(0).toUpperCase()}
+                    {(session?.user?.name || "U").charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                  {session?.user?.name || 'User'}
+                  {session?.user?.name || "User"}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {session?.user?.email || 'admin@example.com'}
+                  {session?.user?.email || "admin@example.com"}
                 </p>
               </div>
               <button
@@ -505,5 +563,5 @@ export default function Sidebar() {
         </aside>
       </>
     </SidebarContext.Provider>
-  )
+  );
 }
