@@ -1,6 +1,7 @@
 import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { firebaseRealtimeService } from "@/lib/realtime";
+
 import type {
   EventJobData,
   NotificationJobData,
@@ -548,7 +549,20 @@ export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
 
   const repository = new OvertimeRepository();
   const startupTime = new Date();
-  const schedules = await repository.findSchedulesForRehydration(startupTime);
+
+  let schedules;
+  try {
+    schedules = await repository.findSchedulesForRehydration(startupTime);
+  } catch (error) {
+    if (isMissingOvertimeAutoCheckoutScheduleTable(error)) {
+      console.warn(
+        "[EventBus] Skipping overtime auto checkout rehydration because database migration is pending",
+      );
+      return;
+    }
+
+    throw error;
+  }
 
   for (const schedule of schedules) {
     const jobId = createOvertimeAutoCheckoutJobId(
@@ -588,6 +602,13 @@ export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
 
     await repository.attachAutoCheckoutJobId(schedule.overtimeId, jobId);
   }
+}
+
+function isMissingOvertimeAutoCheckoutScheduleTable(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error as Error & { code?: string }).code === "P2021"
+  );
 }
 
 // ============================================

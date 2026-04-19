@@ -152,6 +152,18 @@ describe("overtime auto checkout worker startup", () => {
     );
   });
 
+  it("skips rehydration when overtime auto checkout table is not migrated yet", async () => {
+    prismaMock.overtimeAutoCheckoutSchedule.findMany.mockRejectedValueOnce(
+      Object.assign(new Error("missing table"), { code: "P2021" }),
+    );
+
+    const { rehydrateOvertimeAutoCheckoutJobs } =
+      await import("@/lib/event-bus/workers");
+
+    await expect(rehydrateOvertimeAutoCheckoutJobs()).resolves.toBeUndefined();
+    expect(mockFns.addOvertimeAutoCheckoutJob).not.toHaveBeenCalled();
+  });
+
   it("processes overtime auto checkout jobs through the dedicated worker", async () => {
     const { startWorkers } = await import("@/lib/event-bus/workers");
     const { QUEUE_NAMES } = await import("@/lib/event-bus/types");
