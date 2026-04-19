@@ -6,7 +6,6 @@ import {
   beforeCustomerDelete,
 } from "@/lib/hooks/radius-sync-hooks";
 import { prisma } from "@/modules/database";
-import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
 import { canAccessSite } from "@/modules/roles";
 
 export class PelangganAdminMutationError extends Error {
@@ -196,6 +195,7 @@ export class PelangganAdminMutationService {
       where: getTenantScopedWhereById(session, id),
       select: {
         id: true,
+        username: true,
         password: true,
         passwordHash: true,
         hargaPaketId: true,
@@ -262,6 +262,8 @@ export class PelangganAdminMutationService {
       statusChanged: existingPelanggan.status !== pelanggan.status,
       oldStatus: existingStatus ?? existingPelanggan.status,
       newStatus: pelanggan.status,
+      oldUsername: existingPelanggan.username,
+      newUsername: pelanggan.username,
       packageChanged:
         existingPelanggan.hargaPaketId !== nextHargaPaketId ||
         existingPelanggan.tipe !== nextTipe,
@@ -270,6 +272,8 @@ export class PelangganAdminMutationService {
     });
 
     if (normalizedData.invoiceAction === "VOID_AND_CREATE_NEW") {
+      const { AutomaticBillingService } =
+        await import("@/modules/finance/services/AutomaticBillingService");
       await AutomaticBillingService.generateImmediateInvoice(
         pelanggan.id,
         false,
@@ -303,7 +307,17 @@ export class PelangganAdminMutationService {
       throw new PelangganAdminMutationError("Akses ditolak", "FORBIDDEN");
     }
 
-    await beforeCustomerDelete(prisma, pelanggan.username);
+    const deleteSyncResult = await beforeCustomerDelete(
+      prisma,
+      pelanggan.username,
+    );
+    if (!deleteSyncResult.success) {
+      throw new PelangganAdminMutationError(
+        deleteSyncResult.error ?? "Gagal menghapus pelanggan dari RADIUS",
+        "BAD_REQUEST",
+      );
+    }
+
     await prisma.pelanggan.delete({ where: { id } });
 
     return {

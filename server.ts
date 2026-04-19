@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "next/dist/server/node-environment-baseline";
 
 // Flag to indicate we are running in a custom server context (not Next.js App Router)
 // This helps prevent AsyncLocalStorage crashes in tenant detection

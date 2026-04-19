@@ -91,6 +91,13 @@ export class RadiusSyncService {
     return await this.radiusRepo.syncAllActiveCustomers();
   }
 
+  async deleteRadiusUserByUsername(
+    username: string,
+    tenantId: string,
+  ): Promise<void> {
+    await this.radiusRepo.deleteRadiusUser(username, tenantId);
+  }
+
   /**
    * Handle customer status change
    */

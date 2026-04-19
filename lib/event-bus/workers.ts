@@ -1,6 +1,7 @@
 import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { firebaseRealtimeService } from "@/lib/realtime";
+import { getPelangganService } from "@/modules/pelanggan";
 
 import type {
   EventJobData,
@@ -99,11 +100,10 @@ function registerDefaultHandlers(): void {
 
     // Activate customer in main DB when invoice is paid
     try {
-      const { prisma } = await import("@/lib/prisma");
-      await prisma.pelanggan.update({
-        where: { id: payload.pelangganId },
-        data: { status: "AKTIF" },
-      });
+      await getPelangganService().updateStatusPelanggan(
+        payload.pelangganId,
+        "AKTIF",
+      );
       console.log(
         `[Worker] Customer ${payload.pelangganId} activated after payment`,
       );

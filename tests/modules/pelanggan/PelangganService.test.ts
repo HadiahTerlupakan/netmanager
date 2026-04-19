@@ -10,7 +10,10 @@ import {
   PelangganAdminQueryService,
 } from "@/modules/pelanggan";
 import type { Pelanggan, HargaPaket, Status } from "@prisma/client";
-import { afterCustomerUpdate } from "@/lib/hooks/radius-sync-hooks";
+import {
+  afterCustomerUpdate,
+  beforeCustomerDelete,
+} from "@/lib/hooks/radius-sync-hooks";
 import { compare } from "bcryptjs";
 
 // Mock bcryptjs
@@ -23,7 +26,7 @@ vi.mock("bcryptjs", () => ({
 vi.mock("@/lib/hooks/radius-sync-hooks", () => ({
   afterCustomerCreate: vi.fn().mockResolvedValue({ success: true }),
   afterCustomerUpdate: vi.fn().mockResolvedValue({ success: true }),
-  beforeCustomerDelete: vi.fn().mockResolvedValue(undefined),
+  beforeCustomerDelete: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock("@/modules/finance", () => ({
@@ -186,7 +189,11 @@ describe("PelangganService", () => {
     });
 
     it("should delete pelanggan successfully", async () => {
-      const mockPelanggan = { id: "pelanggan-id", nama: "Test" };
+      const mockPelanggan = {
+        id: "pelanggan-id",
+        nama: "Test",
+        username: "testuser",
+      };
       prismaMock.pelanggan.findUnique.mockResolvedValueOnce(
         mockPelanggan as unknown as Pelanggan,
       );
@@ -196,10 +203,34 @@ describe("PelangganService", () => {
 
       const result = await service.deletePelanggan("pelanggan-id");
 
+      expect(vi.mocked(beforeCustomerDelete)).toHaveBeenCalledWith(
+        undefined,
+        "testuser",
+      );
       expect(result.id).toBe("pelanggan-id");
       expect(prismaMock.pelanggan.delete).toHaveBeenCalledWith({
         where: { id: "pelanggan-id" },
       });
+    });
+
+    it("should not delete pelanggan when radius cleanup fails", async () => {
+      const mockPelanggan = {
+        id: "pelanggan-id",
+        nama: "Test",
+        username: "testuser",
+      };
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(
+        mockPelanggan as unknown as Pelanggan,
+      );
+      vi.mocked(beforeCustomerDelete).mockResolvedValueOnce({
+        success: false,
+        error: "radius delete gagal",
+      });
+
+      await expect(service.deletePelanggan("pelanggan-id")).rejects.toThrow(
+        "radius delete gagal",
+      );
+      expect(prismaMock.pelanggan.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -207,12 +238,14 @@ describe("PelangganService", () => {
     it("should pass accurate change flags when values stay the same", async () => {
       const existing = {
         id: "pelanggan-id",
+        username: "testuser",
         password: "pppoe123",
         passwordHash: "existing_hash",
         hargaPaketId: "paket-001",
         tipe: "REGULER",
         status: "AKTIF",
         autoIsolir: true,
+        siteId: "site-a",
       };
 
       prismaMock.pelanggan.findFirst.mockResolvedValueOnce(
@@ -262,12 +295,14 @@ describe("PelangganService", () => {
     it("should mark passwordChanged when portal password changes", async () => {
       const existing = {
         id: "pelanggan-id",
+        username: "testuser",
         password: "pppoe123",
         passwordHash: "existing_hash",
         hargaPaketId: "paket-001",
         tipe: "REGULER",
         status: "AKTIF",
         autoIsolir: true,
+        siteId: "site-a",
       };
 
       const compareMock = compare as unknown as ReturnType<
@@ -311,6 +346,149 @@ describe("PelangganService", () => {
           passwordChanged: true,
         }),
       );
+    });
+
+    it("should pass old username when PPPoE username changes", async () => {
+      const existing = {
+        id: "pelanggan-id",
+        username: "olduser",
+        password: "pppoe123",
+        passwordHash: "existing_hash",
+        hargaPaketId: "paket-001",
+        tipe: "REGULER",
+        status: "AKTIF",
+        autoIsolir: true,
+        siteId: "site-a",
+      };
+
+      prismaMock.pelanggan.findFirst.mockResolvedValueOnce(
+        existing as unknown as Pelanggan,
+      );
+      prismaMock.pelanggan.update.mockResolvedValueOnce({
+        ...existing,
+        username: "newuser",
+      } as unknown as Pelanggan);
+
+      await mutationService.updatePppById({
+        id: "pelanggan-id",
+        existingStatus: "AKTIF" as Status,
+        session: { user: { role: "SUPER_ADMIN" } },
+        data: {
+          idPelanggan: "12345678",
+          nama: "Test Customer",
+          username: "newuser",
+          password: "pppoe123",
+          hargaPaketId: "paket-001",
+          tipe: "REGULER",
+          tanggalAktif: new Date("2024-01-01"),
+          jatuhTempo: new Date("2024-02-01"),
+          status: "AKTIF",
+          autoIsolir: true,
+          email: "test@example.com",
+          siteId: "site-a",
+          invoiceAction: null,
+          passwordLogin: null,
+        },
+      });
+
+      expect(vi.mocked(afterCustomerUpdate)).toHaveBeenCalledWith(
+        prismaMock,
+        "pelanggan-id",
+        expect.objectContaining({
+          oldUsername: "olduser",
+          newUsername: "newuser",
+        }),
+      );
+    });
+  });
+
+  describe("updateStatusPelanggan", () => {
+    it("should update status and trigger radius sync hook", async () => {
+      const existing = {
+        id: "pelanggan-id",
+        username: "testuser",
+        password: "pppoe123",
+        passwordHash: "existing_hash",
+        hargaPaketId: "paket-001",
+        tipe: "REGULER",
+        status: "ISOLIR",
+        autoIsolir: true,
+        siteId: "site-a",
+      };
+
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(
+        existing as unknown as Pelanggan,
+      );
+      prismaMock.pelanggan.update.mockResolvedValueOnce({
+        ...existing,
+        status: "AKTIF",
+      } as unknown as Pelanggan);
+
+      const result = await service.updateStatusPelanggan(
+        "pelanggan-id",
+        "AKTIF" as Status,
+      );
+
+      expect(result.status).toBe("AKTIF");
+      expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
+        where: { id: "pelanggan-id" },
+        data: { status: "AKTIF" },
+      });
+      expect(vi.mocked(afterCustomerUpdate)).toHaveBeenCalledWith(
+        undefined,
+        "pelanggan-id",
+        expect.objectContaining({
+          statusChanged: true,
+          oldStatus: "ISOLIR",
+          newStatus: "AKTIF",
+        }),
+      );
+    });
+
+    it("should persist failed sync status and still return updated pelanggan when radius sync fails", async () => {
+      const existing = {
+        id: "pelanggan-id",
+        username: "testuser",
+        password: "pppoe123",
+        passwordHash: "existing_hash",
+        hargaPaketId: "paket-001",
+        tipe: "REGULER",
+        status: "ISOLIR",
+        autoIsolir: true,
+        siteId: "site-a",
+      };
+
+      prismaMock.pelanggan.findUnique.mockResolvedValueOnce(
+        existing as unknown as Pelanggan,
+      );
+      prismaMock.pelanggan.update.mockResolvedValueOnce({
+        ...existing,
+        status: "AKTIF",
+      } as unknown as Pelanggan);
+      vi.mocked(afterCustomerUpdate).mockResolvedValueOnce({
+        success: false,
+        error: "radius sync gagal",
+      });
+
+      const result = await service.updateStatusPelanggan(
+        "pelanggan-id",
+        "AKTIF" as Status,
+      );
+
+      expect(result.status).toBe("AKTIF");
+      expect(prismaMock.pelanggan.update).toHaveBeenNthCalledWith(1, {
+        where: { id: "pelanggan-id" },
+        data: { status: "AKTIF" },
+      });
+      expect(prismaMock.pelanggan.update).toHaveBeenNthCalledWith(2, {
+        where: { id: "pelanggan-id" },
+        data: {
+          syncStatus: "FAILED",
+          syncError: "radius sync gagal",
+          syncRetryCount: { increment: 1 },
+          updatedAt: expect.any(Date),
+        },
+      });
     });
   });
 

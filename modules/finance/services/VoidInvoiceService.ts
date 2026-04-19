@@ -1,5 +1,8 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { PelangganBillingBridgeService } from "@/modules/pelanggan";
+import {
+  getPelangganService,
+  PelangganBillingBridgeService,
+} from "@/modules/pelanggan";
 import { logger } from "@/lib/logger";
 import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 
@@ -69,18 +72,17 @@ export class VoidInvoiceService {
       newJatuhTempo.setMonth(newJatuhTempo.getMonth() - 1);
 
       const statusChanged = pelanggan.status === "AKTIF";
-      const newStatus = statusChanged ? "ISOLIR" : pelanggan.status;
 
       await this.pelangganBridge.update(pelanggan.id, {
         jatuhTempo: newJatuhTempo,
-        status: newStatus,
       });
 
       if (statusChanged) {
         try {
-          const { RadiusSyncService } = await import("@/modules/network");
-          const radiusService = new RadiusSyncService();
-          await radiusService.handleStatusChange(pelanggan.id, "ISOLIR");
+          await getPelangganService().updateStatusPelanggan(
+            pelanggan.id,
+            "ISOLIR",
+          );
         } catch (radiusErr) {
           console.error(
             "[VoidInvoiceService] Failed to sync to RADIUS:",
