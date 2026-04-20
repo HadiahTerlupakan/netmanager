@@ -26,8 +26,8 @@ describe("AttendanceClient status detail filter consumer", () => {
     expect(content).toContain(
       '<option value="ABSENT">Tidak Hadir (ABSENT)</option>',
     );
-    expect(content).toContain(
-      '<option value="NO_CHECKOUT">Lupa Absen Pulang (NO_CHECKOUT)</option>',
+    expect(content).toMatch(
+      /<option value="NO_CHECKOUT">\s*Lupa Absen Pulang \(NO_CHECKOUT\)\s*<\/option>/,
     );
     expect(content).not.toContain("Alpha (ABSENT)");
     expect(content).not.toContain("Tidak Checkout (NO_CHECKOUT)");

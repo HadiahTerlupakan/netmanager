@@ -11,9 +11,11 @@ describe("pwa service worker contract", () => {
     const hookSource = readProjectFile("lib/hooks/usePWA.ts");
 
     expect(hookSource).toContain("const canRegisterServiceWorker =");
-    expect(hookSource).toContain("process.env.NODE_ENV !== 'development'");
+    expect(hookSource).toMatch(
+      /process\.env\.NODE_ENV !== ['\"]development['\"]/,
+    );
     expect(hookSource).toContain("if (canRegisterServiceWorker)");
-    expect(hookSource).toContain(".register('/sw.js')");
+    expect(hookSource).toMatch(/\.register\(['\"]\/sw\.js['\"]\)/);
     expect(hookSource).not.toContain(
       "if ('serviceWorker' in navigator && !isLoginPage)",
     );
