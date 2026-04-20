@@ -24,7 +24,6 @@ import {
   LEGACY_TO_REALTIME_EVENT,
   buildPresencePath,
   buildScopeChannel,
-  buildScopeConsumerPath,
   getEventSubscriptionNames,
 } from "@/lib/realtime/channel-map";
 import { getRealtimeClientServices } from "@/lib/realtime/client";
@@ -260,49 +259,6 @@ export function RealtimeProvider({
       void set(presenceRef, createSnapshot(false)).catch(noop);
     };
   }, [services.realtimeDatabase, status, user?.id, reconnectVersion]);
-
-  useEffect(() => {
-    if (status !== "authenticated" || !user?.id || !services.realtimeDatabase) {
-      return noop;
-    }
-
-    const adminScopes = scopes.filter(
-      (scope) =>
-        scope.kind === "admin" &&
-        (scope.id === "mikrotik" || scope.id.startsWith("radius:")),
-    );
-
-    if (adminScopes.length === 0) {
-      return noop;
-    }
-
-    const uniqueConsumerPaths = Array.from(
-      new Set(
-        adminScopes.map((scope) =>
-          buildScopeConsumerPath(scope, user.id as string),
-        ),
-      ),
-    );
-    const timestamp = new Date().toISOString();
-
-    uniqueConsumerPaths.forEach((path) => {
-      const consumerRef = ref(services.realtimeDatabase, path);
-      const snapshot = {
-        userId: user.id as string,
-        source: "web" as const,
-        updatedAt: timestamp,
-      };
-
-      void onDisconnect(consumerRef).remove().catch(noop);
-      void set(consumerRef, snapshot).catch(noop);
-    });
-
-    return () => {
-      uniqueConsumerPaths.forEach((path) => {
-        void set(ref(services.realtimeDatabase, path), null).catch(noop);
-      });
-    };
-  }, [services.realtimeDatabase, scopes, status, user?.id, reconnectVersion]);
 
   const value = useMemo<RealtimeContextValue>(
     () => ({

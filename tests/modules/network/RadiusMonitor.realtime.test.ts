@@ -42,7 +42,7 @@ describe("RadiusMonitor realtime publishing", () => {
     });
   });
 
-  it("skips radius publishes when the tenant scope has no active admin consumers", async () => {
+  it("publishes radius updates even when no admin consumer records are present", async () => {
     mockFns.hasActiveScopeConsumers.mockResolvedValue(false);
 
     const { RadiusMonitor } =
@@ -51,11 +51,17 @@ describe("RadiusMonitor realtime publishing", () => {
 
     await monitor["poll"]();
 
-    expect(mockFns.hasActiveScopeConsumers).toHaveBeenCalledWith({
-      kind: "admin",
-      id: "radius:tenant-1",
+    expect(mockFns.hasActiveScopeConsumers).not.toHaveBeenCalled();
+    expect(mockFns.publish).toHaveBeenNthCalledWith(1, {
+      type: "radius.stats",
+      scope: { kind: "admin", id: "radius:tenant-1" },
+      payload: { totalUsers: 12 },
     });
-    expect(mockFns.publish).not.toHaveBeenCalled();
+    expect(mockFns.publish).toHaveBeenNthCalledWith(2, {
+      type: "radius.sessions",
+      scope: { kind: "admin", id: "radius:tenant-1" },
+      payload: { sessions: [{ username: "user-1" }], total: 1 },
+    });
   });
 
   it("publishes radius stats and sessions to the tenant admin Firebase stream", async () => {

@@ -91,6 +91,22 @@ describe("firebase browser config", () => {
     });
   });
 
+  it("reports no Firebase browser fallback fields when env values are explicit", async () => {
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "env-api-key";
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "env-auth-domain";
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "env-project-id";
+    process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL =
+      "https://env-project-default-rtdb.firebaseio.com";
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "env-storage-bucket";
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "env-sender-id";
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID = "env-app-id";
+
+    const { getFirebaseBrowserFallbackFields } =
+      await import("@/lib/firebase/browserConfig");
+
+    expect(getFirebaseBrowserFallbackFields()).toEqual([]);
+  });
+
   it("warns when browser runtime in production uses bundled firebase defaults", async () => {
     vi.stubGlobal("window", { Notification: {} });
     process.env = {

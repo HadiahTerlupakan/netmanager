@@ -1,12 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { HiBell, HiBellSlash, HiXMark } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { useFCM } from "@/hooks/useFCM";
 
 interface PushNotificationManagerProps {
   className?: string;
+}
+
+const PUSH_NOTIFICATION_DISMISSED_KEY = "push-notification-dismissed";
+const PUSH_NOTIFICATION_DISMISSED_EVENT = "push-notification-dismissed-change";
+
+function getPushNotificationDismissedSnapshot() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return localStorage.getItem(PUSH_NOTIFICATION_DISMISSED_KEY) === "true";
+}
+
+function subscribeToPushNotificationDismissed(
+  callback: () => void,
+): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  window.addEventListener("storage", callback);
+  window.addEventListener(PUSH_NOTIFICATION_DISMISSED_EVENT, callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(PUSH_NOTIFICATION_DISMISSED_EVENT, callback);
+  };
 }
 
 export function PushNotificationManager({
@@ -19,19 +46,22 @@ export function PushNotificationManager({
     isRegistered,
     enableNotifications,
   } = useFCM();
-  const [isDismissed, setIsDismissed] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
+  const isDismissed = useSyncExternalStore(
+    subscribeToPushNotificationDismissed,
+    getPushNotificationDismissedSnapshot,
+    () => false,
+  );
 
-    return localStorage.getItem("push-notification-dismissed") === "true";
-  });
   const showBanner =
     isSupported && !isRegistered && permission === "default" && !isDismissed;
 
   const dismissBanner = () => {
-    setIsDismissed(true);
-    localStorage.setItem("push-notification-dismissed", "true");
+    try {
+      localStorage.setItem(PUSH_NOTIFICATION_DISMISSED_KEY, "true");
+      window.dispatchEvent(new Event(PUSH_NOTIFICATION_DISMISSED_EVENT));
+    } catch {
+      return;
+    }
   };
 
   if (!isSupported) {

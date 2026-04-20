@@ -63,14 +63,6 @@ class MikroTikMonitor {
   private async checkStatus() {
     try {
       const scope = { kind: "admin", id: "mikrotik" } as const;
-      const hasActiveConsumers =
-        await firebaseRealtimeService.hasActiveScopeConsumers(scope);
-
-      if (!hasActiveConsumers) {
-        this.errorCount = 0;
-        return;
-      }
-
       const updatedCount = await checkAllMikroTikRouterStatus();
 
       const routerRepository = new MikroTikRouterRepository();

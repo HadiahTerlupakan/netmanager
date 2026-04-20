@@ -41,7 +41,7 @@ describe("MikroTikMonitor realtime publishing", () => {
     mockFns.getStatistics.mockResolvedValue({ onlineRouters: 3 });
   });
 
-  it("skips mikrotik publishes when the admin mikrotik scope has no active consumers", async () => {
+  it("publishes mikrotik updates even when no admin consumer records are present", async () => {
     mockFns.hasActiveScopeConsumers.mockResolvedValue(false);
 
     const { mikroTikMonitor } =
@@ -49,11 +49,20 @@ describe("MikroTikMonitor realtime publishing", () => {
 
     await mikroTikMonitor["checkStatus"]();
 
-    expect(mockFns.hasActiveScopeConsumers).toHaveBeenCalledWith({
-      kind: "admin",
-      id: "mikrotik",
+    expect(mockFns.hasActiveScopeConsumers).not.toHaveBeenCalled();
+    expect(mockFns.publish).toHaveBeenNthCalledWith(1, {
+      type: "mikrotik.update",
+      scope: { kind: "admin", id: "mikrotik" },
+      payload: { onlineRouters: 3 },
     });
-    expect(mockFns.publish).not.toHaveBeenCalled();
+    expect(mockFns.publish).toHaveBeenNthCalledWith(2, {
+      type: "mikrotik.update",
+      scope: { kind: "admin", id: "mikrotik" },
+      payload: {
+        timestamp: expect.any(Date),
+        updatedCount: 4,
+      },
+    });
   });
 
   it("publishes tenant stats and the global update event through Firebase", async () => {

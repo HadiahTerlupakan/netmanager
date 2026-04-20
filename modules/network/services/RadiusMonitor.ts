@@ -29,13 +29,6 @@ export class RadiusMonitor extends BaseMonitor {
     for (const tenant of tenants) {
       try {
         const scope = { kind: "admin", id: `radius:${tenant.id}` } as const;
-        const hasActiveConsumers =
-          await firebaseRealtimeService.hasActiveScopeConsumers(scope);
-
-        if (!hasActiveConsumers) {
-          continue;
-        }
-
         const [stats, recentSessions] = await Promise.all([
           this.repository.getDashboardStats(tenant.id),
           this.repository.getRecentSessions(tenant.id, {

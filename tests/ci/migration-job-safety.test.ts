@@ -247,6 +247,29 @@ describe("migration job safety", () => {
     );
   });
 
+  it("ships an idempotent dedicated migration for system log actor columns", () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        "prisma",
+        "migrations",
+        "20260420131500_add_systemlog_actor_columns",
+        "migration.sql",
+      ),
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      'ALTER TABLE "SystemLog" ADD COLUMN IF NOT EXISTS "actorType" TEXT;',
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "SystemLog" ADD COLUMN IF NOT EXISTS "actorId" TEXT;',
+    );
+    expect(migration).toContain(
+      'CREATE INDEX IF NOT EXISTS "SystemLog_actorType_actorId_idx" ON "SystemLog"("actorType", "actorId");',
+    );
+  });
+
   it("guards tenant schema replay when legacy push_subscriptions is already removed", () => {
     const migration = readFileSync(
       resolve(
