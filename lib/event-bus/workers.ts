@@ -435,28 +435,6 @@ async function processNotificationJob(
       break;
     }
 
-    case "web_push": {
-      if (!data.subscription) break;
-      try {
-        const { sendPushNotification } =
-          await import("@/modules/notification/services/PushNotificationService");
-        await sendPushNotification(
-          {
-            endpoint: data.subscription.endpoint,
-            keys: {
-              p256dh: data.subscription.p256dh,
-              auth: data.subscription.auth,
-            },
-          },
-          { title: data.title, body: data.body, data: data.data },
-        );
-      } catch (error) {
-        console.error("[Worker] Web push failed:", error);
-        throw error; // Retry
-      }
-      break;
-    }
-
     case "websocket": {
       if (!data.room || !data.event) break;
       try {

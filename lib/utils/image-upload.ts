@@ -172,7 +172,7 @@ async function processAndSaveBuffer(
 
   // 3. Convert to WebP
   const webpBuffer = await imagePipeline
-    .webp({ quality: 85, effort: 6 })
+    .webp({ lossless: true, effort: 6 })
     .toBuffer();
 
   // Check if R2 is enabled

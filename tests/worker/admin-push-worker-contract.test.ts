@@ -28,12 +28,13 @@ describe("admin push worker contract", () => {
     expect(workerSource).not.toContain('event.action === "open"');
   });
 
-  it("keeps push subscription recovery wired", () => {
+  it("removes legacy push subscription recovery wiring", () => {
     const workerSource = readWorkerSource();
 
-    expect(workerSource).toContain(
+    expect(workerSource).not.toContain(
       'self.addEventListener("pushsubscriptionchange"',
     );
-    expect(workerSource).toContain("recoverPushSubscription");
+    expect(workerSource).not.toContain("recoverPushSubscription");
+    expect(workerSource).not.toContain("PUSH_CONFIG");
   });
 });

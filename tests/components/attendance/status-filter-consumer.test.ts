@@ -19,6 +19,18 @@ describe("AttendanceClient status detail filter consumer", () => {
     expect(content).toContain("Tukar Libur");
     expect(content).toContain("Libur Nasional");
     expect(content).toContain("Hari Libur");
+    expect(content).toContain('<option value="ABSENT">Tidak Hadir</option>');
+    expect(content).toContain(
+      '<option value="NO_CHECKOUT">Lupa Absen Pulang</option>',
+    );
+    expect(content).toContain(
+      '<option value="ABSENT">Tidak Hadir (ABSENT)</option>',
+    );
+    expect(content).toContain(
+      '<option value="NO_CHECKOUT">Lupa Absen Pulang (NO_CHECKOUT)</option>',
+    );
+    expect(content).not.toContain("Alpha (ABSENT)");
+    expect(content).not.toContain("Tidak Checkout (NO_CHECKOUT)");
   });
 
   it("trusts backend displayStatus instead of hard-coded 08:00 heuristics for no-checkout labels", () => {

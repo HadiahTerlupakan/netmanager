@@ -107,6 +107,36 @@ describe("resolveAppBranding", () => {
     expect(result.appName).toBe("Tenant Two");
   });
 
+  it("preserves remote logo URL without converting it into a local path", async () => {
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-4",
+      isSuperAdmin: false,
+    });
+
+    vi.mocked(SettingsRepository.findManyByKeys).mockImplementation(
+      async (_keys, tenantId) => {
+        if (tenantId === "tenant-4") {
+          return [
+            {
+              key: "LOGO_APLIKASI",
+              value: "https://cdn.radpro.id/uploads/logos/logo-aplikasi.png",
+              encrypted: false,
+            },
+          ];
+        }
+
+        return [];
+      },
+    );
+
+    const result = await resolveAppBranding();
+
+    expect(result.appLogoUrl).toBe(
+      "https://cdn.radpro.id/uploads/logos/logo-aplikasi.png",
+    );
+    expect(result.source).toBe("tenant");
+  });
+
   it("returns default source and default asset when tenant and global logos are missing", async () => {
     vi.mocked(getTenantIdFromContext).mockResolvedValue({
       tenantId: "tenant-3",

@@ -134,18 +134,13 @@ export interface EventJobData {
 }
 
 export interface NotificationJobData {
-  type: "expo_push" | "web_push" | "websocket";
+  type: "expo_push" | "websocket";
   userId?: string;
   departmentId?: string;
   title: string;
   body: string;
   data?: Record<string, unknown>;
   pushToken?: string;
-  subscription?: {
-    endpoint: string;
-    p256dh: string;
-    auth: string;
-  };
   room?: string;
   event?: string;
 }

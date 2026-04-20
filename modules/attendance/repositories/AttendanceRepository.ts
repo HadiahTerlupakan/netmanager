@@ -762,7 +762,7 @@ export class AttendanceRepository {
           lte: endOfToday,
         },
         status: {
-          not: "ALPHA",
+          notIn: ["ALPHA", "ABSENT"],
         },
         OR: [
           {

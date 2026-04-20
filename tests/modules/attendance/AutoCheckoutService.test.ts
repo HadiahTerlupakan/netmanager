@@ -1,46 +1,63 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { prismaMock } from '../../setup'
-import { AutoCheckoutService } from '@/modules/attendance/services/AutoCheckoutService'
-import { ATTENDANCE_CONSTANTS } from '@/modules/attendance/utils/constants'
+import { prismaMock } from "../../setup";
+import { AutoCheckoutService } from "@/modules/attendance/services/AutoCheckoutService";
+import { ATTENDANCE_CONSTANTS } from "@/modules/attendance/utils/constants";
 
-vi.mock('@/lib/utils/get-timezone', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/utils/get-timezone')>()
+vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/utils/get-timezone")>();
   return {
     ...actual,
-    getTimezone: vi.fn().mockResolvedValue('Asia/Jakarta'),
-  }
-})
+    getTimezone: vi.fn().mockResolvedValue("Asia/Jakarta"),
+  };
+});
 
-describe('AutoCheckoutService semantics', () => {
+describe("AutoCheckoutService semantics", () => {
   beforeEach(() => {
     prismaMock.attendance.findMany.mockResolvedValue([
       {
-        id: 'att-1',
-        checkIn: new Date('2026-03-27T06:37:00.000Z'),
+        id: "att-1",
+        checkIn: new Date("2026-03-27T06:37:00.000Z"),
         checkOut: null,
-        status: 'LATE',
+        status: "LATE",
         notes: null,
         user: {
-          name: 'Ubaidilah',
-          workingHourMode: 'FIXED',
+          name: "Ubaidilah",
+          workingHourMode: "FIXED",
           shift: null,
         },
       },
-    ] as never)
-    prismaMock.attendance.update.mockResolvedValue({ id: 'att-1' } as never)
-  })
+    ] as never);
+    prismaMock.attendance.update.mockResolvedValue({ id: "att-1" } as never);
+  });
 
-  it('writes the canonical auto-checkout note instead of the legacy Mangkir note', async () => {
-    await AutoCheckoutService.runAutoCheckout()
+  it("writes the canonical auto-checkout note instead of the legacy Mangkir note", async () => {
+    await AutoCheckoutService.runAutoCheckout();
 
     expect(prismaMock.attendance.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           notes: ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE,
-          status: 'NO_CHECKOUT',
+          status: "NO_CHECKOUT",
         }),
-      })
-    )
-  })
-})
+      }),
+    );
+  });
+
+  it("queries open sessions by excluding ABSENT placeholders so mangkir rows are not auto-checked out", async () => {
+    prismaMock.attendance.findMany.mockResolvedValueOnce([] as never);
+
+    const updatedCount = await AutoCheckoutService.runAutoCheckout();
+
+    expect(updatedCount).toBe(0);
+    expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { notIn: ["ALPHA", "ABSENT"] },
+        }),
+      }),
+    );
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+});

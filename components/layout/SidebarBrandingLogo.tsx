@@ -22,19 +22,23 @@ export function SidebarBrandingLogo({
 }: SidebarBrandingLogoProps) {
   const monogram = getMonogram(appName);
 
-  return (
-    <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white transform rotate-3 hover:rotate-6 transition-transform duration-300 overflow-hidden">
-      {logoUrl ? (
+  if (logoUrl) {
+    return (
+      <div className="relative h-24 w-24 shrink-0">
         <Image
           src={logoUrl}
           alt={`${appName} logo`}
           fill
-          sizes="40px"
-          className="object-cover"
+          sizes="96px"
+          className="object-contain"
         />
-      ) : (
-        <span className="font-bold text-xl">{monogram}</span>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-violet-500 text-white shadow-sm">
+      <span className="text-3xl font-bold">{monogram}</span>
     </div>
   );
 }

@@ -42,6 +42,8 @@ vi.mock("@/hooks/useSettings", () => ({
 }));
 
 vi.mock("@/hooks/usePublicBranding", () => ({
+  DEFAULT_PUBLIC_APP_NAME: "NetManager",
+  DEFAULT_PUBLIC_APP_LOGO_URL: "/images/logo-sbl.png",
   usePublicBranding: () => mockUsePublicBranding(),
 }));
 
@@ -66,7 +68,9 @@ vi.mock("@/components/layout/SidebarBrandingLogo", () => ({
       data-testid="sidebar-branding-logo"
       data-app-name={appName}
       data-logo-url={logoUrl ?? ""}
-    />
+    >
+      BRAND_LOGO
+    </div>
   ),
 }));
 
@@ -100,10 +104,56 @@ describe("sidebar tenant branding", () => {
     expect(markup).toContain('data-logo-url="/tenant-logo.png"');
   });
 
+  it("centers the admin sidebar branding block with logo above the app name", () => {
+    const markup = renderToStaticMarkup(<Sidebar />);
+
+    expect(markup).toContain(
+      "relative z-10 flex flex-col items-center justify-center gap-3",
+    );
+    expect(markup).toContain("text-center");
+    expect(markup).toContain(
+      'BRAND_LOGO</div><div class="flex flex-col items-center overflow-hidden text-center"',
+    );
+  });
+
   it("passes tenant-aware appLogoUrl to employee sidebar branding logo", () => {
     const markup = renderToStaticMarkup(<EmployeeSidebar />);
 
     expect(markup).toContain('data-app-name="Tenant App"');
     expect(markup).toContain('data-logo-url="/tenant-logo.png"');
+  });
+
+  it("centers the employee sidebar branding block with logo above the app name", () => {
+    const markup = renderToStaticMarkup(<EmployeeSidebar />);
+
+    expect(markup).toContain(
+      "relative z-10 flex flex-col items-center justify-center gap-3",
+    );
+    expect(markup).toContain("text-center");
+    expect(markup).toContain(
+      'BRAND_LOGO</div><div class="flex flex-col items-center overflow-hidden text-center"',
+    );
+  });
+
+  it("does not fall back to default public logo while tenant branding is still loading", () => {
+    mockUseSettings.mockReturnValue({
+      settings: {
+        namaAplikasi: "Tenant App",
+        logoAplikasi: "/tenant-logo.png",
+      },
+      loading: false,
+    });
+
+    mockUsePublicBranding.mockReturnValue({
+      branding: null,
+      loading: true,
+      error: null,
+    });
+
+    const markup = renderToStaticMarkup(<Sidebar />);
+
+    expect(markup).toContain('data-app-name="Tenant App"');
+    expect(markup).toContain('data-logo-url="/tenant-logo.png"');
+    expect(markup).not.toContain('data-logo-url="/images/logo-sbl.png"');
   });
 });

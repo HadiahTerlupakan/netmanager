@@ -15,13 +15,11 @@ import { WorkOrderBell } from "@/components/notifications/WorkOrderBell";
 import { AdminNotificationBell } from "@/components/notifications/AdminNotificationBell";
 import { CustomerSupportBell } from "@/components/notifications/CustomerSupportBell";
 import { PaymentApprovalBell } from "@/components/notifications/PaymentApprovalBell";
-import { useFCM } from "@/hooks/useFCM";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { ServerClock } from "@/components/layout/ServerClock";
 import CommandPalette from "@/components/layout/CommandPalette";
 
 export default function Navbar() {
-  useFCM();
   const { data: session } = useSession();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);

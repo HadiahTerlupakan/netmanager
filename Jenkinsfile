@@ -254,6 +254,13 @@ spec:
                                 --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
                                 --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
                                 --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
+                                --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${env.NEXT_PUBLIC_FIREBASE_API_KEY}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${env.NEXT_PUBLIC_FIREBASE_APP_ID}" \
+                                --build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY="${env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}" \
                                 .
 
                             docker build -t ${env.CRON_IMAGE_REF} -t ${env.CRON_IMAGE_ENV_REF} ./cron

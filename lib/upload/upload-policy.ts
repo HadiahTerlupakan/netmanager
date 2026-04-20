@@ -8,7 +8,10 @@ const ALLOWED_FOLDERS = new Set([
   "izin",
 ]);
 
-const PUBLIC_UPLOAD_PREFIXES = ["/uploads/employee/attendance/"];
+const PUBLIC_UPLOAD_PREFIXES = [
+  "/uploads/employee/attendance/",
+  "/uploads/logos/",
+];
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 

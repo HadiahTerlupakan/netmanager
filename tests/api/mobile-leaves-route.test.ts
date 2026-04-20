@@ -88,8 +88,8 @@ describe("mobile leaves route", () => {
                   role: {
                     permission: {
                       some: {
-                        resource: { in: ["attendance", "kehadiran"] },
-                        action: "update",
+                        resource: "izin",
+                        action: "verify",
                       },
                     },
                   },

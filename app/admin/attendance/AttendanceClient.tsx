@@ -19,6 +19,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
+  getCanonicalAttendanceLabel,
   getDayOffDisplayLabel,
   getPermitDisplayLabel,
   isHistoricalAutoCheckoutAbsence,
@@ -611,6 +612,7 @@ export function ClientComponent() {
           item.notes?.includes("Tanpa Keterangan") ||
           item.notes?.includes("System");
         const isHistoricalNoCheckout = isHistoricalAutoCheckoutAbsence(item);
+        const canonicalStatusLabel = getCanonicalAttendanceLabel(item);
 
         if (["ALPHA", "ABSENT"].includes(item.status)) {
           if (
@@ -619,7 +621,7 @@ export function ClientComponent() {
           ) {
             return (
               <div className="text-sm text-red-500 italic font-medium">
-                Mangkir
+                {canonicalStatusLabel}
               </div>
             );
           }
@@ -636,7 +638,8 @@ export function ClientComponent() {
           !isToday &&
           !isDummyCheckIn;
 
-        const noCheckoutStatusLabel = item.displayStatus || "Tidak Checkout";
+        const noCheckoutStatusLabel =
+          item.displayStatus || getCanonicalAttendanceLabel(item);
         const isNoCheckoutOnTime = noCheckoutStatusLabel
           .toUpperCase()
           .includes("TEPAT WAKTU");
@@ -860,12 +863,12 @@ export function ClientComponent() {
           ALPHA: {
             bg: "bg-red-100 dark:bg-red-900/30",
             text: "text-red-800 dark:text-red-400",
-            label: "Mangkir",
+            label: "Tidak Hadir",
           },
           ABSENT: {
             bg: "bg-red-100 dark:bg-red-900/30",
             text: "text-red-800 dark:text-red-400",
-            label: "Mangkir",
+            label: "Tidak Hadir",
           },
           DAY_OFF: {
             bg: "bg-purple-100 dark:bg-purple-900/30",
@@ -875,7 +878,7 @@ export function ClientComponent() {
           NO_CHECKOUT: {
             bg: "bg-yellow-100 dark:bg-yellow-900/30",
             text: "text-yellow-800 dark:text-yellow-400",
-            label: "Tidak Checkout",
+            label: "Lupa Absen Pulang",
           },
         };
 
@@ -885,11 +888,11 @@ export function ClientComponent() {
           config = {
             bg: "bg-yellow-100 dark:bg-yellow-900/30",
             text: "text-yellow-800 dark:text-yellow-400",
-            label: "Tidak Checkout",
+            label: getCanonicalAttendanceLabel(item),
           };
         } else if (isForgotCheckOut) {
           const noCheckoutDisplayStatus =
-            item.displayStatus || "Tidak Checkout";
+            item.displayStatus || getCanonicalAttendanceLabel(item);
           const isOnTimeNoCheckout = noCheckoutDisplayStatus
             .toUpperCase()
             .includes("TEPAT WAKTU");
@@ -927,19 +930,17 @@ export function ClientComponent() {
             item.status === "ABSENT" ||
             item.status === "NO_CHECKOUT")
         ) {
-          if (isDummyCheckIn && item.checkOut) {
-            config = {
-              bg: "bg-red-100 dark:bg-red-900/30",
-              text: "text-red-800 dark:text-red-400",
-              label: "Lupa Check-in (Mangkir)",
-            };
-          } else {
-            config = {
-              bg: "bg-red-100 dark:bg-red-900/30",
-              text: "text-red-800 dark:text-red-400",
-              label: "Mangkir",
-            };
-          }
+          config = {
+            bg:
+              item.status === "NO_CHECKOUT"
+                ? "bg-yellow-100 dark:bg-yellow-900/30"
+                : "bg-red-100 dark:bg-red-900/30",
+            text:
+              item.status === "NO_CHECKOUT"
+                ? "text-yellow-800 dark:text-yellow-400"
+                : "text-red-800 dark:text-red-400",
+            label: getCanonicalAttendanceLabel(item),
+          };
         } else if (item.status === "PERMIT") {
           config = { ...config, label: getPermitDisplayLabel(item) };
         } else if (item.status === "DAY_OFF") {
@@ -1261,7 +1262,7 @@ export function ClientComponent() {
               <option value="HARI_OFF">Hari Libur</option>
             </optgroup>
             <optgroup label="Masalah Absensi">
-              <option value="NO_CHECKOUT">Tidak Checkout</option>
+              <option value="NO_CHECKOUT">Lupa Absen Pulang</option>
             </optgroup>
           </select>
         </div>
@@ -1290,7 +1291,7 @@ export function ClientComponent() {
               onClick={async () => {
                 if (
                   !confirm(
-                    "Jalankan proses perbaikan (backfill) presensi Mangkir otomatis?",
+                    "Jalankan proses perbaikan (backfill) presensi ketidakhadiran otomatis?",
                   )
                 )
                   return;
@@ -1304,13 +1305,12 @@ export function ClientComponent() {
                     "Backfill presensi berhasil dijalankan!",
                   );
                   fetchAttendances();
-                } catch (error) {
-                  console.error(error);
+                } catch {
                   showToast("error", "Gagal menjalankan backfill absen");
                 }
               }}
             >
-              Sync Mangkir
+              Sync Ketidakhadiran
             </Button>
           )}
         </div>
@@ -1448,8 +1448,10 @@ export function ClientComponent() {
               <option value="LATE">Terlambat (LATE)</option>
               <option value="SICK">Sakit (SICK)</option>
               <option value="PERMIT">Izin (PERMIT)</option>
-              <option value="ABSENT">Alpha (ABSENT)</option>
-              <option value="NO_CHECKOUT">Tidak Checkout (NO_CHECKOUT)</option>
+              <option value="ABSENT">Tidak Hadir (ABSENT)</option>
+              <option value="NO_CHECKOUT">
+                Lupa Absen Pulang (NO_CHECKOUT)
+              </option>
               <option value="DAY_OFF">Day Off / Tukar Libur (DAY_OFF)</option>
             </select>
           </div>

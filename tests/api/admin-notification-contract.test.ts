@@ -33,21 +33,27 @@ describe("admin notification contract", () => {
     );
   });
 
-  it("registers web FCM once from the navbar notification shell", () => {
+  it("mounts FCM onboarding through dedicated managers instead of the navbar shell", () => {
     const navbar = readSource("components/layout/Navbar.tsx");
-    const adminNotificationBell = readSource(
-      "components/notifications/AdminNotificationBell.tsx",
+    const pushNotificationManager = readSource(
+      "components/notifications/PushNotificationManager.tsx",
     );
-    const paymentApprovalBell = readSource(
-      "components/notifications/PaymentApprovalBell.tsx",
+    const karyawanPushNotification = readSource(
+      "components/karyawan/KaryawanPushNotification.tsx",
     );
 
-    expect(navbar).toContain("@/hooks/useFCM");
-    expect(navbar).toContain("useFCM();");
-    expect(adminNotificationBell).not.toContain("@/hooks/useFCM");
-    expect(adminNotificationBell).not.toContain("useFCM();");
-    expect(paymentApprovalBell).not.toContain("@/hooks/useFCM");
-    expect(paymentApprovalBell).not.toContain("useFCM()");
+    expect(navbar).not.toContain("@/hooks/useFCM");
+    expect(navbar).not.toContain("useFCM();");
+    expect(pushNotificationManager).toContain("@/hooks/useFCM");
+    expect(pushNotificationManager).toContain("enableNotifications");
+    expect(pushNotificationManager).not.toContain(
+      "/api/notifications/subscribe",
+    );
+    expect(karyawanPushNotification).toContain("@/hooks/useFCM");
+    expect(karyawanPushNotification).toContain("enableNotifications");
+    expect(karyawanPushNotification).not.toContain(
+      "/api/notifications/subscribe",
+    );
   });
 
   it("normalizes admin foreground FCM payloads through the shared helper", () => {
@@ -57,6 +63,8 @@ describe("admin notification contract", () => {
       "@/lib/notifications/normalizeForegroundNotificationPayload",
     );
     expect(useFcm).toContain("normalizeForegroundNotificationPayload({");
+    expect(useFcm).toContain("enableNotifications");
+    expect(useFcm).toContain("isRegistered: Boolean(fcmToken)");
   });
 
   it("mounts browser push onboarding in the admin shell", () => {

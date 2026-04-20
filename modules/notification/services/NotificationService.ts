@@ -2,9 +2,7 @@ import {
   sendPushNotification as sendExpoPush,
   sendPushToDepartment as sendExpoPushToDepartment,
 } from "./ExpoPushService";
-import { sendPushNotifications as sendBrowserPushNotifications } from "./PushNotificationService";
 import { NotificationRepository } from "../repositories/NotificationRepository";
-import { PushSubscriptionRepository } from "../repositories/PushSubscriptionRepository";
 import { UserRepository } from "@/modules/users";
 import { Prisma } from "@prisma/client";
 import { socketEmitter } from "@/lib/websocket/emitter";
@@ -31,7 +29,6 @@ type EligibleUser = {
 };
 
 const notificationRepo = new NotificationRepository();
-const pushSubRepo = new PushSubscriptionRepository();
 const userRepo = new UserRepository();
 
 export type NotificationType =
@@ -95,23 +92,8 @@ export async function createNotification(data: CreateNotificationData) {
     createdAt: notification.createdAt.toISOString(),
   };
 
-  const browserPushPayload = {
-    title: notification.title,
-    body: notification.message,
-    data: {
-      url: notification.link || "/employee/notifications",
-      notificationId: notification.id,
-      sourceType: notification.sourceType || undefined,
-      sourceId: notification.sourceId || undefined,
-    },
-    tag: `notification-${notification.id}`,
-  };
-
-  const browserRecipientIds = new Set<string>();
-
   if (data.userId) {
     socketEmitter.notifyUser(data.userId, wsPayload);
-    browserRecipientIds.add(data.userId);
 
     const directRecipient = await userRepo.findByIdWithPushToken(data.userId);
     if (directRecipient?.fcmTokens?.length) {
@@ -142,10 +124,6 @@ export async function createNotification(data: CreateNotificationData) {
     const departmentFcmTokens = departmentRecipients.flatMap(
       (recipient) => recipient.fcmTokens ?? [],
     );
-
-    for (const recipient of departmentRecipients) {
-      browserRecipientIds.add(recipient.id);
-    }
 
     if (departmentFcmTokens.length > 0) {
       sendFCMNotification(departmentFcmTokens, data.title, data.message, {
@@ -180,21 +158,6 @@ export async function createNotification(data: CreateNotificationData) {
         sourceType: data.sourceType || "",
         sourceId: data.sourceId || "",
       }).catch((err) => console.error("[FCM Push Admin] Error:", err));
-    }
-  }
-
-  if (browserRecipientIds.size > 0) {
-    const subscriptions = await pushSubRepo.findManyByUserIds([
-      ...browserRecipientIds,
-    ]);
-    if (subscriptions.length > 0) {
-      sendBrowserPushNotifications(
-        subscriptions.map((subscription) => ({
-          endpoint: subscription.endpoint,
-          keys: { p256dh: subscription.p256dh, auth: subscription.auth },
-        })),
-        browserPushPayload,
-      ).catch((err) => console.error("[Web Push] Error:", err));
     }
   }
 
@@ -608,36 +571,6 @@ export async function markAllAsRead(
   return notificationRepo.updateMany(where, {
     isRead: true,
     readAt: new Date(),
-  });
-}
-
-export async function subscribeDevice(
-  userId: string,
-  subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
-  userAgent?: string,
-) {
-  const existing = await pushSubRepo.findByEndpoint(subscription.endpoint);
-  if (existing) {
-    return pushSubRepo.updateByEndpoint(subscription.endpoint, {
-      isActive: true,
-      updatedAt: new Date(),
-    });
-  }
-  return pushSubRepo.create({
-    id: crypto.randomUUID(),
-    updatedAt: new Date(),
-    userId,
-    endpoint: subscription.endpoint,
-    p256dh: subscription.keys.p256dh,
-    auth: subscription.keys.auth,
-    userAgent: userAgent || null,
-  });
-}
-
-export async function unsubscribeDevice(endpoint: string) {
-  return pushSubRepo.updateManyByEndpoint(endpoint, {
-    isActive: false,
-    updatedAt: new Date(),
   });
 }
 

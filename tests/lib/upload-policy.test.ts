@@ -43,4 +43,9 @@ describe("upload policy", () => {
     ).toBe(true);
     expect(isPublicUploadPath("/uploads/profiles/test.webp")).toBe(false);
   });
+
+  it("allows branding logos to be served publicly from local storage", () => {
+    expect(isPublicUploadPath("/uploads/logos/logo-aplikasi.webp")).toBe(true);
+    expect(isPublicUploadPath("/uploads/logos/logo-invoice.webp")).toBe(true);
+  });
 });

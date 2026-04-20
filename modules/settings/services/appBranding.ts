@@ -95,6 +95,10 @@ function normalizeLogoPath(path: string | null): string | null {
     return null;
   }
 
+  if (/^https?:\/\//i.test(trimmedPath)) {
+    return trimmedPath;
+  }
+
   if (trimmedPath.startsWith("/")) {
     return trimmedPath;
   }

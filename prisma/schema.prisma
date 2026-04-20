@@ -1201,7 +1201,6 @@ model User {
   poReceived                                 PurchaseOrder[]           @relation("POReceiver")
   purchaseRequests                           PurchaseRequest[]         @relation("Requester")
   approverPurchaseRequests                   PurchaseRequest[]         @relation("ApproverPR")
-  push_subscriptions                         PushSubscriptions[]
   rabApprovals                               RabApproval[]
   createdRabProjects                         RabProject[]
   rabRevisionApprovals                       RabRevisionApproval[]
@@ -1697,27 +1696,6 @@ model Positions {
   @@index([isActive])
   @@index([tenantId])
   @@map("positions")
-}
-
-model PushSubscriptions {
-  id         String    @id
-  userId     String
-  endpoint   String    @unique
-  p256dh     String
-  auth       String
-  userAgent  String?
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime
-  lastUsedAt DateTime?
-  tenantId   String?
-  tenant     Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([isActive])
-  @@index([userId])
-  @@index([tenantId])
-  @@map("push_subscriptions")
 }
 
 model Registrations {
@@ -3283,7 +3261,6 @@ model Tenant {
   purchaseOrder           PurchaseOrder[]
   purchaseRequestItem     PurchaseRequestItem[]
   purchaseRequest         PurchaseRequest[]
-  pushSubscriptions       PushSubscriptions[]
   rabActualAchievement    RabActualAchievement[]
   rabApproval             RabApproval[]
   rabDisbursement         RabDisbursement[]

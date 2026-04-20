@@ -78,13 +78,13 @@ import {
 import { Button } from "@/components/ui/Button";
 import { useSettings } from "@/hooks/useSettings";
 import {
-  DEFAULT_PUBLIC_APP_LOGO_URL,
   DEFAULT_PUBLIC_APP_NAME,
   usePublicBranding,
 } from "@/hooks/usePublicBranding";
 import { usePermission } from "@/hooks/use-permission";
 import { useSession, signOut } from "next-auth/react";
 import { SidebarBrandingLogo } from "@/components/layout/SidebarBrandingLogo";
+import { resolveSidebarLogoUrl } from "@/lib/settings/publicBranding";
 
 // Context for sidebar state
 const SidebarContext = createContext<{
@@ -175,12 +175,17 @@ const getIcon = (name: string | undefined, className: string) => {
 export default function EmployeeSidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
-  const { settings } = useSettings();
-  const { branding } = usePublicBranding();
+  const { settings, loading: isSettingsLoading } = useSettings();
+  const { branding, loading: isBrandingLoading } = usePublicBranding();
   const { data: session } = useSession();
   const appName =
     branding?.namaAplikasi || settings?.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;
-  const logoUrl = branding?.appLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
+  const logoUrl = resolveSidebarLogoUrl({
+    brandingLogoUrl: branding?.appLogoUrl,
+    settingsLogoUrl: settings?.logoAplikasi,
+    isBrandingLoading,
+    isSettingsLoading,
+  });
   const [isOpen, setIsOpen] = useState(false);
 
   const { hasPermission } = usePermission();
@@ -310,21 +315,21 @@ export default function EmployeeSidebar() {
             isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           } shadow-2xl md:shadow-none`}
         >
-          <div className="h-24 flex items-center px-8 relative overflow-hidden shrink-0">
+          <div className="min-h-32 px-8 py-5 relative overflow-hidden shrink-0">
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <HiSparkles className="w-24 h-24 text-indigo-500 rotate-12" />
             </div>
 
-            <div className="relative z-10 flex items-center gap-3 w-full">
+            <div className="relative z-10 flex flex-col items-center justify-center gap-3 w-full px-6 text-center">
               <SidebarBrandingLogo appName={appName} logoUrl={logoUrl} />
-              <div className="flex flex-col justify-center overflow-hidden">
+              <div className="flex flex-col items-center overflow-hidden text-center">
                 <h2
-                  className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight leading-none"
+                  className="text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight leading-none max-w-full"
                   title={appName}
                 >
                   {appName}
                 </h2>
-                <span className="text-[10px] font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">
+                <span className="text-[10px] font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1 max-w-full truncate">
                   Karyawan Portal
                 </span>
               </div>

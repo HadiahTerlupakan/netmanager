@@ -7,14 +7,6 @@ vi.mock("@/modules/notification/services/ExpoPushService", () => ({
   sendPushToDepartment: vi.fn().mockResolvedValue(0),
 }));
 
-const browserPushMocks = vi.hoisted(() => ({
-  sendPushNotifications: vi.fn().mockResolvedValue([]),
-}));
-
-vi.mock("@/modules/notification/services/PushNotificationService", () => ({
-  sendPushNotifications: browserPushMocks.sendPushNotifications,
-}));
-
 const firebaseMessagingMocks = vi.hoisted(() => ({
   sendFCMNotification: vi.fn().mockResolvedValue(undefined),
   getAdminTokens: vi.fn().mockResolvedValue([]),
@@ -49,7 +41,6 @@ describe("NotificationService", () => {
       tenantId: null,
       isSuperAdmin: true,
     });
-    prismaMock.pushSubscriptions.findMany.mockResolvedValue([]);
   });
 
   describe("getReadableNotificationForUser", () => {
@@ -120,65 +111,6 @@ describe("NotificationService", () => {
   });
 
   describe("createNotification", () => {
-    it("sends browser push to active user subscriptions for direct notifications", async () => {
-      prismaMock.notifications.create.mockResolvedValueOnce({
-        id: "notif-web-1",
-        type: "SYSTEM",
-        priority: "NORMAL",
-        title: "Web Push Title",
-        message: "Web Push Body",
-        link: "/employee/notifications",
-        sourceType: "SYSTEM",
-        sourceId: "src-1",
-        createdAt: new Date("2026-03-08T12:00:00.000Z"),
-      } as Notifications);
-      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([
-        {
-          endpoint: "https://push.example/sub-1",
-          p256dh: "p256dh-key",
-          auth: "auth-key",
-        },
-      ]);
-
-      await createNotification({
-        type: "SYSTEM",
-        title: "Web Push Title",
-        message: "Web Push Body",
-        userId: "user-web-1",
-        link: "/employee/notifications",
-        sourceType: "SYSTEM",
-        sourceId: "src-1",
-      });
-
-      expect(prismaMock.pushSubscriptions.findMany).toHaveBeenCalledWith({
-        where: {
-          isActive: true,
-          userId: { in: ["user-web-1"] },
-        },
-        select: {
-          endpoint: true,
-          p256dh: true,
-          auth: true,
-        },
-      });
-      expect(browserPushMocks.sendPushNotifications).toHaveBeenCalledWith(
-        [
-          {
-            endpoint: "https://push.example/sub-1",
-            keys: {
-              p256dh: "p256dh-key",
-              auth: "auth-key",
-            },
-          },
-        ],
-        expect.objectContaining({
-          title: "Web Push Title",
-          body: "Web Push Body",
-          tag: "notification-notif-web-1",
-        }),
-      );
-    });
-
     it("can skip expo push while still creating in-app notification", async () => {
       prismaMock.notifications.create.mockResolvedValueOnce({
         id: "notif-web-2",
@@ -191,7 +123,6 @@ describe("NotificationService", () => {
         sourceId: "src-2",
         createdAt: new Date("2026-03-08T12:10:00.000Z"),
       } as Notifications);
-      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([]);
 
       await createNotification({
         type: "SYSTEM",
@@ -223,7 +154,6 @@ describe("NotificationService", () => {
         sourceId: "src-fcm-1",
         createdAt: new Date("2026-03-08T12:20:00.000Z"),
       } as Notifications);
-      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([]);
       prismaMock.user.findUnique.mockResolvedValueOnce({
         id: "user-fcm-1",
         fcmTokens: ["fcm-token-1", "fcm-token-2"],
@@ -265,7 +195,6 @@ describe("NotificationService", () => {
         sourceId: "src-fcm-dept-1",
         createdAt: new Date("2026-03-08T12:30:00.000Z"),
       } as Notifications);
-      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([]);
       prismaMock.user.findMany.mockResolvedValueOnce([
         { id: "dept-user-1", fcmTokens: ["dept-token-1"] },
         { id: "dept-user-2", fcmTokens: ["dept-token-2", "dept-token-3"] },
@@ -307,7 +236,6 @@ describe("NotificationService", () => {
         sourceId: "src-fcm-admin-1",
         createdAt: new Date("2026-03-08T12:40:00.000Z"),
       } as Notifications);
-      prismaMock.pushSubscriptions.findMany.mockResolvedValueOnce([]);
       firebaseMessagingMocks.getAdminTokens.mockResolvedValueOnce([
         "admin-token-1",
         "admin-token-2",

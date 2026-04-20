@@ -22,7 +22,7 @@ function shouldSkipProcessing(): boolean {
 
 interface PushRetryItem {
   id: string;
-  type: "expo" | "web";
+  type: "expo";
   userId: string;
   title: string;
   body: string;
@@ -30,12 +30,7 @@ interface PushRetryItem {
   retryCount: number;
   createdAt: number;
   lastAttemptAt?: number;
-  // Expo-specific
   pushToken?: string;
-  // Web-push specific
-  endpoint?: string;
-  p256dh?: string;
-  auth?: string;
 }
 
 /**
@@ -114,13 +109,6 @@ export async function processRetryQueue(): Promise<{
       try {
         if (item.type === "expo" && item.pushToken) {
           success = await retryExpoPush(item);
-        } else if (
-          item.type === "web" &&
-          item.endpoint &&
-          item.p256dh &&
-          item.auth
-        ) {
-          success = await retryWebPush(item);
         } else {
           // Invalid item, drop it
           stats.dropped++;
@@ -185,28 +173,6 @@ async function retryExpoPush(item: PushRetryItem): Promise<boolean> {
   const result = await response.json();
   const ticket = result.data?.[0];
   return ticket?.status === "ok";
-}
-
-/**
- * Retry a Web Push notification
- */
-async function retryWebPush(item: PushRetryItem): Promise<boolean> {
-  try {
-    const { sendPushNotification } = await import("./PushNotificationService");
-    return await sendPushNotification(
-      {
-        endpoint: item.endpoint!,
-        keys: { p256dh: item.p256dh!, auth: item.auth! },
-      },
-      {
-        title: item.title,
-        body: item.body,
-        data: item.data as Record<string, unknown> | undefined,
-      },
-    );
-  } catch {
-    return false;
-  }
 }
 
 // Retry queue processor - starts a periodic check
