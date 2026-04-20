@@ -282,6 +282,23 @@ describe("migration job safety", () => {
     );
   });
 
+  it("requires destructive main migrations to carry a safe-guard acknowledgement comment", () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        "prisma",
+        "migrations",
+        "20260420123000_drop_push_subscriptions",
+        "migration.sql",
+      ),
+      "utf8",
+    );
+
+    expect(migration).toContain("-- @safe-guard-ack:");
+    expect(migration.startsWith("-- @safe-guard-ack:")).toBe(true);
+    expect(migration).toContain('DROP TABLE IF EXISTS "push_subscriptions";');
+  });
+
   it("supports explicitly skipping optional tenant backfill steps", () => {
     const migrationJob = readFileSync(
       resolve(process.cwd(), "k8s", "migration-job.yaml"),
