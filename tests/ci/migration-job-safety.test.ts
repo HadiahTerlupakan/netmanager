@@ -221,7 +221,7 @@ describe("migration job safety", () => {
     );
   });
 
-  it("ships a dedicated migration for inventory actor columns", () => {
+  it("ships an idempotent dedicated migration for inventory actor columns", () => {
     const migration = readFileSync(
       resolve(
         process.cwd(),
@@ -234,16 +234,16 @@ describe("migration job safety", () => {
     );
 
     expect(migration).toContain(
-      'ALTER TABLE "barang_masuk" ADD COLUMN "actorType" TEXT;',
+      'ALTER TABLE "barang_masuk" ADD COLUMN IF NOT EXISTS "actorType" TEXT;',
     );
     expect(migration).toContain(
-      'ALTER TABLE "barang_masuk" ADD COLUMN "actorId" TEXT;',
+      'ALTER TABLE "barang_masuk" ADD COLUMN IF NOT EXISTS "actorId" TEXT;',
     );
     expect(migration).toContain(
-      'ALTER TABLE "barang_keluar" ADD COLUMN "actorType" TEXT;',
+      'ALTER TABLE "barang_keluar" ADD COLUMN IF NOT EXISTS "actorType" TEXT;',
     );
     expect(migration).toContain(
-      'ALTER TABLE "barang_keluar" ADD COLUMN "actorId" TEXT;',
+      'ALTER TABLE "barang_keluar" ADD COLUMN IF NOT EXISTS "actorId" TEXT;',
     );
   });
 
