@@ -41,6 +41,7 @@ describe("firebase browser config", () => {
   });
 
   it("falls back to bundled firebase web config when env values are null-like", async () => {
+    vi.stubGlobal("window", { Notification: {} });
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "null";
     process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "";
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "undefined";
@@ -66,6 +67,7 @@ describe("firebase browser config", () => {
   });
 
   it("prefers explicit database URL from env over the bundled default", async () => {
+    vi.stubGlobal("window", { Notification: {} });
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "env-api-key";
     process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "env-auth-domain";
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "env-project-id";
@@ -89,7 +91,8 @@ describe("firebase browser config", () => {
     });
   });
 
-  it("warns when non-development environments use bundled firebase defaults", async () => {
+  it("warns when browser runtime in production uses bundled firebase defaults", async () => {
+    vi.stubGlobal("window", { Notification: {} });
     process.env = {
       ...process.env,
       NODE_ENV: "production",
@@ -108,5 +111,26 @@ describe("firebase browser config", () => {
     expect(consoleWarnMock).toHaveBeenCalledWith(
       expect.stringContaining("Using bundled Firebase browser config defaults"),
     );
+  });
+
+  it("does not initialize browser firebase config on server runtime", async () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "";
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "";
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "";
+    process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL = "";
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "";
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "";
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID = "";
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "public-vapid-key";
+
+    const firebaseConfigModule = await import("@/lib/firebase/config");
+
+    expect(firebaseConfigModule.isFirebaseMessagingConfigured).toBe(false);
+    expect(initializeAppMock).not.toHaveBeenCalled();
+    expect(consoleWarnMock).not.toHaveBeenCalled();
   });
 });

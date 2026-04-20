@@ -4,23 +4,28 @@ import type { Messaging } from "firebase/messaging";
 
 import { getFirebaseBrowserConfig } from "@/lib/firebase/browserConfig";
 
-const firebaseConfig = getFirebaseBrowserConfig();
+const isBrowserRuntime = typeof window !== "undefined";
+
+const firebaseConfig = isBrowserRuntime
+  ? getFirebaseBrowserConfig()
+  : undefined;
 
 export const isFirebaseMessagingConfigured = Boolean(
-  firebaseConfig.apiKey &&
-  firebaseConfig.projectId &&
+  firebaseConfig?.apiKey &&
+  firebaseConfig?.projectId &&
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
 );
 
-const app = isFirebaseMessagingConfigured
-  ? !getApps().length
-    ? initializeApp(firebaseConfig)
-    : getApp()
-  : undefined;
+const app =
+  isBrowserRuntime && isFirebaseMessagingConfigured
+    ? !getApps().length
+      ? initializeApp(firebaseConfig)
+      : getApp()
+    : undefined;
 
 let messaging: Messaging | undefined = undefined;
 
-if (app && typeof window !== "undefined" && "Notification" in window) {
+if (app && "Notification" in window) {
   try {
     messaging = getMessaging(app);
   } catch (error) {
