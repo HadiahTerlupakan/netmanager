@@ -165,7 +165,11 @@ ALTER TABLE "notifications" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 ALTER TABLE "positions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."push_subscriptions"') IS NOT NULL THEN
 ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- AlterTable
 ALTER TABLE "registrations" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
@@ -522,7 +526,11 @@ CREATE INDEX IF NOT EXISTS "notifications_tenantId_idx" ON "notifications"("tena
 CREATE INDEX IF NOT EXISTS "positions_tenantId_idx" ON "positions"("tenantId");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "push_subscriptions_tenantId_idx" ON "push_subscriptions"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."push_subscriptions"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "push_subscriptions_tenantId_idx" ON "push_subscriptions"("tenantId")';
+END IF;
+END $$;
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "registrations_tenantId_idx" ON "registrations"("tenantId");
@@ -1092,7 +1100,8 @@ END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
-IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'push_subscriptions_tenantId_fkey') THEN
+IF to_regclass('public."push_subscriptions"') IS NOT NULL
+AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'push_subscriptions_tenantId_fkey') THEN
 ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 END IF;
 END $$;

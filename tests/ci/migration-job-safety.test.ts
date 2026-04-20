@@ -247,6 +247,35 @@ describe("migration job safety", () => {
     );
   });
 
+  it("guards tenant schema replay when legacy push_subscriptions is already removed", () => {
+    const migration = readFileSync(
+      resolve(
+        process.cwd(),
+        "prisma",
+        "migrations",
+        "20260314015651_init_tenant_schema",
+        "migration.sql",
+      ),
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "IF to_regclass('public.\"push_subscriptions\"') IS NOT NULL THEN",
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "push_subscriptions" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;',
+    );
+    expect(migration).toContain(
+      `EXECUTE 'CREATE INDEX IF NOT EXISTS "push_subscriptions_tenantId_idx" ON "push_subscriptions"("tenantId")';`,
+    );
+    expect(migration).toContain(
+      `AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'push_subscriptions_tenantId_fkey') THEN`,
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;',
+    );
+  });
+
   it("suppresses PostgreSQL NOTICE spam only for idempotent SQL replays", () => {
     const migrationJob = readFileSync(
       resolve(process.cwd(), "k8s", "migration-job.yaml"),
