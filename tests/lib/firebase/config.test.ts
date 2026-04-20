@@ -4,6 +4,7 @@ const initializeAppMock = vi.fn();
 const getAppsMock = vi.fn();
 const getAppMock = vi.fn();
 const getMessagingMock = vi.fn();
+const consoleWarnMock = vi.fn();
 
 vi.mock("firebase/app", () => ({
   initializeApp: (...args: unknown[]) => initializeAppMock(...args),
@@ -24,12 +25,18 @@ describe("firebase browser config", () => {
     getAppsMock.mockReset();
     getAppMock.mockReset();
     getMessagingMock.mockReset();
+    consoleWarnMock.mockReset();
+    vi.stubGlobal("console", {
+      ...console,
+      warn: consoleWarnMock,
+    });
     getAppsMock.mockReturnValue([]);
     initializeAppMock.mockReturnValue({ name: "firebase-app" });
     process.env = { ...originalEnv };
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     process.env = { ...originalEnv };
   });
 
@@ -56,5 +63,50 @@ describe("firebase browser config", () => {
       messagingSenderId: "43187781340",
       appId: "1:43187781340:web:461fc10875b35538e67e19",
     });
+  });
+
+  it("prefers explicit database URL from env over the bundled default", async () => {
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "env-api-key";
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "env-auth-domain";
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "env-project-id";
+    process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL =
+      "https://env-project-default-rtdb.firebaseio.com";
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "env-storage-bucket";
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "env-sender-id";
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID = "env-app-id";
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "public-vapid-key";
+
+    await import("@/lib/firebase/config");
+
+    expect(initializeAppMock).toHaveBeenCalledWith({
+      apiKey: "env-api-key",
+      authDomain: "env-auth-domain",
+      databaseURL: "https://env-project-default-rtdb.firebaseio.com",
+      projectId: "env-project-id",
+      storageBucket: "env-storage-bucket",
+      messagingSenderId: "env-sender-id",
+      appId: "env-app-id",
+    });
+  });
+
+  it("warns when non-development environments use bundled firebase defaults", async () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY = "";
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "";
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "";
+    process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL = "";
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "";
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "";
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID = "";
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "public-vapid-key";
+
+    await import("@/lib/firebase/config");
+
+    expect(consoleWarnMock).toHaveBeenCalledWith(
+      expect.stringContaining("Using bundled Firebase browser config defaults"),
+    );
   });
 });

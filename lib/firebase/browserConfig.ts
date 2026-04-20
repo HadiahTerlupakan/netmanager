@@ -9,6 +9,16 @@ const firebaseBrowserDefaults = {
   appId: "1:43187781340:web:461fc10875b35538e67e19",
 } as const;
 
+const firebaseBrowserEnvKeys = {
+  apiKey: "NEXT_PUBLIC_FIREBASE_API_KEY",
+  authDomain: "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  databaseURL: "NEXT_PUBLIC_FIREBASE_DATABASE_URL",
+  projectId: "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+  storageBucket: "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  messagingSenderId: "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+  appId: "NEXT_PUBLIC_FIREBASE_APP_ID",
+} as const;
+
 function normalizeFirebaseEnv(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
@@ -28,7 +38,7 @@ function normalizeFirebaseEnv(value: string | undefined): string | undefined {
 }
 
 export function getFirebaseBrowserConfig() {
-  return {
+  const resolvedConfig = {
     apiKey:
       normalizeFirebaseEnv(process.env.NEXT_PUBLIC_FIREBASE_API_KEY) ??
       firebaseBrowserDefaults.apiKey,
@@ -52,4 +62,16 @@ export function getFirebaseBrowserConfig() {
       normalizeFirebaseEnv(process.env.NEXT_PUBLIC_FIREBASE_APP_ID) ??
       firebaseBrowserDefaults.appId,
   };
+
+  const fallbackFields = Object.entries(firebaseBrowserEnvKeys)
+    .filter(([, envKey]) => !normalizeFirebaseEnv(process.env[envKey]))
+    .map(([fieldName]) => fieldName);
+
+  if (process.env.NODE_ENV === "production" && fallbackFields.length > 0) {
+    console.warn(
+      `Using bundled Firebase browser config defaults for: ${fallbackFields.join(", ")}`,
+    );
+  }
+
+  return resolvedConfig;
 }
