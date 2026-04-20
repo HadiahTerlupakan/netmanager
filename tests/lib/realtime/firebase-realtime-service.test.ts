@@ -66,6 +66,19 @@ describe("FirebaseRealtimeService", () => {
     expect(addMock.mock.calls[0]?.[0].createdAt).toEqual(expect.any(String));
   });
 
+  it("omits undefined triggeredBy from the Firestore envelope", async () => {
+    const { firebaseRealtimeService } = await import("@/lib/realtime");
+
+    await firebaseRealtimeService.publish({
+      type: "notification.new",
+      scope: { kind: "user", id: "user-1" },
+      payload: { title: "Hello" },
+    });
+
+    expect(addMock).toHaveBeenCalledTimes(1);
+    expect(addMock.mock.calls[0]?.[0]).not.toHaveProperty("triggeredBy");
+  });
+
   it("routes socketEmitter notifyUser through Firebase publishing instead of HTTP fallback", async () => {
     const realtime = await import("@/lib/realtime");
     const publishSpy = vi.spyOn(realtime.firebaseRealtimeService, "publish");

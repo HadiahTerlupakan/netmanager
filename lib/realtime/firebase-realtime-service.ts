@@ -36,15 +36,15 @@ function assertValidCollectionPath(path: string): void {
 
 class FirebaseRealtimeService {
   async publish<TPayload>(input: PublishInput<TPayload>) {
-    const envelope: RealtimeEnvelope<TPayload> = {
+    const envelope = {
       id: randomUUID(),
       type: input.type,
       scope: input.scope,
       payload: input.payload,
-      triggeredBy: input.triggeredBy,
       createdAt: new Date().toISOString(),
       version: 1,
-    };
+      ...(input.triggeredBy ? { triggeredBy: input.triggeredBy } : {}),
+    } satisfies RealtimeEnvelope<TPayload>;
 
     const channel = buildScopeChannel(input.scope);
 
