@@ -257,6 +257,7 @@ spec:
                                 --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${env.NEXT_PUBLIC_FIREBASE_API_KEY}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}" \
+                                --build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL="${env.NEXT_PUBLIC_FIREBASE_DATABASE_URL}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${env.NEXT_PUBLIC_FIREBASE_APP_ID}" \

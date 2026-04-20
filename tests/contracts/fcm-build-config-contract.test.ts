@@ -19,6 +19,9 @@ describe("fcm build config contract", () => {
       "--build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID",
     );
     expect(jenkinsfile).toContain(
+      "--build-arg NEXT_PUBLIC_FIREBASE_DATABASE_URL",
+    );
+    expect(jenkinsfile).toContain(
       "--build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
     );
     expect(jenkinsfile).toContain(
@@ -30,6 +33,7 @@ describe("fcm build config contract", () => {
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_API_KEY");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_DATABASE_URL");
     expect(dockerfile).toContain("ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET");
     expect(dockerfile).toContain(
       "ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
@@ -47,6 +51,7 @@ describe("fcm build config contract", () => {
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_API_KEY=");
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=");
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_PROJECT_ID=");
+    expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_DATABASE_URL=");
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=");
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=");
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_APP_ID=");
@@ -61,6 +66,7 @@ describe("fcm build config contract", () => {
     expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_API_KEY");
     expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN");
     expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+    expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_DATABASE_URL");
     expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET");
     expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID");
     expect(deployScript).toContain("NEXT_PUBLIC_FIREBASE_APP_ID");

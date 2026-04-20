@@ -38,7 +38,13 @@ npm install
 
 ### 3. Setup Environment Variables
 
-Buat file `.env` di root direktori dengan konfigurasi berikut:
+Buat file `.env` di root direktori. Anda bisa mulai dari `.env.production.example`, lalu sesuaikan untuk lokal:
+
+```bash
+cp .env.production.example .env
+```
+
+Isi minimal konfigurasi berikut:
 
 ```env
 # Database
@@ -51,11 +57,27 @@ REDIS_URL="redis://localhost:6379"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-key-min-16-characters"
 
+# Firebase browser (build-time / client)
+NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="netmanager-96742.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="netmanager-96742"
+NEXT_PUBLIC_FIREBASE_DATABASE_URL="https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="netmanager-96742.firebasestorage.app"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="43187781340"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:43187781340:web:461fc10875b35538e67e19"
+NEXT_PUBLIC_VAPID_PUBLIC_KEY="<firebase-web-push-public-key>"
+
+# Firebase admin (runtime / server)
+FIREBASE_PROJECT_ID="netmanager-96742"
+FIREBASE_CLIENT_EMAIL="<firebase-service-account-email>"
+FIREBASE_PRIVATE_KEY="<firebase-private-key-dengan-escaped-newline>"
+FIREBASE_DATABASE_URL="https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app"
+
 # Node Environment
 NODE_ENV="development"
 ```
 
-**Catatan:** Ganti `NEXTAUTH_SECRET` dengan string acak yang aman (minimal 16 karakter).
+**Catatan:** Ganti `NEXTAUTH_SECRET`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `FIREBASE_CLIENT_EMAIL`, dan `FIREBASE_PRIVATE_KEY` dengan nilai environment Anda.
 
 ### 4. Setup Database
 
@@ -77,12 +99,31 @@ npm run db:up
 docker-compose up -d
 ```
 
-#### b. Generate VAPID Keys (Push Notifications)
+#### b. Setup Firebase untuk Browser dan Runtime
 
-Aplikasi ini membutuhkan VAPID Keys untuk fitur Notifikasi. Tambahkan/ubah value `VAPID_...` di `.env` dengan menjalankan:
+Aplikasi memakai dua jalur konfigurasi Firebase:
 
-```bash
-npx web-push generate-vapid-keys
+- **Browser / build-time**: `NEXT_PUBLIC_FIREBASE_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+- **Server / runtime**: `FIREBASE_*`
+
+Flow-nya seperti ini:
+
+1. `lib/firebase/config.ts` membangun Firebase client browser dari env `NEXT_PUBLIC_FIREBASE_*`.
+2. Jika ada nilai kosong, `null`, atau `undefined`, aplikasi fallback ke config web default yang tersimpan di `lib/firebase/browserConfig.ts`.
+3. Realtime Database browser memakai `NEXT_PUBLIC_FIREBASE_DATABASE_URL`, jadi tidak lagi menebak URL dari `projectId`.
+4. Firebase Admin di server tetap memakai `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, dan opsional `FIREBASE_DATABASE_URL`.
+5. Untuk staging/production, semua `NEXT_PUBLIC_FIREBASE_*` harus masuk saat build image karena nilainya dibundle oleh Next.js pada saat `npm run build`.
+
+Referensi nilai browser yang saat ini dipakai:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY="AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="netmanager-96742.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="netmanager-96742"
+NEXT_PUBLIC_FIREBASE_DATABASE_URL="https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="netmanager-96742.firebasestorage.app"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="43187781340"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:43187781340:web:461fc10875b35538e67e19"
 ```
 
 #### c. Push Multi-Database Schemas
