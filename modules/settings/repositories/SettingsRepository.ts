@@ -1,61 +1,73 @@
-import { randomUUID } from 'crypto'
-import { Prisma } from '@prisma/client'
-import { prisma } from '@/modules/database'
+import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
+import { prisma, prismaAuth } from "@/modules/database";
 
 export type SettingsRecord = {
-  key: string
-  value: string | null
-  encrypted: boolean
-}
+  key: string;
+  value: string | null;
+  encrypted: boolean;
+};
 
 export type SettingsUpsertInput = {
-  key: string
-  value: string | null
-  description?: string | null
-  encrypted?: boolean
-  tenantId?: string | null
-}
+  key: string;
+  value: string | null;
+  description?: string | null;
+  encrypted?: boolean;
+  tenantId?: string | null;
+};
 
 export const SettingsRepository = {
-  findManyByKeys: async (keys: ReadonlyArray<string>, tenantId?: string | null): Promise<SettingsRecord[]> => {
+  findManyByKeys: async (
+    keys: ReadonlyArray<string>,
+    tenantId?: string | null,
+  ): Promise<SettingsRecord[]> => {
     if (!keys.length) {
-      return []
+      return [];
     }
 
-    const keysArray = [...keys]
-    const normalizedTenantId = normalizeTenantId(tenantId)
+    const keysArray = [...keys];
+    const normalizedTenantId = normalizeTenantId(tenantId);
 
-    const settings = await prisma.settings.findMany({
+    const settingsClient = normalizedTenantId === null ? prismaAuth : prisma;
+
+    const settings = await settingsClient.settings.findMany({
       where: {
         tenantId: normalizedTenantId,
         key: {
           in: keysArray,
         },
       },
-    })
+    });
 
-    return settings.map(({ key, value, encrypted }) => ({ key, value, encrypted }))
+    return settings.map(({ key, value, encrypted }) => ({
+      key,
+      value,
+      encrypted,
+    }));
   },
 
   upsertMany: async (entries: SettingsUpsertInput[]): Promise<void> => {
     if (!entries.length) {
-      return
+      return;
     }
 
-    const now = new Date()
+    const now = new Date();
     await prisma.$transaction(async (tx) => {
       for (const entry of entries) {
-        await upsertOne(tx, entry, now)
+        await upsertOne(tx, entry, now);
       }
-    })
+    });
   },
 
-  deleteManyByKeys: async (keys: ReadonlyArray<string>, tenantId?: string | null): Promise<void> => {
+  deleteManyByKeys: async (
+    keys: ReadonlyArray<string>,
+    tenantId?: string | null,
+  ): Promise<void> => {
     if (!keys.length) {
-      return
+      return;
     }
 
-    const normalizedTenantId = normalizeTenantId(tenantId)
+    const normalizedTenantId = normalizeTenantId(tenantId);
 
     await prisma.settings.deleteMany({
       where: {
@@ -64,25 +76,29 @@ export const SettingsRepository = {
           in: [...keys],
         },
       },
-    })
+    });
   },
-}
+};
 
 function normalizeTenantId(tenantId?: string | null): string | null {
-  return tenantId ?? null
+  return tenantId ?? null;
 }
 
-async function upsertOne(tx: Prisma.TransactionClient, entry: SettingsUpsertInput, now: Date) {
-  const normalizedTenantId = normalizeTenantId(entry.tenantId)
+async function upsertOne(
+  tx: Prisma.TransactionClient,
+  entry: SettingsUpsertInput,
+  now: Date,
+) {
+  const normalizedTenantId = normalizeTenantId(entry.tenantId);
   const where: Prisma.SettingsWhereInput = {
     key: entry.key,
     tenantId: normalizedTenantId,
-  }
+  };
 
-  const existing = await tx.settings.findFirst({ where })
-  const value = entry.value ?? null
-  const description = entry.description ?? null
-  const encrypted = entry.encrypted ?? false
+  const existing = await tx.settings.findFirst({ where });
+  const value = entry.value ?? null;
+  const description = entry.description ?? null;
+  const encrypted = entry.encrypted ?? false;
 
   if (existing) {
     await tx.settings.update({
@@ -93,7 +109,7 @@ async function upsertOne(tx: Prisma.TransactionClient, entry: SettingsUpsertInpu
         encrypted,
         updatedAt: now,
       },
-    })
+    });
   } else {
     await tx.settings.create({
       data: {
@@ -105,6 +121,6 @@ async function upsertOne(tx: Prisma.TransactionClient, entry: SettingsUpsertInpu
         tenantId: normalizedTenantId,
         updatedAt: now,
       },
-    })
+    });
   }
 }

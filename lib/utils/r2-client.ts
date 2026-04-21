@@ -8,7 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { prisma } from "@/lib/prisma";
+import { prismaAuth } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/utils/encryption";
 
 // R2 Settings interface
@@ -44,7 +44,7 @@ export async function getR2Settings(): Promise<R2Settings | null> {
   }
 
   try {
-    const settings = await prisma.settings.findMany({
+    const settings = await prismaAuth.settings.findMany({
       where: {
         key: {
           in: [

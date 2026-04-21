@@ -11,7 +11,7 @@
     "start": "NODE_ENV=production tsx server.ts",
     "worker": "tsx worker.ts",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
     "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "test": "vitest",
     "test:run": "vitest run --maxWorkers=50%",

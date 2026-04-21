@@ -1,0 +1,65 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "noEmit": true,
+    "strict": true,
+    "strictNullChecks": false,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@prisma/client-radius": [
+        "./prisma/generated/radius"
+      ],
+      "@prisma/client-billing": [
+        "./prisma/generated/billing"
+      ],
+      "@prisma/client-mitra": [
+        "./prisma/generated/mitra"
+      ],
+      "@/*": [
+        "./*"
+      ],
+      "@/types/*": [
+        "./types/*"
+      ]
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types/declarations"
+    ],
+    "allowJs": true,
+    "allowArbitraryExtensions": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "mobile",
+    "tmp",
+    ".next/dev/types"
+  ]
+}

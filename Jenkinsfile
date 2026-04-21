@@ -633,6 +633,41 @@ spec:
                         validate_image_ref netmanager-cron "${env.CRON_DEPLOY_REF}"
                         validate_image_ref netmanager-radius "${env.RADIUS_DEPLOY_REF}"
 
+                        decode_base64_secret_value() {
+                          if printf '' | base64 --decode >/dev/null 2>&1; then
+                            base64 --decode
+                            return
+                          fi
+
+                          base64 -d
+                        }
+
+                        assert_live_secret_not_placeholder() {
+                          local secret_name="\$1"
+                          local secret_key="\$2"
+                          local encoded_value
+                          local current_value
+
+                          if ! encoded_value="\$(kubectl get secret "\$secret_name" -n ${NAMESPACE} -o jsonpath="{.data.${secret_key}}")"; then
+                            echo "❌ Secret live \$secret_name tidak ditemukan; bootstrap secret real dulu sebelum deploy" >&2
+                            exit 1
+                          fi
+
+                          current_value="\$(printf '%s' "\$encoded_value" | decode_base64_secret_value | tr -d '\r\n')"
+
+                          if [ -z "\$current_value" ]; then
+                            echo "❌ Secret live \$secret_name key \$secret_key kosong atau tidak ada; bootstrap secret real dulu sebelum deploy" >&2
+                            exit 1
+                          fi
+
+                          if [ "\$current_value" = "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY" ]; then
+                            echo "❌ Secret live \$secret_name key \$secret_key masih placeholder; bootstrap secret real dulu sebelum deploy" >&2
+                            exit 1
+                          fi
+                        }
+
+                        assert_live_secret_not_placeholder netmanager-secrets CRON_SECRET
+
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"
                         RADIUS_PREVIOUS_IMAGE="\$(get_current_image netmanager-radius radius)"

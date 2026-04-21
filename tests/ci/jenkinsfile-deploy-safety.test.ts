@@ -325,4 +325,50 @@ describe("Jenkinsfile deploy safety", () => {
       "grep -Eq '{{APP_IMAGE}}|{{CRON_IMAGE}}|{{RADIUS_IMAGE}}'",
     );
   });
+
+  it("fails deploy when live netmanager-secrets still uses placeholder CRON_SECRET", () => {
+    const jenkinsfile = readJenkinsfile();
+    const deployStageIndex = jenkinsfile.indexOf("stage('Deploy to K8s')");
+    const deployBlock = jenkinsfile.slice(deployStageIndex);
+    const guardCallIndex = deployBlock.indexOf(
+      "assert_live_secret_not_placeholder netmanager-secrets CRON_SECRET",
+    );
+    const applyIndex = deployBlock.indexOf(
+      "kubectl apply -f ${K8S_DIR}/namespace.yaml",
+    );
+    const rolloutIndex = deployBlock.indexOf("rollout_workload netmanager-app");
+
+    expect(deployStageIndex).toBeGreaterThanOrEqual(0);
+    expect(deployBlock).toContain("decode_base64_secret_value() {");
+    expect(deployBlock).toContain(
+      "if printf '' | base64 --decode >/dev/null 2>&1; then",
+    );
+    expect(deployBlock).toContain("base64 --decode");
+    expect(deployBlock).toContain("base64 -d");
+    expect(deployBlock).toContain("assert_live_secret_not_placeholder() {");
+    expect(deployBlock).toContain('local secret_name="\\$1"');
+    expect(deployBlock).toContain('local secret_key="\\$2"');
+    expect(deployBlock).toContain("local encoded_value");
+    expect(deployBlock).toContain("local current_value");
+    expect(deployBlock).toContain(
+      'if ! encoded_value="\\$(kubectl get secret "\\$secret_name" -n ${NAMESPACE} -o jsonpath="{.data.${secret_key}}")"; then',
+    );
+    expect(deployBlock).not.toContain('jsonpath="{.data.\\${secret_key}}"');
+    expect(deployBlock).toContain(
+      "current_value=\"\\$(printf '%s' \"\\$encoded_value\" | decode_base64_secret_value | tr -d '\\r\\n')\"",
+    );
+    expect(deployBlock).toContain('if [ -z "\\$current_value" ]; then');
+    expect(deployBlock).toContain(
+      'echo "❌ Secret live \\$secret_name key \\$secret_key kosong atau tidak ada; bootstrap secret real dulu sebelum deploy" >&2',
+    );
+    expect(deployBlock).toContain(
+      'if [ "\\$current_value" = "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY" ]; then',
+    );
+    expect(deployBlock).toContain(
+      'echo "❌ Secret live \\$secret_name key \\$secret_key masih placeholder; bootstrap secret real dulu sebelum deploy" >&2',
+    );
+    expect(guardCallIndex).toBeGreaterThanOrEqual(0);
+    expect(applyIndex).toBeGreaterThan(guardCallIndex);
+    expect(rolloutIndex).toBeGreaterThan(guardCallIndex);
+  });
 });
