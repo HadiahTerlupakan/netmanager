@@ -477,7 +477,7 @@ export default function TransferPage() {
             </div>
 
             {/* Related Transactions */}
-            {selectedTransfer.masuk && (
+            {(selectedTransfer.masuk || selectedTransfer.keluar) && (
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                   Transaksi Terkait
