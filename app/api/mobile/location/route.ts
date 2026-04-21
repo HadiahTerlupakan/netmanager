@@ -42,7 +42,14 @@ export async function POST(request: NextRequest) {
         { status: 401 },
       );
     }
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiError("Data lokasi tidak valid", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
 
     const locationService = new LocationTrackingService();
 
@@ -57,7 +64,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle batch locations (offline sync)
-    if (Array.isArray(body.locations)) {
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "locations" in body &&
+      Array.isArray(body.locations)
+    ) {
       const parsed = batchLocationSchema.safeParse(body);
       if (!parsed.success) {
         return apiError(

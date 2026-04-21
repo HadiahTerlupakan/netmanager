@@ -9,7 +9,7 @@ import {
   acquireCronLock,
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
-import { runAttendanceCronOrchestrator } from "@/modules/attendance/services/AttendanceCronOrchestratorService";
+import { runAttendanceCronOrchestrator } from "@/modules/attendance";
 
 export const dynamic = "force-dynamic";
 

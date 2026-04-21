@@ -5,6 +5,8 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
+  ListObjectsV2Command,
+  type _Object,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -327,6 +329,60 @@ export async function deleteFromR2(key: string): Promise<boolean> {
 export interface R2ObjectMetadata {
   contentLength: number | null;
   contentType: string | null;
+}
+
+export async function hasR2Object(key: string): Promise<boolean> {
+  const client = await getR2Client();
+  const settings = await getR2Settings();
+
+  if (!client || !settings) {
+    return false;
+  }
+
+  try {
+    await client.send(
+      new HeadObjectCommand({
+        Bucket: settings.bucketName,
+        Key: key,
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function findLatestR2ObjectKeyByFilename(
+  filename: string,
+): Promise<string | null> {
+  const client = await getR2Client();
+  const settings = await getR2Settings();
+
+  if (!client || !settings) {
+    return null;
+  }
+
+  const normalizedFilename = filename.trim();
+  if (!normalizedFilename) {
+    return null;
+  }
+
+  const result = await client.send(
+    new ListObjectsV2Command({
+      Bucket: settings.bucketName,
+      Prefix: "uploads/logos/",
+    }),
+  );
+
+  const latestMatch = (result.Contents ?? [])
+    .filter((item) => item.Key?.endsWith(`-${normalizedFilename}`))
+    .sort((left, right) => {
+      const leftTime = left.LastModified?.getTime() ?? 0;
+      const rightTime = right.LastModified?.getTime() ?? 0;
+      return rightTime - leftTime;
+    })[0];
+
+  return latestMatch?.Key ?? null;
 }
 
 export async function getR2ObjectMetadata(

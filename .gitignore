@@ -159,3 +159,5 @@ scripts/debug-password.ts
 
 .gemini/
 gha-creds-*.json
+# Added by code-review-graph
+.code-review-graph/

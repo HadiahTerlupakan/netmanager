@@ -1,8 +1,7 @@
-import { ensurePermission } from '@/lib/rbac'
-import LiveMapClient from './LiveMapClient'
+import { ensurePermission } from "@/lib/rbac";
+import LiveMapClient from "./LiveMapClient";
 
 export default async function LiveMapPage() {
-    await ensurePermission('attendance:read')
-    return <LiveMapClient />
+  await ensurePermission("live_tracking:read");
+  return <LiveMapClient />;
 }
-

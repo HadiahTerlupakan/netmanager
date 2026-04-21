@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetR2Settings } = vi.hoisted(() => ({
+const {
+  mockGetR2Settings,
+  mockHasR2Object,
+  mockFindLatestR2ObjectKeyByFilename,
+} = vi.hoisted(() => ({
   mockGetR2Settings: vi.fn(),
+  mockHasR2Object: vi.fn(),
+  mockFindLatestR2ObjectKeyByFilename: vi.fn(),
 }));
 
 import { getTenantIdFromContext } from "../../../lib/tenant-context";
@@ -20,12 +26,16 @@ vi.mock("../../../lib/tenant-context", () => ({
 
 vi.mock("../../../lib/utils/r2-client", () => ({
   getR2Settings: mockGetR2Settings,
+  hasR2Object: mockHasR2Object,
+  findLatestR2ObjectKeyByFilename: mockFindLatestR2ObjectKeyByFilename,
 }));
 
 describe("getPublicPortalSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetR2Settings.mockResolvedValue(null);
+    mockHasR2Object.mockResolvedValue(true);
+    mockFindLatestR2ObjectKeyByFilename.mockResolvedValue(null);
   });
 
   it("fallback ke branding global saat tenant context tidak ada dan tetap mengembalikan perusahaan/logoInvoice", async () => {

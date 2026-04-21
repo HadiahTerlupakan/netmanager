@@ -191,17 +191,12 @@ export class LocationTrackingService {
       };
     };
 
-    // Calculate today's start in WIB timezone (UTC+7)
-    // When it's 00:00 WIB, it's 17:00 UTC previous day
-    const now = new Date();
-    const wibOffset = 7 * 60; // WIB is UTC+7, convert to minutes
-    const utcOffset = now.getTimezoneOffset(); // Server's offset in minutes (negative for UTC+)
-    const totalOffset = wibOffset + utcOffset; // Total offset from server time to WIB
-
-    // Create "today at 00:00 WIB" in UTC
-    const todayWIB = new Date(now.getTime() + totalOffset * 60 * 1000);
-    todayWIB.setTime(toStartOfDay(todayWIB).getTime());
-    const todayUTC = new Date(todayWIB.getTime() - totalOffset * 60 * 1000);
+    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+    const effectiveTenantId =
+      !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
+    const todayUTC = await this.getTodayTenantStartUTC(
+      effectiveTenantId || undefined,
+    );
 
     // Build user filter for RBAC restrictions
     const userFilter: { siteId?: string; departmentId?: string } = {};
@@ -240,10 +235,6 @@ export class LocationTrackingService {
     // OPTIMIZED: Batch fetch latest locations in SINGLE query
     // This eliminates N+1 query problem (was: 1 query per user)
     const userIds = activeAttendances.map((a) => a.userId);
-
-    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-    const effectiveTenantId =
-      !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
 
     const latestLocations = await this.locationRepo.getLatestLocationsForUsers(
       userIds,
@@ -327,17 +318,18 @@ export class LocationTrackingService {
    */
   async getLocationStats(
     userId: string,
-    date: Date,
+    startDate: Date,
+    endDate?: Date,
   ): Promise<{
     totalPoints: number;
     firstLocation: Date | null;
     lastLocation: Date | null;
     totalDistance: number;
   }> {
-    const startOfDay = new Date(date);
+    const startOfDay = new Date(startDate);
     startOfDay.setTime(toStartOfDay(startOfDay).getTime());
 
-    const endOfDay = new Date(date);
+    const endOfDay = new Date(endDate ?? startDate);
     endOfDay.setTime(toEndOfDay(endOfDay).getTime());
 
     const locations = await this.locationRepo.findLocationsByUserIdAndDateRange(

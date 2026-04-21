@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "NODE_OPTIONS='--no-deprecation' tsx watch server.ts",
+    "dev": "NODE_OPTIONS='--no-deprecation' tsx server.ts",
     "prepare": "node scripts/run-husky-prepare.js",
     "postinstall": "npm run prisma:generate",
     "build": "NODE_OPTIONS='--no-deprecation' NODE_ENV=production next build --webpack",

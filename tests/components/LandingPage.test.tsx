@@ -31,6 +31,23 @@ describe("LandingPage", () => {
     vi.clearAllMocks();
   });
 
+  it("renders logo skeleton instead of default logo while client branding is still loading", () => {
+    mockUsePublicBranding.mockReturnValue({
+      branding: null,
+      loading: true,
+      error: null,
+    });
+
+    const markup = renderToStaticMarkup(
+      <LandingPage brandingName="SBLNET Public" brandingLogoUrl={undefined} />,
+    );
+
+    expect(markup).toContain('data-testid="landing-page-logo-skeleton"');
+    expect(markup).not.toContain(
+      "&quot;src&quot;:&quot;/images/logo-sbl.png&quot;",
+    );
+  });
+
   it("keeps SSR landing logo when public branding hook only provides app logo", () => {
     mockUsePublicBranding.mockReturnValue({
       branding: {
@@ -56,7 +73,7 @@ describe("LandingPage", () => {
     );
   });
 
-  it("falls back to client branding logo when SSR logo is unavailable", () => {
+  it("falls back to default logo when landing logo is unavailable", () => {
     mockUsePublicBranding.mockReturnValue({
       branding: {
         namaAplikasi: "SBLNET Public",
@@ -71,10 +88,10 @@ describe("LandingPage", () => {
     );
 
     expect(markup).toContain(
-      "&quot;src&quot;:&quot;https://cdn.radpro.id/uploads/logos/logo-aplikasi.png&quot;",
+      "&quot;src&quot;:&quot;/images/logo-sbl.png&quot;",
     );
     expect(markup).not.toContain(
-      "&quot;src&quot;:&quot;/images/logo-sbl.png&quot;",
+      "&quot;src&quot;:&quot;https://cdn.radpro.id/uploads/logos/logo-aplikasi.png&quot;",
     );
   });
 });

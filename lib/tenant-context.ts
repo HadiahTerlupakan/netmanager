@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
 import { prisma } from "@/modules/database";
+import { MAIN_TENANT_ID } from "@/modules/mitra/services/tenant-constants";
 
 export interface TenantContextResult {
   tenantId: string | null;
@@ -43,6 +44,13 @@ function cacheTenantContextForRequest(
   return tenantContext;
 }
 
+function resolvePrimaryTenantContext(): TenantContextResult {
+  return {
+    tenantId: MAIN_TENANT_ID,
+    isSuperAdmin: false,
+  };
+}
+
 async function resolveTenantContextFromHost(
   requestHeaders: Headers | null,
 ): Promise<TenantContextResult | null> {
@@ -50,8 +58,12 @@ async function resolveTenantContextFromHost(
     requestHeaders?.get("x-forwarded-host") || requestHeaders?.get("host");
   const normalizedHost = host?.split(":")[0]?.trim().toLowerCase();
 
-  if (!normalizedHost || normalizedHost === "localhost") {
+  if (!normalizedHost) {
     return null;
+  }
+
+  if (normalizedHost === "localhost") {
+    return resolvePrimaryTenantContext();
   }
 
   const tenant = await prisma.tenant.findFirst({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
@@ -27,11 +27,18 @@ export default function CustomerLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useCustomerAuth();
   const router = useRouter();
-  const { branding } = usePublicBranding();
+  const { branding, loading: isBrandingLoading } = usePublicBranding();
   const appLogoUrl = branding?.appLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
   const appName = branding?.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;
+  const [logoSrc, setLogoSrc] = useState<string | null>(
+    isBrandingLoading ? null : appLogoUrl,
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    setLogoSrc(isBrandingLoading ? null : appLogoUrl);
+  }, [appLogoUrl, isBrandingLoading]);
+
+  const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
@@ -40,6 +47,7 @@ export default function CustomerLoginPage() {
       const result = await login(identifier, password);
       if (result.success) {
         router.push("/dashboard");
+        router.refresh();
       } else {
         setError(result.error || "Login gagal");
       }
@@ -70,13 +78,26 @@ export default function CustomerLoginPage() {
           {/* Hero Logo */}
           <div className="flex items-center justify-center px-4 pt-4 pb-4">
             <div className="relative w-80 h-32">
-              <Image
-                src={appLogoUrl}
-                alt={`Logo ${appName}`}
-                fill
-                className="object-contain"
-                priority
-              />
+              {logoSrc ? (
+                <Image
+                  src={logoSrc}
+                  alt={`Logo ${appName}`}
+                  fill
+                  sizes="320px"
+                  className="object-contain"
+                  priority
+                  onError={() => {
+                    if (logoSrc !== DEFAULT_PUBLIC_APP_LOGO_URL) {
+                      setLogoSrc(DEFAULT_PUBLIC_APP_LOGO_URL);
+                    }
+                  }}
+                />
+              ) : (
+                <div
+                  data-testid="customer-login-logo-skeleton"
+                  className="h-full w-full animate-pulse rounded-2xl bg-gray-200/80 dark:bg-gray-800"
+                />
+              )}
             </div>
           </div>
 

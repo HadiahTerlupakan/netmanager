@@ -50,6 +50,12 @@ interface EmployeeLocation {
   checkInTime: string;
 }
 
+function getBatteryPercentage(batteryLevel: number): number {
+  return batteryLevel <= 1
+    ? Math.round(batteryLevel * 100)
+    : Math.round(batteryLevel);
+}
+
 export default function LiveMapClient() {
   const { isConnected } = useRealtime();
   const [locations, setLocations] = useState<EmployeeLocation[]>([]);
@@ -341,14 +347,14 @@ export default function LiveMapClient() {
                     {loc.batteryLevel !== null && (
                       <span
                         className={`px-2 py-1 rounded ${
-                          loc.batteryLevel > 0.5
+                          getBatteryPercentage(loc.batteryLevel) > 50
                             ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
-                            : loc.batteryLevel > 0.2
+                            : getBatteryPercentage(loc.batteryLevel) > 20
                               ? "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400"
                               : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                         }`}
                       >
-                        🔋 {Math.round(loc.batteryLevel * 100)}%
+                        🔋 {getBatteryPercentage(loc.batteryLevel)}%
                       </span>
                     )}
                   </div>

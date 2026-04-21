@@ -1,5 +1,9 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import { getR2Settings } from "@/lib/utils/r2-client";
+import {
+  findLatestR2ObjectKeyByFilename,
+  getR2Settings,
+  hasR2Object,
+} from "@/lib/utils/r2-client";
 import {
   SettingsRepository,
   type SettingsRecord,
@@ -39,7 +43,7 @@ export async function resolveAppBranding(): Promise<AppBrandingResult> {
     getSettingTextValue(globalBrandingMap, "GENERAL_NAMA_APLIKASI") ||
     DEFAULT_APP_NAME;
 
-  const tenantLogoPath = resolveLogoUrl(
+  const tenantLogoPath = await resolveAppLogoUrl(
     tenantBrandingMap.get("LOGO_APLIKASI") ?? null,
     publicR2BaseUrl,
   );
@@ -47,7 +51,7 @@ export async function resolveAppBranding(): Promise<AppBrandingResult> {
     return { appName, appLogoUrl: tenantLogoPath, source: "tenant", tenantId };
   }
 
-  const globalLogoPath = resolveLogoUrl(
+  const globalLogoPath = await resolveAppLogoUrl(
     globalBrandingMap.get("LOGO_APLIKASI") ?? null,
     publicR2BaseUrl,
   );
@@ -111,10 +115,10 @@ function normalizeLogoPath(path: string | null): string | null {
   return `/${trimmedPath}`;
 }
 
-function resolveLogoUrl(
+async function resolveAppLogoUrl(
   path: string | null,
   publicR2BaseUrl: string | null,
-): string | null {
+): Promise<string | null> {
   const normalizedPath = normalizeLogoPath(path);
   if (!normalizedPath) {
     return null;
@@ -124,7 +128,22 @@ function resolveLogoUrl(
     return normalizedPath;
   }
 
-  return `${publicR2BaseUrl}${normalizedPath}`;
+  const normalizedKey = normalizedPath.replace(/^\//, "");
+  if (await hasR2Object(normalizedKey)) {
+    return `${publicR2BaseUrl}${normalizedPath}`;
+  }
+
+  const filename = normalizedKey.split("/").pop();
+  if (!filename) {
+    return `${publicR2BaseUrl}${normalizedPath}`;
+  }
+
+  const latestObjectKey = await findLatestR2ObjectKeyByFilename(filename);
+  if (!latestObjectKey) {
+    return `${publicR2BaseUrl}${normalizedPath}`;
+  }
+
+  return `${publicR2BaseUrl}/${latestObjectKey}`;
 }
 
 async function getPublicR2BaseUrl(): Promise<string | null> {

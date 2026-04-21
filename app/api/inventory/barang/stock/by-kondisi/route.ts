@@ -1,126 +1,115 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth-helpers'
-import { prisma } from '@/modules/database'
-import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth-helpers";
+import { prisma } from "@/modules/database";
+import { logger } from "@/lib/logger";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
 
 /**
  * GET /api/inventory/barang/stock/by-kondisi
  * Get stock breakdown by condition for specific barang and gudang
  */
 export async function GET(req: NextRequest) {
-  const startTime = Date.now()
+  const startTime = Date.now();
   try {
-    const session = await requireAdmin(req)
+    const session = await requireAdmin(req);
     if (session instanceof NextResponse) {
-      return session // Return error response if authentication fails
+      return session; // Return error response if authentication fails
     }
 
-    const searchParams = req.nextUrl.searchParams
-    const barangId = searchParams.get('barangId')
-    const gudangId = searchParams.get('gudangId')
+    const searchParams = req.nextUrl.searchParams;
+    const barangId = searchParams.get("barangId");
+    const gudangId = searchParams.get("gudangId");
 
     if (!barangId || !gudangId) {
-      return ApiErrors.badRequest('Barang ID dan Gudang ID harus diisi')
+      return ApiErrors.badRequest("Barang ID dan Gudang ID harus diisi");
     }
 
     try {
-      const dbStart = Date.now()
+      const dbStart = Date.now();
 
-      // Get stock breakdown by condition from BarangMasuk and BarangKeluar
-      const stockByKondisi = await prisma.barangMasuk.groupBy({
-        by: ['kondisi'],
-        where: {
-          barangId,
-          gudangId
-        },
-        _sum: {
-          jumlah: true
-        }
-      })
+      const [stockSnapshot, barangInfo, gudangInfo] = await Promise.all([
+        prisma.barangGudang.findUnique({
+          where: {
+            barangId_gudangId: {
+              barangId,
+              gudangId,
+            },
+          },
+          select: {
+            stok: true,
+            stokBaru: true,
+            stokBekas: true,
+            stokRusak: true,
+          },
+        }),
+        prisma.barang.findUnique({
+          where: { id: barangId },
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+            satuan: true,
+          },
+        }),
+        prisma.gudang.findUnique({
+          where: { id: gudangId },
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+          },
+        }),
+      ]);
 
-      const stockKeluarByKondisi = await prisma.barangKeluar.groupBy({
-        by: ['kondisi'],
-        where: {
+      const stockPerKondisi = {
+        BARU: Math.max(stockSnapshot?.stokBaru || 0, 0),
+        BEKAS: Math.max(stockSnapshot?.stokBekas || 0, 0),
+        RUSAK: Math.max(stockSnapshot?.stokRusak || 0, 0),
+      };
+
+      const totalStock = Math.max(
+        stockSnapshot?.stok ||
+          Object.values(stockPerKondisi).reduce((sum, stock) => sum + stock, 0),
+        0,
+      );
+
+      logger.dbOperation(
+        "stock snapshot lookup",
+        "BarangGudang",
+        Date.now() - dbStart,
+      );
+
+      logger.apiRequest(
+        "GET",
+        "/api/inventory/barang/stock/by-kondisi",
+        200,
+        Date.now() - startTime,
+        {
+          userId: session.user.id,
           barangId,
           gudangId,
-          isHilang: false
+          totalStock,
+          stockPerKondisi,
         },
-        _sum: {
-          jumlah: true
-        }
-      })
-
-      // Calculate current stock per kondisi
-      const stockPerKondisi = {
-        BARU: 0,
-        BEKAS: 0,
-        RUSAK: 0
-      }
-
-      // Add stock in
-      stockByKondisi.forEach(item => {
-        if (item.kondisi in stockPerKondisi) {
-          stockPerKondisi[item.kondisi as keyof typeof stockPerKondisi] += item._sum.jumlah || 0
-        }
-      })
-
-      // Subtract stock out
-      stockKeluarByKondisi.forEach(item => {
-        if (item.kondisi in stockPerKondisi) {
-          stockPerKondisi[item.kondisi as keyof typeof stockPerKondisi] -= item._sum.jumlah || 0
-        }
-      })
-
-      // Get barang and gudang info
-      const barangInfo = await prisma.barang.findUnique({
-        where: { id: barangId },
-        select: {
-          id: true,
-          kode: true,
-          nama: true,
-          satuan: true
-        }
-      })
-
-      const gudangInfo = await prisma.gudang.findUnique({
-        where: { id: gudangId },
-        select: {
-          id: true,
-          kode: true,
-          nama: true
-        }
-      })
-
-      // Calculate total stock
-      const totalStock = Object.values(stockPerKondisi).reduce((sum, stock) => sum + stock, 0)
-
-      logger.dbOperation('groupBy calculations', 'BarangMasuk+BarangKeluar', Date.now() - dbStart)
-
-      logger.apiRequest('GET', '/api/inventory/barang/stock/by-kondisi', 200, Date.now() - startTime, {
-        userId: session.user.id,
-        barangId,
-        gudangId,
-        totalStock,
-        stockPerKondisi
-      })
+      );
 
       return apiSuccess({
         totalStock,
         stockPerKondisi,
         barang: barangInfo,
-        gudang: gudangInfo
-      })
-
+        gudang: gudangInfo,
+      });
     } finally {
       // do not disconnect shared prisma client
     }
   } catch (error) {
-    const err = error as Error
-    logger.error('Error fetching stock by condition', err, {
-      path: '/api/inventory/barang/stock/by-kondisi',
-      method: 'GET',
-    })
-    return ApiErrors.internalError('Gagal mengambil informasi stok per kondisi')
+    const err = error as Error;
+    logger.error("Error fetching stock by condition", err, {
+      path: "/api/inventory/barang/stock/by-kondisi",
+      method: "GET",
+    });
+    return ApiErrors.internalError(
+      "Gagal mengambil informasi stok per kondisi",
+    );
   }
 }

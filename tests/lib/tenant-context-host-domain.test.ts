@@ -71,4 +71,19 @@ describe("tenant-context host domain", () => {
       },
     });
   });
+
+  it("resolves localhost public request to primary tenant", async () => {
+    mockFns.headers.mockResolvedValue(new Headers({ host: "localhost:3000" }));
+    const { MAIN_TENANT_ID } =
+      await import("@/modules/mitra/services/tenant-constants");
+    const { getTenantIdFromContext } = await import("@/lib/tenant-context");
+
+    const result = await getTenantIdFromContext();
+
+    expect(result).toEqual({
+      tenantId: MAIN_TENANT_ID,
+      isSuperAdmin: false,
+    });
+    expect(mockFns.findFirst).not.toHaveBeenCalled();
+  });
 });
