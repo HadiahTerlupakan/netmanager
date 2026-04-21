@@ -160,4 +160,86 @@ describe("getPublicPortalSettings", () => {
       landingLogoUrl: "https://cdn.radpro.id/uploads/logo-landing.png",
     });
   });
+
+  it("mengembalikan logo landing tenant meski branding aplikasi fallback ke global", async () => {
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-1",
+      isSuperAdmin: false,
+    });
+
+    vi.mocked(SettingsRepository.findManyByKeys).mockImplementation(
+      async (keys, tenantId) => {
+        const keySignature = [...keys].sort().join(",");
+
+        if (
+          keySignature === "GENERAL_PERUSAHAAN,LOGO_INVOICE,LOGO_LANDING_PAGE"
+        ) {
+          if (tenantId === "tenant-1") {
+            return [
+              {
+                key: "GENERAL_PERUSAHAAN",
+                value: "PT Tenant",
+                encrypted: false,
+              },
+              {
+                key: "LOGO_LANDING_PAGE",
+                value: "/uploads/tenant-logo-landing.png",
+                encrypted: false,
+              },
+            ];
+          }
+
+          expect(tenantId).toBeUndefined();
+          return [
+            {
+              key: "GENERAL_PERUSAHAAN",
+              value: "PT Global",
+              encrypted: false,
+            },
+            {
+              key: "LOGO_INVOICE",
+              value: "/uploads/global-logo-invoice.png",
+              encrypted: false,
+            },
+          ];
+        }
+
+        if (keySignature === "GENERAL_NAMA_APLIKASI,LOGO_APLIKASI") {
+          if (tenantId === "tenant-1") {
+            return [
+              {
+                key: "GENERAL_NAMA_APLIKASI",
+                value: "Tenant One",
+                encrypted: false,
+              },
+            ];
+          }
+
+          expect(tenantId).toBeUndefined();
+          return [
+            {
+              key: "GENERAL_NAMA_APLIKASI",
+              value: "Global Radpro",
+              encrypted: false,
+            },
+            {
+              key: "LOGO_APLIKASI",
+              value: "/uploads/global-logo.png",
+              encrypted: false,
+            },
+          ];
+        }
+
+        return [];
+      },
+    );
+
+    await expect(getPublicPortalSettings()).resolves.toEqual({
+      namaAplikasi: "Tenant One",
+      perusahaan: "PT Tenant",
+      appLogoUrl: "/uploads/global-logo.png",
+      logoInvoice: "/uploads/global-logo-invoice.png",
+      landingLogoUrl: "/uploads/tenant-logo-landing.png",
+    });
+  });
 });

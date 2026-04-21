@@ -1,5 +1,9 @@
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getR2Settings } from "@/lib/utils/r2-client";
-import { SettingsRepository } from "../repositories/SettingsRepository";
+import {
+  SettingsRepository,
+  type SettingsRecord,
+} from "../repositories/SettingsRepository";
 import { resolveAppBranding } from "./appBranding";
 
 const PUBLIC_SETTINGS_KEYS = [
@@ -17,14 +21,15 @@ export type PublicPortalSettingsPayload = {
 };
 
 export async function getPublicPortalSettings(): Promise<PublicPortalSettingsPayload> {
-  const [records, branding, publicR2BaseUrl] = await Promise.all([
-    SettingsRepository.findManyByKeys(PUBLIC_SETTINGS_KEYS),
-    resolveAppBranding(),
-    getPublicR2BaseUrl(),
-  ]);
-  const settingsMap = new Map(
-    records.map((setting) => [setting.key, setting.value]),
-  );
+  const { tenantId } = await getTenantIdFromContext();
+  const [tenantRecords, globalRecords, branding, publicR2BaseUrl] =
+    await Promise.all([
+      getTenantPublicSettings(tenantId),
+      SettingsRepository.findManyByKeys(PUBLIC_SETTINGS_KEYS),
+      resolveAppBranding(),
+      getPublicR2BaseUrl(),
+    ]);
+  const settingsMap = mergeSettings(tenantRecords, globalRecords);
 
   return {
     namaAplikasi: branding.appName,
@@ -39,6 +44,31 @@ export async function getPublicPortalSettings(): Promise<PublicPortalSettingsPay
       publicR2BaseUrl,
     ),
   };
+}
+
+async function getTenantPublicSettings(
+  tenantId: string | null,
+): Promise<SettingsRecord[]> {
+  if (!tenantId) {
+    return [];
+  }
+
+  return SettingsRepository.findManyByKeys(PUBLIC_SETTINGS_KEYS, tenantId);
+}
+
+function mergeSettings(
+  tenantRecords: SettingsRecord[],
+  globalRecords: SettingsRecord[],
+): Map<string, string | null> {
+  const globalSettings = new Map(
+    globalRecords.map((setting) => [setting.key, setting.value]),
+  );
+
+  for (const setting of tenantRecords) {
+    globalSettings.set(setting.key, setting.value);
+  }
+
+  return globalSettings;
 }
 
 function normalizeLogoPath(path: string | null): string | null {

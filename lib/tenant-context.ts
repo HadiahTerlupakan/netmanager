@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
+import { prisma } from "@/modules/database";
 
 export interface TenantContextResult {
   tenantId: string | null;
@@ -40,6 +41,37 @@ function cacheTenantContextForRequest(
   }
 
   return tenantContext;
+}
+
+async function resolveTenantContextFromHost(
+  requestHeaders: Headers | null,
+): Promise<TenantContextResult | null> {
+  const host =
+    requestHeaders?.get("x-forwarded-host") || requestHeaders?.get("host");
+  const normalizedHost = host?.split(":")[0]?.trim().toLowerCase();
+
+  if (!normalizedHost || normalizedHost === "localhost") {
+    return null;
+  }
+
+  const tenant = await prisma.tenant.findFirst({
+    where: {
+      domain: normalizedHost,
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!tenant) {
+    return null;
+  }
+
+  return {
+    tenantId: tenant.id,
+    isSuperAdmin: false,
+  };
 }
 
 /**
@@ -203,6 +235,11 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
     }
   } catch (_e) {
     // Usually means it was called outside of a context
+  }
+
+  const hostTenantContext = await resolveTenantContextFromHost(requestHeaders);
+  if (hostTenantContext) {
+    return cacheTenantContextForRequest(requestHeaders, hostTenantContext);
   }
 
   return cacheTenantContextForRequest(requestHeaders, {
