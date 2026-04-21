@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-export const logoTypeSchema = z.enum(["invoice", "aplikasi"]);
+export const logoTypeSchema = z.enum(["invoice", "aplikasi", "landing"]);
 
 export const bankAccountSchema = z.object({
   id: z.string().min(1).optional(),

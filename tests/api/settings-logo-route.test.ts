@@ -41,10 +41,11 @@ describe("settings logo route tenant scope", () => {
     mockHasPermission.mockResolvedValue(true);
   });
 
-  it("reads logo settings using tenant id from session", async () => {
+  it("reads logo settings including landing logo using tenant id from session", async () => {
     mockGetLogoSettings.mockResolvedValue({
       logoInvoice: "/uploads/logos/logo-invoice.png",
       logoAplikasi: "/uploads/logos/logo-aplikasi.png",
+      logoLandingPage: "/uploads/logos/logo-landing.png",
     });
 
     const result = await GET(
@@ -58,12 +59,46 @@ describe("settings logo route tenant scope", () => {
     expect(result).toEqual({
       logoInvoice: "/uploads/logos/logo-invoice.png",
       logoAplikasi: "/uploads/logos/logo-aplikasi.png",
+      logoLandingPage: "/uploads/logos/logo-landing.png",
     });
   });
 
-  it("uploads logo using tenant id from session", async () => {
-    mockUploadLogo.mockResolvedValue("/uploads/logos/logo-aplikasi.png");
+  it("uploads landing logo using tenant id from session", async () => {
+    mockUploadLogo.mockResolvedValue("/uploads/logos/logo-landing.png");
     const file = new File(["logo"], "logo.png", { type: "image/png" });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", "landing");
+
+    const request = new NextRequest("http://localhost/api/settings/logo", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await POST(request, {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
+    } as never);
+
+    expect(mockUploadLogo).toHaveBeenCalledWith(
+      "landing",
+      expect.objectContaining({ name: "logo.png", type: "image/png" }),
+      "tenant-1",
+    );
+    expect(result).toEqual({
+      success: true,
+      logoPath: "/uploads/logos/logo-landing.png",
+    });
+    expect(mockLogActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "UPDATE",
+        details: expect.objectContaining({ key: "LOGO_LANDING_PAGE" }),
+      }),
+    );
+  });
+
+  it("uploads aplikasi logo using tenant id from session", async () => {
+    mockUploadLogo.mockResolvedValue("/uploads/logos/logo-aplikasi.png");
+    const file = new File(["logo"], "logo-aplikasi.png", { type: "image/png" });
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", "aplikasi");
@@ -79,16 +114,46 @@ describe("settings logo route tenant scope", () => {
 
     expect(mockUploadLogo).toHaveBeenCalledWith(
       "aplikasi",
-      expect.objectContaining({ name: "logo.png", type: "image/png" }),
+      expect.objectContaining({ name: "logo-aplikasi.png", type: "image/png" }),
       "tenant-1",
     );
     expect(result).toEqual({
       success: true,
       logoPath: "/uploads/logos/logo-aplikasi.png",
     });
+    expect(mockLogActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "UPDATE",
+        details: expect.objectContaining({ key: "LOGO_APLIKASI" }),
+      }),
+    );
   });
 
-  it("deletes logo using tenant id from session", async () => {
+  it("deletes landing logo using tenant id from session", async () => {
+    mockDeleteLogo.mockResolvedValue(undefined);
+
+    const request = new NextRequest("http://localhost/api/settings/logo", {
+      method: "DELETE",
+      body: JSON.stringify({ type: "landing" }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const result = await DELETE(request, {
+      session: { user: { id: "user-1", tenantId: "tenant-1" } },
+      validated: { type: "landing" },
+    } as never);
+
+    expect(mockDeleteLogo).toHaveBeenCalledWith("landing", "tenant-1");
+    expect(result).toEqual({ success: true });
+    expect(mockLogActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "DELETE",
+        details: expect.objectContaining({ key: "LOGO_LANDING_PAGE" }),
+      }),
+    );
+  });
+
+  it("deletes aplikasi logo using tenant id from session", async () => {
     mockDeleteLogo.mockResolvedValue(undefined);
 
     const request = new NextRequest("http://localhost/api/settings/logo", {
@@ -104,5 +169,11 @@ describe("settings logo route tenant scope", () => {
 
     expect(mockDeleteLogo).toHaveBeenCalledWith("aplikasi", "tenant-1");
     expect(result).toEqual({ success: true });
+    expect(mockLogActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "DELETE",
+        details: expect.objectContaining({ key: "LOGO_APLIKASI" }),
+      }),
+    );
   });
 });

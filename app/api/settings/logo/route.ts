@@ -38,7 +38,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   if (!parsedType.success) {
-    return ApiErrors.badRequest("Type harus invoice atau aplikasi");
+    return ApiErrors.badRequest("Type harus invoice, aplikasi, atau landing");
   }
   const type = parsedType.data;
   const normalizedPath = await uploadLogo(
@@ -46,7 +46,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     file,
     ctx.session?.user?.tenantId ?? null,
   );
-  const settingKey = type === "invoice" ? "LOGO_INVOICE" : "LOGO_APLIKASI";
+  const settingKey =
+    type === "invoice"
+      ? "LOGO_INVOICE"
+      : type === "aplikasi"
+        ? "LOGO_APLIKASI"
+        : "LOGO_LANDING_PAGE";
 
   // System Log
   if (ctx.session?.user?.id) {
@@ -68,7 +73,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
  * DELETE /api/settings/logo
  * Hapus logo
  */
-export const DELETE = createHandler<{ type: "invoice" | "aplikasi" }>(
+export const DELETE = createHandler<{
+  type: "invoice" | "aplikasi" | "landing";
+}>(
   {
     auth: true,
     schema: logoDeleteSchema,
@@ -82,7 +89,12 @@ export const DELETE = createHandler<{ type: "invoice" | "aplikasi" }>(
 
     const { type } = ctx.validated;
 
-    const settingKey = type === "invoice" ? "LOGO_INVOICE" : "LOGO_APLIKASI";
+    const settingKey =
+      type === "invoice"
+        ? "LOGO_INVOICE"
+        : type === "aplikasi"
+          ? "LOGO_APLIKASI"
+          : "LOGO_LANDING_PAGE";
     await deleteLogo(type, ctx.session?.user?.tenantId ?? null);
 
     // System Log

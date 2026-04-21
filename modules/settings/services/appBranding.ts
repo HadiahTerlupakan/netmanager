@@ -1,4 +1,5 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import { getR2Settings } from "@/lib/utils/r2-client";
 import {
   SettingsRepository,
   type SettingsRecord,
@@ -23,10 +24,12 @@ export type AppBrandingResult = {
 
 export async function resolveAppBranding(): Promise<AppBrandingResult> {
   const { tenantId } = await getTenantIdFromContext();
-  const [globalBrandingSettings, tenantBrandingSettings] = await Promise.all([
-    SettingsRepository.findManyByKeys(BRANDING_SETTING_KEYS),
-    getTenantBrandingSettings(tenantId),
-  ]);
+  const [globalBrandingSettings, tenantBrandingSettings, publicR2BaseUrl] =
+    await Promise.all([
+      SettingsRepository.findManyByKeys(BRANDING_SETTING_KEYS),
+      getTenantBrandingSettings(tenantId),
+      getPublicR2BaseUrl(),
+    ]);
 
   const globalBrandingMap = toSettingsMap(globalBrandingSettings);
   const tenantBrandingMap = toSettingsMap(tenantBrandingSettings);
@@ -36,15 +39,17 @@ export async function resolveAppBranding(): Promise<AppBrandingResult> {
     getSettingTextValue(globalBrandingMap, "GENERAL_NAMA_APLIKASI") ||
     DEFAULT_APP_NAME;
 
-  const tenantLogoPath = normalizeLogoPath(
+  const tenantLogoPath = resolveLogoUrl(
     tenantBrandingMap.get("LOGO_APLIKASI") ?? null,
+    publicR2BaseUrl,
   );
   if (tenantLogoPath) {
     return { appName, appLogoUrl: tenantLogoPath, source: "tenant", tenantId };
   }
 
-  const globalLogoPath = normalizeLogoPath(
+  const globalLogoPath = resolveLogoUrl(
     globalBrandingMap.get("LOGO_APLIKASI") ?? null,
+    publicR2BaseUrl,
   );
   if (globalLogoPath) {
     return { appName, appLogoUrl: globalLogoPath, source: "global", tenantId };
@@ -104,4 +109,29 @@ function normalizeLogoPath(path: string | null): string | null {
   }
 
   return `/${trimmedPath}`;
+}
+
+function resolveLogoUrl(
+  path: string | null,
+  publicR2BaseUrl: string | null,
+): string | null {
+  const normalizedPath = normalizeLogoPath(path);
+  if (!normalizedPath) {
+    return null;
+  }
+
+  if (!publicR2BaseUrl || /^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  return `${publicR2BaseUrl}${normalizedPath}`;
+}
+
+async function getPublicR2BaseUrl(): Promise<string | null> {
+  const publicUrl = (await getR2Settings())?.publicUrl?.trim();
+  if (!publicUrl) {
+    return null;
+  }
+
+  return publicUrl.replace(/\/$/, "");
 }

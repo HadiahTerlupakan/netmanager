@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockGetR2Settings } = vi.hoisted(() => ({
+  mockGetR2Settings: vi.fn(),
+}));
+
 import {
   DEFAULT_APP_LOGO_ASSET_PATH,
   resolveAppBranding,
@@ -17,9 +21,14 @@ vi.mock("../../../lib/tenant-context", () => ({
   getTenantIdFromContext: vi.fn(),
 }));
 
+vi.mock("../../../lib/utils/r2-client", () => ({
+  getR2Settings: mockGetR2Settings,
+}));
+
 describe("resolveAppBranding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetR2Settings.mockResolvedValue(null);
   });
 
   it("returns tenant source when tenant logo exists and normalizes path", async () => {
@@ -135,6 +144,51 @@ describe("resolveAppBranding", () => {
       "https://cdn.radpro.id/uploads/logos/logo-aplikasi.png",
     );
     expect(result.source).toBe("tenant");
+  });
+
+  it("converts legacy global logo path to R2 public URL when tenant logo missing", async () => {
+    mockGetR2Settings.mockResolvedValue({
+      accountId: "acc-1",
+      accessKeyId: "key-1",
+      secretAccessKey: "secret-1",
+      bucketName: "bucket-1",
+      publicUrl: "https://cdn.radpro.id",
+      enabled: true,
+    });
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-2",
+      isSuperAdmin: false,
+    });
+
+    vi.mocked(SettingsRepository.findManyByKeys).mockImplementation(
+      async (_keys, tenantId) => {
+        if (tenantId === "tenant-2") {
+          return [];
+        }
+
+        return [
+          {
+            key: "LOGO_APLIKASI",
+            value: "/uploads/logos/logo-aplikasi.png",
+            encrypted: false,
+          },
+          {
+            key: "GENERAL_NAMA_APLIKASI",
+            value: "Global Name",
+            encrypted: false,
+          },
+        ];
+      },
+    );
+
+    const result = await resolveAppBranding();
+
+    expect(result).toEqual({
+      appName: "Global Name",
+      appLogoUrl: "https://cdn.radpro.id/uploads/logos/logo-aplikasi.png",
+      source: "global",
+      tenantId: "tenant-2",
+    });
   });
 
   it("returns default source and default asset when tenant and global logos are missing", async () => {

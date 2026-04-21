@@ -3,10 +3,7 @@ import { cookies, headers } from "next/headers";
 import LandingPage from "@/components/LandingPage";
 import type { Metadata } from "next";
 import { getPublicPortalSettings } from "@/modules/settings";
-import {
-  DEFAULT_PUBLIC_APP_LOGO_URL,
-  DEFAULT_PUBLIC_APP_NAME,
-} from "@/lib/settings/publicBranding";
+import { DEFAULT_PUBLIC_APP_NAME } from "@/lib/settings/publicBranding";
 
 export const metadata: Metadata = {
   title: "SBLNET.ID - Provider Internet Fiber Optik Unlimited Tercepat",
@@ -60,12 +57,12 @@ export default async function HomePage() {
   }
 
   let brandingName = DEFAULT_PUBLIC_APP_NAME;
-  let brandingLogoUrl = DEFAULT_PUBLIC_APP_LOGO_URL;
+  let brandingLogoUrl: string | undefined;
 
   try {
     const branding = await getPublicPortalSettings();
     brandingName = branding.namaAplikasi || DEFAULT_PUBLIC_APP_NAME;
-    brandingLogoUrl = branding.appLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
+    brandingLogoUrl = branding.landingLogoUrl || undefined;
   } catch {
     // gunakan fallback publik default
   }

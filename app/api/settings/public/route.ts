@@ -10,7 +10,6 @@ export async function GET(_request: NextRequest) {
   try {
     const settings = await getPublicPortalSettings();
 
-    // Return only public-safe settings
     return NextResponse.json({
       success: true,
       data: {
@@ -18,6 +17,7 @@ export async function GET(_request: NextRequest) {
         perusahaan: settings.perusahaan,
         appLogoUrl: settings.appLogoUrl,
         logoInvoice: settings.logoInvoice,
+        landingLogoUrl: settings.landingLogoUrl,
       },
     });
   } catch (error) {

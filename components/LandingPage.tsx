@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -36,7 +35,7 @@ export default function LandingPage({
   const appName =
     branding?.namaAplikasi || brandingName || DEFAULT_PUBLIC_APP_NAME;
   const appLogoUrl =
-    branding?.appLogoUrl || brandingLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
+    brandingLogoUrl || branding?.appLogoUrl || DEFAULT_PUBLIC_APP_LOGO_URL;
 
   return (
     <div className="bg-slate-50 dark:bg-[#101922] text-slate-900 dark:text-white font-sans antialiased overflow-x-hidden min-h-screen">
