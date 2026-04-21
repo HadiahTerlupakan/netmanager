@@ -640,7 +640,7 @@ export class InventoryRepository implements IInventoryRepository {
   }
 
   async findTransferById(id: string): Promise<Record<string, unknown> | null> {
-    return this.db.transferAntarGudang.findUnique({
+    const transfer = (await this.db.transferAntarGudang.findUnique({
       where: { id },
       include: {
         barang: { select: { id: true, kode: true, nama: true, satuan: true } },
@@ -669,7 +669,26 @@ export class InventoryRepository implements IInventoryRepository {
           },
         },
       },
-    }) as unknown as Promise<Record<string, unknown> | null>;
+    })) as unknown as
+      | (Record<string, unknown> & {
+          gudangDari?: Record<string, unknown>;
+          gudangKe?: Record<string, unknown>;
+          barangMasuk?: Record<string, unknown>[];
+          barangKeluar?: Record<string, unknown>[];
+        })
+      | null;
+
+    if (!transfer) {
+      return null;
+    }
+
+    return {
+      ...transfer,
+      dariGudang: transfer.gudangDari,
+      keGudang: transfer.gudangKe,
+      masuk: transfer.barangMasuk?.[0] ?? null,
+      keluar: transfer.barangKeluar?.[0] ?? null,
+    };
   }
 
   async createTransfer(

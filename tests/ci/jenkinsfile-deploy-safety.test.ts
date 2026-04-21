@@ -351,9 +351,10 @@ describe("Jenkinsfile deploy safety", () => {
     expect(deployBlock).toContain("local encoded_value");
     expect(deployBlock).toContain("local current_value");
     expect(deployBlock).toContain(
-      'if ! encoded_value="\\$(kubectl get secret "\\$secret_name" -n ${NAMESPACE} -o jsonpath="{.data.${secret_key}}")"; then',
+      'if ! encoded_value="\\$(kubectl get secret "\\$secret_name" -n ${NAMESPACE} -o jsonpath="{.data.\\${secret_key}}")"; then',
     );
-    expect(deployBlock).not.toContain('jsonpath="{.data.\\${secret_key}}"');
+    expect(deployBlock).not.toContain('jsonpath="{.data.${secret_key}}"');
+    expect(deployBlock).toContain('jsonpath="{.data.\\${secret_key}}"');
     expect(deployBlock).toContain(
       "current_value=\"\\$(printf '%s' \"\\$encoded_value\" | decode_base64_secret_value | tr -d '\\r\\n')\"",
     );

@@ -648,7 +648,7 @@ spec:
                           local encoded_value
                           local current_value
 
-                          if ! encoded_value="\$(kubectl get secret "\$secret_name" -n ${NAMESPACE} -o jsonpath="{.data.${secret_key}}")"; then
+                          if ! encoded_value="\$(kubectl get secret "\$secret_name" -n ${NAMESPACE} -o jsonpath="{.data.\${secret_key}}")"; then
                             echo "❌ Secret live \$secret_name tidak ditemukan; bootstrap secret real dulu sebelum deploy" >&2
                             exit 1
                           fi
