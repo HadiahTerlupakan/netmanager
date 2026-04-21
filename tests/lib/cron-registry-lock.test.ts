@@ -54,4 +54,18 @@ describe("cron registry lock helper", () => {
     expect(file).not.toContain("overtimeAutoCheckout");
     expect(file).not.toContain("[Cron] Running overtime auto-checkout");
   });
+
+  it("uses one internal attendance orchestrator job instead of dedicated auto-checkout cron", () => {
+    const file = readFileSync(
+      resolve(process.cwd(), "lib/cron-registry.ts"),
+      "utf8",
+    );
+
+    expect(file).toContain("AttendanceCronOrchestratorService");
+    expect(file).toContain('cron.schedule("* * * * *"');
+    expect(file).toContain("attendanceOrchestrator");
+    expect(file).toContain("await runAttendanceCronOrchestrator()");
+    expect(file).not.toContain('cron.schedule("59 23 * * *"');
+    expect(file).not.toContain("Auto checkout cron scheduled (23:59)");
+  });
 });

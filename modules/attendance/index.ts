@@ -13,6 +13,7 @@ export * from "./services/AttendanceValidationService";
 export * from "./services/EmployeeLeaveQueryService";
 export * from "./services/MobileLeaveRequestService";
 export * from "./services/AttendanceCorrectionService";
+export * from "./services/AttendanceCronOrchestratorService";
 export * from "./repositories/AttendanceRepository";
 export * from "./repositories/LeaveBalanceRepository";
 export * from "./repositories/HolidayRepository";

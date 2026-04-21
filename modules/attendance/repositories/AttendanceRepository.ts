@@ -1084,7 +1084,7 @@ export class AttendanceRepository {
       where: {
         userId: params.userId,
         checkOut: null,
-        status: { not: "ALPHA" },
+        status: { notIn: ["ALPHA", "ABSENT"] },
         checkIn: { lt: params.effectiveToday },
         ...(params.tenantId && { tenantId: params.tenantId }),
       },

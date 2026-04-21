@@ -63,20 +63,25 @@ export class CronRegistry {
         ),
       );
 
-    // Start Auto Checkout Service (Daily at 23:59)
-    import("../modules/attendance/services/AutoCheckoutService")
-      .then(({ AutoCheckoutService }) => {
-        const autoCheckoutTask = cron.schedule("59 23 * * *", async () => {
-          if (!(await canRunCronJob("autoCheckout", 82800))) return;
-          console.log("[Cron] Running daily auto-checkout");
-          AutoCheckoutService.runAutoCheckout();
-        });
-        this.tasks.set("autoCheckout", autoCheckoutTask);
-        console.log("[CronRegistry] Auto checkout cron scheduled (23:59)");
+    // Start Attendance Orchestrator (Every minute)
+    import("../modules/attendance/services/AttendanceCronOrchestratorService")
+      .then(({ runAttendanceCronOrchestrator }) => {
+        const attendanceOrchestratorTask = cron.schedule(
+          "* * * * *",
+          async () => {
+            if (!(await canRunCronJob("attendanceOrchestrator", 55))) return;
+            console.log("[Cron] Running attendance orchestrator");
+            await runAttendanceCronOrchestrator();
+          },
+        );
+        this.tasks.set("attendanceOrchestrator", attendanceOrchestratorTask);
+        console.log(
+          "[CronRegistry] Attendance orchestrator cron scheduled (Every minute)",
+        );
       })
       .catch((err) =>
         console.error(
-          "[CronRegistry] Failed to start Auto Checkout Service:",
+          "[CronRegistry] Failed to start AttendanceCronOrchestratorService:",
           err,
         ),
       );

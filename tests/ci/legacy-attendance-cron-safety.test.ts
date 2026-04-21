@@ -18,4 +18,23 @@ describe("legacy attendance cron safety", () => {
       false,
     );
   });
+
+  it("uses one minutely cron entrypoint for attendance scheduling in cron container", () => {
+    const cronEntrypoint = readFileSync(
+      resolve(process.cwd(), "cron/entrypoint.sh"),
+      "utf8",
+    );
+
+    expect(cronEntrypoint).toContain(
+      '* * * * * curl -s -H "Authorization: Bearer \\$CRON_SECRET" "\\$APP_URL/api/cron/attendance-orchestrator"',
+    );
+    expect(cronEntrypoint).not.toContain(
+      "/api/cron/attendance-alert?type=auto",
+    );
+    expect(cronEntrypoint).not.toContain(
+      "/api/cron/attendance-alert?type=process",
+    );
+    expect(cronEntrypoint).not.toContain("/api/cron/process-absence");
+    expect(cronEntrypoint).not.toContain("/api/cron/auto-checkout");
+  });
 });

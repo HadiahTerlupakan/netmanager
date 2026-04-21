@@ -395,6 +395,7 @@ services:
 
       # Cron Security
       CRON_SECRET: ${CRON_SECRET}
+      ENABLE_INTERNAL_CRON: "false"
 
       # RADIUS Configuration
       RADIUS_PUBLIC_IP: ${RADIUS_PUBLIC_IP:-}
