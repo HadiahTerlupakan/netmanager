@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetActiveConfig } = vi.hoisted(() => ({
+const {
+  mockGetActiveConfig,
+  mockGetActiveConfigByTenant,
+  mockGetTenantIdFromContext,
+} = vi.hoisted(() => ({
   mockGetActiveConfig: vi.fn(),
+  mockGetActiveConfigByTenant: vi.fn(),
+  mockGetTenantIdFromContext: vi.fn(),
+}));
+
+vi.mock("@/lib/tenant-context", () => ({
+  getTenantIdFromContext: mockGetTenantIdFromContext,
 }));
 
 vi.mock(
@@ -9,6 +19,7 @@ vi.mock(
   () => ({
     mixRadiusConfigRepo: {
       getActiveConfig: mockGetActiveConfig,
+      getActiveConfigByTenant: mockGetActiveConfigByTenant,
     },
   }),
 );
@@ -30,10 +41,18 @@ describe("mixradius-auth-client credential loading", () => {
     process.env.MIXRADIUS_USERNAME = originalEnv.MIXRADIUS_USERNAME;
     process.env.MIXRADIUS_PASSWORD = originalEnv.MIXRADIUS_PASSWORD;
     process.env.MIXRADIUS_URL = originalEnv.MIXRADIUS_URL;
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: null,
+      isSuperAdmin: true,
+    });
   });
 
-  it("uses the active DB config and trims trailing slash from the URL", async () => {
-    mockGetActiveConfig.mockResolvedValue({
+  it("uses the tenant-scoped active DB config and trims trailing slash from the URL", async () => {
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: "tenant-1",
+      isSuperAdmin: false,
+    });
+    mockGetActiveConfigByTenant.mockResolvedValue({
       username: "db-user",
       password: "db-pass",
       apiUrl: "https://mixradius.example.com/",
@@ -44,12 +63,19 @@ describe("mixradius-auth-client credential loading", () => {
       password: "db-pass",
       baseUrl: "https://mixradius.example.com",
     });
+
+    expect(mockGetActiveConfigByTenant).toHaveBeenCalledWith("tenant-1");
+    expect(mockGetActiveConfig).not.toHaveBeenCalled();
   });
 
-  it("falls back to environment credentials when no active config exists", async () => {
+  it("falls back to environment credentials when superadmin has no active config", async () => {
     process.env.MIXRADIUS_USERNAME = "env-user";
     process.env.MIXRADIUS_PASSWORD = "env-pass";
     process.env.MIXRADIUS_URL = "https://env.example.com/";
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: null,
+      isSuperAdmin: true,
+    });
     mockGetActiveConfig.mockResolvedValue(null);
 
     await expect(loadMixRadiusCredentials()).resolves.toEqual({
@@ -59,8 +85,12 @@ describe("mixradius-auth-client credential loading", () => {
     });
   });
 
-  it("throws a config error when the active config has an invalid URL", async () => {
-    mockGetActiveConfig.mockResolvedValue({
+  it("throws a config error when the tenant-scoped active config has an invalid URL", async () => {
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: "tenant-1",
+      isSuperAdmin: false,
+    });
+    mockGetActiveConfigByTenant.mockResolvedValue({
       username: "db-user",
       password: "db-pass",
       apiUrl: "",
@@ -73,7 +103,24 @@ describe("mixradius-auth-client credential loading", () => {
     });
   });
 
+  it("throws a config error when tenant config is missing for non-superadmin", async () => {
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: "tenant-1",
+      isSuperAdmin: false,
+    });
+    mockGetActiveConfigByTenant.mockResolvedValue(null);
+
+    await expect(loadMixRadiusCredentials()).rejects.toMatchObject({
+      name: "MixRadiusConfigError",
+      message: "Akun MixRadius tenant ini belum dikonfigurasi.",
+    });
+  });
+
   it("throws a config error when env fallback URL is invalid", async () => {
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: null,
+      isSuperAdmin: true,
+    });
     mockGetActiveConfig.mockResolvedValue(null);
     process.env.MIXRADIUS_USERNAME = "env-user";
     process.env.MIXRADIUS_PASSWORD = "env-pass";

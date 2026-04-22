@@ -85,8 +85,36 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     updatePayload.isDefault = body.isActive;
   }
 
-  const updatedConfig = await mixRadiusConfigRepo.updateConfig(
+  if (isSuper) {
+    const updatedConfig = await mixRadiusConfigRepo.updateConfig(
+      id,
+      updatePayload,
+    );
+
+    await logger.logActivity({
+      userId: user.id,
+      action: "UPDATE",
+      subject: "mixradius_config",
+      details: { id, changes: body },
+      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
+      userAgent: req.headers.get("user-agent") || "unknown",
+    });
+    return apiSuccess(updatedConfig);
+  }
+
+  if (!user.tenantId) {
+    return apiError(
+      "Tenant MixRadius tidak ditemukan untuk user ini",
+      ErrorCodes.VALIDATION_ERROR,
+      {
+        status: 400,
+      },
+    );
+  }
+
+  const updatedConfig = await mixRadiusConfigRepo.updateConfigForTenant(
     id,
+    user.tenantId,
     updatePayload,
   );
 
@@ -123,7 +151,21 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       status: 400,
     });
 
-  await mixRadiusConfigRepo.deleteConfig(id);
+  if (isSuper) {
+    await mixRadiusConfigRepo.deleteConfig(id);
+  } else {
+    if (!user.tenantId) {
+      return apiError(
+        "Tenant MixRadius tidak ditemukan untuk user ini",
+        ErrorCodes.VALIDATION_ERROR,
+        {
+          status: 400,
+        },
+      );
+    }
+
+    await mixRadiusConfigRepo.deleteConfigForTenant(id, user.tenantId);
+  }
 
   await logger.logActivity({
     userId: user.id,

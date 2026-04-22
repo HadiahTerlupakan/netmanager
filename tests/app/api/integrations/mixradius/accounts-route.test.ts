@@ -3,15 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockCreateConfig,
   mockUpdateConfig,
+  mockUpdateConfigForTenant,
+  mockDeleteConfig,
+  mockDeleteConfigForTenant,
   mockLogActivity,
   mockIsSuperAdmin,
   mockGetUserPermissions,
+  mockSessionUser,
 } = vi.hoisted(() => ({
   mockCreateConfig: vi.fn(),
   mockUpdateConfig: vi.fn(),
+  mockUpdateConfigForTenant: vi.fn(),
+  mockDeleteConfig: vi.fn(),
+  mockDeleteConfigForTenant: vi.fn(),
   mockLogActivity: vi.fn(),
   mockIsSuperAdmin: vi.fn(),
   mockGetUserPermissions: vi.fn(),
+  mockSessionUser: { id: "user-1", tenantId: "tenant-1" as string | undefined },
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -27,7 +35,7 @@ vi.mock("@/lib/api", () => ({
   ) => {
     return (req: Request) =>
       handler(req, {
-        session: { user: { id: "user-1", tenantId: "tenant-1" } },
+        session: { user: mockSessionUser },
         params: { id: "config-1" },
       });
   },
@@ -94,6 +102,9 @@ vi.mock("@/modules/integrations", () => ({
   mixRadiusConfigRepo: {
     createConfig: mockCreateConfig,
     updateConfig: mockUpdateConfig,
+    updateConfigForTenant: mockUpdateConfigForTenant,
+    deleteConfig: mockDeleteConfig,
+    deleteConfigForTenant: mockDeleteConfigForTenant,
   },
   IntegrationFactory: {
     createMixRadiusConfig: mockCreateMixRadiusConfig,
@@ -102,11 +113,15 @@ vi.mock("@/modules/integrations", () => ({
 }));
 
 import { POST } from "@/app/api/integrations/mixradius/accounts/route";
-import { PUT } from "@/app/api/integrations/mixradius/accounts/[id]/route";
+import {
+  DELETE,
+  PUT,
+} from "@/app/api/integrations/mixradius/accounts/[id]/route";
 
 describe("MixRadius accounts routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSessionUser.tenantId = "tenant-1";
     mockIsSuperAdmin.mockReturnValue(true);
     mockGetUserPermissions.mockResolvedValue([]);
     mockCreateConfig.mockResolvedValue({
@@ -117,6 +132,12 @@ describe("MixRadius accounts routes", () => {
       id: "config-1",
       apiUrl: "https://mixradius.example.com",
     });
+    mockUpdateConfigForTenant.mockResolvedValue({
+      id: "config-1",
+      apiUrl: "https://mixradius.example.com",
+    });
+    mockDeleteConfig.mockResolvedValue(undefined);
+    mockDeleteConfigForTenant.mockResolvedValue(undefined);
   });
 
   it("normalizes bare base URLs on POST using the shared factory", async () => {
@@ -207,6 +228,88 @@ describe("MixRadius accounts routes", () => {
     expect(mockUpdateConfig).toHaveBeenCalledWith("config-1", {
       isDefault: true,
     });
+    expect(response.success).toBe(true);
+  });
+
+  it("rejects POST when non-superadmin has no tenantId", async () => {
+    mockIsSuperAdmin.mockReturnValue(false);
+    mockGetUserPermissions.mockResolvedValue(["mixradius_accounts:create"]);
+    mockSessionUser.tenantId = undefined;
+
+    const request = new Request(
+      "http://localhost/api/integrations/mixradius/accounts",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Server Jakarta",
+          baseUrl: "mixradius.example.com/",
+          username: "admin",
+          password: "secret",
+        }),
+      },
+    );
+
+    const response = await (
+      POST as unknown as (
+        req: Request,
+      ) => Promise<{ success: boolean; error?: string; status?: number }>
+    )(request);
+
+    expect(response.success).toBe(false);
+    expect(response.status).toBe(400);
+    expect(mockCreateConfig).not.toHaveBeenCalled();
+  });
+
+  it("scopes PUT by tenantId for non-superadmin", async () => {
+    mockIsSuperAdmin.mockReturnValue(false);
+    mockGetUserPermissions.mockResolvedValue(["mixradius:update"]);
+
+    const request = new Request(
+      "http://localhost/api/integrations/mixradius/accounts/config-1",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          isActive: true,
+        }),
+      },
+    );
+
+    await (
+      PUT as unknown as (
+        req: Request,
+      ) => Promise<{ success: boolean; error?: string; status?: number }>
+    )(request);
+
+    expect(mockUpdateConfigForTenant).toHaveBeenCalledWith(
+      "config-1",
+      "tenant-1",
+      { isDefault: true },
+    );
+  });
+
+  it("scopes DELETE by tenantId for non-superadmin", async () => {
+    mockIsSuperAdmin.mockReturnValue(false);
+    mockGetUserPermissions.mockResolvedValue(["mixradius:delete"]);
+
+    const request = new Request(
+      "http://localhost/api/integrations/mixradius/accounts/config-1",
+      {
+        method: "DELETE",
+      },
+    );
+
+    const response = await (
+      DELETE as unknown as (
+        req: Request,
+      ) => Promise<{ success: boolean; error?: string; status?: number }>
+    )(request);
+
+    expect(mockDeleteConfigForTenant).toHaveBeenCalledWith(
+      "config-1",
+      "tenant-1",
+    );
     expect(response.success).toBe(true);
   });
 });

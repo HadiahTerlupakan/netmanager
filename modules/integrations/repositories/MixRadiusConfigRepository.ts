@@ -1,98 +1,151 @@
-import { prismaBilling } from '@/lib/prisma-billing'
-import type { MixRadiusConfig } from '@prisma/client-billing'
+import { prismaBilling } from "@/lib/prisma-billing";
+import type { MixRadiusConfig } from "@prisma/client-billing";
+
+type MixRadiusConfigCreateInput = Omit<
+  MixRadiusConfig,
+  "id" | "createdAt" | "updatedAt" | "tenantId"
+> & {
+  tenantId: string;
+};
+
+type MixRadiusConfigUpdateInput = Partial<
+  Omit<MixRadiusConfig, "id" | "createdAt" | "updatedAt" | "tenantId">
+>;
 
 export class MixRadiusConfigRepository {
-  /**
-   * Get the currently active configuration
-   */
   async getActiveConfig() {
     return prismaBilling.mixRadiusConfig.findFirst({
       where: { isDefault: true },
-    })
+    });
   }
 
-  /**
-   * Get all configurations
-   */
+  async getActiveConfigByTenant(tenantId: string) {
+    return prismaBilling.mixRadiusConfig.findFirst({
+      where: { isDefault: true, tenantId },
+    });
+  }
+
   async getAllConfigs() {
     return prismaBilling.mixRadiusConfig.findMany({
-      orderBy: { createdAt: 'desc' },
-    })
+      orderBy: { createdAt: "desc" },
+    });
   }
 
-  /**
-   * Get config by ID
-   */
+  async getAllConfigsByTenant(tenantId: string) {
+    return prismaBilling.mixRadiusConfig.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   async getConfigById(id: string) {
     return prismaBilling.mixRadiusConfig.findUnique({
       where: { id },
-    })
+    });
   }
 
-  /**
-   * Create a new configuration
-   */
-  async createConfig(data: Omit<MixRadiusConfig, 'id' | 'createdAt' | 'updatedAt'>) {
-    // If setting as active, deactivate others
+  async getConfigByIdForTenant(id: string, tenantId: string) {
+    return prismaBilling.mixRadiusConfig.findFirst({
+      where: { id, tenantId },
+    });
+  }
+
+  async createConfig(data: MixRadiusConfigCreateInput) {
+    if (!data.tenantId) {
+      throw new Error("Tenant MixRadius wajib disertakan");
+    }
+
     if (data.isDefault) {
-      await this.deactivateAll()
+      await this.deactivateAllForTenant(data.tenantId);
     }
 
     return prismaBilling.mixRadiusConfig.create({
       data: {
         ...data,
-        name: data.name || 'Default'
+        name: data.name || "Default",
       },
-    })
+    });
   }
 
-  /**
-   * Update a configuration
-   */
-  async updateConfig(id: string, data: Partial<Omit<MixRadiusConfig, 'id' | 'createdAt' | 'updatedAt'>>) {
-    // If setting as active, deactivate others
+  async updateConfig(id: string, data: MixRadiusConfigUpdateInput) {
     if (data.isDefault === true) {
-      await this.deactivateAll(id)
+      const existing = await prismaBilling.mixRadiusConfig.findUnique({
+        where: { id },
+        select: { tenantId: true },
+      });
+
+      if (existing?.tenantId) {
+        await this.deactivateAllForTenant(existing.tenantId, id);
+      }
     }
 
     return prismaBilling.mixRadiusConfig.update({
       where: { id },
       data,
-    })
+    });
   }
 
-  /**
-   * Delete a configuration
-   */
+  async updateConfigForTenant(
+    id: string,
+    tenantId: string,
+    data: MixRadiusConfigUpdateInput,
+  ) {
+    if (data.isDefault === true) {
+      await this.deactivateAllForTenant(tenantId, id);
+    }
+
+    return prismaBilling.mixRadiusConfig.update({
+      where: { id, tenantId },
+      data,
+    });
+  }
+
   async deleteConfig(id: string) {
     return prismaBilling.mixRadiusConfig.delete({
       where: { id },
-    })
+    });
   }
 
-  /**
-   * Set a configuration as active
-   */
+  async deleteConfigForTenant(id: string, tenantId: string) {
+    return prismaBilling.mixRadiusConfig.delete({
+      where: { id, tenantId },
+    });
+  }
+
   async setActive(id: string) {
-    await this.deactivateAll(id)
+    const existing = await prismaBilling.mixRadiusConfig.findUnique({
+      where: { id },
+      select: { tenantId: true },
+    });
+
+    if (existing?.tenantId) {
+      await this.deactivateAllForTenant(existing.tenantId, id);
+    }
+
     return prismaBilling.mixRadiusConfig.update({
       where: { id },
       data: { isDefault: true },
-    })
+    });
   }
 
-  /**
-   * Helper to deactivate all configs except one (optional)
-   */
-  private async deactivateAll(exceptId?: string) {
+  async setActiveForTenant(id: string, tenantId: string) {
+    await this.deactivateAllForTenant(tenantId, id);
+    return prismaBilling.mixRadiusConfig.update({
+      where: { id, tenantId },
+      data: { isDefault: true },
+    });
+  }
+
+  private async deactivateAllForTenant(tenantId: string, exceptId?: string) {
     await prismaBilling.mixRadiusConfig.updateMany({
       where: {
         ...(exceptId ? { id: { not: exceptId } } : {}),
         isDefault: true,
+        tenantId,
       },
       data: { isDefault: false },
-    })
+    });
   }
 }
 
-export const mixRadiusConfigRepo = new MixRadiusConfigRepository()
+export const mixRadiusConfigRepo = new MixRadiusConfigRepository();

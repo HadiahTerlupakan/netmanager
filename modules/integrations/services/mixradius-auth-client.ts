@@ -1,5 +1,6 @@
 import type { AxiosInstance } from "axios";
 
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { mixRadiusConfigRepo } from "@/modules/integrations/repositories/MixRadiusConfigRepository";
 import { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
 
@@ -15,7 +16,11 @@ export type MixRadiusSessionState = {
 };
 
 export async function loadMixRadiusCredentials(): Promise<MixRadiusCredentials> {
-  const activeConfig = await mixRadiusConfigRepo.getActiveConfig();
+  const tenantContext = await getTenantIdFromContext();
+  const activeConfig = tenantContext.tenantId
+    ? await mixRadiusConfigRepo.getActiveConfigByTenant(tenantContext.tenantId)
+    : await mixRadiusConfigRepo.getActiveConfig();
+
   if (activeConfig) {
     const baseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
       activeConfig.apiUrl,
@@ -33,6 +38,12 @@ export async function loadMixRadiusCredentials(): Promise<MixRadiusCredentials> 
       password: activeConfig.password,
       baseUrl,
     };
+  }
+
+  if (tenantContext.tenantId && !tenantContext.isSuperAdmin) {
+    throw new MixRadiusConfigError(
+      "Akun MixRadius tenant ini belum dikonfigurasi.",
+    );
   }
 
   const baseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(

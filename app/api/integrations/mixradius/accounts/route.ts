@@ -29,6 +29,19 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
         "Akses ditolak. Anda memerlukan permission: mixradius_accounts:read",
       );
     }
+
+    if (!user.tenantId) {
+      return apiError(
+        "Tenant MixRadius tidak ditemukan untuk user ini",
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400 },
+      );
+    }
+
+    const tenantConfigs = await mixRadiusConfigRepo.getAllConfigsByTenant(
+      user.tenantId,
+    );
+    return apiSuccess(tenantConfigs);
   }
 
   const configs = await mixRadiusConfigRepo.getAllConfigs();
@@ -93,6 +106,14 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
+  if (!user.tenantId) {
+    return apiError(
+      "Tenant MixRadius tidak ditemukan untuk user ini",
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
+
   const newConfig = await mixRadiusConfigRepo.createConfig({
     name: configInput.name,
     apiUrl: configInput.baseUrl,
@@ -101,7 +122,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     password: configInput.password,
     isDefault: isDefault || false,
     lastSyncedAt: null,
-    tenantId: user.tenantId!,
+    tenantId: user.tenantId,
   });
 
   await logger.logActivity({
