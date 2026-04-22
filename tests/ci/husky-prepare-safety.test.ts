@@ -7,6 +7,8 @@ import { shouldInstallHusky } from "../../scripts/run-husky-prepare.js";
 
 function readPackageJson(): {
   scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  overrides?: Record<string, string>;
 } {
   return JSON.parse(
     readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
@@ -25,6 +27,13 @@ function readHuskyPreCommitHook(): string {
 }
 
 describe("Husky prepare safety", () => {
+  it("pins hono to a patched release that closes current production advisories", () => {
+    const packageJson = readPackageJson();
+
+    expect(packageJson.dependencies?.hono).toBe("^4.12.14");
+    expect(packageJson.overrides?.hono).toBe("^4.12.14");
+  });
+
   it("resolves direct execution against the real script file URL", () => {
     const script = readHuskyPrepareScript();
 

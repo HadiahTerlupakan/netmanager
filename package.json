@@ -79,7 +79,7 @@
     "formidable": "^3.5.4",
     "geolib": "^3.3.4",
     "helmet": "^8.1.0",
-    "hono": "^4.12.9",
+    "hono": "^4.12.14",
     "html2canvas": "^1.4.1",
     "ioredis": "^5.10.1",
     "isomorphic-dompurify": "^3.7.1",
@@ -161,7 +161,7 @@
   },
   "overrides": {
     "typescript": "5.9.3",
-    "hono": "^4.12.9",
+    "hono": "^4.12.14",
     "lodash": "^4.17.23",
     "@eslint/plugin-kit": "^0.3.4",
     "@types/pg": "8.11.11",
