@@ -11,9 +11,53 @@ import {
   ErrorCodes,
   apiError,
 } from "@/lib/api-response";
+import {
+  GatewayPaymentStatus,
+  PaymentMethod,
+  type GatewayPaymentStatus as GatewayPaymentStatusValue,
+  type PaymentMethod as PaymentMethodValue,
+} from "@/prisma/generated/billing";
+
+type GatewayPaymentResult = {
+  success: boolean;
+  paymentUrl?: string;
+  qrCodeUrl?: string;
+  expiresAt?: Date;
+  transactionId?: string;
+  providerName?: string;
+};
 
 const customerPortalService = new CustomerPortalService();
 const couponService = new CouponService();
+
+function resolvePaymentMethod(paymentMethod: string): PaymentMethodValue {
+  if (
+    paymentMethod.startsWith("MANUAL_") ||
+    paymentMethod === "MANUAL" ||
+    paymentMethod === "MOOTA_MANUAL"
+  ) {
+    return PaymentMethod.BANK_TRANSFER;
+  }
+
+  return (
+    PaymentMethod[paymentMethod as keyof typeof PaymentMethod] ??
+    PaymentMethod.OTHER
+  );
+}
+
+function resolveGatewayStatus(): GatewayPaymentStatusValue {
+  return GatewayPaymentStatus.PENDING;
+}
+
+function resolveGatewayMetadata(
+  gatewayResult: GatewayPaymentResult,
+  paymentMethod: string,
+) {
+  return {
+    expiresAt: gatewayResult.expiresAt ?? null,
+    gatewayProvider: gatewayResult.providerName ?? paymentMethod,
+  };
+}
 
 /**
  * GET - Get payment history
@@ -118,25 +162,11 @@ export async function POST(request: NextRequest) {
         const currentFinalAmount =
           Number(invoice.totalAmount) - currentDiscount;
 
-        let currentPaymentMethod = "OTHER";
-        let currentGatewayStatus = "PENDING";
-        let currentAccountId = null;
-
-        if (paymentMethod.startsWith("MANUAL_")) {
-          currentPaymentMethod = "BANK_TRANSFER";
-          currentGatewayStatus = "PENDING"; // Initially pending until confirmed by admin
-          currentAccountId = paymentMethod.replace("MANUAL_", "");
-        } else if (
-          paymentMethod === "MANUAL" ||
-          paymentMethod === "MOOTA_MANUAL"
-        ) {
-          // Legacy Moota Manual handling
-          currentPaymentMethod = "BANK_TRANSFER";
-          currentGatewayStatus = "PENDING";
-        } else {
-          currentPaymentMethod = paymentMethod;
-          currentGatewayStatus = "PENDING";
-        }
+        const currentPaymentMethod = resolvePaymentMethod(paymentMethod);
+        const currentGatewayStatus = resolveGatewayStatus();
+        const currentAccountId = paymentMethod.startsWith("MANUAL_")
+          ? paymentMethod.replace("MANUAL_", "")
+          : null;
 
         const payment = await tx.payment.create({
           data: {
@@ -184,8 +214,7 @@ export async function POST(request: NextRequest) {
 
         if (customer) {
           const { PaymentGatewayManager } = await import("@/modules/finance");
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const gatewayManager = new PaymentGatewayManager(prisma as any);
+          const gatewayManager = new PaymentGatewayManager();
 
           const customerEmail = customer.email
             ? String(customer.email)
@@ -200,20 +229,18 @@ export async function POST(request: NextRequest) {
             customerPhone: customerPhone,
             description: `Pembayaran Tagihan NetManager`,
             paymentMethods: [paymentMethod],
+            tenantId: tenantId || undefined,
           });
 
           if (gatewayResult.success) {
+            const gatewayMetadata = resolveGatewayMetadata(
+              gatewayResult as GatewayPaymentResult,
+              paymentMethod,
+            );
+
             paymentUrl =
               gatewayResult.paymentUrl || gatewayResult.qrCodeUrl || null;
             transactionId = gatewayResult.transactionId || null;
-
-            let expiresAt = null;
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((gatewayResult as any).expiresAt) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              expiresAt = new Date((gatewayResult as any).expiresAt);
-            }
 
             if (transactionId || paymentUrl) {
               const paymentIds = result.map((p) => p.id);
@@ -223,12 +250,10 @@ export async function POST(request: NextRequest) {
                   ...(tenantId ? { tenantId } : {}),
                 },
                 data: {
-                  transactionId: transactionId,
-                  paymentUrl: paymentUrl,
-                  expiresAt: expiresAt,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  gatewayProvider:
-                    (gatewayResult as any).providerName || paymentMethod,
+                  transactionId,
+                  paymentUrl,
+                  expiresAt: gatewayMetadata.expiresAt,
+                  gatewayProvider: gatewayMetadata.gatewayProvider,
                 },
               });
             }

@@ -133,6 +133,28 @@ describe("InventoryRepository", () => {
     });
   });
 
+  describe("updateBarang", () => {
+    it("should reject unit changes when stock still exists", async () => {
+      prismaMock.barang.findUnique.mockResolvedValueOnce({
+        id: "barang-1",
+        kode: "BRG-001",
+        nama: "Kabel Fiber",
+        satuan: "pcs",
+      } as unknown as Barang);
+      prismaMock.barangGudang.count.mockResolvedValueOnce(2);
+
+      await expect(
+        repository.updateBarang("barang-1", {
+          nama: "Kabel Fiber",
+          satuan: "meter",
+        }),
+      ).rejects.toThrow(
+        "Satuan barang tidak boleh diubah saat stok masih tersedia",
+      );
+      expect(prismaMock.barang.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("findTransferById", () => {
     it("should normalize related fields for transfer detail consumers", async () => {
       prismaMock.transferAntarGudang.findUnique.mockResolvedValueOnce({

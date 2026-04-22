@@ -148,6 +148,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
+  const validConditions = ["BARU", "BEKAS", "RUSAK"];
+  if (kondisi && !validConditions.includes(kondisi)) {
+    return ApiErrors.badRequest(
+      "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
+    );
+  }
+
   // Validate photo data if provided
   if (fotoBukti && !Array.isArray(fotoBukti)) {
     return ApiErrors.badRequest("fotoBukti harus berupa array URL foto");

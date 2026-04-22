@@ -10,6 +10,7 @@ const mockFns = vi.hoisted(() => ({
   verifyCoupon: vi.fn(),
   recordUsage: vi.fn(),
   incrementUsage: vi.fn(),
+  createPayment: vi.fn(),
 }));
 
 vi.mock("@/lib/customer-auth", () => ({
@@ -31,6 +32,12 @@ vi.mock("@/modules/coupons", () => ({
     verifyCoupon = mockFns.verifyCoupon;
     recordUsage = mockFns.recordUsage;
     incrementUsage = mockFns.incrementUsage;
+  },
+}));
+
+vi.mock("@/modules/finance", () => ({
+  PaymentGatewayManager: class {
+    createPayment = mockFns.createPayment;
   },
 }));
 
@@ -96,6 +103,20 @@ describe("customer payments route", () => {
       id: "payment-1",
       reference: "PAY-1",
     });
+    mockFns.createPayment.mockResolvedValue({
+      success: true,
+      paymentUrl: "https://pay.test/checkout",
+      transactionId: "txn-1",
+      expiresAt: new Date("2026-04-22T01:00:00.000Z"),
+      providerName: "MIDTRANS",
+    });
+    prismaMock.pelanggan.findUnique.mockResolvedValue({
+      id: "customer-1",
+      nama: "Budi",
+      email: "budi@example.com",
+      noTelp: "08123456789",
+    });
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("stores tenantId on created billing payment", async () => {
@@ -119,6 +140,43 @@ describe("customer payments route", () => {
     expect(prismaMock.payment.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         tenantId: "tenant-a",
+      }),
+    });
+  });
+
+  it("stores gateway metadata without any cast when gateway payment succeeds", async () => {
+    const request = new NextRequest("http://localhost/api/customer/payments", {
+      method: "POST",
+      body: JSON.stringify({
+        invoiceIds: ["invoice-1"],
+        paymentMethod: "MIDTRANS",
+        notes: "catatan",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockFns.createPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-a",
+      }),
+    );
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["payment-1"] },
+        tenantId: "tenant-a",
+      },
+      data: expect.objectContaining({
+        transactionId: "txn-1",
+        paymentUrl: "https://pay.test/checkout",
+        expiresAt: new Date("2026-04-22T01:00:00.000Z"),
+        gatewayProvider: "MIDTRANS",
       }),
     });
   });

@@ -210,6 +210,33 @@ export class InventoryRepository implements IInventoryRepository {
   }
 
   async updateBarang(id: string, data: UpdateBarangInput): Promise<Barang> {
+    const existingBarang = await this.db.barang.findUnique({
+      where: { id },
+      select: { satuan: true },
+    });
+
+    if (!existingBarang) {
+      throw new Error("Barang tidak ditemukan");
+    }
+
+    const isUnitChanged =
+      typeof data.satuan === "string" && data.satuan !== existingBarang.satuan;
+
+    if (isUnitChanged) {
+      const stockCount = await this.db.barangGudang.count({
+        where: {
+          barangId: id,
+          stok: { gt: 0 },
+        },
+      });
+
+      if (stockCount > 0) {
+        throw new Error(
+          "Satuan barang tidak boleh diubah saat stok masih tersedia",
+        );
+      }
+    }
+
     return this.db.barang.update({
       where: { id },
       data: {

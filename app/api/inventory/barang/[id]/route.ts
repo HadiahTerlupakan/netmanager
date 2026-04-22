@@ -224,6 +224,13 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       method: "PUT",
       id: "unknown",
     });
+    if (
+      err.message === "Barang tidak ditemukan" ||
+      err.message ===
+        "Satuan barang tidak boleh diubah saat stok masih tersedia"
+    ) {
+      return ApiErrors.badRequest(err.message);
+    }
     return ApiErrors.internalError("Gagal mengupdate barang");
   }
 });
