@@ -227,7 +227,9 @@ spec:
                                   if docker pull "\$source_ref"; then
                                     docker tag "\$source_ref" "\$backup_ref"
                                     docker push "\$backup_ref"
-                                    docker manifest inspect "\$backup_ref" >/dev/null
+                                    if ! docker manifest inspect "\$backup_ref" >/dev/null; then
+                                      echo "⚠️ Backup ref verification timed out or failed for \$backup_ref; continuing because backup push already succeeded" >&2
+                                    fi
                                     echo "Backed up \$source_ref -> \$backup_ref"
                                   else
                                     echo "No existing image found for \$source_ref; backup skipped"
