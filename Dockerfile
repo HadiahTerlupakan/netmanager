@@ -33,6 +33,7 @@ ARG NEXT_TELEMETRY_DISABLED=1
 ARG NODE_OPTIONS="--max-old-space-size=4096"
 ARG NEXTAUTH_URL="http://localhost:3000"
 ARG APP_URL="http://localhost:3000"
+ARG IMAGE_REVISION="unknown"
 ARG NEXT_PUBLIC_FIREBASE_API_KEY=""
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=""
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID=""
@@ -90,6 +91,9 @@ RUN npm prune --omit=dev --legacy-peer-deps
 # ==============================================================================
 FROM node:24-alpine AS runner
 WORKDIR /app
+
+ARG IMAGE_REVISION="unknown"
+LABEL org.opencontainers.image.revision=$IMAGE_REVISION
 
 # Install postgresql-client for pg_dump and psql (used by backup feature)
 # and tzdata for setting correct TZ behavior

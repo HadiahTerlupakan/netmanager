@@ -64,6 +64,7 @@ spec:
         NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BKaKWPr_8jDZH0aJiXBstwqF2ms5HHuuhMcOkpcZf2D5jIER0_5BtIn8smCBwEjsN1BZ0f_zjxRUCnAr-NfKJ90"
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
         IMAGE_VERSION = "${((env.GIT_COMMIT ?: 'nogit').take(12))}-${env.BUILD_NUMBER ?: '0'}"
+        IMAGE_REVISION = "${env.GIT_COMMIT ?: "unknown"}"
         NAMESPACE = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'netmanager-production' : 'netmanager-staging'}"
         K8S_DIR = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'k8s/production' : 'k8s/staging'}"
     }
@@ -258,10 +259,14 @@ spec:
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/auth_secret.txt
                             echo 'ci-build-dummy-secret-at-least-32-chars' > .secrets/oauth_key.txt
 
+                            export BUILDX_GIT_INFO=0
+
                             docker build -t ${env.APP_IMAGE_REF} -t ${env.APP_IMAGE_ENV_REF} \
                                 --secret id=NEXTAUTH_SECRET,src=.secrets/nextauth_secret.txt \
                                 --secret id=AUTH_SECRET,src=.secrets/auth_secret.txt \
                                 --secret id=OAUTH_ENCRYPTION_KEY,src=.secrets/oauth_key.txt \
+                                --build-arg IMAGE_REVISION="${env.IMAGE_REVISION}" \
+                                --label org.opencontainers.image.revision=${env.IMAGE_REVISION} \
                                 --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${env.NEXT_PUBLIC_FIREBASE_API_KEY}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}" \
                                 --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}" \

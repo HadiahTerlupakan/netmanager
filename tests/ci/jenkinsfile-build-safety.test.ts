@@ -551,6 +551,27 @@ describe("Jenkinsfile and Dockerfile build safety", () => {
     expect(jenkinsfile).not.toContain("image: dtzar/helm-kubectl:latest");
   });
 
+  it("passes git revision metadata explicitly to app image builds", () => {
+    const jenkinsfile = readJenkinsfile();
+    const dockerfile = readDockerfile();
+
+    expect(jenkinsfile).toContain(
+      'IMAGE_REVISION = "${env.GIT_COMMIT ?: "unknown"}"',
+    );
+    expect(jenkinsfile).toContain(
+      '--build-arg IMAGE_REVISION="${env.IMAGE_REVISION}"',
+    );
+    expect(jenkinsfile).toContain(
+      "--label org.opencontainers.image.revision=${env.IMAGE_REVISION}",
+    );
+    expect(jenkinsfile).toContain("BUILDX_GIT_INFO=0");
+
+    expect(dockerfile).toContain('ARG IMAGE_REVISION="unknown"');
+    expect(dockerfile).toContain(
+      "LABEL org.opencontainers.image.revision=$IMAGE_REVISION",
+    );
+  });
+
   it("cleans up only pipeline-managed images instead of pruning the shared host Docker daemon", () => {
     const jenkinsfile = readJenkinsfile();
 
