@@ -5,6 +5,7 @@ const mockFns = vi.hoisted(() => ({
   wrapper: vi.fn(),
   axiosCreate: vi.fn(),
   fetchMixRadiusCustomersPPP: vi.fn(),
+  fetchMixRadiusOwnersWithIds: vi.fn(),
 }));
 
 vi.mock("@/modules/integrations/services/mixradius-auth-client", () => ({
@@ -54,7 +55,7 @@ vi.mock("@/modules/integrations/services/mixradius-income-client", () => ({
   deleteMixRadiusIncomeRecord: vi.fn(),
   fetchMixRadiusIncomeByPeriod: vi.fn(),
   fetchMixRadiusIncomeSummary: vi.fn(),
-  fetchMixRadiusOwnersWithIds: vi.fn(),
+  fetchMixRadiusOwnersWithIds: mockFns.fetchMixRadiusOwnersWithIds,
   fetchMixRadiusProfitReport: vi.fn(),
   fetchMixRadiusUniqueOwners: vi.fn(),
   getMixRadiusPrintInvoiceHtml: vi.fn(),
@@ -107,6 +108,25 @@ describe("MixRadiusService credential refresh", () => {
     await service.fetchCustomersPPP({ search: "yud" });
 
     expect(mockFns.fetchMixRadiusCustomersPPP).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: "https://fresh.example.com",
+      }),
+    );
+  });
+
+  it("uses refreshed baseUrl from latest credentials when fetching owners", async () => {
+    mockFns.loadMixRadiusCredentials.mockResolvedValue({
+      username: "fresh-user",
+      password: "fresh-pass",
+      baseUrl: "https://fresh.example.com",
+    });
+    mockFns.fetchMixRadiusOwnersWithIds.mockResolvedValue([]);
+
+    const service = new MixRadiusService();
+
+    await service.getOwnersWithIds();
+
+    expect(mockFns.fetchMixRadiusOwnersWithIds).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: "https://fresh.example.com",
       }),

@@ -446,6 +446,8 @@ export class MixRadiusService {
    * This allows us to get the real numeric IDs (e.g. "26") required for API filtering
    */
   async getOwnersWithIds(): Promise<MixRadiusOwner[]> {
+    await this.loadCredentials();
+
     return fetchMixRadiusOwnersWithIds({
       client: this.client,
       baseUrl: this.credentials.baseUrl,
