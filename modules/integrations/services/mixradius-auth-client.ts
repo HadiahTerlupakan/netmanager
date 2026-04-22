@@ -113,7 +113,14 @@ export async function loginMixRadius(params: {
     );
 
     const responseUrl = loginResponse.request?.res?.responseUrl || "";
-    if (responseUrl.includes("dashboard") || loginResponse.status === 200) {
+    const responseHtml =
+      typeof loginResponse.data === "string" ? loginResponse.data : "";
+    const reachedDashboard = responseUrl.includes("dashboard");
+    const looksLikeLoginPage =
+      responseHtml.includes("<title>LOGIN</title>") ||
+      responseUrl.includes("/rad-admin/post");
+
+    if (reachedDashboard && !looksLikeLoginPage) {
       return {
         isLoggedIn: true,
         loginExpiresAt: Date.now() + 50 * 60 * 1000,

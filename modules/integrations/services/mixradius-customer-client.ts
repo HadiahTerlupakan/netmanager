@@ -27,6 +27,16 @@ type MixRadiusCustomerClientParams = {
   randomDelay: (min?: number, max?: number) => Promise<void>;
 };
 
+const MAX_SESSION_RETRY = 1;
+
+function normalizeOwnerName(value: string) {
+  const lower = value.toLowerCase().trim();
+  return {
+    full: lower,
+    prefix: lower.split(/[—–-]/)[0].trim(),
+  };
+}
+
 function isMixRadiusConfigError(message: string) {
   return (
     message.includes("konfigurasi") ||
@@ -112,6 +122,7 @@ export async function fetchMixRadiusCustomersPPP(
     cache: MixRadiusCustomerCacheState;
     customersCacheTtl: number;
     onResetClient: () => void;
+    retryCount?: number;
   },
 ): Promise<{
   result: MixRadiusCustomerResponse;
@@ -127,6 +138,7 @@ export async function fetchMixRadiusCustomersPPP(
     customersCacheTtl,
     onResetClient,
     filters = {},
+    retryCount = 0,
   } = params;
   const {
     start = 0,
@@ -225,9 +237,18 @@ export async function fetchMixRadiusCustomersPPP(
         typeof response.data === "string" &&
         response.data.includes("<!DOCTYPE")
       ) {
+        if (retryCount >= MAX_SESSION_RETRY) {
+          throw new Error(
+            "MixRadius session expired repeatedly while fetching customers.",
+          );
+        }
+
         onSessionExpired();
         onResetClient();
-        return fetchMixRadiusCustomersPPP(params);
+        return fetchMixRadiusCustomersPPP({
+          ...params,
+          retryCount: retryCount + 1,
+        });
       }
 
       const responseData = response.data as MixRadiusCustomerResponse;
@@ -262,17 +283,19 @@ export async function fetchMixRadiusCustomersPPP(
       const allowedOwners = new Set<string>();
       groups.forEach((group) => {
         group.owners.forEach((owner) => {
-          const lower = owner.toLowerCase().trim();
-          allowedOwners.add(lower);
-          allowedOwners.add(lower.split(/[—–-]/)[0].trim());
+          const normalizedOwner = normalizeOwnerName(owner);
+          allowedOwners.add(normalizedOwner.full);
+          allowedOwners.add(normalizedOwner.prefix);
         });
       });
 
       allData = allData.filter((item) => {
         if (!item.owner_name) return false;
-        const ownerLower = item.owner_name.toLowerCase().trim();
-        const ownerPrefix = ownerLower.split(/[—–-]/)[0].trim();
-        return allowedOwners.has(ownerLower) || allowedOwners.has(ownerPrefix);
+        const normalizedOwner = normalizeOwnerName(item.owner_name);
+        return (
+          allowedOwners.has(normalizedOwner.full) ||
+          allowedOwners.has(normalizedOwner.prefix)
+        );
       });
     }
 
@@ -343,17 +366,17 @@ export async function fetchMixRadiusCustomersPPP(
       if (group && group.owners && group.owners.length > 0) {
         const allowedOwners = new Set<string>();
         group.owners.forEach((owner) => {
-          const lower = owner.toLowerCase().trim();
-          allowedOwners.add(lower);
-          allowedOwners.add(lower.split(/[—–-]/)[0].trim());
+          const normalizedOwner = normalizeOwnerName(owner);
+          allowedOwners.add(normalizedOwner.full);
+          allowedOwners.add(normalizedOwner.prefix);
         });
 
         allData = allData.filter((item) => {
           if (!item.owner_name) return false;
-          const ownerLower = item.owner_name.toLowerCase().trim();
-          const ownerPrefix = ownerLower.split(/[—–-]/)[0].trim();
+          const normalizedOwner = normalizeOwnerName(item.owner_name);
           return (
-            allowedOwners.has(ownerLower) || allowedOwners.has(ownerPrefix)
+            allowedOwners.has(normalizedOwner.full) ||
+            allowedOwners.has(normalizedOwner.prefix)
           );
         });
       } else if (group) {
@@ -362,14 +385,15 @@ export async function fetchMixRadiusCustomersPPP(
     }
 
     if (filters.ownerName) {
-      const normalizedName = filters.ownerName
-        .split(/[—–-]/)[0]
-        .trim()
-        .toLowerCase();
-      allData = allData.filter(
-        (item) =>
-          item.owner_name && item.owner_name.toLowerCase() === normalizedName,
-      );
+      const normalizedName = normalizeOwnerName(filters.ownerName);
+      allData = allData.filter((item) => {
+        if (!item.owner_name) return false;
+        const normalizedOwner = normalizeOwnerName(item.owner_name);
+        return (
+          normalizedOwner.full === normalizedName.full ||
+          normalizedOwner.prefix === normalizedName.prefix
+        );
+      });
     }
 
     let activeSessions = new Map<string, { ip: string; uptime: string }>();

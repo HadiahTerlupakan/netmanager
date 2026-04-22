@@ -116,4 +116,36 @@ describe("loginMixRadius config validation", () => {
     expect(client.get).not.toHaveBeenCalled();
     expect(client.post).not.toHaveBeenCalled();
   });
+
+  it("rejects login when HTTP 200 returns a non-dashboard page", async () => {
+    const client = {
+      get: vi.fn().mockResolvedValue({ status: 200 }),
+      post: vi.fn().mockResolvedValue({
+        status: 200,
+        data: "<html><title>LOGIN</title><body>Try again</body></html>",
+        request: {
+          res: {
+            responseUrl: "https://mixradius.example.com/rad-admin/post",
+          },
+        },
+      }),
+    };
+
+    await expect(
+      loginMixRadius({
+        client: client as never,
+        credentials: {
+          username: "env-user",
+          password: "env-pass",
+          baseUrl: "https://mixradius.example.com",
+        },
+        session: {
+          isLoggedIn: false,
+          loginExpiresAt: 0,
+          loggedInCredentials: null,
+        },
+        randomDelay: vi.fn().mockResolvedValue(undefined),
+      }),
+    ).rejects.toThrow("MixRadius login failed");
+  });
 });

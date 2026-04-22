@@ -75,4 +75,61 @@ describe("fetchMixRadiusCustomersPPP site filters", () => {
     expect(result.result.data).toHaveLength(1);
     expect(result.result.data[0]?.owner_name).toBe("Owner A - Cabang Timur");
   });
+
+  it("matches ownerName filter using normalized owner prefix", async () => {
+    const result = await fetchMixRadiusCustomersPPP({
+      client: {
+        post: mockFns.post,
+      } as never,
+      baseUrl: "https://mixradius.example.com",
+      login: vi.fn().mockResolvedValue(undefined),
+      onSessionExpired: vi.fn(),
+      randomDelay: vi.fn().mockResolvedValue(undefined),
+      cache,
+      customersCacheTtl: 60_000,
+      onResetClient: vi.fn(),
+      filters: {
+        ownerName: "Owner A",
+        authStatus: "Disabled-Users",
+      },
+    });
+
+    expect(result.result.data).toHaveLength(1);
+    expect(result.result.data[0]?.owner_name).toBe("Owner A - Cabang Timur");
+  });
+
+  it("fails fast when upstream keeps returning login HTML after one retry", async () => {
+    const onSessionExpired = vi.fn();
+    const onResetClient = vi.fn();
+    const client = {
+      post: vi
+        .fn()
+        .mockResolvedValueOnce({
+          data: "<!DOCTYPE html><html><title>LOGIN</title></html>",
+        })
+        .mockResolvedValueOnce({
+          data: "<!DOCTYPE html><html><title>LOGIN</title></html>",
+        }),
+    };
+
+    await expect(
+      fetchMixRadiusCustomersPPP({
+        client: client as never,
+        baseUrl: "https://mixradius.example.com",
+        login: vi.fn().mockResolvedValue(undefined),
+        onSessionExpired,
+        randomDelay: vi.fn().mockResolvedValue(undefined),
+        cache,
+        customersCacheTtl: 60_000,
+        onResetClient,
+        filters: {
+          authStatus: "Disabled-Users",
+        },
+      }),
+    ).rejects.toThrow();
+
+    expect(client.post).toHaveBeenCalledTimes(2);
+    expect(onSessionExpired).toHaveBeenCalledTimes(1);
+    expect(onResetClient).toHaveBeenCalledTimes(1);
+  });
 });
