@@ -189,6 +189,101 @@ describe("AttendanceService", () => {
     });
   });
 
+  describe("attendance read-path joinDate guard", () => {
+    it("filters history rows before user joinDate", async () => {
+      const attendanceRepo = (
+        service as never as {
+          attendanceRepo: {
+            findManyForHistory: ReturnType<typeof vi.fn>;
+            countByUserId: ReturnType<typeof vi.fn>;
+          };
+        }
+      ).attendanceRepo;
+
+      attendanceRepo.findManyForHistory.mockResolvedValue([
+        {
+          id: "att-before-join",
+          checkIn: new Date("2026-03-20T01:00:00.000Z"),
+          checkOut: new Date("2026-03-20T10:00:00.000Z"),
+          status: "ON_TIME",
+        },
+        {
+          id: "att-after-join",
+          checkIn: new Date("2026-04-02T01:00:00.000Z"),
+          checkOut: new Date("2026-04-02T10:00:00.000Z"),
+          status: "LATE",
+        },
+      ]);
+      attendanceRepo.countByUserId.mockResolvedValue(2);
+      vi.spyOn(
+        (
+          service as never as {
+            userRepo: {
+              findAttendanceSettingsById: (userId: string) => Promise<unknown>;
+            };
+          }
+        ).userRepo,
+        "findAttendanceSettingsById",
+      ).mockResolvedValue({
+        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+      });
+
+      const result = await service.getAttendanceHistory("user-1", {
+        page: 1,
+        limit: 10,
+      });
+
+      expect(result.attendances).toHaveLength(1);
+      expect(result.attendances[0]).toMatchObject({ id: "att-after-join" });
+      expect(result.pagination.total).toBe(1);
+    });
+
+    it("filters analytics rows before user joinDate", async () => {
+      const attendanceRepo = (
+        service as never as {
+          attendanceRepo: {
+            findManyForAnalytics: ReturnType<typeof vi.fn>;
+          };
+        }
+      ).attendanceRepo;
+
+      attendanceRepo.findManyForAnalytics.mockResolvedValue([
+        {
+          id: "att-before-join",
+          checkIn: new Date("2026-03-20T01:00:00.000Z"),
+          checkOut: new Date("2026-03-20T10:00:00.000Z"),
+          status: "ON_TIME",
+        },
+        {
+          id: "att-after-join",
+          checkIn: new Date("2026-04-02T01:00:00.000Z"),
+          checkOut: new Date("2026-04-02T10:00:00.000Z"),
+          status: "LATE",
+        },
+      ]);
+      vi.spyOn(
+        (
+          service as never as {
+            userRepo: {
+              findAttendanceSettingsById: (userId: string) => Promise<unknown>;
+            };
+          }
+        ).userRepo,
+        "findAttendanceSettingsById",
+      ).mockResolvedValue({
+        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+      });
+
+      const result = await service.getAttendanceAnalytics("user-1", 30);
+
+      expect(result.stats.totalDays).toBe(1);
+      expect(result.recentAttendance).toHaveLength(1);
+      expect(result.recentAttendance[0]).toMatchObject({
+        id: "att-after-join",
+      });
+    });
+  });
+
   describe("canonical evaluation persistence", () => {
     it("returns canonical evaluation after check-in mutation", async () => {
       prismaMock.user.findUnique.mockResolvedValueOnce({
@@ -483,7 +578,7 @@ describe("AttendanceService", () => {
         workDate: new Date("2026-03-08T00:00:00.000Z"),
         finalStatus: "PERMIT",
       };
-      const secondHistoricalEvaluation: AttendanceEvaluationResult = {
+      const afterJoinEvaluation: AttendanceEvaluationResult = {
         ...canonicalEvaluationResult,
         workDate: new Date("2026-03-09T00:00:00.000Z"),
         finalStatus: "LATE",
@@ -502,7 +597,7 @@ describe("AttendanceService", () => {
       evaluatorSpy.mockReset();
       evaluatorSpy
         .mockResolvedValueOnce(firstHistoricalEvaluation)
-        .mockResolvedValueOnce(secondHistoricalEvaluation);
+        .mockResolvedValueOnce(afterJoinEvaluation);
 
       const auditSpy = vi.spyOn(
         AttendanceEvaluationAuditService.prototype,
@@ -516,7 +611,7 @@ describe("AttendanceService", () => {
         } as never)
         .mockResolvedValueOnce({
           id: "eval-history-2",
-          ...secondHistoricalEvaluation,
+          ...afterJoinEvaluation,
         } as never);
 
       const result = await service.recomputeHistoricalAttendanceEvaluations({
@@ -568,6 +663,81 @@ describe("AttendanceService", () => {
             workMinutes: 450,
           }),
         ],
+      });
+    });
+
+    it("skips historical recompute before user joinDate", async () => {
+      const afterJoinEvaluation: AttendanceEvaluationResult = {
+        ...canonicalEvaluationResult,
+        workDate: new Date("2026-03-09T00:00:00.000Z"),
+        finalStatus: "LATE",
+        reviewState: "FINAL",
+        rawPresenceState: "ATTENDANCE_RECORDED",
+        workMinutes: 450,
+        lateMinutes: 30,
+        reasonCodes: ["LATE_CHECK_IN"],
+        anomalyCodes: [],
+      };
+
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        workingHourMode: "FIXED",
+        attendanceGeofencePolicy: "WARN",
+        shiftId: null,
+        shift: null,
+        joinDate: new Date("2026-03-09T00:00:00.000Z"),
+      } as never);
+      prismaMock.attendance.findMany.mockResolvedValueOnce([
+        {
+          id: "att-before-join",
+          tenantId: "tenant-1",
+          userId: "user-1",
+          checkIn: new Date("2026-03-08T01:00:00.000Z"),
+          checkOut: new Date("2026-03-08T10:00:00.000Z"),
+          status: "ON_TIME",
+        },
+        {
+          id: "att-after-join",
+          tenantId: "tenant-1",
+          userId: "user-1",
+          checkIn: new Date("2026-03-09T01:00:00.000Z"),
+          checkOut: new Date("2026-03-09T10:00:00.000Z"),
+          status: "LATE",
+        },
+      ] as never);
+
+      const evaluatorSpy = vi.spyOn(
+        AttendanceDailyEvaluator.prototype,
+        "evaluate",
+      );
+      evaluatorSpy.mockReset();
+      evaluatorSpy.mockResolvedValue(afterJoinEvaluation);
+
+      const auditSpy = vi.spyOn(
+        AttendanceEvaluationAuditService.prototype,
+        "recordEvaluationChange",
+      );
+      auditSpy.mockReset();
+      auditSpy.mockResolvedValueOnce({
+        id: "eval-history-after-join",
+        ...afterJoinEvaluation,
+      } as never);
+
+      const result = await service.recomputeHistoricalAttendanceEvaluations({
+        userId: "user-1",
+        tenantId: "tenant-1",
+        startDate: new Date("2026-03-08T00:00:00.000Z"),
+        endDate: new Date("2026-03-09T23:59:59.999Z"),
+        actorId: "admin-1",
+      });
+
+      expect(evaluatorSpy).toHaveBeenCalledTimes(1);
+      expect(result.processedCount).toBe(1);
+      expect(result.evaluations).toHaveLength(1);
+      expect(result.evaluations[0]).toMatchObject({
+        workDate: new Date("2026-03-09T00:00:00.000Z"),
+        finalStatus: "LATE",
       });
     });
   });

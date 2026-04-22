@@ -762,7 +762,7 @@ export class AttendanceRepository {
           lte: endOfToday,
         },
         status: {
-          notIn: ["ALPHA", "ABSENT"],
+          notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
         },
         OR: [
           {
@@ -1220,17 +1220,26 @@ export class AttendanceRepository {
     userId: string;
     skip: number;
     take: number;
+    joinDate?: Date;
   }) {
     return prisma.attendance.findMany({
-      where: { userId: params.userId },
+      where: {
+        userId: params.userId,
+        ...(params.joinDate ? { checkIn: { gte: params.joinDate } } : {}),
+      },
       orderBy: { checkIn: "desc" },
       take: params.take,
       skip: params.skip,
     });
   }
 
-  async countByUserId(userId: string) {
-    return prisma.attendance.count({ where: { userId } });
+  async countByUserId(userId: string, joinDate?: Date) {
+    return prisma.attendance.count({
+      where: {
+        userId,
+        ...(joinDate ? { checkIn: { gte: joinDate } } : {}),
+      },
+    });
   }
 
   async upsertAttendanceEvaluation(

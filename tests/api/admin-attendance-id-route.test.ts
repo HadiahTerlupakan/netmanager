@@ -38,7 +38,7 @@ vi.mock("@/modules/database", () => ({
   prisma: prismaMock,
 }));
 
-import { DELETE, PATCH } from "@/app/api/admin/attendance/[id]/route";
+import { DELETE, GET, PATCH } from "@/app/api/admin/attendance/[id]/route";
 
 describe("admin attendance id route", () => {
   beforeEach(() => {
@@ -93,6 +93,87 @@ describe("admin attendance id route", () => {
     expect(body.error).toBe("ID tidak valid");
     expect(prismaMock.attendance.findUnique).not.toHaveBeenCalled();
     expect(prismaMock.attendance.delete).not.toHaveBeenCalled();
+  });
+
+  it("rejects PATCH when attendance date is before user joinDate", async () => {
+    prismaMock.attendance.findUnique.mockResolvedValue({
+      id: "attendance-before-join-1",
+      checkIn: new Date("2026-03-03T00:00:00.000Z"),
+      user: {
+        id: "user-new-1",
+        siteId: "site-1",
+        departmentId: "dept-1",
+        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+        startWorkTime: "08:00",
+        workingHourMode: "FIXED",
+        shift: null,
+      },
+    } as never);
+    prismaMock.attendance.update.mockResolvedValue({
+      id: "attendance-before-join-1",
+    } as never);
+
+    const response = await PATCH(
+      new NextRequest(
+        "http://localhost/api/admin/attendance/attendance-before-join-1",
+        {
+          method: "PATCH",
+        },
+      ),
+      {
+        params: { id: "attendance-before-join-1" },
+        session: {
+          user: {
+            id: "admin-1",
+          },
+        },
+        validated: {
+          status: "ABSENT",
+          notes: "manual edit",
+        },
+      } as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects GET when attendance date is before user joinDate", async () => {
+    prismaMock.attendance.findUnique.mockResolvedValue({
+      id: "attendance-before-join-get-1",
+      tenantId: "tenant-1",
+      checkIn: new Date("2026-03-03T00:00:00.000Z"),
+      user: {
+        id: "user-new-1",
+        name: "User Baru",
+        email: "baru@example.com",
+        image: null,
+        siteId: "site-1",
+        departmentId: "dept-1",
+        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+        departments: { name: "Ops" },
+        sites: { name: "HQ" },
+      },
+    } as never);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/admin/attendance/attendance-before-join-get-1",
+        {
+          method: "GET",
+        },
+      ),
+      {
+        params: { id: "attendance-before-join-get-1" },
+        session: {
+          user: {
+            id: "admin-1",
+          },
+        },
+      } as never,
+    );
+
+    expect(response.status).toBe(404);
   });
 
   it("recalculates PATCH status correctly for DST-sensitive timezone inputs", async () => {

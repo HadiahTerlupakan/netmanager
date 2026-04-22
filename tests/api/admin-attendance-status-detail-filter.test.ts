@@ -198,7 +198,7 @@ describe("admin attendance status detail filter", () => {
     );
   });
 
-  it("maps NO_CHECKOUT filter to real NO_CHECKOUT rows plus historical auto-checkout rows", async () => {
+  it("maps NO_CHECKOUT filter to canonical NO_CHECKOUT rows only", async () => {
     await getAdminAttendance(
       new NextRequest(
         "http://localhost/api/admin/attendance?page=1&limit=20&statusDetail=NO_CHECKOUT&startDate=2026-04-01&endDate=2026-04-30",
@@ -209,17 +209,7 @@ describe("admin attendance status detail filter", () => {
     expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: expect.arrayContaining([
-            { status: "NO_CHECKOUT" },
-            expect.objectContaining({
-              AND: expect.arrayContaining([
-                expect.objectContaining({
-                  status: { in: ["ALPHA", "ABSENT"] },
-                }),
-                expect.objectContaining({ checkOut: { not: null } }),
-              ]),
-            }),
-          ]),
+          status: "NO_CHECKOUT",
         }),
       }),
     );
@@ -271,6 +261,63 @@ describe("admin attendance status detail filter", () => {
     expect(json.data[0].correctionReason).toBe(
       "Karyawan hadir tetapi lupa check-in",
     );
+  });
+
+  it("excludes pre-join attendance rows from admin list", async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([
+      {
+        id: "attendance-before-join",
+        tenantId: "tenant-1",
+        userId: "user-join-1",
+        checkIn: new Date("2026-03-20T00:00:00.000Z"),
+        checkOut: new Date("2026-03-20T08:00:00.000Z"),
+        status: "ON_TIME",
+        notes: null,
+        user: {
+          name: "Before Join",
+          email: "before@example.com",
+          image: null,
+          workingHourMode: "FIXED",
+          workDays: ["MONDAY"],
+          joinDate: new Date("2026-04-01T00:00:00.000Z"),
+          departments: { name: "Ops" },
+          sites: { name: "HQ" },
+        },
+      },
+      {
+        id: "attendance-after-join",
+        tenantId: "tenant-1",
+        userId: "user-join-1",
+        checkIn: new Date("2026-04-02T00:00:00.000Z"),
+        checkOut: new Date("2026-04-02T08:00:00.000Z"),
+        status: "LATE",
+        notes: null,
+        user: {
+          name: "After Join",
+          email: "after@example.com",
+          image: null,
+          workingHourMode: "FIXED",
+          workDays: ["MONDAY"],
+          joinDate: new Date("2026-04-01T00:00:00.000Z"),
+          departments: { name: "Ops" },
+          sites: { name: "HQ" },
+        },
+      },
+    ] as never);
+    prismaMock.attendance.count.mockResolvedValue(2);
+
+    const response = await getAdminAttendance(
+      new NextRequest(
+        "http://localhost/api/admin/attendance?page=1&limit=20&startDate=2026-03-01&endDate=2026-04-30",
+      ),
+      { session: { user: { id: "admin-1", tenantId: "tenant-1" } } } as never,
+    );
+
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.data).toHaveLength(1);
+    expect(json.data[0].id).toBe("attendance-after-join");
   });
 
   it("excludes corrected source rows from summary counts", async () => {

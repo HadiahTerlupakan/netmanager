@@ -297,4 +297,66 @@ describe("admin attendance export parity", () => {
     expect(csv).toContain("LIBUR NASIONAL");
     expect(csv).toContain("weak-missing-site-config");
   });
+
+  it("omits pre-join attendance rows from export", async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([
+      {
+        id: "attendance-before-join",
+        tenantId: "tenant-1",
+        userId: "user-join-1",
+        checkIn: new Date("2026-03-20T00:00:00.000Z"),
+        checkOut: new Date("2026-03-20T08:00:00.000Z"),
+        status: "ON_TIME",
+        notes: null,
+        user: {
+          name: "Before Join",
+          email: "before@example.com",
+          image: null,
+          workingHourMode: "FIXED",
+          workDays: ["MONDAY"],
+          joinDate: new Date("2026-04-01T00:00:00.000Z"),
+          departments: { name: "Ops" },
+          sites: { name: "HQ" },
+        },
+      },
+      {
+        id: "attendance-after-join",
+        tenantId: "tenant-1",
+        userId: "user-join-1",
+        checkIn: new Date("2026-04-02T00:00:00.000Z"),
+        checkOut: new Date("2026-04-02T08:00:00.000Z"),
+        status: "ON_TIME",
+        notes: null,
+        user: {
+          name: "After Join",
+          email: "after@example.com",
+          image: null,
+          workingHourMode: "FIXED",
+          workDays: ["MONDAY"],
+          joinDate: new Date("2026-04-01T00:00:00.000Z"),
+          departments: { name: "Ops" },
+          sites: { name: "HQ" },
+        },
+      },
+    ] as never);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/admin/attendance?export=true&page=1&limit=20",
+      ),
+      {
+        session: {
+          user: {
+            id: "admin-1",
+            tenantId: "tenant-1",
+          },
+        },
+      } as never,
+    );
+
+    const csv = await response.text();
+
+    expect(csv).not.toContain("Before Join");
+    expect(csv).toContain("After Join");
+  });
 });

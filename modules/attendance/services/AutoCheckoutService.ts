@@ -43,6 +43,14 @@ export class AutoCheckoutService {
 
     for (const attendance of openAttendances) {
       try {
+        if (
+          ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"].includes(
+            attendance.status,
+          )
+        ) {
+          continue;
+        }
+
         const { user } = attendance;
 
         // Resolve scheduleEndTime from user settings instead of passing null

@@ -57,19 +57,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
     let totalGenerated = 0;
 
-    // Get all active users requiring attendance
-    const users = await prisma.user.findMany({
-      where: {
-        tenantId: tenantId,
-        isActive: true,
-        isAttendanceRequired: true,
-      },
-      select: {
-        id: true,
-        workDays: true,
-      },
-    });
-
     const dayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dateFormatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: timezone,
@@ -99,8 +86,25 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
       if (holiday) continue;
 
+      const users = await prisma.user.findMany({
+        where: {
+          tenantId: tenantId,
+          isActive: true,
+          isAttendanceRequired: true,
+          OR: [{ joinDate: null }, { joinDate: { lte: dayStart } }],
+        },
+        select: {
+          id: true,
+          workDays: true,
+          joinDate: true,
+        },
+      });
+
       for (const user of users) {
-        const workDays = user.workDays?.split(",").map((d) => d.trim()) || [
+        if (user.joinDate && new Date(user.joinDate) > dayStart) {
+          continue;
+        }
+        const workDays = user.workDays?.split(",").map((day) => day.trim()) || [
           "Mon",
           "Tue",
           "Wed",

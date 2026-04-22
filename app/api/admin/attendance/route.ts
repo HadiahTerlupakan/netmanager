@@ -392,21 +392,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         ];
         break;
       case "NO_CHECKOUT":
-        where.OR = [
-          { status: "NO_CHECKOUT" },
-          {
-            AND: [
-              { status: { in: ["ALPHA", "ABSENT"] } },
-              { checkOut: { not: null } },
-              {
-                OR: [
-                  { notes: { contains: "Auto checkout by system (Mangkir)" } },
-                  { notes: { contains: "Lupa Absen Pulang" } },
-                ],
-              },
-            ],
-          },
-        ];
+        where.status = "NO_CHECKOUT";
         break;
     }
   }
@@ -423,6 +409,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         startWorkTime: true,
         endWorkTime: true,
         workDays: true,
+        joinDate: true,
         shift: {
           select: {
             startTime: true,
@@ -435,17 +422,30 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     },
   };
 
+  const filterAttendancesByJoinDate = <
+    T extends { checkIn: Date; user: { joinDate: Date | null } },
+  >(
+    attendances: T[],
+  ) =>
+    attendances.filter(
+      (attendance) =>
+        !attendance.user.joinDate ||
+        attendance.checkIn >= attendance.user.joinDate,
+    );
+
   const activeAttendanceWhere = {
     ...where,
     correctedAt: null,
   } as Prisma.AttendanceWhereInput;
 
   if (isExport) {
-    const allAttendances = await prisma.attendance.findMany({
-      where: activeAttendanceWhere,
-      include: includeUser,
-      orderBy: { checkIn: "desc" },
-    });
+    const allAttendances = filterAttendancesByJoinDate(
+      await prisma.attendance.findMany({
+        where: activeAttendanceWhere,
+        include: includeUser,
+        orderBy: { checkIn: "desc" },
+      }),
+    );
     const evaluationMap = await getAttendanceEvaluationMap(
       allAttendances,
       tenantId,
@@ -544,11 +544,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   if (usesCanonicalStatusFilter) {
-    const allAttendances = await prisma.attendance.findMany({
-      where,
-      include: includeUser,
-      orderBy: { checkIn: "desc" },
-    });
+    const allAttendances = filterAttendancesByJoinDate(
+      await prisma.attendance.findMany({
+        where,
+        include: includeUser,
+        orderBy: { checkIn: "desc" },
+      }),
+    );
     const evaluationMap = await getAttendanceEvaluationMap(
       allAttendances,
       tenantId,
@@ -583,7 +585,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const [paginatedData, total, statusGroups] = await Promise.all([
+  const [rawPaginatedData, total, statusGroups] = await Promise.all([
     prisma.attendance.findMany({
       where,
       include: includeUser,
@@ -598,6 +600,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       _count: { _all: true },
     }),
   ]);
+  const paginatedData = filterAttendancesByJoinDate(rawPaginatedData);
 
   const summary = statusGroups.reduce(
     (acc, curr) => {

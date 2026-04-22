@@ -38,6 +38,24 @@ export interface CreateLeaveData {
   attachmentUrl?: string;
 }
 
+type LeaveWithUser = {
+  id: string;
+  userId: string;
+  tenantId: string;
+  type: LeaveType;
+  startDate: Date;
+  endDate: Date;
+  status: LeaveStatus;
+  user: {
+    id: string;
+    name: string | null;
+    workingHourMode: string | null;
+    workDays: string | null;
+    tenantId: string | null;
+    joinDate: Date | null;
+  };
+};
+
 interface TukarLiburValidationInput {
   userId: string;
   tenantId: string;
@@ -202,9 +220,7 @@ export class LeaveService {
   async getLeaveById(
     id: string,
     tenantId: string,
-  ): Promise<
-    ServiceResult<Prisma.LeaveRequestGetPayload<{ include: { user: true } }>>
-  > {
+  ): Promise<ServiceResult<LeaveWithUser>> {
     try {
       const leave = await this.repository.findByIdWithUser(id, tenantId);
       if (!leave) {
@@ -671,9 +687,7 @@ export class LeaveService {
     }
   }
 
-  private async syncLeaveToAttendance(
-    leave: Prisma.LeaveRequestGetPayload<{ include: { user: true } }>,
-  ): Promise<void> {
+  private async syncLeaveToAttendance(leave: LeaveWithUser): Promise<void> {
     const startDate = new Date(leave.startDate);
     const endDate = new Date(leave.endDate);
     const curDate = new Date(startDate);
@@ -697,6 +711,18 @@ export class LeaveService {
     while (curDate <= lastDate) {
       const dayIndex = curDate.getDay();
       const dayName = dayNames[dayIndex];
+      const joinDate = leave.user.joinDate
+        ? new Date(leave.user.joinDate)
+        : null;
+
+      if (joinDate) {
+        joinDate.setTime(toStartOfDay(joinDate).getTime());
+      }
+
+      if (joinDate && curDate < joinDate) {
+        curDate.setDate(curDate.getDate() + 1);
+        continue;
+      }
 
       if (allowedDays.includes(dayName)) {
         const { isHoliday } = await this.holidayRepository.isHoliday(
@@ -756,9 +782,7 @@ export class LeaveService {
     }
   }
 
-  private async revertLeaveFromAttendance(
-    leave: Prisma.LeaveRequestGetPayload<{ include: { user: true } }>,
-  ): Promise<void> {
+  private async revertLeaveFromAttendance(leave: LeaveWithUser): Promise<void> {
     const startDate = new Date(leave.startDate);
     const endDate = new Date(leave.endDate);
 

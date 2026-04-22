@@ -211,7 +211,18 @@ export class LeaveRepository {
   async findByIdWithUser(id: string, tenantId: string) {
     return prisma.leaveRequest.findUnique({
       where: { id, tenantId },
-      include: { user: true },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            workingHourMode: true,
+            workDays: true,
+            tenantId: true,
+            joinDate: true,
+          },
+        },
+      },
     });
   }
 

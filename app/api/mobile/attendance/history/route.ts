@@ -17,10 +17,19 @@ export const GET = createHandler({ auth: true }, async (_request, ctx) => {
   const page = parseInt((ctx.query.page as string) || "1");
   const limit = parseInt((ctx.query.limit as string) || "10");
   const skip = (page - 1) * limit;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { joinDate: true },
+  });
+  const attendanceWhere = {
+    userId,
+    tenantId,
+    ...(user?.joinDate ? { checkIn: { gte: user.joinDate } } : {}),
+  };
 
   const [attendances, total] = await Promise.all([
     prisma.attendance.findMany({
-      where: { userId, tenantId },
+      where: attendanceWhere,
       orderBy: { checkIn: "desc" },
       take: limit,
       skip,
@@ -39,11 +48,17 @@ export const GET = createHandler({ auth: true }, async (_request, ctx) => {
         },
       },
     }),
-    prisma.attendance.count({ where: { userId, tenantId } }),
+    prisma.attendance.count({ where: attendanceWhere }),
   ]);
+  const filteredAttendances = attendances.filter(
+    (attendance) => !user?.joinDate || attendance.checkIn >= user.joinDate,
+  );
+  const filteredTotal = user?.joinDate
+    ? filteredAttendances.length + skip
+    : total;
 
   const now = new Date();
-  const attendancesWithSessionMeta = attendances.map((attendance) => {
+  const attendancesWithSessionMeta = filteredAttendances.map((attendance) => {
     const isStaleFlexibleSession =
       attendance.user?.workingHourMode === "FLEXIBLE" &&
       attendance.checkOut === null &&
@@ -71,7 +86,7 @@ export const GET = createHandler({ auth: true }, async (_request, ctx) => {
   return apiPaginated(attendancesWithSessionMeta, {
     page,
     limit,
-    total,
+    total: filteredTotal,
     today,
   } as unknown as Parameters<typeof apiPaginated>[1]);
 });

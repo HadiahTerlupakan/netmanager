@@ -1308,19 +1308,30 @@ export class AttendanceService {
   ) {
     const { page, limit } = params;
     const skip = (page - 1) * limit;
+    const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
+    const joinDate = userDetails?.joinDate ?? undefined;
 
     const [attendances, total] = await Promise.all([
-      this.attendanceRepo.findManyForHistory({ userId, skip, take: limit }),
-      this.attendanceRepo.countByUserId(userId),
+      this.attendanceRepo.findManyForHistory({
+        userId,
+        skip,
+        take: limit,
+        joinDate,
+      }),
+      this.attendanceRepo.countByUserId(userId, joinDate),
     ]);
+    const filteredAttendances = attendances.filter(
+      (attendance) => !joinDate || attendance.checkIn >= joinDate,
+    );
+    const filteredTotal = joinDate ? filteredAttendances.length + skip : total;
 
     return {
-      attendances,
+      attendances: filteredAttendances,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: filteredTotal,
+        totalPages: Math.ceil(filteredTotal / limit),
       },
     };
   }
@@ -1348,8 +1359,14 @@ export class AttendanceService {
     });
 
     const evaluations: AttendanceEvaluationResult[] = [];
+    const joinDate = userDetails?.joinDate
+      ? toStartOfDay(userDetails.joinDate, timezone)
+      : null;
 
     for (const attendance of attendances) {
+      if (joinDate && attendance.checkIn < joinDate) {
+        continue;
+      }
       const evaluation = await this.recomputeAttendanceEvaluation({
         attendance: {
           tenantId: attendance.tenantId ?? tenantId,
@@ -1477,12 +1494,18 @@ export class AttendanceService {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     const endDate = new Date();
+    const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
 
-    const userAttendances = await this.attendanceRepo.findManyForAnalytics({
-      userId,
-      startDate,
-      endDate,
-    });
+    const userAttendances = (
+      await this.attendanceRepo.findManyForAnalytics({
+        userId,
+        startDate,
+        endDate,
+      })
+    ).filter(
+      (attendance) =>
+        !userDetails?.joinDate || attendance.checkIn >= userDetails.joinDate,
+    );
 
     const totalDays = userAttendances.length;
     const onTimeDays = userAttendances.filter(

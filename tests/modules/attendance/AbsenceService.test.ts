@@ -85,6 +85,46 @@ describe("AbsenceService canonical absence status", () => {
     expect(prismaMock.attendance.create).not.toHaveBeenCalled();
   });
 
+  it("skips historical DAY_OFF sync before user joinDate", async () => {
+    prismaMock.user.findMany.mockImplementationOnce(
+      async (args: {
+        where?: { OR?: Array<{ joinDate?: null | { lte: Date } }> };
+      }) => {
+        const joinDateFilter = args?.where?.OR;
+        const hasJoinDateGuard =
+          Array.isArray(joinDateFilter) &&
+          joinDateFilter.some((item) => item.joinDate === null) &&
+          joinDateFilter.some(
+            (item) => item.joinDate && "lte" in item.joinDate,
+          );
+
+        if (hasJoinDateGuard) {
+          return [];
+        }
+
+        return [
+          {
+            id: "user-1",
+            tenantId: "tenant-1",
+            name: "Karyawan Baru",
+            workDays: "Mon,Tue,Wed,Thu,Fri",
+            workingHourMode: "FIXED",
+            isAttendanceRequired: true,
+            joinDate: new Date("2026-04-01T00:00:00.000Z"),
+          },
+        ];
+      },
+    );
+
+    await service.syncDayOffAttendanceRange(
+      new Date("2026-03-29T00:00:00.000Z"),
+      new Date("2026-03-29T00:00:00.000Z"),
+      "tenant-1",
+    );
+
+    expect(prismaMock.attendance.create).not.toHaveBeenCalled();
+  });
+
   it("creates ABSENT placeholder records instead of ALPHA for new daily absences", async () => {
     const result = await service.processDailyAbsence(
       new Date("2026-03-02T00:00:00.000Z"),

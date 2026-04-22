@@ -165,6 +165,16 @@ export class AttendanceCorrectionService {
 
     const timezone = await getTimezone(input.tenantId);
     const workDate = toStartOfDay(sourceAttendance.checkIn, timezone);
+
+    if (sourceAttendance.user.joinDate) {
+      const joinDate = toStartOfDay(sourceAttendance.user.joinDate, timezone);
+      if (workDate < joinDate) {
+        throw new ValidationError(
+          "Absensi sebelum tanggal masuk tidak dapat dikoreksi",
+        );
+      }
+    }
+
     const schedule = this.resolveSchedule(sourceAttendance);
     const scheduleWindow = this.buildScheduleWindow(
       workDate,

@@ -206,6 +206,40 @@ describe("AttendanceCorrectionService", () => {
     ).rejects.toThrow(/berstatus mangkir/i);
   });
 
+  it("rejects correction when source attendance date is before user joinDate", async () => {
+    const service = createService();
+
+    mockFindCorrectionSourceById.mockResolvedValue({
+      id: "attendance-absent-before-join-1",
+      tenantId: "tenant-1",
+      userId: "user-1",
+      status: "ABSENT",
+      checkIn: new Date("2026-03-03T00:00:00.000Z"),
+      correctedAt: null,
+      user: {
+        id: "user-1",
+        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+        workingHourMode: "FIXED",
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        shift: null,
+      },
+    });
+
+    await expect(
+      service.correctMissedCheckIn({
+        sourceAttendanceId: "attendance-absent-before-join-1",
+        tenantId: "tenant-1",
+        actorId: "admin-1",
+        checkIn: new Date("2026-03-03T01:30:00.000Z"),
+        checkOut: null,
+        reason: "Sebelum join date",
+        notes: null,
+        evidencePhotoUrl: "/uploads/employee/attendance/admin-1-proof.webp",
+      }),
+    ).rejects.toThrow(/tanggal masuk|join/i);
+  });
+
   it("rejects source rows from another tenant", async () => {
     const service = createService();
 

@@ -18,14 +18,14 @@ describe("attendance display semantics", () => {
     expect(hasAutoCheckoutNote("catatan lain")).toBe(false);
   });
 
-  it("treats historical ALPHA/ABSENT rows with auto-checkout notes as no-checkout records", () => {
+  it("does not treat historical ABSENT or ALPHA rows as no-checkout records", () => {
     expect(
       isHistoricalAutoCheckoutAbsence({
         status: "ABSENT",
         checkOut: "2026-03-27T16:59:59.000Z",
         notes: "Auto checkout by system (Mangkir)",
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       isHistoricalAutoCheckoutAbsence({
@@ -33,7 +33,7 @@ describe("attendance display semantics", () => {
         checkOut: "2026-03-27T16:59:59.000Z",
         notes: ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       isHistoricalAutoCheckoutAbsence({
@@ -44,7 +44,7 @@ describe("attendance display semantics", () => {
     ).toBe(false);
   });
 
-  it("returns canonical labels for ABSENT and NO_CHECKOUT while preserving historical no-checkout detection", () => {
+  it("returns canonical labels for ABSENT and NO_CHECKOUT without remapping historical rows", () => {
     expect(
       getCanonicalAttendanceLabel({
         status: "ABSENT",
@@ -67,7 +67,7 @@ describe("attendance display semantics", () => {
         notes: "Auto checkout by system (Mangkir)",
         checkOut: "2026-03-27T16:59:59.000Z",
       }),
-    ).toBe("Lupa Absen Pulang");
+    ).toBe("Tidak Hadir");
   });
 
   it("derives specific DAY_OFF labels from stored row notes", () => {

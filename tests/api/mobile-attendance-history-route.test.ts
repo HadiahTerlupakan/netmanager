@@ -84,4 +84,64 @@ describe("mobile attendance history route", () => {
       isTukarLiburLeaveDay: false,
     });
   });
+
+  it("excludes history rows before user joinDate", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      id: "user-1",
+      joinDate: new Date("2026-04-01T00:00:00.000Z"),
+    } as never);
+    prismaMock.attendance.findMany.mockResolvedValueOnce([
+      {
+        id: "att-before-join",
+        userId: "user-1",
+        tenantId: "tenant-1",
+        checkIn: new Date("2026-03-20T01:00:00.000Z"),
+        checkOut: new Date("2026-03-20T10:00:00.000Z"),
+        status: "ON_TIME",
+        user: {
+          workingHourMode: "FIXED",
+          flexibleTargetHour: null,
+          shift: null,
+        },
+      },
+      {
+        id: "att-after-join",
+        userId: "user-1",
+        tenantId: "tenant-1",
+        checkIn: new Date("2026-04-02T01:00:00.000Z"),
+        checkOut: new Date("2026-04-02T10:00:00.000Z"),
+        status: "LATE",
+        user: {
+          workingHourMode: "FIXED",
+          flexibleTargetHour: null,
+          shift: null,
+        },
+      },
+    ] as never);
+    prismaMock.attendance.count.mockResolvedValueOnce(2);
+
+    const response = await getMobileAttendanceHistory(
+      new NextRequest(
+        "http://localhost/api/mobile/attendance/history?page=1&limit=10",
+      ),
+      {
+        query: {
+          page: "1",
+          limit: "10",
+        },
+        session: {
+          user: {
+            id: "user-1",
+            tenantId: "tenant-1",
+          },
+        },
+      } as never,
+    );
+
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe("att-after-join");
+  });
 });

@@ -17,11 +17,7 @@ export function isHistoricalAutoCheckoutAbsence(input: {
   notes?: string | null;
   checkOut?: string | Date | null;
 }): boolean {
-  return Boolean(
-    input.checkOut &&
-    (input.status === "ALPHA" || input.status === "ABSENT") &&
-    hasAutoCheckoutNote(input.notes),
-  );
+  return Boolean(input.status === "NO_CHECKOUT" && input.checkOut);
 }
 
 export function getCanonicalAttendanceLabel(input: {

@@ -422,16 +422,21 @@ export async function processFixedHourAutoAlpha(): Promise<{
 }> {
   try {
     const now = new Date();
+    const timezoneCache = new Map<string, string>();
+    const details: string[] = [];
+    let usersMarkedAlpha = 0;
 
-    const users = await userRepository.findFixedHourUsersForAutoAlpha();
+    const firstTimezone = await getTimezone();
+    const todayStart = toStartOfDay(
+      getDateKeyInTimezone(now, firstTimezone),
+      firstTimezone,
+    );
+    const users =
+      await userRepository.findFixedHourUsersForAutoAlpha(todayStart);
 
     if (users.length === 0) {
       return { usersMarkedAlpha: 0, details: [] };
     }
-
-    const details: string[] = [];
-    let usersMarkedAlpha = 0;
-    const timezoneCache = new Map<string, string>();
 
     for (const user of users) {
       if (user.workingHourMode !== "FIXED") continue;
@@ -448,6 +453,7 @@ export async function processFixedHourAutoAlpha(): Promise<{
       const startOfDay = toStartOfDay(currentDateKey, timezone);
       const endOfDay = toEndOfDay(currentDateKey, timezone);
 
+      if (user.joinDate && new Date(user.joinDate) > startOfDay) continue;
       if (!isWorkDay(user.workDays, now, timezone)) continue;
 
       const shiftEndTime = parseTimeToDateInTimezone(

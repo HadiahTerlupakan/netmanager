@@ -469,13 +469,22 @@ export class UserRepository {
    * Find active users for attendance processing.
    * Excludes SUPER_ADMIN and FLEXIBLE working hour mode users.
    */
-  async findActiveForAttendance(tenantId: string, userId?: string) {
+  async findActiveForAttendance(
+    tenantId: string,
+    userId?: string,
+    referenceDate?: Date,
+  ) {
     return prisma.user.findMany({
       where: {
         tenantId,
         isActive: true,
         isAttendanceRequired: true,
         ...(userId ? { id: userId } : {}),
+        ...(referenceDate
+          ? {
+              OR: [{ joinDate: null }, { joinDate: { lte: referenceDate } }],
+            }
+          : {}),
         role: {
           name: { not: "SUPER_ADMIN" },
         },
@@ -518,13 +527,18 @@ export class UserRepository {
   /**
    * Find fixed-hour users for auto-alpha processing.
    */
-  async findFixedHourUsersForAutoAlpha() {
+  async findFixedHourUsersForAutoAlpha(referenceDate?: Date) {
     return prisma.user.findMany({
       where: {
         isActive: true,
         isAttendanceRequired: true,
         tenantId: { not: null },
         endWorkTime: { not: null },
+        ...(referenceDate
+          ? {
+              OR: [{ joinDate: null }, { joinDate: { lte: referenceDate } }],
+            }
+          : {}),
         workingHourMode: "FIXED",
         role: {
           name: { not: "SUPER_ADMIN" },
@@ -538,6 +552,7 @@ export class UserRepository {
         workDays: true,
         workingHourMode: true,
         isAttendanceRequired: true,
+        joinDate: true,
       },
     });
   }
@@ -561,6 +576,7 @@ export class UserRepository {
         workingHourMode: true,
         attendanceGeofencePolicy: true,
         shiftId: true,
+        joinDate: true,
         shift: { select: { startTime: true, endTime: true } },
       },
     });

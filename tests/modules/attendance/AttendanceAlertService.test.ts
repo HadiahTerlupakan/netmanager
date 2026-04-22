@@ -188,6 +188,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
     ]);
     prismaMock.holiday.findFirst.mockResolvedValue(null);
@@ -213,6 +214,31 @@ describe("AttendanceAlertService", () => {
     });
   });
 
+  it("skips auto alpha before user joinDate", async () => {
+    vi.setSystemTime(new Date(2026, 2, 9, 17, 35, 0, 0));
+
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: "user-fixed",
+        name: "Karyawan Baru",
+        tenantId: "tenant-1",
+        endWorkTime: "17:00",
+        workDays: "MON,TUE,WED,THU,FRI",
+        workingHourMode: "FIXED",
+        isAttendanceRequired: true,
+        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+      },
+    ]);
+    prismaMock.holiday.findFirst.mockResolvedValue(null);
+    prismaMock.attendance.findFirst.mockResolvedValue(null);
+    prismaMock.leaveRequest.findFirst.mockResolvedValue(null);
+
+    const result = await processFixedHourAutoAlpha();
+
+    expect(result.usersMarkedAlpha).toBe(0);
+    expect(prismaMock.attendance.create).not.toHaveBeenCalled();
+  });
+
   it("skips auto alpha when reminder lock storage is unavailable", async () => {
     const redisModule = await import("@/lib/redis");
     vi.mocked(redisModule.redis.set).mockRejectedValueOnce(
@@ -230,6 +256,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
     ]);
     prismaMock.holiday.findFirst.mockResolvedValue(null);
@@ -254,6 +281,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
       {
         id: "user-flex",
@@ -263,6 +291,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FLEXIBLE",
         isAttendanceRequired: true,
+        joinDate: null,
       },
     ]);
 
@@ -284,6 +313,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
       {
         id: "user-attended",
@@ -293,6 +323,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
       {
         id: "user-leave",
@@ -302,6 +333,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
     ]);
 
@@ -332,6 +364,7 @@ describe("AttendanceAlertService", () => {
         workDays: "MON,TUE,WED,THU,FRI",
         workingHourMode: "FIXED",
         isAttendanceRequired: true,
+        joinDate: null,
       },
     ]);
     prismaMock.attendance.findMany.mockResolvedValue([]);

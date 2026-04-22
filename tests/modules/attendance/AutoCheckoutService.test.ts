@@ -45,7 +45,7 @@ describe("AutoCheckoutService semantics", () => {
     );
   });
 
-  it("queries open sessions by excluding ABSENT placeholders so mangkir rows are not auto-checked out", async () => {
+  it("queries open sessions by excluding placeholder statuses so libur or izin rows are not auto-checked out", async () => {
     prismaMock.attendance.findMany.mockResolvedValueOnce([] as never);
 
     const updatedCount = await AutoCheckoutService.runAutoCheckout();
@@ -54,10 +54,32 @@ describe("AutoCheckoutService semantics", () => {
     expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { notIn: ["ALPHA", "ABSENT"] },
+          status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
         }),
       }),
     );
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+
+  it("does not update DAY_OFF sessions into NO_CHECKOUT", async () => {
+    prismaMock.attendance.findMany.mockResolvedValueOnce([
+      {
+        id: "day-off-1",
+        checkIn: new Date("2026-03-27T00:00:00.000Z"),
+        checkOut: null,
+        status: "DAY_OFF",
+        notes: "Hari Libur (Day Off) - Auto Generated",
+        user: {
+          name: "User Libur",
+          workingHourMode: "FIXED",
+          shift: null,
+        },
+      },
+    ] as never);
+
+    const updatedCount = await AutoCheckoutService.runAutoCheckout();
+
+    expect(updatedCount).toBe(0);
     expect(prismaMock.attendance.update).not.toHaveBeenCalled();
   });
 

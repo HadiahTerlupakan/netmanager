@@ -87,6 +87,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
           image: true,
           siteId: true,
           departmentId: true,
+          joinDate: true,
           departments: { select: { name: true } },
           sites: { select: { name: true } },
         },
@@ -95,6 +96,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   });
 
   if (!attendance) {
+    return ApiErrors.notFound("Data absensi tidak ditemukan");
+  }
+
+  if (
+    attendance.user.joinDate &&
+    attendance.checkIn < attendance.user.joinDate
+  ) {
     return ApiErrors.notFound("Data absensi tidak ditemukan");
   }
 
@@ -164,6 +172,15 @@ export const PATCH = createHandler(
 
     if (!existingAttendance) {
       return ApiErrors.notFound("Data absensi tidak ditemukan");
+    }
+
+    if (
+      existingAttendance.user.joinDate &&
+      existingAttendance.checkIn < existingAttendance.user.joinDate
+    ) {
+      return ApiErrors.badRequest(
+        "Absensi sebelum tanggal masuk tidak boleh diubah",
+      );
     }
 
     // Access Control
