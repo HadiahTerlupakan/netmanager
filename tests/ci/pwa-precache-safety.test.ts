@@ -8,6 +8,16 @@ import { describe, expect, it } from "vitest";
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(testDirectory, "..", "..");
 
+type DependencyMap = Record<string, string>;
+
+type PackageJsonShape = {
+  overrides?: DependencyMap;
+};
+
+type PackageLockShape = {
+  packages?: Record<string, { version?: string }>;
+};
+
 function readNextConfig(): string {
   return readFileSync(resolve(projectRoot, "next.config.ts"), "utf8");
 }
@@ -18,6 +28,20 @@ function getPublicAttendanceMatches(patterns: string[]): string[] {
       cwd: resolve(projectRoot, "public"),
     })
     .filter((entry) => entry.includes("uploads/attendance/"));
+}
+
+function readPackageJson(): PackageJsonShape {
+  const packageJsonPath = resolve(projectRoot, "package.json");
+  const packageJsonContent = readFileSync(packageJsonPath, "utf8");
+
+  return JSON.parse(packageJsonContent) as PackageJsonShape;
+}
+
+function readPackageLock(): PackageLockShape {
+  const packageLockPath = resolve(projectRoot, "package-lock.json");
+  const packageLockContent = readFileSync(packageLockPath, "utf8");
+
+  return JSON.parse(packageLockContent) as PackageLockShape;
 }
 
 describe("PWA precache safety", () => {
@@ -52,5 +76,20 @@ describe("PWA precache safety", () => {
     expect(excludedAttendanceAssets).toEqual([]);
     expect(nextConfig).toContain("publicExcludes");
     expect(nextConfig).toContain('"!uploads/**"');
+  });
+
+  it("pins patched serialize-javascript for next-pwa workbox chain", () => {
+    const packageJson = readPackageJson();
+    const packageLock = readPackageLock();
+    const overrides = packageJson.overrides ?? {};
+    const packages = packageLock.packages ?? {};
+
+    expect(overrides["serialize-javascript"]).toBe("^7.0.5");
+    expect(packages["node_modules/@rollup/plugin-terser"]?.version).toBe(
+      "0.4.4",
+    );
+    expect(packages["node_modules/serialize-javascript"]?.version).toBe(
+      "7.0.5",
+    );
   });
 });

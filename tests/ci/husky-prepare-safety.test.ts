@@ -27,11 +27,20 @@ function readHuskyPreCommitHook(): string {
 }
 
 describe("Husky prepare safety", () => {
-  it("pins hono to a patched release that closes current production advisories", () => {
+  it("pins patched overrides for current production dependency advisories", () => {
     const packageJson = readPackageJson();
 
     expect(packageJson.dependencies?.hono).toBe("^4.12.14");
     expect(packageJson.overrides?.hono).toBe("^4.12.14");
+    expect(packageJson.dependencies?.nodemailer).toBe("^8.0.5");
+    expect(packageJson.overrides?.nodemailer).toBe("^8.0.5");
+    expect(packageJson.overrides?.protobufjs).toBe("^7.5.5");
+    expect(packageJson.overrides?.["protocol-buffers-schema"]).toBe("^3.6.1");
+    expect(packageJson.overrides?.["node-forge"]).toBe("^1.4.0");
+    expect(packageJson.overrides?.["follow-redirects"]).toBe("^1.16.0");
+    expect(packageJson.overrides?.lodash).toBe("^4.18.1");
+    expect(packageJson.overrides?.["brace-expansion@^2.0.0"]).toBe("^2.0.3");
+    expect(packageJson.overrides?.["brace-expansion@^5.0.0"]).toBe("^5.0.5");
   });
 
   it("resolves direct execution against the real script file URL", () => {
