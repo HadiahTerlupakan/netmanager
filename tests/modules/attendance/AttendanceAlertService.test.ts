@@ -65,6 +65,7 @@ vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
 
 import {
   processCheckInReminders,
+  processCheckOutReminders,
   processFixedHourAutoAlpha,
   processIncompleteAttendance,
   processFlexibleReminders,
@@ -161,7 +162,25 @@ describe("AttendanceAlertService", () => {
     expect(mockFns.sendPushNotification).not.toHaveBeenCalled();
   });
 
-  it("ignores ALPHA and ABSENT records when checking incomplete attendance alerts", async () => {
+  it("ignores DAY_OFF, PERMIT, and SICK records when checking check-out reminders", async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([]);
+
+    const result = await processCheckOutReminders();
+
+    expect(result.usersNotified).toBe(0);
+    expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: {
+            notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          },
+        }),
+      }),
+    );
+    expect(mockFns.sendPushNotification).not.toHaveBeenCalled();
+  });
+
+  it("ignores DAY_OFF, PERMIT, and SICK records when checking incomplete attendance alerts", async () => {
     prismaMock.attendance.findMany.mockResolvedValue([]);
 
     await processIncompleteAttendance();
@@ -169,7 +188,9 @@ describe("AttendanceAlertService", () => {
     expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { notIn: ["ALPHA", "ABSENT"] },
+          status: {
+            notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          },
         }),
       }),
     );

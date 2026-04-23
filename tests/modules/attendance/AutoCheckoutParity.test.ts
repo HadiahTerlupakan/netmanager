@@ -157,7 +157,7 @@ describe("Attendance session policy parity", () => {
 
     prismaMock.attendance.findMany.mockResolvedValueOnce([session] as never);
 
-    await AutoCheckoutService.runAutoCheckout();
+    await AutoCheckoutService.runAutoCheckout("tenant-1");
 
     const cronUpdate =
       prismaMock.attendance.update.mock.calls.at(-1)?.[0]?.data;

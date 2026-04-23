@@ -754,6 +754,7 @@ export class AttendanceRepository {
   async findAllOpenSessionsWithUser(
     endOfToday: Date,
     twentyFourHoursAgo: Date,
+    tenantId?: string,
   ) {
     return prisma.attendance.findMany({
       where: {
@@ -761,6 +762,7 @@ export class AttendanceRepository {
         checkIn: {
           lte: endOfToday,
         },
+        ...(tenantId ? { tenantId } : {}),
         status: {
           notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
         },
@@ -961,7 +963,7 @@ export class AttendanceRepository {
       where: {
         checkIn: { gte: startOfDay, lte: endOfDay },
         checkOut: null,
-        status: { notIn: ["ALPHA", "ABSENT"] },
+        status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
         user: {
           isActive: true,
           pushToken: { not: null },
@@ -990,7 +992,7 @@ export class AttendanceRepository {
       where: {
         checkIn: { gte: startOfDay, lte: endOfDay },
         checkOut: null,
-        status: { notIn: ["ALPHA", "ABSENT"] },
+        status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
         user: {
           workingHourMode: { not: "FLEXIBLE" },
         },
@@ -1084,7 +1086,7 @@ export class AttendanceRepository {
       where: {
         userId: params.userId,
         checkOut: null,
-        status: { notIn: ["ALPHA", "ABSENT"] },
+        status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
         checkIn: { lt: params.effectiveToday },
         ...(params.tenantId && { tenantId: params.tenantId }),
       },
