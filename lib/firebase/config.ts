@@ -1,4 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import type { Auth } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
 import type { Messaging } from "firebase/messaging";
 
@@ -16,14 +18,27 @@ export const isFirebaseMessagingConfigured = Boolean(
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
 );
 
+const hasFirebaseBrowserConfig = Boolean(
+  firebaseConfig?.apiKey && firebaseConfig?.projectId,
+);
+
 const app =
-  isBrowserRuntime && isFirebaseMessagingConfigured
+  isBrowserRuntime && hasFirebaseBrowserConfig
     ? !getApps().length
       ? initializeApp(firebaseConfig)
       : getApp()
     : undefined;
 
+let auth: Auth | undefined = undefined;
 let messaging: Messaging | undefined = undefined;
+
+if (app) {
+  try {
+    auth = getAuth(app);
+  } catch (error) {
+    console.error("Firebase Auth Initialization Error:", error);
+  }
+}
 
 if (app && "Notification" in window) {
   try {
@@ -33,4 +48,4 @@ if (app && "Notification" in window) {
   }
 }
 
-export { app, messaging };
+export { app, auth, messaging };

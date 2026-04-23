@@ -1,6 +1,7 @@
 import type { App } from "firebase-admin/app";
 import { cert, getApp, getApps, initializeApp } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
@@ -37,6 +38,7 @@ function initializeFirebaseAdmin(): App | null {
 }
 
 export const firebaseAdminApp = initializeFirebaseAdmin();
+export const auth = firebaseAdminApp ? getAuth(firebaseAdminApp) : null;
 export const messaging = firebaseAdminApp
   ? getMessaging(firebaseAdminApp)
   : null;

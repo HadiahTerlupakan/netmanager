@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { signInWithCustomToken, signOut } from "firebase/auth";
 import { useSession } from "next-auth/react";
 import {
   collection,
@@ -66,6 +67,11 @@ interface RealtimeContextValue extends RealtimeConnectionState {
   firestore: ReturnType<typeof getRealtimeClientServices>["firestore"];
   scopes: RealtimeScope[];
 }
+
+type FirebaseTokenResponse = {
+  token?: string;
+  error?: string;
+};
 
 function noop(): void {}
 
@@ -160,6 +166,8 @@ export function RealtimeProvider({
   const { data: session, status: sessionStatus } = useSession();
   const [dynamicScopes, setDynamicScopes] = useState<RealtimeScope[]>([]);
   const [reconnectVersion, setReconnectVersion] = useState(0);
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
   const scopeRegistryRef = useRef(
     new Map<string, { scope: RealtimeScope; count: number }>(),
   );
@@ -222,17 +230,88 @@ export function RealtimeProvider({
     setReconnectVersion((value) => value + 1);
   }, []);
 
+  useEffect(() => {
+    if (status !== "authenticated" || !user?.id || !services.auth) {
+      setIsFirebaseReady(false);
+      setFirebaseError(null);
+      if (services.auth) {
+        void signOut(services.auth).catch(noop);
+      }
+      return;
+    }
+
+    let active = true;
+
+    const authenticateFirebase = async () => {
+      try {
+        setFirebaseError(null);
+
+        const currentUser = services.auth.currentUser;
+        if (currentUser?.uid === user.id) {
+          if (active) {
+            setIsFirebaseReady(true);
+          }
+          return;
+        }
+
+        const response = await fetch("/api/auth/firebase-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        const payload = (await response.json()) as FirebaseTokenResponse;
+
+        if (!response.ok || !payload.token) {
+          throw new Error(payload.error || "Gagal mengambil Firebase token.");
+        }
+
+        await signInWithCustomToken(services.auth, payload.token);
+
+        if (active) {
+          setIsFirebaseReady(true);
+        }
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        setIsFirebaseReady(false);
+        setFirebaseError(
+          error instanceof Error
+            ? error.message
+            : "Autentikasi Firebase gagal.",
+        );
+      }
+    };
+
+    void authenticateFirebase();
+
+    return () => {
+      active = false;
+    };
+  }, [services.auth, status, user?.id, reconnectVersion]);
+
   const isConnected =
     status === "authenticated" &&
     Boolean(user?.id) &&
-    Boolean(services.firestore);
+    Boolean(services.firestore) &&
+    isFirebaseReady;
   const lastError =
-    status === "authenticated" && user?.id && !services.firestore
+    firebaseError ??
+    (status === "authenticated" && user?.id && !services.firestore
       ? "Firebase realtime client belum tersedia."
-      : null;
+      : status === "authenticated" && user?.id && !services.auth
+        ? "Firebase auth client belum tersedia."
+        : null);
 
   useEffect(() => {
-    if (status !== "authenticated" || !user?.id || !services.realtimeDatabase) {
+    if (
+      status !== "authenticated" ||
+      !user?.id ||
+      !services.realtimeDatabase ||
+      !isFirebaseReady
+    ) {
       return noop;
     }
 
@@ -258,7 +337,13 @@ export function RealtimeProvider({
     return () => {
       void set(presenceRef, createSnapshot(false)).catch(noop);
     };
-  }, [services.realtimeDatabase, status, user?.id, reconnectVersion]);
+  }, [
+    isFirebaseReady,
+    services.realtimeDatabase,
+    status,
+    user?.id,
+    reconnectVersion,
+  ]);
 
   const value = useMemo<RealtimeContextValue>(
     () => ({
