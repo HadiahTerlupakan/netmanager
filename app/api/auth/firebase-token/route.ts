@@ -23,14 +23,21 @@ export async function POST() {
       );
     }
 
+    const isSuperAdmin =
+      user.isSuperAdmin === true ||
+      user.role === "SUPER_ADMIN" ||
+      user.role === "Super Admin";
+    const legacySiteId = (user as { siteId?: string | null }).siteId ?? null;
+    const primarySiteId = user.primarySiteId ?? legacySiteId;
     const customToken = await firebaseAdminAuth.createCustomToken(user.id, {
-      role: user.role ?? "USER",
+      role: isSuperAdmin ? "SUPER_ADMIN" : (user.role ?? "USER"),
       tenantId: user.tenantId ?? null,
       departmentId: user.departmentId ?? null,
-      primarySiteId: user.primarySiteId ?? null,
+      siteId: primarySiteId,
+      primarySiteId,
       accessAdminPanel: user.accessAdminPanel ?? false,
       accessEmployeePanel: user.accessEmployeePanel ?? false,
-      isSuperAdmin: user.isSuperAdmin ?? false,
+      isSuperAdmin,
     });
 
     return NextResponse.json({ token: customToken });
