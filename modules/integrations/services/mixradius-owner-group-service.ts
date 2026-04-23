@@ -5,6 +5,7 @@ export type MixRadiusOwnerGroupPayload = {
   owners: string[];
   siteId?: string;
   isActive?: boolean;
+  tenantId?: string;
 };
 
 export type MixRadiusOwnerGroupUpdatePayload = {
@@ -12,18 +13,20 @@ export type MixRadiusOwnerGroupUpdatePayload = {
   owners?: string[];
   siteId?: string;
   isActive?: boolean;
+  tenantId?: string;
 };
 
 export class MixRadiusOwnerGroupService {
-  async getOwnerGroups() {
+  async getOwnerGroups(tenantId?: string) {
     return prismaBilling.mixRadiusOwnerGroup.findMany({
+      where: tenantId ? { tenantId } : undefined,
       orderBy: { name: "asc" },
     });
   }
 
-  async getOwnerGroup(id: string) {
+  async getOwnerGroup(id: string, tenantId?: string) {
     return prismaBilling.mixRadiusOwnerGroup.findUnique({
-      where: { id },
+      where: tenantId ? { id, tenantId } : { id },
     });
   }
 
@@ -34,15 +37,16 @@ export class MixRadiusOwnerGroupService {
   }
 
   async updateOwnerGroup(id: string, data: MixRadiusOwnerGroupUpdatePayload) {
+    const { tenantId, ...updateData } = data;
     return prismaBilling.mixRadiusOwnerGroup.update({
-      where: { id },
-      data,
+      where: tenantId ? { id, tenantId } : { id },
+      data: updateData,
     });
   }
 
-  async deleteOwnerGroup(id: string) {
+  async deleteOwnerGroup(id: string, tenantId?: string) {
     return prismaBilling.mixRadiusOwnerGroup.delete({
-      where: { id },
+      where: tenantId ? { id, tenantId } : { id },
     });
   }
 }

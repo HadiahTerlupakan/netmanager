@@ -1,90 +1,133 @@
-import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { getMixRadiusService } from '@/modules/integrations'
-import { apiSuccess, apiError, ApiErrors, ErrorCodes, createHandler } from '@/lib/api'
-import { logActivitySafe } from '@/lib/logger'
-import { SiteService } from '@/modules/roles'
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { getMixRadiusService } from "@/modules/integrations";
+import {
+  apiSuccess,
+  apiError,
+  ApiErrors,
+  ErrorCodes,
+  createHandler,
+} from "@/lib/api";
+import { logActivitySafe } from "@/lib/logger";
+import { SiteService } from "@/modules/roles";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/integrations/mixradius/groups
  * Get all owner groups (Sites)
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
-  const permissions = await getUserPermissions(user.id)
-  const isSuper = isSuperAdmin(user)
+  const user = ctx.session!.user;
+  const permissions = await getUserPermissions(user.id);
+  const isSuper = isSuperAdmin(user);
 
-  if (!isSuper && !permissions.includes('mixradius_sites:read') && !permissions.includes('mixradius:read') && !permissions.includes('m_mixradius:read')) {
-    return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_sites:read')
+  if (
+    !isSuper &&
+    !permissions.includes("mixradius_sites:read") &&
+    !permissions.includes("mixradius:read") &&
+    !permissions.includes("m_mixradius:read")
+  ) {
+    return ApiErrors.forbidden(
+      "Akses ditolak. Anda memerlukan permission: mixradius_sites:read",
+    );
+  }
+
+  if (!isSuper && !user.tenantId) {
+    return apiError(
+      "Tenant MixRadius tidak ditemukan untuk user ini",
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
   }
 
   try {
-    const service = getMixRadiusService()
-    const groups = await service.getOwnerGroups()
+    const service = getMixRadiusService();
+    const groups = await service.getOwnerGroups(
+      isSuper ? undefined : user.tenantId,
+    );
 
-    const siteService = new SiteService()
-    const sites = await siteService.getSites()
-    const siteMap = new Map(sites.map(s => [s.id, s.name]))
+    const siteService = new SiteService();
+    const sites = await siteService.getSites();
+    const siteMap = new Map(sites.map((s) => [s.id, s.name]));
 
-    const mappedGroups = groups.map(group => ({
+    const mappedGroups = groups.map((group) => ({
       ...group,
-      site: group.siteId && siteMap.has(group.siteId)
-        ? { name: siteMap.get(group.siteId) }
-        : undefined
-    }))
+      site:
+        group.siteId && siteMap.has(group.siteId)
+          ? { name: siteMap.get(group.siteId) }
+          : undefined,
+    }));
 
-    return apiSuccess(mappedGroups)
+    return apiSuccess(mappedGroups);
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'MixRadiusConfigError') {
-      return apiError(
-        error.message,
-        ErrorCodes.INVALID_STATUS,
-        { status: 400, details: { isConfigError: true } }
-      )
+    if (error instanceof Error && error.name === "MixRadiusConfigError") {
+      return apiError(error.message, ErrorCodes.INVALID_STATUS, {
+        status: 400,
+        details: { isConfigError: true },
+      });
     }
-    throw error
+    throw error;
   }
-})
+});
 
 /**
  * POST /api/integrations/mixradius/groups
  * Create new owner group
  */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
-  const permissions = await getUserPermissions(user.id)
-  const isSuper = isSuperAdmin(user)
+  const user = ctx.session!.user;
+  const permissions = await getUserPermissions(user.id);
+  const isSuper = isSuperAdmin(user);
 
-  if (!isSuper && !permissions.includes('mixradius_sites:create') && !permissions.includes('mixradius:create')) {
-    return ApiErrors.forbidden('Akses ditolak. Anda memerlukan permission: mixradius_sites:create')
+  if (
+    !isSuper &&
+    !permissions.includes("mixradius_sites:create") &&
+    !permissions.includes("mixradius:create")
+  ) {
+    return ApiErrors.forbidden(
+      "Akses ditolak. Anda memerlukan permission: mixradius_sites:create",
+    );
   }
 
-  const body = await req.json()
-  const { name, owners, siteId } = body
+  const body = await req.json();
+  const { name, owners, siteId } = body;
 
-  const missingFields: string[] = []
-  if (!name || !name.trim()) missingFields.push('Nama Site')
-  if (!owners || !Array.isArray(owners) || owners.length === 0) missingFields.push('Owner (minimal 1)')
+  const missingFields: string[] = [];
+  if (!name || !name.trim()) missingFields.push("Nama Site");
+  if (!owners || !Array.isArray(owners) || owners.length === 0)
+    missingFields.push("Owner (minimal 1)");
 
   if (missingFields.length > 0) {
     return apiError(
-      `Data berikut wajib diisi: ${missingFields.join(', ')}`,
+      `Data berikut wajib diisi: ${missingFields.join(", ")}`,
       ErrorCodes.VALIDATION_ERROR,
-      { details: { missingFields }, status: 400 }
-    )
+      { details: { missingFields }, status: 400 },
+    );
   }
 
-  const service = getMixRadiusService()
-  const newGroup = await service.createOwnerGroup({ name, owners, siteId })
+  if (!isSuper && !user.tenantId) {
+    return apiError(
+      "Tenant MixRadius tidak ditemukan untuk user ini",
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
+
+  const service = getMixRadiusService();
+  const newGroup = await service.createOwnerGroup({
+    name,
+    owners,
+    siteId,
+    tenantId: isSuper ? undefined : user.tenantId,
+  });
 
   // System Log
   logActivitySafe({
-    action: 'CREATE',
-    subject: 'MixRadius Group',
+    action: "CREATE",
+    subject: "MixRadius Group",
     userId: user.id,
-    details: { id: newGroup.id, name: newGroup.name, owners: newGroup.owners }
-  })
+    details: { id: newGroup.id, name: newGroup.name, owners: newGroup.owners },
+  });
 
-  return apiSuccess(newGroup, { status: 201 })
-})
+  return apiSuccess(newGroup, { status: 201 });
+});

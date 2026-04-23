@@ -510,12 +510,12 @@ export class MixRadiusService {
 
   // --- Owner Group Methods ---
 
-  async getOwnerGroups() {
-    return getMixRadiusOwnerGroupService().getOwnerGroups();
+  async getOwnerGroups(tenantId?: string) {
+    return getMixRadiusOwnerGroupService().getOwnerGroups(tenantId);
   }
 
-  async getOwnerGroup(id: string) {
-    return getMixRadiusOwnerGroupService().getOwnerGroup(id);
+  async getOwnerGroup(id: string, tenantId?: string) {
+    return getMixRadiusOwnerGroupService().getOwnerGroup(id, tenantId);
   }
 
   async createOwnerGroup(data: MixRadiusOwnerGroupPayload) {
@@ -526,8 +526,8 @@ export class MixRadiusService {
     return getMixRadiusOwnerGroupService().updateOwnerGroup(id, data);
   }
 
-  async deleteOwnerGroup(id: string) {
-    return getMixRadiusOwnerGroupService().deleteOwnerGroup(id);
+  async deleteOwnerGroup(id: string, tenantId?: string) {
+    return getMixRadiusOwnerGroupService().deleteOwnerGroup(id, tenantId);
   }
 
   /**
