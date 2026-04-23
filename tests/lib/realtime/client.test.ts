@@ -27,6 +27,7 @@ describe("getRealtimeClientServices", () => {
   it("returns null services when the shared Firebase app is unavailable", async () => {
     vi.doMock("@/lib/firebase/config", () => ({
       app: undefined,
+      auth: null,
     }));
 
     vi.doMock("firebase/firestore", () => ({
@@ -41,6 +42,7 @@ describe("getRealtimeClientServices", () => {
 
     expect(getRealtimeClientServices()).toEqual({
       firebaseApp: undefined,
+      auth: null,
       firestore: null,
       realtimeDatabase: null,
     });
@@ -58,6 +60,7 @@ describe("getRealtimeClientServices", () => {
 
     vi.doMock("@/lib/firebase/config", () => ({
       app: firebaseApp,
+      auth: { kind: "auth" },
     }));
 
     vi.doMock("firebase/firestore", () => ({
@@ -72,6 +75,7 @@ describe("getRealtimeClientServices", () => {
 
     expect(getRealtimeClientServices()).toEqual({
       firebaseApp,
+      auth: { kind: "auth" },
       firestore,
       realtimeDatabase,
     });
@@ -105,6 +109,7 @@ describe("getRealtimeClientServices", () => {
 
     expect(getRealtimeClientServices()).toEqual({
       firebaseApp: undefined,
+      auth: null,
       firestore: null,
       realtimeDatabase: null,
     });

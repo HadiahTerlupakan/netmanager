@@ -95,15 +95,19 @@ describe("RealtimeProvider admin consumer writes", () => {
     realtimeContextMocks.onDisconnectMock.mockClear();
     realtimeContextMocks.getRealtimeClientServicesMock.mockClear();
 
-    realtimeContextMocks.mockUseState
-      .mockImplementationOnce(() => [
-        [{ kind: "admin", id: "mikrotik" }],
-        vi.fn(),
-      ])
-      .mockImplementationOnce((initialValue: unknown) => [
-        initialValue,
-        vi.fn(),
-      ]);
+    realtimeContextMocks.mockUseState.mockImplementation(
+      (initialValue: unknown) => {
+        if (Array.isArray(initialValue)) {
+          return [[{ kind: "admin", id: "mikrotik" }], vi.fn()];
+        }
+
+        if (initialValue === false) {
+          return [true, vi.fn()];
+        }
+
+        return [initialValue, vi.fn()];
+      },
+    );
 
     realtimeContextMocks.mockUseSession.mockReturnValue({
       data: {
