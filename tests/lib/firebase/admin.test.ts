@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getAppsMock = vi.fn(() => []);
 const getAppMock = vi.fn();
 const initializeAppMock = vi.fn();
+const getAuthMock = vi.fn(() => ({ kind: "auth" }));
 const getMessagingMock = vi.fn(() => ({ kind: "messaging" }));
 const getFirestoreMock = vi.fn(() => ({ kind: "firestore" }));
 const getDatabaseMock = vi.fn(() => ({ kind: "database" }));
@@ -13,6 +14,10 @@ vi.mock("firebase-admin/app", () => ({
   getApp: getAppMock,
   initializeApp: initializeAppMock,
   cert: certMock,
+}));
+
+vi.mock("firebase-admin/auth", () => ({
+  getAuth: getAuthMock,
 }));
 
 vi.mock("firebase-admin/messaging", () => ({
@@ -54,6 +59,7 @@ describe("firebase admin bootstrap", () => {
     expect(certMock).not.toHaveBeenCalled();
     expect(initializeAppMock).not.toHaveBeenCalled();
     expect(getAppMock).not.toHaveBeenCalled();
+    expect(getAuthMock).not.toHaveBeenCalled();
     expect(getMessagingMock).not.toHaveBeenCalled();
     expect(getFirestoreMock).not.toHaveBeenCalled();
     expect(getDatabaseMock).not.toHaveBeenCalled();
@@ -77,6 +83,7 @@ describe("firebase admin bootstrap", () => {
     });
     expect(initializeAppMock).toHaveBeenCalledTimes(1);
     expect(getAppMock).not.toHaveBeenCalled();
+    expect(getAuthMock).not.toHaveBeenCalled();
     expect(getMessagingMock).not.toHaveBeenCalled();
     expect(getFirestoreMock).not.toHaveBeenCalled();
     expect(getDatabaseMock).not.toHaveBeenCalled();
@@ -102,6 +109,7 @@ describe("firebase admin bootstrap", () => {
     });
     expect(initializeAppMock).toHaveBeenCalledTimes(1);
     expect(firebaseAdminModule.firebaseAdminApp).toBe(existingApp);
+    expect(getAuthMock).toHaveBeenCalledWith(existingApp);
     expect(getMessagingMock).toHaveBeenCalledWith(existingApp);
     expect(getFirestoreMock).toHaveBeenCalledWith(existingApp);
     expect(getDatabaseMock).not.toHaveBeenCalled();
@@ -121,6 +129,7 @@ describe("firebase admin bootstrap", () => {
     expect(getAppMock).toHaveBeenCalledTimes(1);
     expect(initializeAppMock).not.toHaveBeenCalled();
     expect(firebaseAdminModule.firebaseAdminApp).toBe(existingApp);
+    expect(getAuthMock).toHaveBeenCalledWith(existingApp);
     expect(getMessagingMock).toHaveBeenCalledWith(existingApp);
     expect(getFirestoreMock).toHaveBeenCalledWith(existingApp);
     expect(getDatabaseMock).toHaveBeenCalledWith(existingApp);
