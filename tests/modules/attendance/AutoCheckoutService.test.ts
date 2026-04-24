@@ -4,6 +4,10 @@ import { prismaMock } from "../../setup";
 import { AutoCheckoutService } from "@/modules/attendance/services/AutoCheckoutService";
 import { ATTENDANCE_CONSTANTS } from "@/modules/attendance/utils/constants";
 import { getTimezone } from "@/lib/utils/get-timezone";
+import {
+  addAttendanceAutoCheckoutJob,
+  removeFailedAttendanceAutoCheckoutJob,
+} from "@/lib/event-bus/queues";
 
 vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
   const actual =
@@ -14,12 +18,20 @@ vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/event-bus/queues", () => ({
+  addAttendanceAutoCheckoutJob: vi.fn().mockResolvedValue(undefined),
+  removeFailedAttendanceAutoCheckoutJob: vi.fn().mockResolvedValue(false),
+}));
+
 describe("AutoCheckoutService semantics", () => {
   beforeEach(() => {
     vi.mocked(getTimezone).mockResolvedValue("Asia/Jakarta");
+    vi.mocked(addAttendanceAutoCheckoutJob).mockResolvedValue(undefined);
+    vi.mocked(removeFailedAttendanceAutoCheckoutJob).mockResolvedValue(false);
     prismaMock.attendance.findMany.mockResolvedValue([
       {
         id: "att-1",
+        tenantId: "tenant-1",
         checkIn: new Date("2026-03-27T06:37:00.000Z"),
         checkOut: null,
         status: "LATE",
@@ -27,24 +39,164 @@ describe("AutoCheckoutService semantics", () => {
         user: {
           name: "Ubaidilah",
           workingHourMode: "FIXED",
+          startWorkTime: "08:00",
+          endWorkTime: "17:00",
           shift: null,
         },
       },
     ] as never);
+    prismaMock.attendance.findFirst.mockResolvedValue({
+      id: "att-1",
+      tenantId: "tenant-1",
+      checkIn: new Date("2026-03-27T06:37:00.000Z"),
+      checkOut: null,
+      status: "LATE",
+      notes: null,
+      user: {
+        name: "Ubaidilah",
+        workingHourMode: "FIXED",
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        shift: null,
+      },
+    } as never);
     prismaMock.attendance.update.mockResolvedValue({ id: "att-1" } as never);
+    prismaMock.attendance.updateMany.mockResolvedValue({ count: 1 } as never);
   });
 
-  it("writes the canonical auto-checkout note instead of the legacy Mangkir note", async () => {
-    await AutoCheckoutService.runAutoCheckout("tenant-1");
+  it("enqueues due fixed sessions instead of updating them inline", async () => {
+    const updatedCount = await AutoCheckoutService.runAutoCheckout("tenant-1");
 
-    expect(prismaMock.attendance.update).toHaveBeenCalledWith(
+    expect(updatedCount).toBe(1);
+    expect(removeFailedAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
+      "attendance:auto-checkout:att-1",
+    );
+    expect(addAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
+      {
+        attendanceId: "att-1",
+        tenantId: "tenant-1",
+        mode: "FIXED",
+        expectedAutoCheckoutAt: expect.any(String),
+        sourceCheckInDate: "2026-03-27",
+      },
+      { jobId: "attendance:auto-checkout:att-1" },
+    );
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+
+  it("re-enqueues after cleaning a failed deterministic job id", async () => {
+    vi.mocked(removeFailedAttendanceAutoCheckoutJob).mockResolvedValueOnce(
+      true,
+    );
+
+    const updatedCount = await AutoCheckoutService.runAutoCheckout("tenant-1");
+
+    expect(updatedCount).toBe(1);
+    expect(removeFailedAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
+      "attendance:auto-checkout:att-1",
+    );
+    expect(addAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
+      expect.objectContaining({ attendanceId: "att-1" }),
+      { jobId: "attendance:auto-checkout:att-1" },
+    );
+  });
+
+  it("writes the canonical auto-checkout note from worker execution", async () => {
+    await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-1",
+      tenantId: "tenant-1",
+      mode: "FIXED",
+      expectedAutoCheckoutAt: "2026-03-27T10:00:00.000Z",
+      sourceCheckInDate: "2026-03-27",
+    });
+
+    expect(prismaMock.attendance.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({
+          id: "att-1",
+          tenantId: "tenant-1",
+          checkOut: null,
+          correctedAt: null,
+          status: {
+            notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          },
+        }),
         data: expect.objectContaining({
           notes: ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_NOTE,
           status: "NO_CHECKOUT",
         }),
       }),
     );
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+
+  it("returns noop when conditional update misses due to concurrent manual checkout or correction", async () => {
+    prismaMock.attendance.updateMany.mockResolvedValueOnce({
+      count: 0,
+    } as never);
+
+    const result = await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-1",
+      tenantId: "tenant-1",
+      mode: "FIXED",
+      expectedAutoCheckoutAt: "2026-03-27T10:00:00.000Z",
+      sourceCheckInDate: "2026-03-27",
+    });
+
+    expect(result).toEqual({ attendanceId: "att-1", status: "noop" });
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+
+  it("returns noop when source check-in date drifts from job payload", async () => {
+    const result = await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-1",
+      tenantId: "tenant-1",
+      mode: "FIXED",
+      expectedAutoCheckoutAt: "2026-03-27T10:00:00.000Z",
+      sourceCheckInDate: "2026-03-26",
+    });
+
+    expect(result).toEqual({ attendanceId: "att-1", status: "noop" });
+    expect(prismaMock.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns noop when working-hour mode drifts from job payload", async () => {
+    const result = await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-1",
+      tenantId: "tenant-1",
+      mode: "SHIFT",
+      expectedAutoCheckoutAt: "2026-03-27T10:00:00.000Z",
+      sourceCheckInDate: "2026-03-27",
+    });
+
+    expect(result).toEqual({ attendanceId: "att-1", status: "noop" });
+    expect(prismaMock.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns noop when expected auto-checkout timestamp drifts from payload", async () => {
+    const result = await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-1",
+      tenantId: "tenant-1",
+      mode: "FIXED",
+      expectedAutoCheckoutAt: "2026-03-27T10:01:00.000Z",
+      sourceCheckInDate: "2026-03-27",
+    });
+
+    expect(result).toEqual({ attendanceId: "att-1", status: "noop" });
+    expect(prismaMock.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns noop when expected auto-checkout timestamp is invalid", async () => {
+    const result = await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-1",
+      tenantId: "tenant-1",
+      mode: "FIXED",
+      expectedAutoCheckoutAt: "invalid-date",
+      sourceCheckInDate: "2026-03-27",
+    });
+
+    expect(result).toEqual({ attendanceId: "att-1", status: "noop" });
+    expect(prismaMock.attendance.updateMany).not.toHaveBeenCalled();
   });
 
   it("processes global auto-checkout per active tenant using each tenant timezone", async () => {

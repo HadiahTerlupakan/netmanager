@@ -9,6 +9,7 @@ import type {
   WebhookJobData,
   OutboxJobData,
   OvertimeAutoCheckoutJobData,
+  AttendanceAutoCheckoutJobData,
 } from "./queues";
 import { QUEUE_NAMES, EVENT_NAMES } from "./types";
 
@@ -520,6 +521,14 @@ async function processOvertimeAutoCheckoutJob(
   await OvertimeAutoCheckoutService.runScheduledAutoCheckout(job.data);
 }
 
+async function processAttendanceAutoCheckoutJob(
+  job: Job<AttendanceAutoCheckoutJobData>,
+): Promise<void> {
+  const { AutoCheckoutService } =
+    await import("@/modules/attendance/services/AutoCheckoutService");
+  await AutoCheckoutService.runAutoCheckoutJob(job.data);
+}
+
 export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
   const { OvertimeRepository } = await import("@/modules/overtime");
   const { addOvertimeAutoCheckoutJob, getOvertimeAutoCheckoutJob } =
@@ -688,12 +697,23 @@ export function startWorkers(): void {
     },
   );
 
+  const attendanceAutoCheckoutWorker =
+    new Worker<AttendanceAutoCheckoutJobData>(
+      QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
+      processAttendanceAutoCheckoutJob,
+      {
+        connection: connection.duplicate(),
+        concurrency: 5,
+      },
+    );
+
   workers = [
     eventWorker,
     notificationWorker,
     webhookWorker,
     outboxWorker,
     overtimeAutoCheckoutWorker,
+    attendanceAutoCheckoutWorker,
   ];
 
   // Event listeners for monitoring

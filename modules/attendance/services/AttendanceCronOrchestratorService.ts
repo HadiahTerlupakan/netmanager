@@ -29,9 +29,7 @@ export function getDueAttendanceCronJobs(now: Date): AttendanceCronJobName[] {
     jobs.push("process-absence");
   }
 
-  if (minute === 59 && hour === 23) {
-    jobs.push("auto-checkout");
-  }
+  jobs.push("auto-checkout");
 
   return jobs;
 }

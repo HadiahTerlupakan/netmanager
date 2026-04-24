@@ -6,6 +6,7 @@ import { prismaMock } from "../../setup";
 import { getCrossSurfaceAttendanceFixture } from "../../fixtures/attendance/crossSurfaceAttendanceFixtures";
 import { AutoCheckoutService } from "@/modules/attendance/services/AutoCheckoutService";
 import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
+import { addAttendanceAutoCheckoutJob } from "@/lib/event-bus/queues";
 
 vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
   const actual =
@@ -15,6 +16,11 @@ vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
     getTimezone: vi.fn().mockResolvedValue("Asia/Jakarta"),
   };
 });
+
+vi.mock("@/lib/event-bus/queues", () => ({
+  addAttendanceAutoCheckoutJob: vi.fn().mockResolvedValue(undefined),
+  removeFailedAttendanceAutoCheckoutJob: vi.fn().mockResolvedValue(false),
+}));
 
 describe("Attendance session policy parity", () => {
   beforeEach(() => {
@@ -83,11 +89,12 @@ describe("Attendance session policy parity", () => {
     );
   });
 
-  it("uses the same session decision path for cron auto checkout and inline auto checkout", async () => {
+  it("uses the same session decision path for inline auto-checkout and queued cron scanning", async () => {
     vi.setSystemTime(new Date("2026-03-28T18:30:00.000Z"));
 
     const session: {
       id: string;
+      tenantId: string;
       checkIn: Date;
       checkOut: Date | null;
       status: AttendanceStatus;
@@ -101,6 +108,7 @@ describe("Attendance session policy parity", () => {
       };
     } = {
       id: "attendance-auto-1",
+      tenantId: "tenant-1",
       checkIn: new Date("2026-03-27T06:37:00.000Z"),
       checkOut: null,
       status: "LATE",
@@ -159,9 +167,15 @@ describe("Attendance session policy parity", () => {
 
     await AutoCheckoutService.runAutoCheckout("tenant-1");
 
-    const cronUpdate =
-      prismaMock.attendance.update.mock.calls.at(-1)?.[0]?.data;
-
-    expect(inlineUpdate).toEqual(cronUpdate);
+    expect(addAttendanceAutoCheckoutJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attendanceId: "attendance-auto-1",
+        tenantId: "tenant-1",
+        mode: "FIXED",
+        expectedAutoCheckoutAt: inlineUpdate?.checkOut?.toISOString(),
+        sourceCheckInDate: "2026-03-27",
+      }),
+      { jobId: "attendance:auto-checkout:attendance-auto-1" },
+    );
   });
 });

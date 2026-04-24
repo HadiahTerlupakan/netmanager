@@ -798,6 +798,32 @@ export class AttendanceRepository {
     });
   }
 
+  async findOpenSessionForAutoCheckout(params: {
+    attendanceId: string;
+    tenantId: string;
+  }) {
+    return prisma.attendance.findFirst({
+      where: {
+        id: params.attendanceId,
+        tenantId: params.tenantId,
+        checkOut: null,
+        correctedAt: null,
+        status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            workingHourMode: true,
+            startWorkTime: true,
+            endWorkTime: true,
+            shift: true,
+          },
+        },
+      },
+    });
+  }
+
   async findCorrectionSourceById(
     id: string,
   ): Promise<AttendanceCorrectionSource | null> {
@@ -915,6 +941,25 @@ export class AttendanceRepository {
         status: createdAttendance.status,
       };
     });
+  }
+
+  async updateOpenSessionForAutoCheckout(params: {
+    attendanceId: string;
+    tenantId: string;
+    data: Prisma.AttendanceUpdateInput;
+  }) {
+    const result = await prisma.attendance.updateMany({
+      where: {
+        id: params.attendanceId,
+        tenantId: params.tenantId,
+        checkOut: null,
+        correctedAt: null,
+        status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
+      },
+      data: params.data,
+    });
+
+    return result.count;
   }
 
   async update(id: string, data: Prisma.AttendanceUpdateInput) {

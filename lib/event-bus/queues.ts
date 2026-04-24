@@ -40,6 +40,7 @@ let _notificationQueue: Queue | null = null;
 let _webhookQueue: Queue | null = null;
 let _outboxQueue: Queue | null = null;
 let _overtimeAutoCheckoutQueue: Queue | null = null;
+let _attendanceAutoCheckoutQueue: Queue | null = null;
 
 function getQueue(name: QueueName): Queue {
   switch (name) {
@@ -116,6 +117,23 @@ function getQueue(name: QueueName): Queue {
       }
       return _overtimeAutoCheckoutQueue;
 
+    case QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT:
+      if (!_attendanceAutoCheckoutQueue) {
+        _attendanceAutoCheckoutQueue = new Queue(
+          QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
+          {
+            connection: createRedisConnection(),
+            defaultJobOptions: {
+              attempts: 5,
+              backoff: { type: "exponential", delay: 1000 },
+              removeOnComplete: { age: 3600 * 24 },
+              removeOnFail: { age: 3600 * 24 * 7 },
+            },
+          },
+        );
+      }
+      return _attendanceAutoCheckoutQueue;
+
     default:
       throw new Error(`Unknown queue: ${name}`);
   }
@@ -164,6 +182,14 @@ export interface OvertimeAutoCheckoutJobData {
   overtimeId: string;
   scheduleId: string;
   version: number;
+}
+
+export interface AttendanceAutoCheckoutJobData {
+  attendanceId: string;
+  tenantId: string;
+  mode: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
+  expectedAutoCheckoutAt: string;
+  sourceCheckInDate: string;
 }
 
 /**
@@ -296,6 +322,48 @@ export async function getOvertimeAutoCheckoutJob(jobId: string) {
   return queue.getJob(jobId);
 }
 
+export async function addAttendanceAutoCheckoutJob(
+  data: AttendanceAutoCheckoutJobData,
+  options: { jobId: string },
+): Promise<void> {
+  const queue = getQueue(QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT);
+  const existingJob = await queue.getJob(options.jobId);
+
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (state === "completed" || state === "failed") {
+      await existingJob.remove();
+    }
+  }
+
+  await queue.add("attendance-auto-checkout", data, {
+    jobId: options.jobId,
+    attempts: 5,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: { age: 3600 * 24 },
+    removeOnFail: { age: 3600 * 24 * 7 },
+  });
+}
+
+export async function removeFailedAttendanceAutoCheckoutJob(
+  jobId: string,
+): Promise<boolean> {
+  const queue = getQueue(QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT);
+  const job = await queue.getJob(jobId);
+
+  if (!job) {
+    return false;
+  }
+
+  const state = await job.getState();
+  if (state !== "failed") {
+    return false;
+  }
+
+  await job.remove();
+  return true;
+}
+
 export async function removeOvertimeAutoCheckoutJob(
   jobId: string,
 ): Promise<void> {
@@ -370,6 +438,9 @@ export async function closeAllQueues(): Promise<void> {
   if (_overtimeAutoCheckoutQueue) {
     closePromises.push(_overtimeAutoCheckoutQueue.close());
   }
+  if (_attendanceAutoCheckoutQueue) {
+    closePromises.push(_attendanceAutoCheckoutQueue.close());
+  }
 
   await Promise.allSettled(closePromises);
 
@@ -378,6 +449,7 @@ export async function closeAllQueues(): Promise<void> {
   _webhookQueue = null;
   _outboxQueue = null;
   _overtimeAutoCheckoutQueue = null;
+  _attendanceAutoCheckoutQueue = null;
 
   console.log("[BullMQ] All queues closed");
 }

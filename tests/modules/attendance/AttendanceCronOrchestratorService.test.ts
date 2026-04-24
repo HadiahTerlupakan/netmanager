@@ -43,16 +43,20 @@ describe("AttendanceCronOrchestratorService", () => {
     mockFns.tenantFindMany.mockResolvedValue([{ id: "tenant-1" }]);
   });
 
-  it("returns only auto attendance job on 15-minute cadence", async () => {
+  it("returns auto-checkout on every orchestrator tick", async () => {
     const { getDueAttendanceCronJobs } =
       await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
 
+    expect(getDueAttendanceCronJobs(new Date("2026-04-21T10:01:00"))).toEqual([
+      "auto-checkout",
+    ]);
     expect(getDueAttendanceCronJobs(new Date("2026-04-21T10:15:00"))).toEqual([
       "attendance-alert:auto",
+      "auto-checkout",
     ]);
   });
 
-  it("runs process-incomplete job at 22:00 alongside auto attendance check", async () => {
+  it("runs process-incomplete job at 22:00 alongside auto attendance check and auto-checkout", async () => {
     const { runAttendanceCronOrchestrator } =
       await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
 
@@ -62,19 +66,20 @@ describe("AttendanceCronOrchestratorService", () => {
 
     expect(mockFns.runScheduledAttendanceCheck).toHaveBeenCalledOnce();
     expect(mockFns.processIncompleteAttendance).toHaveBeenCalledOnce();
-    expect(mockFns.runAutoCheckout).not.toHaveBeenCalled();
+    expect(mockFns.runAutoCheckout).toHaveBeenCalledOnce();
     expect(mockFns.processDailyAbsence).not.toHaveBeenCalled();
     expect(result.jobs.map((job: { name: string }) => job.name)).toEqual([
       "attendance-alert:auto",
       "attendance-alert:process",
+      "auto-checkout",
     ]);
   });
 
-  it("runs process-absence for every active tenant at 01:00", async () => {
+  it("runs process-absence for every active tenant at 01:00 alongside auto-checkout", async () => {
     const { runAttendanceCronOrchestrator } =
       await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
 
-    await runAttendanceCronOrchestrator({
+    const result = await runAttendanceCronOrchestrator({
       now: new Date("2026-04-21T01:00:00"),
     });
 
@@ -86,18 +91,10 @@ describe("AttendanceCronOrchestratorService", () => {
       new Date("2026-04-20T01:00:00"),
       "tenant-1",
     );
-  });
-
-  it("runs auto-checkout exactly at 23:59", async () => {
-    const { runAttendanceCronOrchestrator } =
-      await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
-
-    const result = await runAttendanceCronOrchestrator({
-      now: new Date("2026-04-21T23:59:00"),
-    });
-
     expect(mockFns.runAutoCheckout).toHaveBeenCalledOnce();
     expect(result.jobs.map((job: { name: string }) => job.name)).toEqual([
+      "attendance-alert:auto",
+      "process-absence",
       "auto-checkout",
     ]);
   });
