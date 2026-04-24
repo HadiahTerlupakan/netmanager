@@ -372,4 +372,15 @@ describe("Jenkinsfile deploy safety", () => {
     expect(applyIndex).toBeGreaterThan(guardCallIndex);
     expect(rolloutIndex).toBeGreaterThan(guardCallIndex);
   });
+
+  it("creates FIREBASE_DATABASE_URL secret literals without wrapping the URL in quotes", () => {
+    const jenkinsfile = readJenkinsfile();
+
+    expect(jenkinsfile).toContain(
+      'printf -- "--from-literal=FIREBASE_DATABASE_URL=%s" "${env.FIREBASE_DATABASE_URL}"',
+    );
+    expect(jenkinsfile).not.toContain(
+      'printf -- "--from-literal=FIREBASE_DATABASE_URL=\'%s\'" "${env.FIREBASE_DATABASE_URL}"',
+    );
+  });
 });
