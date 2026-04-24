@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { usePermission } from "@/hooks/use-permission";
@@ -41,8 +42,13 @@ export function useRealtimeWorkOrders(
   options: UseRealtimeWorkOrdersOptions = {},
 ): UseRealtimeWorkOrdersResult {
   const { limit = 5, autoFetch = true, enabled = true } = options;
+  const { data: session } = useSession();
   const { isConnected } = useRealtime();
   const { hasPermission, isLoading: isPermissionLoading } = usePermission();
+  const adminSiteId =
+    session?.user?.primarySiteId ??
+    session?.user?.siteIds?.[0] ??
+    session?.user?.siteId;
 
   const [notifications, setNotifications] = useState<WorkOrderNotification[]>(
     [],
@@ -156,7 +162,10 @@ export function useRealtimeWorkOrders(
 
   useRealtimeScope(
     enabled && hasPermission("workorders:read")
-      ? { kind: "admin", id: "workorders" }
+      ? {
+          kind: "admin",
+          id: adminSiteId ? `workorders.site.${adminSiteId}` : "workorders",
+        }
       : null,
   );
 

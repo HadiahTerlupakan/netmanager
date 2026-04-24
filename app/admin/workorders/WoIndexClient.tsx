@@ -160,8 +160,15 @@ export function ClientComponent() {
   } | null>(null);
   const [performancePeriod, setPerformancePeriod] =
     useState<string>("all_time");
+  const adminSiteId =
+    session?.user?.primarySiteId ??
+    session?.user?.siteIds?.[0] ??
+    session?.user?.siteId;
 
-  useRealtimeScope({ kind: "admin", id: "workorders" });
+  useRealtimeScope({
+    kind: "admin",
+    id: adminSiteId ? `workorders.site.${adminSiteId}` : "workorders",
+  });
 
   // Trend states
   const [trendStartDate, setTrendStartDate] = useState<string>(() => {

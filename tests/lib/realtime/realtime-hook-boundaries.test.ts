@@ -1301,7 +1301,10 @@ beforeEach(() => {
   useRealtimeScopeMock.mockClear();
   useRealtimeEventMock.mockClear();
   mockUseDebounce.mockClear();
-  mockUsePermission.mockClear();
+  mockUsePermission.mockReset();
+  mockUsePermission.mockReturnValue({
+    hasPermission: vi.fn(() => true),
+  });
   mockUseToast.mockClear();
   mockGetWithAuth.mockClear();
   mockDeleteWithAuth.mockClear();
@@ -1493,7 +1496,7 @@ describe("realtime hook boundaries", () => {
     );
   });
 
-  it("subscribes the workorder dashboard through realtime scope and normalized events", async () => {
+  it("subscribes the workorder dashboard through the site-scoped admin stream and normalized events", async () => {
     const workordersIndexModule =
       await import("@/app/admin/workorders/WoIndexClient");
 
@@ -1501,7 +1504,7 @@ describe("realtime hook boundaries", () => {
 
     expect(useRealtimeScopeMock).toHaveBeenCalledWith({
       kind: "admin",
-      id: "workorders",
+      id: "workorders.site.site-1",
     });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "workorder.new",
@@ -1551,6 +1554,19 @@ describe("realtime hook boundaries", () => {
       "mikrotik.update",
       expect.any(Function),
     );
+  });
+
+  it("does not subscribe the dashboard refresher to mikrotik scope without mikrotik permission", async () => {
+    mockUsePermission.mockReturnValue({
+      hasPermission: vi.fn(() => false),
+    });
+
+    const dashboardSocketModule =
+      await import("@/components/dashboard/DashboardSocketUpdate");
+
+    dashboardSocketModule.DashboardSocketUpdate();
+
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith(null);
   });
 
   it("subscribes the mikrotik router list through realtime scope and normalized events", async () => {
@@ -1645,12 +1661,16 @@ describe("realtime hook boundaries", () => {
     );
   });
 
-  it("subscribes workorder notifications through normalized notification and workorder events", async () => {
+  it("subscribes workorder notifications through the site-scoped admin stream and normalized events", async () => {
     const { useRealtimeWorkOrders } =
       await import("@/lib/websocket/hooks/useRealtimeWorkOrders");
 
     useRealtimeWorkOrders();
 
+    expect(useRealtimeScopeMock).toHaveBeenCalledWith({
+      kind: "admin",
+      id: "workorders.site.site-1",
+    });
     expect(useRealtimeEventMock).toHaveBeenCalledWith(
       "notification.new",
       expect.any(Function),

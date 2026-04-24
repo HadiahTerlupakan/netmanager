@@ -36,6 +36,15 @@ function subscribeToPushNotificationDismissed(
   };
 }
 
+function subscribeToHydration(callback: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  callback();
+  return () => undefined;
+}
+
 export function PushNotificationManager({
   className,
 }: PushNotificationManagerProps) {
@@ -46,6 +55,11 @@ export function PushNotificationManager({
     isRegistered,
     enableNotifications,
   } = useFCM();
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
   const isDismissed = useSyncExternalStore(
     subscribeToPushNotificationDismissed,
     getPushNotificationDismissedSnapshot,
@@ -64,7 +78,7 @@ export function PushNotificationManager({
     }
   };
 
-  if (!isSupported) {
+  if (!isHydrated || !isSupported) {
     return null;
   }
 

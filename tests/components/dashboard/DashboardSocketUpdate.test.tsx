@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRefresh = vi.fn();
 const mockUseRealtimeEvent = vi.fn();
 const mockUseRealtimeScope = vi.fn();
+const mockUsePermission = vi.fn(() => ({
+  hasPermission: vi.fn(() => true),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh }),
@@ -17,6 +20,10 @@ vi.mock("@/lib/realtime/hooks/useRealtimeScope", () => ({
   useRealtimeScope: (...args: unknown[]) => mockUseRealtimeScope(...args),
 }));
 
+vi.mock("@/hooks/use-permission", () => ({
+  usePermission: () => mockUsePermission(),
+}));
+
 import { DashboardSocketUpdate } from "@/components/dashboard/DashboardSocketUpdate";
 
 describe("DashboardSocketUpdate", () => {
@@ -26,6 +33,10 @@ describe("DashboardSocketUpdate", () => {
     mockRefresh.mockClear();
     mockUseRealtimeEvent.mockReset();
     mockUseRealtimeScope.mockReset();
+    mockUsePermission.mockReset();
+    mockUsePermission.mockReturnValue({
+      hasPermission: vi.fn(() => true),
+    });
   });
 
   afterEach(() => {

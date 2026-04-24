@@ -53,8 +53,61 @@ describe("PushNotificationManager hydration stability", () => {
       await Promise.resolve();
     });
 
-    expect(serverMarkup).toContain("Aktifkan Notifikasi");
+    expect(serverMarkup).toBe("");
     expect(getItemMock).toHaveBeenCalledWith("push-notification-dismissed");
+    expect(recoverableErrors).toEqual([]);
+  });
+
+  it("hydrates without mismatch when push support only becomes available in the browser", async () => {
+    useFCMMock.mockImplementation(() => {
+      if (typeof window === "undefined") {
+        return {
+          permission: "unsupported",
+          isSupported: false,
+          isLoading: false,
+          isRegistered: false,
+          enableNotifications: vi.fn(),
+        };
+      }
+
+      return {
+        permission: "default",
+        isSupported: true,
+        isLoading: false,
+        isRegistered: false,
+        enableNotifications: vi.fn(),
+      };
+    });
+
+    const browserWindow = window;
+    const browserNotification = window.Notification;
+
+    vi.stubGlobal("window", undefined);
+    vi.stubGlobal("Notification", undefined);
+    const serverMarkup = renderToStaticMarkup(<PushNotificationManager />);
+    vi.stubGlobal("window", browserWindow);
+    vi.stubGlobal("Notification", browserNotification);
+
+    const container = document.createElement("div");
+    container.innerHTML = serverMarkup;
+    document.body.appendChild(container);
+
+    vi.spyOn(Storage.prototype, "getItem").mockReturnValue(null);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => undefined);
+    const recoverableErrors: string[] = [];
+
+    await act(async () => {
+      hydrateRoot(container, <PushNotificationManager />, {
+        onRecoverableError: (error) => {
+          recoverableErrors.push(
+            error instanceof Error ? error.message : String(error),
+          );
+        },
+      });
+      await Promise.resolve();
+    });
+
+    expect(serverMarkup).toBe("");
     expect(recoverableErrors).toEqual([]);
   });
 

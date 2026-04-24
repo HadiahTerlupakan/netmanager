@@ -44,8 +44,13 @@ type SessionUser = {
   id?: string;
   role?: string;
   departmentId?: string | null;
+  tenantId?: string | null;
   siteId?: string | null;
+  primarySiteId?: string | null;
+  siteIds?: string[] | null;
   accessAdminPanel?: boolean;
+  accessEmployeePanel?: boolean;
+  isSuperAdmin?: boolean;
 };
 
 export interface RealtimeTransport {
@@ -136,6 +141,56 @@ function dedupeScopes(scopes: RealtimeScope[]): RealtimeScope[] {
   });
 }
 
+function resolveAdminSiteId(user: SessionUser): string | null {
+  return user.primarySiteId ?? user.siteIds?.[0] ?? user.siteId ?? null;
+}
+
+function isSuperAdmin(user: SessionUser): boolean {
+  return (
+    user.isSuperAdmin === true ||
+    user.role === "SUPER_ADMIN" ||
+    user.role === "Super Admin"
+  );
+}
+
+function getAdminNotificationScope(user: SessionUser): RealtimeScope | null {
+  if (!user.accessAdminPanel) {
+    return null;
+  }
+
+  const adminSiteId = resolveAdminSiteId(user);
+  if (adminSiteId) {
+    return {
+      kind: "admin",
+      id: `notifications.site.${adminSiteId}`,
+    };
+  }
+
+  if (isSuperAdmin(user)) {
+    return {
+      kind: "admin",
+      id: "notifications",
+    };
+  }
+
+  return null;
+}
+
+function getSessionFingerprint(user?: SessionUser): string {
+  return JSON.stringify({
+    id: user?.id ?? null,
+    role: user?.role ?? null,
+    isSuperAdmin: user?.isSuperAdmin ?? false,
+    accessAdminPanel: user?.accessAdminPanel ?? false,
+    accessEmployeePanel: user?.accessEmployeePanel ?? false,
+    tenantId: user?.tenantId ?? null,
+    departmentId: user?.departmentId ?? null,
+    primarySiteId: user?.primarySiteId ?? null,
+    siteIds: user?.siteIds ?? null,
+    siteId: user?.siteId ?? null,
+  });
+}
+
 function getDefaultScopes(user: SessionUser): RealtimeScope[] {
   if (!user.id) {
     return [];
@@ -143,16 +198,13 @@ function getDefaultScopes(user: SessionUser): RealtimeScope[] {
 
   const scopes: RealtimeScope[] = [{ kind: "user", id: user.id }];
 
-  if (user.departmentId) {
+  if (user.departmentId && !user.accessAdminPanel) {
     scopes.push({ kind: "department", id: user.departmentId });
   }
 
-  if (user.accessAdminPanel) {
-    scopes.push({ kind: "admin", id: "notifications" });
-
-    if (user.siteId) {
-      scopes.push({ kind: "admin", id: `notifications.site.${user.siteId}` });
-    }
+  const adminNotificationScope = getAdminNotificationScope(user);
+  if (adminNotificationScope) {
+    scopes.push(adminNotificationScope);
   }
 
   return scopes;
@@ -171,12 +223,14 @@ export function RealtimeProvider({
   const scopeRegistryRef = useRef(
     new Map<string, { scope: RealtimeScope; count: number }>(),
   );
+  const sessionFingerprintRef = useRef<string | null>(null);
   const services = useMemo(() => getRealtimeClientServices(), []);
   const status = resolveAuthStatus(sessionStatus, statusOverride);
   const user = resolveRealtimeUser(
     session?.user as SessionUser | undefined,
     userOverride,
   );
+  const sessionFingerprint = getSessionFingerprint(user);
 
   const scopes = useMemo(
     () =>
@@ -194,6 +248,17 @@ export function RealtimeProvider({
   useEffect(() => {
     syncDynamicScopes();
   }, [syncDynamicScopes]);
+
+  useEffect(() => {
+    if (sessionFingerprintRef.current === sessionFingerprint) {
+      return;
+    }
+
+    sessionFingerprintRef.current = sessionFingerprint;
+    scopeRegistryRef.current.clear();
+    setDynamicScopes([]);
+    setIsFirebaseReady(false);
+  }, [sessionFingerprint]);
 
   const subscribeScope = useCallback(
     (scope: RealtimeScope) => {
@@ -254,6 +319,14 @@ export function RealtimeProvider({
           return;
         }
 
+        if (active) {
+          setIsFirebaseReady(false);
+        }
+
+        if (currentUser) {
+          await signOut(services.auth);
+        }
+
         const response = await fetch("/api/auth/firebase-token", {
           method: "POST",
           headers: {
@@ -296,7 +369,8 @@ export function RealtimeProvider({
     status === "authenticated" &&
     Boolean(user?.id) &&
     Boolean(services.firestore) &&
-    isFirebaseReady;
+    isFirebaseReady &&
+    services.auth?.currentUser?.uid === user?.id;
   const lastError =
     firebaseError ??
     (status === "authenticated" && user?.id && !services.firestore
@@ -421,30 +495,44 @@ export function useRealtimeSubscription<TPayload>(
         limit(20),
       );
 
-      return onSnapshot(channelQuery, (snapshot) => {
-        if (!hydrated) {
-          snapshot.docs.forEach((document) => {
-            seenDocumentIds.add(document.id);
+      return onSnapshot(
+        channelQuery,
+        (snapshot) => {
+          if (!hydrated) {
+            snapshot.docs.forEach((document) => {
+              seenDocumentIds.add(document.id);
+            });
+            hydrated = true;
+            return;
+          }
+
+          snapshot.docChanges().forEach((change) => {
+            if (change.type !== "added" || seenDocumentIds.has(change.doc.id)) {
+              return;
+            }
+
+            seenDocumentIds.add(change.doc.id);
+            const data = change.doc.data() as Partial<
+              RealtimeEnvelope<TPayload>
+            >;
+
+            if (!data.type || !subscriptionEvents.has(data.type)) {
+              return;
+            }
+
+            handlerRef.current((data.payload ?? data) as TPayload);
           });
-          hydrated = true;
-          return;
-        }
-
-        snapshot.docChanges().forEach((change) => {
-          if (change.type !== "added" || seenDocumentIds.has(change.doc.id)) {
-            return;
-          }
-
-          seenDocumentIds.add(change.doc.id);
-          const data = change.doc.data() as Partial<RealtimeEnvelope<TPayload>>;
-
-          if (!data.type || !subscriptionEvents.has(data.type)) {
-            return;
-          }
-
-          handlerRef.current((data.payload ?? data) as TPayload);
-        });
-      });
+        },
+        (error) => {
+          console.error("Realtime Firestore subscription failed", {
+            scope: serializeScope(scope),
+            channel: buildScopeChannel(scope),
+            event,
+            message: error.message,
+            code: error.code,
+          });
+        },
+      );
     });
 
     return () => {
