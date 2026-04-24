@@ -16,7 +16,13 @@ import { id } from "date-fns/locale";
 import { useRealtimeNotifications } from "@/lib/realtime/hooks/useRealtimeNotifications";
 import { getPriorityColor } from "@/lib/utils/priority-helpers";
 
-export function AdminNotificationBell() {
+interface AdminNotificationBellProps {
+  defaultOpen?: boolean;
+}
+
+export function AdminNotificationBell({
+  defaultOpen = false,
+}: AdminNotificationBellProps) {
   // const { hasPermission } = usePermission()
   const {
     notifications,
@@ -25,9 +31,11 @@ export function AdminNotificationBell() {
     isConnected,
     markAsRead,
     markAllAsRead,
-  } = useRealtimeNotifications({ limit: 5 });
+    refresh,
+    error,
+  } = useRealtimeNotifications({ limit: 5, excludeTypes: ["WORK_ORDER"] });
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -109,7 +117,20 @@ export function AdminNotificationBell() {
 
           {/* Notification List */}
           <div className="max-h-[400px] overflow-y-auto">
-            {notifications.length === 0 ? (
+            {loading ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                <div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2" />
+                <p className="text-sm">Memuat notifikasi</p>
+              </div>
+            ) : error ? (
+              <div className="py-8 px-4 text-center text-gray-500 dark:text-gray-400">
+                <HiOutlineExclamationTriangle className="w-10 h-10 mx-auto mb-2 opacity-40 text-red-500" />
+                <p className="text-sm mb-3">Gagal memuat notifikasi</p>
+                <Button variant="ghost" size="sm" onClick={refresh}>
+                  Coba lagi
+                </Button>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="py-8 text-center text-gray-500 dark:text-gray-400">
                 <HiOutlineBell className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Tidak ada notifikasi</p>

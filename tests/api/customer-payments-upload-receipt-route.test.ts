@@ -68,6 +68,10 @@ describe("customer upload receipt route", () => {
       id: "payment-1",
       receiptUrl: "https://cdn.example.test/receipt.png",
     });
+    prismaMock.pelanggan.findUnique.mockResolvedValue({
+      id: "customer-1",
+      siteId: "site-1",
+    });
 
     mockFns.publish.mockResolvedValue(undefined);
 
@@ -110,7 +114,21 @@ describe("customer upload receipt route", () => {
     ]);
 
     expect(result).toBe("response");
-    expect(mockFns.publish).toHaveBeenCalledWith({
+    expect(prismaMock.pelanggan.findUnique).toHaveBeenCalledWith({
+      where: { id: "customer-1" },
+      select: { siteId: true },
+    });
+    expect(mockFns.publish).toHaveBeenNthCalledWith(1, {
+      type: "payment.pending.new",
+      scope: { kind: "admin", id: "notifications.site.site-1" },
+      payload: {
+        id: "payment-1",
+        amount: 125000,
+        pelangganId: "customer-1",
+        message: "Struk pembayaran baru diunggah",
+      },
+    });
+    expect(mockFns.publish).toHaveBeenNthCalledWith(2, {
       type: "payment.pending.new",
       scope: { kind: "admin", id: "notifications" },
       payload: {

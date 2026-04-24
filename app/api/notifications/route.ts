@@ -7,6 +7,7 @@ import {
 } from "@/modules/notification";
 import { requireAuth } from "@/lib/auth-helpers";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { socketEmitter } from "@/lib/websocket/emitter";
 
 interface ExtendedUser {
   id: string;
@@ -193,6 +194,12 @@ export async function PATCH(request: NextRequest) {
       !isSuper && permissions.includes("site_only") ? user.siteId : undefined;
 
     await markAllAsRead(session.user.id, type, siteId);
+    const unreadCount = await getUnreadCount(
+      session.user.id,
+      undefined,
+      siteId,
+    );
+    socketEmitter.updateNotificationCount(session.user.id, unreadCount);
 
     return NextResponse.json({
       success: true,

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload, type CountPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { addUnreadRealtimeNotification } from "@/lib/realtime/notification-state";
 
 export interface Notification {
   id: string;
@@ -26,6 +27,7 @@ interface UseRealtimeNotificationsResult {
   notifications: Notification[];
   unreadCount: number;
   loading: boolean;
+  error: string | null;
   isConnected: boolean;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
@@ -44,6 +46,7 @@ export function useRealtimeNotifications(
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
   // Stabilize excludeTypes array reference using JSON comparison
@@ -63,6 +66,8 @@ export function useRealtimeNotifications(
   // Fetch notifications from API - only once on mount
   const fetchNotifications = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
       const [countRes, listRes] = await Promise.all([
         fetch(
           `/api/notifications/unread-count${excludeParam ? `?excludeTypes=${stableExcludeTypes.join(",")}` : ""}`,
@@ -70,17 +75,19 @@ export function useRealtimeNotifications(
         fetch(`/api/notifications?limit=${limit}${excludeParam}`),
       ]);
 
-      if (countRes.ok) {
-        const data = await countRes.json();
-        setUnreadCount(data.count || 0);
+      if (!countRes.ok || !listRes.ok) {
+        throw new Error("Gagal mengambil notifikasi");
       }
 
-      if (listRes.ok) {
-        const data = await listRes.json();
-        setNotifications(data.notifications || []);
-      }
+      const [countData, listData] = await Promise.all([
+        countRes.json(),
+        listRes.json(),
+      ]);
+      setUnreadCount(countData.count || 0);
+      setNotifications(listData.notifications || []);
     } catch (error) {
       console.error("[Notifications] Error fetching:", error);
+      setError("Gagal mengambil notifikasi");
     } finally {
       setLoading(false);
     }
@@ -125,19 +132,13 @@ export function useRealtimeNotifications(
         // Ignore audio errors
       }
 
-      // Add to beginning of list
       setNotifications((prev) => {
-        const { link, ...restPayload } = payload;
-        const newNotification: Notification = {
-          ...restPayload,
-          ...(link ? { link } : {}),
-          isRead: false,
-        };
-        return [newNotification, ...prev.slice(0, limit - 1)];
+        const result = addUnreadRealtimeNotification(prev, payload, limit);
+        if (result.didAdd) {
+          setUnreadCount((count) => count + 1);
+        }
+        return result.notifications;
       });
-
-      // Increment unread count
-      setUnreadCount((prev) => prev + 1);
     },
     [limit, stableExcludeTypes],
   );
@@ -194,6 +195,7 @@ export function useRealtimeNotifications(
     notifications,
     unreadCount,
     loading,
+    error,
     isConnected,
     markAsRead,
     markAllAsRead,

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
-import { prismaBilling } from "@/modules/database";
+import { prisma, prismaBilling } from "@/modules/database";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import {
   apiSuccess,
@@ -118,24 +118,34 @@ export async function POST(request: NextRequest) {
           notes: aiNotes.trim(),
         },
       });
+      const pelanggan = await prisma.pelanggan.findUnique({
+        where: { id: session.id },
+        select: { siteId: true },
+      });
+      const paymentPayload = {
+        id: updatedPayment.id,
+        amount: expectedAmount,
+        pelangganId: session.id,
+        message: "Struk pembayaran baru diunggah",
+      };
+      const notificationScopeIds = pelanggan?.siteId
+        ? [`notifications.site.${pelanggan.siteId}`, "notifications"]
+        : ["notifications"];
 
-      void firebaseRealtimeService
-        .publish({
-          type: "payment.pending.new",
-          scope: { kind: "admin", id: "notifications" },
-          payload: {
-            id: updatedPayment.id,
-            amount: expectedAmount,
-            pelangganId: session.id,
-            message: "Struk pembayaran baru diunggah",
-          },
-        })
-        .catch((error) => {
-          console.error(
-            "[upload-receipt] Failed to publish realtime update",
-            error,
-          );
-        });
+      void Promise.all(
+        notificationScopeIds.map((notificationScopeId) =>
+          firebaseRealtimeService.publish({
+            type: "payment.pending.new",
+            scope: { kind: "admin", id: notificationScopeId },
+            payload: paymentPayload,
+          }),
+        ),
+      ).catch((error) => {
+        console.error(
+          "[upload-receipt] Failed to publish realtime update",
+          error,
+        );
+      });
 
       // Push Notification FCM ke Admin
       try {

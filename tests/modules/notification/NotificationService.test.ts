@@ -111,6 +111,40 @@ describe("NotificationService", () => {
   });
 
   describe("createNotification", () => {
+    it("uses request tenant context when no explicit tenant is provided", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValueOnce({
+        tenantId: "tenant-context-1",
+        isSuperAdmin: false,
+      });
+      prismaMock.notifications.create.mockResolvedValueOnce({
+        id: "notif-tenant-1",
+        type: "SYSTEM",
+        priority: "NORMAL",
+        title: "Tenant scoped",
+        message: "Tenant body",
+        link: null,
+        sourceType: "SYSTEM",
+        sourceId: "src-tenant-1",
+        createdAt: new Date("2026-04-25T00:00:00.000Z"),
+      } as Notifications);
+
+      await createNotification({
+        type: "SYSTEM",
+        title: "Tenant scoped",
+        message: "Tenant body",
+        userId: "user-tenant-1",
+        sourceType: "SYSTEM",
+        sourceId: "src-tenant-1",
+        skipExpoPush: true,
+      });
+
+      expect(prismaMock.notifications.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId: "tenant-context-1",
+        }),
+      });
+    });
+
     it("can skip expo push while still creating in-app notification", async () => {
       prismaMock.notifications.create.mockResolvedValueOnce({
         id: "notif-web-2",

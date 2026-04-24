@@ -8,11 +8,22 @@ import { HiOutlineReceiptRefund, HiOutlineCheckCircle } from "react-icons/hi2";
 import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 
+import { usePermission } from "@/hooks/use-permission";
 import { useRealtimePaymentApprovals } from "@/lib/websocket/hooks/useRealtimePaymentApprovals";
 
 const LAST_READ_KEY = "payment-approval-last-read";
 
 export function PaymentApprovalBell() {
+  const { hasPermission } = usePermission();
+
+  if (!hasPermission("manual_payments:read")) {
+    return null;
+  }
+
+  return <PaymentApprovalBellContent />;
+}
+
+function PaymentApprovalBellContent() {
   const { payments, loading, isConnected, refresh } =
     useRealtimePaymentApprovals();
   const [isOpen, setIsOpen] = useState(false);

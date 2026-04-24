@@ -67,6 +67,9 @@ export interface WorkOrderNotificationData {
 }
 
 export async function createNotification(data: CreateNotificationData) {
+  const tenantContext = data.tenantId ? null : await getTenantIdFromContext();
+  const tenantId = data.tenantId ?? tenantContext?.tenantId ?? null;
+
   const notification = await notificationRepo.createFull({
     id: crypto.randomUUID(),
     type: data.type,
@@ -79,7 +82,7 @@ export async function createNotification(data: CreateNotificationData) {
     siteId: data.siteId || null,
     sourceType: data.sourceType || null,
     sourceId: data.sourceId || null,
-    tenantId: data.tenantId || null,
+    tenantId,
   });
 
   const wsPayload = {

@@ -23,13 +23,13 @@ describe("admin notification contract", () => {
     expect(notificationsClient).toContain("as FilterType[]");
   });
 
-  it("keeps WORK_ORDER in the admin bell realtime notification scope", () => {
+  it("excludes WORK_ORDER from the admin bell realtime notification scope", () => {
     const adminNotificationBell = readSource(
       "components/notifications/AdminNotificationBell.tsx",
     );
 
-    expect(adminNotificationBell).not.toContain(
-      "useRealtimeNotifications({ limit: 5, excludeTypes: ['WORK_ORDER'] })",
+    expect(adminNotificationBell).toContain(
+      'useRealtimeNotifications({ limit: 5, excludeTypes: ["WORK_ORDER"] })',
     );
   });
 
@@ -98,6 +98,17 @@ describe("admin notification contract", () => {
     );
     expect(adminNotificationBell).not.toContain(
       "@/lib/websocket/hooks/useRealtimeNotifications",
+    );
+  });
+
+  it("sets loading before retrying admin bell notification refresh", () => {
+    const realtimeHook = readSource(
+      "lib/websocket/hooks/useRealtimeNotifications.ts",
+    );
+
+    expect(realtimeHook).toContain("setLoading(true);");
+    expect(realtimeHook.indexOf("setLoading(true);")).toBeLessThan(
+      realtimeHook.indexOf("setError(null);"),
     );
   });
 
