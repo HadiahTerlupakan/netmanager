@@ -140,22 +140,7 @@ export default function LoginForm() {
           window.location.hostname === "127.0.0.1" ||
           window.location.hostname.endsWith(".localhost"));
 
-      console.log("[LoginForm] Login successful, redirecting...", {
-        targetPath,
-        subdomain,
-        isLocalhost,
-        isEmployeePortal,
-        hostname: window.location.hostname,
-        currentPath: window.location.pathname,
-      });
-
-      // KASUS KHUSUS LOCALHOST:
-      // Kita tetap di localhost:3000 agar session cookie valid
-
       if (isLocalhost) {
-        // Untuk localhost, gunakan window.location untuk memastikan redirect terjadi
-        // dan session cookie ter-set dengan benar
-        console.log("[LoginForm] Using window.location redirect for localhost");
         window.location.assign(targetPath);
         return;
       }
