@@ -714,7 +714,7 @@ spec:
                           --from-literal=FIREBASE_PROJECT_ID='${env.FIREBASE_PROJECT_ID}' \
                           --from-literal=FIREBASE_CLIENT_EMAIL='${env.FIREBASE_CLIENT_EMAIL}' \
                           --from-literal=FIREBASE_PRIVATE_KEY='${env.FIREBASE_PRIVATE_KEY}' \
-                          $(if [ -n "${env.FIREBASE_DATABASE_URL}" ]; then printf -- "--from-literal=FIREBASE_DATABASE_URL='%s'" "${env.FIREBASE_DATABASE_URL}"; fi) | kubectl apply -f -
+                          \$(if [ -n "${env.FIREBASE_DATABASE_URL}" ]; then printf -- "--from-literal=FIREBASE_DATABASE_URL='%s'" "${env.FIREBASE_DATABASE_URL}"; fi) | kubectl apply -f -
 
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"
