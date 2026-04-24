@@ -10,7 +10,7 @@ import type {
 
 const FORMULA_PREFIXES = ["=", "+", "-", "@"];
 
-function normalizeCsvValue(value: string): string {
+function sanitizeCsvString(value: string): string {
   const sanitized = value.replace(/\r?\n/g, " ").trim();
 
   if (!sanitized) {
@@ -25,7 +25,10 @@ function normalizeCsvValue(value: string): string {
 }
 
 function escapeCsvCell(value: string | number): string {
-  return `"${normalizeCsvValue(String(value)).replace(/"/g, '""')}"`;
+  const serializedValue =
+    typeof value === "number" ? String(value) : sanitizeCsvString(value);
+
+  return `"${serializedValue.replace(/"/g, '""')}"`;
 }
 
 function getGrowthModelDescription(project: RABProject): string {

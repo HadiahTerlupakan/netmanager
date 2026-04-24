@@ -41,4 +41,32 @@ describe("buildRABCsvContent", () => {
     expect(csvContent).toContain('"\'=SUM(A1:A2)"');
     expect(csvContent).toContain('"\'@Kategori"');
   });
+
+  it("mempertahankan angka negatif sebagai numerik di CSV", () => {
+    const project: RABProject = {
+      id: "rab-csv-2",
+      name: "RAB CSV Negative Number Test",
+      projectedRevenue: 0,
+      projectedOpex: 100_000,
+      targetSubscribers: 0,
+      arpu: 0,
+      growthType: "LINEAR",
+      paymentType: "PREPAID",
+      growthSettings: { subscribersPerMonth: 0 },
+      nplTolerancePercent: 0,
+      investmentDurationMonths: 1,
+      investmentRecoveryType: "PERCENTAGE",
+      investmentRecoveryValue: 50,
+      investorProfitSharePercent: 50,
+      status: "DRAFT",
+      items: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const csvContent = buildRABCsvContent(project);
+
+    expect(csvContent).toContain('"1","0","0","-100000","0","0","0","0"');
+    expect(csvContent).not.toContain('"\'-100000"');
+  });
 });
