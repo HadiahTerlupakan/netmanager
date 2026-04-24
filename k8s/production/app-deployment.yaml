@@ -113,22 +113,22 @@ spec:
             - name: FIREBASE_PROJECT_ID
               valueFrom:
                 secretKeyRef:
-                  name: netmanager-secrets
+                  name: netmanager-firebase-secrets
                   key: FIREBASE_PROJECT_ID
             - name: FIREBASE_CLIENT_EMAIL
               valueFrom:
                 secretKeyRef:
-                  name: netmanager-secrets
+                  name: netmanager-firebase-secrets
                   key: FIREBASE_CLIENT_EMAIL
             - name: FIREBASE_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
-                  name: netmanager-secrets
+                  name: netmanager-firebase-secrets
                   key: FIREBASE_PRIVATE_KEY
             - name: FIREBASE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: netmanager-secrets
+                  name: netmanager-firebase-secrets
                   key: FIREBASE_DATABASE_URL
                   optional: true
             - name: ALLOWED_ORIGINS

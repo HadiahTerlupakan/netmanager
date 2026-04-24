@@ -54,14 +54,6 @@ spec:
         CRON_IMAGE = "netmanager-cron"
         RADIUS_IMAGE = "netmanager-radius"
         DOCKER_BUILDKIT = "1"
-        NEXT_PUBLIC_FIREBASE_API_KEY = "AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc"
-        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "netmanager-96742.firebaseapp.com"
-        NEXT_PUBLIC_FIREBASE_PROJECT_ID = "netmanager-96742"
-        NEXT_PUBLIC_FIREBASE_DATABASE_URL = "https://netmanager-96742-default-rtdb.asia-southeast1.firebasedatabase.app"
-        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = "netmanager-96742.firebasestorage.app"
-        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = "43187781340"
-        NEXT_PUBLIC_FIREBASE_APP_ID = "1:43187781340:web:461fc10875b35538e67e19"
-        NEXT_PUBLIC_VAPID_PUBLIC_KEY = "BKaKWPr_8jDZH0aJiXBstwqF2ms5HHuuhMcOkpcZf2D5jIER0_5BtIn8smCBwEjsN1BZ0f_zjxRUCnAr-NfKJ90"
         DOCKER_TAG = "${env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' ? 'production' : 'staging'}"
         IMAGE_VERSION = "${((env.GIT_COMMIT ?: 'nogit').take(12))}-${env.BUILD_NUMBER ?: '0'}"
         IMAGE_REVISION = "${env.GIT_COMMIT ?: "unknown"}"
@@ -95,14 +87,53 @@ spec:
                         }
                     }
 
+                    def envScopedName = { String baseName ->
+                        def scope = env.DOCKER_TAG == 'production' ? 'PRODUCTION' : 'STAGING'
+                        return "${baseName}_${scope}"
+                    }
+
+                    def getEnvScopedRuntimeConfig = { String baseName ->
+                        def scopedName = envScopedName(baseName)
+                        def scopedValue = (env."${scopedName}" ?: '').trim()
+                        if (scopedValue) {
+                            return scopedValue
+                        }
+
+                        return getRuntimeConfig(scopedName, baseName)
+                    }
+
                     env.REGISTRY_URL = normalizeRegistryUrl(getRuntimeConfig('NETMANAGER_REGISTRY_URL', 'REGISTRY_URL'))
                     env.REGISTRY_NAMESPACE = getRuntimeConfig('NETMANAGER_REGISTRY_NAMESPACE', 'REGISTRY_NAMESPACE')
                     env.REGISTRY_CREDENTIALS_ID = getRuntimeConfig('NETMANAGER_REGISTRY_CREDENTIALS_ID', 'REGISTRY_CREDENTIALS_ID')
                     env.DEPLOY_MODE = "${params.DEPLOY_MODE ?: 'normal'}"
+                    env.NEXT_PUBLIC_FIREBASE_API_KEY = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_API_KEY')
+                    env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN')
+                    env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_PROJECT_ID')
+                    env.NEXT_PUBLIC_FIREBASE_DATABASE_URL = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_DATABASE_URL')
+                    env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET')
+                    env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID')
+                    env.NEXT_PUBLIC_FIREBASE_APP_ID = getEnvScopedRuntimeConfig('NEXT_PUBLIC_FIREBASE_APP_ID')
+                    env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = getEnvScopedRuntimeConfig('NEXT_PUBLIC_VAPID_PUBLIC_KEY')
+                    env.FIREBASE_PROJECT_ID = getEnvScopedRuntimeConfig('FIREBASE_PROJECT_ID')
+                    env.FIREBASE_CLIENT_EMAIL = getEnvScopedRuntimeConfig('FIREBASE_CLIENT_EMAIL')
+                    env.FIREBASE_PRIVATE_KEY = getEnvScopedRuntimeConfig('FIREBASE_PRIVATE_KEY')
+                    env.FIREBASE_DATABASE_URL = getEnvScopedRuntimeConfig('FIREBASE_DATABASE_URL')
+                    env.FIREBASE_DATABASE_URL = env.FIREBASE_DATABASE_URL?.trim()
 
                     requireValue(env.REGISTRY_URL, 'NETMANAGER_REGISTRY_URL (atau REGISTRY_URL) wajib disediakan di runtime Jenkins.')
                     requireValue(env.REGISTRY_NAMESPACE, 'NETMANAGER_REGISTRY_NAMESPACE (atau REGISTRY_NAMESPACE) wajib disediakan di runtime Jenkins.')
                     requireValue(env.REGISTRY_CREDENTIALS_ID, 'NETMANAGER_REGISTRY_CREDENTIALS_ID (atau REGISTRY_CREDENTIALS_ID) wajib disediakan di runtime Jenkins.')
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_API_KEY, "${envScopedName('NEXT_PUBLIC_FIREBASE_API_KEY')} (atau NEXT_PUBLIC_FIREBASE_API_KEY) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, "${envScopedName('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN')} (atau NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, "${envScopedName('NEXT_PUBLIC_FIREBASE_PROJECT_ID')} (atau NEXT_PUBLIC_FIREBASE_PROJECT_ID) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_DATABASE_URL, "${envScopedName('NEXT_PUBLIC_FIREBASE_DATABASE_URL')} (atau NEXT_PUBLIC_FIREBASE_DATABASE_URL) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, "${envScopedName('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET')} (atau NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID, "${envScopedName('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID')} (atau NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_FIREBASE_APP_ID, "${envScopedName('NEXT_PUBLIC_FIREBASE_APP_ID')} (atau NEXT_PUBLIC_FIREBASE_APP_ID) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, "${envScopedName('NEXT_PUBLIC_VAPID_PUBLIC_KEY')} (atau NEXT_PUBLIC_VAPID_PUBLIC_KEY) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.FIREBASE_PROJECT_ID, "${envScopedName('FIREBASE_PROJECT_ID')} (atau FIREBASE_PROJECT_ID) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.FIREBASE_CLIENT_EMAIL, "${envScopedName('FIREBASE_CLIENT_EMAIL')} (atau FIREBASE_CLIENT_EMAIL) wajib disediakan di runtime Jenkins.")
+                    requireValue(env.FIREBASE_PRIVATE_KEY, "${envScopedName('FIREBASE_PRIVATE_KEY')} (atau FIREBASE_PRIVATE_KEY) wajib disediakan di runtime Jenkins.")
 
                     env.REGISTRY_PATH = "${env.REGISTRY_URL}/${env.REGISTRY_NAMESPACE}"
                     env.APP_IMAGE_REF = "${env.REGISTRY_PATH}/${env.DOCKER_IMAGE}:${env.IMAGE_VERSION}"
@@ -674,6 +705,16 @@ spec:
                         }
 
                         assert_live_secret_not_placeholder netmanager-secrets CRON_SECRET
+
+                        echo "Syncing Firebase runtime secret into ${NAMESPACE}..."
+                        FIREBASE_SECRET_NAME="netmanager-firebase-secrets"
+                        kubectl create secret generic "\$FIREBASE_SECRET_NAME" \
+                          --namespace=${NAMESPACE} \
+                          --dry-run=client -o yaml \
+                          --from-literal=FIREBASE_PROJECT_ID='${env.FIREBASE_PROJECT_ID}' \
+                          --from-literal=FIREBASE_CLIENT_EMAIL='${env.FIREBASE_CLIENT_EMAIL}' \
+                          --from-literal=FIREBASE_PRIVATE_KEY='${env.FIREBASE_PRIVATE_KEY}' \
+                          $(if [ -n "${env.FIREBASE_DATABASE_URL}" ]; then printf -- "--from-literal=FIREBASE_DATABASE_URL='%s'" "${env.FIREBASE_DATABASE_URL}"; fi) | kubectl apply -f -
 
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"

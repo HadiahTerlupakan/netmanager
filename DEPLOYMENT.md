@@ -145,6 +145,70 @@ Jangan gunakan langkah manual ini untuk update rutin staging/production.
 
 ## ⚙️ Langkah 4: Konfigurasi Environment
 
+### Environment untuk Jenkins + Kubernetes (staging & production)
+
+Untuk deployment rutin **staging** dan **production**, environment dibagi menjadi 3 kelompok supaya Next.js, Firebase, dan Kubernetes konsisten.
+
+| Kelompok | Variabel | Disimpan di | Cara dipakai | Catatan |
+|----------|----------|-------------|--------------|---------|
+| Build-time browser env | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_DATABASE_URL`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Jenkins | Dipassing ke `docker build` sebagai `--build-arg` | Pipeline membaca variable scoped per environment seperti `NEXT_PUBLIC_FIREBASE_API_KEY_STAGING` / `NEXT_PUBLIC_FIREBASE_API_KEY_PRODUCTION`, lalu fallback ke nama global jika scoped belum disediakan. |
+| Runtime secret env | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_DATABASE_URL`, `DATABASE_URL`, `RADIUS_DATABASE_URL`, `DATABASE_URL_BILLING`, `DATABASE_URL_MITRA`, `REDIS_URL`, `AUTH_SECRET`, `NEXTAUTH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `CRON_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `RADIUS_SECRET` | Kubernetes Secret `netmanager-secrets` + `netmanager-firebase-secrets` | Diinject ke pod lewat `secretKeyRef` pada deployment | Secret umum aplikasi tetap di `netmanager-secrets`, sedangkan Firebase Admin runtime disinkronkan otomatis pipeline ke `netmanager-firebase-secrets` per namespace. |
+| Runtime non-secret env | `DOMAIN`, `AUTH_URL`, `NEXTAUTH_URL`, `TZ`, `NODE_ENV`, `ALLOWED_ORIGINS` | Kubernetes ConfigMap `netmanager-config` | Diinject ke pod lewat `envFrom` / `configMapKeyRef` | Cocok untuk domain, timezone, dan konfigurasi runtime non-rahasia. |
+
+#### Mapping environment per target
+
+| Target | Namespace | ConfigMap | Secret | Catatan |
+|--------|-----------|-----------|--------|---------|
+| Staging | `netmanager-staging` | `k8s/staging/configmap.yaml` | `k8s/staging/secrets.yaml` | Domain default: `staging.radpro.id` |
+| Production | `netmanager-production` | `k8s/production/configmap.yaml` | `k8s/production/secrets.yaml` | Gunakan nilai production yang terpisah penuh dari staging |
+
+#### Aturan praktis
+
+1. **`NEXT_PUBLIC_*` dan `NEXT_PUBLIC_VAPID_PUBLIC_KEY` hanya di Jenkins/build-time.**
+   - Variabel ini dibaca saat image Next.js dibuild.
+   - Mengubah nilainya tanpa rebuild image tidak akan mengubah aplikasi yang sedang jalan.
+
+2. **`FIREBASE_*` Admin SDK dan secret aplikasi lain hanya di Kubernetes Secret/runtime.**
+   - Variabel ini dipakai server saat request berjalan.
+   - Jangan menaruh private key Firebase Admin di build arg browser.
+
+3. **ConfigMap hanya untuk nilai non-rahasia.**
+   - Domain, URL callback, timezone, dan allowed origins masuk ke `netmanager-config`.
+
+4. **Pipeline Jenkins tidak meng-apply `secrets.yaml` placeholder untuk secret umum aplikasi.**
+   - File `k8s/staging/secrets.yaml` dan `k8s/production/secrets.yaml` di repo tetap template untuk secret umum seperti DB, Redis, auth, dan cron.
+   - Khusus Firebase Admin runtime, pipeline akan membuat/memperbarui secret live `netmanager-firebase-secrets` dari variable Jenkins scoped environment saat deploy.
+
+#### Kapan perlu rebuild image vs rollout pod
+
+- Jika yang berubah adalah **`NEXT_PUBLIC_*`** atau **`NEXT_PUBLIC_VAPID_PUBLIC_KEY`**:
+  - update nilai di Jenkins
+  - jalankan pipeline
+  - biarkan pipeline build image baru dan rollout deployment
+
+- Jika yang berubah adalah **`FIREBASE_*` runtime**, DB URL, secret auth, atau secret aplikasi lain:
+  - update Kubernetes Secret di namespace target
+  - jalankan ulang pipeline **atau** lakukan rollout restart deployment terkait
+  - image tidak perlu dibuild ulang selama build-time env tidak berubah
+
+- Jika yang berubah adalah **domain / URL / timezone / allowed origins**:
+  - update ConfigMap di namespace target
+  - rollout ulang deployment agar pod membaca nilai terbaru
+
+#### Checklist singkat per environment
+
+**Staging**
+- Set `NEXT_PUBLIC_FIREBASE_*_STAGING`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY_STAGING`, dan `FIREBASE_*_STAGING` di Jenkins untuk branch staging
+- Pastikan `netmanager-secrets` di namespace `netmanager-staging` berisi secret aplikasi umum selain Firebase Admin
+- Pastikan `netmanager-config` di namespace `netmanager-staging` memakai domain staging
+
+**Production**
+- Set `NEXT_PUBLIC_FIREBASE_*_PRODUCTION`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY_PRODUCTION`, dan `FIREBASE_*_PRODUCTION` di Jenkins untuk branch `main`
+- Pastikan `netmanager-secrets` di namespace `netmanager-production` berisi secret aplikasi umum selain Firebase Admin
+- Pastikan `netmanager-config` di namespace `netmanager-production` memakai domain production
+
+> Ringkasnya: **browser Firebase config = Jenkins build-time**, **Firebase Admin runtime = Jenkins → `netmanager-firebase-secrets`**, **secret aplikasi lain = `netmanager-secrets`**, **domain dan config non-rahasia = ConfigMap runtime**.
+
 ### A. Buat File .env
 
 ```bash
