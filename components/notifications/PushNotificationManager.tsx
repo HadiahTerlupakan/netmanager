@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { HiBell, HiBellSlash, HiXMark } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
-import { useFCM } from "@/hooks/useFCM";
+import { usePushNotificationState } from "@/components/notifications/PushNotificationContext";
 
 interface PushNotificationManagerProps {
   className?: string;
@@ -54,7 +54,7 @@ export function PushNotificationManager({
     isLoading,
     isRegistered,
     enableNotifications,
-  } = useFCM();
+  } = usePushNotificationState();
   const isHydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -83,14 +83,7 @@ export function PushNotificationManager({
   }
 
   if (isRegistered) {
-    return (
-      <div
-        className={`flex items-center gap-2 text-sm text-green-600 dark:text-green-400 ${className}`}
-      >
-        <HiBell className="w-4 h-4" />
-        <span>Notifikasi aktif</span>
-      </div>
-    );
+    return null;
   }
 
   if (permission === "denied") {

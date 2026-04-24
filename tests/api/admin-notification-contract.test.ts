@@ -23,6 +23,20 @@ describe("admin notification contract", () => {
     expect(notificationsClient).toContain("as FilterType[]");
   });
 
+  it("renders admin notification filters as ghost tabs with dark-mode-safe colors", () => {
+    const notificationsClient = readSource(
+      "app/admin/notifications/NotificationsClient.tsx",
+    );
+
+    expect(notificationsClient).toContain('variant="ghost"');
+    expect(notificationsClient).toContain(
+      "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300",
+    );
+    expect(notificationsClient).toContain(
+      "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white",
+    );
+  });
+
   it("excludes WORK_ORDER from the admin bell realtime notification scope", () => {
     const adminNotificationBell = readSource(
       "components/notifications/AdminNotificationBell.tsx",
@@ -33,10 +47,13 @@ describe("admin notification contract", () => {
     );
   });
 
-  it("mounts FCM onboarding through dedicated managers instead of the navbar shell", () => {
+  it("mounts FCM onboarding through shared push state instead of the navbar shell", () => {
     const navbar = readSource("components/layout/Navbar.tsx");
     const pushNotificationManager = readSource(
       "components/notifications/PushNotificationManager.tsx",
+    );
+    const pushNotificationContext = readSource(
+      "components/notifications/PushNotificationContext.tsx",
     );
     const karyawanPushNotification = readSource(
       "components/karyawan/KaryawanPushNotification.tsx",
@@ -44,11 +61,13 @@ describe("admin notification contract", () => {
 
     expect(navbar).not.toContain("@/hooks/useFCM");
     expect(navbar).not.toContain("useFCM();");
-    expect(pushNotificationManager).toContain("@/hooks/useFCM");
+    expect(pushNotificationManager).toContain("usePushNotificationState");
     expect(pushNotificationManager).toContain("enableNotifications");
     expect(pushNotificationManager).not.toContain(
       "/api/notifications/subscribe",
     );
+    expect(pushNotificationContext).toContain("@/hooks/useFCM");
+    expect(pushNotificationContext).toContain("useFCM();");
     expect(karyawanPushNotification).toContain("@/hooks/useFCM");
     expect(karyawanPushNotification).toContain("enableNotifications");
     expect(karyawanPushNotification).not.toContain(

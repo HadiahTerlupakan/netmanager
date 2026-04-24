@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import AnnouncementBanner from "@/components/announcement/AnnouncementBanner";
 import ForceLogoutListener from "@/components/auth/ForceLogoutListener";
+import { PushNotificationProvider } from "@/components/notifications/PushNotificationContext";
 
 import { ensureEmployeeAccess } from "@/lib/server-auth";
 
@@ -24,7 +25,9 @@ export default async function KaryawanLayout({
           <EmployeeSidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <AnnouncementBanner portal="employee" />
-            <Navbar />
+            <PushNotificationProvider>
+              <Navbar />
+            </PushNotificationProvider>
             <main className="flex-1 overflow-y-auto">
               <div className="p-6">
                 <ErrorBoundary>{children}</ErrorBoundary>

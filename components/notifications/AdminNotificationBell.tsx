@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import {
+  HiBell,
   HiOutlineBell,
   HiCheck,
   HiOutlineWrench,
@@ -15,6 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { useRealtimeNotifications } from "@/lib/realtime/hooks/useRealtimeNotifications";
 import { getPriorityColor } from "@/lib/utils/priority-helpers";
+import { usePushNotificationState } from "@/components/notifications/PushNotificationContext";
 
 interface AdminNotificationBellProps {
   defaultOpen?: boolean;
@@ -34,6 +36,7 @@ export function AdminNotificationBell({
     refresh,
     error,
   } = useRealtimeNotifications({ limit: 5, excludeTypes: ["WORK_ORDER"] });
+  const { isRegistered: isPushRegistered } = usePushNotificationState();
 
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -72,7 +75,14 @@ export function AdminNotificationBell({
         className="relative group"
         aria-label="Notifications"
       >
-        <HiOutlineBell className="w-6 h-6" />
+        {isPushRegistered ? (
+          <HiBell className="w-6 h-6" data-testid="admin-push-bell-solid" />
+        ) : (
+          <HiOutlineBell
+            className="w-6 h-6"
+            data-testid="admin-push-bell-outline"
+          />
+        )}
         {!loading && unreadCount > 0 && (
           <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900 group-hover:scale-110 transition-transform px-1">
             {unreadCount > 99 ? "99+" : unreadCount}

@@ -221,11 +221,12 @@ export function ClientComponent() {
         ).map((filter) => (
           <Button
             key={filter}
+            variant="ghost"
             onClick={() => setActiveFilter(filter)}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
               activeFilter === filter
-                ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400"
-                : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300"
+                : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             {getFilterLabel(filter)}
