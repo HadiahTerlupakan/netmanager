@@ -448,6 +448,7 @@ export default function UserList() {
         href={`/admin/users/${user.id}?view=true`}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
         title="Lihat Detail"
+        aria-label={`Lihat detail ${user.name || user.email}`}
       >
         <HiOutlineEye className="w-4 h-4" />
       </Link>
@@ -464,6 +465,7 @@ export default function UserList() {
           onClick={() => setForceLogoutUserId(user.id)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-md hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
           title="Force Logout"
+          aria-label={`Force logout ${user.name || user.email}`}
         >
           <HiOutlineArrowRightOnRectangle className="w-4 h-4" />
         </button>
@@ -473,6 +475,7 @@ export default function UserList() {
           onClick={() => setDeleteUserId(user.id)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
           title="Hapus"
+          aria-label={`Hapus ${user.name || user.email}`}
         >
           <HiOutlineTrash className="w-4 h-4" />
         </button>

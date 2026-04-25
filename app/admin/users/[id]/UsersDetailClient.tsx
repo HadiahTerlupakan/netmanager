@@ -59,6 +59,13 @@ interface Tenant {
   name: string;
 }
 
+interface UserSiteRelation {
+  id?: string;
+  siteId?: string | null;
+  isPrimary?: boolean | null;
+  site?: { id?: string | null; code: string; name: string } | null;
+}
+
 interface UserData {
   id: string;
   email: string;
@@ -73,13 +80,7 @@ interface UserData {
   site?: { code: string; name: string } | null;
   sites?: { code: string; name: string } | null;
   role?: { name: string } | null;
-  // Multi-site support
-  userSites?: Array<{
-    id: string;
-    siteId: string;
-    isPrimary: boolean;
-    site: { id: string; code: string; name: string };
-  }>;
+  userSites?: UserSiteRelation[];
   // Working hours
   workingHourMode?: string;
   attendanceGeofencePolicy?: string | null;
@@ -99,6 +100,35 @@ interface UserData {
   isAttendanceRequired?: boolean;
   tenantId?: string | null;
   tenant?: { id: string; name: string } | null;
+}
+
+function getSelectedSitesFromUser(user: UserData): SelectedSite[] {
+  if (user.userSites?.length) {
+    return user.userSites
+      .map((userSite) => ({
+        siteId: userSite.siteId || userSite.site?.id || "",
+        isPrimary: userSite.isPrimary ?? false,
+      }))
+      .filter((site): site is SelectedSite => Boolean(site.siteId));
+  }
+
+  return user.siteId ? [{ siteId: user.siteId, isPrimary: true }] : [];
+}
+
+function getSitesFromUser(user: UserData): Site[] {
+  const relationSites =
+    user.userSites
+      ?.map((userSite) => userSite.site)
+      .filter((site): site is Site => Boolean(site?.id)) ?? [];
+
+  if (relationSites.length > 0) return relationSites;
+  return user.siteId && user.site ? [{ id: user.siteId, ...user.site }] : [];
+}
+
+function mergeSites(currentSites: Site[], nextSites: Site[]): Site[] {
+  const siteMap = new Map(currentSites.map((site) => [site.id, site]));
+  nextSites.forEach((site) => siteMap.set(site.id, site));
+  return Array.from(siteMap.values());
 }
 
 export function ClientComponent({
@@ -121,6 +151,7 @@ export function ClientComponent({
 
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission("users:update");
+  const canReadTenants = hasPermission("tenants:read");
   const canViewLeaveQuotas =
     hasPermission("users:read") || hasPermission("attendance:read");
   const canManageLeaveQuotas =
@@ -138,6 +169,8 @@ export function ClientComponent({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
+  const [initialFormSnapshot, setInitialFormSnapshot] = useState("");
+  const [hasLoadedLeaveQuotas, setHasLoadedLeaveQuotas] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -176,6 +209,14 @@ export function ClientComponent({
     overtimeCalcTypeNational: "FIXED",
   });
 
+  const currentFormSnapshot = JSON.stringify({
+    formData,
+    selectedSites,
+    leaveQuotas,
+  });
+  const hasFormChanges =
+    initialFormSnapshot !== "" && currentFormSnapshot !== initialFormSnapshot;
+
   const overtimeConfigs = [
     {
       key: "Normal",
@@ -210,7 +251,7 @@ export function ClientComponent({
 
       if (usr) {
         setUser(usr);
-        setFormData({
+        const loadedFormData = {
           name: usr.name || "",
           phone: usr.phone || "",
           password: "",
@@ -245,19 +286,20 @@ export function ClientComponent({
           overtimeCalcTypeNormal: usr.overtimeCalcTypeNormal || "FIXED",
           overtimeCalcTypeHoliday: usr.overtimeCalcTypeHoliday || "FIXED",
           overtimeCalcTypeNational: usr.overtimeCalcTypeNational || "FIXED",
-        });
-        // Multi-site: Load userSites
-        if (usr.userSites && usr.userSites.length > 0) {
-          setSelectedSites(
-            usr.userSites.map((us: { siteId: string; isPrimary: boolean }) => ({
-              siteId: us.siteId,
-              isPrimary: us.isPrimary,
-            })),
-          );
-        } else if (usr.siteId) {
-          // Fallback: convert legacy siteId to multi-site format
-          setSelectedSites([{ siteId: usr.siteId, isPrimary: true }]);
-        }
+        };
+        const loadedSelectedSites = getSelectedSitesFromUser(usr);
+        const loadedSites = getSitesFromUser(usr);
+
+        setFormData(loadedFormData);
+        setSelectedSites(loadedSelectedSites);
+        setSites((currentSites) => mergeSites(currentSites, loadedSites));
+        setInitialFormSnapshot(
+          JSON.stringify({
+            formData: loadedFormData,
+            selectedSites: loadedSelectedSites,
+            leaveQuotas: {},
+          }),
+        );
       }
     } catch (error: unknown) {
       console.error("Error fetching user:", error);
@@ -304,7 +346,8 @@ export function ClientComponent({
         const data = await res.json();
         // Handle both wrapped (apiSuccess) and unwrapped response formats
         const result = data.data || data;
-        setSites(result.sites || result || []);
+        const availableSites = result.sites || result || [];
+        setSites((currentSites) => mergeSites(currentSites, availableSites));
       }
     } catch (error) {
       console.error("Error fetching sites:", error);
@@ -331,8 +374,7 @@ export function ClientComponent({
       fetchSites(),
     ];
 
-    // Only fetch tenants if user has permission
-    if (hasPermission("tenants:read")) {
+    if (canReadTenants) {
       promises.push(fetchTenants());
     }
 
@@ -343,7 +385,7 @@ export function ClientComponent({
     fetchRoles,
     fetchSites,
     fetchTenants,
-    hasPermission,
+    canReadTenants,
   ]);
 
   const generatePassword = () => {
@@ -389,6 +431,10 @@ export function ClientComponent({
       newErrors.name = "Nama wajib diisi";
     }
 
+    if (canReadTenants && !formData.tenantId) {
+      newErrors.tenantId = "Tenant wajib dipilih";
+    }
+
     if (!formData.roleId) {
       newErrors.roleId = "Peran pengguna wajib dipilih";
     }
@@ -405,6 +451,11 @@ export function ClientComponent({
     e.preventDefault();
 
     if (!validateForm()) {
+      return;
+    }
+
+    if (!hasFormChanges) {
+      setErrors({ submit: "Belum ada perubahan untuk disimpan" });
       return;
     }
 
@@ -905,7 +956,7 @@ export function ClientComponent({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Account Information Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-linear-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
@@ -926,9 +977,12 @@ export function ClientComponent({
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Tenant Selection (Super Admin only) - MOVED TO TOP */}
-              {hasPermission("tenants:read") && (
+              {canReadTenants && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="tenantId"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Tenant <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -936,8 +990,8 @@ export function ClientComponent({
                       <HiOutlineGlobeAlt className="h-5 w-5 text-gray-400" />
                     </div>
                     <select
+                      id="tenantId"
                       name="tenantId"
-                      required
                       value={formData.tenantId}
                       onChange={handleChange}
                       className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
@@ -968,7 +1022,10 @@ export function ClientComponent({
 
               {/* Email (Read Only) */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Alamat Email
                 </label>
                 <div className="relative">
@@ -976,6 +1033,7 @@ export function ClientComponent({
                     <HiOutlineEnvelope className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    id="email"
                     type="email"
                     disabled
                     value={user?.email || ""}
@@ -989,7 +1047,10 @@ export function ClientComponent({
 
               {/* Role Selection */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="roleId"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Peran Pengguna <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -997,8 +1058,8 @@ export function ClientComponent({
                     <HiOutlineIdentification className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
+                    id="roleId"
                     name="roleId"
-                    required
                     value={formData.roleId}
                     onChange={handleChange}
                     className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
@@ -1025,7 +1086,10 @@ export function ClientComponent({
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Nama Lengkap <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -1033,9 +1097,9 @@ export function ClientComponent({
                     <HiOutlineUser className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    id="name"
                     type="text"
                     name="name"
-                    required
                     value={formData.name}
                     onChange={handleChange}
                     className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
@@ -1054,7 +1118,10 @@ export function ClientComponent({
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Nomor Telepon
                 </label>
                 <div className="relative">
@@ -1062,6 +1129,7 @@ export function ClientComponent({
                     <HiOutlinePhone className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    id="phone"
                     type="tel"
                     name="phone"
                     value={formData.phone}
@@ -1074,7 +1142,10 @@ export function ClientComponent({
 
               {/* Password */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Kata Sandi Baru
                 </label>
                 <div className="flex gap-3">
@@ -1083,6 +1154,7 @@ export function ClientComponent({
                       <HiOutlineKey className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
+                      id="password"
                       type={showPassword ? "text" : "password"}
                       name="password"
                       value={formData.password}
@@ -1097,6 +1169,11 @@ export function ClientComponent({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={
+                        showPassword
+                          ? "Sembunyikan kata sandi"
+                          : "Tampilkan kata sandi"
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
                       {showPassword ? (
@@ -1109,6 +1186,7 @@ export function ClientComponent({
                   <button
                     type="button"
                     onClick={generatePassword}
+                    aria-label="Buat kata sandi otomatis"
                     className="flex items-center gap-2 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                   >
                     <HiOutlineKey className="w-5 h-5" />
@@ -1206,7 +1284,7 @@ export function ClientComponent({
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Akses & Privilese
+                  Akses & Privilege
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Pengaturan status dan fitur khusus pengguna
@@ -1240,12 +1318,12 @@ export function ClientComponent({
             <div className="flex items-center justify-between p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
               <div>
                 <h3 className="font-medium text-indigo-900 dark:text-indigo-300">
-                  Fitur Sales & Canvasing
+                  Fitur Sales & Canvassing
                 </h3>
                 <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">
                   Aktifkan jika user adalah Sales atau Teknisi yang merangkap
                   Sales. User akan tampil di Manajemen Sales dan bisa akses menu
-                  Canvasing.
+                  Canvassing.
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -1265,7 +1343,7 @@ export function ClientComponent({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Target Canvasing (Poin)
+                    Target Canvassing (Poin)
                   </label>
                   <input
                     type="number"
@@ -1469,7 +1547,24 @@ export function ClientComponent({
           <LeaveBalanceSettings
             userId={id}
             workingHourMode={formData.workingHourMode}
-            onChange={(quotas) => setLeaveQuotas(quotas)}
+            onChange={(quotas) => {
+              setLeaveQuotas(quotas);
+              if (!hasLoadedLeaveQuotas && Object.keys(quotas).length === 0) {
+                return;
+              }
+              if (!hasLoadedLeaveQuotas) {
+                setHasLoadedLeaveQuotas(true);
+                setInitialFormSnapshot((snapshot) => {
+                  if (!snapshot) return snapshot;
+                  const initialState = JSON.parse(snapshot);
+                  return JSON.stringify({
+                    ...initialState,
+                    leaveQuotas: quotas,
+                  });
+                });
+              }
+            }}
+            saveButtonLabel="Simpan Perubahan"
           />
         )}
 
@@ -1494,7 +1589,7 @@ export function ClientComponent({
           {canUpdate && (
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !hasFormChanges}
               className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (

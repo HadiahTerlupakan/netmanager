@@ -136,16 +136,30 @@ export class UserRepository {
       query.take = limit;
     }
 
-    const [users, total, active] = await prisma.$transaction([
-      prisma.user.findMany(query),
-      prisma.user.count({ where: query.where }),
-      prisma.user.count({ where: { ...query.where, isActive: true } }),
-    ]);
+    const activeWhere: Prisma.UserWhereInput = {
+      ...(query.where ?? {}),
+      isActive: true,
+    };
+    const inactiveWhere: Prisma.UserWhereInput = {
+      ...(query.where ?? {}),
+      isActive: false,
+    };
+
+    const [users, total, activeCount, inactiveCount] =
+      await prisma.$transaction([
+        prisma.user.findMany(query),
+        prisma.user.count({ where: query.where }),
+        prisma.user.count({ where: activeWhere }),
+        prisma.user.count({ where: inactiveWhere }),
+      ]);
+
+    const active = isActive === false ? 0 : activeCount;
+    const inactive = isActive === true ? 0 : inactiveCount;
 
     return {
       total,
       active,
-      inactive: total - active,
+      inactive,
       data: users.map((user) => {
         const userWithMeta = user as unknown as {
           departments: { id: string; name: string } | null;

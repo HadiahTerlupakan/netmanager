@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { toast } from 'react-hot-toast'
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { toast } from "react-hot-toast";
 import {
   HiOutlineArrowLeft,
   HiOutlineEye,
@@ -21,78 +21,114 @@ import {
   HiOutlineGlobeAlt,
   HiOutlineStar,
   HiOutlineCurrencyDollar,
-  HiOutlineClock
-} from 'react-icons/hi2'
-import MultiSiteSelect from '../components/MultiSiteSelect'
-import WorkingHoursSettings from '../[id]/WorkingHoursSettings'
-import LeaveBalanceSettings from '../[id]/LeaveBalanceSettings'
-import { usePermission } from '@/hooks/use-permission'
+  HiOutlineClock,
+} from "react-icons/hi2";
+import MultiSiteSelect from "../components/MultiSiteSelect";
+import WorkingHoursSettings from "../[id]/WorkingHoursSettings";
+import LeaveBalanceSettings from "../[id]/LeaveBalanceSettings";
+import { usePermission } from "@/hooks/use-permission";
 
 interface SelectedSite {
-  siteId: string
-  isPrimary: boolean
+  siteId: string;
+  isPrimary: boolean;
 }
 
 interface Department {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
 interface Role {
-  id: string
-  name: string
-  description?: string
+  id: string;
+  name: string;
+  description?: string;
 }
 
 interface Site {
-  id: string
-  code: string
-  name: string
+  id: string;
+  code: string;
+  name: string;
 }
 
 interface Tenant {
-  id: string
-  name: string
+  id: string;
+  name: string;
+}
+
+let referenceDataPromise: Promise<{
+  departments: Department[];
+  roles: Role[];
+  sites: Site[];
+}> | null = null;
+let tenantsPromise: Promise<Tenant[]> | null = null;
+
+async function loadReferenceData() {
+  if (!referenceDataPromise) {
+    referenceDataPromise = Promise.all([
+      fetch("/api/admin/departments").then((res) => res.json()),
+      fetch("/api/roles?filterRestricted=true").then((res) => res.json()),
+      fetch("/api/admin/sites?activeOnly=true").then((res) => res.json()),
+    ]).then(([departmentsData, rolesData, sitesData]) => ({
+      departments: departmentsData.data || [],
+      roles: Array.isArray(rolesData) ? rolesData : [],
+      sites: sitesData.data || [],
+    }));
+  }
+
+  return referenceDataPromise;
+}
+
+async function loadTenants() {
+  if (!tenantsPromise) {
+    tenantsPromise = fetch("/api/admin/tenants")
+      .then((res) => res.json())
+      .then((data) => data.data || []);
+  }
+
+  return tenantsPromise;
 }
 
 export function ClientComponent() {
-  const router = useRouter()
-  const { hasPermission } = usePermission()
-  const searchParams = useSearchParams()
-  const tenantIdParam = searchParams.get('tenantId')
-  const canCreate = hasPermission('users:create')
+  const router = useRouter();
+  const { hasPermission } = usePermission();
+  const searchParams = useSearchParams();
+  const tenantIdParam = searchParams.get("tenantId");
+  const canCreate = hasPermission("users:create");
+  const canReadTenants = hasPermission("tenants:read");
 
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
-  const [sites, setSites] = useState<Site[]>([])
-  const [tenants, setTenants] = useState<Tenant[]>([])
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({})
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [leaveQuotas, setLeaveQuotas] = useState<Record<string, number>>({});
+  const hasLoadedReferenceData = useRef(false);
+  const hasLoadedTenants = useRef(false);
 
   const [formData, setFormData] = useState({
     // Account Information
-    email: '',
+    email: "",
     emailChecked: false,
     emailExists: false,
-    emailRole: '',
+    emailRole: "",
     isCheckingEmail: false,
-    name: '',
-    password: '',
-    phone: '',
+    name: "",
+    password: "",
+    phone: "",
     // Organization
-    departmentId: '',
+    departmentId: "",
     // Role
-    roleId: '',
+    roleId: "",
     // Status & Features
     isActive: true,
     isSales: false,
-    tenantId: '',
+    tenantId: "",
     // Sales Target
     canvasingTarget: 0,
-    targetSchema: 'REVENUE',
+    targetSchema: "REVENUE",
     // Salary configuration
     basicSalary: 0,
     payPeriodDay: 1,
@@ -104,219 +140,206 @@ export function ClientComponent() {
     overtimeRateNormal: 0,
     overtimeRateHoliday: 0,
     overtimeRateNational: 0,
-    overtimeCalcTypeNormal: 'FIXED',
-    overtimeCalcTypeHoliday: 'FIXED',
-    overtimeCalcTypeNational: 'FIXED',
-  })
-  const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([])
-  
+    overtimeCalcTypeNormal: "FIXED",
+    overtimeCalcTypeHoliday: "FIXED",
+    overtimeCalcTypeNational: "FIXED",
+  });
+  const [selectedSites, setSelectedSites] = useState<SelectedSite[]>([]);
+
   // Working Hours Data
   const [workingHoursData, setWorkingHoursData] = useState({
-    workingHourMode: 'FIXED',
-    attendanceGeofencePolicy: 'WARN',
+    workingHourMode: "FIXED",
+    attendanceGeofencePolicy: "WARN",
     isAttendanceRequired: true,
-    startWorkTime: '09:00',
-    endWorkTime: '17:00',
-    workDays: 'Mon,Tue,Wed,Thu,Fri',
+    startWorkTime: "09:00",
+    endWorkTime: "17:00",
+    workDays: "Mon,Tue,Wed,Thu,Fri",
     flexibleTargetHour: 8,
-    shiftId: null as string | null
-  })
+    shiftId: null as string | null,
+  });
 
   useEffect(() => {
-    const abortController = new AbortController()
-    const signal = abortController.signal
+    let isMounted = true;
 
-    const fetchDepartments = async () => {
-      try {
-        const res = await fetch('/api/admin/departments', { signal })
-        const data = await res.json()
-        if (res.ok) {
-          setDepartments(data.data || [])
-        }
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          console.error('Error fetching departments:', error)
-          toast.error('Gagal memuat data departemen')
-        }
-      }
+    if (!hasLoadedReferenceData.current) {
+      hasLoadedReferenceData.current = true;
+      loadReferenceData()
+        .then(({ departments, roles, sites }) => {
+          if (!isMounted) return;
+          setDepartments(departments);
+          setRoles(roles);
+          setSites(sites);
+        })
+        .catch((error) => {
+          hasLoadedReferenceData.current = false;
+          referenceDataPromise = null;
+          if (!isMounted) return;
+          console.error("Error fetching reference data:", error);
+          toast.error("Gagal memuat data referensi pengguna");
+        });
     }
 
-    const fetchRoles = async () => {
-      try {
-        const res = await fetch('/api/roles?filterRestricted=true', { signal })
-        const data = await res.json()
-        if (res.ok) {
-          setRoles(Array.isArray(data) ? data : [])
-        }
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          console.error('Error fetching roles:', error)
-          toast.error('Gagal memuat data peran')
-        }
-      }
-    }
-
-    const fetchSites = async () => {
-      try {
-        const res = await fetch('/api/admin/sites?activeOnly=true', { signal })
-        const data = await res.json()
-        if (res.ok) {
-          setSites(data.data || [])
-        }
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          console.error('Error fetching sites:', error)
-          toast.error('Gagal memuat data site')
-        }
-      }
-    }
-
-    const fetchTenants = async () => {
-      try {
-        const res = await fetch('/api/admin/tenants', { signal })
-        const data = await res.json()
-        if (res.ok) {
-          setTenants(data.data || [])
-        }
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          console.error('Error fetching tenants:', error)
-        }
-      }
-    }
-
-    fetchDepartments()
-    fetchRoles()
-    fetchSites()
-    if (hasPermission('tenants:read')) {
-      fetchTenants()
+    if (canReadTenants && !hasLoadedTenants.current) {
+      hasLoadedTenants.current = true;
+      loadTenants()
+        .then((tenants) => {
+          if (isMounted) setTenants(tenants);
+        })
+        .catch((error) => {
+          hasLoadedTenants.current = false;
+          tenantsPromise = null;
+          if (!isMounted) return;
+          console.error("Error fetching tenants:", error);
+        });
     }
 
     return () => {
-      abortController.abort()
-    }
-  }, [hasPermission])
+      isMounted = false;
+    };
+  }, [canReadTenants]);
 
   useEffect(() => {
     if (tenantIdParam) {
-      setFormData(prev => ({ ...prev, tenantId: tenantIdParam }))
+      setFormData((prev) => ({ ...prev, tenantId: tenantIdParam }));
     }
-  }, [tenantIdParam])
+  }, [tenantIdParam]);
 
   const generatePassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
-    let password = ''
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    let password = "";
     for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length))
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    setFormData(prev => ({ ...prev, password }))
-    setErrors(prev => {
-      const newErrors = { ...prev }
-      delete newErrors.password
-      return newErrors
-    })
-  }
+    setFormData((prev) => ({ ...prev, password }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.password;
+      return newErrors;
+    });
+  };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target
-    const checked = (e.target as HTMLInputElement).checked
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
+      [name]: type === "checkbox" ? checked : value,
+    }));
 
-    if (name === 'email') {
-      setFormData(prev => ({ ...prev, emailChecked: false, emailExists: false }))
+    if (name === "email") {
+      setFormData((prev) => ({
+        ...prev,
+        emailChecked: false,
+        emailExists: false,
+      }));
     }
 
     if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
     }
-  }
+  };
 
   // Real-time email validation with debounce
   useEffect(() => {
     if (!formData.email || !/^\S+@\S+\.\S+$/.test(formData.email)) {
-      setFormData(prev => ({ ...prev, emailChecked: false, isCheckingEmail: false }))
-      return
+      setFormData((prev) => ({
+        ...prev,
+        emailChecked: false,
+        isCheckingEmail: false,
+      }));
+      return;
     }
 
     const timer = setTimeout(async () => {
-      setFormData(prev => ({ ...prev, isCheckingEmail: true }))
+      setFormData((prev) => ({ ...prev, isCheckingEmail: true }));
       try {
-        const res = await fetch(`/api/admin/users/check-identifier?email=${encodeURIComponent(formData.email)}`)
-        const data = await res.json()
+        const res = await fetch(
+          `/api/admin/users/check-identifier?email=${encodeURIComponent(formData.email)}`,
+        );
+        const data = await res.json();
         if (res.ok && data.data) {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             emailChecked: true,
             emailExists: data.data.exists,
-            emailRole: data.data.role || '',
-            isCheckingEmail: false
-          }))
-          
+            emailRole: data.data.role || "",
+            isCheckingEmail: false,
+          }));
+
           if (data.data.exists) {
-            setErrors(prev => ({ ...prev, email: `Email sudah terdaftar sebagai ${data.data.role}` }))
+            setErrors((prev) => ({
+              ...prev,
+              email: `Email sudah terdaftar sebagai ${data.data.role}`,
+            }));
           } else {
-            setErrors(prev => {
-              const newErrors = { ...prev }
-              delete newErrors.email
-              return newErrors
-            })
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors.email;
+              return newErrors;
+            });
           }
         }
       } catch (error) {
-        console.error('Error checking email:', error)
+        console.error("Error checking email:", error);
       } finally {
-        setFormData(prev => ({ ...prev, isCheckingEmail: false }))
+        setFormData((prev) => ({ ...prev, isCheckingEmail: false }));
       }
-    }, 800) // 800ms debounce
+    }, 800); // 800ms debounce
 
-    return () => clearTimeout(timer)
-  }, [formData.email])
+    return () => clearTimeout(timer);
+  }, [formData.email]);
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!formData.email) {
-      newErrors.email = 'Email wajib diisi'
+      newErrors.email = "Email wajib diisi";
     } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = 'Format email tidak valid'
+      newErrors.email = "Format email tidak valid";
     } else if (formData.emailExists) {
-      newErrors.email = `Email sudah terdaftar sebagai ${formData.emailRole}`
+      newErrors.email = `Email sudah terdaftar sebagai ${formData.emailRole}`;
     }
 
     if (!formData.name) {
-      newErrors.name = 'Nama wajib diisi'
+      newErrors.name = "Nama wajib diisi";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password wajib diisi'
+      newErrors.password = "Password wajib diisi";
     } else if (formData.password.length < 8) {
-      newErrors.password = 'Password minimal 8 karakter'
+      newErrors.password = "Password minimal 8 karakter";
+    }
+
+    if (canReadTenants && !formData.tenantId) {
+      newErrors.tenantId = "Tenant wajib dipilih";
     }
 
     if (!formData.roleId) {
-      newErrors.roleId = 'Peran pengguna wajib dipilih'
+      newErrors.roleId = "Peran pengguna wajib dipilih";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!validateForm()) {
-      return
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
       // Clean up data before sending
@@ -330,44 +353,45 @@ export function ClientComponent() {
         shiftId: workingHoursData.shiftId || null,
         userSites: selectedSites,
         leaveQuotas: leaveQuotas,
-      }
+      };
 
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submitData),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (res.ok) {
-        setShowSuccess(true)
+        setShowSuccess(true);
         setTimeout(() => {
-          router.push('/admin/users')
-        }, 2000)
+          router.push("/admin/users");
+        }, 2000);
       } else {
         // Handle validation errors from server
-        if (data.code === 'VALIDATION_ERROR' && data.details) {
-          const serverErrors: Record<string, string> = {}
+        if (data.code === "VALIDATION_ERROR" && data.details) {
+          const serverErrors: Record<string, string> = {};
           // Map server validation details to form errors
           Object.entries(data.details).forEach(([key, msg]) => {
-            serverErrors[key] = msg as string
-          })
+            serverErrors[key] = msg as string;
+          });
           setErrors({
             ...serverErrors,
-            submit: 'Terdapat kesalahan validasi. Periksa kembali inputan Anda.'
-          })
+            submit:
+              "Terdapat kesalahan validasi. Periksa kembali inputan Anda.",
+          });
         } else {
-          setErrors({ submit: data.error || 'Gagal membuat pengguna' })
+          setErrors({ submit: data.error || "Gagal membuat pengguna" });
         }
       }
     } catch (error) {
-      console.error('Error:', error)
-      setErrors({ submit: 'Terjadi kesalahan. Silakan coba lagi.' })
+      console.error("Error:", error);
+      setErrors({ submit: "Terjadi kesalahan. Silakan coba lagi." });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (showSuccess) {
     return (
@@ -376,12 +400,16 @@ export function ClientComponent() {
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <HiOutlineCheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">Berhasil!</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Pengguna baru telah dibuat</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+            Berhasil!
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Pengguna baru telah dibuat
+          </p>
           <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-indigo-500"></div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -395,14 +423,16 @@ export function ClientComponent() {
           <HiOutlineArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tambah Pengguna Baru</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Tambah Pengguna Baru
+          </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Buat akun pengguna baru untuk sistem
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Account Information Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 bg-linear-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700">
@@ -411,8 +441,12 @@ export function ClientComponent() {
                 <HiOutlineUserCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Informasi Akun</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Data login dan identitas pengguna</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Informasi Akun
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Data login dan identitas pengguna
+                </p>
               </div>
             </div>
           </div>
@@ -420,9 +454,12 @@ export function ClientComponent() {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Tenant Selection (Super Admin only) */}
-              {hasPermission('tenants:read') && (
+              {hasPermission("tenants:read") && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="tenantId"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Tenant <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -430,29 +467,42 @@ export function ClientComponent() {
                       <HiOutlineGlobeAlt className="h-5 w-5 text-gray-400" />
                     </div>
                     <select
+                      id="tenantId"
                       name="tenantId"
-                      required
                       value={formData.tenantId}
                       onChange={handleChange}
-                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.tenantId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                        }`}
+                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                        errors.tenantId
+                          ? "border-red-300 dark:border-red-700"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                     >
                       <option value="">Pilih Tenant</option>
-                      {tenants.map(tenant => (
+                      {tenants.map((tenant) => (
                         <option key={tenant.id} value={tenant.id}>
                           {tenant.name}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Pilih tenant untuk pengguna ini. Pengguna akan dibatasi hanya pada data milik tenant ini.</p>
-                  {errors.tenantId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.tenantId}</p>}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Pilih tenant untuk pengguna ini. Pengguna akan dibatasi
+                    hanya pada data milik tenant ini.
+                  </p>
+                  {errors.tenantId && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.tenantId}
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Email */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Alamat Email <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -460,40 +510,53 @@ export function ClientComponent() {
                     <HiOutlineEnvelope className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    id="email"
                     type="email"
                     name="email"
-                    required
                     value={formData.email}
                     onChange={handleChange}
-                    className={`block w-full pl-10 pr-10 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.email ? 'border-red-300 dark:border-red-700' : (formData.emailChecked && !formData.emailExists) ? 'border-green-500 dark:border-green-600' : 'border-gray-300 dark:border-gray-600'
-                      }`}
+                    className={`block w-full pl-10 pr-10 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                      errors.email
+                        ? "border-red-300 dark:border-red-700"
+                        : formData.emailChecked && !formData.emailExists
+                          ? "border-green-500 dark:border-green-600"
+                          : "border-gray-300 dark:border-gray-600"
+                    }`}
                     placeholder="contoh@perusahaan.com"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                     {formData.isCheckingEmail ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-indigo-500"></div>
-                    ) : formData.emailChecked && (
-                      formData.emailExists ? (
+                    ) : (
+                      formData.emailChecked &&
+                      (formData.emailExists ? (
                         <HiOutlineExclamationTriangle className="h-5 w-5 text-red-500" />
                       ) : (
                         <HiOutlineCheckCircle className="h-5 w-5 text-green-500" />
-                      )
+                      ))
                     )}
                   </div>
                 </div>
                 {errors.email && (
-                  <p className={`mt-1 text-sm ${formData.emailExists ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <p
+                    className={`mt-1 text-sm ${formData.emailExists ? "text-red-600 dark:text-red-400" : "text-red-600 dark:text-red-400"}`}
+                  >
                     {errors.email}
                   </p>
                 )}
                 {formData.emailChecked && !formData.emailExists && (
-                  <p className="mt-1 text-sm text-green-600 dark:text-green-400">Email tersedia</p>
+                  <p className="mt-1 text-sm text-green-600 dark:text-green-400">
+                    Email tersedia
+                  </p>
                 )}
               </div>
 
               {/* Role Selection */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="roleId"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Peran Pengguna <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -501,27 +564,38 @@ export function ClientComponent() {
                     <HiOutlineIdentification className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
+                    id="roleId"
                     name="roleId"
-                    required
                     value={formData.roleId}
                     onChange={handleChange}
-                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.roleId ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                      }`}
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                      errors.roleId
+                        ? "border-red-300 dark:border-red-700"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
                   >
                     <option value="">Pilih Peran</option>
-                    {roles.map(role => (
+                    {roles.map((role) => (
                       <option key={role.id} value={role.id}>
-                        {role.name} {role.description ? `- ${role.description}` : ''}
+                        {role.name}{" "}
+                        {role.description ? `- ${role.description}` : ""}
                       </option>
                     ))}
                   </select>
                 </div>
-                {errors.roleId && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.roleId}</p>}
+                {errors.roleId && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.roleId}
+                  </p>
+                )}
               </div>
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Nama Lengkap <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
@@ -529,22 +603,32 @@ export function ClientComponent() {
                     <HiOutlineUser className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    id="name"
                     type="text"
                     name="name"
-                    required
                     value={formData.name}
                     onChange={handleChange}
-                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.name ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                      }`}
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                      errors.name
+                        ? "border-red-300 dark:border-red-700"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
                     placeholder="Nama lengkap pengguna"
                   />
                 </div>
-                {errors.name && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
+                {errors.name && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.name}
+                  </p>
+                )}
               </div>
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Nomor Telepon
                 </label>
                 <div className="relative">
@@ -552,6 +636,7 @@ export function ClientComponent() {
                     <HiOutlinePhone className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
+                    id="phone"
                     type="tel"
                     name="phone"
                     value={formData.phone}
@@ -564,7 +649,10 @@ export function ClientComponent() {
 
               {/* Password */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
                   Kata Sandi <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-3">
@@ -573,33 +661,50 @@ export function ClientComponent() {
                       <HiOutlineKey className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      id="password"
+                      type={showPassword ? "text" : "password"}
                       name="password"
-                      required
                       value={formData.password}
                       onChange={handleChange}
-                      className={`block w-full pl-10 pr-10 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.password ? 'border-red-300 dark:border-red-700' : 'border-gray-300 dark:border-gray-600'
-                        }`}
+                      className={`block w-full pl-10 pr-10 py-3 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                        errors.password
+                          ? "border-red-300 dark:border-red-700"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                       placeholder="Minimal 8 karakter"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={
+                        showPassword
+                          ? "Sembunyikan kata sandi"
+                          : "Tampilkan kata sandi"
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      {showPassword ? <HiOutlineEyeSlash className="w-5 h-5" /> : <HiOutlineEye className="w-5 h-5" />}
+                      {showPassword ? (
+                        <HiOutlineEyeSlash className="w-5 h-5" />
+                      ) : (
+                        <HiOutlineEye className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                   <button
                     type="button"
                     onClick={generatePassword}
+                    aria-label="Buat kata sandi otomatis"
                     className="flex items-center gap-2 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
                   >
                     <HiOutlineKey className="w-5 h-5" />
                     Generate
                   </button>
                 </div>
-                {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.password}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -613,8 +718,12 @@ export function ClientComponent() {
                 <HiOutlineBuildingOffice className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Organisasi</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Penempatan departemen dan lokasi kerja</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Organisasi
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Penempatan departemen dan lokasi kerja
+                </p>
               </div>
             </div>
           </div>
@@ -637,8 +746,10 @@ export function ClientComponent() {
                     className="w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Pilih Departemen</option>
-                    {departments.map(dept => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -651,7 +762,9 @@ export function ClientComponent() {
                   selectedSites={selectedSites}
                   onChange={setSelectedSites}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Site diperlukan untuk melihat work order di area tersebut</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Site diperlukan untuk melihat work order di area tersebut
+                </p>
               </div>
             </div>
           </div>
@@ -667,9 +780,11 @@ export function ClientComponent() {
             endWorkTime: workingHoursData.endWorkTime,
             workDays: workingHoursData.workDays,
             flexibleTargetHour: workingHoursData.flexibleTargetHour,
-            shiftId: workingHoursData.shiftId
+            shiftId: workingHoursData.shiftId,
           }}
-          onChange={(data) => setWorkingHoursData(prev => ({ ...prev, ...data }))}
+          onChange={(data) =>
+            setWorkingHoursData((prev) => ({ ...prev, ...data }))
+          }
         />
 
         {/* Status & Sales Section */}
@@ -680,8 +795,12 @@ export function ClientComponent() {
                 <HiOutlineShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Akses & Privilese</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pengaturan status dan fitur khusus pengguna</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Akses & Privilege
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Pengaturan status dan fitur khusus pengguna
+                </p>
               </div>
             </div>
           </div>
@@ -689,8 +808,12 @@ export function ClientComponent() {
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <div>
-                <h3 className="font-medium text-gray-900 dark:text-white">Akun Aktif</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Pengguna dapat login ke sistem jika akun aktif</p>
+                <h3 className="font-medium text-gray-900 dark:text-white">
+                  Akun Aktif
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Pengguna dapat login ke sistem jika akun aktif
+                </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -706,8 +829,14 @@ export function ClientComponent() {
 
             <div className="flex items-center justify-between p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
               <div>
-                <h3 className="font-medium text-indigo-900 dark:text-indigo-300">Fitur Sales & Canvasing</h3>
-                <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">Aktifkan jika user adalah Sales atau Teknisi yang merangkap Sales. User akan tampil di Manajemen Sales dan bisa akses menu Canvasing.</p>
+                <h3 className="font-medium text-indigo-900 dark:text-indigo-300">
+                  Fitur Sales & Canvassing
+                </h3>
+                <p className="text-sm text-indigo-600/70 dark:text-indigo-400/60">
+                  Aktifkan jika user adalah Sales atau Teknisi yang merangkap
+                  Sales. User akan tampil di Manajemen Sales dan bisa akses menu
+                  Canvassing.
+                </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -726,7 +855,7 @@ export function ClientComponent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-100 dark:border-gray-700">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Target Canvasing (Poin)
+                    Target Canvassing (Poin)
                   </label>
                   <input
                     type="number"
@@ -755,7 +884,7 @@ export function ClientComponent() {
             )}
 
             {/* Basic Salary - Only if admin has permission */}
-            {hasPermission('payroll:read') && (
+            {hasPermission("payroll:read") && (
               <div className="p-4 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
                 <h3 className="font-medium text-emerald-900 dark:text-emerald-300 mb-3 flex items-center gap-2">
                   <HiOutlineStar className="w-4 h-4" />
@@ -806,12 +935,18 @@ export function ClientComponent() {
 
                 {/* Incentives & Deductions */}
                 <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-900/20">
-                  <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-500 uppercase tracking-wider mb-3">Insentif & Potongan</h4>
+                  <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-500 uppercase tracking-wider mb-3">
+                    Insentif & Potongan
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
                       <div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Insentif WO</span>
-                        <p className="text-[10px] text-gray-500">Aktifkan bonus per WO selesai</p>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Insentif WO
+                        </span>
+                        <p className="text-[10px] text-gray-500">
+                          Aktifkan bonus per WO selesai
+                        </p>
                       </div>
                       <div className="flex items-center gap-3">
                         {formData.woIncentiveEnabled && (
@@ -839,7 +974,9 @@ export function ClientComponent() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-rose-100 dark:border-rose-900/20">
-                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">Denda Terlambat</span>
+                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">
+                          Denda Terlambat
+                        </span>
                         <input
                           type="number"
                           name="lateDeductionRate"
@@ -850,7 +987,9 @@ export function ClientComponent() {
                         />
                       </div>
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-rose-100 dark:border-rose-900/20">
-                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">Denda Mangkir</span>
+                        <span className="text-xs font-medium text-rose-700 dark:text-rose-400 block mb-1">
+                          Denda Mangkir
+                        </span>
                         <input
                           type="number"
                           name="absentDeductionRate"
@@ -872,17 +1011,26 @@ export function ClientComponent() {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {[
-                      { key: 'Normal', label: 'Hari Kerja', color: 'indigo' },
-                      { key: 'Holiday', label: 'Hari Libur', color: 'amber' },
-                      { key: 'National', label: 'Libur Nas.', color: 'rose' }
+                      { key: "Normal", label: "Hari Kerja", color: "indigo" },
+                      { key: "Holiday", label: "Hari Libur", color: "amber" },
+                      { key: "National", label: "Libur Nas.", color: "rose" },
                     ].map((item) => (
-                      <div key={item.key} className={`p-3 bg-white dark:bg-gray-800 rounded-lg border border-${item.color}-100 dark:border-${item.color}-900/20`}>
-                        <span className={`text-xs font-bold text-${item.color}-700 dark:text-${item.color}-400 block mb-2`}>{item.label}</span>
+                      <div
+                        key={item.key}
+                        className={`p-3 bg-white dark:bg-gray-800 rounded-lg border border-${item.color}-100 dark:border-${item.color}-900/20`}
+                      >
+                        <span
+                          className={`text-xs font-bold text-${item.color}-700 dark:text-${item.color}-400 block mb-2`}
+                        >
+                          {item.label}
+                        </span>
                         <div className="space-y-2">
                           <select
                             name={`overtimeCalcType${item.key}`}
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            value={(formData as any)[`overtimeCalcType${item.key}`]}
+                            value={
+                              (formData as any)[`overtimeCalcType${item.key}`]
+                            }
                             onChange={handleChange}
                             className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
                           >
@@ -896,11 +1044,15 @@ export function ClientComponent() {
                               type="number"
                               name={`overtimeRate${item.key}`}
                               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              value={(formData as any)[`overtimeRate${item.key}`]}
+                              value={
+                                (formData as any)[`overtimeRate${item.key}`]
+                              }
                               onChange={handleChange}
                               className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
                             />
-                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">Rp</span>
+                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                              Rp
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -913,7 +1065,7 @@ export function ClientComponent() {
         </div>
 
         {/* Leave Balance Configuration */}
-        {hasPermission('attendance:read') && (
+        {hasPermission("attendance:read") && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-6 py-4 bg-linear-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
@@ -921,8 +1073,12 @@ export function ClientComponent() {
                   <HiOutlineCurrencyDollar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Kuota Cuti Awal</h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Inisialisasi saldo cuti dan izin tahunan</p>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Kuota Cuti Awal
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Inisialisasi saldo cuti dan izin tahunan
+                  </p>
                 </div>
               </div>
             </div>
@@ -931,10 +1087,11 @@ export function ClientComponent() {
                 userId="NEW_USER"
                 workingHourMode={workingHoursData.workingHourMode}
                 onChange={(quotas) => setLeaveQuotas(quotas)}
+                saveButtonLabel="Simpan Pengguna"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                ℹ️ Kuota ini akan diterapkan segera setelah akun pengguna dibuat. 
-                Mode **FLEXIBLE** biasanya tidak memerlukan kuota cuti.
+                ℹ️ Kuota ini akan diterapkan segera setelah akun pengguna
+                dibuat. Mode **FLEXIBLE** biasanya tidak memerlukan kuota cuti.
               </p>
             </div>
           </div>
@@ -980,5 +1137,5 @@ export function ClientComponent() {
         </div>
       </form>
     </div>
-  )
+  );
 }

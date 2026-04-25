@@ -34,16 +34,16 @@ export default async function AdminLayout({
     <RealtimeProviderWrapper>
       <ToastProvider>
         <ForceLogoutListener />
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
+        <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-950 flex">
           <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
             <AnnouncementBanner portal="admin" />
             <PushNotificationProvider>
               <PushNotificationManager className="mx-6 mt-4" />
               <Navbar />
             </PushNotificationProvider>
-            <main className="flex-1 overflow-y-auto">
-              <div className="p-6">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+              <div className="p-6 w-full max-w-full overflow-x-hidden">
                 <ErrorBoundary>{children}</ErrorBoundary>
               </div>
             </main>
