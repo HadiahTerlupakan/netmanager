@@ -717,11 +717,13 @@ spec:
                           \$(if [ -n "${env.FIREBASE_DATABASE_URL}" ]; then printf -- "--from-literal=FIREBASE_DATABASE_URL=%s" "${env.FIREBASE_DATABASE_URL}"; fi) | kubectl apply -f -
 
                         APP_PREVIOUS_IMAGE="\$(get_current_image netmanager-app app)"
+                        WORKER_PREVIOUS_IMAGE="\$(get_current_image netmanager-worker worker)"
                         CRON_PREVIOUS_IMAGE="\$(get_current_image netmanager-cron cron)"
                         RADIUS_PREVIOUS_IMAGE="\$(get_current_image netmanager-radius radius)"
 
                         if [ "${NAMESPACE}" = "netmanager-production" ]; then
                           assert_cluster_image_contract netmanager-app app
+                          assert_cluster_image_contract netmanager-worker worker
                           assert_cluster_image_contract netmanager-cron cron
                           assert_cluster_image_contract netmanager-radius radius
                           require_cluster_nodes_ready_for_production_change before-production-rollout
@@ -730,7 +732,7 @@ spec:
                         kubectl apply -f ${K8S_DIR}/namespace.yaml
                         find ${K8S_DIR}/ -maxdepth 1 -name "*.yaml" ! -name "secrets.yaml" ! -name "registry-secret.yaml" ! -name "namespace.yaml" | sort | while IFS= read -r manifest; do
                           case "\$manifest" in
-                            *app-deployment.yaml|*cron-deployment.yaml|*radius-deployment.yaml)
+                            *app-deployment.yaml|*worker-deployment.yaml|*cron-deployment.yaml|*radius-deployment.yaml)
                               rendered_manifest="\$(mktemp)"
                               render_manifest_to_file "\$manifest" "\$rendered_manifest"
                               kubectl apply -f "\$rendered_manifest"
@@ -756,6 +758,7 @@ spec:
                         }
 
                         rollout_workload netmanager-app "\$APP_PREVIOUS_IMAGE" "${env.APP_DEPLOY_REF}"
+                        rollout_workload netmanager-worker "\$WORKER_PREVIOUS_IMAGE" "${env.APP_DEPLOY_REF}"
                         rollout_workload netmanager-cron "\$CRON_PREVIOUS_IMAGE" "${env.CRON_DEPLOY_REF}"
                         rollout_workload netmanager-radius "\$RADIUS_PREVIOUS_IMAGE" "${env.RADIUS_DEPLOY_REF}"
 

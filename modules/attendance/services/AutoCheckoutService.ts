@@ -89,6 +89,7 @@ export class AutoCheckoutService {
           },
           now,
           scheduleEndTime,
+          timezone,
         });
 
         if (!decision.shouldAutoCheckout || !decision.autoCheckoutAt) {
@@ -123,6 +124,7 @@ export class AutoCheckoutService {
   static async runAutoCheckoutJob(data: AttendanceAutoCheckoutJobData) {
     const attendanceRepo = new AttendanceRepository();
     const sessionPolicyService = new AttendanceSessionPolicyService();
+    const timezone = await getTimezone(data.tenantId);
     const attendance = await attendanceRepo.findOpenSessionForAutoCheckout({
       attendanceId: data.attendanceId,
       tenantId: data.tenantId,
@@ -160,6 +162,7 @@ export class AutoCheckoutService {
       },
       now: new Date(),
       scheduleEndTime,
+      timezone,
     });
 
     const sourceCheckInDate = getSourceCheckInDate(attendance.checkIn);

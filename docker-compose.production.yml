@@ -396,6 +396,7 @@ services:
       # Cron Security
       CRON_SECRET: ${CRON_SECRET}
       ENABLE_INTERNAL_CRON: "false"
+      ENABLE_EVENT_BUS_WORKERS: "false"
 
       # RADIUS Configuration
       RADIUS_PUBLIC_IP: ${RADIUS_PUBLIC_IP:-}
@@ -462,6 +463,62 @@ services:
     networks:
       - internal
       - web
+
+  # ==========================================================================
+  # WORKER - BullMQ Background Jobs
+  # ==========================================================================
+  worker:
+    image: netmanager-app:${APP_VERSION:-latest}
+    container_name: netmanager-worker
+    restart: always
+    command: ["node", "node_modules/.bin/tsx", "worker.ts"]
+    depends_on:
+      pgbouncer_db:
+        condition: service_started
+      pgbouncer_radius:
+        condition: service_started
+      pgbouncer_billing:
+        condition: service_started
+      pgbouncer_mitra:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Jakarta
+      NODE_ENV: production
+      TMPDIR: /app/tmp
+      DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_db:6432/${POSTGRES_DB:-netmanager}
+      DATABASE_URL_BILLING: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_billing:6432/${POSTGRES_DB_BILLING:-billing}?schema=public&connection_limit=10&pool_timeout=10
+      RADIUS_DATABASE_URL: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_radius:6432/${POSTGRES_DB_RADIUS:-radius}
+      DATABASE_URL_MITRA: postgresql://${POSTGRES_USER:-netmgr}:${POSTGRES_PASSWORD}@pgbouncer_mitra:6432/${POSTGRES_DB_MITRA:-mitra}?schema=public&connection_limit=10&pool_timeout=10
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET wajib diisi}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET wajib diisi}
+      CRON_SECRET: ${CRON_SECRET}
+      ENABLE_INTERNAL_CRON: "false"
+      ENABLE_EVENT_BUS_WORKERS: "true"
+      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?FIREBASE_PROJECT_ID wajib diisi}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:?FIREBASE_CLIENT_EMAIL wajib diisi}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:?FIREBASE_PRIVATE_KEY wajib diisi}
+      FIREBASE_DATABASE_URL: ${FIREBASE_DATABASE_URL:-}
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./uploads:/app/public/uploads
+      - ./tmp:/app/tmp
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: "1"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - internal
 
   # ==========================================================================
   # REVERSE PROXY - Traefik (dengan SSL/HTTPS)

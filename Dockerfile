@@ -145,6 +145,7 @@ RUN find node_modules \( \
 # Copy necessary files for the custom server and background tasks
 # These files are needed by server.ts and are not automatically bundled in standalone
 COPY --from=builder --chown=nextjs:nodejs /app/server.ts ./server.ts
+COPY --from=builder --chown=nextjs:nodejs /app/worker.ts ./worker.ts
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/modules ./modules
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma

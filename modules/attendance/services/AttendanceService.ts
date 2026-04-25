@@ -461,6 +461,7 @@ export class AttendanceService {
     userId: string,
     userDetails: CachedUserAttendanceSettings | null,
     atTime: Date,
+    timezone: string,
     tenantId?: string,
   ) {
     const latestOpenAttendance =
@@ -499,6 +500,7 @@ export class AttendanceService {
         userDetails,
         shift,
       ),
+      timezone,
     });
 
     if (decision.isStaleFlexibleSession || !decision.shouldAutoCheckout) {
@@ -577,13 +579,16 @@ export class AttendanceService {
       userId,
       userDetails,
       effectiveToday,
+      checkInTime,
       tenantId,
+      tz,
     );
 
     await this.assertNoActiveSessionConflict(
       userId,
       userDetails,
       checkInTime,
+      tz,
       tenantId,
     );
 
@@ -723,7 +728,9 @@ export class AttendanceService {
       shift?: { startTime: string; endTime: string } | null;
     } | null,
     effectiveToday: Date,
-    tenantId?: string,
+    policyNow: Date,
+    tenantId: string | undefined,
+    timezone: string,
   ) {
     const sessionPolicyService = new AttendanceSessionPolicyService();
 
@@ -766,12 +773,13 @@ export class AttendanceService {
                   : null,
               },
             },
-            now: new Date(),
+            now: policyNow,
             scheduleEndTime: this.getScheduleEndTimeForPolicy(
               userDetails?.workingHourMode,
               userDetails,
               userDetails?.shift,
             ),
+            timezone,
           });
 
           const updateData = sessionPolicyService.buildAutoCheckoutUpdate({

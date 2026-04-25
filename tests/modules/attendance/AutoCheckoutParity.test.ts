@@ -143,7 +143,9 @@ describe("Attendance session policy parity", () => {
             shift?: { startTime: string; endTime: string } | null;
           } | null,
           effectiveToday: Date,
-          tenantId?: string,
+          policyNow: Date,
+          tenantId: string | undefined,
+          timezone: string,
         ) => Promise<void>;
       }
     ).processAutoCheckout.bind(attendanceService);
@@ -156,7 +158,9 @@ describe("Attendance session policy parity", () => {
         shift: null,
       },
       new Date("2026-03-28T00:00:00.000Z"),
+      new Date("2026-03-28T00:00:00.000Z"),
       "tenant-1",
+      "Asia/Jakarta",
     );
 
     const inlineUpdate =

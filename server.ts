@@ -315,9 +315,11 @@ app.prepare().then(() => {
   });
 
   startPushRetryProcessor();
-  initializeEventBus().catch((err) =>
-    console.error("[Server] Failed to initialize Event Bus:", err),
-  );
+  if (process.env.ENABLE_EVENT_BUS_WORKERS !== "false") {
+    initializeEventBus().catch((err) =>
+      console.error("[Server] Failed to initialize Event Bus:", err),
+    );
+  }
   startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() });
 
   import("./modules/network/services/RadiusMonitor")

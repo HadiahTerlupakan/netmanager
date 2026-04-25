@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: netmanager-app
-  namespace: netmanager-staging
+  name: netmanager-worker
+  namespace: netmanager-production
 spec:
   replicas: 1
   strategy:
@@ -12,35 +12,25 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: netmanager-app
+      app: netmanager-worker
   template:
     metadata:
       labels:
-        app: netmanager-app
+        app: netmanager-worker
+      annotations:
+        deploy.radpro.id/managed-by: "jenkins"
+        deploy.radpro.id/image-ref: "{{APP_IMAGE}}"
     spec:
       imagePullSecrets:
-        - name: netmanager-staging-registry
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - netmanager-app
-                topologyKey: kubernetes.io/hostname
+        - name: netmanager-production-registry
       securityContext:
         fsGroup: 1001
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 60
       containers:
-        - name: app
+        - name: worker
           image: "{{APP_IMAGE}}"
           imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 3000
+          command: ["node", "node_modules/.bin/tsx", "worker.ts"]
           envFrom:
             - configMapRef:
                 name: netmanager-config
@@ -95,20 +85,20 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: CRON_SECRET
-            - name: ENABLE_INTERNAL_CRON
-              value: "false"
-            - name: ENABLE_EVENT_BUS_WORKERS
-              value: "false"
-            - name: OAUTH_ENCRYPTION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: netmanager-secrets
-                  key: OAUTH_ENCRYPTION_KEY
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: REDIS_URL
+            - name: OAUTH_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: OAUTH_ENCRYPTION_KEY
+            - name: ENABLE_INTERNAL_CRON
+              value: "false"
+            - name: ENABLE_EVENT_BUS_WORKERS
+              value: "true"
             - name: FIREBASE_PROJECT_ID
               valueFrom:
                 secretKeyRef:
@@ -130,61 +120,17 @@ spec:
                   name: netmanager-firebase-secrets
                   key: FIREBASE_DATABASE_URL
                   optional: true
-            - name: ALLOWED_ORIGINS
-              valueFrom:
-                configMapKeyRef:
-                  name: netmanager-config
-                  key: ALLOWED_ORIGINS
-            # RADIUS external ports (match NodePort values in radius-deployment.yaml)
-            - name: RADIUS_AUTH_PORT
-              value: "31812"
-            - name: RADIUS_ACCT_PORT
-              value: "31813"
           volumeMounts:
             - name: uploads-volume
               mountPath: /app/public/uploads
           resources:
             requests:
-              cpu: "188m"
-              memory: "384Mi"
+              cpu: "125m"
+              memory: "256Mi"
             limits:
-              cpu: "1125m"
-              memory: "1152Mi"
-          startupProbe:
-            httpGet:
-              path: /api/health
-              port: 3000
-            failureThreshold: 30
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /api/health
-              port: 3000
-            initialDelaySeconds: 0
-            periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /api/health
-              port: 3000
-            initialDelaySeconds: 0
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 3
+              cpu: "1000m"
+              memory: "768Mi"
       volumes:
         - name: uploads-volume
           persistentVolumeClaim:
             claimName: netmanager-uploads
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: netmanager-app
-  namespace: netmanager-staging
-spec:
-  ports:
-    - port: 80
-      targetPort: 3000
-  selector:
-    app: netmanager-app

@@ -106,7 +106,7 @@ describe("AutoCheckoutService semantics", () => {
       attendanceId: "att-1",
       tenantId: "tenant-1",
       mode: "FIXED",
-      expectedAutoCheckoutAt: "2026-03-27T10:00:00.000Z",
+      expectedAutoCheckoutAt: "2026-03-27T13:00:00.000Z",
       sourceCheckInDate: "2026-03-27",
     });
 
@@ -130,6 +130,47 @@ describe("AutoCheckoutService semantics", () => {
     expect(prismaMock.attendance.update).not.toHaveBeenCalled();
   });
 
+  it("validates worker auto-checkout timestamp using tenant timezone", async () => {
+    vi.mocked(getTimezone).mockResolvedValueOnce("Asia/Jakarta");
+    prismaMock.attendance.findFirst.mockResolvedValueOnce({
+      id: "att-jakarta-worker",
+      tenantId: "tenant-jakarta",
+      checkIn: new Date("2026-03-27T01:00:00.000Z"),
+      checkOut: null,
+      status: "ON_TIME",
+      notes: null,
+      user: {
+        name: "Jakarta Worker",
+        workingHourMode: "FIXED",
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        shift: null,
+      },
+    } as never);
+
+    await AutoCheckoutService.runAutoCheckoutJob({
+      attendanceId: "att-jakarta-worker",
+      tenantId: "tenant-jakarta",
+      mode: "FIXED",
+      expectedAutoCheckoutAt: "2026-03-27T13:00:00.000Z",
+      sourceCheckInDate: "2026-03-27",
+    });
+
+    expect(getTimezone).toHaveBeenCalledWith("tenant-jakarta");
+    expect(prismaMock.attendance.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "att-jakarta-worker",
+          tenantId: "tenant-jakarta",
+        }),
+        data: expect.objectContaining({
+          checkOut: new Date("2026-03-27T13:00:00.000Z"),
+          status: "NO_CHECKOUT",
+        }),
+      }),
+    );
+  });
+
   it("returns noop when conditional update misses due to concurrent manual checkout or correction", async () => {
     prismaMock.attendance.updateMany.mockResolvedValueOnce({
       count: 0,
@@ -139,7 +180,7 @@ describe("AutoCheckoutService semantics", () => {
       attendanceId: "att-1",
       tenantId: "tenant-1",
       mode: "FIXED",
-      expectedAutoCheckoutAt: "2026-03-27T10:00:00.000Z",
+      expectedAutoCheckoutAt: "2026-03-27T13:00:00.000Z",
       sourceCheckInDate: "2026-03-27",
     });
 
@@ -435,6 +476,135 @@ describe("AutoCheckoutService semantics", () => {
       }),
     ).resolves.toMatchObject({
       attendance: expect.objectContaining({ id: "att-new" }),
+    });
+
+    expect(prismaMock.attendance.update).not.toHaveBeenCalled();
+  });
+
+  it("uses tenant timezone when deciding whether an open session still blocks check-in", async () => {
+    const service = new (
+      await import("@/modules/attendance/services/AttendanceService")
+    ).AttendanceService();
+    const checkInTime = new Date("2026-03-27T12:30:00.000Z");
+
+    prismaMock.attendance.findMany.mockResolvedValueOnce([] as never);
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce({
+        workingHourMode: "FIXED",
+        workDays: null,
+      } as never)
+      .mockResolvedValueOnce({
+        id: "user-sg",
+        tenantId: "tenant-sg",
+        workingHourMode: "FIXED",
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        flexibleTargetHour: null,
+        isActive: true,
+        shift: null,
+        attendanceGeofencePolicy: "OPTIONAL",
+      } as never);
+    prismaMock.attendance.findFirst
+      .mockResolvedValueOnce({
+        id: "att-open-sg",
+        checkIn: new Date("2026-03-27T01:00:00.000Z"),
+        checkOut: null,
+        status: "ON_TIME",
+        user: {
+          workingHourMode: "FIXED",
+          flexibleTargetHour: null,
+          shift: null,
+        },
+      } as never)
+      .mockResolvedValueOnce(null as never);
+    prismaMock.leaveRequest.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.holiday.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.overtime.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.attendanceEvaluation.findFirst.mockResolvedValueOnce(
+      null as never,
+    );
+    prismaMock.attendance.create.mockResolvedValueOnce({
+      id: "att-new-sg",
+      userId: "user-sg",
+      tenantId: "tenant-sg",
+      checkIn: checkInTime,
+      checkOut: null,
+      status: "ON_TIME",
+      location: "Office",
+      notes: "",
+    } as never);
+
+    await expect(
+      service.checkIn({
+        userId: "user-sg",
+        photoUrl: null,
+        location: "Office",
+        notes: "",
+        offlineTime: checkInTime,
+        timezone: "Asia/Singapore",
+        tenantId: "tenant-sg",
+      }),
+    ).resolves.toMatchObject({
+      attendance: expect.objectContaining({ id: "att-new-sg" }),
+    });
+  });
+
+  it("uses check-in time when cleaning stale sessions during offline next-day check-in", async () => {
+    const service = new (
+      await import("@/modules/attendance/services/AttendanceService")
+    ).AttendanceService();
+    const checkInTime = new Date("2026-03-27T01:30:00.000Z");
+
+    prismaMock.attendance.findMany.mockResolvedValueOnce([
+      {
+        id: "att-not-stale-offline",
+        checkIn: new Date("2026-03-26T02:00:00.000Z"),
+        checkOut: null,
+        status: "ON_TIME",
+        notes: null,
+      },
+    ] as never);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-offline",
+      tenantId: "tenant-1",
+      workingHourMode: "FLEXIBLE",
+      startWorkTime: null,
+      endWorkTime: null,
+      flexibleTargetHour: 8,
+      isActive: true,
+      shift: null,
+      attendanceGeofencePolicy: "OPTIONAL",
+    } as never);
+    prismaMock.attendance.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.leaveRequest.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.holiday.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.overtime.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.attendanceEvaluation.findFirst.mockResolvedValueOnce(
+      null as never,
+    );
+    prismaMock.attendance.create.mockResolvedValueOnce({
+      id: "att-new-offline",
+      userId: "user-offline",
+      tenantId: "tenant-1",
+      checkIn: checkInTime,
+      checkOut: null,
+      status: "ON_TIME",
+      location: "Office",
+      notes: "",
+    } as never);
+
+    await expect(
+      service.checkIn({
+        userId: "user-offline",
+        photoUrl: null,
+        location: "Office",
+        notes: "",
+        offlineTime: checkInTime,
+        timezone: "Asia/Jakarta",
+        tenantId: "tenant-1",
+      }),
+    ).resolves.toMatchObject({
+      attendance: expect.objectContaining({ id: "att-new-offline" }),
     });
 
     expect(prismaMock.attendance.update).not.toHaveBeenCalled();

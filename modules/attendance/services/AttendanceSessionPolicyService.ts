@@ -1,4 +1,5 @@
 import type { AttendanceStatus } from "@prisma/client";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 import { ATTENDANCE_CONSTANTS } from "../utils/constants";
 
@@ -21,6 +22,7 @@ export type AttendanceSessionPolicyInput = {
   };
   now: Date;
   scheduleEndTime?: string | null;
+  timezone?: string;
 };
 
 export type AttendanceSessionPolicyDecision = {
@@ -43,59 +45,102 @@ export type AttendanceAutoCheckoutUpdate = {
   status: AttendanceStatus;
 };
 
-function buildDefaultCheckout(
-  checkIn: Date,
-  scheduleEndTime?: string | null,
-): Date {
-  const checkoutAt = new Date(checkIn);
-  const [hours, minutes] = (
-    scheduleEndTime ?? `${ATTENDANCE_CONSTANTS.END_OF_DAY_HOUR}:00`
-  )
-    .split(":")
-    .map(Number);
-
-  checkoutAt.setHours(hours, Number.isFinite(minutes) ? minutes : 0, 0, 0);
-
-  if (checkoutAt <= checkIn) {
-    checkoutAt.setTime(
-      checkIn.getTime() +
-        ATTENDANCE_CONSTANTS.DEFAULT_WORK_HOURS * 60 * 60 * 1000,
-    );
+function parseTimeParts(time: string | null | undefined): {
+  hours: number;
+  minutes: number;
+} | null {
+  if (!time) {
+    return null;
   }
 
-  if (checkIn > checkoutAt) {
-    checkoutAt.setHours(
-      ATTENDANCE_CONSTANTS.END_OF_DAY_HOUR,
-      ATTENDANCE_CONSTANTS.END_OF_DAY_MINUTE,
-      ATTENDANCE_CONSTANTS.END_OF_DAY_SECOND,
-      0,
+  const [hours, minutes = 0] = time.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return { hours, minutes };
+}
+
+function getTotalMinutes(time: string | null | undefined): number | null {
+  const parts = parseTimeParts(time);
+  if (!parts) {
+    return null;
+  }
+
+  return parts.hours * 60 + parts.minutes;
+}
+
+function buildTenantLocalDateTime(params: {
+  anchor: Date;
+  time: string;
+  timezone: string;
+  addDays?: number;
+}): Date {
+  const { anchor, time, timezone, addDays = 0 } = params;
+  const parts = parseTimeParts(time);
+  const localAnchor = toZonedTime(anchor, timezone);
+
+  if (!parts) {
+    return new Date(anchor);
+  }
+
+  localAnchor.setDate(localAnchor.getDate() + addDays);
+  localAnchor.setHours(parts.hours, parts.minutes, 0, 0);
+
+  return fromZonedTime(localAnchor, timezone);
+}
+
+function buildDefaultCheckout(
+  checkIn: Date,
+  scheduleEndTime: string | null | undefined,
+  timezone: string,
+): Date {
+  const checkoutAt = buildTenantLocalDateTime({
+    anchor: checkIn,
+    time: scheduleEndTime ?? `${ATTENDANCE_CONSTANTS.END_OF_DAY_HOUR}:00`,
+    timezone,
+  });
+
+  if (checkoutAt <= checkIn) {
+    return new Date(
+      checkIn.getTime() +
+        ATTENDANCE_CONSTANTS.DEFAULT_WORK_HOURS * 60 * 60 * 1000,
     );
   }
 
   return checkoutAt;
 }
 
+function addAutoCheckoutGracePeriod(checkoutAt: Date): Date {
+  return new Date(
+    checkoutAt.getTime() +
+      ATTENDANCE_CONSTANTS.AUTO_CHECKOUT_GRACE_HOURS * 60 * 60 * 1000,
+  );
+}
+
 function getOvernightShiftEnd(
   checkIn: Date,
   startTime: string | null,
   endTime: string | null,
+  timezone: string,
 ): Date | null {
-  if (!startTime || !endTime) {
+  const startMinutes = getTotalMinutes(startTime);
+  const endMinutes = getTotalMinutes(endTime);
+
+  if (startMinutes === null || endMinutes === null) {
     return null;
   }
 
-  const [startHour] = startTime.split(":").map(Number);
-  const [endHour, endMinute = 0] = endTime.split(":").map(Number);
-
-  if (endHour >= startHour) {
+  if (endMinutes >= startMinutes) {
     return null;
   }
 
-  const shiftEnd = new Date(checkIn);
-  shiftEnd.setDate(shiftEnd.getDate() + 1);
-  shiftEnd.setHours(endHour, endMinute, 0, 0);
-
-  return shiftEnd;
+  return buildTenantLocalDateTime({
+    anchor: checkIn,
+    time: endTime!,
+    timezone,
+    addDays: 1,
+  });
 }
 
 export class AttendanceSessionPolicyService {
@@ -128,6 +173,7 @@ export class AttendanceSessionPolicyService {
     input: AttendanceSessionPolicyInput,
   ): AttendanceSessionPolicyDecision {
     const { attendance, now, scheduleEndTime } = input;
+    const timezone = input.timezone ?? process.env.TZ ?? "Asia/Jakarta";
 
     if (attendance.checkOut) {
       return {
@@ -146,7 +192,7 @@ export class AttendanceSessionPolicyService {
       const threshold = new Date(
         attendance.checkIn.getTime() + 24 * 60 * 60 * 1000,
       );
-      const isStale = now > threshold;
+      const isStale = now >= threshold;
 
       return {
         reason: isStale ? "stale-flexible-session" : "same-day-open",
@@ -162,6 +208,7 @@ export class AttendanceSessionPolicyService {
       attendance.checkIn,
       attendance.user?.shift?.startTime ?? null,
       attendance.user?.shift?.endTime ?? null,
+      timezone,
     );
 
     if (overnightShiftEnd && now < overnightShiftEnd) {
@@ -180,9 +227,14 @@ export class AttendanceSessionPolicyService {
         ? (attendance.user?.shift?.endTime ?? scheduleEndTime)
         : scheduleEndTime;
 
-    const autoCheckoutAt =
+    const scheduleCheckoutAt =
       overnightShiftEnd ??
-      buildDefaultCheckout(attendance.checkIn, resolvedScheduleEndTime);
+      buildDefaultCheckout(
+        attendance.checkIn,
+        resolvedScheduleEndTime,
+        timezone,
+      );
+    const autoCheckoutAt = addAutoCheckoutGracePeriod(scheduleCheckoutAt);
     const shouldAutoCheckout = now >= autoCheckoutAt;
 
     return {

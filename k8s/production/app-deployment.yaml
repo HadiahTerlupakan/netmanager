@@ -100,6 +100,8 @@ spec:
                   key: CRON_SECRET
             - name: ENABLE_INTERNAL_CRON
               value: "false"
+            - name: ENABLE_EVENT_BUS_WORKERS
+              value: "false"
             - name: OAUTH_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
