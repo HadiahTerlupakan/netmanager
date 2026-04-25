@@ -189,6 +189,22 @@ export interface WorkOrderStatistics {
   totalWithRating: number;
 }
 
+export interface TopWorkOrderCustomer {
+  name: string;
+  phone: string | null;
+  count: number;
+  siteName?: string | null;
+}
+
+export interface WorkOrderListSummary {
+  completed: number;
+  unfinished: number;
+  focut: number;
+  dismantle: number;
+  averageCompletionTimeHours: number;
+  topCustomers: TopWorkOrderCustomer[];
+}
+
 export interface TopPerformer {
   userName: string;
   role?: string;
@@ -222,6 +238,7 @@ export interface WorkOrderListItem {
   priority: WorkOrderPriority;
   scheduledDate: Date | null;
   contactName: string | null;
+  contactPhone: string | null;
   isInternal: boolean;
   requestedById: string | null;
   createdAt: Date;
@@ -229,6 +246,7 @@ export interface WorkOrderListItem {
     id: string;
     idPelanggan: string;
     nama: string;
+    noTelp?: string | null;
   } | null;
   site: {
     id: string;
@@ -279,6 +297,7 @@ export interface IWorkOrderRepository {
     total: number;
     page: number;
     totalPages: number;
+    summary: WorkOrderListSummary;
   }>;
   update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders>;
   delete(id: string): Promise<void>;

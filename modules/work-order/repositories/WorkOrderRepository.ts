@@ -20,6 +20,7 @@ import type {
   WorkOrderStatistics,
   TopPerformer,
 } from "./IWorkOrderRepository";
+import { buildWorkOrderListSummary } from "../utils/work-order-list-summary";
 import { validateStatusTransition } from "../utils/status-transitions";
 import { randomUUID } from "crypto";
 import { socketEmitter } from "@/lib/websocket/emitter";
@@ -651,6 +652,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     total: number;
     page: number;
     totalPages: number;
+    summary: import("./IWorkOrderRepository").WorkOrderListSummary;
   }> {
     const tenantWhere = await this.getTenantWhere();
     const where: Prisma.WorkOrdersWhereInput = { ...tenantWhere };
@@ -851,7 +853,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     // OPTIMIZED: Use select instead of include - only fetch fields needed for list view
-    const [workOrders, total] = await Promise.all([
+    const [workOrders, total, summaryRows] = await Promise.all([
       this.prisma.workOrders.findMany({
         where,
         select: {
@@ -863,6 +865,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
           priority: true,
           scheduledDate: true,
           contactName: true,
+          contactPhone: true,
           isInternal: true,
           requestedById: true,
           createdAt: true,
@@ -873,6 +876,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
               id: true,
               idPelanggan: true,
               nama: true,
+              noTelp: true,
             },
           },
           site: {
@@ -920,7 +924,32 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         take: limit,
       }),
       this.prisma.workOrders.count({ where }),
+      this.prisma.workOrders.findMany({
+        where,
+        select: {
+          status: true,
+          type: true,
+          title: true,
+          startedAt: true,
+          completedAt: true,
+          contactName: true,
+          contactPhone: true,
+          pelanggan: {
+            select: {
+              nama: true,
+              noTelp: true,
+            },
+          },
+          site: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      }),
     ]);
+
+    const summary = buildWorkOrderListSummary(summaryRows);
 
     return {
       workOrders:
@@ -928,6 +957,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      summary,
     };
   }
 

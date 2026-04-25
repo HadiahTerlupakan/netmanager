@@ -11,7 +11,16 @@ vi.mock("@/hooks/useFCM", () => ({
   useFCM: () => useFCMMock(),
 }));
 
+import { PushNotificationProvider } from "@/components/notifications/PushNotificationContext";
 import { PushNotificationManager } from "@/components/notifications/PushNotificationManager";
+
+function renderPushNotificationManager() {
+  return (
+    <PushNotificationProvider>
+      <PushNotificationManager />
+    </PushNotificationProvider>
+  );
+}
 
 describe("PushNotificationManager hydration stability", () => {
   beforeEach(() => {
@@ -26,12 +35,13 @@ describe("PushNotificationManager hydration stability", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     document.body.innerHTML = "";
   });
 
   it("hydrates without mismatch when dismissal state differs in localStorage", async () => {
-    const serverMarkup = renderToStaticMarkup(<PushNotificationManager />);
+    const serverMarkup = renderToStaticMarkup(renderPushNotificationManager());
     const container = document.createElement("div");
     container.innerHTML = serverMarkup;
     document.body.appendChild(container);
@@ -43,7 +53,7 @@ describe("PushNotificationManager hydration stability", () => {
     const recoverableErrors: string[] = [];
 
     await act(async () => {
-      hydrateRoot(container, <PushNotificationManager />, {
+      hydrateRoot(container, renderPushNotificationManager(), {
         onRecoverableError: (error) => {
           recoverableErrors.push(
             error instanceof Error ? error.message : String(error),
@@ -84,7 +94,7 @@ describe("PushNotificationManager hydration stability", () => {
 
     vi.stubGlobal("window", undefined);
     vi.stubGlobal("Notification", undefined);
-    const serverMarkup = renderToStaticMarkup(<PushNotificationManager />);
+    const serverMarkup = renderToStaticMarkup(renderPushNotificationManager());
     vi.stubGlobal("window", browserWindow);
     vi.stubGlobal("Notification", browserNotification);
 
@@ -97,7 +107,7 @@ describe("PushNotificationManager hydration stability", () => {
     const recoverableErrors: string[] = [];
 
     await act(async () => {
-      hydrateRoot(container, <PushNotificationManager />, {
+      hydrateRoot(container, renderPushNotificationManager(), {
         onRecoverableError: (error) => {
           recoverableErrors.push(
             error instanceof Error ? error.message : String(error),
@@ -124,7 +134,7 @@ describe("PushNotificationManager hydration stability", () => {
     const dispatchEventMock = vi.spyOn(window, "dispatchEvent");
 
     await act(async () => {
-      createRoot(container).render(<PushNotificationManager />);
+      createRoot(container).render(renderPushNotificationManager());
       await Promise.resolve();
     });
 

@@ -225,11 +225,6 @@ export default function ExpensesClient() {
   const [, setIsUsefulLifeEnabled] = useState(false);
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
 
-  // New Category State
-  // const [isAddingCategory, setIsAddingCategory] = useState(false)
-  // const [isManagingCategories, setIsManagingCategories] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState("");
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // RAB State

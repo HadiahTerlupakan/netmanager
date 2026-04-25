@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const bellMocks = vi.hoisted(() => ({
+  useFCM: vi.fn(),
   useRealtimeNotifications: vi.fn(),
   useClickOutside: vi.fn(),
 }));
@@ -14,9 +15,32 @@ vi.mock("@/hooks/useClickOutside", () => ({
   useClickOutside: bellMocks.useClickOutside,
 }));
 
+vi.mock("@/hooks/useFCM", () => ({
+  useFCM: () => bellMocks.useFCM(),
+}));
+
+import { PushNotificationProvider } from "@/components/notifications/PushNotificationContext";
 import { AdminNotificationBell } from "@/components/notifications/AdminNotificationBell";
 
+function renderAdminNotificationBell() {
+  return renderToStaticMarkup(
+    <PushNotificationProvider>
+      <AdminNotificationBell defaultOpen />
+    </PushNotificationProvider>,
+  );
+}
+
 describe("AdminNotificationBell", () => {
+  beforeEach(() => {
+    bellMocks.useFCM.mockReturnValue({
+      permission: "default",
+      isSupported: true,
+      isLoading: false,
+      isRegistered: false,
+      enableNotifications: vi.fn(),
+    });
+  });
+
   it("shows a loading state instead of an empty state while notifications load", () => {
     bellMocks.useRealtimeNotifications.mockReturnValue({
       notifications: [],
@@ -29,7 +53,7 @@ describe("AdminNotificationBell", () => {
       refresh: vi.fn(),
     });
 
-    const markup = renderToStaticMarkup(<AdminNotificationBell defaultOpen />);
+    const markup = renderAdminNotificationBell();
 
     expect(markup).toContain("Memuat notifikasi");
     expect(markup).not.toContain("Tidak ada notifikasi");
@@ -47,7 +71,7 @@ describe("AdminNotificationBell", () => {
       refresh: vi.fn(),
     });
 
-    const markup = renderToStaticMarkup(<AdminNotificationBell defaultOpen />);
+    const markup = renderAdminNotificationBell();
 
     expect(markup).toContain("Gagal memuat notifikasi");
     expect(markup).toContain("Coba lagi");

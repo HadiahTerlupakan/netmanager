@@ -141,6 +141,18 @@ function dedupeScopes(scopes: RealtimeScope[]): RealtimeScope[] {
   });
 }
 
+function isEventAllowedForScope(event: string, scope: RealtimeScope): boolean {
+  if (scope.kind === "workorder") {
+    return false;
+  }
+
+  if (scope.kind === "ticket") {
+    return event.startsWith("ticket.");
+  }
+
+  return true;
+}
+
 function resolveAdminSiteId(user: SessionUser): string | null {
   return user.primarySiteId ?? user.siteIds?.[0] ?? user.siteId ?? null;
 }
@@ -468,25 +480,34 @@ export function useRealtimeSubscription<TPayload>(
     handlerRef.current = handler;
   }, [handler]);
 
-  const subscriptionEvents = useMemo(() => {
-    const canonicalEvent =
+  const canonicalEvent = useMemo(
+    () =>
       LEGACY_TO_REALTIME_EVENT[
         event as keyof typeof LEGACY_TO_REALTIME_EVENT
-      ] ?? event;
+      ] ?? event,
+    [event],
+  );
 
-    return new Set([
-      event,
-      canonicalEvent,
-      ...getEventSubscriptionNames(canonicalEvent),
-    ]);
-  }, [event]);
+  const subscriptionEvents = useMemo(
+    () =>
+      new Set([
+        event,
+        canonicalEvent,
+        ...getEventSubscriptionNames(canonicalEvent),
+      ]),
+    [canonicalEvent, event],
+  );
 
   useEffect(() => {
     if (!firestore || !isConnected || scopes.length === 0) {
       return;
     }
 
-    const unsubscribes = scopes.map((scope) => {
+    const allowedScopes = scopes.filter((scope) =>
+      isEventAllowedForScope(canonicalEvent, scope),
+    );
+
+    const unsubscribes = allowedScopes.map((scope) => {
       const seenDocumentIds = new Set<string>();
       let hydrated = false;
       const channelQuery = query(
@@ -540,5 +561,12 @@ export function useRealtimeSubscription<TPayload>(
         unsubscribe();
       });
     };
-  }, [firestore, isConnected, scopes, subscriptionEvents]);
+  }, [
+    canonicalEvent,
+    event,
+    firestore,
+    isConnected,
+    scopes,
+    subscriptionEvents,
+  ]);
 }

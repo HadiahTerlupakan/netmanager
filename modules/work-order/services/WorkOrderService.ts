@@ -22,6 +22,7 @@ import { UserRepository } from "@/modules/users";
 
 import type {
   WorkOrderFilters,
+  WorkOrderListSummary,
   WorkOrderWithRelations,
 } from "../repositories/IWorkOrderRepository";
 import {
@@ -105,6 +106,15 @@ export interface WorkOrderListOptions {
   userRole?: string;
 }
 
+const EMPTY_WORK_ORDER_LIST_SUMMARY: WorkOrderListSummary = {
+  completed: 0,
+  unfinished: 0,
+  focut: 0,
+  dismantle: 0,
+  averageCompletionTimeHours: 0,
+  topCustomers: [],
+};
+
 export interface ServiceResult<T> {
   success: boolean;
   data?: T;
@@ -164,6 +174,7 @@ export class WorkOrderService {
       total: number;
       page: number;
       totalPages: number;
+      summary: WorkOrderListSummary;
     }>
   > {
     try {
@@ -194,6 +205,7 @@ export class WorkOrderService {
               total: 0,
               page,
               totalPages: 0,
+              summary: EMPTY_WORK_ORDER_LIST_SUMMARY,
             },
           };
         }
@@ -213,6 +225,7 @@ export class WorkOrderService {
               total: 0,
               page,
               totalPages: 0,
+              summary: EMPTY_WORK_ORDER_LIST_SUMMARY,
             },
           };
         }

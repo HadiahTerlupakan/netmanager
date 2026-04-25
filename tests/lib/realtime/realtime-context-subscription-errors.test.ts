@@ -130,4 +130,73 @@ describe("useRealtimeSubscription error diagnostics", () => {
       },
     );
   });
+
+  it("does not subscribe notification events to workorder detail scopes", async () => {
+    realtimeSubscriptionMocks.mockUseContext.mockReturnValue({
+      firestore: { kind: "firestore" },
+      isConnected: true,
+      scopes: [
+        { kind: "user", id: "user-1" },
+        { kind: "workorder", id: "wo-1" },
+      ],
+    });
+
+    realtimeSubscriptionMocks.onSnapshotMock.mockReturnValue(vi.fn());
+
+    const { useRealtimeSubscription } =
+      await import("@/lib/realtime/RealtimeContext");
+
+    useRealtimeSubscription("notification.new", vi.fn());
+
+    expect(realtimeSubscriptionMocks.collectionMock).toHaveBeenCalledTimes(1);
+    expect(realtimeSubscriptionMocks.collectionMock).toHaveBeenCalledWith(
+      { kind: "firestore" },
+      "users/user-1/events",
+    );
+  });
+
+  it("does not subscribe workorder events to unreadable workorder detail scopes", async () => {
+    realtimeSubscriptionMocks.mockUseContext.mockReturnValue({
+      firestore: { kind: "firestore" },
+      isConnected: true,
+      scopes: [
+        { kind: "admin", id: "workorders.site.site-1" },
+        { kind: "workorder", id: "wo-1" },
+      ],
+    });
+
+    realtimeSubscriptionMocks.onSnapshotMock.mockReturnValue(vi.fn());
+
+    const { useRealtimeSubscription } =
+      await import("@/lib/realtime/RealtimeContext");
+
+    useRealtimeSubscription("workorder.update", vi.fn());
+
+    expect(realtimeSubscriptionMocks.collectionMock).toHaveBeenCalledTimes(1);
+    expect(realtimeSubscriptionMocks.collectionMock).toHaveBeenCalledWith(
+      { kind: "firestore" },
+      "admins/workorders.site.site-1/events",
+    );
+  });
+
+  it("subscribes legacy ticket events to ticket detail scopes", async () => {
+    realtimeSubscriptionMocks.mockUseContext.mockReturnValue({
+      firestore: { kind: "firestore" },
+      isConnected: true,
+      scopes: [{ kind: "ticket", id: "ticket-1" }],
+    });
+
+    realtimeSubscriptionMocks.onSnapshotMock.mockReturnValue(vi.fn());
+
+    const { useRealtimeSubscription } =
+      await import("@/lib/realtime/RealtimeContext");
+
+    useRealtimeSubscription("ticket:update", vi.fn());
+
+    expect(realtimeSubscriptionMocks.collectionMock).toHaveBeenCalledTimes(1);
+    expect(realtimeSubscriptionMocks.collectionMock).toHaveBeenCalledWith(
+      { kind: "firestore" },
+      "tickets/ticket-1/events",
+    );
+  });
 });

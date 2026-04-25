@@ -30,6 +30,7 @@ export function SidebarBrandingLogo({
           alt={`${appName} logo`}
           fill
           sizes="96px"
+          loading="eager"
           className="object-contain"
         />
       </div>
