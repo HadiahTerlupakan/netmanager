@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+// @vitest-environment-options {"url":"https://admin.radpro.id/login"}
 
 import React from "react";
 import { act } from "react";
