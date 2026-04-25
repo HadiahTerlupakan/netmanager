@@ -87,7 +87,10 @@ export function RestockFormModal({
   };
 
   const addItem = () => {
-    onFormItemsChange([...formItems, { barangId: "", quantity: 1 }]);
+    onFormItemsChange([
+      ...formItems,
+      { barangId: "", quantity: 1, keterangan: "" },
+    ]);
   };
 
   const removeItem = (index: number) => {
@@ -294,35 +297,54 @@ export function RestockFormModal({
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 w-full lg:w-auto border-t lg:border-t-0 pt-4 lg:pt-0 lg:pl-6 lg:border-l border-gray-100 dark:border-gray-800">
-                        <div className="flex-1 lg:flex-none flex flex-col space-y-1.5">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
-                            Jumlah Restock
-                          </label>
-                          <div className="flex items-center bg-gray-50 dark:bg-gray-900 rounded-2xl px-3 h-12 border border-gray-100 dark:border-gray-800 focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(event) =>
-                                updateItem(index, {
-                                  ...item,
-                                  quantity: parseInt(event.target.value) || 0,
-                                })
-                              }
-                              className="w-full lg:w-24 bg-transparent border-none rounded-xl text-center font-black text-indigo-600 focus:ring-0 text-xl"
-                            />
-                            <span className="text-[10px] font-black text-gray-400 uppercase pr-1 hidden lg:block">
-                              {selectedBarang?.satuan || ""}
-                            </span>
+                      <div className="flex flex-col gap-4 w-full lg:w-auto border-t lg:border-t-0 pt-4 lg:pt-0 lg:pl-6 lg:border-l border-gray-100 dark:border-gray-800">
+                        <div className="flex items-end gap-4">
+                          <div className="flex-1 lg:flex-none flex flex-col space-y-1.5">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                              Jumlah Restock
+                            </label>
+                            <div className="flex items-center bg-gray-50 dark:bg-gray-900 rounded-2xl px-3 h-12 border border-gray-100 dark:border-gray-800 focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(event) =>
+                                  updateItem(index, {
+                                    ...item,
+                                    quantity: parseInt(event.target.value) || 0,
+                                  })
+                                }
+                                className="w-full lg:w-24 bg-transparent border-none rounded-xl text-center font-black text-indigo-600 focus:ring-0 text-xl"
+                              />
+                              <span className="text-[10px] font-black text-gray-400 uppercase pr-1 hidden lg:block">
+                                {selectedBarang?.satuan || ""}
+                              </span>
+                            </div>
                           </div>
+                          <button
+                            onClick={() => removeItem(index)}
+                            className="p-3.5 text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-500 hover:text-white rounded-2xl transition-all duration-300 shadow-sm active:scale-90"
+                          >
+                            <FiTrash2 className="text-lg" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => removeItem(index)}
-                          className="p-3.5 text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-500 hover:text-white rounded-2xl transition-all duration-300 shadow-sm active:scale-90 mt-5"
-                        >
-                          <FiTrash2 className="text-lg" />
-                        </button>
+                        <div className="flex flex-col space-y-1.5">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                            Keterangan Item
+                          </label>
+                          <input
+                            type="text"
+                            value={item.keterangan || ""}
+                            onChange={(event) =>
+                              updateItem(index, {
+                                ...item,
+                                keterangan: event.target.value,
+                              })
+                            }
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl h-12 px-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all"
+                            placeholder="Catatan khusus barang ini"
+                          />
+                        </div>
                       </div>
                     </div>
                     {item.barangId && criticalLow && (

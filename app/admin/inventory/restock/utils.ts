@@ -124,7 +124,13 @@ export function canSubmitRestockForm({
     return false;
   }
 
-  return formItems.every((item) => item.barangId && item.quantity > 0);
+  const barangIds = formItems.map((item) => item.barangId).filter(Boolean);
+  const hasDuplicateBarang = new Set(barangIds).size !== barangIds.length;
+
+  return (
+    !hasDuplicateBarang &&
+    formItems.every((item) => item.barangId && item.quantity > 0)
+  );
 }
 
 export function canRemoveRestockFormItem(totalItems: number): boolean {

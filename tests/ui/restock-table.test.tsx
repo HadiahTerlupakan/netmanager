@@ -34,6 +34,11 @@ type ResponsiveTableProps = {
   itemsPerPage?: number | "all";
   onPageChange?: (page: number) => void;
   onItemsPerPageChange?: (value: number | "all") => void;
+  emptyMessage?: React.ReactNode;
+  renderMobileCard?: (
+    request: PurchaseRequest,
+    columns: ResponsiveTableProps["columns"],
+  ) => React.ReactNode;
   columns: Array<{
     key: string;
     render: (request: PurchaseRequest) => React.ReactElement;
@@ -296,5 +301,41 @@ describe("RestockTable action visibility", () => {
     expect(markup).toContain("Filter gudang");
     expect(markup).toContain("Semua Status");
     expect(markup).toContain("Semua Gudang");
+  });
+
+  it("passes filtered empty copy to distinguish no results from no data", () => {
+    const props = renderTable({
+      requests: [],
+      search: "PR-404",
+      statusFilter: "APPROVED",
+      gudangFilter: "gudang-a",
+    });
+
+    expect(renderToStaticMarkup(<>{props.emptyMessage}</>)).toContain(
+      "Tidak ada pengajuan yang cocok dengan filter aktif",
+    );
+  });
+
+  it("adds accessible labels to icon-only row actions", () => {
+    const markup = renderActions(baseRequest);
+
+    expect(markup).toContain('aria-label="Lihat detail PR-001"');
+    expect(markup).toContain('aria-label="Download PO PR-001"');
+    expect(markup).toContain('aria-label="Edit PR-001"');
+    expect(markup).toContain('aria-label="Hapus PR-001"');
+  });
+
+  it("provides a custom mobile card renderer for restock rows", () => {
+    const props = renderTable();
+
+    expect(typeof props.renderMobileCard).toBe("function");
+
+    const markup = renderToStaticMarkup(
+      <>{props.renderMobileCard?.(baseRequest, props.columns)}</>,
+    );
+
+    expect(markup).toContain("PR-001");
+    expect(markup).toContain("Gudang A");
+    expect(markup).toContain("Approve");
   });
 });

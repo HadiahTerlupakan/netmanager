@@ -5,9 +5,69 @@ import { toast } from "react-hot-toast";
 import type { PurchaseRequest } from "./types";
 
 interface AutoTableDoc extends jsPDF {
-  lastAutoTable: {
+  lastAutoTable?: {
     finalY: number;
   };
+}
+
+interface PurchaseOrderTableItem {
+  kode: string;
+  nama: string;
+  requestedQuantity: string;
+  receivedQuantity: string;
+  keterangan: string;
+}
+
+const DEFAULT_TABLE_FINAL_Y = 100;
+
+function sanitizePdfFilename(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function formatPurchaseOrderDate(value: string): string {
+  return new Date(value).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getPurchaseOrderTableItem(
+  item: PurchaseRequest["items"][number],
+): PurchaseOrderTableItem {
+  const satuan = item.barang?.satuan || "-";
+
+  return {
+    kode: item.barang?.kode || "-",
+    nama: item.barang?.nama || "Barang tidak tersedia",
+    requestedQuantity: `${item.jumlah} ${satuan}`,
+    receivedQuantity: `${item.receivedQuantity || 0} ${satuan}`,
+    keterangan: item.keterangan || "-",
+  };
+}
+
+function writeMetadataRow(
+  doc: jsPDF,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+) {
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text(label, x, y);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(value, x + 35, y);
+}
+
+function writeNoteBlock(doc: jsPDF, label: string, value: string, y: number) {
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(100, 116, 139);
+  doc.text(label, 20, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(30, 41, 59);
+  doc.text(doc.splitTextToSize(value, 170), 20, y + 6);
 }
 
 export function generatePurchaseOrderPdf(request: PurchaseRequest) {
@@ -30,61 +90,69 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
   const leftCol = 20;
   const rightCol = 130;
 
-  doc.text("Nomor Dokumen:", leftCol, 45);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 41, 59);
-  doc.text(request.nomorRequest, leftCol + 35, 45);
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 116, 139);
-  doc.text("Tanggal Pengajuan:", leftCol, 52);
-  doc.setTextColor(30, 41, 59);
-  doc.text(
-    new Date(request.createdAt).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }),
-    leftCol + 35,
+  writeMetadataRow(doc, "Nomor Dokumen:", request.nomorRequest, leftCol, 45);
+  writeMetadataRow(
+    doc,
+    "Tanggal Pengajuan:",
+    formatPurchaseOrderDate(request.tanggal || request.createdAt),
+    leftCol,
     52,
   );
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 116, 139);
-  doc.text("Gudang Tujuan:", leftCol, 59);
-  doc.setTextColor(30, 41, 59);
-  doc.text(request.gudang?.nama || "-", leftCol + 35, 59);
-
-  doc.text("Status Dokumen:", rightCol, 45);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(79, 70, 229);
-  doc.text(request.status, rightCol + 35, 45);
+  writeMetadataRow(
+    doc,
+    "Gudang Tujuan:",
+    request.gudang?.nama || "-",
+    leftCol,
+    59,
+  );
+  writeMetadataRow(doc, "Prioritas:", request.prioritas || "-", leftCol, 66);
+  writeMetadataRow(doc, "Status Dokumen:", request.status, rightCol, 45);
+  writeMetadataRow(
+    doc,
+    "Nomor PO:",
+    request.purchaseOrder?.poNumber || "-",
+    rightCol,
+    52,
+  );
+  writeMetadataRow(
+    doc,
+    "Status PO:",
+    request.purchaseOrder?.status || "-",
+    rightCol,
+    59,
+  );
 
   if (request.approvedAt) {
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 116, 139);
-    doc.text("Tanggal Approval:", rightCol, 52);
-    doc.setTextColor(30, 41, 59);
-    doc.text(
-      new Date(request.approvedAt).toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }),
-      rightCol + 35,
-      52,
+    writeMetadataRow(
+      doc,
+      "Tanggal Approval:",
+      formatPurchaseOrderDate(request.approvedAt),
+      rightCol,
+      66,
     );
   }
 
+  if (request.keterangan) {
+    writeNoteBlock(doc, "Catatan Pengajuan:", request.keterangan, 78);
+  }
+
+  if (request.catatanApproval) {
+    writeNoteBlock(doc, "Catatan Approval:", request.catatanApproval, 91);
+  }
+
   autoTable(doc, {
-    startY: 70,
-    head: [["KODE BARANG", "NAMA BARANG", "JUMLAH", "KETERANGAN"]],
-    body: request.items.map((item) => [
-      item.barang.kode,
-      item.barang.nama,
-      `${item.jumlah} ${item.barang.satuan}`,
-      "-",
-    ]),
+    startY: DEFAULT_TABLE_FINAL_Y,
+    head: [["KODE", "NAMA BARANG", "DIMINTA", "DITERIMA", "KETERANGAN"]],
+    body: request.items.map((item) => {
+      const tableItem = getPurchaseOrderTableItem(item);
+      return [
+        tableItem.kode,
+        tableItem.nama,
+        tableItem.requestedQuantity,
+        tableItem.receivedQuantity,
+        tableItem.keterangan,
+      ];
+    }),
     theme: "grid",
     headStyles: {
       fillColor: [79, 70, 229],
@@ -94,10 +162,12 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
       halign: "center",
     },
     styles: { fontSize: 9, cellPadding: 4 },
-    columnStyles: { 2: { halign: "center" } },
+    columnStyles: { 2: { halign: "center" }, 3: { halign: "center" } },
   });
 
-  const finalY = (doc as AutoTableDoc).lastAutoTable.finalY + 30;
+  const tableFinalY =
+    (doc as AutoTableDoc).lastAutoTable?.finalY ?? DEFAULT_TABLE_FINAL_Y;
+  const finalY = tableFinalY + 30;
   if (finalY > 250) doc.addPage();
   const signatureY = finalY > 250 ? 40 : finalY;
 
@@ -138,6 +208,7 @@ export function generatePurchaseOrderPdf(request: PurchaseRequest) {
     });
   }
 
-  doc.save(`PO-${request.nomorRequest}.pdf`);
+  const filename = sanitizePdfFilename(`PO-${request.nomorRequest}`);
+  doc.save(`${filename}.pdf`);
   toast.success("PDF Purchase Order berhasil diunduh");
 }

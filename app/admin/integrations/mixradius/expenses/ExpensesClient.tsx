@@ -2270,7 +2270,7 @@ export default function ExpensesClient() {
             isOpen={isRABViewOpen}
             data={viewingRAB}
             onRefresh={handleRABRevisionSaved}
-            onOpenRevision={handleOpenRABRevision}
+            onOpenRevision={canUpdate ? handleOpenRABRevision : undefined}
             onClose={() => setIsRABViewOpen(false)}
           />
 

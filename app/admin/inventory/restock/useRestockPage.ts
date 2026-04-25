@@ -31,7 +31,11 @@ import type {
   RestockSetting,
 } from "./types";
 
-const INITIAL_FORM_ITEM: RestockFormItem = { barangId: "", quantity: 1 };
+const INITIAL_FORM_ITEM: RestockFormItem = {
+  barangId: "",
+  quantity: 1,
+  keterangan: "",
+};
 
 export function useRestockPage() {
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
@@ -189,6 +193,7 @@ export function useRestockPage() {
       request.items.map((item) => ({
         barangId: item.barangId,
         quantity: item.jumlah,
+        keterangan: item.keterangan || "",
       })),
     );
     setShowForm(true);

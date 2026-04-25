@@ -30,7 +30,7 @@ import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import { isPublicUploadPath } from "./lib/upload/upload-policy";
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = process.env.HOSTNAME || "0.0.0.0";
+const hostname = process.env.HOSTNAME || "127.0.0.1";
 const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
@@ -337,7 +337,7 @@ app.prepare().then(() => {
       console.error("[Server] Failed to start MikroTik monitoring:", err),
     );
 
-  server.listen(port, "0.0.0.0", () => {
+  server.listen(port, hostname, () => {
     console.log("");
     console.log(`  ▲ Next.js ${dev ? "dev" : "production"} server`);
     console.log(`  - Local:        http://${hostname}:${port}`);

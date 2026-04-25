@@ -144,6 +144,12 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   return apiSuccess(serialized);
 });
 
+const APPROVAL_ONLY_STATUSES = new Set(["APPROVED", "REJECTED"]);
+
+function isApprovalOnlyStatus(status: string | undefined) {
+  return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
+}
+
 const updateSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
@@ -257,6 +263,12 @@ export const PATCH = createHandler(
     if (!hasAccess) {
       return ApiErrors.forbidden(
         "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+      );
+    }
+
+    if (isApprovalOnlyStatus(ctx.validated.status)) {
+      return ApiErrors.badRequest(
+        "Status approval RAB wajib diproses melalui endpoint approval.",
       );
     }
 

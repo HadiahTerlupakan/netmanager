@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   FiDownload,
   FiEdit2,
@@ -53,6 +54,204 @@ interface RestockTableProps {
   onDelete: (id: string) => void;
 }
 
+interface RestockActionHandlers {
+  onOpenEdit: (request: PurchaseRequest) => void;
+  onOpenDetail: (request: PurchaseRequest) => void;
+  onApprove: (id: string) => void;
+  onOpenReceive: (request: PurchaseRequest) => void;
+  onDelete: (id: string) => void;
+}
+
+interface RestockActionPermissions {
+  canApprove: boolean;
+  canUpdate: boolean;
+  canVerify: boolean;
+}
+
+interface RenderRestockActionsInput
+  extends RestockActionHandlers, RestockActionPermissions {
+  request: PurchaseRequest;
+}
+
+function IconActionButton({
+  label,
+  title,
+  className,
+  onClick,
+  children,
+}: {
+  label: string;
+  title: string;
+  className: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={label}
+      className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 transition-colors ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PrimaryActionButton({
+  label,
+  className,
+  onClick,
+  children,
+}: {
+  label: string;
+  className: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button onClick={onClick} aria-label={label} className={className}>
+      {children}
+    </button>
+  );
+}
+
+function renderRestockActions(input: RenderRestockActionsInput) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      {renderBaseActions(input.request, input)}
+      {renderStatusActions(input.request, input)}
+    </div>
+  );
+}
+
+function renderBaseActions(
+  request: PurchaseRequest,
+  handlers: RestockActionHandlers,
+) {
+  return (
+    <>
+      <IconActionButton
+        title="Lihat Detail"
+        label={`Lihat detail ${request.nomorRequest}`}
+        onClick={() => handlers.onOpenDetail(request)}
+        className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      >
+        <FiEye className="text-[0.95rem]" />
+      </IconActionButton>
+      <IconActionButton
+        title="Download PO"
+        label={`Download PO ${request.nomorRequest}`}
+        onClick={() => generatePurchaseOrderPdf(request)}
+        className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+      >
+        <FiDownload className="text-[0.95rem]" />
+      </IconActionButton>
+    </>
+  );
+}
+
+function renderStatusActions(
+  request: PurchaseRequest,
+  input: RestockActionHandlers & RestockActionPermissions,
+) {
+  return (
+    <>
+      {renderEditAction(request, input)}
+      {renderApproveAction(request, input)}
+      {renderReceiveAction(request, input)}
+      {renderDeleteAction(request, input)}
+    </>
+  );
+}
+
+function renderEditAction(
+  request: PurchaseRequest,
+  input: RestockActionHandlers & RestockActionPermissions,
+) {
+  if (!canEditPurchaseRequest(request.status, input.canUpdate)) return null;
+
+  return (
+    <IconActionButton
+      title="Edit"
+      label={`Edit ${request.nomorRequest}`}
+      onClick={() => input.onOpenEdit(request)}
+      className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+    >
+      <FiEdit2 className="text-[0.95rem]" />
+    </IconActionButton>
+  );
+}
+
+function renderApproveAction(
+  request: PurchaseRequest,
+  input: RestockActionHandlers & RestockActionPermissions,
+) {
+  if (!canApprovePurchaseRequest(request.status, input.canApprove)) return null;
+
+  return (
+    <PrimaryActionButton
+      label={`Approve ${request.nomorRequest}`}
+      onClick={() => input.onApprove(request.id)}
+      className="inline-flex min-w-[6.75rem] items-center justify-center rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-emerald-500"
+    >
+      Approve
+    </PrimaryActionButton>
+  );
+}
+
+function renderReceiveAction(
+  request: PurchaseRequest,
+  input: RestockActionHandlers & RestockActionPermissions,
+) {
+  if (!canReceivePurchaseRequest(request.status, input.canVerify)) return null;
+
+  return (
+    <PrimaryActionButton
+      label={`Verifikasi barang sampai ${request.nomorRequest}`}
+      onClick={() => input.onOpenReceive(request)}
+      className="inline-flex min-w-[8.5rem] items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-indigo-500"
+    >
+      Verifikasi Sampai
+    </PrimaryActionButton>
+  );
+}
+
+function renderDeleteAction(
+  request: PurchaseRequest,
+  input: RestockActionHandlers & RestockActionPermissions,
+) {
+  if (!canDeletePurchaseRequest(request.status, input.canUpdate)) return null;
+
+  return (
+    <IconActionButton
+      title="Hapus"
+      label={`Hapus ${request.nomorRequest}`}
+      onClick={() => input.onDelete(request.id)}
+      className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+    >
+      <FiTrash2 className="text-[0.95rem]" />
+    </IconActionButton>
+  );
+}
+
+function renderEmptyMessage(hasActiveFilter: boolean): ReactNode {
+  if (hasActiveFilter) {
+    return (
+      <div className="space-y-1 py-4 text-center">
+        <p className="font-black text-gray-700 dark:text-gray-200">
+          Tidak ada pengajuan yang cocok dengan filter aktif
+        </p>
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          Ubah kata kunci, status, atau gudang untuk memperluas hasil.
+        </p>
+      </div>
+    );
+  }
+
+  return "Belum ada data pengajuan.";
+}
+
 export function RestockTable({
   requests,
   loading,
@@ -79,6 +278,45 @@ export function RestockTable({
   onOpenReceive,
   onDelete,
 }: RestockTableProps) {
+  const hasActiveFilter = Boolean(
+    search.trim() || statusFilter !== "all" || gudangFilter !== "all",
+  );
+
+  const renderActions = (request: PurchaseRequest) =>
+    renderRestockActions({
+      request,
+      canApprove,
+      canUpdate,
+      canVerify,
+      onOpenEdit,
+      onOpenDetail,
+      onApprove,
+      onOpenReceive,
+      onDelete,
+    });
+
+  const renderMobileCard = (request: PurchaseRequest) => (
+    <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="truncate text-sm font-black tracking-[-0.03em] text-gray-900 dark:text-white">
+            {request.nomorRequest}
+          </p>
+          <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+            {new Date(request.createdAt).toLocaleDateString("id-ID")}
+          </p>
+        </div>
+        <RestockStatusBadge status={request.status} />
+      </div>
+      <div className="mt-4 rounded-2xl bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 dark:bg-gray-900/50 dark:text-gray-300">
+        Gudang: {request.gudang?.nama || "-"}
+      </div>
+      <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-700">
+        {renderActions(request)}
+      </div>
+    </div>
+  );
+
   const columns: Column<PurchaseRequest>[] = [
     {
       key: "nomor",
@@ -121,62 +359,7 @@ export function RestockTable({
       priority: "primary",
       align: "right",
       className: "w-[16rem]",
-      render: (request) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <button
-            onClick={() => onOpenDetail(request)}
-            title="Lihat Detail"
-            className="inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-          >
-            <FiEye className="text-[0.95rem]" />
-          </button>
-          <button
-            onClick={() => generatePurchaseOrderPdf(request)}
-            title="Download PO"
-            className="inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-          >
-            <FiDownload className="text-[0.95rem]" />
-          </button>
-
-          {canEditPurchaseRequest(request.status, canUpdate) && (
-            <button
-              onClick={() => onOpenEdit(request)}
-              title="Edit"
-              className="inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 text-blue-600 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/30"
-            >
-              <FiEdit2 className="text-[0.95rem]" />
-            </button>
-          )}
-
-          {canApprovePurchaseRequest(request.status, canApprove) && (
-            <button
-              onClick={() => onApprove(request.id)}
-              className="inline-flex min-w-[6.75rem] items-center justify-center rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-emerald-500"
-            >
-              Approve
-            </button>
-          )}
-
-          {canReceivePurchaseRequest(request.status, canVerify) && (
-            <button
-              onClick={() => onOpenReceive(request)}
-              className="inline-flex min-w-[8.5rem] items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-indigo-500"
-            >
-              Verifikasi Sampai
-            </button>
-          )}
-
-          {canDeletePurchaseRequest(request.status, canUpdate) && (
-            <button
-              onClick={() => onDelete(request.id)}
-              title="Hapus"
-              className="inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
-            >
-              <FiTrash2 className="text-[0.95rem]" />
-            </button>
-          )}
-        </div>
-      ),
+      render: renderActions,
     },
   ];
 
@@ -250,7 +433,8 @@ export function RestockTable({
           columns={columns}
           keyField="id"
           loading={loading}
-          emptyMessage="Belum ada data pengajuan."
+          emptyMessage={renderEmptyMessage(hasActiveFilter)}
+          renderMobileCard={renderMobileCard}
           page={currentPage}
           totalPages={totalPages}
           itemsPerPage={itemsPerPage}

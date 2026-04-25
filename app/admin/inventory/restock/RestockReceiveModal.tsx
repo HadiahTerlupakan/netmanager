@@ -39,6 +39,16 @@ export function RestockReceiveModal({
   onClose,
   onSubmit,
 }: RestockReceiveModalProps) {
+  const hasReceivedItem = Object.values(receivedItems).some(
+    (quantity) => quantity > 0,
+  );
+  const isSubmitDisabled =
+    submitting || receivedPhotos.length === 0 || !hasReceivedItem;
+  const disabledReason =
+    receivedPhotos.length === 0
+      ? "Unggah foto bukti terlebih dahulu"
+      : "Minimal satu barang harus diterima";
+
   return (
     <Modal
       isOpen={!!request}
@@ -76,6 +86,7 @@ export function RestockReceiveModal({
                     <input
                       type="checkbox"
                       checked={!isExcluded}
+                      aria-label={`Sertakan ${item.barang.nama}`}
                       onChange={(event) => {
                         const remaining = item.jumlah - item.receivedQuantity;
                         const nextValue = event.target.checked
@@ -109,6 +120,7 @@ export function RestockReceiveModal({
                       type="number"
                       min="0"
                       disabled={isExcluded}
+                      aria-label={`Jumlah ${item.barang.nama} diterima`}
                       value={receivedItems[item.barangId] || 0}
                       onChange={(event) =>
                         onReceivedItemsChange({
@@ -138,6 +150,12 @@ export function RestockReceiveModal({
             />
           </div>
         </div>
+
+        {!hasReceivedItem && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            Minimal satu barang harus diterima.
+          </div>
+        )}
 
         <div className="bg-yellow-50 dark:bg-yellow-900/20 p-5 rounded-3xl border border-yellow-100 dark:border-yellow-800/50">
           <label className="flex items-start gap-4 cursor-pointer group">
@@ -172,11 +190,15 @@ export function RestockReceiveModal({
           </button>
           <button
             onClick={onSubmit}
-            disabled={submitting || receivedPhotos.length === 0}
+            disabled={isSubmitDisabled}
+            aria-disabled={isSubmitDisabled}
+            title={isSubmitDisabled && !submitting ? disabledReason : undefined}
             className="flex-[2] px-4 py-4 bg-green-600 text-white rounded-2xl font-bold disabled:opacity-50 shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2"
           >
             {submitting ? (
               "Menyimpan..."
+            ) : isSubmitDisabled ? (
+              disabledReason
             ) : (
               <>
                 <FiCheck /> Konfirmasi & Tambah Stok

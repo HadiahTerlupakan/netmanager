@@ -242,6 +242,19 @@ describe("restock utils", () => {
     ).toBe(true);
   });
 
+  it("prevents submit when the same barang is selected more than once", () => {
+    expect(
+      canSubmitRestockForm({
+        formGudang: "gudang-a",
+        formItems: [
+          { barangId: "barang-1", quantity: 1 },
+          { barangId: "barang-1", quantity: 2 },
+        ],
+        isSubmitting: false,
+      }),
+    ).toBe(false);
+  });
+
   it("only allows removing form items when more than one item exists", () => {
     expect(canRemoveRestockFormItem(validFormItems.length)).toBe(false);
     expect(canRemoveRestockFormItem(2)).toBe(true);

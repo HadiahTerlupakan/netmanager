@@ -117,6 +117,28 @@ type GrowthType = NonNullable<RABProject["growthType"]>;
 type FormSubmitEvent = Parameters<
   NonNullable<ComponentProps<"form">["onSubmit"]>
 >[0];
+type InvestorOption = { id: string; namaLengkap: string };
+
+function isInvestorOption(value: unknown): value is InvestorOption {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    typeof (value as InvestorOption).id === "string" &&
+    typeof (value as InvestorOption).namaLengkap === "string"
+  );
+}
+
+// Menjaga payload investor API tetap array sebelum dirender dropdown.
+export function normalizeInvestorListResponse(
+  response: unknown,
+): InvestorOption[] {
+  const payload =
+    response && typeof response === "object" && "data" in response
+      ? (response as { data: unknown }).data
+      : response;
+
+  return Array.isArray(payload) ? payload.filter(isInvestorOption) : [];
+}
 
 interface LocalItem {
   id: string;
@@ -286,9 +308,7 @@ export default function RABForm({
   const [items, setItems] = useState<LocalItem[]>([]);
   const [wbsGroups, setWbsGroups] = useState<LocalWbs[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [investorsList, setInvestorsList] = useState<
-    { id: string; namaLengkap: string }[]
-  >([]);
+  const [investorsList, setInvestorsList] = useState<InvestorOption[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInvestorDropdownOpen, setIsInvestorDropdownOpen] = useState(false);
@@ -312,7 +332,7 @@ export default function RABForm({
         const res = await fetch("/api/admin/investors");
         if (res.ok) {
           const data = await res.json();
-          setInvestorsList(data || []);
+          setInvestorsList(normalizeInvestorListResponse(data));
         }
       } catch (error) {
         console.error("Failed fetching investors", error);
