@@ -55,6 +55,39 @@ interface Tenant {
   name: string;
 }
 
+type OvertimeVariant = "Normal" | "Holiday" | "National";
+type OvertimeConfig = {
+  key: OvertimeVariant;
+  label: string;
+  color: string;
+  calcTypeKey: `overtimeCalcType${OvertimeVariant}`;
+  rateKey: `overtimeRate${OvertimeVariant}`;
+};
+
+const OVERTIME_CONFIGS: OvertimeConfig[] = [
+  {
+    key: "Normal",
+    label: "Hari Kerja",
+    color: "indigo",
+    calcTypeKey: "overtimeCalcTypeNormal",
+    rateKey: "overtimeRateNormal",
+  },
+  {
+    key: "Holiday",
+    label: "Hari Libur",
+    color: "amber",
+    calcTypeKey: "overtimeCalcTypeHoliday",
+    rateKey: "overtimeRateHoliday",
+  },
+  {
+    key: "National",
+    label: "Libur Nas.",
+    color: "rose",
+    calcTypeKey: "overtimeCalcTypeNational",
+    rateKey: "overtimeRateNational",
+  },
+];
+
 let referenceDataPromise: Promise<{
   departments: Department[];
   roles: Role[];
@@ -1010,11 +1043,7 @@ export function ClientComponent() {
                     Konfigurasi Lembur
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {[
-                      { key: "Normal", label: "Hari Kerja", color: "indigo" },
-                      { key: "Holiday", label: "Hari Libur", color: "amber" },
-                      { key: "National", label: "Libur Nas.", color: "rose" },
-                    ].map((item) => (
+                    {OVERTIME_CONFIGS.map((item) => (
                       <div
                         key={item.key}
                         className={`p-3 bg-white dark:bg-gray-800 rounded-lg border border-${item.color}-100 dark:border-${item.color}-900/20`}
@@ -1026,11 +1055,8 @@ export function ClientComponent() {
                         </span>
                         <div className="space-y-2">
                           <select
-                            name={`overtimeCalcType${item.key}`}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            value={
-                              (formData as any)[`overtimeCalcType${item.key}`]
-                            }
+                            name={item.calcTypeKey}
+                            value={formData[item.calcTypeKey]}
                             onChange={handleChange}
                             className="w-full px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900/30 text-gray-900 dark:text-white"
                           >
@@ -1042,11 +1068,8 @@ export function ClientComponent() {
                           <div className="relative">
                             <input
                               type="number"
-                              name={`overtimeRate${item.key}`}
-                              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                              value={
-                                (formData as any)[`overtimeRate${item.key}`]
-                              }
+                              name={item.rateKey}
+                              value={formData[item.rateKey]}
                               onChange={handleChange}
                               className="w-full pl-6 pr-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
                             />
