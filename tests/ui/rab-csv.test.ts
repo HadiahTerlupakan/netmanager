@@ -4,6 +4,51 @@ import { buildRABCsvContent } from "@/app/admin/integrations/mixradius/expenses/
 import type { RABProject } from "@/app/admin/integrations/mixradius/expenses/rabTypes";
 
 describe("buildRABCsvContent", () => {
+  it("memisahkan gross revenue, npl, dan net revenue untuk export investor", () => {
+    const project: RABProject = {
+      id: "rab-csv-revenue-split",
+      name: "RAB Revenue Split Test",
+      projectedRevenue: 1_000_000,
+      projectedOpex: 100_000,
+      targetSubscribers: 100,
+      arpu: 10_000,
+      growthType: "LINEAR",
+      paymentType: "PREPAID",
+      growthSettings: { subscribersPerMonth: 100 },
+      nplTolerancePercent: 20,
+      investmentDurationMonths: 1,
+      investmentRecoveryType: "PERCENTAGE",
+      investmentRecoveryValue: 50,
+      investorProfitSharePercent: 50,
+      status: "DRAFT",
+      items: [
+        {
+          id: "item-capex",
+          name: "CAPEX test",
+          category: "Investasi",
+          quantity: 1,
+          unitPrice: 1_000_000,
+          totalPrice: 1_000_000,
+          expenseType: "CAPEX",
+        },
+      ],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const csvContent = buildRABCsvContent(project);
+
+    expect(csvContent).toContain(
+      '"Bulan ke","Gross Revenue","Potensi NPL","Net Revenue","OPEX","Profit Kotor","Angsuran Modal","Sisa Investasi","Investor Share","Company Share"',
+    );
+    expect(csvContent).toContain(
+      '"1","1000000","200000","800000","100000","700000","350000","650000","175000","175000"',
+    );
+    expect(csvContent).toContain(
+      '"TOTAL AKUMULASI","1000000","200000","800000","100000","700000","350000","","175000","175000"',
+    );
+  });
+
   it("menetralkan formula spreadsheet pada cell string yang diekspor", () => {
     const project: RABProject = {
       id: "rab-csv-1",
@@ -66,7 +111,9 @@ describe("buildRABCsvContent", () => {
 
     const csvContent = buildRABCsvContent(project);
 
-    expect(csvContent).toContain('"1","0","0","-100000","0","0","0","0"');
+    expect(csvContent).toContain(
+      '"1","0","0","0","100000","-100000","0","0","0","0"',
+    );
     expect(csvContent).not.toContain('"\'-100000"');
   });
 });

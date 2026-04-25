@@ -75,13 +75,25 @@ export default function RABTrackingSection({
                 scope="col"
                 className="px-4 py-3 text-right text-[10px] font-bold text-gray-500 uppercase"
               >
-                Revenue
+                Gross Revenue
               </th>
               <th
                 scope="col"
                 className="px-4 py-3 text-right text-[10px] font-bold text-red-500 uppercase"
               >
                 Potensi NPL
+              </th>
+              <th
+                scope="col"
+                className="px-4 py-3 text-right text-[10px] font-bold text-emerald-600 uppercase"
+              >
+                Net Revenue
+              </th>
+              <th
+                scope="col"
+                className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase"
+              >
+                OPEX
               </th>
               <th
                 scope="col"
@@ -138,7 +150,16 @@ export default function RABTrackingSection({
                   <td className="px-4 py-3 whitespace-nowrap text-[11px] font-medium text-gray-900 dark:text-white">
                     Bln-{monthIndex}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-right border-l border-gray-100 dark:border-gray-700/50">
+                  <td className="px-4 py-3 whitespace-nowrap text-right border-l border-gray-100 dark:border-gray-700/50 text-[11px] font-medium text-gray-700 dark:text-gray-200">
+                    {formatCurrency(row.grossTargetRevenue)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium text-red-500">
+                    {formatCurrency(row.nplAmount)}
+                    <div className="text-[9px] text-gray-400 font-normal">
+                      ({nplTolerancePercent || 0}%)
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right">
                     {isEditing ? (
                       <div className="flex flex-col gap-1 items-end">
                         <input
@@ -151,7 +172,7 @@ export default function RABTrackingSection({
                             })
                           }
                           className="w-24 text-right text-[11px] border-blue-300 dark:border-blue-700 rounded bg-blue-50/50 dark:bg-blue-900/50"
-                          placeholder="Rev"
+                          placeholder="Net Rev"
                         />
                         <span className="text-[9px] text-gray-400">
                           Target: {formatCurrency(row.projectedRevenue)}
@@ -159,7 +180,7 @@ export default function RABTrackingSection({
                       </div>
                     ) : (
                       <div className="flex flex-col items-end">
-                        <span className="text-[11px] font-medium">
+                        <span className="text-[11px] font-medium text-emerald-600">
                           {formatCurrency(row.displayRevenue)}
                         </span>
                         <span className="text-[9px] text-gray-400">
@@ -168,11 +189,8 @@ export default function RABTrackingSection({
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium text-red-500">
-                    {formatCurrency(row.nplAmount)}
-                    <div className="text-[9px] text-gray-400 font-normal">
-                      ({nplTolerancePercent || 0}%)
-                    </div>
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium text-slate-500">
+                    {formatCurrency(row.displayRevenue - row.grossProfit)}
                   </td>
                   <td
                     className={`px-4 py-3 whitespace-nowrap text-right text-[11px] font-medium ${row.grossProfit >= 0 ? "text-blue-600" : "text-red-500"}`}
@@ -346,10 +364,16 @@ export default function RABTrackingSection({
                 TOTAL AKUMULASI
               </td>
               <td className="px-4 py-4 text-right text-[11px] text-gray-900 dark:text-white border-l border-gray-200/50">
-                {formatCurrency(totals.revenue)}
+                {formatCurrency(totals.grossRevenue)}
               </td>
               <td className="px-4 py-4 text-right text-[11px] text-red-500 font-bold">
                 {formatCurrency(totals.nplAmount)}
+              </td>
+              <td className="px-4 py-4 text-right text-[11px] text-emerald-600 font-bold">
+                {formatCurrency(totals.revenue)}
+              </td>
+              <td className="px-4 py-4 text-right text-[11px] text-slate-500 font-bold">
+                {formatCurrency(totals.opex)}
               </td>
               <td className="px-4 py-4 text-right text-[11px] text-blue-600 font-bold">
                 {formatCurrency(totals.grossProfit)}

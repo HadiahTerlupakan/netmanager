@@ -173,8 +173,10 @@ describe("rab tracking calculations helpers", () => {
 
     expect(dataset.totals.revenue).toBe(revenueFromRows);
     expect(dataset.totals.nplAmount).toBe(nplFromRows);
+    expect(dataset.totals.grossRevenue).toBe(1_500_000);
     expect(dataset.totals.revenue).toBe(1_200_000);
     expect(dataset.totals.nplAmount).toBe(300_000);
+    expect(dataset.totals.opex).toBe(300_000);
   });
 
   it("mendahulukan manual override recovery dan profit share", () => {

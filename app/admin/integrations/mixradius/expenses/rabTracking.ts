@@ -31,8 +31,10 @@ export interface RABTrackingRow {
 }
 
 export interface RABTrackingTotals {
+  grossRevenue: number;
   revenue: number;
   nplAmount: number;
+  opex: number;
   grossProfit: number;
   recoveryInstallment: number;
   investorShare: number;
@@ -87,8 +89,10 @@ export function buildRABTrackingDataset(
 
   let remainingInvestment = getCapexTotal(project);
 
+  let cumulativeGrossRevenue = 0;
   let cumulativeRevenue = 0;
   let cumulativeNplAmount = 0;
+  let cumulativeOpex = 0;
   let cumulativeGrossProfit = 0;
   let cumulativeRecoveryInstallment = 0;
   let cumulativeInvestorShare = 0;
@@ -159,8 +163,10 @@ export function buildRABTrackingDataset(
         ? Number(actualRecord?.manualCompanyShare)
         : netProfit - investorShare;
 
+      cumulativeGrossRevenue += grossTargetRevenue;
       cumulativeRevenue += displayRevenue;
       cumulativeNplAmount += nplAmount;
+      cumulativeOpex += monthlyOpex;
       cumulativeGrossProfit += grossProfit;
       cumulativeRecoveryInstallment += recoveryInstallment;
       cumulativeInvestorShare += investorShare;
@@ -200,8 +206,10 @@ export function buildRABTrackingDataset(
   return {
     rows,
     totals: {
+      grossRevenue: cumulativeGrossRevenue,
       revenue: cumulativeRevenue,
       nplAmount: cumulativeNplAmount,
+      opex: cumulativeOpex,
       grossProfit: cumulativeGrossProfit,
       recoveryInstallment: cumulativeRecoveryInstallment,
       investorShare: cumulativeInvestorShare,

@@ -80,6 +80,7 @@ export function buildRABCsvContent(project: RABProject): string {
     project,
     project.actualAchievements || [],
   );
+  const monthlyOpex = Number(project.projectedOpex || 0);
 
   const rows = [
     [`Proyek: ${project.name}`],
@@ -99,8 +100,10 @@ export function buildRABCsvContent(project: RABProject): string {
     [],
     [
       "Bulan ke",
-      "Revenue",
+      "Gross Revenue",
       "Potensi NPL",
+      "Net Revenue",
+      "OPEX",
       "Profit Kotor",
       "Angsuran Modal",
       "Sisa Investasi",
@@ -109,8 +112,10 @@ export function buildRABCsvContent(project: RABProject): string {
     ],
     ...trackingDataset.rows.map((row) => [
       row.month,
-      row.displayRevenue,
+      row.grossTargetRevenue,
       row.nplAmount,
+      row.displayRevenue,
+      monthlyOpex,
       row.grossProfit,
       row.recoveryInstallment,
       Math.max(0, row.remainingInvestment),
@@ -119,8 +124,10 @@ export function buildRABCsvContent(project: RABProject): string {
     ]),
     [
       "TOTAL AKUMULASI",
-      trackingDataset.totals.revenue,
+      trackingDataset.totals.grossRevenue,
       trackingDataset.totals.nplAmount,
+      trackingDataset.totals.revenue,
+      trackingDataset.totals.opex,
       trackingDataset.totals.grossProfit,
       trackingDataset.totals.recoveryInstallment,
       "",
@@ -134,11 +141,15 @@ export function buildRABCsvContent(project: RABProject): string {
       "",
       "",
       "",
+      "",
+      "",
       trackingDataset.totals.investorTotalReceived,
       "",
     ],
     [
       "TOTAL DITERIMA PERUSAHAAN (Profit)",
+      "",
+      "",
       "",
       "",
       "",

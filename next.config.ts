@@ -164,11 +164,12 @@ const nextConfig: NextConfig = {
   compress: true,
   reactStrictMode: true,
 
-  // Increase body size limit for APK uploads (default 1MB -> 100MB)
+  // Increase body size limits for large uploads.
   experimental: {
     serverActions: {
       bodySizeLimit: "1gb",
     },
+    proxyClientMaxBodySize: "1gb",
   },
 
   // Webpack configuration to suppress React warnings and remove console.log in production

@@ -23,7 +23,7 @@ import { usePermission } from "@/hooks/use-permission";
 import RABCompare from "./RABCompare";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABCsvContent } from "./rab-csv";
-import { buildRABTrackingDataset } from "./rabTracking";
+import { buildRABPdfTrackingTable, getRABPdfDocumentOptions } from "./rab-pdf";
 import type {
   LinearGrowthSettings,
   PercentageGrowthSettings,
@@ -115,7 +115,7 @@ export default function RABList({
 
   const handleExportPDF = (project: RABProject) => {
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF(getRABPdfDocumentOptions());
       const { bepMonth } = calculateRealisticBEP(project);
 
       // Header
@@ -238,39 +238,10 @@ export default function RABList({
       });
 
       // Tracking Pencapaian Table
-      const trackingDataset = buildRABTrackingDataset(
-        project,
-        project.actualAchievements || [],
-      );
-      const trackingHeaders = [
-        [
-          "Bulan",
-          "Revenue",
-          "Potensi NPL",
-          "Profit Kotor",
-          "Angsuran Modal",
-          "Sisa Investasi",
-          "Investor",
-          "Company",
-        ],
-      ];
-      const trackingData: string[][] = trackingDataset.rows.map((row) => [
-        row.month.toString(),
-        formatCurrency(row.displayRevenue),
-        formatCurrency(row.nplAmount),
-        formatCurrency(row.grossProfit),
-        formatCurrency(row.recoveryInstallment),
-        formatCurrency(Math.max(0, row.remainingInvestment)),
-        formatCurrency(row.investorShare),
-        formatCurrency(row.companyShare),
-      ]);
-
-      const totalRev = trackingDataset.totals.revenue;
-      const totalNpl = trackingDataset.totals.nplAmount;
-      const totalGross = trackingDataset.totals.grossProfit;
-      const totalRec = trackingDataset.totals.recoveryInstallment;
-      const totalInv = trackingDataset.totals.investorShare;
-      const totalComp = trackingDataset.totals.companyShare;
+      const trackingTable = buildRABPdfTrackingTable(project);
+      const totalRec = trackingTable.totals.recoveryInstallment;
+      const totalInv = trackingTable.totals.investorShare;
+      const totalComp = trackingTable.totals.companyShare;
 
       const docAsJspdf = doc as jsPDF & { lastAutoTable?: { finalY: number } };
 
@@ -329,20 +300,9 @@ export default function RABList({
 
       autoTable(doc, {
         startY: currentY + 6,
-        head: trackingHeaders,
-        body: trackingData,
-        foot: [
-          [
-            "TOTAL",
-            formatCurrency(totalRev),
-            formatCurrency(totalNpl),
-            formatCurrency(totalGross),
-            formatCurrency(totalRec),
-            "",
-            formatCurrency(totalInv),
-            formatCurrency(totalComp),
-          ],
-        ],
+        head: trackingTable.head,
+        body: trackingTable.body,
+        foot: trackingTable.foot,
         theme: "striped",
         headStyles: { fillColor: [79, 70, 229], fontStyle: "bold" }, // Indigo-600
         footStyles: {
@@ -353,14 +313,16 @@ export default function RABList({
         alternateRowStyles: { fillColor: [249, 250, 251] },
         styles: { fontSize: 7, cellPadding: 2 },
         columnStyles: {
-          0: { cellWidth: 10 },
-          1: { halign: "right", cellWidth: 23 },
-          2: { halign: "right", cellWidth: 23 },
-          3: { halign: "right", cellWidth: 24 },
+          0: { cellWidth: 12 },
+          1: { halign: "right", cellWidth: 30 },
+          2: { halign: "right", cellWidth: 28 },
+          3: { halign: "right", cellWidth: 30 },
           4: { halign: "right", cellWidth: 24 },
-          5: { halign: "right", cellWidth: 25 },
-          6: { halign: "right", cellWidth: 24 },
-          7: { halign: "right", cellWidth: 25 },
+          5: { halign: "right", cellWidth: 29 },
+          6: { halign: "right", cellWidth: 30 },
+          7: { halign: "right", cellWidth: 30 },
+          8: { halign: "right", cellWidth: 27 },
+          9: { halign: "right", cellWidth: 29 },
         },
         showFoot: "lastPage",
         margin: { bottom: 20 },

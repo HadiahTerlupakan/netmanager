@@ -893,6 +893,7 @@ export class AttendanceService {
       checkOutGeofenceStatus,
       checkOutGeofenceDistance,
       notes: finalNotes,
+      status: attendance.status,
       updatedAt: new Date(),
     };
 

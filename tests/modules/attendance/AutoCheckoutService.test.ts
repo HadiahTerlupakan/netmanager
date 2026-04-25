@@ -481,6 +481,64 @@ describe("AutoCheckoutService semantics", () => {
     expect(prismaMock.attendance.update).not.toHaveBeenCalled();
   });
 
+  it("restores the manual status when checkout races after auto-checkout", async () => {
+    const service = new (
+      await import("@/modules/attendance/services/AttendanceService")
+    ).AttendanceService();
+    const manualCheckOutTime = new Date("2026-03-27T13:05:00.000Z");
+
+    prismaMock.attendance.findFirst.mockResolvedValueOnce({
+      id: "att-race",
+      tenantId: "tenant-1",
+      userId: "user-race",
+      checkIn: new Date("2026-03-27T01:00:00.000Z"),
+      checkOut: null,
+      status: "ON_TIME",
+      notes: null,
+      user: {
+        name: "Race User",
+        workingHourMode: "FIXED",
+        flexibleTargetHour: null,
+        attendanceGeofencePolicy: "OPTIONAL",
+      },
+    } as never);
+    prismaMock.attendance.update.mockResolvedValueOnce({
+      id: "att-race",
+      tenantId: "tenant-1",
+      userId: "user-race",
+      checkIn: new Date("2026-03-27T01:00:00.000Z"),
+      checkOut: manualCheckOutTime,
+      status: "ON_TIME",
+      notes: null,
+    } as never);
+    prismaMock.attendance.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.leaveRequest.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.holiday.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.overtime.findFirst.mockResolvedValueOnce(null as never);
+    prismaMock.attendanceEvaluation.findFirst.mockResolvedValueOnce(
+      null as never,
+    );
+
+    await service.checkOut({
+      userId: "user-race",
+      photoUrl: null,
+      location: "Office",
+      notes: "Manual checkout",
+      offlineTime: manualCheckOutTime,
+      tenantId: "tenant-1",
+    });
+
+    expect(prismaMock.attendance.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "att-race" },
+        data: expect.objectContaining({
+          checkOut: manualCheckOutTime,
+          status: "ON_TIME",
+        }),
+      }),
+    );
+  });
+
   it("uses tenant timezone when deciding whether an open session still blocks check-in", async () => {
     const service = new (
       await import("@/modules/attendance/services/AttendanceService")
