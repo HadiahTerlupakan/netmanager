@@ -102,8 +102,8 @@ describe("admin users edit safety", () => {
       expect(clientFile).toContain('htmlFor="phone"');
       expect(clientFile).toContain('id="password"');
       expect(clientFile).toContain('htmlFor="password"');
-      expect(clientFile).toContain(
-        'aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}',
+      expect(clientFile).toMatch(
+        /aria-label=\{\s*showPassword\s*\?\s*"Sembunyikan kata sandi"\s*:\s*"Tampilkan kata sandi"\s*\}/,
       );
       expect(clientFile).toContain('aria-label="Buat kata sandi otomatis"');
       expect(clientFile).toContain("newErrors.tenantId =");
@@ -149,8 +149,8 @@ describe("admin users edit safety", () => {
     expect(multiSiteFile).toContain('role="combobox"');
     expect(multiSiteFile).toContain("aria-expanded={isOpen}");
     expect(multiSiteFile).toContain("aria-label={`Hapus site ${site.code}`}");
-    expect(multiSiteFile).toContain(
-      'aria-label={primary ? "Site utama" : `Jadikan ${site.code} sebagai site utama`}',
+    expect(multiSiteFile).toMatch(
+      /aria-label=\{\s*primary\s*\?\s*"Site utama"\s*:\s*`Jadikan \$\{site\.code\} sebagai site utama`\s*\}/,
     );
   });
 
@@ -194,8 +194,8 @@ describe("admin users edit safety", () => {
   it("loads new-user reference data once per tenant-read permission state", () => {
     const newClientFile = readUsersNewClient();
 
-    expect(newClientFile).toContain(
-      "const canReadTenants = hasPermission('tenants:read')",
+    expect(newClientFile).toMatch(
+      /const canReadTenants = hasPermission\((["'])tenants:read\1\)/,
     );
     expect(newClientFile).toContain("hasLoadedReferenceData");
     expect(newClientFile).toContain("hasLoadedTenants");
