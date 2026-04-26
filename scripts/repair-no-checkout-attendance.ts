@@ -7,6 +7,7 @@ import { NoCheckoutRepairService } from "@/modules/attendance/services/NoCheckou
 import {
   parseRepairArgs,
   resolveRepairTenantIds,
+  runRepairTenantContext,
   type RepairArgs,
 } from "./repair-no-checkout-attendance-args";
 
@@ -125,7 +126,9 @@ async function main() {
   console.log(`Tenant diproses: ${tenantIds.length}`);
 
   for (const tenantId of tenantIds) {
-    await repairTenant({ ...args, tenantId });
+    await runRepairTenantContext(tenantId, () =>
+      repairTenant({ ...args, tenantId }),
+    );
   }
 
   if (args.dryRun) {

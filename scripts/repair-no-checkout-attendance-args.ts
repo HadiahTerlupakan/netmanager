@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { runWithRequestTenantContext } from "@/lib/tenant-context";
 
 type RepairArgs = {
   tenantId: string | null;
@@ -14,6 +15,8 @@ type TenantRepository = {
     orderBy: { name: "asc" };
   }): Promise<{ id: string }[]>;
 };
+
+type TenantContextRunner = typeof runWithRequestTenantContext;
 
 function getArgValue(args: string[], name: string): string | null {
   const prefix = `${name}=`;
@@ -74,6 +77,14 @@ export async function resolveRepairTenantIds(
   });
 
   return tenants.map((tenant) => tenant.id);
+}
+
+export function runRepairTenantContext<T>(
+  tenantId: string,
+  callback: () => Promise<T>,
+  runWithContext: TenantContextRunner = runWithRequestTenantContext,
+): Promise<T> {
+  return runWithContext({ tenantId, isSuperAdmin: false }, callback);
 }
 
 export type { RepairArgs };

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   parseRepairArgs,
   resolveRepairTenantIds,
+  runRepairTenantContext,
 } from "../../scripts/repair-no-checkout-attendance-args";
 
 describe("repair no-checkout attendance args", () => {
@@ -42,5 +43,19 @@ describe("repair no-checkout attendance args", () => {
         tenantRepository,
       ),
     ).resolves.toEqual(["tenant-1", "tenant-2"]);
+  });
+
+  it("runs tenant repair inside tenant context", async () => {
+    const runWithContext = vi.fn(async (_context, callback) => callback());
+    const callback = vi.fn().mockResolvedValue("ok");
+
+    await expect(
+      runRepairTenantContext("tenant-1", callback, runWithContext),
+    ).resolves.toBe("ok");
+
+    expect(runWithContext).toHaveBeenCalledWith(
+      { tenantId: "tenant-1", isSuperAdmin: false },
+      callback,
+    );
   });
 });
