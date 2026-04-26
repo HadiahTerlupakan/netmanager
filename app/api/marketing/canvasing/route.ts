@@ -1,18 +1,23 @@
+import { ZodError } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import { CanvasingStatus } from "@prisma/client";
 import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
-import { createCanvasingService } from "@/modules/marketing";
+import { hasMobilePermission } from "@/lib/mobile-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { createCanvasingService } from "@/modules/marketing";
+import {
+  getCanvasingValidationMessage,
+  parseCanvasingStatusParam,
+  parseCreateCanvasingInput,
+} from "@/modules/marketing/validators/canvasingValidation";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await verifyAuth(req);
     if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    // RBAC Check & Filtering
     const isSuperAdmin = isSuperAdminRole(session.role);
-
     const permissions = await getUserPermissions(session.id);
     const canReadAll =
       isSuperAdmin ||
@@ -22,39 +27,36 @@ export async function GET(req: NextRequest) {
       permissions.includes("canvasing:site_only") && !isSuperAdmin;
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
+    const status = parseCanvasingStatusParam(searchParams.get("status"));
     let salesId = searchParams.get("salesId") || undefined;
     let filterSiteId: string | undefined =
       searchParams.get("siteId") || undefined;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-
-    // Logic:
-    // 1. If Super Admin -> Can see all (no default filters)
-    // 2. If Site Restricted (e.g. Site Manager) -> Filter by Site
-    // 3. If Sales (no read all, no site restricted) -> Filter by Own ID
-
-    // Logic Reform:
-    // 1. Strict Ownership: If you don't have 'verify' permission (Manager), you ONLY see your own data.
-    // 2. Site Restriction: If you are a Manager but restricted to 'site_only', you see all data in your site.
-    // 3. Super Admin: Sees everything.
+    const search = searchParams.get("search")?.trim();
 
     const canVerify = permissions.includes("canvasing:verify");
     const canViewOthers = isSuperAdmin || canVerify || canReadAll;
 
-    // console.log(`[API_CANVASING] User: ${session.email}, isSuperAdmin: ${isSuperAdmin}, canReadAll: ${canReadAll}, canVerify: ${canVerify}, canViewOthers: ${canViewOthers}`)
-
     if (!canViewOthers) {
-      // Absolute restriction for regular Sales/Staff
       salesId = session.id;
-    } else {
-      // Manager Logic
-      if (isSiteRestricted) {
-        if (session.siteId) {
-          filterSiteId = session.siteId;
-        } else {
-          return apiSuccess([]);
-        }
+    } else if (isSiteRestricted) {
+      if (session.siteId) {
+        filterSiteId = session.siteId;
+      } else {
+        return NextResponse.json({
+          data: [],
+          total: 0,
+          page,
+          limit,
+          summary: {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            pendingClaims: 0,
+          },
+        });
       }
     }
 
@@ -63,20 +65,28 @@ export async function GET(req: NextRequest) {
       status?: CanvasingStatus;
       salesId?: string;
       siteId?: string;
+      search?: string;
     } = {};
+
     if (status) filterParams.status = status as CanvasingStatus;
     if (salesId) filterParams.salesId = salesId;
     if (filterSiteId) filterParams.siteId = filterSiteId;
+    if (search) filterParams.search = search;
+
     const result = await service.getAllRequests(filterParams, page, limit);
 
-    // Return with data wrapper for mobile app compatibility
     return NextResponse.json({
       data: result.data,
       total: result.total,
       page,
       limit,
+      summary: result.summary,
     });
   } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest(getCanvasingValidationMessage(error));
+    }
+
     const message =
       error instanceof Error ? error.message : "Gagal mengambil data canvasing";
     return ApiErrors.internalError(message);
@@ -88,43 +98,35 @@ export async function POST(req: NextRequest) {
     const session = await verifyAuth(req);
     if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    const body = await req.json();
+    const isSuperAdmin = isSuperAdminRole(session.role);
+    const permissions =
+      session.permissions ?? (await getUserPermissions(session.id));
+    const canCreateCanvasing =
+      isSuperAdmin ||
+      permissions.includes("canvasing:create") ||
+      hasMobilePermission(permissions, "m_canvasing:create");
 
-    // Validate required fields
-    if (!body.nama || !body.nama.trim()) {
-      return ApiErrors.badRequest("Nama pelanggan wajib diisi");
+    if (!canCreateCanvasing) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk membuat data canvasing",
+      );
     }
-    if (!body.noTelpon || !body.noTelpon.trim()) {
-      return ApiErrors.badRequest("Nomor telepon wajib diisi");
-    }
-    if (!body.alamat || !body.alamat.trim()) {
-      return ApiErrors.badRequest("Alamat wajib diisi");
-    }
+
+    const body = await req.json();
+    const payload = parseCreateCanvasingInput({
+      ...body,
+      salesId: session.id,
+    });
 
     const service = createCanvasingService();
-
-    // Explicitly map and sanitize fields
-    const payload = {
-      nama: body.nama.trim(),
-      noKtp: body.noKtp,
-      noTelpon: body.noTelpon.trim(),
-      email: body.email || null,
-      alamat: body.alamat.trim(),
-      kabel: body.kabel ? Number(body.kabel) : 0,
-      odp: body.odp || null,
-      paket: body.paket || null,
-      sn: body.sn || null,
-      latitude: body.latitude ? Number(body.latitude) : null,
-      longitude: body.longitude ? Number(body.longitude) : null,
-      foto: body.foto || null,
-      fotoKtp: body.fotoKtp || null,
-      salesId: session.id,
-    };
-
     const request = await service.createRequest(payload);
 
     return apiSuccess(request, { status: 201 });
   } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest(getCanvasingValidationMessage(error));
+    }
+
     const message =
       error instanceof Error ? error.message : "Gagal membuat data canvasing";
     return ApiErrors.internalError(message);

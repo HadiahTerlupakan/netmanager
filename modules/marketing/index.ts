@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { WorkOrderRepository } from "@/modules/work-order";
+import { getMitraRepository } from "@/modules/mitra";
+import { SiteService } from "@/modules/roles";
 import { CanvasingRepository } from "./repositories/CanvasingRepository";
 import { PointClaimRepository } from "./repositories/PointClaimRepository";
 import { CanvasingService } from "./services/CanvasingService";
@@ -13,8 +15,15 @@ export { PointClaimService } from "./services/PointClaimService";
 export * from "./services/CanvasingAccessService";
 
 export function createCanvasingService(): CanvasingService {
+  const mitraRepository = getMitraRepository();
+  const siteService = new SiteService();
+
   return new CanvasingService(
-    new CanvasingRepository(prisma),
+    new CanvasingRepository(prisma, {
+      findMitraIdsBySite: (siteId) => mitraRepository.findIdsBySite(siteId),
+      findMitraSummary: (id) => mitraRepository.findCanvasingSummary(id),
+      findSiteSummary: (id) => siteService.getSiteById(id),
+    }),
     new WorkOrderRepository(),
   );
 }
@@ -22,27 +31,6 @@ export function createCanvasingService(): CanvasingService {
 export function createPointClaimService(): PointClaimService {
   return new PointClaimService(new PointClaimRepository(prisma), prisma);
 }
-
-// Repositories (public - needed by admin/dashboard consumers)
-export { PointClaimRepository } from "./repositories/PointClaimRepository";
-export { CanvasingRepository } from "./repositories/CanvasingRepository";
-
-// Repository interfaces (public - needed by consumers who inject repos)
-export type {
-  ICanvasingRepository,
-  CreateCanvasingInput,
-  UpdateCanvasingInput,
-  CanvasingWithSalesInfo,
-  CanvasingWithSalesSite,
-} from "./repositories/ICanvasingRepository";
-
-export type {
-  IPointClaimRepository,
-  CreatePointClaimInput,
-  UpdatePointClaimInput,
-  PointClaimWithRelations,
-  PointSummary,
-} from "./repositories/IPointClaimRepository";
 
 // DTOs (public types for API responses and requests)
 export type {
@@ -55,6 +43,3 @@ export type {
   CreateCanvasingDTO,
   ClaimPointsDTO,
 } from "./dto/MarketingDTO";
-
-// NOTE: CanvasingRepository and PointClaimRepository are NOT exported (internal implementation details)
-// NOTE: MarketingFactory and MarketingMapper are NOT exported (internal)

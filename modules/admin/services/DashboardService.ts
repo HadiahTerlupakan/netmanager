@@ -2,8 +2,7 @@ import { AttendanceRepository } from "@/modules/attendance";
 import { WorkOrderRepository } from "@/modules/work-order";
 import { InventoryRepository } from "@/modules/inventory";
 import { UserRepository } from "@/modules/users";
-import { PointClaimRepository } from "@/modules/marketing";
-import { prisma } from "@/lib/prisma";
+import { createPointClaimService } from "@/modules/marketing";
 import {
   buildRecentRange,
   buildTodayRange,
@@ -68,7 +67,7 @@ export type SiteStat = {
 export class DashboardService {
   private attendanceRepo = new AttendanceRepository();
   private workOrderRepo = new WorkOrderRepository();
-  private pointClaimRepo = new PointClaimRepository(prisma);
+  private pointClaimService = createPointClaimService();
   private inventoryRepo = new InventoryRepository();
   private userRepo = new UserRepository();
 
@@ -82,7 +81,7 @@ export class DashboardService {
       take: 1,
       tenantId: input.tenantId,
     });
-    const marketing = await this.pointClaimRepo.getDashboardSummary(
+    const marketing = await this.pointClaimService.getDashboardSummary(
       input.tenantId,
     );
 

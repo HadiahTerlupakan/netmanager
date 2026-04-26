@@ -27,7 +27,7 @@ export async function POST(
 
     if (!isSuperAdmin && !canReviewCanvasing) {
       return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk menyetujui canvasing",
+        "Anda tidak memiliki akses untuk menolak canvasing",
       );
     }
 
@@ -44,24 +44,25 @@ export async function POST(
       )
     ) {
       return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk menyetujui canvasing",
+        "Anda tidak memiliki akses untuk menolak canvasing",
       );
     }
 
-    const request = await service.approveRequest(id, session.id);
+    const request = await service.rejectRequest(id);
 
-    return apiSuccess(request, {
-      message: "Canvasing berhasil disetujui dan Work Order telah dibuat",
-    });
+    return apiSuccess(request, { message: "Canvasing berhasil ditolak" });
   } catch (error: unknown) {
     const message =
-      error instanceof Error ? error.message : "Gagal menyetujui canvasing";
+      error instanceof Error ? error.message : "Gagal menolak canvasing";
+
     if (message.includes("tidak ditemukan")) {
       return ApiErrors.notFound("Data canvasing");
     }
-    if (message.includes("Hanya request PENDING")) {
+
+    if (message.includes("PENDING") || message.includes("invalid")) {
       return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
+
     return ApiErrors.internalError(message);
   }
 }

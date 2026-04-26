@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { NextRequest } from "next/server";
 import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
@@ -8,6 +9,41 @@ import {
   apiError,
   ErrorCodes,
 } from "@/lib/api-response";
+import {
+  GENERIC_STATUS_UPDATE_FORBIDDEN_MESSAGE,
+  getCanvasingValidationMessage,
+  hasGenericStatusUpdate,
+  parseUpdateCanvasingInput,
+} from "@/modules/marketing/validators/canvasingValidation";
+import { canAccessCanvasingSite } from "../canvasingRouteAccess";
+
+function canReadCanvasing(
+  isSuperAdmin: boolean,
+  isOwner: boolean,
+  permissions: string[],
+): boolean {
+  return (
+    isSuperAdmin ||
+    isOwner ||
+    permissions.includes("canvasing:read") ||
+    permissions.includes("canvasing:verify")
+  );
+}
+
+function canUpdateCanvasing(
+  isSuperAdmin: boolean,
+  isOwner: boolean,
+  permissions: string[],
+): boolean {
+  return isSuperAdmin || isOwner || permissions.includes("canvasing:update");
+}
+
+function canManageCanvasingApproval(
+  isSuperAdmin: boolean,
+  permissions: string[],
+): boolean {
+  return isSuperAdmin || permissions.includes("canvasing:update");
+}
 
 export async function GET(
   req: NextRequest,
@@ -23,12 +59,27 @@ export async function GET(
 
     if (!request) return ApiErrors.notFound("Data canvasing");
 
-    // RBAC Check - Allow owner to view their own request
     const isSuperAdmin = isSuperAdminRole(session.role);
     const permissions = await getUserPermissions(session.id);
     const isOwner = request.salesId === session.id;
 
-    if (!isSuperAdmin && !isOwner && !permissions.includes("canvasing:read")) {
+    if (!canReadCanvasing(isSuperAdmin, isOwner, permissions)) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk melihat data ini",
+      );
+    }
+
+    const requestWithSales = await service.getRequestByIdWithSales(id);
+    if (!requestWithSales) return ApiErrors.notFound("Data canvasing");
+
+    if (
+      !canAccessCanvasingSite(
+        isSuperAdmin,
+        permissions,
+        session,
+        requestWithSales,
+      )
+    ) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk melihat data ini",
       );
@@ -53,7 +104,6 @@ export async function PUT(
     const session = await verifyAuth(req);
     if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    // RBAC Check - Allow owner to update their own request
     const service = createCanvasingService();
     const existingRequest = await service.getRequestById(id);
     if (!existingRequest) return ApiErrors.notFound("Data canvasing");
@@ -62,11 +112,22 @@ export async function PUT(
     const permissions = await getUserPermissions(session.id);
     const isOwner = existingRequest.salesId === session.id;
 
-    // Allow if: super admin, owner, or has canvasing:update permission
+    if (!canUpdateCanvasing(isSuperAdmin, isOwner, permissions)) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk mengubah data ini",
+      );
+    }
+
+    const requestWithSales = await service.getRequestByIdWithSales(id);
+    if (!requestWithSales) return ApiErrors.notFound("Data canvasing");
+
     if (
-      !isSuperAdmin &&
-      !isOwner &&
-      !permissions.includes("canvasing:update")
+      !canAccessCanvasingSite(
+        isSuperAdmin,
+        permissions,
+        session,
+        requestWithSales,
+      )
     ) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk mengubah data ini",
@@ -74,10 +135,19 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const request = await service.updateRequest(id, body);
+    if (hasGenericStatusUpdate(body)) {
+      return ApiErrors.badRequest(GENERIC_STATUS_UPDATE_FORBIDDEN_MESSAGE);
+    }
+
+    const payload = parseUpdateCanvasingInput(body);
+    const request = await service.updateRequest(id, payload);
 
     return apiSuccess(request);
   } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest(getCanvasingValidationMessage(error));
+    }
+
     const message =
       error instanceof Error
         ? error.message
@@ -99,25 +169,22 @@ export async function PATCH(
     if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
     const body = await req.json();
+    const service = createCanvasingService();
+    const existingRequest = await service.getRequestById(id);
+    if (!existingRequest) return ApiErrors.notFound("Data canvasing");
 
-    // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role);
     const permissions = await getUserPermissions(session.id);
+    const isOwner = existingRequest.salesId === session.id;
 
-    if (!isSuperAdmin && !permissions.includes("canvasing:update")) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk mengubah data ini",
-      );
-    }
-
-    const service = createCanvasingService();
-
-    // Handle cancel_approval action
     if (body.action === "cancel_approval") {
-      const request = await service.getRequestById(id);
-      if (!request) return ApiErrors.notFound("Data canvasing");
+      if (!canManageCanvasingApproval(isSuperAdmin, permissions)) {
+        return ApiErrors.forbidden(
+          "Anda tidak memiliki akses untuk mengubah data ini",
+        );
+      }
 
-      if (request.status !== "APPROVED") {
+      if (existingRequest.status !== "APPROVED") {
         return apiError(
           "Hanya canvasing dengan status APPROVED yang bisa dibatalkan",
           ErrorCodes.VALIDATION_ERROR,
@@ -125,15 +192,60 @@ export async function PATCH(
         );
       }
 
-      // Cancel approval - reset to PENDING
+      const requestWithSales = await service.getRequestByIdWithSales(id);
+      if (!requestWithSales) return ApiErrors.notFound("Data canvasing");
+
+      if (
+        !canAccessCanvasingSite(
+          isSuperAdmin,
+          permissions,
+          session,
+          requestWithSales,
+        )
+      ) {
+        return ApiErrors.forbidden(
+          "Anda tidak memiliki akses untuk mengubah data ini",
+        );
+      }
+
       const updated = await service.cancelApproval(id);
       return apiSuccess(updated, { message: "Approval berhasil dibatalkan" });
     }
 
-    // Regular update
-    const request = await service.updateRequest(id, body);
+    if (!canUpdateCanvasing(isSuperAdmin, isOwner, permissions)) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk mengubah data ini",
+      );
+    }
+
+    const requestWithSales = await service.getRequestByIdWithSales(id);
+    if (!requestWithSales) return ApiErrors.notFound("Data canvasing");
+
+    if (
+      !canAccessCanvasingSite(
+        isSuperAdmin,
+        permissions,
+        session,
+        requestWithSales,
+      )
+    ) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk mengubah data ini",
+      );
+    }
+
+    if (hasGenericStatusUpdate(body)) {
+      return ApiErrors.badRequest(GENERIC_STATUS_UPDATE_FORBIDDEN_MESSAGE);
+    }
+
+    const payload = parseUpdateCanvasingInput(body);
+    const request = await service.updateRequest(id, payload);
     return apiSuccess(request);
   } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      return ApiErrors.badRequest(getCanvasingValidationMessage(error));
+    }
+
     const message =
       error instanceof Error
         ? error.message
@@ -157,7 +269,6 @@ export async function DELETE(
     const session = await verifyAuth(req);
     if (!session) return ApiErrors.unauthorized("Tidak terautentikasi");
 
-    // RBAC Check
     const isSuperAdmin = isSuperAdminRole(session.role);
     const permissions = await getUserPermissions(session.id);
 
@@ -168,10 +279,24 @@ export async function DELETE(
     }
 
     const service = createCanvasingService();
-
-    // Check if exists first
     const existing = await service.getRequestById(id);
     if (!existing) return ApiErrors.notFound("Data canvasing");
+
+    const requestWithSales = await service.getRequestByIdWithSales(id);
+    if (!requestWithSales) return ApiErrors.notFound("Data canvasing");
+
+    if (
+      !canAccessCanvasingSite(
+        isSuperAdmin,
+        permissions,
+        session,
+        requestWithSales,
+      )
+    ) {
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki akses untuk menghapus data ini",
+      );
+    }
 
     await service.deleteRequest(id);
 
