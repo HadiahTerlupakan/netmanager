@@ -51,6 +51,20 @@ const disbursementSchema = z.object({
   isPaid: z.boolean().default(false),
 });
 
+const opexBufferFundingModeSchema = z.enum([
+  "INVESTOR",
+  "COMPANY",
+  "SHARED_PERCENTAGE",
+  "FIXED",
+]);
+
+const DEFAULT_OPEX_BUFFER_FUNDING_MODE = "INVESTOR";
+const SHARED_OPEX_BUFFER_FUNDING_MODE = "SHARED_PERCENTAGE";
+
+type RabOpexBufferFundingModeInput = z.infer<
+  typeof opexBufferFundingModeSchema
+>;
+
 const itemSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
@@ -65,58 +79,91 @@ const itemSchema = z.object({
   disbursements: z.array(disbursementSchema).default([]),
 });
 
-const rabSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  siteId: z.string().optional().nullable(),
-  mixRadiusGroupId: z.string().optional().nullable(),
-  mixRadiusInvestorSiteId: z.string().optional().nullable(),
-  projectedRevenue: z
-    .union([z.string(), z.number()])
-    .default(0)
-    .transform((v) => BigInt(Math.round(Number(v)))),
-  projectedOpex: z
-    .union([z.string(), z.number()])
-    .default(0)
-    .transform((v) => BigInt(Math.round(Number(v)))),
+function validateOpexBufferSharingPercent(data: {
+  opexBufferFundingMode?: RabOpexBufferFundingModeInput;
+  opexBufferInvestorPercent?: number;
+  opexBufferCompanyPercent?: number;
+}) {
+  if (data.opexBufferFundingMode !== SHARED_OPEX_BUFFER_FUNDING_MODE) {
+    return true;
+  }
 
-  // Growth period fields
-  targetSubscribers: z.number().optional(),
-  arpu: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) =>
-      v !== undefined && v !== null && v !== ""
-        ? BigInt(Math.round(Number(v)))
-        : undefined,
+  return (
+    Number(data.opexBufferInvestorPercent || 0) +
+      Number(data.opexBufferCompanyPercent || 0) ===
+    100
+  );
+}
+
+const rabSchema = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    siteId: z.string().optional().nullable(),
+    mixRadiusGroupId: z.string().optional().nullable(),
+    mixRadiusInvestorSiteId: z.string().optional().nullable(),
+    projectedRevenue: z
+      .union([z.string(), z.number()])
+      .default(0)
+      .transform((v) => BigInt(Math.round(Number(v)))),
+    projectedOpex: z
+      .union([z.string(), z.number()])
+      .default(0)
+      .transform((v) => BigInt(Math.round(Number(v)))),
+
+    // Growth period fields
+    targetSubscribers: z.number().optional(),
+    arpu: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v !== undefined && v !== null && v !== ""
+          ? BigInt(Math.round(Number(v)))
+          : undefined,
+      ),
+    growthType: z.enum(RabGrowthType).default(RabGrowthType.LINEAR),
+    paymentType: z.enum(RabPaymentType).default(RabPaymentType.PREPAID),
+    growthSettings: z
+      .union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema])
+      .optional(),
+    startDate: z
+      .string()
+      .optional()
+      .transform((v) => (v ? new Date(v) : undefined)),
+    investmentDurationMonths: z.number().min(1).default(12),
+    investmentRecoveryType: z
+      .enum(["PERCENTAGE", "FIXED"])
+      .default("PERCENTAGE"),
+    investmentRecoveryValue: z.number().default(50),
+    investorProfitSharePercent: z.number().default(50),
+
+    // Enterprise features
+    contingencyPercent: z.number().min(0).max(100).default(0),
+    contingencyAmount: z
+      .union([z.string(), z.number()])
+      .default(0)
+      .transform((v) => BigInt(Math.round(Number(v)))),
+    nplTolerancePercent: z.number().min(0).max(100).default(0),
+    opexBufferFundingMode: opexBufferFundingModeSchema.default(
+      DEFAULT_OPEX_BUFFER_FUNDING_MODE,
     ),
-  growthType: z.enum(RabGrowthType).default(RabGrowthType.LINEAR),
-  paymentType: z.enum(RabPaymentType).default(RabPaymentType.PREPAID),
-  growthSettings: z
-    .union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema])
-    .optional(),
-  startDate: z
-    .string()
-    .optional()
-    .transform((v) => (v ? new Date(v) : undefined)),
-  investmentDurationMonths: z.number().min(1).default(12),
-  investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).default("PERCENTAGE"),
-  investmentRecoveryValue: z.number().default(50),
-  investorProfitSharePercent: z.number().default(50),
+    opexBufferInvestorPercent: z.number().min(0).max(100).default(100),
+    opexBufferCompanyPercent: z.number().min(0).max(100).default(0),
+    opexBufferInvestorFixedAmount: z
+      .union([z.string(), z.number()])
+      .default(0)
+      .transform((v) => BigInt(Math.round(Number(v)))),
+    opexBufferSafetyPercent: z.number().min(0).max(100).default(0),
+    hasDisbursementPlan: z.boolean().default(false),
+    wbsGroups: z.array(wbsSchema).default([]),
+    investorIds: z.array(z.string()).optional().default([]),
 
-  // Enterprise features
-  contingencyPercent: z.number().min(0).max(100).default(0),
-  contingencyAmount: z
-    .union([z.string(), z.number()])
-    .default(0)
-    .transform((v) => BigInt(Math.round(Number(v)))),
-  nplTolerancePercent: z.number().min(0).max(100).default(0),
-  hasDisbursementPlan: z.boolean().default(false),
-  wbsGroups: z.array(wbsSchema).default([]),
-  investorIds: z.array(z.string()).optional().default([]),
-
-  items: z.array(itemSchema).default([]),
-});
+    items: z.array(itemSchema).default([]),
+  })
+  .refine(validateOpexBufferSharingPercent, {
+    message: "Total persentase buffer OPEX investor dan perusahaan harus 100%",
+    path: ["opexBufferInvestorPercent"],
+  });
 
 // GET: List RAB Projects
 export const GET = createHandler({ auth: true }, async (req, ctx) => {

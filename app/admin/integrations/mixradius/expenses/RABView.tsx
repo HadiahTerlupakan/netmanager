@@ -600,10 +600,9 @@ export default function RABView({
                     </div>
                   </div>
                   <p className="mt-3 text-[10px] text-gray-500 italic leading-relaxed">
-                    * Seluruh modal (CAPEX) dianggap dari Investor. Angsuran
-                    modal (Recovery) akan diprioritaskan diambil dari profit
-                    kotor setiap bulan sebelum sisa profit dibagi antara
-                    Investor dan Perusahaan.
+                    * Modal CAPEX dan porsi Buffer OPEX yang didanai investor
+                    menjadi basis recovery. Buffer OPEX tetap dipisahkan dari
+                    CAPEX murni agar kebutuhan cashflow ramp-up transparan.
                   </p>
                 </div>
 
@@ -658,6 +657,33 @@ export default function RABView({
                       </div>
                       <div className="text-sm font-bold">
                         {formatCurrency(totalOpex)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-blue-100 uppercase font-medium">
+                        Buffer OPEX Investor
+                      </div>
+                      <div className="text-sm font-bold">
+                        {formatCurrency(trackingTotals.opexBufferInvestorShare)}
+                      </div>
+                      <div className="mt-1 text-[10px] text-blue-100 leading-snug">
+                        {trackingTotals.opexBufferDurationLabel}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-blue-100 uppercase font-medium">
+                        Total Setoran Investor
+                      </div>
+                      <div className="text-sm font-bold">
+                        {formatCurrency(trackingTotals.investorDepositTotal)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-blue-100 uppercase font-medium">
+                        Dana Direcovery
+                      </div>
+                      <div className="text-sm font-bold">
+                        {formatCurrency(trackingTotals.initialFundingNeed)}
                       </div>
                     </div>
                     <div>

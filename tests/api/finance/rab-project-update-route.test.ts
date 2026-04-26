@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ZodError } from "zod";
 
 import { prismaMock } from "@/tests/setup";
 
@@ -48,11 +49,21 @@ vi.mock("@/lib/api", () => ({
       { params }: { params?: Promise<Record<string, string>> },
     ) => {
       const body = request.body ? await request.clone().json() : undefined;
-      return handler(request, {
-        params: (await params) ?? {},
-        session: { user: { id: "user-1" } },
-        validated: options.schema ? options.schema.parse(body) : body,
-      });
+      try {
+        return await handler(request, {
+          params: (await params) ?? {},
+          session: { user: { id: "user-1" } },
+          validated: options.schema ? options.schema.parse(body) : body,
+        });
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return NextResponse.json(
+            { error: error.issues[0]?.message || "Invalid request" },
+            { status: 400 },
+          );
+        }
+        throw error;
+      }
     },
   apiSuccess: (data: unknown) => NextResponse.json({ success: true, data }),
   ApiErrors: {
@@ -72,6 +83,26 @@ describe("rab project update route", () => {
     vi.clearAllMocks();
     mockHasPermission.mockResolvedValue(true);
     mockIsSuperAdmin.mockReturnValue(false);
+  });
+
+  it("rejects inconsistent shared OPEX buffer percentage", async () => {
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/finance/rab-projects/rab-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          opexBufferFundingMode: "SHARED_PERCENTAGE",
+          opexBufferInvestorPercent: 60,
+          opexBufferCompanyPercent: 30,
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "rab-1" }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain("persentase");
+    expect(mockUpdateProjectWithRelations).not.toHaveBeenCalled();
   });
 
   it("does not allow generic update permission to approve a RAB", async () => {

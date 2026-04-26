@@ -1,0 +1,8 @@
+CREATE TYPE "RabOpexBufferFundingMode" AS ENUM ('INVESTOR', 'COMPANY', 'SHARED_PERCENTAGE', 'FIXED');
+
+ALTER TABLE "rab_projects"
+  ADD COLUMN "opexBufferFundingMode" "RabOpexBufferFundingMode" NOT NULL DEFAULT 'INVESTOR',
+  ADD COLUMN "opexBufferInvestorPercent" DOUBLE PRECISION NOT NULL DEFAULT 100,
+  ADD COLUMN "opexBufferCompanyPercent" DOUBLE PRECISION NOT NULL DEFAULT 0,
+  ADD COLUMN "opexBufferInvestorFixedAmount" BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN "opexBufferSafetyPercent" DOUBLE PRECISION NOT NULL DEFAULT 0;

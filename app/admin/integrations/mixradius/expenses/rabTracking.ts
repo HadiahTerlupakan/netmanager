@@ -1,5 +1,9 @@
 import { calculateMonthlySubscribers } from "./rabCalculations";
-import type { RABActualAchievement, RABProject } from "./rabTypes";
+import type {
+  RABActualAchievement,
+  RABOpexBufferFundingMode,
+  RABProject,
+} from "./rabTypes";
 
 export interface RABTrackingRow {
   month: number;
@@ -10,6 +14,7 @@ export interface RABTrackingRow {
   actualRevenue: number | null;
   displayRevenue: number;
   nplAmount: number;
+  opexGap: number;
   grossProfit: number;
   recoveryInstallment: number;
   remainingInvestment: number;
@@ -40,6 +45,16 @@ export interface RABTrackingTotals {
   investorShare: number;
   companyShare: number;
   remainingInvestment: number;
+  opexBufferBase: number;
+  opexBufferSafety: number;
+  opexBufferTotal: number;
+  opexBufferInvestorShare: number;
+  opexBufferCompanyShare: number;
+  opexBufferDurationMonths: number;
+  opexBufferCoveredMonths: number[];
+  opexBufferDurationLabel: string;
+  initialFundingNeed: number;
+  investorDepositTotal: number;
   investorTotalReceived: number;
   companyTotalReceived: number;
 }
@@ -61,6 +76,118 @@ function getCapexTotal(project: RABProject): number {
   return project.items
     .filter((item) => !item.expenseType || item.expenseType === "CAPEX")
     .reduce((sum, item) => sum + Number(item.totalPrice), 0);
+}
+
+function getOpexBufferSafety(project: RABProject, baseAmount: number): number {
+  return baseAmount * (Number(project.opexBufferSafetyPercent || 0) / 100);
+}
+
+function clampBufferAmount(value: number, total: number): number {
+  return Math.min(Math.max(0, value), total);
+}
+
+function splitOpexBufferFunding(project: RABProject, total: number) {
+  const mode: RABOpexBufferFundingMode =
+    project.opexBufferFundingMode || "INVESTOR";
+
+  if (mode === "COMPANY") {
+    return { investorShare: 0, companyShare: total };
+  }
+
+  if (mode === "SHARED_PERCENTAGE") {
+    const investorPercent = Number(project.opexBufferInvestorPercent || 0);
+    const investorShare = clampBufferAmount(
+      (total * investorPercent) / 100,
+      total,
+    );
+    return { investorShare, companyShare: total - investorShare };
+  }
+
+  if (mode === "FIXED") {
+    const investorShare = clampBufferAmount(
+      Number(project.opexBufferInvestorFixedAmount || 0),
+      total,
+    );
+    return { investorShare, companyShare: total - investorShare };
+  }
+
+  return { investorShare: total, companyShare: 0 };
+}
+
+function getOpexBufferCoveredMonths(gaps: number[]): number[] {
+  return gaps
+    .map((gap, index) => (gap > 0 ? index + 1 : null))
+    .filter((month): month is number => month !== null);
+}
+
+function getOpexBufferDurationLabel(coveredMonths: number[]): string {
+  if (coveredMonths.length === 0) {
+    return "Tidak ada gap OPEX ramp-up yang perlu ditutup buffer";
+  }
+
+  return `Buffer menutup gap OPEX selama ${coveredMonths.length} bulan (bulan ke-${coveredMonths.join(", ")})`;
+}
+
+function calculateOpexBuffer(project: RABProject, gaps: number[]) {
+  const base = gaps.reduce((sum, gap) => sum + gap, 0);
+  const safety = getOpexBufferSafety(project, base);
+  const total = base + safety;
+  const funding = splitOpexBufferFunding(project, total);
+  const coveredMonths = getOpexBufferCoveredMonths(gaps);
+
+  return {
+    base,
+    safety,
+    total,
+    funding,
+    coveredMonths,
+    durationLabel: getOpexBufferDurationLabel(coveredMonths),
+  };
+}
+
+function getBillingSubscribers(
+  project: RABProject,
+  monthlySubsTargets: number[],
+  index: number,
+): number {
+  return project.paymentType === "POSTPAID"
+    ? monthlySubsTargets[index - 1] || 0
+    : monthlySubsTargets[index] || 0;
+}
+
+function calculateProjectedRevenue(
+  billingSubscribers: number,
+  arpu: number,
+  nplTolerancePercent: number,
+): number {
+  return billingSubscribers * arpu * (1 - nplTolerancePercent / 100);
+}
+
+function calculateOpexGaps(
+  project: RABProject,
+  monthlySubsTargets: number[],
+  achievementByMonth: Map<number, RABActualAchievement>,
+): number[] {
+  const monthlyOpex = Number(project.projectedOpex || 0);
+  const arpu = Number(project.arpu || 0);
+  const nplTolerancePercent = Number(project.nplTolerancePercent || 0);
+
+  return monthlySubsTargets.map((_, index) => {
+    const billingSubscribers = getBillingSubscribers(
+      project,
+      monthlySubsTargets,
+      index,
+    );
+    const projectedRevenue = calculateProjectedRevenue(
+      billingSubscribers,
+      arpu,
+      nplTolerancePercent,
+    );
+    const actualRevenue = achievementByMonth.get(index + 1)?.actualRevenue;
+    const displayRevenue = actualRevenue ?? projectedRevenue;
+
+    return Math.max(0, monthlyOpex - Number(displayRevenue));
+  });
 }
 
 export function buildRABTrackingDataset(
@@ -87,7 +214,16 @@ export function buildRABTrackingDataset(
     project.investorProfitSharePercent || 50,
   );
 
-  let remainingInvestment = getCapexTotal(project);
+  const opexGaps = calculateOpexGaps(
+    project,
+    monthlySubsTargets,
+    achievementByMonth,
+  );
+  const opexBuffer = calculateOpexBuffer(project, opexGaps);
+  const capexTotal = getCapexTotal(project);
+  const initialFundingNeed = capexTotal + opexBuffer.funding.investorShare;
+  const investorDepositTotal = initialFundingNeed;
+  let remainingInvestment = initialFundingNeed;
 
   let cumulativeGrossRevenue = 0;
   let cumulativeRevenue = 0;
@@ -102,14 +238,18 @@ export function buildRABTrackingDataset(
     (_, index) => {
       const month = index + 1;
       const targetSubscribers = monthlySubsTargets[index] || 0;
-      const billingSubscribers =
-        project.paymentType === "POSTPAID"
-          ? monthlySubsTargets[index - 1] || 0
-          : targetSubscribers;
+      const billingSubscribers = getBillingSubscribers(
+        project,
+        monthlySubsTargets,
+        index,
+      );
 
       const grossTargetRevenue = billingSubscribers * arpu;
-      const projectedRevenue =
-        grossTargetRevenue * (1 - nplTolerancePercent / 100);
+      const projectedRevenue = calculateProjectedRevenue(
+        billingSubscribers,
+        arpu,
+        nplTolerancePercent,
+      );
 
       const actualRecord = achievementByMonth.get(month);
       const actualRevenue = actualRecord
@@ -117,6 +257,7 @@ export function buildRABTrackingDataset(
         : null;
       const displayRevenue = actualRevenue ?? projectedRevenue;
       const nplAmount = grossTargetRevenue - projectedRevenue;
+      const opexGap = opexGaps[index] || 0;
       const grossProfit = displayRevenue - monthlyOpex;
 
       const hasManualRecoveryInstallment =
@@ -181,6 +322,7 @@ export function buildRABTrackingDataset(
         actualRevenue,
         displayRevenue,
         nplAmount,
+        opexGap,
         grossProfit,
         recoveryInstallment,
         remainingInvestment,
@@ -215,6 +357,16 @@ export function buildRABTrackingDataset(
       investorShare: cumulativeInvestorShare,
       companyShare: cumulativeCompanyShare,
       remainingInvestment,
+      opexBufferBase: opexBuffer.base,
+      opexBufferSafety: opexBuffer.safety,
+      opexBufferTotal: opexBuffer.total,
+      opexBufferInvestorShare: opexBuffer.funding.investorShare,
+      opexBufferCompanyShare: opexBuffer.funding.companyShare,
+      opexBufferDurationMonths: opexBuffer.coveredMonths.length,
+      opexBufferCoveredMonths: opexBuffer.coveredMonths,
+      opexBufferDurationLabel: opexBuffer.durationLabel,
+      initialFundingNeed,
+      investorDepositTotal,
       investorTotalReceived:
         cumulativeRecoveryInstallment + cumulativeInvestorShare,
       companyTotalReceived: cumulativeCompanyShare,

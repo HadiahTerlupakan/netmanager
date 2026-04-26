@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeInvestorListResponse } from "@/app/admin/integrations/mixradius/expenses/RABForm";
+import {
+  normalizeInvestorListResponse,
+  shouldShowOpexBufferSafety,
+} from "@/app/admin/integrations/mixradius/expenses/RABForm";
+
+describe("shouldShowOpexBufferSafety", () => {
+  it("hides safety margin for full funding modes", () => {
+    expect(shouldShowOpexBufferSafety("INVESTOR")).toBe(false);
+    expect(shouldShowOpexBufferSafety("COMPANY")).toBe(false);
+  });
+
+  it("shows safety margin for partial funding modes", () => {
+    expect(shouldShowOpexBufferSafety("SHARED_PERCENTAGE")).toBe(true);
+    expect(shouldShowOpexBufferSafety("FIXED")).toBe(true);
+  });
+});
 
 describe("normalizeInvestorListResponse", () => {
   it("reads investors from apiSuccess wrapped responses", () => {

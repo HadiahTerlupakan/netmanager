@@ -179,6 +179,85 @@ describe("rab tracking calculations helpers", () => {
     expect(dataset.totals.opex).toBe(300_000);
   });
 
+  it("menghitung buffer opex dari gap ramp-up dan membaginya persen investor/perusahaan", () => {
+    const project = {
+      ...createBaseProject(),
+      projectedOpex: 500_000,
+      paymentType: "PREPAID" as const,
+      opexBufferFundingMode: "SHARED_PERCENTAGE" as const,
+      opexBufferInvestorPercent: 60,
+      opexBufferCompanyPercent: 40,
+      opexBufferSafetyPercent: 10,
+    };
+
+    const dataset = buildRABTrackingDataset(project, []);
+
+    expect(dataset.rows[0].opexGap).toBe(100_000);
+    expect(dataset.rows[1].opexGap).toBe(0);
+    expect(dataset.rows[2].opexGap).toBe(0);
+    expect(dataset.totals.opexBufferBase).toBe(100_000);
+    expect(dataset.totals.opexBufferSafety).toBe(10_000);
+    expect(dataset.totals.opexBufferTotal).toBe(110_000);
+    expect(dataset.totals.opexBufferInvestorShare).toBe(66_000);
+    expect(dataset.totals.opexBufferCompanyShare).toBe(44_000);
+    expect(dataset.totals.opexBufferDurationMonths).toBe(1);
+    expect(dataset.totals.opexBufferCoveredMonths).toEqual([1]);
+    expect(dataset.totals.opexBufferDurationLabel).toBe(
+      "Buffer menutup gap OPEX selama 1 bulan (bulan ke-1)",
+    );
+    expect(dataset.totals.initialFundingNeed).toBe(1_066_000);
+    expect(dataset.totals.investorDepositTotal).toBe(1_066_000);
+  });
+
+  it("mendukung buffer opex fixed investor dan sisa perusahaan", () => {
+    const project = {
+      ...createBaseProject(),
+      projectedOpex: 500_000,
+      paymentType: "PREPAID" as const,
+      opexBufferFundingMode: "FIXED" as const,
+      opexBufferInvestorFixedAmount: 25_000,
+    };
+
+    const dataset = buildRABTrackingDataset(project, []);
+
+    expect(dataset.totals.opexBufferTotal).toBe(100_000);
+    expect(dataset.totals.opexBufferInvestorShare).toBe(25_000);
+    expect(dataset.totals.opexBufferCompanyShare).toBe(75_000);
+    expect(dataset.totals.initialFundingNeed).toBe(1_025_000);
+  });
+
+  it("mendukung buffer opex investor penuh", () => {
+    const project = {
+      ...createBaseProject(),
+      projectedOpex: 500_000,
+      paymentType: "PREPAID" as const,
+      opexBufferFundingMode: "INVESTOR" as const,
+    };
+
+    const dataset = buildRABTrackingDataset(project, []);
+
+    expect(dataset.totals.opexBufferTotal).toBe(100_000);
+    expect(dataset.totals.opexBufferInvestorShare).toBe(100_000);
+    expect(dataset.totals.opexBufferCompanyShare).toBe(0);
+    expect(dataset.totals.initialFundingNeed).toBe(1_100_000);
+  });
+
+  it("mendukung buffer opex perusahaan penuh", () => {
+    const project = {
+      ...createBaseProject(),
+      projectedOpex: 500_000,
+      paymentType: "PREPAID" as const,
+      opexBufferFundingMode: "COMPANY" as const,
+    };
+
+    const dataset = buildRABTrackingDataset(project, []);
+
+    expect(dataset.totals.opexBufferTotal).toBe(100_000);
+    expect(dataset.totals.opexBufferInvestorShare).toBe(0);
+    expect(dataset.totals.opexBufferCompanyShare).toBe(100_000);
+    expect(dataset.totals.initialFundingNeed).toBe(1_000_000);
+  });
+
   it("mendahulukan manual override recovery dan profit share", () => {
     const project = createBaseProject();
     const actuals: RABActualAchievement[] = [

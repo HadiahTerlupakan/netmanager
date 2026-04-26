@@ -80,6 +80,7 @@ export function buildRABCsvContent(project: RABProject): string {
     project,
     project.actualAchievements || [],
   );
+  const { totals } = trackingDataset;
   const monthlyOpex = Number(project.projectedOpex || 0);
 
   const rows = [
@@ -97,6 +98,16 @@ export function buildRABCsvContent(project: RABProject): string {
     ],
     [`Durasi Kontrak: ${project.investmentDurationMonths || 12} Bulan`],
     [`Investor Profit Share: ${project.investorProfitSharePercent}%`],
+    ["Total Setoran Investor", totals.investorDepositTotal],
+    [],
+    ["BUFFER OPEX RAMP-UP"],
+    ["Gap OPEX Dasar", totals.opexBufferBase],
+    ["Safety Margin Buffer", totals.opexBufferSafety],
+    ["Total Buffer OPEX", totals.opexBufferTotal],
+    ["Durasi Buffer Otomatis", totals.opexBufferDurationLabel],
+    ["Porsi Investor", totals.opexBufferInvestorShare],
+    ["Porsi Perusahaan", totals.opexBufferCompanyShare],
+    ["Total Dana Investor Direcovery", totals.initialFundingNeed],
     [],
     [
       "Bulan ke",
@@ -124,15 +135,15 @@ export function buildRABCsvContent(project: RABProject): string {
     ]),
     [
       "TOTAL AKUMULASI",
-      trackingDataset.totals.grossRevenue,
-      trackingDataset.totals.nplAmount,
-      trackingDataset.totals.revenue,
-      trackingDataset.totals.opex,
-      trackingDataset.totals.grossProfit,
-      trackingDataset.totals.recoveryInstallment,
+      totals.grossRevenue,
+      totals.nplAmount,
+      totals.revenue,
+      totals.opex,
+      totals.grossProfit,
+      totals.recoveryInstallment,
       "",
-      trackingDataset.totals.investorShare,
-      trackingDataset.totals.companyShare,
+      totals.investorShare,
+      totals.companyShare,
     ],
     [
       "TOTAL DITERIMA INVESTOR (Modal+Profit)",
@@ -143,7 +154,7 @@ export function buildRABCsvContent(project: RABProject): string {
       "",
       "",
       "",
-      trackingDataset.totals.investorTotalReceived,
+      totals.investorTotalReceived,
       "",
     ],
     [
@@ -156,7 +167,7 @@ export function buildRABCsvContent(project: RABProject): string {
       "",
       "",
       "",
-      trackingDataset.totals.companyTotalReceived,
+      totals.companyTotalReceived,
     ],
     [],
     ["DAFTAR ITEM"],

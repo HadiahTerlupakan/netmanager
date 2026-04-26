@@ -24,7 +24,18 @@ export interface RABPdfTrackingTable {
     recoveryInstallment: number;
     investorShare: number;
     companyShare: number;
+    opexBufferBase: number;
+    opexBufferSafety: number;
+    opexBufferTotal: number;
+    opexBufferInvestorShare: number;
+    opexBufferCompanyShare: number;
+    opexBufferDurationMonths: number;
+    opexBufferCoveredMonths: number[];
+    opexBufferDurationLabel: string;
+    initialFundingNeed: number;
+    investorDepositTotal: number;
   };
+  fundingSummary: string[][];
 }
 
 export function buildRABPdfTrackingTable(
@@ -34,6 +45,7 @@ export function buildRABPdfTrackingTable(
     project,
     project.actualAchievements || [],
   );
+  const { totals } = trackingDataset;
   const monthlyOpex = Number(project.projectedOpex || 0);
 
   return {
@@ -66,26 +78,48 @@ export function buildRABPdfTrackingTable(
     foot: [
       [
         "TOTAL",
-        formatCurrency(trackingDataset.totals.grossRevenue),
-        formatCurrency(trackingDataset.totals.nplAmount),
-        formatCurrency(trackingDataset.totals.revenue),
-        formatCurrency(trackingDataset.totals.opex),
-        formatCurrency(trackingDataset.totals.grossProfit),
-        formatCurrency(trackingDataset.totals.recoveryInstallment),
+        formatCurrency(totals.grossRevenue),
+        formatCurrency(totals.nplAmount),
+        formatCurrency(totals.revenue),
+        formatCurrency(totals.opex),
+        formatCurrency(totals.grossProfit),
+        formatCurrency(totals.recoveryInstallment),
         "",
-        formatCurrency(trackingDataset.totals.investorShare),
-        formatCurrency(trackingDataset.totals.companyShare),
+        formatCurrency(totals.investorShare),
+        formatCurrency(totals.companyShare),
       ],
     ],
     totals: {
-      grossRevenue: trackingDataset.totals.grossRevenue,
-      nplAmount: trackingDataset.totals.nplAmount,
-      netRevenue: trackingDataset.totals.revenue,
-      opex: trackingDataset.totals.opex,
-      grossProfit: trackingDataset.totals.grossProfit,
-      recoveryInstallment: trackingDataset.totals.recoveryInstallment,
-      investorShare: trackingDataset.totals.investorShare,
-      companyShare: trackingDataset.totals.companyShare,
+      grossRevenue: totals.grossRevenue,
+      nplAmount: totals.nplAmount,
+      netRevenue: totals.revenue,
+      opex: totals.opex,
+      grossProfit: totals.grossProfit,
+      recoveryInstallment: totals.recoveryInstallment,
+      investorShare: totals.investorShare,
+      companyShare: totals.companyShare,
+      opexBufferBase: totals.opexBufferBase,
+      opexBufferSafety: totals.opexBufferSafety,
+      opexBufferTotal: totals.opexBufferTotal,
+      opexBufferInvestorShare: totals.opexBufferInvestorShare,
+      opexBufferCompanyShare: totals.opexBufferCompanyShare,
+      opexBufferDurationMonths: totals.opexBufferDurationMonths,
+      opexBufferCoveredMonths: totals.opexBufferCoveredMonths,
+      opexBufferDurationLabel: totals.opexBufferDurationLabel,
+      initialFundingNeed: totals.initialFundingNeed,
+      investorDepositTotal: totals.investorDepositTotal,
     },
+    fundingSummary: [
+      ["Gap OPEX Dasar", formatCurrency(totals.opexBufferBase)],
+      ["Safety Margin Buffer", formatCurrency(totals.opexBufferSafety)],
+      ["Total Buffer OPEX", formatCurrency(totals.opexBufferTotal)],
+      ["Durasi Buffer Otomatis", totals.opexBufferDurationLabel],
+      ["Porsi Investor", formatCurrency(totals.opexBufferInvestorShare)],
+      ["Porsi Perusahaan", formatCurrency(totals.opexBufferCompanyShare)],
+      [
+        "Total Dana Investor Direcovery",
+        formatCurrency(totals.initialFundingNeed),
+      ],
+    ],
   };
 }

@@ -49,6 +49,58 @@ describe("buildRABCsvContent", () => {
     );
   });
 
+  it("menyertakan ringkasan buffer opex ramp-up untuk investor", () => {
+    const project: RABProject = {
+      id: "rab-csv-opex-buffer",
+      name: "RAB CSV OPEX Buffer Test",
+      projectedRevenue: 1_000_000,
+      projectedOpex: 500_000,
+      targetSubscribers: 100,
+      arpu: 10_000,
+      growthType: "LINEAR",
+      paymentType: "PREPAID",
+      growthSettings: { subscribersPerMonth: 50 },
+      nplTolerancePercent: 20,
+      investmentDurationMonths: 2,
+      investmentRecoveryType: "PERCENTAGE",
+      investmentRecoveryValue: 50,
+      investorProfitSharePercent: 50,
+      opexBufferFundingMode: "SHARED_PERCENTAGE",
+      opexBufferInvestorPercent: 60,
+      opexBufferCompanyPercent: 40,
+      opexBufferSafetyPercent: 10,
+      status: "DRAFT",
+      items: [
+        {
+          id: "item-capex",
+          name: "CAPEX test",
+          quantity: 1,
+          unitPrice: 1_000_000,
+          totalPrice: 1_000_000,
+          expenseType: "CAPEX",
+        },
+      ],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const csvContent = buildRABCsvContent(project);
+
+    expect(csvContent).toContain('"BUFFER OPEX RAMP-UP"');
+    expect(csvContent).toContain('"Gap OPEX Dasar","100000"');
+    expect(csvContent).toContain('"Total Buffer OPEX","110000"');
+    expect(csvContent).toContain(
+      '"Durasi Buffer Otomatis","Buffer menutup gap OPEX selama 1 bulan (bulan ke-1)"',
+    );
+    expect(csvContent).toContain('"Porsi Investor","66000"');
+    expect(csvContent).toContain('"Porsi Perusahaan","44000"');
+    expect(csvContent).toContain('"Total Setoran Investor","1066000"');
+    expect(csvContent).toContain('"Total Dana Investor Direcovery","1066000"');
+    expect(csvContent.indexOf('"Total Setoran Investor"')).toBeLessThan(
+      csvContent.indexOf('"BUFFER OPEX RAMP-UP"'),
+    );
+  });
+
   it("menetralkan formula spreadsheet pada cell string yang diekspor", () => {
     const project: RABProject = {
       id: "rab-csv-1",
@@ -112,7 +164,7 @@ describe("buildRABCsvContent", () => {
     const csvContent = buildRABCsvContent(project);
 
     expect(csvContent).toContain(
-      '"1","0","0","0","100000","-100000","0","0","0","0"',
+      '"1","0","0","0","100000","-100000","0","100000","0","0"',
     );
     expect(csvContent).not.toContain('"\'-100000"');
   });

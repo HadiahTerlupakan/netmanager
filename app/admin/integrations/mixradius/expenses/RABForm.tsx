@@ -25,12 +25,14 @@ import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,
 } from "./rabCalculations";
+import { buildRABTrackingDataset } from "./rabTracking";
 import type {
   CustomGrowthSettings,
   CustomMilestone,
   GrowthSettings,
   LinearGrowthSettings,
   PercentageGrowthSettings,
+  RABOpexBufferFundingMode,
   RABProject,
 } from "./rabTypes";
 import { Modal } from "@/components/ui/Modal";
@@ -118,6 +120,30 @@ type FormSubmitEvent = Parameters<
   NonNullable<ComponentProps<"form">["onSubmit"]>
 >[0];
 type InvestorOption = { id: string; namaLengkap: string };
+
+const DEFAULT_OPEX_BUFFER_SETTINGS = {
+  opexBufferFundingMode: "INVESTOR" as RABOpexBufferFundingMode,
+  opexBufferInvestorPercent: 100,
+  opexBufferCompanyPercent: 0,
+  opexBufferInvestorFixedAmount: 0,
+  opexBufferSafetyPercent: 0,
+};
+
+export function shouldShowOpexBufferSafety(mode: RABOpexBufferFundingMode) {
+  return mode === "SHARED_PERCENTAGE" || mode === "FIXED";
+}
+
+function getDefaultOpexBufferShares(mode: RABOpexBufferFundingMode) {
+  if (mode === "COMPANY") {
+    return { investorPercent: 0, companyPercent: 100 };
+  }
+
+  if (mode === "SHARED_PERCENTAGE") {
+    return { investorPercent: 50, companyPercent: 50 };
+  }
+
+  return { investorPercent: 100, companyPercent: 0 };
+}
 
 function isInvestorOption(value: unknown): value is InvestorOption {
   return (
@@ -274,6 +300,7 @@ export default function RABForm({
     investorProfitSharePercent: 50,
     nplTolerancePercent: 0,
     contingencyPercent: 0,
+    ...DEFAULT_OPEX_BUFFER_SETTINGS,
     hasDisbursementPlan: false,
     investorIds: [] as string[],
   });
@@ -390,6 +417,15 @@ export default function RABForm({
             initialData.investorProfitSharePercent || 50,
           nplTolerancePercent: (initialData as any).nplTolerancePercent || 0,
           contingencyPercent: initialData.contingencyPercent || 0,
+          opexBufferFundingMode:
+            initialData.opexBufferFundingMode || "INVESTOR",
+          opexBufferInvestorPercent:
+            initialData.opexBufferInvestorPercent ?? 100,
+          opexBufferCompanyPercent: initialData.opexBufferCompanyPercent ?? 0,
+          opexBufferInvestorFixedAmount: Number(
+            initialData.opexBufferInvestorFixedAmount || 0,
+          ),
+          opexBufferSafetyPercent: initialData.opexBufferSafetyPercent ?? 0,
           hasDisbursementPlan: initialData.hasDisbursementPlan || false,
           investorIds:
             (initialData as any).investors?.map((i: any) => i.investorId) || [],
@@ -475,6 +511,7 @@ export default function RABForm({
           investorProfitSharePercent: 50,
           nplTolerancePercent: 0,
           contingencyPercent: 0,
+          ...DEFAULT_OPEX_BUFFER_SETTINGS,
           hasDisbursementPlan: false,
           investorIds: [],
         });
@@ -595,20 +632,28 @@ export default function RABForm({
   const margin =
     realisticRevenue > 0 ? (profitPerMonth / realisticRevenue) * 100 : 0;
 
-  // Realistic BEP with growth
-  const realisticBepData = useMemo(() => {
-    return calculateRealisticBEP({
+  const previewProject = useMemo<RABProject>(
+    () => ({
       id: "preview",
       name: formData.name || "Preview RAB",
-      projectedRevenue: projectedRevenue,
+      projectedRevenue,
       projectedOpex: totalOpex,
       targetSubscribers,
       arpu,
       growthType,
       paymentType,
       growthSettings: currentGrowthSettings,
+      investmentDurationMonths: formData.investmentDurationMonths,
+      investmentRecoveryType: formData.investmentRecoveryType,
+      investmentRecoveryValue: formData.investmentRecoveryValue,
+      investorProfitSharePercent: formData.investorProfitSharePercent,
       contingencyPercent: formData.contingencyPercent,
       nplTolerancePercent: formData.nplTolerancePercent,
+      opexBufferFundingMode: formData.opexBufferFundingMode,
+      opexBufferInvestorPercent: formData.opexBufferInvestorPercent,
+      opexBufferCompanyPercent: formData.opexBufferCompanyPercent,
+      opexBufferInvestorFixedAmount: formData.opexBufferInvestorFixedAmount,
+      opexBufferSafetyPercent: formData.opexBufferSafetyPercent,
       status: formData.status,
       items: [
         {
@@ -622,21 +667,43 @@ export default function RABForm({
       ],
       createdAt: "",
       updatedAt: "",
-    });
-  }, [
-    arpu,
-    currentGrowthSettings,
-    formData.contingencyPercent,
-    formData.name,
-    formData.nplTolerancePercent,
-    formData.status,
-    growthType,
-    paymentType,
-    projectedRevenue,
-    targetSubscribers,
-    totalInvestment,
-    totalOpex,
-  ]);
+    }),
+    [
+      arpu,
+      currentGrowthSettings,
+      formData.contingencyPercent,
+      formData.investmentDurationMonths,
+      formData.investmentRecoveryType,
+      formData.investmentRecoveryValue,
+      formData.investorProfitSharePercent,
+      formData.name,
+      formData.nplTolerancePercent,
+      formData.opexBufferCompanyPercent,
+      formData.opexBufferFundingMode,
+      formData.opexBufferInvestorFixedAmount,
+      formData.opexBufferInvestorPercent,
+      formData.opexBufferSafetyPercent,
+      formData.status,
+      growthType,
+      paymentType,
+      projectedRevenue,
+      targetSubscribers,
+      totalInvestment,
+      totalOpex,
+    ],
+  );
+
+  const opexBufferPreview = useMemo(() => {
+    return buildRABTrackingDataset(previewProject).totals;
+  }, [previewProject]);
+  const showSafetyMargin = shouldShowOpexBufferSafety(
+    formData.opexBufferFundingMode,
+  );
+
+  // Realistic BEP with growth
+  const realisticBepData = useMemo(() => {
+    return calculateRealisticBEP(previewProject);
+  }, [previewProject]);
 
   const realisticBepMonths = realisticBepData.bepMonth;
   const monthsToFullCapacity = realisticBepData.monthsToFullCapacity;
@@ -741,6 +808,11 @@ export default function RABForm({
         nplTolerancePercent: formData.nplTolerancePercent,
         contingencyPercent: formData.contingencyPercent,
         contingencyAmount,
+        opexBufferFundingMode: formData.opexBufferFundingMode,
+        opexBufferInvestorPercent: formData.opexBufferInvestorPercent,
+        opexBufferCompanyPercent: formData.opexBufferCompanyPercent,
+        opexBufferInvestorFixedAmount: formData.opexBufferInvestorFixedAmount,
+        opexBufferSafetyPercent: formData.opexBufferSafetyPercent,
         hasDisbursementPlan: formData.hasDisbursementPlan,
         investorIds: formData.investorIds,
         wbsGroups: wbsGroups.map(({ id, name, order }) => ({
@@ -1295,11 +1367,175 @@ export default function RABForm({
                           </div>
                         </div>
 
+                        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                Skema Buffer OPEX Ramp-up
+                              </label>
+                              <select
+                                value={formData.opexBufferFundingMode}
+                                onChange={(e) => {
+                                  const mode = e.target
+                                    .value as RABOpexBufferFundingMode;
+                                  const shares =
+                                    getDefaultOpexBufferShares(mode);
+                                  setFormData({
+                                    ...formData,
+                                    opexBufferFundingMode: mode,
+                                    opexBufferInvestorPercent:
+                                      shares.investorPercent,
+                                    opexBufferCompanyPercent:
+                                      shares.companyPercent,
+                                    opexBufferSafetyPercent:
+                                      shouldShowOpexBufferSafety(mode)
+                                        ? formData.opexBufferSafetyPercent
+                                        : 0,
+                                  });
+                                }}
+                                className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                              >
+                                <option value="INVESTOR">Investor Penuh</option>
+                                <option value="COMPANY">
+                                  Perusahaan Penuh
+                                </option>
+                                <option value="SHARED_PERCENTAGE">
+                                  Sharing Persentase
+                                </option>
+                                <option value="FIXED">
+                                  Investor Fixed Amount
+                                </option>
+                              </select>
+                            </div>
+                            {showSafetyMargin && (
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                  Safety Margin Buffer (%)
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={formData.opexBufferSafetyPercent}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      opexBufferSafetyPercent: Number(
+                                        e.target.value,
+                                      ),
+                                    })
+                                  }
+                                  className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                />
+                                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                  Tambahan cadangan di atas gap OPEX ramp-up.
+                                </p>
+                              </div>
+                            )}
+                            {formData.opexBufferFundingMode ===
+                              "SHARED_PERCENTAGE" && (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Porsi Investor Buffer (%)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={formData.opexBufferInvestorPercent}
+                                    onChange={(e) => {
+                                      const investorPercent = Number(
+                                        e.target.value,
+                                      );
+                                      setFormData({
+                                        ...formData,
+                                        opexBufferInvestorPercent:
+                                          investorPercent,
+                                        opexBufferCompanyPercent:
+                                          100 - investorPercent,
+                                      });
+                                    }}
+                                    className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                    Porsi Perusahaan Buffer (%)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={formData.opexBufferCompanyPercent}
+                                    readOnly
+                                    className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm py-3 text-gray-500 dark:text-gray-400"
+                                  />
+                                </div>
+                              </>
+                            )}
+                            {formData.opexBufferFundingMode === "FIXED" && (
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                  Nominal Fixed Investor
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={formData.opexBufferInvestorFixedAmount}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      opexBufferInvestorFixedAmount: Number(
+                                        e.target.value,
+                                      ),
+                                    })
+                                  }
+                                  className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-700 dark:text-amber-200">
+                            {opexBufferPreview.opexBufferDurationLabel}
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3">
+                              <div className="text-gray-500">Total Buffer</div>
+                              <div className="font-bold text-gray-900 dark:text-white">
+                                {formatCurrency(
+                                  opexBufferPreview.opexBufferTotal,
+                                )}
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3">
+                              <div className="text-blue-600 dark:text-blue-300">
+                                Porsi Investor
+                              </div>
+                              <div className="font-bold text-blue-700 dark:text-blue-200">
+                                {formatCurrency(
+                                  opexBufferPreview.opexBufferInvestorShare,
+                                )}
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3">
+                              <div className="text-emerald-600 dark:text-emerald-300">
+                                Porsi Perusahaan
+                              </div>
+                              <div className="font-bold text-emerald-700 dark:text-emerald-200">
+                                {formatCurrency(
+                                  opexBufferPreview.opexBufferCompanyShare,
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                         <p className="mt-3 text-[10px] text-gray-500 italic leading-relaxed">
-                          * Seluruh modal (CAPEX) dianggap dari Investor.
-                          Angsuran modal (Recovery) akan diprioritaskan diambil
-                          dari profit kotor setiap bulan sebelum sisa profit
-                          dibagi antara Investor dan Perusahaan.
+                          * Modal CAPEX dan porsi Buffer OPEX yang didanai
+                          investor menjadi dana yang direcovery. Buffer OPEX
+                          tetap dipisahkan dari CAPEX murni agar cashflow
+                          ramp-up transparan.
                         </p>
                       </div>
 
@@ -1341,6 +1577,16 @@ export default function RABForm({
                         </div>
                         <div className="text-2xl font-black">
                           {formatCurrency(totalInvestment)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-blue-100 uppercase font-medium">
+                          Total Setoran Investor
+                        </div>
+                        <div className="text-sm font-bold">
+                          {formatCurrency(
+                            opexBufferPreview.investorDepositTotal,
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">

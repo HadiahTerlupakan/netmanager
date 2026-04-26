@@ -51,6 +51,12 @@ export type GrowthSettings =
   | PercentageGrowthSettings
   | CustomGrowthSettings;
 
+export type RABOpexBufferFundingMode =
+  | "INVESTOR"
+  | "COMPANY"
+  | "SHARED_PERCENTAGE"
+  | "FIXED";
+
 export interface RABActualAchievement {
   id: string;
   month: number;
@@ -105,6 +111,11 @@ export interface RABProject {
   contingencyPercent?: number;
   contingencyAmount?: string | number;
   nplTolerancePercent?: number;
+  opexBufferFundingMode?: RABOpexBufferFundingMode;
+  opexBufferInvestorPercent?: number;
+  opexBufferCompanyPercent?: number;
+  opexBufferInvestorFixedAmount?: string | number;
+  opexBufferSafetyPercent?: number;
   hasDisbursementPlan?: boolean;
   wbsGroups?: RABWbs[];
   disbursements?: RABDisbursement[];

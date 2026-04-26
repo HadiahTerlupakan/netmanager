@@ -96,4 +96,33 @@ describe("buildRABPdfTrackingTable", () => {
       ],
     ]);
   });
+
+  it("menyediakan ringkasan buffer opex untuk PDF investor", () => {
+    const table = buildRABPdfTrackingTable({
+      ...project,
+      projectedOpex: 500_000,
+      growthSettings: { subscribersPerMonth: 50 },
+      investmentDurationMonths: 2,
+      opexBufferFundingMode: "SHARED_PERCENTAGE",
+      opexBufferInvestorPercent: 60,
+      opexBufferCompanyPercent: 40,
+      opexBufferSafetyPercent: 10,
+    });
+
+    expect(table.totals.opexBufferTotal).toBe(110_000);
+    expect(table.totals.opexBufferInvestorShare).toBe(66_000);
+    expect(table.totals.initialFundingNeed).toBe(1_066_000);
+    expect(table.totals.investorDepositTotal).toBe(1_066_000);
+    expect(table.fundingSummary).toContainEqual([
+      "Durasi Buffer Otomatis",
+      "Buffer menutup gap OPEX selama 1 bulan (bulan ke-1)",
+    ]);
+    expect(table.fundingSummary.map((row) => row[0])).not.toContain(
+      "Total Setoran Investor",
+    );
+    expect(table.fundingSummary.map(normalizeCurrencyCells)).toContainEqual([
+      "Total Dana Investor Direcovery",
+      "Rp 1.066.000",
+    ]);
+  });
 });

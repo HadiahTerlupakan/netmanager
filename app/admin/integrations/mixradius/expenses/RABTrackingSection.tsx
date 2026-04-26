@@ -422,7 +422,49 @@ export default function RABTrackingSection({
           <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
         </h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                  <HiOutlineChartBar className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                </div>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  BUFFER OPEX
+                </span>
+              </div>
+              <p className="mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+                {totals.opexBufferDurationLabel}
+              </p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">Gap Ramp-up</span>
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">
+                    {formatCurrency(totals.opexBufferBase)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">Safety Margin</span>
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">
+                    {formatCurrency(totals.opexBufferSafety)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">Porsi Investor</span>
+                  <span className="font-semibold text-indigo-600">
+                    {formatCurrency(totals.opexBufferInvestorShare)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">Porsi Perusahaan</span>
+                  <span className="font-semibold text-emerald-600">
+                    {formatCurrency(totals.opexBufferCompanyShare)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border-2 border-indigo-100 dark:border-indigo-900/30 shadow-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-10 transition-opacity">
               <HiOutlineBanknotes className="w-16 h-16 text-indigo-600" />
@@ -439,7 +481,7 @@ export default function RABTrackingSection({
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-gray-500">
-                    Total Modal Kembali (CAPEX)
+                    Total Modal Kembali (CAPEX + Buffer Investor)
                   </span>
                   <span className="font-semibold text-amber-600">
                     {formatCurrency(totals.recoveryInstallment)}

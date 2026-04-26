@@ -2882,6 +2882,11 @@ model RabProject {
   investorProfitSharePercent Float                  @default(50)
   paymentType                RabPaymentType         @default(PREPAID)
   nplTolerancePercent        Float                  @default(0)
+  opexBufferFundingMode      RabOpexBufferFundingMode @default(INVESTOR)
+  opexBufferInvestorPercent  Float                  @default(100)
+  opexBufferCompanyPercent   Float                  @default(0)
+  opexBufferInvestorFixedAmount BigInt              @default(0)
+  opexBufferSafetyPercent    Float                  @default(0)
   mixRadiusInvestorSiteId    String?
   finalApprovedRevisionId    String?
   tenantId                   String?
@@ -3640,6 +3645,13 @@ enum RabPaymentType {
 
 enum RabRecoveryType {
   PERCENTAGE
+  FIXED
+}
+
+enum RabOpexBufferFundingMode {
+  INVESTOR
+  COMPANY
+  SHARED_PERCENTAGE
   FIXED
 }
 

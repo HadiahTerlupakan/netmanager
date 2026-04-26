@@ -175,6 +175,8 @@ export default function RABList({
         growthModelDesc = "Kustom (Berdasarkan Target Spesifik Bulan)";
       }
 
+      const trackingTable = buildRABPdfTrackingTable(project);
+
       const metrics = [
         ["Total CAPEX Dasar", formatCurrency(totalCapex)],
         [
@@ -182,6 +184,18 @@ export default function RABList({
           formatCurrency(contingencyAmount),
         ],
         ["Total Investasi", formatCurrency(totalInvestment)],
+        [
+          "Buffer OPEX Investor",
+          formatCurrency(trackingTable.totals.opexBufferInvestorShare),
+        ],
+        [
+          "Total Setoran Investor",
+          formatCurrency(trackingTable.totals.investorDepositTotal),
+        ],
+        [
+          "Total Dana Direcovery",
+          formatCurrency(trackingTable.totals.initialFundingNeed),
+        ],
         ["OPEX / Bulan", formatCurrency(Number(project.projectedOpex))],
         ["Target Pelanggan", `${project.targetSubscribers || 0} Pelanggan`],
         ["Model Pertumbuhan", growthModelDesc],
@@ -238,7 +252,6 @@ export default function RABList({
       });
 
       // Tracking Pencapaian Table
-      const trackingTable = buildRABPdfTrackingTable(project);
       const totalRec = trackingTable.totals.recoveryInstallment;
       const totalInv = trackingTable.totals.investorShare;
       const totalComp = trackingTable.totals.companyShare;
@@ -248,6 +261,27 @@ export default function RABList({
       let currentY = docAsJspdf.lastAutoTable
         ? docAsJspdf.lastAutoTable.finalY + 12
         : 100;
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(79, 70, 229);
+      doc.text("Buffer OPEX Ramp-up", 14, currentY);
+
+      autoTable(doc, {
+        startY: currentY + 6,
+        body: trackingTable.fundingSummary,
+        theme: "grid",
+        styles: { fontSize: 8, cellPadding: 3 },
+        columnStyles: {
+          0: { cellWidth: 70, fillColor: [249, 250, 251] },
+          1: { cellWidth: 112, halign: "right", fontStyle: "bold" },
+        },
+        margin: { bottom: 20 },
+      });
+
+      currentY = docAsJspdf.lastAutoTable
+        ? docAsJspdf.lastAutoTable.finalY + 12
+        : currentY + 50;
 
       // RINGKASAN PEMBAGIAN AKHIR (Boxed Version)
       if (currentY > 230) {

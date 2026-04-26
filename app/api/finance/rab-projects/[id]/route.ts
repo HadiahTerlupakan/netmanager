@@ -123,6 +123,8 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     projectedOpex: project.projectedOpex.toString(),
     arpu: project.arpu?.toString() || null,
     contingencyAmount: project.contingencyAmount?.toString() || "0",
+    opexBufferInvestorFixedAmount:
+      project.opexBufferInvestorFixedAmount?.toString() || "0",
     revisionCount: _count?.revisions || 0,
     latestRevision: revisions?.[0] || null,
     items: project.items.map((item) => ({
@@ -144,106 +146,152 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   return apiSuccess(serialized);
 });
 
+const opexBufferFundingModeSchema = z.enum([
+  "INVESTOR",
+  "COMPANY",
+  "SHARED_PERCENTAGE",
+  "FIXED",
+]);
+
+const SHARED_OPEX_BUFFER_FUNDING_MODE = "SHARED_PERCENTAGE";
+
+type RabOpexBufferFundingModeInput = z.infer<
+  typeof opexBufferFundingModeSchema
+>;
+
 const APPROVAL_ONLY_STATUSES = new Set(["APPROVED", "REJECTED"]);
 
 function isApprovalOnlyStatus(status: string | undefined) {
   return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
 }
 
-const updateSchema = z.object({
-  name: z.string().optional(),
-  description: z.string().optional(),
-  siteId: z.string().nullable().optional(),
-  mixRadiusGroupId: z.string().nullable().optional(),
-  mixRadiusInvestorSiteId: z.string().nullable().optional(),
-  status: z
-    .enum([
-      "DRAFT",
-      "PENDING_APPROVAL",
-      "APPROVED",
-      "REJECTED",
-      "PENGADAAN",
-      "PENGGELARAN_JARINGAN",
-      "PENJUALAN",
-      "TARGET_TERCAPAI",
-      "SELESAI",
-      "CANCELLED",
-    ])
-    .optional(),
-  projectedRevenue: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) =>
-      v !== undefined && v !== null && v !== ""
-        ? BigInt(Math.round(Number(v)))
-        : undefined,
-    ),
-  projectedOpex: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) =>
-      v !== undefined && v !== null && v !== ""
-        ? BigInt(Math.round(Number(v)))
-        : undefined,
-    ),
+function validateOpexBufferSharingPercent(data: {
+  opexBufferFundingMode?: RabOpexBufferFundingModeInput;
+  opexBufferInvestorPercent?: number;
+  opexBufferCompanyPercent?: number;
+}) {
+  if (data.opexBufferFundingMode !== SHARED_OPEX_BUFFER_FUNDING_MODE) {
+    return true;
+  }
 
-  // Growth period fields
-  targetSubscribers: z.number().optional(),
-  arpu: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) =>
-      v !== undefined && v !== null && v !== ""
-        ? BigInt(Math.round(Number(v)))
-        : undefined,
-    ),
-  growthType: z.enum(RabGrowthType).optional(),
-  paymentType: z.enum(RabPaymentType).optional(),
-  growthSettings: z
-    .union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema])
-    .optional(),
-  startDate: z
-    .string()
-    .optional()
-    .transform((v) => (v ? new Date(v) : undefined)),
-  investmentDurationMonths: z.number().min(1).optional(),
-  investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).optional(),
-  investmentRecoveryValue: z.number().optional(),
-  investorProfitSharePercent: z.number().optional(),
+  return (
+    Number(data.opexBufferInvestorPercent || 0) +
+      Number(data.opexBufferCompanyPercent || 0) ===
+    100
+  );
+}
 
-  // Enterprise features
-  contingencyPercent: z.number().min(0).max(100).optional(),
-  contingencyAmount: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) =>
-      v !== undefined && v !== null && v !== ""
-        ? BigInt(Math.round(Number(v)))
-        : undefined,
-    ),
-  nplTolerancePercent: z.number().min(0).max(100).optional(),
-  hasDisbursementPlan: z.boolean().optional(),
-  wbsGroups: z.array(wbsSchema).optional(),
-  investorIds: z.array(z.string()).optional(),
+const updateSchema = z
+  .object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    siteId: z.string().nullable().optional(),
+    mixRadiusGroupId: z.string().nullable().optional(),
+    mixRadiusInvestorSiteId: z.string().nullable().optional(),
+    status: z
+      .enum([
+        "DRAFT",
+        "PENDING_APPROVAL",
+        "APPROVED",
+        "REJECTED",
+        "PENGADAAN",
+        "PENGGELARAN_JARINGAN",
+        "PENJUALAN",
+        "TARGET_TERCAPAI",
+        "SELESAI",
+        "CANCELLED",
+      ])
+      .optional(),
+    projectedRevenue: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v !== undefined && v !== null && v !== ""
+          ? BigInt(Math.round(Number(v)))
+          : undefined,
+      ),
+    projectedOpex: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v !== undefined && v !== null && v !== ""
+          ? BigInt(Math.round(Number(v)))
+          : undefined,
+      ),
 
-  items: z
-    .array(
-      z.object({
-        name: z.string(),
-        description: z.string().optional(),
-        quantity: z.number(),
-        unitPrice: z
-          .union([z.string(), z.number()])
-          .transform((v) => BigInt(Math.round(Number(v)))),
-        category: z.enum(RabItemCategory),
-        expenseType: z.enum(RabExpenseType).default(RabExpenseType.CAPEX),
-        expenseCategoryId: z.string().optional(),
-        wbsGroupId: z.string().optional(),
-        disbursements: z.array(disbursementSchema).optional(),
-      }),
-    )
-    .optional(),
-});
+    // Growth period fields
+    targetSubscribers: z.number().optional(),
+    arpu: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v !== undefined && v !== null && v !== ""
+          ? BigInt(Math.round(Number(v)))
+          : undefined,
+      ),
+    growthType: z.enum(RabGrowthType).optional(),
+    paymentType: z.enum(RabPaymentType).optional(),
+    growthSettings: z
+      .union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema])
+      .optional(),
+    startDate: z
+      .string()
+      .optional()
+      .transform((v) => (v ? new Date(v) : undefined)),
+    investmentDurationMonths: z.number().min(1).optional(),
+    investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).optional(),
+    investmentRecoveryValue: z.number().optional(),
+    investorProfitSharePercent: z.number().optional(),
+
+    // Enterprise features
+    contingencyPercent: z.number().min(0).max(100).optional(),
+    contingencyAmount: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v !== undefined && v !== null && v !== ""
+          ? BigInt(Math.round(Number(v)))
+          : undefined,
+      ),
+    nplTolerancePercent: z.number().min(0).max(100).optional(),
+    opexBufferFundingMode: opexBufferFundingModeSchema.optional(),
+    opexBufferInvestorPercent: z.number().min(0).max(100).optional(),
+    opexBufferCompanyPercent: z.number().min(0).max(100).optional(),
+    opexBufferInvestorFixedAmount: z
+      .union([z.string(), z.number()])
+      .optional()
+      .transform((v) =>
+        v !== undefined && v !== null && v !== ""
+          ? BigInt(Math.round(Number(v)))
+          : undefined,
+      ),
+    opexBufferSafetyPercent: z.number().min(0).max(100).optional(),
+    hasDisbursementPlan: z.boolean().optional(),
+    wbsGroups: z.array(wbsSchema).optional(),
+    investorIds: z.array(z.string()).optional(),
+
+    items: z
+      .array(
+        z.object({
+          name: z.string(),
+          description: z.string().optional(),
+          quantity: z.number(),
+          unitPrice: z
+            .union([z.string(), z.number()])
+            .transform((v) => BigInt(Math.round(Number(v)))),
+          category: z.enum(RabItemCategory),
+          expenseType: z.enum(RabExpenseType).default(RabExpenseType.CAPEX),
+          expenseCategoryId: z.string().optional(),
+          wbsGroupId: z.string().optional(),
+          disbursements: z.array(disbursementSchema).optional(),
+        }),
+      )
+      .optional(),
+  })
+  .refine(validateOpexBufferSharingPercent, {
+    message: "Total persentase buffer OPEX investor dan perusahaan harus 100%",
+    path: ["opexBufferInvestorPercent"],
+  });
 
 export const PATCH = createHandler(
   {
@@ -287,6 +335,8 @@ export const PATCH = createHandler(
       projectedOpex: project.projectedOpex.toString(),
       arpu: project.arpu?.toString() || null,
       contingencyAmount: project.contingencyAmount?.toString() || "0",
+      opexBufferInvestorFixedAmount:
+        project.opexBufferInvestorFixedAmount?.toString() || "0",
       items: project.items.map((i) => ({
         ...i,
         unitPrice: i.unitPrice.toString(),
