@@ -39,6 +39,7 @@ import type {
   GrowthSettings,
   LinearGrowthSettings,
   PercentageGrowthSettings,
+  RABInvestorProfitShareMode,
   RABOpexBufferFundingMode,
   RABProject,
 } from "./rabTypes";
@@ -305,6 +306,9 @@ export default function RABForm({
     investmentRecoveryType: "PERCENTAGE" as "PERCENTAGE" | "FIXED",
     investmentRecoveryValue: 50, // Defaults to 50%
     investorProfitSharePercent: 50,
+    investorProfitShareMode: "FLAT" as RABInvestorProfitShareMode,
+    investorProfitShareBeforeBepPercent: 80,
+    investorProfitShareAfterBepPercent: 60,
     nplTolerancePercent: 0,
     contingencyPercent: 0,
     ...DEFAULT_OPEX_BUFFER_SETTINGS,
@@ -425,6 +429,12 @@ export default function RABForm({
           investmentRecoveryValue: initialData.investmentRecoveryValue || 50,
           investorProfitSharePercent:
             initialData.investorProfitSharePercent || 50,
+          investorProfitShareMode:
+            initialData.investorProfitShareMode || "FLAT",
+          investorProfitShareBeforeBepPercent:
+            initialData.investorProfitShareBeforeBepPercent ?? 80,
+          investorProfitShareAfterBepPercent:
+            initialData.investorProfitShareAfterBepPercent ?? 60,
           nplTolerancePercent: (initialData as any).nplTolerancePercent || 0,
           contingencyPercent: initialData.contingencyPercent || 0,
           opexBufferFundingMode:
@@ -522,6 +532,9 @@ export default function RABForm({
           investmentRecoveryType: "PERCENTAGE",
           investmentRecoveryValue: 50,
           investorProfitSharePercent: 50,
+          investorProfitShareMode: "FLAT",
+          investorProfitShareBeforeBepPercent: 80,
+          investorProfitShareAfterBepPercent: 60,
           nplTolerancePercent: 0,
           contingencyPercent: 0,
           ...DEFAULT_OPEX_BUFFER_SETTINGS,
@@ -683,6 +696,11 @@ export default function RABForm({
       investmentRecoveryType: formData.investmentRecoveryType,
       investmentRecoveryValue: formData.investmentRecoveryValue,
       investorProfitSharePercent: formData.investorProfitSharePercent,
+      investorProfitShareMode: formData.investorProfitShareMode,
+      investorProfitShareBeforeBepPercent:
+        formData.investorProfitShareBeforeBepPercent,
+      investorProfitShareAfterBepPercent:
+        formData.investorProfitShareAfterBepPercent,
       contingencyPercent: formData.contingencyPercent,
       nplTolerancePercent: formData.nplTolerancePercent,
       opexBufferFundingMode: formData.opexBufferFundingMode,
@@ -711,6 +729,9 @@ export default function RABForm({
       formData.investmentDurationMonths,
       formData.investmentRecoveryType,
       formData.investmentRecoveryValue,
+      formData.investorProfitShareAfterBepPercent,
+      formData.investorProfitShareBeforeBepPercent,
+      formData.investorProfitShareMode,
       formData.investorProfitSharePercent,
       formData.name,
       formData.nplTolerancePercent,
@@ -848,6 +869,11 @@ export default function RABForm({
         investmentRecoveryType: formData.investmentRecoveryType,
         investmentRecoveryValue: formData.investmentRecoveryValue,
         investorProfitSharePercent: formData.investorProfitSharePercent,
+        investorProfitShareMode: formData.investorProfitShareMode,
+        investorProfitShareBeforeBepPercent:
+          formData.investorProfitShareBeforeBepPercent,
+        investorProfitShareAfterBepPercent:
+          formData.investorProfitShareAfterBepPercent,
         nplTolerancePercent: formData.nplTolerancePercent,
         contingencyPercent: formData.contingencyPercent,
         contingencyAmount,
@@ -1286,35 +1312,120 @@ export default function RABForm({
                           </div>
                           <div>
                             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                              Bagi Hasil Investor (%)
+                              Skema Bagi Hasil
                             </label>
-                            <input
-                              type="number"
-                              max="100"
-                              min="0"
-                              value={formData.investorProfitSharePercent}
+                            <select
+                              value={formData.investorProfitShareMode}
                               onChange={(e) =>
                                 setFormData({
                                   ...formData,
-                                  investorProfitSharePercent: Number(
-                                    e.target.value,
-                                  ),
+                                  investorProfitShareMode: e.target
+                                    .value as RABInvestorProfitShareMode,
                                 })
                               }
                               className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
-                            />
+                            >
+                              <option value="FLAT">Tetap</option>
+                              <option value="TIERED_AFTER_BEP">
+                                Bertahap Setelah Balik Modal
+                              </option>
+                            </select>
                           </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                              Bagi Hasil Perusahaan (%)
-                            </label>
-                            <input
-                              type="number"
-                              value={100 - formData.investorProfitSharePercent}
-                              readOnly
-                              className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm py-3 text-gray-500 dark:text-gray-400"
-                            />
-                          </div>
+
+                          {formData.investorProfitShareMode === "FLAT" ? (
+                            <>
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                  Bagi Hasil Investor (%)
+                                </label>
+                                <input
+                                  type="number"
+                                  max="100"
+                                  min="0"
+                                  value={formData.investorProfitSharePercent}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      investorProfitSharePercent: Number(
+                                        e.target.value,
+                                      ),
+                                    })
+                                  }
+                                  className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                  Bagi Hasil Perusahaan (%)
+                                </label>
+                                <input
+                                  type="number"
+                                  value={
+                                    100 - formData.investorProfitSharePercent
+                                  }
+                                  readOnly
+                                  className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm py-3 text-gray-500 dark:text-gray-400"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                  Investor Sebelum Balik Modal (%)
+                                </label>
+                                <input
+                                  type="number"
+                                  max="100"
+                                  min="0"
+                                  value={
+                                    formData.investorProfitShareBeforeBepPercent
+                                  }
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      investorProfitShareBeforeBepPercent:
+                                        Number(e.target.value),
+                                    })
+                                  }
+                                  className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                />
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Perusahaan:{" "}
+                                  {100 -
+                                    formData.investorProfitShareBeforeBepPercent}
+                                  %
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                                  Investor Setelah Balik Modal (%)
+                                </label>
+                                <input
+                                  type="number"
+                                  max="100"
+                                  min="0"
+                                  value={
+                                    formData.investorProfitShareAfterBepPercent
+                                  }
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      investorProfitShareAfterBepPercent:
+                                        Number(e.target.value),
+                                    })
+                                  }
+                                  className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-white"
+                                />
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Perusahaan:{" "}
+                                  {100 -
+                                    formData.investorProfitShareAfterBepPercent}
+                                  %
+                                </p>
+                              </div>
+                            </>
+                          )}
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">

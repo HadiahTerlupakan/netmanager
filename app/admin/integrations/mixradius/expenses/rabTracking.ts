@@ -190,6 +190,21 @@ function calculateOpexGaps(
   });
 }
 
+function getInvestorProfitSharePercent(
+  project: RABProject,
+  remainingInvestment: number,
+): number {
+  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
+    return Number(project.investorProfitSharePercent || 50);
+  }
+
+  if (remainingInvestment > 0) {
+    return Number(project.investorProfitShareBeforeBepPercent || 80);
+  }
+
+  return Number(project.investorProfitShareAfterBepPercent || 60);
+}
+
 export function buildRABTrackingDataset(
   project: RABProject,
   actualAchievements: RABActualAchievement[] = [],
@@ -210,10 +225,6 @@ export function buildRABTrackingDataset(
 
   const recoveryType = project.investmentRecoveryType || "PERCENTAGE";
   const recoveryValue = Number(project.investmentRecoveryValue || 50);
-  const defaultInvestorSharePercent = Number(
-    project.investorProfitSharePercent || 50,
-  );
-
   const opexGaps = calculateOpexGaps(
     project,
     monthlySubsTargets,
@@ -294,7 +305,7 @@ export function buildRABTrackingDataset(
 
       const investorProfitSharePercent = hasManualInvestorProfitSharePercent
         ? Number(actualRecord?.manualInvestorProfitSharePercent)
-        : defaultInvestorSharePercent;
+        : getInvestorProfitSharePercent(project, remainingInvestment);
 
       const investorShare = hasManualInvestorShare
         ? Number(actualRecord?.manualInvestorShare)

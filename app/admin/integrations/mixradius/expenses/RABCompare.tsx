@@ -65,6 +65,15 @@ export default function RABCompare({
     return `${formatCurrency(project.investmentRecoveryValue || 0)} / Bulan`;
   };
 
+  const getProfitShareDesc = (project: RABProject) => {
+    if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
+      const investorShare = project.investorProfitSharePercent || 50;
+      return `${investorShare}% : ${100 - investorShare}%`;
+    }
+
+    return `${project.investorProfitShareBeforeBepPercent || 80}% pra-BEP, ${project.investorProfitShareAfterBepPercent || 60}% pasca-BEP`;
+  };
+
   // Calculate BEP specific data for all projects once
   const bepData = projects.map((p) => {
     const result = calculateRealisticBEP(p);
@@ -286,13 +295,7 @@ export default function RABCompare({
           ...projects.map((p) => `${p.investmentDurationMonths || 12} Bulan`),
         ],
         ["Angsuran Recovery", ...projects.map((p) => getRecoveryDesc(p))],
-        [
-          "Bagi Hasil (Investor:Psh)",
-          ...projects.map(
-            (p) =>
-              `${p.investorProfitSharePercent}% : ${100 - (p.investorProfitSharePercent || 50)}%`,
-          ),
-        ],
+        ["Bagi Hasil (Investor:Psh)", ...projects.map(getProfitShareDesc)],
 
         [
           {
@@ -603,14 +606,8 @@ export default function RABCompare({
                   key={p.id}
                   className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-gray-900 dark:text-gray-300"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                      {p.investorProfitSharePercent}%
-                    </span>
-                    <span className="text-gray-400">:</span>
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      {100 - (p.investorProfitSharePercent || 50)}%
-                    </span>
+                  <div className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                    {getProfitShareDesc(p)}
                   </div>
                 </td>
               ))}

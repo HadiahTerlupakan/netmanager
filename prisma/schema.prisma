@@ -2883,6 +2883,9 @@ model RabProject {
   investmentRecoveryType     RabRecoveryType        @default(PERCENTAGE)
   investmentRecoveryValue    Float                  @default(50)
   investorProfitSharePercent Float                  @default(50)
+  investorProfitShareMode    RabInvestorProfitShareMode @default(FLAT)
+  investorProfitShareBeforeBepPercent Float         @default(80)
+  investorProfitShareAfterBepPercent  Float         @default(60)
   paymentType                RabPaymentType         @default(PREPAID)
   nplTolerancePercent        Float                  @default(0)
   opexBufferFundingMode      RabOpexBufferFundingMode @default(INVESTOR)
@@ -3654,6 +3657,11 @@ enum RabRecoveryType {
 enum RabTargetBasis {
   HOMECONNECT
   HOMEPASS
+}
+
+enum RabInvestorProfitShareMode {
+  FLAT
+  TIERED_AFTER_BEP
 }
 
 enum RabOpexBufferFundingMode {

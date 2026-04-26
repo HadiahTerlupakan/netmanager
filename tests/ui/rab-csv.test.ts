@@ -110,6 +110,53 @@ describe("buildRABCsvContent", () => {
     );
   });
 
+  it("menyertakan skema bagi hasil bertahap di export investor", () => {
+    const project: RABProject = {
+      id: "rab-csv-tiered-profit-share",
+      name: "RAB CSV Tiered Profit Share Test",
+      projectedRevenue: 1_000_000,
+      projectedOpex: 0,
+      targetSubscribers: 100,
+      arpu: 10_000,
+      growthType: "LINEAR",
+      paymentType: "PREPAID",
+      growthSettings: { subscribersPerMonth: 100 },
+      nplTolerancePercent: 0,
+      investmentDurationMonths: 1,
+      investmentRecoveryType: "FIXED",
+      investmentRecoveryValue: 500_000,
+      investorProfitSharePercent: 50,
+      investorProfitShareMode: "TIERED_AFTER_BEP",
+      investorProfitShareBeforeBepPercent: 80,
+      investorProfitShareAfterBepPercent: 60,
+      status: "DRAFT",
+      items: [
+        {
+          id: "item-capex",
+          name: "CAPEX test",
+          quantity: 1,
+          unitPrice: 1_000_000,
+          totalPrice: 1_000_000,
+          expenseType: "CAPEX",
+        },
+      ],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const csvContent = buildRABCsvContent(project);
+
+    expect(csvContent).toContain(
+      '"Skema Bagi Hasil","Bertahap Setelah Balik Modal"',
+    );
+    expect(csvContent).toContain(
+      '"Investor Share Sebelum Balik Modal (%)","80"',
+    );
+    expect(csvContent).toContain(
+      '"Investor Share Setelah Balik Modal (%)","60"',
+    );
+  });
+
   it("menetralkan formula spreadsheet pada cell string yang diekspor", () => {
     const project: RABProject = {
       id: "rab-csv-1",

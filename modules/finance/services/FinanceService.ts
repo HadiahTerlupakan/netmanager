@@ -2,6 +2,7 @@ import {
   RabItemCategory,
   RabExpenseType,
   RabGrowthType,
+  RabInvestorProfitShareMode,
   RabOpexBufferFundingMode,
   RabPaymentType,
   RabTargetBasis,
@@ -303,6 +304,9 @@ export class FinanceService {
       investmentRecoveryType: "PERCENTAGE" | "FIXED";
       investmentRecoveryValue: number;
       investorProfitSharePercent: number;
+      investorProfitShareMode: RabInvestorProfitShareMode;
+      investorProfitShareBeforeBepPercent: number;
+      investorProfitShareAfterBepPercent: number;
       contingencyPercent: number;
       contingencyAmount: bigint;
       nplTolerancePercent: number;
@@ -357,6 +361,9 @@ export class FinanceService {
       investmentRecoveryType,
       investmentRecoveryValue,
       investorProfitSharePercent,
+      investorProfitShareMode,
+      investorProfitShareBeforeBepPercent,
+      investorProfitShareAfterBepPercent,
       contingencyPercent,
       contingencyAmount,
       nplTolerancePercent,
@@ -392,6 +399,9 @@ export class FinanceService {
         investmentRecoveryType,
         investmentRecoveryValue,
         investorProfitSharePercent,
+        investorProfitShareMode,
+        investorProfitShareBeforeBepPercent,
+        investorProfitShareAfterBepPercent,
         contingencyPercent,
         contingencyAmount,
         nplTolerancePercent,

@@ -31,6 +31,14 @@ import type {
   RABRevisionRecord,
 } from "./rabRevisionTypes";
 
+function getProfitShareDescription(project: RABProject): string {
+  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
+    return `${project.investorProfitSharePercent || 50}% investor / ${100 - (project.investorProfitSharePercent || 50)}% perusahaan`;
+  }
+
+  return `${project.investorProfitShareBeforeBepPercent || 80}% sebelum balik modal, ${project.investorProfitShareAfterBepPercent || 60}% setelah balik modal`;
+}
+
 interface RABViewProps {
   isOpen: boolean;
   data: RABProject | null;
@@ -590,18 +598,20 @@ export default function RABView({
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-500 font-semibold mb-0.5">
-                        Bagi Hasil Investor (%)
+                        Skema Bagi Hasil
                       </p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {data.investorProfitSharePercent || 50}%
+                        {data.investorProfitShareMode === "TIERED_AFTER_BEP"
+                          ? "Bertahap Setelah Balik Modal"
+                          : "Tetap"}
                       </p>
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-500 font-semibold mb-0.5">
-                        Bagi Hasil Perusahaan (%)
+                        Porsi Investor / Perusahaan
                       </p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {100 - (data.investorProfitSharePercent || 50)}%
+                        {getProfitShareDescription(data)}
                       </p>
                     </div>
                   </div>

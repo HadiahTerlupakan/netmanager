@@ -147,6 +147,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 });
 
 const rabTargetBasisSchema = z.enum(["HOMECONNECT", "HOMEPASS"]);
+const rabInvestorProfitShareModeSchema = z.enum(["FLAT", "TIERED_AFTER_BEP"]);
 
 const opexBufferFundingModeSchema = z.enum([
   "INVESTOR",
@@ -246,7 +247,10 @@ const updateSchema = z
     investmentDurationMonths: z.number().min(1).optional(),
     investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).optional(),
     investmentRecoveryValue: z.number().optional(),
-    investorProfitSharePercent: z.number().optional(),
+    investorProfitSharePercent: z.number().min(0).max(100).optional(),
+    investorProfitShareMode: rabInvestorProfitShareModeSchema.optional(),
+    investorProfitShareBeforeBepPercent: z.number().min(0).max(100).optional(),
+    investorProfitShareAfterBepPercent: z.number().min(0).max(100).optional(),
 
     // Enterprise features
     contingencyPercent: z.number().min(0).max(100).optional(),

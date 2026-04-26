@@ -36,6 +36,28 @@ function escapeCsvCell(value: string | number): string {
   return `"${serializedValue.replace(/"/g, '""')}"`;
 }
 
+function getProfitShareRows(
+  project: RABProject,
+): Array<[string, string | number]> {
+  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
+    return [
+      ["Investor Profit Share", `${project.investorProfitSharePercent}%`],
+    ];
+  }
+
+  return [
+    ["Skema Bagi Hasil", "Bertahap Setelah Balik Modal"],
+    [
+      "Investor Share Sebelum Balik Modal (%)",
+      project.investorProfitShareBeforeBepPercent || 80,
+    ],
+    [
+      "Investor Share Setelah Balik Modal (%)",
+      project.investorProfitShareAfterBepPercent || 60,
+    ],
+  ];
+}
+
 function getGrowthModelDescription(project: RABProject): string {
   if (project.growthType === "LINEAR") {
     const settings = project.growthSettings as LinearGrowthSettings;
@@ -123,7 +145,7 @@ export function buildRABCsvContent(project: RABProject): string {
       `Recovery: ${project.investmentRecoveryType === "PERCENTAGE" ? `${project.investmentRecoveryValue}% dari Profit/Bulan` : `${formatCurrency(project.investmentRecoveryValue || 0)}/Bulan`}`,
     ],
     [`Durasi Kontrak: ${project.investmentDurationMonths || 12} Bulan`],
-    [`Investor Profit Share: ${project.investorProfitSharePercent}%`],
+    ...getProfitShareRows(project),
     ["Total Setoran Investor", totals.investorDepositTotal],
     [],
     ["BUFFER OPEX RAMP-UP"],

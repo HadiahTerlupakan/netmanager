@@ -11,6 +11,7 @@ import type {
   Prisma,
   RabExpenseType,
   RabGrowthType,
+  RabInvestorProfitShareMode,
   RabItemCategory,
   RabOpexBufferFundingMode,
   RabPaymentType,
@@ -103,6 +104,9 @@ export interface RabProjectUpdateInput {
   investmentRecoveryType?: RabRecoveryType;
   investmentRecoveryValue?: number;
   investorProfitSharePercent?: number;
+  investorProfitShareMode?: RabInvestorProfitShareMode;
+  investorProfitShareBeforeBepPercent?: number;
+  investorProfitShareAfterBepPercent?: number;
   contingencyPercent?: number;
   contingencyAmount?: bigint;
   nplTolerancePercent?: number;
@@ -389,6 +393,14 @@ export class RabProjectRepository {
       if (input.investorProfitSharePercent !== undefined)
         updateData.investorProfitSharePercent =
           input.investorProfitSharePercent;
+      if (input.investorProfitShareMode !== undefined)
+        updateData.investorProfitShareMode = input.investorProfitShareMode;
+      if (input.investorProfitShareBeforeBepPercent !== undefined)
+        updateData.investorProfitShareBeforeBepPercent =
+          input.investorProfitShareBeforeBepPercent;
+      if (input.investorProfitShareAfterBepPercent !== undefined)
+        updateData.investorProfitShareAfterBepPercent =
+          input.investorProfitShareAfterBepPercent;
       if (input.contingencyPercent !== undefined)
         updateData.contingencyPercent = input.contingencyPercent;
       if (input.contingencyAmount !== undefined)
@@ -597,6 +609,9 @@ export class RabProjectRepository {
       investmentRecoveryType: string;
       investmentRecoveryValue: number;
       investorProfitSharePercent: number;
+      investorProfitShareMode?: RabInvestorProfitShareMode;
+      investorProfitShareBeforeBepPercent?: number;
+      investorProfitShareAfterBepPercent?: number;
       contingencyPercent: number;
       contingencyAmount: bigint;
       nplTolerancePercent: number;
@@ -654,6 +669,11 @@ export class RabProjectRepository {
             .investmentRecoveryType as RabRecoveryType,
           investmentRecoveryValue: data.project.investmentRecoveryValue,
           investorProfitSharePercent: data.project.investorProfitSharePercent,
+          investorProfitShareMode: data.project.investorProfitShareMode,
+          investorProfitShareBeforeBepPercent:
+            data.project.investorProfitShareBeforeBepPercent,
+          investorProfitShareAfterBepPercent:
+            data.project.investorProfitShareAfterBepPercent,
           contingencyPercent: data.project.contingencyPercent,
           contingencyAmount: data.project.contingencyAmount,
           nplTolerancePercent: data.project.nplTolerancePercent,

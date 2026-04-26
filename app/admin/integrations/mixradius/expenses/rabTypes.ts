@@ -59,6 +59,8 @@ export type RABOpexBufferFundingMode =
   | "SHARED_PERCENTAGE"
   | "FIXED";
 
+export type RABInvestorProfitShareMode = "FLAT" | "TIERED_AFTER_BEP";
+
 export interface RABActualAchievement {
   id: string;
   month: number;
@@ -113,6 +115,9 @@ export interface RABProject {
   investmentRecoveryType?: "PERCENTAGE" | "FIXED";
   investmentRecoveryValue?: number;
   investorProfitSharePercent?: number;
+  investorProfitShareMode?: RABInvestorProfitShareMode;
+  investorProfitShareBeforeBepPercent?: number;
+  investorProfitShareAfterBepPercent?: number;
   contingencyPercent?: number;
   contingencyAmount?: string | number;
   nplTolerancePercent?: number;

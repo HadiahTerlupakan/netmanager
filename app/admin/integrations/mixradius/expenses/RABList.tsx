@@ -31,6 +31,29 @@ import type {
   RABProject,
 } from "./rabTypes";
 
+function getProfitShareRows(project: RABProject): string[][] {
+  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
+    const investorShare = project.investorProfitSharePercent || 50;
+    return [
+      ["Skema Bagi Hasil", "Tetap"],
+      ["Bagi Hasil Investor", `${investorShare}%`],
+      ["Bagi Hasil Perusahaan", `${100 - investorShare}%`],
+    ];
+  }
+
+  return [
+    ["Skema Bagi Hasil", "Bertahap Setelah Balik Modal"],
+    [
+      "Investor Sebelum Balik Modal",
+      `${project.investorProfitShareBeforeBepPercent || 80}%`,
+    ],
+    [
+      "Investor Setelah Balik Modal",
+      `${project.investorProfitShareAfterBepPercent || 60}%`,
+    ],
+  ];
+}
+
 interface RABListProps {
   initialData?: RABProject[];
   onEdit: (project: RABProject) => void;
@@ -244,11 +267,7 @@ export default function RABList({
             : `${formatCurrency(project.investmentRecoveryValue || 0)}/Bulan`,
         ],
         ["Durasi Kontrak", `${project.investmentDurationMonths || 12} Bulan`],
-        ["Bagi Hasil Investor", `${project.investorProfitSharePercent}%`],
-        [
-          "Bagi Hasil Perusahaan",
-          `${100 - (project.investorProfitSharePercent || 50)}%`,
-        ],
+        ...getProfitShareRows(project),
         [
           "Estimasi BEP Keseluruhan",
           bepMonth === Infinity ? "Tidak Terhingga" : `${bepMonth} Bulan`,

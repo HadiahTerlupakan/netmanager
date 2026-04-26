@@ -52,6 +52,7 @@ const disbursementSchema = z.object({
 });
 
 const rabTargetBasisSchema = z.enum(["HOMECONNECT", "HOMEPASS"]);
+const rabInvestorProfitShareModeSchema = z.enum(["FLAT", "TIERED_AFTER_BEP"]);
 
 const opexBufferFundingModeSchema = z.enum([
   "INVESTOR",
@@ -140,7 +141,10 @@ const rabSchema = z
       .enum(["PERCENTAGE", "FIXED"])
       .default("PERCENTAGE"),
     investmentRecoveryValue: z.number().default(50),
-    investorProfitSharePercent: z.number().default(50),
+    investorProfitSharePercent: z.number().min(0).max(100).default(50),
+    investorProfitShareMode: rabInvestorProfitShareModeSchema.default("FLAT"),
+    investorProfitShareBeforeBepPercent: z.number().min(0).max(100).default(80),
+    investorProfitShareAfterBepPercent: z.number().min(0).max(100).default(60),
 
     // Enterprise features
     contingencyPercent: z.number().min(0).max(100).default(0),

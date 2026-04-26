@@ -258,6 +258,38 @@ describe("rab tracking calculations helpers", () => {
     expect(dataset.totals.initialFundingNeed).toBe(1_000_000);
   });
 
+  it("membagi profit bertahap sebelum dan setelah modal balik", () => {
+    const project: RABProject = {
+      ...createBaseProject(),
+      projectedOpex: 0,
+      paymentType: "PREPAID",
+      growthSettings: { subscribersPerMonth: 100 },
+      nplTolerancePercent: 0,
+      investmentDurationMonths: 3,
+      investmentRecoveryType: "FIXED",
+      investmentRecoveryValue: 500_000,
+      investorProfitSharePercent: 50,
+      investorProfitShareMode: "TIERED_AFTER_BEP",
+      investorProfitShareBeforeBepPercent: 80,
+      investorProfitShareAfterBepPercent: 60,
+    };
+
+    const dataset = buildRABTrackingDataset(project, []);
+
+    expect(dataset.rows[0].investorProfitSharePercent).toBe(80);
+    expect(dataset.rows[0].investorShare).toBe(400_000);
+    expect(dataset.rows[0].companyShare).toBe(100_000);
+
+    expect(dataset.rows[1].remainingInvestment).toBe(0);
+    expect(dataset.rows[1].investorProfitSharePercent).toBe(60);
+    expect(dataset.rows[1].investorShare).toBe(300_000);
+    expect(dataset.rows[1].companyShare).toBe(200_000);
+
+    expect(dataset.rows[2].investorProfitSharePercent).toBe(60);
+    expect(dataset.rows[2].investorShare).toBe(600_000);
+    expect(dataset.rows[2].companyShare).toBe(400_000);
+  });
+
   it("mendahulukan manual override recovery dan profit share", () => {
     const project = createBaseProject();
     const actuals: RABActualAchievement[] = [
