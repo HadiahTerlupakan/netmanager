@@ -145,6 +145,7 @@ Gunakan runbook ini hanya untuk memperbaiki data historis ketika bug auto-checko
 - Batasi tanggal ke hari bug terjadi, misalnya `--from=2026-04-25 --to=2026-04-25`.
 - Dengan range satu tanggal, data check-in hari lain tidak ikut diproses.
 - Untuk kasus lintas tenant, gunakan `--all-tenants` agar script memproses tenant satu per satu dalam tenant context resmi.
+- Untuk incident auto-checkout murni yang sudah diverifikasi, gunakan flag eksplisit `--include-auto-checkout-only`.
 
 ### Jalankan lewat Rancher
 
@@ -158,6 +159,12 @@ Dry-run semua tenant untuk tanggal bug:
 
 ```bash
 node node_modules/.bin/tsx scripts/repair-no-checkout-attendance.ts --all-tenants --from=2026-04-25 --to=2026-04-25
+```
+
+Jika output menunjukkan record incident auto-checkout murni seperti `photo=no`, `location=no`, dan note `(Auto-Checkout: Lupa Absen Pulang)`, ulangi dry-run dengan flag eksplisit:
+
+```bash
+node node_modules/.bin/tsx scripts/repair-no-checkout-attendance.ts --all-tenants --from=2026-04-25 --to=2026-04-25 --include-auto-checkout-only
 ```
 
 Periksa output:
@@ -176,6 +183,12 @@ Jika kandidat aman sudah sesuai, jalankan apply:
 node node_modules/.bin/tsx scripts/repair-no-checkout-attendance.ts --all-tenants --from=2026-04-25 --to=2026-04-25 --apply
 ```
 
+Untuk incident auto-checkout murni yang sudah diverifikasi, apply dengan flag eksplisit:
+
+```bash
+node node_modules/.bin/tsx scripts/repair-no-checkout-attendance.ts --all-tenants --from=2026-04-25 --to=2026-04-25 --include-auto-checkout-only --apply
+```
+
 Script hanya memperbaiki otomatis record yang memenuhi semua kondisi berikut:
 
 ```text
@@ -184,7 +197,7 @@ checkOut IS NOT NULL
 ada bukti checkout pulang: checkOutPhoto atau checkOutLocation
 ```
 
-Record `NO_CHECKOUT` yang tidak punya bukti checkout tersimpan akan masuk bagian `Butuh review manual` dan tidak diubah otomatis.
+Record `NO_CHECKOUT` yang tidak punya bukti checkout tersimpan akan masuk bagian `Butuh review manual` dan tidak diubah otomatis, kecuali flag `--include-auto-checkout-only` dipakai untuk incident yang sudah diverifikasi.
 
 Jika muncul error berikut, pod masih menjalankan image lama atau script belum dibungkus tenant context:
 
