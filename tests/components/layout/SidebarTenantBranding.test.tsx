@@ -1,5 +1,9 @@
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUseSettings = vi.fn();
 const mockUsePublicBranding = vi.fn();
@@ -77,8 +81,58 @@ vi.mock("@/components/layout/SidebarBrandingLogo", () => ({
 import Sidebar from "@/components/layout/Sidebar";
 import EmployeeSidebar from "@/components/layout/EmployeeSidebar";
 
+function setDesktopViewport() {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: 1280,
+  });
+}
+
+function setMobileViewport() {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: 375,
+  });
+}
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true",
+  );
+}
+
+function SidebarRenderHarness({ rerenderTick }: { rerenderTick?: number }) {
+  return (
+    <div data-rerender-tick={rerenderTick ?? 0}>
+      <Sidebar />
+    </div>
+  );
+}
+
+async function renderSidebar(root: Root, rerenderTick = 0) {
+  await act(async () => {
+    root.render(<SidebarRenderHarness rerenderTick={rerenderTick} />);
+    await Promise.resolve();
+  });
+}
+
 describe("sidebar tenant branding", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
   beforeEach(() => {
+    document.body.innerHTML = "";
+    setDesktopViewport();
+    vi.clearAllMocks();
     mockUseSettings.mockReturnValue({
       settings: {
         namaAplikasi: "Legacy App",
@@ -155,5 +209,127 @@ describe("sidebar tenant branding", () => {
     expect(markup).toContain('data-app-name="Tenant App"');
     expect(markup).toContain('data-logo-url="/tenant-logo.png"');
     expect(markup).not.toContain('data-logo-url="/images/logo-sbl.png"');
+  });
+
+  it("adds modal semantics, focus management, and keyboard support for the mobile admin drawer", async () => {
+    setMobileViewport();
+    const container = document.createElement("div");
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.textContent = "Open sidebar";
+    document.body.append(trigger, container);
+    trigger.focus();
+
+    const root = createRoot(container);
+
+    await renderSidebar(root);
+
+    const toggleSidebar = (
+      window as Window & { toggleAdminSidebar?: () => void }
+    ).toggleAdminSidebar;
+
+    expect(toggleSidebar).toBeTypeOf("function");
+
+    await act(async () => {
+      toggleSidebar?.();
+      await Promise.resolve();
+    });
+
+    const sidebar = document.querySelector("aside") as HTMLElement | null;
+    const overlay = Array.from(document.querySelectorAll("div")).find(
+      (element) => element.className.includes("bg-gray-900/60"),
+    ) as HTMLElement | undefined;
+    const closeButton = document.querySelector(
+      'button[aria-label="Close menu"]',
+    ) as HTMLButtonElement | null;
+    const logoutButton = document.querySelector(
+      'button[aria-label="Keluar dari akun"]',
+    ) as HTMLButtonElement | null;
+
+    expect(sidebar?.getAttribute("role")).toBe("dialog");
+    expect(sidebar?.getAttribute("aria-modal")).toBe("true");
+    expect(overlay?.getAttribute("aria-hidden")).toBe("true");
+    expect(document.activeElement).toBe(closeButton);
+
+    logoutButton?.focus();
+    logoutButton?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+    );
+    expect(document.activeElement).toBe(closeButton);
+
+    closeButton?.focus();
+    closeButton?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        shiftKey: true,
+      }),
+    );
+    expect(document.activeElement).toBe(logoutButton);
+
+    const focusableElements = sidebar ? getFocusableElements(sidebar) : [];
+    expect(focusableElements.length).toBeGreaterThan(1);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    const closedOverlay = Array.from(document.querySelectorAll("div")).find(
+      (element) => element.className.includes("bg-gray-900/60"),
+    );
+
+    expect(closedOverlay).toBeUndefined();
+    expect(document.activeElement).toBe(trigger);
+    expect(sidebar?.getAttribute("role")).toBeNull();
+    expect(sidebar?.getAttribute("aria-modal")).toBeNull();
+  });
+
+  it("restores focus to the original trigger after rerendering while the mobile drawer remains open", async () => {
+    setMobileViewport();
+    const container = document.createElement("div");
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.textContent = "Open sidebar";
+    document.body.append(trigger, container);
+    trigger.focus();
+
+    const root = createRoot(container);
+
+    await renderSidebar(root);
+
+    const toggleSidebar = (
+      window as Window & { toggleAdminSidebar?: () => void }
+    ).toggleAdminSidebar;
+
+    await act(async () => {
+      toggleSidebar?.();
+      await Promise.resolve();
+    });
+
+    const closeButton = document.querySelector(
+      'button[aria-label="Close menu"]',
+    ) as HTMLButtonElement | null;
+    expect(document.activeElement).toBe(closeButton);
+
+    const logoutButton = document.querySelector(
+      'button[aria-label="Keluar dari akun"]',
+    ) as HTMLButtonElement | null;
+    logoutButton?.focus();
+    expect(document.activeElement).toBe(logoutButton);
+
+    await renderSidebar(root, 1);
+    expect(document.activeElement).toBe(logoutButton);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(trigger);
   });
 });

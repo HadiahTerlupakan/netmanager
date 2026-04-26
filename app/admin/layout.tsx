@@ -36,7 +36,7 @@ export default async function AdminLayout({
         <ForceLogoutListener />
         <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-950 flex">
           <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
+          <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden md:pl-72">
             <AnnouncementBanner portal="admin" />
             <PushNotificationProvider>
               <PushNotificationManager className="mx-6 mt-4" />
