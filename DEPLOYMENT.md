@@ -134,6 +134,66 @@ Syarat recovery:
 - secret `netmanager-production-registry` tersedia
 - jangan gunakan patch manual dari Rancher
 
+## Runbook: Repair Attendance `NO_CHECKOUT` Historis
+
+Gunakan runbook ini hanya untuk memperbaiki data historis ketika bug auto-checkout membuat karyawan yang sudah absen pulang tetap tampil `TIDAK CHECKOUT`.
+
+### Prinsip aman
+
+- Jalankan dari image aplikasi terbaru yang sudah berisi `scripts/repair-no-checkout-attendance.ts` dan tenant context fix.
+- Default script adalah **dry-run**; data baru berubah jika memakai `--apply`.
+- Batasi tanggal ke hari bug terjadi, misalnya `--from=2026-04-25 --to=2026-04-25`.
+- Dengan range satu tanggal, data check-in hari lain tidak ikut diproses.
+- Untuk kasus lintas tenant, gunakan `--all-tenants` agar script memproses tenant satu per satu dalam tenant context resmi.
+
+### Jalankan lewat Rancher
+
+Masuk ke shell pod `netmanager-worker` atau `netmanager-app` di namespace target, lalu:
+
+```bash
+cd /app
+```
+
+Dry-run semua tenant untuk tanggal bug:
+
+```bash
+node node_modules/.bin/tsx scripts/repair-no-checkout-attendance.ts --all-tenants --from=2026-04-25 --to=2026-04-25
+```
+
+Periksa output:
+
+```text
+Tenant diproses: <jumlah tenant>
+Kandidat aman ditemukan: <jumlah kandidat otomatis>
+Butuh review manual: <jumlah record yang tidak diubah otomatis>
+Mode    : DRY-RUN
+Repaired   : 0
+```
+
+Jika kandidat aman sudah sesuai, jalankan apply:
+
+```bash
+node node_modules/.bin/tsx scripts/repair-no-checkout-attendance.ts --all-tenants --from=2026-04-25 --to=2026-04-25 --apply
+```
+
+Script hanya memperbaiki otomatis record yang memenuhi semua kondisi berikut:
+
+```text
+status = NO_CHECKOUT
+checkOut IS NOT NULL
+ada bukti checkout pulang: checkOutPhoto atau checkOutLocation
+```
+
+Record `NO_CHECKOUT` yang tidak punya bukti checkout tersimpan akan masuk bagian `Butuh review manual` dan tidak diubah otomatis.
+
+Jika muncul error berikut, pod masih menjalankan image lama atau script belum dibungkus tenant context:
+
+```text
+Security Breach: Attempted data access without valid tenant context.
+```
+
+Deploy ulang image terbaru lewat Jenkins, lalu jalankan dry-run lagi.
+
 ### Jalur Manual: Bootstrap / Legacy / Emergency Only ⚠️
 
 Jalur manual di bawah ini hanya dipertahankan untuk:
