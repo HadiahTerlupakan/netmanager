@@ -282,18 +282,23 @@ export class RabProjectRepository {
   ): Promise<RabProjectWithDetails[]> {
     return this.client.rabProject.findMany({
       where,
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       include: {
         items: {
+          orderBy: [{ wbsId: "asc" }, { id: "asc" }],
           include: {
-            disbursements: true,
+            disbursements: {
+              orderBy: [{ estimatedDate: "asc" }, { id: "asc" }],
+            },
             expenseCategory: { include: { parent: true } },
           },
         },
-        wbsGroups: true,
+        wbsGroups: { orderBy: [{ order: "asc" }, { id: "asc" }] },
         site: { select: { name: true } },
-        investors: true,
+        investors: { orderBy: { id: "asc" } },
         creator: { select: { name: true } },
         approvals: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           include: {
             user: {
               select: {
