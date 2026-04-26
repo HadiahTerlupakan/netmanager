@@ -17,6 +17,7 @@ import {
   HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { useSession } from "next-auth/react";
+import { calculateRabUnitCosts } from "@/lib/finance/rabTarget";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
 import type { RABProject } from "./rabTypes";
@@ -211,6 +212,11 @@ export default function RABView({
   const contingencyPercent = data.contingencyPercent || 0;
   const totalInvestment = totalCapex + contingencyAmount;
   const totalOpex = Number(data.projectedOpex || 0);
+  const unitCosts = calculateRabUnitCosts({
+    totalCapex,
+    targetHomepass: data.targetHomepass,
+    targetSubscribers: data.targetSubscribers,
+  });
 
   const projectedRevenue = Number(data.projectedRevenue || 0);
   const { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear } =
@@ -651,6 +657,28 @@ export default function RABView({
                         {formatCurrency(contingencyAmount)}
                       </div>
                     </div>
+                    {data.targetBasis === "HOMEPASS" && (
+                      <>
+                        <div>
+                          <div className="text-[10px] text-blue-100 uppercase font-medium">
+                            Biaya / Homepass
+                          </div>
+                          <div className="text-sm font-bold">
+                            {formatCurrency(unitCosts.costPerHomepass)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-blue-100 uppercase font-medium">
+                            Biaya / Homeconnect
+                          </div>
+                          <div className="text-sm font-bold">
+                            {formatCurrency(
+                              unitCosts.costPerHomeconnectRevenue,
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
                     <div>
                       <div className="text-[10px] text-blue-100 uppercase font-medium">
                         OPEX/Bln
@@ -744,12 +772,58 @@ export default function RABView({
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
-                    <span className="text-gray-500">Target Pelanggan</span>
+                    <span className="text-gray-500">Basis Target</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {data.targetBasis === "HOMEPASS"
+                        ? "Homepass Dibangun"
+                        : "Homeconnect"}
+                    </span>
+                  </div>
+                  {data.targetBasis === "HOMEPASS" && (
+                    <>
+                      <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                        <span className="text-gray-500">Target Homepass</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">
+                          {data.targetHomepass || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                        <span className="text-gray-500">Take-up Rate</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">
+                          {data.targetTakeUpRatePercent || 0}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                        <span className="text-gray-500">
+                          Biaya per Homepass
+                        </span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">
+                          {formatCurrency(unitCosts.costPerHomepass)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                    <span className="text-gray-500">
+                      {data.targetBasis === "HOMEPASS"
+                        ? "Target Homeconnect Revenue"
+                        : "Target Pelanggan"}
+                    </span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100 inline-flex items-center gap-1">
                       <HiOutlineUsers className="w-3.5 h-3.5" />{" "}
                       {data.targetSubscribers || 0}
                     </span>
                   </div>
+                  {data.targetBasis === "HOMEPASS" && (
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
+                      <span className="text-gray-500">
+                        Biaya per Homeconnect Revenue
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(unitCosts.costPerHomeconnectRevenue)}
+                      </span>
+                    </div>
+                  )}
                   {data.growthType === "LINEAR" && (
                     <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
                       <span className="text-gray-500">Target Bulanan</span>

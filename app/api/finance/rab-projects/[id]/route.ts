@@ -146,6 +146,8 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   return apiSuccess(serialized);
 });
 
+const rabTargetBasisSchema = z.enum(["HOMECONNECT", "HOMEPASS"]);
+
 const opexBufferFundingModeSchema = z.enum([
   "INVESTOR",
   "COMPANY",
@@ -220,6 +222,9 @@ const updateSchema = z
       ),
 
     // Growth period fields
+    targetBasis: rabTargetBasisSchema.optional(),
+    targetHomepass: z.number().min(0).optional(),
+    targetTakeUpRatePercent: z.number().min(0).max(100).optional(),
     targetSubscribers: z.number().optional(),
     arpu: z
       .union([z.string(), z.number()])

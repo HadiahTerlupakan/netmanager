@@ -1,0 +1,6 @@
+CREATE TYPE "RabTargetBasis" AS ENUM ('HOMECONNECT', 'HOMEPASS');
+
+ALTER TABLE "rab_projects"
+  ADD COLUMN "targetBasis" "RabTargetBasis" NOT NULL DEFAULT 'HOMECONNECT',
+  ADD COLUMN "targetHomepass" INTEGER,
+  ADD COLUMN "targetTakeUpRatePercent" DOUBLE PRECISION NOT NULL DEFAULT 100;

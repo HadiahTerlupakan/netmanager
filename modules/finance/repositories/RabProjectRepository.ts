@@ -14,6 +14,7 @@ import type {
   RabItemCategory,
   RabOpexBufferFundingMode,
   RabPaymentType,
+  RabTargetBasis,
   RabRecoveryType,
   RabStatus,
 } from "@prisma/client";
@@ -58,6 +59,9 @@ export interface RabWbsUpdateInput {
 
 interface RabInvestmentProjectInput {
   projectedOpex: bigint;
+  targetBasis?: RabTargetBasis | string;
+  targetHomepass?: number | null;
+  targetTakeUpRatePercent?: number | null;
   targetSubscribers?: number | null;
   arpu?: bigint | null;
   growthType: RabGrowthType | string;
@@ -86,6 +90,9 @@ export interface RabProjectUpdateInput {
   status?: RabStatus;
   projectedRevenue?: bigint;
   projectedOpex?: bigint;
+  targetBasis?: RabTargetBasis;
+  targetHomepass?: number;
+  targetTakeUpRatePercent?: number;
   targetSubscribers?: number;
   arpu?: bigint;
   growthType?: RabGrowthType;
@@ -120,9 +127,22 @@ function getCapexTotal(items: RabInvestmentItemInput[]): number {
     );
 }
 
+function getEffectiveTargetSubscribers(
+  project: RabInvestmentProjectInput,
+): number {
+  if (project.targetBasis !== "HOMEPASS") {
+    return Number(project.targetSubscribers || 0);
+  }
+
+  return Math.round(
+    Number(project.targetHomepass || 0) *
+      (Number(project.targetTakeUpRatePercent || 0) / 100),
+  );
+}
+
 function getMonthlySubscribers(project: RabInvestmentProjectInput): number[] {
   const duration = project.investmentDurationMonths;
-  const targetSubscribers = project.targetSubscribers || 0;
+  const targetSubscribers = getEffectiveTargetSubscribers(project);
   const settings = project.growthSettings as Record<string, unknown> | null;
 
   if (project.growthType === "PERCENTAGE") {
@@ -232,6 +252,9 @@ function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
   return [
     input.items,
     input.projectedOpex,
+    input.targetBasis,
+    input.targetHomepass,
+    input.targetTakeUpRatePercent,
     input.targetSubscribers,
     input.arpu,
     input.growthType,
@@ -292,9 +315,7 @@ export class RabProjectRepository {
     return this.client.rabProject.create({ data });
   }
 
-  async findByIdWithItems(
-    id: string,
-  ): Promise<
+  async findByIdWithItems(id: string): Promise<
     | (RabProject & {
         items?: (RabItem & { disbursements?: RabDisbursement[] })[];
         wbsGroups?: RabWbs[];
@@ -342,6 +363,12 @@ export class RabProjectRepository {
         updateData.projectedRevenue = input.projectedRevenue;
       if (input.projectedOpex !== undefined)
         updateData.projectedOpex = input.projectedOpex;
+      if (input.targetBasis !== undefined)
+        updateData.targetBasis = input.targetBasis;
+      if (input.targetHomepass !== undefined)
+        updateData.targetHomepass = input.targetHomepass;
+      if (input.targetTakeUpRatePercent !== undefined)
+        updateData.targetTakeUpRatePercent = input.targetTakeUpRatePercent;
       if (input.targetSubscribers !== undefined)
         updateData.targetSubscribers = input.targetSubscribers;
       if (input.arpu !== undefined) updateData.arpu = input.arpu;
@@ -557,6 +584,9 @@ export class RabProjectRepository {
       mixRadiusInvestorSiteId?: string | null;
       projectedRevenue: bigint;
       projectedOpex: bigint;
+      targetBasis?: RabTargetBasis;
+      targetHomepass?: number;
+      targetTakeUpRatePercent?: number;
       targetSubscribers?: number;
       arpu?: bigint;
       growthType: string;
@@ -609,6 +639,9 @@ export class RabProjectRepository {
           mixRadiusInvestorSiteId: data.project.mixRadiusInvestorSiteId,
           projectedRevenue: data.project.projectedRevenue,
           projectedOpex: data.project.projectedOpex,
+          targetBasis: data.project.targetBasis,
+          targetHomepass: data.project.targetHomepass,
+          targetTakeUpRatePercent: data.project.targetTakeUpRatePercent,
           targetSubscribers: data.project.targetSubscribers,
           arpu: data.project.arpu,
           growthType: data.project.growthType as RabGrowthType,

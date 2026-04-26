@@ -105,6 +105,46 @@ describe("rab project update route", () => {
     expect(mockUpdateProjectWithRelations).not.toHaveBeenCalled();
   });
 
+  it("forwards homepass target fields to the repository", async () => {
+    mockUpdateProjectWithRelations.mockResolvedValue({
+      id: "rab-1",
+      status: "DRAFT",
+      projectedRevenue: 30_000_000n,
+      projectedOpex: 0n,
+      arpu: 150_000n,
+      contingencyAmount: 0n,
+      opexBufferInvestorFixedAmount: 0n,
+      items: [],
+    });
+
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/finance/rab-projects/rab-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          targetBasis: "HOMEPASS",
+          targetHomepass: 500,
+          targetTakeUpRatePercent: 40,
+          targetSubscribers: 200,
+          projectedRevenue: 30_000_000,
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "rab-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdateProjectWithRelations).toHaveBeenCalledWith(
+      "rab-1",
+      expect.objectContaining({
+        targetBasis: "HOMEPASS",
+        targetHomepass: 500,
+        targetTakeUpRatePercent: 40,
+        targetSubscribers: 200,
+        projectedRevenue: 30_000_000n,
+      }),
+    );
+  });
+
   it("does not allow generic update permission to approve a RAB", async () => {
     mockUpdateProjectWithRelations.mockResolvedValue({
       id: "rab-1",

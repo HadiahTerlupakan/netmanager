@@ -1,3 +1,5 @@
+import type { RabTargetBasis } from "@/lib/finance/rabTarget";
+
 import type { RABRevisionVarianceLabel } from "./rabRevisionTypes";
 
 export interface RABItem {
@@ -97,6 +99,9 @@ export interface RABProject {
   mixRadiusInvestorSite?: { name: string };
   projectedRevenue: number;
   projectedOpex: number;
+  targetBasis?: RabTargetBasis;
+  targetHomepass?: number;
+  targetTakeUpRatePercent?: number;
   targetSubscribers?: number;
   arpu?: number;
   growthType?: "LINEAR" | "PERCENTAGE" | "CUSTOM";

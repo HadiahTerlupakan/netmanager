@@ -81,6 +81,81 @@ describe("RabProjectRepository", () => {
     });
   });
 
+  it("menghitung buffer investor dari target efektif homepass", async () => {
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (client: typeof prismaMock) => Promise<unknown>) =>
+        callback(prismaMock),
+    );
+    const repository = new RabProjectRepository(prismaMock as never);
+
+    prismaMock.rabProject.create.mockResolvedValueOnce({
+      id: "rab-1",
+      investorProfitSharePercent: 50,
+    });
+    prismaMock.rabItem.create.mockResolvedValueOnce({ id: "item-1" });
+    prismaMock.rabProject.findUnique.mockResolvedValueOnce({ id: "rab-1" });
+
+    await repository.createFullProject({
+      project: {
+        name: "RAB Homepass Buffer",
+        projectedRevenue: 1_000_000n,
+        projectedOpex: 500_000n,
+        targetBasis: "HOMEPASS",
+        targetHomepass: 100,
+        targetTakeUpRatePercent: 100,
+        targetSubscribers: 0,
+        arpu: 10_000n,
+        growthType: "LINEAR",
+        paymentType: "PREPAID",
+        growthSettings: { subscribersPerMonth: 50 },
+        investmentDurationMonths: 2,
+        investmentRecoveryType: "PERCENTAGE",
+        investmentRecoveryValue: 50,
+        investorProfitSharePercent: 50,
+        contingencyPercent: 0,
+        contingencyAmount: 0n,
+        nplTolerancePercent: 20,
+        opexBufferFundingMode: RabOpexBufferFundingMode.SHARED_PERCENTAGE,
+        opexBufferInvestorPercent: 60,
+        opexBufferCompanyPercent: 40,
+        opexBufferInvestorFixedAmount: 0n,
+        opexBufferSafetyPercent: 10,
+        hasDisbursementPlan: false,
+        createdBy: "user-1",
+      },
+      wbsGroups: [],
+      investorIds: ["investor-1", "investor-2"],
+      investorProfitSharePercent: 50,
+      items: [
+        {
+          name: "Tower",
+          quantity: 1,
+          unitPrice: 1_000_000n,
+          category: RabItemCategory.HARDWARE,
+          expenseType: RabExpenseType.CAPEX,
+          disbursements: [],
+        },
+      ],
+    });
+
+    expect(prismaMock.rabInvestor.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          rabProjectId: "rab-1",
+          investorId: "investor-1",
+          investmentAmount: 533_000,
+          profitSharePercent: 50,
+        },
+        {
+          rabProjectId: "rab-1",
+          investorId: "investor-2",
+          investmentAmount: 533_000,
+          profitSharePercent: 50,
+        },
+      ],
+    });
+  });
+
   it("tidak membuang sisa pembulatan saat membagi komitmen investor", async () => {
     prismaMock.$transaction.mockImplementation(
       async (callback: (client: typeof prismaMock) => Promise<unknown>) =>

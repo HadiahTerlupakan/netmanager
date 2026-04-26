@@ -4,6 +4,7 @@ import {
   RabGrowthType,
   RabOpexBufferFundingMode,
   RabPaymentType,
+  RabTargetBasis,
   Prisma,
 } from "@prisma/client";
 import { logActivitySafe } from "@/lib/logger";
@@ -289,6 +290,9 @@ export class FinanceService {
       mixRadiusInvestorSiteId?: string | null;
       projectedRevenue: bigint;
       projectedOpex: bigint;
+      targetBasis: RabTargetBasis;
+      targetHomepass?: number;
+      targetTakeUpRatePercent: number;
       targetSubscribers?: number;
       arpu?: bigint;
       growthType: RabGrowthType;
@@ -340,6 +344,9 @@ export class FinanceService {
       projectedRevenue,
       projectedOpex,
       items,
+      targetBasis,
+      targetHomepass,
+      targetTakeUpRatePercent,
       targetSubscribers,
       arpu,
       growthType,
@@ -372,6 +379,9 @@ export class FinanceService {
         mixRadiusInvestorSiteId,
         projectedRevenue,
         projectedOpex,
+        targetBasis,
+        targetHomepass,
+        targetTakeUpRatePercent,
         targetSubscribers,
         arpu,
         growthType,

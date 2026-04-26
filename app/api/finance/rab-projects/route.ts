@@ -51,6 +51,8 @@ const disbursementSchema = z.object({
   isPaid: z.boolean().default(false),
 });
 
+const rabTargetBasisSchema = z.enum(["HOMECONNECT", "HOMEPASS"]);
+
 const opexBufferFundingModeSchema = z.enum([
   "INVESTOR",
   "COMPANY",
@@ -112,6 +114,9 @@ const rabSchema = z
       .transform((v) => BigInt(Math.round(Number(v)))),
 
     // Growth period fields
+    targetBasis: rabTargetBasisSchema.default("HOMECONNECT"),
+    targetHomepass: z.number().min(0).optional(),
+    targetTakeUpRatePercent: z.number().min(0).max(100).default(100),
     targetSubscribers: z.number().optional(),
     arpu: z
       .union([z.string(), z.number()])

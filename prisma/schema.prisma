@@ -2872,6 +2872,9 @@ model RabProject {
   growthSettings             Json?
   growthType                 RabGrowthType          @default(LINEAR)
   startDate                  DateTime?
+  targetBasis                RabTargetBasis         @default(HOMECONNECT)
+  targetHomepass             Int?
+  targetTakeUpRatePercent    Float                  @default(100)
   targetSubscribers          Int?
   contingencyAmount          BigInt                 @default(0)
   contingencyPercent         Float                  @default(0)
@@ -3646,6 +3649,11 @@ enum RabPaymentType {
 enum RabRecoveryType {
   PERCENTAGE
   FIXED
+}
+
+enum RabTargetBasis {
+  HOMECONNECT
+  HOMEPASS
 }
 
 enum RabOpexBufferFundingMode {

@@ -18,6 +18,7 @@ import toast from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { calculateRabUnitCosts } from "@/lib/finance/rabTarget";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
 import RABCompare from "./RABCompare";
@@ -163,6 +164,11 @@ export default function RABList({
       );
       const contingencyAmount = Number(project.contingencyAmount || 0);
       const totalInvestment = totalCapex + contingencyAmount;
+      const unitCosts = calculateRabUnitCosts({
+        totalCapex,
+        targetHomepass: project.targetHomepass,
+        targetSubscribers: project.targetSubscribers,
+      });
 
       let growthModelDesc = "-";
       if (project.growthType === "LINEAR") {
@@ -197,7 +203,32 @@ export default function RABList({
           formatCurrency(trackingTable.totals.initialFundingNeed),
         ],
         ["OPEX / Bulan", formatCurrency(Number(project.projectedOpex))],
-        ["Target Pelanggan", `${project.targetSubscribers || 0} Pelanggan`],
+        [
+          "Basis Target",
+          project.targetBasis === "HOMEPASS"
+            ? "Homepass Dibangun"
+            : "Homeconnect",
+        ],
+        ...(project.targetBasis === "HOMEPASS"
+          ? [
+              ["Target Homepass", `${project.targetHomepass || 0} Homepass`],
+              ["Take-up Rate", `${project.targetTakeUpRatePercent || 0}%`],
+              [
+                "Target Homeconnect Revenue",
+                `${project.targetSubscribers || 0} Pelanggan`,
+              ],
+              ["Biaya per Homepass", formatCurrency(unitCosts.costPerHomepass)],
+              [
+                "Biaya per Homeconnect Revenue",
+                formatCurrency(unitCosts.costPerHomeconnectRevenue),
+              ],
+            ]
+          : [
+              [
+                "Target Pelanggan",
+                `${project.targetSubscribers || 0} Pelanggan`,
+              ],
+            ]),
         ["Model Pertumbuhan", growthModelDesc],
         [
           "Sistem Pembayaran",

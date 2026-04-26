@@ -55,6 +55,9 @@ describe("buildRABCsvContent", () => {
       name: "RAB CSV OPEX Buffer Test",
       projectedRevenue: 1_000_000,
       projectedOpex: 500_000,
+      targetBasis: "HOMEPASS",
+      targetHomepass: 250,
+      targetTakeUpRatePercent: 40,
       targetSubscribers: 100,
       arpu: 10_000,
       growthType: "LINEAR",
@@ -86,6 +89,12 @@ describe("buildRABCsvContent", () => {
 
     const csvContent = buildRABCsvContent(project);
 
+    expect(csvContent).toContain('"Basis Target","Homepass Dibangun"');
+    expect(csvContent).toContain('"Target Homepass","250"');
+    expect(csvContent).toContain('"Estimasi Take-up Rate (%)","40"');
+    expect(csvContent).toContain('"Target Homeconnect Revenue","100"');
+    expect(csvContent).toContain('"Biaya per Homepass","4000"');
+    expect(csvContent).toContain('"Biaya per Homeconnect Revenue","10000"');
     expect(csvContent).toContain('"BUFFER OPEX RAMP-UP"');
     expect(csvContent).toContain('"Gap OPEX Dasar","100000"');
     expect(csvContent).toContain('"Total Buffer OPEX","110000"');

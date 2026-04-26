@@ -1,5 +1,6 @@
 "use client";
 
+import { calculateRabUnitCosts } from "@/lib/finance/rabTarget";
 import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,
@@ -184,8 +185,58 @@ export default function RABCompare({
           },
         ],
         [
-          "Target Pelanggan",
+          "Basis Target",
+          ...projects.map((p) =>
+            p.targetBasis === "HOMEPASS" ? "Homepass Dibangun" : "Homeconnect",
+          ),
+        ],
+        [
+          "Target Homepass",
+          ...projects.map((p) =>
+            p.targetBasis === "HOMEPASS"
+              ? (p.targetHomepass || 0).toString()
+              : "-",
+          ),
+        ],
+        [
+          "Take-up Rate",
+          ...projects.map((p) =>
+            p.targetBasis === "HOMEPASS"
+              ? `${p.targetTakeUpRatePercent || 0}%`
+              : "-",
+          ),
+        ],
+        [
+          "Target Homeconnect Revenue",
           ...projects.map((p) => (p.targetSubscribers || 0).toString()),
+        ],
+        [
+          "Biaya per Homepass",
+          ...projects.map((p) =>
+            p.targetBasis === "HOMEPASS"
+              ? formatCurrency(
+                  calculateRabUnitCosts({
+                    totalCapex: getCapex(p),
+                    targetHomepass: p.targetHomepass,
+                    targetSubscribers: p.targetSubscribers,
+                  }).costPerHomepass,
+                )
+              : "-",
+          ),
+        ],
+        [
+          "Biaya per Homeconnect Revenue",
+          ...projects.map((p) =>
+            p.targetBasis === "HOMEPASS"
+              ? formatCurrency(
+                  calculateRabUnitCosts({
+                    totalCapex: getCapex(p),
+                    targetHomepass: p.targetHomepass,
+                    targetSubscribers: p.targetSubscribers,
+                  }).costPerHomeconnectRevenue,
+                )
+              : "-",
+          ),
         ],
         [
           "ARPU (Tagihan/Bln)",
@@ -421,7 +472,7 @@ export default function RABCompare({
             </tr>
             <tr className="hover:bg-gray-50 dark:hover:bg-gray-750">
               <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                Target Pelanggan Akhir
+                Target Homeconnect Revenue
               </td>
               {projects.map((p) => (
                 <td

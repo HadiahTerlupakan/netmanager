@@ -22,6 +22,13 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 import {
+  calculateEffectiveRabTargetSubscribers,
+  calculateRabProjectedRevenue,
+  calculateRabUnitCosts,
+  type RabTargetBasis,
+} from "@/lib/finance/rabTarget";
+
+import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,
 } from "./rabCalculations";
@@ -310,6 +317,9 @@ export default function RABForm({
   );
 
   // Target & Revenue state
+  const [targetBasis, setTargetBasis] = useState<RabTargetBasis>("HOMECONNECT");
+  const [targetHomepass, setTargetHomepass] = useState(0);
+  const [targetTakeUpRatePercent, setTargetTakeUpRatePercent] = useState(40);
   const [targetSubscribers, setTargetSubscribers] = useState(0);
   const [arpu, setArpu] = useState(0);
   const [paymentType, setPaymentType] = useState<"PREPAID" | "POSTPAID">(
@@ -431,6 +441,9 @@ export default function RABForm({
             (initialData as any).investors?.map((i: any) => i.investorId) || [],
         });
 
+        setTargetBasis(initialData.targetBasis || "HOMECONNECT");
+        setTargetHomepass(initialData.targetHomepass || 0);
+        setTargetTakeUpRatePercent(initialData.targetTakeUpRatePercent ?? 40);
         // Load target & arpu - logic fixed to handle 0 values
         if (
           initialData.targetSubscribers !== undefined &&
@@ -515,6 +528,9 @@ export default function RABForm({
           hasDisbursementPlan: false,
           investorIds: [],
         });
+        setTargetBasis("HOMECONNECT");
+        setTargetHomepass(0);
+        setTargetTakeUpRatePercent(40);
         setTargetSubscribers(0);
         setArpu(0);
         setPaymentType("PREPAID");
@@ -620,8 +636,25 @@ export default function RABForm({
   const contingencyAmount = (totalCapex * formData.contingencyPercent) / 100;
   const totalInvestment = totalCapex + contingencyAmount;
 
+  const effectiveTargetSubscribers = calculateEffectiveRabTargetSubscribers({
+    targetBasis,
+    targetSubscribers,
+    targetHomepass,
+    targetTakeUpRatePercent,
+  });
+  const unitCosts = calculateRabUnitCosts({
+    totalCapex,
+    targetHomepass,
+    targetSubscribers: effectiveTargetSubscribers,
+  });
   // Projected revenue at full capacity
-  const projectedRevenue = targetSubscribers * arpu;
+  const projectedRevenue = calculateRabProjectedRevenue({
+    targetBasis,
+    targetSubscribers,
+    targetHomepass,
+    targetTakeUpRatePercent,
+    arpu,
+  });
   const realisticRevenue =
     projectedRevenue * (1 - formData.nplTolerancePercent / 100);
 
@@ -638,7 +671,10 @@ export default function RABForm({
       name: formData.name || "Preview RAB",
       projectedRevenue,
       projectedOpex: totalOpex,
-      targetSubscribers,
+      targetBasis,
+      targetHomepass,
+      targetTakeUpRatePercent,
+      targetSubscribers: effectiveTargetSubscribers,
       arpu,
       growthType,
       paymentType,
@@ -687,7 +723,10 @@ export default function RABForm({
       growthType,
       paymentType,
       projectedRevenue,
-      targetSubscribers,
+      effectiveTargetSubscribers,
+      targetBasis,
+      targetHomepass,
+      targetTakeUpRatePercent,
       totalInvestment,
       totalOpex,
     ],
@@ -711,12 +750,12 @@ export default function RABForm({
   // Preview chart data (24 months)
   const previewSubscribers = useMemo(() => {
     return calculateMonthlySubscribers(
-      targetSubscribers,
+      effectiveTargetSubscribers,
       growthType,
       currentGrowthSettings,
       24,
     );
-  }, [targetSubscribers, growthType, currentGrowthSettings]);
+  }, [effectiveTargetSubscribers, growthType, currentGrowthSettings]);
 
   const handleSubmit = async (e: FormSubmitEvent) => {
     e.preventDefault();
@@ -795,7 +834,11 @@ export default function RABForm({
             : finalSiteId || null,
         projectedRevenue: projectedRevenue,
         projectedOpex: totalOpex,
-        targetSubscribers,
+        targetBasis,
+        targetHomepass: targetBasis === "HOMEPASS" ? targetHomepass : undefined,
+        targetTakeUpRatePercent:
+          targetBasis === "HOMEPASS" ? targetTakeUpRatePercent : 100,
+        targetSubscribers: effectiveTargetSubscribers,
         arpu,
         paymentType,
         growthType,
@@ -1589,6 +1632,28 @@ export default function RABForm({
                           )}
                         </div>
                       </div>
+                      {targetBasis === "HOMEPASS" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-[10px] text-blue-100 uppercase font-medium">
+                              Biaya / Homepass
+                            </div>
+                            <div className="text-sm font-bold">
+                              {formatCurrency(unitCosts.costPerHomepass)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-blue-100 uppercase font-medium">
+                              Biaya / Homeconnect
+                            </div>
+                            <div className="text-sm font-bold">
+                              {formatCurrency(
+                                unitCosts.costPerHomeconnectRevenue,
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <div className="text-[10px] text-blue-100 uppercase font-medium">
@@ -1667,19 +1732,92 @@ export default function RABForm({
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                          Basis Target RAB
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(
+                            ["HOMECONNECT", "HOMEPASS"] as RabTargetBasis[]
+                          ).map((basis) => (
+                            <button
+                              key={basis}
+                              type="button"
+                              onClick={() => setTargetBasis(basis)}
+                              className={`py-3 px-3 text-xs font-black rounded-xl border transition-all ${
+                                targetBasis === basis
+                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20"
+                                  : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-indigo-300"
+                              }`}
+                            >
+                              {basis === "HOMECONNECT"
+                                ? "Homeconnect"
+                                : "Homepass Dibangun"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {targetBasis === "HOMEPASS" && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                              Target Homepass
+                            </label>
+                            <div className="relative">
+                              <HiOutlineUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                              <input
+                                type="number"
+                                value={targetHomepass || ""}
+                                onChange={(e) =>
+                                  setTargetHomepass(Number(e.target.value))
+                                }
+                                className="block w-full pl-10 pr-4 py-3 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
+                                placeholder="e.g., 500"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                              Take-up Rate (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={targetTakeUpRatePercent}
+                              onChange={(e) =>
+                                setTargetTakeUpRatePercent(
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-3 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white"
+                              placeholder="40"
+                            />
+                          </div>
+                        </>
+                      )}
+
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                          Target Pelanggan
+                          {targetBasis === "HOMEPASS"
+                            ? "Target Homeconnect Revenue"
+                            : "Target Pelanggan"}
                         </label>
                         <div className="relative">
                           <HiOutlineUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           <input
                             type="number"
-                            value={targetSubscribers || ""}
+                            value={effectiveTargetSubscribers || ""}
+                            readOnly={targetBasis === "HOMEPASS"}
                             onChange={(e) =>
                               setTargetSubscribers(Number(e.target.value))
                             }
-                            className="block w-full pl-10 pr-4 py-3 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
+                            className={`block w-full pl-10 pr-4 py-3 text-sm border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:text-white ${
+                              targetBasis === "HOMEPASS"
+                                ? "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                                : "dark:bg-gray-800"
+                            }`}
                             placeholder="e.g., 200"
                           />
                         </div>
@@ -1699,6 +1837,28 @@ export default function RABForm({
                         </div>
                         <div className="text-lg font-black text-green-700 dark:text-green-400">
                           {formatCurrency(projectedRevenue)}/Bln
+                        </div>
+                      </div>
+                    )}
+                    {targetBasis === "HOMEPASS" && totalCapex > 0 && (
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                          <div className="text-[10px] font-black text-blue-600 dark:text-blue-300 uppercase">
+                            Biaya per Homepass
+                          </div>
+                          <div className="text-sm font-black text-blue-800 dark:text-blue-200">
+                            {formatCurrency(unitCosts.costPerHomepass)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="text-[10px] font-black text-indigo-600 dark:text-indigo-300 uppercase">
+                            Biaya per Homeconnect Revenue
+                          </div>
+                          <div className="text-sm font-black text-indigo-800 dark:text-indigo-200">
+                            {formatCurrency(
+                              unitCosts.costPerHomeconnectRevenue,
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1797,11 +1957,11 @@ export default function RABForm({
                             </span>
                           </div>
                           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs text-blue-700 dark:text-blue-300 leading-relaxed italic">
-                            Target {targetSubscribers} pelanggan akan tercapai
-                            dalam ±
+                            Target {effectiveTargetSubscribers} pelanggan akan
+                            tercapai dalam ±
                             {linearSettings.subscribersPerMonth > 0
                               ? Math.ceil(
-                                  targetSubscribers /
+                                  effectiveTargetSubscribers /
                                     linearSettings.subscribersPerMonth,
                                 )
                               : "∞"}{" "}
@@ -1926,7 +2086,8 @@ export default function RABForm({
                                 </div>
                                 <div className="text-[10px] font-mono text-indigo-500 font-bold w-12 text-center">
                                   {Math.round(
-                                    (m.percent / 100) * targetSubscribers,
+                                    (m.percent / 100) *
+                                      effectiveTargetSubscribers,
                                   )}{" "}
                                   plg
                                 </div>
@@ -1966,8 +2127,8 @@ export default function RABForm({
                     <div className="h-40 flex items-end gap-1.5 group/chart">
                       {previewSubscribers.map((subs, idx) => {
                         const height =
-                          targetSubscribers > 0
-                            ? (subs / targetSubscribers) * 100
+                          effectiveTargetSubscribers > 0
+                            ? (subs / effectiveTargetSubscribers) * 100
                             : 0;
                         const isBepMonth = idx + 1 === realisticBepMonths;
 

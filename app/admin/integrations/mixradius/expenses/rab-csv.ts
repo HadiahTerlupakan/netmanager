@@ -1,3 +1,8 @@
+import {
+  calculateRabUnitCosts,
+  getRabTargetBasisLabel,
+  type RabTargetBasis,
+} from "@/lib/finance/rabTarget";
 import { formatCurrency } from "@/lib/utils";
 
 import { calculateRealisticBEP } from "./rabCalculations";
@@ -82,11 +87,32 @@ export function buildRABCsvContent(project: RABProject): string {
   );
   const { totals } = trackingDataset;
   const monthlyOpex = Number(project.projectedOpex || 0);
+  const targetBasis = project.targetBasis || "HOMECONNECT";
+  const capexTotal = project.items
+    .filter((item) => item.expenseType !== "OPEX")
+    .reduce((total, item) => total + Number(item.totalPrice || 0), 0);
+  const unitCosts = calculateRabUnitCosts({
+    totalCapex: capexTotal,
+    targetHomepass: project.targetHomepass,
+    targetSubscribers: project.targetSubscribers,
+  });
 
   const rows = [
     [`Proyek: ${project.name}`],
     [`Status: ${project.status}`],
-    [`Target Pelanggan: ${project.targetSubscribers || 0}`],
+    ["Basis Target", getRabTargetBasisLabel(targetBasis as RabTargetBasis)],
+    ...(targetBasis === "HOMEPASS"
+      ? [
+          ["Target Homepass", project.targetHomepass || 0],
+          ["Estimasi Take-up Rate (%)", project.targetTakeUpRatePercent || 0],
+          ["Target Homeconnect Revenue", project.targetSubscribers || 0],
+          ["Biaya per Homepass", unitCosts.costPerHomepass],
+          [
+            "Biaya per Homeconnect Revenue",
+            unitCosts.costPerHomeconnectRevenue,
+          ],
+        ]
+      : [["Target Pelanggan", project.targetSubscribers || 0]]),
     [`Model Pertumbuhan: ${getGrowthModelDescription(project)}`],
     [`ARPU: ${project.arpu || 0}`],
     [`Kapasitas Penuh (Bulan Ke-): ${monthsToFullCapacity || "T/A"}`],
