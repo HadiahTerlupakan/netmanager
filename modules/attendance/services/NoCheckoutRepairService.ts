@@ -39,6 +39,7 @@ type RepairInput = {
   dryRun: boolean;
   actorId: string;
   timezone: string;
+  includeAutoCheckoutOnly?: boolean;
 };
 
 type NoCheckoutRepairRepository = {
@@ -151,7 +152,7 @@ export class NoCheckoutRepairService {
   async repair(input: RepairInput): Promise<RepairSummary> {
     const records = await this.repository.findCandidates(input);
     const repairableRecords = records.filter((record) =>
-      this.isRepairable(record),
+      this.isRepairableForInput(record, input),
     );
 
     if (input.dryRun) {
@@ -182,6 +183,23 @@ export class NoCheckoutRepairService {
       repairable: repairableRecords.length,
       repaired: repairableRecords.length,
     };
+  }
+
+  private isRepairableForInput(
+    record: NoCheckoutRepairRecord,
+    input: RepairInput,
+  ): boolean {
+    if (this.isRepairable(record)) {
+      return true;
+    }
+
+    return Boolean(
+      input.includeAutoCheckoutOnly && this.isAutoCheckoutOnly(record),
+    );
+  }
+
+  private isAutoCheckoutOnly(record: NoCheckoutRepairRecord): boolean {
+    return Boolean(record.checkOut && isPureAutoCheckoutRecord(record));
   }
 
   private async resolveStatus(

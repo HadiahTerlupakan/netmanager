@@ -52,13 +52,23 @@ function hasCheckoutEvidence(record: {
 async function logCandidates(args: TenantRepairArgs) {
   const records = await findNoCheckoutRecords(args);
   const safeCandidates = records.filter(hasCheckoutEvidence);
+  const autoCheckoutOnlyRecords = records.filter(
+    (record) => !hasCheckoutEvidence(record) && args.includeAutoCheckoutOnly,
+  );
   const manualReviewRecords = records.filter(
-    (record) => !hasCheckoutEvidence(record),
+    (record) => !hasCheckoutEvidence(record) && !args.includeAutoCheckoutOnly,
   );
 
   console.log(`Kandidat aman ditemukan: ${safeCandidates.length}`);
   for (const candidate of safeCandidates) {
     console.log(formatRecord(candidate));
+  }
+
+  console.log(
+    `Kandidat incident auto-checkout-only: ${autoCheckoutOnlyRecords.length}`,
+  );
+  for (const record of autoCheckoutOnlyRecords) {
+    console.log(formatRecord(record));
   }
 
   console.log(`Butuh review manual: ${manualReviewRecords.length}`);
@@ -109,6 +119,7 @@ async function repairTenant(args: TenantRepairArgs) {
     dryRun: args.dryRun,
     actorId: ACTOR_ID,
     timezone,
+    includeAutoCheckoutOnly: args.includeAutoCheckoutOnly,
   });
 
   console.log("=== SUMMARY ===");

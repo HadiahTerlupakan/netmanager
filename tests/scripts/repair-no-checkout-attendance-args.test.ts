@@ -18,6 +18,17 @@ describe("repair no-checkout attendance args", () => {
     expect(args.tenantId).toBeNull();
   });
 
+  it("requires explicit flag before repairing auto-checkout-only incident records", () => {
+    const args = parseRepairArgs([
+      "--all-tenants",
+      "--from=2026-04-25",
+      "--to=2026-04-25",
+      "--include-auto-checkout-only",
+    ]);
+
+    expect(args.includeAutoCheckoutOnly).toBe(true);
+  });
+
   it("rejects running without tenant scope", () => {
     expect(() =>
       parseRepairArgs(["--from=2026-04-25", "--to=2026-04-25"]),
@@ -39,6 +50,7 @@ describe("repair no-checkout attendance args", () => {
           startDate: new Date("2026-04-24T17:00:00.000Z"),
           endDate: new Date("2026-04-25T16:59:59.999Z"),
           dryRun: true,
+          includeAutoCheckoutOnly: false,
         },
         tenantRepository,
       ),

@@ -7,6 +7,7 @@ type RepairArgs = {
   startDate: Date;
   endDate: Date;
   dryRun: boolean;
+  includeAutoCheckoutOnly: boolean;
 };
 
 type TenantRepository = {
@@ -60,6 +61,7 @@ export function parseRepairArgs(args = process.argv.slice(2)): RepairArgs {
     startDate,
     endDate,
     dryRun: !args.includes("--apply"),
+    includeAutoCheckoutOnly: args.includes("--include-auto-checkout-only"),
   };
 }
 
