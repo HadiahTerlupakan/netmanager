@@ -84,13 +84,37 @@ Jika diminta review kode:
 3. Berikan versi refactored langsung
 Jangan hanya kritik tanpa solusi.
 
+[REVIEW POLICY]
+Ketika diminta review sebuah module atau file:
+1. Baca seluruh isi module terlebih dahulu
+2. Tentukan apakah masih menggunakan pola lama atau sudah pola baru
+3. Jika masih pola lama → langsung migrasi ke pola baru tanpa konfirmasi
+4. Jika sudah pola baru → identifikasi code smell dan perbaiki langsung
+5. Jangan hanya melaporkan masalah tanpa menyelesaikannya
+6. Setelah selesai, berikan ringkasan perubahan yang dilakukan
+7. Sambil migrasi, perbaiki semua code smell yang ditemukan:
+   - God class/function → pecah jadi unit kecil dengan tanggung jawab tunggal
+   - Spaghetti code → extract ke fungsi terpisah dengan nama yang jelas
+   - Magic number → ganti dengan named constants
+   - Deep nesting → refactor dengan early return / guard clause
+   - Duplikasi logika → extract ke helper/utility function
+   - Fungsi > 20 baris → dekomposisi
+   - Parameter > 3 → gunakan object/struct
+8. Deteksi dan perbaiki kode yang salah tempat (misplaced code):
+   - Business logic di `app/api/` route → pindahkan ke service yang sesuai
+   - Query Prisma langsung di `app/api/` route → pindahkan ke repository
+   - Logic yang sama di beberapa tempat → konsolidasi ke module yang tepat
+   - File yang tidak punya module → tentukan module paling sesuai dan pindahkan
+
 [SELF-CHECK]
 Internally verify every few steps:
 - Still aligned with main objective?
 - Is this sub-task necessary?
 - Ready to synthesize?
 - Does the code follow clean code principles?
-- Does the code follow project architecture (Layered + Module Encapsulation)?
+- Does the code follow project architecture (Modular Monolith + Layered + Clean Architecture)?
+- Apakah module ini baru atau lama? Terapkan standar arsitektur yang sesuai.
+- Apakah ada kode yang salah tempat dan perlu dipindahkan ke module yang sesuai?
 
 [OUTPUT STYLE]
 - Lead with action, not questions
@@ -110,14 +134,14 @@ Internally verify every few steps:
 ## Commands
 
 ### Development
-- **Start Dev Server**: `npm run dev` (Custom server with tsx watch on http://localhost:3000)
+- **Start Dev Server**: `npm run dev` (Custom server dengan tsx watch on http://localhost:3000)
 - **Start Database/Redis**: `npm run db:up` (Docker Compose)
 - **Stop Database/Redis**: `npm run db:down`
 - **Check Containers**: `npm run db:ps`
 
 ### Build & Lint
 - **Build**: `npm run build`
-- **Start Production**: `npm start` (Custom server with NODE_ENV=production)
+- **Start Production**: `npm start` (Custom server dengan NODE_ENV=production)
 - **Lint**: `npm run lint`
 - **Typecheck**: `npm run typecheck`
 - **Full Check**: `npm run check` (Lint + Typecheck + Build)
@@ -134,43 +158,162 @@ Internally verify every few steps:
 - **Fix Drift**: `npm run prisma:fix-drift`
 
 ### Testing
-- **Setup Test DB**: `./scripts/setup-test-db.sh` (REQUIRED before running tests)
+- **Setup Test DB**: `./scripts/setup-test-db.sh` (REQUIRED sebelum menjalankan test)
 - **Unit/Integration**: `npm test` (Vitest watch mode)
 - **Single Run**: `npm run test:run`
 - **Coverage**: `npm run test:coverage`
 - **E2E (Playwright)**: `npm run test:e2e`
 - **E2E UI**: `npm run test:e2e:ui`
 
-## Architecture: Modular Monolith
+## Architecture: Modular Monolith + Layered + Clean Architecture
 
-This project follows a **Modular Monolith** architecture.
+Project ini sedang dalam proses migrasi bertahap menuju Clean Architecture penuh.
+Standar arsitektur yang diterapkan berbeda antara module baru dan module lama.
 
-### Structure
-- **`app/`**: Next.js App Router (UI & API).
-    - `api/`: Thin API controllers.
-    - `(auth)/`: Auth pages (login, register).
-    - `(customer)/`: Customer portal pages.
-    - `admin/`: Admin portal pages.
-    - `karyawan/`: Employee portal pages.
-    - `components/`, `contexts/`, `styles/`: App-level shared resources.
-- **`modules/`**: Domain-specific modules (Business Logic).
-    - **Available modules**: admin, app-version, attendance, chat, coupons, finance, integrations, inventory, map, marketing, network, notification, overtime, pelanggan, procurement, registration, roles, salary, shift, users, work-order
-    - Each module (e.g., `network`, `finance`) has:
-        - `services/`: Business logic & validation.
-        - `repositories/`: Database access (Prisma).
-        - `index.ts`: Public API (exports services/repos).
-- **`lib/`**: Shared utilities (Auth, Prisma client, global types).
-- **`components/`**: Reusable React components.
-- **`prisma/`**: Database schema and migrations.
-- **`server.ts`**: Custom Express/Node server with Socket.IO support.
+---
 
-### Core Principles
-1. **Layered Architecture**: UI -> API (Thin) -> Service -> Repository -> Database.
-2. **Module Encapsulation**: Modules should only communicate via their public API (`index.ts`).
-3. **No Cross-Module DB Access**: A module should not import another module's repository directly. Use the Service instead.
-4. **Thin API Routes**: API routes should parse requests and call Services. They should not contain business logic.
-5. **Background Synchronization**: Heavy external synchronization tasks should be executed in the background (fire-and-forget).
-6. **Resource Cleanup**: When moving resources between external entities, explicitly clean up the resource on the old entity.
+### 🟢 Module Baru — Target Architecture (WAJIB)
+
+Module baru wajib menggunakan struktur lengkap dengan `domain/` layer:
+
+```
+modules/<domain>/
+├── domain/         # Pure domain entities & interfaces — bebas dari Prisma & framework
+│   ├── entities/   # Domain entity (plain TypeScript interface/class)
+│   └── ports/      # Repository interface (IXxxRepository) — abstraksi, bukan implementasi
+├── dto/            # Data Transfer Objects — shape data yang masuk/keluar module
+├── types/          # Shared types & enums internal module
+├── repositories/   # Implementasi konkret dari domain/ports (menggunakan Prisma)
+├── factories/      # Object creation logic
+├── mappers/        # Transformasi: Prisma model ↔ Domain entity ↔ DTO
+├── services/       # Business logic & orchestration
+├── utils/          # Pure helper functions, tidak ada side effect
+├── validators/     # Input validation (Zod schemas)
+└── index.ts        # Public API — satu-satunya pintu keluar module
+```
+
+**Data Flow module baru:**
+```
+Request → API Route → Service → Repository (via port/interface)
+                                      ↓
+                               Prisma Model
+                                      ↓
+                               Domain Entity (via Mapper)
+                                      ↓
+Response ← API Route ← Service ← DTO (via Mapper)
+```
+
+**Dependency Rule module baru:**
+- `domain/` tidak boleh import apapun dari luar (no Prisma, no framework)
+- `services/` bergantung pada `domain/ports/` (interface), bukan `repositories/` konkret
+- `repositories/` mengimplementasikan `domain/ports/` dan boleh import Prisma
+- `mappers/` menangani transformasi di semua arah: Prisma ↔ Domain Entity ↔ DTO
+
+---
+
+### 🟡 Module Lama — Current State (Toleransi Sementara)
+
+Module lama yang belum dimigrasi masih menggunakan pola lama yang ditolerasi:
+
+```
+modules/<domain>/
+├── dto/            # DTO langsung digunakan tanpa domain entity
+├── types/          # Types & interfaces
+├── repositories/   # Data access — Prisma model boleh return langsung ke service
+│   └── IXxxRepository.ts  # Interface wajib ada, meski return type masih Prisma model
+├── factories/      # Object creation
+├── mappers/        # Transformasi Prisma model → DTO langsung
+├── services/       # Business logic
+├── utils/          # Helpers
+└── index.ts        # Public API
+```
+
+**Data Flow module lama (toleransi sementara):**
+```
+Request → API Route → Service → Repository → Prisma Model
+                                                   ↓
+Response ← API Route ← Service ←── Mapper ────────┘
+                                      ↓
+                                     DTO
+```
+
+> ⚠️ Prisma model boleh ada di dalam service sementara, tapi **tidak boleh keluar dari module** — API route tetap harus return DTO.
+
+---
+
+### Migration Strategy
+
+**Trigger migrasi module lama:**
+1. Saat ada penambahan fitur signifikan pada module tersebut
+2. Saat ada bug besar yang memerlukan refactor
+3. Saat diminta review → langsung migrasi (lihat [REVIEW POLICY])
+
+**Langkah migrasi module lama → baru:**
+1. Buat `domain/entities/` — ekstrak pure interface dari DTO yang sudah ada
+2. Pindahkan `IXxxRepository` ke `domain/ports/`
+3. Update return type repository dari Prisma model → Domain entity
+4. Update mapper: pisahkan `Prisma → Domain` dan `Domain → DTO`
+5. Update service: gunakan domain entity, bukan Prisma model
+6. Verifikasi `index.ts` hanya export DTO dan services
+
+---
+
+### Aturan Berlaku untuk Semua Module (Lama & Baru)
+
+**Dependency Rule:**
+```
+app/ (UI)  →  api/ (Controller)  →  services/  →  repositories/  →  database
+```
+- `services/` tidak boleh import dari `app/` atau `api/`
+- `repositories/` tidak boleh import dari `services/`
+- Module lain hanya boleh diakses via `index.ts` — tidak boleh import langsung ke subfolder
+
+**Yang wajib di semua module tanpa pengecualian:**
+- Repository interface wajib ada di semua module
+- API route selalu return DTO, tidak pernah Prisma model mentah
+- `index.ts` sebagai satu-satunya public API module
+- Mapper wajib ada untuk transformasi data antar layer
+
+---
+
+### Layer Rules
+
+| Folder | Module Baru | Module Lama (Toleransi) |
+|---|---|---|
+| `domain/` | Pure TS, no Prisma, no framework | — (belum ada) |
+| `services/` | Depend on `domain/ports/` | Depend on `IXxxRepository` di `repositories/` |
+| `repositories/` | Implement `domain/ports/`, pakai Prisma | Implement `IXxxRepository`, pakai Prisma |
+| `mappers/` | Prisma ↔ Domain Entity ↔ DTO | Prisma model → DTO langsung |
+| `dto/` | Pure TS interfaces | Pure TS interfaces + Prisma enum boleh |
+| `index.ts` | Export DTO + services only | Export DTO + services only |
+
+---
+
+### Events Pattern
+- Domain events diletakkan di `modules/events/dispatchers/`
+- Gunakan events untuk komunikasi antar module yang loosely coupled
+- Hindari direct service-to-service call lintas module — gunakan events
+
+### App Layer (Next.js)
+- **`app/api/`**: Thin controllers — hanya parse request, panggil service, return DTO
+- **`app/(auth)/`**: Auth pages (login, register)
+- **`app/(customer)/`**: Customer portal pages
+- **`app/admin/`**: Admin portal pages
+- **`app/karyawan/`**: Employee portal pages
+- **API route tidak boleh mengandung business logic** — semua logika ada di `services/`
+
+### Shared Infrastructure
+- **`lib/`**: Shared utilities (Auth, Prisma client, global types)
+- **`components/`**: Reusable React components
+- **`prisma/`**: Database schema and migrations
+- **`server.ts`**: Custom Express/Node server dengan Socket.IO support
+- **`modules/database/`**: Shared database module
+- **`modules/events/`**: Domain events & dispatchers
+
+### Available Modules
+admin, app-version, attendance, chat, coupons, finance, integrations, inventory,
+map, marketing, mitra, network, notification, overtime, pelanggan, procurement,
+registration, roles, salary, settings, shift, users, work-order
 
 ## Development Guidelines
 
@@ -192,46 +335,6 @@ This project follows a **Modular Monolith** architecture.
 - **MikroTik RouterOS**: Network device management via node-routeros-v2
 - **FreeRADIUS**: PPPoE authentication (ports 1812/UDP, 1813/UDP)
 
-### MCP & Tools
-- **MCP Usage**: ALWAYS run `mcp-cli info <server>/<tool>` before `mcp-cli call`.
-- **Scripts**: Prefer using `tsx` for running TypeScript scripts (e.g., `npx tsx scripts/myscript.ts`).
-- **Path Aliases**: Use `@/` for imports (e.g., `@/components`, `@/lib`, `@/modules`).
-
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
-
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
-
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
-
-### Key Tools
-
-| Tool | Use when |
-|------|----------|
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
+### Scripts
+- Prefer using `tsx` untuk menjalankan TypeScript scripts (e.g., `npx tsx scripts/myscript.ts`)
+- Gunakan `@/` untuk path aliases di imports (e.g., `@/components`, `@/lib`, `@/modules`)
