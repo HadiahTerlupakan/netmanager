@@ -1,5 +1,12 @@
-import { SalaryRepository } from "../repositories/SalaryRepository";
+import type {
+  EmployeeType,
+  PtkpStatus,
+  RateType,
+} from "../domain/entities/SalaryEntity";
+import type { ISalaryComponentRepository } from "../domain/ports/ISalaryComponentRepository";
+import type { ISalaryRepository } from "../domain/ports/ISalaryRepository";
 import { SalaryComponentRepository } from "../repositories/SalaryComponentRepository";
+import { SalaryRepository } from "../repositories/SalaryRepository";
 import {
   AttendanceRepository,
   LeaveBalanceRepository,
@@ -14,7 +21,6 @@ import {
   SalaryDetailRepository,
   runTransaction,
 } from "../repositories/SalaryCalculationRepositories";
-import { RateType, EmployeeType, PtkpStatus } from "@prisma/client";
 
 interface SalaryCalculationResult {
   userId: string;
@@ -183,8 +189,8 @@ export type UserCalculationData = {
 };
 
 export class SalaryCalculatorService {
-  private salaryRepo: SalaryRepository;
-  private componentRepo: SalaryComponentRepository;
+  private salaryRepo: ISalaryRepository;
+  private componentRepo: ISalaryComponentRepository;
   private attendanceRepo: AttendanceRepository;
   private overtimeRepo: OvertimeRepository;
   private leaveBalanceRepo: LeaveBalanceRepository;
@@ -195,9 +201,12 @@ export class SalaryCalculatorService {
   private workOrderRepoForSalary: WorkOrderRepositoryForSalary;
   private salaryDetailRepository: SalaryDetailRepository;
 
-  constructor() {
-    this.salaryRepo = new SalaryRepository();
-    this.componentRepo = new SalaryComponentRepository();
+  constructor(
+    salaryRepo: ISalaryRepository = new SalaryRepository(),
+    componentRepo: ISalaryComponentRepository = new SalaryComponentRepository(),
+  ) {
+    this.salaryRepo = salaryRepo;
+    this.componentRepo = componentRepo;
     this.attendanceRepo = new AttendanceRepository();
     this.overtimeRepo = new OvertimeRepository();
     this.leaveBalanceRepo = new LeaveBalanceRepository();

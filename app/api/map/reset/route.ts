@@ -25,7 +25,9 @@ export const DELETE = createHandler(
     const { password } = ctx.validated;
     const session = ctx.session;
 
-    if (!session?.user?.email) return ApiErrors.unauthorized();
+    if (!session?.user?.email) {
+      return ApiErrors.unauthorized();
+    }
 
     const isPasswordValid = await service.verifyResetPassword(
       session.user.email,
@@ -37,7 +39,6 @@ export const DELETE = createHandler(
     }
 
     await service.resetAllMappingData();
-
     return apiSuccess({
       message: "All mapping data has been deleted successfully",
     });

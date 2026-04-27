@@ -1,79 +1,44 @@
-import { NextResponse, NextRequest } from 'next/server'
-import { prisma } from '@/modules/database'
-import { prismaMitra } from '@/modules/database'
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth'
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { NextResponse, NextRequest } from "next/server";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { getAppVersionService } from "@/modules/app-version";
 
-function parseVersionCode(value: unknown): number | null {
-    if (typeof value !== 'string' && typeof value !== 'number') {
-        return null
-    }
-
-    const normalized = String(value).trim()
-    if (!/^\d+$/.test(normalized)) {
-        return null
-    }
-
-    const parsed = Number(normalized)
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null
-}
-
+/** Mencatat versi aplikasi terakhir yang dipakai user mobile. */
 export async function POST(req: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(req)
-        if (authResult instanceof Response) {
-            return authResult
-        }
-
-        const session = authResult
-        const tenantId = session.tenantId as string
-
-        const body = await req.json()
-        const { versionCode, versionName } = body
-        const parsedVersionCode = parseVersionCode(versionCode)
-
-        if (parsedVersionCode === null) {
-            return apiError('versionCode harus berupa angka bulat positif', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        if (!versionCode) {
-            return apiError('versionCode wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
-
-        // Update the correct table based on user type
-        if (session.role === 'CUSTOMER') {
-            await prisma.pelanggan.update({
-                where: { id: session.id , tenantId },
-                data: {
-                    lastVersionCode: parsedVersionCode,
-                    lastVersionName: versionName,
-                    lastVersionUpdate: new Date()
-                }
-            })
-        } else if (session.role === 'MITRA') {
-            await prismaMitra.mitra.update({
-                where: { id: session.id },
-                data: {
-                    lastVersionCode: parsedVersionCode,
-                    lastVersionName: versionName,
-                    lastVersionUpdate: new Date()
-                }
-            })
-        } else {
-            await prisma.user.update({
-                where: { id: session.id , tenantId },
-                data: {
-                    lastVersionCode: parsedVersionCode,
-                    lastVersionName: versionName,
-                    lastVersionUpdate: new Date()
-                }
-            })
-        }
-
-        return NextResponse.json({ success: true })
-
-    } catch (error) {
-        console.error('Error reporting app version:', error)
-        return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 })
+  try {
+    const authResult = await getMobileAuthPayload(req);
+    if (authResult instanceof Response) {
+      return authResult;
     }
+
+    const body = await req.json();
+    const appVersionService = getAppVersionService();
+
+    if (!body.versionCode) {
+      return apiError("versionCode wajib diisi", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+
+    await appVersionService.reportMobileVersion({
+      sessionUserId: authResult.id as string,
+      tenantId: authResult.tenantId as string | null | undefined,
+      role: authResult.role,
+      versionCode: body.versionCode,
+      versionName: body.versionName,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan server";
+    if (message.includes("versionCode harus berupa angka bulat positif")) {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+    }
+
+    console.error("Error reporting app version:", error);
+    return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
+      status: 500,
+    });
+  }
 }

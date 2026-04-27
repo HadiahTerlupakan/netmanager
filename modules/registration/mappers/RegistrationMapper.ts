@@ -1,107 +1,76 @@
-/**
- * RegistrationMapper
- *
- * Transforms Prisma entities to DTOs for API responses.
- */
-
-import type { Canvasing } from '@prisma/client'
+import type { Registrations } from "@prisma/client";
+import type { Registration } from "../domain/entities/Registration";
 import type {
-    RegistrationListItemDTO,
-    RegistrationDetailDTO,
-    RegistrationStatisticsDTO,
-} from '../dto/RegistrationDTO'
-
-// Extended types
-type RegistrationWithRelations = Canvasing & {
-    sales?: {
-        id: string
-        name: string | null
-        email: string
-    }
-    approver?: {
-        id: string
-        name: string | null
-    } | null
-}
+  RegistrationDetailDTO,
+  RegistrationListItemDTO,
+} from "../dto/RegistrationDTO";
 
 export class RegistrationMapper {
-    /**
-     * Map to list item DTO
-     */
-    static toListItem(entity: RegistrationWithRelations): RegistrationListItemDTO {
-        return {
-            id: entity.id,
-            nama: entity.nama,
-            noTelpon: entity.noTelpon,
-            alamat: entity.alamat,
-            paket: entity.paket,
-            status: entity.status,
-            salesName: entity.sales?.name ?? null,
-            createdAt: entity.createdAt.toISOString(),
-        }
-    }
+  /** Map Prisma registration model to domain entity. */
+  static toDomain(model: Registrations): Registration {
+    return {
+      id: model.id,
+      name: model.name,
+      email: model.email,
+      phone: model.phone,
+      address: model.address,
+      packageName: model.packageName ?? null,
+      location: model.location ?? null,
+      latitude: model.latitude ?? null,
+      longitude: model.longitude ?? null,
+      ipAddress: model.ipAddress ?? null,
+      status: model.status,
+      notes: model.notes ?? null,
+      rejectionReason: model.rejectionReason ?? null,
+      verifiedAt: model.verifiedAt ?? null,
+      verifiedBy: model.verifiedBy ?? null,
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+      phoneNumber: model.phoneNumber ?? null,
+      tenantId: model.tenantId ?? null,
+    };
+  }
 
-    /**
-     * Map array to list items
-     */
-    static toListItems(entities: RegistrationWithRelations[]): RegistrationListItemDTO[] {
-        return entities.map(entity => this.toListItem(entity))
-    }
+  /** Map domain entity to list DTO. */
+  static toListDTO(entity: Registration): RegistrationListItemDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      email: entity.email,
+      phone: entity.phone,
+      address: entity.address,
+      location: entity.location,
+      packageName: entity.packageName,
+      ipAddress: entity.ipAddress,
+      status: entity.status,
+      notes: entity.notes,
+      createdAt: entity.createdAt.toISOString(),
+    };
+  }
 
-    /**
-     * Map to detail DTO
-     */
-    static toDetail(entity: RegistrationWithRelations): RegistrationDetailDTO {
-        return {
-            id: entity.id,
-            nama: entity.nama,
-            noKtp: entity.noKtp,
-            noTelpon: entity.noTelpon,
-            email: entity.email,
-            alamat: entity.alamat,
-            kabel: entity.kabel,
-            odp: entity.odp,
-            paket: entity.paket,
-            sn: entity.sn,
-            latitude: entity.latitude,
-            longitude: entity.longitude,
-            foto: entity.foto,
-            fotoKtp: entity.fotoKtp,
-            status: entity.status,
-            isLocked: entity.isLocked,
-            createdAt: entity.createdAt.toISOString(),
-            updatedAt: entity.updatedAt.toISOString(),
-            sales: {
-                id: entity.sales?.id ?? entity.salesId,
-                name: entity.sales?.name ?? null,
-                email: entity.sales?.email ?? '',
-            },
-            approver: entity.approver ? {
-                id: entity.approver.id,
-                name: entity.approver.name,
-            } : null,
-            approvedAt: entity.approvedAt?.toISOString() ?? null,
-            workOrderId: entity.workOrderId,
-        }
-    }
+  /** Map domain entity to detail DTO. */
+  static toDTO(entity: Registration): RegistrationDetailDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      email: entity.email,
+      phone: entity.phone,
+      address: entity.address,
+      location: entity.location,
+      packageName: entity.packageName,
+      ipAddress: entity.ipAddress,
+      status: entity.status,
+      notes: entity.notes,
+      rejectionReason: entity.rejectionReason,
+      verifiedAt: entity.verifiedAt?.toISOString() ?? null,
+      verifiedBy: entity.verifiedBy,
+      createdAt: entity.createdAt.toISOString(),
+      updatedAt: entity.updatedAt.toISOString(),
+    };
+  }
 
-    /**
-     * Calculate statistics from registrations
-     */
-    static toStatistics(entities: Canvasing[]): RegistrationStatisticsDTO {
-        const total = entities.length
-        const pending = entities.filter(e => e.status === 'PENDING').length
-        const approved = entities.filter(e => e.status === 'APPROVED').length
-        const rejected = entities.filter(e => e.status === 'REJECTED').length
-        const converted = entities.filter(e => e.workOrderId !== null).length
-
-        return {
-            total,
-            pending,
-            approved,
-            rejected,
-            converted,
-            conversionRate: total > 0 ? Math.round((converted / total) * 100 * 10) / 10 : 0,
-        }
-    }
+  /** Map domain entities to list DTO collection. */
+  static toListDTOs(entities: Registration[]): RegistrationListItemDTO[] {
+    return entities.map((entity) => this.toListDTO(entity));
+  }
 }

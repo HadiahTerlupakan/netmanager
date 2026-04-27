@@ -1,5 +1,7 @@
-import { prisma } from "@/modules/database";
-import { getWorkOrderService, type UserContext } from "@/modules/work-order";
+import {
+  getWorkOrderService,
+  adminWorkOrderRouteService,
+} from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
@@ -9,39 +11,33 @@ import {
   createHandler,
 } from "@/lib/api";
 
-// POST /api/admin/workorders/[id]/assign - Assign work order
+/** POST /api/admin/workorders/[id]/assign */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  const userBase = ctx.session!.user;
-  const { id } = ctx.params;
-
   if (!(await hasPermission("list:update"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk assign work order",
     );
   }
 
-  // Fetch extended user context
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userBase.id },
-    select: { id: true, departmentId: true, siteId: true },
-  });
-  if (!dbUser) return ApiErrors.unauthorized();
+  const userContext = await adminWorkOrderRouteService.getUserContext(
+    ctx.session!.user,
+    ctx.permissions,
+  );
 
-  const userContext: UserContext = {
-    id: userBase.id,
-    role: userBase.role,
-    permissions: ctx.permissions,
-    siteId: dbUser.siteId || undefined,
-    departmentId: dbUser.departmentId || undefined,
-  };
+  if (!userContext) {
+    return ApiErrors.unauthorized();
+  }
 
-  const workOrderService = getWorkOrderService();
+  const getResult = await getWorkOrderService().getWorkOrderById(
+    ctx.params.id,
+    userContext,
+  );
 
-  const getResult = await workOrderService.getWorkOrderById(id, userContext);
   if (!getResult.success) {
     if (getResult.code === "FORBIDDEN") {
       return ApiErrors.forbidden(getResult.error || "Akses ditolak");
     }
+
     return ApiErrors.notFound("Work Order");
   }
 
@@ -53,9 +49,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  // Use service for assignment
-  const result = await workOrderService.assignWorkOrder(
-    id,
+  const result = await getWorkOrderService().assignWorkOrder(
+    ctx.params.id,
     body.employeeId,
     userContext,
     body.role,

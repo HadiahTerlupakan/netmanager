@@ -1,193 +1,277 @@
-import { SiteRepository } from '../repositories/SiteRepository'
-import { logActivitySafe } from '@/lib/logger'
-import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
+import { logActivitySafe } from "@/lib/logger";
+import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+import type { SiteDetailDTO, SiteListItemDTO } from "../dto/SiteDTO";
+import type { SiteEntity } from "../domain/entities/SiteEntity";
+import type {
+  ISiteRepository,
+  SiteCreateRepositoryInput,
+  SiteFilterOptions,
+  SiteUpdateRepositoryInput,
+} from "../domain/ports/ISiteRepository";
+import { createSiteRepository } from "../factories/RepositoryFactory";
+import { SiteMapper } from "../mappers/SiteMapper";
+
+const DEFAULT_ATTENDANCE_RADIUS = 100;
 
 interface SiteCreateInput {
-    code: string
-    name: string
-    description?: string | null
-    address?: string | null
-    latitude?: string | number | null
-    longitude?: string | number | null
-    attendanceRadius?: string | number
-    gudangIds?: string[]
+  code: string;
+  name: string;
+  description?: string | null;
+  address?: string | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  attendanceRadius?: string | number;
+  gudangIds?: string[];
 }
 
 interface SiteUpdateInput {
-    code?: string
-    name?: string
-    description?: string | null
-    address?: string | null
-    latitude?: string | number | null
-    longitude?: string | number | null
-    attendanceRadius?: string | number
-    isActive?: boolean
-    gudangIds?: string[]
+  code?: string;
+  name?: string;
+  description?: string | null;
+  address?: string | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  attendanceRadius?: string | number;
+  isActive?: boolean;
+  gudangIds?: string[];
 }
 
 /**
- * Service for Site business logic
+ * Service for Site business logic.
  */
 export class SiteService {
-    private repository: SiteRepository
+  private readonly repository: ISiteRepository;
 
-    constructor() {
-        this.repository = new SiteRepository()
+  constructor(repository: ISiteRepository = createSiteRepository()) {
+    this.repository = repository;
+  }
+
+  /** Get all sites as list DTOs. */
+  async getSites(options?: SiteFilterOptions): Promise<SiteListItemDTO[]> {
+    const sites = await this.repository.findAll(options);
+    return SiteMapper.toListItemDTOs(sites);
+  }
+
+  /** Get site detail DTO by ID. */
+  async getSiteById(id: string): Promise<SiteDetailDTO> {
+    const site = await this.repository.findById(id);
+    if (!site) {
+      throw new Error("Site tidak ditemukan");
     }
 
-    /**
-     * Get all sites with optional filtering
-     */
-    async getSites(options?: { search?: string; activeOnly?: boolean }) {
-        return this.repository.findAll(options)
+    return SiteMapper.toDetailDTO(site);
+  }
+
+  /** Create new site and return detail DTO. */
+  async createSite(
+    data: SiteCreateInput,
+    userId: string,
+  ): Promise<SiteDetailDTO> {
+    this.validateRequiredFields(data);
+    await this.ensureUniqueCode(data.code);
+    const site = await this.repository.create(this.buildCreateInput(data));
+    this.logCreateActivity(site, userId, data.gudangIds);
+    return SiteMapper.toDetailDTO(site);
+  }
+
+  /** Update site and return detail DTO. */
+  async updateSite(
+    id: string,
+    data: SiteUpdateInput,
+    userId: string,
+  ): Promise<SiteDetailDTO> {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new Error("Site tidak ditemukan");
     }
 
-    /**
-     * Get site by ID
-     */
-    async getSiteById(id: string) {
-        const site = await this.repository.findById(id)
-        if (!site) {
-            throw new Error('Site tidak ditemukan')
-        }
-        return site
+    await this.ensureUniqueCodeForUpdate(data.code, existing);
+    const site = await this.repository.update(id, this.buildUpdateInput(data));
+    this.logUpdateActivity(site.id, userId, data);
+    return SiteMapper.toDetailDTO(site);
+  }
+
+  /** Delete site using soft or hard delete rules. */
+  async deleteSite(id: string, userId: string) {
+    const site = await this.repository.findWithCounts(id);
+    if (!site) {
+      throw new Error("Site tidak ditemukan");
     }
 
-    /**
-     * Create new site
-     */
-    async createSite(data: SiteCreateInput, userId: string) {
-        // Validate required fields
-        if (!data.code || !data.name) {
-            throw new Error('Kode dan nama wajib diisi')
-        }
-
-        // Check for duplicate code
-        const existing = await this.repository.findByCode(data.code)
-        if (existing) {
-            throw new Error('Kode site sudah digunakan')
-        }
-
-        // Prepare data with type conversions
-        const createData = {
-            code: data.code,
-            name: data.name,
-            description: data.description,
-            address: data.address,
-            latitude: data.latitude ? parseFloat(String(data.latitude)) : null,
-            longitude: data.longitude ? parseFloat(String(data.longitude)) : null,
-            attendanceRadius: data.attendanceRadius ? parseInt(String(data.attendanceRadius)) : 100,
-            gudangIds: data.gudangIds,
-        }
-
-        const site = await this.repository.create(createData)
-
-        // Log activity
-        logActivitySafe({
-            action: 'CREATE',
-            subject: 'Site',
-            userId,
-            details: {
-                id: site.id,
-                name: site.name,
-                code: site.code,
-                assignedGudangs: data.gudangIds?.length || 0,
-            },
-        })
-
-        return site
+    if (this.hasAssociations(site)) {
+      await this.repository.deactivate(id);
+      this.logDeactivateActivity(site, userId);
+      return {
+        softDeleted: true,
+        message: "Site dinonaktifkan (memiliki pengguna/work order terkait)",
+      };
     }
 
-    /**
-     * Update site
-     */
-    async updateSite(id: string, data: SiteUpdateInput, userId: string) {
-        // Check if site exists
-        const existing = await this.repository.findById(id)
-        if (!existing) {
-            throw new Error('Site tidak ditemukan')
-        }
+    await this.deleteWithoutAssociations(id);
+    this.logDeleteActivity(site, userId);
+    return { softDeleted: false, message: "Site berhasil dihapus" };
+  }
 
-        // If updating code, check for duplicates
-        if (data.code && data.code.toUpperCase() !== existing.code) {
-            const duplicate = await this.repository.findByCode(data.code)
-            if (duplicate) {
-                throw new Error('Kode site sudah digunakan')
-            }
-        }
+  private validateRequiredFields(data: SiteCreateInput) {
+    if (!data.code || !data.name) {
+      throw new Error("Kode dan nama wajib diisi");
+    }
+  }
 
-        // Prepare data with type conversions
-        const updateData = {
-            code: data.code,
-            name: data.name,
-            description: data.description,
-            address: data.address,
-            latitude: data.latitude !== undefined ? (data.latitude ? parseFloat(String(data.latitude)) : null) : undefined,
-            longitude: data.longitude !== undefined ? (data.longitude ? parseFloat(String(data.longitude)) : null) : undefined,
-            attendanceRadius: data.attendanceRadius !== undefined ? parseInt(String(data.attendanceRadius)) : undefined,
-            isActive: data.isActive,
-            gudangIds: data.gudangIds,
-        }
+  private async ensureUniqueCode(code: string) {
+    const existing = await this.repository.findByCode(code);
+    if (existing) {
+      throw new Error("Kode site sudah digunakan");
+    }
+  }
 
-        const site = await this.repository.update(id, updateData)
-
-        // Log activity
-        logActivitySafe({
-            action: 'UPDATE',
-            subject: 'Site',
-            userId,
-            details: {
-                id: site.id,
-                updates: { ...data, gudangIdsCount: Array.isArray(data.gudangIds) ? data.gudangIds.length : 'unchanged' },
-            },
-        })
-
-        return site
+  private async ensureUniqueCodeForUpdate(
+    code: string | undefined,
+    existing: SiteEntity,
+  ) {
+    if (!code || code.toUpperCase() === existing.code) {
+      return;
     }
 
-    /**
-     * Delete site (soft or hard based on associations)
-     */
-    async deleteSite(id: string, userId: string) {
-        const site = await this.repository.findWithCounts(id)
-        if (!site) {
-            throw new Error('Site tidak ditemukan')
-        }
-
-        const hasAssociations = site._count.user > 0 || site._count.work_orders > 0
-
-        if (hasAssociations) {
-            // Soft delete - deactivate
-            await this.repository.deactivate(id)
-
-            logActivitySafe({
-                action: 'UPDATE',
-                subject: 'Site',
-                userId,
-                details: { id: site.id, name: site.name, status: 'DEACTIVATED' },
-            })
-
-            return { softDeleted: true, message: 'Site dinonaktifkan (memiliki pengguna/work order terkait)' }
-        }
-
-        // Hard delete
-        try {
-            await this.repository.delete(id)
-        } catch (error) {
-            if (isPrismaRecordNotFoundError(error)) {
-                throw new Error('Site tidak ditemukan')
-            }
-
-            throw error
-        }
-
-        logActivitySafe({
-            action: 'DELETE',
-            subject: 'Site',
-            userId,
-            details: { id: site.id, name: site.name },
-        })
-
-        return { softDeleted: false, message: 'Site berhasil dihapus' }
+    const duplicate = await this.repository.findByCode(code);
+    if (duplicate) {
+      throw new Error("Kode site sudah digunakan");
     }
+  }
+
+  private buildCreateInput(data: SiteCreateInput): SiteCreateRepositoryInput {
+    return {
+      code: data.code,
+      name: data.name,
+      description: data.description,
+      address: data.address,
+      latitude: this.parseNullableNumber(data.latitude),
+      longitude: this.parseNullableNumber(data.longitude),
+      attendanceRadius: this.parseAttendanceRadius(data.attendanceRadius),
+      gudangIds: data.gudangIds,
+    };
+  }
+
+  private buildUpdateInput(data: SiteUpdateInput): SiteUpdateRepositoryInput {
+    return {
+      code: data.code,
+      name: data.name,
+      description: data.description,
+      address: data.address,
+      latitude: this.parseOptionalNullableNumber(data.latitude),
+      longitude: this.parseOptionalNullableNumber(data.longitude),
+      attendanceRadius: this.parseOptionalAttendanceRadius(
+        data.attendanceRadius,
+      ),
+      isActive: data.isActive,
+      gudangIds: data.gudangIds,
+    };
+  }
+
+  private parseNullableNumber(value: string | number | null | undefined) {
+    if (!value) {
+      return null;
+    }
+
+    return Number.parseFloat(String(value));
+  }
+
+  private parseOptionalNullableNumber(
+    value: string | number | null | undefined,
+  ) {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return value ? Number.parseFloat(String(value)) : null;
+  }
+
+  private parseAttendanceRadius(value: string | number | undefined) {
+    if (!value) {
+      return DEFAULT_ATTENDANCE_RADIUS;
+    }
+
+    return Number.parseInt(String(value));
+  }
+
+  private parseOptionalAttendanceRadius(value: string | number | undefined) {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return Number.parseInt(String(value));
+  }
+
+  private hasAssociations(site: SiteEntity) {
+    return site.counts.users > 0 || site.counts.workOrders > 0;
+  }
+
+  private async deleteWithoutAssociations(id: string) {
+    try {
+      await this.repository.delete(id);
+    } catch (error) {
+      if (isPrismaRecordNotFoundError(error)) {
+        throw new Error("Site tidak ditemukan");
+      }
+
+      throw error;
+    }
+  }
+
+  private logCreateActivity(
+    site: SiteEntity,
+    userId: string,
+    gudangIds?: string[],
+  ) {
+    logActivitySafe({
+      action: "CREATE",
+      subject: "Site",
+      userId,
+      details: {
+        id: site.id,
+        name: site.name,
+        code: site.code,
+        assignedGudangs: gudangIds?.length ?? 0,
+      },
+    });
+  }
+
+  private logUpdateActivity(
+    siteId: string,
+    userId: string,
+    data: SiteUpdateInput,
+  ) {
+    logActivitySafe({
+      action: "UPDATE",
+      subject: "Site",
+      userId,
+      details: {
+        id: siteId,
+        updates: {
+          ...data,
+          gudangIdsCount: Array.isArray(data.gudangIds)
+            ? data.gudangIds.length
+            : "unchanged",
+        },
+      },
+    });
+  }
+
+  private logDeactivateActivity(site: SiteEntity, userId: string) {
+    logActivitySafe({
+      action: "UPDATE",
+      subject: "Site",
+      userId,
+      details: { id: site.id, name: site.name, status: "DEACTIVATED" },
+    });
+  }
+
+  private logDeleteActivity(site: SiteEntity, userId: string) {
+    logActivitySafe({
+      action: "DELETE",
+      subject: "Site",
+      userId,
+      details: { id: site.id, name: site.name },
+    });
+  }
 }

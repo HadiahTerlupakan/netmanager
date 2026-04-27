@@ -1,39 +1,19 @@
-import { prisma } from '@/modules/database'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { ManualPaymentAdminRouteService } from "@/modules/finance";
 
-export const GET = createHandler({
+const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
+
+export const GET = createHandler(
+  {
     auth: true,
-    permissions: ['investors:read']
-}, async (_req, ctx) => {
-    const { id } = ctx.params
-
-    const investor = await prisma.investor.findUnique({
-        where: { id },
-        include: {
-            rabProjects: {
-                include: {
-                    rabProject: {
-                        include: {
-                            site: {
-                                select: { id: true, name: true }
-                            }
-                        }
-                    }
-                }
-            },
-            payouts: {
-                orderBy: { date: 'desc' },
-                take: 5
-            }
-        }
-    })
-
+    permissions: ["investors:read"],
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const investor = await manualPaymentAdminRouteService.getInvestorDetail(id);
     if (!investor) {
-        return ApiErrors.notFound('Investor')
+      return ApiErrors.notFound("Investor");
     }
-
-    // Sembunyikan field sensitif
-    const { passwordHash: _, ...safeInvestor } = investor
-
-    return apiSuccess(safeInvestor)
-})
+    return apiSuccess(investor);
+  },
+);

@@ -189,9 +189,10 @@ describe("admin attendance id route", () => {
       },
     } as never);
 
-    prismaMock.settings.findFirst
-      .mockResolvedValueOnce({ value: "0" } as never)
-      .mockResolvedValueOnce({ value: "America/New_York" } as never);
+    prismaMock.settings.findMany.mockResolvedValueOnce([
+      { key: "GENERAL_ATTENDANCE_TOLERANCE", value: "0" },
+      { key: "GENERAL_TIMEZONE", value: "America/New_York" },
+    ] as never);
 
     prismaMock.attendance.update.mockImplementation(
       async ({ data }: { data: { status: string; checkIn: string } }) => ({
@@ -258,9 +259,10 @@ describe("admin attendance id route", () => {
       },
     } as never);
 
-    prismaMock.settings.findFirst
-      .mockResolvedValueOnce({ value: "10" } as never)
-      .mockResolvedValueOnce({ value: "Asia/Jakarta" } as never);
+    prismaMock.settings.findMany.mockResolvedValueOnce([
+      { key: "GENERAL_ATTENDANCE_TOLERANCE", value: "10" },
+      { key: "GENERAL_TIMEZONE", value: "Asia/Jakarta" },
+    ] as never);
 
     prismaMock.attendance.update.mockImplementation(
       async ({ data }: { data: { status: string; checkIn: string } }) => ({

@@ -1,9 +1,7 @@
-import { randomUUID } from "crypto";
-
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 import {
+  getNetworkAlertService,
   networkAlertCreateSchema,
   networkAlertQuerySchema,
 } from "@/modules/network";
@@ -104,68 +102,10 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     });
   }
 
-  const filters = parsed.data;
-  const where: Record<string, unknown> = { isActive: true };
+  const networkAlertService = getNetworkAlertService();
+  const result = await networkAlertService.getAlertList(parsed.data);
 
-  if (filters.deviceId) where.deviceId = filters.deviceId;
-  if (filters.deviceType) where.deviceType = filters.deviceType;
-  if (filters.status) where.status = filters.status;
-  if (filters.severity) where.severity = filters.severity;
-  if (filters.alertType) where.alertType = filters.alertType;
-  if (filters.acknowledged !== undefined)
-    where.acknowledged = filters.acknowledged;
-  if (filters.resolved !== undefined) where.resolved = filters.resolved;
-
-  const page = filters.page || 1;
-  const limit = filters.limit || 20;
-  const skip = (page - 1) * limit;
-
-  const orderBy: Record<string, string> = {};
-  if (filters.sortBy) {
-    orderBy[filters.sortBy] = filters.sortOrder || "desc";
-  } else {
-    orderBy.createdAt = "desc";
-  }
-
-  try {
-    const [data, total] = await Promise.all([
-      prisma.networkAlerts.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      prisma.networkAlerts.count({ where }),
-    ]);
-
-    return apiSuccess({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (prismaError: unknown) {
-    // Handle case where model doesn't exist yet
-    if (
-      prismaError instanceof Error &&
-      (prismaError as unknown as Record<string, unknown>).code === "P2021"
-    ) {
-      return apiSuccess({
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-        },
-        message: "Network alerts will be available after database migration",
-      });
-    }
-    throw prismaError;
-  }
+  return apiSuccess(result);
 });
 
 /**
@@ -251,29 +191,13 @@ export const POST = createHandler(
     auth: true,
     schema: networkAlertCreateSchema,
   },
-  async (req, ctx) => {
+  async (_req, ctx) => {
     const data = ctx.validated;
+    const networkAlertService = getNetworkAlertService();
 
     try {
-      const result = await prisma.networkAlerts.create({
-        data: {
-          id: randomUUID(),
-          deviceId: data.deviceId,
-          deviceType: data.deviceType,
-          alertType: data.alertType,
-          title: data.title,
-          message: data.message,
-          severity: data.severity,
-          threshold: data.threshold ?? null,
-          currentValue: data.currentValue ?? null,
-          metricName: data.metricName ?? null,
-          autoResolve: data.autoResolve || false,
-          autoResolveTime: data.autoResolveTime ?? null,
-          updatedAt: new Date(),
-        },
-      });
+      const result = await networkAlertService.createAlert(data);
 
-      // System Log
       logActivitySafe({
         action: "CREATE",
         subject: "Network Alert",
@@ -286,18 +210,18 @@ export const POST = createHandler(
         },
       });
 
-      return apiSuccess({ id: result.id }, { status: 201 });
-    } catch (prismaError: unknown) {
-      // Handle case where model doesn't exist yet
+      return apiSuccess(result, { status: 201 });
+    } catch (error: unknown) {
       if (
-        prismaError instanceof Error &&
-        (prismaError as unknown as Record<string, unknown>).code === "P2021"
+        error instanceof Error &&
+        (error as Error & { code?: string }).code === "P2021"
       ) {
         return ApiErrors.internalError(
           "Network alerts will be available after database migration",
         );
       }
-      throw prismaError;
+
+      throw error;
     }
   },
 );

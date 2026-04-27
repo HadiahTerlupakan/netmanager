@@ -1,31 +1,31 @@
-import { isSuperAdmin, getUserPermissions } from "@/lib/auth";
-import { hasPermission } from "@/lib/rbac";
-import { getLeaveService } from "@/modules/attendance";
-import { LeaveType, LeaveStatus } from "@prisma/client";
-import {
-  apiSuccess,
-  ApiErrors,
-  ErrorCodes,
-  apiError,
-  createHandler,
-} from "@/lib/api";
+import { LeaveStatus, LeaveType } from "@prisma/client";
 import * as z from "zod";
 
-const service = getLeaveService();
+import {
+  apiError,
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  ErrorCodes,
+} from "@/lib/api";
+import { hasPermission } from "@/lib/rbac";
+import { AdminLeaveRouteService } from "@/modules/attendance";
+
+const leaveRouteService = new AdminLeaveRouteService();
 
 const createLeaveSchema = z.object({
   userId: z.uuid({ error: "Invalid user ID" }),
   type: z.enum(LeaveType),
   startDate: z
     .string()
-    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
+    .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date format"),
   endDate: z
     .string()
-    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format"),
+    .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date format"),
   reason: z.string().min(1, "Alasan wajib diisi").max(500),
   replacementDate: z
     .string()
-    .refine((val) => !isNaN(Date.parse(val)), "Invalid date format")
+    .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date format")
     .optional()
     .nullable(),
   attachmentUrl: z.url().optional().nullable(),
@@ -35,46 +35,17 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const tenantId = user.tenantId;
 
-  // Permission check
   if (!(await hasPermission("izin:read"))) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses untuk melihat data izin/cuti",
     );
   }
 
-  const { searchParams } = req.nextUrl;
-  const status = searchParams.get("status");
-  let siteId = searchParams.get("siteId") || undefined;
-  let departmentId = searchParams.get("departmentId") || undefined;
-
-  // Enforce RBAC Restrictions
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-
-  if (!isSuper) {
-    if (permissions.includes("izin:site_only")) {
-      const { prisma: db } = await import("@/modules/database");
-      const dbUser = await db.user.findUnique({
-        where: { id: user.id, tenantId },
-        select: { siteId: true },
-      });
-      siteId = dbUser?.siteId || undefined;
-    }
-    if (permissions.includes("izin:department_only")) {
-      const { prisma: db } = await import("@/modules/database");
-      const dbUser = await db.user.findUnique({
-        where: { id: user.id, tenantId },
-        select: { departmentId: true },
-      });
-      departmentId = dbUser?.departmentId || undefined;
-    }
-  }
-
-  const result = await service.getLeaves({
-    ...(status ? { status: status as LeaveStatus } : {}),
-    ...(siteId ? { siteId } : {}),
-    ...(departmentId ? { departmentId } : {}),
+  const status = req.nextUrl.searchParams.get("status");
+  const result = await leaveRouteService.getLeaves({
+    session: ctx.session as never,
     tenantId,
+    ...(status ? { status: status as LeaveStatus } : {}),
   });
 
   if (!result.success) {
@@ -90,41 +61,21 @@ export const POST = createHandler(
     schema: createLeaveSchema,
   },
   async (_req, ctx) => {
-    // Permission check
     if (!(await hasPermission("izin:create"))) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk membuat izin/cuti",
       );
     }
 
-    const {
-      userId,
-      type,
-      startDate,
-      endDate,
-      reason,
-      replacementDate,
-      attachmentUrl,
-    } = ctx.validated;
-    const user = ctx.session!.user;
-    const tenantId = user.tenantId;
-
-    const result = await service.createLeave(
-      {
-        userId,
-        type,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        reason,
-        ...(replacementDate
-          ? { replacementDate: new Date(replacementDate) }
-          : {}),
-        ...(attachmentUrl ? { attachmentUrl } : {}),
-      },
-      user.id,
-      tenantId,
-      true, // Auto-approve for manual admin entry
-    );
+    const result = await leaveRouteService.createLeave({
+      ...ctx.validated,
+      startDate: new Date(ctx.validated.startDate),
+      endDate: new Date(ctx.validated.endDate),
+      replacementDate: ctx.validated.replacementDate
+        ? new Date(ctx.validated.replacementDate)
+        : undefined,
+      session: ctx.session as never,
+    });
 
     if (!result.success) {
       return apiError(

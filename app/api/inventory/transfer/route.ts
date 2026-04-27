@@ -2,6 +2,7 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
   buildInventoryAccessSession,
+  getInventoryRouteService,
   InventoryRepository,
 } from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
@@ -44,12 +45,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     (permissions.includes("transfer:site_only") ||
       permissions.includes("k_barang:site_only"))
   ) {
-    const { prisma } = await import("@/modules/database");
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId;
+    siteId = await getInventoryRouteService().getUserSiteId(user.id);
   }
 
   const inventoryRepository = new InventoryRepository();

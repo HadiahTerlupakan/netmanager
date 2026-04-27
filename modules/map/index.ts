@@ -1,23 +1,26 @@
 // Public API for Map Module
 
-// Services (public)
 export { MappingService } from "./services/MappingService";
+export { MappingAdminService } from "./services/MappingAdminService";
 export {
-  MappingAdminService,
+  createMappingService,
+  createMappingAdminService,
+} from "./factories/MapModuleFactory";
+export {
+  getMappingService,
   getMappingAdminService,
-} from "./services/MappingAdminService";
+} from "./factories/MapServiceSingletons";
 
-// DTOs (public types for API responses and requests)
 export type {
   MapNodeListItemDTO,
   MapNodeDetailDTO,
   MapEdgeDTO,
+  MapSettingsDTO,
   MapStatisticsDTO,
   MapDataDTO,
   CreateMapNodeDTO,
   UpdateMapNodeDTO,
   CreateMapEdgeDTO,
+  UpdateMapEdgeDTO,
+  UpdateMapSettingsDTO,
 } from "./dto/MapDTO";
-
-// NOTE: MappingRepository is intentionally NOT exported (internal implementation detail)
-// NOTE: MapFactory and MapMapper are intentionally NOT exported (internal)

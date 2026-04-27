@@ -64,6 +64,7 @@ describe("ChatService", () => {
     await service.broadcastMessage({
       senderId: "user-1",
       senderName: "Admin",
+      tenantId: "tenant-1",
       title: "Ops",
       content: "Server restart",
     });

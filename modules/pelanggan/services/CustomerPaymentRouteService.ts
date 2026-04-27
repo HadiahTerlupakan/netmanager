@@ -1,4 +1,4 @@
-import { CouponService } from "@/modules/coupons";
+import { couponService } from "@/modules/coupons";
 import {
   createCustomerPaymentsForInvoices,
   PaymentGatewayManager,
@@ -27,7 +27,6 @@ type CustomerPaymentInput = {
 };
 
 const customerPortalService = new CustomerPortalService();
-const couponService = new CouponService();
 const pelangganRepository = new PelangganRepository();
 
 /** Creates customer portal payments and optional payment gateway metadata. */

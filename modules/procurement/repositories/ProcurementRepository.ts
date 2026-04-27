@@ -1,102 +1,131 @@
-import { prisma } from '@/lib/prisma'
-import { PurchaseOrderStatus } from '@prisma/client'
-import type { PurchaseOrder, PurchaseRequestItem } from '@prisma/client'
+import { prisma } from "@/lib/prisma";
+import { PurchaseOrderStatus } from "@prisma/client";
 
-export interface PRWithItems {
-    id: string
-    tenantId: string | null
-    status: string
-    purchaseOrderId: string | null
-    items: (PurchaseRequestItem & {
-        barang: { id: string; nama: string; supplierId: string | null }
-    })[]
+import type { PurchaseOrderEntity } from "../domain/entities/PurchaseOrder";
+import type { PurchaseRequestEntity } from "../domain/entities/PurchaseRequest";
+import type {
+  CreatePurchaseOrderInput,
+  IProcurementRepository,
+} from "../domain/ports/IProcurementRepository";
+import {
+  toPurchaseOrderDomain,
+  toPurchaseRequestDomain,
+} from "../mappers/ProcurementMapper";
+
+const APPROVED_STATUS = "APPROVED";
+const ORDERED_STATUS = "ORDERED";
+const PO_NUMBER_PADDING = 4;
+const PO_NUMBER_DEFAULT_SEQUENCE = "0001";
+const PO_NUMBER_MONTH_OFFSET = 1;
+const PO_NUMBER_PAD_CHARACTER = "0";
+const PO_NUMBER_SEPARATOR = "/";
+
+export class ProcurementRepository implements IProcurementRepository {
+  /** Mengambil purchase request APPROVED yang belum terkait purchase order. */
+  async findApprovedPRs(prIds: string[]): Promise<PurchaseRequestEntity[]> {
+    const records = await prisma.purchaseRequest.findMany({
+      where: {
+        id: { in: prIds },
+        status: APPROVED_STATUS,
+        purchaseOrderId: null,
+      },
+      include: {
+        items: {
+          include: {
+            barang: { select: { id: true, nama: true, supplierId: true } },
+          },
+        },
+      },
+    });
+
+    return records.map(toPurchaseRequestDomain);
+  }
+
+  /** Mengambil purchase order terakhir berdasarkan prefix nomor. */
+  async findLastPOByNumberPrefix(
+    prefix: string,
+    tenantId?: string | null,
+  ): Promise<PurchaseOrderEntity | null> {
+    const record = await prisma.purchaseOrder.findFirst({
+      where: { tenantId, poNumber: { startsWith: prefix } },
+      orderBy: { poNumber: "desc" },
+    });
+
+    return record ? toPurchaseOrderDomain(record) : null;
+  }
+
+  /** Membuat purchase order dan menandai purchase request sebagai ordered. */
+  async createPOWithItems(
+    input: CreatePurchaseOrderInput,
+  ): Promise<PurchaseOrderEntity> {
+    const createdOrder = await prisma.$transaction(async (transaction) => {
+      const purchaseOrder = await transaction.purchaseOrder.create({
+        data: buildPurchaseOrderCreateData(input),
+      });
+
+      await transaction.purchaseRequest.updateMany({
+        where: { id: { in: input.prIds } },
+        data: { status: ORDERED_STATUS },
+      });
+
+      return purchaseOrder;
+    });
+
+    return toPurchaseOrderDomain(createdOrder);
+  }
+
+  /** Membuat nomor purchase order baru berdasarkan tenant dan periode bulan. */
+  async generatePONumber(tenantId?: string | null): Promise<string> {
+    const prefix = createPONumberPrefix(new Date());
+    const lastPurchaseOrder = await this.findLastPOByNumberPrefix(
+      prefix,
+      tenantId,
+    );
+    const nextSequence = getNextPONumberSequence(lastPurchaseOrder?.poNumber);
+
+    return `${prefix}${PO_NUMBER_SEPARATOR}${nextSequence}`;
+  }
 }
 
-export class ProcurementRepository {
-    async findApprovedPRs(prIds: string[]): Promise<PRWithItems[]> {
-        return prisma.purchaseRequest.findMany({
-            where: { id: { in: prIds }, status: 'APPROVED', purchaseOrderId: null },
-            include: {
-                items: {
-                    include: {
-                        barang: { select: { id: true, nama: true, supplierId: true } }
-                    }
-                }
-            }
-        }) as Promise<PRWithItems[]>
-    }
+function buildPurchaseOrderCreateData(input: CreatePurchaseOrderInput) {
+  return {
+    id: input.id,
+    poNumber: input.poNumber,
+    supplierId: input.supplierId,
+    status: PurchaseOrderStatus.DRAFT,
+    createdBy: input.createdBy,
+    tenantId: input.tenantId,
+    totalAmount: input.totalAmount,
+    items: { create: input.items },
+    purchaseRequests: {
+      connect: input.prIds.map((id) => ({ id })),
+    },
+  };
+}
 
-    async findLastPOByNumberPrefix(prefix: string, tenantId?: string | null): Promise<PurchaseOrder | null> {
-        return prisma.purchaseOrder.findFirst({
-            where: {
-                tenantId: tenantId,
-                poNumber: { startsWith: prefix }
-            },
-            orderBy: { poNumber: 'desc' }
-        })
-    }
+function createPONumberPrefix(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + PO_NUMBER_MONTH_OFFSET).padStart(
+    2,
+    PO_NUMBER_PAD_CHARACTER,
+  );
 
-    async createPOWithItems(data: {
-        id: string
-        poNumber: string
-        supplierId: string | null
-        status: string
-        createdBy: string
-        tenantId: string | null
-        totalAmount: number
-        items: {
-            id: string
-            barangId: string
-            quantity: number
-            unitPrice: number
-            totalPrice: number
-            tenantId: string | null
-        }[]
-        prIds: string[]
-    }) {
-        return prisma.$transaction(async (tx) => {
-            const newPO = await tx.purchaseOrder.create({
-                data: {
-                    id: data.id,
-                    poNumber: data.poNumber,
-                    supplierId: data.supplierId,
-                    status: PurchaseOrderStatus.DRAFT,
-                    createdBy: data.createdBy,
-                    tenantId: data.tenantId,
-                    totalAmount: data.totalAmount,
-                    items: {
-                        create: data.items
-                    },
-                    purchaseRequests: {
-                        connect: data.prIds.map(id => ({ id }))
-                    }
-                }
-            })
+  return `PO${PO_NUMBER_SEPARATOR}${year}${PO_NUMBER_SEPARATOR}${month}`;
+}
 
-            await tx.purchaseRequest.updateMany({
-                where: { id: { in: data.prIds } },
-                data: { status: 'ORDERED' }
-            })
+function getNextPONumberSequence(poNumber?: string): string {
+  if (!poNumber) {
+    return PO_NUMBER_DEFAULT_SEQUENCE;
+  }
 
-            return newPO
-        })
-    }
+  const lastSequence = extractPONumberSequence(poNumber);
+  return String(lastSequence + 1).padStart(
+    PO_NUMBER_PADDING,
+    PO_NUMBER_PAD_CHARACTER,
+  );
+}
 
-    async generatePONumber(tenantId?: string | null): Promise<string> {
-        const date = new Date()
-        const year = date.getFullYear()
-        const month = String(date.getMonth() + 1).padStart(2, '0')
-        const prefix = `PO/${year}/${month}`
-
-        const lastPO = await this.findLastPOByNumberPrefix(prefix, tenantId)
-
-        let sequence = '0001'
-        if (lastPO) {
-            const parts = lastPO.poNumber.split('/')
-            const lastSeq = parseInt(parts[parts.length - 1] || '0')
-            sequence = String(lastSeq + 1).padStart(4, '0')
-        }
-
-        return `${prefix}/${sequence}`
-    }
+function extractPONumberSequence(poNumber: string): number {
+  const segments = poNumber.split(PO_NUMBER_SEPARATOR);
+  return Number.parseInt(segments.at(-1) ?? "0", 10);
 }

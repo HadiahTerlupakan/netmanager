@@ -1048,7 +1048,7 @@ export class AttendanceService {
       // Skip if user has no attendance record (shouldn't appear in Star Employees)
       if (!userMap.has(item.userId)) return;
       const current = userMap.get(item.userId)!;
-      current.officialOtMinutes += item._sum.duration || 0;
+      current.officialOtMinutes += item.totalDuration || 0;
     });
 
     // 3. Absence Stats (Penalties) - ONLY for existing users
@@ -1240,7 +1240,7 @@ export class AttendanceService {
       userAbsenceStats.map((u) => [u.userId, u._count._all]),
     );
     const userOtMap = new Map(
-      userOtStats.map((u) => [u.userId, u._sum.duration || 0]),
+      userOtStats.map((u) => [u.userId, u.totalDuration || 0]),
     );
     const userAttMap = new Map(
       userAttStats.map((u) => [u.userId, u._count._all]),

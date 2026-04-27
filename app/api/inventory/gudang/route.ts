@@ -1,6 +1,9 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { InventoryRepository } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  InventoryRepository,
+} from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
@@ -65,12 +68,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const permissions = await getUserPermissions(user.id);
 
   // Need to fetch siteId because createHandler session doesn't map it
-  const { prisma } = await import("@/modules/database");
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { siteId: true },
-  });
-  const siteId = dbUser?.siteId;
+  const siteId = await getInventoryRouteService().getUserSiteId(user.id);
 
   // Only restrict if:
   // 1. User has restriction permission
@@ -215,12 +213,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     const isSuper = isSuperAdmin(user);
 
     // Fetch siteId
-    const { prisma } = await import("@/modules/database");
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    const userSiteId = dbUser?.siteId;
+    const userSiteId = await getInventoryRouteService().getUserSiteId(user.id);
 
     let finalSiteIds = siteIds;
     const hasRestriction =

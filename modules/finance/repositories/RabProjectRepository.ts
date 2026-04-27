@@ -291,9 +291,7 @@ function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
 export class RabProjectRepository implements IRabProjectRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  /**
-   * Get active projects that need status evaluation.
-   */
+  /** Get active projects that need status evaluation. */
   async findProjectsForStatusEvaluation(): Promise<
     RabProjectStatusCandidate[]
   > {
@@ -332,6 +330,7 @@ export class RabProjectRepository implements IRabProjectRepository {
     }
   }
 
+  /** Get many RAB projects with nested detail relations. */
   async findManyWithDetails(
     where: Prisma.RabProjectWhereInput,
   ): Promise<RabProjectWithDetails[]> {
@@ -375,10 +374,12 @@ export class RabProjectRepository implements IRabProjectRepository {
     }) as Promise<RabProjectWithDetails[]>;
   }
 
+  /** Create a basic RAB project. */
   async createProject(data: Prisma.RabProjectCreateInput): Promise<RabProject> {
     return this.client.rabProject.create({ data });
   }
 
+  /** Find a RAB project with items and WBS groups. */
   async findByIdWithItems(id: string): Promise<
     | (RabProject & {
         items?: (RabItem & { disbursements?: RabDisbursement[] })[];
@@ -395,6 +396,170 @@ export class RabProjectRepository implements IRabProjectRepository {
     });
   }
 
+  /** Find a detailed RAB project for route responses. */
+  async findDetailById(id: string) {
+    return this.client.rabProject.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: { disbursements: true },
+        },
+        wbsGroups: true,
+        actualAchievements: {
+          orderBy: [{ year: "asc" }, { month: "asc" }],
+        },
+        site: { select: { name: true } },
+        creator: { select: { name: true } },
+        investors: true,
+        revisions: {
+          select: {
+            id: true,
+            revisionNumber: true,
+            status: true,
+          },
+          orderBy: { revisionNumber: "desc" },
+          take: 1,
+        },
+        _count: {
+          select: {
+            revisions: true,
+          },
+        },
+      },
+    });
+  }
+
+  /** Find a RAB project for revision profit-loss analysis. */
+  async findRevisionProfitLossProject(id: string) {
+    return this.client.rabProject.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        finalApprovedRevision: {
+          include: {
+            items: { orderBy: { sortOrder: "asc" } },
+          },
+        },
+      },
+    });
+  }
+
+  /** Find a lightweight RAB project by id. */
+  async findById(id: string) {
+    return this.client.rabProject.findUnique({
+      where: { id },
+    });
+  }
+
+  /** Delete a draft RAB project and detach dependent expenses. */
+  async deleteDraftProject(id: string) {
+    return this.client.$transaction([
+      this.client.rabInvestor.deleteMany({
+        where: { rabProjectId: id },
+      }),
+      this.client.expense.updateMany({
+        where: { rabProjectId: id },
+        data: { rabProjectId: null },
+      }),
+      this.client.rabProject.delete({
+        where: { id },
+      }),
+    ]);
+  }
+
+  /** Duplicate a RAB project with all items as a new draft. */
+  async duplicateProject(id: string, userId: string) {
+    const sourceProject = await this.client.rabProject.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!sourceProject) {
+      return null;
+    }
+
+    return this.client.rabProject.create({
+      data: {
+        name: `(Copy) ${sourceProject.name}`,
+        description: sourceProject.description,
+        siteId: sourceProject.siteId,
+        mixRadiusGroupId: sourceProject.mixRadiusGroupId,
+        projectedRevenue: sourceProject.projectedRevenue,
+        projectedOpex: sourceProject.projectedOpex,
+        targetSubscribers: sourceProject.targetSubscribers,
+        arpu: sourceProject.arpu,
+        growthType: sourceProject.growthType,
+        paymentType: sourceProject.paymentType,
+        growthSettings: sourceProject.growthSettings as Prisma.InputJsonValue,
+        startDate: sourceProject.startDate,
+        investmentDurationMonths: sourceProject.investmentDurationMonths,
+        investmentRecoveryType: sourceProject.investmentRecoveryType,
+        investmentRecoveryValue: sourceProject.investmentRecoveryValue,
+        investorProfitSharePercent: sourceProject.investorProfitSharePercent,
+        investorProfitShareMode: sourceProject.investorProfitShareMode,
+        investorProfitShareBeforeBepPercent:
+          sourceProject.investorProfitShareBeforeBepPercent,
+        investorProfitShareAfterBepPercent:
+          sourceProject.investorProfitShareAfterBepPercent,
+        nplTolerancePercent: sourceProject.nplTolerancePercent,
+        status: "DRAFT",
+        createdBy: userId,
+        items: {
+          create: sourceProject.items.map((item) => ({
+            name: item.name,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            category: item.category,
+            expenseType: item.expenseType,
+          })),
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+  }
+
+  /** Upsert actual achievement for a RAB project period. */
+  async upsertActualAchievement(input: {
+    rabProjectId: string;
+    month: number;
+    year: number;
+    actualSubscribers: number;
+    actualRevenue: bigint;
+    actualOpex: bigint;
+    manualRecoveryInstallment: bigint | null;
+    manualInvestorShare: bigint | null;
+    manualCompanyShare: bigint | null;
+    manualInvestorProfitSharePercent: number | null;
+    notes?: string;
+  }) {
+    return this.client.rabActualAchievement.upsert({
+      where: {
+        rabProjectId_month_year: {
+          rabProjectId: input.rabProjectId,
+          month: input.month,
+          year: input.year,
+        },
+      },
+      create: input,
+      update: {
+        actualSubscribers: input.actualSubscribers,
+        actualRevenue: input.actualRevenue,
+        actualOpex: input.actualOpex,
+        manualRecoveryInstallment: input.manualRecoveryInstallment,
+        manualInvestorShare: input.manualInvestorShare,
+        manualCompanyShare: input.manualCompanyShare,
+        manualInvestorProfitSharePercent:
+          input.manualInvestorProfitSharePercent,
+        notes: input.notes,
+      },
+    });
+  }
+
+  /** Update a RAB project and nested relations in one transaction. */
   async updateProjectWithRelations(
     id: string,
     input: RabProjectUpdateInput,
@@ -647,6 +812,7 @@ export class RabProjectRepository implements IRabProjectRepository {
     });
   }
 
+  /** Create a complete RAB project with nested items and investors. */
   async createFullProject(data: {
     project: {
       name: string;

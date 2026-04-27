@@ -4,16 +4,16 @@
  * Use this only in Server Components, API Routes, or Services.
  */
 
-import * as sharedDateUtils from './datetime'
-import { getTimezoneSync } from './get-timezone'
+import * as sharedDateUtils from "./datetime";
+import { getTimezoneSync } from "./get-timezone";
 
 /**
  * Get start of day as Date object (00:00:00.000)
  * Automatically fetches the correct timezone for the current context/tenant if not provided.
  */
 export function toStartOfDay(date?: Date | string, timezone?: string): Date {
-  const tz = timezone || getTimezoneSync()
-  return sharedDateUtils.toStartOfDay(date, tz)
+  const tz = timezone || getTimezoneSync();
+  return sharedDateUtils.toStartOfDay(date, tz);
 }
 
 /**
@@ -21,8 +21,18 @@ export function toStartOfDay(date?: Date | string, timezone?: string): Date {
  * Automatically fetches the correct timezone for the current context/tenant if not provided.
  */
 export function toEndOfDay(date?: Date | string, timezone?: string): Date {
-  const tz = timezone || getTimezoneSync()
-  return sharedDateUtils.toEndOfDay(date, tz)
+  const tz = timezone || getTimezoneSync();
+  return sharedDateUtils.toEndOfDay(date, tz);
+}
+
+/** Parse optional server date input and return null for empty or invalid values. */
+export function parseOptionalDate(value?: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 }
 
 // Re-export other safe utilities
@@ -38,5 +48,5 @@ export const {
   getDayName,
   formatDate,
   parseDate,
-  isValidDate
-} = sharedDateUtils
+  isValidDate,
+} = sharedDateUtils;

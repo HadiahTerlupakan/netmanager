@@ -34,6 +34,17 @@ export class InvestorRepository {
     return this.client.investor.findUnique({ where: { username } });
   }
 
+  async findByUsernameInsensitive(username: string) {
+    return this.client.investor.findFirst({
+      where: {
+        username: {
+          equals: username,
+          mode: "insensitive",
+        },
+      },
+    });
+  }
+
   async findByEmail(email: string) {
     return this.client.investor.findUnique({ where: { email } });
   }

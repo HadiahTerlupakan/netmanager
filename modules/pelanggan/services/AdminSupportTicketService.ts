@@ -11,6 +11,10 @@ import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { closeWoOnTicketClose } from "@/modules/work-order";
 import { TicketEventDispatcher } from "@/modules/events";
+import { socketEmitter } from "@/lib/websocket/emitter";
+import { WhatsAppService } from "@/modules/notification";
+
+const OPEN_TICKET_STATUS = TicketStatus.OPEN;
 
 /**
  * Service Result type for consistent API responses
@@ -44,6 +48,24 @@ export interface UserContext {
   role?: string;
   siteId?: string | null;
   permissions?: string[];
+}
+
+interface AdminTicketReplyInput {
+  ticketId: string;
+  senderId: string;
+  message?: string;
+  updateStatus?: TicketStatus;
+  sendWhatsApp?: boolean;
+  attachments?: string[];
+}
+
+interface AdminUnreadCountResponse {
+  count: number;
+  breakdown: {
+    openTickets: number;
+    needsReply: number;
+    customerRepliedWhileWaiting: number;
+  };
 }
 
 /**
@@ -365,6 +387,83 @@ export class AdminSupportTicketService {
     }
   }
 
+  /** Balas tiket admin dan jalankan side effect notifikasi. */
+  async replyToTicket(
+    input: AdminTicketReplyInput,
+  ): Promise<ServiceResult<{ reply: unknown; whatsappSent: boolean }>> {
+    try {
+      const ticket = await this.ticketRepo.findByIdAdmin(input.ticketId);
+      if (!ticket) return this.notFoundResult();
+      if (ticket.status === TicketStatus.CLOSED)
+        return this.closedTicketResult();
+
+      const reply = await this.ticketRepo.createReply({
+        ticketId: input.ticketId,
+        senderId: input.senderId,
+        isFromAdmin: true,
+        message: input.message?.trim() || "",
+        attachments: input.attachments,
+      });
+
+      const nextStatus = input.updateStatus || TicketStatus.WAITING_CUSTOMER;
+      await this.ticketRepo.updateAdmin(input.ticketId, {
+        status: nextStatus,
+        user: ticket.user?.id ? undefined : { connect: { id: input.senderId } },
+      });
+
+      this.emitReplyEvent(input.ticketId, reply);
+      const whatsappSent = await this.sendReplyWhatsapp(ticket, input);
+      return {
+        success: true,
+        data: { reply: this.buildReplyPayload(reply), whatsappSent },
+      };
+    } catch (error) {
+      console.error("[AdminSupportTicketService.replyToTicket] Error:", error);
+      return {
+        success: false,
+        error: "Gagal mengirim balasan",
+        code: "INTERNAL_ERROR",
+      };
+    }
+  }
+
+  /** Hitung tiket yang membutuhkan respon admin. */
+  async getUnreadCount(
+    siteId?: string,
+  ): Promise<ServiceResult<AdminUnreadCountResponse>> {
+    try {
+      const openTickets = await this.ticketRepo.countAdmin(
+        this.buildUnreadOpenWhere(siteId),
+      );
+      const needsReply = await this.ticketRepo.countNeedsReplyAdmin(
+        TicketStatus.IN_PROGRESS,
+        siteId,
+      );
+      const waitingReply = await this.ticketRepo.countNeedsReplyAdmin(
+        TicketStatus.WAITING_CUSTOMER,
+        siteId,
+      );
+      return {
+        success: true,
+        data: {
+          count: openTickets + needsReply + waitingReply,
+          breakdown: {
+            openTickets,
+            needsReply,
+            customerRepliedWhileWaiting: waitingReply,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("[AdminSupportTicketService.getUnreadCount] Error:", error);
+      return {
+        success: false,
+        error: "Gagal mengambil jumlah tiket",
+        code: "INTERNAL_ERROR",
+      };
+    }
+  }
+
   // ====== PRIVATE HELPERS ======
 
   private async getStatusCounts(baseWhere: Prisma.SupportTicketsWhereInput) {
@@ -427,6 +526,109 @@ export class AdminSupportTicketService {
     return {
       avgRating: ratedCount > 0 ? totalRating / ratedCount : 0,
       ratedCount,
+    };
+  }
+
+  /** Bentuk filter tiket open untuk unread count. */
+  private buildUnreadOpenWhere(
+    siteId?: string,
+  ): Prisma.SupportTicketsWhereInput {
+    if (!siteId) return { status: OPEN_TICKET_STATUS };
+    return { status: OPEN_TICKET_STATUS, pelanggan: { siteId } };
+  }
+
+  /** Emit event websocket untuk balasan tiket baru. */
+  private emitReplyEvent(ticketId: string, reply: unknown) {
+    const replyPayload = this.buildReplyPayload(reply);
+    socketEmitter.ticketMessage(ticketId, {
+      id: replyPayload.id,
+      message: replyPayload.message,
+      isFromAdmin: true,
+      createdAt: replyPayload.createdAt.toISOString(),
+      sender: replyPayload.sender,
+      attachments: replyPayload.attachments,
+    });
+  }
+
+  /** Kirim notifikasi WhatsApp ke pelanggan bila diaktifkan. */
+  private async sendReplyWhatsapp(
+    ticket: unknown,
+    input: AdminTicketReplyInput,
+  ) {
+    const safeTicket = ticket as {
+      ticketNumber: string;
+      pelanggan?: { nama: string; noTelp?: string | null } | null;
+    };
+    if (
+      !input.sendWhatsApp ||
+      !safeTicket.pelanggan?.noTelp ||
+      !input.message?.trim()
+    )
+      return false;
+
+    try {
+      const whatsappService = new WhatsAppService();
+      const result = await whatsappService.sendMessage({
+        phone: safeTicket.pelanggan.noTelp,
+        message: this.buildWhatsappMessage(
+          safeTicket.ticketNumber,
+          safeTicket.pelanggan.nama,
+          input.message.trim(),
+        ),
+      });
+      return result.success;
+    } catch (error) {
+      console.error("[Admin Reply] WhatsApp error:", error);
+      return false;
+    }
+  }
+
+  /** Bentuk pesan WhatsApp untuk pelanggan. */
+  private buildWhatsappMessage(
+    ticketNumber: string,
+    customerName: string,
+    message: string,
+  ) {
+    const previewMessage =
+      message.length > 500 ? `${message.substring(0, 500)}...` : message;
+    return `🎫 *Tiket Dukungan*\n\nHalo ${customerName},\n\nTiket Anda *#${ticketNumber}* telah dibalas oleh tim kami:\n\n"${previewMessage}"\n\nSilakan login ke portal pelanggan untuk melihat detail dan membalas.\n\nTerima kasih,\nTim Dukungan`;
+  }
+
+  /** Bentuk payload reply yang kompatibel dengan response lama. */
+  private buildReplyPayload(reply: unknown) {
+    const safeReply = reply as {
+      id: string;
+      message: string;
+      createdAt: Date;
+      isFromAdmin: boolean;
+      user?: { id: string; name: string | null } | null;
+      attachments?: string[] | null;
+    };
+    return {
+      id: safeReply.id,
+      message: safeReply.message,
+      createdAt: safeReply.createdAt,
+      isFromAdmin: safeReply.isFromAdmin,
+      sender: safeReply.user ?? null,
+      attachments: safeReply.attachments ?? null,
+    };
+  }
+
+  /** Hasil gagal saat tiket tidak ditemukan. */
+  private notFoundResult(): ServiceResult<never> {
+    return {
+      success: false,
+      error: "Tiket tidak ditemukan",
+      code: "NOT_FOUND",
+    };
+  }
+
+  /** Hasil gagal saat tiket telah ditutup. */
+  private closedTicketResult(): ServiceResult<never> {
+    return {
+      success: false,
+      error: "Tiket sudah ditutup dan tidak dapat dibalas",
+      code: "VALIDATION_ERROR",
     };
   }
 

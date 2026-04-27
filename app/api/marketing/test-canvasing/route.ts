@@ -1,20 +1,10 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/modules/database';
+import { NextResponse } from "next/server";
+import { TestCanvasingRouteService } from "@/modules/marketing";
 
+const service = new TestCanvasingRouteService();
+
+/** Return sample canvasing data for the test route. */
 export async function GET() {
-  const canvasing = await prisma.canvasing.findMany({
-    take: 5,
-    include: {
-      user: {
-        select: {
-          name: true,
-          email: true
-        }
-      }
-    }
-  });
-
-  return NextResponse.json({ 
-    data: canvasing
-  });
+  const canvasing = await service.getLatestCanvasing();
+  return NextResponse.json({ data: canvasing });
 }

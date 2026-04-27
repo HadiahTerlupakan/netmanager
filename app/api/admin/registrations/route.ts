@@ -1,19 +1,21 @@
-import { hasPermission } from '@/lib/rbac'
-import { RegistrationRepository } from '@/modules/registration'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { hasPermission } from "@/lib/rbac";
+import { RegistrationService } from "@/modules/registration";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-const registrationRepository = new RegistrationRepository()
+const registrationService = new RegistrationService();
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/registrations - List all registrations
  */
 export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
-    if (!(await hasPermission('registration:read'))) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat registrasi')
-    }
+  if (!(await hasPermission("registration:read"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat registrasi",
+    );
+  }
 
-    const registrations = await registrationRepository.findAll()
-    return apiSuccess(registrations)
-})
+  const registrations = await registrationService.getAll();
+  return apiSuccess(registrations);
+});

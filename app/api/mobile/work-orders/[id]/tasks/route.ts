@@ -1,111 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { prisma } from "@/modules/database";
-import {
-  WorkOrderRepository,
-  validateMobileAssignedWorkOrderAccess,
-} from "@/modules/work-order";
-import { socketEmitter } from "@/lib/websocket/emitter";
-import { notifyAdminsAboutMobileAction } from "@/modules/notification";
-import { apiError, ErrorCodes } from "@/lib/api-response";
 
-// PATCH - Update Task Status
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { MobileWorkOrderActionService } from "@/modules/work-order";
+
+const service = new MobileWorkOrderActionService();
+
+/**
+ * Update mobile work order task status.
+ */
 export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ id: string }> },
 ) {
   const params = await props.params;
+
   try {
     const authResult = await getMobileAuthPayload(request);
     if (authResult instanceof NextResponse) {
       return authResult;
     }
 
-    const userId = authResult.id as string;
-    const userName = (authResult.name as string) || "Unknown";
-    const tenantId = authResult.tenantId as string;
-    const workOrderId = params.id;
     const body = await request.json();
-    const { taskId, isCompleted } = body;
-
-    if (!taskId) {
+    if (!body.taskId) {
       return apiError("Task ID wajib diisi", ErrorCodes.VALIDATION_ERROR, {
         status: 400,
       });
     }
 
-    const repository = new WorkOrderRepository(prisma);
-
-    try {
-      await validateMobileAssignedWorkOrderAccess({
-        repository,
-        workOrderId,
-        userContext: {
-          id: userId,
-          name: userName,
-          role: authResult.role as string | undefined,
-          permissions: [],
-          siteId: authResult.siteId as string | undefined,
-          departmentId: authResult.departmentId as string | undefined,
-          tenantId,
-          isSuperAdmin: Boolean(authResult.isSuperAdmin),
-        },
-        allowedStatuses: ["ASSIGNED", "IN_PROGRESS", "ON_HOLD"],
-        invalidStatusMessage:
-          "Work order harus dalam status ASSIGNED, IN_PROGRESS, atau ON_HOLD",
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Terjadi kesalahan server";
-      if (message.includes("tidak ditemukan")) {
-        return apiError(message, ErrorCodes.NOT_FOUND, { status: 404 });
-      }
-      if (
-        message.includes("Akses ditolak") ||
-        message.includes("tidak memiliki akses")
-      ) {
-        return apiError(message, ErrorCodes.FORBIDDEN, { status: 403 });
-      }
-      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
-
-    const task = await prisma.workOrderTasks.findFirst({
-      where: { id: taskId, tenantId, workOrderId },
-      select: { title: true },
+    await service.updateTaskStatus({
+      workOrderId: params.id,
+      taskId: body.taskId,
+      isCompleted: Boolean(body.isCompleted),
+      tenantId: authResult.tenantId as string,
+      actor: {
+        id: authResult.id as string,
+        name: (authResult.name as string) || "Unknown",
+        role: authResult.role as string | undefined,
+        siteId: authResult.siteId as string | undefined,
+        tenantId: authResult.tenantId as string,
+        isSuperAdmin: Boolean(authResult.isSuperAdmin),
+      },
     });
-
-    if (!task) {
-      return apiError(
-        "Task tidak ditemukan pada work order ini",
-        ErrorCodes.NOT_FOUND,
-        { status: 404 },
-      );
-    }
-
-    await repository.updateTask(taskId, {
-      status: isCompleted ? "COMPLETED" : "PENDING",
-      completedById: isCompleted ? userId : undefined,
-    });
-
-    const updatedWO = await repository.findById(workOrderId);
-
-    if (updatedWO) {
-      socketEmitter.updateWorkOrder(updatedWO);
-
-      await notifyAdminsAboutMobileAction({
-        workOrderId,
-        workOrderNumber: updatedWO.workOrderNumber,
-        title: updatedWO.title,
-        actionType: "NOTE",
-        actionMessage: isCompleted
-          ? `Menyelesaikan task: ${task.title || "Unknown"}`
-          : `Membatalkan task: ${task.title || "Unknown"}`,
-        triggeredByUserId: userId,
-        triggeredByName: userName,
-        ...(updatedWO.departmentId && { departmentId: updatedWO.departmentId }),
-        ...(updatedWO.siteId && { siteId: updatedWO.siteId }),
-      }).catch((err) => console.error("[TaskNotify] Error:", err));
-    }
 
     return NextResponse.json({
       success: true,
@@ -113,6 +49,35 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Task Update Error:", error);
+
+    if (error instanceof Error && error.message === "TASK_NOT_FOUND") {
+      return apiError(
+        "Task tidak ditemukan pada work order ini",
+        ErrorCodes.NOT_FOUND,
+        { status: 404 },
+      );
+    }
+
+    if (error instanceof Error && error.message === "WORK_ORDER_NOT_FOUND") {
+      return apiError("Work Order tidak ditemukan", ErrorCodes.NOT_FOUND, {
+        status: 404,
+      });
+    }
+
+    if (
+      error instanceof Error &&
+      (error.message.includes("Akses ditolak") ||
+        error.message.includes("tidak memiliki akses"))
+    ) {
+      return apiError(error.message, ErrorCodes.FORBIDDEN, { status: 403 });
+    }
+
+    if (error instanceof Error) {
+      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

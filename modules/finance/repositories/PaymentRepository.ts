@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { prismaBilling, prismaBillingAuth } from "@/lib/prisma-billing";
+import { prisma, prismaBilling, prismaBillingAuth } from "@/modules/database";
 import {
   GatewayPaymentStatus,
   PaymentMethod,
@@ -234,6 +234,84 @@ export class PaymentRepository implements IPaymentRepository {
     where: Prisma.PaymentWhereInput,
   ): Promise<Payment | null> {
     return prismaBillingAuth.payment.findFirst({ where });
+  }
+
+  /** Memperbarui pembayaran berdasarkan id. */
+  async updatePaymentById(paymentId: string, data: Prisma.PaymentUpdateInput) {
+    return prismaBilling.payment.update({ where: { id: paymentId }, data });
+  }
+
+  /** Mengambil daftar payout investor dengan pagination. */
+  async findManyInvestorPayouts(options: {
+    investorId: string;
+    skip: number;
+    take: number;
+  }) {
+    return prisma.investorPayout.findMany({
+      where: { investorId: options.investorId },
+      orderBy: { date: "desc" },
+      skip: options.skip,
+      take: options.take,
+    });
+  }
+
+  /** Menghitung total payout investor. */
+  async countInvestorPayouts(investorId: string) {
+    return prisma.investorPayout.count({ where: { investorId } });
+  }
+
+  /** Mengambil investor sederhana berdasarkan id. */
+  async findInvestorById(investorId: string) {
+    return prisma.investor.findUnique({ where: { id: investorId } });
+  }
+
+  /** Membuat payout investor baru. */
+  async createInvestorPayout(data: {
+    investorId: string;
+    amount: bigint;
+    date: Date;
+    bankName?: string;
+    accountNumber?: string;
+    accountName?: string;
+    reference?: string;
+    notes?: string;
+    status: string;
+  }) {
+    return prisma.investorPayout.create({
+      data: {
+        investorId: data.investorId,
+        amount: data.amount,
+        date: data.date,
+        bankName: data.bankName,
+        accountNumber: data.accountNumber,
+        accountName: data.accountName,
+        reference: data.reference,
+        notes: data.notes,
+        status: data.status as never,
+      },
+    });
+  }
+
+  /** Mengambil detail investor lengkap untuk admin route. */
+  async findInvestorDetail(investorId: string) {
+    return prisma.investor.findUnique({
+      where: { id: investorId },
+      include: {
+        rabProjects: {
+          include: {
+            rabProject: {
+              include: {
+                site: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        payouts: {
+          orderBy: { date: "desc" },
+          take: 5,
+        },
+      },
+    });
   }
 }
 

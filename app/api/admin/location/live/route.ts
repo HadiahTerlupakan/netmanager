@@ -1,53 +1,38 @@
-import { isSuperAdmin } from '@/lib/auth'
-import { LocationTrackingService } from '@/modules/attendance'
-import { hasPermission } from '@/lib/rbac'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
-import { prisma } from '@/modules/database'
+import { hasPermission } from "@/lib/rbac";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  AdminLocationRouteError,
+  AdminLocationRouteService,
+  LOCATION_LIVE_FORBIDDEN_MESSAGE,
+} from "@/modules/attendance";
+
+const adminLocationRouteService = new AdminLocationRouteService();
 
 /**
  * GET /api/admin/location/live
  * Mengambil lokasi live semua karyawan yang sedang checked-in
  */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('live_tracking:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat live tracking')
-    }
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  if (!(await hasPermission("live_tracking:read"))) {
+    return ApiErrors.forbidden(LOCATION_LIVE_FORBIDDEN_MESSAGE);
+  }
 
-    const user = ctx.session!.user;
-    const isSuper = isSuperAdmin(user);
+  try {
+    const result = await adminLocationRouteService.getLiveLocations(
+      { user: ctx.session!.user },
+      ctx.permissions || [],
+    );
 
-    // Fetch user details for restrictions
-    const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { id: true, siteId: true, departmentId: true }
-    });
+    return apiSuccess(result);
+  } catch (error) {
+    return handleLocationRouteError(error);
+  }
+});
 
-    if (!dbUser) return ApiErrors.unauthorized();
+function handleLocationRouteError(error: unknown) {
+  if (error instanceof AdminLocationRouteError && error.status === 401) {
+    return ApiErrors.unauthorized();
+  }
 
-    // Prepare RBAC filters
-    let siteId: string | undefined;
-    let departmentId: string | undefined;
-    const permissions = ctx.permissions || [];
-
-    if (!isSuper) {
-        if (permissions.includes('live_tracking:site_only') && dbUser.siteId) {
-            siteId = dbUser.siteId;
-        }
-        if (permissions.includes('live_tracking:department_only') && dbUser.departmentId) {
-            departmentId = dbUser.departmentId;
-        }
-    }
-
-    const locationService = new LocationTrackingService()
-    const liveLocations = await locationService.getLiveLocations({
-        ...(siteId ? { siteId } : {}),
-        ...(departmentId ? { departmentId } : {})
-    })
-
-    // console.log('[API /api/admin/location/live] isSuper:', isSuper, 'filters:', { siteId, departmentId }, 'count:', liveLocations.length)
-
-    return apiSuccess({
-        locations: liveLocations,
-        tenantId: user.tenantId
-    })
-})
+  throw error;
+}

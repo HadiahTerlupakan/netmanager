@@ -1,82 +1,228 @@
-import { Prisma as PrismaBilling } from '@prisma/client-billing';
+import type {
+  CouponDetailDTO,
+  CouponListItemDTO,
+  CreateCouponInput,
+} from "../dto/CouponDTO";
+import type {
+  ICouponRepository,
+  VerifyCouponResult,
+} from "../domain/ports/ICouponRepository";
+import type { CouponEntity } from "../domain/entities/CouponEntity";
+import { CouponMapper } from "../mappers/CouponMapper";
 
-import type { ICouponRepository, CreateCouponInput, VerifyCouponResult } from '../repositories/ICouponRepository'
-import { CouponRepository } from '../repositories/CouponRepository'
+const EMPTY_DISCOUNT = 0;
+const EMPTY_FINAL_AMOUNT = 0;
+const INVALID_COUPON_CODE_MESSAGE = "Coupon code already exists";
+const COUPON_NOT_FOUND_MESSAGE = "Coupon not found";
+const USED_COUPON_DELETE_MESSAGE = "Cannot delete coupon that has been used";
+const REQUIRED_CODE_MESSAGE = "Kode diperlukan";
+const MISSING_COUPON_MESSAGE = "Kupon tidak ditemukan";
+const INACTIVE_COUPON_MESSAGE = "Kupon tidak aktif";
+const INVALID_DATE_RANGE_MESSAGE = "Kupon kadaluarsa atau belum berlaku";
+const EXHAUSTED_QUOTA_MESSAGE = "Kuota kupon habis";
+const FIXED_DISCOUNT_TYPE = "FIXED";
 
+/**
+ * Service for coupon business operations.
+ */
 export class CouponService {
-    private repo: ICouponRepository
+  private readonly repository: ICouponRepository;
 
-    constructor(repo?: ICouponRepository) {
-        this.repo = repo || new CouponRepository()
+  constructor(repository: ICouponRepository) {
+    this.repository = repository;
+  }
+
+  /**
+   * Get all coupons as DTO list.
+   */
+  async getAllCoupons(): Promise<{
+    items: CouponListItemDTO[];
+    total: number;
+  }> {
+    const result = await this.repository.findAll();
+    return { items: CouponMapper.toDTOList(result.items), total: result.total };
+  }
+
+  /**
+   * Create a new coupon.
+   */
+  async createCoupon(data: CreateCouponInput): Promise<CouponListItemDTO> {
+    await this.ensureCouponCodeIsUnique(data.code);
+    const coupon = await this.repository.create(data);
+    return CouponMapper.toDTO(coupon);
+  }
+
+  /**
+   * Verify coupon against transaction amount.
+   */
+  async verifyCoupon(
+    code: string,
+    amount: number,
+    _pelangganId?: string,
+  ): Promise<VerifyCouponResult> {
+    if (!code) {
+      return this.createInvalidResult(REQUIRED_CODE_MESSAGE, amount);
     }
 
-    async getAllCoupons() {
-        return this.repo.findAll()
+    const coupon = await this.repository.findByCode(code.toUpperCase());
+    if (!coupon) {
+      return this.createInvalidResult(MISSING_COUPON_MESSAGE, amount);
     }
 
-    async createCoupon(data: CreateCouponInput) {
-        const existing = await this.repo.findByCode(data.code)
-        if (existing) throw new Error('Coupon code already exists')
-        return this.repo.create(data)
+    return this.buildVerificationResult(coupon, amount);
+  }
+
+  /**
+   * Record coupon usage history.
+   */
+  async recordUsage(couponId: string, pelangganId: string, tx?: unknown) {
+    return this.repository.recordUsage(couponId, pelangganId, tx);
+  }
+
+  /**
+   * Increment coupon usage count.
+   */
+  async incrementUsage(couponId: string, tx?: unknown) {
+    return this.repository.incrementUsage(couponId, tx);
+  }
+
+  /**
+   * Delete coupon when safe.
+   */
+  async deleteCoupon(id: string): Promise<void> {
+    const coupon = await this.repository.findById(id);
+    if (!coupon) {
+      throw new Error(COUPON_NOT_FOUND_MESSAGE);
+    }
+    if (coupon.usedCount > 0) {
+      throw new Error(USED_COUPON_DELETE_MESSAGE);
+    }
+    await this.repository.delete(id);
+  }
+
+  /**
+   * Get coupon detail by id.
+   */
+  async getCouponById(id: string): Promise<CouponDetailDTO | null> {
+    const coupon = await this.repository.findById(id);
+    return coupon ? CouponMapper.toDetailDTO(coupon) : null;
+  }
+
+  /**
+   * Ensure coupon code does not already exist.
+   */
+  private async ensureCouponCodeIsUnique(code: string): Promise<void> {
+    const existingCoupon = await this.repository.findByCode(code);
+    if (existingCoupon) {
+      throw new Error(INVALID_COUPON_CODE_MESSAGE);
+    }
+  }
+
+  /**
+   * Build coupon verification result.
+   */
+  private buildVerificationResult(
+    coupon: CouponEntity,
+    amount: number,
+  ): VerifyCouponResult {
+    const error = this.getCouponValidationError(coupon, amount);
+    if (error) {
+      return this.createInvalidResult(error, amount);
     }
 
-    async verifyCoupon(code: string, amount: number, _pelangganId?: string): Promise<VerifyCouponResult> {
-        if (!code) return { valid: false, error: 'Kode diperlukan', discountAmount: 0, finalAmount: amount }
+    const discountAmount = this.calculateRoundedDiscount(coupon, amount);
+    return {
+      valid: true,
+      discountAmount,
+      finalAmount: Math.floor(amount - discountAmount),
+      couponId: coupon.id,
+    };
+  }
 
-        const coupon = await this.repo.findByCode(code.toUpperCase())
-        if (!coupon) return { valid: false, error: 'Kupon tidak ditemukan', discountAmount: 0, finalAmount: amount }
+  /**
+   * Get validation error for coupon applicability.
+   */
+  private getCouponValidationError(
+    coupon: CouponEntity,
+    amount: number,
+  ): string | null {
+    if (!coupon.isActive) {
+      return INACTIVE_COUPON_MESSAGE;
+    }
+    if (this.isCouponOutsideActivePeriod(coupon)) {
+      return INVALID_DATE_RANGE_MESSAGE;
+    }
+    if (this.isQuotaExhausted(coupon)) {
+      return EXHAUSTED_QUOTA_MESSAGE;
+    }
+    if (amount < coupon.minTransaction) {
+      return this.createMinTransactionMessage(coupon.minTransaction);
+    }
+    return null;
+  }
 
-        const now = new Date()
-        if (!coupon.isActive) return { valid: false, error: 'Kupon tidak aktif', discountAmount: 0, finalAmount: amount }
-        if (now < coupon.startDate || now > coupon.endDate) {
-            return { valid: false, error: 'Kupon kadaluarsa atau belum berlaku', discountAmount: 0, finalAmount: amount }
-        }
-        if (coupon.quota > 0 && coupon.usedCount >= coupon.quota) {
-            return { valid: false, error: 'Kuota kupon habis', discountAmount: 0, finalAmount: amount }
-        }
-        if (amount < coupon.minTransaction) {
-            return { valid: false, error: `Minimal transaksi Rp ${coupon.minTransaction.toLocaleString('id-ID')}`, discountAmount: 0, finalAmount: amount }
-        }
+  /**
+   * Check whether coupon is outside active period.
+   */
+  private isCouponOutsideActivePeriod(coupon: CouponEntity): boolean {
+    const now = new Date();
+    return now < coupon.startDate || now > coupon.endDate;
+  }
 
-        // Calculate Discount
-        let discount = 0
-        if (coupon.discountType === 'FIXED') {
-            discount = coupon.discountValue
-        } else {
-            discount = (amount * coupon.discountValue) / 100
-            if (coupon.maxDiscount && discount > coupon.maxDiscount) {
-                discount = coupon.maxDiscount
-            }
-        }
+  /**
+   * Check whether coupon quota is exhausted.
+   */
+  private isQuotaExhausted(coupon: CouponEntity): boolean {
+    return coupon.quota > 0 && coupon.usedCount >= coupon.quota;
+  }
 
-        if (discount > amount) discount = amount
+  /**
+   * Create minimum transaction validation message.
+   */
+  private createMinTransactionMessage(minTransaction: number): string {
+    return `Minimal transaksi Rp ${minTransaction.toLocaleString("id-ID")}`;
+  }
 
-        return {
-            valid: true,
-            discountAmount: Math.floor(discount),
-            finalAmount: Math.floor(amount - discount),
-            couponId: coupon.id
-        }
+  /**
+   * Calculate rounded discount amount.
+   */
+  private calculateRoundedDiscount(
+    coupon: CouponEntity,
+    amount: number,
+  ): number {
+    const rawDiscount = this.calculateDiscount(coupon, amount);
+    const limitedDiscount = Math.min(rawDiscount, amount);
+    return Math.floor(limitedDiscount);
+  }
+
+  /**
+   * Calculate raw discount amount.
+   */
+  private calculateDiscount(coupon: CouponEntity, amount: number): number {
+    if (coupon.discountType === FIXED_DISCOUNT_TYPE) {
+      return coupon.discountValue;
     }
 
-    async recordUsage(couponId: string, pelangganId: string, tx?: PrismaBilling.TransactionClient) {
-        return this.repo.recordUsage(couponId, pelangganId, tx)
+    const percentageDiscount = (amount * coupon.discountValue) / 100;
+    if (!coupon.maxDiscount) {
+      return percentageDiscount;
     }
 
-    async incrementUsage(couponId: string, tx?: PrismaBilling.TransactionClient) {
-        return this.repo.incrementUsage(couponId, tx)
-    }
+    return Math.min(percentageDiscount, coupon.maxDiscount);
+  }
 
-    async deleteCoupon(id: string) {
-        // Check if coupon exists
-        const coupon = await this.repo.findById(id)
-        if (!coupon) throw new Error('Coupon not found')
-
-        // Check if coupon has been used
-        if (coupon.usedCount > 0) {
-            throw new Error('Cannot delete coupon that has been used')
-        }
-
-        return this.repo.delete(id)
-    }
+  /**
+   * Create invalid coupon verification result.
+   */
+  private createInvalidResult(
+    error: string,
+    amount: number,
+  ): VerifyCouponResult {
+    return {
+      valid: false,
+      error,
+      discountAmount: EMPTY_DISCOUNT,
+      finalAmount: Math.max(EMPTY_FINAL_AMOUNT, Math.floor(amount)),
+    };
+  }
 }

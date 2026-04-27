@@ -1,11 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/modules/database'
-import { RadiusSyncService } from '@/modules/network'
-import { requireAuth } from '@/lib/auth-helpers'
-import * as z from 'zod'
-import { Prisma } from '@prisma/client'
-import { logActivitySafe } from '@/lib/logger'
-import { CustomerEventDispatcher } from '@/modules/events'
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth-helpers";
+import {
+  PelangganPppRouteService,
+  RouteServiceError,
+} from "@/modules/pelanggan";
 
 interface ExtendedUser {
   id: string;
@@ -119,231 +117,43 @@ interface ExtendedUser {
  *       500:
  *         $ref: '#/components/responses/Error'
  */
-const activateRequestSchema = z.object({
-  notes: z.string().max(1000, 'Notes too long').optional(),
-  activationMethod: z.enum(['MANUAL', 'AUTOMATIC', 'PAYMENT_CONFIRMED']).optional(),
-  syncToRadius: z.boolean().default(true),
-})
+const pelangganPppRouteService = new PelangganPppRouteService();
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Check authentication using centralized auth helper
-    const auth = await requireAuth(req)
+    const auth = await requireAuth(req);
     if (auth instanceof NextResponse) {
-      return auth
+      return auth;
     }
+
     const sessionUser = auth.user as ExtendedUser;
-
-    const { id } = await params
-    // Get customer information
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-      include: {
-        hargaPaket: {
-          include: {
-            bandwidth: true,
-          },
-        },
-      },
-    })
-
-    if (!pelanggan) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      )
-    }
-
-    // Check if customer is currently suspended
-    if (pelanggan.status !== 'NONAKTIF') {
-      return NextResponse.json(
-        { error: 'Customer is not currently suspended' },
-        { status: 400 }
-      )
-    }
-
-    // Parse and validate request body
-    const body = await req.json().catch(() => ({}))
-    const validationResult = activateRequestSchema.safeParse(body)
-
-    if (!validationResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: validationResult.error.issues,
-        },
-        { status: 400 }
-      )
-    }
-
-    const {
-      notes,
-      activationMethod = 'MANUAL',
-      syncToRadius,
-    } = validationResult.data
-
-    // Use transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
-      const txExtended = tx as unknown as {
-        serviceSuspension: {
-          findFirst: (args: unknown) => Promise<{
-            id: string;
-            notes: string | null;
-            suspensionType: string;
-            reason: string;
-            suspendedAt: Date;
-            actualResumeAt: Date | null;
-            resumedBy: string | null;
-            isActive: boolean;
-          } | null>;
-          update: (args: unknown) => Promise<{
-            id: string;
-            notes: string | null;
-            suspensionType: string;
-            reason: string;
-            suspendedAt: Date;
-            actualResumeAt: Date;
-            resumedBy: string;
-            isActive: boolean;
-          }>;
-        }
-      };
-
-      // 1. Find and update active suspension record
-      const activeSuspension = await txExtended.serviceSuspension.findFirst({
-        where: {
-          pelangganId: id,
-          isActive: true,
-        },
-        orderBy: {
-          suspendedAt: 'desc',
-        },
-      })
-
-      if (!activeSuspension) {
-        throw new Error('No active suspension found for this customer')
-      }
-
-      // 2. Update suspension record
-      const updatedSuspension = await txExtended.serviceSuspension.update({
-        where: { id: activeSuspension.id },
-        data: {
-          actualResumeAt: new Date(),
-          resumedBy: sessionUser.id,
-          isActive: false,
-          notes: notes ? `${activeSuspension.notes || ''}\n\nActivation: ${notes}` : activeSuspension.notes,
-        },
-      })
-
-      // 3. Update customer status
-      await tx.pelanggan.update({
-        where: { id },
-        data: {
-          status: 'AKTIF',
-          updatedAt: new Date(),
-        },
-      })
-
-      // 4. Add activation note to customer record
-      const activationNote = `Service reactivated: ${activationMethod}${notes ? ` - ${notes}` : ''}`
-      await tx.pelanggan.update({
-        where: { id },
-        data: {
-          catatan: pelanggan.catatan
-            ? `${pelanggan.catatan}\n\n${activationNote}`
-            : activationNote,
-        },
-      })
-
-      return updatedSuspension
-    })
-
-    // 5. Handle RADIUS operations outside transaction
-    const radiusService = new RadiusSyncService()
-
-    if (syncToRadius) {
-      try {
-        // Restore user in RADIUS to enable authentication
-        await radiusService.handleStatusChange(id, 'AKTIF')
-
-        // console.log(`[ACTIVATE] Restored RADIUS access for user ${pelanggan.username}`)
-      } catch (radiusError: unknown) {
-        console.error('Error handling RADIUS operations during activation:', radiusError)
-        // Don't fail the request, but log the error
-      }
-    }
-
-    // 6. Get updated customer data for response
-    const updatedPelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        idPelanggan: true,
-        nama: true,
-        username: true,
-        status: true,
-      },
-    })
-
-    // System Log
-    logActivitySafe({
-      action: 'ACTIVATE',
-      subject: 'Pelanggan',
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const result = await pelangganPppRouteService.activateCustomer({
+      id,
       userId: sessionUser.id,
-      details: {
-          id: id,
-          method: activationMethod,
-          suspensionId: result.id
-      }
-    })
+      body,
+    });
 
-    // Publish domain event
-    CustomerEventDispatcher.onActivated({
-      customerId: id,
-      customerName: updatedPelanggan?.nama || '',
-      oldStatus: 'NONAKTIF',
-      newStatus: 'AKTIF',
-    }).catch(err => console.error('Failed to publish CUSTOMER_ACTIVATED event:', err))
-
-    return NextResponse.json({
-      success: true,
-      message: 'Customer service activated successfully',
-      suspension: {
-        id: result.id,
-        suspensionType: result.suspensionType,
-        reason: result.reason,
-        suspendedAt: result.suspendedAt.toISOString(),
-        actualResumeAt: result.actualResumeAt.toISOString(),
-        resumedBy: result.resumedBy,
-        isActive: result.isActive,
-        notes: result.notes,
-      },
-      customer: updatedPelanggan,
-    })
+    return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error('Error activating customer service:', error)
-
-    // Handle specific errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    console.error("Error activating customer service:", error);
+    if (error instanceof RouteServiceError) {
       return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      )
-    }
-
-    if (error instanceof Error && error.message === 'No active suspension found for this customer') {
-      return NextResponse.json(
-        { error: 'No active suspension found for this customer' },
-        { status: 400 }
-      )
+        { error: error.message, details: error.details },
+        { status: error.status },
+      );
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      {
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+      },
+      { status: 500 },
+    );
   }
 }

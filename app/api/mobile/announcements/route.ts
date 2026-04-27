@@ -1,49 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma, TargetAudience } from "@prisma/client";
-import { prisma } from "@/modules/database";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { announcementService } from "@/modules/notification";
 
-type MobileAnnouncementPortal = "customer" | "employee" | "admin";
-
-const PORTAL_TARGETS: Record<MobileAnnouncementPortal, TargetAudience[]> = {
-  customer: ["ALL", "CUSTOMER"],
-  employee: ["ALL", "EMPLOYEE"],
-  admin: ["ALL", "ADMIN"],
-};
-
-function resolvePortal(
-  role?: string | null,
-  isSuperAdmin?: boolean,
-): MobileAnnouncementPortal {
-  const normalizedRole = role?.toUpperCase() ?? "";
-  if (normalizedRole.includes("CUSTOMER")) {
-    return "customer";
-  }
-
-  if (isSuperAdmin || normalizedRole.includes("ADMIN")) {
-    return "admin";
-  }
-
-  return "employee";
-}
-
-function buildAnnouncementWhere(
-  tenantId: string | null | undefined,
-  portal: MobileAnnouncementPortal,
-  now: Date,
-): Prisma.AnnouncementWhereInput {
-  const targets = PORTAL_TARGETS[portal].slice();
-
-  return {
-    target: { in: targets },
-    isActive: true,
-    startDate: { lte: now },
-    OR: [{ endDate: null }, { endDate: { gte: now } }],
-    ...(tenantId ? { tenantId } : {}),
-  };
-}
-
+/** Mengambil daftar announcement mobile sesuai portal user. */
 export async function GET(request: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(request);
@@ -63,26 +23,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const portal = resolvePortal(authResult.role, authResult.isSuperAdmin);
-    const now = new Date();
-    const announcements = await prisma.announcement.findMany({
-      where: buildAnnouncementWhere(tenantId, portal, now),
-      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        isPinned: true,
-        createdAt: true,
-      },
+    const announcements = await announcementService.getMobileAnnouncements({
+      userId,
+      tenantId,
+      role: authResult.role,
+      isSuperAdmin: authResult.isSuperAdmin,
     });
 
-    return NextResponse.json(
-      announcements.map((announcement) => ({
-        ...announcement,
-        createdAt: announcement.createdAt.toISOString(),
-      })),
-    );
+    return NextResponse.json(announcements);
   } catch (error) {
     console.error("Mobile announcement listing error:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {

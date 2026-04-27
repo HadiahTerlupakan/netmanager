@@ -525,7 +525,8 @@ async function processAttendanceAutoCheckoutJob(
 }
 
 export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
-  const { OvertimeRepository } = await import("@/modules/overtime");
+  const { OvertimeRepository } =
+    await import("@/modules/overtime/repositories/OvertimeRepository");
   const { addOvertimeAutoCheckoutJob, getOvertimeAutoCheckoutJob } =
     await import("./queues");
 

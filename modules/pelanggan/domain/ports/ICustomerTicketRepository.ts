@@ -2,7 +2,12 @@
  * Abstraction for customer ticket repository operations.
  */
 
-import type { Prisma, TicketCategory, TicketPriority } from "@prisma/client";
+import type {
+  Prisma,
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+} from "@prisma/client";
 import type {
   SupportTicketEntity,
   SupportTicketListResultEntity,
@@ -82,7 +87,26 @@ export interface ICustomerTicketRepository {
     message: string;
     isFromAdmin: boolean;
     senderId?: string;
+    pelangganId?: string;
+    attachments?: string[];
   }): Promise<unknown>;
+
+  /** Count active tickets whose latest reply is from customer. */
+  countNeedsReplyAdmin(status: TicketStatus, siteId?: string): Promise<number>;
+
+  /** Get customer-owned ticket detail by id. */
+  findByIdForCustomer(
+    id: string,
+    pelangganId: string,
+  ): Promise<SupportTicketEntity | null>;
+
+  /** Update ticket status for customer-owned ticket. */
+  updateCustomerStatus(
+    id: string,
+    pelangganId: string,
+    status: string,
+    closedAt?: Date,
+  ): Promise<SupportTicketEntity | null>;
 
   /** Delete ticket by id. */
   delete(id: string): Promise<SupportTicketEntity>;

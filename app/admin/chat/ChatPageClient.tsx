@@ -18,7 +18,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { shouldNotifyForChatMessage } from "@/modules/chat/utils/shouldNotifyForChatMessage";
+import { shouldNotifyForChatMessage } from "@/modules/chat";
 
 interface ChatUser {
   id: string;

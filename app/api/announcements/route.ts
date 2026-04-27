@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
-import type { TargetAudience } from "@prisma/client";
 import { announcementService } from "@/modules/notification";
 
 export async function GET(request: NextRequest) {
@@ -12,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const announcements = await announcementService.getAnnouncements({
-      target: searchParams.get("target") as TargetAudience | undefined,
+      target: searchParams.get("target") ?? undefined,
       activeOnly: searchParams.get("active") === "true",
       portal: searchParams.get("portal"),
     });

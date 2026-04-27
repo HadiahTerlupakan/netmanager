@@ -1,5 +1,6 @@
-import { prismaMitra } from "@/modules/database";
 import { logger } from "@/lib/logger";
+import type { IMitraWalletRepository } from "../domain/ports/IMitraWalletRepository";
+import { getMitraWalletRepository } from "../repositories/MitraWalletRepository";
 
 interface SyncCommissionInput {
   mitraId: string;
@@ -15,68 +16,58 @@ interface ServiceResult {
 }
 
 export class MitraCommissionSyncService {
+  constructor(
+    private readonly walletRepository: IMitraWalletRepository = getMitraWalletRepository(),
+  ) {}
+
+  /** Menyinkronkan komisi ke wallet mitra secara idempoten. */
   async syncCommission(input: SyncCommissionInput): Promise<ServiceResult> {
     try {
-      if (!input.mitraId || !input.amount || !input.referenceId) {
-        return {
-          success: false,
-          error: "Data tidak lengkap",
-          code: "VALIDATION_ERROR",
-        };
-      }
-
-      const existingTx = await prismaMitra.mitraTransaction.findFirst({
-        where: { referenceId: input.referenceId },
+      const validationError = this.validateInput(input);
+      if (validationError) return validationError;
+      const existingTx =
+        await this.walletRepository.findTransactionByReferenceId(
+          input.referenceId,
+        );
+      if (existingTx) return this.buildDuplicateResult();
+      await this.walletRepository.addEarning({
+        userId: input.mitraId,
+        amount: Number(input.amount),
+        description: input.description || "",
+        referenceId: input.referenceId,
       });
-
-      if (existingTx) {
-        return {
-          success: false,
-          error:
-            "Komisi untuk invoice ini sudah pernah disinkronisasi sebelumnya.",
-          code: "DUPLICATE",
-        };
-      }
-
-      await prismaMitra.$transaction(async (tx) => {
-        const wallet = await tx.mitraWallet.findFirst({
-          where: { mitraId: input.mitraId },
-        });
-
-        if (!wallet) {
-          throw new Error("Wallet mitra tidak ditemukan");
-        }
-
-        await tx.mitraTransaction.create({
-          data: {
-            walletId: wallet.id,
-            type: "EARNING",
-            amount: Number(input.amount),
-            description: input.description,
-            referenceId: input.referenceId,
-          },
-        });
-
-        await tx.mitraWallet.update({
-          where: { id: wallet.id },
-          data: {
-            balance: { increment: Number(input.amount) },
-            totalEarnings: { increment: Number(input.amount) },
-          },
-        });
-      });
-
       return { success: true };
     } catch (error: unknown) {
-      logger.error("Sync Commission error:", error as Error);
-      const message =
-        error instanceof Error ? error.message : "Internal server error";
-      const code =
-        message === "Wallet mitra tidak ditemukan"
-          ? "NOT_FOUND"
-          : "INTERNAL_ERROR";
-      return { success: false, error: message, code };
+      return this.handleSyncError(error);
     }
+  }
+
+  private validateInput(input: SyncCommissionInput): ServiceResult | null {
+    if (input.mitraId && input.amount && input.referenceId) return null;
+    return {
+      success: false,
+      error: "Data tidak lengkap",
+      code: "VALIDATION_ERROR",
+    };
+  }
+
+  private buildDuplicateResult(): ServiceResult {
+    return {
+      success: false,
+      error: "Komisi untuk invoice ini sudah pernah disinkronisasi sebelumnya.",
+      code: "DUPLICATE",
+    };
+  }
+
+  private handleSyncError(error: unknown): ServiceResult {
+    logger.error("Sync Commission error:", error as Error);
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    const code =
+      message === "Wallet mitra tidak ditemukan"
+        ? "NOT_FOUND"
+        : "INTERNAL_ERROR";
+    return { success: false, error: message, code };
   }
 }
 

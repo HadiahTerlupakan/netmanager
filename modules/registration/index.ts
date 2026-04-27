@@ -1,3 +1,7 @@
-// Public API for Registration Module
-export * from './repositories'
-export * from './services/RegistrationService'
+export type {
+  CreateRegistrationDTO,
+  RegistrationDetailDTO,
+  RegistrationListItemDTO,
+  UpdateRegistrationStatusDTO,
+} from "./dto/RegistrationDTO";
+export { RegistrationService } from "./services/RegistrationService";

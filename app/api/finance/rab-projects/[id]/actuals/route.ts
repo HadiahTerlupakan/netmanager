@@ -1,29 +1,10 @@
-import { prisma } from "@/modules/database";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import * as z from "zod";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { RabProjectRouteService } from "@/modules/finance";
 
-type ActualAchievementPayload = {
-  actualSubscribers: number;
-  actualRevenue: bigint;
-  actualOpex: bigint;
-  manualRecoveryInstallment: bigint | null;
-  manualInvestorShare: bigint | null;
-  manualCompanyShare: bigint | null;
-  manualInvestorProfitSharePercent: number | null;
-  notes?: string;
-};
-
-type RabActualAchievementUpsertResult = ActualAchievementPayload & {
-  id: string;
-  rabProjectId: string;
-  month: number;
-  year: number;
-  createdAt: Date;
-  updatedAt: Date;
-  tenantId: string | null;
-};
+const rabProjectRouteService = new RabProjectRouteService();
 
 const actualSchema = z.object({
   month: z.number().min(1).max(120),
@@ -73,72 +54,27 @@ export const POST = createHandler(
       return ApiErrors.forbidden("Akses ditolak");
     }
 
-    // Verify RAB exists
-    const project = await prisma.rabProject.findUnique({
-      where: { id: rabProjectId },
-    });
-
-    if (!project) {
-      return ApiErrors.notFound("RAB Project");
-    }
-
-    const {
-      month,
-      year,
-      actualSubscribers,
-      actualRevenue,
-      actualOpex,
-      manualRecoveryInstallment,
-      manualInvestorShare,
-      manualCompanyShare,
-      manualInvestorProfitSharePercent,
-      notes,
-    } = data;
-
-    const achievement: RabActualAchievementUpsertResult =
-      await prisma.rabActualAchievement.upsert({
-        where: {
-          rabProjectId_month_year: {
-            rabProjectId,
-            month,
-            year,
-          },
-        },
-        create: {
-          rabProjectId,
-          month,
-          year,
-          actualSubscribers,
-          actualRevenue,
-          actualOpex,
-          manualRecoveryInstallment,
-          manualInvestorShare,
-          manualCompanyShare,
-          manualInvestorProfitSharePercent,
-          notes,
-        },
-        update: {
-          actualSubscribers,
-          actualRevenue,
-          actualOpex,
-          manualRecoveryInstallment,
-          manualInvestorShare,
-          manualCompanyShare,
-          manualInvestorProfitSharePercent,
-          notes,
-        },
+    try {
+      const achievement = await rabProjectRouteService.upsertActualAchievement({
+        rabProjectId,
+        month: data.month,
+        year: data.year,
+        actualSubscribers: data.actualSubscribers,
+        actualRevenue: data.actualRevenue,
+        actualOpex: data.actualOpex,
+        manualRecoveryInstallment: data.manualRecoveryInstallment,
+        manualInvestorShare: data.manualInvestorShare,
+        manualCompanyShare: data.manualCompanyShare,
+        manualInvestorProfitSharePercent: data.manualInvestorProfitSharePercent,
+        notes: data.notes,
       });
 
-    return apiSuccess({
-      ...achievement,
-      actualRevenue: achievement.actualRevenue.toString(),
-      actualOpex: achievement.actualOpex.toString(),
-      manualRecoveryInstallment:
-        achievement.manualRecoveryInstallment?.toString() || null,
-      manualInvestorShare: achievement.manualInvestorShare?.toString() || null,
-      manualCompanyShare: achievement.manualCompanyShare?.toString() || null,
-      manualInvestorProfitSharePercent:
-        achievement.manualInvestorProfitSharePercent,
-    });
+      return apiSuccess(achievement);
+    } catch (error) {
+      if (error instanceof Error && error.message === "RAB Project") {
+        return ApiErrors.notFound("RAB Project");
+      }
+      throw error;
+    }
   },
 );

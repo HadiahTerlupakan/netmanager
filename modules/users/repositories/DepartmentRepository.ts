@@ -1,74 +1,83 @@
 import { randomUUID } from "crypto";
-
 import { prisma } from "@/lib/prisma";
-
+import type { DepartmentEntity } from "../domain/entities/DepartmentEntity";
 import type {
   DepartmentCreateData,
-  DepartmentPublic,
   DepartmentUpdateData,
-  DepartmentWithUserCount,
   IDepartmentRepository,
-} from "./IDepartmentRepository";
+} from "../domain/ports/IDepartmentRepository";
 
 export class DepartmentRepository implements IDepartmentRepository {
-  /** Ambil seluruh department beserta jumlah user. */
-  async findAll(): Promise<DepartmentWithUserCount[]> {
-    return await prisma.departments.findMany({
-      include: {
-        _count: {
-          select: { user: true },
-        },
-      },
+  /** Get all departments with user counts. */
+  async findAll(): Promise<DepartmentEntity[]> {
+    const departments = await prisma.departments.findMany({
+      include: { _count: { select: { user: true } } },
       orderBy: { name: "asc" },
     });
+    return departments.map((department) => this.toDomain(department));
   }
 
-  /** Ambil department berdasarkan id. */
-  async findById(id: string): Promise<DepartmentPublic | null> {
-    return await prisma.departments.findUnique({
+  /** Get department by ID. */
+  async findById(id: string): Promise<DepartmentEntity | null> {
+    const department = await prisma.departments.findUnique({
       where: { id },
+      include: { _count: { select: { user: true } } },
     });
+    return department ? this.toDomain(department) : null;
   }
 
-  /** Ambil department berdasarkan nama. */
-  async findByName(name: string): Promise<DepartmentPublic | null> {
-    return await prisma.departments.findFirst({
+  /** Get department by name. */
+  async findByName(name: string): Promise<DepartmentEntity | null> {
+    const department = await prisma.departments.findFirst({
       where: { name },
+      include: { _count: { select: { user: true } } },
     });
+    return department ? this.toDomain(department) : null;
   }
 
-  /** Buat department baru. */
+  /** Create a department entity. */
   async create(data: DepartmentCreateData): Promise<{ id: string }> {
-    return await prisma.departments.create({
-      data: {
-        id: randomUUID(),
-        ...data,
-        updatedAt: new Date(),
-      },
+    return prisma.departments.create({
+      data: { id: randomUUID(), ...data, updatedAt: new Date() },
       select: { id: true },
     });
   }
 
-  /** Ubah data department. */
+  /** Update a department entity. */
   async update(id: string, data: DepartmentUpdateData): Promise<void> {
     await prisma.departments.update({
       where: { id },
-      data: {
-        ...data,
-        updatedAt: new Date(),
-      },
+      data: { ...data, updatedAt: new Date() },
     });
   }
 
-  /** Hapus department berdasarkan id. */
+  /** Delete a department entity. */
   async delete(id: string): Promise<void> {
-    await prisma.departments.delete({
-      where: { id },
-    });
+    await prisma.departments.delete({ where: { id } });
   }
 
-  /** Hitung total department. */
+  /** Count total departments. */
   async count(): Promise<number> {
-    return await prisma.departments.count();
+    return prisma.departments.count();
+  }
+
+  private toDomain(department: {
+    id: string;
+    name: string;
+    description: string | null;
+    jobDescription: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    _count?: { user: number };
+  }): DepartmentEntity {
+    return {
+      id: department.id,
+      name: department.name,
+      description: department.description,
+      jobDescription: department.jobDescription,
+      createdAt: department.createdAt,
+      updatedAt: department.updatedAt,
+      counts: { users: department._count?.user ?? 0 },
+    };
   }
 }

@@ -1,100 +1,180 @@
-import type { Shift } from '@prisma/client'
-import { isPrismaRecordNotFoundError } from '@/lib/prisma-errors'
-import { ShiftRepository, type CreateShiftInput, type UpdateShiftInput } from '../repositories/ShiftRepository'
+import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+import type {
+  CreateShiftDTO,
+  ShiftDetailDTO,
+  ShiftListItemDTO,
+  UpdateShiftDTO,
+} from "../dto/ShiftDTO";
+import type { IShiftRepository } from "../domain/ports/IShiftRepository";
+import { ShiftMapper } from "../mappers/ShiftMapper";
+import { ShiftRepository } from "../repositories/ShiftRepository";
+
+const TIME_FORMAT_REGEX = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
 
 export class ShiftService {
-  private repository: ShiftRepository
+  private readonly repository: IShiftRepository;
 
-  constructor() {
-    this.repository = new ShiftRepository()
+  constructor(repository: IShiftRepository = new ShiftRepository()) {
+    this.repository = repository;
   }
 
-  async getAllShifts(tenantId: string, includeInactive = false): Promise<Shift[]> {
-    return this.repository.findAll(tenantId, includeInactive)
+  /** Mengambil semua shift dalam bentuk DTO list. */
+  async getAllShifts(
+    tenantId: string,
+    includeInactive = false,
+  ): Promise<ShiftListItemDTO[]> {
+    const shifts = await this.repository.findAll(tenantId, includeInactive);
+    return ShiftMapper.toListDTOs(shifts);
   }
 
-  async getShiftById(tenantId: string, id: string): Promise<Shift | null> {
-    return this.repository.findById(tenantId, id)
+  /** Mengambil detail shift berdasarkan id. */
+  async getShiftById(
+    tenantId: string,
+    id: string,
+  ): Promise<ShiftDetailDTO | null> {
+    const shift = await this.repository.findById(tenantId, id);
+    return shift ? ShiftMapper.toDetailDTO(shift) : null;
   }
 
-  async createShift(tenantId: string, input: CreateShiftInput): Promise<Shift> {
-    // Validate time format
-    if (!this.isValidTimeFormat(input.startTime)) {
-      throw new Error('Invalid start time format. Use HH:mm')
-    }
-    if (!this.isValidTimeFormat(input.endTime)) {
-      throw new Error('Invalid end time format. Use HH:mm')
-    }
+  /** Membuat shift baru setelah validasi. */
+  async createShift(
+    tenantId: string,
+    input: CreateShiftDTO,
+  ): Promise<ShiftDetailDTO> {
+    this.validateShiftTimes(input.startTime, input.endTime);
+    await this.ensureCodeAvailable(tenantId, input.code);
 
-    // Check code uniqueness if provided
-    if (input.code) {
-      const existing = await this.repository.findByCode(tenantId, input.code)
-      if (existing) {
-        throw new Error('Shift code already exists')
-      }
-    }
-
-    return this.repository.create(tenantId, input)
+    const shift = await this.repository.create(tenantId, input);
+    return ShiftMapper.toDetailDTO(shift);
   }
 
-  async updateShift(tenantId: string, id: string, input: UpdateShiftInput): Promise<Shift> {
-    const existing = await this.repository.findById(tenantId, id)
-    if (!existing) {
-      throw new Error('Shift not found')
-    }
+  /** Memperbarui shift setelah validasi. */
+  async updateShift(
+    tenantId: string,
+    id: string,
+    input: UpdateShiftDTO,
+  ): Promise<ShiftDetailDTO> {
+    const existingShift = await this.getExistingShift(tenantId, id);
+    this.validateOptionalShiftTimes(input);
+    await this.ensureUpdatedCodeAvailable(
+      tenantId,
+      input.code,
+      existingShift.code,
+    );
 
-    // Validate time format if provided
-    if (input.startTime && !this.isValidTimeFormat(input.startTime)) {
-      throw new Error('Invalid start time format. Use HH:mm')
-    }
-    if (input.endTime && !this.isValidTimeFormat(input.endTime)) {
-      throw new Error('Invalid end time format. Use HH:mm')
-    }
-
-    // Check code uniqueness if changed
-    if (input.code && input.code !== existing.code) {
-      const existingCode = await this.repository.findByCode(tenantId, input.code)
-      if (existingCode) {
-        throw new Error('Shift code already exists')
-      }
-    }
-
-    return this.repository.update(tenantId, id, input)
+    const shift = await this.repository.update(tenantId, id, input);
+    return ShiftMapper.toDetailDTO(shift);
   }
 
-  async deleteShift(tenantId: string, id: string, force = false): Promise<void> {
-    const existing = await this.repository.findById(tenantId, id)
-    if (!existing) {
-      throw new Error('Shift not found')
-    }
-
-    // Check if shift is assigned to users
-    const userCount = await this.repository.getUserCount(tenantId, id)
-    if (userCount > 0 && !force) {
-      throw new Error(`Cannot delete shift. It is assigned to ${userCount} user(s). Use force=true to soft delete.`)
-    }
+  /** Menghapus shift secara soft atau hard delete. */
+  async deleteShift(
+    tenantId: string,
+    id: string,
+    force = false,
+  ): Promise<void> {
+    await this.getExistingShift(tenantId, id);
+    await this.ensureShiftCanBeDeleted(tenantId, id, force);
 
     try {
-      if (force) {
-        // Soft delete
-        await this.repository.delete(tenantId, id)
-      } else {
-        // Hard delete (only if no users)
-        await this.repository.hardDelete(tenantId, id)
-      }
+      await this.executeDelete(tenantId, id, force);
     } catch (error) {
-      if (isPrismaRecordNotFoundError(error)) {
-        throw new Error('Shift not found')
-      }
-
-      throw error
+      this.handleDeleteError(error);
     }
   }
 
-  private isValidTimeFormat(time: string): boolean {
-    const regex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/
-    const isValid = regex.test(time)
-    // console.log(`Validating time: ${time}, result: ${isValid}`)
-    return isValid
+  private validateShiftTimes(startTime: string, endTime: string): void {
+    this.validateTimeFormat(startTime, "start");
+    this.validateTimeFormat(endTime, "end");
+  }
+
+  private validateOptionalShiftTimes(input: UpdateShiftDTO): void {
+    if (input.startTime) {
+      this.validateTimeFormat(input.startTime, "start");
+    }
+
+    if (input.endTime) {
+      this.validateTimeFormat(input.endTime, "end");
+    }
+  }
+
+  private validateTimeFormat(time: string, label: "start" | "end"): void {
+    if (TIME_FORMAT_REGEX.test(time)) {
+      return;
+    }
+
+    throw new Error(`Invalid ${label} time format. Use HH:mm`);
+  }
+
+  private async ensureCodeAvailable(
+    tenantId: string,
+    code?: string,
+  ): Promise<void> {
+    if (!code) {
+      return;
+    }
+
+    const existingShift = await this.repository.findByCode(tenantId, code);
+    if (!existingShift) {
+      return;
+    }
+
+    throw new Error("Shift code already exists");
+  }
+
+  private async getExistingShift(tenantId: string, id: string) {
+    const existingShift = await this.repository.findById(tenantId, id);
+    if (existingShift) {
+      return existingShift;
+    }
+
+    throw new Error("Shift not found");
+  }
+
+  private async ensureUpdatedCodeAvailable(
+    tenantId: string,
+    nextCode?: string,
+    currentCode?: string | null,
+  ): Promise<void> {
+    if (!nextCode || nextCode === currentCode) {
+      return;
+    }
+
+    await this.ensureCodeAvailable(tenantId, nextCode);
+  }
+
+  private async ensureShiftCanBeDeleted(
+    tenantId: string,
+    shiftId: string,
+    force: boolean,
+  ): Promise<void> {
+    const userCount = await this.repository.getUserCount(tenantId, shiftId);
+    if (userCount === 0 || force) {
+      return;
+    }
+
+    throw new Error(
+      `Cannot delete shift. It is assigned to ${userCount} user(s). Use force=true to soft delete.`,
+    );
+  }
+
+  private async executeDelete(
+    tenantId: string,
+    id: string,
+    force: boolean,
+  ): Promise<void> {
+    if (force) {
+      await this.repository.delete(tenantId, id);
+      return;
+    }
+
+    await this.repository.hardDelete(tenantId, id);
+  }
+
+  private handleDeleteError(error: unknown): never {
+    if (isPrismaRecordNotFoundError(error)) {
+      throw new Error("Shift not found");
+    }
+
+    throw error;
   }
 }

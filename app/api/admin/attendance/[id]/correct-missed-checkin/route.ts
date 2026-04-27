@@ -7,7 +7,7 @@ import { logActivitySafe } from "@/lib/logger";
 import { validateUploadFile } from "@/lib/upload/upload-policy";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
-import { attendanceMissedCheckInCorrectionSchema } from "@/lib/validations/attendance";
+import { attendanceMissedCheckInCorrectionSchema } from "@/modules/attendance";
 import { idSchema } from "@/lib/validations/common";
 import { AttendanceCorrectionService } from "@/modules/attendance";
 import { fromZonedTime } from "date-fns-tz";

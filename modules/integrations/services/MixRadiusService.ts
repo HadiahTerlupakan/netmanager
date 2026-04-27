@@ -1,4 +1,3 @@
-import type { MixRadiusOwnerGroup } from "@prisma/client-billing";
 import axios, { type AxiosInstance } from "axios";
 import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
@@ -28,6 +27,7 @@ import {
   fetchMixRadiusODPList,
   fetchMixRadiusTopologyData,
 } from "./mixradius-topology-client";
+import type { MixRadiusOwnerGroupEntity } from "../domain/entities/MixRadiusOwnerGroupEntity";
 import {
   getMixRadiusOwnerGroupService,
   type MixRadiusOwnerGroupPayload,
@@ -41,7 +41,7 @@ export interface MixRadiusCredentials {
   baseUrl: string;
 }
 
-export type { MixRadiusOwnerGroup };
+export type MixRadiusOwnerGroup = MixRadiusOwnerGroupEntity;
 
 export class MixRadiusConfigError extends Error {
   constructor(message: string) {

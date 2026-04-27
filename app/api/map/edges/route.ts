@@ -1,9 +1,9 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { MappingService } from "@/modules/map";
+import { getMappingService } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
-const service = new MappingService();
+const service = getMappingService();
 
 const createEdgeSchema = z.object({
   source: z.string(),
@@ -22,13 +22,16 @@ const createEdgeSchema = z.object({
  *     summary: Get all map edges
  *     tags: [Map]
  */
-export const GET = createHandler({
-  auth: true,
-  permissions: ["map:read"]
-}, async () => {
-  const edges = await service.getEdges();
-  return apiSuccess(edges);
-});
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["map:read"],
+  },
+  async () => {
+    const edges = await service.getEdges();
+    return apiSuccess(edges);
+  },
+);
 
 /**
  * @swagger
@@ -37,23 +40,27 @@ export const GET = createHandler({
  *     summary: Create a new map edge
  *     tags: [Map]
  */
-export const POST = createHandler({
-  auth: true,
-  permissions: ["map:create"],
-  schema: createEdgeSchema
-}, async (req, ctx) => {
-  const body = ctx.validated;
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["map:create"],
+    schema: createEdgeSchema,
+  },
+  async (req, ctx) => {
+    const body = ctx.validated;
+    const newEdge = await service.createEdge(body);
 
-  const newEdge = await service.createEdge({
-    ...body
-  });
-  
-  await logger.logActivity({
-    action: "CREATE",
-    subject: "Edge",
-    details: { edgeId: newEdge.edgeId, source: newEdge.source, target: newEdge.target },
-    userId: ctx.session?.user.id
-  });
+    await logger.logActivity({
+      action: "CREATE",
+      subject: "Edge",
+      details: {
+        edgeId: newEdge.edgeId,
+        source: newEdge.source,
+        target: newEdge.target,
+      },
+      userId: ctx.session?.user.id,
+    });
 
-  return apiSuccess(newEdge, { status: 201 });
-});
+    return apiSuccess(newEdge, { status: 201 });
+  },
+);

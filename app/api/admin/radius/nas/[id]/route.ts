@@ -1,97 +1,86 @@
-import { prisma } from '@/modules/database';
-import { RadiusRepository } from '@/modules/network';
-import type { INas } from '@/modules/network';
-import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
+import { RadiusAdminService, RadiusAdminServiceError } from "@/modules/network";
+import { hasPermission } from "@/lib/rbac";
+import {
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+  apiError,
+  createHandler,
+} from "@/lib/api";
 
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat NAS');
-    }
+const radiusAdminService = new RadiusAdminService();
 
-    const { id: idStr } = ctx.params;
-    const id = parseInt(idStr);
-    if (isNaN(id)) {
-        return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
-    }
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  if (!(await hasPermission("radius:read"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk melihat NAS");
+  }
 
+  try {
+    const id = parseNasId(ctx.params.id);
     const tenantId = ctx.session!.user.tenantId;
-    const radiusRepo = new RadiusRepository(prisma);
-    const nas = await radiusRepo.getNasById(id, tenantId);
-
-    if (!nas) {
-        return ApiErrors.notFound('NAS');
-    }
+    const nas = await radiusAdminService.getNasById(id, tenantId);
 
     return apiSuccess(nas);
-})
+  } catch (error) {
+    return mapRadiusAdminError(error);
+  }
+});
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:update')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk mengubah NAS');
-    }
+  if (!(await hasPermission("radius:update"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk mengubah NAS");
+  }
 
-    const { id: idStr } = ctx.params;
-    const id = parseInt(idStr);
-    if (isNaN(id)) {
-        return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
-    }
-
-    const body = await req.json();
-    const { nasname, shortname, type, ports, secret, community, description } = body;
-
+  try {
+    const id = parseNasId(ctx.params.id);
     const tenantId = ctx.session!.user.tenantId;
-    const radiusRepo = new RadiusRepository(prisma);
+    const payload = await req.json();
+    const updatedNas = await radiusAdminService.updateNas({
+      id,
+      tenantId,
+      payload,
+    });
 
-    // Check if NAS exists
-    const existingNas = await radiusRepo.getNasById(id, tenantId);
-    if (!existingNas) {
-        return ApiErrors.notFound('NAS');
-    }
+    return apiSuccess(updatedNas, { message: "NAS berhasil diperbarui" });
+  } catch (error) {
+    return mapRadiusAdminError(error);
+  }
+});
 
-    // Check if new nasname conflicts with existing NAS (if changing)
-    if (nasname && nasname !== existingNas.nasname) {
-        const conflictNas = await radiusRepo.getNasByIp(nasname, tenantId);
-        if (conflictNas) {
-            return ApiErrors.conflict('NAS dengan IP/hostname ini sudah ada');
-        }
-    }
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
+  if (!(await hasPermission("radius:delete"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk menghapus NAS");
+  }
 
-    const updateData: Partial<INas> = {};
-    if (nasname !== undefined) updateData.nasname = nasname;
-    if (shortname !== undefined) updateData.shortname = shortname;
-    if (type !== undefined) updateData.type = type;
-    if (ports !== undefined) updateData.ports = ports;
-    if (secret !== undefined) updateData.secret = secret;
-    if (community !== undefined) updateData.community = community;
-    if (description !== undefined) updateData.description = description;
-
-    const updatedNas = await radiusRepo.updateNas(id, updateData, tenantId);
-
-    return apiSuccess(updatedNas, { message: 'NAS berhasil diperbarui' });
-})
-
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:delete')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus NAS');
-    }
-
-    const { id: idStr } = ctx.params;
-    const id = parseInt(idStr);
-    if (isNaN(id)) {
-        return apiError('ID NAS tidak valid', ErrorCodes.BAD_REQUEST, { status: 400 });
-    }
-
+  try {
+    const id = parseNasId(ctx.params.id);
     const tenantId = ctx.session!.user.tenantId;
-    const radiusRepo = new RadiusRepository(prisma);
+    await radiusAdminService.deleteNas(id, tenantId);
 
-    // Check if NAS exists
-    const existingNas = await radiusRepo.getNasById(id, tenantId);
-    if (!existingNas) {
-        return ApiErrors.notFound('NAS');
-    }
+    return apiSuccess(null, { message: "NAS berhasil dihapus" });
+  } catch (error) {
+    return mapRadiusAdminError(error);
+  }
+});
 
-    await radiusRepo.deleteNas(id, tenantId);
+/** Parse route param into NAS id. */
+function parseNasId(idParam: string) {
+  const id = Number.parseInt(idParam, 10);
+  if (Number.isNaN(id)) {
+    throw new RadiusAdminServiceError(
+      "ID NAS tidak valid",
+      400,
+      ErrorCodes.BAD_REQUEST,
+    );
+  }
 
-    return apiSuccess(null, { message: 'NAS berhasil dihapus' });
-})
+  return id;
+}
+
+function mapRadiusAdminError(error: unknown) {
+  if (error instanceof RadiusAdminServiceError) {
+    return apiError(error.message, error.code, { status: error.status });
+  }
+
+  throw error;
+}

@@ -1,12 +1,10 @@
-/**
- * SalaryFactory
- *
- * Factory pattern for creating Salary with different configurations.
- */
-
-import { calculateSalaryTotals } from "../utils/salary-totals-calculator";
+import type { ISalaryComponentRepository } from "../domain/ports/ISalaryComponentRepository";
+import type { ISalaryRepository } from "../domain/ports/ISalaryRepository";
 import { SalaryComponentRepository } from "../repositories/SalaryComponentRepository";
 import { SalaryRepository } from "../repositories/SalaryRepository";
+import { calculateSalaryTotals } from "../utils/salary-totals-calculator";
+
+const DEFAULT_TOTAL = 0;
 
 export interface CreateSalaryInput {
   userId: string;
@@ -18,13 +16,12 @@ export interface CreateSalaryInput {
   netSalary?: number;
 }
 
-const salaryComponentRepository = new SalaryComponentRepository();
-const salaryRepository = new SalaryRepository();
+const salaryComponentRepository: ISalaryComponentRepository =
+  new SalaryComponentRepository();
+const salaryRepository: ISalaryRepository = new SalaryRepository();
 
 export class SalaryFactory {
-  /**
-   * Create salary input for a specific period
-   */
+  /** Create salary input for a specific period. */
   static async createForPeriod(dto: {
     userId: string;
     month: number;
@@ -39,15 +36,13 @@ export class SalaryFactory {
       month: dto.month,
       year: dto.year,
       basicSalary,
-      totalEarnings: 0,
-      totalDeductions: 0,
-      netSalary: 0,
+      totalEarnings: DEFAULT_TOTAL,
+      totalDeductions: DEFAULT_TOTAL,
+      netSalary: DEFAULT_TOTAL,
     };
   }
 
-  /**
-   * Create bulk salaries for all active employees
-   */
+  /** Create bulk salary inputs for active employees. */
   static async createBulkForPeriod(dto: {
     month: number;
     year: number;
@@ -62,16 +57,14 @@ export class SalaryFactory {
       userId: user.id,
       month: dto.month,
       year: dto.year,
-      basicSalary: user.userSalaryComponents[0]?.amount ?? 0,
-      totalEarnings: 0,
-      totalDeductions: 0,
-      netSalary: 0,
+      basicSalary: user.basicSalaryAmount,
+      totalEarnings: DEFAULT_TOTAL,
+      totalDeductions: DEFAULT_TOTAL,
+      netSalary: DEFAULT_TOTAL,
     }));
   }
 
-  /**
-   * Calculate salary details based on attendance, overtime, etc.
-   */
+  /** Calculate salary totals from stored details. */
   static async calculateDetails(salaryId: string): Promise<{
     totalEarnings: number;
     totalDeductions: number;

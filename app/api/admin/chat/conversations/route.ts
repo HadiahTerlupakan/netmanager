@@ -13,6 +13,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const chatService = new ChatService();
   const conversations = await chatService.getConversations(
     ctx.session!.user.id,
+    ctx.session!.user.tenantId as string,
   );
 
   return apiSuccess(conversations);
@@ -38,6 +39,7 @@ export const POST = createHandler(
     const result = await chatService.createConversation({
       creatorId: ctx.session!.user.id,
       participantIds,
+      tenantId: ctx.session!.user.tenantId as string,
       ...(name ? { name } : {}),
     });
 

@@ -57,8 +57,7 @@ export const POST = createHandler(
   },
   async (req, ctx) => {
     const { nodes, edges } = ctx.validated;
-
-    await service.syncAllMappingData(nodes, edges);
+    await service.syncAllMappingData({ nodes, edges });
 
     return apiSuccess({
       message: "Mapping data synchronized successfully",

@@ -3,11 +3,17 @@
 // Services (public)
 export {
   DashboardService,
+  createDashboardService,
   getDashboardService,
 } from "./services/DashboardService";
-export type { TopEmployee, SystemSummary } from "./services/DashboardService";
-export * from "./services/AdminDashboardPageService";
-export { AdminDashboardComposer } from "./services/dashboard/AdminDashboardComposer";
+export type { SystemSummary, TopEmployee } from "./services/DashboardService";
+export type { SiteStat } from "./domain/ports/IAdminDashboardDependencies";
+export { AdminDashboardPageService } from "./services/AdminDashboardPageService";
+export { SystemLogRouteService } from "./services/SystemLogRouteService";
+export {
+  AdminTenantRouteService,
+  tenantRouteErrorMessages,
+} from "./services/AdminTenantRouteService";
 export type {
   AdminDashboardHeroViewModel,
   AdminDashboardKpiCards,
@@ -18,11 +24,8 @@ export type {
 
 // DTOs (public types for API responses)
 export type {
-  SystemLogListItemDTO,
-  SystemLogDetailDTO,
   ActivityTimelineDTO,
   LogStatisticsDTO,
+  SystemLogDetailDTO,
+  SystemLogListItemDTO,
 } from "./dto/SystemLogDTO";
-
-// NOTE: SystemLogRepository is intentionally NOT exported (internal implementation detail)
-// NOTE: SystemLogMapper is intentionally NOT exported (internal implementation detail)

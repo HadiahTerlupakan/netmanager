@@ -1,20 +1,10 @@
-import { prisma } from '@/modules/database'
-import { apiSuccess, createHandler } from '@/lib/api'
+import { apiSuccess, createHandler } from "@/lib/api";
+import { AdminOptionsRouteService } from "@/modules/roles";
+
+const adminOptionsRouteService = new AdminOptionsRouteService();
 
 // GET /api/admin/options - Get dropdown options
-export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
-    // No permission check required - all authenticated users need access to options
-    const [sites, departments] = await Promise.all([
-        prisma.sites.findMany({
-            where: { isActive: true },
-            select: { id: true, name: true },
-            orderBy: { name: 'asc' }
-        }),
-        prisma.departments.findMany({
-            select: { id: true, name: true },
-            orderBy: { name: 'asc' }
-        })
-    ])
-
-    return apiSuccess({ sites, departments })
-})
+export const GET = createHandler({ auth: true }, async () => {
+  const options = await adminOptionsRouteService.getOptions();
+  return apiSuccess(options);
+});

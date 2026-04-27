@@ -1,8 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/modules/database";
-import { Prisma } from "@prisma/client";
-import { bandwidthSchema } from "@/lib/validations/bandwidth";
-import { sanitizeInput } from "@/lib/utils/sanitize";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -12,14 +8,23 @@ import {
   ErrorCodes,
   apiError,
 } from "@/lib/api-response";
-import { logActivitySafe } from "@/lib/logger";
-import { checkSiteRestriction } from "@/modules/roles";
-import * as z from "zod";
+import { BandwidthRouteService } from "@/modules/network";
 
+const bandwidthRouteService = new BandwidthRouteService();
+
+function isRequestBodyRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toErrorDetails(value: unknown): Record<string, unknown> | undefined {
+  return isRequestBodyRecord(value) ? value : undefined;
+}
+
+/** Ambil daftar bandwidth sesuai filter request. */
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return ApiErrors.unauthorized("Session tidak valid");
     }
 
@@ -29,35 +34,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const siteIdParam = searchParams.get("siteId");
-
-    const where: Prisma.BandwidthWhereInput = {};
-    if (status) {
-      where.status = status as Prisma.EnumStatusFilter<"Bandwidth">;
-    }
-
-    const { isRestricted, siteIds } = checkSiteRestriction(
+    const bandwidths = await bandwidthRouteService.getBandwidths(
+      req.url,
       session,
-      "bandwidth",
     );
-    if (isRestricted && siteIds.length > 0) {
-      where.OR = [{ siteId: { in: siteIds } }, { siteId: null }];
-    } else if (siteIdParam) {
-      where.OR = [{ siteId: siteIdParam }, { siteId: null }];
-    }
-
-    const bandwidths = await prisma.bandwidth.findMany({
-      where: where as Prisma.BandwidthWhereInput,
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: {
-          select: { hargaPaket: true },
-        },
-      },
-    });
-
     return apiSuccess(bandwidths);
   } catch (error: unknown) {
     console.error("Error fetching bandwidths:", error);
@@ -67,10 +47,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** Buat bandwidth baru dari payload request. */
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return ApiErrors.unauthorized("Session tidak valid");
     }
 
@@ -81,123 +62,43 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    let siteIdToSave = body.siteId;
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
-      session,
-      "bandwidth",
-    );
-    if (isRestricted && primarySiteId) {
-      siteIdToSave = primarySiteId;
-    }
-
-    const sanitizedBody: Record<
-      string,
-      string | number | boolean | undefined | null
-    > = {
-      name: body.name ? sanitizeInput(body.name) : undefined,
-      maxLimitDownload: body.maxLimitDownload
-        ? sanitizeInput(body.maxLimitDownload)
-        : undefined,
-      maxLimitUpload: body.maxLimitUpload
-        ? sanitizeInput(body.maxLimitUpload)
-        : undefined,
-      burstLimitDownload: body.burstLimitDownload
-        ? sanitizeInput(body.burstLimitDownload)
-        : undefined,
-      burstLimitUpload: body.burstLimitUpload
-        ? sanitizeInput(body.burstLimitUpload)
-        : undefined,
-      minLimitDownload: body.minLimitDownload
-        ? sanitizeInput(body.minLimitDownload)
-        : undefined,
-      minLimitUpload: body.minLimitUpload
-        ? sanitizeInput(body.minLimitUpload)
-        : undefined,
-      burstThresholdDownload: body.burstThresholdDownload
-        ? sanitizeInput(body.burstThresholdDownload)
-        : undefined,
-      burstThresholdUpload: body.burstThresholdUpload
-        ? sanitizeInput(body.burstThresholdUpload)
-        : undefined,
-      burstTimeDownload:
-        body.burstTimeDownload !== undefined && body.burstTimeDownload !== null
-          ? Number(body.burstTimeDownload)
-          : undefined,
-      burstTimeUpload:
-        body.burstTimeUpload !== undefined && body.burstTimeUpload !== null
-          ? Number(body.burstTimeUpload)
-          : undefined,
-      priority:
-        body.priority !== undefined && body.priority !== null
-          ? Number(body.priority)
-          : undefined,
-      description: body.description
-        ? sanitizeInput(body.description)
-        : undefined,
-      status: body.status || "AKTIF",
-      siteId: siteIdToSave || null,
-    };
-
-    Object.keys(sanitizedBody).forEach((key) => {
-      if (sanitizedBody[key] === undefined) {
-        delete sanitizedBody[key];
-      }
-    });
-
-    const validation = bandwidthSchema.safeParse(sanitizedBody);
-    if (!validation.success) {
+    if (!isRequestBodyRecord(body)) {
       return apiError("Validasi gagal", ErrorCodes.VALIDATION_ERROR, {
         status: 400,
-        details: { errors: z.flattenError(validation.error) },
       });
     }
 
-    const dataToCreate: Record<string, string | number | boolean | null> = {};
-    Object.keys(validation.data).forEach((key) => {
-      if (validation.data[key as keyof typeof validation.data] !== undefined) {
-        dataToCreate[key] = validation.data[
-          key as keyof typeof validation.data
-        ] as string | number | boolean | null;
-      }
-    });
-
-    if (siteIdToSave) {
-      dataToCreate.siteId = siteIdToSave;
-    }
-
-    const { randomUUID } = await import("crypto");
-
-    const bandwidth = await prisma.bandwidth.create({
-      data: {
-        id: randomUUID(),
-        updatedAt: new Date(),
-        ...dataToCreate,
-      } as Prisma.BandwidthCreateInput,
-    });
-
-    logActivitySafe({
-      action: "CREATE",
-      subject: "Bandwidth",
-      ...(session.user.id ? { userId: session.user.id } : {}),
-      details: { id: bandwidth.id, name: bandwidth.name, siteId: siteIdToSave },
-    });
-
+    const bandwidth = await bandwidthRouteService.createBandwidth(
+      body,
+      session,
+    );
     return apiSuccess(bandwidth, {
       status: 201,
       message: "Bandwidth berhasil dibuat",
     });
   } catch (error: unknown) {
     console.error("Error creating bandwidth:", error);
+    const structuredError = error as {
+      code?: string;
+      message?: string;
+      details?: unknown;
+    };
 
-    const prismaError = error as { code?: string; message?: string };
-    if (prismaError.code === "P2002") {
+    if (structuredError.code === "P2002") {
       return apiError("Nama bandwidth sudah digunakan", ErrorCodes.CONFLICT, {
         status: 409,
       });
     }
 
+    if (structuredError.code === "VALIDATION_ERROR") {
+      return apiError("Validasi gagal", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+        details: toErrorDetails(structuredError.details),
+      });
+    }
+
     return ApiErrors.internalError(
-      prismaError.message || "Gagal membuat bandwidth",
+      structuredError.message || "Gagal membuat bandwidth",
     );
   }
 }

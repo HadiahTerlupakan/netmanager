@@ -23,6 +23,8 @@ export type LeaveWithUserEntity = LeaveRequest & {
     workDays: string | null;
     tenantId: string | null;
     joinDate: Date | null;
+    siteId: string | null;
+    departmentId: string | null;
   };
 };
 

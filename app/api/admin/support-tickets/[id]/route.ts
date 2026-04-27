@@ -1,18 +1,19 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { hasPermission } from "@/lib/rbac";
 import { idSchema } from "@/lib/validations/common";
 import {
-  getAdminSupportTicketService,
+  getAdminSupportTicketRouteService,
   supportTicketUpdateSchema,
 } from "@/modules/pelanggan";
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { hasPermission } from "@/lib/rbac";
 import * as z from "zod";
+
+const supportTicketRouteService = getAdminSupportTicketRouteService();
 
 /**
  * GET /api/admin/support-tickets/[id]
  * Get single support ticket with all replies
  */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
   const { id } = ctx.params;
 
@@ -20,7 +21,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  // Validate ID format
   const parseResult = idSchema.safeParse(id);
   if (!parseResult.success) {
     return ApiErrors.badRequest("ID tidak valid", {
@@ -28,38 +28,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  // Site restriction logic
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasSiteRestriction =
-    !isSuper && permissions.includes("support:site_only");
-
-  let siteId: string | undefined;
-  if (hasSiteRestriction) {
-    const { prisma: db } = await import("@/modules/database");
-    const dbUser = await db.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId || undefined;
-  }
-
-  const service = getAdminSupportTicketService();
-
-  const result = await service.getTicketById(
+  const result = await supportTicketRouteService.getTicketById(
     parseResult.data,
     {
-      id: user.id,
-      ...(user.role !== undefined && { role: user.role }),
-      ...(hasSiteRestriction && { siteId }),
+      user,
     },
-    hasSiteRestriction,
   );
 
   if (!result.success) {
-    if (result.code === "NOT_FOUND") {
-      return ApiErrors.notFound("Tiket");
-    }
+    if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }
@@ -81,7 +58,6 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  // Validate ID format
   const idParseResult = idSchema.safeParse(id);
   if (!idParseResult.success) {
     return ApiErrors.badRequest("ID tidak valid", {
@@ -89,33 +65,13 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  // Parse and validate request body
   const body = await req.json();
   const parseResult = supportTicketUpdateSchema.safeParse(body);
-
   if (!parseResult.success) {
     return ApiErrors.badRequest("Data tidak valid", {
       errors: z.flattenError(parseResult.error).fieldErrors,
     });
   }
-
-  // Site restriction logic
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasSiteRestriction =
-    !isSuper && permissions.includes("support:site_only");
-
-  let siteId: string | undefined;
-  if (hasSiteRestriction) {
-    const { prisma: db } = await import("@/modules/database");
-    const dbUser = await db.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId || undefined;
-  }
-
-  const service = getAdminSupportTicketService();
 
   const updateData = {
     ...(parseResult.data.status !== undefined && {
@@ -132,21 +88,14 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     }),
   };
 
-  const result = await service.updateTicket(
+  const result = await supportTicketRouteService.updateTicket(
     idParseResult.data,
     updateData,
-    {
-      id: user.id,
-      ...(user.role !== undefined && { role: user.role }),
-      ...(hasSiteRestriction && { siteId }),
-    },
-    hasSiteRestriction,
+    { user },
   );
 
   if (!result.success) {
-    if (result.code === "NOT_FOUND") {
-      return ApiErrors.notFound("Tiket");
-    }
+    if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }
@@ -160,7 +109,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
  * DELETE /api/admin/support-tickets/[id]
  * Delete support ticket
  */
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
   const { id } = ctx.params;
 
@@ -168,7 +117,6 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  // Validate ID format
   const parseResult = idSchema.safeParse(id);
   if (!parseResult.success) {
     return ApiErrors.badRequest("ID tidak valid", {
@@ -176,38 +124,15 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  // Site restriction logic
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasSiteRestriction =
-    !isSuper && permissions.includes("support:site_only");
-
-  let siteId: string | undefined;
-  if (hasSiteRestriction) {
-    const { prisma: db } = await import("@/modules/database");
-    const dbUser = await db.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId || undefined;
-  }
-
-  const service = getAdminSupportTicketService();
-
-  const result = await service.deleteTicket(
+  const result = await supportTicketRouteService.deleteTicket(
     parseResult.data,
     {
-      id: user.id,
-      ...(user.role !== undefined && { role: user.role }),
-      ...(hasSiteRestriction && { siteId }),
+      user,
     },
-    hasSiteRestriction,
   );
 
   if (!result.success) {
-    if (result.code === "NOT_FOUND") {
-      return ApiErrors.notFound("Tiket");
-    }
+    if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }

@@ -25,12 +25,13 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const chatService = new ChatService();
   try {
-    const result = await chatService.getMessages(
+    const result = await chatService.getMessages({
       conversationId,
-      ctx.session!.user.id,
+      userId: ctx.session!.user.id,
+      tenantId: ctx.session!.user.tenantId as string,
       cursor,
       limit,
-    );
+    });
     return apiSuccess(result);
   } catch (error: unknown) {
     const message =
@@ -66,6 +67,7 @@ export const POST = createHandler(
         conversationId,
         senderId: user.id,
         senderName: user.name || "Admin",
+        tenantId: user.tenantId as string,
         ...(content !== undefined ? { content } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
       });

@@ -1,4 +1,3 @@
-import { prisma } from "@/modules/database";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import * as z from "zod";
@@ -9,9 +8,15 @@ import {
   RabPaymentType,
 } from "@prisma/client";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { RabProjectRepository } from "@/modules/finance";
+import {
+  RabProjectRepository,
+  RabProjectRouteService,
+  isRouteServiceError,
+} from "@/modules/finance";
 
 export const dynamic = "force-dynamic";
+
+const rabProjectRouteService = new RabProjectRouteService();
 
 // Growth settings schemas
 const linearGrowthSchema = z.object({
@@ -68,82 +73,15 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const project = await prisma.rabProject.findUnique({
-    where: { id },
-    include: {
-      items: {
-        include: {
-          disbursements: true,
-        },
-      },
-      wbsGroups: true,
-      actualAchievements: {
-        orderBy: [{ year: "asc" }, { month: "asc" }],
-      },
-      site: { select: { name: true } },
-      creator: { select: { name: true } },
-      investors: true,
-      revisions: {
-        select: {
-          id: true,
-          revisionNumber: true,
-          status: true,
-        },
-        orderBy: { revisionNumber: "desc" },
-        take: 1,
-      },
-      _count: {
-        select: {
-          revisions: true,
-        },
-      },
-    },
-  });
-
-  if (!project) {
-    return ApiErrors.notFound("Proyek RAB");
+  try {
+    const project = await rabProjectRouteService.getProjectDetail(id);
+    return apiSuccess(project);
+  } catch (error) {
+    if (isRouteServiceError(error) && error.status === 404) {
+      return ApiErrors.notFound(error.message);
+    }
+    throw error;
   }
-
-  const { revisions, _count, ...projectData } = project;
-  const actualAchievements =
-    (
-      project as {
-        actualAchievements?: Array<
-          {
-            actualRevenue: { toString(): string };
-            actualOpex: { toString(): string };
-          } & Record<string, unknown>
-        >;
-      }
-    ).actualAchievements || [];
-
-  const serialized = {
-    ...projectData,
-    projectedRevenue: project.projectedRevenue.toString(),
-    projectedOpex: project.projectedOpex.toString(),
-    arpu: project.arpu?.toString() || null,
-    contingencyAmount: project.contingencyAmount?.toString() || "0",
-    opexBufferInvestorFixedAmount:
-      project.opexBufferInvestorFixedAmount?.toString() || "0",
-    revisionCount: _count?.revisions || 0,
-    latestRevision: revisions?.[0] || null,
-    items: project.items.map((item) => ({
-      ...item,
-      unitPrice: item.unitPrice.toString(),
-      totalPrice: item.totalPrice.toString(),
-      disbursements: (item.disbursements || []).map((disbursement) => ({
-        ...disbursement,
-        amount: disbursement.amount.toString(),
-      })),
-    })),
-    actualAchievements: actualAchievements.map((achievement) => ({
-      ...achievement,
-      actualRevenue: achievement.actualRevenue.toString(),
-      actualOpex: achievement.actualOpex.toString(),
-    })),
-  };
-
-  return apiSuccess(serialized);
 });
 
 const rabTargetBasisSchema = z.enum(["HOMECONNECT", "HOMEPASS"]);
@@ -377,35 +315,18 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const project = await prisma.rabProject.findUnique({
-    where: { id },
-  });
+  try {
+    await rabProjectRouteService.deleteDraftProject(id);
+    return apiSuccess({ success: true });
+  } catch (error) {
+    if (isRouteServiceError(error) && error.status === 404) {
+      return ApiErrors.notFound(error.message);
+    }
 
-  if (!project) {
-    return ApiErrors.notFound("Proyek RAB");
+    if (isRouteServiceError(error) && error.status === 400) {
+      return ApiErrors.badRequest(error.message);
+    }
+
+    throw error;
   }
-
-  if (project.status !== "DRAFT") {
-    return ApiErrors.badRequest(
-      "Hanya proyek RAB dengan status DRAFT yang dapat dihapus",
-    );
-  }
-
-  await prisma.$transaction([
-    // Delete non-cascading relations
-    prisma.rabInvestor.deleteMany({
-      where: { rabProjectId: id },
-    }),
-    // Nullify expense relations
-    prisma.expense.updateMany({
-      where: { rabProjectId: id },
-      data: { rabProjectId: null },
-    }),
-    // Delete the core project (others use onDelete: Cascade)
-    prisma.rabProject.delete({
-      where: { id },
-    }),
-  ]);
-
-  return apiSuccess({ success: true });
 });

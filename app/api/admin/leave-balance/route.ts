@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import { authorize, isAuthError } from "@/lib/authorization-middleware";
-import {
-  LeaveBalanceRepository,
-  DEFAULT_LEAVE_QUOTAS,
-} from "@/modules/attendance";
+import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
 import { LeaveType } from "@prisma/client";
 import {
   apiSuccess,
@@ -12,9 +9,10 @@ import {
   apiError,
 } from "@/lib/api-response";
 import * as z from "zod";
-import { prismaAuth } from "@/modules/database";
+import { UserRepository } from "@/modules/users";
 
-const leaveBalanceRepo = new LeaveBalanceRepository();
+const leaveBalanceService = new AdminLeaveBalanceRouteService();
+const userRepository = new UserRepository();
 
 /**
  * Validation schema for setting leave quota
@@ -46,57 +44,32 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get("userId");
 
   try {
-    if (userId) {
-      // Security: Verify user belongs to same tenant if not superadmin
-      if (!session.user.isSuperAdmin) {
-        const targetUser = await prismaAuth.user.findUnique({
-          where: { id: userId },
-          select: { tenantId: true, email: true },
+    if (userId && !session.user.isSuperAdmin) {
+      const targetUser = await userRepository.findById(userId);
+      if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
+        console.warn("[AUTH_DEBUG] Tenant mismatch or user not found:", {
+          requesterId: session.user.id,
+          requesterTenant: session.user.tenantId,
+          targetUserId: userId,
+          targetUserEmail: targetUser?.email,
+          targetTenant: targetUser?.tenantId,
         });
-
-        // Debug logging for troubleshooting
-        if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
-          console.warn("[AUTH_DEBUG] Tenant mismatch or user not found:", {
-            requesterId: session.user.id,
-            requesterTenant: session.user.tenantId,
-            targetUserId: userId,
-            targetUserEmail: targetUser?.email,
-            targetTenant: targetUser?.tenantId,
-          });
-          return ApiErrors.forbidden(
-            "Anda tidak memiliki akses ke data user ini",
-          );
-        }
+        return ApiErrors.forbidden(
+          "Anda tidak memiliki akses ke data user ini",
+        );
       }
-
-      // Get balances for specific user
-      const balances = await leaveBalanceRepo.getUserBalances(userId, year);
-
-      // Fill in missing types with defaults
-      const allTypes = Object.keys(DEFAULT_LEAVE_QUOTAS) as LeaveType[];
-
-      const filledBalances = allTypes.map((type) => {
-        const existing = balances.find((b) => b.leaveType === type);
-        if (existing) {
-          return {
-            ...existing,
-            remaining: existing.quota - existing.used,
-          };
-        }
-        return {
-          leaveType: type,
-          quota: DEFAULT_LEAVE_QUOTAS[type],
-          used: 0,
-          remaining: DEFAULT_LEAVE_QUOTAS[type],
-        };
-      });
-
-      return apiSuccess({ balances: filledBalances, year });
     }
 
-    // Get all balances for admin view
-    const balances = await leaveBalanceRepo.getAllBalances(year);
-    return apiSuccess({ balances, year });
+    const result = await leaveBalanceService.getBalances({
+      year,
+      userId,
+      access: {
+        requesterTenantId: session.user.tenantId,
+        isSuperAdmin: session.user.isSuperAdmin,
+      },
+    });
+
+    return apiSuccess(result);
   } catch (error: unknown) {
     console.error("Error fetching leave balances:", error);
     return ApiErrors.internalError("Gagal mengambil data saldo cuti");
@@ -120,8 +93,6 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-
-    // Validate with Zod
     const parseResult = setQuotaSchema.safeParse(body);
     if (!parseResult.success) {
       return apiError("Data tidak valid", ErrorCodes.VALIDATION_ERROR, {
@@ -131,13 +102,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { userId, year, quotas } = parseResult.data;
-
-    // Security: Verify user belongs to same tenant if not superadmin
     if (!session.user.isSuperAdmin) {
-      const targetUser = await prismaAuth.user.findUnique({
-        where: { id: userId },
-        select: { tenantId: true },
-      });
+      const targetUser = await userRepository.findById(userId);
       if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
         return ApiErrors.forbidden(
           "Anda tidak diizinkan mengubah data user ini",
@@ -145,26 +111,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const targetYear = year || new Date().getFullYear();
+    const result = await leaveBalanceService.updateQuota({
+      userId,
+      year,
+      quotas: quotas as Partial<Record<LeaveType, number>>,
+      access: {
+        requesterTenantId: session.user.tenantId,
+        isSuperAdmin: session.user.isSuperAdmin,
+      },
+    });
 
-    // Update each provided quota
-    const updatePromises = Object.entries(quotas).map(([type, quota]) =>
-      leaveBalanceRepo.upsertQuota(
-        userId,
-        targetYear,
-        type as LeaveType,
-        quota as number,
-      ),
-    );
-
-    await Promise.all(updatePromises);
-
-    // Return updated balances
-    const balances = await leaveBalanceRepo.getUserBalances(userId, targetYear);
-    return apiSuccess(
-      { balances },
-      { message: "Kuota cuti berhasil diperbarui" },
-    );
+    return apiSuccess(result, { message: "Kuota cuti berhasil diperbarui" });
   } catch (error: unknown) {
     console.error("Error updating leave quota:", error);
     return ApiErrors.internalError("Gagal memperbarui kuota cuti");

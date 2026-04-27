@@ -1,174 +1,169 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { OvertimeService } from '@/modules/overtime';
-import { convertAndSaveBase64 } from '@/lib/utils/image-upload';
-import { prisma } from '@/modules/database';
-import { toStartOfDay } from '@/lib/utils/server-datetime'
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { NextRequest, NextResponse } from "next/server";
 
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { OvertimeRouteService, OvertimeService } from "@/modules/overtime";
+
+const overtimeService = new OvertimeService();
+const overtimeRouteService = new OvertimeRouteService(overtimeService);
+const HTTP_CREATED = 201;
+
+/** Build upload folder date string. */
+function createDateFolder(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** Convert base64 photo to stored url when needed. */
+async function resolvePhotoUrl(
+  photo: string,
+  userId: string,
+  action: "start" | "stop",
+): Promise<string> {
+  if (photo.startsWith("http") || photo.startsWith("/uploads")) {
+    return photo;
+  }
+
+  return convertAndSaveBase64(
+    photo,
+    `public/uploads/overtime/${createDateFolder()}`,
+    `${userId}_${action}_${Date.now()}`,
+    "employee-attendance",
+    userId,
+  );
+}
+
+/** Parse auth payload from mobile request. */
+async function getAuthContext(request: NextRequest) {
+  const authResult = await getMobileAuthPayload(request);
+  if (authResult instanceof NextResponse) {
+    return authResult;
+  }
+
+  const userId = authResult.id as string;
+  const tenantId = authResult.tenantId as string;
+  if (!userId) {
+    return apiError("Token tidak valid", ErrorCodes.UNAUTHORIZED, {
+      status: 401,
+    });
+  }
+
+  return { userId, tenantId };
+}
 
 // GET - Get user's overtime history
 export async function GET(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request);
-        if (authResult instanceof NextResponse) {
-            return authResult;
-        }
-
-        const userId = authResult.id as string;
-        const tenantId = authResult.tenantId as string;
-        if (!userId) {
-            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 });
-        }
-        const service = new OvertimeService();
-        const history = await service.getHistory(userId, tenantId);
-
-        // Check if user has checked out today (for start validation)
-        const today = new Date();
-        today.setTime(toStartOfDay(today).getTime());
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const todayAttendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                tenantId,
-                checkIn: { gte: today, lt: tomorrow }
-            }
-        });
-
-        const hasCheckedOut = todayAttendance?.checkOut !== null;
-
-        // Check if today is a holiday
-        const holidayRecord = await prisma.holiday.findFirst({
-            where: {
-                date: { gte: today, lt: tomorrow },
-                tenantId
-            }
-        });
-
-        return NextResponse.json({
-            history,
-            hasCheckedOut,
-            holidayInfo: holidayRecord ? {
-                description: holidayRecord.description,
-                isNational: holidayRecord.isNational
-            } : null
-        });
-    } catch (error: unknown) {
-        console.error('Mobile Overtime GET Error:', error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan' }, { status: 500 });
+  try {
+    const authContext = await getAuthContext(request);
+    if (authContext instanceof NextResponse) {
+      return authContext;
     }
+
+    const result = await overtimeRouteService.getMobileContext(
+      authContext.userId,
+      authContext.tenantId,
+    );
+
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    console.error("Mobile Overtime GET Error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
+      { status: 500 },
+    );
+  }
 }
 
 // POST - Create request / Start / Stop overtime
 export async function POST(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request);
-        if (authResult instanceof NextResponse) {
-            return authResult;
-        }
-
-        const userId = authResult.id as string;
-        const tenantId = authResult.tenantId as string;
-        if (!userId) {
-            return apiError('Token tidak valid', ErrorCodes.UNAUTHORIZED, { status: 401 });
-        }
-        const body = await request.json();
-        const { action } = body; // 'request' | 'start' | 'stop'
-        const service = new OvertimeService();
-
-        // Action: CREATE REQUEST
-        if (!action || action === 'request') {
-            const { date, reason } = body;
-            if (!date || !reason) {
-                return apiError('Tanggal dan alasan wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-            }
-
-            const result = await service.createRequest(userId, {
-                date: new Date(date),
-                reason,
-                tenantId
-            });
-            return NextResponse.json(result, { status: 201 });
-        }
-
-        // Action: START OVERTIME
-        if (action === 'start') {
-            const { overtimeId, photo, location, timestamp } = body;
-            if (!overtimeId || !photo) {
-                return apiError('ID dan foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-            }
-
-            // Convert Base64 photo to file/url if needed
-            let photoUrl = photo;
-            if (!photo.startsWith('http') && !photo.startsWith('/uploads')) {
-                 const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
-                 const uploadDir = `public/uploads/overtime/${dateStr}`;
-                 const fileName = `${userId}_start_${Date.now()}`;
-    
-                 photoUrl = await convertAndSaveBase64(
-                    photo,
-                    uploadDir,
-                    fileName,
-                    'employee-attendance',
-                    userId
-                 );
-            }
-
-            const startParams: { photo: string; location?: string; timestamp?: Date; tenantId?: string } = {
-                photo: photoUrl,
-                location: location as string,
-                tenantId
-            };
-            if (timestamp) {
-                startParams.timestamp = new Date(timestamp);
-            }
-
-            const result = await service.startOvertime(userId, overtimeId, startParams);
-            return NextResponse.json(result);
-        }
-
-        // Action: STOP OVERTIME
-        if (action === 'stop') {
-            const { overtimeId, photo, location, timestamp } = body;
-            if (!overtimeId || !photo) {
-                return apiError('ID dan foto wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-            }
-
-            // Convert Base64 photo to file/url if needed
-            let photoUrl = photo;
-            if (!photo.startsWith('http') && !photo.startsWith('/uploads')) {
-                const dateStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
-                const uploadDir = `public/uploads/overtime/${dateStr}`;
-                const fileName = `${userId}_stop_${Date.now()}`;
-
-                photoUrl = await convertAndSaveBase64(
-                    photo,
-                    uploadDir,
-                    fileName,
-                    'employee-attendance',
-                    userId
-                );
-            }
-
-            const stopParams: { photo: string; location?: string; timestamp?: Date; tenantId?: string } = {
-                photo: photoUrl,
-                location: location as string,
-                tenantId
-            };
-            if (timestamp) {
-                stopParams.timestamp = new Date(timestamp);
-            }
-
-            const result = await service.stopOvertime(userId, overtimeId, stopParams);
-            return NextResponse.json(result);
-        }
-
-        return apiError('Aksi tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-
-    } catch (error: unknown) {
-        console.error('Mobile Overtime POST Error:', error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : 'Terjadi kesalahan' }, { status: 400 });
+  try {
+    const authContext = await getAuthContext(request);
+    if (authContext instanceof NextResponse) {
+      return authContext;
     }
+
+    const body = await request.json();
+    const action = body.action as "request" | "start" | "stop" | undefined;
+
+    if (!action || action === "request") {
+      if (!body.date || !body.reason) {
+        return apiError(
+          "Tanggal dan alasan wajib diisi",
+          ErrorCodes.VALIDATION_ERROR,
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const result = await overtimeService.createRequest(authContext.userId, {
+        date: new Date(body.date),
+        reason: body.reason,
+        tenantId: authContext.tenantId,
+      });
+      return NextResponse.json(result, { status: HTTP_CREATED });
+    }
+
+    if (action === "start") {
+      if (!body.overtimeId || !body.photo) {
+        return apiError(
+          "ID dan foto wajib diisi",
+          ErrorCodes.VALIDATION_ERROR,
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const result = await overtimeService.startOvertime(
+        authContext.userId,
+        body.overtimeId,
+        {
+          photo: await resolvePhotoUrl(body.photo, authContext.userId, "start"),
+          location: body.location as string,
+          timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
+          tenantId: authContext.tenantId,
+        },
+      );
+
+      return NextResponse.json(result);
+    }
+
+    if (action === "stop") {
+      if (!body.overtimeId || !body.photo) {
+        return apiError(
+          "ID dan foto wajib diisi",
+          ErrorCodes.VALIDATION_ERROR,
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const result = await overtimeService.stopOvertime(
+        authContext.userId,
+        body.overtimeId,
+        {
+          photo: await resolvePhotoUrl(body.photo, authContext.userId, "stop"),
+          location: body.location as string,
+          timestamp: body.timestamp ? new Date(body.timestamp) : undefined,
+        },
+      );
+
+      return NextResponse.json(result);
+    }
+
+    return apiError("Aksi tidak valid", ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+    });
+  } catch (error: unknown) {
+    console.error("Mobile Overtime POST Error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
+      { status: 400 },
+    );
+  }
 }

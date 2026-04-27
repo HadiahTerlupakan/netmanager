@@ -1,10 +1,13 @@
 import { UserRepository } from "@/modules/users";
-import { MitraRepository } from "@/modules/mitra";
+import {
+  getMitraLookupService,
+  type MitraLookupService,
+} from "@/modules/mitra";
 import { enqueuePushRetry } from "./PushRetryQueue";
 import { PelangganPushTokenService } from "@/modules/pelanggan";
 
 let userRepo: UserRepository | null = null;
-let mitraRepo: MitraRepository | null = null;
+let mitraLookupService: MitraLookupService | null = null;
 let pelangganPushTokenService: PelangganPushTokenService | null = null;
 
 function getUserRepo(): UserRepository {
@@ -14,11 +17,11 @@ function getUserRepo(): UserRepository {
   return userRepo;
 }
 
-function getMitraRepo(): MitraRepository {
-  if (!mitraRepo) {
-    mitraRepo = new MitraRepository();
+function getMitraRepo(): MitraLookupService {
+  if (!mitraLookupService) {
+    mitraLookupService = getMitraLookupService();
   }
-  return mitraRepo;
+  return mitraLookupService;
 }
 
 function getPelangganPushTokenService(): PelangganPushTokenService {
@@ -99,38 +102,30 @@ async function handleFailedTokens(
   const tokensToRetry = failedTokens
     .filter((f) => f.error !== "DeviceNotRegistered")
     .map((f) => f.token);
-
-  if (tokensToRetry.length > 0) {
-    const [users, mitras, pelanggans] = await Promise.all([
-      findUsersByPushTokens(tokensToRetry),
-      findMitrasByPushTokens(tokensToRetry),
-      findPelangganByPushTokens(tokensToRetry),
-    ]);
-
-    const tokenToUserId: Record<string, string> = {};
-    for (const u of users) {
-      if (u.pushToken) tokenToUserId[u.pushToken] = u.id;
-    }
-    for (const m of mitras) {
-      if (m.pushToken) tokenToUserId[m.pushToken] = m.id;
-    }
-    for (const p of pelanggans) {
-      if (p.pushToken) tokenToUserId[p.pushToken] = p.id;
-    }
-
-    for (const token of tokensToRetry) {
-      const msg = originalMessages.find((m) => m.to === token);
-      if (msg) {
-        enqueuePushRetry({
-          type: "expo",
-          userId: tokenToUserId[token] || "unknown",
-          title: msg.title,
-          body: msg.body,
-          data: msg.data as Record<string, unknown>,
-          pushToken: token,
-        });
-      }
-    }
+  if (tokensToRetry.length === 0) return;
+  const [users, mitras, pelanggans] = await Promise.all([
+    findUsersByPushTokens(tokensToRetry),
+    findMitrasByPushTokens(tokensToRetry),
+    findPelangganByPushTokens(tokensToRetry),
+  ]);
+  const tokenToUserId: Record<string, string> = {};
+  for (const user of users)
+    if (user.pushToken) tokenToUserId[user.pushToken] = user.id;
+  for (const mitra of mitras)
+    if (mitra.pushToken) tokenToUserId[mitra.pushToken] = mitra.id;
+  for (const pelanggan of pelanggans)
+    if (pelanggan.pushToken) tokenToUserId[pelanggan.pushToken] = pelanggan.id;
+  for (const token of tokensToRetry) {
+    const message = originalMessages.find((item) => item.to === token);
+    if (!message) continue;
+    enqueuePushRetry({
+      type: "expo",
+      userId: tokenToUserId[token] || "unknown",
+      title: message.title,
+      body: message.body,
+      data: message.data as Record<string, unknown>,
+      pushToken: token,
+    });
   }
 }
 
@@ -138,23 +133,18 @@ async function sendExpoPush(
   messages: ExpoPushMessage[],
 ): Promise<{ success: boolean; failedTokens: FailedToken[] }> {
   if (messages.length === 0) return { success: true, failedTokens: [] };
-
   const chunks: ExpoPushMessage[][] = [];
-  for (let i = 0; i < messages.length; i += 100) {
-    chunks.push(messages.slice(i, i + 100));
+  for (let index = 0; index < messages.length; index += 100) {
+    chunks.push(messages.slice(index, index + 100));
   }
 
   let allSucceeded = true;
   const failedTokens: FailedToken[] = [];
-
   try {
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
       const chunk = chunks[chunkIndex];
-
-      if (chunkIndex > 0) {
+      if (chunkIndex > 0)
         await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-
       try {
         const response = await fetch("https://exp.host/--/api/v2/push/send", {
           method: "POST",
@@ -165,37 +155,30 @@ async function sendExpoPush(
           },
           body: JSON.stringify(chunk),
         });
-
         if (!response.ok) {
           console.error(
             `[Push] Expo API HTTP error ${response.status} for chunk ${chunkIndex + 1}/${chunks.length}`,
           );
           allSucceeded = false;
-          for (const msg of chunk) {
-            failedTokens.push({ token: msg.to, error: "HTTP_ERROR" });
-          }
+          for (const message of chunk)
+            failedTokens.push({ token: message.to, error: "HTTP_ERROR" });
           continue;
         }
-
         const result = await response.json();
-
-        if (result.data) {
-          const tickets = result.data as ExpoPushTicket[];
-          for (let i = 0; i < tickets.length; i++) {
-            const ticket = tickets[i];
-            if (ticket.status === "error") {
-              const errorType =
-                ((ticket.details as Record<string, unknown>)
-                  ?.error as string) ||
-                ticket.message ||
-                "Unknown";
-              failedTokens.push({
-                token: chunk[i].to,
-                error: errorType,
-                details: ticket.details,
-              });
-            }
-          }
+        if (!result.data) continue;
+        const tickets = result.data as ExpoPushTicket[];
+        for (let ticketIndex = 0; ticketIndex < tickets.length; ticketIndex++) {
+          const ticket = tickets[ticketIndex];
+          if (ticket.status !== "error") continue;
+          const errorType =
+            ((ticket.details as Record<string, unknown>)?.error as string) ||
+            ticket.message ||
+            "Unknown";
+          failedTokens.push({
+            token: chunk[ticketIndex].to,
+            error: errorType,
+            details: ticket.details,
+          });
         }
       } catch (chunkError) {
         console.error(
@@ -203,9 +186,8 @@ async function sendExpoPush(
           chunkError,
         );
         allSucceeded = false;
-        for (const msg of chunk) {
-          failedTokens.push({ token: msg.to, error: "NETWORK_ERROR" });
-        }
+        for (const message of chunk)
+          failedTokens.push({ token: message.to, error: "NETWORK_ERROR" });
       }
     }
     return { success: allSucceeded, failedTokens };
@@ -213,8 +195,8 @@ async function sendExpoPush(
     console.error("[Push] Expo API error:", error);
     return {
       success: false,
-      failedTokens: messages.map((m) => ({
-        token: m.to,
+      failedTokens: messages.map((message) => ({
+        token: message.to,
         error: "CRITICAL_ERROR",
       })),
     };
@@ -229,33 +211,19 @@ export async function sendPushNotification(
 ): Promise<boolean> {
   try {
     let pushToken: string | null = null;
-
     const user = await getUserRepo().findByIdWithPushToken(userId);
     pushToken = user?.pushToken || null;
-
     if (!pushToken) {
       const mitra = await getMitraRepo().findPushTokenById(userId);
       pushToken = mitra?.pushToken || null;
     }
-
-    if (!pushToken) {
-      return false;
-    }
-
+    if (!pushToken) return false;
     const messages: ExpoPushMessage[] = [
-      {
-        to: pushToken,
-        title,
-        body,
-        data: data || {},
-        sound: "default",
-      },
+      { to: pushToken, title, body, data: data || {}, sound: "default" },
     ];
-
     const { success, failedTokens } = await sendExpoPush(messages);
-    if (!success && failedTokens.length > 0) {
+    if (!success && failedTokens.length > 0)
       await handleFailedTokens(failedTokens, messages);
-    }
     return success;
   } catch (error) {
     console.error("[Push] Error sending notification:", error);
@@ -272,11 +240,7 @@ export async function sendCustomerPushNotification(
   try {
     const pelanggan =
       await getPelangganPushTokenService().findByIdWithPushToken(pelangganId);
-
-    if (!pelanggan?.pushToken) {
-      return false;
-    }
-
+    if (!pelanggan?.pushToken) return false;
     const messages: ExpoPushMessage[] = [
       {
         to: pelanggan.pushToken,
@@ -286,11 +250,9 @@ export async function sendCustomerPushNotification(
         sound: "default",
       },
     ];
-
     const { success, failedTokens } = await sendExpoPush(messages);
-    if (!success && failedTokens.length > 0) {
+    if (!success && failedTokens.length > 0)
       await handleFailedTokens(failedTokens, messages);
-    }
     return success;
   } catch (error) {
     console.error("[Push] Error sending customer notification:", error);
@@ -306,27 +268,18 @@ export async function sendPushToUsers(
 ): Promise<number> {
   try {
     const users = await getUserRepo().findManyWithPushTokenAndFilter(userIds);
-
-    const foundUserIds = users.map((u) => u.id);
+    const foundUserIds = users.map((user) => user.id);
     const missingUserIds = userIds.filter((id) => !foundUserIds.includes(id));
-    let mitras: { id: string; pushToken: string | null }[] = [];
-
-    if (missingUserIds.length > 0) {
-      mitras = await getMitraRepo().findManyWithPushTokenByIds(missingUserIds);
-    }
-
+    const mitras =
+      missingUserIds.length > 0
+        ? await getMitraRepo().findManyWithPushTokenByIds(missingUserIds)
+        : [];
     const allTokens: string[] = [];
-    for (const u of users) {
-      if (u.pushToken) allTokens.push(u.pushToken);
-    }
-    for (const m of mitras) {
-      if (m.pushToken) allTokens.push(m.pushToken);
-    }
-
-    if (allTokens.length === 0) {
-      return 0;
-    }
-
+    for (const user of users)
+      if (user.pushToken) allTokens.push(user.pushToken);
+    for (const mitra of mitras)
+      if (mitra.pushToken) allTokens.push(mitra.pushToken);
+    if (allTokens.length === 0) return 0;
     const messages: ExpoPushMessage[] = allTokens.map((token) => ({
       to: token,
       title,
@@ -334,11 +287,9 @@ export async function sendPushToUsers(
       data: data || {},
       sound: "default",
     }));
-
     const { success, failedTokens } = await sendExpoPush(messages);
-    if (!success && failedTokens.length > 0) {
+    if (!success && failedTokens.length > 0)
       await handleFailedTokens(failedTokens, messages);
-    }
     return allTokens.length - failedTokens.length;
   } catch (error) {
     console.error("[Push] Error sending notifications:", error);
@@ -370,11 +321,7 @@ export async function sendPushToDepartment(
   try {
     const users =
       await getUserRepo().findManyByDepartmentWithPushToken(departmentId);
-
-    if (users.length === 0) {
-      return 0;
-    }
-
+    if (users.length === 0) return 0;
     const messages: ExpoPushMessage[] = users.map(
       (user: { id: string; pushToken: string | null }) => ({
         to: user.pushToken!,
@@ -384,11 +331,9 @@ export async function sendPushToDepartment(
         sound: "default",
       }),
     );
-
     const { success, failedTokens } = await sendExpoPush(messages);
-    if (!success && failedTokens.length > 0) {
+    if (!success && failedTokens.length > 0)
       await handleFailedTokens(failedTokens, messages);
-    }
     return users.length - failedTokens.length;
   } catch (error) {
     console.error("[Push] Error sending to department:", error);

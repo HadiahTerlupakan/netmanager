@@ -1,30 +1,41 @@
-import { PrismaClient, PointClaimStatus, Prisma } from "@prisma/client";
-import type { PointClaim } from "@prisma/client";
+import { Prisma, PointClaimStatus } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import { MarketingMapper } from "../mappers/MarketingMapper";
 import type {
   IPointClaimRepository,
   CreatePointClaimInput,
   UpdatePointClaimInput,
-  PointClaimWithRelations,
-  PointSummary,
-  PointClaimDashboardSummary,
-  CanvasingClaimSubmission,
-} from "./IPointClaimRepository";
+  PointClaimFilters,
+} from "../domain/ports/IPointClaimRepository";
+
+const WO_IN_PROGRESS_POINT = 5;
+const WO_COMPLETED_POINT = 3;
+const APPROVED_CLAIM_POINT = 2;
+const COMPLETED_WORK_ORDER_STATUSES = ["COMPLETED", "VERIFIED", "CLOSED"];
+const IN_PROGRESS_WORK_ORDER_STATUSES = [
+  "IN_PROGRESS",
+  ...COMPLETED_WORK_ORDER_STATUSES,
+];
 
 export class PointClaimRepository implements IPointClaimRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  /** Get canvasing data required for point claim submission. */
-  async findCanvasingClaimSubmission(
-    canvasingId: string,
-  ): Promise<CanvasingClaimSubmission | null> {
-    return this.db.canvasing.findUnique({
+  /** Find canvasing data required for point claim submission. */
+  async findCanvasingClaimSubmission(canvasingId: string) {
+    const canvasing = await this.db.canvasing.findUnique({
       where: { id: canvasingId },
       include: {
         workOrder: true,
         pointClaims: true,
         user: { select: { name: true, siteId: true } },
       },
-    }) as Promise<CanvasingClaimSubmission | null>;
+    });
+
+    if (!canvasing) {
+      return null;
+    }
+
+    return MarketingMapper.toClaimSubmissionDomain(canvasing as never);
   }
 
   /** Update canvasing lock state. */
@@ -35,8 +46,9 @@ export class PointClaimRepository implements IPointClaimRepository {
     });
   }
 
-  async create(data: CreatePointClaimInput): Promise<PointClaim> {
-    return this.db.pointClaim.create({
+  /** Create a point claim. */
+  async create(data: CreatePointClaimInput) {
+    const claim = await this.db.pointClaim.create({
       data: {
         canvasingId: data.canvasingId,
         salesId: data.salesId,
@@ -46,116 +58,58 @@ export class PointClaimRepository implements IPointClaimRepository {
         keterangan: data.keterangan ?? null,
       },
     });
+    return MarketingMapper.toPointClaimDomain(claim);
   }
 
-  async findById(id: string): Promise<PointClaimWithRelations | null> {
-    return this.db.pointClaim.findUnique({
+  /** Find a point claim by id. */
+  async findById(id: string) {
+    const claim = await this.db.pointClaim.findUnique({
       where: { id },
-      include: {
-        canvasing: {
-          select: {
-            id: true,
-            nama: true,
-            alamat: true,
-            paket: true,
-            workOrder: {
-              select: {
-                workOrderNumber: true,
-                status: true,
-              },
-            },
-          },
-        },
-        sales: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        reviewedBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    }) as Promise<PointClaimWithRelations | null>;
-  }
-
-  async findByCanvasingId(canvasingId: string): Promise<PointClaim | null> {
-    return this.db.pointClaim.findUnique({
-      where: { canvasingId },
+      include: this.createPointClaimInclude(),
     });
+
+    if (!claim) {
+      return null;
+    }
+
+    return MarketingMapper.toPointClaimDomain(claim);
   }
 
-  async findAll(filters?: {
-    status?: PointClaimStatus;
-    salesId?: string;
-    tenantId?: string;
-  }): Promise<PointClaimWithRelations[]> {
-    return this.db.pointClaim.findMany({
-      where: {
-        AND: [
-          filters?.status ? { status: filters.status } : {},
-          filters?.salesId ? { salesId: filters.salesId } : {},
-          filters?.tenantId ? { tenantId: filters.tenantId } : {},
-        ],
-      },
-      include: {
-        canvasing: {
-          select: {
-            id: true,
-            nama: true,
-            alamat: true,
-            paket: true,
-            workOrder: {
-              select: {
-                workOrderNumber: true,
-                status: true,
-              },
-            },
-          },
-        },
-        sales: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        reviewedBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+  /** Find a point claim by canvasing id. */
+  async findByCanvasingId(canvasingId: string) {
+    const claim = await this.db.pointClaim.findUnique({
+      where: { canvasingId },
+      include: this.createPointClaimInclude(),
+    });
+
+    if (!claim) {
+      return null;
+    }
+
+    return MarketingMapper.toPointClaimDomain(claim);
+  }
+
+  /** Find all point claims using optional filters. */
+  async findAll(filters?: PointClaimFilters) {
+    const claims = await this.db.pointClaim.findMany({
+      where: this.buildFilters(filters),
+      include: this.createPointClaimInclude(),
       orderBy: { createdAt: "desc" },
-    }) as Promise<PointClaimWithRelations[]>;
+    });
+
+    return claims.map((claim) => MarketingMapper.toPointClaimDomain(claim));
   }
 
-  async getDashboardSummary(
-    tenantId?: string,
-  ): Promise<PointClaimDashboardSummary> {
+  /** Return point claim dashboard summary. */
+  async getDashboardSummary(tenantId?: string) {
     const [approved, pending] = await Promise.all([
       this.db.pointClaim.aggregate({
-        where: {
-          status: "APPROVED",
-          ...(tenantId ? { tenantId } : {}),
-        },
-        _sum: {
-          pointValue: true,
-        },
-        _count: {
-          _all: true,
-        },
+        where: { status: "APPROVED", ...(tenantId ? { tenantId } : {}) },
+        _sum: { pointValue: true },
+        _count: { _all: true },
       }),
       this.db.pointClaim.count({
-        where: {
-          status: "PENDING",
-          ...(tenantId ? { tenantId } : {}),
-        },
+        where: { status: "PENDING", ...(tenantId ? { tenantId } : {}) },
       }),
     ]);
 
@@ -166,82 +120,125 @@ export class PointClaimRepository implements IPointClaimRepository {
     };
   }
 
-  async update(id: string, data: UpdatePointClaimInput): Promise<PointClaim> {
-    return this.db.pointClaim.update({
+  /** Update a point claim. */
+  async update(id: string, data: UpdatePointClaimInput) {
+    const claim = await this.db.pointClaim.update({
       where: { id },
-      data,
+      data: data as never,
+      include: this.createPointClaimInclude(),
     });
+    return MarketingMapper.toPointClaimDomain(claim);
   }
 
+  /** Delete a point claim by id. */
   async delete(id: string): Promise<void> {
-    await this.db.pointClaim.delete({
-      where: { id },
-    });
+    await this.db.pointClaim.delete({ where: { id } });
   }
 
-  async getPointSummaryBySales(salesId: string): Promise<PointSummary> {
-    // Get all canvasings for this sales with their work orders and claims
+  /** Return point summary for a sales user. */
+  async getPointSummaryBySales(salesId: string) {
     const canvasings = await this.db.canvasing.findMany({
       where: { salesId },
       include: {
-        workOrder: {
-          select: {
-            status: true,
-          },
-        },
-        pointClaims: {
-          select: {
-            status: true,
-            pointValue: true,
-          },
-        },
+        workOrder: { select: { status: true } },
+        pointClaims: { select: { status: true, pointValue: true } },
       },
     });
 
-    let woInProgressPoints = 0;
-    let woCompletedPoints = 0;
-    let claimPoints = 0;
-    let approvedClaims = 0;
-    let pendingClaims = 0;
+    return canvasings.reduce(
+      (summary, canvasing) => this.accumulatePointSummary(summary, canvasing),
+      this.createEmptyPointSummary(),
+    );
+  }
 
-    for (const canvasing of canvasings) {
-      const woStatus = canvasing.workOrder?.status;
+  private createPointClaimInclude(): Prisma.PointClaimInclude {
+    return {
+      canvasing: {
+        select: {
+          id: true,
+          nama: true,
+          alamat: true,
+          paket: true,
+          workOrder: { select: { workOrderNumber: true, status: true } },
+        },
+      },
+      sales: { select: { id: true, name: true, email: true } },
+      reviewedBy: { select: { id: true, name: true } },
+    };
+  }
 
-      // Poin WO In Progress (5 poin)
-      if (
-        woStatus &&
-        ["IN_PROGRESS", "COMPLETED", "VERIFIED", "CLOSED"].includes(woStatus)
-      ) {
-        woInProgressPoints += 5;
-      }
+  private buildFilters(
+    filters?: PointClaimFilters,
+  ): Prisma.PointClaimWhereInput {
+    return {
+      AND: [
+        filters?.status ? { status: filters.status as PointClaimStatus } : {},
+        filters?.salesId ? { salesId: filters.salesId } : {},
+        filters?.tenantId ? { tenantId: filters.tenantId } : {},
+      ],
+    };
+  }
 
-      // Poin WO Completed (+3 poin)
-      if (woStatus && ["COMPLETED", "VERIFIED", "CLOSED"].includes(woStatus)) {
-        woCompletedPoints += 3;
-      }
+  private createEmptyPointSummary() {
+    return {
+      totalPoints: 0,
+      approvedClaims: 0,
+      pendingClaims: 0,
+      woInProgressPoints: 0,
+      woCompletedPoints: 0,
+      claimPoints: 0,
+    };
+  }
 
-      // Poin Claim (+2 poin jika approved)
-      const claim = canvasing.pointClaims as {
-        status: string;
-        pointValue: number;
-      } | null;
-      if (claim) {
-        if (claim.status === "APPROVED") {
-          claimPoints += claim.pointValue;
-          approvedClaims++;
-        } else if (claim.status === "PENDING") {
-          pendingClaims++;
-        }
-      }
+  private accumulatePointSummary(
+    summary: ReturnType<PointClaimRepository["createEmptyPointSummary"]>,
+    canvasing: {
+      workOrder: { status: string } | null;
+      pointClaims: { status: string; pointValue: number } | null;
+    },
+  ) {
+    const nextSummary = { ...summary };
+    const workOrderStatus = canvasing.workOrder?.status;
+
+    if (this.isInProgressStatus(workOrderStatus)) {
+      nextSummary.woInProgressPoints += WO_IN_PROGRESS_POINT;
     }
 
-    return {
-      totalPoints: woInProgressPoints + woCompletedPoints + claimPoints,
-      approvedClaims,
-      pendingClaims,
-      woInProgressPoints,
-      woCompletedPoints,
-      claimPoints,
-    };
+    if (this.isCompletedStatus(workOrderStatus)) {
+      nextSummary.woCompletedPoints += WO_COMPLETED_POINT;
+    }
+
+    const claim = canvasing.pointClaims;
+    if (claim?.status === "APPROVED") {
+      nextSummary.claimPoints += claim.pointValue || APPROVED_CLAIM_POINT;
+      nextSummary.approvedClaims += 1;
+    }
+
+    if (claim?.status === "PENDING") {
+      nextSummary.pendingClaims += 1;
+    }
+
+    nextSummary.totalPoints =
+      nextSummary.woInProgressPoints +
+      nextSummary.woCompletedPoints +
+      nextSummary.claimPoints;
+
+    return nextSummary;
+  }
+
+  private isInProgressStatus(status?: string | null): boolean {
+    if (!status) {
+      return false;
+    }
+
+    return IN_PROGRESS_WORK_ORDER_STATUSES.includes(status);
+  }
+
+  private isCompletedStatus(status?: string | null): boolean {
+    if (!status) {
+      return false;
+    }
+
+    return COMPLETED_WORK_ORDER_STATUSES.includes(status);
   }
 }

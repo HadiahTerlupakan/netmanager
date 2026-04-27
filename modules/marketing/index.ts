@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { WorkOrderRepository } from "@/modules/work-order";
-import { getMitraRepository } from "@/modules/mitra";
+import { getMitraLookupService } from "@/modules/mitra";
 import { SiteService } from "@/modules/roles";
 import { CanvasingRepository } from "./repositories/CanvasingRepository";
 import { PointClaimRepository } from "./repositories/PointClaimRepository";
@@ -12,16 +12,18 @@ import { PointClaimService } from "./services/PointClaimService";
 // Services (public)
 export { CanvasingService } from "./services/CanvasingService";
 export { PointClaimService } from "./services/PointClaimService";
+export { AdminSalesRouteService } from "./services/AdminSalesRouteService";
+export { TestCanvasingRouteService } from "./services/TestCanvasingRouteService";
 export * from "./services/CanvasingAccessService";
 
 export function createCanvasingService(): CanvasingService {
-  const mitraRepository = getMitraRepository();
+  const mitraLookupService = getMitraLookupService();
   const siteService = new SiteService();
 
   return new CanvasingService(
     new CanvasingRepository(prisma, {
-      findMitraIdsBySite: (siteId) => mitraRepository.findIdsBySite(siteId),
-      findMitraSummary: (id) => mitraRepository.findCanvasingSummary(id),
+      findMitraIdsBySite: (siteId) => mitraLookupService.findIdsBySite(siteId),
+      findMitraSummary: (id) => mitraLookupService.findCanvasingSummary(id),
       findSiteSummary: (id) => siteService.getSiteById(id),
     }),
     new WorkOrderRepository(),

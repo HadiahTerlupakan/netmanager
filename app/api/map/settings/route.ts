@@ -1,16 +1,23 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { MappingService } from "@/modules/map";
+import { getMappingService } from "@/modules/map";
 import * as z from "zod";
 
-const service = new MappingService();
+const service = getMappingService();
 
-// Default settings matching GenieACS
-const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS: {
+  centerLat: string;
+  centerLng: string;
+  maxZoomIn: string;
+  maxZoomOut: string;
+  defaultZoom: string;
+  updatedAt: string | null;
+} = {
   centerLat: "-6.2088",
   centerLng: "106.8456",
   maxZoomIn: "18",
   maxZoomOut: "5",
   defaultZoom: "13",
+  updatedAt: null,
 };
 
 const settingsSchema = z.object({
@@ -28,16 +35,16 @@ const settingsSchema = z.object({
  *     summary: Get map settings
  *     tags: [Map]
  */
-export const GET = createHandler({
-  auth: true,
-  permissions: ["map:read"]
-}, async () => {
-  const settings = await service.getSettings();
-  if (!settings) {
-    return apiSuccess(DEFAULT_SETTINGS);
-  }
-  return apiSuccess(settings);
-});
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["map:read"],
+  },
+  async () => {
+    const settings = await service.getSettings();
+    return apiSuccess(settings ?? DEFAULT_SETTINGS);
+  },
+);
 
 /**
  * @swagger
@@ -46,15 +53,17 @@ export const GET = createHandler({
  *     summary: Update map settings
  *     tags: [Map]
  */
-export const PUT = createHandler({
-  auth: true,
-  permissions: ["map:update"],
-  schema: settingsSchema
-}, async (req, ctx) => {
-  const body = ctx.validated;
-  const updated = await service.updateSettings(body);
-  return apiSuccess(updated);
-});
+export const PUT = createHandler(
+  {
+    auth: true,
+    permissions: ["map:update"],
+    schema: settingsSchema,
+  },
+  async (req, ctx) => {
+    const updated = await service.updateSettings(ctx.validated);
+    return apiSuccess(updated);
+  },
+);
 
 /**
  * @swagger
@@ -63,13 +72,16 @@ export const PUT = createHandler({
  *     summary: Reset to default settings
  *     tags: [Map]
  */
-export const POST = createHandler({
-  auth: true,
-  permissions: ["map:update"]
-}, async () => {
-  const updated = await service.updateSettings(DEFAULT_SETTINGS);
-  return apiSuccess({
-    message: "Map settings reset to defaults",
-    data: updated,
-  });
-});
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["map:update"],
+  },
+  async () => {
+    const updated = await service.updateSettings(DEFAULT_SETTINGS);
+    return apiSuccess({
+      message: "Map settings reset to defaults",
+      data: updated,
+    });
+  },
+);

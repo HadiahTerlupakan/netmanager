@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/modules/database";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
-import { getPelangganService } from "@/modules/pelanggan";
+import {
+  PelangganPppRouteService,
+  RouteServiceError,
+} from "@/modules/pelanggan";
 import { Status } from "@prisma/client";
+
+const pelangganPppRouteService = new PelangganPppRouteService();
 
 export async function PATCH(
   req: NextRequest,
@@ -28,30 +32,18 @@ export async function PATCH(
       );
     }
 
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-    });
-
-    if (!pelanggan) {
-      return NextResponse.json(
-        { error: "Pelanggan not found" },
-        { status: 404 },
-      );
-    }
-
-    const updatedPelanggan = await getPelangganService().updateStatusPelanggan(
+    const result = await pelangganPppRouteService.updateCustomerStatus({
       id,
       status,
-    );
+    });
 
-    // Logging
     await logger.logActivity({
       action: "UPDATE",
       subject: "Pelanggan Status",
       details: {
-        id: pelanggan.id,
-        name: pelanggan.nama,
-        oldStatus: pelanggan.status,
+        id: result.pelanggan.id,
+        name: result.pelanggan.nama,
+        oldStatus: result.pelanggan.status,
         newStatus: status,
         actor: session.user.name || "Admin",
       },
@@ -60,11 +52,18 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      data: updatedPelanggan,
-      message: `Status updated to ${status}`,
+      data: result.updatedPelanggan,
+      message: result.message,
     });
   } catch (error: unknown) {
     console.error("[API] Error updating status:", error);
+    if (error instanceof RouteServiceError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     return NextResponse.json(
       {
         error:

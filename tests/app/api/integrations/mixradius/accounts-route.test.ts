@@ -6,6 +6,8 @@ const {
   mockUpdateConfigForTenant,
   mockDeleteConfig,
   mockDeleteConfigForTenant,
+  mockGetAllConfigs,
+  mockGetAllConfigsByTenant,
   mockLogActivity,
   mockIsSuperAdmin,
   mockGetUserPermissions,
@@ -16,6 +18,8 @@ const {
   mockUpdateConfigForTenant: vi.fn(),
   mockDeleteConfig: vi.fn(),
   mockDeleteConfigForTenant: vi.fn(),
+  mockGetAllConfigs: vi.fn(),
+  mockGetAllConfigsByTenant: vi.fn(),
   mockLogActivity: vi.fn(),
   mockIsSuperAdmin: vi.fn(),
   mockGetUserPermissions: vi.fn(),
@@ -99,13 +103,15 @@ const { mockCreateMixRadiusConfig, mockValidateUrl } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/integrations", () => ({
-  mixRadiusConfigRepo: {
+  getMixRadiusConfigService: () => ({
     createConfig: mockCreateConfig,
     updateConfig: mockUpdateConfig,
     updateConfigForTenant: mockUpdateConfigForTenant,
     deleteConfig: mockDeleteConfig,
     deleteConfigForTenant: mockDeleteConfigForTenant,
-  },
+    getAllConfigs: mockGetAllConfigs,
+    getAllConfigsByTenant: mockGetAllConfigsByTenant,
+  }),
   IntegrationFactory: {
     createMixRadiusConfig: mockCreateMixRadiusConfig,
     validateUrl: mockValidateUrl,

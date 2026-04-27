@@ -1,6 +1,9 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryBarangService } from "@/modules/inventory";
+import {
+  getInventoryBarangService,
+  getInventoryRouteService,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { parsePaginationParams } from "@/lib/utils/pagination";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
@@ -190,12 +193,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     let siteId: string | undefined = undefined;
     if (!isSuper && hasRestriction) {
-      const { prisma } = await import("@/modules/database");
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { siteId: true },
-      });
-      siteId = dbUser?.siteId || undefined;
+      siteId = await getInventoryRouteService().getUserSiteId(user.id);
     }
 
     const result = await service.listBarang({

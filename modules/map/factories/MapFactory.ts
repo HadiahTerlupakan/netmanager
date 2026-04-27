@@ -1,157 +1,129 @@
 /**
  * MapFactory
  *
- * Factory pattern for creating Map nodes with different types.
+ * Factory pattern for creating map node payloads.
  */
 
-import type { CreateMapNodeDTO } from '../dto/MapDTO'
+import type { CreateMapNodeDTO } from "../dto/MapDTO";
+import {
+  CUSTOMER_DEFAULT_CAPACITY,
+  FULL_USED_PORTS,
+  INITIAL_USED_PORTS,
+  ODC_DEFAULT_CAPACITY,
+  ODP_DEFAULT_CAPACITY,
+  OLT_DEFAULT_CAPACITY,
+} from "../utils/mapConstants";
 
 export interface CreateMapNodeInput {
-    label: string
-    type: string
-    lat?: number
-    lng?: number
-    capacity?: number
-    usedPorts?: number
-    metadata?: Record<string, unknown>
+  nodeId: string;
+  type: string;
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  capacity?: number;
+  metadata?: Record<string, unknown> | null;
 }
 
 export class MapFactory {
-    /**
-     * Create ODP (Optical Distribution Point) node
-     */
-    static createODP(dto: {
-        label: string
-        lat?: number
-        lng?: number
-        capacity?: number
-    }): CreateMapNodeInput {
-        return {
-            label: dto.label,
-            type: 'ODP',
-            lat: dto.lat,
-            lng: dto.lng,
-            capacity: dto.capacity ?? 8, // Default 8 ports
-            usedPorts: 0,
-            metadata: {
-                nodeType: 'distribution',
-            },
-        }
-    }
+  /** Create ODP node payload. */
+  static createODP(dto: CreateMapNodeDTO): CreateMapNodeInput {
+    return {
+      nodeId: dto.nodeId,
+      name: dto.name,
+      type: "odp",
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      capacity: dto.capacity ?? ODP_DEFAULT_CAPACITY,
+      metadata: this.withUsedPorts(dto.metadata, INITIAL_USED_PORTS),
+    };
+  }
 
-    /**
-     * Create ODC (Optical Distribution Cabinet) node
-     */
-    static createODC(dto: {
-        label: string
-        lat?: number
-        lng?: number
-        capacity?: number
-    }): CreateMapNodeInput {
-        return {
-            label: dto.label,
-            type: 'ODC',
-            lat: dto.lat,
-            lng: dto.lng,
-            capacity: dto.capacity ?? 96, // Default 96 cores
-            usedPorts: 0,
-            metadata: {
-                nodeType: 'cabinet',
-            },
-        }
-    }
+  /** Create ODC node payload. */
+  static createODC(dto: CreateMapNodeDTO): CreateMapNodeInput {
+    return {
+      nodeId: dto.nodeId,
+      name: dto.name,
+      type: "odc",
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      capacity: dto.capacity ?? ODC_DEFAULT_CAPACITY,
+      metadata: this.withUsedPorts(dto.metadata, INITIAL_USED_PORTS),
+    };
+  }
 
-    /**
-     * Create OLT (Optical Line Terminal) node
-     */
-    static createOLT(dto: {
-        label: string
-        lat?: number
-        lng?: number
-        capacity?: number
-    }): CreateMapNodeInput {
-        return {
-            label: dto.label,
-            type: 'OLT',
-            lat: dto.lat,
-            lng: dto.lng,
-            capacity: dto.capacity ?? 128,
-            usedPorts: 0,
-            metadata: {
-                nodeType: 'terminal',
-            },
-        }
-    }
+  /** Create OLT node payload. */
+  static createOLT(dto: CreateMapNodeDTO): CreateMapNodeInput {
+    return {
+      nodeId: dto.nodeId,
+      name: dto.name,
+      type: "olt",
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      capacity: dto.capacity ?? OLT_DEFAULT_CAPACITY,
+      metadata: this.withUsedPorts(dto.metadata, INITIAL_USED_PORTS),
+    };
+  }
 
-    /**
-     * Create Pole node
-     */
-    static createPole(dto: {
-        label: string
-        lat?: number
-        lng?: number
-    }): CreateMapNodeInput {
-        return {
-            label: dto.label,
-            type: 'POLE',
-            lat: dto.lat,
-            lng: dto.lng,
-            capacity: null,
-            usedPorts: null,
-            metadata: {
-                nodeType: 'infrastructure',
-            },
-        }
-    }
+  /** Create pole node payload. */
+  static createPole(dto: CreateMapNodeDTO): CreateMapNodeInput {
+    return {
+      nodeId: dto.nodeId,
+      name: dto.name,
+      type: "pole",
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      capacity: 0,
+      metadata: dto.metadata ?? null,
+    };
+  }
 
-    /**
-     * Create Customer node
-     */
-    static createCustomer(dto: {
-        label: string
-        lat?: number
-        lng?: number
-        pelangganId?: string
-    }): CreateMapNodeInput {
-        return {
-            label: dto.label,
-            type: 'CUSTOMER',
-            lat: dto.lat,
-            lng: dto.lng,
-            capacity: 1,
-            usedPorts: 1,
-            metadata: {
-                nodeType: 'endpoint',
-                pelangganId: dto.pelangganId,
-            },
-        }
-    }
+  /** Create customer node payload. */
+  static createCustomer(dto: CreateMapNodeDTO): CreateMapNodeInput {
+    return {
+      nodeId: dto.nodeId,
+      name: dto.name,
+      type: "customer",
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      capacity: CUSTOMER_DEFAULT_CAPACITY,
+      metadata: this.withUsedPorts(dto.metadata, FULL_USED_PORTS),
+    };
+  }
 
-    /**
-     * Create node from generic DTO
-     */
-    static createFromDTO(dto: CreateMapNodeDTO): CreateMapNodeInput {
-        switch (dto.type.toUpperCase()) {
-            case 'ODP':
-                return this.createODP(dto)
-            case 'ODC':
-                return this.createODC(dto)
-            case 'OLT':
-                return this.createOLT(dto)
-            case 'POLE':
-                return this.createPole(dto)
-            case 'CUSTOMER':
-                return this.createCustomer(dto)
-            default:
-                return {
-                    label: dto.label,
-                    type: dto.type,
-                    lat: dto.lat,
-                    lng: dto.lng,
-                    capacity: dto.capacity,
-                    usedPorts: 0,
-                    metadata: dto.metadata,
-                }
-        }
+  /** Create node payload from generic DTO. */
+  static createFromDTO(dto: CreateMapNodeDTO): CreateMapNodeInput {
+    switch (dto.type.toLowerCase()) {
+      case "odp":
+        return this.createODP(dto);
+      case "odc":
+        return this.createODC(dto);
+      case "olt":
+        return this.createOLT(dto);
+      case "pole":
+        return this.createPole(dto);
+      case "customer":
+        return this.createCustomer(dto);
+      default:
+        return {
+          nodeId: dto.nodeId,
+          name: dto.name,
+          type: dto.type,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          capacity: dto.capacity,
+          metadata: dto.metadata ?? null,
+        };
     }
+  }
+
+  /** Attach used ports into metadata safely. */
+  private static withUsedPorts(
+    metadata: Record<string, unknown> | null | undefined,
+    usedPorts: number,
+  ): Record<string, unknown> {
+    return {
+      ...(metadata ?? {}),
+      usedPorts,
+    };
+  }
 }

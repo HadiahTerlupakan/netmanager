@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { prisma } from "@/modules/database";
+import { getInventoryRouteService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
+
+const inventoryRouteService = getInventoryRouteService();
 
 /**
  * GET /api/inventory/barang/stock/by-kondisi
@@ -10,10 +12,11 @@ import { apiSuccess, ApiErrors } from "@/lib/api-response";
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
+
   try {
     const session = await requireAdmin(req);
     if (session instanceof NextResponse) {
-      return session; // Return error response if authentication fails
+      return session;
     }
 
     const searchParams = req.nextUrl.searchParams;
@@ -24,84 +27,32 @@ export async function GET(req: NextRequest) {
       return ApiErrors.badRequest("Barang ID dan Gudang ID harus diisi");
     }
 
-    try {
-      const dbStart = Date.now();
+    const dbStart = Date.now();
+    const result = await inventoryRouteService.getStockBreakdown(
+      barangId,
+      gudangId,
+    );
 
-      const [stockSnapshot, barangInfo, gudangInfo] = await Promise.all([
-        prisma.barangGudang.findUnique({
-          where: {
-            barangId_gudangId: {
-              barangId,
-              gudangId,
-            },
-          },
-          select: {
-            stok: true,
-            stokBaru: true,
-            stokBekas: true,
-            stokRusak: true,
-          },
-        }),
-        prisma.barang.findUnique({
-          where: { id: barangId },
-          select: {
-            id: true,
-            kode: true,
-            nama: true,
-            satuan: true,
-          },
-        }),
-        prisma.gudang.findUnique({
-          where: { id: gudangId },
-          select: {
-            id: true,
-            kode: true,
-            nama: true,
-          },
-        }),
-      ]);
+    logger.dbOperation(
+      "stock snapshot lookup",
+      "BarangGudang",
+      Date.now() - dbStart,
+    );
+    logger.apiRequest(
+      "GET",
+      "/api/inventory/barang/stock/by-kondisi",
+      200,
+      Date.now() - startTime,
+      {
+        userId: session.user.id,
+        barangId,
+        gudangId,
+        totalStock: result.totalStock,
+        stockPerKondisi: result.stockPerKondisi,
+      },
+    );
 
-      const stockPerKondisi = {
-        BARU: Math.max(stockSnapshot?.stokBaru || 0, 0),
-        BEKAS: Math.max(stockSnapshot?.stokBekas || 0, 0),
-        RUSAK: Math.max(stockSnapshot?.stokRusak || 0, 0),
-      };
-
-      const totalStock = Math.max(
-        stockSnapshot?.stok ||
-          Object.values(stockPerKondisi).reduce((sum, stock) => sum + stock, 0),
-        0,
-      );
-
-      logger.dbOperation(
-        "stock snapshot lookup",
-        "BarangGudang",
-        Date.now() - dbStart,
-      );
-
-      logger.apiRequest(
-        "GET",
-        "/api/inventory/barang/stock/by-kondisi",
-        200,
-        Date.now() - startTime,
-        {
-          userId: session.user.id,
-          barangId,
-          gudangId,
-          totalStock,
-          stockPerKondisi,
-        },
-      );
-
-      return apiSuccess({
-        totalStock,
-        stockPerKondisi,
-        barang: barangInfo,
-        gudang: gudangInfo,
-      });
-    } finally {
-      // do not disconnect shared prisma client
-    }
+    return apiSuccess(result);
   } catch (error) {
     const err = error as Error;
     logger.error("Error fetching stock by condition", err, {

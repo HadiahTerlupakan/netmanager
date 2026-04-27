@@ -4,170 +4,147 @@
  * Database operations for SystemLog entity.
  */
 
-import { prisma } from '@/lib/prisma'
-import type { LogType } from '@prisma/client'
+import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+import { SystemLogMapper } from "../mappers/SystemLogMapper";
+import type {
+  ISystemLogRepository,
+  SystemLogFilters,
+} from "../domain/ports/ISystemLogRepository";
 
-export interface SystemLogFilters {
-    type?: LogType
-    action?: string
-    userId?: string
-    startDate?: Date
-    endDate?: Date
-    search?: string
-    skip?: number
-    take?: number
-}
+const DEFAULT_ACTIVITY_LIMIT = 10;
 
-export class SystemLogRepository {
-    /**
-     * Find all logs with filters
-     */
-    async findAll(filters: SystemLogFilters = {}) {
-        const where: Record<string, unknown> = {}
-
-        if (filters.type) {
-            where.type = filters.type
-        }
-
-        if (filters.action) {
-            where.action = filters.action
-        }
-
-        if (filters.userId) {
-            where.userId = filters.userId
-        }
-
-        if (filters.startDate || filters.endDate) {
-            where.createdAt = {}
-            if (filters.startDate) {
-                (where.createdAt as Record<string, Date>).gte = filters.startDate
-            }
-            if (filters.endDate) {
-                (where.createdAt as Record<string, Date>).lte = filters.endDate
-            }
-        }
-
-        if (filters.search) {
-            where.OR = [
-                { subject: { contains: filters.search, mode: 'insensitive' } },
-                { action: { contains: filters.search, mode: 'insensitive' } },
-            ]
-        }
-
-        const [data, total] = await Promise.all([
-            prisma.systemLog.findMany({
-                where,
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                        },
-                    },
-                },
-                orderBy: { createdAt: 'desc' },
-                skip: filters.skip,
-                take: filters.take,
-            }),
-            prisma.systemLog.count({ where }),
-        ])
-
-        return { data, total }
-    }
-
-    /**
-     * Find log by ID
-     */
-    async findById(id: string) {
-        return prisma.systemLog.findUnique({
-            where: { id },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
+export class SystemLogRepository implements ISystemLogRepository {
+  /** Find all logs with filters. */
+  async findAll(filters: SystemLogFilters = {}) {
+    const where = this.buildWhereClause(filters);
+    const [rows, total] = await Promise.all([
+      prisma.systemLog.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
-        })
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: filters.skip,
+        take: filters.take,
+      }),
+      prisma.systemLog.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((row) => SystemLogMapper.toDomain(row)),
+      total,
+    };
+  }
+
+  /** Find one log by identifier. */
+  async findById(id: string) {
+    const row = await prisma.systemLog.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return row ? SystemLogMapper.toDomain(row) : null;
+  }
+
+  /** Get recent log activity for timeline widgets. */
+  async getRecentActivity(limit: number = DEFAULT_ACTIVITY_LIMIT) {
+    const rows = await prisma.systemLog.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    return rows.map((row) => SystemLogMapper.toDomain(row));
+  }
+
+  /** Get grouped statistics by action. */
+  async getStatsByAction(startDate?: Date, endDate?: Date) {
+    const rows = await prisma.systemLog.groupBy({
+      by: ["action"],
+      where: this.buildDateRangeWhere(startDate, endDate),
+      _count: { _all: true },
+    });
+
+    return rows.map((row) => SystemLogMapper.toActionStat(row));
+  }
+
+  /** Get grouped statistics by subject. */
+  async getStatsBySubject(startDate?: Date, endDate?: Date) {
+    const rows = await prisma.systemLog.groupBy({
+      by: ["subject"],
+      where: this.buildDateRangeWhere(startDate, endDate),
+      _count: { _all: true },
+    });
+
+    return rows.map((row) => SystemLogMapper.toSubjectStat(row));
+  }
+
+  /** Count total logs using optional filters. */
+  async count(filters: SystemLogFilters = {}) {
+    return prisma.systemLog.count({ where: this.buildWhereClause(filters) });
+  }
+
+  private buildWhereClause(
+    filters: SystemLogFilters,
+  ): Prisma.SystemLogWhereInput {
+    return {
+      ...(filters.type ? { type: filters.type } : {}),
+      ...(filters.action ? { action: filters.action } : {}),
+      ...(filters.userId ? { userId: filters.userId } : {}),
+      ...this.buildDateRangeWhere(filters.startDate, filters.endDate),
+      ...this.buildSearchWhere(filters.search),
+    };
+  }
+
+  private buildDateRangeWhere(
+    startDate?: Date,
+    endDate?: Date,
+  ): Prisma.SystemLogWhereInput {
+    if (!startDate && !endDate) {
+      return {};
     }
 
-    /**
-     * Get recent activity for timeline
-     */
-    async getRecentActivity(limit: number = 10) {
-        return prisma.systemLog.findMany({
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                    },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: limit,
-        })
+    return {
+      createdAt: {
+        ...(startDate ? { gte: startDate } : {}),
+        ...(endDate ? { lte: endDate } : {}),
+      },
+    };
+  }
+
+  private buildSearchWhere(search?: string): Prisma.SystemLogWhereInput {
+    if (!search) {
+      return {};
     }
 
-    /**
-     * Get statistics by action
-     */
-    async getStatsByAction(startDate?: Date, endDate?: Date) {
-        const where: Record<string, unknown> = {}
-
-        if (startDate || endDate) {
-            where.createdAt = {}
-            if (startDate) {
-                (where.createdAt as Record<string, Date>).gte = startDate
-            }
-            if (endDate) {
-                (where.createdAt as Record<string, Date>).lte = endDate
-            }
-        }
-
-        return prisma.systemLog.groupBy({
-            by: ['action'],
-            where,
-            _count: { _all: true },
-        })
-    }
-
-    /**
-     * Get statistics by subject
-     */
-    async getStatsBySubject(startDate?: Date, endDate?: Date) {
-        const where: Record<string, unknown> = {}
-
-        if (startDate || endDate) {
-            where.createdAt = {}
-            if (startDate) {
-                (where.createdAt as Record<string, Date>).gte = startDate
-            }
-            if (endDate) {
-                (where.createdAt as Record<string, Date>).lte = endDate
-            }
-        }
-
-        return prisma.systemLog.groupBy({
-            by: ['subject'],
-            where,
-            _count: { _all: true },
-        })
-    }
-
-    /**
-     * Count total logs
-     */
-    async count(filters: SystemLogFilters = {}) {
-        const where: Record<string, unknown> = {}
-
-        if (filters.type) where.type = filters.type
-        if (filters.action) where.action = filters.action
-        if (filters.userId) where.userId = filters.userId
-
-        return prisma.systemLog.count({ where })
-    }
+    return {
+      OR: [
+        { subject: { contains: search, mode: "insensitive" } },
+        { action: { contains: search, mode: "insensitive" } },
+      ],
+    };
+  }
 }

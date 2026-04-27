@@ -1,28 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  mockGetActiveConfig,
-  mockGetActiveConfigByTenant,
-  mockGetTenantIdFromContext,
-} = vi.hoisted(() => ({
-  mockGetActiveConfig: vi.fn(),
-  mockGetActiveConfigByTenant: vi.fn(),
+const { mockGetTenantIdFromContext, mockConfigRepository } = vi.hoisted(() => ({
   mockGetTenantIdFromContext: vi.fn(),
+  mockConfigRepository: {
+    getActiveConfig: vi.fn(),
+    getActiveConfigByTenant: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/tenant-context", () => ({
   getTenantIdFromContext: mockGetTenantIdFromContext,
 }));
-
-vi.mock(
-  "@/modules/integrations/repositories/MixRadiusConfigRepository",
-  () => ({
-    mixRadiusConfigRepo: {
-      getActiveConfig: mockGetActiveConfig,
-      getActiveConfigByTenant: mockGetActiveConfigByTenant,
-    },
-  }),
-);
 
 import {
   loadMixRadiusCredentials,
@@ -52,20 +40,24 @@ describe("mixradius-auth-client credential loading", () => {
       tenantId: "tenant-1",
       isSuperAdmin: false,
     });
-    mockGetActiveConfigByTenant.mockResolvedValue({
+    mockConfigRepository.getActiveConfigByTenant.mockResolvedValue({
       username: "db-user",
       password: "db-pass",
       apiUrl: "https://mixradius.example.com/",
     });
 
-    await expect(loadMixRadiusCredentials()).resolves.toEqual({
+    await expect(
+      loadMixRadiusCredentials(mockConfigRepository as never),
+    ).resolves.toEqual({
       username: "db-user",
       password: "db-pass",
       baseUrl: "https://mixradius.example.com",
     });
 
-    expect(mockGetActiveConfigByTenant).toHaveBeenCalledWith("tenant-1");
-    expect(mockGetActiveConfig).not.toHaveBeenCalled();
+    expect(mockConfigRepository.getActiveConfigByTenant).toHaveBeenCalledWith(
+      "tenant-1",
+    );
+    expect(mockConfigRepository.getActiveConfig).not.toHaveBeenCalled();
   });
 
   it("falls back to environment credentials when superadmin has no active config", async () => {
@@ -76,9 +68,11 @@ describe("mixradius-auth-client credential loading", () => {
       tenantId: null,
       isSuperAdmin: true,
     });
-    mockGetActiveConfig.mockResolvedValue(null);
+    mockConfigRepository.getActiveConfig.mockResolvedValue(null);
 
-    await expect(loadMixRadiusCredentials()).resolves.toEqual({
+    await expect(
+      loadMixRadiusCredentials(mockConfigRepository as never),
+    ).resolves.toEqual({
       username: "env-user",
       password: "env-pass",
       baseUrl: "https://env.example.com",
@@ -90,13 +84,15 @@ describe("mixradius-auth-client credential loading", () => {
       tenantId: "tenant-1",
       isSuperAdmin: false,
     });
-    mockGetActiveConfigByTenant.mockResolvedValue({
+    mockConfigRepository.getActiveConfigByTenant.mockResolvedValue({
       username: "db-user",
       password: "db-pass",
       apiUrl: "",
     });
 
-    await expect(loadMixRadiusCredentials()).rejects.toMatchObject({
+    await expect(
+      loadMixRadiusCredentials(mockConfigRepository as never),
+    ).rejects.toMatchObject({
       name: "MixRadiusConfigError",
       message:
         "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
@@ -108,9 +104,11 @@ describe("mixradius-auth-client credential loading", () => {
       tenantId: "tenant-1",
       isSuperAdmin: false,
     });
-    mockGetActiveConfigByTenant.mockResolvedValue(null);
+    mockConfigRepository.getActiveConfigByTenant.mockResolvedValue(null);
 
-    await expect(loadMixRadiusCredentials()).rejects.toMatchObject({
+    await expect(
+      loadMixRadiusCredentials(mockConfigRepository as never),
+    ).rejects.toMatchObject({
       name: "MixRadiusConfigError",
       message: "Akun MixRadius tenant ini belum dikonfigurasi.",
     });
@@ -121,12 +119,14 @@ describe("mixradius-auth-client credential loading", () => {
       tenantId: null,
       isSuperAdmin: true,
     });
-    mockGetActiveConfig.mockResolvedValue(null);
+    mockConfigRepository.getActiveConfig.mockResolvedValue(null);
     process.env.MIXRADIUS_USERNAME = "env-user";
     process.env.MIXRADIUS_PASSWORD = "env-pass";
     process.env.MIXRADIUS_URL = "://invalid";
 
-    await expect(loadMixRadiusCredentials()).rejects.toMatchObject({
+    await expect(
+      loadMixRadiusCredentials(mockConfigRepository as never),
+    ).rejects.toMatchObject({
       name: "MixRadiusConfigError",
       message:
         "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",

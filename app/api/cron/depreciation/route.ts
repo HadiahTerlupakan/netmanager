@@ -1,40 +1,31 @@
-import { NextRequest } from 'next/server'
-import { AssetService } from '@/modules/inventory'
-import { prisma } from '@/modules/database'
-import { apiSuccess, ApiErrors } from '@/lib/api-response'
-import { getEnv } from '@/lib/env'
+import { NextRequest } from "next/server";
+import { DepreciationCronService } from "@/modules/inventory";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { getEnv } from "@/lib/env";
 
-const assetService = new AssetService()
+const depreciationCronService = new DepreciationCronService();
 
+/** Jalankan cron penyusutan aset bulanan. */
 export async function GET(req: NextRequest) {
-    try {
-        const env = getEnv()
-        const authHeader = req.headers.get('authorization')
+  try {
+    const env = getEnv();
+    const authHeader = req.headers.get("authorization");
 
-        if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
-            return ApiErrors.unauthorized('Tidak terautentikasi')
-        }
-
-        let systemUser = await prisma.user.findFirst({
-            where: { role: { name: 'SUPER_ADMIN' } }
-        })
-
-        if (!systemUser) {
-            systemUser = await prisma.user.findFirst()
-        }
-
-        if (!systemUser) {
-            return ApiErrors.internalError('No user found to execute cron job (System requires at least one user)')
-        }
-        
-        const results = await assetService.runMonthlyDepreciationCycle(systemUser.id)
-
-        return apiSuccess({ 
-            processed: results.length,
-        }, { message: `Depreciation run completed. Processed ${results.length} assets.` })
-    } catch (error: unknown) {
-        console.error('Depreciation Cron Failed:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Depreciation cron failed'
-        return ApiErrors.internalError(errorMessage)
+    if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+      return ApiErrors.unauthorized("Tidak terautentikasi");
     }
+
+    const result = await depreciationCronService.runMonthlyCycle();
+    return apiSuccess(
+      { processed: result.processed },
+      {
+        message: `Depreciation run completed. Processed ${result.processed} assets.`,
+      },
+    );
+  } catch (error: unknown) {
+    console.error("Depreciation Cron Failed:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Depreciation cron failed";
+    return ApiErrors.internalError(errorMessage);
+  }
 }

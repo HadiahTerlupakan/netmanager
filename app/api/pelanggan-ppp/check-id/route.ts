@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authConfig } from '@/lib/auth'
-import { prisma } from '@/modules/database'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authConfig } from "@/lib/auth";
+import { PelangganPppRouteService } from "@/modules/pelanggan";
 
 /**
  * Cek apakah ID Pelanggan sudah ada (untuk validasi duplikat)
- * 
+ *
  * @swagger
  * /api/pelanggan-ppp/check-id:
  *   get:
@@ -31,44 +31,47 @@ import { prisma } from '@/modules/database'
  *                   type: boolean
  *                   example: false
  */
+const pelangganPppRouteService = new PelangganPppRouteService();
+
 export async function GET(req: NextRequest) {
   try {
-    // Cek autentikasi
-    const session = await getServerSession(authConfig)
+    const session = await getServerSession(authConfig);
     if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
+      return NextResponse.json(
+        { error: "Tidak terautentikasi" },
+        { status: 401 },
+      );
     }
 
-    const { searchParams } = new URL(req.url)
-    const idPelanggan = searchParams.get('idPelanggan')
+    const { searchParams } = new URL(req.url);
+    const idPelanggan = searchParams.get("idPelanggan");
 
-    if (!idPelanggan || idPelanggan.trim() === '') {
-      return NextResponse.json({ error: 'ID Pelanggan harus diisi' }, { status: 400 })
+    if (!idPelanggan || idPelanggan.trim() === "") {
+      return NextResponse.json(
+        { error: "ID Pelanggan harus diisi" },
+        { status: 400 },
+      );
     }
 
-    // Validasi format (harus 8 digit angka)
     if (!/^\d{8}$/.test(idPelanggan.trim())) {
-      return NextResponse.json({ error: 'ID Pelanggan harus 8 digit angka' }, { status: 400 })
+      return NextResponse.json(
+        { error: "ID Pelanggan harus 8 digit angka" },
+        { status: 400 },
+      );
     }
 
-    // Cek apakah ID sudah ada di database
-    try {
-      const pelanggan = await prisma.pelanggan.findFirst({
-        where: { idPelanggan: idPelanggan.trim() },
-        select: { id: true }
-      })
-      return NextResponse.json({ exists: pelanggan !== null })
-    } catch (error: unknown) {
-      // Jika error (misalnya tabel belum ada), anggap ID belum ada
-      console.warn('Error checking ID pelanggan (table mungkin belum ada):', error instanceof Error ? error.message : 'Terjadi kesalahan')
-      return NextResponse.json({ exists: false })
-    }
+    const result = await pelangganPppRouteService.checkIdExists(
+      idPelanggan.trim(),
+    );
+    return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error('Error checking pelanggan ID:', error)
+    console.error("Error checking pelanggan ID:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      {
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+      },
+      { status: 500 },
+    );
   }
 }
-

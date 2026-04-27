@@ -1,27 +1,14 @@
-import { prisma } from '@/modules/database'
-import { createHandler, apiSuccess } from '@/lib/api'
+import { createHandler, apiSuccess } from "@/lib/api";
+import { OdpRouteService } from "@/modules/network";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export const GET = createHandler({ auth: true }, async (req, _ctx) => {
-    const { searchParams } = new URL(req.url)
-    const siteId = searchParams.get('siteId')
+const odpRouteService = new OdpRouteService();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {}
-    if (siteId) {
-        where.siteId = siteId
-    }
-
-    const odps = await prisma.odp.findMany({
-        where,
-        orderBy: { name: 'asc' },
-        select: {
-            id: true,
-            name: true,
-            location: true,
-        }
-    })
-
-    return apiSuccess({ odps })
-})
+/** Ambil daftar ODP untuk kebutuhan dropdown atau listing ringan. */
+export const GET = createHandler({ auth: true }, async (req) => {
+  const { searchParams } = new URL(req.url);
+  const siteId = searchParams.get("siteId") || undefined;
+  const result = await odpRouteService.getOdps(siteId);
+  return apiSuccess(result);
+});

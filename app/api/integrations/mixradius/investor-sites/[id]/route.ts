@@ -1,7 +1,10 @@
-import { prismaBilling } from "@/modules/database";
 import { createHandler, ApiErrors, apiSuccess } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
+import { MixRadiusInvestorSiteService } from "@/modules/integrations";
+import { isRouteServiceError } from "@/modules/finance";
+
+const mixRadiusInvestorSiteService = new MixRadiusInvestorSiteService();
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
@@ -21,13 +24,16 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   try {
-    const site = await prismaBilling.mixRadiusInvestorSite.findUnique({
-      where: isSuper ? { id } : { id, tenantId: user.tenantId },
-    });
+    const site = await mixRadiusInvestorSiteService.getSite(
+      id,
+      isSuper ? undefined : user.tenantId,
+    );
 
-    if (!site) return ApiErrors.notFound("Site Investor");
     return apiSuccess(site);
   } catch (e) {
+    if (isRouteServiceError(e) && e.status === 404) {
+      return ApiErrors.notFound(e.message);
+    }
     console.error("Error fetching MixRadiusInvestorSite detail:", e);
     return ApiErrors.internalError("Gagal mengambil detail Site Investor");
   }
@@ -58,17 +64,18 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.badRequest("Nama belum diisi");
     }
 
-    const updated = await prismaBilling.mixRadiusInvestorSite.update({
-      where: isSuper ? { id } : { id, tenantId: user.tenantId },
-      data: {
-        name,
-        owners: Array.isArray(owners) ? owners : [],
-        isActive: isActive ?? true,
-      },
+    const updated = await mixRadiusInvestorSiteService.updateSite(id, {
+      name,
+      owners,
+      isActive,
+      tenantId: isSuper ? undefined : user.tenantId,
     });
 
     return apiSuccess(updated);
   } catch (e) {
+    if (isRouteServiceError(e) && e.status === 404) {
+      return ApiErrors.notFound(e.message);
+    }
     console.error("Error updating MixRadiusInvestorSite:", e);
     return ApiErrors.internalError("Gagal memperbarui Site Investor");
   }
@@ -92,12 +99,16 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   try {
-    await prismaBilling.mixRadiusInvestorSite.delete({
-      where: isSuper ? { id } : { id, tenantId: user.tenantId },
-    });
+    await mixRadiusInvestorSiteService.deleteSite(
+      id,
+      isSuper ? undefined : user.tenantId,
+    );
 
     return apiSuccess({ success: true });
   } catch (e) {
+    if (isRouteServiceError(e)) {
+      return ApiErrors.internalError(e.message);
+    }
     console.error("Error deleting MixRadiusInvestorSite:", e);
     return ApiErrors.internalError(
       "Gagal menghapus Site Investor. Mungkin data sedang digunakan.",

@@ -1,16 +1,23 @@
-import { NextRequest } from 'next/server'
-import { getServerSession, type Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
-import { prisma } from '@/modules/database'
-import { logger } from '@/lib/logger'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
+import { NextRequest } from "next/server";
+import { getServerSession, type Session } from "next-auth";
+import { authConfig } from "@/lib/auth";
+import { getInventoryRouteService } from "@/modules/inventory";
+import { logger } from "@/lib/logger";
+import {
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+  apiError,
+} from "@/lib/api-response";
+
+const inventoryRouteService = getInventoryRouteService();
 
 async function requireAdmin() {
-  const session = await getServerSession(authConfig) as Session | null
+  const session = (await getServerSession(authConfig)) as Session | null;
   if (!session) {
-    return null
+    return null;
   }
-  return session
+  return session;
 }
 
 /**
@@ -18,76 +25,57 @@ async function requireAdmin() {
  * Get current stock for specific barang and gudang
  */
 export async function GET(req: NextRequest) {
-  const startTime = Date.now()
+  const startTime = Date.now();
+
   try {
-    const session = await requireAdmin()
+    const session = await requireAdmin();
     if (!session) {
-      logger.warn('Unauthorized access attempt to GET /api/inventory/barang/stock')
-      return ApiErrors.unauthorized('Session tidak valid')
+      logger.warn(
+        "Unauthorized access attempt to GET /api/inventory/barang/stock",
+      );
+      return ApiErrors.unauthorized("Session tidak valid");
     }
 
-    const searchParams = req.nextUrl.searchParams
-    const barangId = searchParams.get('barangId')
-    const gudangId = searchParams.get('gudangId')
+    const searchParams = req.nextUrl.searchParams;
+    const barangId = searchParams.get("barangId");
+    const gudangId = searchParams.get("gudangId");
 
     if (!barangId || !gudangId) {
-      return apiError('Barang ID dan Gudang ID harus diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
+      return apiError(
+        "Barang ID dan Gudang ID harus diisi",
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400 },
+      );
     }
 
-    try {
-      const dbStart = Date.now()
+    const dbStart = Date.now();
+    const result = await inventoryRouteService.getStockInfo(barangId, gudangId);
 
-      // Get current stock for this barang-gudang combination
-      const barangGudang = await prisma.barangGudang.findUnique({
-        where: {
-          barangId_gudangId: {
-            barangId,
-            gudangId
-          }
-        },
-        include: {
-          barang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              satuan: true
-            }
-          },
-          gudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true
-            }
-          }
-        }
-      })
-
-      logger.dbOperation('findUnique', 'BarangGudang+Relations', Date.now() - dbStart)
-
-      logger.apiRequest('GET', '/api/inventory/barang/stock', 200, Date.now() - startTime, {
+    logger.dbOperation(
+      "findUnique",
+      "BarangGudang+Relations",
+      Date.now() - dbStart,
+    );
+    logger.apiRequest(
+      "GET",
+      "/api/inventory/barang/stock",
+      200,
+      Date.now() - startTime,
+      {
         userId: session.user.id,
         barangId,
         gudangId,
-        stock: barangGudang?.stok || 0
-      })
+        stock: result.stok,
+      },
+    );
 
-      return apiSuccess({
-        stok: barangGudang?.stok || 0,
-        barang: barangGudang?.barang,
-        gudang: barangGudang?.gudang
-      })
-
-    } finally {
-      // do not disconnect shared prisma client
-    }
+    return apiSuccess(result);
   } catch (error) {
-    const err = error as Error
-    logger.error('Error fetching stock information', err, {
-      path: '/api/inventory/barang/stock',
-      method: 'GET',
-    })
-    return ApiErrors.internalError('Gagal mengambil informasi stok')
+    const err = error as Error;
+    logger.error("Error fetching stock information", err, {
+      path: "/api/inventory/barang/stock",
+      method: "GET",
+    });
+    return ApiErrors.internalError("Gagal mengambil informasi stok");
   }
 }

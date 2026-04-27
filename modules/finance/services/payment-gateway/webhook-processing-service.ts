@@ -6,6 +6,7 @@ import type {
 } from "@prisma/client-billing";
 
 import { prismaBillingAuth } from "@/lib/prisma-billing";
+import { parseOptionalDate } from "@/lib/utils/server-datetime";
 import { InvoiceRepository } from "../../repositories/InvoiceRepository";
 import { PaymentRepository } from "../../repositories/PaymentRepository";
 import { UnmatchedMutationRepository } from "../../repositories/UnmatchedMutationRepository";
@@ -574,11 +575,8 @@ export class WebhookProcessingService {
   }
 
   private parseDateOrNow(value: unknown): Date {
-    if (typeof value !== "string") {
-      return new Date();
-    }
-
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    return typeof value === "string"
+      ? (parseOptionalDate(value) ?? new Date())
+      : new Date();
   }
 }

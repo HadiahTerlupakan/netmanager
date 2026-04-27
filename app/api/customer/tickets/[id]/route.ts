@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/modules/database'
-import { requireCustomerAuth } from '@/lib/customer-auth'
+import { NextRequest, NextResponse } from "next/server";
+import { requireCustomerAuth } from "@/lib/customer-auth";
+import { SupportTicketService } from "@/modules/pelanggan";
+
+const ticketService = new SupportTicketService();
 
 interface RouteParams {
-    params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -11,51 +13,20 @@ interface RouteParams {
  * Get ticket detail with replies
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
-    const auth = await requireCustomerAuth(request)
-    if (auth.response) return auth.response
+  const auth = await requireCustomerAuth(request);
+  if (auth.response) return auth.response;
 
-    const { session } = auth
-    const { id } = await params
+  const { session } = auth;
+  const { id } = await params;
 
-    try {
-        const ticket = await prisma.supportTickets.findFirst({
-            where: {
-                id,
-                pelangganId: session.id, // Ensure customer owns this ticket
-            },
-            include: {
-                replies: {
-                    orderBy: { createdAt: 'asc' },
-                    include: {
-                        user: {
-                            select: { name: true },
-                        },
-                    },
-                },
-                user: {
-                    select: {
-                        name: true,
-                    },
-                },
-            },
-        })
-
-        if (!ticket) {
-            return NextResponse.json(
-                { success: false, error: 'Tiket tidak ditemukan' },
-                { status: 404 }
-            )
-        }
-
-        return NextResponse.json({
-            success: true,
-            ticket,
-        })
-    } catch (error) {
-        console.error('[Customer Tickets GET Detail] Error:', error)
-        return NextResponse.json(
-            { success: false, error: 'Gagal mengambil detail tiket' },
-            { status: 500 }
-        )
-    }
+  try {
+    const ticket = await ticketService.getCustomerTicketDetail(session.id, id);
+    return NextResponse.json({ success: true, ticket });
+  } catch (error) {
+    console.error("[Customer Tickets GET Detail] Error:", error);
+    const message =
+      error instanceof Error ? error.message : "Gagal mengambil detail tiket";
+    const status = message === "Tiket tidak ditemukan" ? 404 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
+  }
 }

@@ -288,6 +288,8 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     message: string;
     isFromAdmin: boolean;
     senderId?: string;
+    pelangganId?: string;
+    attachments?: string[];
   }) {
     return prisma.ticketReplies.create({
       data: {
@@ -296,8 +298,83 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
         message: data.message,
         isFromAdmin: data.isFromAdmin,
         senderId: data.senderId,
+        pelangganId: data.pelangganId,
+        attachments: data.attachments ?? undefined,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
+  }
+
+  /** Count active tickets whose latest reply is from customer. */
+  async countNeedsReplyAdmin(status: TicketStatus, siteId?: string) {
+    const tickets = await prisma.supportTickets.findMany({
+      where: {
+        status,
+        ...(siteId ? { pelanggan: { siteId } } : {}),
+      },
+      select: {
+        replies: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { isFromAdmin: true },
+        },
+      },
+    });
+
+    return tickets.filter(
+      (ticket) => ticket.replies[0] && !ticket.replies[0].isFromAdmin,
+    ).length;
+  }
+
+  /** Get customer-owned ticket detail by id. */
+  async findByIdForCustomer(id: string, pelangganId: string) {
+    const ticket = await prisma.supportTickets.findFirst({
+      where: { id, pelangganId },
+      include: {
+        replies: {
+          orderBy: { createdAt: "asc" },
+          include: { user: { select: { id: true, name: true, image: true } } },
+        },
+        user: { select: { id: true, name: true, image: true } },
+        pelanggan: {
+          select: {
+            id: true,
+            idPelanggan: true,
+            nama: true,
+            email: true,
+            noTelp: true,
+          },
+        },
+      },
+    });
+
+    return ticket ? SupportTicketMapper.toDomain(ticket) : null;
+  }
+
+  /** Update ticket status for customer-owned ticket. */
+  async updateCustomerStatus(
+    id: string,
+    pelangganId: string,
+    status: string,
+    closedAt?: Date,
+  ) {
+    const ticket = await prisma.supportTickets.updateMany({
+      where: { id, pelangganId },
+      data: { status: status as never, ...(closedAt ? { closedAt } : {}) },
+    });
+
+    if (ticket.count === 0) {
+      return null;
+    }
+
+    return this.findByIdForCustomer(id, pelangganId);
   }
 
   /** Delete ticket by id. */

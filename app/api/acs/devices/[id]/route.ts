@@ -1,165 +1,26 @@
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { AcsDeviceService } from "@/modules/network";
 
-export const dynamic = 'force-dynamic'
-import { prisma } from '@/modules/database'
-import { getTenantIdFromContext } from '@/lib/tenant-context'
-import axios from 'axios'
+export const dynamic = "force-dynamic";
 
-export const GET = createHandler({ auth: true, permissions: ['acs:read'] }, async (req, ctx) => {
-  const deviceId = ctx.params.id
+const service = new AcsDeviceService();
 
-  if (!deviceId) {
-    return ApiErrors.badRequest('Device ID tidak ditemukan')
-  }
+export const GET = createHandler(
+  { auth: true, permissions: ["acs:read"] },
+  async (_req, ctx) => {
+    const deviceId = ctx.params.id;
+    if (!deviceId) return ApiErrors.badRequest("Device ID tidak ditemukan");
 
-  try {
-    const { tenantId, isSuperAdmin } = await getTenantIdFromContext()
-    
-    const settingsKeys = [
-      'ACS_GENIEACS_URL',
-      'ACS_VP_PPPOE_USERNAME',
-      'ACS_VP_WAN_BRIDGE',
-      'ACS_VP_RX_POWER',
-      'ACS_VP_TEMPERATURE',
-      'ACS_VP_ACTIVE_DEVICES',
-      'ACS_VP_SUPER_ADMIN',
-      'ACS_VP_SUPER_PASSWORD',
-      'ACS_VP_USER_ADMIN',
-      'ACS_VP_USER_PASSWORD'
-    ]
-
-    const settings = await prisma.settings.findMany({
-      where: { key: { in: settingsKeys } }
-    })
-
-    const config = settings.reduce((acc, curr) => {
-      acc[curr.key] = curr.value
-      return acc
-    }, {} as Record<string, string>)
-
-    if (!config['ACS_GENIEACS_URL']) {
-      return ApiErrors.internalError('GenieACS URL belum dikonfigurasi di Pengaturan.')
+    try {
+      const result = await service.getDeviceDetail(deviceId);
+      if (result.ok) return apiSuccess(result.data);
+      if (result.status === "notFound")
+        return ApiErrors.notFound(result.message);
+      return ApiErrors.internalError(result.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error("Error fetching ACS device detail:", message);
+      return ApiErrors.internalError(`Koneksi ke GenieACS gagal: ${message}`);
     }
-
-    let baseUrl = config['ACS_GENIEACS_URL'].trim()
-    if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1)
-
-    // Projection for all device details
-    const projection = [
-      '_id',
-      '_tags',
-      '_deviceId._ProductClass',
-      '_deviceId._SerialNumber',
-      '_deviceId._Manufacturer',
-      '_deviceId._OUI',
-      config['ACS_VP_PPPOE_USERNAME'] || 'VirtualParameters.pppoeUsername2',
-      config['ACS_VP_WAN_BRIDGE'] || 'VirtualParameters.WANBridge',
-      config['ACS_VP_RX_POWER'] || 'VirtualParameters.RXPower',
-      config['ACS_VP_TEMPERATURE'] || 'VirtualParameters.gettemp',
-      config['ACS_VP_ACTIVE_DEVICES'] || 'VirtualParameters.activedevices',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey.1.KeyPassphrase',
-      'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.KeyPassphrase',
-      'InternetGatewayDevice.DeviceInfo.HardwareVersion',
-      'InternetGatewayDevice.DeviceInfo.SoftwareVersion',
-      'InternetGatewayDevice.DeviceInfo.UpTime',
-      'InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress',
-      'InternetGatewayDevice.WANDevice.1.WANEthernetInterfaceConfig.MACAddress',
-      'InternetGatewayDevice.WANDevice',
-      '_lastInform',
-      '_lastBoot',
-      '_registered',
-      'InternetGatewayDevice.LANDevice.1.Hosts.Host'
-    ]
-
-    // Multi-tenant isolation for GenieACS: Filter by ID and tenant tag
-    const queryCond: Record<string, string> = { _id: deviceId }
-    if (!isSuperAdmin && tenantId) {
-      queryCond._tags = `tenant:${tenantId}`
-    }
-
-    const query = JSON.stringify(queryCond)
-    const apiUrl = `${baseUrl}?query=${encodeURIComponent(query)}&projection=${encodeURIComponent(projection.join(','))}`
-
-    const response = await axios.get(apiUrl, {
-      timeout: 15000,
-      headers: { 'Accept': 'application/json' }
-    })
-
-    const data = response.data
-
-    if (!Array.isArray(data) || data.length === 0) {
-      return ApiErrors.notFound('Device tidak ditemukan di server GenieACS')
-    }
-
-    const item = data[0]
-
-    // Simple get nested value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const getNestedValue = (obj: any, path: string) => {
-      const parts = path.split('.')
-      let current = obj
-      for (const part of parts) {
-        if (current && typeof current === 'object') {
-          current = current[part]
-        } else {
-          return null
-        }
-      }
-      return current?._value || null
-    }
-
-    const output = {
-      _id: deviceId,
-      tags: Array.isArray(item._tags) ? item._tags : [],
-      deviceInfo: {
-        productClass: item._deviceId?._ProductClass || null,
-        serialNumber: item._deviceId?._SerialNumber || null,
-        manufacturer: item._deviceId?._Manufacturer || null,
-        oui: item._deviceId?._OUI || null,
-        hardwareVersion: getNestedValue(item, 'InternetGatewayDevice.DeviceInfo.HardwareVersion'),
-        softwareVersion: getNestedValue(item, 'InternetGatewayDevice.DeviceInfo.SoftwareVersion'),
-        upTime: getNestedValue(item, 'InternetGatewayDevice.DeviceInfo.UpTime'),
-        macAddress: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress') ||
-          getNestedValue(item, 'InternetGatewayDevice.WANDevice.1.WANEthernetInterfaceConfig.MACAddress')
-      },
-      connectionInfo: {
-        lastInform: item._lastInform || null,
-        lastBoot: item._lastBoot || null,
-        registered: item._registered || null
-      },
-      virtualParameters: {
-        rxPower: getNestedValue(item, config['ACS_VP_RX_POWER'] || 'VirtualParameters.RXPower'),
-        temperature: getNestedValue(item, config['ACS_VP_TEMPERATURE'] || 'VirtualParameters.gettemp'),
-        pppoeUsername: getNestedValue(item, config['ACS_VP_PPPOE_USERNAME'] || 'VirtualParameters.pppoeUsername2'),
-        activeDevices: getNestedValue(item, config['ACS_VP_ACTIVE_DEVICES'] || 'VirtualParameters.activedevices')
-      },
-      wifiInfo: {
-        wlan1: {
-          enabled: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable'),
-          ssid: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID'),
-          password: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase') ||
-            getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase')
-        },
-        wlan5: {
-          enabled: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable'),
-          ssid: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID'),
-          password: getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.KeyPassphrase') ||
-            getNestedValue(item, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey.1.KeyPassphrase')
-        }
-      }
-    }
-
-    return apiSuccess(output)
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error fetching ACS device detail:', error.message)
-    return ApiErrors.internalError(`Koneksi ke GenieACS gagal: ${error.message}`)
-  }
-})
+  },
+);

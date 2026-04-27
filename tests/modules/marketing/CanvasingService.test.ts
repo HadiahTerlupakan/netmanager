@@ -24,6 +24,7 @@ function createRepositoryMock(): ICanvasingRepository {
     findById: vi.fn(),
     findByIdWithSales: vi.fn(),
     findAll: vi.fn(),
+    getCompletionSummary: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
   };

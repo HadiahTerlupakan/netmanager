@@ -1,6 +1,3 @@
-import { prisma } from "@/modules/database";
-import { WorkOrderRepository } from "@/modules/work-order";
-import { validateMobileAssignedWorkOrderAccess } from "@/modules/work-order";
 import {
   apiSuccess,
   apiError,
@@ -8,40 +5,26 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
+import { employeeWorkOrderQueryService } from "@/modules/work-order";
 
-const MOBILE_DETAIL_STATUSES = [
-  "REQUESTED",
-  "PENDING",
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "ON_HOLD",
-  "COMPLETED",
-  "VERIFIED",
-  "CLOSED",
-  "CANCELLED",
-] as const;
-
+/** Mengambil detail work order mobile untuk user yang berhak. */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const workOrderId = ctx.params.id;
-  const repository = new WorkOrderRepository(prisma);
   const user = ctx.session!.user;
 
   try {
-    const workOrder = await validateMobileAssignedWorkOrderAccess({
-      repository,
-      workOrderId,
-      userContext: {
-        id: user.id,
-        name: user.name ?? undefined,
-        role: user.role as string | undefined,
-        permissions: [],
-        siteId: user.siteId as string | undefined,
-        tenantId: user.tenantId as string | undefined,
-        isSuperAdmin: Boolean(user.isSuperAdmin),
-      },
-      allowedStatuses: [...MOBILE_DETAIL_STATUSES],
-      invalidStatusMessage: "Work order tidak dapat diakses pada status ini",
-    });
+    const workOrder =
+      await employeeWorkOrderQueryService.getMobileWorkOrderDetail(
+        workOrderId,
+        {
+          id: user.id,
+          name: user.name ?? undefined,
+          role: user.role as string | undefined,
+          siteId: user.siteId as string | undefined,
+          tenantId: user.tenantId as string | undefined,
+          isSuperAdmin: Boolean(user.isSuperAdmin),
+        },
+      );
 
     return apiSuccess(workOrder);
   } catch (error) {

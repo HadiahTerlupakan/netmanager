@@ -1,13 +1,16 @@
-import { RabRevisionStatus } from "@prisma/client";
 import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { serializeRabRevision } from "@/modules/finance";
-import { prisma } from "@/modules/database";
+import {
+  RabRevisionRouteService,
+  isRouteServiceError,
+} from "@/modules/finance";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
+
+const rabRevisionRouteService = new RabRevisionRouteService();
 
 const submitSchema = z.object({
   reason: z.string().trim().min(1),
@@ -33,47 +36,24 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.badRequest("Alasan revisi wajib diisi");
   }
 
-  const revision = await prisma.rabRevision.findUnique({
-    where: { id: ctx.params.revisionId },
-    include: { items: true, approvals: true },
-  });
-
-  if (!revision || revision.rabProjectId !== ctx.params.id) {
-    return ApiErrors.notFound("Revisi RAB");
-  }
-
-  if (revision.status !== RabRevisionStatus.DRAFT) {
-    return ApiErrors.badRequest("Hanya revisi dengan status DRAFT yang dapat diajukan");
-  }
-
-  if (revision.items.length === 0) {
-    return ApiErrors.badRequest("Revisi harus memiliki minimal satu item");
-  }
-
-  const submittedRevision = await prisma.rabRevision.update({
-    where: { id: revision.id },
-    data: {
-      status: RabRevisionStatus.PENDING_APPROVAL,
+  try {
+    const submittedRevision = await rabRevisionRouteService.submitRevision({
+      projectId: ctx.params.id,
+      revisionId: ctx.params.revisionId,
       reason: payload.data.reason,
-      submittedById: user.id,
-      submittedAt: new Date(),
-    },
-    include: {
-      items: { orderBy: { sortOrder: "asc" } },
-      approvals: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: { select: { name: true } },
-            },
-          },
-        },
-      },
-    },
-  });
+      userId: user.id,
+    });
 
-  return apiSuccess(serializeRabRevision(submittedRevision));
+    return apiSuccess(submittedRevision);
+  } catch (error) {
+    if (isRouteServiceError(error) && error.status === 404) {
+      return ApiErrors.notFound(error.message);
+    }
+
+    if (isRouteServiceError(error) && error.status === 400) {
+      return ApiErrors.badRequest(error.message);
+    }
+
+    throw error;
+  }
 });

@@ -1,151 +1,93 @@
 import { prisma } from "@/lib/prisma";
+import type { EmployeeType, Prisma } from "@prisma/client";
+import { SalaryMapper } from "../mappers/SalaryMapper";
 import type {
-  Salary,
-  SalaryStatus,
-  SalaryDetail,
-  SalaryRevision,
-  EmployeeType,
-  Prisma,
-} from "@prisma/client";
+  CreateSalaryDetailInput,
+  CreateSalaryInput,
+  ISalaryRepository,
+  SalaryFilters,
+  UpdateSalaryInput,
+} from "../domain/ports/ISalaryRepository";
+import type {
+  SalaryEntity,
+  SalaryPeriodStatsEntity,
+  SalaryWithDetailsEntity,
+} from "../domain/entities/SalaryEntity";
 
-export interface SalaryWithDetails extends Salary {
-  user: {
-    id: string;
-    name: string | null;
-    email: string;
-    employeeType: string;
-    departmentId: string | null;
-    siteId: string | null;
-    departments?: { name: string } | null;
-    sites?: { name: string } | null;
-  };
-  details: SalaryDetail[];
-  revisions?: SalaryRevision[];
-  auditedBy?: { id: string; name: string | null } | null;
-  approvedBy?: { id: string; name: string | null } | null;
-}
+const EMPTY_TOTAL = 0;
 
-export interface SalaryFilters {
-  month?: number;
-  year?: number;
-  status?: SalaryStatus;
-  userId?: string;
-  departmentId?: string;
-  siteId?: string;
-  employeeType?: string;
-  skip?: number;
-  take?: number;
-}
+export type { SalaryFilters } from "../domain/ports/ISalaryRepository";
+export type {
+  SalaryEntity,
+  SalaryWithDetailsEntity,
+} from "../domain/entities/SalaryEntity";
 
-export class SalaryRepository {
+export class SalaryRepository implements ISalaryRepository {
   /** Get salary with details for aggregate calculation. */
-  async findByIdWithDetailsOnly(id: string) {
-    return prisma.salary.findUnique({
+  async findByIdWithDetailsOnly(
+    id: string,
+  ): Promise<SalaryWithDetailsEntity | null> {
+    const salary = await prisma.salary.findUnique({
       where: { id },
-      include: {
-        details: true,
-      },
+      include: { details: true },
     });
-  }
-  /**
-   * Create a new salary record
-   */
-  async create(data: Prisma.SalaryCreateInput): Promise<Salary> {
-    return prisma.salary.create({
-      data,
-    });
+
+    return salary ? SalaryMapper.toDomain(salary) : null;
   }
 
-  /**
-   * Find salary by ID with full details
-   */
-  async findById(id: string): Promise<SalaryWithDetails | null> {
-    return prisma.salary.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            employeeType: true,
-            departmentId: true,
-            siteId: true,
-            departments: { select: { name: true } },
-            sites: { select: { name: true } },
-          },
-        },
-        details: {
-          orderBy: { type: "asc" },
-        },
-        revisions: {
-          orderBy: { createdAt: "desc" },
-        },
-        auditedBy: { select: { id: true, name: true } },
-        approvedBy: { select: { id: true, name: true } },
+  /** Create a new salary record. */
+  async create(
+    userId: string,
+    month: number,
+    year: number,
+    data: CreateSalaryInput,
+  ): Promise<SalaryEntity> {
+    const salary = await prisma.salary.create({
+      data: {
+        ...data,
+        user: { connect: { id: userId } },
+        month,
+        year,
       },
-    }) as Promise<SalaryWithDetails | null>;
+    });
+
+    return SalaryMapper.toDomainSalary(salary);
   }
 
-  /**
-   * Find salary by user and period
-   */
+  /** Find salary by ID with full details. */
+  async findById(id: string): Promise<SalaryWithDetailsEntity | null> {
+    const salary = await prisma.salary.findUnique({
+      where: { id },
+      include: this.buildFullInclude(),
+    });
+
+    return salary ? SalaryMapper.toDomain(salary) : null;
+  }
+
+  /** Find salary by user and period. */
   async findByUserPeriod(
     userId: string,
     month: number,
     year: number,
-  ): Promise<Salary | null> {
-    return prisma.salary.findUnique({
-      where: {
-        userId_month_year: { userId, month, year },
-      },
+  ): Promise<SalaryEntity | null> {
+    const salary = await prisma.salary.findUnique({
+      where: { userId_month_year: { userId, month, year } },
     });
+
+    return salary ? SalaryMapper.toDomainSalary(salary) : null;
   }
 
-  /**
-   * Find all salaries with filters
-   */
+  /** Find all salaries with filters. */
   async findAll(
     filters: SalaryFilters = {},
-  ): Promise<{ salaries: SalaryWithDetails[]; total: number }> {
-    const where: Prisma.SalaryWhereInput = {};
-
-    if (filters.month) where.month = filters.month;
-    if (filters.year) where.year = filters.year;
-    if (filters.status) where.status = filters.status;
-    if (filters.userId) where.userId = filters.userId;
-
-    if (filters.departmentId || filters.siteId || filters.employeeType) {
-      where.user = {
-        ...(filters.departmentId && { departmentId: filters.departmentId }),
-        ...(filters.siteId && { siteId: filters.siteId }),
-        ...(filters.employeeType && {
-          employeeType: filters.employeeType as EmployeeType,
-        }),
-      };
-    }
-
+  ): Promise<{ salaries: SalaryWithDetailsEntity[]; total: number }> {
+    const where = this.buildWhere(filters);
     const [salaries, total] = await Promise.all([
       prisma.salary.findMany({
         where,
         include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              employeeType: true,
-              departmentId: true,
-              siteId: true,
-              departments: { select: { name: true } },
-              sites: { select: { name: true } },
-            },
-          },
-          details: {
-            orderBy: { type: "asc" },
-          },
-          auditedBy: { select: { id: true, name: true } },
-          approvedBy: { select: { id: true, name: true } },
+          ...this.buildFullInclude(),
+          revisions: false,
         },
         orderBy: { createdAt: "desc" },
         skip: filters.skip,
@@ -154,72 +96,51 @@ export class SalaryRepository {
       prisma.salary.count({ where }),
     ]);
 
-    return { salaries: salaries as SalaryWithDetails[], total };
+    return {
+      salaries: salaries.map((salary) => SalaryMapper.toDomain(salary)),
+      total,
+    };
   }
 
-  /**
-   * Update salary
-   */
-  async update(id: string, data: Prisma.SalaryUpdateInput): Promise<Salary> {
-    return prisma.salary.update({
+  /** Update salary. */
+  async update(id: string, data: UpdateSalaryInput): Promise<SalaryEntity> {
+    const salary = await prisma.salary.update({
       where: { id },
       data,
     });
+
+    return SalaryMapper.toDomainSalary(salary);
   }
 
-  /**
-   * Update salary status with audit trail
-   */
+  /** Update salary status with audit trail. */
   async updateStatus(
     id: string,
-    status: SalaryStatus,
+    status: SalaryEntity["status"],
     userId?: string,
     notes?: string,
-  ): Promise<Salary> {
-    const updateData: Prisma.SalaryUpdateInput = {
-      status,
-      updatedAt: new Date(),
-    };
-
-    if (status === "AUDITED" && userId) {
-      updateData.auditedBy = { connect: { id: userId } };
-      updateData.auditedAt = new Date();
-      if (notes) updateData.auditNotes = notes;
-    } else if (status === "APPROVED" && userId) {
-      updateData.approvedBy = { connect: { id: userId } };
-      updateData.approvedAt = new Date();
-    } else if (status === "PAID") {
-      updateData.paidAt = new Date();
-    }
-
-    return prisma.salary.update({
+  ): Promise<SalaryEntity> {
+    const salary = await prisma.salary.update({
       where: { id },
-      data: updateData,
+      data: this.buildStatusUpdate(status, userId, notes),
     });
+
+    return SalaryMapper.toDomainSalary(salary);
   }
 
-  /**
-   * Delete salary and its details
-   */
+  /** Delete salary and its details. */
   async delete(id: string): Promise<void> {
-    await prisma.salary.delete({
-      where: { id },
-    });
+    await prisma.salary.delete({ where: { id } });
   }
 
-  /**
-   * Upsert salary (create or update)
-   */
+  /** Upsert salary by user and period. */
   async upsert(
     userId: string,
     month: number,
     year: number,
-    data: Omit<Prisma.SalaryCreateInput, "user" | "month" | "year">,
-  ): Promise<Salary> {
-    return prisma.salary.upsert({
-      where: {
-        userId_month_year: { userId, month, year },
-      },
+    data: CreateSalaryInput,
+  ): Promise<SalaryEntity> {
+    const salary = await prisma.salary.upsert({
+      where: { userId_month_year: { userId, month, year } },
       create: {
         ...data,
         user: { connect: { id: userId } },
@@ -228,48 +149,40 @@ export class SalaryRepository {
       },
       update: data,
     });
+
+    return SalaryMapper.toDomainSalary(salary);
   }
 
-  /**
-   * Add salary detail
-   */
-  async addDetail(
-    salaryId: string,
-    detail: Omit<Prisma.SalaryDetailCreateInput, "salary">,
-  ): Promise<SalaryDetail> {
-    return prisma.salaryDetail.create({
+  /** Add salary detail. */
+  async addDetail(salaryId: string, detail: CreateSalaryDetailInput) {
+    const created = await prisma.salaryDetail.create({
       data: {
         ...detail,
         salary: { connect: { id: salaryId } },
       },
     });
+
+    return SalaryMapper.toDomainDetail(created);
   }
 
-  /**
-   * Add multiple details at once
-   */
+  /** Add multiple details at once. */
   async addDetails(
     salaryId: string,
-    details: Array<Omit<Prisma.SalaryDetailCreateManyInput, "salaryId">>,
+    details: CreateSalaryDetailInput[],
   ): Promise<number> {
     const result = await prisma.salaryDetail.createMany({
-      data: details.map((d) => ({ ...d, salaryId })),
+      data: details.map((detail) => ({ ...detail, salaryId })),
     });
+
     return result.count;
   }
 
-  /**
-   * Clear all details for recalculation
-   */
+  /** Clear all details for recalculation. */
   async clearDetails(salaryId: string): Promise<void> {
-    await prisma.salaryDetail.deleteMany({
-      where: { salaryId },
-    });
+    await prisma.salaryDetail.deleteMany({ where: { salaryId } });
   }
 
-  /**
-   * Add revision record
-   */
+  /** Add revision record. */
   async addRevision(
     salaryId: string,
     field: string,
@@ -277,7 +190,7 @@ export class SalaryRepository {
     newValue: string | null,
     reason: string,
     revisedById: string,
-  ): Promise<SalaryRevision> {
+  ) {
     return prisma.salaryRevision.create({
       data: {
         salaryId,
@@ -290,21 +203,11 @@ export class SalaryRepository {
     });
   }
 
-  /**
-   * Get summary stats for a period
-   */
+  /** Get summary stats for a period. */
   async getPeriodStats(
     month: number,
     year: number,
-  ): Promise<{
-    total: number;
-    draft: number;
-    calculated: number;
-    audited: number;
-    approved: number;
-    paid: number;
-    totalNetSalary: number;
-  }> {
+  ): Promise<SalaryPeriodStatsEntity> {
     const [counts, totals] = await Promise.all([
       prisma.salary.groupBy({
         by: ["status"],
@@ -314,26 +217,102 @@ export class SalaryRepository {
       prisma.salary.aggregate({
         where: { month, year, status: { in: ["APPROVED", "PAID"] } },
         _sum: { netSalary: true },
-        _count: true,
       }),
     ]);
 
-    const countMap = counts.reduce(
-      (acc, c) => {
-        acc[c.status] = c._count;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
+    const countMap = counts.reduce<Record<string, number>>((map, item) => {
+      map[item.status] = item._count;
+      return map;
+    }, {});
 
     return {
-      total: Object.values(countMap).reduce((a, b) => a + b, 0),
-      draft: countMap.DRAFT || 0,
-      calculated: countMap.CALCULATED || 0,
-      audited: countMap.AUDITED || 0,
-      approved: countMap.APPROVED || 0,
-      paid: countMap.PAID || 0,
-      totalNetSalary: totals._sum.netSalary || 0,
+      total: Object.values(countMap).reduce(
+        (sum, value) => sum + value,
+        EMPTY_TOTAL,
+      ),
+      draft: countMap.DRAFT ?? EMPTY_TOTAL,
+      calculated: countMap.CALCULATED ?? EMPTY_TOTAL,
+      audited: countMap.AUDITED ?? EMPTY_TOTAL,
+      approved: countMap.APPROVED ?? EMPTY_TOTAL,
+      paid: countMap.PAID ?? EMPTY_TOTAL,
+      totalNetSalary: totals._sum.netSalary ?? EMPTY_TOTAL,
     };
+  }
+
+  /** Build shared include for salary relations. */
+  private buildFullInclude() {
+    return {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          employeeType: true,
+          departmentId: true,
+          siteId: true,
+          departments: { select: { name: true } },
+          sites: { select: { name: true } },
+        },
+      },
+      details: { orderBy: { type: "asc" } },
+      revisions: { orderBy: { createdAt: "desc" } },
+      auditedBy: { select: { id: true, name: true } },
+      approvedBy: { select: { id: true, name: true } },
+    } satisfies Prisma.SalaryInclude;
+  }
+
+  /** Build salary filter condition. */
+  private buildWhere(filters: SalaryFilters): Prisma.SalaryWhereInput {
+    const where: Prisma.SalaryWhereInput = {};
+
+    if (filters.month) where.month = filters.month;
+    if (filters.year) where.year = filters.year;
+    if (filters.status) where.status = filters.status;
+    if (filters.userId) where.userId = filters.userId;
+
+    if (!filters.departmentId && !filters.siteId && !filters.employeeType) {
+      return where;
+    }
+
+    where.user = {
+      ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
+      ...(filters.siteId ? { siteId: filters.siteId } : {}),
+      ...(filters.employeeType
+        ? { employeeType: filters.employeeType as EmployeeType }
+        : {}),
+    };
+
+    return where;
+  }
+
+  /** Build update payload for salary status transition. */
+  private buildStatusUpdate(
+    status: SalaryEntity["status"],
+    userId?: string,
+    notes?: string,
+  ): Prisma.SalaryUpdateInput {
+    const updateData: Prisma.SalaryUpdateInput = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    if (status === "AUDITED" && userId) {
+      updateData.auditedBy = { connect: { id: userId } };
+      updateData.auditedAt = new Date();
+      updateData.auditNotes = notes ?? null;
+      return updateData;
+    }
+
+    if (status === "APPROVED" && userId) {
+      updateData.approvedBy = { connect: { id: userId } };
+      updateData.approvedAt = new Date();
+      return updateData;
+    }
+
+    if (status === "PAID") {
+      updateData.paidAt = new Date();
+    }
+
+    return updateData;
   }
 }

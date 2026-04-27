@@ -1,9 +1,7 @@
-import { randomUUID } from "crypto";
-
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { prisma } from "@/modules/database";
 import {
+  getInventoryRouteService,
   getRestockRequestDetail,
   patchRestockRequestLifecycle,
 } from "@/modules/inventory";
@@ -17,7 +15,9 @@ interface RestockItemInput {
   keterangan?: string | null;
 }
 
-// GET: Single request detail
+const inventoryRouteService = getInventoryRouteService();
+
+/** Ambil detail purchase request restock. */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -41,7 +41,7 @@ export async function GET(
   return getRestockRequestDetail(id);
 }
 
-// PATCH: Update request status/lifecycle
+/** Ubah lifecycle purchase request restock. */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -65,7 +65,7 @@ export async function PATCH(
   });
 }
 
-// PUT: Update request
+/** Perbarui purchase request draft/submitted. */
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -89,9 +89,9 @@ export async function PUT(
   const body = await req.json();
   const { items, gudangId, keterangan } = body;
   const tenantId = session.user.tenantId as string;
-
-  const existing = await prisma.purchaseRequest.findUnique({
-    where: { id, tenantId },
+  const existing = await inventoryRouteService.getPurchaseRequestById({
+    id,
+    tenantId,
   });
 
   if (!existing) {
@@ -109,32 +109,16 @@ export async function PUT(
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Delete old items
-      await tx.purchaseRequestItem.deleteMany({
-        where: { purchaseRequestId: id },
-      });
-
-      // Update PR and Create new items
-      return await tx.purchaseRequest.update({
-        where: { id },
-        data: {
-          gudangId,
-          keterangan,
-          items: {
-            create: items.map((item: RestockItemInput) => ({
-              id: randomUUID(),
-              barangId: item.barangId,
-              jumlah: item.quantity || item.jumlah || 0,
-              keterangan: item.keterangan || null,
-              hargaPerUnit: 0,
-              totalHarga: 0,
-              tenantId,
-            })),
-          },
-        },
-        include: { items: true },
-      });
+    const result = await inventoryRouteService.updatePurchaseRequest({
+      id,
+      tenantId,
+      gudangId,
+      keterangan,
+      items: items.map((item: RestockItemInput) => ({
+        barangId: item.barangId,
+        quantity: item.quantity || item.jumlah || 0,
+        keterangan: item.keterangan || null,
+      })),
     });
 
     return NextResponse.json({
@@ -148,7 +132,7 @@ export async function PUT(
   }
 }
 
-// DELETE: Delete request
+/** Hapus purchase request restock. */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -170,9 +154,9 @@ export async function DELETE(
 
   const { id } = await params;
   const tenantId = session.user.tenantId as string;
-
-  const existing = await prisma.purchaseRequest.findUnique({
-    where: { id, tenantId },
+  const existing = await inventoryRouteService.getPurchaseRequestById({
+    id,
+    tenantId,
   });
 
   if (!existing) {
@@ -182,7 +166,6 @@ export async function DELETE(
     );
   }
 
-  await prisma.purchaseRequest.delete({ where: { id } });
-
+  await inventoryRouteService.deletePurchaseRequest(id);
   return NextResponse.json({ message: "Pengajuan berhasil dihapus" });
 }

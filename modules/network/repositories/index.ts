@@ -1,3 +1,5 @@
+export * from "./MobileTopologyRepository";
+export * from "./DeviceBackupRepository";
 export * from "./MikroTikRouterRepository";
 export * from "./IMikroTikRouterRepository";
 export * from "./OdpRepository";

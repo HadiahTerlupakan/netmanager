@@ -1,28 +1,20 @@
-import { OvertimeStatus } from "@prisma/client";
-
 import type { OvertimeAutoCheckoutJobData } from "@/lib/event-bus/queues";
 
+import type { IOvertimeRepository } from "../domain/ports/IOvertimeRepository";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
 
 export const MAX_OVERTIME_DURATION_MINUTES = 8 * 60;
 
 export class OvertimeAutoCheckoutService {
+  /** Execute one delayed auto checkout job. */
   static async runScheduledAutoCheckout(
     job: OvertimeAutoCheckoutJobData,
+    repository: IOvertimeRepository = new OvertimeRepository(),
   ): Promise<"completed" | "skipped"> {
-    const overtimeRepository = new OvertimeRepository();
-    const schedule = await overtimeRepository.findAutoCheckoutScheduleById(
+    const schedule = await repository.findAutoCheckoutScheduleById(
       job.scheduleId,
     );
-
-    if (!schedule || schedule.scheduleStatus !== "SCHEDULED") {
-      return "skipped";
-    }
-
-    if (
-      schedule.overtimeId !== job.overtimeId ||
-      schedule.version !== job.version
-    ) {
+    if (!this.isRunnableSchedule(schedule, job)) {
       return "skipped";
     }
 
@@ -31,9 +23,9 @@ export class OvertimeAutoCheckoutService {
       return "skipped";
     }
 
-    const overtime = await overtimeRepository.findById(job.overtimeId);
-    if (!overtime || overtime.status !== OvertimeStatus.IN_PROGRESS) {
-      await overtimeRepository.completeAutoCheckoutSchedule({
+    const overtime = await repository.findById(job.overtimeId);
+    if (overtime?.status !== "IN_PROGRESS") {
+      await repository.completeAutoCheckoutSchedule({
         overtimeId: job.overtimeId,
         executedAt: now,
         scheduleStatus: "FAILED",
@@ -42,7 +34,7 @@ export class OvertimeAutoCheckoutService {
       return "skipped";
     }
 
-    const didComplete = await overtimeRepository.completeScheduledAutoCheckout({
+    const isCompleted = await repository.completeScheduledAutoCheckout({
       scheduleId: schedule.id,
       overtimeId: job.overtimeId,
       version: job.version,
@@ -51,6 +43,24 @@ export class OvertimeAutoCheckoutService {
       duration: MAX_OVERTIME_DURATION_MINUTES,
     });
 
-    return didComplete ? "completed" : "skipped";
+    return isCompleted ? "completed" : "skipped";
+  }
+
+  /** Check whether schedule still matches the current job. */
+  private static isRunnableSchedule(
+    schedule: Awaited<
+      ReturnType<IOvertimeRepository["findAutoCheckoutScheduleById"]>
+    >,
+    job: OvertimeAutoCheckoutJobData,
+  ): schedule is NonNullable<
+    Awaited<ReturnType<IOvertimeRepository["findAutoCheckoutScheduleById"]>>
+  > {
+    if (!schedule || schedule.scheduleStatus !== "SCHEDULED") {
+      return false;
+    }
+
+    return (
+      schedule.overtimeId === job.overtimeId && schedule.version === job.version
+    );
   }
 }

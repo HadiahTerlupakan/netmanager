@@ -1,8 +1,9 @@
-import { prisma } from "@/modules/database";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { MixRadiusService } from "@/modules/integrations";
-import { WorkOrderRepository } from "@/modules/work-order";
-import { onWorkOrderCreated } from "@/modules/work-order";
+import {
+  MixRadiusConfigError,
+  MixRadiusDismantleService,
+} from "@/modules/integrations";
+import { isRouteServiceError } from "@/modules/finance";
 import {
   apiSuccess,
   apiError,
@@ -10,11 +11,10 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
-import * as crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
-const workOrderRepo = new WorkOrderRepository(prisma);
+const mixRadiusDismantleService = new MixRadiusDismantleService();
 
 /**
  * POST /api/integrations/mixradius/dismantle
@@ -53,140 +53,33 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const service = new MixRadiusService();
-
-  let mrCustomer;
   try {
-    mrCustomer = await service.fetchCustomerDetail(customerId);
+    const workOrder = await mixRadiusDismantleService.createDismantleRequest({
+      userId: user.id,
+      customerId,
+      reason,
+      notes,
+    });
+
+    return apiSuccess(
+      {
+        data: workOrder,
+        message: `Work Order ${workOrder.workOrderNumber} berhasil dibuat.`,
+      },
+      { status: 201 },
+    );
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === "MixRadiusConfigError") {
+    if (error instanceof MixRadiusConfigError) {
       return apiError(error.message, ErrorCodes.MIXRADIUS_CONFIG_ERROR, {
         status: 503,
         details: { isConfigError: true },
       });
     }
 
+    if (isRouteServiceError(error) && error.status === 404) {
+      return ApiErrors.notFound(error.message);
+    }
+
     throw error;
   }
-
-  if (!mrCustomer) {
-    return ApiErrors.notFound("Pelanggan tidak ditemukan di MixRadius");
-  }
-
-  const [requester, localPelanggan] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { id: true, siteId: true },
-    }),
-    prisma.pelanggan.findFirst({
-      where: {
-        OR: [
-          { idPelanggan: mrCustomer.member_id },
-          { username: mrCustomer.username },
-        ],
-      },
-      select: { id: true, siteId: true },
-    }),
-  ]);
-
-  const department = await prisma.departments.findFirst({
-    where: {
-      name: {
-        contains: "Teknis",
-        mode: "insensitive",
-      },
-    },
-    select: { id: true },
-  });
-
-  const title = `Request Dismantle: ${mrCustomer.fullname} (${mrCustomer.username})`;
-  const description =
-    `Permintaan pembongkaran perangkat (dismantle) untuk pelanggan MixRadius.\n\n` +
-    `Alasan: ${reason}\n` +
-    `Catatan: ${notes || "-"}\n\n` +
-    `Data MixRadius:\n` +
-    `- Member ID: ${mrCustomer.member_id}\n` +
-    `- Paket: ${mrCustomer.plan_name}\n` +
-    `- Alamat (Portal): ${mrCustomer.address}`;
-
-  const targetSiteId = requester?.siteId || localPelanggan?.siteId || undefined;
-
-  const workOrder = await workOrderRepo.create({
-    type: "DISCONNECTION",
-    title: title,
-    description: description,
-    priority: "NORMAL",
-    contactName: mrCustomer.fullname,
-    contactPhone: mrCustomer.phonenumber,
-    locationAddress: mrCustomer.address,
-    disconnectionReason: reason,
-    createdById: user.id,
-    ...(localPelanggan?.id ? { pelangganId: localPelanggan.id } : {}),
-    ...(targetSiteId ? { siteId: targetSiteId } : {}),
-    ...(department?.id ? { departmentId: department.id } : {}),
-    ...(notes ? { internalNotes: notes } : {}),
-  });
-
-  const sopTasks = [
-    "Konfirmasi jadwal kedatangan dengan pelanggan",
-    "Pastikan perangkat (Modem/Router) dalam keadaan lengkap (Unit + Adaptor)",
-    "Cek kondisi fisik perangkat (Baik/Rusak/Terbakar)",
-    "Foto dokumentasi penarikan perangkat",
-    "Foto dokumentasi lokasi/rumah pelanggan",
-    "Update status inventory barang masuk",
-    "Konfirmasi ke Admin untuk update data pelanggan",
-  ];
-
-  await prisma.workOrderTasks.createMany({
-    data: sopTasks.map((taskTitle, index) => ({
-      id: crypto.randomUUID(),
-      workOrderId: workOrder.id,
-      title: taskTitle,
-      order: index,
-      status: "PENDING",
-      updatedAt: new Date(),
-    })),
-  });
-
-  await onWorkOrderCreated(
-    {
-      id: workOrder.id,
-      workOrderNumber: workOrder.workOrderNumber,
-      title: workOrder.title,
-      type: workOrder.type,
-      priority: workOrder.priority,
-      departmentId: workOrder.departmentId,
-      siteId: workOrder.siteId,
-    },
-    user.id,
-  ).catch((err) => console.error("[Dismantle] Notification error:", err));
-
-  try {
-    const { socketEmitter } = await import("@/lib/websocket/emitter");
-    socketEmitter.newWorkOrder(
-      {
-        id: workOrder.id,
-        workOrderNumber: workOrder.workOrderNumber,
-        title: workOrder.title,
-        type: workOrder.type,
-        status: workOrder.status,
-        priority: workOrder.priority,
-        createdAt: workOrder.createdAt.toISOString(),
-        ...(workOrder.departmentId
-          ? { departmentId: workOrder.departmentId }
-          : {}),
-      },
-      workOrder.departmentId || undefined,
-    );
-  } catch (e) {
-    console.error("[Dismantle] Socket broadcast failed", e);
-  }
-
-  return apiSuccess(
-    {
-      data: workOrder,
-      message: `Work Order ${workOrder.workOrderNumber} berhasil dibuat.`,
-    },
-    { status: 201 },
-  );
 });

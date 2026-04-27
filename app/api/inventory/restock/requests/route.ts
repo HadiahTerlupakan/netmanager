@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { prisma } from "@/modules/database";
-import { createRestockRequest } from "@/modules/inventory";
-import { PurchaseRequestStatus } from "@prisma/client";
+import {
+  createRestockRequest,
+  getInventoryRouteService,
+} from "@/modules/inventory";
 
 interface RestockItemInput {
   barangId: string;
@@ -14,7 +15,9 @@ interface RestockItemInput {
   keterangan?: string | null;
 }
 
-// GET: List all requests
+const inventoryRouteService = getInventoryRouteService();
+
+/** Ambil daftar purchase request restock. */
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
@@ -31,49 +34,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const tenantId = session.user.tenantId as string;
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
-
-  const requests = await prisma.purchaseRequest.findMany({
-    where: {
-      tenantId,
-      ...(status && { status: status as PurchaseRequestStatus }),
-    },
-    include: {
-      items: {
-        include: { barang: true },
-      },
-      requester: { select: { name: true } },
-      approver: { select: { name: true } },
-      gudang: { select: { nama: true, id: true } },
-      purchaseOrder: {
-        include: {
-          items: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
+  const result = await inventoryRouteService.getPurchaseRequests({
+    tenantId: session.user.tenantId as string,
+    status,
   });
 
-  // Map receivedQuantity from PO to PR items for the UI
-  const data = requests.map((pr) => ({
-    ...pr,
-    items: pr.items.map((item) => {
-      const poItem = pr.purchaseOrder?.items.find(
-        (poi) => poi.barangId === item.barangId,
-      );
-      return {
-        ...item,
-        receivedQuantity: poItem?.receivedQuantity || 0,
-      };
-    }),
-  }));
-
-  return NextResponse.json({ data });
+  return NextResponse.json(result);
 }
 
-// POST: Create new request
+/** Buat purchase request restock baru. */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {

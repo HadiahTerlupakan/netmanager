@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { verifyAuth, hasPermission } from "@/lib/auth";
-import { prisma } from "@/modules/database";
-import { patchRestockRequestStatus } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  patchRestockRequestStatus,
+} from "@/modules/inventory";
 
+const inventoryRouteService = getInventoryRouteService();
+
+/** Mulai proses belanja untuk purchase request yang sudah punya PO. */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -22,10 +27,8 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const requestRecord = await prisma.purchaseRequest.findUnique({
-    where: { id },
-    select: { purchaseOrderId: true },
-  });
+  const requestRecord =
+    await inventoryRouteService.getPurchaseRequestProcessInfo(id);
 
   if (!requestRecord) {
     return NextResponse.json(

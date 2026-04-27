@@ -1,14 +1,20 @@
-import { RoleRepository } from "../repositories/RoleRepository";
-import type {
-  RoleWithCount,
-  RoleWithPermissions,
-  FilterOptions,
-} from "../repositories/RoleRepository";
-import { PermissionRepository } from "../repositories/PermissionRepository";
-import type { Role } from "@prisma/client";
 import { invalidateRolePermissionCache } from "@/lib/auth";
 import { sanitizePermissionsByPanelAccess } from "@/lib/permission-sanitizer";
 import { isMainTenant } from "@/modules/mitra";
+import type { RoleDetailDTO, RoleListItemDTO } from "../dto/RoleDTO";
+import type { RoleEntity } from "../domain/entities/RoleEntity";
+import type {
+  CreateRoleRepositoryInput,
+  IRoleRepository,
+  RoleFilterOptions,
+  UpdateRoleRepositoryInput,
+} from "../domain/ports/IRoleRepository";
+import {
+  createPermissionRepository,
+  createRoleRepository,
+} from "../factories/RepositoryFactory";
+import { RoleMapper } from "../mappers/RoleMapper";
+import { PermissionRepository } from "../repositories/PermissionRepository";
 import { resolvePermissionIds } from "./role-permission-helpers";
 
 const RESTRICTED_SENSITIVE_RESOURCES = new Set([
@@ -22,6 +28,7 @@ const SUPER_ADMIN_CREATE_MESSAGE =
   "Hanya tenant utama yang dapat membuat role Super Admin";
 const SUPER_ADMIN_UPDATE_MESSAGE =
   "Hanya tenant utama yang dapat mengelola role Super Admin";
+const SUPER_ADMIN_ROLE_NAME = "SUPER_ADMIN";
 
 export class RolePolicyError extends Error {
   public readonly status: number;
@@ -50,28 +57,33 @@ type RoleMutationContext = {
 };
 
 export class RoleService {
-  private roleRepository: RoleRepository;
-  private permissionRepository: PermissionRepository;
+  private readonly roleRepository: IRoleRepository;
+  private readonly permissionRepository: PermissionRepository;
 
-  constructor() {
-    this.roleRepository = new RoleRepository();
-    this.permissionRepository = new PermissionRepository();
+  constructor(
+    roleRepository: IRoleRepository = createRoleRepository(),
+    permissionRepository: PermissionRepository = createPermissionRepository(),
+  ) {
+    this.roleRepository = roleRepository;
+    this.permissionRepository = permissionRepository;
   }
 
-  async getCurrentUserRoleContext(
-    userId?: string | null,
-  ): Promise<{ roleId: string | null; roleName: string | null }> {
+  /** Get current user role context for restricted filtering. */
+  async getCurrentUserRoleContext(userId?: string | null) {
     return this.roleRepository.findUserRoleContext(userId ?? null);
   }
 
-  async getAllRoles(filter?: FilterOptions): Promise<RoleWithCount[]> {
-    return this.roleRepository.findAll(filter);
+  /** Get all roles as list DTOs. */
+  async getAllRoles(filter?: RoleFilterOptions): Promise<RoleListItemDTO[]> {
+    const roles = await this.roleRepository.findAll(filter);
+    return RoleMapper.toListItemDTOs(roles);
   }
 
+  /** Get roles for hak akses screen with restriction rules. */
   async getRolesForHakAkses(
     filterRestricted?: boolean,
     currentUserId?: string | null,
-  ): Promise<RoleWithCount[]> {
+  ) {
     if (!filterRestricted) {
       return this.getAllRoles();
     }
@@ -79,7 +91,6 @@ export class RoleService {
     const currentUserRoleContext = await this.getCurrentUserRoleContext(
       currentUserId ?? null,
     );
-
     return this.getAllRoles({
       filterRestricted: true,
       currentUserRoleId: currentUserRoleContext.roleId,
@@ -87,70 +98,50 @@ export class RoleService {
     });
   }
 
-  async getRole(id: string): Promise<Role | null> {
+  /** Get role domain entity by ID. */
+  async getRole(id: string): Promise<RoleEntity | null> {
     return this.roleRepository.findById(id);
   }
 
-  async getRoleWithPermissions(
-    id: string,
-  ): Promise<RoleWithPermissions | null> {
-    return this.roleRepository.findByIdWithPermissions(id);
+  /** Get role detail DTO by ID. */
+  async getRoleWithPermissions(id: string): Promise<RoleDetailDTO | null> {
+    const role = await this.roleRepository.findByIdWithPermissions(id);
+    return role ? RoleMapper.toDetailDTO(role) : null;
   }
 
+  /** Create role with tenant policy validation. */
   async createRoleWithPolicy(
     input: RoleMutationInput,
     context?: RoleMutationContext,
-  ): Promise<Role> {
-    const sanitizedPermissions = await this.sanitizePermissions(input);
-
+  ): Promise<RoleDetailDTO> {
+    const permissions = await this.sanitizePermissions(input);
     this.ensureSuperAdminAllowed(
       Boolean(input.isSuperAdmin),
       SUPER_ADMIN_CREATE_MESSAGE,
       context?.tenantId,
     );
-    this.ensureSensitivePermissionsAllowed(
-      sanitizedPermissions,
-      context?.tenantId,
-    );
-
-    const payload = this.buildRolePayload(input, sanitizedPermissions);
-
-    return this.createRole(payload);
+    this.ensureSensitivePermissionsAllowed(permissions, context?.tenantId);
+    return this.createRole(this.buildRolePayload(input, permissions));
   }
 
+  /** Update role with tenant policy validation. */
   async updateRoleWithPolicy(
     id: string,
     input: RoleMutationInput,
     context?: RoleMutationContext,
-  ): Promise<Role> {
-    const sanitizedPermissions = await this.sanitizePermissions(input);
-
+  ): Promise<RoleDetailDTO> {
+    const permissions = await this.sanitizePermissions(input);
     this.ensureSuperAdminAllowed(
       Boolean(input.isSuperAdmin),
       SUPER_ADMIN_UPDATE_MESSAGE,
       context?.tenantId,
     );
-    this.ensureSensitivePermissionsAllowed(
-      sanitizedPermissions,
-      context?.tenantId,
-    );
-
-    const payload = this.buildRolePayload(input, sanitizedPermissions);
-
-    return this.updateRole(id, payload);
+    this.ensureSensitivePermissionsAllowed(permissions, context?.tenantId);
+    return this.updateRole(id, this.buildRolePayload(input, permissions));
   }
 
-  async createRole(data: {
-    name: string;
-    description?: string;
-    permissions: string[]; // Array of "resource:action" strings
-    accessAdminPanel?: boolean;
-    accessEmployeePanel?: boolean;
-    isRestricted?: boolean;
-    isTechnical?: boolean;
-    isSuperAdmin?: boolean;
-    canApproveRab?: boolean;
-  }): Promise<Role> {
+  /** Create role and return detail DTO. */
+  async createRole(data: RoleMutationInput): Promise<RoleDetailDTO> {
     const existingRole = await this.roleRepository.findByName(data.name);
     if (existingRole) {
       throw new Error("Role dengan nama ini sudah ada");
@@ -160,40 +151,26 @@ export class RoleService {
       this.permissionRepository,
       data.permissions,
     );
-
-    return this.roleRepository.create({
-      name: data.name,
-      description: data.description,
-      accessAdminPanel: data.accessAdminPanel,
-      accessEmployeePanel: data.accessEmployeePanel,
-      isRestricted: data.isRestricted,
-      isTechnical: data.isTechnical,
-      isSuperAdmin: data.isSuperAdmin,
-      canApproveRab: data.canApproveRab,
-      permissionIds,
-    });
+    const role = await this.roleRepository.create(
+      this.toCreateRepositoryInput(data, permissionIds),
+    );
+    return RoleMapper.toDetailDTO(role);
   }
 
+  /** Update role and return detail DTO. */
   async updateRole(
     id: string,
-    data: {
-      name: string;
-      description?: string;
-      permissions: string[]; // Array of "resource:action" strings
-      accessAdminPanel?: boolean;
-      accessEmployeePanel?: boolean;
-      isRestricted?: boolean;
-      isTechnical?: boolean;
-      isSuperAdmin?: boolean;
-      canApproveRab?: boolean;
-    },
-  ): Promise<Role> {
+    data: RoleMutationInput,
+  ): Promise<RoleDetailDTO> {
     const currentRole = await this.roleRepository.findById(id);
     if (!currentRole) {
       throw new Error("Role tidak ditemukan");
     }
 
-    if (currentRole.name === "SUPER_ADMIN" && data.name !== "SUPER_ADMIN") {
+    if (
+      currentRole.name === SUPER_ADMIN_ROLE_NAME &&
+      data.name !== SUPER_ADMIN_ROLE_NAME
+    ) {
       throw new Error("Tidak dapat mengubah nama role SUPER_ADMIN");
     }
 
@@ -201,22 +178,34 @@ export class RoleService {
       this.permissionRepository,
       data.permissions,
     );
-
-    const updatedRole = await this.roleRepository.update(id, {
-      name: data.name,
-      description: data.description,
-      accessAdminPanel: data.accessAdminPanel,
-      accessEmployeePanel: data.accessEmployeePanel,
-      isRestricted: data.isRestricted,
-      isTechnical: data.isTechnical,
-      isSuperAdmin: data.isSuperAdmin,
-      canApproveRab: data.canApproveRab,
-      permissionIds,
-    });
-
+    const updatedRole = await this.roleRepository.update(
+      id,
+      this.toUpdateRepositoryInput(data, permissionIds),
+    );
     await invalidateRolePermissionCache(id);
+    return RoleMapper.toDetailDTO(updatedRole);
+  }
 
-    return updatedRole;
+  /** Delete role and return deleted detail DTO. */
+  async deleteRole(id: string): Promise<RoleDetailDTO> {
+    const currentRole = await this.roleRepository.findById(id);
+    if (!currentRole) {
+      throw new Error("Role tidak ditemukan");
+    }
+
+    if (currentRole.name === SUPER_ADMIN_ROLE_NAME) {
+      throw new Error("Tidak dapat menghapus role SUPER_ADMIN");
+    }
+
+    const userCount = await this.roleRepository.countUsers(id);
+    if (userCount > 0) {
+      throw new Error(
+        "Tidak dapat menghapus role yang masih memiliki pengguna",
+      );
+    }
+
+    const deletedRole = await this.roleRepository.delete(id);
+    return RoleMapper.toDetailDTO(deletedRole);
   }
 
   private async sanitizePermissions(
@@ -261,70 +250,65 @@ export class RoleService {
     }
   }
 
-  private buildRolePayload(input: RoleMutationInput, permissions: string[]) {
-    const payload: {
-      name: string;
-      permissions: string[];
-      description?: string;
-      accessAdminPanel?: boolean;
-      accessEmployeePanel?: boolean;
-      isRestricted?: boolean;
-      isTechnical?: boolean;
-      isSuperAdmin?: boolean;
-      canApproveRab?: boolean;
-    } = {
+  private buildRolePayload(
+    input: RoleMutationInput,
+    permissions: string[],
+  ): RoleMutationInput {
+    return {
       name: input.name,
       permissions,
+      description: input.description,
+      accessAdminPanel: input.accessAdminPanel,
+      accessEmployeePanel: input.accessEmployeePanel,
+      isRestricted: input.isRestricted,
+      isTechnical: input.isTechnical,
+      isSuperAdmin: input.isSuperAdmin,
+      canApproveRab: input.canApproveRab,
     };
-
-    if (input.description !== undefined)
-      payload.description = input.description;
-    if (input.accessAdminPanel !== undefined)
-      payload.accessAdminPanel = input.accessAdminPanel;
-    if (input.accessEmployeePanel !== undefined)
-      payload.accessEmployeePanel = input.accessEmployeePanel;
-    if (input.isRestricted !== undefined)
-      payload.isRestricted = input.isRestricted;
-    if (input.isTechnical !== undefined)
-      payload.isTechnical = input.isTechnical;
-    if (input.isSuperAdmin !== undefined)
-      payload.isSuperAdmin = input.isSuperAdmin;
-    if (input.canApproveRab !== undefined)
-      payload.canApproveRab = input.canApproveRab;
-
-    return payload;
   }
 
-  async deleteRole(id: string): Promise<Role> {
-    // Check if role exists
-    const currentRole = await this.roleRepository.findById(id);
-    if (!currentRole) {
-      throw new Error("Role tidak ditemukan");
-    }
+  private toCreateRepositoryInput(
+    data: RoleMutationInput,
+    permissionIds: string[],
+  ): CreateRoleRepositoryInput {
+    return {
+      name: data.name,
+      description: data.description,
+      accessAdminPanel: data.accessAdminPanel,
+      accessEmployeePanel: data.accessEmployeePanel,
+      isRestricted: data.isRestricted,
+      isTechnical: data.isTechnical,
+      isSuperAdmin: data.isSuperAdmin,
+      canApproveRab: data.canApproveRab,
+      permissionIds,
+    };
+  }
 
-    // Don't allow deleting SUPER_ADMIN
-    if (currentRole.name === "SUPER_ADMIN") {
-      throw new Error("Tidak dapat menghapus role SUPER_ADMIN");
-    }
-
-    // Check if role has users
-    const userCount = await this.roleRepository.countUsers(id);
-    if (userCount > 0) {
-      throw new Error(
-        "Tidak dapat menghapus role yang masih memiliki pengguna",
-      );
-    }
-
-    return this.roleRepository.delete(id);
+  private toUpdateRepositoryInput(
+    data: RoleMutationInput,
+    permissionIds: string[],
+  ): UpdateRoleRepositoryInput {
+    return {
+      name: data.name,
+      description: data.description,
+      accessAdminPanel: data.accessAdminPanel,
+      accessEmployeePanel: data.accessEmployeePanel,
+      isRestricted: data.isRestricted,
+      isTechnical: data.isTechnical,
+      isSuperAdmin: data.isSuperAdmin,
+      canApproveRab: data.canApproveRab,
+      permissionIds,
+    };
   }
 }
 
-// Singleton instance
 let roleServiceInstance: RoleService | null = null;
 
+/** Get singleton role service instance. */
 export function getRoleService(): RoleService {
   if (!roleServiceInstance) {
     roleServiceInstance = new RoleService();
   }
+
   return roleServiceInstance;
 }

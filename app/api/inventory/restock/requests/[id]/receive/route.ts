@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { verifyAuth, hasPermission } from "@/lib/auth";
-import { prisma } from "@/modules/database";
-import { patchRestockRequestStatus } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  patchRestockRequestStatus,
+} from "@/modules/inventory";
 import { ProcurementService } from "@/modules/procurement";
 
+const inventoryRouteService = getInventoryRouteService();
+
+/** Terima barang dari purchase request restock. */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -26,10 +31,8 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const requestRecord = await prisma.purchaseRequest.findUnique({
-    where: { id },
-    select: { purchaseOrderId: true, status: true },
-  });
+  const requestRecord =
+    await inventoryRouteService.getPurchaseRequestProcessInfo(id);
 
   if (!requestRecord) {
     return NextResponse.json(
@@ -39,31 +42,27 @@ export async function PATCH(
   }
 
   let purchaseOrderId = requestRecord.purchaseOrderId;
-
-  // Auto-generate PO jika belum ada (flow: Approve → langsung Verifikasi)
   if (!purchaseOrderId) {
     try {
       const procurementService = new ProcurementService();
-      const pos = await procurementService.generatePOFromPRs([id], session.id);
-      if (pos && pos.length > 0) {
-        purchaseOrderId = pos[0].id;
-      }
-    } catch (error) {
-      console.error("Auto-generate PO on receive error:", error);
-    }
-
-    if (!purchaseOrderId) {
-      return NextResponse.json(
-        {
-          error: "Gagal membuat Purchase Order. Coba lagi atau hubungi admin.",
-        },
-        { status: 500 },
+      const purchaseOrders = await procurementService.generatePOFromPRs(
+        [id],
+        session.id,
       );
+      purchaseOrderId = purchaseOrders?.[0]?.id;
+    } catch (_error) {
+      purchaseOrderId = undefined;
     }
   }
 
-  const body = await req.json();
+  if (!purchaseOrderId) {
+    return NextResponse.json(
+      { error: "Gagal membuat Purchase Order. Coba lagi atau hubungi admin." },
+      { status: 500 },
+    );
+  }
 
+  const body = await req.json();
   return patchRestockRequestStatus({
     purchaseOrderId,
     action: "RECEIVE",

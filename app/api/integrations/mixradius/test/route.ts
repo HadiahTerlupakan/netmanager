@@ -1,7 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-import { mixRadiusConfigRepo } from "@/modules/integrations";
+import { getMixRadiusConfigService } from "@/modules/integrations";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
  * Test endpoint untuk debug MixRadius login
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
+  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -23,8 +24,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const activeConfig = user.tenantId
-    ? await mixRadiusConfigRepo.getActiveConfigByTenant(user.tenantId)
-    : await mixRadiusConfigRepo.getActiveConfig();
+    ? await configService.getActiveConfigByTenant(user.tenantId)
+    : await configService.getActiveConfig();
   const baseUrl =
     activeConfig?.apiUrl ||
     process.env.MIXRADIUS_URL ||

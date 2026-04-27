@@ -1,89 +1,121 @@
-/**
- * ShiftMapper
- *
- * Transforms Prisma entities to DTOs for API responses.
- */
-
-import type { Shift } from '@prisma/client'
+import type { Shift } from "@prisma/client";
 import type {
-    ShiftListItemDTO,
-    ShiftDetailDTO,
-    ShiftOptionDTO,
-} from '../dto/ShiftDTO'
+  ShiftDetailDTO,
+  ShiftListItemDTO,
+  ShiftOptionDTO,
+} from "../dto/ShiftDTO";
+import type {
+  ShiftEntity,
+  ShiftUserEntity,
+} from "../domain/entities/ShiftEntity";
 
-// Extended types
-type ShiftWithRelations = Shift & {
-    users?: {
-        id: string
-        name: string | null
-        email: string
-    }[]
-    _count?: {
-        users?: number
-    }
-}
+type PrismaShiftUser = {
+  id: string;
+  name: string | null;
+  email: string;
+};
+
+type PrismaShiftRecord = Shift & {
+  users?: PrismaShiftUser[];
+  _count?: {
+    users?: number;
+  };
+};
 
 export class ShiftMapper {
-    /**
-     * Map to list item DTO
-     */
-    static toListItem(entity: ShiftWithRelations): ShiftListItemDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            code: entity.code,
-            startTime: entity.startTime,
-            endTime: entity.endTime,
-            isActive: entity.isActive,
-            userCount: entity._count?.users ?? entity.users?.length ?? 0,
-        }
+  /** Memetakan record Prisma menjadi domain entity. */
+  static toDomain(record: PrismaShiftRecord): ShiftEntity {
+    return {
+      id: record.id,
+      name: record.name,
+      code: record.code,
+      startTime: record.startTime,
+      endTime: record.endTime,
+      description: record.description,
+      isActive: record.isActive,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      tenantId: record.tenantId,
+      users: this.toDomainUsers(record.users),
+      userCount: this.resolveUserCount(record),
+    };
+  }
+
+  /** Memetakan banyak record Prisma menjadi domain entity. */
+  static toDomainList(records: PrismaShiftRecord[]): ShiftEntity[] {
+    return records.map((record) => this.toDomain(record));
+  }
+
+  /** Memetakan domain entity menjadi DTO list. */
+  static toListDTO(entity: ShiftEntity): ShiftListItemDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      code: entity.code,
+      startTime: entity.startTime,
+      endTime: entity.endTime,
+      isActive: entity.isActive,
+      userCount: entity.userCount,
+    };
+  }
+
+  /** Memetakan banyak domain entity menjadi DTO list. */
+  static toListDTOs(entities: ShiftEntity[]): ShiftListItemDTO[] {
+    return entities.map((entity) => this.toListDTO(entity));
+  }
+
+  /** Memetakan domain entity menjadi DTO detail. */
+  static toDetailDTO(entity: ShiftEntity): ShiftDetailDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      code: entity.code,
+      startTime: entity.startTime,
+      endTime: entity.endTime,
+      description: entity.description,
+      isActive: entity.isActive,
+      createdAt: entity.createdAt.toISOString(),
+      updatedAt: entity.updatedAt.toISOString(),
+      users: entity.users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      })),
+    };
+  }
+
+  /** Memetakan domain entity menjadi DTO option. */
+  static toOptionDTO(entity: ShiftEntity): ShiftOptionDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      code: entity.code,
+      time: `${entity.startTime} - ${entity.endTime}`,
+    };
+  }
+
+  /** Memetakan banyak domain entity menjadi DTO option. */
+  static toOptionDTOs(entities: ShiftEntity[]): ShiftOptionDTO[] {
+    return entities.map((entity) => this.toOptionDTO(entity));
+  }
+
+  private static toDomainUsers(users?: PrismaShiftUser[]): ShiftUserEntity[] {
+    if (!users) {
+      return [];
     }
 
-    /**
-     * Map array to list items
-     */
-    static toListItems(entities: ShiftWithRelations[]): ShiftListItemDTO[] {
-        return entities.map(entity => this.toListItem(entity))
+    return users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    }));
+  }
+
+  private static resolveUserCount(record: PrismaShiftRecord): number {
+    if (typeof record._count?.users === "number") {
+      return record._count.users;
     }
 
-    /**
-     * Map to detail DTO
-     */
-    static toDetail(entity: ShiftWithRelations): ShiftDetailDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            code: entity.code,
-            startTime: entity.startTime,
-            endTime: entity.endTime,
-            description: entity.description,
-            isActive: entity.isActive,
-            createdAt: entity.createdAt.toISOString(),
-            updatedAt: entity.updatedAt.toISOString(),
-            users: (entity.users ?? []).map(u => ({
-                id: u.id,
-                name: u.name,
-                email: u.email,
-            })),
-        }
-    }
-
-    /**
-     * Map to option DTO (for dropdowns)
-     */
-    static toOption(entity: Shift): ShiftOptionDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            code: entity.code,
-            time: `${entity.startTime} - ${entity.endTime}`,
-        }
-    }
-
-    /**
-     * Map array to options
-     */
-    static toOptions(entities: Shift[]): ShiftOptionDTO[] {
-        return entities.map(entity => this.toOption(entity))
-    }
+    return record.users?.length ?? 0;
+  }
 }

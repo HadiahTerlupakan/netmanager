@@ -292,6 +292,8 @@ export class LeaveRepository implements ILeaveRepository {
             workDays: true,
             tenantId: true,
             joinDate: true,
+            siteId: true,
+            departmentId: true,
           },
         },
       },

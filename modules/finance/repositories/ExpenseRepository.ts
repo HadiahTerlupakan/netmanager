@@ -32,6 +32,7 @@ export interface ExpenseCreateInput {
 export class ExpenseRepository {
   constructor(private client: PrismaClient = prisma) {}
 
+  /** Get expenses with common route relations. */
   async findManyWithRelations(
     where: Prisma.ExpenseWhereInput,
   ): Promise<ExpenseWithRelations[]> {
@@ -48,6 +49,7 @@ export class ExpenseRepository {
     }) as Promise<ExpenseWithRelations[]>;
   }
 
+  /** Create an expense record. */
   async createExpense(data: ExpenseCreateInput): Promise<Expense> {
     return this.client.expense.create({
       data: {
@@ -84,10 +86,12 @@ export class ExpenseRepository {
     });
   }
 
+  /** Find expenses by invoice number. */
   async findManyByInvoiceNumber(invoiceNumber: string): Promise<Expense[]> {
     return this.client.expense.findMany({ where: { invoiceNumber } });
   }
 
+  /** Create a depreciation expense entry. */
   async createDepreciationExpense(data: {
     amount: bigint;
     date: Date;
@@ -112,6 +116,164 @@ export class ExpenseRepository {
     });
   }
 
+  /** Create an expense inside an existing transaction. */
+  /** Create many expenses in a single transaction. */
+  async createManyExpenses(entries: ExpenseCreateInput[]) {
+    return this.client.$transaction(
+      entries.map((entry) =>
+        this.client.expense.create({
+          data: {
+            id: entry.id,
+            amount: entry.amount,
+            depreciation: entry.depreciation,
+            usefulLife: entry.usefulLife,
+            date: entry.date,
+            category: entry.category,
+            ...(entry.expenseCategoryId
+              ? {
+                  expenseCategory: { connect: { id: entry.expenseCategoryId } },
+                }
+              : {}),
+            ...(entry.description !== undefined
+              ? { description: entry.description }
+              : {}),
+            user: { connect: { id: entry.userId } },
+            updatedAt: new Date(),
+            ...(entry.siteId
+              ? { site: { connect: { id: entry.siteId } } }
+              : {}),
+            ...(entry.mixRadiusGroupId
+              ? { mixRadiusGroupId: entry.mixRadiusGroupId }
+              : {}),
+            ...(entry.rabProjectId
+              ? { rabProject: { connect: { id: entry.rabProjectId } } }
+              : {}),
+            ...(entry.rabItemId
+              ? { rabItem: { connect: { id: entry.rabItemId } } }
+              : {}),
+            ...(entry.invoiceNumber
+              ? { invoiceNumber: entry.invoiceNumber }
+              : {}),
+            ...(entry.invoiceFile ? { invoiceFile: entry.invoiceFile } : {}),
+            ...(entry.accountId
+              ? { financialAccount: { connect: { id: entry.accountId } } }
+              : {}),
+          },
+        }),
+      ),
+    );
+  }
+
+  /** Find user site restriction context. */
+  async findUserSiteContext(userId: string) {
+    return this.client.user.findUnique({
+      where: { id: userId },
+      select: { siteId: true },
+    });
+  }
+
+  /** Find a single expense with route relations. */
+  async findExpenseById(id: string) {
+    return this.client.expense.findUnique({
+      where: { id },
+      include: {
+        user: { select: { name: true } },
+        expenseCategory: { select: { id: true, name: true, type: true } },
+      },
+    });
+  }
+
+  /** Update an expense with route relations. */
+  async updateExpense(
+    where: Prisma.ExpenseWhereUniqueInput,
+    data: Prisma.ExpenseUpdateInput,
+  ) {
+    return this.client.expense.update({
+      where,
+      data,
+      include: {
+        user: { select: { name: true } },
+        expenseCategory: { select: { id: true, name: true, type: true } },
+      },
+    });
+  }
+
+  /** Delete an expense by constrained identifier. */
+  async deleteExpense(where: Prisma.ExpenseWhereUniqueInput) {
+    return this.client.expense.delete({ where });
+  }
+
+  /** Find expense realizations for a RAB project. */
+  async findProjectExpenses(projectId: string) {
+    return this.client.expense.findMany({
+      where: { rabProjectId: projectId },
+      select: {
+        id: true,
+        amount: true,
+        category: true,
+        rabItemId: true,
+        description: true,
+        rabItem: {
+          select: {
+            id: true,
+            expenseType: true,
+          },
+        },
+      },
+    });
+  }
+
+  /** Get expenses for MixRadius profit-loss report. */
+  async findProfitLossExpenses(range: {
+    startDate: Date;
+    endDate: Date;
+    siteId?: string;
+  }) {
+    const siteFilter = range.siteId
+      ? {
+          OR: [{ siteId: range.siteId }, { mixRadiusGroupId: range.siteId }],
+        }
+      : {};
+
+    return this.client.expense.findMany({
+      where: {
+        date: { gte: range.startDate, lte: range.endDate },
+        ...siteFilter,
+      },
+      select: {
+        amount: true,
+        date: true,
+        category: true,
+        description: true,
+        expenseCategory: {
+          select: { name: true },
+        },
+      },
+    });
+  }
+
+  /** Get expenses for a full year MixRadius report. */
+  async findYearlyProfitLossExpenses(range: {
+    startDate: Date;
+    endDate: Date;
+    siteId?: string;
+  }) {
+    const siteFilter = range.siteId
+      ? {
+          OR: [{ siteId: range.siteId }, { mixRadiusGroupId: range.siteId }],
+        }
+      : {};
+
+    return this.client.expense.findMany({
+      where: {
+        date: { gte: range.startDate, lte: range.endDate },
+        ...siteFilter,
+      },
+      select: { amount: true, date: true },
+    });
+  }
+
+  /** Create an expense inside an existing transaction. */
   async createInTx(
     tx: PrismaClient,
     data: {

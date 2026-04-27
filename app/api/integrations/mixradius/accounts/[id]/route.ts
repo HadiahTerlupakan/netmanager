@@ -1,7 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import {
-  mixRadiusConfigRepo,
+  getMixRadiusConfigService,
   IntegrationFactory,
 } from "@/modules/integrations";
 import {
@@ -15,6 +15,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
+  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -86,10 +87,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   if (isSuper) {
-    const updatedConfig = await mixRadiusConfigRepo.updateConfig(
-      id,
-      updatePayload,
-    );
+    const updatedConfig = await configService.updateConfig(id, updatePayload);
 
     await logger.logActivity({
       userId: user.id,
@@ -112,7 +110,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const updatedConfig = await mixRadiusConfigRepo.updateConfigForTenant(
+  const updatedConfig = await configService.updateConfigForTenant(
     id,
     user.tenantId,
     updatePayload,
@@ -130,6 +128,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 });
 
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -152,7 +151,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     });
 
   if (isSuper) {
-    await mixRadiusConfigRepo.deleteConfig(id);
+    await configService.deleteConfig(id);
   } else {
     if (!user.tenantId) {
       return apiError(
@@ -164,7 +163,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       );
     }
 
-    await mixRadiusConfigRepo.deleteConfigForTenant(id, user.tenantId);
+    await configService.deleteConfigForTenant(id, user.tenantId);
   }
 
   await logger.logActivity({

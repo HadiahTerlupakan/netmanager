@@ -1,4 +1,4 @@
-import { SalaryComponentRepository } from "@/modules/salary";
+import { getSalaryComponentService } from "@/modules/salary";
 import { SalaryComponentType } from "@prisma/client";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/lib/api";
 import * as z from "zod";
 
-const componentRepo = new SalaryComponentRepository();
+const componentService = getSalaryComponentService();
 
 const createComponentSchema = z.object({
   action: z.enum(["assign", "create"]).optional(),
@@ -50,13 +50,10 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
   const type = searchParams.get("type") as SalaryComponentType | undefined;
   const userId = searchParams.get("userId");
 
-  const components = await componentRepo.findAll(type);
-
-  // If userId specified, include user's component values
-  let userComponents = null;
-  if (userId) {
-    userComponents = await componentRepo.getUserComponents(userId);
-  }
+  const { components, userComponents } = await componentService.getComponents(
+    type,
+    userId ?? undefined,
+  );
 
   return apiSuccess({ components, userComponents });
 });
@@ -96,7 +93,7 @@ export const POST = createHandler(
         );
       }
 
-      const userComponent = await componentRepo.assignToUser(
+      const userComponent = await componentService.assignComponent(
         userId,
         componentId,
         amount,
@@ -114,7 +111,7 @@ export const POST = createHandler(
       }
 
       // Check if component with same name already exists
-      const existingComponent = await componentRepo.findByName(name);
+      const existingComponent = await componentService.findByName(name);
 
       let component;
       if (existingComponent) {
@@ -131,7 +128,7 @@ export const POST = createHandler(
         }
         component = existingComponent;
       } else {
-        component = await componentRepo.create({
+        component = await componentService.createComponent({
           name,
           type,
           rateType: rateType || "FIXED",
@@ -171,7 +168,7 @@ export const PUT = createHandler(
       sortOrder,
       isActive,
     } = ctx.validated;
-    const component = await componentRepo.update(id, {
+    const component = await componentService.updateComponent(id, {
       ...(name ? { name } : {}),
       ...(type ? { type } : {}),
       ...(rateType ? { rateType } : {}),
@@ -202,11 +199,11 @@ export const DELETE = createHandler({ auth: true }, async (req, _ctx) => {
 
   if (userId && componentId) {
     // Remove component from user
-    await componentRepo.removeFromUser(userId, componentId);
+    await componentService.removeUserComponent(userId, componentId);
     return apiSuccess(null, { message: "Komponen berhasil dihapus dari user" });
   } else if (id) {
     // Delete component
-    await componentRepo.delete(id);
+    await componentService.deleteComponent(id);
     return apiSuccess(null, { message: "Komponen berhasil dihapus" });
   } else {
     return apiError(

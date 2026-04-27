@@ -4,110 +4,145 @@
 
 // ==================== Response DTOs ====================
 
-/**
- * DTO for map node list views
- */
+/** DTO for map node list views. */
 export interface MapNodeListItemDTO {
-    id: string
-    label: string
-    type: string
-    lat: number | null
-    lng: number | null
-    capacity: number | null
-    usedPorts: number | null
+  nodeId: string;
+  type: string;
+  name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  capacity: number;
+  splitter: string | null;
+  pppoe: string | null;
+  serialNumber: string | null;
+  notes: string | null;
+  attenuationIn: number | null;
+  attenuationOut: number | null;
+  inputCoreColor: string | null;
+  photo: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * DTO for map node detail views
- */
-export interface MapNodeDetailDTO {
-    id: string
-    label: string
-    type: string
-    lat: number | null
-    lng: number | null
-    capacity: number | null
-    usedPorts: number | null
-    metadata: Record<string, unknown> | null
-    createdAt: string
-    updatedAt: string
-    connectedEdges: MapEdgeDTO[]
+/** DTO for map node detail views. */
+export interface MapNodeDetailDTO extends MapNodeListItemDTO {
+  connectedEdges: MapEdgeDTO[];
 }
 
-/**
- * DTO for map edge
- */
+/** DTO for map edge. */
 export interface MapEdgeDTO {
-    id: string
-    name: string | null
-    sourceId: string
-    targetId: string
-    sourceLabel: string | null
-    targetLabel: string | null
-    coreCount: number | null
-    distance: number | null
-    metadata: Record<string, unknown> | null
+  edgeId: string;
+  source: string;
+  target: string;
+  fiberType: string | null;
+  distance: number | null;
+  waypoints: string | null;
+  notes: string | null;
+  name: string | null;
+  sourceNodeName: string | null;
+  targetNodeName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * DTO for map statistics
- */
+/** DTO for map settings. */
+export interface MapSettingsDTO {
+  centerLat: string | null;
+  centerLng: string | null;
+  maxZoomIn: string | null;
+  maxZoomOut: string | null;
+  defaultZoom: string | null;
+  updatedAt: string | null;
+}
+
+/** DTO for map statistics. */
 export interface MapStatisticsDTO {
-    totalNodes: number
-    nodesByType: {
-        type: string
-        count: number
-    }[]
-    totalEdges: number
-    totalCapacity: number
-    usedCapacity: number
-    utilizationPercent: number
+  totalNodes: number;
+  totalEdges: number;
+  totalCapacity: number;
+  usedCapacity: number;
+  utilizationPercent: number;
+  nodesByType: Array<{
+    type: string;
+    count: number;
+  }>;
 }
 
-/**
- * DTO for full map data
- */
+/** DTO for full map data. */
 export interface MapDataDTO {
-    nodes: MapNodeListItemDTO[]
-    edges: MapEdgeDTO[]
-    statistics: MapStatisticsDTO
+  nodes: MapNodeListItemDTO[];
+  edges: MapEdgeDTO[];
+  settings: MapSettingsDTO | null;
 }
 
 // ==================== Request DTOs ====================
 
-/**
- * DTO for creating map node
- */
+/** DTO for creating map node. */
 export interface CreateMapNodeDTO {
-    label: string
-    type: string
-    lat?: number
-    lng?: number
-    capacity?: number
-    metadata?: Record<string, unknown>
+  nodeId: string;
+  type: string;
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  capacity?: number;
+  splitter?: string | null;
+  pppoe?: string | null;
+  serialNumber?: string | null;
+  notes?: string | null;
+  attenuationIn?: number | null;
+  attenuationOut?: number | null;
+  inputCoreColor?: string | null;
+  photo?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
-/**
- * DTO for updating map node
- */
+/** DTO for updating map node. */
 export interface UpdateMapNodeDTO {
-    label?: string
-    type?: string
-    lat?: number
-    lng?: number
-    capacity?: number
-    usedPorts?: number
-    metadata?: Record<string, unknown>
+  type?: string;
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  capacity?: number;
+  splitter?: string | null;
+  pppoe?: string | null;
+  serialNumber?: string | null;
+  notes?: string | null;
+  attenuationIn?: number | null;
+  attenuationOut?: number | null;
+  inputCoreColor?: string | null;
+  photo?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
-/**
- * DTO for creating map edge
- */
+/** DTO for creating map edge. */
 export interface CreateMapEdgeDTO {
-    name?: string
-    sourceId: string
-    targetId: string
-    coreCount?: number
-    distance?: number
-    metadata?: Record<string, unknown>
+  edgeId?: string;
+  source: string;
+  target: string;
+  fiberType?: string | null;
+  distance?: number | null;
+  waypoints?: string | null;
+  notes?: string | null;
+  name?: string | null;
+}
+
+/** DTO for updating map edge. */
+export interface UpdateMapEdgeDTO {
+  source?: string;
+  target?: string;
+  fiberType?: string | null;
+  distance?: number | null;
+  waypoints?: string | null;
+  notes?: string | null;
+  name?: string | null;
+}
+
+/** DTO for updating map settings. */
+export interface UpdateMapSettingsDTO {
+  centerLat?: string | null;
+  centerLng?: string | null;
+  maxZoomIn?: string | null;
+  maxZoomOut?: string | null;
+  defaultZoom?: string | null;
 }

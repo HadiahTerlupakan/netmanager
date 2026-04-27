@@ -29,6 +29,12 @@ function appendActiveAttendanceRawFilter(query: Prisma.Sql): Prisma.Sql {
 }
 
 export class AttendanceRepository implements IAttendanceRepository {
+  async findUnique<T extends Prisma.AttendanceFindUniqueArgs>(
+    params: Prisma.SelectSubset<T, Prisma.AttendanceFindUniqueArgs>,
+  ): Promise<Prisma.AttendanceGetPayload<T> | null> {
+    return prisma.attendance.findUnique(params);
+  }
+
   async findMany<T extends Prisma.AttendanceFindManyArgs>(
     params: Prisma.SelectSubset<T, Prisma.AttendanceFindManyArgs>,
   ): Promise<Prisma.AttendanceGetPayload<T>[]> {
@@ -39,6 +45,18 @@ export class AttendanceRepository implements IAttendanceRepository {
     params: Prisma.SelectSubset<T, Prisma.AttendanceFindFirstArgs>,
   ): Promise<Prisma.AttendanceGetPayload<T> | null> {
     return prisma.attendance.findFirst(params);
+  }
+
+  async updateByArgs<T extends Prisma.AttendanceUpdateArgs>(
+    params: Prisma.SelectSubset<T, Prisma.AttendanceUpdateArgs>,
+  ): Promise<Prisma.AttendanceGetPayload<T>> {
+    return prisma.attendance.update(params);
+  }
+
+  async delete<T extends Prisma.AttendanceDeleteArgs>(
+    params: Prisma.SelectSubset<T, Prisma.AttendanceDeleteArgs>,
+  ): Promise<Prisma.AttendanceGetPayload<T>> {
+    return prisma.attendance.delete(params);
   }
 
   async findFirstWithUser(params: {

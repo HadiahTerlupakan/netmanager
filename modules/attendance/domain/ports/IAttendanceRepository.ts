@@ -1,10 +1,25 @@
 import type { Prisma } from "@prisma/client";
 
 export interface IAttendanceRepository {
+  /** Find one attendance record. */
+  findUnique<T extends Prisma.AttendanceFindUniqueArgs>(
+    params: Prisma.SelectSubset<T, Prisma.AttendanceFindUniqueArgs>,
+  ): Promise<Prisma.AttendanceGetPayload<T> | null>;
+
   /** Find many attendance records. */
   findMany<T extends Prisma.AttendanceFindManyArgs>(
     params: Prisma.SelectSubset<T, Prisma.AttendanceFindManyArgs>,
   ): Promise<Prisma.AttendanceGetPayload<T>[]>;
+
+  /** Update one attendance record by Prisma args. */
+  updateByArgs<T extends Prisma.AttendanceUpdateArgs>(
+    params: Prisma.SelectSubset<T, Prisma.AttendanceUpdateArgs>,
+  ): Promise<Prisma.AttendanceGetPayload<T>>;
+
+  /** Delete one attendance record. */
+  delete<T extends Prisma.AttendanceDeleteArgs>(
+    params: Prisma.SelectSubset<T, Prisma.AttendanceDeleteArgs>,
+  ): Promise<Prisma.AttendanceGetPayload<T>>;
 
   /** Count attendance records. */
   count(where?: Prisma.AttendanceWhereInput): Promise<number>;

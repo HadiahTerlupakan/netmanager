@@ -1,154 +1,93 @@
-import { NextRequest, NextResponse } from 'next/server';
-import * as z from 'zod';
-import { prisma } from '@/modules/database';
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { NextRequest, NextResponse } from "next/server";
+import * as z from "zod";
+
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { MobileWorkOrderPartnerService } from "@/modules/work-order";
+
+const service = new MobileWorkOrderPartnerService();
+const partnerResponseSchema = z.object({
+  response: z.enum(["APPROVED", "REJECTED"], {
+    error: "Response harus APPROVED atau REJECTED",
+  }),
+});
 
 /**
- * POST /api/mobile/work-orders/[id]/partner-response
- * Partner approve atau reject invitation untuk work order
+ * Handle partner invitation response from mobile app.
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Autentikasi user
     const authResult = await getMobileAuthPayload(request);
     if (authResult instanceof NextResponse) {
       return authResult;
     }
 
-    const userId = authResult.id as string;
-    const tenantId = authResult.tenantId as string;
-
     const { id: workOrderId } = await params;
-
-    // Parse dan validasi request body
-    const bodySchema = z.object({
-      response: z.enum(['APPROVED', 'REJECTED'], {
-        error: 'Response harus APPROVED atau REJECTED',
-      }),
+    const body = partnerResponseSchema.parse(await request.json());
+    const result = await service.respondToInvitation({
+      workOrderId,
+      actorId: authResult.id as string,
+      tenantId: authResult.tenantId as string,
+      response: body.response,
     });
 
-    const body = await request.json();
-    const validatedData = bodySchema.parse(body);
-
-    // Validasi: Work order exists
-    const workOrder = await prisma.workOrders.findFirst({
-      where: { id: workOrderId, tenantId },
-      select: { 
-        id: true, 
-        workOrderNumber: true, 
-        status: true,
-        assignedToId: true,
-      },
-    });
-
-    if (!workOrder) {
-      return apiError('Work order tidak ditemukan', ErrorCodes.NOT_FOUND, { status: 404 });
-    }
-
-    // Cari assignment berdasarkan workOrderId dan userId dari session
-    const assignment = await prisma.workOrderAssignments.findFirst({
-      where: {
-        workOrderId: workOrderId,
-        userId: userId,
-        role: 'PARTNER',
-        tenantId
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-      },
-    });
-
-    if (!assignment) {
-      return apiError('Anda tidak diundang sebagai partner di work order ini', ErrorCodes.NOT_FOUND, { status: 404 });
-    }
-
-    // Validasi: Assignment masih PENDING
-    if (assignment.status !== 'PENDING') {
+    if (result.isAlreadyResponded) {
       return NextResponse.json(
-        { 
-          error: `Undangan sudah ${assignment.status === 'APPROVED' ? 'diterima' : 'ditolak'} sebelumnya`,
-          currentStatus: assignment.status,
+        {
+          error: `Undangan sudah ${result.currentStatus === "APPROVED" ? "diterima" : "ditolak"} sebelumnya`,
+          currentStatus: result.currentStatus,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
-
-    // Update status assignment
-    const updatedAssignment = await prisma.workOrderAssignments.update({
-      where: { id: assignment.id, tenantId },
-      data: {
-        status: validatedData.response,
-        respondedAt: new Date(),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-      },
-    });
-
-    // TODO: Kirim notifikasi ke lead technician (opsional)
-    // Bisa menggunakan sistem notifikasi yang sudah ada untuk mengirim notifikasi
-    // ke lead technician (workOrder.assignedToId) bahwa partner sudah merespons
-    
-    // Contoh implementasi notifikasi (jika diperlukan):
-    // if (workOrder.assignedToId) {
-    //   await prisma.notifications.create({
-    //     data: {
-    //       id: crypto.randomUUID(),
-    //       type: 'WORK_ORDER_PARTNER_RESPONSE',
-    //       priority: 'NORMAL',
-    //       title: `Partner ${validatedData.response === 'APPROVED' ? 'menerima' : 'menolak'} undangan`,
-    //       message: `${user.name} ${validatedData.response === 'APPROVED' ? 'menerima' : 'menolak'} undangan sebagai partner di WO ${workOrder.workOrderNumber}`,
-    //       userId: workOrder.assignedToId,
-    //       sourceType: 'WORK_ORDER',
-    //       sourceId: workOrderId,
-    //       link: `/admin/work-orders/${workOrderId}`,
-    //     },
-    //   });
-    // }
 
     return NextResponse.json({
       success: true,
       assignment: {
-        id: updatedAssignment.id,
-        workOrderId: updatedAssignment.workOrderId,
-        userId: updatedAssignment.userId,
-        role: updatedAssignment.role,
-        status: updatedAssignment.status,
-        assignedAt: updatedAssignment.assignedAt,
-        respondedAt: updatedAssignment.respondedAt,
-        assignedById: updatedAssignment.assignedById,
-        user: updatedAssignment.user,
+        id: result.assignment?.id,
+        workOrderId: result.assignment?.workOrderId,
+        userId: result.assignment?.userId,
+        role: result.assignment?.role,
+        status: result.assignment?.status,
+        assignedAt: result.assignment?.assignedAt,
+        respondedAt: result.assignment?.respondedAt,
+        assignedById: result.assignment?.assignedById,
+        user: result.assignment?.user,
       },
-      message: `Undangan berhasil ${validatedData.response === 'APPROVED' ? 'diterima' : 'ditolak'}`,
+      message: `Undangan berhasil ${body.response === "APPROVED" ? "diterima" : "ditolak"}`,
     });
   } catch (error) {
-    console.error('[API] Error responding to partner invitation:', error);
+    console.error("[API] Error responding to partner invitation:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validasi gagal', details: error.issues },
-        { status: 400 }
+        { error: "Validasi gagal", details: error.issues },
+        { status: 400 },
       );
     }
 
-    return apiError('Terjadi kesalahan server', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    if (error instanceof Error && error.message === "WORK_ORDER_NOT_FOUND") {
+      return apiError("Work order tidak ditemukan", ErrorCodes.NOT_FOUND, {
+        status: 404,
+      });
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "PARTNER_ASSIGNMENT_NOT_FOUND"
+    ) {
+      return apiError(
+        "Anda tidak diundang sebagai partner di work order ini",
+        ErrorCodes.NOT_FOUND,
+        { status: 404 },
+      );
+    }
+
+    return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
+      status: 500,
+    });
   }
 }

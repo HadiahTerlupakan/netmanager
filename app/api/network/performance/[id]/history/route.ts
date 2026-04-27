@@ -1,6 +1,6 @@
 import * as z from "zod";
-import { prisma } from "@/modules/database";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { getNetworkPerformanceService } from "@/modules/network";
 
 const historyQuerySchema = z.object({
   startDate: z.iso.datetime().optional(),
@@ -96,67 +96,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const filters = parsed.data;
-  const where: Record<string, unknown> = { deviceId: id };
+  const networkPerformanceService = getNetworkPerformanceService();
+  const result = await networkPerformanceService.getPerformanceHistory(
+    id,
+    parsed.data,
+  );
 
-  if (filters.startDate || filters.endDate) {
-    const timestamp: Record<string, Date> = {};
-    if (filters.startDate) timestamp.gte = new Date(filters.startDate);
-    if (filters.endDate) timestamp.lte = new Date(filters.endDate);
-    where.timestamp = timestamp;
-  }
-
-  const page = filters.page || 1;
-  const limit = filters.limit || 20;
-  const skip = (page - 1) * limit;
-
-  const orderBy: Record<string, string> = {};
-  if (filters.sortBy) {
-    orderBy[filters.sortBy] = filters.sortOrder || "desc";
-  } else {
-    orderBy.timestamp = "desc";
-  }
-
-  try {
-    const [data, total] = await Promise.all([
-      prisma.networkPerformance.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      prisma.networkPerformance.count({ where }),
-    ]);
-
-    return apiSuccess({
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (prismaError: unknown) {
-    // Handle case where model doesn't exist yet
-    if (
-      prismaError &&
-      typeof prismaError === "object" &&
-      "code" in prismaError &&
-      prismaError.code === "P2021"
-    ) {
-      return apiSuccess({
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-        },
-        message:
-          "Network performance monitoring will be available after database migration",
-      });
-    }
-    throw prismaError;
-  }
+  return apiSuccess(result);
 });

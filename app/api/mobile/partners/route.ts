@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { prisma } from "@/modules/database";
-import { Prisma } from "@prisma/client";
-import { ApiErrors, apiError, ErrorCodes } from "@/lib/api-response";
-import { filterInvitablePartnersToday } from "@/modules/work-order";
 
+import { ApiErrors, apiError, ErrorCodes } from "@/lib/api-response";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { getMobilePartners } from "@/modules/users";
+
+/** Mengambil daftar partner mobile yang dapat diundang. */
 export async function GET(request: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(request);
@@ -12,69 +12,31 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
-    const payload = authResult;
-    const tenantId = payload.tenantId as string;
-
-    // Check Permission
-    const permissions = payload.permissions || [];
+    const permissions = authResult.permissions || [];
     if (!permissions.includes("m_partners:read")) {
       return ApiErrors.forbidden(
         "Akses ditolak: Memerlukan izin m_partners:read",
       );
     }
 
-    const userId = payload.id as string;
     const search = request.nextUrl.searchParams.get("search") || "";
-    const page = parseInt(request.nextUrl.searchParams.get("page") || "1");
-    const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20");
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.UserWhereInput = {
-      id: { not: userId },
-      isActive: true,
-      tenantId,
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-        ],
-      }),
-    };
-
-    // Fetch users (excluding self) with pagination
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          name: true,
-          role: {
-            select: { name: true },
-          },
-          sites: {
-            select: { name: true },
-          },
-        },
-        skip,
-        take: limit,
-        orderBy: { name: "asc" },
-      }),
-      prisma.user.count({ where }),
-    ]);
-
-    const availableUsers = await filterInvitablePartnersToday(users, tenantId);
-
-    return NextResponse.json({
-      success: true,
-      data: availableUsers,
-      message: "Berhasil mengambil daftar partner",
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+    const page = Number.parseInt(
+      request.nextUrl.searchParams.get("page") || "1",
+      10,
+    );
+    const limit = Number.parseInt(
+      request.nextUrl.searchParams.get("limit") || "20",
+      10,
+    );
+    const result = await getMobilePartners({
+      tenantId: authResult.tenantId as string,
+      userId: authResult.id as string,
+      search,
+      page,
+      limit,
     });
+
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error("Mobile Partner List Error:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {

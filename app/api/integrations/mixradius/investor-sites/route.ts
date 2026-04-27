@@ -1,7 +1,9 @@
-import { prismaBilling } from "@/modules/database";
 import { createHandler, ApiErrors, apiSuccess } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
+import { MixRadiusInvestorSiteService } from "@/modules/integrations";
+
+const mixRadiusInvestorSiteService = new MixRadiusInvestorSiteService();
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
@@ -20,10 +22,9 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   try {
-    const sites = await prismaBilling.mixRadiusInvestorSite.findMany({
-      where: isSuper ? undefined : { tenantId: user.tenantId },
-      orderBy: { createdAt: "desc" },
-    });
+    const sites = await mixRadiusInvestorSiteService.getSites(
+      isSuper ? undefined : user.tenantId,
+    );
 
     return apiSuccess(sites);
   } catch (e) {
@@ -56,13 +57,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.badRequest("Nama belum diisi");
     }
 
-    const newSite = await prismaBilling.mixRadiusInvestorSite.create({
-      data: {
-        name,
-        owners: Array.isArray(owners) ? owners : [],
-        isActive: isActive ?? true,
-        tenantId: isSuper ? undefined : user.tenantId,
-      },
+    const newSite = await mixRadiusInvestorSiteService.createSite({
+      name,
+      owners,
+      isActive,
+      tenantId: isSuper ? undefined : user.tenantId,
     });
 
     return apiSuccess(newSite);

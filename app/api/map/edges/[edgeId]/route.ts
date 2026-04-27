@@ -1,9 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { MappingService } from "@/modules/map";
+import { getMappingService } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
-const service = new MappingService();
+const service = getMappingService();
 
 const updateEdgeSchema = z.object({
   name: z.string().optional(),
@@ -26,19 +26,22 @@ const updateEdgeSchema = z.object({
  *         schema:
  *           type: string
  */
-export const GET = createHandler({
-  auth: true,
-  permissions: ["map:read"]
-}, async (_req, ctx) => {
-  const { edgeId } = ctx.params;
-  const edge = await service.getEdgeById(edgeId);
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["map:read"],
+  },
+  async (_req, ctx) => {
+    const { edgeId } = ctx.params;
+    const edge = await service.getEdgeById(edgeId);
 
-  if (!edge) {
-    return ApiErrors.notFound("Edge");
-  }
+    if (!edge) {
+      return ApiErrors.notFound("Edge");
+    }
 
-  return apiSuccess(edge);
-});
+    return apiSuccess(edge);
+  },
+);
 
 /**
  * @swagger
@@ -53,32 +56,36 @@ export const GET = createHandler({
  *         schema:
  *           type: string
  */
-export const PUT = createHandler({
-  auth: true,
-  permissions: ["map:update"],
-  schema: updateEdgeSchema
-}, async (_req, ctx) => {
-  const { edgeId } = ctx.params;
-  const body = ctx.validated;
+export const PUT = createHandler(
+  {
+    auth: true,
+    permissions: ["map:update"],
+    schema: updateEdgeSchema,
+  },
+  async (_req, ctx) => {
+    const { edgeId } = ctx.params;
+    const body = ctx.validated;
 
-  try {
-    const updatedEdge = await service.updateEdge(edgeId, body);
+    try {
+      const updatedEdge = await service.updateEdge(edgeId, body);
 
-    await logger.logActivity({
-      action: "UPDATE",
-      subject: "Edge",
-      details: { id: edgeId, changes: body },
-      userId: ctx.session?.user.id
-    });
+      await logger.logActivity({
+        action: "UPDATE",
+        subject: "Edge",
+        details: { id: edgeId, changes: body },
+        userId: ctx.session?.user.id,
+      });
 
-    return apiSuccess(updatedEdge, { message: "Edge updated successfully" });
-  } catch (error) {
-    if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
-      return ApiErrors.notFound("Edge");
+      return apiSuccess(updatedEdge, { message: "Edge updated successfully" });
+    } catch (error) {
+      if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
+        return ApiErrors.notFound("Edge");
+      }
+
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 
 /**
  * @swagger
@@ -93,27 +100,34 @@ export const PUT = createHandler({
  *         schema:
  *           type: string
  */
-export const DELETE = createHandler({
-  auth: true,
-  permissions: ["map:delete"]
-}, async (_req, ctx) => {
-  const { edgeId } = ctx.params;
+export const DELETE = createHandler(
+  {
+    auth: true,
+    permissions: ["map:delete"],
+  },
+  async (_req, ctx) => {
+    const { edgeId } = ctx.params;
 
-  try {
-    await service.deleteEdge(edgeId);
+    try {
+      await service.deleteEdge(edgeId);
 
-    await logger.logActivity({
-      action: "DELETE",
-      subject: "Edge",
-      details: { id: edgeId },
-      userId: ctx.session?.user.id
-    });
+      await logger.logActivity({
+        action: "DELETE",
+        subject: "Edge",
+        details: { id: edgeId },
+        userId: ctx.session?.user.id,
+      });
 
-    return apiSuccess({ deleted: true }, { message: "Edge deleted successfully" });
-  } catch (error) {
-    if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
-      return ApiErrors.notFound("Edge");
+      return apiSuccess(
+        { deleted: true },
+        { message: "Edge deleted successfully" },
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message === "EDGE_NOT_FOUND") {
+        return ApiErrors.notFound("Edge");
+      }
+
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);

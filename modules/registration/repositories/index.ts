@@ -1,2 +1,1 @@
-export * from './IRegistrationRepository'
-export * from './RegistrationRepository'
+export * from "./RegistrationRepository";

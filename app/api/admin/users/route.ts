@@ -1,11 +1,11 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { AdminUserRouteService, getUserService } from "@/modules/users";
-import { createUserSchema } from "@/lib/validations/user";
+import {
+  AdminUserRouteService,
+  createUserSchema,
+  getUserService,
+} from "@/modules/users";
 import { logger } from "@/lib/logger";
 import { checkSiteRestriction } from "@/modules/roles";
-import { prismaAuth } from "@/modules/database";
-import { getTenantAdminRoleId } from "@/modules/mitra";
-import { LeaveType } from "@prisma/client";
 import type { Session } from "next-auth";
 
 /**
@@ -137,91 +137,32 @@ export const POST = createHandler(
       body.siteId = userSiteId;
     }
 
-    // Tenant assignment logic
-    // If user is Super Admin, they can specify tenantId in body
-    // Otherwise, it will follow the implicit tenant of the user (via prisma extension)
-    const isSuperAdmin = session.user.isSuperAdmin || false;
-    const targetTenantId = isSuperAdmin ? body.tenantId : undefined;
-
-    // Automatically find admin role for the target tenant if not provided
-    let effectiveRoleId = body.roleId;
-    if (!effectiveRoleId && targetTenantId) {
-      effectiveRoleId =
-        (await getTenantAdminRoleId(prismaAuth, targetTenantId)) || undefined;
-      if (effectiveRoleId) {
-        logger.info("Automatically assigned admin role for new tenant user", {
-          tenantId: targetTenantId,
-          roleId: effectiveRoleId,
-        });
-      }
-    }
-
     logger.info("Creating new user", {
       email: body.email,
       createdBy: session.user.id,
-      roleId: effectiveRoleId,
+      roleId: body.roleId,
     });
 
     try {
-      const userService = getUserService();
-      const user = await userService.createUser({
-        ...body,
-        roleId: effectiveRoleId || body.roleId,
-        tenantId: targetTenantId || body.tenantId || null,
-        flexibleTargetHour: body.flexibleTargetHour
-          ? parseInt(body.flexibleTargetHour.toString())
-          : 8,
-      });
+      const adminUserRouteService = new AdminUserRouteService();
+      const user = await adminUserRouteService.createAdminUser(
+        session as Session & {
+          user: Session["user"] & { id: string; isSuperAdmin?: boolean };
+        },
+        body,
+      );
 
-      // Handle multi-site: create userSites records
-      if (
-        body.userSites &&
-        Array.isArray(body.userSites) &&
-        body.userSites.length > 0
-      ) {
-        await new AdminUserRouteService().syncNewUserSites(
-          user.id,
-          body.userSites,
-        );
-
+      if (body.userSites?.length) {
         logger.info("UserSites created for new user", {
           userId: user.id,
           count: body.userSites.length,
         });
       }
 
-      // Handle leave quotas initialization
       if (body.leaveQuotas && Object.keys(body.leaveQuotas).length > 0) {
-        try {
-          const { LeaveBalanceRepository } =
-            await import("@/modules/attendance");
-          const leaveBalanceRepo = new LeaveBalanceRepository();
-          const targetYear = new Date().getFullYear();
-
-          const updatePromises = Object.entries(body.leaveQuotas).map(
-            ([type, quota]) =>
-              leaveBalanceRepo.upsertQuota(
-                user.id,
-                targetYear,
-                type as LeaveType,
-                quota as number,
-              ),
-          );
-          await Promise.all(updatePromises);
-          logger.info("Leave quotas initialized for new user", {
-            userId: user.id,
-          });
-        } catch (err: unknown) {
-          const leaveQuotaError =
-            err instanceof Error ? err : new Error(String(err));
-          logger.error(
-            "Failed to init leave quotas for new user",
-            leaveQuotaError,
-            {
-              userId: user.id,
-            },
-          );
-        }
+        logger.info("Leave quotas initialized for new user", {
+          userId: user.id,
+        });
       }
 
       logger.apiRequest(

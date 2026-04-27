@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession, type Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
-import { prisma } from '@/modules/database'
-import { Prisma } from '@prisma/client'
-import { toEndOfDay } from '@/lib/utils/server-datetime'
-
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession, type Session } from "next-auth";
+import { authConfig } from "@/lib/auth";
+import {
+  PelangganPppRouteService,
+  RouteServiceError,
+} from "@/modules/pelanggan";
 
 /**
  * @swagger
@@ -191,204 +191,64 @@ import { toEndOfDay } from '@/lib/utils/server-datetime'
  *       500:
  *         $ref: '#/components/responses/Error'
  */
+const pelangganPppRouteService = new PelangganPppRouteService();
+
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params
-    // Check authentication
-    const session = await getServerSession(authConfig) as Session | null
+    const { id } = await params;
+    const session = (await getServerSession(authConfig)) as Session | null;
     if (!session) {
-      return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
-    }
-    // Get customer information
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        idPelanggan: true,
-        nama: true,
-        username: true,
-        status: true,
-      },
-    })
-
-    if (!pelanggan) {
       return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      )
+        { error: "Tidak terautentikasi" },
+        { status: 401 },
+      );
     }
 
-    // Parse query parameters
-    const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const suspensionType = searchParams.get('suspensionType')
-    const status = searchParams.get('status') || 'all'
-    const startDateParam = searchParams.get('startDate')
-    const endDateParam = searchParams.get('endDate')
-    const sortBy = searchParams.get('sortBy') || 'suspendedAt'
-    const sortOrder = searchParams.get('sortOrder') || 'desc'
+    const { searchParams } = new URL(req.url);
+    const result = await pelangganPppRouteService.getSuspensionHistory({
+      id,
+      page: parseInt(searchParams.get("page") || "1"),
+      limit: parseInt(searchParams.get("limit") || "20"),
+      suspensionType: searchParams.get("suspensionType"),
+      status: (searchParams.get("status") || "all") as Parameters<
+        PelangganPppRouteService["getSuspensionHistory"]
+      >[0]["status"],
+      startDate: searchParams.get("startDate"),
+      endDate: searchParams.get("endDate"),
+      sortBy: (searchParams.get("sortBy") || "suspendedAt") as Parameters<
+        PelangganPppRouteService["getSuspensionHistory"]
+      >[0]["sortBy"],
+      sortOrder: (searchParams.get("sortOrder") || "desc") as Parameters<
+        PelangganPppRouteService["getSuspensionHistory"]
+      >[0]["sortOrder"],
+    });
 
-    // Validate pagination
-    if (page < 1 || limit < 1 || limit > 100) {
+    if (!result) {
       return NextResponse.json(
-        { error: 'Parameter paginasi tidak valid' },
-        { status: 400 }
-      )
+        { error: "Customer not found" },
+        { status: 404 },
+      );
     }
 
-    // Calculate date filters
-    let startDate: Date | undefined
-    let endDate: Date | undefined
-
-    if (startDateParam) {
-      startDate = new Date(startDateParam)
-      if (isNaN(startDate.getTime())) {
-        return NextResponse.json(
-          { error: 'Format startDate tidak valid. Gunakan format YYYY-MM-DD' },
-          { status: 400 }
-        )
-      }
-    }
-
-    if (endDateParam) {
-      endDate = new Date(endDateParam)
-      if (isNaN(endDate.getTime())) {
-        return NextResponse.json(
-          { error: 'Format endDate tidak valid. Gunakan format YYYY-MM-DD' },
-          { status: 400 }
-        )
-      }
-      // Set end of day for endDate
-      endDate.setTime(toEndOfDay(endDate).getTime())
-    }
-
-    // Build where clause
-    const where: Prisma.ServiceSuspensionWhereInput = {
-      pelangganId: id,
-      ...(suspensionType && { suspension_type: suspensionType }),
-      ...(startDate && {
-        suspended_at: { gte: startDate }
-      }),
-      ...(endDate && {
-        suspended_at: { lte: endDate }
-      }),
-    }
-
-    // Filter by status
-    if (status === 'active') {
-      where.is_active = true
-    } else if (status === 'inactive') {
-      where.is_active = false
-    }
-    // 'all' status doesn't filter by is_active
-
-    // Get total count for pagination
-    const total = await prisma.serviceSuspension.count({ where })
-
-    // Get suspension records with pagination
-    const suspensions = await prisma.serviceSuspension.findMany({
-      where,
-      orderBy: {
-        [sortBy === 'suspendedAt' ? 'suspended_at' : sortBy === 'actualResumeAt' ? 'actual_resume_at' : 'suspended_at']: sortOrder,
-      },
-      include: {
-        // Include user information for suspendedBy and resumedBy
-        pelanggan: {
-          select: {
-            id: true,
-            nama: true,
-          }
-        }
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    })
-
-    // Calculate statistics
-    const allSuspensions = await prisma.serviceSuspension.findMany({
-      where: { pelangganId: id },
-    })
-
-    const activeSuspensions = await prisma.serviceSuspension.count({
-      where: { pelangganId: id, is_active: true }
-    })
-
-    // Calculate average suspension duration
-    const completedSuspensions = allSuspensions.filter((s) => s.actual_resume_at && s.suspended_at)
-    const totalDurationHours = completedSuspensions.reduce((total: number, s) => {
-      const duration = s.actual_resume_at!.getTime() - s.suspended_at.getTime()
-      return total + (duration / (1000 * 60 * 60)) // Convert to hours
-    }, 0)
-    const averageDurationHours = completedSuspensions.length > 0 ? totalDurationHours / completedSuspensions.length : 0
-
-    // Find most common reason
-    const reasonCounts = allSuspensions.reduce((acc: Record<string, number>, s) => {
-      const reason = s.reason || 'Unknown'
-      acc[reason] = (acc[reason] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-    const mostCommonReason = Object.keys(reasonCounts).length > 0
-      ? Object.keys(reasonCounts).reduce((a, b) => reasonCounts[a] > reasonCounts[b] ? a : b)
-      : null
-
-    // Format suspension data
-    const formattedSuspensions = suspensions.map((suspension) => {
-      const durationHours = suspension.actual_resume_at && suspension.suspended_at
-        ? (suspension.actual_resume_at.getTime() - suspension.suspended_at.getTime()) / (1000 * 60 * 60)
-        : null
-
-      return {
-        id: suspension.id,
-        suspensionType: suspension.suspension_type,
-        reason: suspension.reason,
-        suspendedAt: suspension.suspended_at.toISOString(),
-        suspendedBy: suspension.suspended_by,
-        expectedResumeAt: suspension.expected_resume_at?.toISOString() || null,
-        actualResumeAt: suspension.actual_resume_at?.toISOString() || null,
-        resumedBy: suspension.resumed_by,
-        notes: suspension.notes,
-        isActive: suspension.is_active,
-        durationHours,
-      }
-    })
-
-    // Calculate pagination info
-    const totalPages = Math.ceil(total / limit)
-
-    return NextResponse.json({
-      success: true,
-      customer: pelanggan,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-      },
-      filters: {
-        suspensionType: suspensionType || null,
-        status,
-        startDate: startDate?.toISOString() || null,
-        endDate: endDate?.toISOString() || null,
-        sortBy,
-        sortOrder,
-      },
-      statistics: {
-        totalSuspensions: allSuspensions.length,
-        activeSuspensions,
-        averageSuspensionDuration: Math.round(averageDurationHours * 100) / 100, // Round to 2 decimal places
-        mostCommonReason,
-      },
-      data: formattedSuspensions,
-    })
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('Error fetching suspension history:', error)
+    console.error("Error fetching suspension history:", error);
+    if (error instanceof RouteServiceError) {
+      return NextResponse.json(
+        { error: error.message, details: error.details },
+        { status: error.status },
+      );
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      {
+        error:
+          error instanceof Error ? error.message : "Terjadi kesalahan server",
+      },
+      { status: 500 },
+    );
   }
 }

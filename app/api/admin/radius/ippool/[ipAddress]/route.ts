@@ -1,24 +1,33 @@
-import { prisma } from '@/modules/database';
-import { RadiusRepository } from '@/modules/network';
-import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
+import { RadiusAdminService, RadiusAdminServiceError } from "@/modules/network";
+import { hasPermission } from "@/lib/rbac";
+import { apiSuccess, ApiErrors, apiError, createHandler } from "@/lib/api";
 
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:delete')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus IP Pool');
-    }
+const radiusAdminService = new RadiusAdminService();
 
-    const { ipAddress } = ctx.params;
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
+  if (!(await hasPermission("radius:delete"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk menghapus IP Pool",
+    );
+  }
 
-    // Validate IP address format
-    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    if (!ipRegex.test(ipAddress)) {
-        return apiError('Format alamat IP tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
-
+  try {
     const tenantId = ctx.session!.user.tenantId;
-    const radiusRepo = new RadiusRepository(prisma);
-    await radiusRepo.removeFromIpPool(ipAddress, tenantId);
+    const result = await radiusAdminService.removeIpPool({
+      tenantId,
+      ipAddress: ctx.params.ipAddress,
+    });
 
-    return apiSuccess({ ipAddress }, { message: 'IP berhasil dihapus dari pool' });
-})
+    return apiSuccess(result, { message: "IP berhasil dihapus dari pool" });
+  } catch (error) {
+    return mapRadiusAdminError(error);
+  }
+});
+
+function mapRadiusAdminError(error: unknown) {
+  if (error instanceof RadiusAdminServiceError) {
+    return apiError(error.message, error.code, { status: error.status });
+  }
+
+  throw error;
+}

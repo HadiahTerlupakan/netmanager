@@ -1,8 +1,10 @@
 import { logger } from "@/lib/logger";
-import {
-  MitraWalletRepository,
-  type EarningReferenceType,
-} from "../repositories/MitraWalletRepository";
+import type {
+  IMitraWalletRepository,
+  EarningReferenceType,
+} from "../domain/ports/IMitraWalletRepository";
+import { getMitraWalletRepository } from "../repositories/MitraWalletRepository";
+import { validatePositiveAmount } from "../validators/mitraValidation";
 
 interface ServiceResult<T = void> {
   success: boolean;
@@ -16,7 +18,7 @@ const DEFAULT_LIMIT = 20;
 
 export class MitraWalletService {
   constructor(
-    private readonly mitraWalletRepository: MitraWalletRepository = new MitraWalletRepository(),
+    private readonly mitraWalletRepository: IMitraWalletRepository = getMitraWalletRepository(),
   ) {}
 
   /** Mengambil saldo wallet mitra dan membuat wallet otomatis bila valid. */
@@ -32,17 +34,13 @@ export class MitraWalletService {
   > {
     try {
       const wallet = await this.findOrCreateEligibleWallet(userId, tenantId);
-
-      if (!wallet) {
-        return { success: false, error: "User bukan mitra" };
-      }
-
+      if (!wallet) return { success: false, error: "User bukan mitra" };
       return {
         success: true,
         data: {
-          balance: wallet.balance.toNumber(),
-          totalEarnings: wallet.totalEarnings.toNumber(),
-          totalWithdrawn: wallet.totalWithdrawn.toNumber(),
+          balance: wallet.balance,
+          totalEarnings: wallet.totalEarnings,
+          totalWithdrawn: wallet.totalWithdrawn,
         },
       };
     } catch (error) {
@@ -63,11 +61,8 @@ export class MitraWalletService {
     referenceType?: EarningReferenceType,
   ): Promise<ServiceResult> {
     try {
-      const amountError = this.validatePositiveAmount(amount);
-      if (amountError) {
-        return amountError;
-      }
-
+      const amountError = validatePositiveAmount(amount);
+      if (amountError) return { success: false, error: amountError };
       await this.mitraWalletRepository.addEarning({
         userId,
         amount,
@@ -75,7 +70,6 @@ export class MitraWalletService {
         referenceId,
         referenceType,
       });
-
       logger.info(
         `[MitraWalletService] Earning added: userId=${userId}, amount=${amount}, ref=${referenceId}`,
       );
@@ -98,11 +92,8 @@ export class MitraWalletService {
     referenceType?: EarningReferenceType,
   ): Promise<ServiceResult> {
     try {
-      const amountError = this.validatePositiveAmount(amount);
-      if (amountError) {
-        return amountError;
-      }
-
+      const amountError = validatePositiveAmount(amount);
+      if (amountError) return { success: false, error: amountError };
       await this.mitraWalletRepository.deductBalance({
         userId,
         amount,
@@ -110,7 +101,6 @@ export class MitraWalletService {
         referenceId,
         referenceType,
       });
-
       logger.info(
         `[MitraWalletService] Penalty deducted: userId=${userId}, amount=${amount}, ref=${referenceId}`,
       );
@@ -139,7 +129,6 @@ export class MitraWalletService {
         description,
         tenantId,
       });
-
       logger.info(
         `[MitraWalletService] Adjustment: userId=${userId}, amount=${amount}, by=${adminId}`,
       );
@@ -157,8 +146,8 @@ export class MitraWalletService {
   async getTransactions(
     userId: string,
     tenantId?: string,
-    page: number = DEFAULT_PAGE,
-    limit: number = DEFAULT_LIMIT,
+    page = DEFAULT_PAGE,
+    limit = DEFAULT_LIMIT,
   ) {
     try {
       const pagedTransactions =
@@ -168,14 +157,11 @@ export class MitraWalletService {
           page,
           limit,
         );
-
-      if (!pagedTransactions) {
+      if (!pagedTransactions)
         return {
           success: true,
           data: { transactions: [], total: 0, page, totalPages: 0 },
         };
-      }
-
       return { success: true, data: pagedTransactions };
     } catch (error) {
       logger.error(
@@ -202,30 +188,8 @@ export class MitraWalletService {
           startDate,
           endDate,
         });
-
-      if (!summary) {
-        return {
-          success: true,
-          data: {
-            balance: 0,
-            totalEarnings: 0,
-            totalWithdrawn: 0,
-            earningsThisMonth: 0,
-            earningsCount: 0,
-          },
-        };
-      }
-
-      return {
-        success: true,
-        data: {
-          balance: summary.balance,
-          totalEarnings: summary.totalEarnings,
-          totalWithdrawn: summary.totalWithdrawn,
-          earningsThisMonth: summary.earningsThisMonth,
-          earningsCount: summary.earningsCount,
-        },
-      };
+      if (!summary) return { success: true, data: this.buildEmptySummary() };
+      return { success: true, data: summary };
     } catch (error) {
       logger.error(
         "[MitraWalletService] Error getting earnings summary:",
@@ -235,23 +199,40 @@ export class MitraWalletService {
     }
   }
 
+  /** Menghitung earning bulanan berdasarkan kata kunci deskripsi. */
+  async countMonthlyEarningsByDescription(
+    userId: string,
+    keyword: string,
+    startDate: Date,
+  ) {
+    try {
+      const total =
+        await this.mitraWalletRepository.countMonthlyEarningsByDescription({
+          mitraId: userId,
+          keyword,
+          startDate,
+        });
+      return { success: true, data: total };
+    } catch (error) {
+      logger.error(
+        "[MitraWalletService] Error counting monthly earnings:",
+        error as Error,
+      );
+      return { success: false, error: "Gagal menghitung transaksi bulanan" };
+    }
+  }
+
   private async findOrCreateEligibleWallet(userId: string, tenantId?: string) {
     const existingWallet = await this.mitraWalletRepository.findWalletByUserId(
       userId,
       tenantId,
     );
-    if (existingWallet) {
-      return existingWallet;
-    }
-
+    if (existingWallet) return existingWallet;
     const mitra = await this.mitraWalletRepository.findMitraTypeById(
       userId,
       tenantId,
     );
-    if (!mitra || !ELIGIBLE_MITRA_TYPES.includes(mitra.mitraType)) {
-      return null;
-    }
-
+    if (!mitra || !ELIGIBLE_MITRA_TYPES.includes(mitra.mitraType)) return null;
     return this.mitraWalletRepository.createWallet(userId);
   }
 
@@ -259,19 +240,20 @@ export class MitraWalletService {
     const currentDate = new Date();
     const targetMonth = month ?? currentDate.getMonth() + 1;
     const targetYear = year ?? currentDate.getFullYear();
-
     return {
       startDate: new Date(targetYear, targetMonth - 1, 1),
       endDate: new Date(targetYear, targetMonth, 0, 23, 59, 59),
     };
   }
 
-  private validatePositiveAmount(amount: number): ServiceResult | null {
-    if (amount <= 0) {
-      return { success: false, error: "Jumlah harus lebih dari 0" };
-    }
-
-    return null;
+  private buildEmptySummary() {
+    return {
+      balance: 0,
+      totalEarnings: 0,
+      totalWithdrawn: 0,
+      earningsThisMonth: 0,
+      earningsCount: 0,
+    };
   }
 
   private handleServiceError(
@@ -286,7 +268,11 @@ export class MitraWalletService {
 }
 
 let instance: MitraWalletService | null = null;
+
 export function getMitraWalletService(): MitraWalletService {
-  if (!instance) instance = new MitraWalletService();
+  if (!instance) {
+    instance = new MitraWalletService();
+  }
+
   return instance;
 }

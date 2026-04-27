@@ -1,15 +1,19 @@
 import { MikroTikRouterRepository } from "@/modules/network";
-import { getDashboardService, DashboardService } from "../DashboardService";
+import type { IMikroTikStatisticsRepository } from "../../domain/ports/IAdminDashboardDependencies";
+import {
+  getDashboardService,
+  type DashboardService,
+} from "../DashboardService";
 import type {
+  AdminDashboardKpiCards,
   AdminDashboardLeaderboards,
   AdminDashboardOverviewCards,
   AdminDashboardViewModel,
-  AdminDashboardKpiCards,
 } from "./admin-dashboard.contracts";
 import { createDashboardSection } from "./admin-dashboard.mapper";
 
 type AdminDashboardComposerDependencies = {
-  routerRepository: MikroTikRouterRepository;
+  routerRepository: IMikroTikStatisticsRepository;
   dashboardService: DashboardService;
 };
 
@@ -19,11 +23,16 @@ type AdminDashboardComposerInput = {
   now: Date;
 };
 
+const LEADERBOARD_ERROR_MESSAGE = "Gagal memuat leaderboard admin dashboard";
+const KPI_ERROR_MESSAGE = "Gagal memuat KPI admin dashboard";
+const OVERVIEW_ERROR_MESSAGE = "Gagal memuat overview admin dashboard";
+
 export class AdminDashboardComposer {
   constructor(
     private readonly dependencies: Partial<AdminDashboardComposerDependencies> = {},
   ) {}
 
+  /** Compose full admin dashboard view model. */
   async compose(
     input: AdminDashboardComposerInput,
   ): Promise<AdminDashboardViewModel> {
@@ -51,7 +60,7 @@ export class AdminDashboardComposer {
               value: { routerStats: routerStatsResult.value },
             }
           : routerStatsResult,
-        "Gagal memuat overview admin dashboard",
+        OVERVIEW_ERROR_MESSAGE,
       ),
       kpis: createDashboardSection<AdminDashboardKpiCards>(
         systemSummaryResult.status === "fulfilled"
@@ -60,7 +69,7 @@ export class AdminDashboardComposer {
               value: { systemSummary: systemSummaryResult.value },
             }
           : systemSummaryResult,
-        "Gagal memuat KPI admin dashboard",
+        KPI_ERROR_MESSAGE,
       ),
       leaderboards: this.mapLeaderboards(leaderboardResult),
     };
@@ -118,14 +127,14 @@ export class AdminDashboardComposer {
           status: "fulfilled",
           value: result.value,
         },
-        "Gagal memuat leaderboard admin dashboard",
+        LEADERBOARD_ERROR_MESSAGE,
       );
     }
 
     return {
       state: "error" as const,
       data: null,
-      message: "Gagal memuat leaderboard admin dashboard",
+      message: LEADERBOARD_ERROR_MESSAGE,
     };
   }
 

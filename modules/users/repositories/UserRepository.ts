@@ -1,151 +1,37 @@
-import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import {
   AttendanceGeofencePolicy,
-  WorkingHourMode,
   Prisma,
+  WorkingHourMode,
 } from "@prisma/client";
-import type { User } from "@prisma/client";
-import type { IUserRepository } from "./IUserRepository";
+import { prisma } from "@/lib/prisma";
+import { UserMapper } from "../mappers/UserMapper";
+import type {
+  UserEntity,
+  UserListResultEntity,
+  UserScheduleEntity,
+} from "../domain/entities/UserEntity";
+import type {
+  CreateUserRepositoryInput,
+  FindUsersParams,
+  IUserRepository,
+} from "../domain/ports/IUserRepository";
 
-export interface CreateUserDTO {
-  email: string;
-  name?: string | null;
-  passwordHash: string;
-  phone?: string | null;
-  departmentId?: string | null;
-  siteId?: string | null;
-  roleId?: string | null;
-  isActive?: boolean;
-  // Working Hours Settings
-  workingHourMode?: WorkingHourMode;
-  attendanceGeofencePolicy?: AttendanceGeofencePolicy;
-  startWorkTime?: string | null;
-  endWorkTime?: string | null;
-  workDays?: string | null;
-  flexibleTargetHour?: number | null;
-  shiftId?: string | null;
-  // Sales Feature
-  isSales?: boolean;
-  canvasingTarget?: number;
-  targetSchema?: string;
-  isAttendanceRequired?: boolean;
-  tenantId?: string | null;
-  // Salary configuration
-  basicSalary?: number;
-  payPeriodDay?: number;
-  payDay?: number;
-  woIncentiveEnabled?: boolean;
-  woIncentiveRate?: number;
-  lateDeductionRate?: number;
-  absentDeductionRate?: number;
-  overtimeRateNormal?: number;
-  overtimeRateHoliday?: number;
-  overtimeRateNational?: number;
-  overtimeCalcTypeNormal?: string;
-  overtimeCalcTypeHoliday?: string;
-  overtimeCalcTypeNational?: string;
-}
+const DEFAULT_REFERENCE_DATE_FILTER = "SUPER_ADMIN";
+const WORKORDER_RESOURCE = "workorders";
+const WORKORDER_ACTION_READ = "read";
+const WORKORDER_ACTION_SITE_ONLY = "site_only";
+const OVERTIME_RESOURCE = "lembur";
+const OVERTIME_ACTION_UPDATE = "update";
 
-export interface UserWithRelations extends User {
-  department?: { id: string; name: string } | null;
-  site?: { id: string; code: string; name: string } | null;
-  role?: { id: string; name: string } | null;
-  userSites?: Array<{
-    id: string;
-    siteId: string;
-    isPrimary: boolean;
-    site: { id: string; code: string; name: string };
-  }>;
-}
+export type UserWithRelations = UserEntity;
 
 export class UserRepository implements IUserRepository {
-  async findAll(
-    params: {
-      siteId?: string;
-      tenantId?: string;
-      roleName?: string;
-      page?: number;
-      limit?: number;
-      search?: string;
-      isActive?: boolean;
-    } = {},
-  ): Promise<{
-    data: UserWithRelations[];
-    total: number;
-    active: number;
-    inactive: number;
-  }> {
-    const { siteId, tenantId, roleName, page, limit, search, isActive } =
-      params;
-
-    const query: Prisma.UserFindManyArgs = {
-      orderBy: { createdAt: "desc" },
-      include: {
-        departments: { select: { id: true, name: true } },
-        sites: { select: { id: true, code: true, name: true } },
-        role: { select: { id: true, name: true } },
-        userSites: {
-          select: {
-            id: true,
-            siteId: true,
-            isPrimary: true,
-            site: { select: { id: true, code: true, name: true } },
-          },
-          orderBy: { isPrimary: "desc" },
-        },
-      },
-    };
-
-    const where: Prisma.UserWhereInput = {};
-    if (siteId) where.siteId = siteId;
-    if (tenantId) where.tenantId = tenantId;
-    if (roleName) {
-      where.role = {
-        name: {
-          equals: roleName,
-          mode: "insensitive",
-        },
-      };
-    }
-    if (isActive !== undefined) {
-      where.isActive = isActive;
-    }
-
-    if (search) {
-      where.OR = [
-        { email: { contains: search, mode: "insensitive" } },
-        { name: { contains: search, mode: "insensitive" } },
-        { phone: { contains: search, mode: "insensitive" } },
-      ];
-      // Prisma join search can be more tricky if we want to search department names.
-      // We'll add department search if needed, but for now email, name, phone is standard.
-      // If they really need department search, it would look like:
-      // { departments: { name: { contains: search, mode: 'insensitive' } } }
-      where.OR.push({
-        departments: { name: { contains: search, mode: "insensitive" } },
-      });
-    }
-
-    if (Object.keys(where).length > 0) {
-      query.where = where;
-    }
-
-    // Calculate pagination
-    if (page && limit) {
-      query.skip = (page - 1) * limit;
-      query.take = limit;
-    }
-
-    const activeWhere: Prisma.UserWhereInput = {
-      ...(query.where ?? {}),
-      isActive: true,
-    };
-    const inactiveWhere: Prisma.UserWhereInput = {
-      ...(query.where ?? {}),
-      isActive: false,
-    };
-
+  /** Get users with optional filters and pagination. */
+  async findAll(params: FindUsersParams = {}): Promise<UserListResultEntity> {
+    const query = this.buildFindAllQuery(params);
+    const activeWhere = { ...(query.where ?? {}), isActive: true };
+    const inactiveWhere = { ...(query.where ?? {}), isActive: false };
     const [users, total, activeCount, inactiveCount] =
       await prisma.$transaction([
         prisma.user.findMany(query),
@@ -154,245 +40,83 @@ export class UserRepository implements IUserRepository {
         prisma.user.count({ where: inactiveWhere }),
       ]);
 
-    const active = isActive === false ? 0 : activeCount;
-    const inactive = isActive === true ? 0 : inactiveCount;
-
     return {
       total,
-      active,
-      inactive,
-      data: users.map((user) => {
-        const userWithMeta = user as unknown as {
-          departments: { id: string; name: string } | null;
-          sites: { id: string; code: string; name: string } | null;
-          role: { id: string; name: string } | null;
-          userSites: Array<{
-            id: string;
-            siteId: string;
-            isPrimary: boolean;
-            site: { id: string; code: string; name: string };
-          }>;
-        } & User;
-
-        return {
-          ...user,
-          department: userWithMeta.departments,
-          site: userWithMeta.sites,
-          role: userWithMeta.role,
-          userSites: userWithMeta.userSites,
-        };
-      }),
+      active: params.isActive === false ? 0 : activeCount,
+      inactive: params.isActive === true ? 0 : inactiveCount,
+      data: users.map((user) => UserMapper.toDomain(user)),
     };
   }
 
-  async findById(id: string): Promise<User | null> {
-    return prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        departmentId: true,
-        siteId: true,
-        roleId: true,
-        isActive: true,
-        isSales: true,
-        isAttendanceRequired: true,
-        workingHourMode: true,
-        attendanceGeofencePolicy: true,
-        startWorkTime: true,
-        endWorkTime: true,
-        workDays: true,
-        flexibleTargetHour: true,
-        shiftId: true,
-        canvasingTarget: true,
-        targetSchema: true,
-        tenantId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }) as unknown as Promise<User | null>;
-  }
-
-  async findByIdWithRelations(id: string): Promise<UserWithRelations | null> {
+  /** Get a user by ID. */
+  async findById(id: string): Promise<UserEntity | null> {
     const user = await prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        passwordHash: true,
-        emailVerified: true,
-        image: true,
-        pushToken: true,
-        pushTokenUpdatedAt: true,
-        tokenVersion: true,
-        lastVersionCode: true,
-        lastVersionName: true,
-        lastVersionUpdate: true,
-        lastLoginAt: true,
-        bankName: true,
-        bankAccountNo: true,
-        bankAccountName: true,
-        bpjsKesehatan: true,
-        bpjsKetenagakerjaan: true,
-        fcmTokens: true,
-        joinDate: true,
-        ptkpStatus: true,
-        employeeType: true,
-        departmentId: true,
-        siteId: true,
-        roleId: true,
-        isActive: true,
-        isSales: true,
-        isAttendanceRequired: true,
-        workingHourMode: true,
-        attendanceGeofencePolicy: true,
-        startWorkTime: true,
-        endWorkTime: true,
-        workDays: true,
-        flexibleTargetHour: true,
-        canvasingTarget: true,
-        targetSchema: true,
-        shiftId: true,
-        basicSalary: true,
-        payPeriodDay: true,
-        payDay: true,
-        woIncentiveEnabled: true,
-        woIncentiveRate: true,
-        lateDeductionRate: true,
-        absentDeductionRate: true,
-        overtimeRateNormal: true,
-        overtimeRateHoliday: true,
-        overtimeRateNational: true,
-        overtimeCalcTypeNormal: true,
-        overtimeCalcTypeHoliday: true,
-        overtimeCalcTypeNational: true,
-        tenantId: true,
-        createdAt: true,
-        updatedAt: true,
-        departments: { select: { id: true, name: true } },
-        sites: { select: { id: true, code: true, name: true } },
-        role: { select: { id: true, name: true } },
-        tenant: { select: { id: true, name: true } },
-        userSites: {
-          select: {
-            id: true,
-            siteId: true,
-            isPrimary: true,
-            site: { select: { id: true, code: true, name: true } },
-          },
-          orderBy: { isPrimary: "desc" },
-        },
-        shift: true,
-      },
+      select: this.buildBaseSelect(),
     });
-
-    if (!user) return null;
-
-    return {
-      ...user,
-      department: user.departments,
-      site: user.sites,
-      role: user.role,
-    } as UserWithRelations;
+    return user ? UserMapper.toDomain(user) : null;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return prisma.user.findUnique({
-      where: { email },
+  /** Get a user by ID with relations. */
+  async findByIdWithRelations(id: string): Promise<UserEntity | null> {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: this.buildDetailSelect(),
     });
+    return user ? UserMapper.toDomain(user) : null;
   }
 
-  async create(data: CreateUserDTO): Promise<User> {
-    return prisma.user.create({
+  /** Find a user by email. */
+  async findByEmail(email: string): Promise<UserEntity | null> {
+    const user = await prisma.user.findUnique({ where: { email } });
+    return user ? UserMapper.toDomain(user) : null;
+  }
+
+  /** Create a user entity. */
+  async create(data: CreateUserRepositoryInput): Promise<UserEntity> {
+    const user = await prisma.user.create({
       data: {
         id: randomUUID(),
         updatedAt: new Date(),
-        email: data.email,
-        name: data.name || null,
-        passwordHash: data.passwordHash,
-        phone: data.phone || null,
-        departmentId: data.departmentId || null,
-        siteId: data.siteId || null,
-        roleId: data.roleId || null,
-        isActive: data.isActive !== undefined ? data.isActive : true,
-        isAttendanceRequired:
-          data.isAttendanceRequired !== undefined
-            ? data.isAttendanceRequired
-            : true,
-        // Working Hours Settings
-        workingHourMode: data.workingHourMode || WorkingHourMode.FIXED,
-        attendanceGeofencePolicy:
-          data.attendanceGeofencePolicy || AttendanceGeofencePolicy.WARN,
-        startWorkTime: data.startWorkTime || "09:00",
-        endWorkTime: data.endWorkTime || "17:00",
-        workDays: data.workDays || "Mon,Tue,Wed,Thu,Fri",
-        flexibleTargetHour: data.flexibleTargetHour || 8,
-        shiftId: data.shiftId || null,
-        // Sales Feature
-        isSales: data.isSales || false,
-        canvasingTarget:
-          data.canvasingTarget !== undefined ? data.canvasingTarget : 50,
+        ...UserMapper.toRepositoryCreateInput(data),
+        workingHourMode: data.workingHourMode as WorkingHourMode | undefined,
+        attendanceGeofencePolicy: data.attendanceGeofencePolicy as
+          | AttendanceGeofencePolicy
+          | undefined,
         targetSchema:
-          (data.targetSchema as
-            | Prisma.UserCreateInput["targetSchema"]
-            | undefined) || "MONTHLY_RESET",
-        // Salary configuration
-        basicSalary: data.basicSalary || 0,
-        payPeriodDay: data.payPeriodDay || 25,
-        payDay: data.payDay || 1,
-        woIncentiveEnabled: data.woIncentiveEnabled || false,
-        woIncentiveRate: data.woIncentiveRate || 0,
-        lateDeductionRate: data.lateDeductionRate || 0,
-        absentDeductionRate: data.absentDeductionRate || 0,
-        overtimeRateNormal: data.overtimeRateNormal || 0,
-        overtimeRateHoliday: data.overtimeRateHoliday || 0,
-        overtimeRateNational: data.overtimeRateNational || 0,
+          data.targetSchema as Prisma.UserCreateInput["targetSchema"],
         overtimeCalcTypeNormal:
-          (data.overtimeCalcTypeNormal as
-            | Prisma.UserCreateInput["overtimeCalcTypeNormal"]
-            | undefined) || "PER_HOUR",
+          data.overtimeCalcTypeNormal as Prisma.UserCreateInput["overtimeCalcTypeNormal"],
         overtimeCalcTypeHoliday:
-          (data.overtimeCalcTypeHoliday as
-            | Prisma.UserCreateInput["overtimeCalcTypeHoliday"]
-            | undefined) || "PER_HOUR",
+          data.overtimeCalcTypeHoliday as Prisma.UserCreateInput["overtimeCalcTypeHoliday"],
         overtimeCalcTypeNational:
-          (data.overtimeCalcTypeNational as
-            | Prisma.UserCreateInput["overtimeCalcTypeNational"]
-            | undefined) || "PER_HOUR",
-        // Tenant Support: Allow manual tenantId for Super Admin bypass
-        ...(data.tenantId && { tenantId: data.tenantId }),
+          data.overtimeCalcTypeNational as Prisma.UserCreateInput["overtimeCalcTypeNational"],
       },
     });
+    return UserMapper.toDomain(user);
   }
 
-  async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
-    return prisma.user.update({
+  /** Update a user entity. */
+  async update(id: string, data: Prisma.UserUpdateInput): Promise<UserEntity> {
+    const user = await prisma.user.update({
       where: { id },
-      data: {
-        ...data,
-        updatedAt: new Date(),
-      },
+      data: { ...data, updatedAt: new Date() },
     });
+    return UserMapper.toDomain(user);
   }
 
-  async delete(id: string): Promise<User> {
-    return prisma.user.delete({
-      where: { id },
-    });
+  /** Delete a user entity. */
+  async delete(id: string): Promise<UserEntity> {
+    const user = await prisma.user.delete({ where: { id } });
+    return UserMapper.toDomain(user);
   }
 
+  /** Synchronize user site assignments. */
   async syncUserSites(
     userId: string,
     userSites: Array<{ siteId: string; isPrimary?: boolean }>,
-  ) {
-    if (userSites.length === 0) {
-      return;
-    }
-
+  ): Promise<void> {
+    if (userSites.length === 0) return;
     await prisma.userSite.createMany({
       data: userSites.map((userSite) => ({
         userId,
@@ -402,50 +126,26 @@ export class UserRepository implements IUserRepository {
     });
 
     const primarySite = userSites.find((userSite) => userSite.isPrimary);
-    if (!primarySite) {
-      return;
-    }
-
+    if (!primarySite) return;
     await prisma.user.update({
       where: { id: userId },
       data: { siteId: primarySite.siteId },
     });
   }
 
+  /** Update working-hour settings for a user. */
   async updateWorkingHours(
     id: string,
-    data: {
-      workingHourMode: WorkingHourMode;
-      startWorkTime?: string | null;
-      endWorkTime?: string | null;
-      workDays?: string | null;
-      flexibleTargetHour?: number | null;
-      shiftId?: string | null;
-    },
-  ): Promise<User> {
-    const updateData: Prisma.UserUncheckedUpdateInput = {
-      workingHourMode: data.workingHourMode,
-    };
-
-    if (data.startWorkTime !== undefined)
-      updateData.startWorkTime = data.startWorkTime;
-    if (data.endWorkTime !== undefined)
-      updateData.endWorkTime = data.endWorkTime;
-    if (data.workDays !== undefined) updateData.workDays = data.workDays;
-    if (data.flexibleTargetHour !== undefined)
-      updateData.flexibleTargetHour = data.flexibleTargetHour;
-    if (data.shiftId !== undefined) updateData.shiftId = data.shiftId;
-
-    return prisma.user.update({
+    data: UserScheduleEntity,
+  ): Promise<UserEntity> {
+    const user = await prisma.user.update({
       where: { id },
-      data: updateData,
+      data: UserMapper.toWorkingHoursUpdate(data),
     });
+    return UserMapper.toDomain(user);
   }
 
-  /**
-   * Find user with their sites (multi-site via userSites + legacy single site).
-   * Used by GeofenceService for geofence validation.
-   */
+  /** Find user with their sites for geofence validation. */
   async findUserWithSites(userId: string) {
     return prisma.user.findUnique({
       where: { id: userId },
@@ -478,10 +178,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  /**
-   * Find user with basic info and siteId.
-   * Used by OvertimeService for notification context.
-   */
+  /** Find user with basic info and site. */
   async findByIdWithSite(id: string, tenantId?: string | null) {
     return prisma.user.findFirst({
       where: { id, tenantId },
@@ -489,56 +186,18 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  /**
-   * Find admins who should receive overtime notifications.
-   * Includes SUPER_ADMINs and users with 'lembur:update' permission.
-   */
+  /** Find admins that should receive overtime notifications. */
   async findAdminsForNotification(
     tenantId: string | null | undefined,
     userSiteId: string | null | undefined,
   ) {
-    const whereConditions: Prisma.UserWhereInput = {
-      tenantId,
-      OR: [
-        { role: { name: "SUPER_ADMIN" } },
-        {
-          AND: [
-            {
-              role: {
-                permission: {
-                  some: {
-                    resource: "lembur",
-                    action: "update",
-                  },
-                },
-              },
-            },
-            ...(userSiteId
-              ? [
-                  {
-                    OR: [
-                      { siteId: userSiteId },
-                      { siteId: null },
-                      { userSites: { some: { siteId: userSiteId } } },
-                    ],
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    };
-
     return prisma.user.findMany({
-      where: whereConditions,
+      where: this.buildNotificationWhere(tenantId, userSiteId),
       select: { id: true },
     });
   }
 
-  /**
-   * Find user with work schedule information (workDays, workingHourMode).
-   * Used by AttendanceValidationService for off-day checks.
-   */
+  /** Find work schedule by user ID. */
   async findWorkScheduleById(userId: string) {
     return prisma.user.findUnique({
       where: { id: userId },
@@ -546,26 +205,20 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  /**
-   * Get user's geofence policy via raw query.
-   * Used by GeofenceService for policy lookup.
-   */
+  /** Get geofence policy by user ID. */
   async getGeofencePolicy(userId: string): Promise<string | null> {
     const rows = await prisma.$queryRaw<
       Array<{ attendanceGeofencePolicy: string | null }>
     >`
-            SELECT "attendanceGeofencePolicy"
-            FROM "User"
-            WHERE "id" = ${userId}
-            LIMIT 1
-        `;
+      SELECT "attendanceGeofencePolicy"
+      FROM "User"
+      WHERE "id" = ${userId}
+      LIMIT 1
+    `;
     return rows[0]?.attendanceGeofencePolicy ?? null;
   }
 
-  /**
-   * Find active users for attendance processing.
-   * Excludes SUPER_ADMIN and FLEXIBLE working hour mode users.
-   */
+  /** Find active users for attendance processing. */
   async findActiveForAttendance(
     tenantId: string,
     userId?: string,
@@ -577,17 +230,9 @@ export class UserRepository implements IUserRepository {
         isActive: true,
         isAttendanceRequired: true,
         ...(userId ? { id: userId } : {}),
-        ...(referenceDate
-          ? {
-              OR: [{ joinDate: null }, { joinDate: { lte: referenceDate } }],
-            }
-          : {}),
-        role: {
-          name: { not: "SUPER_ADMIN" },
-        },
-        workingHourMode: {
-          not: "FLEXIBLE",
-        },
+        ...(referenceDate ? this.buildJoinDateFilter(referenceDate) : {}),
+        role: { name: { not: DEFAULT_REFERENCE_DATE_FILTER } },
+        workingHourMode: { not: "FLEXIBLE" },
       },
       select: {
         id: true,
@@ -600,9 +245,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  /**
-   * Find active users with push tokens and work schedule for attendance alerts.
-   */
+  /** Find active users with push token and schedule. */
   async findActiveWithPushTokenAndSchedule() {
     return prisma.user.findMany({
       where: {
@@ -621,9 +264,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  /**
-   * Find fixed-hour users for auto-alpha processing.
-   */
+  /** Find fixed-hour users for auto-alpha processing. */
   async findFixedHourUsersForAutoAlpha(referenceDate?: Date) {
     return prisma.user.findMany({
       where: {
@@ -631,15 +272,9 @@ export class UserRepository implements IUserRepository {
         isAttendanceRequired: true,
         tenantId: { not: null },
         endWorkTime: { not: null },
-        ...(referenceDate
-          ? {
-              OR: [{ joinDate: null }, { joinDate: { lte: referenceDate } }],
-            }
-          : {}),
+        ...(referenceDate ? this.buildJoinDateFilter(referenceDate) : {}),
         workingHourMode: "FIXED",
-        role: {
-          name: { not: "SUPER_ADMIN" },
-        },
+        role: { name: { not: DEFAULT_REFERENCE_DATE_FILTER } },
       },
       select: {
         id: true,
@@ -654,9 +289,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  /**
-   * Find user by ID with tenant filter, selecting work schedule fields.
-   */
+  /** Find work schedule by user ID with tenant. */
   async findWorkScheduleByIdWithTenant(userId: string, tenantId: string) {
     return prisma.user.findUnique({
       where: { id: userId, tenantId },
@@ -664,6 +297,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  /** Find attendance settings by user ID. */
   async findAttendanceSettingsById(userId: string) {
     return prisma.user.findUnique({
       where: { id: userId },
@@ -679,6 +313,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  /** Find many users with work config. */
   async findManyWithWorkConfig(userIds: string[]) {
     return prisma.user.findMany({
       where: { id: { in: userIds } },
@@ -688,16 +323,12 @@ export class UserRepository implements IUserRepository {
         startWorkTime: true,
         endWorkTime: true,
         flexibleTargetHour: true,
-        shift: {
-          select: {
-            startTime: true,
-            endTime: true,
-          },
-        },
+        shift: { select: { startTime: true, endTime: true } },
       },
     });
   }
 
+  /** Find many users with basic info. */
   async findManyWithBasicInfo(userIds: string[]) {
     return prisma.user.findMany({
       where: { id: { in: userIds } },
@@ -711,12 +342,10 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  /** Find many users with full details. */
   async findManyWithFullDetails(userIds: string[], tenantId?: string) {
     return prisma.user.findMany({
-      where: {
-        id: { in: userIds },
-        ...(tenantId ? { tenantId } : {}),
-      },
+      where: { id: { in: userIds }, ...(tenantId ? { tenantId } : {}) },
       select: {
         id: true,
         name: true,
@@ -728,6 +357,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  /** Find user with sites by user ID. */
   async findWithSitesById(userId: string) {
     return prisma.user.findUnique({
       where: { id: userId },
@@ -744,16 +374,8 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async findByIdsWithDetails(userIds: string[]): Promise<
-    Array<{
-      id: string;
-      name: string;
-      image: string | null;
-      role: { name: string } | null;
-      departments: { name: string } | null;
-      sites: { name: string } | null;
-    }>
-  > {
+  /** Find users by IDs with details. */
+  async findByIdsWithDetails(userIds: string[]) {
     return prisma.user.findMany({
       where: { id: { in: userIds } },
       select: {
@@ -767,6 +389,7 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  /** Find active users by department and site. */
   async findManyByDepartmentAndSite(
     departmentId?: string,
     siteId?: string,
@@ -776,59 +399,46 @@ export class UserRepository implements IUserRepository {
       isActive: true,
       role: {
         permission: {
-          some: {
-            resource: "workorders",
-            action: "read",
-          },
+          some: { resource: WORKORDER_RESOURCE, action: WORKORDER_ACTION_READ },
         },
       },
     };
     if (departmentId) where.departmentId = departmentId;
     if (siteId) where.siteId = siteId;
     if (excludeUserId) where.id = { not: excludeUserId };
-
-    return prisma.user.findMany({
-      where,
-      select: { id: true },
-    });
+    return prisma.user.findMany({ where, select: { id: true } });
   }
 
-  async findManyWithPushToken(
-    userIds: string[],
-  ): Promise<Array<{ id: string; pushToken: string | null }>> {
+  /** Find many users with push token. */
+  async findManyWithPushToken(userIds: string[]) {
     return prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, pushToken: true },
     });
   }
 
-  async findManyByDepartmentWithPushToken(
-    departmentId: string,
-  ): Promise<Array<{ id: string; pushToken: string | null }>> {
+  /** Find many users by department with push token. */
+  async findManyByDepartmentWithPushToken(departmentId: string) {
     return prisma.user.findMany({
-      where: {
-        isActive: true,
-        departmentId,
-        pushToken: { not: null },
-      },
+      where: { isActive: true, departmentId, pushToken: { not: null } },
       select: { id: true, pushToken: true },
     });
   }
 
-  async findByIdWithDepartment(
-    userId: string,
-  ): Promise<{ departmentId: string | null } | null> {
+  /** Find user department by user ID. */
+  async findByIdWithDepartment(userId: string) {
     return prisma.user.findUnique({
       where: { id: userId },
       select: { departmentId: true },
     });
   }
 
+  /** Find active users with push token and site filters. */
   async findManyActiveWithPushTokenAndSite(
     departmentId?: string,
     siteId?: string,
     excludeUserId?: string,
-  ): Promise<Array<{ id: string; fcmTokens: string[] }>> {
+  ) {
     const where: Prisma.UserWhereInput = {
       isActive: true,
       OR: [{ pushToken: { not: null } }, { fcmTokens: { isEmpty: false } }],
@@ -836,36 +446,29 @@ export class UserRepository implements IUserRepository {
     if (departmentId) where.departmentId = departmentId;
     if (siteId) where.siteId = siteId;
     if (excludeUserId) where.id = { not: excludeUserId };
-
     return prisma.user.findMany({
       where,
       select: { id: true, fcmTokens: true },
     });
   }
 
-  async findByIdWithPushToken(userId: string): Promise<{
-    id: string;
-    pushToken: string | null;
-    fcmTokens: string[];
-  } | null> {
+  /** Find user by ID with push token fields. */
+  async findByIdWithPushToken(userId: string) {
     return prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, pushToken: true, fcmTokens: true },
     });
   }
 
-  async findManyWithPushTokenAndFilter(
-    userIds: string[],
-  ): Promise<Array<{ id: string; pushToken: string | null }>> {
+  /** Find users with non-null push token from ID list. */
+  async findManyWithPushTokenAndFilter(userIds: string[]) {
     return prisma.user.findMany({
-      where: {
-        id: { in: userIds },
-        pushToken: { not: null },
-      },
+      where: { id: { in: userIds }, pushToken: { not: null } },
       select: { id: true, pushToken: true },
     });
   }
 
+  /** Clear push tokens by token list. */
   async clearPushTokens(tokens: string[]) {
     return prisma.user.updateMany({
       where: { pushToken: { in: tokens } },
@@ -873,15 +476,12 @@ export class UserRepository implements IUserRepository {
     });
   }
 
-  async findManyWithCustomWhere(
-    where: Prisma.UserWhereInput,
-  ): Promise<Array<{ id: string }>> {
-    return prisma.user.findMany({
-      where,
-      select: { id: true },
-    });
+  /** Find users by custom where clause. */
+  async findManyWithCustomWhere(where: Prisma.UserWhereInput) {
+    return prisma.user.findMany({ where, select: { id: true } });
   }
 
+  /** Find users with detailed relations by custom where clause. */
   async findManyWithDetailedRelations(where: Prisma.UserWhereInput) {
     return prisma.user.findMany({
       where,
@@ -890,16 +490,14 @@ export class UserRepository implements IUserRepository {
         name: true,
         departmentId: true,
         siteId: true,
-        userSites: {
-          select: { siteId: true },
-        },
+        userSites: { select: { siteId: true } },
         role: {
           select: {
             name: true,
             permission: {
               where: {
-                resource: "workorders",
-                action: "site_only",
+                resource: WORKORDER_RESOURCE,
+                action: WORKORDER_ACTION_SITE_ONLY,
               },
               select: { id: true },
             },
@@ -907,5 +505,183 @@ export class UserRepository implements IUserRepository {
         },
       },
     });
+  }
+
+  private buildFindAllQuery(params: FindUsersParams): Prisma.UserFindManyArgs {
+    const query: Prisma.UserFindManyArgs = {
+      orderBy: { createdAt: "desc" },
+      include: {
+        departments: { select: { id: true, name: true } },
+        sites: { select: { id: true, code: true, name: true } },
+        role: { select: { id: true, name: true } },
+        userSites: {
+          select: {
+            id: true,
+            siteId: true,
+            isPrimary: true,
+            site: { select: { id: true, code: true, name: true } },
+          },
+          orderBy: { isPrimary: "desc" },
+        },
+      },
+    };
+
+    const where = this.buildFindAllWhere(params);
+    if (Object.keys(where).length > 0) query.where = where;
+    if (params.page && params.limit) {
+      query.skip = (params.page - 1) * params.limit;
+      query.take = params.limit;
+    }
+    return query;
+  }
+
+  private buildFindAllWhere(params: FindUsersParams): Prisma.UserWhereInput {
+    const where: Prisma.UserWhereInput = {};
+    if (params.siteId) where.siteId = params.siteId;
+    if (params.tenantId) where.tenantId = params.tenantId;
+    if (params.isActive !== undefined) where.isActive = params.isActive;
+    if (params.roleName) where.role = this.buildRoleNameFilter(params.roleName);
+    if (params.search) where.OR = this.buildSearchFilter(params.search);
+    return where;
+  }
+
+  private buildRoleNameFilter(roleName: string): Prisma.UserWhereInput["role"] {
+    return { is: { name: { equals: roleName, mode: "insensitive" } } };
+  }
+
+  private buildSearchFilter(search: string): Prisma.UserWhereInput[] {
+    return [
+      { email: { contains: search, mode: "insensitive" } },
+      { name: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search, mode: "insensitive" } },
+      { departments: { name: { contains: search, mode: "insensitive" } } },
+    ];
+  }
+
+  private buildBaseSelect() {
+    return {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      image: true,
+      departmentId: true,
+      siteId: true,
+      roleId: true,
+      isActive: true,
+      isSales: true,
+      isAttendanceRequired: true,
+      workingHourMode: true,
+      attendanceGeofencePolicy: true,
+      startWorkTime: true,
+      endWorkTime: true,
+      workDays: true,
+      flexibleTargetHour: true,
+      shiftId: true,
+      canvasingTarget: true,
+      targetSchema: true,
+      tenantId: true,
+      createdAt: true,
+      updatedAt: true,
+    } satisfies Prisma.UserSelect;
+  }
+
+  private buildDetailSelect() {
+    return {
+      ...this.buildBaseSelect(),
+      passwordHash: true,
+      emailVerified: true,
+      pushToken: true,
+      pushTokenUpdatedAt: true,
+      tokenVersion: true,
+      lastVersionCode: true,
+      lastVersionName: true,
+      lastVersionUpdate: true,
+      lastLoginAt: true,
+      bankName: true,
+      bankAccountNo: true,
+      bankAccountName: true,
+      bpjsKesehatan: true,
+      bpjsKetenagakerjaan: true,
+      fcmTokens: true,
+      joinDate: true,
+      ptkpStatus: true,
+      employeeType: true,
+      basicSalary: true,
+      payPeriodDay: true,
+      payDay: true,
+      woIncentiveEnabled: true,
+      woIncentiveRate: true,
+      lateDeductionRate: true,
+      absentDeductionRate: true,
+      overtimeRateNormal: true,
+      overtimeRateHoliday: true,
+      overtimeRateNational: true,
+      overtimeCalcTypeNormal: true,
+      overtimeCalcTypeHoliday: true,
+      overtimeCalcTypeNational: true,
+      departments: { select: { id: true, name: true } },
+      sites: { select: { id: true, code: true, name: true } },
+      role: { select: { id: true, name: true } },
+      tenant: { select: { id: true, name: true } },
+      userSites: {
+        select: {
+          id: true,
+          siteId: true,
+          isPrimary: true,
+          site: { select: { id: true, code: true, name: true } },
+        },
+        orderBy: { isPrimary: "desc" },
+      },
+      shift: { select: { id: true, name: true } },
+    } satisfies Prisma.UserSelect;
+  }
+
+  private buildJoinDateFilter(referenceDate: Date): Prisma.UserWhereInput {
+    return {
+      OR: [{ joinDate: null }, { joinDate: { lte: referenceDate } }],
+    };
+  }
+
+  private buildNotificationWhere(
+    tenantId: string | null | undefined,
+    userSiteId: string | null | undefined,
+  ): Prisma.UserWhereInput {
+    return {
+      tenantId,
+      OR: [
+        { role: { name: DEFAULT_REFERENCE_DATE_FILTER } },
+        {
+          AND: [
+            {
+              role: {
+                permission: {
+                  some: {
+                    resource: OVERTIME_RESOURCE,
+                    action: OVERTIME_ACTION_UPDATE,
+                  },
+                },
+              },
+            },
+            ...this.buildNotificationSiteScope(userSiteId),
+          ],
+        },
+      ],
+    };
+  }
+
+  private buildNotificationSiteScope(
+    userSiteId: string | null | undefined,
+  ): Prisma.UserWhereInput[] {
+    if (!userSiteId) return [];
+    return [
+      {
+        OR: [
+          { siteId: userSiteId },
+          { siteId: null },
+          { userSites: { some: { siteId: userSiteId } } },
+        ],
+      },
+    ];
   }
 }

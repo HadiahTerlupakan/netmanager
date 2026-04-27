@@ -1,5 +1,6 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { parseOptionalDate } from "@/lib/utils/server-datetime";
 import { prisma } from "@/modules/database";
 
 const DEFAULT_LOW_STOCK_THRESHOLD = 10;
@@ -136,8 +137,8 @@ export class InventoryDashboardService {
   /** Build the trend range from query params or fall back to default months. */
   private buildTrendRange(startDate?: string | null, endDate?: string | null) {
     const now = new Date();
-    const parsedStart = this.parseDate(startDate);
-    const parsedEnd = this.parseDate(endDate);
+    const parsedStart = parseOptionalDate(startDate);
+    const parsedEnd = parseOptionalDate(endDate);
 
     return {
       start:
@@ -150,16 +151,6 @@ export class InventoryDashboardService {
       end: parsedEnd || now,
       monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
     };
-  }
-
-  /** Parse a date param safely and ignore invalid values. */
-  private parseDate(value?: string | null) {
-    if (!value) {
-      return null;
-    }
-
-    const parsedDate = new Date(value);
-    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
   }
 
   /** Run the dashboard aggregate queries in parallel. */

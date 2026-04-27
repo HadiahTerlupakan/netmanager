@@ -1,8 +1,12 @@
-import { LocationTrackingService } from "@/modules/attendance";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
-import { prisma } from "@/modules/database";
+import {
+  AdminLocationRouteError,
+  AdminLocationRouteService,
+  LOCATION_READ_FORBIDDEN_MESSAGE,
+} from "@/modules/attendance";
+
+const adminLocationRouteService = new AdminLocationRouteService();
 
 /**
  * GET /api/admin/location/history/[userId]
@@ -15,81 +19,37 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const { userId } = ctx.params;
-  const searchParams = req.nextUrl.searchParams;
-  const permissions = ctx.permissions || [];
+  try {
+    const result = await adminLocationRouteService.getLocationHistory({
+      userId: ctx.params.userId,
+      startDate: req.nextUrl.searchParams.get("startDate"),
+      endDate: req.nextUrl.searchParams.get("endDate"),
+      permissions: ctx.permissions || [],
+      session: { user: ctx.session!.user },
+    });
 
-  // Parse dates - default to today
-  const startDateParam = searchParams.get("startDate");
-  const endDateParam = searchParams.get("endDate");
-
-  let startDate = new Date();
-  startDate.setTime(toStartOfDay(startDate).getTime());
-
-  let endDate = new Date();
-  endDate.setTime(toEndOfDay(endDate).getTime());
-
-  if (startDateParam) {
-    startDate = new Date(startDateParam);
-    if (Number.isNaN(startDate.getTime())) {
-      return ApiErrors.badRequest("Parameter tanggal tidak valid");
-    }
+    return apiSuccess(result);
+  } catch (error) {
+    return handleLocationRouteError(error);
   }
-  if (endDateParam) {
-    endDate = new Date(endDateParam);
-    if (Number.isNaN(endDate.getTime())) {
-      return ApiErrors.badRequest("Parameter tanggal tidak valid");
-    }
+});
+
+function handleLocationRouteError(error: unknown) {
+  if (!(error instanceof AdminLocationRouteError)) {
+    throw error;
   }
 
-  const adminUser = await prisma.user.findUnique({
-    where: { id: ctx.session!.user.id },
-    select: { id: true, siteId: true, departmentId: true },
-  });
+  if (error.status === 400) {
+    return ApiErrors.badRequest(error.message);
+  }
 
-  const targetUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, siteId: true, departmentId: true },
-  });
-
-  if (!adminUser || !targetUser) {
+  if (error.status === 401) {
     return ApiErrors.unauthorized();
   }
 
-  if (
-    permissions.includes("live_tracking:site_only") &&
-    adminUser.siteId &&
-    adminUser.siteId !== targetUser.siteId
-  ) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat history lokasi user ini",
-    );
+  if (error.status === 403) {
+    return ApiErrors.forbidden(LOCATION_READ_FORBIDDEN_MESSAGE);
   }
 
-  if (
-    permissions.includes("live_tracking:department_only") &&
-    adminUser.departmentId &&
-    adminUser.departmentId !== targetUser.departmentId
-  ) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat history lokasi user ini",
-    );
-  }
-
-  const locationService = new LocationTrackingService();
-
-  const [history, stats] = await Promise.all([
-    locationService.getLocationHistory(userId, startDate, endDate),
-    locationService.getLocationStats(userId, startDate, endDate),
-  ]);
-
-  return apiSuccess({
-    locations: history,
-    stats,
-    userId,
-    dateRange: {
-      start: startDate.toISOString(),
-      end: endDate.toISOString(),
-    },
-  });
-});
+  throw error;
+}

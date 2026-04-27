@@ -1,7 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import {
-  mixRadiusConfigRepo,
+  getMixRadiusConfigService,
   IntegrationFactory,
 } from "@/modules/integrations";
 import {
@@ -15,6 +15,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -38,17 +39,18 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
       );
     }
 
-    const tenantConfigs = await mixRadiusConfigRepo.getAllConfigsByTenant(
+    const tenantConfigs = await configService.getAllConfigsByTenant(
       user.tenantId,
     );
     return apiSuccess(tenantConfigs);
   }
 
-  const configs = await mixRadiusConfigRepo.getAllConfigs();
+  const configs = await configService.getAllConfigs();
   return apiSuccess(configs);
 });
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
+  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -114,7 +116,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const newConfig = await mixRadiusConfigRepo.createConfig({
+  const newConfig = await configService.createConfig({
     name: configInput.name,
     apiUrl: configInput.baseUrl,
     apiKey,

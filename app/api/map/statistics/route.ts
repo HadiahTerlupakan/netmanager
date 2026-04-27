@@ -1,7 +1,7 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { MappingService } from "@/modules/map";
+import { getMappingService } from "@/modules/map";
 
-const service = new MappingService();
+const service = getMappingService();
 
 /**
  * @swagger
@@ -10,10 +10,13 @@ const service = new MappingService();
  *     summary: Get map statistics
  *     tags: [Map]
  */
-export const GET = createHandler({
-  auth: true,
-  permissions: ["map:read"]
-}, async () => {
-  const stats = await service.getStatistics();
-  return apiSuccess(stats);
-});
+export const GET = createHandler(
+  {
+    auth: true,
+    permissions: ["map:read"],
+  },
+  async () => {
+    const stats = await service.getStatistics();
+    return apiSuccess(stats);
+  },
+);

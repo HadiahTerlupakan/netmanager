@@ -1,89 +1,105 @@
 /**
  * DepartmentMapper
  *
- * Transforms Prisma entities to DTOs for API responses.
+ * Transforms Prisma entities to domain entities and domain entities to DTOs.
  */
 
-import type { Departments } from '@prisma/client'
+import type { Departments } from "@prisma/client";
 import type {
-    DepartmentListItemDTO,
-    DepartmentDetailDTO,
-    DepartmentOptionDTO,
-} from '../dto/DepartmentDTO'
+  DepartmentDetailDTO,
+  DepartmentListItemDTO,
+  DepartmentOptionDTO,
+} from "../dto/DepartmentDTO";
+import type { DepartmentEntity } from "../domain/entities/DepartmentEntity";
 
-// Extended types
-type DepartmentWithCounts = Departments & {
-    _count?: {
-        user?: number
-        work_orders?: number
-    }
-    user?: {
-        id: string
-        name: string | null
-        email: string
-    }[]
-}
+export type PrismaDepartmentWithRelations = Departments & {
+  _count?: {
+    user?: number;
+    work_orders?: number;
+  };
+  user?: {
+    id: string;
+    name: string | null;
+    email: string;
+  }[];
+};
 
 export class DepartmentMapper {
-    /**
-     * Map to list item DTO
-     */
-    static toListItem(entity: DepartmentWithCounts): DepartmentListItemDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            description: entity.description,
-            isReminderTarget: entity.isReminderTarget,
-            userCount: entity._count?.user ?? 0,
-            workOrderCount: entity._count?.work_orders ?? 0,
-        }
-    }
+  /** Map Prisma department to domain entity. */
+  static toDomain(entity: PrismaDepartmentWithRelations): DepartmentEntity {
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      jobDescription: entity.jobDescription,
+      isReminderTarget: entity.isReminderTarget,
+      showInMobileWO: entity.showInMobileWO,
+      users: (entity.user ?? []).map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      })),
+      counts: {
+        users: entity._count?.user ?? 0,
+        workOrders: entity._count?.work_orders ?? 0,
+      },
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+  }
 
-    /**
-     * Map array to list items
-     */
-    static toListItems(entities: DepartmentWithCounts[]): DepartmentListItemDTO[] {
-        return entities.map(entity => this.toListItem(entity))
-    }
+  /** Map many Prisma departments to domain entities. */
+  static toDomains(
+    entities: PrismaDepartmentWithRelations[],
+  ): DepartmentEntity[] {
+    return entities.map((entity) => this.toDomain(entity));
+  }
 
-    /**
-     * Map to detail DTO
-     */
-    static toDetail(entity: DepartmentWithCounts): DepartmentDetailDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            description: entity.description,
-            jobDescription: entity.jobDescription,
-            isReminderTarget: entity.isReminderTarget,
-            stats: {
-                userCount: entity._count?.user ?? 0,
-                workOrderCount: entity._count?.work_orders ?? 0,
-            },
-            users: (entity.user ?? []).map(u => ({
-                id: u.id,
-                name: u.name,
-                email: u.email,
-            })),
-            createdAt: entity.createdAt.toISOString(),
-            updatedAt: entity.updatedAt.toISOString(),
-        }
-    }
+  /** Map domain entity to list DTO. */
+  static toListItemDTO(entity: DepartmentEntity): DepartmentListItemDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      isReminderTarget: entity.isReminderTarget,
+      userCount: entity.counts.users,
+      workOrderCount: entity.counts.workOrders,
+    };
+  }
 
-    /**
-     * Map to option DTO (for dropdowns)
-     */
-    static toOption(entity: Departments): DepartmentOptionDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-        }
-    }
+  /** Map many domain entities to list DTOs. */
+  static toListItemDTOs(entities: DepartmentEntity[]): DepartmentListItemDTO[] {
+    return entities.map((entity) => this.toListItemDTO(entity));
+  }
 
-    /**
-     * Map array to options
-     */
-    static toOptions(entities: Departments[]): DepartmentOptionDTO[] {
-        return entities.map(entity => this.toOption(entity))
-    }
+  /** Map domain entity to detail DTO. */
+  static toDetailDTO(entity: DepartmentEntity): DepartmentDetailDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      jobDescription: entity.jobDescription,
+      isReminderTarget: entity.isReminderTarget,
+      stats: {
+        userCount: entity.counts.users,
+        workOrderCount: entity.counts.workOrders,
+      },
+      users: entity.users,
+      createdAt: entity.createdAt.toISOString(),
+      updatedAt: entity.updatedAt.toISOString(),
+    };
+  }
+
+  /** Map domain entity to option DTO. */
+  static toOptionDTO(entity: DepartmentEntity): DepartmentOptionDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+    };
+  }
+
+  /** Map many domain entities to option DTOs. */
+  static toOptionDTOs(entities: DepartmentEntity[]): DepartmentOptionDTO[] {
+    return entities.map((entity) => this.toOptionDTO(entity));
+  }
 }

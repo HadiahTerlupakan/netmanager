@@ -15,7 +15,7 @@ import {
   createHandler,
   apiError,
 } from "@/lib/api";
-import { createPelangganSchema } from "@/lib/validations/pelanggan";
+import { createPelangganSchema } from "@/modules/pelanggan";
 import { validateFileSignature } from "@/lib/utils/file-validation";
 import * as z from "zod";
 

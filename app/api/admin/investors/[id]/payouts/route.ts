@@ -1,55 +1,61 @@
-import { prisma } from '@/modules/database'
-import { apiSuccess, apiPaginated, ApiErrors, createHandler } from '@/lib/api'
-import { investorPayoutSchema } from '@/lib/validations/investor'
+import { apiSuccess, apiPaginated, ApiErrors, createHandler } from "@/lib/api";
+import { investorPayoutSchema } from "@/lib/validations/investor";
+import { ManualPaymentAdminRouteService } from "@/modules/finance";
 
-export const GET = createHandler({
+const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
+
+export const GET = createHandler(
+  {
     auth: true,
-    permissions: ['investors:read']
-}, async (req, ctx) => {
-    const { id } = ctx.params
-    const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    permissions: ["investors:read"],
+  },
+  async (req, ctx) => {
+    const { id } = ctx.params;
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const { payouts, total } =
+      await manualPaymentAdminRouteService.getInvestorPayouts({
+        investorId: id,
+        page,
+        limit,
+      });
+    return apiPaginated(payouts, { page, limit, total });
+  },
+);
 
-    const [payouts, total] = await Promise.all([
-        prisma.investorPayout.findMany({
-            where: { investorId: id },
-            orderBy: { date: 'desc' },
-            skip: (page - 1) * limit,
-            take: limit
-        }),
-        prisma.investorPayout.count({ where: { investorId: id } })
-    ])
-
-    return apiPaginated(payouts, { page, limit, total })
-})
-
-export const POST = createHandler({
+export const POST = createHandler(
+  {
     auth: true,
-    permissions: ['investors:create'],
-    schema: investorPayoutSchema.omit({ investorId: true })
-}, async (req, ctx) => {
-    const { id } = ctx.params
-    const { amount, date, bankName, accountNumber, accountName, reference, notes, status } = ctx.validated
-
-    const investor = await prisma.investor.findUnique({ where: { id } })
-    if (!investor) {
-        return ApiErrors.notFound('Investor')
+    permissions: ["investors:create"],
+    schema: investorPayoutSchema.omit({ investorId: true }),
+  },
+  async (_req, ctx) => {
+    const { id } = ctx.params;
+    const {
+      amount,
+      date,
+      bankName,
+      accountNumber,
+      accountName,
+      reference,
+      notes,
+      status,
+    } = ctx.validated;
+    const payout = await manualPaymentAdminRouteService.createInvestorPayout({
+      investorId: id,
+      amount,
+      date,
+      bankName,
+      accountNumber,
+      accountName,
+      reference,
+      notes,
+      status,
+    });
+    if (!payout) {
+      return ApiErrors.notFound("Investor");
     }
-
-    const payout = await prisma.investorPayout.create({
-        data: {
-            investorId: id,
-            amount: BigInt(amount),
-            date: date || new Date(),
-            bankName,
-            accountNumber,
-            accountName,
-            reference,
-            notes,
-            status: status || 'COMPLETED'
-        }
-    })
-
-    return apiSuccess(payout, { status: 201 })
-})
+    return apiSuccess(payout, { status: 201 });
+  },
+);

@@ -21,6 +21,10 @@ export async function updateMobileFcmToken(options: {
   fcmToken: string;
   action?: string;
   repository?: IPushTokenRepository;
+  successMessages?: {
+    add: string;
+    remove: string;
+  };
 }) {
   const userId = getSessionUserId(options.session);
   if (!userId) {
@@ -43,17 +47,24 @@ export async function updateMobileFcmToken(options: {
     action: normalizedAction,
   });
 
-  return { message: buildSuccessMessage(normalizedAction) };
+  return {
+    message: buildSuccessMessage(normalizedAction, options.successMessages),
+  };
 }
 
 function getSessionUserId(session: IMobileFcmSession) {
   return session.userId ?? session.id ?? null;
 }
 
-function buildSuccessMessage(action: "add" | "remove") {
-  return action === "remove"
-    ? "FCM token berhasil dihapus"
-    : "FCM token berhasil disimpan";
+function buildSuccessMessage(
+  action: "add" | "remove",
+  successMessages?: { add: string; remove: string },
+) {
+  if (action === "remove") {
+    return successMessages?.remove ?? "FCM token berhasil dihapus";
+  }
+
+  return successMessages?.add ?? "FCM token berhasil disimpan";
 }
 
 function persistTokenChange(options: {

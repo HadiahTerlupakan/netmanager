@@ -1,12 +1,11 @@
 import { createHandler, apiSuccess } from "@/lib/api";
-import { getMappingAdminService, MappingService } from "@/modules/map";
+import { getMappingAdminService, getMappingService } from "@/modules/map";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 
-const service = new MappingService();
+const service = getMappingService();
 const adminService = getMappingAdminService();
 
-// Schema Validation
 const createNodeSchema = z.object({
   type: z.enum(["olt", "odc", "odp", "ont", "pole", "joinbox"]),
   name: z.string().optional(),
@@ -21,7 +20,7 @@ const createNodeSchema = z.object({
   attenuationOut: z.number().nullish(),
   inputCoreColor: z.string().nullish(),
   photo: z.string().nullish(),
-  metadata: z.any().nullish(), // Allow metadata JSON
+  metadata: z.any().nullish(),
 });
 
 /**
@@ -57,7 +56,6 @@ export const POST = createHandler(
   },
   async (req, ctx) => {
     const body = ctx.validated;
-
     const newNode = await adminService.createNode({
       nodeId: crypto.randomUUID(),
       ...body,
@@ -66,7 +64,11 @@ export const POST = createHandler(
     await logger.logActivity({
       action: "CREATE",
       subject: "Node",
-      details: { id: newNode.nodeId, name: newNode.name, type: newNode.type },
+      details: {
+        id: newNode.nodeId,
+        name: newNode.name,
+        type: newNode.type,
+      },
       userId: ctx.session?.user.id,
     });
 

@@ -3,7 +3,7 @@ import type { CanvasingStatus } from "@prisma/client";
 import type {
   CreateCanvasingInput,
   UpdateCanvasingInput,
-} from "../repositories/ICanvasingRepository";
+} from "../domain/ports/ICanvasingRepository";
 
 export const CANVASING_PACKAGE_VALUES = [
   "HOME_10MBPS",

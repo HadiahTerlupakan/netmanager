@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
-import { RegistrationService } from '@/modules/registration'
+import { NextResponse } from "next/server";
+import { RegistrationService } from "@/modules/registration";
 
 /**
  * POST /api/registrations
  * Endpoint untuk pendaftaran pelanggan baru
- * 
+ *
  * Body:
  * - name: string (wajib)
  * - email: string (wajib)
@@ -16,38 +16,37 @@ import { RegistrationService } from '@/modules/registration'
  * - turnstileToken?: string (jika captcha aktif)
  */
 export async function POST(request: Request) {
-    try {
-        const body = await request.json()
+  try {
+    const body = await request.json();
 
-        // Get IP Address from headers
-        const forwardedFor = request.headers.get('x-forwarded-for')
-        const ipAddress = forwardedFor ? forwardedFor.split(',')[0] : '127.0.0.1'
+    // Get IP Address from headers
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const ipAddress = forwardedFor ? forwardedFor.split(",")[0] : "127.0.0.1";
 
-        // Delegate to service
-        const service = new RegistrationService()
-        const result = await service.register({
-            ...body,
-            ipAddress
-        })
+    // Delegate to service
+    const service = new RegistrationService();
+    const result = await service.register({
+      ...body,
+      ipAddress,
+    });
 
-        if (result.success) {
-            return NextResponse.json(
-                { message: 'Pendaftaran berhasil dikirim', data: result.data },
-                { status: 201 }
-            )
-        } else {
-            return NextResponse.json(
-                { error: result.error },
-                { status: result.statusCode || 400 }
-            )
-        }
-
-    } catch (error: unknown) {
-        const err = error as Error;
-        console.error('[API Registration] Error:', err)
-        return NextResponse.json(
-            { error: 'Terjadi kesalahan internal server.' },
-            { status: 500 }
-        )
+    if (result.success) {
+      return NextResponse.json(
+        { message: "Pendaftaran berhasil dikirim", data: result.data },
+        { status: 201 },
+      );
     }
+
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.statusCode || 400 },
+    );
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("[API Registration] Error:", err);
+    return NextResponse.json(
+      { error: "Terjadi kesalahan internal server." },
+      { status: 500 },
+    );
+  }
 }

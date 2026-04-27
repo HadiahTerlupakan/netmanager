@@ -10,6 +10,23 @@ const ADMIN_ROLE_NAMES = ["ADMIN", "SUPER_ADMIN"];
 const ACTIVE_CUSTOMER_STATUS = "AKTIF";
 const REALTIME_EVENT_TYPE = "announcement.new";
 const ANNOUNCEMENT_LINK = "/announcement";
+const RECENT_READER_LIMIT = 10;
+const UNKNOWN_USER_NAME = "Unknown User";
+const UNKNOWN_CUSTOMER_NAME = "Unknown Customer";
+const ANONYMOUS_READER_NAME = "Anonymous";
+const DEFAULT_PORTAL = "admin";
+const DEFAULT_MOBILE_PORTAL = "mobile";
+
+type MobileAnnouncementPortal = "customer" | "employee" | "admin";
+
+const MOBILE_PORTAL_TARGETS: Record<
+  MobileAnnouncementPortal,
+  TargetAudience[]
+> = {
+  customer: ["ALL", "CUSTOMER"],
+  employee: ["ALL", "EMPLOYEE"],
+  admin: ["ALL", "ADMIN"],
+};
 
 interface AnnouncementRecord {
   id: string;
@@ -30,24 +47,56 @@ interface AnnouncementCreateInput {
   endDate?: string | null;
 }
 
+interface AnnouncementUpdateInput {
+  title?: string;
+  content?: string;
+  target?: TargetAudience;
+  isActive?: boolean;
+  isPinned?: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+interface AnnouncementFilters {
+  target?: string;
+  activeOnly: boolean;
+  portal?: string | null;
+}
+
+interface AnnouncementReadActor {
+  userId: string;
+}
+
+interface CustomerAnnouncementReadActor {
+  pelangganId: string;
+}
+
+interface MobileAnnouncementActor {
+  userId: string;
+  tenantId?: string | null;
+  role?: string | null;
+  isSuperAdmin?: boolean;
+}
+
+class AnnouncementServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 export class AnnouncementService {
   /** List announcements using the same filters used by the existing route. */
-  async getAnnouncements(filters: {
-    target?: TargetAudience;
-    activeOnly: boolean;
-    portal?: string | null;
-  }) {
+  async getAnnouncements(filters: AnnouncementFilters) {
     const now = new Date();
     const where = this.buildAnnouncementWhere(filters, now);
 
     return prisma.announcement.findMany({
       where,
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-      include: {
-        _count: {
-          select: { reads: true },
-        },
-      },
+      include: { _count: { select: { reads: true } } },
     });
   }
 
@@ -55,30 +104,14 @@ export class AnnouncementService {
   async createAnnouncement(input: AnnouncementCreateInput, createdBy: string) {
     const isAnnouncementActive = input.isActive ?? true;
     const announcement = await prisma.announcement.create({
-      data: {
-        id: crypto.randomUUID(),
-        title: input.title,
-        content: input.content,
-        target: input.target,
-        isActive: isAnnouncementActive,
-        isPinned: input.isPinned ?? false,
-        startDate: input.startDate ? new Date(input.startDate) : new Date(),
-        endDate: input.endDate ? new Date(input.endDate) : null,
+      data: this.buildAnnouncementCreateData(
+        input,
         createdBy,
-        updatedAt: new Date(),
-      },
+        isAnnouncementActive,
+      ),
     });
 
-    await logger.logActivity({
-      action: "CREATE",
-      subject: "Announcement",
-      details: {
-        id: announcement.id,
-        title: announcement.title,
-        target: announcement.target,
-      },
-      userId: createdBy,
-    });
+    await this.logAnnouncementCreation(announcement, createdBy);
 
     if (isAnnouncementActive) {
       this.publishRealtimeSafely(announcement);
@@ -91,46 +124,392 @@ export class AnnouncementService {
     return announcement;
   }
 
-  /** Build the database where clause for announcement listing. */
-  private buildAnnouncementWhere(
-    filters: {
-      target?: TargetAudience;
-      activeOnly: boolean;
-      portal?: string | null;
-    },
-    now: Date,
+  /** Update an announcement using the existing route payload shape. */
+  async updateAnnouncement(id: string, input: AnnouncementUpdateInput) {
+    return prisma.announcement.update({
+      where: { id },
+      data: this.buildAnnouncementUpdateData(input),
+    });
+  }
+
+  /** Delete an announcement by id. */
+  async deleteAnnouncement(id: string) {
+    await prisma.announcement.delete({ where: { id } });
+    return { success: true };
+  }
+
+  /** Mark one announcement as read for an authenticated user. */
+  async markAnnouncementAsRead(
+    id: string,
+    actor: AnnouncementReadActor,
+    portal?: string,
   ) {
+    await this.ensureAnnouncementExists(id);
+    const read = await prisma.announcementRead.upsert({
+      where: {
+        announcementId_userId: {
+          announcementId: id,
+          userId: actor.userId,
+        },
+      },
+      update: { readAt: new Date() },
+      create: {
+        announcementId: id,
+        userId: actor.userId,
+        portal: portal || DEFAULT_PORTAL,
+      },
+    });
+
+    return { success: true, read };
+  }
+
+  /** Mengambil daftar announcement untuk mobile berdasarkan portal user. */
+  async getMobileAnnouncements(actor: MobileAnnouncementActor) {
+    const portal = this.resolveMobilePortal(actor.role, actor.isSuperAdmin);
+    const tenantId = actor.tenantId ?? null;
+    const announcements = await prisma.announcement.findMany({
+      where: this.buildMobileAnnouncementWhere(tenantId, portal, new Date()),
+      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        isPinned: true,
+        createdAt: true,
+      },
+    });
+
+    return announcements.map((announcement) => ({
+      ...announcement,
+      createdAt: announcement.createdAt.toISOString(),
+    }));
+  }
+
+  /** Menandai announcement mobile sebagai sudah dibaca secara idempoten. */
+  async markMobileAnnouncementAsRead(
+    id: string,
+    actor: MobileAnnouncementActor,
+    portal?: string,
+  ) {
+    await this.ensureAnnouncementExistsForTenant(id, actor.tenantId ?? null);
+    const read = await prisma.announcementRead.upsert({
+      where: {
+        announcementId_userId: {
+          announcementId: id,
+          userId: actor.userId,
+        },
+      },
+      update: { readAt: new Date() },
+      create: {
+        announcementId: id,
+        userId: actor.userId,
+        portal: portal || DEFAULT_MOBILE_PORTAL,
+        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
+      },
+    });
+
+    return { success: true, read };
+  }
+
+  /** Mark one announcement as read for an authenticated customer. */
+  async markAnnouncementAsReadForCustomer(
+    id: string,
+    actor: CustomerAnnouncementReadActor,
+    portal?: string,
+  ) {
+    await this.ensureAnnouncementExists(id);
+    const read = await prisma.announcementRead.upsert({
+      where: {
+        announcementId_pelangganId: {
+          announcementId: id,
+          pelangganId: actor.pelangganId,
+        },
+      },
+      update: { readAt: new Date() },
+      create: {
+        announcementId: id,
+        pelangganId: actor.pelangganId,
+        portal: portal || "customer",
+      },
+    });
+
+    return { success: true, read };
+  }
+
+  /** Get read statistics and recent readers for one announcement. */
+  async getAnnouncementReadStats(id: string) {
+    const [announcement, readCount, recentReaders] = await Promise.all([
+      this.findAnnouncementSummary(id),
+      prisma.announcementRead.count({ where: { announcementId: id } }),
+      this.findRecentReaders(id),
+    ]);
+
+    if (!announcement) {
+      throw new AnnouncementServiceError("Pengumuman tidak ditemukan", 404);
+    }
+
+    const readersWithNames = await this.attachReaderNames(recentReaders);
+    return { announcement, readCount, recentReaders: readersWithNames };
+  }
+
+  /** Build the database where clause for announcement listing. */
+  private buildAnnouncementWhere(filters: AnnouncementFilters, now: Date) {
     if (filters.portal === "customer") {
-      return {
-        target: { in: ["ALL", "CUSTOMER"] as TargetAudience[] },
-        isActive: true,
-        startDate: { lte: now },
-        OR: [{ endDate: null }, { endDate: { gte: now } }],
-      };
+      return this.buildPortalAnnouncementWhere(["ALL", "CUSTOMER"], now);
     }
 
     if (filters.portal === "employee") {
-      return {
-        target: { in: ["ALL", "EMPLOYEE"] as TargetAudience[] },
-        isActive: true,
-        startDate: { lte: now },
-        OR: [{ endDate: null }, { endDate: { gte: now } }],
-      };
+      return this.buildPortalAnnouncementWhere(["ALL", "EMPLOYEE"], now);
     }
 
     if (filters.portal === "admin") {
-      return {
-        target: { in: ["ALL", "ADMIN"] as TargetAudience[] },
-        isActive: true,
-        startDate: { lte: now },
-        OR: [{ endDate: null }, { endDate: { gte: now } }],
-      };
+      return this.buildPortalAnnouncementWhere(["ALL", "ADMIN"], now);
     }
 
+    const target = this.normalizeTargetAudience(filters.target);
     return {
-      ...(filters.target ? { target: filters.target } : {}),
+      ...(target ? { target } : {}),
       ...(filters.activeOnly ? { isActive: true } : {}),
     };
+  }
+
+  /** Build mobile announcement filter by portal and tenant. */
+  private buildMobileAnnouncementWhere(
+    tenantId: string | null,
+    portal: MobileAnnouncementPortal,
+    now: Date,
+  ) {
+    return {
+      target: { in: MOBILE_PORTAL_TARGETS[portal].slice() },
+      isActive: true,
+      startDate: { lte: now },
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
+      ...(tenantId ? { tenantId } : {}),
+    };
+  }
+
+  /** Menentukan portal mobile dari role user yang terautentikasi. */
+  private resolveMobilePortal(role?: string | null, isSuperAdmin?: boolean) {
+    const normalizedRole = role?.toUpperCase() ?? "";
+    if (normalizedRole.includes("CUSTOMER")) {
+      return "customer" as const;
+    }
+
+    if (isSuperAdmin || normalizedRole.includes("ADMIN")) {
+      return "admin" as const;
+    }
+
+    return "employee" as const;
+  }
+
+  /** Memastikan announcement tersedia dalam tenant yang sesuai. */
+  private async ensureAnnouncementExistsForTenant(
+    id: string,
+    tenantId: string | null,
+  ) {
+    const announcement = await prisma.announcement.findFirst({
+      where: { id, ...(tenantId ? { tenantId } : {}) },
+      select: { id: true },
+    });
+
+    if (announcement) {
+      return;
+    }
+
+    throw new AnnouncementServiceError("Pengumuman tidak ditemukan", 404);
+  }
+
+  /** Normalize route target input into a valid announcement audience. */
+  private normalizeTargetAudience(target?: string) {
+    if (!target) {
+      return undefined;
+    }
+
+    const validTargets: TargetAudience[] = [
+      "ALL",
+      "ADMIN",
+      "EMPLOYEE",
+      "CUSTOMER",
+    ];
+    return validTargets.includes(target as TargetAudience)
+      ? (target as TargetAudience)
+      : undefined;
+  }
+
+  /** Build create data for an announcement row. */
+  private buildAnnouncementCreateData(
+    input: AnnouncementCreateInput,
+    createdBy: string,
+    isAnnouncementActive: boolean,
+  ) {
+    return {
+      id: crypto.randomUUID(),
+      title: input.title,
+      content: input.content,
+      target: input.target,
+      isActive: isAnnouncementActive,
+      isPinned: input.isPinned ?? false,
+      startDate: input.startDate ? new Date(input.startDate) : new Date(),
+      endDate: input.endDate ? new Date(input.endDate) : null,
+      createdBy,
+      updatedAt: new Date(),
+    };
+  }
+
+  /** Build update data for an announcement row. */
+  private buildAnnouncementUpdateData(input: AnnouncementUpdateInput) {
+    return {
+      title: input.title,
+      content: input.content,
+      target: input.target,
+      isActive: input.isActive,
+      isPinned: input.isPinned,
+      ...(input.startDate !== undefined
+        ? { startDate: input.startDate ? new Date(input.startDate) : null }
+        : {}),
+      ...(input.endDate !== undefined
+        ? { endDate: input.endDate ? new Date(input.endDate) : null }
+        : {}),
+    };
+  }
+
+  /** Build the common active portal filter. */
+  private buildPortalAnnouncementWhere(targets: TargetAudience[], now: Date) {
+    return {
+      target: { in: targets },
+      isActive: true,
+      startDate: { lte: now },
+      OR: [{ endDate: null }, { endDate: { gte: now } }],
+    };
+  }
+
+  /** Ensure an announcement exists before mutating its read state. */
+  private async ensureAnnouncementExists(id: string) {
+    const announcement = await prisma.announcement.findUnique({
+      where: { id },
+    });
+    if (announcement) {
+      return;
+    }
+
+    throw new AnnouncementServiceError("Pengumuman tidak ditemukan", 404);
+  }
+
+  /** Find announcement summary fields for stats output. */
+  private findAnnouncementSummary(id: string) {
+    return prisma.announcement.findUnique({
+      where: { id },
+      select: { id: true, title: true, target: true },
+    });
+  }
+
+  /** Find recent readers for one announcement. */
+  private findRecentReaders(id: string) {
+    return prisma.announcementRead.findMany({
+      where: { announcementId: id },
+      orderBy: { readAt: "desc" },
+      take: RECENT_READER_LIMIT,
+      include: { announcement: false },
+    });
+  }
+
+  /** Add resolved reader names without changing the existing response shape. */
+  private async attachReaderNames(
+    recentReaders: Awaited<
+      ReturnType<AnnouncementService["findRecentReaders"]>
+    >,
+  ) {
+    const [userMap, pelangganMap] = await Promise.all([
+      this.findUserNameMap(recentReaders),
+      this.findPelangganNameMap(recentReaders),
+    ]);
+
+    return recentReaders.map((reader) => ({
+      ...reader,
+      readerName: this.resolveReaderName(reader, userMap, pelangganMap),
+    }));
+  }
+
+  /** Build a map of user ids to display names. */
+  private async findUserNameMap(
+    recentReaders: Awaited<
+      ReturnType<AnnouncementService["findRecentReaders"]>
+    >,
+  ) {
+    const userIds = recentReaders.flatMap((reader) =>
+      reader.userId ? [reader.userId] : [],
+    );
+
+    if (userIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true },
+    });
+
+    return new Map(users.map((user) => [user.id, user.name]));
+  }
+
+  /** Build a map of customer ids to display names. */
+  private async findPelangganNameMap(
+    recentReaders: Awaited<
+      ReturnType<AnnouncementService["findRecentReaders"]>
+    >,
+  ) {
+    const pelangganIds = recentReaders.flatMap((reader) =>
+      reader.pelangganId ? [reader.pelangganId] : [],
+    );
+
+    if (pelangganIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const pelanggans = await prisma.pelanggan.findMany({
+      where: { id: { in: pelangganIds } },
+      select: { id: true, nama: true },
+    });
+
+    return new Map(
+      pelanggans.map((pelanggan) => [pelanggan.id, pelanggan.nama]),
+    );
+  }
+
+  /** Resolve the display name for one reader row. */
+  private resolveReaderName(
+    reader: Awaited<
+      ReturnType<AnnouncementService["findRecentReaders"]>
+    >[number],
+    userMap: Map<string, string>,
+    pelangganMap: Map<string, string>,
+  ) {
+    if (reader.userId) {
+      return userMap.get(reader.userId) || UNKNOWN_USER_NAME;
+    }
+
+    if (reader.pelangganId) {
+      return pelangganMap.get(reader.pelangganId) || UNKNOWN_CUSTOMER_NAME;
+    }
+
+    return ANONYMOUS_READER_NAME;
+  }
+
+  /** Log successful announcement creation. */
+  private logAnnouncementCreation(
+    announcement: AnnouncementRecord,
+    createdBy: string,
+  ) {
+    return logger.logActivity({
+      action: "CREATE",
+      subject: "Announcement",
+      details: {
+        id: announcement.id,
+        title: announcement.title,
+        target: announcement.target,
+      },
+      userId: createdBy,
+    });
   }
 
   /** Publish realtime announcement in a fire-and-forget flow with error logging. */
@@ -368,4 +747,5 @@ export class AnnouncementService {
   }
 }
 
+export { AnnouncementServiceError };
 export const announcementService = new AnnouncementService();

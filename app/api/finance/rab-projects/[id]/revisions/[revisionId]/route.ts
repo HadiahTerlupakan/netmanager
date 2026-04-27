@@ -1,19 +1,12 @@
-import {
-  RabExpenseType,
-  RabItemCategory,
-  RabRevisionStatus,
-} from "@prisma/client";
+import { RabExpenseType, RabItemCategory } from "@prisma/client";
 import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
-  calculateRevisionTotals,
-  normalizeRevisionSnapshotItems,
-  serializeRabRevision,
-  type RevisionSnapshotSourceItem,
+  RabRevisionRouteService,
+  isRouteServiceError,
 } from "@/modules/finance";
-import { prisma } from "@/modules/database";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +39,8 @@ const updateRevisionSchema = z.object({
   items: z.array(revisionItemSchema).optional(),
 });
 
+const rabRevisionRouteService = new RabRevisionRouteService();
+
 async function assertRevisionAccess(user: {
   id: string;
   role?: string;
@@ -73,30 +68,19 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     return accessError;
   }
 
-  const revision = await prisma.rabRevision.findUnique({
-    where: { id: ctx.params.revisionId },
-    include: {
-      items: { orderBy: { sortOrder: "asc" } },
-      approvals: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: { select: { name: true } },
-            },
-          },
-        },
-      },
-    },
-  });
+  try {
+    const revision = await rabRevisionRouteService.getRevision(
+      ctx.params.id,
+      ctx.params.revisionId,
+    );
 
-  if (!revision || revision.rabProjectId !== ctx.params.id) {
-    return ApiErrors.notFound("Revisi RAB");
+    return apiSuccess(revision);
+  } catch (error) {
+    if (isRouteServiceError(error) && error.status === 404) {
+      return ApiErrors.notFound(error.message);
+    }
+    throw error;
   }
-
-  return apiSuccess(serializeRabRevision(revision));
 });
 
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
@@ -108,72 +92,29 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const payload = updateRevisionSchema.parse(await req.json());
-  const existingRevision = await prisma.rabRevision.findUnique({
-    where: { id: ctx.params.revisionId },
-    include: { items: { orderBy: { sortOrder: "asc" } } },
-  });
 
-  if (!existingRevision || existingRevision.rabProjectId !== ctx.params.id) {
-    return ApiErrors.notFound("Revisi RAB");
-  }
-
-  if (existingRevision.status !== RabRevisionStatus.DRAFT) {
-    return ApiErrors.badRequest(
-      "Hanya revisi dengan status DRAFT yang dapat diubah",
-    );
-  }
-
-  const snapshotItems = payload.items
-    ? normalizeRevisionSnapshotItems(
-        payload.items.map<RevisionSnapshotSourceItem>((item) => ({
-          rabItemId: item.rabItemId,
-          name: item.name,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          category: item.category,
-          expenseType: item.expenseType,
-          expenseCategoryId: item.expenseCategoryId,
-          wbsId: item.wbsId,
-          sortOrder: item.sortOrder,
-          totalPrice: BigInt(item.quantity) * item.unitPrice,
-        })),
-      )
-    : normalizeRevisionSnapshotItems(existingRevision.items);
-  const totals = calculateRevisionTotals(
-    snapshotItems,
-    payload.projectedOpex ?? existingRevision.totalOpex,
-  );
-
-  const revision = await prisma.rabRevision.update({
-    where: { id: existingRevision.id },
-    data: {
+  try {
+    const revision = await rabRevisionRouteService.updateRevision({
+      projectId: ctx.params.id,
+      revisionId: ctx.params.revisionId,
       notes: payload.notes,
-      totalCapex: totals.totalCapex,
-      totalOpex: totals.totalOpex,
-      items: payload.items
-        ? {
-            deleteMany: {},
-            create: snapshotItems,
-          }
-        : undefined,
-    },
-    include: {
-      items: { orderBy: { sortOrder: "asc" } },
-      approvals: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: { select: { name: true } },
-            },
-          },
-        },
-      },
-    },
-  });
+      projectedOpex: payload.projectedOpex,
+      items: payload.items?.map((item) => ({
+        ...item,
+        unitPrice: item.unitPrice,
+      })),
+    });
 
-  return apiSuccess(serializeRabRevision(revision));
+    return apiSuccess(revision);
+  } catch (error) {
+    if (isRouteServiceError(error) && error.status === 404) {
+      return ApiErrors.notFound(error.message);
+    }
+
+    if (isRouteServiceError(error) && error.status === 400) {
+      return ApiErrors.badRequest(error.message);
+    }
+
+    throw error;
+  }
 });

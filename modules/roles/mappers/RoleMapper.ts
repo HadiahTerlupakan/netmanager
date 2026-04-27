@@ -1,126 +1,150 @@
 /**
  * RoleMapper
  *
- * Transforms Prisma entities to DTOs for API responses.
+ * Transforms Prisma entities to domain entities and domain entities to DTOs.
  */
 
-import type { Role, Permission } from '@prisma/client'
+import type { Permission, Role } from "@prisma/client";
 import type {
-    RoleListItemDTO,
-    RoleDetailDTO,
-    RoleOptionDTO,
-    PermissionGroupDTO,
-    PermissionDTO,
-} from '../dto/RoleDTO'
+  PermissionDTO,
+  PermissionGroupDTO,
+  RoleDetailDTO,
+  RoleListItemDTO,
+  RoleOptionDTO,
+} from "../dto/RoleDTO";
+import type {
+  PermissionEntity,
+  RoleEntity,
+} from "../domain/entities/RoleEntity";
 
-// Extended types
-type RoleWithCount = Role & {
-    _count?: {
-        users?: number
-    }
-}
+export type PrismaRoleWithCount = Role & {
+  _count?: {
+    user?: number;
+  };
+};
 
-type RoleWithPermissions = Role & {
-    permissions?: Permission[]
-    _count?: {
-        users?: number
-    }
-}
+export type PrismaRoleWithPermissions = Role & {
+  permission?: Permission[];
+  _count?: {
+    user?: number;
+  };
+};
 
 export class RoleMapper {
-    /**
-     * Map to list item DTO
-     */
-    static toListItem(entity: RoleWithCount): RoleListItemDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            description: entity.description,
-            userCount: entity._count?.users ?? 0,
-            accessAdminPanel: entity.accessAdminPanel,
-            accessEmployeePanel: entity.accessEmployeePanel,
-            isRestricted: entity.isRestricted,
-            isTechnical: entity.isTechnical,
-        }
+  /** Map Prisma role to domain entity. */
+  static toDomain(entity: PrismaRoleWithPermissions): RoleEntity {
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      accessAdminPanel: entity.accessAdminPanel,
+      accessEmployeePanel: entity.accessEmployeePanel,
+      isRestricted: entity.isRestricted,
+      isTechnical: entity.isTechnical,
+      isSuperAdmin: entity.isSuperAdmin,
+      canApproveRab: entity.canApproveRab,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      permissions: this.toPermissionDomains(entity.permission ?? []),
+      counts: { users: entity._count?.user ?? 0 },
+    };
+  }
+
+  /** Map many Prisma roles to domain entities. */
+  static toDomains(entities: PrismaRoleWithPermissions[]): RoleEntity[] {
+    return entities.map((entity) => this.toDomain(entity));
+  }
+
+  /** Map domain entity to list DTO. */
+  static toListItemDTO(entity: RoleEntity): RoleListItemDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      userCount: entity.counts?.users ?? 0,
+      accessAdminPanel: entity.accessAdminPanel,
+      accessEmployeePanel: entity.accessEmployeePanel,
+      isRestricted: entity.isRestricted,
+      isTechnical: entity.isTechnical,
+    };
+  }
+
+  /** Map many domain entities to list DTOs. */
+  static toListItemDTOs(entities: RoleEntity[]): RoleListItemDTO[] {
+    return entities.map((entity) => this.toListItemDTO(entity));
+  }
+
+  /** Map domain entity to detail DTO. */
+  static toDetailDTO(entity: RoleEntity): RoleDetailDTO {
+    const permissions = entity.permissions;
+    return {
+      id: entity.id,
+      name: entity.name,
+      description: entity.description,
+      accessAdminPanel: entity.accessAdminPanel,
+      accessEmployeePanel: entity.accessEmployeePanel,
+      isRestricted: entity.isRestricted,
+      isTechnical: entity.isTechnical,
+      createdAt: entity.createdAt.toISOString(),
+      updatedAt: entity.updatedAt.toISOString(),
+      permissions: this.groupPermissions(permissions),
+      permissionList: permissions.map(
+        (permission) => `${permission.resource}:${permission.action}`,
+      ),
+      userCount: entity.counts?.users ?? 0,
+    };
+  }
+
+  /** Map domain entity to option DTO. */
+  static toOptionDTO(entity: RoleEntity): RoleOptionDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      isRestricted: entity.isRestricted,
+    };
+  }
+
+  /** Map many domain entities to option DTOs. */
+  static toOptionDTOs(entities: RoleEntity[]): RoleOptionDTO[] {
+    return entities.map((entity) => this.toOptionDTO(entity));
+  }
+
+  /** Map domain permission to DTO. */
+  static toPermissionDTO(entity: PermissionEntity): PermissionDTO {
+    return {
+      id: entity.id,
+      name: entity.name,
+      resource: entity.resource,
+      action: entity.action,
+      description: entity.description,
+    };
+  }
+
+  /** Group permissions by resource. */
+  static groupPermissions(
+    permissions: PermissionEntity[],
+  ): PermissionGroupDTO[] {
+    const groups = new Map<string, string[]>();
+    for (const permission of permissions) {
+      const actions = groups.get(permission.resource) ?? [];
+      actions.push(permission.action);
+      groups.set(permission.resource, actions);
     }
 
-    /**
-     * Map array to list items
-     */
-    static toListItems(entities: RoleWithCount[]): RoleListItemDTO[] {
-        return entities.map(entity => this.toListItem(entity))
-    }
+    return Array.from(groups.entries())
+      .map(([resource, actions]) => ({ resource, actions: actions.sort() }))
+      .sort((first, second) => first.resource.localeCompare(second.resource));
+  }
 
-    /**
-     * Map to detail DTO
-     */
-    static toDetail(entity: RoleWithPermissions): RoleDetailDTO {
-        const permissions = entity.permissions ?? []
-        const permissionGroups = this.groupPermissions(permissions)
-        const permissionList = permissions.map(p => `${p.resource}:${p.action}`)
-
-        return {
-            id: entity.id,
-            name: entity.name,
-            description: entity.description,
-            accessAdminPanel: entity.accessAdminPanel,
-            accessEmployeePanel: entity.accessEmployeePanel,
-            isRestricted: entity.isRestricted,
-            isTechnical: entity.isTechnical,
-            createdAt: entity.createdAt.toISOString(),
-            updatedAt: entity.updatedAt.toISOString(),
-            permissions: permissionGroups,
-            permissionList,
-            userCount: entity._count?.users ?? 0,
-        }
-    }
-
-    /**
-     * Map to option DTO (for dropdowns)
-     */
-    static toOption(entity: Role): RoleOptionDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            isRestricted: entity.isRestricted,
-        }
-    }
-
-    /**
-     * Map array to options
-     */
-    static toOptions(entities: Role[]): RoleOptionDTO[] {
-        return entities.map(entity => this.toOption(entity))
-    }
-
-    /**
-     * Map permission to DTO
-     */
-    static toPermission(entity: Permission): PermissionDTO {
-        return {
-            id: entity.id,
-            name: entity.name,
-            resource: entity.resource,
-            action: entity.action,
-            description: entity.description,
-        }
-    }
-
-    /**
-     * Group permissions by resource
-     */
-    static groupPermissions(permissions: Permission[]): PermissionGroupDTO[] {
-        const groups = new Map<string, string[]>()
-
-        for (const perm of permissions) {
-            const existing = groups.get(perm.resource) ?? []
-            existing.push(perm.action)
-            groups.set(perm.resource, existing)
-        }
-
-        return Array.from(groups.entries()).map(([resource, actions]) => ({
-            resource,
-            actions: actions.sort(),
-        })).sort((a, b) => a.resource.localeCompare(b.resource))
-    }
+  private static toPermissionDomains(
+    permissions: Permission[],
+  ): PermissionEntity[] {
+    return permissions.map((permission) => ({
+      id: permission.id,
+      name: permission.name,
+      resource: permission.resource,
+      action: permission.action,
+      description: permission.description,
+    }));
+  }
 }

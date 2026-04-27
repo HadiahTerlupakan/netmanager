@@ -100,7 +100,7 @@ export class UserRepository {
   async findActiveUsersWithBasicSalary(filters?: {
     departmentId?: string;
     siteId?: string;
-    employeeType?: EmployeeType;
+    employeeType?: string;
   }) {
     const where: Prisma.UserWhereInput = {
       isActive: true,
@@ -108,7 +108,9 @@ export class UserRepository {
     };
     if (filters?.departmentId) where.departmentId = filters.departmentId;
     if (filters?.siteId) where.siteId = filters.siteId;
-    if (filters?.employeeType) where.employeeType = filters.employeeType;
+    if (filters?.employeeType) {
+      where.employeeType = filters.employeeType as EmployeeType;
+    }
 
     return this.findManySalaryData(where);
   }

@@ -1,11 +1,26 @@
-import { UserRepository } from "../repositories/UserRepository";
-import type { UserWithRelations } from "../repositories/UserRepository";
-import { WorkingHourMode, Prisma } from "@prisma/client";
-import type { User } from "@prisma/client";
 import { hash } from "bcryptjs";
-import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
-import { redis } from "@/lib/redis";
+import { WorkingHourMode, type Prisma } from "@prisma/client";
 import { invalidatePermissionCache } from "@/lib/auth";
+import { redis } from "@/lib/redis";
+import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
+import type { UserDetailDTO, UserListItemDTO } from "../dto/UserDTO";
+import type {
+  UserEntity,
+  UserScheduleEntity,
+} from "../domain/entities/UserEntity";
+import type {
+  CreateUserRepositoryInput,
+  FindUsersParams,
+  IUserRepository,
+} from "../domain/ports/IUserRepository";
+import { createUserRepository } from "../factories/RepositoryFactory";
+import { UserMapper } from "../mappers/UserMapper";
+
+const PASSWORD_HASH_ROUNDS = 10;
+const USER_NOT_FOUND = "User tidak ditemukan";
+const SCHEDULE_CACHE_KEY_PREFIX = "user:schedule:";
+
+type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
 
 export interface CreateUserInput {
   email: string;
@@ -16,7 +31,6 @@ export interface CreateUserInput {
   siteId?: string;
   roleId?: string;
   isActive?: boolean;
-  // Working Hours Settings
   workingHourMode?: string;
   attendanceGeofencePolicy?: string;
   startWorkTime?: string;
@@ -24,13 +38,11 @@ export interface CreateUserInput {
   workDays?: string;
   flexibleTargetHour?: number;
   shiftId?: string | null;
-  // Sales Feature
   isSales?: boolean;
   canvasingTarget?: number;
   targetSchema?: string;
   isAttendanceRequired?: boolean;
   tenantId?: string | null;
-  // Salary configuration
   basicSalary?: number;
   payPeriodDay?: number;
   payDay?: number;
@@ -46,8 +58,6 @@ export interface CreateUserInput {
   overtimeCalcTypeNational?: string;
 }
 
-type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
-
 export interface UpdateUserInput {
   email?: string;
   name?: string;
@@ -57,7 +67,6 @@ export interface UpdateUserInput {
   roleId?: string | null;
   isActive?: boolean;
   tenantId?: string | null;
-  // Working Hours
   workingHourMode?: string;
   attendanceGeofencePolicy?: string;
   startWorkTime?: string | null;
@@ -69,7 +78,6 @@ export interface UpdateUserInput {
   canvasingTarget?: number;
   targetSchema?: string;
   isAttendanceRequired?: boolean;
-  // Salary configuration
   basicSalary?: number;
   payPeriodDay?: number;
   payDay?: number;
@@ -85,56 +93,116 @@ export interface UpdateUserInput {
   overtimeCalcTypeNational?: string;
 }
 
+export interface UserListResultDTO {
+  data: UserListItemDTO[];
+  total: number;
+  active: number;
+  inactive: number;
+}
+
 export class UserService {
-  private userRepository: UserRepository;
+  private readonly userRepository: IUserRepository;
 
-  constructor() {
-    this.userRepository = new UserRepository();
+  constructor(userRepository: IUserRepository = createUserRepository()) {
+    this.userRepository = userRepository;
   }
 
-  async getAllUsers(
-    params: {
-      siteId?: string;
-      tenantId?: string;
-      roleName?: string;
-      page?: number;
-      limit?: number;
-      search?: string;
-      isActive?: boolean;
-    } = {},
-  ): Promise<{
-    data: UserWithRelations[];
-    total: number;
-    active: number;
-    inactive: number;
-  }> {
-    return this.userRepository.findAll(params);
+  /** Get users as safe list DTOs. */
+  async getAllUsers(params: FindUsersParams = {}): Promise<UserListResultDTO> {
+    const result = await this.userRepository.findAll(params);
+    return {
+      data: UserMapper.toListDTOs(result.data),
+      total: result.total,
+      active: result.active,
+      inactive: result.inactive,
+    };
   }
 
-  async getUser(id: string): Promise<User | null> {
+  /** Get user domain entity by ID for internal consumers. */
+  async getUser(id: string): Promise<UserEntity | null> {
     return this.userRepository.findById(id);
   }
 
-  async getUserWithRelations(id: string): Promise<UserWithRelations | null> {
-    return this.userRepository.findByIdWithRelations(id);
+  /** Get user detail DTO by ID. */
+  async getUserWithRelations(id: string): Promise<UserDetailDTO | null> {
+    const user = await this.userRepository.findByIdWithRelations(id);
+    return user ? UserMapper.toDetailDTO(user) : null;
   }
 
-  async getUserByEmail(email: string): Promise<User | null> {
+  /** Get user domain entity by email for internal consumers. */
+  async getUserByEmail(email: string): Promise<UserEntity | null> {
     return this.userRepository.findByEmail(email);
   }
 
-  async createUser(data: CreateUserInput): Promise<User> {
-    // Check if email already exists globally
-    const globalCheck = await checkGlobalIdentifier(data.email);
-    if (globalCheck.exists) {
-      throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`);
-    }
+  /** Create a user and return domain entity. */
+  async createUser(data: CreateUserInput): Promise<UserEntity> {
+    await this.ensureEmailAvailable(data.email);
+    const passwordHash = await hash(data.password, PASSWORD_HASH_ROUNDS);
+    const user = await this.userRepository.create(
+      this.buildCreateInput(data, passwordHash),
+    );
+    await invalidatePermissionCache(user.id);
+    return user;
+  }
 
-    // Hash password
-    const passwordHash = await hash(data.password, 10);
+  /** Update a user and return domain entity. */
+  async updateUser(id: string, data: UpdateUserInput): Promise<UserEntity> {
+    const existingUser = await this.getRequiredUser(id);
+    await this.ensureUpdatedEmailAvailable(id, existingUser.email, data.email);
+    const updatedUser = await this.userRepository.update(
+      id,
+      this.buildUpdateData(data),
+    );
+    await this.clearUserScheduleCache(id);
+    await this.invalidateUserAuthCache(id, data);
+    return updatedUser;
+  }
 
-    // Create user with working hours settings
-    const user = await this.userRepository.create({
+  /** Delete a user and return domain entity. */
+  async deleteUser(id: string): Promise<UserEntity> {
+    await this.getRequiredUser(id);
+    return this.userRepository.delete(id);
+  }
+
+  /** Update working-hour settings and return domain entity. */
+  async updateWorkingHours(
+    id: string,
+    data: UserScheduleEntity,
+  ): Promise<UserEntity> {
+    this.validateWorkingHours(data);
+    const updatedUser = await this.userRepository.updateWorkingHours(id, data);
+    await this.clearUserScheduleCache(id);
+    return updatedUser;
+  }
+
+  private async ensureEmailAvailable(email: string): Promise<void> {
+    const globalCheck = await checkGlobalIdentifier(email);
+    if (!globalCheck.exists) return;
+    throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`);
+  }
+
+  private async ensureUpdatedEmailAvailable(
+    id: string,
+    currentEmail: string,
+    nextEmail?: string,
+  ): Promise<void> {
+    if (!nextEmail || nextEmail === currentEmail) return;
+    const globalCheck = await checkGlobalIdentifier(nextEmail, undefined, id);
+    if (!globalCheck.exists) return;
+    throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`);
+  }
+
+  private async getRequiredUser(id: string): Promise<UserEntity> {
+    const user = await this.userRepository.findById(id);
+    if (user) return user;
+    throw new Error(USER_NOT_FOUND);
+  }
+
+  private buildCreateInput(
+    data: CreateUserInput,
+    passwordHash: string,
+  ): CreateUserRepositoryInput {
+    return {
       email: data.email,
       name: data.name || null,
       passwordHash,
@@ -143,23 +211,23 @@ export class UserService {
       siteId: data.siteId || null,
       roleId: data.roleId || null,
       isActive: data.isActive,
-      // Working Hours Settings
       workingHourMode:
-        (data.workingHourMode as WorkingHourMode) || WorkingHourMode.FIXED,
+        (data.workingHourMode as WorkingHourMode | undefined) ||
+        WorkingHourMode.FIXED,
       attendanceGeofencePolicy:
-        (data.attendanceGeofencePolicy as AttendanceGeofencePolicy) || "WARN",
-      startWorkTime: data.startWorkTime || "09:00",
-      endWorkTime: data.endWorkTime || "17:00",
-      workDays: data.workDays || "Mon,Tue,Wed,Thu,Fri",
-      flexibleTargetHour: data.flexibleTargetHour || 8,
+        (data.attendanceGeofencePolicy as
+          | AttendanceGeofencePolicy
+          | undefined) || "WARN",
+      startWorkTime: data.startWorkTime,
+      endWorkTime: data.endWorkTime,
+      workDays: data.workDays,
+      flexibleTargetHour: data.flexibleTargetHour,
       shiftId: data.shiftId || null,
-      // Sales Feature
       isSales: data.isSales || false,
       canvasingTarget: data.canvasingTarget,
       targetSchema: data.targetSchema,
       isAttendanceRequired: data.isAttendanceRequired ?? true,
       tenantId: data.tenantId || null,
-      // Salary configuration
       basicSalary: data.basicSalary,
       payPeriodDay: data.payPeriodDay,
       payDay: data.payDay,
@@ -173,137 +241,126 @@ export class UserService {
       overtimeCalcTypeNormal: data.overtimeCalcTypeNormal,
       overtimeCalcTypeHoliday: data.overtimeCalcTypeHoliday,
       overtimeCalcTypeNational: data.overtimeCalcTypeNational,
-    });
-
-    // Invalidate permission cache for new user
-    await invalidatePermissionCache(user.id);
-
-    return user;
+    };
   }
 
-  async updateUser(id: string, data: UpdateUserInput): Promise<User> {
-    // Check if user exists
-    const existingUser = await this.userRepository.findById(id);
-    if (!existingUser) {
-      throw new Error("User tidak ditemukan");
-    }
-
-    // If email is being changed, check if new email is available globally
-    if (data.email && data.email !== existingUser.email) {
-      const globalCheck = await checkGlobalIdentifier(
-        data.email,
-        undefined,
-        id,
-      );
-      if (globalCheck.exists) {
-        throw new Error(`Email sudah terdaftar sebagai ${globalCheck.role}`);
-      }
-    }
-
+  private buildUpdateData(
+    data: UpdateUserInput,
+  ): Prisma.UserUncheckedUpdateInput {
     const updateData: Prisma.UserUncheckedUpdateInput = {};
     if (data.email !== undefined) updateData.email = data.email;
     if (data.name !== undefined) updateData.name = data.name;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
-
     if (data.departmentId !== undefined)
       updateData.departmentId = data.departmentId || null;
     if (data.siteId !== undefined) updateData.siteId = data.siteId || null;
-
-    // Working Hours
-    if (data.workingHourMode !== undefined)
+    if (data.workingHourMode !== undefined) {
       updateData.workingHourMode = data.workingHourMode as WorkingHourMode;
-    if (data.attendanceGeofencePolicy !== undefined)
+    }
+    if (data.attendanceGeofencePolicy !== undefined) {
       updateData.attendanceGeofencePolicy =
         data.attendanceGeofencePolicy as AttendanceGeofencePolicy;
+    }
     if (data.startWorkTime !== undefined)
       updateData.startWorkTime = data.startWorkTime;
     if (data.endWorkTime !== undefined)
       updateData.endWorkTime = data.endWorkTime;
     if (data.workDays !== undefined) updateData.workDays = data.workDays;
-    if (data.flexibleTargetHour !== undefined)
+    if (data.flexibleTargetHour !== undefined) {
       updateData.flexibleTargetHour = data.flexibleTargetHour;
+    }
     if (data.shiftId !== undefined) updateData.shiftId = data.shiftId || null;
-
     if (data.isSales !== undefined) updateData.isSales = data.isSales;
-    if (data.isAttendanceRequired !== undefined)
+    if (data.isAttendanceRequired !== undefined) {
       updateData.isAttendanceRequired = data.isAttendanceRequired;
-
-    if (data.roleId !== undefined) {
-      updateData.roleId = data.roleId || null;
     }
-    if (data.tenantId !== undefined) {
+    if (data.roleId !== undefined) updateData.roleId = data.roleId || null;
+    if (data.tenantId !== undefined)
       updateData.tenantId = data.tenantId || null;
+    if (data.canvasingTarget !== undefined) {
+      updateData.canvasingTarget = data.canvasingTarget;
     }
-
-    const updatedUser = await this.userRepository.update(id, updateData);
-
-    // Invalidate attendance schedule cache in Redis
-    await redis.del(`user:schedule:${id}`);
-
-    const shouldInvalidateAuthCache =
-      data.roleId !== undefined || data.isActive !== undefined;
-
-    if (shouldInvalidateAuthCache) {
-      await invalidatePermissionCache(id);
+    if (data.targetSchema !== undefined) {
+      updateData.targetSchema =
+        data.targetSchema as Prisma.UserUncheckedUpdateInput["targetSchema"];
     }
-
-    return updatedUser;
+    if (data.basicSalary !== undefined)
+      updateData.basicSalary = data.basicSalary;
+    if (data.payPeriodDay !== undefined)
+      updateData.payPeriodDay = data.payPeriodDay;
+    if (data.payDay !== undefined) updateData.payDay = data.payDay;
+    if (data.woIncentiveEnabled !== undefined) {
+      updateData.woIncentiveEnabled = data.woIncentiveEnabled;
+    }
+    if (data.woIncentiveRate !== undefined) {
+      updateData.woIncentiveRate = data.woIncentiveRate;
+    }
+    if (data.lateDeductionRate !== undefined) {
+      updateData.lateDeductionRate = data.lateDeductionRate;
+    }
+    if (data.absentDeductionRate !== undefined) {
+      updateData.absentDeductionRate = data.absentDeductionRate;
+    }
+    if (data.overtimeRateNormal !== undefined) {
+      updateData.overtimeRateNormal = data.overtimeRateNormal;
+    }
+    if (data.overtimeRateHoliday !== undefined) {
+      updateData.overtimeRateHoliday = data.overtimeRateHoliday;
+    }
+    if (data.overtimeRateNational !== undefined) {
+      updateData.overtimeRateNational = data.overtimeRateNational;
+    }
+    if (data.overtimeCalcTypeNormal !== undefined) {
+      updateData.overtimeCalcTypeNormal =
+        data.overtimeCalcTypeNormal as Prisma.UserUncheckedUpdateInput["overtimeCalcTypeNormal"];
+    }
+    if (data.overtimeCalcTypeHoliday !== undefined) {
+      updateData.overtimeCalcTypeHoliday =
+        data.overtimeCalcTypeHoliday as Prisma.UserUncheckedUpdateInput["overtimeCalcTypeHoliday"];
+    }
+    if (data.overtimeCalcTypeNational !== undefined) {
+      updateData.overtimeCalcTypeNational =
+        data.overtimeCalcTypeNational as Prisma.UserUncheckedUpdateInput["overtimeCalcTypeNational"];
+    }
+    return updateData;
   }
 
-  async deleteUser(id: string): Promise<User> {
-    // Check if user exists
-    const existingUser = await this.userRepository.findById(id);
-    if (!existingUser) {
-      throw new Error("User tidak ditemukan");
-    }
-
-    return this.userRepository.delete(id);
-  }
-
-  async updateWorkingHours(
-    id: string,
-    data: {
-      workingHourMode: WorkingHourMode;
-      startWorkTime?: string | null;
-      endWorkTime?: string | null;
-      workDays?: string | null;
-      flexibleTargetHour?: number | null;
-      shiftId?: string | null;
-    },
-  ): Promise<User> {
-    // Validation logic
+  private validateWorkingHours(data: UserScheduleEntity): void {
     if (data.workingHourMode === WorkingHourMode.FIXED) {
-      if (!data.startWorkTime || !data.endWorkTime) {
-        throw new Error(
-          "Waktu mulai dan waktu selesai diperlukan untuk mode Fixed",
-        );
-      }
-      if (!data.workDays) {
-        throw new Error("Hari kerja diperlukan untuk mode Fixed");
-      }
+      this.validateFixedWorkingHours(data);
     }
+    if (data.workingHourMode !== WorkingHourMode.SHIFT) return;
+    if (data.shiftId) return;
+    throw new Error("Shift wajib dipilih untuk mode Shift");
+  }
 
-    if (data.workingHourMode === WorkingHourMode.FLEXIBLE) {
-      // Optional: Add specific validation for Flexible mode if needed
+  private validateFixedWorkingHours(data: UserScheduleEntity): void {
+    if (!data.startWorkTime || !data.endWorkTime) {
+      throw new Error(
+        "Waktu mulai dan waktu selesai diperlukan untuk mode Fixed",
+      );
     }
+    if (data.workDays) return;
+    throw new Error("Hari kerja diperlukan untuk mode Fixed");
+  }
 
-    if (data.workingHourMode === WorkingHourMode.SHIFT && !data.shiftId) {
-      throw new Error("Shift wajib dipilih untuk mode Shift");
-    }
+  private async clearUserScheduleCache(userId: string): Promise<void> {
+    await redis.del(`${SCHEDULE_CACHE_KEY_PREFIX}${userId}`);
+  }
 
-    const updatedUser = await this.userRepository.updateWorkingHours(id, data);
-
-    // Invalidate attendance schedule cache in Redis to ensure immediate effect
-    await redis.del(`user:schedule:${id}`);
-
-    return updatedUser;
+  private async invalidateUserAuthCache(
+    userId: string,
+    data: UpdateUserInput,
+  ): Promise<void> {
+    if (data.roleId === undefined && data.isActive === undefined) return;
+    await invalidatePermissionCache(userId);
   }
 }
 
-// Singleton instance
 let userServiceInstance: UserService | null = null;
 
+/** Get singleton user service instance. */
 export function getUserService(): UserService {
   if (!userServiceInstance) {
     userServiceInstance = new UserService();

@@ -1,32 +1,50 @@
-// Public API for Roles Module
-export { RoleRepository } from './repositories/RoleRepository'
 export type {
-    CreateRoleDTO,
-    UpdateRoleDTO,
-    RoleWithPermissions,
-    RoleWithCount,
-    FilterOptions
-} from './repositories/RoleRepository'
+  CreateDepartmentDTO,
+  DepartmentDetailDTO,
+  DepartmentListItemDTO,
+  DepartmentOptionDTO,
+  UpdateDepartmentDTO,
+} from "./dto/DepartmentDTO";
+export type {
+  CreateRoleDTO,
+  PermissionDTO,
+  PermissionGroupDTO,
+  RoleDetailDTO,
+  RoleListItemDTO,
+  RoleOptionDTO,
+  UpdateRoleDTO,
+} from "./dto/RoleDTO";
+export type {
+  CreateSiteDTO,
+  SiteDetailDTO,
+  SiteListItemDTO,
+  SiteOptionDTO,
+  UpdateSiteDTO,
+} from "./dto/SiteDTO";
+export type { RoleFilterOptions } from "./domain/ports/IRoleRepository";
 
-export { RoleService, getRoleService, RolePolicyError } from './services/RoleService'
-
-// Site Management
-export { SiteRepository } from './repositories/SiteRepository'
-export { SiteService } from './services/SiteService'
-
-// Site Restriction (RBAC) helpers
 export {
-    checkSiteRestriction,
-    getSiteFilter,
-    getSiteFilters,           // Multi-site: get array of siteIds
-    buildMultiSiteWhereClause, // Multi-site: Prisma where clause
-    canAccessSite,
-    validateSiteAccess,
-    buildSiteWhereClause,
-    getPrimarySiteId,         // Multi-site: get primary site
-    getUserSiteIds            // Multi-site: get all user sites
-} from './services/SiteRestrictionService'
-export type { SiteRestrictionResult } from './services/SiteRestrictionService'
-
-// Department Management
-export * from './services/DepartmentService'
+  DepartmentService,
+  getDepartmentService,
+} from "./services/DepartmentService";
+export * from "./services/MobileDepartmentRouteService";
+export {
+  RolePolicyError,
+  RoleService,
+  getRoleService,
+} from "./services/RoleService";
+export { SiteService } from "./services/SiteService";
+export { AdminOptionsRouteService } from "./services/AdminOptionsRouteService";
+export { SiteAccessRouteService } from "./services/SiteAccessRouteService";
+export {
+  buildMultiSiteWhereClause,
+  buildSiteWhereClause,
+  canAccessSite,
+  checkSiteRestriction,
+  getPrimarySiteId,
+  getSiteFilter,
+  getSiteFilters,
+  getUserSiteIds,
+  validateSiteAccess,
+} from "./services/SiteRestrictionService";
+export type { SiteRestrictionResult } from "./services/SiteRestrictionService";

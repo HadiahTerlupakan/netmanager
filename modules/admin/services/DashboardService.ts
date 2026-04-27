@@ -1,8 +1,19 @@
 import { AttendanceRepository } from "@/modules/attendance";
-import { WorkOrderRepository } from "@/modules/work-order";
 import { InventoryRepository } from "@/modules/inventory";
-import { UserRepository } from "@/modules/users";
 import { createPointClaimService } from "@/modules/marketing";
+import { UserRepository } from "@/modules/users";
+import { WorkOrderRepository } from "@/modules/work-order";
+import type {
+  DashboardLimitInput,
+  DashboardTenantInput,
+  DashboardUserDetails,
+  IAttendanceDashboardRepository,
+  IInventoryDashboardRepository,
+  IPointClaimDashboardService,
+  IUserDashboardRepository,
+  SiteStat,
+  IWorkOrderDashboardRepository,
+} from "../domain/ports/IAdminDashboardDependencies";
 import {
   buildRecentRange,
   buildTodayRange,
@@ -11,6 +22,12 @@ import {
   summarizeAttendance,
   summarizeWorkOrders,
 } from "./dashboard-helpers";
+
+const DEFAULT_LEADERBOARD_LIMIT = 5;
+const RECENT_PERIOD_DAYS = 30;
+const LOW_STOCK_PLACEHOLDER = 0;
+const INITIAL_RANK = 1;
+const UNKNOWN_USER_NAME = "Unknown";
 
 export type TopEmployee = {
   userId: string;
@@ -49,189 +66,189 @@ export type SystemSummary = {
   };
 };
 
-type DashboardTenantInput = {
-  tenantId: string;
+type DashboardServiceDependencies = {
+  attendanceRepository: IAttendanceDashboardRepository;
+  workOrderRepository: IWorkOrderDashboardRepository;
+  pointClaimService: IPointClaimDashboardService;
+  inventoryRepository: IInventoryDashboardRepository;
+  userRepository: IUserDashboardRepository;
 };
 
-type DashboardLimitInput = {
-  tenantId: string;
-  limit?: number;
-};
-
-export type SiteStat = {
-  siteId: string;
-  siteName: string;
-  count: number;
+type TopEmployeeScore = {
+  attendance: number;
+  workOrder: number;
+  total: number;
 };
 
 export class DashboardService {
-  private attendanceRepo = new AttendanceRepository();
-  private workOrderRepo = new WorkOrderRepository();
-  private pointClaimService = createPointClaimService();
-  private inventoryRepo = new InventoryRepository();
-  private userRepo = new UserRepository();
+  constructor(private readonly dependencies: DashboardServiceDependencies) {}
 
-  /**
-   * Get Integrated System Summary
-   */
+  /** Get integrated system summary for the admin dashboard. */
   async getSystemSummary(input: DashboardTenantInput): Promise<SystemSummary> {
     const { startOfDay, endOfDay } = buildTodayRange();
-
-    const inventory = await this.inventoryRepo.findAllBarang({
-      take: 1,
-      tenantId: input.tenantId,
-    });
-    const marketing = await this.pointClaimService.getDashboardSummary(
-      input.tenantId,
-    );
-
-    const { startDate: woStartDate } = buildRecentRange(30);
-    const woStats = await this.workOrderRepo.getStatistics(
-      { dateFrom: woStartDate },
-      input.tenantId,
-    );
-
-    const dailyAttendance = await this.attendanceRepo.getDailyStats(
-      startOfDay,
-      endOfDay,
-      undefined,
-      undefined,
-      input.tenantId,
-    );
-    const attendance = summarizeAttendance(dailyAttendance[0]);
+    const recentRange = buildRecentRange(RECENT_PERIOD_DAYS);
+    const [inventory, marketing, workOrderStats, dailyAttendance] =
+      await Promise.all([
+        this.dependencies.inventoryRepository.findAllBarang({
+          take: INITIAL_RANK,
+          tenantId: input.tenantId,
+        }),
+        this.dependencies.pointClaimService.getDashboardSummary(input.tenantId),
+        this.dependencies.workOrderRepository.getStatistics(
+          { dateFrom: recentRange.startDate },
+          input.tenantId,
+        ),
+        this.dependencies.attendanceRepository.getDailyStats(
+          startOfDay,
+          endOfDay,
+          undefined,
+          undefined,
+          input.tenantId,
+        ),
+      ]);
 
     return {
-      inventory: {
-        totalItems: inventory.total,
-        lowStockItems: 0,
-      },
+      inventory: this.mapInventorySummary(inventory.total),
       marketing,
-      workOrder: summarizeWorkOrders(woStats),
-      attendance,
+      workOrder: summarizeWorkOrders(workOrderStats),
+      attendance: summarizeAttendance(dailyAttendance[0]),
     };
   }
 
-  /**
-   * Get Top Employees based on integrated score (Attendance + WorkOrder)
-   * Score = Attendance Days + Completed Work Orders
-   */
+  /** Get top employees based on attendance and work order score. */
   async getTopEmployees(input: DashboardLimitInput): Promise<TopEmployee[]> {
-    const limit = input.limit ?? 5;
-    const { startDate, endDate } = buildRecentRange(30);
-
+    const limit = input.limit ?? DEFAULT_LEADERBOARD_LIMIT;
+    const recentRange = buildRecentRange(RECENT_PERIOD_DAYS);
     const [attendanceStats, workOrderStats] = await Promise.all([
-      this.attendanceRepo.getUserAttendanceStats(
-        startDate,
-        endDate,
+      this.dependencies.attendanceRepository.getUserAttendanceStats(
+        recentRange.startDate,
+        recentRange.endDate,
         undefined,
         undefined,
         input.tenantId,
       ),
-      this.workOrderRepo.getUserWorkOrderStats(
-        startDate,
-        endDate,
+      this.dependencies.workOrderRepository.getUserWorkOrderStats(
+        recentRange.startDate,
+        recentRange.endDate,
         input.tenantId,
       ),
     ]);
-
     const userScores = buildTopEmployeeScores(attendanceStats, workOrderStats);
     const sortedIds = sortTopEmployeeScores(userScores, limit);
 
-    if (sortedIds.length === 0) return [];
+    if (sortedIds.length === 0) {
+      return [];
+    }
 
-    const users = await this.userRepo.findManyWithFullDetails(
-      sortedIds.map(([id]) => id),
-      input.tenantId,
-    );
+    const userIds = sortedIds.map(([userId]) => userId);
+    const users =
+      await this.dependencies.userRepository.findManyWithFullDetails(
+        userIds,
+        input.tenantId,
+      );
 
     return sortedIds
-      .map(([userId, score], index): TopEmployee => {
-        const user = users.find(
-          (candidate: {
-            id: string;
-            name: string | null;
-            image: string | null;
-            sites: { name: string } | null;
-            departments: { name: string } | null;
-          }) => candidate.id === userId,
-        );
-        return {
-          userId,
-          name: user?.name || "Unknown",
-          role: user?.role?.name || null,
-          department: user?.departments?.name || null,
-          site: user?.sites?.name || null,
-          avatar: user?.image || null,
-          metrics: {
-            attendanceCount: score.attendance,
-            workOrderCount: score.workOrder,
-            totalScore: score.total,
-          },
-          rank: index + 1,
-        };
-      })
-      .filter((u) => u.name !== "Unknown");
+      .map(([userId, score], index) =>
+        this.mapTopEmployee(users, userId, score, index),
+      )
+      .filter((employee): employee is TopEmployee => employee !== null);
   }
 
-  /**
-   * Get Top Problematic Sites (High TROUBLESHOOT count)
-   */
+  /** Get sites with highest troubleshoot activity. */
   async getTopProblematicSites(
     input: DashboardLimitInput,
   ): Promise<SiteStat[]> {
-    const limit = input.limit ?? 5;
-    const { startDate, endDate } = buildRecentRange(30);
-
-    return this.workOrderRepo.getSiteStatsByType(
-      ["TROUBLESHOOT"],
-      limit,
-      startDate,
-      endDate,
-      input.tenantId,
-    );
+    return this.getSiteStatsByType(input, ["TROUBLESHOOT"]);
   }
 
-  /**
-   * Get Top Dismantle Sites (High DISCONNECTION count)
-   */
+  /** Get sites with highest disconnection activity. */
   async getTopDismantleSites(input: DashboardLimitInput): Promise<SiteStat[]> {
-    const limit = input.limit ?? 5;
-    const { startDate, endDate } = buildRecentRange(30);
-
-    return this.workOrderRepo.getSiteStatsByType(
-      ["DISCONNECTION"],
-      limit,
-      startDate,
-      endDate,
-      input.tenantId,
-    );
+    return this.getSiteStatsByType(input, ["DISCONNECTION"]);
   }
 
-  /**
-   * Get Top Installation Sites (High INSTALLATION count)
-   */
+  /** Get sites with highest installation activity. */
   async getTopInstallationSites(
     input: DashboardLimitInput,
   ): Promise<SiteStat[]> {
-    const limit = input.limit ?? 5;
-    const { startDate, endDate } = buildRecentRange(30);
+    return this.getSiteStatsByType(input, ["INSTALLATION"]);
+  }
 
-    return this.workOrderRepo.getSiteStatsByType(
-      ["INSTALLATION"],
+  private mapInventorySummary(totalItems: number) {
+    return {
+      totalItems,
+      lowStockItems: LOW_STOCK_PLACEHOLDER,
+    };
+  }
+
+  private mapTopEmployee(
+    users: DashboardUserDetails[],
+    userId: string,
+    score: TopEmployeeScore,
+    index: number,
+  ): TopEmployee | null {
+    const user = users.find((candidate) => candidate.id === userId);
+
+    if (!user?.name || user.name === UNKNOWN_USER_NAME) {
+      return null;
+    }
+
+    return {
+      userId,
+      name: user.name,
+      role: user.role?.name ?? null,
+      department: user.departments?.name ?? null,
+      site: user.sites?.name ?? null,
+      avatar: user.image ?? null,
+      metrics: {
+        attendanceCount: score.attendance,
+        workOrderCount: score.workOrder,
+        totalScore: score.total,
+      },
+      rank: index + INITIAL_RANK,
+    };
+  }
+
+  private async getSiteStatsByType(
+    input: DashboardLimitInput,
+    workOrderTypes: string[],
+  ): Promise<SiteStat[]> {
+    const limit = input.limit ?? DEFAULT_LEADERBOARD_LIMIT;
+    const recentRange = buildRecentRange(RECENT_PERIOD_DAYS);
+
+    return this.dependencies.workOrderRepository.getSiteStatsByType(
+      workOrderTypes,
       limit,
-      startDate,
-      endDate,
+      recentRange.startDate,
+      recentRange.endDate,
       input.tenantId,
     );
   }
 }
 
-// Singleton pattern (consistent with other services)
+/** Create a dashboard service with default repository implementations. */
+export function createDashboardService(
+  dependencies?: Partial<DashboardServiceDependencies>,
+): DashboardService {
+  return new DashboardService({
+    attendanceRepository:
+      dependencies?.attendanceRepository ?? new AttendanceRepository(),
+    workOrderRepository:
+      dependencies?.workOrderRepository ?? new WorkOrderRepository(),
+    pointClaimService:
+      dependencies?.pointClaimService ?? createPointClaimService(),
+    inventoryRepository:
+      dependencies?.inventoryRepository ?? new InventoryRepository(),
+    userRepository: dependencies?.userRepository ?? new UserRepository(),
+  });
+}
+
 let instance: DashboardService | null = null;
 
+/** Get singleton dashboard service instance. */
 export function getDashboardService(): DashboardService {
   if (!instance) {
-    instance = new DashboardService();
+    instance = createDashboardService();
   }
+
   return instance;
 }

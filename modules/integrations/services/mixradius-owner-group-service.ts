@@ -1,59 +1,47 @@
-import { prismaBilling } from "@/lib/prisma-billing";
+import type {
+  IMixRadiusOwnerGroupRepository,
+  MixRadiusOwnerGroupPayload,
+  MixRadiusOwnerGroupUpdatePayload,
+} from "../domain/ports/IMixRadiusOwnerGroupRepository";
+import { MixRadiusOwnerGroupRepository } from "../repositories/MixRadiusOwnerGroupRepository";
 
-export type MixRadiusOwnerGroupPayload = {
-  name: string;
-  owners: string[];
-  siteId?: string;
-  isActive?: boolean;
-  tenantId?: string;
-};
-
-export type MixRadiusOwnerGroupUpdatePayload = {
-  name?: string;
-  owners?: string[];
-  siteId?: string;
-  isActive?: boolean;
-  tenantId?: string;
-};
+export type { MixRadiusOwnerGroupPayload, MixRadiusOwnerGroupUpdatePayload };
 
 export class MixRadiusOwnerGroupService {
+  constructor(
+    private readonly ownerGroupRepository: IMixRadiusOwnerGroupRepository = new MixRadiusOwnerGroupRepository(),
+  ) {}
+
+  /** Get owner groups with optional tenant filter. */
   async getOwnerGroups(tenantId?: string) {
-    return prismaBilling.mixRadiusOwnerGroup.findMany({
-      where: tenantId ? { tenantId } : undefined,
-      orderBy: { name: "asc" },
-    });
+    return this.ownerGroupRepository.getOwnerGroups(tenantId);
   }
 
+  /** Get a single owner group. */
   async getOwnerGroup(id: string, tenantId?: string) {
-    return prismaBilling.mixRadiusOwnerGroup.findUnique({
-      where: tenantId ? { id, tenantId } : { id },
-    });
+    return this.ownerGroupRepository.getOwnerGroup(id, tenantId);
   }
 
+  /** Create a new owner group. */
   async createOwnerGroup(data: MixRadiusOwnerGroupPayload) {
-    return prismaBilling.mixRadiusOwnerGroup.create({
-      data,
-    });
+    return this.ownerGroupRepository.createOwnerGroup(data);
   }
 
+  /** Update an owner group. */
   async updateOwnerGroup(id: string, data: MixRadiusOwnerGroupUpdatePayload) {
-    const { tenantId, ...updateData } = data;
-    return prismaBilling.mixRadiusOwnerGroup.update({
-      where: tenantId ? { id, tenantId } : { id },
-      data: updateData,
-    });
+    return this.ownerGroupRepository.updateOwnerGroup(id, data);
   }
 
+  /** Delete an owner group. */
   async deleteOwnerGroup(id: string, tenantId?: string) {
-    return prismaBilling.mixRadiusOwnerGroup.delete({
-      where: tenantId ? { id, tenantId } : { id },
-    });
+    return this.ownerGroupRepository.deleteOwnerGroup(id, tenantId);
   }
 }
 
 let mixRadiusOwnerGroupServiceInstance: MixRadiusOwnerGroupService | null =
   null;
 
+/** Get the shared owner group service instance. */
 export function getMixRadiusOwnerGroupService(): MixRadiusOwnerGroupService {
   if (!mixRadiusOwnerGroupServiceInstance) {
     mixRadiusOwnerGroupServiceInstance = new MixRadiusOwnerGroupService();

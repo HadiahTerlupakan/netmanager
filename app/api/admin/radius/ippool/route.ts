@@ -1,81 +1,63 @@
-import { prisma } from '@/modules/database';
-import { RadiusRepository } from '@/modules/network';
-import { hasPermission } from '@/lib/rbac';
-import { apiSuccess, ApiErrors, ErrorCodes, apiError, createHandler } from '@/lib/api';
-import { logActivitySafe } from '@/lib/logger';
+import { RadiusAdminService, RadiusAdminServiceError } from "@/modules/network";
+import { hasPermission } from "@/lib/rbac";
+import { apiSuccess, ApiErrors, apiError, createHandler } from "@/lib/api";
+
+const radiusAdminService = new RadiusAdminService();
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:read')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat IP Pool');
-    }
+  if (!(await hasPermission("radius:read"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat IP Pool",
+    );
+  }
 
-    const { searchParams } = req.nextUrl;
-    const getStats = searchParams.get('stats') === 'true';
-    const poolName = searchParams.get('poolName');
-
+  try {
+    const poolName = req.nextUrl.searchParams.get("poolName") || undefined;
+    const getStats = req.nextUrl.searchParams.get("stats") === "true";
     const tenantId = ctx.session!.user.tenantId;
-    const radiusRepo = new RadiusRepository(prisma);
+    const result = await radiusAdminService.getIpPools({
+      tenantId,
+      poolName,
+      getStats,
+    });
 
-    if (getStats) {
-        const stats = await radiusRepo.getIpPoolStats(tenantId, poolName || undefined);
-        return apiSuccess({
-            data: stats,
-            poolName: poolName || 'all',
-        });
-    } else {
-        const pools = await radiusRepo.getAllIpPools(tenantId);
-
-        // Filter by pool name if provided
-        const filteredPools = poolName
-            ? pools.filter(pool => pool.poolName === poolName)
-            : pools;
-
-        return apiSuccess({
-            data: filteredPools,
-            count: filteredPools.length,
-            poolName: poolName || 'all',
-        });
-    }
-})
+    return apiSuccess(result);
+  } catch (error) {
+    return mapRadiusAdminError(error);
+  }
+});
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-    if (!await hasPermission('radius:create')) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menambah IP Pool');
-    }
+  if (!(await hasPermission("radius:create"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk menambah IP Pool",
+    );
+  }
 
-    const body = await req.json();
-    const { poolName, framedIpAddress } = body;
-
-    // Validation
-    if (!poolName || !framedIpAddress) {
-        return apiError('Pool name dan framed IP address wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
-
-    // Validate IP address format
-    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    if (!ipRegex.test(framedIpAddress)) {
-        return apiError('Format alamat IP tidak valid', ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
-
+  try {
     const tenantId = ctx.session!.user.tenantId;
-    const radiusRepo = new RadiusRepository(prisma);
+    const userId = ctx.session!.user.id;
+    const payload = await req.json();
+    const createdPool = await radiusAdminService.addIpPool({
+      tenantId,
+      userId,
+      poolName: payload.poolName,
+      framedIpAddress: payload.framedIpAddress,
+    });
 
-    const newPool = await radiusRepo.addToIpPool({
-        poolName,
-        framedIpAddress,
-    }, tenantId);
+    return apiSuccess(createdPool, {
+      status: 201,
+      message: "IP berhasil ditambahkan ke pool",
+    });
+  } catch (error) {
+    return mapRadiusAdminError(error);
+  }
+});
 
-    // System Log
-    logActivitySafe({
-        action: 'CREATE',
-        subject: 'IP Pool',
-        userId: ctx.session!.user.id,
-        details: {
-            id: (newPool as unknown as { id: string }).id,
-            poolName: (newPool as { poolName: string }).poolName,
-            ip: (newPool as { framedIpAddress: string }).framedIpAddress
-        }
-    })
+function mapRadiusAdminError(error: unknown) {
+  if (error instanceof RadiusAdminServiceError) {
+    return apiError(error.message, error.code, { status: error.status });
+  }
 
-    return apiSuccess(newPool, { status: 201, message: 'IP berhasil ditambahkan ke pool' });
-})
+  throw error;
+}

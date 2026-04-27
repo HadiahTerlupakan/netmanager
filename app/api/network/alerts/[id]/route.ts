@@ -1,7 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import { prisma } from "@/modules/database";
-import { networkAlertUpdateSchema } from "@/modules/network";
+import {
+  getNetworkAlertService,
+  networkAlertUpdateSchema,
+} from "@/modules/network";
 
 /**
  * @swagger
@@ -34,22 +36,15 @@ import { networkAlertUpdateSchema } from "@/modules/network";
  *       500:
  *         description: Server error
  */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const { id } = ctx.params;
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  const networkAlertService = getNetworkAlertService();
+  const alert = await networkAlertService.getAlertById(ctx.params.id);
 
-  try {
-    const alert = await prisma.networkAlerts.findUnique({
-      where: { id },
-    });
-
-    if (!alert) {
-      return ApiErrors.notFound("Alert");
-    }
-
-    return apiSuccess(alert);
-  } catch (prismaError: unknown) {
-    throw prismaError;
+  if (!alert) {
+    return ApiErrors.notFound("Alert");
   }
+
+  return apiSuccess(alert);
 });
 
 /**
@@ -120,46 +115,26 @@ export const PUT = createHandler(
     auth: true,
     schema: networkAlertUpdateSchema,
   },
-  async (req, ctx) => {
-    const { id } = ctx.params;
-    const data = ctx.validated;
+  async (_req, ctx) => {
+    const networkAlertService = getNetworkAlertService();
+    const isUpdated = await networkAlertService.updateAlert({
+      id: ctx.params.id,
+      data: ctx.validated,
+      userId: ctx.session!.user.id,
+    });
 
-    try {
-      const updateData: Record<string, unknown> = { ...data };
-
-      if (data.acknowledged) {
-        updateData.acknowledgedBy = ctx.session!.user.id;
-        updateData.acknowledgedAt = new Date();
-      }
-
-      if (data.resolved) {
-        updateData.resolvedBy = ctx.session!.user.id;
-        updateData.resolvedAt = new Date();
-      }
-
-      if (data.severity) updateData.severity = data.severity;
-      if (data.status) updateData.status = data.status;
-
-      await prisma.networkAlerts.update({
-        where: { id },
-        data: {
-          ...updateData,
-          updatedAt: new Date(),
-        },
-      });
-
-      // System Log
-      logActivitySafe({
-        action: "UPDATE",
-        subject: "Network Alert",
-        userId: ctx.session!.user.id,
-        details: { id, updates: updateData },
-      });
-
-      return apiSuccess({ message: "Alert berhasil diperbarui" });
-    } catch (prismaError: unknown) {
-      throw prismaError;
+    if (!isUpdated) {
+      return ApiErrors.notFound("Alert");
     }
+
+    logActivitySafe({
+      action: "UPDATE",
+      subject: "Network Alert",
+      userId: ctx.session!.user.id,
+      details: { id: ctx.params.id, updates: ctx.validated },
+    });
+
+    return apiSuccess({ message: "Alert berhasil diperbarui" });
   },
 );
 
@@ -190,32 +165,20 @@ export const PUT = createHandler(
  *       500:
  *         description: Server error
  */
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-  const { id } = ctx.params;
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
+  const networkAlertService = getNetworkAlertService();
+  const deletedAlert = await networkAlertService.deleteAlert(ctx.params.id);
 
-  try {
-    const alert = await prisma.networkAlerts.findUnique({
-      where: { id },
-    });
-
-    if (!alert) {
-      return ApiErrors.notFound("Alert");
-    }
-
-    await prisma.networkAlerts.delete({
-      where: { id },
-    });
-
-    // System Log
-    logActivitySafe({
-      action: "DELETE",
-      subject: "Network Alert",
-      userId: ctx.session!.user.id,
-      details: { id, title: alert.title },
-    });
-
-    return apiSuccess({ message: "Alert berhasil dihapus" });
-  } catch (prismaError: unknown) {
-    throw prismaError;
+  if (!deletedAlert) {
+    return ApiErrors.notFound("Alert");
   }
+
+  logActivitySafe({
+    action: "DELETE",
+    subject: "Network Alert",
+    userId: ctx.session!.user.id,
+    details: { id: ctx.params.id, title: deletedAlert.title },
+  });
+
+  return apiSuccess({ message: "Alert berhasil dihapus" });
 });

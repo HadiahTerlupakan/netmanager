@@ -1,7 +1,12 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
-import { InventoryRepository } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  InventoryRepository,
+} from "@/modules/inventory";
+
+const inventoryRouteService = getInventoryRouteService();
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 /**
@@ -31,12 +36,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-    const { prisma } = await import("@/modules/database");
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId || undefined;
+    siteId = await inventoryRouteService.getUserSiteId(user.id);
   }
 
   try {
@@ -52,7 +52,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (siteId) {
       const _hasStockInSite = (barang.barangGudang || []).some((bg) =>
         (
-          bg as { gudang?: { sites?: Array<{ id: string }> } }
+          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
         ).gudang?.sites?.some((s) => s.id === siteId),
       );
       // If it's a new item with no stock yet, we might still want to allow viewing if it's "visible"
@@ -67,7 +67,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     if (siteId) {
       filteredBarangGudang = (barang.barangGudang || []).filter((bg) =>
         (
-          bg as { gudang?: { sites?: Array<{ id: string }> } }
+          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
         ).gudang?.sites?.some((s) => s.id === siteId),
       );
     }
@@ -143,12 +143,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-    const { prisma } = await import("@/modules/database");
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId || undefined;
+    siteId = await inventoryRouteService.getUserSiteId(user.id);
   }
 
   try {
@@ -165,7 +160,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     if (siteId) {
       const hasAccessToBarang = (existingBarang.barangGudang || []).some((bg) =>
         (
-          bg as { gudang?: { sites?: Array<{ id: string }> } }
+          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
         ).gudang?.sites?.some((s) => s.id === siteId),
       );
       if (!hasAccessToBarang) {
@@ -262,12 +257,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
   let siteId: string | undefined = undefined;
   if (!isSuper && hasRestriction) {
-    const { prisma } = await import("@/modules/database");
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true },
-    });
-    siteId = dbUser?.siteId || undefined;
+    siteId = await inventoryRouteService.getUserSiteId(user.id);
   }
 
   try {
@@ -284,7 +274,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     if (siteId) {
       const hasAccessToBarang = (existingBarang.barangGudang || []).some((bg) =>
         (
-          bg as { gudang?: { sites?: Array<{ id: string }> } }
+          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
         ).gudang?.sites?.some((s) => s.id === siteId),
       );
       if (!hasAccessToBarang) {

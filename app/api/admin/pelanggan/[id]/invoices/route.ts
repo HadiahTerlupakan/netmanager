@@ -1,45 +1,21 @@
-import { prismaBilling } from '@/modules/database'
-import { prisma } from '@/modules/database'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { AdminCustomerInvoiceRouteService } from "@/modules/pelanggan";
 
-export const GET = createHandler({ auth: true }, async (request, ctx) => {
-    const tenantId = ctx.session!.user.tenantId
-    const isSuperAdmin = ctx.session!.user.isSuperAdmin
+const adminCustomerInvoiceRouteService = new AdminCustomerInvoiceRouteService();
 
-    // Tenant isolation: non-superAdmin users must have a tenantId
-    if (!tenantId && !isSuperAdmin) {
-        return ApiErrors.forbidden('Akses ditolak: tenant tidak teridentifikasi')
-    }
-
-    const { id: pelangganId } = ctx.params
-
-    // Verify customer exists and belongs to the caller's tenant
-    const customer = await prisma.pelanggan.findUnique({
-        where: {
-            id: pelangganId,
-            // Restrict to caller's tenant to prevent IDOR cross-tenant access.
-            // SuperAdmin (no tenantId) is exempt and can access all tenants.
-            ...(tenantId ? { tenantId } : {}),
-        }
-    })
-
-    if (!customer) {
-        return ApiErrors.notFound('Customer not found')
-    }
-
-    // Fetch invoices and their payments, scoped to caller's tenant
-    const invoices = await prismaBilling.invoice.findMany({
-        where: {
-            pelangganId,
-            ...(tenantId ? { tenantId } : {}),
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            payment: {
-                orderBy: { createdAt: 'desc' }
-            }
-        }
-    })
-
-    return apiSuccess(invoices)
-})
+export const GET = createHandler({ auth: true }, async (_request, ctx) => {
+  const tenantId = ctx.session!.user.tenantId;
+  const isSuperAdmin = ctx.session!.user.isSuperAdmin;
+  if (!tenantId && !isSuperAdmin) {
+    return ApiErrors.forbidden("Akses ditolak: tenant tidak teridentifikasi");
+  }
+  const invoices = await adminCustomerInvoiceRouteService.getCustomerInvoices({
+    pelangganId: ctx.params.id,
+    tenantId,
+    isSuperAdmin,
+  });
+  if (!invoices) {
+    return ApiErrors.notFound("Customer not found");
+  }
+  return apiSuccess(invoices);
+});

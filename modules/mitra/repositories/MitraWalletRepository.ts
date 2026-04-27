@@ -1,79 +1,55 @@
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { MitraTransactionType, Prisma } from "@prisma/client-mitra";
+import type {
+  EarningReferenceType,
+  IMitraWalletRepository,
+  WalletAdjustmentInput,
+  WalletMutationInput,
+  WalletSummaryQuery,
+} from "../domain/ports/IMitraWalletRepository";
+import {
+  toMitraTransactionEntity,
+  toMitraTypeEntity,
+  toMitraWalletEntity,
+  toWalletSummaryEntity,
+} from "../mappers/MitraDomainMapper";
 
-export type EarningReferenceType = "WORK_ORDER" | "CANVASING";
+const PENALTY_PREFIX = "[PENALTY]";
 
-type WalletTransactionPage = {
-  transactions: Array<Record<string, unknown>>;
-  total: number;
-  page: number;
-  totalPages: number;
-};
-
-type WalletSummary = {
-  balance: Prisma.Decimal;
-  totalEarnings: Prisma.Decimal;
-  totalWithdrawn: Prisma.Decimal;
-  earningsThisMonth: Prisma.Decimal | number;
-  earningsCount: number;
-};
-
-export class MitraWalletRepository {
+export class MitraWalletRepository implements IMitraWalletRepository {
   /** Mengambil wallet mitra berdasarkan user dan tenant opsional. */
   async findWalletByUserId(mitraId: string, tenantId?: string) {
-    return prismaMitra.mitraWallet.findFirst({
-      where: {
-        mitraId,
-        ...(tenantId && { mitra: { tenantId } }),
-      },
+    const wallet = await prismaMitra.mitraWallet.findFirst({
+      where: { mitraId, ...(tenantId && { mitra: { tenantId } }) },
     });
+
+    return wallet ? toMitraWalletEntity(wallet) : null;
   }
 
-  /** Mengambil tipe mitra sederhana untuk validasi pembuatan wallet otomatis. */
+  /** Mengambil tipe mitra untuk validasi wallet otomatis. */
   async findMitraTypeById(mitraId: string, tenantId?: string) {
-    return prismaMitra.mitra.findFirst({
-      where: {
-        id: mitraId,
-        ...(tenantId && { tenantId }),
-      },
+    const mitra = await prismaMitra.mitra.findFirst({
+      where: { id: mitraId, ...(tenantId && { tenantId }) },
       select: { mitraType: true },
     });
+
+    return mitra ? toMitraTypeEntity(mitra) : null;
   }
 
   /** Membuat wallet kosong untuk mitra. */
   async createWallet(mitraId: string) {
-    return prismaMitra.mitraWallet.create({
-      data: { mitraId },
-    });
+    const wallet = await prismaMitra.mitraWallet.create({ data: { mitraId } });
+    return toMitraWalletEntity(wallet);
   }
 
-  /** Menambahkan pendapatan dan memperbarui saldo wallet secara atomik. */
-  async addEarning(params: {
-    userId: string;
-    amount: number;
-    description: string;
-    referenceId?: string;
-    referenceType?: EarningReferenceType;
-  }) {
+  /** Menambahkan pendapatan wallet secara atomik. */
+  async addEarning(params: WalletMutationInput) {
     await prismaMitra.$transaction(async (tx) => {
       const wallet = await this.findOrCreateWalletTx(tx, params.userId);
-
-      await this.assertNoDuplicateEarningTx(tx, {
-        walletId: wallet.id,
-        referenceId: params.referenceId,
-      });
-
+      await this.assertNoDuplicateEarningTx(tx, wallet.id, params.referenceId);
       await tx.mitraTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount: params.amount,
-          type: MitraTransactionType.EARNING,
-          description: params.description,
-          referenceId: params.referenceId,
-          referenceType: params.referenceType,
-        },
+        data: this.buildEarningTransactionData(wallet.id, params),
       });
-
       await tx.mitraWallet.update({
         where: { id: wallet.id },
         data: {
@@ -84,49 +60,23 @@ export class MitraWalletRepository {
     });
   }
 
-  /** Mencatat penalti dan mengurangi saldo wallet secara atomik. */
-  async deductBalance(params: {
-    userId: string;
-    amount: number;
-    description: string;
-    referenceId?: string;
-    referenceType?: EarningReferenceType;
-  }) {
+  /** Mengurangi saldo wallet untuk penalti secara atomik. */
+  async deductBalance(params: WalletMutationInput) {
     await prismaMitra.$transaction(async (tx) => {
       const wallet = await this.findOrCreateWalletTx(tx, params.userId);
-
-      await this.assertNoDuplicatePenaltyTx(tx, {
-        walletId: wallet.id,
-        referenceId: params.referenceId,
-      });
-
+      await this.assertNoDuplicatePenaltyTx(tx, wallet.id, params.referenceId);
       await tx.mitraTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount: -params.amount,
-          type: MitraTransactionType.ADJUSTMENT,
-          description: `[PENALTY] ${params.description}`,
-          referenceId: params.referenceId,
-          referenceType: params.referenceType,
-        },
+        data: this.buildPenaltyTransactionData(wallet.id, params),
       });
-
       await tx.mitraWallet.update({
         where: { id: wallet.id },
-        data: {
-          balance: { decrement: params.amount },
-        },
+        data: { balance: { decrement: params.amount } },
       });
     });
   }
 
-  /** Menambahkan penyesuaian manual admin dan menvalidasi saldo negatif. */
-  async addAdjustment(params: {
-    userId: string;
-    amount: number;
-    description: string;
-    tenantId?: string;
-  }) {
+  /** Menambahkan penyesuaian manual admin ke wallet. */
+  async addAdjustment(params: WalletAdjustmentInput) {
     await prismaMitra.$transaction(async (tx) => {
       const wallet = await tx.mitraWallet.findFirst({
         where: {
@@ -134,31 +84,14 @@ export class MitraWalletRepository {
           ...(params.tenantId && { mitra: { tenantId: params.tenantId } }),
         },
       });
-
-      if (!wallet) {
-        throw new Error("Wallet mitra tidak ditemukan");
-      }
-
-      if (params.amount < 0 && wallet.balance.toNumber() + params.amount < 0) {
-        throw new Error("Saldo tidak cukup untuk penyesuaian ini");
-      }
-
+      if (!wallet) throw new Error("Wallet mitra tidak ditemukan");
+      this.assertAdjustmentBalance(wallet.balance.toNumber(), params.amount);
       await tx.mitraTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount: params.amount,
-          type: MitraTransactionType.ADJUSTMENT,
-          description: `[Admin] ${params.description}`,
-        },
+        data: this.buildAdjustmentTransactionData(wallet.id, params),
       });
-
       await tx.mitraWallet.update({
         where: { id: wallet.id },
-        data: {
-          balance: { increment: params.amount },
-          totalEarnings:
-            params.amount > 0 ? { increment: params.amount } : undefined,
-        },
+        data: this.buildAdjustmentWalletData(params.amount),
       });
     });
   }
@@ -169,12 +102,9 @@ export class MitraWalletRepository {
     tenantId: string | undefined,
     page: number,
     limit: number,
-  ): Promise<WalletTransactionPage | null> {
+  ) {
     const wallet = await this.findWalletByUserId(userId, tenantId);
-    if (!wallet) {
-      return null;
-    }
-
+    if (!wallet) return null;
     const skip = (page - 1) * limit;
     const [transactions, total] = await Promise.all([
       prismaMitra.mitraTransaction.findMany({
@@ -183,34 +113,24 @@ export class MitraWalletRepository {
         skip,
         take: limit,
       }),
-      prismaMitra.mitraTransaction.count({
-        where: { walletId: wallet.id },
-      }),
+      prismaMitra.mitraTransaction.count({ where: { walletId: wallet.id } }),
     ]);
 
     return {
-      transactions: transactions as Array<Record<string, unknown>>,
+      transactions: transactions.map(toMitraTransactionEntity),
       total,
       page,
       totalPages: Math.ceil(total / limit),
     };
   }
 
-  /** Mengambil ringkasan pendapatan bulanan wallet mitra. */
-  async getEarningsSummaryByUserId(params: {
-    userId: string;
-    tenantId?: string;
-    startDate: Date;
-    endDate: Date;
-  }): Promise<WalletSummary | null> {
+  /** Mengambil ringkasan pendapatan wallet pada periode tertentu. */
+  async getEarningsSummaryByUserId(params: WalletSummaryQuery) {
     const wallet = await this.findWalletByUserId(
       params.userId,
       params.tenantId,
     );
-    if (!wallet) {
-      return null;
-    }
-
+    if (!wallet) return null;
     const [monthlyEarnings, monthlyCount] = await Promise.all([
       prismaMitra.mitraTransaction.aggregate({
         where: {
@@ -229,13 +149,91 @@ export class MitraWalletRepository {
       }),
     ]);
 
-    return {
-      balance: wallet.balance,
-      totalEarnings: wallet.totalEarnings,
-      totalWithdrawn: wallet.totalWithdrawn,
+    return toWalletSummaryEntity({
+      balance: new Prisma.Decimal(wallet.balance),
+      totalEarnings: new Prisma.Decimal(wallet.totalEarnings),
+      totalWithdrawn: new Prisma.Decimal(wallet.totalWithdrawn),
       earningsThisMonth: monthlyEarnings._sum.amount || 0,
       earningsCount: monthlyCount,
+    });
+  }
+
+  /** Mengecek transaksi komisi duplikat berdasarkan referensi. */
+  async findTransactionByReferenceId(referenceId: string) {
+    const transaction = await prismaMitra.mitraTransaction.findFirst({
+      where: { referenceId },
+    });
+
+    return transaction ? toMitraTransactionEntity(transaction) : null;
+  }
+
+  /** Menghitung transaksi earning bulanan berdasarkan keyword deskripsi. */
+  async countMonthlyEarningsByDescription(params: {
+    mitraId: string;
+    keyword: string;
+    startDate: Date;
+  }) {
+    return prismaMitra.mitraTransaction.count({
+      where: {
+        wallet: { mitraId: params.mitraId },
+        type: "EARNING",
+        description: { contains: params.keyword },
+        createdAt: { gte: params.startDate },
+      },
+    });
+  }
+
+  private buildEarningTransactionData(
+    walletId: string,
+    params: WalletMutationInput,
+  ) {
+    return {
+      walletId,
+      amount: params.amount,
+      type: MitraTransactionType.EARNING,
+      description: params.description,
+      referenceId: params.referenceId,
+      referenceType: params.referenceType,
     };
+  }
+
+  private buildPenaltyTransactionData(
+    walletId: string,
+    params: WalletMutationInput,
+  ) {
+    return {
+      walletId,
+      amount: -params.amount,
+      type: MitraTransactionType.ADJUSTMENT,
+      description: `${PENALTY_PREFIX} ${params.description}`,
+      referenceId: params.referenceId,
+      referenceType: params.referenceType,
+    };
+  }
+
+  private buildAdjustmentTransactionData(
+    walletId: string,
+    params: WalletAdjustmentInput,
+  ) {
+    return {
+      walletId,
+      amount: params.amount,
+      type: MitraTransactionType.ADJUSTMENT,
+      description: `[Admin] ${params.description}`,
+    };
+  }
+
+  private buildAdjustmentWalletData(amount: number) {
+    return {
+      balance: { increment: amount },
+      totalEarnings: amount > 0 ? { increment: amount } : undefined,
+    };
+  }
+
+  private assertAdjustmentBalance(currentBalance: number, amount: number) {
+    if (amount < 0 && currentBalance + amount < 0) {
+      throw new Error("Saldo tidak cukup untuk penyesuaian ini");
+    }
   }
 
   private async findOrCreateWalletTx(
@@ -245,66 +243,49 @@ export class MitraWalletRepository {
     const wallet = await tx.mitraWallet.findFirst({
       where: { mitraId: userId },
     });
-
-    if (wallet) {
-      return wallet;
-    }
-
-    return tx.mitraWallet.create({
-      data: { mitraId: userId },
-    });
+    if (wallet) return wallet;
+    return tx.mitraWallet.create({ data: { mitraId: userId } });
   }
 
   private async assertNoDuplicateEarningTx(
     tx: Prisma.TransactionClient,
-    params: { walletId: string; referenceId?: string },
+    walletId: string,
+    referenceId?: string,
   ) {
-    if (!params.referenceId) {
-      return;
-    }
-
+    if (!referenceId) return;
     const existing = await tx.mitraTransaction.findFirst({
-      where: {
-        walletId: params.walletId,
-        referenceId: params.referenceId,
-        type: "EARNING",
-      },
+      where: { walletId, referenceId, type: "EARNING" },
     });
-
-    if (existing) {
-      throw new Error("Transaksi sudah ada untuk referensi ini");
-    }
+    if (existing) throw new Error("Transaksi sudah ada untuk referensi ini");
   }
 
   private async assertNoDuplicatePenaltyTx(
     tx: Prisma.TransactionClient,
-    params: { walletId: string; referenceId?: string },
+    walletId: string,
+    referenceId?: string,
   ) {
-    if (!params.referenceId) {
-      return;
-    }
-
+    if (!referenceId) return;
     const existing = await tx.mitraTransaction.findFirst({
       where: {
-        walletId: params.walletId,
-        referenceId: params.referenceId,
+        walletId,
+        referenceId,
         type: "ADJUSTMENT",
-        description: { contains: "[PENALTY]" },
+        description: { contains: PENALTY_PREFIX },
       },
     });
-
-    if (existing) {
+    if (existing)
       throw new Error("Transaksi penalti sudah ada untuk referensi ini");
-    }
   }
 }
 
-let instance: MitraWalletRepository | null = null;
+let instance: IMitraWalletRepository | null = null;
 
-export function getMitraWalletRepository() {
+export function getMitraWalletRepository(): IMitraWalletRepository {
   if (!instance) {
     instance = new MitraWalletRepository();
   }
 
   return instance;
 }
+
+export type { EarningReferenceType };

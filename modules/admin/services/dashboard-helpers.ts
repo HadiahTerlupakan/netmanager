@@ -39,6 +39,7 @@ type TopEmployeeScore = {
   total: number;
 };
 
+/** Build today's date range for dashboard queries. */
 export function buildTodayRange() {
   const now = new Date();
   return {
@@ -47,6 +48,7 @@ export function buildTodayRange() {
   };
 }
 
+/** Build recent date range based on day offset. */
 export function buildRecentRange(days: number) {
   const endDate = new Date();
   const startDate = new Date();
@@ -55,6 +57,7 @@ export function buildRecentRange(days: number) {
   return { startDate, endDate };
 }
 
+/** Summarize marketing claims into dashboard counters. */
 export function summarizeMarketingClaims(claims: ClaimSummaryInput[]) {
   return claims.reduce(
     (summary, claim) => {
@@ -75,6 +78,7 @@ export function summarizeMarketingClaims(claims: ClaimSummaryInput[]) {
   );
 }
 
+/** Summarize work order statistics into dashboard cards. */
 export function summarizeWorkOrders(stats: WorkOrderStatsInput) {
   return {
     pending: stats.pending || 0,
@@ -84,6 +88,7 @@ export function summarizeWorkOrders(stats: WorkOrderStatsInput) {
   };
 }
 
+/** Summarize daily attendance into dashboard cards. */
 export function summarizeAttendance(stats?: AttendanceDailyStatsInput) {
   return {
     present: stats?.present || 0,
@@ -92,6 +97,7 @@ export function summarizeAttendance(stats?: AttendanceDailyStatsInput) {
   };
 }
 
+/** Build score map for employee leaderboard ranking. */
 export function buildTopEmployeeScores(
   attendanceStats: AttendanceUserStatInput[],
   workOrderStats: WorkOrderUserStatInput[],
@@ -129,6 +135,7 @@ export function buildTopEmployeeScores(
   return scores;
 }
 
+/** Sort employee scores and cap the leaderboard size. */
 export function sortTopEmployeeScores(
   scores: Map<string, TopEmployeeScore>,
   limit: number,

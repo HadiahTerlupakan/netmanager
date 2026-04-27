@@ -1,42 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getMobileAuthPayload } from '@/lib/mobile-api-auth';
-import { prisma } from '@/modules/database';
-import { apiError, ErrorCodes } from '@/lib/api-response'
+import { NextRequest, NextResponse } from "next/server";
 
-/**
- * GET /api/mobile/departments
- * Get list of departments for work order request picker
- */
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { getMobileDepartments } from "@/modules/roles";
+
+/** Mengambil daftar departemen untuk picker mobile work order. */
 export async function GET(request: NextRequest) {
-    try {
-        const authResult = await getMobileAuthPayload(request);
-        if (authResult instanceof NextResponse) {
-            return authResult;
-        }
-
-        const { tenantId } = authResult;
-
-        // Fetch departments enabled for mobile WO request
-        const departments = await prisma.departments.findMany({
-            where: {
-                showInMobileWO: true, // Only show departments enabled for mobile WO
-                tenantId
-            },
-            select: {
-                id: true,
-                name: true,
-            },
-            orderBy: {
-                name: 'asc',
-            },
-        });
-
-        return NextResponse.json({
-            success: true,
-            data: departments,
-        });
-    } catch (error) {
-        console.error('Error fetching departments:', error);
-        return apiError('Gagal mengambil daftar departemen', ErrorCodes.INTERNAL_ERROR, { status: 500 });
+  try {
+    const authResult = await getMobileAuthPayload(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
+
+    return NextResponse.json({
+      success: true,
+      data: await getMobileDepartments(),
+    });
+  } catch (error) {
+    console.error("Error fetching departments:", error);
+    return apiError(
+      "Gagal mengambil daftar departemen",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
+  }
 }

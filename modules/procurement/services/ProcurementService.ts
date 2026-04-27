@@ -1,78 +1,215 @@
-import { randomUUID } from 'crypto';
-import { ProcurementRepository } from '../repositories/ProcurementRepository';
+import { randomUUID } from "crypto";
+
+import type { PurchaseOrderDTO } from "../dto/ProcurementDTO";
+import type { PurchaseRequestEntity } from "../domain/entities/PurchaseRequest";
+import type {
+  CreatePurchaseOrderItemInput,
+  IProcurementRepository,
+} from "../domain/ports/IProcurementRepository";
+import { toPurchaseOrderDTO } from "../mappers/ProcurementMapper";
+import { ProcurementRepository } from "../repositories/ProcurementRepository";
+
+const EMPTY_RESULT_TOTAL = 0;
+const NO_SUPPLIER_KEY = "NO_SUPPLIER";
+const NO_ELIGIBLE_PR_ERROR = "No eligible APPROVED Purchase Requests found";
+
+interface AggregatedPurchaseOrderItem {
+  barangId: string;
+  quantity: number;
+  unitPrice: number;
+}
 
 export class ProcurementService {
-    private repo: ProcurementRepository
+  private readonly procurementRepository: IProcurementRepository;
 
-    constructor() {
-        this.repo = new ProcurementRepository()
+  constructor(
+    procurementRepository: IProcurementRepository = new ProcurementRepository(),
+  ) {
+    this.procurementRepository = procurementRepository;
+  }
+
+  /** Membuat purchase order dari kumpulan purchase request yang sudah approved. */
+  async generatePOFromPRs(
+    prIds: string[],
+    userId: string,
+    overrideSupplierId?: string,
+  ): Promise<PurchaseOrderDTO[]> {
+    const purchaseRequests =
+      await this.procurementRepository.findApprovedPRs(prIds);
+    validatePurchaseRequests(purchaseRequests);
+
+    const purchaseRequestsBySupplier = groupPRsBySupplier(
+      purchaseRequests,
+      overrideSupplierId,
+    );
+
+    return await this.createPurchaseOrders(purchaseRequestsBySupplier, userId);
+  }
+
+  /** Menghasilkan purchase order untuk setiap grup supplier. */
+  private async createPurchaseOrders(
+    purchaseRequestsBySupplier: Map<string, PurchaseRequestEntity[]>,
+    userId: string,
+  ): Promise<PurchaseOrderDTO[]> {
+    const results: PurchaseOrderDTO[] = [];
+
+    for (const [supplierKey, purchaseRequests] of purchaseRequestsBySupplier) {
+      const purchaseOrder = await this.createPurchaseOrderForSupplierGroup({
+        supplierKey,
+        purchaseRequests,
+        userId,
+      });
+      results.push(toPurchaseOrderDTO(purchaseOrder));
     }
 
-    async generatePOFromPRs(prIds: string[], userId: string, overrideSupplierId?: string) {
-        const prs = await this.repo.findApprovedPRs(prIds);
+    return results;
+  }
 
-        if (prs.length === 0) throw new Error("No eligible APPROVED Purchase Requests found");
+  /** Menghasilkan satu purchase order untuk satu grup supplier. */
+  private async createPurchaseOrderForSupplierGroup(input: {
+    supplierKey: string;
+    purchaseRequests: PurchaseRequestEntity[];
+    userId: string;
+  }) {
+    const tenantId = input.purchaseRequests[0]?.tenantId ?? null;
+    const poNumber =
+      await this.procurementRepository.generatePONumber(tenantId);
+    const supplierId = normalizeSupplierId(input.supplierKey);
+    const aggregatedItems = aggregatePurchaseOrderItems(input.purchaseRequests);
 
-        const prsBySupplier = new Map<string | null, typeof prs>();
+    return await this.procurementRepository.createPOWithItems({
+      id: randomUUID(),
+      poNumber,
+      supplierId,
+      createdBy: input.userId,
+      tenantId,
+      totalAmount: calculateTotalAmount(aggregatedItems),
+      items: buildPurchaseOrderItems(aggregatedItems, tenantId),
+      prIds: input.purchaseRequests.map(
+        (purchaseRequest) => purchaseRequest.id,
+      ),
+    });
+  }
+}
 
-        for (const pr of prs) {
-            let supplierId = overrideSupplierId || null;
+function validatePurchaseRequests(
+  purchaseRequests: PurchaseRequestEntity[],
+): void {
+  if (purchaseRequests.length > EMPTY_RESULT_TOTAL) {
+    return;
+  }
 
-            if (!supplierId) {
-                const suppliers = new Set(pr.items.map((i) => i.barang.supplierId).filter(Boolean));
-                if (suppliers.size === 1) {
-                    supplierId = Array.from(suppliers)[0] as string;
-                } else if (suppliers.size > 1) {
-                    supplierId = Array.from(suppliers)[0] as string;
-                }
-            }
+  throw new Error(NO_ELIGIBLE_PR_ERROR);
+}
 
-            const key = supplierId || 'NO_SUPPLIER';
-            if (!prsBySupplier.has(key)) {
-                prsBySupplier.set(key, []);
-            }
-            prsBySupplier.get(key)!.push(pr);
-        }
+function groupPRsBySupplier(
+  purchaseRequests: PurchaseRequestEntity[],
+  overrideSupplierId?: string,
+): Map<string, PurchaseRequestEntity[]> {
+  const groupedPurchaseRequests = new Map<string, PurchaseRequestEntity[]>();
 
-        const results = [];
+  for (const purchaseRequest of purchaseRequests) {
+    const supplierKey = resolveSupplierGroupKey(
+      purchaseRequest,
+      overrideSupplierId,
+    );
+    const currentGroup = groupedPurchaseRequests.get(supplierKey) ?? [];
+    groupedPurchaseRequests.set(supplierKey, [
+      ...currentGroup,
+      purchaseRequest,
+    ]);
+  }
 
-        for (const [key, groupPrs] of prsBySupplier) {
-            const tenantId = groupPrs[0]?.tenantId;
-            const poNumber = await this.repo.generatePONumber(tenantId);
-            const realSupplierId = key === 'NO_SUPPLIER' ? null : key;
+  return groupedPurchaseRequests;
+}
 
-            const itemMap = new Map<string, { qty: number, price: number, barangId: string }>();
+function resolveSupplierGroupKey(
+  purchaseRequest: PurchaseRequestEntity,
+  overrideSupplierId?: string,
+): string {
+  if (overrideSupplierId) {
+    return overrideSupplierId;
+  }
 
-            for (const pr of groupPrs) {
-                for (const item of pr.items) {
-                    const current = itemMap.get(item.barangId) || { qty: 0, price: item.hargaPerUnit, barangId: item.barangId };
-                    current.qty += item.jumlah;
-                    itemMap.set(item.barangId, { ...current, price: item.hargaPerUnit });
-                }
-            }
+  const supplierIds = getUniqueSupplierIds(purchaseRequest);
+  return supplierIds[0] ?? NO_SUPPLIER_KEY;
+}
 
-            const po = await this.repo.createPOWithItems({
-                id: randomUUID(),
-                poNumber,
-                supplierId: realSupplierId,
-                status: 'DRAFT',
-                createdBy: userId,
-                tenantId: tenantId,
-                totalAmount: Array.from(itemMap.values()).reduce((sum, i) => sum + (i.qty * i.price), 0),
-                items: Array.from(itemMap.values()).map((i) => ({
-                    id: randomUUID(),
-                    barangId: i.barangId,
-                    quantity: i.qty,
-                    unitPrice: i.price,
-                    totalPrice: i.qty * i.price,
-                    tenantId: tenantId
-                })),
-                prIds: groupPrs.map(pr => pr.id)
-            });
+function getUniqueSupplierIds(
+  purchaseRequest: PurchaseRequestEntity,
+): string[] {
+  return Array.from(
+    new Set(
+      purchaseRequest.items
+        .map((item) => item.barang.supplierId)
+        .filter((supplierId): supplierId is string => Boolean(supplierId)),
+    ),
+  );
+}
 
-            results.push(po);
-        }
+function normalizeSupplierId(supplierKey: string): string | null {
+  return supplierKey === NO_SUPPLIER_KEY ? null : supplierKey;
+}
 
-        return results;
-    }
+function aggregatePurchaseOrderItems(
+  purchaseRequests: PurchaseRequestEntity[],
+): AggregatedPurchaseOrderItem[] {
+  const itemMap = new Map<string, AggregatedPurchaseOrderItem>();
+
+  for (const purchaseRequest of purchaseRequests) {
+    mergePurchaseRequestItems(itemMap, purchaseRequest);
+  }
+
+  return Array.from(itemMap.values());
+}
+
+function mergePurchaseRequestItems(
+  itemMap: Map<string, AggregatedPurchaseOrderItem>,
+  purchaseRequest: PurchaseRequestEntity,
+): void {
+  for (const item of purchaseRequest.items) {
+    const currentItem = itemMap.get(item.barangId);
+    const nextItem = buildAggregatedItem(item, currentItem);
+    itemMap.set(item.barangId, nextItem);
+  }
+}
+
+function buildAggregatedItem(
+  item: PurchaseRequestEntity["items"][number],
+  currentItem?: AggregatedPurchaseOrderItem,
+): AggregatedPurchaseOrderItem {
+  if (!currentItem) {
+    return {
+      barangId: item.barangId,
+      quantity: item.jumlah,
+      unitPrice: item.hargaPerUnit,
+    };
+  }
+
+  return {
+    barangId: item.barangId,
+    quantity: currentItem.quantity + item.jumlah,
+    unitPrice: item.hargaPerUnit,
+  };
+}
+
+function calculateTotalAmount(items: AggregatedPurchaseOrderItem[]): number {
+  return items.reduce(
+    (currentTotal, item) => currentTotal + item.quantity * item.unitPrice,
+    EMPTY_RESULT_TOTAL,
+  );
+}
+
+function buildPurchaseOrderItems(
+  items: AggregatedPurchaseOrderItem[],
+  tenantId: string | null,
+): CreatePurchaseOrderItemInput[] {
+  return items.map((item) => ({
+    id: randomUUID(),
+    barangId: item.barangId,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.quantity * item.unitPrice,
+    tenantId,
+  }));
 }

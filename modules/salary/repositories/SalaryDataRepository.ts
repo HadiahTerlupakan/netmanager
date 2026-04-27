@@ -1,49 +1,27 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { SalaryUserMapper } from "../mappers/SalaryUserMapper";
 import type {
-  PrismaClient,
-  Prisma,
-  EmployeeLoan,
-  LoanPayment,
-  Attendance,
-} from "@prisma/client";
-import type { RateType, EmployeeType, PtkpStatus } from "@prisma/client";
+  ISalaryUserRepository,
+  SalaryUserFilters,
+  UpdateSalaryUserConfigInput,
+} from "../domain/ports/ISalaryUserRepository";
+import type {
+  SalaryUserConfigEntity,
+  SalaryUserDetailEntity,
+  SalaryUserListEntity,
+  SalaryUserWorkDaysEntity,
+} from "../domain/entities/SalaryUserEntity";
 
-export interface UserSalaryConfig {
-  id: string;
-  name: string | null;
-  basicSalary: number | null;
-  employeeType: EmployeeType;
-  departmentId: string | null;
-  siteId: string | null;
-  payPeriodDay: number | null;
-  payDay: number | null;
-  woIncentiveEnabled: boolean;
-  woIncentiveRate: number | null;
-  lateDeductionRate: number | null;
-  absentDeductionRate: number | null;
-  overtimeRateNormal: number | null;
-  overtimeRateHoliday: number | null;
-  overtimeRateNational: number | null;
-  overtimeCalcTypeNormal: RateType | null;
-  overtimeCalcTypeHoliday: RateType | null;
-  overtimeCalcTypeNational: RateType | null;
-  workDays: string | null;
-  joinDate: Date | null;
-  ptkpStatus: PtkpStatus | null;
-  bpjsKesehatan: boolean;
-  bpjsKetenagakerjaan: boolean;
-}
+export type { SalaryUserConfigEntity as UserSalaryConfig };
 
-export class SalaryUserRepository {
+export class SalaryUserRepository implements ISalaryUserRepository {
   constructor(private client: PrismaClient = prisma) {}
 
   /** Get salary user list with detailed payroll configuration. */
-  async findSalaryUsers() {
-    return this.client.user.findMany({
-      where: {
-        basicSalary: { not: null },
-        isActive: true,
-      },
+  async findSalaryUsers(): Promise<SalaryUserListEntity[]> {
+    const users = await this.client.user.findMany({
+      where: { basicSalary: { not: null }, isActive: true },
       select: {
         id: true,
         name: true,
@@ -63,23 +41,19 @@ export class SalaryUserRepository {
         ptkpStatus: true,
         bpjsKesehatan: true,
         bpjsKetenagakerjaan: true,
-        departments: {
-          select: { name: true },
-        },
-        role: {
-          select: { name: true },
-        },
+        departments: { select: { name: true } },
+        role: { select: { name: true } },
       },
       orderBy: { name: "asc" },
     });
+
+    return users.map((user) => SalaryUserMapper.toListEntity(user));
   }
 
   /** Get all active users for salary onboarding list. */
-  async findAllActiveUsersForSalaryList() {
-    return this.client.user.findMany({
-      where: {
-        isActive: true,
-      },
+  async findAllActiveUsersForSalaryList(): Promise<SalaryUserListEntity[]> {
+    const users = await this.client.user.findMany({
+      where: { isActive: true },
       select: {
         id: true,
         name: true,
@@ -89,11 +63,15 @@ export class SalaryUserRepository {
       },
       orderBy: { name: "asc" },
     });
+
+    return users.map((user) => SalaryUserMapper.toListEntity(user));
   }
 
   /** Get salary user detail by ID. */
-  async findSalaryUserById(userId: string) {
-    return this.client.user.findUnique({
+  async findSalaryUserById(
+    userId: string,
+  ): Promise<SalaryUserDetailEntity | null> {
+    const user = await this.client.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -115,30 +93,34 @@ export class SalaryUserRepository {
         ptkpStatus: true,
         bpjsKesehatan: true,
         bpjsKetenagakerjaan: true,
-        departments: {
-          select: { name: true },
-        },
+        departments: { select: { name: true } },
         userSalaryComponents: {
           where: { isActive: true },
-          include: {
-            component: true,
-          },
+          include: { component: true },
           orderBy: { component: { type: "asc" } },
         },
       },
     });
+
+    return user ? SalaryUserMapper.toDetailEntity(user) : null;
   }
 
   /** Update salary-related user configuration. */
-  async updateSalaryConfig(userId: string, data: Prisma.UserUpdateInput) {
-    return this.client.user.update({
+  async updateSalaryConfig(
+    userId: string,
+    data: UpdateSalaryUserConfigInput,
+  ): Promise<void> {
+    await this.client.user.update({
       where: { id: userId },
-      data,
+      data: data as Prisma.UserUpdateInput,
     });
   }
 
-  async findSalaryConfigById(userId: string): Promise<UserSalaryConfig | null> {
-    return this.client.user.findUnique({
+  /** Get salary configuration by user ID. */
+  async findSalaryConfigById(
+    userId: string,
+  ): Promise<SalaryUserConfigEntity | null> {
+    const user = await this.client.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -165,14 +147,30 @@ export class SalaryUserRepository {
         bpjsKesehatan: true,
         bpjsKetenagakerjaan: true,
       },
-    }) as Promise<UserSalaryConfig | null>;
+    });
+
+    return user ? SalaryUserMapper.toConfigEntity(user) : null;
   }
 
+  /** Get active users with salary configuration. */
   async findManyActiveWithSalaryConfig(
-    where?: Prisma.UserWhereInput,
-  ): Promise<UserSalaryConfig[]> {
-    return this.client.user.findMany({
-      where: { isActive: true, basicSalary: { not: null }, ...where },
+    filters?: SalaryUserFilters,
+  ): Promise<SalaryUserConfigEntity[]> {
+    const users = await this.client.user.findMany({
+      where: {
+        isActive: true,
+        basicSalary: { not: null },
+        ...(filters?.departmentId
+          ? { departmentId: filters.departmentId }
+          : {}),
+        ...(filters?.siteId ? { siteId: filters.siteId } : {}),
+        ...(filters?.employeeType
+          ? {
+              employeeType:
+                filters.employeeType as Prisma.UserWhereInput["employeeType"],
+            }
+          : {}),
+      },
       select: {
         id: true,
         name: true,
@@ -198,78 +196,81 @@ export class SalaryUserRepository {
         bpjsKesehatan: true,
         bpjsKetenagakerjaan: true,
       },
-    }) as Promise<UserSalaryConfig[]>;
+    });
+
+    return users.map((user) => SalaryUserMapper.toConfigEntity(user));
   }
 
+  /** Get work day configuration for one user. */
   async findWorkDaysConfig(
     userId: string,
-  ): Promise<{ workDays: string | null } | null> {
-    return this.client.user.findUnique({
+  ): Promise<SalaryUserWorkDaysEntity | null> {
+    const user = await this.client.user.findUnique({
       where: { id: userId },
       select: { workDays: true },
     });
+
+    return user ? SalaryUserMapper.toWorkDaysEntity(user) : null;
   }
 }
 
 export class EmployeeLoanRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findActiveByUserId(userId: string): Promise<EmployeeLoan[]> {
+  /** Get active employee loans by user ID. */
+  async findActiveByUserId(userId: string) {
     return this.client.employeeLoan.findMany({
       where: { userId, status: "ACTIVE" },
     });
   }
 
+  /** Update remaining amount and status for a loan. */
   async updateRemainingAmount(
     id: string,
     remainingAmount: number,
     status: string,
-  ): Promise<EmployeeLoan> {
+  ) {
     return this.client.employeeLoan.update({
       where: { id },
       data: { remainingAmount, status: status as "ACTIVE" | "PAID_OFF" },
     });
   }
 
-  async findLoanById(id: string): Promise<EmployeeLoan | null> {
+  /** Find loan by ID. */
+  async findLoanById(id: string) {
     return this.client.employeeLoan.findUnique({ where: { id } });
   }
 
+  /** Run transaction callback with Prisma client. */
   async transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.client.$transaction(fn as any) as Promise<T>;
   }
 
+  /** Create loan payment inside transaction. */
   async createLoanPaymentInTx(
     tx: PrismaClient,
-    data: {
-      loanId: string;
-      amount: number;
-      notes?: string;
-    },
-  ): Promise<LoanPayment> {
+    data: { loanId: string; amount: number; notes?: string },
+  ) {
     return tx.loanPayment.create({ data });
   }
 
-  async findUniqueInTx(
-    tx: PrismaClient,
-    id: string,
-  ): Promise<EmployeeLoan | null> {
+  /** Find loan by ID inside transaction. */
+  async findUniqueInTx(tx: PrismaClient, id: string) {
     return tx.employeeLoan.findUnique({ where: { id } });
   }
 
+  /** Update loan inside transaction. */
   async updateInTx(
     tx: PrismaClient,
     id: string,
     data: { remainingAmount?: number; status?: "ACTIVE" | "PAID_OFF" },
-  ): Promise<EmployeeLoan> {
+  ) {
     return tx.employeeLoan.update({ where: { id }, data });
   }
 
-  async deleteLoanPaymentInTx(
-    tx: PrismaClient,
-    id: string,
-  ): Promise<LoanPayment> {
+  /** Delete loan payment inside transaction. */
+  async deleteLoanPaymentInTx(tx: PrismaClient, id: string) {
     return tx.loanPayment.delete({ where: { id } });
   }
 }
@@ -277,28 +278,24 @@ export class EmployeeLoanRepository {
 export class SalaryAttendanceRepository {
   constructor(private client: PrismaClient = prisma) {}
 
+  /** Find attendance statuses by user and period. */
   async findAttendanceByUserAndPeriod(
     userId: string,
     startDate: Date,
     endDate: Date,
-  ): Promise<Pick<Attendance, "status">[]> {
+  ) {
     return this.client.attendance.findMany({
       where: { userId, checkIn: { gte: startDate, lte: endDate } },
       select: { status: true },
     });
   }
 
+  /** Find overtime records by user and period. */
   async findOvertimeByUserAndPeriod(
     userId: string,
     startDate: Date,
     endDate: Date,
-  ): Promise<
-    {
-      duration: number | null;
-      isHolidayOvertime: boolean;
-      isNationalHoliday: boolean;
-    }[]
-  > {
+  ) {
     return this.client.overtime.findMany({
       where: {
         userId,
@@ -321,6 +318,7 @@ export class SalaryAttendanceRepository {
     });
   }
 
+  /** Count completed work orders by user and period. */
   async countWorkOrdersByUserAndPeriod(
     userId: string,
     startDate: Date,
