@@ -1,4 +1,5 @@
-import { Prisma as PrismaBilling } from "@prisma/client-billing";
+import { InvoiceStatus, Prisma as PrismaBilling } from "@prisma/client-billing";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { prismaBilling } from "@/lib/prisma-billing";
 import { Prisma } from "@prisma/client";
@@ -9,6 +10,8 @@ import type {
   DiscountType,
   DurasiUnit,
 } from "@prisma/client";
+
+const ACTIVE_PACKAGE_STATUS = "AKTIF";
 
 const adminMutationSelect = {
   id: true,
@@ -36,8 +39,6 @@ const adminMutationContextSelect = {
   siteId: true,
   nama: true,
 } satisfies Prisma.PelangganSelect;
-import { InvoiceStatus } from "@prisma/client-billing";
-import { randomUUID } from "crypto";
 
 export interface CreatePelangganDTO {
   idPelanggan: string;
@@ -532,6 +533,21 @@ export class PelangganRepository {
     return prisma.pelanggan.findUnique({
       where: { id },
       include: { hargaPaket: true },
+    });
+  }
+
+  /** Get upgrade package options above the current package price. */
+  async findUpgradePackageOptions(currentPrice: number, limit: number = 5) {
+    return prisma.hargaPaket.findMany({
+      where: {
+        status: ACTIVE_PACKAGE_STATUS as Status,
+        harga: { gt: currentPrice },
+      },
+      include: {
+        bandwidth: true,
+      },
+      orderBy: { harga: "asc" },
+      take: limit,
     });
   }
 

@@ -1,363 +1,292 @@
-import { prismaMitra } from '@/lib/prisma-mitra'
-import { MitraTransactionType } from '@prisma/client-mitra'
-import { logger } from '@/lib/logger'
+import { logger } from "@/lib/logger";
+import {
+  MitraWalletRepository,
+  type EarningReferenceType,
+} from "@/modules/mitra/repositories/MitraWalletRepository";
 
 interface ServiceResult<T = void> {
-    success: boolean
-    data?: T
-    error?: string
+  success: boolean;
+  data?: T;
+  error?: string;
 }
+
+const ELIGIBLE_MITRA_TYPES = ["MITRA_TEKNISI", "MITRA_SALES"];
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
 
 export class MitraWalletService {
+  constructor(
+    private readonly mitraWalletRepository: MitraWalletRepository = new MitraWalletRepository(),
+  ) {}
 
-    /**
-     * Get wallet balance for a user
-     */
-    async getBalance(userId: string, tenantId?: string): Promise<ServiceResult<{
-        balance: number
-        totalEarnings: number
-        totalWithdrawn: number
-    }>> {
-        try {
-            let wallet = await prismaMitra.mitraWallet.findFirst({
-                where: { 
-                    mitraId: userId,
-                    ...(tenantId && { mitra: { tenantId } })
-                },
-            })
+  /** Mengambil saldo wallet mitra dan membuat wallet otomatis bila valid. */
+  async getBalance(
+    userId: string,
+    tenantId?: string,
+  ): Promise<
+    ServiceResult<{
+      balance: number;
+      totalEarnings: number;
+      totalWithdrawn: number;
+    }>
+  > {
+    try {
+      const wallet = await this.findOrCreateEligibleWallet(userId, tenantId);
 
-            // Auto-create wallet if user is mitra but doesn't have one
-            if (!wallet) {
-                const user = await prismaMitra.mitra.findFirst({
-                    where: { 
-                        id: userId,
-                        ...(tenantId && { tenantId })
-                    },
-                    select: { mitraType: true },
-                })
+      if (!wallet) {
+        return { success: false, error: "User bukan mitra" };
+      }
 
-                if (user && ['MITRA_TEKNISI', 'MITRA_SALES'].includes(user.mitraType)) {
-                    wallet = await prismaMitra.mitraWallet.create({
-                        data: { mitraId: userId },
-                    })
-                } else {
-                    return { success: false, error: 'User bukan mitra' }
-                }
-            }
+      return {
+        success: true,
+        data: {
+          balance: wallet.balance.toNumber(),
+          totalEarnings: wallet.totalEarnings.toNumber(),
+          totalWithdrawn: wallet.totalWithdrawn.toNumber(),
+        },
+      };
+    } catch (error) {
+      logger.error(
+        "[MitraWalletService] Error getting balance:",
+        error as Error,
+      );
+      return { success: false, error: "Gagal mengambil saldo" };
+    }
+  }
 
-            return {
-                success: true,
-                data: {
-                    balance: wallet.balance.toNumber(),
-                    totalEarnings: wallet.totalEarnings.toNumber(),
-                    totalWithdrawn: wallet.totalWithdrawn.toNumber(),
-                },
-            }
-        } catch (error) {
-            logger.error('[MitraWalletService] Error getting balance:', error as Error)
-            return { success: false, error: 'Gagal mengambil saldo' }
-        }
+  /** Menambahkan pendapatan ke wallet mitra secara idempoten per referensi. */
+  async addEarning(
+    userId: string,
+    amount: number,
+    description: string,
+    referenceId?: string,
+    referenceType?: EarningReferenceType,
+  ): Promise<ServiceResult> {
+    try {
+      const amountError = this.validatePositiveAmount(amount);
+      if (amountError) {
+        return amountError;
+      }
+
+      await this.mitraWalletRepository.addEarning({
+        userId,
+        amount,
+        description,
+        referenceId,
+        referenceType,
+      });
+
+      logger.info(
+        `[MitraWalletService] Earning added: userId=${userId}, amount=${amount}, ref=${referenceId}`,
+      );
+      return { success: true };
+    } catch (error) {
+      return this.handleServiceError(
+        error,
+        "Gagal menambah pendapatan",
+        "Error adding earning",
+      );
+    }
+  }
+
+  /** Mengurangi saldo wallet untuk penalti SLA atau koreksi serupa. */
+  async deductBalance(
+    userId: string,
+    amount: number,
+    description: string,
+    referenceId?: string,
+    referenceType?: EarningReferenceType,
+  ): Promise<ServiceResult> {
+    try {
+      const amountError = this.validatePositiveAmount(amount);
+      if (amountError) {
+        return amountError;
+      }
+
+      await this.mitraWalletRepository.deductBalance({
+        userId,
+        amount,
+        description,
+        referenceId,
+        referenceType,
+      });
+
+      logger.info(
+        `[MitraWalletService] Penalty deducted: userId=${userId}, amount=${amount}, ref=${referenceId}`,
+      );
+      return { success: true };
+    } catch (error) {
+      return this.handleServiceError(
+        error,
+        "Gagal memotong saldo",
+        "Error deducting balance",
+      );
+    }
+  }
+
+  /** Menambahkan penyesuaian manual oleh admin ke wallet mitra. */
+  async addAdjustment(
+    userId: string,
+    amount: number,
+    description: string,
+    adminId: string,
+    tenantId?: string,
+  ): Promise<ServiceResult> {
+    try {
+      await this.mitraWalletRepository.addAdjustment({
+        userId,
+        amount,
+        description,
+        tenantId,
+      });
+
+      logger.info(
+        `[MitraWalletService] Adjustment: userId=${userId}, amount=${amount}, by=${adminId}`,
+      );
+      return { success: true };
+    } catch (error) {
+      return this.handleServiceError(
+        error,
+        "Gagal melakukan penyesuaian",
+        "Error adjusting",
+      );
+    }
+  }
+
+  /** Mengambil riwayat transaksi wallet mitra dengan paginasi. */
+  async getTransactions(
+    userId: string,
+    tenantId?: string,
+    page: number = DEFAULT_PAGE,
+    limit: number = DEFAULT_LIMIT,
+  ) {
+    try {
+      const pagedTransactions =
+        await this.mitraWalletRepository.getTransactionsByUserId(
+          userId,
+          tenantId,
+          page,
+          limit,
+        );
+
+      if (!pagedTransactions) {
+        return {
+          success: true,
+          data: { transactions: [], total: 0, page, totalPages: 0 },
+        };
+      }
+
+      return { success: true, data: pagedTransactions };
+    } catch (error) {
+      logger.error(
+        "[MitraWalletService] Error getting transactions:",
+        error as Error,
+      );
+      return { success: false, error: "Gagal mengambil riwayat transaksi" };
+    }
+  }
+
+  /** Mengambil ringkasan pendapatan wallet mitra pada periode bulan tertentu. */
+  async getEarningsSummary(
+    userId: string,
+    tenantId?: string,
+    month?: number,
+    year?: number,
+  ) {
+    try {
+      const { startDate, endDate } = this.buildMonthlyPeriod(month, year);
+      const summary =
+        await this.mitraWalletRepository.getEarningsSummaryByUserId({
+          userId,
+          tenantId,
+          startDate,
+          endDate,
+        });
+
+      if (!summary) {
+        return {
+          success: true,
+          data: {
+            balance: 0,
+            totalEarnings: 0,
+            totalWithdrawn: 0,
+            earningsThisMonth: 0,
+            earningsCount: 0,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          balance: summary.balance,
+          totalEarnings: summary.totalEarnings,
+          totalWithdrawn: summary.totalWithdrawn,
+          earningsThisMonth: summary.earningsThisMonth,
+          earningsCount: summary.earningsCount,
+        },
+      };
+    } catch (error) {
+      logger.error(
+        "[MitraWalletService] Error getting earnings summary:",
+        error as Error,
+      );
+      return { success: false, error: "Gagal mengambil ringkasan pendapatan" };
+    }
+  }
+
+  private async findOrCreateEligibleWallet(userId: string, tenantId?: string) {
+    const existingWallet = await this.mitraWalletRepository.findWalletByUserId(
+      userId,
+      tenantId,
+    );
+    if (existingWallet) {
+      return existingWallet;
     }
 
-    /**
-     * Add earning to mitra wallet (called automatically when WO completed or canvasing installed)
-     */
-    async addEarning(
-        userId: string,
-        amount: number,
-        description: string,
-        referenceId?: string,
-        referenceType?: 'WORK_ORDER' | 'CANVASING'
-    ): Promise<ServiceResult> {
-        try {
-            if (amount <= 0) {
-                return { success: false, error: 'Jumlah harus lebih dari 0' }
-            }
-
-            await prismaMitra.$transaction(async (tx) => {
-                // Ensure wallet exists
-                let wallet = await tx.mitraWallet.findFirst({
-                    where: { mitraId: userId },
-                })
-
-                if (!wallet) {
-                    wallet = await tx.mitraWallet.create({
-                        data: { mitraId: userId },
-                    })
-                }
-
-                // Check for duplicate transaction (same referenceId)
-                if (referenceId) {
-                    const existing = await tx.mitraTransaction.findFirst({
-                        where: { walletId: wallet.id, referenceId, type: 'EARNING' },
-                    })
-                    if (existing) {
-                        throw new Error('Transaksi sudah ada untuk referensi ini')
-                    }
-                }
-
-                // Create transaction
-                await tx.mitraTransaction.create({
-                    data: {
-                        walletId: wallet.id,
-                        amount,
-                        type: MitraTransactionType.EARNING,
-                        description,
-                        referenceId,
-                        referenceType,
-                    },
-                })
-
-                // Update wallet balance
-                await tx.mitraWallet.update({
-                    where: { id: wallet.id },
-                    data: {
-                        balance: { increment: amount },
-                        totalEarnings: { increment: amount },
-                    },
-                })
-            })
-
-            logger.info(`[MitraWalletService] Earning added: userId=${userId}, amount=${amount}, ref=${referenceId}`)
-            return { success: true }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Gagal menambah pendapatan'
-            logger.error('[MitraWalletService] Error adding earning:', error as Error)
-            return { success: false, error: message }
-        }
+    const mitra = await this.mitraWalletRepository.findMitraTypeById(
+      userId,
+      tenantId,
+    );
+    if (!mitra || !ELIGIBLE_MITRA_TYPES.includes(mitra.mitraType)) {
+      return null;
     }
 
-    /**
-     * Deduct balance from mitra wallet (called automatically when warranty SLA is violated)
-     */
-    async deductBalance(
-        userId: string,
-        amount: number,
-        description: string,
-        referenceId?: string,
-        referenceType?: 'WORK_ORDER' | 'CANVASING'
-    ): Promise<ServiceResult> {
-        try {
-            if (amount <= 0) {
-                return { success: false, error: 'Jumlah harus lebih dari 0' }
-            }
+    return this.mitraWalletRepository.createWallet(userId);
+  }
 
-            await prismaMitra.$transaction(async (tx) => {
-                // Ensure wallet exists
-                let wallet = await tx.mitraWallet.findFirst({
-                    where: { mitraId: userId },
-                })
+  private buildMonthlyPeriod(month?: number, year?: number) {
+    const currentDate = new Date();
+    const targetMonth = month ?? currentDate.getMonth() + 1;
+    const targetYear = year ?? currentDate.getFullYear();
 
-                if (!wallet) {
-                    wallet = await tx.mitraWallet.create({
-                        data: { mitraId: userId },
-                    })
-                }
+    return {
+      startDate: new Date(targetYear, targetMonth - 1, 1),
+      endDate: new Date(targetYear, targetMonth, 0, 23, 59, 59),
+    };
+  }
 
-                // Check for duplicate transaction (same referenceId and type)
-                if (referenceId) {
-                    const existing = await tx.mitraTransaction.findFirst({
-                        where: { walletId: wallet.id, referenceId, type: 'ADJUSTMENT', description: { contains: '[PENALTY]' } },
-                    })
-                    if (existing) {
-                        throw new Error('Transaksi penalti sudah ada untuk referensi ini')
-                    }
-                }
-
-                // Create transaction
-                await tx.mitraTransaction.create({
-                    data: {
-                        walletId: wallet.id,
-                        amount: -amount,
-                        type: MitraTransactionType.ADJUSTMENT,
-                        description: `[PENALTY] ${description}`,
-                        referenceId,
-                        referenceType,
-                    },
-                })
-
-                // Update wallet balance (allow negative balance if penalty exceeds earnings)
-                await tx.mitraWallet.update({
-                    where: { id: wallet.id },
-                    data: {
-                        balance: { decrement: amount },
-                    },
-                })
-            })
-
-            logger.info(`[MitraWalletService] Penalty deducted: userId=${userId}, amount=${amount}, ref=${referenceId}`)
-            return { success: true }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Gagal memotong saldo'
-            logger.error('[MitraWalletService] Error deducting balance:', error as Error)
-            return { success: false, error: message }
-        }
+  private validatePositiveAmount(amount: number): ServiceResult | null {
+    if (amount <= 0) {
+      return { success: false, error: "Jumlah harus lebih dari 0" };
     }
 
-    /**
-     * Manual adjustment by admin (can be positive or negative)
-     */
-    async addAdjustment(
-        userId: string,
-        amount: number,
-        description: string,
-        adminId: string,
-        tenantId?: string
-    ): Promise<ServiceResult> {
-        try {
-            await prismaMitra.$transaction(async (tx) => {
-                const wallet = await tx.mitraWallet.findFirst({
-                    where: { 
-                        mitraId: userId,
-                        ...(tenantId && { mitra: { tenantId } })
-                    },
-                })
+    return null;
+  }
 
-                if (!wallet) {
-                    throw new Error('Wallet mitra tidak ditemukan')
-                }
-
-                // If negative adjustment, check balance
-                if (amount < 0 && (wallet.balance.toNumber() + amount) < 0) {
-                    throw new Error('Saldo tidak cukup untuk penyesuaian ini')
-                }
-
-                // Create transaction
-                await tx.mitraTransaction.create({
-                    data: {
-                        walletId: wallet.id,
-                        amount,
-                        type: MitraTransactionType.ADJUSTMENT,
-                        description: `[Admin] ${description}`,
-                    },
-                })
-
-                // Update balance
-                await tx.mitraWallet.update({
-                    where: { id: wallet.id },
-                    data: {
-                        balance: { increment: amount },
-                        totalEarnings: amount > 0 ? { increment: amount } : undefined,
-                    },
-                })
-            })
-
-            logger.info(`[MitraWalletService] Adjustment: userId=${userId}, amount=${amount}, by=${adminId}`)
-            return { success: true }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Gagal melakukan penyesuaian'
-            logger.error('[MitraWalletService] Error adjusting:', error as Error)
-            return { success: false, error: message }
-        }
-    }
-
-    /**
-     * Get transaction history
-     */
-    async getTransactions(userId: string, tenantId?: string, page: number = 1, limit: number = 20) {
-        try {
-            const wallet = await prismaMitra.mitraWallet.findFirst({
-                where: { 
-                    mitraId: userId,
-                    ...(tenantId && { mitra: { tenantId } })
-                },
-            })
-
-            if (!wallet) {
-                return { success: true, data: { transactions: [], total: 0, page, totalPages: 0 } }
-            }
-
-            const skip = (page - 1) * limit
-
-            const [transactions, total] = await Promise.all([
-                prismaMitra.mitraTransaction.findMany({
-                    where: { walletId: wallet.id },
-                    orderBy: { createdAt: 'desc' },
-                    skip,
-                    take: limit,
-                }),
-                prismaMitra.mitraTransaction.count({ where: { walletId: wallet.id } }),
-            ])
-
-            return {
-                success: true,
-                data: {
-                    transactions,
-                    total,
-                    page,
-                    totalPages: Math.ceil(total / limit),
-                },
-            }
-        } catch (error) {
-            logger.error('[MitraWalletService] Error getting transactions:', error as Error)
-            return { success: false, error: 'Gagal mengambil riwayat transaksi' }
-        }
-    }
-
-    /**
-     * Get earnings summary for a period (for dashboard)
-     */
-    async getEarningsSummary(userId: string, tenantId?: string, month?: number, year?: number) {
-        try {
-            const wallet = await prismaMitra.mitraWallet.findFirst({
-                where: { 
-                    mitraId: userId,
-                    ...(tenantId && { mitra: { tenantId } })
-                },
-            })
-
-            if (!wallet) {
-                return {
-                    success: true,
-                    data: { balance: 0, totalEarnings: 0, totalWithdrawn: 0, earningsThisMonth: 0, earningsCount: 0 },
-                }
-            }
-
-            // Calculate date range for current/specified month
-            const now = new Date()
-            const targetMonth = month ?? (now.getMonth() + 1)
-            const targetYear = year ?? now.getFullYear()
-            const startDate = new Date(targetYear, targetMonth - 1, 1)
-            const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59)
-
-            const [monthlyEarnings, monthlyCount] = await Promise.all([
-                prismaMitra.mitraTransaction.aggregate({
-                    where: {
-                        walletId: wallet.id,
-                        type: 'EARNING',
-                        createdAt: { gte: startDate, lte: endDate },
-                    },
-                    _sum: { amount: true },
-                }),
-                prismaMitra.mitraTransaction.count({
-                    where: {
-                        walletId: wallet.id,
-                        type: 'EARNING',
-                        createdAt: { gte: startDate, lte: endDate },
-                    },
-                }),
-            ])
-
-            return {
-                success: true,
-                data: {
-                    balance: wallet.balance,
-                    totalEarnings: wallet.totalEarnings,
-                    totalWithdrawn: wallet.totalWithdrawn,
-                    earningsThisMonth: monthlyEarnings._sum.amount || 0,
-                    earningsCount: monthlyCount,
-                },
-            }
-        } catch (error) {
-            logger.error('[MitraWalletService] Error getting earnings summary:', error as Error)
-            return { success: false, error: 'Gagal mengambil ringkasan pendapatan' }
-        }
-    }
+  private handleServiceError(
+    error: unknown,
+    fallbackMessage: string,
+    logContext: string,
+  ): ServiceResult {
+    const message = error instanceof Error ? error.message : fallbackMessage;
+    logger.error(`[MitraWalletService] ${logContext}:`, error as Error);
+    return { success: false, error: message };
+  }
 }
 
-// Singleton
-let instance: MitraWalletService | null = null
+let instance: MitraWalletService | null = null;
 export function getMitraWalletService(): MitraWalletService {
-    if (!instance) instance = new MitraWalletService()
-    return instance
+  if (!instance) instance = new MitraWalletService();
+  return instance;
 }

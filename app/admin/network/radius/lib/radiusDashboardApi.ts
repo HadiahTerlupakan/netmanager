@@ -5,7 +5,7 @@ import type {
   RadiusDashboardStatsViewModel,
   RadiusRecentSessionViewModel,
   RadiusRecentSessionsViewModel,
-} from "@/modules/network/services/dashboard/radius-dashboard.contracts";
+} from "@/modules/network";
 
 const radiusDashboardStatsSchema: z.ZodType<RadiusDashboardStatsViewModel> =
   z.object({

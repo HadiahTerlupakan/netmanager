@@ -1,12 +1,36 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import type { Prisma, Status } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import { prismaBilling } from "@/modules/database";
 import {
   getMixRadiusService,
   matchesMixRadiusOwner,
 } from "@/modules/integrations";
+import type { MixRadiusCustomer } from "@/modules/integrations";
+
+type RabInvestorDashboardRecord = Prisma.RabInvestorGetPayload<{
+  include: {
+    rabProject: {
+      include: {
+        actualAchievements: true;
+        items: true;
+        site: { select: { name: true } };
+      };
+    };
+  };
+}>;
+
+type InternalCustomer = {
+  siteId: string | null;
+  status: Status;
+  idPelanggan: string;
+  jatuhTempo: Date;
+  hargaPaket: {
+    harga: Prisma.Decimal | number | bigint | string;
+  } | null;
+};
 
 function getSecret(): Uint8Array {
   const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
@@ -26,23 +50,23 @@ export async function GET() {
     const { payload } = await jwtVerify(token, getSecret());
     const investorId = payload.id as string;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rabInvestors = await (prisma as any).rabInvestor.findMany({
-      where: { investorId },
-      include: {
-        rabProject: {
-          include: {
-            actualAchievements: true,
-            items: true,
-            site: {
-              select: {
-                name: true,
+    const rabInvestors: RabInvestorDashboardRecord[] =
+      await prisma.rabInvestor.findMany({
+        where: { investorId },
+        include: {
+          rabProject: {
+            include: {
+              actualAchievements: true,
+              items: true,
+              site: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
     // Calculate metrics
     let totalInvestment = BigInt(0);
@@ -54,27 +78,23 @@ export async function GET() {
     const siteIds = [
       ...new Set(
         rabInvestors
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .filter(
-            (ri: any) =>
+            (ri) =>
               ri.rabProject.siteId && !ri.rabProject.mixRadiusInvestorSiteId,
           )
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((ri: any) => ri.rabProject.siteId)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter((id: any): id is string => id !== null),
+          .map((ri) => ri.rabProject.siteId)
+          .filter((id): id is string => id !== null),
       ),
-    ] as string[];
+    ];
 
     // Fetch MixRadiusInvestorSite details from billing DB
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const investorSiteIds = [
       ...new Set(
         rabInvestors
-          .map((ri: any) => ri.rabProject.mixRadiusInvestorSiteId)
-          .filter(Boolean),
+          .map((ri) => ri.rabProject.mixRadiusInvestorSiteId)
+          .filter((id): id is string => Boolean(id)),
       ),
-    ] as string[];
+    ];
     const investorSites =
       investorSiteIds.length > 0
         ? await prismaBilling.mixRadiusInvestorSite.findMany({
@@ -87,18 +107,18 @@ export async function GET() {
     const mixRadiusOwners = [
       ...new Set(
         rabInvestors
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter(
-            (ri: any) =>
-              ri.rabProject.mixRadiusInvestorSiteId &&
-              investorSiteMap.has(ri.rabProject.mixRadiusInvestorSiteId),
-          )
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .flatMap(
-            (ri: any) =>
-              investorSiteMap.get(ri.rabProject.mixRadiusInvestorSiteId)
-                ?.owners || [],
-          ),
+          .filter((ri) => {
+            const investorSiteId = ri.rabProject.mixRadiusInvestorSiteId;
+            return Boolean(
+              investorSiteId && investorSiteMap.has(investorSiteId),
+            );
+          })
+          .flatMap((ri) => {
+            const investorSiteId = ri.rabProject.mixRadiusInvestorSiteId;
+            return investorSiteId
+              ? investorSiteMap.get(investorSiteId)?.owners || []
+              : [];
+          }),
       ),
     ];
 
@@ -106,19 +126,7 @@ export async function GET() {
     let activeSubscribers = 0;
     let payingSubscribers = 0;
 
-    let internalCustomers: {
-      siteId: string | null;
-      status: import("@prisma/client").Status;
-      idPelanggan: string;
-      jatuhTempo: Date;
-      hargaPaket: {
-        harga:
-          | import("@prisma/client").Prisma.Decimal
-          | number
-          | bigint
-          | string;
-      } | null;
-    }[] = [];
+    let internalCustomers: InternalCustomer[] = [];
 
     // INTERNAL BILLING
     if (siteIds.length > 0) {
@@ -144,8 +152,7 @@ export async function GET() {
       ).length;
     }
 
-    let mixRadiusCustomers: import("@/modules/integrations").MixRadiusCustomer[] =
-      [];
+    let mixRadiusCustomers: MixRadiusCustomer[] = [];
     // MIXRADIUS BILLING
     if (mixRadiusOwners.length > 0) {
       try {
@@ -205,16 +212,11 @@ export async function GET() {
       let currentActualRevenue = 0;
       const now = new Date();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (
-        (ri.rabProject as any).siteId &&
-        !(ri.rabProject as any).mixRadiusInvestorSiteId
-      ) {
+      if (ri.rabProject.siteId && !ri.rabProject.mixRadiusInvestorSiteId) {
         // Internal Billing
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const payingInternal = internalCustomers.filter(
           (c) =>
-            (c as any).siteId === (ri.rabProject as any).siteId &&
+            c.siteId === ri.rabProject.siteId &&
             c.status === "AKTIF" &&
             new Date(c.jatuhTempo) > now,
         );
@@ -222,17 +224,14 @@ export async function GET() {
           (acc, c) => acc + Number(c.hargaPaket?.harga || 0),
           0,
         );
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } else if (
-        (ri.rabProject as any).mixRadiusInvestorSiteId &&
-        investorSiteMap.has((ri.rabProject as any).mixRadiusInvestorSiteId)
+        ri.rabProject.mixRadiusInvestorSiteId &&
+        investorSiteMap.has(ri.rabProject.mixRadiusInvestorSiteId)
       ) {
         // MixRadius API Billing
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const owners =
-          investorSiteMap.get((ri.rabProject as any).mixRadiusInvestorSiteId)
-            ?.owners || [];
+          investorSiteMap.get(ri.rabProject.mixRadiusInvestorSiteId)?.owners ||
+          [];
         const activeMixRadius = mixRadiusCustomers.filter((c) => {
           const isOwnerMatch = matchesMixRadiusOwner(
             c.owner_name,
@@ -275,21 +274,12 @@ export async function GET() {
       }
     }
 
-    const projectsSummary = rabInvestors.map(
-      (ri: {
-        rabProject: {
-          id: string;
-          name: string;
-          status: string;
-          site?: { name: string } | null;
-        };
-      }) => ({
-        id: ri.rabProject.id,
-        name: ri.rabProject.name,
-        status: ri.rabProject.status,
-        siteName: ri.rabProject.site?.name || "Lokasi Global",
-      }),
-    );
+    const projectsSummary = rabInvestors.map((ri) => ({
+      id: ri.rabProject.id,
+      name: ri.rabProject.name,
+      status: ri.rabProject.status,
+      siteName: ri.rabProject.site?.name || "Lokasi Global",
+    }));
 
     return NextResponse.json(
       {

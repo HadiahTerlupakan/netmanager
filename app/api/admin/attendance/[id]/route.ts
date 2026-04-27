@@ -1,13 +1,5 @@
 import { prisma } from "@/modules/database";
 import { Prisma } from "@prisma/client";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
-import {
-  startOfDay,
-  setHours,
-  setMinutes,
-  setSeconds,
-  setMilliseconds,
-} from "date-fns";
 import { isSuperAdmin, getUserPermissions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -20,6 +12,7 @@ import {
 import { attendanceUpdateSchema } from "@/lib/validations/attendance";
 import { idSchema } from "@/lib/validations/common";
 import { logActivitySafe } from "@/lib/logger";
+import { calculateAttendanceStatus } from "@/modules/attendance";
 
 function getScheduledStartTime(user: {
   workingHourMode?: string | null;
@@ -31,31 +24,6 @@ function getScheduledStartTime(user: {
   }
 
   return user.startWorkTime ?? null;
-}
-
-function calculateAttendanceStatus(
-  checkInTime: Date,
-  scheduleTime: string,
-  timezone: string,
-  toleranceMinutes: number,
-): "ON_TIME" | "LATE" {
-  const zonedCheckInTime = toZonedTime(checkInTime, timezone);
-  const scheduleParts = scheduleTime.split(":").map(Number);
-  const scheduleHour = scheduleParts[0] ?? 0;
-  const scheduleMinute = scheduleParts[1] ?? 0;
-
-  let zonedScheduleTime = startOfDay(zonedCheckInTime);
-  zonedScheduleTime = setHours(zonedScheduleTime, scheduleHour);
-  zonedScheduleTime = setMinutes(zonedScheduleTime, scheduleMinute);
-  zonedScheduleTime = setSeconds(zonedScheduleTime, 0);
-  zonedScheduleTime = setMilliseconds(zonedScheduleTime, 0);
-
-  const scheduleUtcDate = fromZonedTime(zonedScheduleTime, timezone);
-  const lateThresholdUtc = new Date(
-    scheduleUtcDate.getTime() + toleranceMinutes * 60 * 1000,
-  );
-
-  return checkInTime > lateThresholdUtc ? "LATE" : "ON_TIME";
 }
 
 // GET /api/admin/attendance/[id]
@@ -236,12 +204,12 @@ export const PATCH = createHandler(
         : 0;
       const timezone = timezoneSetting?.value || "Asia/Jakarta";
 
-      updateData.status = calculateAttendanceStatus(
-        new Date(checkIn),
-        scheduledStartTime,
+      updateData.status = calculateAttendanceStatus({
+        checkInTime: new Date(checkIn),
+        scheduleTime: scheduledStartTime,
         timezone,
         toleranceMinutes,
-      );
+      });
     } else if (status) {
       updateData.status = status;
     }

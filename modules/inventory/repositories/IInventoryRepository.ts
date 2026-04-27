@@ -136,6 +136,73 @@ export interface UpdateTransferInput {
   keterangan?: string;
 }
 
+export interface UpdateBarangMasukInput {
+  id: string;
+  jumlah: number;
+  kondisi?: string | null;
+  keterangan?: string | null;
+}
+
+export interface UpdateStockOpnameInput {
+  id: string;
+  stokFisik: number;
+  keterangan?: string | null;
+  kondisiBaik?: number;
+  kondisiRusak?: number;
+  kondisiExpire?: number;
+  lokasiPenyimpanan?: string | null;
+  nomorRak?: string | null;
+  nomorBox?: string | null;
+  pic?: string | null;
+  suhuPenyimpanan?: string | null;
+  kelembaban?: string | null;
+  tanggalExpire?: string | null;
+  nomorBatch?: string | null;
+  catatanDetail?: string | null;
+}
+
+export interface InventoryRecordSite {
+  id: string;
+}
+
+export interface InventoryMasukRecord {
+  id: string;
+  gudang: {
+    id: string;
+    kode: string;
+    nama: string;
+    sites?: InventoryRecordSite[];
+  };
+  barang: {
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+  };
+}
+
+export interface InventoryOpnameRecord {
+  id: string;
+  gudang: {
+    id: string;
+    kode: string;
+    nama: string;
+    lokasi: string | null;
+  };
+  barang: {
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+  };
+}
+
+export interface UpdatedStockOpnameResult {
+  record: Record<string, unknown>;
+  stokSistem: number;
+  selisih: number;
+}
+
 export interface IInventoryRepository {
   // ... existing Barang methods ...
 
@@ -227,4 +294,13 @@ export interface IInventoryRepository {
     search?: string;
     siteId?: string;
   }): Promise<{ items: BarangKeluarWithRelations[]; total: number }>;
+
+  getMasukRecord(id: string): Promise<InventoryMasukRecord | null>;
+  updateMasuk(input: UpdateBarangMasukInput): Promise<void>;
+  deleteMasuk(id: string): Promise<void>;
+  getOpnameRecord(id: string): Promise<InventoryOpnameRecord | null>;
+  updateOpname(
+    input: UpdateStockOpnameInput,
+  ): Promise<UpdatedStockOpnameResult>;
+  deleteOpname(id: string): Promise<void>;
 }

@@ -2,12 +2,13 @@ import { randomUUID } from "crypto";
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import type { Prisma } from "@prisma/client";
-import type { Session } from "next-auth";
 
 import { validateGudangSiteAccess } from "../utils/validation";
+import { buildInventoryAccessSession } from "../utils/session";
 
 type InventoryUserContext = {
   id: string;
@@ -119,12 +120,11 @@ export class InventoryOpnameService {
       if (!siteId) {
         return {
           opnameList: [],
-          pagination: {
+          pagination: buildPaginationMeta({
             page: input.page,
             limit: input.limit,
             total: 0,
-            totalPages: 0,
-          },
+          }),
         };
       }
 
@@ -168,18 +168,17 @@ export class InventoryOpnameService {
 
     return {
       opnameList,
-      pagination: {
+      pagination: buildPaginationMeta({
         page: input.page,
         limit: input.limit,
         total,
-        totalPages: Math.ceil(total / input.limit),
-      },
+      }),
     };
   }
 
   async createOpname(input: CreateInventoryOpnameInput) {
     await ensureTenantContextForNonSuperAdmin(input.user);
-    const accessSession = await this.buildGudangAccessSession(input.user);
+    const accessSession = await buildInventoryAccessSession(input.user);
     const access = await validateGudangSiteAccess(
       accessSession,
       input.gudangId,
@@ -351,24 +350,6 @@ export class InventoryOpnameService {
     });
 
     return result;
-  }
-
-  private async buildGudangAccessSession(
-    user: InventoryUserContext,
-  ): Promise<Session> {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { siteId: true, role: true },
-    });
-
-    return {
-      user: {
-        ...user,
-        siteId: dbUser?.siteId ?? user.siteId,
-        role: dbUser?.role || user.role,
-      },
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    } as Session;
   }
 }
 

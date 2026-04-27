@@ -18,6 +18,11 @@ import type {
   CreateTransferInput,
   BarangDetail,
   InventoryActorInput,
+  UpdateBarangMasukInput,
+  UpdateStockOpnameInput,
+  InventoryMasukRecord,
+  InventoryOpnameRecord,
+  UpdatedStockOpnameResult,
 } from "./IInventoryRepository";
 import type {
   IInventoryRepository as IInventoryDomainRepository,
@@ -1135,5 +1140,306 @@ export class InventoryRepository implements IInventoryDomainRepository {
       queryOptions,
     )) as BarangKeluarWithRelations[];
     return { items, total };
+  }
+
+  async getMasukRecord(id: string): Promise<InventoryMasukRecord | null> {
+    return this.db.barangMasuk.findUnique({
+      where: { id },
+      include: {
+        barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+        gudang: {
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+            sites: { select: { id: true } },
+          },
+        },
+      },
+    }) as unknown as Promise<InventoryMasukRecord | null>;
+  }
+
+  async updateMasuk(input: UpdateBarangMasukInput): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      const currentRecord = await tx.barangMasuk.findUnique({
+        where: { id: input.id },
+        include: { barang: true, gudang: true },
+      });
+      if (!currentRecord)
+        throw new Error("Record barang masuk tidak ditemukan");
+
+      const stockDifference = input.jumlah - currentRecord.jumlah;
+      const kondisiBaru = (input.kondisi ||
+        currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP;
+
+      await tx.barangMasuk.update({
+        where: { id: input.id },
+        data: {
+          jumlah: input.jumlah,
+          kondisi: kondisiBaru,
+          keterangan: input.keterangan,
+        },
+      });
+
+      const currentStock = await tx.barangGudang.findUnique({
+        where: {
+          barangId_gudangId: {
+            barangId: currentRecord.barangId,
+            gudangId: currentRecord.gudangId,
+          },
+        },
+      });
+
+      if (!currentStock) {
+        const newStockField = STOCK_FIELD_MAP[kondisiBaru] || "stokBaru";
+        await tx.barangGudang.create({
+          data: {
+            id: crypto.randomUUID(),
+            barangId: currentRecord.barangId,
+            gudangId: currentRecord.gudangId,
+            stok: input.jumlah,
+            [newStockField]: input.jumlah,
+            updatedAt: new Date(),
+          },
+        });
+        return;
+      }
+
+      const newTotalStock = currentStock.stok + stockDifference;
+      if (newTotalStock < 0) throw new Error("Stok tidak bisa negatif");
+
+      const oldKondisi = currentRecord.kondisi as keyof typeof STOCK_FIELD_MAP;
+      const oldStockField = STOCK_FIELD_MAP[oldKondisi] || "stokBaru";
+      const newStockField = STOCK_FIELD_MAP[kondisiBaru] || "stokBaru";
+      const updateData: Record<string, number> = { stok: newTotalStock };
+
+      if (oldStockField === newStockField) {
+        const updatedConditionStock =
+          Number(
+            (currentStock as Record<string, unknown>)[oldStockField] || 0,
+          ) + stockDifference;
+        if (updatedConditionStock < 0) {
+          throw new Error(`Stok ${kondisiBaru} tidak bisa negatif`);
+        }
+        updateData[newStockField] = updatedConditionStock;
+      } else {
+        const oldConditionStock =
+          Number(
+            (currentStock as Record<string, unknown>)[oldStockField] || 0,
+          ) - currentRecord.jumlah;
+        if (oldConditionStock < 0) {
+          throw new Error(`Stok ${oldKondisi} tidak bisa negatif`);
+        }
+        updateData[oldStockField] = oldConditionStock;
+        updateData[newStockField] =
+          Number(
+            (currentStock as Record<string, unknown>)[newStockField] || 0,
+          ) + input.jumlah;
+      }
+
+      await tx.barangGudang.update({
+        where: {
+          barangId_gudangId: {
+            barangId: currentRecord.barangId,
+            gudangId: currentRecord.gudangId,
+          },
+        },
+        data: updateData,
+      });
+    });
+  }
+
+  async deleteMasuk(id: string): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      const masukRecord = await tx.barangMasuk.findUnique({
+        where: { id },
+        include: { barang: true, gudang: true },
+      });
+      if (!masukRecord) throw new Error("Record barang masuk tidak ditemukan");
+
+      const currentStock = await tx.barangGudang.findUnique({
+        where: {
+          barangId_gudangId: {
+            barangId: masukRecord.barangId,
+            gudangId: masukRecord.gudangId,
+          },
+        },
+      });
+
+      if (currentStock) {
+        const newStock = Math.max(0, currentStock.stok - masukRecord.jumlah);
+        const stockField =
+          STOCK_FIELD_MAP[
+            masukRecord.kondisi as keyof typeof STOCK_FIELD_MAP
+          ] || "stokBaru";
+
+        if (newStock === 0) {
+          await tx.barangGudang.delete({
+            where: {
+              barangId_gudangId: {
+                barangId: masukRecord.barangId,
+                gudangId: masukRecord.gudangId,
+              },
+            },
+          });
+        } else {
+          await tx.barangGudang.update({
+            where: {
+              barangId_gudangId: {
+                barangId: masukRecord.barangId,
+                gudangId: masukRecord.gudangId,
+              },
+            },
+            data: {
+              stok: newStock,
+              [stockField]: Math.max(
+                0,
+                Number(
+                  (currentStock as Record<string, unknown>)[stockField] || 0,
+                ) - masukRecord.jumlah,
+              ),
+            },
+          });
+        }
+      }
+
+      await tx.barangMasuk.delete({ where: { id } });
+    });
+  }
+
+  async getOpnameRecord(id: string): Promise<InventoryOpnameRecord | null> {
+    return this.db.stockOpname.findUnique({
+      where: { id },
+      include: {
+        barang: { select: { id: true, kode: true, nama: true, satuan: true } },
+        gudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
+      },
+    }) as unknown as Promise<InventoryOpnameRecord | null>;
+  }
+
+  async updateOpname(
+    input: UpdateStockOpnameInput,
+  ): Promise<UpdatedStockOpnameResult> {
+    return this.db.$transaction(async (tx) => {
+      const existingRecord = await tx.stockOpname.findUnique({
+        where: { id: input.id },
+        include: { barang: true, gudang: true },
+      });
+      if (!existingRecord)
+        throw new Error("Record stock opname tidak ditemukan");
+
+      const currentStock = await tx.barangGudang.findUnique({
+        where: {
+          barangId_gudangId: {
+            barangId: existingRecord.barangId,
+            gudangId: existingRecord.gudangId,
+          },
+        },
+      });
+
+      const stokSistem = currentStock?.stok || 0;
+      const selisihFisik = input.stokFisik - existingRecord.stokFisik;
+      const selisihBaru = input.stokFisik - existingRecord.stokSistem;
+
+      const updatedRecord = await tx.stockOpname.update({
+        where: { id: input.id },
+        data: {
+          stokFisik: input.stokFisik,
+          selisih: selisihBaru,
+          keterangan: input.keterangan,
+          kondisiBaik: input.kondisiBaik ?? existingRecord.kondisiBaik,
+          kondisiRusak: input.kondisiRusak ?? existingRecord.kondisiRusak,
+          kondisiExpire: input.kondisiExpire ?? existingRecord.kondisiExpire,
+          lokasiPenyimpanan: input.lokasiPenyimpanan,
+          nomorRak: input.nomorRak,
+          nomorBox: input.nomorBox,
+          pic: input.pic,
+          suhuPenyimpanan:
+            input.suhuPenyimpanan !== undefined &&
+            input.suhuPenyimpanan !== null
+              ? Number(input.suhuPenyimpanan)
+              : null,
+          kelembaban:
+            input.kelembaban !== undefined && input.kelembaban !== null
+              ? Number(input.kelembaban)
+              : null,
+          tanggalExpire: input.tanggalExpire
+            ? new Date(input.tanggalExpire)
+            : existingRecord.tanggalExpire,
+          nomorBatch: input.nomorBatch,
+          catatanDetail: input.catatanDetail,
+        },
+      });
+
+      if (currentStock) {
+        await tx.barangGudang.update({
+          where: {
+            barangId_gudangId: {
+              barangId: existingRecord.barangId,
+              gudangId: existingRecord.gudangId,
+            },
+          },
+          data: {
+            stok: Math.max(0, currentStock.stok + selisihFisik),
+            stokBaru: Math.max(0, currentStock.stokBaru + selisihFisik),
+          },
+        });
+      } else if (input.stokFisik > 0) {
+        await tx.barangGudang.create({
+          data: {
+            id: crypto.randomUUID(),
+            barangId: existingRecord.barangId,
+            gudangId: existingRecord.gudangId,
+            stok: input.stokFisik,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return {
+        record: updatedRecord as unknown as Record<string, unknown>,
+        stokSistem,
+        selisih: selisihBaru,
+      };
+    });
+  }
+
+  async deleteOpname(id: string): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      const existingRecord = await tx.stockOpname.findUnique({
+        where: { id: id.trim() },
+      });
+      if (!existingRecord)
+        throw new Error("Record stock opname tidak ditemukan");
+
+      const currentStock = await tx.barangGudang.findUnique({
+        where: {
+          barangId_gudangId: {
+            barangId: existingRecord.barangId,
+            gudangId: existingRecord.gudangId,
+          },
+        },
+      });
+
+      if (currentStock) {
+        await tx.barangGudang.update({
+          where: {
+            barangId_gudangId: {
+              barangId: existingRecord.barangId,
+              gudangId: existingRecord.gudangId,
+            },
+          },
+          data: {
+            stok: Math.max(0, currentStock.stok - existingRecord.selisih),
+            stokBaru: Math.max(
+              0,
+              currentStock.stokBaru - existingRecord.selisih,
+            ),
+          },
+        });
+      }
+
+      await tx.stockOpname.delete({ where: { id: id.trim() } });
+    });
   }
 }

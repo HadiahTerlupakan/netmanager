@@ -1,6 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getUserPermissions } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { parsePaginationParams } from "@/lib/utils/pagination";
 import { hasPermission } from "@/lib/rbac";
 import { getInventoryOpnameService } from "@/modules/inventory";
 
@@ -15,8 +16,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = req.nextUrl;
   const barangId = searchParams.get("barangId") || undefined;
   const gudangId = searchParams.get("gudangId") || undefined;
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const { page, limit } = parsePaginationParams(searchParams, {
+    page: 1,
+    limit: 20,
+  });
 
   try {
     const opnameService = getInventoryOpnameService();

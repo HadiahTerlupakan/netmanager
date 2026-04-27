@@ -1,7 +1,22 @@
 import { prisma } from "@/modules/database";
 import { Prisma, TicketStatus } from "@prisma/client";
+import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
 
 export class CustomerNotificationService {
+  private customerTicketRepository = new CustomerTicketRepository();
+
+  /**
+   * Get unread notification count for a customer.
+   */
+  async getUnreadCount(customerId: string) {
+    return this.customerTicketRepository.countUnreadCustomerNotifications(
+      customerId,
+    );
+  }
+
+  /**
+   * Get customer notifications and unread summaries.
+   */
   async getNotifications(customerId: string, limit: number = 10) {
     const now = new Date();
 

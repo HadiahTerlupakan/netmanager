@@ -26,6 +26,10 @@ export {
   MitraRepository,
   getMitraRepository,
 } from "./repositories/MitraRepository";
+export {
+  MitraWalletRepository,
+  getMitraWalletRepository,
+} from "./repositories/MitraWalletRepository";
 
 // DTO
 export type {

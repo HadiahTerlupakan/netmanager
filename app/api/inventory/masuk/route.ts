@@ -1,10 +1,16 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { InventoryRepository } from "@/modules/inventory";
+import {
+  buildInventoryAccessSession,
+  InventoryRepository,
+} from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
 import { validateGudangSiteAccess } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import type { Session } from "next-auth";
+import {
+  buildPaginationMeta,
+  parsePaginationParams,
+} from "@/lib/utils/pagination";
 
 /**
  * @swagger
@@ -28,8 +34,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const gudangId = searchParams.get("gudangId") || undefined;
   const search = searchParams.get("search") || undefined;
   let siteId = searchParams.get("siteId") || undefined;
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const { page, limit } = parsePaginationParams(searchParams, {
+    page: 1,
+    limit: 20,
+  });
   const offset = (page - 1) * limit;
 
   // SITE RESTRICTION
@@ -88,12 +96,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     return apiSuccess({
       masukList,
-      pagination: {
+      pagination: buildPaginationMeta({
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-      },
+      }),
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
@@ -164,26 +171,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.badRequest("fotoMetadata harus berupa object JSON");
   }
 
-  // Fetch full user to mock session
-  const { prisma } = await import("@/modules/database");
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { siteId: true, role: true },
-  });
-
-  const mockSession = {
-    user: {
-      ...user,
-      siteId: dbUser?.siteId,
-      role: dbUser?.role || user.role,
-    },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
-
-  const access = await validateGudangSiteAccess(
-    mockSession as Session,
-    gudangId,
-  );
+  const accessSession = await buildInventoryAccessSession(user);
+  const access = await validateGudangSiteAccess(accessSession, gudangId);
   if (!access.allowed) {
     return ApiErrors.forbidden(
       access.error || "Anda tidak memiliki akses ke gudang ini",

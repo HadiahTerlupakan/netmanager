@@ -27,6 +27,10 @@ export {
   CustomerPortalService,
   getCustomerPortalService,
 } from "./services/CustomerPortalService";
+export {
+  CustomerPackageService,
+  getCustomerPackageService,
+} from "./services/CustomerPackageService";
 export { CustomerDashboardService } from "./services/dashboard/CustomerDashboardService";
 export type {
   CustomerDashboardBillingData,
@@ -45,3 +49,6 @@ export {
 export * from "./services/AdminSupportTicketService";
 export * from "./services/PelangganAdminQueryService";
 export * from "./services/PelangganAdminMutationService";
+
+// Validators
+export * from "./validators/support-ticket";

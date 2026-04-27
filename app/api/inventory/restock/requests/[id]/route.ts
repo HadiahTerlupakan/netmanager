@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { prisma } from "@/modules/database";
-import { authOptions } from "@/lib/auth";
 import { randomUUID } from "crypto";
+
+import { authOptions } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import { prisma } from "@/modules/database";
 import {
   getRestockRequestDetail,
   patchRestockRequestLifecycle,
-} from "@/app/api/inventory/_utils/restock-request-lifecycle";
-import { hasPermission } from "@/lib/rbac";
+} from "@/modules/inventory";
+import { getServerSession } from "next-auth";
+import { NextRequest, NextResponse } from "next/server";
 
 interface RestockItemInput {
   barangId: string;

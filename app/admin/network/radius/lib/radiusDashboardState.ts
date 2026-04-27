@@ -1,7 +1,7 @@
 import type {
   RadiusDashboardStatsViewModel,
   RadiusRecentSessionViewModel,
-} from "@/modules/network/services/dashboard/radius-dashboard.contracts";
+} from "@/modules/network";
 
 import type { RadiusDashboardApi } from "./radiusDashboardApi";
 

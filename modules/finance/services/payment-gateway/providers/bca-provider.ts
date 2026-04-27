@@ -2,328 +2,359 @@
 // Documentation: https://developer.bca.co.id/
 
 import type {
-    PaymentProvider,
-    ProviderConfig,
-    CreatePaymentParams,
-    PaymentResult,
-    TransactionStatus,
-    WebhookResult,
-    TestResult
-} from '../provider-interface'
-import crypto from 'crypto'
+  PaymentProvider,
+  ProviderConfig,
+  CreatePaymentParams,
+  PaymentResult,
+  TransactionStatus,
+  WebhookResult,
+  TestResult,
+} from "../provider-interface";
+import crypto from "crypto";
+
+import {
+  buildVirtualAccountPaymentResult,
+  buildVirtualAccountStatusResult,
+  buildVirtualAccountWebhookResult,
+  createVirtualAccountExpiryDate,
+} from "./virtual-account-provider-helper";
 
 export class BCAProvider implements PaymentProvider {
-    name = 'BCA API'
-    private config?: ProviderConfig
-    private baseUrl?: string
+  name = "BCA API";
+  private config?: ProviderConfig;
+  private baseUrl?: string;
 
-    initialize(config: ProviderConfig): void {
-        this.config = config
-        // BCA API menggunakan base URL berbeda untuk sandbox dan production
-        this.baseUrl = config.isProduction
-            ? 'https://api.bca.co.id' // Production URL
-            : 'https://sandbox.bca.co.id/api' // Sandbox URL
+  initialize(config: ProviderConfig): void {
+    this.config = config;
+    // BCA API menggunakan base URL berbeda untuk sandbox dan production
+    this.baseUrl = config.isProduction
+      ? "https://api.bca.co.id" // Production URL
+      : "https://sandbox.bca.co.id/api"; // Sandbox URL
+  }
+
+  /**
+   * Generate BCA API OAuth2 access token
+   * BCA menggunakan OAuth2 untuk authentication
+   */
+  private async getAccessToken(): Promise<string> {
+    if (!this.config) {
+      throw new Error("BCA provider not initialized");
     }
 
-    /**
-     * Generate BCA API OAuth2 access token
-     * BCA menggunakan OAuth2 untuk authentication
-     */
-    private async getAccessToken(): Promise<string> {
-        if (!this.config) {
-            throw new Error('BCA provider not initialized')
-        }
+    try {
+      const response = await fetch(`${this.baseUrl}/oauth/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${Buffer.from(`${this.config.clientKey}:${this.config.apiSecret}`).toString("base64")}`,
+        },
+        body: "grant_type=client_credentials",
+      });
 
-        try {
-            const response = await fetch(`${this.baseUrl}/oauth/token`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Basic ${Buffer.from(`${this.config.clientKey}:${this.config.apiSecret}`).toString('base64')}`
-                },
-                body: 'grant_type=client_credentials'
-            })
+      if (!response.ok) {
+        throw new Error("Failed to get BCA access token");
+      }
 
-            if (!response.ok) {
-                throw new Error('Failed to get BCA access token')
-            }
+      const data = (await response.json()) as { access_token: string };
+      return data.access_token;
+    } catch (error: unknown) {
+      console.error("BCA getAccessToken error:", error);
+      throw error;
+    }
+  }
 
-            const data = await response.json() as { access_token: string }
-            return data.access_token
-        } catch (error: unknown) {
-            console.error('BCA getAccessToken error:', error)
-            throw error
-        }
+  /**
+   * Generate BCA API signature
+   * BCA requires HMAC SHA256 signature
+   */
+  private generateSignature(
+    method: string,
+    relativeUrl: string,
+    accessToken: string,
+    body: string,
+    timestamp: string,
+  ): string {
+    if (!this.config) {
+      throw new Error("BCA provider not initialized");
     }
 
-    /**
-     * Generate BCA API signature
-     * BCA requires HMAC SHA256 signature
-     */
-    private generateSignature(method: string, relativeUrl: string, accessToken: string, body: string, timestamp: string): string {
-        if (!this.config) {
-            throw new Error('BCA provider not initialized')
-        }
+    // Format: HTTPMethod + ":" + RelativeUrl + ":" + AccessToken + ":" + lowercase(hexencode(sha256(minify(RequestBody)))) + ":" + Timestamp
+    const hashedBody = body
+      ? crypto.createHash("sha256").update(body).digest("hex").toLowerCase()
+      : "";
+    const stringToSign = `${method}:${relativeUrl}:${accessToken}:${hashedBody}:${timestamp}`;
 
-        // Format: HTTPMethod + ":" + RelativeUrl + ":" + AccessToken + ":" + lowercase(hexencode(sha256(minify(RequestBody)))) + ":" + Timestamp
-        const hashedBody = body ? crypto.createHash('sha256').update(body).digest('hex').toLowerCase() : ''
-        const stringToSign = `${method}:${relativeUrl}:${accessToken}:${hashedBody}:${timestamp}`
+    // Create HMAC SHA256 signature
+    const signature = crypto
+      .createHmac("sha256", this.config.apiSecret || "")
+      .update(stringToSign)
+      .digest("hex");
 
-        // Create HMAC SHA256 signature
-        const signature = crypto
-            .createHmac('sha256', this.config.apiSecret || '')
-            .update(stringToSign)
-            .digest('hex')
+    return signature;
+  }
 
-        return signature
+  async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
+    try {
+      if (!this.config || !this.baseUrl) {
+        throw new Error("BCA provider not initialized");
+      }
+
+      // Get access token
+      const accessToken = await this.getAccessToken();
+
+      const expiryDate = createVirtualAccountExpiryDate(params.expiryHours);
+
+      // Prepare request body - CUSTOMIZE based on BCA API documentation
+      // BCA Virtual Account creation
+      const requestBody = {
+        CompanyCode: this.config.merchantId, // Your BCA company code
+        PrimaryAccountNumber: params.orderId.substring(0, 12), // Max 12 digits
+        CorporateID: this.config.merchantId,
+        CustomerID: params.orderId,
+        CustomerName: params.customerName.substring(0, 50), // Max 50 chars
+        ExpiredDate: (expiryDate.toISOString().split("T")[0] ?? "").replace(
+          /-/g,
+          "",
+        ), // Format: YYYYMMDD
+        TotalAmount: {
+          Value: params.amount.toFixed(2),
+          Currency: "IDR",
+        },
+        AdditionalInfo: {
+          Description: params.description.substring(0, 100), // Max 100 chars
+        },
+      };
+
+      const bodyString = JSON.stringify(requestBody);
+      const timestamp = new Date().toISOString();
+      const url = "/va/payments"; // Adjust based on actual BCA endpoint
+
+      // Generate signature
+      const signature = this.generateSignature(
+        "POST",
+        url,
+        accessToken,
+        bodyString,
+        timestamp,
+      );
+
+      // Make API request
+      const response = await fetch(`${this.baseUrl}${url}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-BCA-Key": this.config.apiKey || "",
+          "X-BCA-Timestamp": timestamp,
+          "X-BCA-Signature": signature,
+          Origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-BCA-CorrelationID": crypto.randomUUID(),
+        },
+        body: bodyString,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.ErrorMessage || "Failed to create BCA VA");
+      }
+
+      const data = await response.json();
+
+      return buildVirtualAccountPaymentResult({
+        transactionId: data.TransactionID,
+        fallbackTransactionId: params.orderId,
+        vaNumber: data.VirtualAccountNumber,
+        paymentPath: `/payment/bca/${data.VirtualAccountNumber}`,
+        expiresAt: expiryDate,
+      });
+    } catch (error: unknown) {
+      console.error("BCA createPayment error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create payment";
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
+  }
 
-    async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
-        try {
-            if (!this.config || !this.baseUrl) {
-                throw new Error('BCA provider not initialized')
-            }
+  async checkStatus(orderId: string): Promise<TransactionStatus> {
+    try {
+      if (!this.config || !this.baseUrl) {
+        throw new Error("BCA provider not initialized");
+      }
 
-            // Get access token
-            const accessToken = await this.getAccessToken()
+      const accessToken = await this.getAccessToken();
+      const timestamp = new Date().toISOString();
+      const url = `/va/payments/${this.config.merchantId}/${orderId}`; // Adjust based on actual endpoint
 
-            // Calculate expiry
-            const expiryHours = params.expiryHours || 24
-            const expiryDate = new Date()
-            expiryDate.setHours(expiryDate.getHours() + expiryHours)
+      // Generate signature for GET request
+      const signature = this.generateSignature(
+        "GET",
+        url,
+        accessToken,
+        "",
+        timestamp,
+      );
 
-            // Prepare request body - CUSTOMIZE based on BCA API documentation
-            // BCA Virtual Account creation
-            const requestBody = {
-                CompanyCode: this.config.merchantId, // Your BCA company code
-                PrimaryAccountNumber: params.orderId.substring(0, 12), // Max 12 digits
-                CorporateID: this.config.merchantId,
-                CustomerID: params.orderId,
-                CustomerName: params.customerName.substring(0, 50), // Max 50 chars
-                ExpiredDate: (expiryDate.toISOString().split('T')[0] ?? '').replace(/-/g, ''), // Format: YYYYMMDD
-                TotalAmount: {
-                    Value: params.amount.toFixed(2),
-                    Currency: 'IDR'
-                },
-                AdditionalInfo: {
-                    Description: params.description.substring(0, 100) // Max 100 chars
-                }
-            }
+      const response = await fetch(`${this.baseUrl}${url}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-BCA-Key": this.config.apiKey || "",
+          "X-BCA-Timestamp": timestamp,
+          "X-BCA-Signature": signature,
+          "X-BCA-CorrelationID": crypto.randomUUID(),
+        },
+      });
 
-            const bodyString = JSON.stringify(requestBody)
-            const timestamp = new Date().toISOString()
-            const url = '/va/payments' // Adjust based on actual BCA endpoint
+      if (!response.ok) {
+        throw new Error("Failed to check BCA payment status");
+      }
 
-            // Generate signature
-            const signature = this.generateSignature('POST', url, accessToken, bodyString, timestamp)
+      const data = (await response.json()) as {
+        TransactionStatus?: string;
+        PaidStatus?: string;
+        PaidDate?: string;
+        TotalAmount?: { Value?: string };
+        TransactionID?: string;
+      };
 
-            // Make API request
-            const response = await fetch(`${this.baseUrl}${url}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`,
-                    'X-BCA-Key': this.config.apiKey || '',
-                    'X-BCA-Timestamp': timestamp,
-                    'X-BCA-Signature': signature,
-                    'Origin': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-                    'X-BCA-CorrelationID': crypto.randomUUID()
-                },
-                body: bodyString
-            })
+      // Map BCA status to our standard status
+      let status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "FAILED";
 
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.ErrorMessage || 'Failed to create BCA VA')
-            }
+      // TODO: Customize based on actual BCA status codes
+      if (data.TransactionStatus === "PAID" || data.PaidStatus === "Y") {
+        status = "PAID";
+      } else if (data.TransactionStatus === "EXPIRED") {
+        status = "EXPIRED";
+      } else if (data.TransactionStatus === "PENDING") {
+        status = "PENDING";
+      } else {
+        status = "PENDING";
+      }
 
-            const data = await response.json()
-
-            // TODO: Customize return based on actual BCA API response structure
-            return {
-                success: true,
-                transactionId: data.TransactionID || params.orderId,
-                vaNumber: data.VirtualAccountNumber,
-                paymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/bca/${data.VirtualAccountNumber}`, // Custom payment instruction page
-                expiresAt: expiryDate
-            }
-        } catch (error: unknown) {
-            console.error('BCA createPayment error:', error)
-            const errorMessage = error instanceof Error ? error.message : 'Failed to create payment'
-            return {
-                success: false,
-                error: errorMessage
-            }
-        }
+      return buildVirtualAccountStatusResult({
+        orderId,
+        status,
+        paidAt: data.PaidDate,
+        paymentMethod: "BCA Virtual Account",
+        amount: data.TotalAmount?.Value,
+        transactionId: data.TransactionID,
+      });
+    } catch (error: unknown) {
+      console.error("BCA checkStatus error:", error);
+      throw error;
     }
+  }
 
-    async checkStatus(orderId: string): Promise<TransactionStatus> {
-        try {
-            if (!this.config || !this.baseUrl) {
-                throw new Error('BCA provider not initialized')
-            }
+  async cancelPayment(_orderId: string): Promise<void> {
+    // BCA Virtual Account biasanya tidak support cancel, akan expired otomatis
+    // console.log(`BCA VA will auto-expire for order: ${orderId}`)
+  }
 
-            const accessToken = await this.getAccessToken()
-            const timestamp = new Date().toISOString()
-            const url = `/va/payments/${this.config.merchantId}/${orderId}` // Adjust based on actual endpoint
+  verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
+    try {
+      if (!this.config || !signature) {
+        return false;
+      }
 
-            // Generate signature for GET request
-            const signature = this.generateSignature('GET', url, accessToken, '', timestamp)
+      // BCA Webhook Signature Verification
+      // Assuming HMAC-SHA256 of the JSON body using apiSecret
+      const bodyString = JSON.stringify(payload);
 
-            const response = await fetch(`${this.baseUrl}${url}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'X-BCA-Key': this.config.apiKey || '',
-                    'X-BCA-Timestamp': timestamp,
-                    'X-BCA-Signature': signature,
-                    'X-BCA-CorrelationID': crypto.randomUUID()
-                }
-            })
+      const expectedSignature = crypto
+        .createHmac("sha256", this.config.apiSecret || "")
+        .update(bodyString)
+        .digest("hex");
 
-            if (!response.ok) {
-                throw new Error('Failed to check BCA payment status')
-            }
+      // Use timingSafeEqual to prevent timing attacks
+      const source = Buffer.from(signature);
+      const target = Buffer.from(expectedSignature);
 
-            const data = await response.json() as {
-                TransactionStatus?: string;
-                PaidStatus?: string;
-                PaidDate?: string;
-                TotalAmount?: { Value?: string };
-                TransactionID?: string;
-            }
+      if (source.length !== target.length) {
+        return false;
+      }
 
-            // Map BCA status to our standard status
-            let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
-
-            // TODO: Customize based on actual BCA status codes
-            if (data.TransactionStatus === 'PAID' || data.PaidStatus === 'Y') {
-                status = 'PAID'
-            } else if (data.TransactionStatus === 'EXPIRED') {
-                status = 'EXPIRED'
-            } else if (data.TransactionStatus === 'PENDING') {
-                status = 'PENDING'
-            } else {
-                status = 'PENDING'
-            }
-
-            return {
-                orderId,
-                status,
-                ...(data.PaidDate ? { paidAt: new Date(data.PaidDate) } : {}),
-                paymentMethod: 'BCA Virtual Account',
-                amount: parseFloat(data.TotalAmount?.Value || '0'),
-                transactionId: data.TransactionID
-            }
-        } catch (error: unknown) {
-            console.error('BCA checkStatus error:', error)
-            throw error
-        }
+      return crypto.timingSafeEqual(source, target);
+    } catch (error) {
+      console.error("BCA webhook verification error:", error);
+      return false;
     }
+  }
 
-    async cancelPayment(_orderId: string): Promise<void> {
-        // BCA Virtual Account biasanya tidak support cancel, akan expired otomatis
-        // console.log(`BCA VA will auto-expire for order: ${orderId}`)
+  async processWebhook(
+    payload: Record<string, unknown>,
+  ): Promise<WebhookResult> {
+    try {
+      // TODO: Customize based on actual BCA webhook payload structure
+      const orderId =
+        (payload.CustomerID as string) || (payload.TransactionID as string);
+
+      let status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "FAILED";
+
+      if (payload.TransactionStatus === "PAID" || payload.PaidStatus === "Y") {
+        status = "PAID";
+      } else if (payload.TransactionStatus === "EXPIRED") {
+        status = "EXPIRED";
+      } else {
+        status = "PENDING";
+      }
+
+      return buildVirtualAccountWebhookResult({
+        orderId,
+        status,
+        paidAt: payload.PaidDate as string | undefined,
+        paymentMethod: "BCA Virtual Account",
+        transactionId: payload.TransactionID as string,
+        amount: (payload.TotalAmount as { Value?: string })?.Value,
+        raw: payload,
+      });
+    } catch (error: unknown) {
+      console.error("BCA processWebhook error:", error);
+      throw error;
     }
+  }
 
-    verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
-        try {
-            if (!this.config || !signature) {
-                return false
-            }
+  async testConnection(): Promise<TestResult> {
+    try {
+      if (!this.config) {
+        return {
+          success: false,
+          message: "Provider not initialized",
+        };
+      }
 
-            // BCA Webhook Signature Verification
-            // Assuming HMAC-SHA256 of the JSON body using apiSecret
-            const bodyString = JSON.stringify(payload)
-            
-            const expectedSignature = crypto
-                .createHmac('sha256', this.config.apiSecret || '')
-                .update(bodyString)
-                .digest('hex')
+      // Test by getting access token
+      const accessToken = await this.getAccessToken();
 
-            // Use timingSafeEqual to prevent timing attacks
-            const source = Buffer.from(signature);
-            const target = Buffer.from(expectedSignature);
-            
-            if (source.length !== target.length) {
-                return false;
-            }
-            
-            return crypto.timingSafeEqual(source, target);
-        } catch (error) {
-            console.error('BCA webhook verification error:', error)
-            return false
-        }
+      if (accessToken) {
+        return {
+          success: true,
+          message: "Connection successful - Access token obtained",
+          details: {
+            baseUrl: this.baseUrl,
+            environment: this.config.isProduction ? "Production" : "Sandbox",
+            tokenLength: accessToken.length,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        message: "Gagal mendapatkan access token",
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Koneksi gagal";
+      const errorCode = (error as { code?: string })?.code;
+      return {
+        success: false,
+        message: errorMessage,
+        details: {
+          error: errorCode,
+        },
+      };
     }
-
-    async processWebhook(payload: Record<string, unknown>): Promise<WebhookResult> {
-        try {
-            // TODO: Customize based on actual BCA webhook payload structure
-            const orderId = (payload.CustomerID as string) || (payload.TransactionID as string)
-
-            let status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'FAILED'
-
-            if (payload.TransactionStatus === 'PAID' || payload.PaidStatus === 'Y') {
-                status = 'PAID'
-            } else if (payload.TransactionStatus === 'EXPIRED') {
-                status = 'EXPIRED'
-            } else {
-                status = 'PENDING'
-            }
-
-            return {
-                orderId,
-                status,
-                ...(payload.PaidDate ? { paidAt: new Date(payload.PaidDate as string) } : {}),
-                paymentMethod: 'BCA Virtual Account',
-                transactionId: payload.TransactionID as string,
-                amount: parseFloat((payload.TotalAmount as { Value?: string })?.Value || '0'),
-                raw: payload
-            }
-        } catch (error: unknown) {
-            console.error('BCA processWebhook error:', error)
-            throw error
-        }
-    }
-
-    async testConnection(): Promise<TestResult> {
-        try {
-            if (!this.config) {
-                return {
-                    success: false,
-                    message: 'Provider not initialized'
-                }
-            }
-
-            // Test by getting access token
-            const accessToken = await this.getAccessToken()
-
-            if (accessToken) {
-                return {
-                    success: true,
-                    message: 'Connection successful - Access token obtained',
-                    details: {
-                        baseUrl: this.baseUrl,
-                        environment: this.config.isProduction ? 'Production' : 'Sandbox',
-                        tokenLength: accessToken.length
-                    }
-                }
-            }
-
-            return {
-                success: false,
-                message: 'Gagal mendapatkan access token'
-            }
-        } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Koneksi gagal'
-            const errorCode = (error as { code?: string })?.code
-            return {
-                success: false,
-                message: errorMessage,
-                details: {
-                    error: errorCode
-                }
-            }
-        }
-    }
+  }
 }

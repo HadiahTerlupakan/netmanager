@@ -1,7 +1,9 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { supportTicketUpdateSchema } from "@/lib/validations/support-ticket";
 import { idSchema } from "@/lib/validations/common";
-import { getAdminSupportTicketService } from "@/modules/pelanggan";
+import {
+  getAdminSupportTicketService,
+  supportTicketUpdateSchema,
+} from "@/modules/pelanggan";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import * as z from "zod";

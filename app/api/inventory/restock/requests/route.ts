@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { prisma } from "@/modules/database";
+
 import { authOptions } from "@/lib/auth";
-import { PurchaseRequestStatus } from "@prisma/client";
-import { createRestockRequest } from "@/app/api/inventory/_utils/restock-request-create";
 import { hasPermission } from "@/lib/rbac";
+import { prisma } from "@/modules/database";
+import { createRestockRequest } from "@/modules/inventory";
+import { PurchaseRequestStatus } from "@prisma/client";
 
 interface RestockItemInput {
   barangId: string;

@@ -1,4 +1,12 @@
 // Public API for Users Module
+export { DepartmentRepository } from "./repositories/DepartmentRepository";
+export type {
+  DepartmentCreateData,
+  DepartmentPublic,
+  DepartmentUpdateData,
+  DepartmentWithUserCount,
+  IDepartmentRepository,
+} from "./repositories/IDepartmentRepository";
 export { UserRepository } from "./repositories/UserRepository";
 export type {
   CreateUserDTO,

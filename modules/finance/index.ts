@@ -17,10 +17,12 @@ export * from "./services/FinancePageQueriesService";
 export * from "./services/FinanceExpenseBridgeService";
 export * from "./services/InvestorAdminService";
 export * from "./services/RabApprovalService";
+export * from "./services/RabStatusEvaluationService";
 
 // Payment Gateway
 export * from "./services/PaymentGatewayTestService";
 export * from "./services/payment-gateway/gateway-manager";
+export * from "./services/payment-gateway/payment-method-catalog";
 export * from "./services/payment-gateway/providers/midtrans-provider";
 export * from "./services/payment-gateway/providers/moota-provider";
 

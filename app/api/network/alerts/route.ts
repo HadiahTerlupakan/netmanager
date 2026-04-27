@@ -1,11 +1,12 @@
 import { randomUUID } from "crypto";
+
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { logActivitySafe } from "@/lib/logger";
+import { prisma } from "@/modules/database";
 import {
   networkAlertCreateSchema,
   networkAlertQuerySchema,
-} from "@/lib/validations/network-performance";
-import { prisma } from "@/modules/database";
-import { logActivitySafe } from "@/lib/logger";
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+} from "@/modules/network";
 import * as z from "zod";
 
 /**

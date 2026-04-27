@@ -5,7 +5,10 @@ import type {
   Prisma,
 } from "@prisma/client-billing";
 
-import { prismaBilling, prismaBillingAuth } from "@/lib/prisma-billing";
+import { prismaBillingAuth } from "@/lib/prisma-billing";
+import { InvoiceRepository } from "@/modules/finance/repositories/InvoiceRepository";
+import { PaymentRepository } from "@/modules/finance/repositories/PaymentRepository";
+import { UnmatchedMutationRepository } from "@/modules/finance/repositories/UnmatchedMutationRepository";
 import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
 
 import { PaymentGatewayManager } from "./gateway-manager";
@@ -64,8 +67,29 @@ const PAYMENT_METHOD_MAP: Record<string, PaymentMethod> = {
 type BillingTx = Prisma.TransactionClient;
 
 export class WebhookProcessingService {
-  private readonly gatewayManager = new PaymentGatewayManager();
+  private readonly gatewayManager: PaymentGatewayManager;
+  private readonly paymentRepository: PaymentRepository;
+  private readonly invoiceRepository: InvoiceRepository;
+  private readonly unmatchedMutationRepository: UnmatchedMutationRepository;
 
+  constructor(dependencies?: {
+    gatewayManager?: PaymentGatewayManager;
+    paymentRepository?: PaymentRepository;
+    invoiceRepository?: InvoiceRepository;
+    unmatchedMutationRepository?: UnmatchedMutationRepository;
+  }) {
+    this.gatewayManager =
+      dependencies?.gatewayManager ?? new PaymentGatewayManager();
+    this.paymentRepository =
+      dependencies?.paymentRepository ?? new PaymentRepository();
+    this.invoiceRepository =
+      dependencies?.invoiceRepository ?? new InvoiceRepository();
+    this.unmatchedMutationRepository =
+      dependencies?.unmatchedMutationRepository ??
+      new UnmatchedMutationRepository();
+  }
+
+  /** Memproses webhook payment gateway dan merekonsiliasi status pembayaran. */
   async process(input: ProcessWebhookInput): Promise<ProcessWebhookResult> {
     const providerType = input.providerType.toUpperCase();
 
@@ -152,9 +176,6 @@ export class WebhookProcessingService {
       }
 
       if (payment.gatewayStatus === "PAID") {
-        console.log(
-          `[Webhook] Payment ${payment.id} already PAID, skipping duplicate event`,
-        );
         return {
           status: 200,
           body: { status: "ok", message: "Already processed" },
@@ -217,9 +238,6 @@ export class WebhookProcessingService {
         gatewayStatus === "CANCELLED" ||
         gatewayStatus === "FAILED"
       ) {
-        console.log(
-          `[Webhook] Payment ${payment.id} marked as ${gatewayStatus}`,
-        );
       }
 
       return {
@@ -295,16 +313,13 @@ export class WebhookProcessingService {
     tenantId?: string | null,
   ) {
     const earlyOrderId = this.extractEarlyOrderId(providerType, payload);
-    if (
-      !earlyOrderId ||
-      this.shouldSkipTenantScopedLookup(providerType, tenantId)
-    ) {
+    if (!earlyOrderId || providerType === "MOOTA") {
       return null;
     }
 
-    return prismaBillingAuth.payment.findFirst({
-      where: this.buildPaymentLookupWhere(earlyOrderId, tenantId),
-    });
+    return this.paymentRepository.findFirstAuth(
+      this.buildPaymentLookupWhere(earlyOrderId, tenantId),
+    );
   }
 
   private extractEarlyOrderId(
@@ -345,40 +360,26 @@ export class WebhookProcessingService {
     webhookResult: WebhookResult,
     tenantId?: string | null,
   ) {
-    if (
-      providerType === "MOOTA" ||
-      this.shouldSkipTenantScopedLookup(providerType, tenantId)
-    ) {
+    if (providerType === "MOOTA") {
       return null;
     }
 
-    return prismaBillingAuth.payment.findFirst({
-      where: this.buildPaymentLookupWhere(webhookResult.orderId, tenantId),
-    });
-  }
-
-  private shouldSkipTenantScopedLookup(
-    providerType: SupportedProvider,
-    tenantId?: string | null,
-  ): boolean {
-    return providerType !== "MOOTA" && !tenantId;
+    return this.paymentRepository.findFirstAuth(
+      this.buildPaymentLookupWhere(webhookResult.orderId, tenantId),
+    );
   }
 
   private buildPaymentLookupWhere(
     reference: string | undefined,
     tenantId?: string | null,
   ): Prisma.PaymentWhereInput {
-    if (!reference) {
-      return tenantId
-        ? { tenantId, reference: "__missing_reference__" }
-        : { reference: "__missing_reference__" };
-    }
+    const paymentReference = reference ?? "__missing_reference__";
 
     if (!tenantId) {
-      return { reference: "__missing_reference__" };
+      return { reference: paymentReference };
     }
 
-    return { reference, tenantId };
+    return { reference: paymentReference, tenantId };
   }
 
   private async recordUnmatchedMutationForMoota(
@@ -395,9 +396,8 @@ export class WebhookProcessingService {
       return;
     }
 
-    const existing = await prismaBilling.unmatchedMutation.findUnique({
-      where: { transactionId: mutationId },
-    });
+    const existing =
+      await this.unmatchedMutationRepository.findByTransactionId(mutationId);
 
     if (existing) {
       return;
@@ -408,24 +408,18 @@ export class WebhookProcessingService {
       return;
     }
 
-    await prismaBilling.unmatchedMutation.create({
-      data: {
-        provider: "MOOTA",
-        transactionId: mutationId,
-        amount,
-        description:
-          this.asString(rawData.description) || "Mutasi masuk dari Moota",
-        type: this.asString(rawData.type) || "CR",
-        date: this.parseDateOrNow(rawData.date),
-        bankId: this.asString(rawData.bank_id),
-        rawPayload: JSON.parse(JSON.stringify(rawData)),
-        status: "PENDING",
-      },
+    await this.unmatchedMutationRepository.create({
+      provider: "MOOTA",
+      transactionId: mutationId,
+      amount,
+      description:
+        this.asString(rawData.description) || "Mutasi masuk dari Moota",
+      type: this.asString(rawData.type) || "CR",
+      date: this.parseDateOrNow(rawData.date),
+      bankId: this.asString(rawData.bank_id),
+      rawPayload: JSON.parse(JSON.stringify(rawData)),
+      status: "PENDING",
     });
-
-    console.log(
-      `[Webhook] Unmatched mutation recorded: ${mutationId} (${amount})`,
-    );
   }
 
   private async updateInvoicesOnPaymentTx(
@@ -446,15 +440,12 @@ export class WebhookProcessingService {
     }
 
     if (invoiceIds.length === 0) {
-      console.log(`[Webhook] No invoices linked to payment ${paymentId}`);
       return;
     }
 
     for (const invoiceId of invoiceIds) {
-      const invoice = await tx.invoice.findUnique({
-        where: { id: invoiceId },
-        include: { payment: true },
-      });
+      const invoice =
+        await this.invoiceRepository.findUniqueAuthWithPayment(invoiceId);
 
       if (!invoice) {
         console.warn(`[Webhook] Invoice ${invoiceId} not found`);
@@ -485,10 +476,6 @@ export class WebhookProcessingService {
           ...(invoiceStatus === "PAID" ? { paidAt: new Date() } : {}),
         },
       });
-
-      console.log(
-        `[Webhook] Invoice ${invoiceId} updated: status=${invoiceStatus}, paidAmount=${totalPaid}`,
-      );
     }
   }
 
@@ -502,9 +489,7 @@ export class WebhookProcessingService {
     }
 
     for (const invId of invoiceIds) {
-      const invoice = await prismaBillingAuth.invoice.findUnique({
-        where: { id: invId },
-      });
+      const invoice = await this.invoiceRepository.findUniqueAuth(invId);
       if (invoice?.status !== "PAID") {
         continue;
       }

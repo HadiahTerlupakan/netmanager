@@ -25,3 +25,4 @@ export * from "./repositories/LeaveRepository";
 export * from "./utils/workingDayUtils";
 export * from "./utils/calculateWorkingDays";
 export * from "./utils/displayLabels";
+export * from "./utils/attendanceStatus";

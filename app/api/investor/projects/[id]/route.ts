@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import { prismaBilling } from "@/modules/database";
 import {
   getMixRadiusService,
   matchesMixRadiusOwner,
 } from "@/modules/integrations";
+import type { MixRadiusCustomer } from "@/modules/integrations";
+
+type RabInvestorProjectRecord = Prisma.RabInvestorGetPayload<{
+  include: {
+    rabProject: {
+      include: {
+        actualAchievements: true;
+        site: { select: { name: true } };
+      };
+    };
+  };
+}>;
 
 function getSecret(): Uint8Array {
   const raw = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
@@ -31,23 +44,23 @@ export async function GET(
     const investorId = payload.id as string;
 
     // Verify investor has access to this project
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rabInvestor = await (prisma as any).rabInvestor.findUnique({
-      where: {
-        rabProjectId_investorId: {
-          rabProjectId: id,
-          investorId,
-        },
-      },
-      include: {
-        rabProject: {
-          include: {
-            actualAchievements: true,
-            site: { select: { name: true } },
+    const rabInvestor: RabInvestorProjectRecord | null =
+      await prisma.rabInvestor.findUnique({
+        where: {
+          rabProjectId_investorId: {
+            rabProjectId: id,
+            investorId,
           },
         },
-      },
-    });
+        include: {
+          rabProject: {
+            include: {
+              actualAchievements: true,
+              site: { select: { name: true } },
+            },
+          },
+        },
+      });
 
     if (!rabInvestor) {
       return NextResponse.json(
@@ -94,9 +107,8 @@ export async function GET(
       payingSubscribers = payingCustomers.length;
 
       // Estimasi Actual Revenue (Internal)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       actualRevenueToDate = payingCustomers.reduce(
-        (acc, c) => acc + Number((c as any).hargaPaket?.harga || 0),
+        (acc, c) => acc + Number(c.hargaPaket?.harga || 0),
         0,
       );
 
@@ -113,7 +125,7 @@ export async function GET(
             forceRefresh: false,
           });
 
-          const customers = response.data || [];
+          const customers: MixRadiusCustomer[] = response.data || [];
 
           const matchingCustomers = customers.filter((c) =>
             matchesMixRadiusOwner(c.owner_name, owners),
@@ -139,13 +151,8 @@ export async function GET(
           activeSubscribers = activeCustomers.length;
           payingSubscribers = activeCustomers.length; // Treat all active as paying
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           actualRevenueToDate = activeCustomers.reduce(
-            (acc: number, c: any) => {
-              // The actual field in MixRadius PPP can be different, but often it's 'total' or 'price'.
-              // Depending on the MixRadiusService schema, we use 'total' or 0 if missing.
-              return acc + Number(c.total || 0);
-            },
+            (acc, c) => acc + Number(c.total || 0),
             0,
           );
         } catch (e) {
@@ -175,8 +182,7 @@ export async function GET(
       targetSubscribers: p.targetSubscribers,
       growthType: p.growthType,
       createdAt: p.createdAt,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      actualAchievements: p.actualAchievements.map((a: any) => ({
+      actualAchievements: p.actualAchievements.map((a) => ({
         id: a.id,
         month: a.month,
         year: a.year,

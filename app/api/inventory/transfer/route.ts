@@ -1,10 +1,16 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import type { Session } from "next-auth";
 import { hasPermission } from "@/lib/rbac";
-import { InventoryRepository } from "@/modules/inventory";
+import {
+  buildInventoryAccessSession,
+  InventoryRepository,
+} from "@/modules/inventory";
 import { logger, logActivitySafe } from "@/lib/logger";
 import { validateGudangSiteAccess } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import {
+  buildPaginationMeta,
+  parsePaginationParams,
+} from "@/lib/utils/pagination";
 
 /**
  * GET /api/inventory/transfer
@@ -23,8 +29,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const dariGudangId = searchParams.get("dariGudangId") || undefined;
   const keGudangId = searchParams.get("keGudangId") || undefined;
   let siteId = searchParams.get("siteId") || undefined;
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const { page, limit } = parsePaginationParams(searchParams, {
+    page: 1,
+    limit: 20,
+  });
   const offset = (page - 1) * limit;
 
   // SITE RESTRICTION
@@ -84,12 +92,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     return apiSuccess({
       transferList,
-      pagination: {
+      pagination: buildPaginationMeta({
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-      },
+      }),
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
@@ -143,34 +150,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.badRequest("fotoBukti harus berupa array URL foto");
   }
 
-  // Re-fetch full user so the site-scoped gudang access helper sees siteId and role.
-  const { prisma } = await import("@/modules/database");
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { siteId: true, role: true },
-  });
-
-  const mockSession = {
-    user: {
-      ...user,
-      siteId: dbUser?.siteId,
-      role: dbUser?.role || user.role,
-    },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  };
+  const accessSession = await buildInventoryAccessSession(user);
 
   const accessDari = await validateGudangSiteAccess(
-    mockSession as Session,
+    accessSession,
     dariGudangId,
   );
   if (!accessDari.allowed) {
     return ApiErrors.forbidden(`Gudang Sumber: ${accessDari.error}`);
   }
 
-  const accessKe = await validateGudangSiteAccess(
-    mockSession as Session,
-    keGudangId,
-  );
+  const accessKe = await validateGudangSiteAccess(accessSession, keGudangId);
   if (!accessKe.allowed) {
     return ApiErrors.forbidden(`Gudang Tujuan: ${accessKe.error}`);
   }

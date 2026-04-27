@@ -2,6 +2,7 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { getInventoryBarangService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
+import { parsePaginationParams } from "@/lib/utils/pagination";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 const service = getInventoryBarangService();
@@ -159,8 +160,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const searchParams = req.nextUrl.searchParams;
   const gudangId = searchParams.get("gudangId");
   const search = searchParams.get("search");
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "10");
+  const { page, limit } = parsePaginationParams(searchParams, {
+    page: 1,
+    limit: 10,
+  });
 
   try {
     const dbStart = Date.now();

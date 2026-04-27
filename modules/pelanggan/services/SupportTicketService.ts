@@ -1,12 +1,10 @@
-import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
 import { TicketCategory, TicketPriority } from "@prisma/client";
-import { formatDailyDocumentNumber } from "../utils/daily-document-number";
-import { logActivitySafe } from "@/lib/logger";
+import { logger, logActivitySafe } from "@/lib/logger";
 import { TicketEventDispatcher } from "@/modules/events";
+import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
+import { formatDailyDocumentNumber } from "../utils/daily-document-number";
 
-/**
- * Service for customer support ticket business logic
- */
+/** Service for customer support ticket business logic. */
 export class SupportTicketService {
   private repository: CustomerTicketRepository;
 
@@ -14,9 +12,7 @@ export class SupportTicketService {
     this.repository = new CustomerTicketRepository();
   }
 
-  /**
-   * Get customer tickets with pagination
-   */
+  /** Get customer tickets with pagination. */
   async getCustomerTickets(
     customerId: string,
     page: number = 1,
@@ -29,19 +25,16 @@ export class SupportTicketService {
     );
 
     return {
-      tickets: this.repository.formatTicketsForResponse(tickets),
-      pagination: {
+      tickets: this.repository.mapCustomerTicketResponses(tickets),
+      pagination: this.repository.buildCustomerTicketPagination(
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-      },
+      ),
     };
   }
 
-  /**
-   * Create new support ticket
-   */
+  /** Create new support ticket. */
   async createTicket(
     customerId: string,
     data: {
@@ -51,19 +44,16 @@ export class SupportTicketService {
       priority?: string;
     },
   ) {
-    // Validation
     if (!data.category || !data.subject || !data.description) {
       throw new Error("Kategori, subjek, dan deskripsi wajib diisi");
     }
 
-    // Validate category
     if (
       !Object.values(TicketCategory).includes(data.category as TicketCategory)
     ) {
       throw new Error("Kategori tidak valid");
     }
 
-    // Generate ticket number: TKT-YYYYMMDD-XXXXX
     const today = new Date();
     const count = await this.repository.getCountForToday();
     const ticketNumber = formatDailyDocumentNumber({
@@ -73,7 +63,6 @@ export class SupportTicketService {
       sequenceWidth: 5,
     });
 
-    // Create ticket
     const ticket = await this.repository.create({
       pelangganId: customerId,
       ticketNumber,
@@ -83,7 +72,6 @@ export class SupportTicketService {
       description: data.description,
     });
 
-    // System Log
     logActivitySafe({
       action: "CREATE",
       subject: "Support Ticket",
@@ -95,15 +83,17 @@ export class SupportTicketService {
       },
     });
 
-    // Publish domain event
     await TicketEventDispatcher.onCreated({
       ticketId: ticket.id,
       ticketNumber: ticket.ticketNumber,
       subject: ticket.subject,
       priority: ticket.priority,
       triggeredBy: customerId,
-    }).catch((err) =>
-      console.error("Failed to publish TICKET_CREATED event:", err),
+    }).catch((error) =>
+      logger.error(
+        "Failed to publish TICKET_CREATED event",
+        error instanceof Error ? error : undefined,
+      ),
     );
 
     return {

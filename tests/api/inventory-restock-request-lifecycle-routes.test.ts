@@ -37,18 +37,19 @@ vi.mock("@/lib/auth", async () => {
   };
 });
 
-vi.mock("@/app/api/inventory/_utils/restock-request-lifecycle", () => ({
-  getRestockRequestDetail: mockFns.getRestockRequestDetail,
-  patchRestockRequestLifecycle: mockFns.patchRestockRequestLifecycle,
-}));
+vi.mock("@/modules/inventory", async () => {
+  const actual = await vi.importActual<typeof import("@/modules/inventory")>(
+    "@/modules/inventory",
+  );
 
-vi.mock("@/app/api/inventory/_utils/restock-request-create", () => ({
-  createRestockRequest: mockFns.createRestockRequest,
-}));
-
-vi.mock("@/app/api/inventory/_utils/restock-request-status", () => ({
-  patchRestockRequestStatus: mockFns.patchRestockRequestStatus,
-}));
+  return {
+    ...actual,
+    createRestockRequest: mockFns.createRestockRequest,
+    getRestockRequestDetail: mockFns.getRestockRequestDetail,
+    patchRestockRequestLifecycle: mockFns.patchRestockRequestLifecycle,
+    patchRestockRequestStatus: mockFns.patchRestockRequestStatus,
+  };
+});
 
 vi.mock("@/modules/procurement", () => ({
   ProcurementService: vi.fn(

@@ -1,7 +1,7 @@
-import { networkAlertUpdateSchema } from '@/lib/validations/network-performance'
-import { prisma } from '@/modules/database'
-import { logActivitySafe } from '@/lib/logger'
-import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { logActivitySafe } from "@/lib/logger";
+import { prisma } from "@/modules/database";
+import { networkAlertUpdateSchema } from "@/modules/network";
 
 /**
  * @swagger
@@ -35,22 +35,22 @@ import { createHandler, apiSuccess, ApiErrors } from '@/lib/api'
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    const { id } = ctx.params
+  const { id } = ctx.params;
 
-    try {
-      const alert = await prisma.networkAlerts.findUnique({
-        where: { id },
-      })
+  try {
+    const alert = await prisma.networkAlerts.findUnique({
+      where: { id },
+    });
 
-      if (!alert) {
-        return ApiErrors.notFound('Alert')
-      }
-
-      return apiSuccess({ data: alert })
-    } catch (prismaError: unknown) {
-      throw prismaError
+    if (!alert) {
+      return ApiErrors.notFound("Alert");
     }
-})
+
+    return apiSuccess(alert);
+  } catch (prismaError: unknown) {
+    throw prismaError;
+  }
+});
 
 /**
  * @swagger
@@ -115,28 +115,30 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
  *       500:
  *         description: Server error
  */
-export const PUT = createHandler({ 
+export const PUT = createHandler(
+  {
     auth: true,
-    schema: networkAlertUpdateSchema
-}, async (req, ctx) => {
-    const { id } = ctx.params
-    const data = ctx.validated
+    schema: networkAlertUpdateSchema,
+  },
+  async (req, ctx) => {
+    const { id } = ctx.params;
+    const data = ctx.validated;
 
     try {
-      const updateData: Record<string, unknown> = { ...data }
+      const updateData: Record<string, unknown> = { ...data };
 
       if (data.acknowledged) {
-        updateData.acknowledgedBy = ctx.session!.user.id
-        updateData.acknowledgedAt = new Date()
+        updateData.acknowledgedBy = ctx.session!.user.id;
+        updateData.acknowledgedAt = new Date();
       }
 
       if (data.resolved) {
-        updateData.resolvedBy = ctx.session!.user.id
-        updateData.resolvedAt = new Date()
+        updateData.resolvedBy = ctx.session!.user.id;
+        updateData.resolvedAt = new Date();
       }
 
-      if (data.severity) updateData.severity = data.severity
-      if (data.status) updateData.status = data.status
+      if (data.severity) updateData.severity = data.severity;
+      if (data.status) updateData.status = data.status;
 
       await prisma.networkAlerts.update({
         where: { id },
@@ -144,21 +146,22 @@ export const PUT = createHandler({
           ...updateData,
           updatedAt: new Date(),
         },
-      })
+      });
 
       // System Log
       logActivitySafe({
-        action: 'UPDATE',
-        subject: 'Network Alert',
+        action: "UPDATE",
+        subject: "Network Alert",
         userId: ctx.session!.user.id,
-        details: { id, updates: updateData }
-      })
+        details: { id, updates: updateData },
+      });
 
-      return apiSuccess({ message: 'Alert berhasil diperbarui' })
+      return apiSuccess({ message: "Alert berhasil diperbarui" });
     } catch (prismaError: unknown) {
-      throw prismaError
+      throw prismaError;
     }
-})
+  },
+);
 
 /**
  * @swagger
@@ -188,31 +191,31 @@ export const PUT = createHandler({
  *         description: Server error
  */
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-    const { id } = ctx.params
+  const { id } = ctx.params;
 
-    try {
-      const alert = await prisma.networkAlerts.findUnique({
-        where: { id },
-      })
+  try {
+    const alert = await prisma.networkAlerts.findUnique({
+      where: { id },
+    });
 
-      if (!alert) {
-        return ApiErrors.notFound('Alert')
-      }
-
-      await prisma.networkAlerts.delete({
-        where: { id },
-      })
-
-      // System Log
-      logActivitySafe({
-        action: 'DELETE',
-        subject: 'Network Alert',
-        userId: ctx.session!.user.id,
-        details: { id, title: alert.title }
-      })
-
-      return apiSuccess({ message: 'Alert berhasil dihapus' })
-    } catch (prismaError: unknown) {
-      throw prismaError
+    if (!alert) {
+      return ApiErrors.notFound("Alert");
     }
-})
+
+    await prisma.networkAlerts.delete({
+      where: { id },
+    });
+
+    // System Log
+    logActivitySafe({
+      action: "DELETE",
+      subject: "Network Alert",
+      userId: ctx.session!.user.id,
+      details: { id, title: alert.title },
+    });
+
+    return apiSuccess({ message: "Alert berhasil dihapus" });
+  } catch (prismaError: unknown) {
+    throw prismaError;
+  }
+});

@@ -302,7 +302,7 @@ describe("payment gateway hardening", () => {
     expect(prismaMock.invoice.update).not.toHaveBeenCalled();
   });
 
-  it("fails closed when tenant context is missing for tenant-scoped webhook lookup", async () => {
+  it("looks up payment globally when tenant context is missing", async () => {
     const service = new WebhookProcessingService();
 
     prismaMock.payment.findFirst.mockResolvedValue({
@@ -329,12 +329,17 @@ describe("payment gateway hardening", () => {
       tenantId: null,
     });
 
-    expect(result).toEqual({
-      status: 200,
-      body: { status: "ok", message: "Payment record not found" },
+    expect(result).toEqual({ status: 200, body: { status: "ok" } });
+    expect(prismaMock.payment.findFirst).toHaveBeenCalledWith({
+      where: { reference: "INV-1" },
     });
-    expect(prismaMock.payment.findFirst).not.toHaveBeenCalled();
-    expect(prismaMock.payment.update).not.toHaveBeenCalled();
-    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { id: "pay-foreign" },
+      data: {
+        gatewayStatus: "PAID",
+        transactionId: "tx-foreign",
+        gatewayProvider: "TRIPAY",
+      },
+    });
   });
 });

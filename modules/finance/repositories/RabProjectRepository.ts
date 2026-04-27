@@ -82,6 +82,19 @@ interface RabInvestmentItemInput {
   expenseType?: RabExpenseType | string;
 }
 
+export interface RabProjectStatusCandidate {
+  id: string;
+  name: string;
+  status: RabStatus;
+  startDate: Date | null;
+  investmentDurationMonths: number | null;
+  targetSubscribers: number | null;
+  actualAchievements?: Array<{
+    actualSubscribers: number;
+    createdAt: Date;
+  }>;
+}
+
 export interface RabProjectUpdateInput {
   name?: string;
   description?: string;
@@ -276,6 +289,47 @@ function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
 
 export class RabProjectRepository {
   constructor(private client: PrismaClient = prisma) {}
+
+  /**
+   * Get active projects that need status evaluation.
+   */
+  async findProjectsForStatusEvaluation(): Promise<
+    RabProjectStatusCandidate[]
+  > {
+    return this.client.rabProject.findMany({
+      where: {
+        status: {
+          in: ["PENJUALAN", "TARGET_TERCAPAI"],
+        },
+      },
+      include: {
+        actualAchievements: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+        },
+      },
+    }) as Promise<RabProjectStatusCandidate[]>;
+  }
+
+  /**
+   * Update a single RAB project status.
+   */
+  async updateProjectStatus(id: string, status: RabStatus): Promise<boolean> {
+    try {
+      await this.client.rabProject.update({
+        where: { id },
+        data: {
+          status,
+          updatedAt: new Date(),
+        },
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   async findManyWithDetails(
     where: Prisma.RabProjectWhereInput,
