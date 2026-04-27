@@ -385,6 +385,33 @@ export class UserRepository implements IUserRepository {
     });
   }
 
+  async syncUserSites(
+    userId: string,
+    userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+  ) {
+    if (userSites.length === 0) {
+      return;
+    }
+
+    await prisma.userSite.createMany({
+      data: userSites.map((userSite) => ({
+        userId,
+        siteId: userSite.siteId,
+        isPrimary: userSite.isPrimary || false,
+      })),
+    });
+
+    const primarySite = userSites.find((userSite) => userSite.isPrimary);
+    if (!primarySite) {
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { siteId: primarySite.siteId },
+    });
+  }
+
   async updateWorkingHours(
     id: string,
     data: {

@@ -1,15 +1,15 @@
+import { InvoiceStatus } from "@prisma/client-billing";
 import type {
   GatewayPaymentStatus,
-  InvoiceStatus,
   PaymentMethod,
   Prisma,
 } from "@prisma/client-billing";
 
 import { prismaBillingAuth } from "@/lib/prisma-billing";
-import { InvoiceRepository } from "@/modules/finance/repositories/InvoiceRepository";
-import { PaymentRepository } from "@/modules/finance/repositories/PaymentRepository";
-import { UnmatchedMutationRepository } from "@/modules/finance/repositories/UnmatchedMutationRepository";
-import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
+import { InvoiceRepository } from "../../repositories/InvoiceRepository";
+import { PaymentRepository } from "../../repositories/PaymentRepository";
+import { UnmatchedMutationRepository } from "../../repositories/UnmatchedMutationRepository";
+import { AutomaticBillingService } from "../AutomaticBillingService";
 
 import { PaymentGatewayManager } from "./gateway-manager";
 import type { WebhookResult } from "./provider-interface";
@@ -461,11 +461,11 @@ export class WebhookProcessingService {
 
       let invoiceStatus: InvoiceStatus;
       if (totalPaid >= invoice.totalAmount) {
-        invoiceStatus = "PAID";
+        invoiceStatus = InvoiceStatus.PAID;
       } else if (totalPaid > BigInt(0)) {
-        invoiceStatus = "PARTIAL_PAID";
+        invoiceStatus = InvoiceStatus.PARTIAL_PAID;
       } else {
-        invoiceStatus = invoice.status;
+        invoiceStatus = invoice.status as InvoiceStatus;
       }
 
       await tx.invoice.update({

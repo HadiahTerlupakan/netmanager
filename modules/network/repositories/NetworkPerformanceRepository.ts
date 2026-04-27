@@ -1,18 +1,20 @@
-import { PrismaClient, Prisma } from '@prisma/client'
-import { randomUUID } from 'crypto'
-import type { 
-  INetworkPerformanceRepository, 
-  NetworkPerformanceCreateData, 
-  NetworkPerformanceUpdateData, 
+import { PrismaClient, Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { prisma } from "@/lib/prisma";
+import type {
+  NetworkPerformanceCreateData,
+  NetworkPerformanceEntity,
   NetworkPerformanceFilters,
-  NetworkPerformancePublic 
-} from './INetworkPerformanceRepository'
-import { prisma } from '@/lib/prisma'
+  NetworkPerformanceUpdateData,
+} from "../domain/entities/NetworkPerformanceEntity";
+import type { INetworkPerformanceRepository } from "../domain/ports/INetworkPerformanceRepository";
 
 export class NetworkPerformanceRepository implements INetworkPerformanceRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async create(data: NetworkPerformanceCreateData): Promise<NetworkPerformancePublic> {
+  async create(
+    data: NetworkPerformanceCreateData,
+  ): Promise<NetworkPerformanceEntity> {
     return await this.client.networkPerformance.create({
       data: {
         id: randomUUID(),
@@ -31,43 +33,58 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
         txDrops: data.txDrops ? BigInt(data.txDrops) : null,
         rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null,
         txErrors: data.txErrors ? BigInt(data.txErrors) : null,
-        interfaceStatus: (data.interfaceStatus ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        interfaceStatus: (data.interfaceStatus ??
+          Prisma.JsonNull) as Prisma.InputJsonValue,
         connectionCount: data.connectionCount ?? null,
         bandwidthUsage: data.bandwidthUsage ?? null,
         signalStrength: data.signalStrength ?? null,
         powerLevel: data.powerLevel ?? null,
-        customMetrics: (data.customMetrics ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        customMetrics: (data.customMetrics ??
+          Prisma.JsonNull) as Prisma.InputJsonValue,
       },
-    })
+    });
   }
 
-  async findById(id: string): Promise<NetworkPerformancePublic | null> {
+  async findById(id: string): Promise<NetworkPerformanceEntity | null> {
     return await this.client.networkPerformance.findUnique({
       where: { id },
-    })
+    });
   }
 
-  async findByDeviceId(deviceId: string, deviceType: string, filters: NetworkPerformanceFilters = {}): Promise<{ data: NetworkPerformancePublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }> {
+  async findByDeviceId(
+    deviceId: string,
+    deviceType: string,
+    filters: NetworkPerformanceFilters = {},
+  ): Promise<{
+    data: NetworkPerformanceEntity[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
     const where: Prisma.NetworkPerformanceWhereInput = {
       deviceId,
       deviceType,
-    }
+    };
 
     if (filters.startDate || filters.endDate) {
-      where.timestamp = {}
-      if (filters.startDate) where.timestamp.gte = filters.startDate
-      if (filters.endDate) where.timestamp.lte = filters.endDate
+      where.timestamp = {};
+      if (filters.startDate) where.timestamp.gte = filters.startDate;
+      if (filters.endDate) where.timestamp.lte = filters.endDate;
     }
 
-    const page = filters.page || 1
-    const limit = filters.limit || 20
-    const skip = (page - 1) * limit
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const skip = (page - 1) * limit;
 
-    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {}
+    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {};
     if (filters.sortBy) {
-      (orderBy as Record<string, unknown>)[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, unknown>)[filters.sortBy] =
+        filters.sortOrder || "desc";
     } else {
-      orderBy.timestamp = 'desc'
+      orderBy.timestamp = "desc";
     }
 
     const [data, total] = await Promise.all([
@@ -78,7 +95,7 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
         take: limit,
       }),
       this.client.networkPerformance.count({ where }),
-    ])
+    ]);
 
     return {
       data,
@@ -88,30 +105,41 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
         total,
         totalPages: Math.ceil(total / limit),
       },
-    }
+    };
   }
 
-  async findMany(filters: NetworkPerformanceFilters = {}): Promise<{ data: NetworkPerformancePublic[], pagination: { page: number, limit: number, total: number, totalPages: number } }> {
-    const where: Prisma.NetworkPerformanceWhereInput = {}
+  async findMany(
+    filters: NetworkPerformanceFilters = {},
+  ): Promise<{
+    data: NetworkPerformanceEntity[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const where: Prisma.NetworkPerformanceWhereInput = {};
 
-    if (filters.deviceId) where.deviceId = filters.deviceId
-    if (filters.deviceType) where.deviceType = filters.deviceType
+    if (filters.deviceId) where.deviceId = filters.deviceId;
+    if (filters.deviceType) where.deviceType = filters.deviceType;
 
     if (filters.startDate || filters.endDate) {
-      where.timestamp = {}
-      if (filters.startDate) where.timestamp.gte = filters.startDate
-      if (filters.endDate) where.timestamp.lte = filters.endDate
+      where.timestamp = {};
+      if (filters.startDate) where.timestamp.gte = filters.startDate;
+      if (filters.endDate) where.timestamp.lte = filters.endDate;
     }
 
-    const page = filters.page || 1
-    const limit = filters.limit || 20
-    const skip = (page - 1) * limit
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const skip = (page - 1) * limit;
 
-    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {}
+    const orderBy: Prisma.NetworkPerformanceOrderByWithRelationInput = {};
     if (filters.sortBy) {
-      (orderBy as Record<string, unknown>)[filters.sortBy] = filters.sortOrder || 'desc'
+      (orderBy as Record<string, unknown>)[filters.sortBy] =
+        filters.sortOrder || "desc";
     } else {
-      orderBy.timestamp = 'desc'
+      orderBy.timestamp = "desc";
     }
 
     const [data, total] = await Promise.all([
@@ -122,7 +150,7 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
         take: limit,
       }),
       this.client.networkPerformance.count({ where }),
-    ])
+    ]);
 
     return {
       data,
@@ -132,7 +160,7 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
         total,
         totalPages: Math.ceil(total / limit),
       },
-    }
+    };
   }
 
   async update(id: string, data: NetworkPerformanceUpdateData): Promise<void> {
@@ -141,36 +169,80 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
       data: {
         updatedAt: new Date(),
         ...(data.cpuUsage !== undefined ? { cpuUsage: data.cpuUsage } : {}),
-        ...(data.memoryUsage !== undefined ? { memoryUsage: data.memoryUsage } : {}),
-        ...(data.temperature !== undefined ? { temperature: data.temperature } : {}),
-        ...(data.uptime !== undefined ? { uptime: data.uptime ? BigInt(data.uptime) : null } : {}),
-        ...(data.rxBytes !== undefined ? { rxBytes: data.rxBytes ? BigInt(data.rxBytes) : null } : {}),
-        ...(data.txBytes !== undefined ? { txBytes: data.txBytes ? BigInt(data.txBytes) : null } : {}),
-        ...(data.rxPackets !== undefined ? { rxPackets: data.rxPackets ? BigInt(data.rxPackets) : null } : {}),
-        ...(data.txPackets !== undefined ? { txPackets: data.txPackets ? BigInt(data.txPackets) : null } : {}),
-        ...(data.rxDrops !== undefined ? { rxDrops: data.rxDrops ? BigInt(data.rxDrops) : null } : {}),
-        ...(data.txDrops !== undefined ? { txDrops: data.txDrops ? BigInt(data.txDrops) : null } : {}),
-        ...(data.rxErrors !== undefined ? { rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null } : {}),
-        ...(data.txErrors !== undefined ? { txErrors: data.txErrors ? BigInt(data.txErrors) : null } : {}),
-        ...(data.interfaceStatus !== undefined ? { interfaceStatus: (data.interfaceStatus ?? Prisma.JsonNull) as Prisma.InputJsonValue } : {}),
-        ...(data.connectionCount !== undefined ? { connectionCount: data.connectionCount } : {}),
-        ...(data.bandwidthUsage !== undefined ? { bandwidthUsage: data.bandwidthUsage } : {}),
-        ...(data.signalStrength !== undefined ? { signalStrength: data.signalStrength } : {}),
-        ...(data.powerLevel !== undefined ? { powerLevel: data.powerLevel } : {}),
-        ...(data.customMetrics !== undefined ? { customMetrics: (data.customMetrics ?? Prisma.JsonNull) as Prisma.InputJsonValue } : {}),
+        ...(data.memoryUsage !== undefined
+          ? { memoryUsage: data.memoryUsage }
+          : {}),
+        ...(data.temperature !== undefined
+          ? { temperature: data.temperature }
+          : {}),
+        ...(data.uptime !== undefined
+          ? { uptime: data.uptime ? BigInt(data.uptime) : null }
+          : {}),
+        ...(data.rxBytes !== undefined
+          ? { rxBytes: data.rxBytes ? BigInt(data.rxBytes) : null }
+          : {}),
+        ...(data.txBytes !== undefined
+          ? { txBytes: data.txBytes ? BigInt(data.txBytes) : null }
+          : {}),
+        ...(data.rxPackets !== undefined
+          ? { rxPackets: data.rxPackets ? BigInt(data.rxPackets) : null }
+          : {}),
+        ...(data.txPackets !== undefined
+          ? { txPackets: data.txPackets ? BigInt(data.txPackets) : null }
+          : {}),
+        ...(data.rxDrops !== undefined
+          ? { rxDrops: data.rxDrops ? BigInt(data.rxDrops) : null }
+          : {}),
+        ...(data.txDrops !== undefined
+          ? { txDrops: data.txDrops ? BigInt(data.txDrops) : null }
+          : {}),
+        ...(data.rxErrors !== undefined
+          ? { rxErrors: data.rxErrors ? BigInt(data.rxErrors) : null }
+          : {}),
+        ...(data.txErrors !== undefined
+          ? { txErrors: data.txErrors ? BigInt(data.txErrors) : null }
+          : {}),
+        ...(data.interfaceStatus !== undefined
+          ? {
+              interfaceStatus: (data.interfaceStatus ??
+                Prisma.JsonNull) as Prisma.InputJsonValue,
+            }
+          : {}),
+        ...(data.connectionCount !== undefined
+          ? { connectionCount: data.connectionCount }
+          : {}),
+        ...(data.bandwidthUsage !== undefined
+          ? { bandwidthUsage: data.bandwidthUsage }
+          : {}),
+        ...(data.signalStrength !== undefined
+          ? { signalStrength: data.signalStrength }
+          : {}),
+        ...(data.powerLevel !== undefined
+          ? { powerLevel: data.powerLevel }
+          : {}),
+        ...(data.customMetrics !== undefined
+          ? {
+              customMetrics: (data.customMetrics ??
+                Prisma.JsonNull) as Prisma.InputJsonValue,
+            }
+          : {}),
       },
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
     await this.client.networkPerformance.delete({
       where: { id },
-    })
+    });
   }
 
-  async deleteByDeviceId(deviceId: string, deviceType: string, olderThanDays: number = 30): Promise<{ count: number }> {
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays)
+  async deleteByDeviceId(
+    deviceId: string,
+    deviceType: string,
+    olderThanDays: number = 30,
+  ): Promise<{ count: number }> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
     const result = await this.client.networkPerformance.deleteMany({
       where: {
@@ -180,23 +252,23 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
           lt: cutoffDate,
         },
       },
-    })
+    });
 
-    return { count: result.count }
+    return { count: result.count };
   }
 
   async count(filters: NetworkPerformanceFilters = {}): Promise<number> {
-    const where: Prisma.NetworkPerformanceWhereInput = {}
+    const where: Prisma.NetworkPerformanceWhereInput = {};
 
-    if (filters.deviceId) where.deviceId = filters.deviceId
-    if (filters.deviceType) where.deviceType = filters.deviceType
+    if (filters.deviceId) where.deviceId = filters.deviceId;
+    if (filters.deviceType) where.deviceType = filters.deviceType;
 
     if (filters.startDate || filters.endDate) {
-      where.timestamp = {}
-      if (filters.startDate) where.timestamp.gte = filters.startDate
-      if (filters.endDate) where.timestamp.lte = filters.endDate
+      where.timestamp = {};
+      if (filters.startDate) where.timestamp.gte = filters.startDate;
+      if (filters.endDate) where.timestamp.lte = filters.endDate;
     }
 
-    return await this.client.networkPerformance.count({ where })
+    return await this.client.networkPerformance.count({ where });
   }
 }

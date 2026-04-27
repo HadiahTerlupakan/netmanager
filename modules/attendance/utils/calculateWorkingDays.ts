@@ -1,37 +1,45 @@
-import { HolidayRepository } from '../repositories/HolidayRepository'
-import { toStartOfDay } from '@/lib/utils/server-datetime'
+import { toStartOfDay } from "@/lib/utils/server-datetime";
 
+import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
+import { HolidayRepository } from "../repositories/HolidayRepository";
+
+/** Calculate effective working days excluding holidays. */
 export async function calculateWorkingDays(
   startDate: Date,
   endDate: Date,
   workDaysStr: string | null = null,
-  holidayRepository: HolidayRepository = new HolidayRepository(),
-  tenantId: string
+  holidayRepository: IHolidayRepository = new HolidayRepository(),
+  tenantId: string,
 ): Promise<number> {
-  let days = 0
-  const curDate = new Date(startDate)
-  const lastDate = new Date(endDate)
+  let days = 0;
+  const curDate = new Date(startDate);
+  const lastDate = new Date(endDate);
 
-  curDate.setTime(toStartOfDay(curDate).getTime())
-  lastDate.setTime(toStartOfDay(lastDate).getTime())
+  curDate.setTime(toStartOfDay(curDate).getTime());
+  lastDate.setTime(toStartOfDay(lastDate).getTime());
 
-  const defaultWorkDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-  const allowedDays = workDaysStr ? workDaysStr.split(',').map((d: string) => d.trim()) : defaultWorkDays
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const defaultWorkDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const allowedDays = workDaysStr
+    ? workDaysStr.split(",").map((d: string) => d.trim())
+    : defaultWorkDays;
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   while (curDate <= lastDate) {
-    const dayIndex = curDate.getDay()
-    const dayName = dayNames[dayIndex]
+    const dayIndex = curDate.getDay();
+    const dayName = dayNames[dayIndex];
 
     if (allowedDays.includes(dayName)) {
-      const { isHoliday } = await holidayRepository.isHoliday(curDate, tenantId)
+      const { isHoliday } = await holidayRepository.isHoliday(
+        curDate,
+        tenantId,
+      );
       if (!isHoliday) {
-        days++
+        days++;
       }
     }
 
-    curDate.setDate(curDate.getDate() + 1)
+    curDate.setDate(curDate.getDate() + 1);
   }
 
-  return days
+  return days;
 }

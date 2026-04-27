@@ -18,41 +18,20 @@ import toast from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
-import { calculateRabUnitCosts } from "@/modules/finance/utils/rabTarget";
+import { calculateRabUnitCosts } from "@/modules/finance/client";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
 import RABCompare from "./RABCompare";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABCsvContent } from "./rab-csv";
 import { buildRABPdfTrackingTable, getRABPdfDocumentOptions } from "./rab-pdf";
-import type {
-  LinearGrowthSettings,
-  PercentageGrowthSettings,
-  RABProject,
-} from "./rabTypes";
-
-function getProfitShareRows(project: RABProject): string[][] {
-  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    const investorShare = project.investorProfitSharePercent || 50;
-    return [
-      ["Skema Bagi Hasil", "Tetap"],
-      ["Bagi Hasil Investor", `${investorShare}%`],
-      ["Bagi Hasil Perusahaan", `${100 - investorShare}%`],
-    ];
-  }
-
-  return [
-    ["Skema Bagi Hasil", "Bertahap Setelah Balik Modal"],
-    [
-      "Investor Sebelum Balik Modal",
-      `${project.investorProfitShareBeforeBepPercent || 80}%`,
-    ],
-    [
-      "Investor Setelah Balik Modal",
-      `${project.investorProfitShareAfterBepPercent || 60}%`,
-    ],
-  ];
-}
+import {
+  formatRabGrowthModelDescription,
+  formatRabGrowthTypeLabel,
+  formatRabItemCategory,
+  formatRabProfitSharePdfRows,
+} from "./rab-formatters";
+import type { RABProject } from "./rabTypes";
 
 interface RABListProps {
   initialData?: RABProject[];
@@ -193,17 +172,7 @@ export default function RABList({
         targetSubscribers: project.targetSubscribers,
       });
 
-      let growthModelDesc = "-";
-      if (project.growthType === "LINEAR") {
-        const s = project.growthSettings as LinearGrowthSettings;
-        growthModelDesc = `Linear (${s?.subscribersPerMonth || 0} plg/Bulan)`;
-      } else if (project.growthType === "PERCENTAGE") {
-        const s = project.growthSettings as PercentageGrowthSettings;
-        growthModelDesc = `Persentase (Awal: ${s?.initialPercent || 0}%, Naik: ${s?.monthlyGrowthPercent || 0}%/Bulan)`;
-      } else if (project.growthType === "CUSTOM") {
-        growthModelDesc = "Kustom (Berdasarkan Target Spesifik Bulan)";
-      }
-
+      const growthModelDesc = formatRabGrowthModelDescription(project);
       const trackingTable = buildRABPdfTrackingTable(project);
 
       const metrics = [
@@ -267,7 +236,7 @@ export default function RABList({
             : `${formatCurrency(project.investmentRecoveryValue || 0)}/Bulan`,
         ],
         ["Durasi Kontrak", `${project.investmentDurationMonths || 12} Bulan`],
-        ...getProfitShareRows(project),
+        ...formatRabProfitSharePdfRows(project),
         [
           "Estimasi BEP Keseluruhan",
           bepMonth === Infinity ? "Tidak Terhingga" : `${bepMonth} Bulan`,
@@ -437,11 +406,7 @@ export default function RABList({
         project.items.forEach((item) => {
           tableData.push([
             item.name,
-            item.expenseCategory && typeof item.expenseCategory === "object"
-              ? item.expenseCategory.parent
-                ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}`
-                : item.expenseCategory.name
-              : item.category || "-",
+            formatRabItemCategory(item),
             item.expenseType || "CAPEX",
             item.quantity.toString(),
             formatCurrency(Number(item.unitPrice)),
@@ -485,11 +450,7 @@ export default function RABList({
           groupItems.forEach((item) => {
             tableData.push([
               `  ${item.name}`, // Indent slightly
-              item.expenseCategory && typeof item.expenseCategory === "object"
-                ? item.expenseCategory.parent
-                  ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}`
-                  : item.expenseCategory.name
-                : item.category || "-",
+              formatRabItemCategory(item),
               item.expenseType || "CAPEX",
               item.quantity.toString(),
               formatCurrency(Number(item.unitPrice)),
@@ -521,11 +482,7 @@ export default function RABList({
           ungrouppedItems.forEach((item) => {
             tableData.push([
               `  ${item.name}`,
-              item.expenseCategory && typeof item.expenseCategory === "object"
-                ? item.expenseCategory.parent
-                  ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}`
-                  : item.expenseCategory.name
-                : item.category || "-",
+              formatRabItemCategory(item),
               item.expenseType || "CAPEX",
               item.quantity.toString(),
               formatCurrency(Number(item.unitPrice)),
@@ -810,19 +767,6 @@ export default function RABList({
       .reduce((sum, item) => sum + Number(item.totalPrice), 0);
   };
 
-  const getGrowthTypeLabel = (type?: string) => {
-    switch (type) {
-      case "LINEAR":
-        return "Linear";
-      case "PERCENTAGE":
-        return "Persentase";
-      case "CUSTOM":
-        return "Kustom";
-      default:
-        return "-";
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DRAFT":
@@ -995,7 +939,7 @@ export default function RABList({
                     </div>
                     <div className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1">
                       <HiOutlineArrowTrendingUp className="w-3.5 h-3.5 text-purple-400" />
-                      {getGrowthTypeLabel(item.growthType)}
+                      {formatRabGrowthTypeLabel(item.growthType)}
                     </div>
                   </div>
                 </div>
@@ -1136,7 +1080,7 @@ export default function RABList({
                 <div className="flex items-center gap-1.5">
                   <HiOutlineArrowTrendingUp className="w-4 h-4 text-purple-400" />
                   <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">
-                    {getGrowthTypeLabel(item.growthType)}
+                    {formatRabGrowthTypeLabel(item.growthType)}
                   </span>
                 </div>
               ),

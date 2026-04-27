@@ -1,43 +1,27 @@
-import { prismaBilling } from '@/modules/database';
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { getPaymentForRoute } from "@/modules/finance";
 
-/**
- * GET /api/payments/{id}
- * Get payment by ID
- */
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
-    const { id } = ctx.params
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
+  const result = await getPaymentForRoute({
+    paymentId: ctx.params.id,
+    user: ctx.session?.user,
+  });
 
-    const payment = await prismaBilling.payment.findUnique({
-      where: { id },
-      include: { invoice: true } })
+  if (result.status === "not-found") {
+    return ApiErrors.notFound("Pembayaran");
+  }
 
-    if (!payment) {
-        return ApiErrors.notFound('Pembayaran')
-    }
+  if (result.status === "forbidden-site") {
+    return ApiErrors.forbidden(
+      "Akses ditolak. Pembayaran ini bukan milik site Anda.",
+    );
+  }
 
-    // Ownership Check
-    const user = ctx.session?.user
-    if (user && !user.isSuperAdmin) {
-      // Check if payment belongs to user's site (via invoice) or tenant
-      const paymentSiteId = payment.invoice?.siteId
-      const paymentTenantId = payment.tenantId
+  if (result.status === "forbidden-tenant") {
+    return ApiErrors.forbidden(
+      "Akses ditolak. Pembayaran ini bukan milik tenant Anda.",
+    );
+  }
 
-      const belongsToSite = user.siteId && paymentSiteId === user.siteId
-      const belongsToTenant = user.tenantId && paymentTenantId === user.tenantId
-      
-      // If payment has siteId, it must match user's siteId
-      // If no siteId, fallback to tenant check
-      if (paymentSiteId) {
-        if (!belongsToSite) {
-          return ApiErrors.forbidden('Akses ditolak. Pembayaran ini bukan milik site Anda.')
-        }
-      } else if (paymentTenantId) {
-        if (!belongsToTenant) {
-          return ApiErrors.forbidden('Akses ditolak. Pembayaran ini bukan milik tenant Anda.')
-        }
-      }
-    }
-
-    return apiSuccess(payment)
-})
+  return apiSuccess(result.data);
+});

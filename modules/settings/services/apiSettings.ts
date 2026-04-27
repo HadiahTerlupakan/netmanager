@@ -1,10 +1,11 @@
 import { testR2Connection } from "@/lib/utils/r2-client";
 import { decryptApiKey, encryptApiKey } from "@/lib/utils/encryption";
-import {
-  SettingsRepository,
-  type SettingsRecord,
-  type SettingsUpsertInput,
-} from "../repositories/SettingsRepository";
+import { SettingsRepository } from "../repositories/SettingsRepository";
+import type {
+  SettingsEntity,
+  SettingsUpsertEntity,
+} from "../domain/entities/Settings";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 
 export type ApiSettingsPayload = {
   googleGeminiApiKey: string;
@@ -19,6 +20,8 @@ export type ApiSettingsPayload = {
 
 export type ApiSettingsPostPayload = Partial<ApiSettingsPayload>;
 
+const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
+
 export const API_SETTINGS_KEYS: string[] = [
   "GOOGLE_GEMINI_API_KEY",
   "GEMINI_ENABLED",
@@ -30,7 +33,7 @@ export const API_SETTINGS_KEYS: string[] = [
   "R2_ENABLED",
 ] as const;
 
-function getSettingValue(records: SettingsRecord[], key: string): string {
+function getSettingValue(records: SettingsEntity[], key: string): string {
   const setting = records.find((item) => item.key === key);
   if (!setting?.value) {
     return "";
@@ -51,8 +54,9 @@ function getSettingValue(records: SettingsRecord[], key: string): string {
   return setting.value;
 }
 
+/** Maps settings entities into API settings payload. */
 export function mapApiSettingsResponse(
-  records: SettingsRecord[],
+  records: SettingsEntity[],
 ): ApiSettingsPayload {
   const settingsMap = new Map(
     records.map((setting) => [setting.key, setting.value]),
@@ -70,10 +74,11 @@ export function mapApiSettingsResponse(
   };
 }
 
+/** Builds repository upserts for API settings payload. */
 export function buildApiSettingsUpserts(
   payload: ApiSettingsPostPayload,
-): SettingsUpsertInput[] {
-  const upserts: SettingsUpsertInput[] = [];
+): SettingsUpsertEntity[] {
+  const upserts: SettingsUpsertEntity[] = [];
 
   if (payload.googleGeminiApiKey !== undefined) {
     upserts.push({
@@ -144,28 +149,27 @@ export function buildApiSettingsUpserts(
   return upserts;
 }
 
+/** Gets tenant-scoped API settings. */
 export async function getApiSettings(
   tenantId: string,
+  repository: ISettingsRepository = defaultSettingsRepository,
 ): Promise<ApiSettingsPayload> {
-  const records = await SettingsRepository.findManyByKeys(
-    API_SETTINGS_KEYS,
-    tenantId,
-  );
+  const records = await repository.findManyByKeys(API_SETTINGS_KEYS, tenantId);
   return mapApiSettingsResponse(records);
 }
 
+/** Updates tenant-scoped API settings. */
 export async function updateApiSettings(
   tenantId: string,
   payload: ApiSettingsPostPayload,
+  repository: ISettingsRepository = defaultSettingsRepository,
 ): Promise<void> {
   const updates = buildApiSettingsUpserts(payload);
   if (!updates.length) {
     return;
   }
 
-  await SettingsRepository.upsertMany(
-    updates.map((entry) => ({ ...entry, tenantId })),
-  );
+  await repository.upsertMany(updates.map((entry) => ({ ...entry, tenantId })));
 }
 
 type GeminiTestSuccess = { success: true };

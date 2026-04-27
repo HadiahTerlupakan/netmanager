@@ -3,6 +3,8 @@ import { endOfDay as fnsEndOfDay, startOfDay as fnsStartOfDay } from "date-fns";
 
 import { UserRepository } from "@/modules/users";
 
+import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
+import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { isOffDayForUser } from "../utils/workingDayUtils";
@@ -24,14 +26,18 @@ function isDateWithinDay(
 }
 
 export class AttendanceValidationService {
-  private leaveRepo: LeaveRepository;
-  private holidayRepo: HolidayRepository;
+  private leaveRepo: ILeaveRepository;
+  private holidayRepo: IHolidayRepository;
   private userRepo: UserRepository;
 
-  constructor() {
-    this.leaveRepo = new LeaveRepository();
-    this.holidayRepo = new HolidayRepository();
-    this.userRepo = new UserRepository();
+  constructor(
+    leaveRepo: ILeaveRepository = new LeaveRepository(),
+    holidayRepo: IHolidayRepository = new HolidayRepository(),
+    userRepo: UserRepository = new UserRepository(),
+  ) {
+    this.leaveRepo = leaveRepo;
+    this.holidayRepo = holidayRepo;
+    this.userRepo = userRepo;
   }
 
   private getDayBoundaries(date: Date, timezone: string) {

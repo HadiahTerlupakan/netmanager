@@ -4,12 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { prismaBilling } from "@/lib/prisma-billing";
 import { Prisma } from "@prisma/client";
 import type {
-  Pelanggan,
   Status,
   TipePelanggan,
   DiscountType,
   DurasiUnit,
 } from "@prisma/client";
+
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
+import { PelangganMapper } from "../mappers/PelangganMapper";
 
 const ACTIVE_PACKAGE_STATUS = "AKTIF";
 
@@ -88,7 +90,6 @@ export interface CreatePelangganDTO {
   siteId?: string | null;
 }
 
-// Use Prisma's generated type for accurate typing
 const _pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
   include: {
     site: true,
@@ -111,11 +112,14 @@ export interface FilterOptions {
   search?: string;
 }
 
-export class PelangganRepository {
-  async findAll(filter?: FilterOptions): Promise<PelangganWithPackage[]> {
+/**
+ * Concrete pelanggan repository backed by Prisma.
+ */
+export class PelangganRepository implements IPelangganRepository {
+  /** Get all customers using optional filters. */
+  async findAll(filter?: FilterOptions) {
     const where = this.buildWhereClause(filter);
-
-    return prisma.pelanggan.findMany({
+    const pelanggan = await prisma.pelanggan.findMany({
       where,
       include: {
         site: true,
@@ -130,15 +134,17 @@ export class PelangganRepository {
         createdAt: "desc",
       },
     });
+
+    return pelanggan.map((item) => PelangganMapper.toDomainWithPackage(item));
   }
 
+  /** Get paginated customers using optional filters. */
   async findAllPaginated(
     filter?: FilterOptions,
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ data: PelangganWithPackage[]; total: number }> {
+  ) {
     const where = this.buildWhereClause(filter);
-
     const [data, total] = await Promise.all([
       prisma.pelanggan.findMany({
         where,
@@ -158,17 +164,24 @@ export class PelangganRepository {
       prisma.pelanggan.count({ where }),
     ]);
 
-    return { data, total };
+    return {
+      data: data.map((item) => PelangganMapper.toDomainWithPackage(item)),
+      total,
+    };
   }
 
+  /** Build pelanggan where clause. */
   private buildWhereClause(filter?: FilterOptions): Prisma.PelangganWhereInput {
     const where: Prisma.PelangganWhereInput = {};
+
     if (filter?.status) {
       where.status = filter.status;
     }
+
     if (filter?.siteId) {
       where.siteId = filter.siteId;
     }
+
     if (filter?.search) {
       where.OR = [
         { nama: { contains: filter.search, mode: "insensitive" } },
@@ -176,29 +189,33 @@ export class PelangganRepository {
         { username: { contains: filter.search, mode: "insensitive" } },
       ];
     }
+
     return where;
   }
 
-  async findById(id: string): Promise<Pelanggan | null> {
-    return prisma.pelanggan.findUnique({
-      where: { id },
-    });
+  /** Get customer by internal id. */
+  async findById(id: string) {
+    const pelanggan = await prisma.pelanggan.findUnique({ where: { id } });
+    return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
   }
 
-  async findByIdPelanggan(idPelanggan: string): Promise<Pelanggan | null> {
-    return prisma.pelanggan.findFirst({
+  /** Get customer by customer code. */
+  async findByIdPelanggan(idPelanggan: string) {
+    const pelanggan = await prisma.pelanggan.findFirst({
       where: { idPelanggan },
     });
+    return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
   }
 
-  async findByUsername(username: string): Promise<Pelanggan | null> {
-    return prisma.pelanggan.findFirst({
-      where: { username },
-    });
+  /** Get customer by username. */
+  async findByUsername(username: string) {
+    const pelanggan = await prisma.pelanggan.findFirst({ where: { username } });
+    return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
   }
 
-  async create(data: CreatePelangganDTO): Promise<PelangganWithPackage> {
-    return prisma.pelanggan.create({
+  /** Create customer and return package relation when available. */
+  async create(data: CreatePelangganDTO) {
+    const pelanggan = await prisma.pelanggan.create({
       data: {
         id: randomUUID(),
         updatedAt: new Date(),
@@ -259,16 +276,18 @@ export class PelangganRepository {
         },
       },
     });
+
+    return PelangganMapper.toDomainWithPackage(pelanggan);
   }
 
-  async update(
-    id: string,
-    data: Partial<CreatePelangganDTO>,
-  ): Promise<Pelanggan> {
-    return prisma.pelanggan.update({
+  /** Update customer by id. */
+  async update(id: string, data: Partial<CreatePelangganDTO>) {
+    const pelanggan = await prisma.pelanggan.update({
       where: { id },
       data,
     });
+
+    return PelangganMapper.toDomain(pelanggan);
   }
 
   /** Get customer data needed for admin PPP mutation flow. */
@@ -284,10 +303,12 @@ export class PelangganRepository {
     id: string,
     data: Prisma.PelangganUncheckedUpdateInput,
   ) {
-    return prisma.pelanggan.update({
+    const pelanggan = await prisma.pelanggan.update({
       where: { id },
       data,
     });
+
+    return PelangganMapper.toDomain(pelanggan);
   }
 
   /** Get customer data needed for admin delete flow. */
@@ -300,7 +321,7 @@ export class PelangganRepository {
 
   /** Get customer detail with package and ODP for admin query flow. */
   async findAdminPppDetail(id: string, tenantId?: string | null) {
-    return prisma.pelanggan.findFirst({
+    const pelanggan = await prisma.pelanggan.findFirst({
       where: tenantId ? { id, tenantId } : { id },
       include: {
         hargaPaket: {
@@ -321,6 +342,8 @@ export class PelangganRepository {
         },
       },
     });
+
+    return pelanggan ? PelangganMapper.toDomainWithPackage(pelanggan) : null;
   }
 
   /** Get minimal customer context for admin PPP mutation. */
@@ -331,28 +354,21 @@ export class PelangganRepository {
     });
   }
 
-  async delete(id: string): Promise<Pelanggan> {
-    return prisma.pelanggan.delete({
-      where: { id },
-    });
+  /** Delete customer by id. */
+  async delete(id: string) {
+    const pelanggan = await prisma.pelanggan.delete({ where: { id } });
+    return PelangganMapper.toDomain(pelanggan);
   }
 
+  /** Check package existence. */
   async checkHargaPaketExists(id: string): Promise<boolean> {
-    const hargaPaket = await prisma.hargaPaket.findUnique({
-      where: { id },
-    });
+    const hargaPaket = await prisma.hargaPaket.findUnique({ where: { id } });
     return hargaPaket !== null;
   }
 
-  // ============================================
-  // Customer Portal Methods
-  // ============================================
-
-  /**
-   * Get pelanggan with full package details for customer portal
-   */
+  /** Get pelanggan with package details for customer portal. */
   async findByIdWithPackage(id: string) {
-    return prisma.pelanggan.findUnique({
+    const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
       include: {
         site: true,
@@ -363,11 +379,11 @@ export class PelangganRepository {
         },
       },
     });
+
+    return pelanggan ? PelangganMapper.toDomainWithPackage(pelanggan) : null;
   }
 
-  /**
-   * Update customer profile preferences
-   */
+  /** Update customer profile preferences. */
   async updateProfile(
     id: string,
     data: {
@@ -395,26 +411,20 @@ export class PelangganRepository {
     });
   }
 
-  /**
-   * Get password hash for verification
-   */
+  /** Get password hash for verification. */
   async getPasswordHash(id: string): Promise<string | null> {
     const customer = await prisma.pelanggan.findUnique({
       where: { id },
       select: { passwordHash: true },
     });
+
     return customer?.passwordHash || null;
   }
 
-  /**
-   * Get payment history with pagination
-   */
+  /** Get payment history with pagination. */
   async getPaymentHistory(
     pelangganId: string,
-    options: {
-      page: number;
-      limit: number;
-    },
+    options: { page: number; limit: number },
   ) {
     const { page, limit } = options;
     const skip = (page - 1) * limit;
@@ -440,21 +450,15 @@ export class PelangganRepository {
     return { payments, total };
   }
 
-  /**
-   * Get invoices with pagination
-   */
+  /** Get invoices with pagination. */
   async getInvoices(
     pelangganId: string,
-    options: {
-      page: number;
-      limit: number;
-      status?: string[];
-    },
+    options: { page: number; limit: number; status?: string[] },
   ) {
     const { page, limit, status } = options;
     const skip = (page - 1) * limit;
-
     const where: PrismaBilling.InvoiceWhereInput = { pelangganId };
+
     if (status && status.length > 0) {
       where.status = { in: status as InvoiceStatus[] };
     }
@@ -472,9 +476,7 @@ export class PelangganRepository {
     return { invoices, total };
   }
 
-  /**
-   * Get invoices by IDs for payment validation
-   */
+  /** Get invoices by IDs for payment validation. */
   async getInvoicesByIds(
     ids: string[],
     pelangganId: string,
@@ -488,6 +490,8 @@ export class PelangganRepository {
       },
     });
   }
+
+  /** Update sync status after RADIUS operation. */
   async updateSyncStatus(id: string, status: string, error?: string | null) {
     const data: Prisma.PelangganUpdateInput = {
       syncStatus: status,
@@ -502,12 +506,15 @@ export class PelangganRepository {
       data.lastSyncedAt = new Date();
     }
 
-    return prisma.pelanggan.update({
+    const pelanggan = await prisma.pelanggan.update({
       where: { id },
       data,
     });
+
+    return PelangganMapper.toDomain(pelanggan);
   }
 
+  /** Get auth payload by identifier. */
   async findByIdentifierForAuth(identifier: string) {
     return prisma.pelanggan.findFirst({
       where: {
@@ -529,14 +536,17 @@ export class PelangganRepository {
     });
   }
 
+  /** Get customer with package relation. */
   async findByIdWithHargaPaket(id: string) {
-    return prisma.pelanggan.findUnique({
+    const pelanggan = await prisma.pelanggan.findUnique({
       where: { id },
       include: { hargaPaket: true },
     });
+
+    return pelanggan ? PelangganMapper.toDomainWithPackage(pelanggan) : null;
   }
 
-  /** Get upgrade package options above the current package price. */
+  /** Get upgrade package options above current package price. */
   async findUpgradePackageOptions(currentPrice: number, limit: number = 5) {
     return prisma.hargaPaket.findMany({
       where: {
@@ -551,6 +561,7 @@ export class PelangganRepository {
     });
   }
 
+  /** Get customers eligible for automatic billing. */
   async findEligibleForBilling(
     targetDay: number,
     batchSize: number,
@@ -558,39 +569,38 @@ export class PelangganRepository {
   ) {
     return prisma.$queryRaw<EligibleBillingCustomer[]>(
       Prisma.sql`
-                SELECT
-                    p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
-                    h.name AS "paketName", h.harga AS "paketHarga",
-                    h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
-                FROM "Pelanggan" p
-                INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
-                WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
-                  AND p."hargaPaketId" != ''
-                  AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
-                ORDER BY p.id ASC
-                LIMIT ${batchSize} OFFSET ${offset}
-            `,
+        SELECT
+          p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
+          h.name AS "paketName", h.harga AS "paketHarga",
+          h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
+        FROM "Pelanggan" p
+        INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
+        WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
+          AND p."hargaPaketId" != ''
+          AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
+        ORDER BY p.id ASC
+        LIMIT ${batchSize} OFFSET ${offset}
+      `,
     );
   }
 
-  async findByIdWithPushToken(
-    pelangganId: string,
-  ): Promise<{ id: string; pushToken: string | null } | null> {
+  /** Get customer push token by id. */
+  async findByIdWithPushToken(pelangganId: string) {
     return prisma.pelanggan.findUnique({
       where: { id: pelangganId },
       select: { id: true, pushToken: true },
     });
   }
 
-  async findManyWithPushToken(
-    tokens: string[],
-  ): Promise<Array<{ id: string; pushToken: string | null }>> {
+  /** Get customers by push token list. */
+  async findManyWithPushToken(tokens: string[]) {
     return prisma.pelanggan.findMany({
       where: { pushToken: { in: tokens } },
       select: { id: true, pushToken: true },
     });
   }
 
+  /** Clear customer push tokens. */
   async clearPushTokens(tokens: string[]) {
     return prisma.pelanggan.updateMany({
       where: { pushToken: { in: tokens } },

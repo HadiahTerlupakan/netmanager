@@ -1,22 +1,24 @@
-import { createNotification } from '@/modules/notification/services/NotificationService'
+import { createNotification } from "@/modules/notification";
 
 interface CustomerFinanceNotificationInput {
-  userId: string | null | undefined
-  title: string
-  message: string
-  link: string
-  sourceType: string
-  sourceId: string
-  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+  userId: string | null | undefined;
+  title: string;
+  message: string;
+  link: string;
+  sourceType: string;
+  sourceId: string;
+  priority: "LOW" | "NORMAL" | "HIGH" | "URGENT";
 }
 
-export async function notifyCustomerFinanceNotification(input: CustomerFinanceNotificationInput): Promise<boolean> {
+export async function notifyCustomerFinanceNotification(
+  input: CustomerFinanceNotificationInput,
+): Promise<boolean> {
   if (!input.userId) {
-    return false
+    return false;
   }
 
   await createNotification({
-    type: 'SYSTEM',
+    type: "SYSTEM",
     userId: input.userId,
     title: input.title,
     message: input.message,
@@ -24,7 +26,7 @@ export async function notifyCustomerFinanceNotification(input: CustomerFinanceNo
     sourceType: input.sourceType,
     sourceId: input.sourceId,
     priority: input.priority,
-  })
+  });
 
-  return true
+  return true;
 }

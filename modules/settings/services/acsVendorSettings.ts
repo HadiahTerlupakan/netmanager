@@ -1,36 +1,61 @@
-import {
-  AcsSettingsRepository,
-  normalizeAcsVendorPayload,
-  type AcsVendorInput,
-  isUniqueConstraintError,
-} from '../repositories/AcsSettingsRepository'
+import { AcsSettingsRepository } from "../repositories/AcsSettingsRepository";
+import type {
+  AcsVendorInput,
+  IAcsSettingsRepository,
+} from "../domain/ports/IAcsSettingsRepository";
+import { normalizeAcsVendorPayload } from "../validators/acsSettingsValidator";
+import { isUniqueConstraintError } from "../validators/settingsValidator";
 
-export async function listAcsVendors() {
-  return AcsSettingsRepository.findAllVendors()
+const defaultAcsSettingsRepository: IAcsSettingsRepository =
+  AcsSettingsRepository;
+
+/** Lists all ACS vendor configurations. */
+export async function listAcsVendors(
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
+  return repository.findAllVendors();
 }
 
-export async function createAcsVendor(payload: AcsVendorInput) {
+/** Creates a new ACS vendor configuration. */
+export async function createAcsVendor(
+  payload: AcsVendorInput,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
   try {
-    return await AcsSettingsRepository.createVendor(normalizeAcsVendorPayload(payload))
+    return await repository.createVendor(normalizeAcsVendorPayload(payload));
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      throw new Error('VENDOR_NAME_EXISTS')
-    }
-    throw error
+    handleVendorConflict(error);
+    throw error;
   }
 }
 
-export async function updateAcsVendor(id: string, payload: AcsVendorInput) {
+/** Updates an ACS vendor configuration. */
+export async function updateAcsVendor(
+  id: string,
+  payload: AcsVendorInput,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
   try {
-    return await AcsSettingsRepository.updateVendor(id, normalizeAcsVendorPayload(payload))
+    return await repository.updateVendor(
+      id,
+      normalizeAcsVendorPayload(payload),
+    );
   } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      throw new Error('VENDOR_NAME_EXISTS')
-    }
-    throw error
+    handleVendorConflict(error);
+    throw error;
   }
 }
 
-export async function deleteAcsVendor(id: string) {
-  await AcsSettingsRepository.deleteVendor(id)
+/** Deletes an ACS vendor configuration. */
+export async function deleteAcsVendor(
+  id: string,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
+  await repository.deleteVendor(id);
+}
+
+function handleVendorConflict(error: unknown): void {
+  if (isUniqueConstraintError(error)) {
+    throw new Error("VENDOR_NAME_EXISTS");
+  }
 }

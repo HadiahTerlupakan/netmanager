@@ -10,8 +10,8 @@ export type CustomerDashboardProfileData = {
   alamat: string | null;
   status: string;
   tipe: string;
-  tanggalAktif: Date;
-  jatuhTempo: Date;
+  tanggalAktif: Date | string;
+  jatuhTempo: Date | string;
   lokasi: {
     provinsi: string | null;
     kabupatenKota: string | null;

@@ -1,40 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, prismaBilling } from "@/modules/database";
 import * as z from "zod";
-import { createHandler, ApiErrors } from "@/lib/api";
 import { InvoiceStatus } from "@prisma/client-billing";
+import { createHandler, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
-
-type InvoiceUpdatePayload = z.infer<typeof updateSchema>;
-
-type InvoiceUpdateData = Omit<
-  InvoiceUpdatePayload,
-  "invoiceItem" | "subtotal" | "taxAmount" | "discountAmount" | "totalAmount"
-> & {
-  subtotal?: bigint;
-  taxAmount?: bigint;
-  discountAmount?: bigint;
-  totalAmount?: bigint;
-};
-
-type InvoiceResponseShape = {
-  pelangganId: string;
-  subtotal: bigint;
-  taxAmount: bigint;
-  discountAmount: bigint;
-  totalAmount: bigint;
-  paidAmount: bigint;
-  invoiceItem: Array<{
-    unitPrice: bigint;
-    totalPrice: bigint;
-    [key: string]: unknown;
-  }>;
-  payment?: Array<{
-    amount: bigint;
-    [key: string]: unknown;
-  }>;
-  [key: string]: unknown;
-};
+import {
+  deleteInvoiceForRoute,
+  getInvoiceForRoute,
+  updateInvoiceForRoute,
+} from "@/modules/finance";
 
 const updateSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -68,216 +41,66 @@ const updateSchema = z.object({
     .optional(),
 });
 
-async function getRestrictedInvoiceOrNotFound(id: string, userId: string) {
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { siteId: true },
-  });
-  const userSiteId = dbUser?.siteId;
-
-  if (!userSiteId) {
-    return null;
-  }
-
-  return prismaBilling.invoice.findFirst({
-    where: {
-      id,
-      siteId: userSiteId,
-    },
-    include: {
-      invoiceItem: true,
-      payment: true,
-    },
-  });
-}
-
-async function getInvoiceByAccessMode(
-  id: string,
-  user: { id: string; role?: string | null },
-) {
-  const isRestricted =
-    (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
-
-  if (isRestricted) {
-    return getRestrictedInvoiceOrNotFound(id, user.id);
-  }
-
-  return prismaBilling.invoice.findUnique({
-    where: { id },
-    include: {
-      invoiceItem: true,
-      payment: true,
-    },
-  });
-}
-
-async function getUserRestrictedSiteId(userId: string) {
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { siteId: true },
-  });
-
-  return dbUser?.siteId || undefined;
-}
-
-function formatInvoiceResponse(invoice: InvoiceResponseShape) {
-  const payments = invoice.payment ?? [];
-
-  return {
-    ...invoice,
-    subtotal: Number(invoice.subtotal),
-    taxAmount: Number(invoice.taxAmount),
-    discountAmount: Number(invoice.discountAmount),
-    totalAmount: Number(invoice.totalAmount),
-    paidAmount: Number(invoice.paidAmount),
-    invoiceItem: invoice.invoiceItem.map(
-      (item: InvoiceResponseShape["invoiceItem"][number]) => ({
-        ...item,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalPrice),
-      }),
-    ),
-    payment: payments.map(
-      (payment: NonNullable<InvoiceResponseShape["payment"]>[number]) => ({
-        ...payment,
-        amount: Number(payment.amount),
-      }),
-    ),
-  };
-}
-
 export const GET = createHandler(
   { auth: true },
   async (_req: NextRequest, ctx) => {
-    const { id } = ctx.params;
-    const user = ctx.session!.user;
-
-    const invoice = await getInvoiceByAccessMode(id, user);
+    const invoice = await getInvoiceForRoute({
+      invoiceId: ctx.params.id,
+      user: ctx.session!.user,
+      isRestricted: await canOnlyAccessOwnSite(ctx.session!.user),
+    });
 
     if (!invoice) {
       return ApiErrors.notFound("Invoice");
     }
 
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: invoice.pelangganId },
-    });
-
-    return NextResponse.json({
-      ...formatInvoiceResponse(invoice),
-      pelanggan,
-    });
+    return NextResponse.json(invoice);
   },
 );
 
 export const PUT = createHandler(
   { auth: true },
   async (req: NextRequest, ctx) => {
-    const { id } = ctx.params;
-    const user = ctx.session!.user;
+    const body = await req.json();
+    const validatedData = updateSchema.parse(body);
+    const result = await updateInvoiceForRoute({
+      invoiceId: ctx.params.id,
+      user: ctx.session!.user,
+      isRestricted: await canOnlyAccessOwnSite(ctx.session!.user),
+      input: validatedData,
+    });
 
-    const existingInvoice = await getInvoiceByAccessMode(id, user);
-
-    if (!existingInvoice) {
+    if (!result) {
       return ApiErrors.notFound("Invoice");
     }
 
-    const isRestricted =
-      (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN";
-    const userSiteId = isRestricted
-      ? await getUserRestrictedSiteId(user.id)
-      : undefined;
-
-    const body = await req.json();
-    const validatedData = updateSchema.parse(body);
-
-    if (
-      isRestricted &&
-      validatedData.siteId &&
-      userSiteId &&
-      validatedData.siteId !== userSiteId
-    ) {
+    if (result === "forbidden-site") {
       return ApiErrors.forbidden("Akses ditolak untuk mengubah site");
     }
 
-    const {
-      invoiceItem,
-      subtotal,
-      taxAmount,
-      discountAmount,
-      totalAmount,
-      ...restInvoiceData
-    } = validatedData;
-
-    const updateSiteId = isRestricted ? userSiteId : validatedData.siteId;
-
-    const updatedInvoice = await prismaBilling.$transaction(async (tx) => {
-      if (invoiceItem && invoiceItem.length > 0) {
-        await tx.invoiceItem.deleteMany({
-          where: { invoiceId: id },
-        });
-
-        await tx.invoiceItem.createMany({
-          data: invoiceItem.map((item) => ({
-            id: item.id || crypto.randomUUID(),
-            invoiceId: id,
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: BigInt(item.unitPrice),
-            totalPrice: BigInt(item.totalPrice),
-          })),
-        });
-      }
-
-      const updateData: InvoiceUpdateData = {
-        ...restInvoiceData,
-        ...(isRestricted ? { siteId: updateSiteId } : {}),
-        ...(subtotal !== undefined ? { subtotal: BigInt(subtotal) } : {}),
-        ...(taxAmount !== undefined ? { taxAmount: BigInt(taxAmount) } : {}),
-        ...(discountAmount !== undefined
-          ? { discountAmount: BigInt(discountAmount) }
-          : {}),
-        ...(totalAmount !== undefined
-          ? { totalAmount: BigInt(totalAmount) }
-          : {}),
-      };
-
-      return tx.invoice.update({
-        where: { id },
-        data: updateData,
-        include: {
-          invoiceItem: true,
-          payment: true,
-        },
-      });
-    });
-
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: updatedInvoice.pelangganId },
-    });
-
-    return NextResponse.json({
-      ...formatInvoiceResponse(updatedInvoice),
-      pelanggan,
-    });
+    return NextResponse.json(result);
   },
 );
 
 export const DELETE = createHandler(
   { auth: true },
   async (_req: NextRequest, ctx) => {
-    const { id } = ctx.params;
-    const user = ctx.session!.user;
+    const deleted = await deleteInvoiceForRoute({
+      invoiceId: ctx.params.id,
+      user: ctx.session!.user,
+      isRestricted: await canOnlyAccessOwnSite(ctx.session!.user),
+    });
 
-    const existingInvoice = await getInvoiceByAccessMode(id, user);
-
-    if (!existingInvoice) {
+    if (!deleted) {
       return ApiErrors.notFound("Invoice");
     }
-
-    await prismaBilling.invoice.delete({
-      where: { id },
-    });
 
     return NextResponse.json({ message: "Invoice deleted successfully" });
   },
 );
+
+async function canOnlyAccessOwnSite(user: { role?: string | null }) {
+  return (
+    (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN"
+  );
+}

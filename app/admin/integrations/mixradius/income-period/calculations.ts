@@ -1,7 +1,7 @@
 import {
   DUITKU_DEFAULT_FEES,
   normalizePaymentMethod,
-} from "@/modules/integrations/constants/DuitkuDefaults";
+} from "@/modules/integrations/client";
 
 export type IncomePeriodCalculationRecord = {
   total: string | number;

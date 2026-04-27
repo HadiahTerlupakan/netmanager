@@ -1,147 +1,159 @@
-import { prisma } from '@/modules/database'
-import type { Prisma } from '@prisma/client'
+import { prisma } from "@/modules/database";
+import type { Prisma } from "@prisma/client";
+import type {
+  AcsVendorEntity,
+  AcsWifiSecurityEntity,
+} from "../domain/entities/AcsSettings";
+import type {
+  AcsVendorInput,
+  AcsWifiSecurityInput,
+  IAcsSettingsRepository,
+} from "../domain/ports/IAcsSettingsRepository";
+import {
+  toAcsVendorDomain,
+  toAcsWifiSecurityDomain,
+} from "../mappers/acsSettingsMapper";
 
-export type AcsVendorInput = {
-  name: string
-  manufacturerPatterns: string
-  productPatterns: string
-  parameterPrefix?: string | null
-  priority?: number
-  enabled?: boolean
-  description?: string | null
-}
+const DEFAULT_VENDOR_PRIORITY = 10;
+const DEFAULT_VENDOR_ENABLED = true;
+const DEFAULT_SERVICE_LIST_PATH =
+  "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.*.WANPPPConnection.*.X_BROADCOM_COM_IGMP_VLANID";
 
-export type AcsWifiSecurityInput = {
-  productClass: string
-  parameterPath: string
-  wpaTypes?: string | null
-  encryptTypes?: string | null
-}
+const acsSettingsRepository: IAcsSettingsRepository = {
+  /** Lists all ACS vendors sorted by priority and name. */
+  async findAllVendors(): Promise<AcsVendorEntity[]> {
+    const vendors = await prisma.acsVendor.findMany({
+      orderBy: [{ priority: "desc" }, { name: "asc" }],
+    });
 
-export const AcsSettingsRepository = {
-  findAllVendors: async () => {
-    return prisma.acsVendor.findMany({
-      orderBy: [{ priority: 'desc' }, { name: 'asc' }],
-    })
+    return vendors.map(toAcsVendorDomain);
   },
 
-  createVendor: async (payload: AcsVendorInput) => {
-    return prisma.acsVendor.create({
-      data: {
-        name: payload.name,
-        manufacturerPatterns: payload.manufacturerPatterns,
-        productPatterns: payload.productPatterns,
-        parameterPrefix: payload.parameterPrefix ?? null,
-        priority: payload.priority ?? 10,
-        enabled: payload.enabled ?? true,
-        description: payload.description ?? null,
-        serviceListPath: 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.*.WANPPPConnection.*.X_BROADCOM_COM_IGMP_VLANID',
-        vlanIdPath: 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.*.WANPPPConnection.*.X_BROADCOM_COM_IGMP_VLANID',
-      },
-    })
+  /** Creates a new ACS vendor. */
+  async createVendor(payload: AcsVendorInput): Promise<AcsVendorEntity> {
+    const vendor = await prisma.acsVendor.create({
+      data: buildVendorCreateData(payload),
+    });
+
+    return toAcsVendorDomain(vendor);
   },
 
-  updateVendor: async (id: string, payload: AcsVendorInput) => {
-    return prisma.acsVendor.update({
+  /** Updates an existing ACS vendor. */
+  async updateVendor(
+    id: string,
+    payload: AcsVendorInput,
+  ): Promise<AcsVendorEntity> {
+    const vendor = await prisma.acsVendor.update({
       where: { id },
-      data: {
-        name: payload.name,
-        manufacturerPatterns: payload.manufacturerPatterns,
-        productPatterns: payload.productPatterns,
-        parameterPrefix: payload.parameterPrefix ?? null,
-        priority: payload.priority,
-        enabled: payload.enabled,
-        description: payload.description ?? null,
-      },
-    })
+      data: buildVendorUpdateData(payload),
+    });
+
+    return toAcsVendorDomain(vendor);
   },
 
-  deleteVendor: async (id: string) => {
-    await prisma.acsVendor.delete({ where: { id } })
+  /** Deletes an ACS vendor by id. */
+  async deleteVendor(id: string): Promise<void> {
+    await prisma.acsVendor.delete({ where: { id } });
   },
 
-  findWifiSecurityByTenant: async (tenantId?: string | null) => {
-    const whereClause: Prisma.AcsWifiSecurityWhereInput = tenantId
-      ? {
-          OR: [
-            { tenantId: null },
-            { tenantId: tenantId },
-          ],
-        }
-      : { tenantId: null }
+  /** Lists WiFi security rules for tenant and global scope. */
+  async findWifiSecurityByTenant(
+    tenantId?: string | null,
+  ): Promise<AcsWifiSecurityEntity[]> {
+    const rules = await prisma.acsWifiSecurity.findMany({
+      where: buildWifiSecurityWhere(tenantId),
+      orderBy: { productClass: "asc" },
+    });
 
-    return prisma.acsWifiSecurity.findMany({
-      where: whereClause,
-      orderBy: { productClass: 'asc' },
-    })
+    return rules.map(toAcsWifiSecurityDomain);
   },
 
-  upsertWifiSecurityByTenantAndProductClass: async (tenantId: string | null, payload: AcsWifiSecurityInput) => {
-    return prisma.acsWifiSecurity.upsert({
+  /** Upserts WiFi security rule by tenant and product class. */
+  async upsertWifiSecurityByTenantAndProductClass(
+    tenantId: string | null,
+    payload: AcsWifiSecurityInput,
+  ): Promise<AcsWifiSecurityEntity> {
+    const rule = await prisma.acsWifiSecurity.upsert({
       where: {
         tenantId_productClass: {
           tenantId,
           productClass: payload.productClass,
         },
       },
-      update: {
-        parameterPath: payload.parameterPath,
-        wpaTypes: payload.wpaTypes ?? null,
-        encryptTypes: payload.encryptTypes ?? null,
-      },
+      update: buildWifiSecurityData(payload),
       create: {
+        ...buildWifiSecurityData(payload),
         productClass: payload.productClass,
-        parameterPath: payload.parameterPath,
-        wpaTypes: payload.wpaTypes ?? null,
-        encryptTypes: payload.encryptTypes ?? null,
         tenantId,
       },
-    })
+    });
+
+    return toAcsWifiSecurityDomain(rule);
   },
 
-  updateWifiSecurity: async (id: string, payload: AcsWifiSecurityInput) => {
-    return prisma.acsWifiSecurity.update({
+  /** Updates WiFi security rule by id. */
+  async updateWifiSecurity(
+    id: string,
+    payload: AcsWifiSecurityInput,
+  ): Promise<AcsWifiSecurityEntity> {
+    const rule = await prisma.acsWifiSecurity.update({
       where: { id },
       data: {
         productClass: payload.productClass,
-        parameterPath: payload.parameterPath,
-        wpaTypes: payload.wpaTypes ?? null,
-        encryptTypes: payload.encryptTypes ?? null,
+        ...buildWifiSecurityData(payload),
       },
-    })
+    });
+
+    return toAcsWifiSecurityDomain(rule);
   },
 
-  deleteWifiSecurity: async (id: string) => {
-    await prisma.acsWifiSecurity.delete({ where: { id } })
+  /** Deletes WiFi security rule by id. */
+  async deleteWifiSecurity(id: string): Promise<void> {
+    await prisma.acsWifiSecurity.delete({ where: { id } });
   },
-}
+};
 
-export function normalizeAcsVendorPayload(payload: AcsVendorInput): AcsVendorInput {
+export const AcsSettingsRepository = acsSettingsRepository;
+export type { AcsVendorInput, AcsWifiSecurityInput };
+
+function buildVendorCreateData(payload: AcsVendorInput) {
   return {
-    name: payload.name.trim(),
-    manufacturerPatterns: payload.manufacturerPatterns.trim(),
-    productPatterns: payload.productPatterns.trim(),
-    parameterPrefix: payload.parameterPrefix?.trim() || null,
-    priority: payload.priority ?? 10,
-    enabled: payload.enabled ?? true,
-    description: payload.description?.trim() || null,
-  }
+    ...buildVendorUpdateData(payload),
+    priority: payload.priority ?? DEFAULT_VENDOR_PRIORITY,
+    enabled: payload.enabled ?? DEFAULT_VENDOR_ENABLED,
+    serviceListPath: DEFAULT_SERVICE_LIST_PATH,
+    vlanIdPath: DEFAULT_SERVICE_LIST_PATH,
+  };
 }
 
-export function normalizeAcsWifiSecurityPayload(payload: AcsWifiSecurityInput): AcsWifiSecurityInput {
+function buildVendorUpdateData(payload: AcsVendorInput) {
   return {
-    productClass: payload.productClass.trim(),
-    parameterPath: payload.parameterPath.trim(),
-    wpaTypes: payload.wpaTypes?.trim() || null,
-    encryptTypes: payload.encryptTypes?.trim() || null,
-  }
+    name: payload.name,
+    manufacturerPatterns: payload.manufacturerPatterns,
+    productPatterns: payload.productPatterns,
+    parameterPrefix: payload.parameterPrefix ?? null,
+    priority: payload.priority,
+    enabled: payload.enabled,
+    description: payload.description ?? null,
+  };
 }
 
-export function isUniqueConstraintError(error: unknown): boolean {
-  return Boolean(
-    error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as Prisma.PrismaClientKnownRequestError).code === 'P2002'
-  )
+function buildWifiSecurityWhere(
+  tenantId?: string | null,
+): Prisma.AcsWifiSecurityWhereInput {
+  if (!tenantId) {
+    return { tenantId: null };
+  }
+
+  return {
+    OR: [{ tenantId: null }, { tenantId }],
+  };
+}
+
+function buildWifiSecurityData(payload: AcsWifiSecurityInput) {
+  return {
+    parameterPath: payload.parameterPath,
+    wpaTypes: payload.wpaTypes ?? null,
+    encryptTypes: payload.encryptTypes ?? null,
+  };
 }

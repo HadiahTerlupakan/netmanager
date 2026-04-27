@@ -8,3 +8,4 @@ export * from "./services/mixradius-customer-client";
 export * from "./utils/mixradius-owner-matching";
 export * from "./repositories/MixRadiusConfigRepository";
 export * from "./factories/IntegrationFactory";
+export * from "./constants/DuitkuDefaults";

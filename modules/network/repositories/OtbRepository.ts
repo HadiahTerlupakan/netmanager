@@ -1,22 +1,27 @@
-import { PrismaClient } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
-import type { IOtbRepository, OtbCreateData, OtbUpdateData, OtbPublic } from './IOtbRepository'
+import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import type {
+  OtbCreateData,
+  OtbEntity,
+  OtbUpdateData,
+} from "../domain/entities/OtbEntity";
+import type { IOtbRepository } from "../domain/ports/IOtbRepository";
 
 export class OtbRepository implements IOtbRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(siteId?: string): Promise<OtbPublic[]> {
+  async findAll(siteId?: string): Promise<OtbEntity[]> {
     const items = await this.client.otb.findMany({
-        where: siteId ? { siteId } : {},
-        orderBy: { createdAt: 'desc' }
-    })
-    return items as unknown as OtbPublic[]
+      where: siteId ? { siteId } : {},
+      orderBy: { createdAt: "desc" },
+    });
+    return items as unknown as OtbEntity[];
   }
 
-  async findById(id: string): Promise<OtbPublic | null> {
-    const item = await this.client.otb.findUnique({ where: { id } })
-    return item
+  async findById(id: string): Promise<OtbEntity | null> {
+    const item = await this.client.otb.findUnique({ where: { id } });
+    return item;
   }
 
   async create(data: OtbCreateData): Promise<{ id: string }> {
@@ -33,11 +38,11 @@ export class OtbRepository implements IOtbRepository {
           keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
-          status: data.status ?? 'AKTIF',
+          status: data.status ?? "AKTIF",
           siteId: data.siteId ?? null,
         },
         select: { id: true },
-      })
+      });
       if (data.cores && data.cores.length > 0) {
         await tx.otbCore.createMany({
           data: data.cores.map((c) => ({
@@ -48,11 +53,11 @@ export class OtbRepository implements IOtbRepository {
             tubeColor: c.tubeColor,
             coreColor: c.coreColor,
           })),
-        })
+        });
       }
-      return created
-    })
-    return item
+      return created;
+    });
+    return item;
   }
 
   async update(id: string, data: OtbUpdateData): Promise<void> {
@@ -66,16 +71,18 @@ export class OtbRepository implements IOtbRepository {
           ...(data.location !== undefined && { location: data.location }),
           ...(data.coreCount !== undefined && { coreCount: data.coreCount }),
           ...(data.notes !== undefined && { notes: data.notes }),
-          ...(data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder }),
+          ...(data.keteranganJumlahKabelFeeder !== undefined && {
+            keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder,
+          }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.siteId !== undefined && { siteId: data.siteId }),
         },
-      })
+      });
 
       if (data.cores) {
-        await tx.otbCore.deleteMany({ where: { otbId: id } })
+        await tx.otbCore.deleteMany({ where: { otbId: id } });
         if (data.cores.length > 0) {
           await tx.otbCore.createMany({
             data: data.cores.map((c) => ({
@@ -83,22 +90,20 @@ export class OtbRepository implements IOtbRepository {
               otbId: id,
               idx: c.idx,
               slotName: c.slotName,
-              tubeColor: c.tubeColor || '',
-              coreColor: c.coreColor || '',
+              tubeColor: c.tubeColor || "",
+              coreColor: c.coreColor || "",
             })),
-          })
+          });
         }
       }
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.otb.delete({ where: { id } })
+    await this.client.otb.delete({ where: { id } });
   }
 
   async count(): Promise<number> {
-    return await this.client.otb.count()
+    return await this.client.otb.count();
   }
 }
-
-

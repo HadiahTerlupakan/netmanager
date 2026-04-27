@@ -1,8 +1,9 @@
-import {
-  NetworkPerformanceRepository,
-  type NetworkPerformanceCreateData,
-  type NetworkPerformanceFilters,
-} from "../repositories";
+import type { INetworkPerformanceRepository } from "../domain/ports/INetworkPerformanceRepository";
+import type {
+  NetworkPerformanceCreateData,
+  NetworkPerformanceFilters,
+} from "../domain/entities/NetworkPerformanceEntity";
+import { NetworkPerformanceRepository } from "../repositories";
 
 function normalizeFilters(filters: {
   deviceId?: string;
@@ -27,7 +28,9 @@ function normalizeFilters(filters: {
 }
 
 export class NetworkPerformanceService {
-  private networkPerformanceRepository = new NetworkPerformanceRepository();
+  constructor(
+    private readonly networkPerformanceRepository: INetworkPerformanceRepository = new NetworkPerformanceRepository(),
+  ) {}
 
   /**
    * Get network performance data with filtering and pagination.
@@ -53,7 +56,7 @@ export class NetworkPerformanceService {
       ) {
         return {
           data: [] as Awaited<
-            ReturnType<NetworkPerformanceRepository["findMany"]>
+            ReturnType<INetworkPerformanceRepository["findMany"]>
           >["data"],
           pagination: {
             page: filters.page || 1,

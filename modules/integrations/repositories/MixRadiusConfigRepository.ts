@@ -12,30 +12,23 @@ type MixRadiusConfigUpdateInput = Partial<
   Omit<MixRadiusConfig, "id" | "createdAt" | "updatedAt" | "tenantId">
 >;
 
+type ConfigWhere = { id: string; tenantId?: string };
+
 export class MixRadiusConfigRepository {
   async getActiveConfig() {
-    return prismaBilling.mixRadiusConfig.findFirst({
-      where: { isDefault: true },
-    });
+    return this.findActiveConfig();
   }
 
   async getActiveConfigByTenant(tenantId: string) {
-    return prismaBilling.mixRadiusConfig.findFirst({
-      where: { isDefault: true, tenantId },
-    });
+    return this.findActiveConfig(tenantId);
   }
 
   async getAllConfigs() {
-    return prismaBilling.mixRadiusConfig.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    return this.findConfigs();
   }
 
   async getAllConfigsByTenant(tenantId: string) {
-    return prismaBilling.mixRadiusConfig.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-    });
+    return this.findConfigs(tenantId);
   }
 
   async getConfigById(id: string) {
@@ -68,21 +61,7 @@ export class MixRadiusConfigRepository {
   }
 
   async updateConfig(id: string, data: MixRadiusConfigUpdateInput) {
-    if (data.isDefault === true) {
-      const existing = await prismaBilling.mixRadiusConfig.findUnique({
-        where: { id },
-        select: { tenantId: true },
-      });
-
-      if (existing?.tenantId) {
-        await this.deactivateAllForTenant(existing.tenantId, id);
-      }
-    }
-
-    return prismaBilling.mixRadiusConfig.update({
-      where: { id },
-      data,
-    });
+    return this.updateConfigByWhere({ id }, data);
   }
 
   async updateConfigForTenant(
@@ -90,14 +69,7 @@ export class MixRadiusConfigRepository {
     tenantId: string,
     data: MixRadiusConfigUpdateInput,
   ) {
-    if (data.isDefault === true) {
-      await this.deactivateAllForTenant(tenantId, id);
-    }
-
-    return prismaBilling.mixRadiusConfig.update({
-      where: { id, tenantId },
-      data,
-    });
+    return this.updateConfigByWhere({ id, tenantId }, data);
   }
 
   async deleteConfig(id: string) {
@@ -113,27 +85,65 @@ export class MixRadiusConfigRepository {
   }
 
   async setActive(id: string) {
+    return this.activateConfig({ id });
+  }
+
+  async setActiveForTenant(id: string, tenantId: string) {
+    return this.activateConfig({ id, tenantId });
+  }
+
+  private findActiveConfig(tenantId?: string) {
+    return prismaBilling.mixRadiusConfig.findFirst({
+      where: { isDefault: true, ...(tenantId ? { tenantId } : {}) },
+    });
+  }
+
+  private findConfigs(tenantId?: string) {
+    return prismaBilling.mixRadiusConfig.findMany({
+      ...(tenantId ? { where: { tenantId } } : {}),
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  private async updateConfigByWhere(
+    where: ConfigWhere,
+    data: MixRadiusConfigUpdateInput,
+  ) {
+    if (data.isDefault === true) {
+      await this.deactivateDefaultSiblings(where);
+    }
+
+    return prismaBilling.mixRadiusConfig.update({
+      where,
+      data,
+    });
+  }
+
+  private async activateConfig(where: ConfigWhere) {
+    await this.deactivateDefaultSiblings(where);
+
+    return prismaBilling.mixRadiusConfig.update({
+      where,
+      data: { isDefault: true },
+    });
+  }
+
+  private async deactivateDefaultSiblings(where: ConfigWhere) {
+    const tenantId =
+      where.tenantId ?? (await this.findTenantIdByConfigId(where.id));
+
+    if (tenantId) {
+      await this.deactivateAllForTenant(tenantId, where.id);
+    }
+  }
+
+  private async findTenantIdByConfigId(id: string) {
     const existing = await prismaBilling.mixRadiusConfig.findUnique({
       where: { id },
       select: { tenantId: true },
     });
 
-    if (existing?.tenantId) {
-      await this.deactivateAllForTenant(existing.tenantId, id);
-    }
-
-    return prismaBilling.mixRadiusConfig.update({
-      where: { id },
-      data: { isDefault: true },
-    });
-  }
-
-  async setActiveForTenant(id: string, tenantId: string) {
-    await this.deactivateAllForTenant(tenantId, id);
-    return prismaBilling.mixRadiusConfig.update({
-      where: { id, tenantId },
-      data: { isDefault: true },
-    });
+    return existing?.tenantId ?? null;
   }
 
   private async deactivateAllForTenant(tenantId: string, exceptId?: string) {

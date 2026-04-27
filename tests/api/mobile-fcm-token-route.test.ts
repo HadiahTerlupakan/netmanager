@@ -44,7 +44,7 @@ describe("POST /api/mobile/fcm-token", () => {
     });
     expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
       where: { id: "user-1", tenantId: "tenant-1" },
-      select: { fcmTokens: true },
+      select: { id: true, fcmTokens: true },
     });
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
@@ -85,7 +85,7 @@ describe("POST /api/mobile/fcm-token", () => {
     });
     expect(prismaMock.mitra.findFirst).toHaveBeenCalledWith({
       where: { id: "mitra-1", tenantId: "tenant-1" },
-      select: { fcmTokens: true },
+      select: { id: true, fcmTokens: true },
     });
     expect(prismaMock.mitra.update).toHaveBeenCalledWith({
       where: { id: "mitra-1" },

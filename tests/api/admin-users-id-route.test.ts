@@ -65,7 +65,7 @@ import { GET, PATCH } from "@/app/api/admin/users/[id]/route";
 describe("admin users id route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(console.error).mockImplementation((...args: unknown[]) => {
+    vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
       const formatted = args
         .map((arg) => {
           if (arg instanceof Error) return arg.stack || arg.message;

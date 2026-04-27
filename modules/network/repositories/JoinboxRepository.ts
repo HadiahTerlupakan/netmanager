@@ -1,27 +1,26 @@
-import { PrismaClient } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
+import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
 import type {
-  IJoinboxRepository,
   JoinboxCreateData,
+  JoinboxEntity,
   JoinboxUpdateData,
-  JoinboxPublic,
-} from './IJoinboxRepository'
-
+} from "../domain/entities/JoinboxEntity";
+import type { IJoinboxRepository } from "../domain/ports/IJoinboxRepository";
 export class JoinboxRepository implements IJoinboxRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(siteId?: string): Promise<JoinboxPublic[]> {
+  async findAll(siteId?: string): Promise<JoinboxEntity[]> {
     const items = await this.client.joinbox.findMany({
       where: siteId ? { siteId } : {},
-      orderBy: { createdAt: 'desc' }
-    })
-    return items as unknown as JoinboxPublic[]
+      orderBy: { createdAt: "desc" },
+    });
+    return items as unknown as JoinboxEntity[];
   }
 
-  async findById(id: string): Promise<JoinboxPublic | null> {
-    const item = await this.client.joinbox.findUnique({ where: { id } })
-    return item as unknown as JoinboxPublic | null
+  async findById(id: string): Promise<JoinboxEntity | null> {
+    const item = await this.client.joinbox.findUnique({ where: { id } });
+    return item as unknown as JoinboxEntity | null;
   }
 
   async create(data: JoinboxCreateData): Promise<{ id: string }> {
@@ -37,11 +36,11 @@ export class JoinboxRepository implements IJoinboxRepository {
           keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
-          status: data.status ?? 'AKTIF',
+          status: data.status ?? "AKTIF",
           siteId: data.siteId ?? null,
         },
         select: { id: true },
-      })
+      });
 
       if (data.inputs && data.inputs.length > 0) {
         await tx.joinboxInput.createMany({
@@ -54,7 +53,7 @@ export class JoinboxRepository implements IJoinboxRepository {
             tubeColor: r.tubeColor,
             coreColor: r.coreColor,
           })),
-        })
+        });
       }
 
       if (data.outputs && data.outputs.length > 0) {
@@ -68,12 +67,12 @@ export class JoinboxRepository implements IJoinboxRepository {
             tubeColor: r.tubeColor,
             coreColor: r.coreColor,
           })),
-        })
+        });
       }
 
-      return jb
-    })
-    return created
+      return jb;
+    });
+    return created;
   }
 
   async update(id: string, data: JoinboxUpdateData): Promise<void> {
@@ -86,16 +85,18 @@ export class JoinboxRepository implements IJoinboxRepository {
           ...(data.images !== undefined && { images: data.images }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.notes !== undefined && { notes: data.notes }),
-          ...(data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder }),
+          ...(data.keteranganJumlahKabelFeeder !== undefined && {
+            keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder,
+          }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.siteId !== undefined && { siteId: data.siteId }),
         },
-      })
+      });
 
       if (data.inputs !== undefined) {
-        await tx.joinboxInput.deleteMany({ where: { joinboxId: id } })
+        await tx.joinboxInput.deleteMany({ where: { joinboxId: id } });
         if (data.inputs.length > 0) {
           await tx.joinboxInput.createMany({
             data: data.inputs.map((r) => ({
@@ -107,12 +108,12 @@ export class JoinboxRepository implements IJoinboxRepository {
               tubeColor: r.tubeColor,
               coreColor: r.coreColor,
             })),
-          })
+          });
         }
       }
 
       if (data.outputs !== undefined) {
-        await tx.joinboxOutput.deleteMany({ where: { joinboxId: id } })
+        await tx.joinboxOutput.deleteMany({ where: { joinboxId: id } });
         if (data.outputs.length > 0) {
           await tx.joinboxOutput.createMany({
             data: data.outputs.map((r) => ({
@@ -124,23 +125,21 @@ export class JoinboxRepository implements IJoinboxRepository {
               tubeColor: r.tubeColor,
               coreColor: r.coreColor,
             })),
-          })
+          });
         }
       }
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
     await this.client.$transaction(async (tx) => {
-      await tx.joinboxInput.deleteMany({ where: { joinboxId: id } })
-      await tx.joinboxOutput.deleteMany({ where: { joinboxId: id } })
-      await tx.joinbox.delete({ where: { id } })
-    })
+      await tx.joinboxInput.deleteMany({ where: { joinboxId: id } });
+      await tx.joinboxOutput.deleteMany({ where: { joinboxId: id } });
+      await tx.joinbox.delete({ where: { id } });
+    });
   }
 
   async count(): Promise<number> {
-    return await this.client.joinbox.count()
+    return await this.client.joinbox.count();
   }
 }
-
-

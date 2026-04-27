@@ -15,15 +15,16 @@ import {
   setSeconds,
   setMilliseconds,
 } from "date-fns";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 
 const TIMEZONE_CACHE_TTL_SECONDS = 3600;
 
 export class AttendanceTimezoneService {
-  private settingsRepo: SettingsRepository;
+  private settingsRepo: ISettingsRepository;
 
-  constructor() {
-    this.settingsRepo = new SettingsRepository();
+  constructor(settingsRepo: ISettingsRepository = new SettingsRepository()) {
+    this.settingsRepo = settingsRepo;
   }
 
   /**

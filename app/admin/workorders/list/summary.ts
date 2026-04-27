@@ -3,12 +3,12 @@ import {
   type TopWorkOrderCustomer,
   type WorkOrderListSummary,
   type WorkOrderListSummarySource,
-} from "@/modules/work-order/utils/work-order-list-summary";
+} from "@/modules/work-order/client";
 
 export type {
   TopWorkOrderCustomer,
   WorkOrderListSummary,
-} from "@/modules/work-order/utils/work-order-list-summary";
+} from "@/modules/work-order/client";
 
 export interface WorkOrderSummaryCard {
   id:

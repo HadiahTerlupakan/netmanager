@@ -116,7 +116,6 @@ describe("customer upload receipt route", () => {
     expect(result).toBe("response");
     expect(prismaMock.pelanggan.findUnique).toHaveBeenCalledWith({
       where: { id: "customer-1" },
-      select: { siteId: true },
     });
     expect(mockFns.publish).toHaveBeenNthCalledWith(1, {
       type: "payment.pending.new",

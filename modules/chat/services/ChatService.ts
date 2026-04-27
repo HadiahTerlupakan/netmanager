@@ -24,7 +24,7 @@ export interface BroadcastMessageInput {
 export class ChatService {
   private repository: ChatRepository;
   private pushServiceModulePromise?: Promise<
-    typeof import("@/modules/notification/services/ExpoPushService")
+    typeof import("@/modules/notification")
   >;
   private socketEmitterModulePromise?: Promise<
     typeof import("@/lib/websocket/emitter")
@@ -36,8 +36,7 @@ export class ChatService {
 
   private getPushServiceModule() {
     if (!this.pushServiceModulePromise) {
-      this.pushServiceModulePromise =
-        import("@/modules/notification/services/ExpoPushService");
+      this.pushServiceModulePromise = import("@/modules/notification");
     }
 
     return this.pushServiceModulePromise;

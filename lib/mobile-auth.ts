@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import {
   getAppVersionService,
   type VersionAccessResult,
-} from "@/modules/app-version/services/AppVersionService";
+} from "@/modules/app-version";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaMitraAuth } from "@/lib/prisma-mitra";
 

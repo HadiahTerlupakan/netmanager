@@ -2,19 +2,19 @@ import { prismaRadius } from "@/lib/prisma-radius";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import type {
-  IRadiusRepository,
-  IRadiusUser,
-  IRadiusBandwidth,
-  IRadiusAccountingStats,
-  INas,
-  IRadIpPool,
-  IRadiusSession,
-  IDashboardStats,
-  IRadiusSessionView,
-  IRadiusSessionHistoryOptions,
-  IRadiusSessionHistoryResult,
-  IRadiusSessionTotals,
-} from "./IRadiusRepository";
+  DashboardStatsEntity,
+  NasEntity,
+  RadIpPoolEntity,
+  RadiusAccountingStatsEntity,
+  RadiusBandwidthEntity,
+  RadiusSessionEntity,
+  RadiusSessionHistoryOptionsEntity,
+  RadiusSessionHistoryResultEntity,
+  RadiusSessionTotalsEntity,
+  RadiusSessionViewEntity,
+  RadiusUserEntity,
+} from "../domain/entities/RadiusEntity";
+import type { IRadiusRepository } from "../domain/ports/IRadiusRepository";
 import { parseIpRange } from "@/lib/utils/ip-helpers";
 
 type PrismaInstance = typeof defaultPrisma;
@@ -31,7 +31,10 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Create RADIUS user with authentication credentials
    */
-  async createRadiusUser(data: IRadiusUser, tenantId: string): Promise<void> {
+  async createRadiusUser(
+    data: RadiusUserEntity,
+    tenantId: string,
+  ): Promise<void> {
     // Create authentication entry in radcheck
     await this.radiusClient.radcheck.create({
       data: {
@@ -102,7 +105,7 @@ export class RadiusRepository implements IRadiusRepository {
    */
   async setUserBandwidth(
     username: string,
-    bandwidth: IRadiusBandwidth,
+    bandwidth: RadiusBandwidthEntity,
     tenantId: string,
   ): Promise<void> {
     const uploadBps = bandwidth.uploadMbps * 1000000;
@@ -136,7 +139,7 @@ export class RadiusRepository implements IRadiusRepository {
   async getUserBandwidth(
     username: string,
     tenantId: string,
-  ): Promise<IRadiusBandwidth | null> {
+  ): Promise<RadiusBandwidthEntity | null> {
     const reply = await this.radiusClient.radreply.findFirst({
       where: {
         username,
@@ -163,7 +166,7 @@ export class RadiusRepository implements IRadiusRepository {
    */
   async setGroupBandwidth(
     groupname: string,
-    bandwidth: string | IRadiusBandwidth,
+    bandwidth: string | RadiusBandwidthEntity,
     tenantId: string,
   ): Promise<void> {
     let rateLimit = "";
@@ -299,7 +302,7 @@ export class RadiusRepository implements IRadiusRepository {
   async getGroupBandwidth(
     groupname: string,
     tenantId: string,
-  ): Promise<IRadiusBandwidth | null> {
+  ): Promise<RadiusBandwidthEntity | null> {
     const reply = await this.radiusClient.radgroupreply.findFirst({
       where: {
         groupname,
@@ -378,7 +381,7 @@ export class RadiusRepository implements IRadiusRepository {
   async getActiveSessions(
     tenantId: string,
     username?: string,
-  ): Promise<IRadiusSession[]> {
+  ): Promise<RadiusSessionEntity[]> {
     const sessions = await this.radiusClient.radacct.findMany({
       where: {
         acctstoptime: null,
@@ -390,7 +393,7 @@ export class RadiusRepository implements IRadiusRepository {
       },
     });
 
-    return sessions as unknown as IRadiusSession[];
+    return sessions as unknown as RadiusSessionEntity[];
   }
 
   /**
@@ -401,7 +404,7 @@ export class RadiusRepository implements IRadiusRepository {
     tenantId: string,
     startDate?: Date,
     endDate?: Date,
-  ): Promise<IRadiusSession[]> {
+  ): Promise<RadiusSessionEntity[]> {
     const sessions = await this.radiusClient.radacct.findMany({
       where: {
         username,
@@ -422,7 +425,7 @@ export class RadiusRepository implements IRadiusRepository {
       },
     });
 
-    return sessions as unknown as IRadiusSession[];
+    return sessions as unknown as RadiusSessionEntity[];
   }
 
   /**
@@ -433,7 +436,7 @@ export class RadiusRepository implements IRadiusRepository {
     tenantId: string,
     startDate?: Date,
     endDate?: Date,
-  ): Promise<IRadiusAccountingStats> {
+  ): Promise<RadiusAccountingStatsEntity> {
     const sessions = await this.getUserSessions(
       username,
       tenantId,
@@ -441,7 +444,7 @@ export class RadiusRepository implements IRadiusRepository {
       endDate,
     );
 
-    const stats: IRadiusAccountingStats = {
+    const stats: RadiusAccountingStatsEntity = {
       username,
       totalSessions: sessions.length,
       totalSessionTime: BigInt(0),
@@ -815,7 +818,7 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Create or update NAS (Network Access Server)
    */
-  async createNas(nas: INas, tenantId: string): Promise<INas> {
+  async createNas(nas: NasEntity, tenantId: string): Promise<NasEntity> {
     // Use upsert to prevent unique constraint violations if the NAS already exists
     const created = await this.radiusClient.nas.upsert({
       where: {
@@ -861,9 +864,9 @@ export class RadiusRepository implements IRadiusRepository {
    */
   async updateNas(
     id: number,
-    nas: Partial<INas>,
+    nas: Partial<NasEntity>,
     tenantId: string,
-  ): Promise<INas> {
+  ): Promise<NasEntity> {
     const updated = await this.radiusClient.nas.update({
       where: { id, tenantId },
       data: {
@@ -903,7 +906,7 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Get NAS by ID
    */
-  async getNasById(id: number, tenantId: string): Promise<INas | null> {
+  async getNasById(id: number, tenantId: string): Promise<NasEntity | null> {
     const nas = await this.radiusClient.nas.findFirst({
       where: { id, tenantId },
     });
@@ -925,7 +928,7 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Get all NAS
    */
-  async getAllNas(tenantId: string): Promise<INas[]> {
+  async getAllNas(tenantId: string): Promise<NasEntity[]> {
     const nasList = await this.radiusClient.nas.findMany({
       where: { tenantId },
       orderBy: { nasname: "asc" },
@@ -950,7 +953,7 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Get NAS by IP address
    */
-  async getNasByIp(ip: string, tenantId: string): Promise<INas | null> {
+  async getNasByIp(ip: string, tenantId: string): Promise<NasEntity | null> {
     const nas = await this.radiusClient.nas.findFirst({
       where: { nasname: ip, tenantId },
     });
@@ -972,7 +975,10 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Add IP to pool
    */
-  async addToIpPool(pool: IRadIpPool, tenantId: string): Promise<IRadIpPool> {
+  async addToIpPool(
+    pool: RadIpPoolEntity,
+    tenantId: string,
+  ): Promise<RadIpPoolEntity> {
     const created = await this.radiusClient.radippool.create({
       data: {
         pool_name: pool.poolName,
@@ -1071,7 +1077,7 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Get all IP pools
    */
-  async getAllIpPools(tenantId: string): Promise<IRadIpPool[]> {
+  async getAllIpPools(tenantId: string): Promise<RadIpPoolEntity[]> {
     const pools = await this.radiusClient.radippool.findMany({
       where: { tenantId },
       orderBy: [{ pool_name: "asc" }, { framedipaddress: "asc" }],
@@ -1092,7 +1098,7 @@ export class RadiusRepository implements IRadiusRepository {
   /**
    * Get dashboard statistics
    */
-  async getDashboardStats(tenantId: string): Promise<IDashboardStats> {
+  async getDashboardStats(tenantId: string): Promise<DashboardStatsEntity> {
     // Get unique usernames (since one user might have multiple radcheck entries)
     const uniqueUsers = await this.radiusClient.radcheck.groupBy({
       by: ["username"],
@@ -1169,7 +1175,7 @@ export class RadiusRepository implements IRadiusRepository {
   async getTotalUsageByUsernames(
     tenantId: string,
     usernames: string[],
-  ): Promise<Record<string, IRadiusSessionTotals>> {
+  ): Promise<Record<string, RadiusSessionTotalsEntity>> {
     const uniqueUsernames = Array.from(
       new Set(usernames.map((username) => username.trim()).filter(Boolean)),
     );
@@ -1189,7 +1195,7 @@ export class RadiusRepository implements IRadiusRepository {
       },
     });
 
-    const result: Record<string, IRadiusSessionTotals> = {};
+    const result: Record<string, RadiusSessionTotalsEntity> = {};
     for (const row of grouped) {
       const username = row.username;
       if (!username) continue;
@@ -1209,8 +1215,8 @@ export class RadiusRepository implements IRadiusRepository {
   async getUserSessionHistory(
     tenantId: string,
     username: string,
-    options: IRadiusSessionHistoryOptions = {},
-  ): Promise<IRadiusSessionHistoryResult> {
+    options: RadiusSessionHistoryOptionsEntity = {},
+  ): Promise<RadiusSessionHistoryResultEntity> {
     const { page = 1, limit = 20, startDate, endDate } = options;
     const skip = (page - 1) * limit;
 
@@ -1325,7 +1331,7 @@ export class RadiusRepository implements IRadiusRepository {
       limit?: number;
       status?: "active" | "all";
     } = {},
-  ): Promise<{ sessions: IRadiusSessionView[]; total: number }> {
+  ): Promise<{ sessions: RadiusSessionViewEntity[]; total: number }> {
     const { page = 1, limit = 50, status = "active" } = options;
     const skip = (page - 1) * limit;
 

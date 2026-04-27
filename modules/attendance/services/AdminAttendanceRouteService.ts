@@ -9,7 +9,7 @@ import {
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import type { IAttendanceRepository } from "../repositories/IAttendanceRepository";
+import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 import { LeaveService } from "./LeaveService";
 import { AbsenceService } from "./AbsenceService";
 import { prisma } from "@/modules/database";

@@ -5,10 +5,11 @@ import {
   Prisma,
 } from "@prisma/client";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
+import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
 import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
-import { closeWoOnTicketClose } from "@/modules/work-order/services/WorkOrderSyncService";
+import { closeWoOnTicketClose } from "@/modules/work-order";
 import { TicketEventDispatcher } from "@/modules/events";
 
 /**
@@ -50,10 +51,12 @@ export interface UserContext {
  * Handles all support ticket business logic for admin panel
  */
 export class AdminSupportTicketService {
-  private ticketRepo: CustomerTicketRepository;
+  private ticketRepo: ICustomerTicketRepository;
 
-  constructor() {
-    this.ticketRepo = new CustomerTicketRepository();
+  constructor(
+    ticketRepo: ICustomerTicketRepository = new CustomerTicketRepository(),
+  ) {
+    this.ticketRepo = ticketRepo;
   }
 
   /**

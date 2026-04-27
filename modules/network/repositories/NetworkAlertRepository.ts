@@ -2,38 +2,19 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
+import type {
+  NetworkAlertCreateData,
+  NetworkAlertEntity,
+  NetworkAlertFilters,
+  NetworkAlertUpdateData,
+} from "../domain/entities/NetworkAlertEntity";
+import type { INetworkAlertRepository } from "../domain/ports/INetworkAlertRepository";
 
-export interface NetworkAlertFilters {
-  deviceId?: string;
-  deviceType?: "OLT" | "MIKROTIK" | "ONU";
-  status?: "ACTIVE" | "ACKNOWLEDGED" | "RESOLVED" | "SUPPRESSED";
-  severity?: "CRITICAL" | "WARNING" | "INFO";
-  alertType?: "CRITICAL" | "WARNING" | "INFO";
-  acknowledged?: boolean;
-  resolved?: boolean;
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-}
-
-export class NetworkAlertRepository {
+export class NetworkAlertRepository implements INetworkAlertRepository {
   constructor(private readonly client: PrismaClient = prisma) {}
 
   /** Buat alert jaringan baru. */
-  async create(data: {
-    deviceId: string;
-    deviceType: string;
-    alertType: string;
-    title: string;
-    message: string;
-    severity: string;
-    threshold?: number;
-    currentValue?: number;
-    metricName?: string;
-    autoResolve?: boolean;
-    autoResolveTime?: number;
-  }) {
+  async create(data: NetworkAlertCreateData): Promise<NetworkAlertEntity> {
     return await this.client.networkAlerts.create({
       data: {
         id: randomUUID(),
@@ -47,7 +28,7 @@ export class NetworkAlertRepository {
   }
 
   /** Ambil alert berdasarkan id. */
-  async findById(id: string) {
+  async findById(id: string): Promise<NetworkAlertEntity | null> {
     return await this.client.networkAlerts.findUnique({
       where: { id },
     });
@@ -97,19 +78,8 @@ export class NetworkAlertRepository {
   /** Ubah data alert jaringan. */
   async update(
     id: string,
-    data: {
-      title?: string;
-      message?: string;
-      severity?: string;
-      status?: string;
-      acknowledged?: boolean;
-      acknowledgedBy?: string;
-      resolved?: boolean;
-      resolvedBy?: string;
-      autoResolve?: boolean;
-      autoResolveTime?: number;
-    },
-  ) {
+    data: NetworkAlertUpdateData,
+  ): Promise<NetworkAlertEntity> {
     const updateData: Prisma.NetworkAlertsUpdateInput = {
       ...data,
       severity: data.severity as "CRITICAL" | "WARNING" | "INFO" | undefined,
@@ -139,7 +109,7 @@ export class NetworkAlertRepository {
   }
 
   /** Tandai alert sebagai acknowledged. */
-  async acknowledge(id: string, userId: string) {
+  async acknowledge(id: string, userId: string): Promise<NetworkAlertEntity> {
     return await this.client.networkAlerts.update({
       where: { id },
       data: {
@@ -151,7 +121,7 @@ export class NetworkAlertRepository {
   }
 
   /** Tandai alert sebagai resolved. */
-  async resolve(id: string, userId: string) {
+  async resolve(id: string, userId: string): Promise<NetworkAlertEntity> {
     return await this.client.networkAlerts.update({
       where: { id },
       data: {
@@ -163,14 +133,17 @@ export class NetworkAlertRepository {
   }
 
   /** Hapus alert berdasarkan id. */
-  async delete(id: string) {
+  async delete(id: string): Promise<NetworkAlertEntity> {
     return await this.client.networkAlerts.delete({
       where: { id },
     });
   }
 
   /** Ambil seluruh alert aktif untuk device tertentu. */
-  async getActiveAlerts(deviceId?: string, deviceType?: string) {
+  async getActiveAlerts(
+    deviceId?: string,
+    deviceType?: string,
+  ): Promise<NetworkAlertEntity[]> {
     const where: Prisma.NetworkAlertsWhereInput = {
       status: "ACTIVE",
       isActive: true,
@@ -186,7 +159,9 @@ export class NetworkAlertRepository {
   }
 
   /** Nonaktifkan alert lama yang sudah resolved. */
-  async cleanupOldAlerts(olderThanDays: number = 90) {
+  async cleanupOldAlerts(
+    olderThanDays: number = 90,
+  ): Promise<{ count: number }> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
@@ -197,5 +172,21 @@ export class NetworkAlertRepository {
       },
       data: { isActive: false },
     });
+  }
+
+  /** Hitung alert aktif berdasarkan filter. */
+  async count(filters: NetworkAlertFilters = {}): Promise<number> {
+    const where: Prisma.NetworkAlertsWhereInput = { isActive: true };
+
+    if (filters.deviceId) where.deviceId = filters.deviceId;
+    if (filters.deviceType) where.deviceType = filters.deviceType;
+    if (filters.status) where.status = filters.status;
+    if (filters.severity) where.severity = filters.severity;
+    if (filters.alertType) where.alertType = filters.alertType;
+    if (filters.acknowledged !== undefined)
+      where.acknowledged = filters.acknowledged;
+    if (filters.resolved !== undefined) where.resolved = filters.resolved;
+
+    return await this.client.networkAlerts.count({ where });
   }
 }

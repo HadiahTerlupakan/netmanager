@@ -1,5 +1,4 @@
-
-import { MappingRepository } from "@/modules/map/repositories/MappingRepository";
+import { MappingRepository } from "../repositories/MappingRepository";
 import { Prisma } from "@prisma/client";
 
 export class MappingService {
@@ -102,11 +101,15 @@ export class MappingService {
     }
 
     // Check slot capacity for ODC and ODP nodes
-    if (sourceNode.type === 'odc' || sourceNode.type === 'odp') {
+    if (sourceNode.type === "odc" || sourceNode.type === "odp") {
       if (sourceNode.capacity && sourceNode.capacity > 0) {
-        const currentConnections = await this.repository.countEdgesFromSource(data.source);
+        const currentConnections = await this.repository.countEdgesFromSource(
+          data.source,
+        );
         if (currentConnections >= sourceNode.capacity) {
-          throw new Error(`CAPACITY_FULL:${sourceNode.name}:${currentConnections}/${sourceNode.capacity}`);
+          throw new Error(
+            `CAPACITY_FULL:${sourceNode.name}:${currentConnections}/${sourceNode.capacity}`,
+          );
         }
       }
     }

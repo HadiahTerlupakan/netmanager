@@ -1,9 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getUserService } from "@/modules/users";
+import { AdminUserRouteService, getUserService } from "@/modules/users";
 import { createUserSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
 import { checkSiteRestriction } from "@/modules/roles";
-import { prisma, prismaAuth } from "@/modules/database";
+import { prismaAuth } from "@/modules/database";
 import { getTenantAdminRoleId } from "@/modules/mitra";
 import { LeaveType } from "@prisma/client";
 import type { Session } from "next-auth";
@@ -179,22 +179,10 @@ export const POST = createHandler(
         Array.isArray(body.userSites) &&
         body.userSites.length > 0
       ) {
-        await prisma.userSite.createMany({
-          data: body.userSites.map((us) => ({
-            userId: user.id,
-            siteId: us.siteId!,
-            isPrimary: us.isPrimary || false,
-          })),
-        });
-
-        // Update legacy siteId to primary site for backward compatibility
-        const primarySite = body.userSites.find((us) => us.isPrimary);
-        if (primarySite) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { siteId: primarySite.siteId },
-          });
-        }
+        await new AdminUserRouteService().syncNewUserSites(
+          user.id,
+          body.userSites,
+        );
 
         logger.info("UserSites created for new user", {
           userId: user.id,

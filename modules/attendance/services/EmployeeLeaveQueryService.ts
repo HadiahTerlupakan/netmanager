@@ -1,11 +1,12 @@
+import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 
 const DEFAULT_RECENT_REQUEST_LIMIT = 20;
 
 export class EmployeeLeaveQueryService {
-  private readonly leaveRepository: LeaveRepository;
+  private readonly leaveRepository: ILeaveRepository;
 
-  constructor(leaveRepository = new LeaveRepository()) {
+  constructor(leaveRepository: ILeaveRepository = new LeaveRepository()) {
     this.leaveRepository = leaveRepository;
   }
 

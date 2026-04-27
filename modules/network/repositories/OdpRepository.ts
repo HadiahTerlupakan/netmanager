@@ -1,30 +1,35 @@
-import { PrismaClient } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
-import type { IOdpRepository, OdpCreateData, OdpUpdateData, OdpPublic } from './IOdpRepository'
+import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import type {
+  OdpCreateData,
+  OdpEntity,
+  OdpUpdateData,
+} from "../domain/entities/OdpEntity";
+import type { IOdpRepository } from "../domain/ports/IOdpRepository";
 
 export class OdpRepository implements IOdpRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(siteId?: string): Promise<OdpPublic[]> {
+  async findAll(siteId?: string): Promise<OdpEntity[]> {
     const items = await this.client.odp.findMany({
-        where: siteId ? { siteId } : {},
-        orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: { odpOutput: true }
-          },
-          site: {
-            select: { name: true }
-          }
-        }
-    })
-    return items as unknown as OdpPublic[]
+      where: siteId ? { siteId } : {},
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: { odpOutput: true },
+        },
+        site: {
+          select: { name: true },
+        },
+      },
+    });
+    return items as unknown as OdpEntity[];
   }
 
-  async findById(id: string): Promise<OdpPublic | null> {
-    const item = await this.client.odp.findUnique({ where: { id } })
-    return item as unknown as OdpPublic | null
+  async findById(id: string): Promise<OdpEntity | null> {
+    const item = await this.client.odp.findUnique({ where: { id } });
+    return item as unknown as OdpEntity | null;
   }
 
   async create(data: OdpCreateData): Promise<{ id: string }> {
@@ -39,13 +44,13 @@ export class OdpRepository implements IOdpRepository {
           keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder ?? null,
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
-          status: data.status ?? 'AKTIF',
+          status: data.status ?? "AKTIF",
           odcOutputId: data.odcOutputId ?? null,
           siteId: data.siteId ?? null,
           updatedAt: new Date(),
         },
         select: { id: true },
-      })
+      });
 
       if (data.outputs && data.outputs.length > 0) {
         await tx.odpOutput.createMany({
@@ -58,12 +63,12 @@ export class OdpRepository implements IOdpRepository {
             tubeColor: o.tubeColor,
             coreColor: o.coreColor,
           })),
-        })
+        });
       }
 
-      return odp
-    })
-    return created
+      return odp;
+    });
+    return created;
   }
 
   async update(id: string, data: OdpUpdateData): Promise<void> {
@@ -75,19 +80,23 @@ export class OdpRepository implements IOdpRepository {
           ...(data.images !== undefined && { images: data.images }),
           ...(data.location !== undefined && { location: data.location }),
           ...(data.notes !== undefined && { notes: data.notes }),
-          ...(data.keteranganJumlahKabelFeeder !== undefined && { keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder }),
+          ...(data.keteranganJumlahKabelFeeder !== undefined && {
+            keteranganJumlahKabelFeeder: data.keteranganJumlahKabelFeeder,
+          }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
           ...(data.status !== undefined && { status: data.status }),
-          ...(data.odcOutputId !== undefined && { odcOutputId: data.odcOutputId }),
+          ...(data.odcOutputId !== undefined && {
+            odcOutputId: data.odcOutputId,
+          }),
           ...(data.siteId !== undefined && { siteId: data.siteId }),
           updatedAt: new Date(),
         },
-      })
+      });
 
       if (data.outputs !== undefined) {
-        await tx.odpOutput.deleteMany({ where: { odpId: id } })
+        await tx.odpOutput.deleteMany({ where: { odpId: id } });
         if (data.outputs.length > 0) {
           await tx.odpOutput.createMany({
             data: data.outputs.map((o) => ({
@@ -99,19 +108,17 @@ export class OdpRepository implements IOdpRepository {
               tubeColor: o.tubeColor,
               coreColor: o.coreColor,
             })),
-          })
+          });
         }
       }
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.odp.delete({ where: { id } })
+    await this.client.odp.delete({ where: { id } });
   }
 
   async count(): Promise<number> {
-    return await this.client.odp.count()
+    return await this.client.odp.count();
   }
 }
-
-

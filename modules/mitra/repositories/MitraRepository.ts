@@ -1,6 +1,6 @@
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { Prisma, WithdrawStatus } from "@prisma/client-mitra";
-import { createInsensitiveContainsFilter } from "@/modules/finance/utils/prisma-search-filters";
+import { createInsensitiveContainsFilter } from "@/modules/finance";
 import type { MitraFilters, MitraWithDetails } from "../dto/MitraDTO";
 
 export class MitraRepository {

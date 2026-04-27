@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { LeaveStatus, LeaveType, Prisma } from "@prisma/client";
+import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
+import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
+import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
 import { validateTukarLiburRules } from "./LeaveService";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
-import { createNotification } from "@/modules/notification/services/NotificationService";
+import { createNotification } from "@/modules/notification";
 import { apiError, ErrorCodes } from "@/lib/api-response";
-import { prisma } from "@/modules/database";
 
 export interface MobileLeaveRequestInput {
   userId: string;
@@ -21,76 +23,19 @@ export interface MobileLeaveRequestInput {
   replacementDate?: string;
 }
 
-type RequesterContext = {
-  workingHourMode: string | null;
-  workDays: string | null;
-  name: string | null;
-  siteId: string | null;
-};
-
 export class MobileLeaveRequestService {
-  private readonly leaveRepository: LeaveRepository;
-  private readonly leaveBalanceRepository: LeaveBalanceRepository;
-  private readonly holidayRepository: HolidayRepository;
+  private readonly leaveRepository: ILeaveRepository;
+  private readonly leaveBalanceRepository: ILeaveBalanceRepository;
+  private readonly holidayRepository: IHolidayRepository;
 
-  constructor() {
-    this.leaveRepository = new LeaveRepository();
-    this.leaveBalanceRepository = new LeaveBalanceRepository();
-    this.holidayRepository = new HolidayRepository();
-  }
-
-  /** Load requester work schedule and site context. */
-  private findRequesterContext(userId: string, tenantId: string) {
-    return prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: {
-        workingHourMode: true,
-        workDays: true,
-        name: true,
-        siteId: true,
-      },
-    }) as Promise<RequesterContext | null>;
-  }
-
-  /** Load admin approvers for mobile leave notifications. */
-  private findApproverIdsForNotification(
-    tenantId: string,
-    siteId?: string | null,
+  constructor(
+    leaveRepository: ILeaveRepository = new LeaveRepository(),
+    leaveBalanceRepository: ILeaveBalanceRepository = new LeaveBalanceRepository(),
+    holidayRepository: IHolidayRepository = new HolidayRepository(),
   ) {
-    const scopedSiteFilter = siteId
-      ? [
-          {
-            OR: [
-              { siteId },
-              { siteId: null },
-              { userSites: { some: { siteId } } },
-            ],
-          },
-        ]
-      : [];
-
-    return prisma.user.findMany({
-      where: {
-        isActive: true,
-        tenantId,
-        OR: [
-          { role: { name: { in: ["SUPER_ADMIN", "Super Admin"] } } },
-          {
-            AND: [
-              {
-                role: {
-                  permission: {
-                    some: { resource: "izin", action: "verify" },
-                  },
-                },
-              },
-              ...scopedSiteFilter,
-            ],
-          },
-        ],
-      },
-      select: { id: true },
-    });
+    this.leaveRepository = leaveRepository;
+    this.leaveBalanceRepository = leaveBalanceRepository;
+    this.holidayRepository = holidayRepository;
   }
 
   /** Create leave request from mobile payload. */
@@ -112,7 +57,10 @@ export class MobileLeaveRequestService {
       const end = new Date(endDate);
       const currentYear = start.getFullYear();
 
-      const userData = await this.findRequesterContext(userId, tenantId);
+      const userData = await this.leaveRepository.findRequesterContext(
+        userId,
+        tenantId,
+      );
 
       const leaveDays = await calculateWorkingDays(
         start,
@@ -229,10 +177,11 @@ export class MobileLeaveRequestService {
       );
 
       try {
-        const admins = await this.findApproverIdsForNotification(
-          tenantId,
-          userData?.siteId,
-        );
+        const admins =
+          await this.leaveRepository.findApproverIdsForMobileLeaveNotification({
+            tenantId,
+            siteId: userData?.siteId,
+          });
 
         for (const admin of admins) {
           await createNotification({

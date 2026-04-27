@@ -23,7 +23,7 @@ import {
   getDayOffDisplayLabel,
   getPermitDisplayLabel,
   isHistoricalAutoCheckoutAbsence,
-} from "@/modules/attendance/utils/displayLabels";
+} from "@/modules/attendance/client";
 import {
   fetchWithHandling,
   isFetchError,

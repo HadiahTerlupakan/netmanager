@@ -7,7 +7,7 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import CanvasingForm from "@/app/admin/marketing/canvasing/CanvasingForm";
-import type { CanvasingFormValues } from "@/modules/marketing/validators/canvasingValidation";
+import type { CanvasingFormValues } from "@/modules/marketing/client";
 
 export default function CanvasingCreateClient() {
   const router = useRouter();

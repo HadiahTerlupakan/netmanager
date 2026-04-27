@@ -12,7 +12,7 @@ import {
   getStatusEmoji,
   getActionEmoji,
   getWorkOrderTypeLabel,
-} from "@/modules/notification/utils/constants";
+} from "../utils/constants";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 
 type RecipientUser = { id: string };

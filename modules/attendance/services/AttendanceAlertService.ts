@@ -1,6 +1,8 @@
 import { redis } from "@/lib/redis";
-import { sendPushNotification } from "@/modules/notification/services/ExpoPushService";
-import { createNotification } from "@/modules/notification/services/NotificationService";
+import {
+  sendPushNotification,
+  createNotification,
+} from "@/modules/notification";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import { randomUUID } from "crypto";
 import { getTimezone } from "@/lib/utils/get-timezone";

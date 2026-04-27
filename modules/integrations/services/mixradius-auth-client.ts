@@ -1,7 +1,7 @@
 import type { AxiosInstance } from "axios";
 
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import { mixRadiusConfigRepo } from "@/modules/integrations/repositories/MixRadiusConfigRepository";
+import { mixRadiusConfigRepo } from "../repositories/MixRadiusConfigRepository";
 import { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
 
 import {

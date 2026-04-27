@@ -1,52 +1,36 @@
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma, prismaAuth } from "@/modules/database";
+import type {
+  SettingsEntity,
+  SettingsUpsertEntity,
+} from "../domain/entities/Settings";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
+import { toSettingsDomain } from "../mappers/settingsMapper";
 
-export type SettingsRecord = {
-  key: string;
-  value: string | null;
-  encrypted: boolean;
-};
+export type SettingsRecord = SettingsEntity;
+export type SettingsUpsertInput = SettingsUpsertEntity;
 
-export type SettingsUpsertInput = {
-  key: string;
-  value: string | null;
-  description?: string | null;
-  encrypted?: boolean;
-  tenantId?: string | null;
-};
-
-export const SettingsRepository = {
-  findManyByKeys: async (
+const settingsRepository: ISettingsRepository = {
+  /** Finds settings records by keys within tenant scope. */
+  async findManyByKeys(
     keys: ReadonlyArray<string>,
     tenantId?: string | null,
-  ): Promise<SettingsRecord[]> => {
+  ): Promise<SettingsEntity[]> {
     if (!keys.length) {
       return [];
     }
 
-    const keysArray = [...keys];
-    const normalizedTenantId = normalizeTenantId(tenantId);
-
-    const settingsClient = normalizedTenantId === null ? prismaAuth : prisma;
-
+    const settingsClient = resolveSettingsClient(tenantId);
     const settings = await settingsClient.settings.findMany({
-      where: {
-        tenantId: normalizedTenantId,
-        key: {
-          in: keysArray,
-        },
-      },
+      where: buildFindManyWhere(keys, tenantId),
     });
 
-    return settings.map(({ key, value, encrypted }) => ({
-      key,
-      value,
-      encrypted,
-    }));
+    return settings.map(toSettingsDomain);
   },
 
-  upsertMany: async (entries: SettingsUpsertInput[]): Promise<void> => {
+  /** Upserts multiple settings entries in a single transaction. */
+  async upsertMany(entries: SettingsUpsertEntity[]): Promise<void> {
     if (!entries.length) {
       return;
     }
@@ -59,26 +43,36 @@ export const SettingsRepository = {
     });
   },
 
-  deleteManyByKeys: async (
+  /** Deletes settings records by keys within tenant scope. */
+  async deleteManyByKeys(
     keys: ReadonlyArray<string>,
     tenantId?: string | null,
-  ): Promise<void> => {
+  ): Promise<void> {
     if (!keys.length) {
       return;
     }
 
-    const normalizedTenantId = normalizeTenantId(tenantId);
-
     await prisma.settings.deleteMany({
-      where: {
-        tenantId: normalizedTenantId,
-        key: {
-          in: [...keys],
-        },
-      },
+      where: buildFindManyWhere(keys, tenantId),
     });
   },
 };
+
+export const SettingsRepository = settingsRepository;
+
+function buildFindManyWhere(
+  keys: ReadonlyArray<string>,
+  tenantId?: string | null,
+): Prisma.SettingsWhereInput {
+  return {
+    tenantId: normalizeTenantId(tenantId),
+    key: { in: [...keys] },
+  };
+}
+
+function resolveSettingsClient(tenantId?: string | null) {
+  return normalizeTenantId(tenantId) === null ? prismaAuth : prisma;
+}
 
 function normalizeTenantId(tenantId?: string | null): string | null {
   return tenantId ?? null;
@@ -86,41 +80,62 @@ function normalizeTenantId(tenantId?: string | null): string | null {
 
 async function upsertOne(
   tx: Prisma.TransactionClient,
-  entry: SettingsUpsertInput,
+  entry: SettingsUpsertEntity,
   now: Date,
-) {
-  const normalizedTenantId = normalizeTenantId(entry.tenantId);
-  const where: Prisma.SettingsWhereInput = {
-    key: entry.key,
-    tenantId: normalizedTenantId,
-  };
-
-  const existing = await tx.settings.findFirst({ where });
-  const value = entry.value ?? null;
-  const description = entry.description ?? null;
-  const encrypted = entry.encrypted ?? false;
+): Promise<void> {
+  const existing = await tx.settings.findFirst({
+    where: buildUpsertWhere(entry),
+  });
 
   if (existing) {
-    await tx.settings.update({
-      where: { id: existing.id },
-      data: {
-        value,
-        description,
-        encrypted,
-        updatedAt: now,
-      },
-    });
-  } else {
-    await tx.settings.create({
-      data: {
-        id: randomUUID(),
-        key: entry.key,
-        value,
-        description,
-        encrypted,
-        tenantId: normalizedTenantId,
-        updatedAt: now,
-      },
-    });
+    await updateExistingSetting(tx, existing.id, entry, now);
+    return;
   }
+
+  await createSetting(tx, entry, now);
+}
+
+function buildUpsertWhere(
+  entry: SettingsUpsertEntity,
+): Prisma.SettingsWhereInput {
+  return {
+    key: entry.key,
+    tenantId: normalizeTenantId(entry.tenantId),
+  };
+}
+
+function buildUpsertData(entry: SettingsUpsertEntity, now: Date) {
+  return {
+    value: entry.value ?? null,
+    description: entry.description ?? null,
+    encrypted: entry.encrypted ?? false,
+    updatedAt: now,
+  };
+}
+
+async function updateExistingSetting(
+  tx: Prisma.TransactionClient,
+  id: string,
+  entry: SettingsUpsertEntity,
+  now: Date,
+): Promise<void> {
+  await tx.settings.update({
+    where: { id },
+    data: buildUpsertData(entry, now),
+  });
+}
+
+async function createSetting(
+  tx: Prisma.TransactionClient,
+  entry: SettingsUpsertEntity,
+  now: Date,
+): Promise<void> {
+  await tx.settings.create({
+    data: {
+      id: randomUUID(),
+      key: entry.key,
+      tenantId: normalizeTenantId(entry.tenantId),
+      ...buildUpsertData(entry, now),
+    },
+  });
 }

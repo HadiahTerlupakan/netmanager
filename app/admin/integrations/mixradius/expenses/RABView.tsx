@@ -17,9 +17,13 @@ import {
   HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { useSession } from "next-auth/react";
-import { calculateRabUnitCosts } from "@/modules/finance/utils/rabTarget";
+import { calculateRabUnitCosts } from "@/modules/finance/client";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
+import {
+  formatRabGrowthTypeLabel,
+  formatRabProfitShareDescription,
+} from "./rab-formatters";
 import type { RABProject } from "./rabTypes";
 import RABRevisionSummaryCards from "./RABRevisionSummaryCards";
 import RABRevisionTimeline from "./RABRevisionTimeline";
@@ -30,14 +34,6 @@ import type {
   RABRevisionProfitLossSummary,
   RABRevisionRecord,
 } from "./rabRevisionTypes";
-
-function getProfitShareDescription(project: RABProject): string {
-  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    return `${project.investorProfitSharePercent || 50}% investor / ${100 - (project.investorProfitSharePercent || 50)}% perusahaan`;
-  }
-
-  return `${project.investorProfitShareBeforeBepPercent || 80}% sebelum balik modal, ${project.investorProfitShareAfterBepPercent || 60}% setelah balik modal`;
-}
 
 interface RABViewProps {
   isOpen: boolean;
@@ -229,19 +225,6 @@ export default function RABView({
   const projectedRevenue = Number(data.projectedRevenue || 0);
   const { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear } =
     calculateRealisticBEP(data);
-
-  const getGrowthTypeLabel = (type?: string) => {
-    switch (type) {
-      case "LINEAR":
-        return "Linear";
-      case "PERCENTAGE":
-        return "Persentase";
-      case "CUSTOM":
-        return "Kustom";
-      default:
-        return "-";
-    }
-  };
 
   const startYear = data.startDate
     ? new Date(data.startDate).getFullYear()
@@ -611,7 +594,7 @@ export default function RABView({
                         Porsi Investor / Perusahaan
                       </p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {getProfitShareDescription(data)}
+                        {formatRabProfitShareDescription(data)}
                       </p>
                     </div>
                   </div>
@@ -770,7 +753,7 @@ export default function RABView({
                   <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
                     <span className="text-gray-500">Tipe Pertumbuhan</span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {getGrowthTypeLabel(data.growthType)}
+                      {formatRabGrowthTypeLabel(data.growthType)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">

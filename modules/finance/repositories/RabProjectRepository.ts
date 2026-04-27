@@ -19,6 +19,7 @@ import type {
   RabRecoveryType,
   RabStatus,
 } from "@prisma/client";
+import type { IRabProjectRepository } from "../domain/ports/IRabProjectRepository";
 
 export interface RabProjectWithDetails extends RabProject {
   items?: (RabItem & { disbursements?: RabDisbursement[] })[];
@@ -287,7 +288,7 @@ function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
   ].some((value) => value !== undefined);
 }
 
-export class RabProjectRepository {
+export class RabProjectRepository implements IRabProjectRepository {
   constructor(private client: PrismaClient = prisma) {}
 
   /**

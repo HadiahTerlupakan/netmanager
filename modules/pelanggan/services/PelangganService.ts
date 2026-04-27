@@ -1,10 +1,11 @@
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
+import type {
+  PelangganEntity,
+  PelangganWithPackageEntity,
+} from "../domain/entities/PelangganEntity";
 import { PelangganRepository } from "../repositories/PelangganRepository";
+import type { FilterOptions } from "../repositories/PelangganRepository";
 import type {
-  PelangganWithPackage,
-  FilterOptions,
-} from "../repositories/PelangganRepository";
-import type {
-  Pelanggan,
   Status,
   TipePelanggan,
   DiscountType,
@@ -73,18 +74,22 @@ export interface CreatePelangganInput {
 }
 
 export class PelangganService {
-  private pelangganRepository: PelangganRepository;
+  private pelangganRepository: IPelangganRepository;
 
-  constructor() {
-    this.pelangganRepository = new PelangganRepository();
+  constructor(
+    pelangganRepository: IPelangganRepository = new PelangganRepository(),
+  ) {
+    this.pelangganRepository = pelangganRepository;
   }
 
+  /** Get all customers using optional filters. */
   async getAllPelanggan(
     filter?: FilterOptions,
-  ): Promise<PelangganWithPackage[]> {
+  ): Promise<PelangganWithPackageEntity[]> {
     return this.pelangganRepository.findAll(filter);
   }
 
+  /** Get paginated customers using optional filters. */
   async getAllPelangganPaginated(
     filter?: FilterOptions,
     page: number = 1,
@@ -93,19 +98,21 @@ export class PelangganService {
     return this.pelangganRepository.findAllPaginated(filter, page, limit);
   }
 
-  async getPelanggan(id: string): Promise<Pelanggan | null> {
+  /** Get customer by internal id. */
+  async getPelanggan(id: string): Promise<PelangganEntity | null> {
     return this.pelangganRepository.findById(id);
   }
 
+  /** Get customer by customer code. */
   async getPelangganByIdPelanggan(
     idPelanggan: string,
-  ): Promise<Pelanggan | null> {
+  ): Promise<PelangganEntity | null> {
     return this.pelangganRepository.findByIdPelanggan(idPelanggan);
   }
 
   async createPelanggan(
     data: CreatePelangganInput,
-  ): Promise<PelangganWithPackage> {
+  ): Promise<PelangganWithPackageEntity> {
     // Validate ID format (8 digits)
     if (!/^\d{8}$/.test(data.idPelanggan.trim())) {
       throw new Error("ID Pelanggan harus 8 digit angka");
@@ -241,8 +248,7 @@ export class PelangganService {
 
     // Handle Invoice Generation based on billingAction
     try {
-      const { AutomaticBillingService } =
-        await import("@/modules/finance/services/AutomaticBillingService");
+      const { AutomaticBillingService } = await import("@/modules/finance");
       if (
         data.billingAction === "CREATE_PAID_INVOICE" ||
         data.billingAction === "CREATE_UNPAID_INVOICE"
@@ -282,7 +288,7 @@ export class PelangganService {
     return pelanggan;
   }
 
-  async deletePelanggan(id: string): Promise<Pelanggan> {
+  async deletePelanggan(id: string): Promise<PelangganEntity> {
     const existing = await this.pelangganRepository.findById(id);
     if (!existing) {
       throw new Error("Pelanggan tidak ditemukan");
@@ -299,7 +305,10 @@ export class PelangganService {
   }
 
   /** Update customer status and trigger radius synchronization. */
-  async updateStatusPelanggan(id: string, status: Status): Promise<Pelanggan> {
+  async updateStatusPelanggan(
+    id: string,
+    status: Status,
+  ): Promise<PelangganEntity> {
     const existing = await this.pelangganRepository.findById(id);
     if (!existing) {
       throw new Error("Pelanggan tidak ditemukan");
@@ -309,8 +318,8 @@ export class PelangganService {
 
     const syncResult = await afterCustomerUpdate(undefined, id, {
       statusChanged: existing.status !== pelanggan.status,
-      oldStatus: existing.status,
-      newStatus: pelanggan.status,
+      oldStatus: existing.status as Status,
+      newStatus: pelanggan.status as Status,
     });
 
     if (!syncResult.success) {

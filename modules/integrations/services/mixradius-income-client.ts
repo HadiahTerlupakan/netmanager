@@ -4,7 +4,7 @@ import type { AxiosInstance } from "axios";
 import {
   DUITKU_DEFAULT_FEES,
   normalizePaymentMethod,
-} from "@/modules/integrations/constants/DuitkuDefaults";
+} from "../constants/DuitkuDefaults";
 import {
   buildMixRadiusAllowedOwners,
   normalizeMixRadiusOwnerName,

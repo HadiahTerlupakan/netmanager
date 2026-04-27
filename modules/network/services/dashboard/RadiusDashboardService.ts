@@ -1,3 +1,4 @@
+import type { IRadiusRepository } from "../../domain/ports/IRadiusRepository";
 import { RadiusRepository } from "../../repositories/RadiusRepository";
 import type {
   RadiusDashboardStatsInput,
@@ -14,7 +15,7 @@ import {
 
 export class RadiusDashboardService {
   constructor(
-    private readonly repository: RadiusRepository = new RadiusRepository(),
+    private readonly repository: IRadiusRepository = new RadiusRepository(),
   ) {}
 
   /**

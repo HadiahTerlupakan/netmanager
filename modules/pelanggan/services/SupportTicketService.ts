@@ -1,15 +1,18 @@
 import { TicketCategory, TicketPriority } from "@prisma/client";
 import { logger, logActivitySafe } from "@/lib/logger";
 import { TicketEventDispatcher } from "@/modules/events";
+import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
 import { formatDailyDocumentNumber } from "../utils/daily-document-number";
 
 /** Service for customer support ticket business logic. */
 export class SupportTicketService {
-  private repository: CustomerTicketRepository;
+  private repository: ICustomerTicketRepository;
 
-  constructor() {
-    this.repository = new CustomerTicketRepository();
+  constructor(
+    repository: ICustomerTicketRepository = new CustomerTicketRepository(),
+  ) {
+    this.repository = repository;
   }
 
   /** Get customer tickets with pagination. */

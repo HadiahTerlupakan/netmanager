@@ -31,6 +31,7 @@ vi.mock("@/modules/pelanggan", () => ({
   getPelangganService: () => ({
     updateStatusPelanggan: mockFns.updateStatusPelanggan,
   }),
+  PelangganBillingBridgeService: class MockPelangganBillingBridgeService {},
 }));
 
 import { POST } from "@/app/api/admin/payments/[id]/cancel/route";

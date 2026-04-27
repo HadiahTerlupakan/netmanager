@@ -4,8 +4,8 @@ import type {
   IPengeluaranRepository,
   PengeluaranCreateData,
   PengeluaranUpdateData,
-  PengeluaranPublic,
-} from "./IPengeluaranRepository";
+} from "../domain/ports/IPengeluaranRepository";
+import type { PengeluaranEntity as PengeluaranPublic } from "../domain/entities/PengeluaranEntity";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { createInsensitiveContainsFilter } from "../utils/prisma-search-filters";
 
@@ -131,7 +131,7 @@ export class PengeluaranRepository implements IPengeluaranRepository {
     if (data.kategori && "budget" in this.client) {
       try {
         const { getBudgetCategory } =
-          await import("@/modules/finance/services/budget-integration");
+          await import("../services/budget-integration");
         const budgetCategory = getBudgetCategory(data.kategori);
         if (budgetCategory) {
           const expenseDate =

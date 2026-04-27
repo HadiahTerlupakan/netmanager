@@ -173,8 +173,7 @@ function registerDefaultHandlers(): void {
 
     try {
       const { socketEmitter } = await import("@/lib/websocket/emitter");
-      const { notifyNewWorkOrder } =
-        await import("@/modules/notification/services/NotificationService");
+      const { notifyNewWorkOrder } = await import("@/modules/notification");
 
       // Emit real-time update via Socket.IO
       socketEmitter.newWorkOrder(
@@ -216,7 +215,7 @@ function registerDefaultHandlers(): void {
     try {
       const { socketEmitter } = await import("@/lib/websocket/emitter");
       const { notifyWorkOrderAssigned } =
-        await import("@/modules/notification/services/NotificationService");
+        await import("@/modules/notification");
 
       socketEmitter.workOrderAssigned(
         {
@@ -421,8 +420,7 @@ async function processNotificationJob(
     case "expo_push": {
       if (!data.pushToken) break;
       try {
-        const { sendPushNotification } =
-          await import("@/modules/notification/services/ExpoPushService");
+        const { sendPushNotification } = await import("@/modules/notification");
         await sendPushNotification(
           data.pushToken,
           data.title,
@@ -458,8 +456,7 @@ async function processWebhookJob(job: Job<WebhookJobData>): Promise<void> {
   console.log(`[Worker] Processing webhook from: ${provider}`);
 
   try {
-    const { PaymentGatewayManager } =
-      await import("@/modules/finance/services/payment-gateway/gateway-manager");
+    const { PaymentGatewayManager } = await import("@/modules/finance");
     const { prisma } = await import("@/lib/prisma");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gatewayManager = new PaymentGatewayManager(prisma as any);
@@ -516,16 +513,14 @@ function createOvertimeAutoCheckoutJobId(
 async function processOvertimeAutoCheckoutJob(
   job: Job<OvertimeAutoCheckoutJobData>,
 ): Promise<void> {
-  const { OvertimeAutoCheckoutService } =
-    await import("@/modules/overtime/services/OvertimeAutoCheckoutService");
+  const { OvertimeAutoCheckoutService } = await import("@/modules/overtime");
   await OvertimeAutoCheckoutService.runScheduledAutoCheckout(job.data);
 }
 
 async function processAttendanceAutoCheckoutJob(
   job: Job<AttendanceAutoCheckoutJobData>,
 ): Promise<void> {
-  const { AutoCheckoutService } =
-    await import("@/modules/attendance/services/AutoCheckoutService");
+  const { AutoCheckoutService } = await import("@/modules/attendance");
   await AutoCheckoutService.runAutoCheckoutJob(job.data);
 }
 

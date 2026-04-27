@@ -3,6 +3,7 @@ import { calculateHaversineDistance } from "@/lib/geo-utils";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import { getTimezone } from "@/lib/utils/get-timezone";
+import type { ILocationTrackingRepository } from "../domain/ports/ILocationTrackingRepository";
 import {
   LocationTrackingRepository,
   type LocationData,
@@ -14,11 +15,22 @@ import { UserRepository } from "@/modules/users";
  * LocationTrackingService - Mengelola data lokasi karyawan selama jam kerja
  * Tracking aktif setelah check-in dan berhenti setelah check-out
  */
+const LOCATION_RETENTION_DAYS = 30;
+
 export class LocationTrackingService {
-  private readonly LOCATION_RETENTION_DAYS = 30; // Simpan data 30 hari
-  private locationRepo = new LocationTrackingRepository();
-  private attendanceRepo = new AttendanceRepository();
-  private userRepo = new UserRepository();
+  private locationRepo: ILocationTrackingRepository;
+  private attendanceRepo: AttendanceRepository;
+  private userRepo: UserRepository;
+
+  constructor(
+    locationRepo: ILocationTrackingRepository = new LocationTrackingRepository(),
+    attendanceRepo: AttendanceRepository = new AttendanceRepository(),
+    userRepo: UserRepository = new UserRepository(),
+  ) {
+    this.locationRepo = locationRepo;
+    this.attendanceRepo = attendanceRepo;
+    this.userRepo = userRepo;
+  }
 
   private async publishLocationUpdate(
     userId: string,
@@ -54,8 +66,6 @@ export class LocationTrackingService {
       },
     });
   }
-
-  constructor() {}
 
   /**
    * Simpan lokasi baru untuk user
@@ -307,7 +317,7 @@ export class LocationTrackingService {
    */
   async cleanupOldLocations(): Promise<number> {
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - this.LOCATION_RETENTION_DAYS);
+    cutoffDate.setDate(cutoffDate.getDate() - LOCATION_RETENTION_DAYS);
 
     const result = await this.locationRepo.deleteLocationsBefore(cutoffDate);
     return result.count;

@@ -5,7 +5,7 @@ export * from "./repositories/RadiusRepository";
 export * from "./repositories/IMikroTikRouterRepository";
 export * from "./repositories/IRadiusRepository";
 export { NetworkAlertRepository } from "./repositories/NetworkAlertRepository";
-export type { NetworkAlertFilters } from "./repositories/NetworkAlertRepository";
+export type { NetworkAlertFilters } from "./domain/entities/NetworkAlertEntity";
 export { NetworkPerformanceRepository } from "./repositories/NetworkPerformanceRepository";
 export type { NetworkPerformanceFilters } from "./repositories/INetworkPerformanceRepository";
 

@@ -2,10 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { LeaveStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 
-export class LeaveRepository {
+import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
+import {
+  toActiveLeaveEntity,
+  toLeaveApproverEntity,
+  toLeaveRequesterContextEntity,
+  toTukarLiburDateEntity,
+} from "../mappers/AttendanceDomainMapper";
+
+export class LeaveRepository implements ILeaveRepository {
   /** Get leave requester context for mobile submission. */
   async findRequesterContext(userId: string, tenantId: string) {
-    return prisma.user.findFirst({
+    const requester = await prisma.user.findFirst({
       where: { id: userId, tenantId },
       select: {
         workingHourMode: true,
@@ -14,6 +22,8 @@ export class LeaveRepository {
         siteId: true,
       },
     });
+
+    return requester ? toLeaveRequesterContextEntity(requester) : null;
   }
 
   /** Get approver admin IDs for leave notification. */
@@ -33,7 +43,7 @@ export class LeaveRepository {
         ]
       : [];
 
-    return prisma.user.findMany({
+    const approvers = await prisma.user.findMany({
       where: {
         isActive: true,
         tenantId: input.tenantId,
@@ -58,6 +68,8 @@ export class LeaveRepository {
       },
       select: { id: true },
     });
+
+    return approvers.map(toLeaveApproverEntity);
   }
   async create(
     data: Omit<Prisma.LeaveRequestUncheckedCreateInput, "id" | "updatedAt">,
@@ -202,7 +214,7 @@ export class LeaveRepository {
     endOfDay: Date,
     tenantId?: string,
   ) {
-    return prisma.leaveRequest.findFirst({
+    const leave = await prisma.leaveRequest.findFirst({
       where: {
         userId,
         ...(tenantId && { tenantId }),
@@ -215,6 +227,8 @@ export class LeaveRepository {
         reason: true,
       },
     });
+
+    return leave ? toActiveLeaveEntity(leave) : null;
   }
 
   async findApprovedTukarLiburForUserOnDate(
@@ -223,7 +237,7 @@ export class LeaveRepository {
     endOfDay: Date,
     tenantId?: string,
   ) {
-    return prisma.leaveRequest.findFirst({
+    const tukarLibur = await prisma.leaveRequest.findFirst({
       where: {
         userId,
         ...(tenantId && { tenantId }),
@@ -239,6 +253,8 @@ export class LeaveRepository {
         replacementDate: true,
       },
     });
+
+    return tukarLibur ? toTukarLiburDateEntity(tukarLibur) : null;
   }
 
   /**

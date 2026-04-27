@@ -1,15 +1,15 @@
 "use client";
 
-import { calculateRabUnitCosts } from "@/modules/finance/utils/rabTarget";
+import { calculateRabUnitCosts } from "@/modules/finance/client";
 import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,
 } from "./rabCalculations";
-import type {
-  LinearGrowthSettings,
-  PercentageGrowthSettings,
-  RABProject,
-} from "./rabTypes";
+import {
+  formatRabCompactGrowthModel,
+  formatRabCompactProfitShare,
+} from "./rab-formatters";
+import type { RABProject } from "./rabTypes";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -45,33 +45,12 @@ export default function RABCompare({
       .reduce((sum, item) => sum + Number(item.totalPrice), 0);
   };
 
-  // Helper to get growth model desc
-  const getGrowthModelDesc = (project: RABProject) => {
-    if (project.growthType === "LINEAR") {
-      const s = project.growthSettings as LinearGrowthSettings;
-      return `Linear (${s?.subscribersPerMonth || 0}/Bln)`;
-    } else if (project.growthType === "PERCENTAGE") {
-      const s = project.growthSettings as PercentageGrowthSettings;
-      return `Persentase (Naik ${s?.monthlyGrowthPercent || 0}%/Bln)`;
-    }
-    return "Kustom";
-  };
-
   // Helper to get recovery setting
   const getRecoveryDesc = (project: RABProject) => {
     if (project.investmentRecoveryType === "PERCENTAGE") {
       return `${project.investmentRecoveryValue}% dari Profit Kotor`;
     }
     return `${formatCurrency(project.investmentRecoveryValue || 0)} / Bulan`;
-  };
-
-  const getProfitShareDesc = (project: RABProject) => {
-    if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-      const investorShare = project.investorProfitSharePercent || 50;
-      return `${investorShare}% : ${100 - investorShare}%`;
-    }
-
-    return `${project.investorProfitShareBeforeBepPercent || 80}% pra-BEP, ${project.investorProfitShareAfterBepPercent || 60}% pasca-BEP`;
   };
 
   // Calculate BEP specific data for all projects once
@@ -251,7 +230,10 @@ export default function RABCompare({
           "ARPU (Tagihan/Bln)",
           ...projects.map((p) => formatCurrency(Number(p.arpu || 0))),
         ],
-        ["Model Pertumbuhan", ...projects.map((p) => getGrowthModelDesc(p))],
+        [
+          "Model Pertumbuhan",
+          ...projects.map((p) => formatRabCompactGrowthModel(p)),
+        ],
         [
           "Sistem Pembayaran",
           ...projects.map((p) =>
@@ -295,7 +277,10 @@ export default function RABCompare({
           ...projects.map((p) => `${p.investmentDurationMonths || 12} Bulan`),
         ],
         ["Angsuran Recovery", ...projects.map((p) => getRecoveryDesc(p))],
-        ["Bagi Hasil (Investor:Psh)", ...projects.map(getProfitShareDesc)],
+        [
+          "Bagi Hasil (Investor:Psh)",
+          ...projects.map(formatRabCompactProfitShare),
+        ],
 
         [
           {
@@ -508,7 +493,7 @@ export default function RABCompare({
                   key={p.id}
                   className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-gray-900 dark:text-gray-300"
                 >
-                  {getGrowthModelDesc(p)}
+                  {formatRabCompactGrowthModel(p)}
                 </td>
               ))}
             </tr>
@@ -607,7 +592,7 @@ export default function RABCompare({
                   className="px-4 py-3 border-l border-gray-100 dark:border-gray-700 text-gray-900 dark:text-gray-300"
                 >
                   <div className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                    {getProfitShareDesc(p)}
+                    {formatRabCompactProfitShare(p)}
                   </div>
                 </td>
               ))}

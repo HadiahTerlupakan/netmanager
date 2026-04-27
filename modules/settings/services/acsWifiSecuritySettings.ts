@@ -1,24 +1,49 @@
-import {
-  AcsSettingsRepository,
-  normalizeAcsWifiSecurityPayload,
-  type AcsWifiSecurityInput,
-} from '../repositories/AcsSettingsRepository'
+import { AcsSettingsRepository } from "../repositories/AcsSettingsRepository";
+import type {
+  AcsWifiSecurityInput,
+  IAcsSettingsRepository,
+} from "../domain/ports/IAcsSettingsRepository";
+import { normalizeAcsWifiSecurityPayload } from "../validators/acsSettingsValidator";
 
-export async function listAcsWifiSecurityConfigs(tenantId?: string | null) {
-  return AcsSettingsRepository.findWifiSecurityByTenant(tenantId ?? null)
+const defaultAcsSettingsRepository: IAcsSettingsRepository =
+  AcsSettingsRepository;
+
+/** Lists ACS WiFi security configurations for tenant scope. */
+export async function listAcsWifiSecurityConfigs(
+  tenantId?: string | null,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
+  return repository.findWifiSecurityByTenant(tenantId ?? null);
 }
 
-export async function upsertAcsWifiSecurity(payload: AcsWifiSecurityInput, tenantId?: string | null) {
-  return AcsSettingsRepository.upsertWifiSecurityByTenantAndProductClass(
+/** Upserts ACS WiFi security by tenant and product class. */
+export async function upsertAcsWifiSecurity(
+  payload: AcsWifiSecurityInput,
+  tenantId?: string | null,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
+  return repository.upsertWifiSecurityByTenantAndProductClass(
     tenantId ?? null,
-    normalizeAcsWifiSecurityPayload(payload)
-  )
+    normalizeAcsWifiSecurityPayload(payload),
+  );
 }
 
-export async function updateAcsWifiSecurity(id: string, payload: AcsWifiSecurityInput) {
-  return AcsSettingsRepository.updateWifiSecurity(id, normalizeAcsWifiSecurityPayload(payload))
+/** Updates ACS WiFi security by id. */
+export async function updateAcsWifiSecurity(
+  id: string,
+  payload: AcsWifiSecurityInput,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
+  return repository.updateWifiSecurity(
+    id,
+    normalizeAcsWifiSecurityPayload(payload),
+  );
 }
 
-export async function deleteAcsWifiSecurity(id: string) {
-  await AcsSettingsRepository.deleteWifiSecurity(id)
+/** Deletes ACS WiFi security by id. */
+export async function deleteAcsWifiSecurity(
+  id: string,
+  repository: IAcsSettingsRepository = defaultAcsSettingsRepository,
+) {
+  await repository.deleteWifiSecurity(id);
 }

@@ -4,6 +4,7 @@ import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getR2Settings } from "@/lib/utils/r2-client";
 import { isImageFile, saveFile } from "@/lib/utils/image-upload";
 import { SettingsRepository } from "../repositories/SettingsRepository";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 
 export type LogoType = "invoice" | "aplikasi" | "landing";
 
@@ -18,6 +19,8 @@ const LOGO_SETTINGS_KEYS = [
   "LOGO_APLIKASI",
   "LOGO_LANDING_PAGE",
 ] as const;
+const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
+const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
 
 function getSettingKey(type: LogoType): (typeof LOGO_SETTINGS_KEYS)[number] {
   const logoSettingByType: Record<
@@ -123,11 +126,13 @@ async function resolveActiveTenantId(
   return tenantContext.tenantId ?? null;
 }
 
+/** Gets logo settings for active or provided tenant. */
 export async function getLogoSettings(
   tenantId?: string | null,
+  repository: ISettingsRepository = defaultSettingsRepository,
 ): Promise<LogoSettingsPayload> {
   const activeTenantId = await resolveActiveTenantId(tenantId);
-  const records = await SettingsRepository.findManyByKeys(
+  const records = await repository.findManyByKeys(
     LOGO_SETTINGS_KEYS,
     activeTenantId,
   );
@@ -148,22 +153,24 @@ export async function getLogoSettings(
   };
 }
 
+/** Uploads a logo and saves its resolved storage path. */
 export async function uploadLogo(
   type: LogoType,
   file: File,
   tenantId?: string | null,
+  repository: ISettingsRepository = defaultSettingsRepository,
 ): Promise<string> {
   if (!isImageFile(file)) {
     throw new Error("File harus berupa gambar (PNG, JPG, JPEG)");
   }
 
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > MAX_LOGO_SIZE_BYTES) {
     throw new Error("Ukuran file maksimal 5MB");
   }
 
   const activeTenantId = await resolveActiveTenantId(tenantId);
   const settingKey = getSettingKey(type);
-  const oldSetting = await SettingsRepository.findManyByKeys(
+  const oldSetting = await repository.findManyByKeys(
     [settingKey],
     activeTenantId,
   );
@@ -189,7 +196,7 @@ export async function uploadLogo(
     await access(resolvePublicFilePath(normalizedPath));
   }
 
-  await SettingsRepository.upsertMany([
+  await repository.upsertMany([
     {
       key: settingKey,
       value: normalizedPath,
@@ -206,19 +213,21 @@ export async function uploadLogo(
   return normalizedPath;
 }
 
+/** Deletes logo setting and local file when present. */
 export async function deleteLogo(
   type: LogoType,
   tenantId?: string | null,
+  repository: ISettingsRepository = defaultSettingsRepository,
 ): Promise<void> {
   const activeTenantId = await resolveActiveTenantId(tenantId);
   const settingKey = getSettingKey(type);
-  const oldSetting = await SettingsRepository.findManyByKeys(
+  const oldSetting = await repository.findManyByKeys(
     [settingKey],
     activeTenantId,
   );
   const oldValue = oldSetting[0]?.value ?? null;
 
-  await SettingsRepository.deleteManyByKeys([settingKey], activeTenantId);
+  await repository.deleteManyByKeys([settingKey], activeTenantId);
 
   if (oldValue) {
     await safeDeletePublicFile(oldValue);

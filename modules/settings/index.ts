@@ -1,5 +1,3 @@
-export * from "./repositories/SettingsRepository";
-export * from "./repositories/AcsSettingsRepository";
 export * from "./services/generalSettings";
 export * from "./services/emailSettings";
 export * from "./services/acsSettings";
@@ -8,9 +6,12 @@ export * from "./services/acsWifiSecuritySettings";
 export * from "./services/backupService";
 export * from "./services/logoSettings";
 export * from "./services/captchaSettings";
+export * from "./services/publicCaptchaSettings";
 export * from "./services/ringtoneSettings";
 export * from "./services/publicPortalSettings";
 export * from "./services/appBranding";
 export * from "./services/tenantSettings";
 export * from "./services/whatsappSettings";
 export * from "./services/apiSettings";
+export type * from "./domain/ports/ISettingsRepository";
+export type * from "./domain/ports/IAcsSettingsRepository";

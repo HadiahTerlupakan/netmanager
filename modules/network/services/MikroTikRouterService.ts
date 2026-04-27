@@ -6,6 +6,7 @@ import type {
   MikroTikRouterPublic,
   MikroTikRouterUpdateData,
 } from "../repositories/IMikroTikRouterRepository";
+import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import { checkSingleMikroTikRouterStatus } from "./mikrotik-ping-check";
@@ -181,7 +182,9 @@ async function testMikroTikAPI(
 }
 
 export class MikroTikRouterService {
-  private routerRepository = new MikroTikRouterRepository();
+  constructor(
+    private readonly routerRepository: IMikroTikRouterRepository = new MikroTikRouterRepository(),
+  ) {}
 
   private async resolveRestrictedSiteId(
     userId: string,

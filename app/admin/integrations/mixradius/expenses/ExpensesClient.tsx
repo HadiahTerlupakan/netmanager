@@ -33,7 +33,7 @@ import { Modal, ModalBody } from "@/components/ui/Modal";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
-import { buildDailyExpenseIndicators } from "@/modules/finance/utils/daily-expense-indicators";
+import { buildDailyExpenseIndicators } from "@/modules/finance/client";
 import { buildExpenseCsvContent } from "./expense-csv";
 import RABList from "./RABList";
 import type { RABProject } from "./rabTypes";

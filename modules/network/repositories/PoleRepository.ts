@@ -1,22 +1,27 @@
-import { PrismaClient } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
-import type { IPoleRepository, PoleCreateData, PoleUpdateData, PolePublic } from './IPoleRepository'
+import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import type {
+  PoleCreateData,
+  PoleEntity,
+  PoleUpdateData,
+} from "../domain/entities/PoleEntity";
+import type { IPoleRepository } from "../domain/ports/IPoleRepository";
 
 export class PoleRepository implements IPoleRepository {
   constructor(private client: PrismaClient = prisma) {}
 
-  async findAll(siteId?: string): Promise<PolePublic[]> {
+  async findAll(siteId?: string): Promise<PoleEntity[]> {
     const items = await this.client.pole.findMany({
-        where: siteId ? { siteId } : {},
-        orderBy: { createdAt: 'desc' }
-    })
-    return items as unknown as PolePublic[]
+      where: siteId ? { siteId } : {},
+      orderBy: { createdAt: "desc" },
+    });
+    return items as unknown as PoleEntity[];
   }
 
-  async findById(id: string): Promise<PolePublic | null> {
-    const item = await this.client.pole.findUnique({ where: { id } })
-    return item as unknown as PolePublic | null
+  async findById(id: string): Promise<PoleEntity | null> {
+    const item = await this.client.pole.findUnique({ where: { id } });
+    return item as unknown as PoleEntity | null;
   }
 
   async create(data: PoleCreateData): Promise<{ id: string }> {
@@ -30,13 +35,13 @@ export class PoleRepository implements IPoleRepository {
         notes: data.notes ?? null,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
-        status: data.status ?? 'AKTIF',
+        status: data.status ?? "AKTIF",
         cableSlack: data.cableSlack ?? false,
         siteId: data.siteId ?? null,
       },
       select: { id: true },
-    })
-    return created
+    });
+    return created;
   }
 
   async update(id: string, data: PoleUpdateData): Promise<void> {
@@ -54,16 +59,14 @@ export class PoleRepository implements IPoleRepository {
         ...(data.cableSlack !== undefined && { cableSlack: data.cableSlack }),
         ...(data.siteId !== undefined && { siteId: data.siteId }),
       },
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.pole.delete({ where: { id } })
+    await this.client.pole.delete({ where: { id } });
   }
 
   async count(): Promise<number> {
-    return await this.client.pole.count()
+    return await this.client.pole.count();
   }
 }
-
-

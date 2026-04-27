@@ -1,11 +1,15 @@
+import { compare, hash } from "bcryptjs";
+import { PelangganMapper } from "../mappers/PelangganMapper";
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
-import { hash, compare } from "bcryptjs";
 
 export class CustomerPortalService {
-  private pelangganRepository: PelangganRepository;
+  private pelangganRepository: IPelangganRepository;
 
-  constructor() {
-    this.pelangganRepository = new PelangganRepository();
+  constructor(
+    pelangganRepository: IPelangganRepository = new PelangganRepository(),
+  ) {
+    this.pelangganRepository = pelangganRepository;
   }
 
   /**
@@ -18,45 +22,7 @@ export class CustomerPortalService {
       throw new Error("Data pelanggan tidak ditemukan");
     }
 
-    return {
-      id: customer.id,
-      idPelanggan: customer.idPelanggan,
-      nama: customer.nama,
-      username: customer.username,
-      email: customer.email,
-      noTelp: customer.noTelp,
-      alamat: customer.alamat,
-      status: customer.status,
-      tipe: customer.tipe,
-      tanggalAktif: customer.tanggalAktif,
-      jatuhTempo: customer.jatuhTempo,
-      lokasi: {
-        provinsi: customer.provinsi,
-        kabupatenKota: customer.kabupatenKota,
-        kecamatan: customer.kecamatan,
-        kelurahanDesa: customer.kelurahanDesa,
-      },
-      preferences: {
-        is2FAEnabled: customer.is2FAEnabled,
-        isBillNotifEnabled: customer.isBillNotifEnabled,
-        isPromoEnabled: customer.isPromoEnabled,
-      },
-      paket: customer.hargaPaket
-        ? {
-            nama: customer.hargaPaket.name,
-            harga: customer.hargaPaket.harga,
-            durasi: customer.hargaPaket.durasi,
-            kecepatan: customer.hargaPaket.description,
-            bandwidth: customer.hargaPaket.bandwidth
-              ? {
-                  nama: customer.hargaPaket.bandwidth.name,
-                  download: customer.hargaPaket.bandwidth.maxLimitDownload,
-                  upload: customer.hargaPaket.bandwidth.maxLimitUpload,
-                }
-              : null,
-          }
-        : null,
-    };
+    return PelangganMapper.toPortal(customer);
   }
 
   /**

@@ -1,5 +1,13 @@
 // Public API for Pelanggan Module
 
+// Domain
+export type * from "./domain/entities/PelangganEntity";
+export type * from "./domain/entities/SupportTicketEntity";
+export type * from "./domain/entities/CustomerUsageEntity";
+export type * from "./domain/ports/IPelangganRepository";
+export type * from "./domain/ports/ICustomerTicketRepository";
+export type * from "./domain/ports/ICustomerUsageRepository";
+
 // Core Repository & Service
 export { PelangganRepository } from "./repositories/PelangganRepository";
 export type {
@@ -27,6 +35,9 @@ export {
   CustomerPortalService,
   getCustomerPortalService,
 } from "./services/CustomerPortalService";
+export * from "./services/CustomerPaymentRouteService";
+export * from "./services/CustomerPaymentReceiptService";
+export * from "./services/CustomerPaymentStatusStreamService";
 export {
   CustomerPackageService,
   getCustomerPackageService,

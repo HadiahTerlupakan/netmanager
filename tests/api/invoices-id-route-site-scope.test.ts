@@ -33,7 +33,7 @@ describe("invoice detail route site scope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.hasPermission.mockResolvedValue(true);
-    prismaMock.user.findUnique.mockResolvedValue({
+    prismaMock.user.findFirst.mockResolvedValue({
       siteId: "site-1",
     });
     prismaMock.invoice.findUnique.mockResolvedValue(null);

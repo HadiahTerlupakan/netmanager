@@ -1,5 +1,6 @@
-import { CustomerUsageService } from "./CustomerUsageService";
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
+import { CustomerUsageService } from "./CustomerUsageService";
 
 export type PppTechnicalInfo = Awaited<
   ReturnType<CustomerUsageService["getTechnicalInfo"]>
@@ -21,7 +22,13 @@ const sanitizePelangganResponse = <
 };
 
 export class PelangganAdminQueryService {
-  private readonly pelangganRepository = new PelangganRepository();
+  private readonly pelangganRepository: IPelangganRepository;
+
+  constructor(
+    pelangganRepository: IPelangganRepository = new PelangganRepository(),
+  ) {
+    this.pelangganRepository = pelangganRepository;
+  }
 
   /** Get detailed PPP customer data for admin view. */
   async getPppDetail(id: string, tenantId?: string | null) {

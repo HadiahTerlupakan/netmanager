@@ -1,9 +1,8 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getR2Settings } from "@/lib/utils/r2-client";
-import {
-  SettingsRepository,
-  type SettingsRecord,
-} from "../repositories/SettingsRepository";
+import { SettingsRepository } from "../repositories/SettingsRepository";
+import type { SettingsEntity } from "../domain/entities/Settings";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 import { resolveAppBranding } from "./appBranding";
 
 const PUBLIC_SETTINGS_KEYS = [
@@ -20,13 +19,18 @@ export type PublicPortalSettingsPayload = {
   landingLogoUrl: string | null;
 };
 
-export async function getPublicPortalSettings(): Promise<PublicPortalSettingsPayload> {
+const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
+
+/** Gets public portal settings with tenant-aware branding fallback. */
+export async function getPublicPortalSettings(
+  repository: ISettingsRepository = defaultSettingsRepository,
+): Promise<PublicPortalSettingsPayload> {
   const { tenantId } = await getTenantIdFromContext();
   const [tenantRecords, globalRecords, branding, publicR2BaseUrl] =
     await Promise.all([
-      getTenantPublicSettings(tenantId),
-      SettingsRepository.findManyByKeys(PUBLIC_SETTINGS_KEYS),
-      resolveAppBranding(),
+      getTenantPublicSettings(tenantId, repository),
+      repository.findManyByKeys(PUBLIC_SETTINGS_KEYS),
+      resolveAppBranding(repository),
       getPublicR2BaseUrl(),
     ]);
   const settingsMap = mergeSettings(tenantRecords, globalRecords);
@@ -48,17 +52,18 @@ export async function getPublicPortalSettings(): Promise<PublicPortalSettingsPay
 
 async function getTenantPublicSettings(
   tenantId: string | null,
-): Promise<SettingsRecord[]> {
+  repository: ISettingsRepository,
+): Promise<SettingsEntity[]> {
   if (!tenantId) {
     return [];
   }
 
-  return SettingsRepository.findManyByKeys(PUBLIC_SETTINGS_KEYS, tenantId);
+  return repository.findManyByKeys(PUBLIC_SETTINGS_KEYS, tenantId);
 }
 
 function mergeSettings(
-  tenantRecords: SettingsRecord[],
-  globalRecords: SettingsRecord[],
+  tenantRecords: SettingsEntity[],
+  globalRecords: SettingsEntity[],
 ): Map<string, string | null> {
   const globalSettings = new Map(
     globalRecords.map((setting) => [setting.key, setting.value]),

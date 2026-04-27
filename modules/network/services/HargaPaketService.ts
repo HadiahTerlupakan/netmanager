@@ -292,7 +292,7 @@ export class HargaPaketService {
       }
 
       const { getRateLimitFromBandwidth, updatePPPProfileInMikroTik } =
-        await import("@/modules/network/services/mikrotik-ppp-profile");
+        await import("./mikrotik-ppp-profile");
       const rateLimit = await getRateLimitFromBandwidth(
         hargaPaket.profilePPP.id,
       );

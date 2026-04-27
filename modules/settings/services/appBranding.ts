@@ -4,10 +4,9 @@ import {
   getR2Settings,
   hasR2Object,
 } from "@/lib/utils/r2-client";
-import {
-  SettingsRepository,
-  type SettingsRecord,
-} from "../repositories/SettingsRepository";
+import { SettingsRepository } from "../repositories/SettingsRepository";
+import type { SettingsEntity } from "../domain/entities/Settings";
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 
 const BRANDING_SETTING_KEYS = [
   "GENERAL_NAMA_APLIKASI",
@@ -26,12 +25,17 @@ export type AppBrandingResult = {
   tenantId: string | null;
 };
 
-export async function resolveAppBranding(): Promise<AppBrandingResult> {
+const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
+
+/** Resolves app branding with tenant, global, and default fallback. */
+export async function resolveAppBranding(
+  repository: ISettingsRepository = defaultSettingsRepository,
+): Promise<AppBrandingResult> {
   const { tenantId } = await getTenantIdFromContext();
   const [globalBrandingSettings, tenantBrandingSettings, publicR2BaseUrl] =
     await Promise.all([
-      SettingsRepository.findManyByKeys(BRANDING_SETTING_KEYS),
-      getTenantBrandingSettings(tenantId),
+      repository.findManyByKeys(BRANDING_SETTING_KEYS),
+      getTenantBrandingSettings(tenantId, repository),
       getPublicR2BaseUrl(),
     ]);
 
@@ -69,15 +73,16 @@ export async function resolveAppBranding(): Promise<AppBrandingResult> {
 
 async function getTenantBrandingSettings(
   tenantId: string | null,
-): Promise<SettingsRecord[]> {
+  repository: ISettingsRepository,
+): Promise<SettingsEntity[]> {
   if (!tenantId) {
     return [];
   }
 
-  return SettingsRepository.findManyByKeys(BRANDING_SETTING_KEYS, tenantId);
+  return repository.findManyByKeys(BRANDING_SETTING_KEYS, tenantId);
 }
 
-function toSettingsMap(records: SettingsRecord[]): Map<string, string | null> {
+function toSettingsMap(records: SettingsEntity[]): Map<string, string | null> {
   return new Map(records.map((setting) => [setting.key, setting.value]));
 }
 

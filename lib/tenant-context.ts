@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
 import { prisma } from "@/modules/database";
-import { MAIN_TENANT_ID } from "@/modules/mitra/services/tenant-constants";
+import { MAIN_TENANT_ID } from "@/modules/mitra";
 
 export interface TenantContextResult {
   tenantId: string | null;

@@ -6,6 +6,8 @@ const mockFns = vi.hoisted(() => ({
   getMobileAuthPayload: vi.fn(),
   repoFindAll: vi.fn(),
   repoCreate: vi.fn(),
+  findRequesterContext: vi.fn(),
+  findApproverIdsForMobileLeaveNotification: vi.fn(),
   hasEnoughDays: vi.fn(),
   getRemainingDays: vi.fn(),
   createNotification: vi.fn().mockResolvedValue({ id: "notif-1" }),
@@ -21,6 +23,9 @@ vi.mock("@/modules/attendance/repositories/LeaveRepository", () => ({
   LeaveRepository: class MockLeaveRepository {
     findAll = mockFns.repoFindAll;
     create = mockFns.repoCreate;
+    findRequesterContext = mockFns.findRequesterContext;
+    findApproverIdsForMobileLeaveNotification =
+      mockFns.findApproverIdsForMobileLeaveNotification;
   },
 }));
 
@@ -50,6 +55,15 @@ describe("mobile leaves route", () => {
     });
     mockFns.hasEnoughDays.mockResolvedValue(true);
     mockFns.repoCreate.mockResolvedValue({ id: "leave-1" });
+    mockFns.findRequesterContext.mockResolvedValue({
+      workingHourMode: "REGULAR",
+      workDays: "Mon,Tue,Wed,Thu,Fri",
+      name: "Budi",
+      siteId: "site-1",
+    });
+    mockFns.findApproverIdsForMobileLeaveNotification.mockResolvedValue([
+      { id: "admin-1" },
+    ]);
   });
 
   it("scopes admin leave notifications to the requester site", async () => {
@@ -76,37 +90,12 @@ describe("mobile leaves route", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tenantId: "tenant-1",
-          OR: expect.arrayContaining([
-            { role: { name: { in: ["SUPER_ADMIN", "Super Admin"] } } },
-            expect.objectContaining({
-              AND: expect.arrayContaining([
-                expect.objectContaining({
-                  role: {
-                    permission: {
-                      some: {
-                        resource: "izin",
-                        action: "verify",
-                      },
-                    },
-                  },
-                }),
-                {
-                  OR: [
-                    { siteId: "site-1" },
-                    { siteId: null },
-                    { userSites: { some: { siteId: "site-1" } } },
-                  ],
-                },
-              ]),
-            }),
-          ]),
-        }),
-      }),
-    );
+    expect(
+      mockFns.findApproverIdsForMobileLeaveNotification,
+    ).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      siteId: "site-1",
+    });
     expect(mockFns.createNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "admin-1",

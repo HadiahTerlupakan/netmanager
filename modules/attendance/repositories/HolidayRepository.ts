@@ -3,11 +3,14 @@ import { Prisma } from "@prisma/client";
 import { redis } from "@/lib/redis";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 
+import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
+import { toHolidayEntity } from "../mappers/AttendanceDomainMapper";
+
 const HOLIDAY_CACHE_TTL_SECONDS = 86400;
 
 type Holiday = Prisma.HolidayGetPayload<object>;
 
-export class HolidayRepository {
+export class HolidayRepository implements IHolidayRepository {
   async create(
     data: Omit<Prisma.HolidayUncheckedCreateInput, "tenantId">,
     tenantId: string,
@@ -59,10 +62,14 @@ export class HolidayRepository {
     });
   }
 
+  /** Check whether a date is configured as a holiday. */
   async isHoliday(
     date: Date,
     tenantId: string,
-  ): Promise<{ isHoliday: boolean; holiday?: Holiday | null }> {
+  ): Promise<{
+    isHoliday: boolean;
+    holiday?: ReturnType<typeof toHolidayEntity> | null;
+  }> {
     const startOfDay = new Date(date);
     startOfDay.setTime(toStartOfDay(startOfDay).getTime());
 
@@ -84,11 +91,17 @@ export class HolidayRepository {
 
     try {
       const cachedRaw = await redis.get(cacheKey);
-      if (cachedRaw)
-        return JSON.parse(cachedRaw) as {
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw) as {
           isHoliday: boolean;
           holiday?: Holiday | null;
         };
+
+        return {
+          isHoliday: cached.isHoliday,
+          holiday: cached.holiday ? toHolidayEntity(cached.holiday) : null,
+        };
+      }
     } catch (error) {
       console.error(
         `[HolidayRepository] Failed to read holiday cache for ${cacheKey}:`,
@@ -124,7 +137,10 @@ export class HolidayRepository {
       );
     }
 
-    return result;
+    return {
+      isHoliday: result.isHoliday,
+      holiday: result.holiday ? toHolidayEntity(result.holiday) : null,
+    };
   }
 
   async getHolidaysByYear(year: number, tenantId: string): Promise<Holiday[]> {
@@ -203,12 +219,13 @@ export class HolidayRepository {
    * Find holiday for a tenant on a specific date range.
    * Used by AttendanceAlertService for auto-alpha processing.
    */
+  /** Find holiday for a tenant within a day range. */
   async findFirstByTenantAndDateRange(
     tenantId: string,
     startOfDay: Date,
     endOfDay: Date,
   ) {
-    return prisma.holiday.findFirst({
+    const holiday = await prisma.holiday.findFirst({
       where: {
         tenantId,
         date: {
@@ -217,5 +234,7 @@ export class HolidayRepository {
         },
       },
     });
+
+    return holiday ? toHolidayEntity(holiday) : null;
   }
 }

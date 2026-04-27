@@ -31,46 +31,6 @@ const mockUserRepo = {
   findWorkScheduleByIdWithTenant: vi.fn(),
 };
 
-vi.mock("@/modules/attendance/repositories/LeaveRepository", () => ({
-  LeaveRepository: class {
-    constructor() {
-      Object.assign(this, mockLeaveRepo);
-    }
-  },
-}));
-
-vi.mock("@/modules/attendance/repositories/LeaveBalanceRepository", () => ({
-  LeaveBalanceRepository: class {
-    constructor() {
-      Object.assign(this, mockBalanceRepo);
-    }
-  },
-}));
-
-vi.mock("@/modules/attendance/repositories/HolidayRepository", () => ({
-  HolidayRepository: class {
-    constructor() {
-      Object.assign(this, mockHolidayRepo);
-    }
-  },
-}));
-
-vi.mock("@/modules/attendance/repositories/AttendanceRepository", () => ({
-  AttendanceRepository: class {
-    constructor() {
-      Object.assign(this, mockAttendanceRepo);
-    }
-  },
-}));
-
-vi.mock("@/modules/users/repositories/UserRepository", () => ({
-  UserRepository: class {
-    constructor() {
-      Object.assign(this, mockUserRepo);
-    }
-  },
-}));
-
 vi.mock("@/modules/notification/services/NotificationService", () => ({
   createNotification: vi.fn(),
 }));
@@ -88,7 +48,13 @@ describe("LeaveService joinDate guard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new LeaveService();
+    service = new LeaveService(
+      mockLeaveRepo as never,
+      mockBalanceRepo as never,
+      mockHolidayRepo as never,
+      mockAttendanceRepo as never,
+      mockUserRepo as never,
+    );
     mockHolidayRepo.isHoliday.mockResolvedValue({ isHoliday: false });
     mockAttendanceRepo.findFirst.mockResolvedValue(null);
     mockAttendanceRepo.createWithId.mockResolvedValue({ id: "att-1" });

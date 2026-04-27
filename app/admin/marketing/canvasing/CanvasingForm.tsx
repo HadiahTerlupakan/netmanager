@@ -10,7 +10,7 @@ import {
   type CanvasingFormErrors,
   type CanvasingFormValues,
   validateCanvasingForm,
-} from "@/modules/marketing/validators/canvasingValidation";
+} from "@/modules/marketing/client";
 
 type CanvasingFormProps = {
   initialValue?: Partial<CanvasingFormValues>;

@@ -4,8 +4,8 @@ import type {
   IPemasukanRepository,
   PemasukanCreateData,
   PemasukanUpdateData,
-  PemasukanPublic,
-} from "./IPemasukanRepository";
+} from "../domain/ports/IPemasukanRepository";
+import type { PemasukanEntity as PemasukanPublic } from "../domain/entities/PemasukanEntity";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { createInsensitiveContainsFilter } from "../utils/prisma-search-filters";
 

@@ -1,11 +1,14 @@
 import type { Prisma } from "@prisma/client";
+import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
+import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
+import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { UserRepository } from "@/modules/users";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
-import { createNotification } from "@/modules/notification/services/NotificationService";
+import { createNotification } from "@/modules/notification";
 import { logger, logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { LeaveStatus, LeaveType, AttendanceStatus } from "@prisma/client";
@@ -134,18 +137,26 @@ export async function validateTukarLiburRules(
 }
 
 export class LeaveService {
-  private repository: LeaveRepository;
-  private balanceRepository: LeaveBalanceRepository;
-  private holidayRepository: HolidayRepository;
+  private repository: ILeaveRepository & LeaveRepository;
+  private balanceRepository: ILeaveBalanceRepository & LeaveBalanceRepository;
+  private holidayRepository: IHolidayRepository & HolidayRepository;
   private attendanceRepository: AttendanceRepository;
   private userRepository: UserRepository;
 
-  constructor() {
-    this.repository = new LeaveRepository();
-    this.balanceRepository = new LeaveBalanceRepository();
-    this.holidayRepository = new HolidayRepository();
-    this.attendanceRepository = new AttendanceRepository();
-    this.userRepository = new UserRepository();
+  constructor(
+    repository: ILeaveRepository & LeaveRepository = new LeaveRepository(),
+    balanceRepository: ILeaveBalanceRepository &
+      LeaveBalanceRepository = new LeaveBalanceRepository(),
+    holidayRepository: IHolidayRepository &
+      HolidayRepository = new HolidayRepository(),
+    attendanceRepository: AttendanceRepository = new AttendanceRepository(),
+    userRepository: UserRepository = new UserRepository(),
+  ) {
+    this.repository = repository;
+    this.balanceRepository = balanceRepository;
+    this.holidayRepository = holidayRepository;
+    this.attendanceRepository = attendanceRepository;
+    this.userRepository = userRepository;
   }
 
   private async calculateWorkingDays(

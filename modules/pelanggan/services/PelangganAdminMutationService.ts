@@ -7,6 +7,7 @@ import {
 } from "@/lib/hooks/radius-sync-hooks";
 import { prisma } from "@/modules/database";
 import { canAccessSite } from "@/modules/roles";
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 
 export class PelangganAdminMutationError extends Error {
@@ -188,7 +189,13 @@ const hasPasswordLoginChanged = async (
 };
 
 export class PelangganAdminMutationService {
-  private readonly pelangganRepository = new PelangganRepository();
+  private readonly pelangganRepository: IPelangganRepository;
+
+  constructor(
+    pelangganRepository: IPelangganRepository = new PelangganRepository(),
+  ) {
+    this.pelangganRepository = pelangganRepository;
+  }
 
   /** Update PPP customer data from admin flow. */
   async updatePppById(input: UpdatePppByIdInput) {
@@ -253,8 +260,8 @@ export class PelangganAdminMutationService {
 
     await afterCustomerUpdate(prisma, id, {
       statusChanged: existingPelanggan.status !== pelanggan.status,
-      oldStatus: existingStatus ?? existingPelanggan.status,
-      newStatus: pelanggan.status,
+      oldStatus: (existingStatus ?? existingPelanggan.status) as Status,
+      newStatus: pelanggan.status as Status,
       oldUsername: existingPelanggan.username,
       newUsername: pelanggan.username,
       packageChanged:
@@ -265,8 +272,7 @@ export class PelangganAdminMutationService {
     });
 
     if (normalizedData.invoiceAction === "VOID_AND_CREATE_NEW") {
-      const { AutomaticBillingService } =
-        await import("@/modules/finance/services/AutomaticBillingService");
+      const { AutomaticBillingService } = await import("@/modules/finance");
       await AutomaticBillingService.generateImmediateInvoice(
         pelanggan.id,
         false,

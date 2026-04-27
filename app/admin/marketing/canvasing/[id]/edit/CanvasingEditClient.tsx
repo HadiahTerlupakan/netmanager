@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import CanvasingForm from "@/app/admin/marketing/canvasing/CanvasingForm";
-import type { CanvasingFormValues } from "@/modules/marketing/validators/canvasingValidation";
+import type { CanvasingFormValues } from "@/modules/marketing/client";
 
 export default function CanvasingEditClient({ id }: { id: string }) {
   const router = useRouter();

@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import {
   MitraWalletRepository,
   type EarningReferenceType,
-} from "@/modules/mitra/repositories/MitraWalletRepository";
+} from "../repositories/MitraWalletRepository";
 
 interface ServiceResult<T = void> {
   success: boolean;

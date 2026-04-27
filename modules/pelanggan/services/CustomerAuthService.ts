@@ -5,6 +5,7 @@ import {
   isLoginRateLimitEnabled,
   LOGIN_RATE_LIMIT_UNAVAILABLE_MESSAGE,
 } from "@/lib/security/login-rate-limit";
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 
 interface LoginResult {
@@ -27,10 +28,12 @@ interface LoginResult {
  * Service for customer authentication
  */
 export class CustomerAuthService {
-  private pelangganRepository: PelangganRepository;
+  private pelangganRepository: IPelangganRepository;
 
-  constructor() {
-    this.pelangganRepository = new PelangganRepository();
+  constructor(
+    pelangganRepository: IPelangganRepository = new PelangganRepository(),
+  ) {
+    this.pelangganRepository = pelangganRepository;
   }
 
   /**

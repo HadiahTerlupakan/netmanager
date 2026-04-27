@@ -16,3 +16,5 @@ export type { IUserRepository } from "./repositories/IUserRepository";
 
 export * from "./services/UserService";
 export * from "./services/AdminUserRouteService";
+export * from "./services/MobilePasswordChangeService";
+export * from "./services/MobileProfileRouteService";

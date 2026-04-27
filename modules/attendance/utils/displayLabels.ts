@@ -1,4 +1,4 @@
-import { ATTENDANCE_CONSTANTS } from "@/modules/attendance/utils/constants";
+import { ATTENDANCE_CONSTANTS } from "./constants";
 
 const LEGACY_AUTO_CHECKOUT_NOTES = [
   "Auto checkout by system (Mangkir)",

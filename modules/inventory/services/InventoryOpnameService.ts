@@ -17,6 +17,7 @@ type InventoryUserContext = {
   role?: string | null;
   permissions?: string[];
   siteId?: string | null;
+  tenantId?: string | null;
 };
 
 export type ListInventoryOpnameInput = {
@@ -86,7 +87,7 @@ async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
   const tenantContext = await getTenantIdFromContext();
   const isSuper = isSuperAdmin(user as never) || tenantContext.isSuperAdmin;
 
-  if (!isSuper && !tenantContext.tenantId) {
+  if (!isSuper && !tenantContext.tenantId && !user.tenantId) {
     throw new Error(
       "SECURITY_BREACH: tenant context is required for non-superadmin inventory opname access",
     );

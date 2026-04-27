@@ -20,6 +20,11 @@ const HASH_SALT_ROUNDS = 10;
 const USER_NOT_FOUND = "User tidak ditemukan";
 const NO_SCOPE_MATCH = "__NO_SCOPE_MATCH__";
 
+type NewUserSiteAssignment = {
+  siteId?: string;
+  isPrimary?: boolean;
+};
+
 type UpdateUserPayload = {
   email?: string;
   name?: string;
@@ -344,6 +349,26 @@ export class AdminUserRouteService {
     return { ok: true, data: { ok: true } } satisfies UserRouteResult<{
       ok: true;
     }>;
+  }
+
+  /** Sync newly created user site assignments. */
+  async syncNewUserSites(userId: string, userSites?: NewUserSiteAssignment[]) {
+    const validUserSites = (userSites ?? []).filter(
+      (userSite): userSite is { siteId: string; isPrimary?: boolean } =>
+        Boolean(userSite.siteId),
+    );
+
+    if (validUserSites.length === 0) {
+      return;
+    }
+
+    const repository = this.userRepository as IUserRepository & {
+      syncUserSites?: (
+        userId: string,
+        userSites: Array<{ siteId: string; isPrimary?: boolean }>,
+      ) => Promise<void>;
+    };
+    await repository.syncUserSites?.(userId, validUserSites);
   }
 
   /** Delete user from admin route with scoped access enforcement. */

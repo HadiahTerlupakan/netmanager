@@ -7,9 +7,12 @@ const mockFns = vi.hoisted(() => ({
   requireCustomerAuth: vi.fn(),
   getTenantIdFromContext: vi.fn(),
   validateInvoicesForPayment: vi.fn(),
+  createCustomerPaymentForRoute: vi.fn(),
   verifyCoupon: vi.fn(),
   recordUsage: vi.fn(),
   incrementUsage: vi.fn(),
+  createCustomerPaymentsForInvoices: vi.fn(),
+  updateCustomerPaymentGatewayMetadata: vi.fn(),
   createPayment: vi.fn(),
 }));
 
@@ -25,6 +28,7 @@ vi.mock("@/modules/pelanggan", () => ({
   CustomerPortalService: class {
     validateInvoicesForPayment = mockFns.validateInvoicesForPayment;
   },
+  createCustomerPaymentForRoute: mockFns.createCustomerPaymentForRoute,
 }));
 
 vi.mock("@/modules/coupons", () => ({
@@ -36,6 +40,9 @@ vi.mock("@/modules/coupons", () => ({
 }));
 
 vi.mock("@/modules/finance", () => ({
+  createCustomerPaymentsForInvoices: mockFns.createCustomerPaymentsForInvoices,
+  updateCustomerPaymentGatewayMetadata:
+    mockFns.updateCustomerPaymentGatewayMetadata,
   PaymentGatewayManager: class {
     createPayment = mockFns.createPayment;
   },
@@ -95,14 +102,21 @@ describe("customer payments route", () => {
     mockFns.validateInvoicesForPayment.mockResolvedValue({
       totalAmount: 125000,
     });
-    prismaMock.invoice.findUnique.mockResolvedValue({
-      id: "invoice-1",
-      totalAmount: BigInt(125000),
-    });
-    prismaMock.payment.create.mockResolvedValue({
-      id: "payment-1",
-      reference: "PAY-1",
-    });
+    mockFns.createCustomerPaymentForRoute.mockImplementation((input) =>
+      Promise.resolve({
+        payments: [
+          {
+            id: "payment-1",
+            reference: "PAY-1",
+          },
+        ],
+        paymentUrl:
+          input.paymentMethod === "MIDTRANS"
+            ? "https://pay.test/checkout"
+            : null,
+        transactionId: input.paymentMethod === "MIDTRANS" ? "txn-1" : null,
+      }),
+    );
     mockFns.createPayment.mockResolvedValue({
       success: true,
       paymentUrl: "https://pay.test/checkout",
@@ -137,11 +151,15 @@ describe("customer payments route", () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(prismaMock.payment.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(mockFns.createCustomerPaymentForRoute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: "customer-1",
         tenantId: "tenant-a",
+        invoiceIds: ["invoice-1"],
+        paymentMethod: "MANUAL",
+        notes: "catatan",
       }),
-    });
+    );
   });
 
   it("stores gateway metadata without any cast when gateway payment succeeds", async () => {
@@ -162,22 +180,14 @@ describe("customer payments route", () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(mockFns.createPayment).toHaveBeenCalledWith(
+    expect(mockFns.createCustomerPaymentForRoute).toHaveBeenCalledWith(
       expect.objectContaining({
+        customerId: "customer-1",
         tenantId: "tenant-a",
+        invoiceIds: ["invoice-1"],
+        paymentMethod: "MIDTRANS",
+        notes: "catatan",
       }),
     );
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: { in: ["payment-1"] },
-        tenantId: "tenant-a",
-      },
-      data: expect.objectContaining({
-        transactionId: "txn-1",
-        paymentUrl: "https://pay.test/checkout",
-        expiresAt: new Date("2026-04-22T01:00:00.000Z"),
-        gatewayProvider: "MIDTRANS",
-      }),
-    });
   });
 });

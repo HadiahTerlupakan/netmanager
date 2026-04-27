@@ -5,7 +5,7 @@ import type { AttendanceStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { HolidayRepository } from "./HolidayRepository";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import type { IAttendanceRepository } from "./IAttendanceRepository";
+import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 
 export type AttendanceCorrectionSource = Prisma.AttendanceGetPayload<{
   include: {

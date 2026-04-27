@@ -1,87 +1,82 @@
 /**
  * NotificationMapper
  *
- * Transforms Prisma entities to DTOs for API responses.
+ * Transforms Prisma rows into domain entities and DTOs.
  */
 
+import type { Notifications } from "@prisma/client";
 import type {
-    NotificationListItemDTO,
-    NotificationDetailDTO,
-    NotificationCountDTO,
-} from '../dto/NotificationDTO'
-
-// Types based on common notification structure
-interface Notification {
-    id: string
-    userId: string
-    title: string
-    message: string
-    type: string
-    isRead: boolean
-    data?: unknown
-    createdAt: Date
-    readAt?: Date | null
-}
+  NotificationCountDTO,
+  NotificationDetailDTO,
+  NotificationListItemDTO,
+} from "../dto/NotificationDTO";
+import type { NotificationEntity } from "../domain/entities/NotificationEntity";
 
 export class NotificationMapper {
-    /**
-     * Map to list item DTO
-     */
-    static toListItem(entity: Notification): NotificationListItemDTO {
-        return {
-            id: entity.id,
-            title: entity.title,
-            message: entity.message,
-            type: entity.type,
-            isRead: entity.isRead,
-            createdAt: entity.createdAt.toISOString(),
-        }
-    }
+  /** Map Prisma notification row to domain entity. */
+  static toDomain(record: Notifications): NotificationEntity {
+    return {
+      id: record.id,
+      type: record.type,
+      priority: record.priority,
+      title: record.title,
+      message: record.message,
+      link: record.link,
+      isRead: record.isRead,
+      userId: record.userId,
+      departmentId: record.departmentId,
+      sourceType: record.sourceType,
+      sourceId: record.sourceId,
+      createdAt: record.createdAt,
+      readAt: record.readAt,
+      siteId: record.siteId,
+      tenantId: record.tenantId,
+    };
+  }
 
-    /**
-     * Map array to list items
-     */
-    static toListItems(entities: Notification[]): NotificationListItemDTO[] {
-        return entities.map(entity => this.toListItem(entity))
-    }
+  /** Map many Prisma notification rows to domain entities. */
+  static toDomainList(records: Notifications[]): NotificationEntity[] {
+    return records.map((record) => this.toDomain(record));
+  }
 
-    /**
-     * Map to detail DTO
-     */
-    static toDetail(entity: Notification): NotificationDetailDTO {
-        return {
-            id: entity.id,
-            title: entity.title,
-            message: entity.message,
-            type: entity.type,
-            isRead: entity.isRead,
-            data: this.parseData(entity.data),
-            createdAt: entity.createdAt.toISOString(),
-            readAt: entity.readAt?.toISOString() ?? null,
-        }
-    }
+  /** Map domain entity to list DTO. */
+  static toListItem(entity: NotificationEntity): NotificationListItemDTO {
+    return {
+      id: entity.id,
+      title: entity.title,
+      message: entity.message,
+      type: entity.type,
+      isRead: entity.isRead,
+      createdAt: entity.createdAt.toISOString(),
+    };
+  }
 
-    /**
-     * Calculate notification counts
-     */
-    static toCount(entities: Notification[]): NotificationCountDTO {
-        return {
-            total: entities.length,
-            unread: entities.filter(e => !e.isRead).length,
-        }
-    }
+  /** Map many domain entities to list DTOs. */
+  static toListItems(
+    entities: NotificationEntity[],
+  ): NotificationListItemDTO[] {
+    return entities.map((entity) => this.toListItem(entity));
+  }
 
-    // ==================== Private Helpers ====================
+  /** Map domain entity to detail DTO. */
+  static toDetail(entity: NotificationEntity): NotificationDetailDTO {
+    return {
+      id: entity.id,
+      title: entity.title,
+      message: entity.message,
+      type: entity.type,
+      isRead: entity.isRead,
+      data: null,
+      createdAt: entity.createdAt.toISOString(),
+      readAt: entity.readAt?.toISOString() ?? null,
+    };
+  }
 
-    private static parseData(value: unknown): Record<string, unknown> | null {
-        if (!value) return null
-        if (typeof value === 'string') {
-            try {
-                return JSON.parse(value)
-            } catch {
-                return null
-            }
-        }
-        return value as Record<string, unknown>
-    }
+  /** Map notification entities to count DTO. */
+  static toCount(entities: NotificationEntity[]): NotificationCountDTO {
+    return {
+      total: entities.length,
+      unread: entities.filter((entity) => !entity.isRead).length,
+    };
+  }
 }

@@ -21,11 +21,18 @@ vi.mock("@/lib/cron-lock", () => ({
     "Layanan cron sementara tidak tersedia. Coba lagi beberapa saat.",
 }));
 
-vi.mock("@/modules/attendance", () => ({
-  AbsenceService: class MockAbsenceService {
-    processDailyAbsence = mockFns.processDailyAbsence;
-  },
-}));
+vi.mock("@/modules/attendance", async () => {
+  const actual = await vi.importActual<typeof import("@/modules/attendance")>(
+    "@/modules/attendance",
+  );
+
+  return {
+    ...actual,
+    AbsenceService: class MockAbsenceService {
+      processDailyAbsence = mockFns.processDailyAbsence;
+    },
+  };
+});
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

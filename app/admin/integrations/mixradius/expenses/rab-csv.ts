@@ -2,79 +2,18 @@ import {
   calculateRabUnitCosts,
   getRabTargetBasisLabel,
   type RabTargetBasis,
-} from "@/modules/finance/utils/rabTarget";
+} from "@/modules/finance/client";
+import { escapeCsvCell } from "@/lib/csv";
 import { formatCurrency } from "@/lib/utils";
 
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
-import type {
-  LinearGrowthSettings,
-  PercentageGrowthSettings,
-  RABProject,
-} from "./rabTypes";
-
-const FORMULA_PREFIXES = ["=", "+", "-", "@"];
-
-function sanitizeCsvString(value: string): string {
-  const sanitized = value.replace(/\r?\n/g, " ").trim();
-
-  if (!sanitized) {
-    return "";
-  }
-
-  if (FORMULA_PREFIXES.includes(sanitized[0])) {
-    return `'${sanitized}`;
-  }
-
-  return sanitized;
-}
-
-function escapeCsvCell(value: string | number): string {
-  const serializedValue =
-    typeof value === "number" ? String(value) : sanitizeCsvString(value);
-
-  return `"${serializedValue.replace(/"/g, '""')}"`;
-}
-
-function getProfitShareRows(
-  project: RABProject,
-): Array<[string, string | number]> {
-  if (project.investorProfitShareMode !== "TIERED_AFTER_BEP") {
-    return [
-      ["Investor Profit Share", `${project.investorProfitSharePercent}%`],
-    ];
-  }
-
-  return [
-    ["Skema Bagi Hasil", "Bertahap Setelah Balik Modal"],
-    [
-      "Investor Share Sebelum Balik Modal (%)",
-      project.investorProfitShareBeforeBepPercent || 80,
-    ],
-    [
-      "Investor Share Setelah Balik Modal (%)",
-      project.investorProfitShareAfterBepPercent || 60,
-    ],
-  ];
-}
-
-function getGrowthModelDescription(project: RABProject): string {
-  if (project.growthType === "LINEAR") {
-    const settings = project.growthSettings as LinearGrowthSettings;
-    return `Linear (${settings?.subscribersPerMonth || 0} plg/Bulan)`;
-  }
-
-  if (project.growthType === "PERCENTAGE") {
-    const settings = project.growthSettings as PercentageGrowthSettings;
-    return `Persentase (Awal: ${settings?.initialPercent || 0}%, Naik: ${settings?.monthlyGrowthPercent || 0}%/Bulan)`;
-  }
-
-  if (project.growthType === "CUSTOM") {
-    return "Kustom (Berdasarkan Target Spesifik Bulan)";
-  }
-
-  return "-";
-}
+import {
+  formatRabGrowthModelDescription,
+  formatRabItemCategory,
+  formatRabProfitShareCsvRows,
+} from "./rab-formatters";
+import type { RABProject } from "./rabTypes";
 
 export function buildRABCsvContent(project: RABProject): string {
   const itemHeaders = [
@@ -88,13 +27,7 @@ export function buildRABCsvContent(project: RABProject): string {
   const itemRows = project.items.map((item) =>
     [
       escapeCsvCell(item.name),
-      escapeCsvCell(
-        item.expenseCategory && typeof item.expenseCategory === "object"
-          ? item.expenseCategory.parent
-            ? `${item.expenseCategory.parent.name} - ${item.expenseCategory.name}`
-            : item.expenseCategory.name
-          : item.category || "-",
-      ),
+      escapeCsvCell(formatRabItemCategory(item)),
       escapeCsvCell(item.expenseType || "CAPEX"),
       escapeCsvCell(item.quantity),
       escapeCsvCell(item.unitPrice),
@@ -135,7 +68,7 @@ export function buildRABCsvContent(project: RABProject): string {
           ],
         ]
       : [["Target Pelanggan", project.targetSubscribers || 0]]),
-    [`Model Pertumbuhan: ${getGrowthModelDescription(project)}`],
+    [`Model Pertumbuhan: ${formatRabGrowthModelDescription(project)}`],
     [`ARPU: ${project.arpu || 0}`],
     [`Kapasitas Penuh (Bulan Ke-): ${monthsToFullCapacity || "T/A"}`],
     [
@@ -145,7 +78,7 @@ export function buildRABCsvContent(project: RABProject): string {
       `Recovery: ${project.investmentRecoveryType === "PERCENTAGE" ? `${project.investmentRecoveryValue}% dari Profit/Bulan` : `${formatCurrency(project.investmentRecoveryValue || 0)}/Bulan`}`,
     ],
     [`Durasi Kontrak: ${project.investmentDurationMonths || 12} Bulan`],
-    ...getProfitShareRows(project),
+    ...formatRabProfitShareCsvRows(project),
     ["Total Setoran Investor", totals.investorDepositTotal],
     [],
     ["BUFFER OPEX RAMP-UP"],

@@ -1,22 +1,30 @@
 import { randomUUID } from "crypto";
-import { sendCustomerPushNotification } from "@/modules/notification/services/ExpoPushService";
+import { sendCustomerPushNotification } from "@/modules/notification";
 import { logger } from "@/lib/logger";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import { BillingEventDispatcher } from "@/modules/events";
 import { AttendanceSettingsService } from "@/modules/attendance";
-import { InvoiceRepository } from "@/modules/finance/repositories/InvoiceRepository";
-import { PaymentRepository } from "@/modules/finance/repositories/PaymentRepository";
+import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { PaymentRepository } from "../repositories/PaymentRepository";
 import {
   getPelangganService,
   PelangganBillingBridgeService,
 } from "@/modules/pelanggan";
 
 export class AutomaticBillingService {
-  private static pelangganBridge = new PelangganBillingBridgeService();
+  private static pelangganBridge: PelangganBillingBridgeService | null = null;
   // Keep the bridge owned by the finance service layer so callers stay decoupled from pelanggan repositories.
   private static invoiceRepo = new InvoiceRepository();
   private static paymentRepo = new PaymentRepository();
+
+  private static getPelangganBridge() {
+    if (!this.pelangganBridge) {
+      this.pelangganBridge = new PelangganBillingBridgeService();
+    }
+
+    return this.pelangganBridge;
+  }
 
   private static getSettingsRepo() {
     return new AttendanceSettingsService();
@@ -37,7 +45,7 @@ export class AutomaticBillingService {
 
       const daysBeforeDue = parseInt(invoiceOtomatisSetting?.value || "5");
 
-      const pelangganBridge = this.pelangganBridge;
+      const pelangganBridge = this.getPelangganBridge();
 
       const createDueEnd = (date: Date) =>
         new Date(
@@ -69,11 +77,12 @@ export class AutomaticBillingService {
       let hasMore = true;
 
       while (hasMore) {
-        const customers = await this.pelangganBridge.findEligibleForBilling(
-          targetDay,
-          BATCH_SIZE,
-          offset,
-        );
+        const customers =
+          await this.getPelangganBridge().findEligibleForBilling(
+            targetDay,
+            BATCH_SIZE,
+            offset,
+          );
 
         if (customers.length === 0) {
           hasMore = false;
@@ -155,7 +164,7 @@ export class AutomaticBillingService {
 
       // 2. Fetch customer
       const customer =
-        await this.pelangganBridge.findByIdWithHargaPaket(pelangganId);
+        await this.getPelangganBridge().findByIdWithHargaPaket(pelangganId);
 
       if (
         !customer ||
@@ -238,7 +247,7 @@ export class AutomaticBillingService {
     try {
       // 1. Fetch customer
       const customer =
-        await this.pelangganBridge.findByIdWithHargaPaket(pelangganId);
+        await this.getPelangganBridge().findByIdWithHargaPaket(pelangganId);
 
       if (!customer || !customer.hargaPaket) {
         return;
@@ -458,7 +467,9 @@ export class AutomaticBillingService {
 
     if (!invoice || invoice.status !== "PAID") return;
 
-    const customer = await this.pelangganBridge.findById(invoice.pelangganId);
+    const customer = await this.getPelangganBridge().findById(
+      invoice.pelangganId,
+    );
     if (!customer) return;
 
     const today = new Date();
@@ -512,7 +523,10 @@ export class AutomaticBillingService {
       }
     }
 
-    await this.pelangganBridge.updateJatuhTempo(customer.id, newJatuhTempo);
+    await this.getPelangganBridge().updateJatuhTempo(
+      customer.id,
+      newJatuhTempo,
+    );
     if (shouldActivate) {
       await getPelangganService().updateStatusPelanggan(customer.id, "AKTIF");
     }

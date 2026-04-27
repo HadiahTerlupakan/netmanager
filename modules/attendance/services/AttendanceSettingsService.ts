@@ -1,13 +1,22 @@
-import { SettingsRepository } from '../repositories/SettingsRepository'
+import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
+import { SettingsRepository } from "../repositories/SettingsRepository";
 
 export class AttendanceSettingsService {
-    private readonly settingsRepository = new SettingsRepository()
+  private readonly settingsRepository: ISettingsRepository;
 
-    async findByKey(key: string, tenantId?: string) {
-        return this.settingsRepository.findByKey(key, tenantId)
-    }
+  constructor(
+    settingsRepository: ISettingsRepository = new SettingsRepository(),
+  ) {
+    this.settingsRepository = settingsRepository;
+  }
 
-    async findManyByKeys(keys: string[]) {
-        return this.settingsRepository.findManyByKeys(keys)
-    }
+  /** Find a single attendance-related setting. */
+  async findByKey(key: string, tenantId?: string) {
+    return this.settingsRepository.findByKey(key, tenantId);
+  }
+
+  /** Find multiple attendance-related settings. */
+  async findManyByKeys(keys: string[]) {
+    return this.settingsRepository.findManyByKeys(keys);
+  }
 }

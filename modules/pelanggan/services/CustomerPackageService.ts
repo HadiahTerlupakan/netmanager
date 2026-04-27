@@ -1,4 +1,5 @@
 import { DiscountType } from "@prisma/client";
+import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -109,7 +110,13 @@ function calculateDaysUntilDue(dueDate: Date): number {
 }
 
 export class CustomerPackageService {
-  private pelangganRepository = new PelangganRepository();
+  private pelangganRepository: IPelangganRepository;
+
+  constructor(
+    pelangganRepository: IPelangganRepository = new PelangganRepository(),
+  ) {
+    this.pelangganRepository = pelangganRepository;
+  }
 
   /**
    * Get customer package detail, billing summary, and upgrade options.

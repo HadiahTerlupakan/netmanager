@@ -4,8 +4,8 @@ import type {
   UpdatedStockOpnameResult,
   UpdateBarangMasukInput,
   UpdateStockOpnameInput,
-} from "@/modules/inventory/repositories/IInventoryRepository";
-import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
+} from "../repositories/IInventoryRepository";
+import { InventoryRepository } from "../repositories/InventoryRepository";
 
 interface InventoryStockMovementRepository {
   getMasukRecord(id: string): Promise<InventoryMasukRecord | null>;
