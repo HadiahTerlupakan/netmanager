@@ -211,9 +211,7 @@ export function parseCanvasingStatusParam(
     return undefined;
   }
 
-  return z
-    .enum(CANVASING_STATUS_VALUES, { error: INVALID_STATUS_MESSAGE })
-    .parse(normalizedStatus);
+  return canvasingStatusField.parse(normalizedStatus);
 }
 
 /** Convert zod validation errors into short field messages. */

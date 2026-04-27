@@ -1,44 +1,15 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 import { EmailService } from "@/modules/notification";
+import { InventoryRepository } from "../repositories/InventoryRepository";
 
 export class InventoryRestockCheckService {
+  private readonly inventoryRepository = new InventoryRepository();
+
+  /** Run periodic restock alert checks and notifications. */
   async run() {
     const [settings, recipients] = await Promise.all([
-      prisma.restockSettings.findMany({
-        where: { isActive: true },
-        include: {
-          barang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              satuan: true,
-            },
-          },
-          gudang: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-            },
-          },
-        },
-      }),
-      prisma.user.findMany({
-        where: {
-          isActive: true,
-          role: {
-            permission: {
-              some: {
-                resource: "restock",
-                action: "read",
-              },
-            },
-          },
-        },
-        select: { id: true, email: true },
-      }),
+      this.inventoryRepository.findActiveRestockSettings(),
+      this.inventoryRepository.findRestockNotificationRecipients(),
     ]);
 
     const newAlerts = [];
@@ -47,14 +18,11 @@ export class InventoryRestockCheckService {
 
     for (const setting of settings) {
       try {
-        const currentStock = await prisma.barangGudang.findUnique({
-          where: {
-            barangId_gudangId: {
-              barangId: setting.barangId,
-              gudangId: setting.gudangId,
-            },
-          },
-        });
+        const currentStock =
+          await this.inventoryRepository.findBarangGudangStock(
+            setting.barangId,
+            setting.gudangId,
+          );
 
         if (!currentStock) {
           continue;
@@ -65,14 +33,12 @@ export class InventoryRestockCheckService {
           continue;
         }
 
-        const existingAlert = await prisma.restockAlerts.findFirst({
-          where: {
+        const existingAlert =
+          await this.inventoryRepository.findOpenRestockAlert({
             barangId: setting.barangId,
             gudangId: setting.gudangId,
             alertType: alert.alertType,
-            isResolved: false,
-          },
-        });
+          });
 
         if (existingAlert) {
           continue;
@@ -84,18 +50,16 @@ export class InventoryRestockCheckService {
         );
         const alertId = crypto.randomUUID();
 
-        const newAlert = await prisma.restockAlerts.create({
-          data: {
-            id: alertId,
-            barangId: setting.barangId,
-            gudangId: setting.gudangId,
-            alertType: alert.alertType,
-            currentStok: currentStock.stok,
-            minStok: setting.minStok,
-            recommendedOrder,
-            urgency: alert.urgency,
-            message: alert.message,
-          },
+        const newAlert = await this.inventoryRepository.createRestockAlert({
+          id: alertId,
+          barangId: setting.barangId,
+          gudangId: setting.gudangId,
+          alertType: alert.alertType,
+          currentStok: currentStock.stok,
+          minStok: setting.minStok,
+          recommendedOrder,
+          urgency: alert.urgency,
+          message: alert.message,
         });
         newAlerts.push(newAlert);
 
@@ -119,7 +83,9 @@ export class InventoryRestockCheckService {
           }));
 
           if (notificationData.length > 0) {
-            await prisma.notifications.createMany({ data: notificationData });
+            await this.inventoryRepository.createNotifications(
+              notificationData,
+            );
             notificationsSent += notificationData.length;
           }
 

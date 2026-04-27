@@ -3,6 +3,62 @@ import { LeaveStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 
 export class LeaveRepository {
+  /** Get leave requester context for mobile submission. */
+  async findRequesterContext(userId: string, tenantId: string) {
+    return prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      select: {
+        workingHourMode: true,
+        workDays: true,
+        name: true,
+        siteId: true,
+      },
+    });
+  }
+
+  /** Get approver admin IDs for leave notification. */
+  async findApproverIdsForMobileLeaveNotification(input: {
+    tenantId: string;
+    siteId?: string | null;
+  }) {
+    const siteScope = input.siteId
+      ? [
+          {
+            OR: [
+              { siteId: input.siteId },
+              { siteId: null },
+              { userSites: { some: { siteId: input.siteId } } },
+            ],
+          },
+        ]
+      : [];
+
+    return prisma.user.findMany({
+      where: {
+        isActive: true,
+        tenantId: input.tenantId,
+        OR: [
+          { role: { name: { in: ["SUPER_ADMIN", "Super Admin"] } } },
+          {
+            AND: [
+              {
+                role: {
+                  permission: {
+                    some: {
+                      resource: "izin",
+                      action: "verify",
+                    },
+                  },
+                },
+              },
+              ...siteScope,
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+  }
   async create(
     data: Omit<Prisma.LeaveRequestUncheckedCreateInput, "id" | "updatedAt">,
   ) {

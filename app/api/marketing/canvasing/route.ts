@@ -5,12 +5,12 @@ import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
 import { hasMobilePermission } from "@/lib/mobile-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { createCanvasingService } from "@/modules/marketing";
 import {
+  createCanvasingService,
   getCanvasingValidationMessage,
   parseCanvasingStatusParam,
   parseCreateCanvasingInput,
-} from "@/modules/marketing/validators/canvasingValidation";
+} from "@/modules/marketing";
 
 export async function GET(req: NextRequest) {
   try {

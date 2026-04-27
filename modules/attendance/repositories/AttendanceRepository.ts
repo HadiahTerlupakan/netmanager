@@ -5,6 +5,7 @@ import type { AttendanceStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { HolidayRepository } from "./HolidayRepository";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import type { IAttendanceRepository } from "./IAttendanceRepository";
 
 export type AttendanceCorrectionSource = Prisma.AttendanceGetPayload<{
   include: {
@@ -27,7 +28,7 @@ function appendActiveAttendanceRawFilter(query: Prisma.Sql): Prisma.Sql {
   return Prisma.sql`${query} AND a."correctedAt" IS NULL`;
 }
 
-export class AttendanceRepository {
+export class AttendanceRepository implements IAttendanceRepository {
   async findMany<T extends Prisma.AttendanceFindManyArgs>(
     params: Prisma.SelectSubset<T, Prisma.AttendanceFindManyArgs>,
   ): Promise<Prisma.AttendanceGetPayload<T>[]> {

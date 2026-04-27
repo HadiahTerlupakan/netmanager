@@ -1,6 +1,6 @@
 "use client";
 
-import { calculateRabUnitCosts } from "@/lib/finance/rabTarget";
+import { calculateRabUnitCosts } from "@/modules/finance/utils/rabTarget";
 import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,

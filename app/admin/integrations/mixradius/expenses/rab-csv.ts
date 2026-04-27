@@ -2,7 +2,7 @@ import {
   calculateRabUnitCosts,
   getRabTargetBasisLabel,
   type RabTargetBasis,
-} from "@/lib/finance/rabTarget";
+} from "@/modules/finance/utils/rabTarget";
 import { formatCurrency } from "@/lib/utils";
 
 import { calculateRealisticBEP } from "./rabCalculations";

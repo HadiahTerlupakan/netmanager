@@ -26,7 +26,7 @@ import {
   calculateRabProjectedRevenue,
   calculateRabUnitCosts,
   type RabTargetBasis,
-} from "@/lib/finance/rabTarget";
+} from "@/modules/finance/utils/rabTarget";
 
 import {
   calculateMonthlySubscribers,

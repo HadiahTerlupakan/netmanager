@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import type { Session } from "next-auth";
-import { prisma } from "@/modules/database";
 import {
   profilePPPSchema,
   type ProfilePPPSchema,
@@ -9,6 +8,7 @@ import { sanitizeInput } from "@/lib/utils/sanitize";
 import { isSuperAdmin } from "@/lib/auth";
 import { canAccessSite, checkSiteRestriction } from "@/modules/roles";
 import { RadiusRepository } from "../repositories/RadiusRepository";
+import { HargaPaketRepository } from "../repositories/HargaPaketRepository";
 import { RadiusSyncService } from "./radius-sync-service";
 import * as z from "zod";
 import {
@@ -91,6 +91,7 @@ type DeleteProfilePPPResult =
     };
 
 export class ProfilePPPService {
+  private readonly hargaPaketRepository = new HargaPaketRepository();
   private async getRadiusSyncService(): Promise<RadiusSyncService> {
     return new RadiusSyncService();
   }
@@ -179,26 +180,13 @@ export class ProfilePPPService {
   private async findProfileForUpdate(
     id: string,
   ): Promise<ProfilePPPRecord | null> {
-    return prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        mikroTikRouter: true,
-      },
-    });
+    return this.hargaPaketRepository.findProfilePppForUpdate(id);
   }
 
   private async findProfileForDelete(
     id: string,
   ): Promise<DeleteProfilePPPRecord | null> {
-    return prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        mikroTikRouter: true,
-        hargaPaket: {
-          select: { id: true, name: true },
-        },
-      },
-    });
+    return this.hargaPaketRepository.findProfilePppForDelete(id);
   }
 
   private buildDeleteBlockedMessage(profile: DeleteProfilePPPRecord): string {
@@ -376,14 +364,11 @@ export class ProfilePPPService {
       const isRadiusMode = connectionMode === "RADIUS";
 
       if (isRadiusMode) {
-        const activeRouters = await prisma.mikroTikRouter.findMany({
-          where: {
-            OR: [
-              { tenantId: profilePPP.tenantId },
-              { siteId: profilePPP.siteId },
-            ],
-          },
-        });
+        const activeRouters =
+          await this.hargaPaketRepository.findRoutersForProfileBroadcast({
+            tenantId: profilePPP.tenantId,
+            siteId: profilePPP.siteId,
+          });
 
         for (const router of activeRouters) {
           try {
@@ -459,14 +444,11 @@ export class ProfilePPPService {
       const isRadiusMode = connectionMode === "RADIUS";
 
       if (isRadiusMode) {
-        const activeRouters = await prisma.mikroTikRouter.findMany({
-          where: {
-            OR: [
-              { tenantId: profilePPP.tenantId },
-              { siteId: profilePPP.siteId },
-            ],
-          },
-        });
+        const activeRouters =
+          await this.hargaPaketRepository.findRoutersForProfileBroadcast({
+            tenantId: profilePPP.tenantId,
+            siteId: profilePPP.siteId,
+          });
 
         for (const router of activeRouters) {
           try {
@@ -560,12 +542,9 @@ export class ProfilePPPService {
       });
     });
 
-    const profilePPP = await prisma.profilePPP.create({
-      data: this.buildCreatePrismaData(data),
-      include: {
-        mikroTikRouter: true,
-      },
-    });
+    const profilePPP = await this.hargaPaketRepository.createProfilePpp(
+      this.buildCreatePrismaData(data),
+    );
 
     await this.syncRadiusOnCreate(session, profilePPP, data);
     await this.syncMikroTikOnCreate(profilePPP, data, data.bandwidthId);
@@ -612,13 +591,10 @@ export class ProfilePPPService {
     oldProfile: ProfilePPPRecord,
     data: ProfilePPPSchema,
   ) {
-    const profilePPP = await prisma.profilePPP.update({
-      where: { id },
-      data: this.buildUpdatePrismaData(data),
-      include: {
-        mikroTikRouter: true,
-      },
-    });
+    const profilePPP = await this.hargaPaketRepository.updateProfilePpp(
+      id,
+      this.buildUpdatePrismaData(data),
+    );
 
     await this.syncRadiusOnUpdate(session, oldProfile, profilePPP, data);
     await this.syncMikroTikOnUpdate(
@@ -684,9 +660,7 @@ export class ProfilePPPService {
       return cleanupError;
     }
 
-    await prisma.profilePPP.delete({
-      where: { id: input.id },
-    });
+    await this.hargaPaketRepository.deleteProfilePpp(input.id);
 
     return {
       success: true,

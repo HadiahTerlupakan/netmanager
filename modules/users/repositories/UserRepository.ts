@@ -6,6 +6,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import type { User } from "@prisma/client";
+import type { IUserRepository } from "./IUserRepository";
 
 export interface CreateUserDTO {
   email: string;
@@ -58,7 +59,7 @@ export interface UserWithRelations extends User {
   }>;
 }
 
-export class UserRepository {
+export class UserRepository implements IUserRepository {
   async findAll(
     params: {
       siteId?: string;
@@ -217,10 +218,75 @@ export class UserRepository {
   async findByIdWithRelations(id: string): Promise<UserWithRelations | null> {
     const user = await prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        passwordHash: true,
+        emailVerified: true,
+        image: true,
+        pushToken: true,
+        pushTokenUpdatedAt: true,
+        tokenVersion: true,
+        lastVersionCode: true,
+        lastVersionName: true,
+        lastVersionUpdate: true,
+        lastLoginAt: true,
+        bankName: true,
+        bankAccountNo: true,
+        bankAccountName: true,
+        bpjsKesehatan: true,
+        bpjsKetenagakerjaan: true,
+        fcmTokens: true,
+        joinDate: true,
+        ptkpStatus: true,
+        employeeType: true,
+        departmentId: true,
+        siteId: true,
+        roleId: true,
+        isActive: true,
+        isSales: true,
+        isAttendanceRequired: true,
+        workingHourMode: true,
+        attendanceGeofencePolicy: true,
+        startWorkTime: true,
+        endWorkTime: true,
+        workDays: true,
+        flexibleTargetHour: true,
+        canvasingTarget: true,
+        targetSchema: true,
+        shiftId: true,
+        basicSalary: true,
+        payPeriodDay: true,
+        payDay: true,
+        woIncentiveEnabled: true,
+        woIncentiveRate: true,
+        lateDeductionRate: true,
+        absentDeductionRate: true,
+        overtimeRateNormal: true,
+        overtimeRateHoliday: true,
+        overtimeRateNational: true,
+        overtimeCalcTypeNormal: true,
+        overtimeCalcTypeHoliday: true,
+        overtimeCalcTypeNational: true,
+        tenantId: true,
+        createdAt: true,
+        updatedAt: true,
         departments: { select: { id: true, name: true } },
         sites: { select: { id: true, code: true, name: true } },
         role: { select: { id: true, name: true } },
+        tenant: { select: { id: true, name: true } },
+        userSites: {
+          select: {
+            id: true,
+            siteId: true,
+            isPrimary: true,
+            site: { select: { id: true, code: true, name: true } },
+          },
+          orderBy: { isPrimary: "desc" },
+        },
+        shift: true,
       },
     });
 
@@ -228,20 +294,10 @@ export class UserRepository {
 
     return {
       ...user,
-      department: (user as Record<string, unknown>).departments as {
-        id: string;
-        name: string;
-      } | null,
-      site: (user as Record<string, unknown>).sites as {
-        id: string;
-        code: string;
-        name: string;
-      } | null,
-      role: (user as Record<string, unknown>).role as {
-        id: string;
-        name: string;
-      } | null,
-    };
+      department: user.departments,
+      site: user.sites,
+      role: user.role,
+    } as UserWithRelations;
   }
 
   async findByEmail(email: string): Promise<User | null> {

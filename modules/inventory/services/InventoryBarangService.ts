@@ -1,5 +1,11 @@
 import { logger } from "@/lib/logger";
+import type { IInventoryRepository } from "../domain/ports/IInventoryRepository";
 import { InventoryRepository } from "../repositories/InventoryRepository";
+import {
+  INVENTORY_CODE_MAX_ATTEMPTS,
+  INVENTORY_CODE_PREFIX,
+  INVENTORY_CODE_RANDOM_RANGE,
+} from "../validators/inventoryValidators";
 
 interface ListBarangInput {
   userId: string;
@@ -22,12 +28,15 @@ interface CreateBarangInput {
 }
 
 export class InventoryBarangService {
-  private inventoryRepository: InventoryRepository;
+  private inventoryRepository: IInventoryRepository;
 
-  constructor() {
-    this.inventoryRepository = new InventoryRepository();
+  constructor(
+    inventoryRepository: IInventoryRepository = new InventoryRepository(),
+  ) {
+    this.inventoryRepository = inventoryRepository;
   }
 
+  /** Get paginated barang data with stock summaries. */
   async listBarang(input: ListBarangInput) {
     const offset = (input.page - 1) * input.limit;
     const { items: barangs, total } =
@@ -100,6 +109,7 @@ export class InventoryBarangService {
     };
   }
 
+  /** Create a barang with unique code generation and activity log. */
   async createBarang(input: CreateBarangInput) {
     let kode = input.kode?.trim();
 
@@ -112,7 +122,6 @@ export class InventoryBarangService {
       }
     } else {
       let attempts = 0;
-      const maxAttempts = 10;
 
       do {
         kode = this.generateBarangCode();
@@ -121,9 +130,9 @@ export class InventoryBarangService {
 
         if (!isExists) break;
         attempts++;
-      } while (attempts < maxAttempts);
+      } while (attempts < INVENTORY_CODE_MAX_ATTEMPTS);
 
-      if (attempts >= maxAttempts) {
+      if (attempts >= INVENTORY_CODE_MAX_ATTEMPTS) {
         throw new Error("Gagal generate kode unik");
       }
     }
@@ -148,10 +157,11 @@ export class InventoryBarangService {
     return { barang };
   }
 
+  /** Generate a candidate barang code. */
   private generateBarangCode(): string {
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `BRG${timestamp.toString().slice(-6)}${random.toString().padStart(3, "0")}`;
+    const random = Math.floor(Math.random() * INVENTORY_CODE_RANDOM_RANGE);
+    return `${INVENTORY_CODE_PREFIX}${timestamp.toString().slice(-6)}${random.toString().padStart(3, "0")}`;
   }
 }
 

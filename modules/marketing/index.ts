@@ -29,8 +29,18 @@ export function createCanvasingService(): CanvasingService {
 }
 
 export function createPointClaimService(): PointClaimService {
-  return new PointClaimService(new PointClaimRepository(prisma), prisma);
+  return new PointClaimService(new PointClaimRepository(prisma));
 }
+
+// Validators (public)
+export {
+  GENERIC_STATUS_UPDATE_FORBIDDEN_MESSAGE,
+  getCanvasingValidationMessage,
+  hasGenericStatusUpdate,
+  parseCanvasingStatusParam,
+  parseCreateCanvasingInput,
+  parseUpdateCanvasingInput,
+} from "./validators/canvasingValidation";
 
 // DTOs (public types for API responses and requests)
 export type {

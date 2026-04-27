@@ -17,7 +17,7 @@ import {
   HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { useSession } from "next-auth/react";
-import { calculateRabUnitCosts } from "@/lib/finance/rabTarget";
+import { calculateRabUnitCosts } from "@/modules/finance/utils/rabTarget";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
 import type { RABProject } from "./rabTypes";

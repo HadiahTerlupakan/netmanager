@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma, AlertType } from "@prisma/client";
 import type { Barang, BarangMasuk, BarangKeluar, Gudang } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -7,8 +7,6 @@ import {
   DEFAULT_KONDISI,
 } from "@/lib/constants/inventory";
 import type {
-  IInventoryRepository,
-  CreateBarangInput,
   UpdateBarangInput,
   CreateBarangMasukInput,
   CreateBarangKeluarInput,
@@ -21,6 +19,12 @@ import type {
   BarangDetail,
   InventoryActorInput,
 } from "./IInventoryRepository";
+import type {
+  IInventoryRepository as IInventoryDomainRepository,
+  FindInventoryBarangParams,
+  CreateInventoryBarangData,
+} from "../domain/ports/IInventoryRepository";
+import { InventoryBarangMapper } from "../mappers/InventoryBarangMapper";
 
 type InventoryActorRecord = {
   actorType: string | null;
@@ -58,44 +62,129 @@ function resolveInventoryActor(input: {
   };
 }
 
-export class InventoryRepository implements IInventoryRepository {
+type RestockSettingRecord = {
+  id: string;
+  tenantId: string | null;
+  barangId: string;
+  gudangId: string;
+  minStok: number;
+  maxStok: number;
+  barang: {
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+  };
+  gudang: {
+    id: string;
+    kode: string;
+    nama: string;
+  };
+};
+
+export class InventoryRepository implements IInventoryDomainRepository {
   private db: PrismaClient;
 
   constructor() {
     this.db = prisma;
   }
 
-  async findAllBarang(params?: {
-    skip?: number;
-    take?: number;
-    search?: string;
-    gudangId?: string;
-    isWorkOrderMaterial?: boolean;
-    siteId?: string;
-    tenantId?: string;
-  }): Promise<{ items: BarangWithStock[]; total: number }> {
-    const {
-      skip,
-      take,
-      search,
-      gudangId,
-      isWorkOrderMaterial,
-      siteId,
-      tenantId,
-    } = params || {};
+  /** Get active restock settings with item and warehouse info. */
+  async findActiveRestockSettings(): Promise<RestockSettingRecord[]> {
+    return this.db.restockSettings.findMany({
+      where: { isActive: true },
+      include: {
+        barang: {
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+            satuan: true,
+          },
+        },
+        gudang: {
+          select: {
+            id: true,
+            kode: true,
+            nama: true,
+          },
+        },
+      },
+    }) as Promise<RestockSettingRecord[]>;
+  }
 
-    const where: Prisma.BarangWhereInput = { tenantId };
+  /** Get users who can receive restock notifications. */
+  async findRestockNotificationRecipients() {
+    return this.db.user.findMany({
+      where: {
+        isActive: true,
+        role: {
+          permission: {
+            some: {
+              resource: "restock",
+              action: "read",
+            },
+          },
+        },
+      },
+      select: { id: true, email: true },
+    });
+  }
+
+  /** Get stock record for an item in a warehouse. */
+  async findBarangGudangStock(barangId: string, gudangId: string) {
+    return this.db.barangGudang.findUnique({
+      where: {
+        barangId_gudangId: {
+          barangId,
+          gudangId,
+        },
+      },
+    });
+  }
+
+  /** Find unresolved restock alert for the same item and warehouse. */
+  async findOpenRestockAlert(input: {
+    barangId: string;
+    gudangId: string;
+    alertType: AlertType;
+  }) {
+    return this.db.restockAlerts.findFirst({
+      where: {
+        barangId: input.barangId,
+        gudangId: input.gudangId,
+        alertType: input.alertType,
+        isResolved: false,
+      },
+    });
+  }
+
+  /** Create a new restock alert. */
+  async createRestockAlert(data: Prisma.RestockAlertsUncheckedCreateInput) {
+    return this.db.restockAlerts.create({ data });
+  }
+
+  /** Create many inventory notifications. */
+  async createNotifications(data: Prisma.NotificationsCreateManyInput[]) {
+    return this.db.notifications.createMany({ data });
+  }
+
+  /** Get paginated barang records and map them to domain entities. */
+  async findAllBarang(params?: FindInventoryBarangParams): Promise<{
+    items: import("../domain/entities/InventoryEntity").InventoryBarangEntity[];
+    total: number;
+  }> {
+    const { skip, take, search, gudangId, siteId, tenantId } = params || {};
+
+    const where: Prisma.BarangWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+    };
 
     if (search) {
       where.OR = [
         { nama: { contains: search, mode: "insensitive" } },
         { kode: { contains: search, mode: "insensitive" } },
       ];
-    }
-
-    if (isWorkOrderMaterial !== undefined) {
-      (where as Record<string, unknown>).isWorkOrderMaterial =
-        isWorkOrderMaterial;
     }
 
     // Count total matches
@@ -150,7 +239,10 @@ export class InventoryRepository implements IInventoryRepository {
       queryOptions,
     )) as unknown as BarangWithStock[];
 
-    return { items, total };
+    return {
+      items: items.map((item) => InventoryBarangMapper.toDomain(item)),
+      total,
+    };
   }
 
   async findBarangById(id: string): Promise<BarangWithStock | null> {
@@ -198,15 +290,38 @@ export class InventoryRepository implements IInventoryRepository {
     return count > 0;
   }
 
-  async createBarang(data: CreateBarangInput): Promise<Barang> {
-    return this.db.barang.create({
+  /** Create barang and map it to domain entity. */
+  async createBarang(data: CreateInventoryBarangData) {
+    const created = await this.db.barang.create({
       data: {
         id: crypto.randomUUID(),
-        ...data,
+        kode: data.kode,
+        nama: data.nama,
+        satuan: data.satuan,
+        isWorkOrderMaterial: data.isWorkOrderMaterial,
+        jenis: data.jenis as never,
+        kategoriAset: data.kategoriAset as never,
         minStokDefault: data.minStokDefault || 0,
         updatedAt: new Date(),
       },
+      include: {
+        barangGudang: {
+          include: {
+            gudang: {
+              select: {
+                id: true,
+                nama: true,
+                kode: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    return InventoryBarangMapper.toDomain(
+      created as unknown as BarangWithStock,
+    );
   }
 
   async updateBarang(id: string, data: UpdateBarangInput): Promise<Barang> {

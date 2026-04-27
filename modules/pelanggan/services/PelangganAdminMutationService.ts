@@ -7,6 +7,7 @@ import {
 } from "@/lib/hooks/radius-sync-hooks";
 import { prisma } from "@/modules/database";
 import { canAccessSite } from "@/modules/roles";
+import { PelangganRepository } from "../repositories/PelangganRepository";
 
 export class PelangganAdminMutationError extends Error {
   constructor(
@@ -187,24 +188,19 @@ const hasPasswordLoginChanged = async (
 };
 
 export class PelangganAdminMutationService {
+  private readonly pelangganRepository = new PelangganRepository();
+
+  /** Update PPP customer data from admin flow. */
   async updatePppById(input: UpdatePppByIdInput) {
     const { id, existingStatus, session, data } = input;
     const normalizedData = normalizeUpdatePayload(data);
 
-    const existingPelanggan = await prisma.pelanggan.findFirst({
-      where: getTenantScopedWhereById(session, id),
-      select: {
-        id: true,
-        username: true,
-        password: true,
-        passwordHash: true,
-        hargaPaketId: true,
-        tipe: true,
-        status: true,
-        autoIsolir: true,
-        siteId: true,
-      },
-    });
+    const scope = getTenantScopedWhereById(session, id);
+    const existingPelanggan =
+      await this.pelangganRepository.findForAdminMutation(
+        id,
+        "tenantId" in scope ? scope.tenantId : undefined,
+      );
 
     if (!existingPelanggan) {
       throw new PelangganAdminMutationError(
@@ -239,23 +235,20 @@ export class PelangganAdminMutationService {
       nextPasswordLogin || null,
     );
 
-    const pelanggan = await prisma.pelanggan.update({
-      where: { id },
-      data: {
-        idPelanggan: nextIdPelanggan,
-        nama: nextNama,
-        username: nextUsername,
-        password: nextPassword,
-        hargaPaketId: nextHargaPaketId,
-        tipe: nextTipe,
-        tanggalAktif: normalizedData.tanggalAktif,
-        jatuhTempo: normalizedData.jatuhTempo,
-        status: nextStatus,
-        autoIsolir: normalizedData.autoIsolir,
-        email: nextEmail,
-        siteId: nextSiteId,
-        ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
-      },
+    const pelanggan = await this.pelangganRepository.updateAdminPppById(id, {
+      idPelanggan: nextIdPelanggan,
+      nama: nextNama,
+      username: nextUsername,
+      password: nextPassword,
+      hargaPaketId: nextHargaPaketId,
+      tipe: nextTipe,
+      tanggalAktif: normalizedData.tanggalAktif,
+      jatuhTempo: normalizedData.jatuhTempo,
+      status: nextStatus,
+      autoIsolir: normalizedData.autoIsolir,
+      email: nextEmail,
+      siteId: nextSiteId,
+      ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
     });
 
     await afterCustomerUpdate(prisma, id, {
@@ -286,15 +279,11 @@ export class PelangganAdminMutationService {
   async deletePppById(input: DeletePppByIdInput) {
     const { id, session } = input;
 
-    const pelanggan = await prisma.pelanggan.findFirst({
-      where: getTenantScopedWhereById(session, id),
-      select: {
-        id: true,
-        nama: true,
-        username: true,
-        siteId: true,
-      },
-    });
+    const scope = getTenantScopedWhereById(session, id);
+    const pelanggan = await this.pelangganRepository.findForAdminDelete(
+      id,
+      "tenantId" in scope ? scope.tenantId : undefined,
+    );
 
     if (!pelanggan) {
       throw new PelangganAdminMutationError(
@@ -318,7 +307,7 @@ export class PelangganAdminMutationService {
       );
     }
 
-    await prisma.pelanggan.delete({ where: { id } });
+    await this.pelangganRepository.delete(id);
 
     return {
       nama: pelanggan.nama,

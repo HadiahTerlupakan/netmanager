@@ -1,5 +1,5 @@
-import { prisma } from "@/modules/database";
 import { SalaryComponentRepository } from "../repositories/SalaryComponentRepository";
+import { SalaryUserRepository } from "../repositories/SalaryDataRepository";
 import type {
   EmployeeType,
   PtkpStatus,
@@ -45,9 +45,11 @@ type UserSalaryComponentWithComponent = UserSalaryComponent & {
 
 export class SalaryUserService {
   private componentRepository: SalaryComponentRepository;
+  private userRepository: SalaryUserRepository;
 
   constructor() {
     this.componentRepository = new SalaryComponentRepository();
+    this.userRepository = new SalaryUserRepository();
   }
 
   async listUsers(): Promise<
@@ -55,52 +57,8 @@ export class SalaryUserService {
   > {
     try {
       const [users, allUsers] = await Promise.all([
-        prisma.user.findMany({
-          where: {
-            basicSalary: { not: null },
-            isActive: true,
-          },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            employeeType: true,
-            basicSalary: true,
-            overtimeRateNormal: true,
-            overtimeCalcTypeNormal: true,
-            overtimeRateHoliday: true,
-            overtimeCalcTypeHoliday: true,
-            overtimeRateNational: true,
-            overtimeCalcTypeNational: true,
-            woIncentiveRate: true,
-            lateDeductionRate: true,
-            absentDeductionRate: true,
-            joinDate: true,
-            ptkpStatus: true,
-            bpjsKesehatan: true,
-            bpjsKetenagakerjaan: true,
-            departments: {
-              select: { name: true },
-            },
-            role: {
-              select: { name: true },
-            },
-          },
-          orderBy: { name: "asc" },
-        }),
-        prisma.user.findMany({
-          where: {
-            isActive: true,
-          },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            employeeType: true,
-            basicSalary: true,
-          },
-          orderBy: { name: "asc" },
-        }),
+        this.userRepository.findSalaryUsers(),
+        this.userRepository.findAllActiveUsersForSalaryList(),
       ]);
 
       return {
@@ -135,45 +93,42 @@ export class SalaryUserService {
     bpjsKetenagakerjaan?: boolean;
   }): Promise<ServiceResult<void>> {
     try {
-      await prisma.user.update({
-        where: { id: input.userId },
-        data: {
-          basicSalary: input.basicSalary,
-          employeeType: input.employeeType,
-          overtimeCalcTypeNormal: input.overtimeCalcTypeNormal,
-          overtimeCalcTypeHoliday: input.overtimeCalcTypeHoliday,
-          overtimeCalcTypeNational: input.overtimeCalcTypeNational,
-          ...(input.overtimeRateNormal !== undefined
-            ? { overtimeRateNormal: input.overtimeRateNormal }
-            : {}),
-          ...(input.overtimeRateHoliday !== undefined
-            ? { overtimeRateHoliday: input.overtimeRateHoliday }
-            : {}),
-          ...(input.overtimeRateNational !== undefined
-            ? { overtimeRateNational: input.overtimeRateNational }
-            : {}),
-          ...(input.woIncentiveRate !== undefined
-            ? { woIncentiveRate: input.woIncentiveRate }
-            : {}),
-          ...(input.lateDeductionRate !== undefined
-            ? { lateDeductionRate: input.lateDeductionRate }
-            : {}),
-          ...(input.absentDeductionRate !== undefined
-            ? { absentDeductionRate: input.absentDeductionRate }
-            : {}),
-          ...(input.joinDate !== undefined
-            ? { joinDate: input.joinDate ? new Date(input.joinDate) : null }
-            : {}),
-          ...(input.ptkpStatus !== undefined
-            ? { ptkpStatus: input.ptkpStatus }
-            : {}),
-          ...(input.bpjsKesehatan !== undefined
-            ? { bpjsKesehatan: input.bpjsKesehatan }
-            : {}),
-          ...(input.bpjsKetenagakerjaan !== undefined
-            ? { bpjsKetenagakerjaan: input.bpjsKetenagakerjaan }
-            : {}),
-        },
+      await this.userRepository.updateSalaryConfig(input.userId, {
+        basicSalary: input.basicSalary,
+        employeeType: input.employeeType,
+        overtimeCalcTypeNormal: input.overtimeCalcTypeNormal,
+        overtimeCalcTypeHoliday: input.overtimeCalcTypeHoliday,
+        overtimeCalcTypeNational: input.overtimeCalcTypeNational,
+        ...(input.overtimeRateNormal !== undefined
+          ? { overtimeRateNormal: input.overtimeRateNormal }
+          : {}),
+        ...(input.overtimeRateHoliday !== undefined
+          ? { overtimeRateHoliday: input.overtimeRateHoliday }
+          : {}),
+        ...(input.overtimeRateNational !== undefined
+          ? { overtimeRateNational: input.overtimeRateNational }
+          : {}),
+        ...(input.woIncentiveRate !== undefined
+          ? { woIncentiveRate: input.woIncentiveRate }
+          : {}),
+        ...(input.lateDeductionRate !== undefined
+          ? { lateDeductionRate: input.lateDeductionRate }
+          : {}),
+        ...(input.absentDeductionRate !== undefined
+          ? { absentDeductionRate: input.absentDeductionRate }
+          : {}),
+        ...(input.joinDate !== undefined
+          ? { joinDate: input.joinDate ? new Date(input.joinDate) : null }
+          : {}),
+        ...(input.ptkpStatus !== undefined
+          ? { ptkpStatus: input.ptkpStatus }
+          : {}),
+        ...(input.bpjsKesehatan !== undefined
+          ? { bpjsKesehatan: input.bpjsKesehatan }
+          : {}),
+        ...(input.bpjsKetenagakerjaan !== undefined
+          ? { bpjsKetenagakerjaan: input.bpjsKetenagakerjaan }
+          : {}),
       });
 
       return { success: true };
@@ -188,40 +143,7 @@ export class SalaryUserService {
 
   async getUser(userId: string): Promise<ServiceResult<{ user: unknown }>> {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-          employeeType: true,
-          basicSalary: true,
-          overtimeRateNormal: true,
-          overtimeCalcTypeNormal: true,
-          overtimeRateHoliday: true,
-          overtimeCalcTypeHoliday: true,
-          overtimeRateNational: true,
-          overtimeCalcTypeNational: true,
-          woIncentiveRate: true,
-          lateDeductionRate: true,
-          absentDeductionRate: true,
-          joinDate: true,
-          ptkpStatus: true,
-          bpjsKesehatan: true,
-          bpjsKetenagakerjaan: true,
-          departments: {
-            select: { name: true },
-          },
-          userSalaryComponents: {
-            where: { isActive: true },
-            include: {
-              component: true,
-            },
-            orderBy: { component: { type: "asc" } },
-          },
-        },
-      });
+      const user = await this.userRepository.findSalaryUserById(userId);
 
       if (!user) {
         return {
@@ -246,79 +168,74 @@ export class SalaryUserService {
     input: SalaryUserConfigInput,
   ): Promise<ServiceResult<void>> {
     try {
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          ...(input.employeeType !== undefined
-            ? { employeeType: input.employeeType }
-            : {}),
-          ...(input.basicSalary !== undefined
-            ? { basicSalary: this.parseNullableNumber(input.basicSalary) }
-            : {}),
-          ...(input.overtimeRateNormal !== undefined
-            ? {
-                overtimeRateNormal: this.parseNullableNumber(
-                  input.overtimeRateNormal,
-                ),
-              }
-            : {}),
-          ...(input.overtimeCalcTypeNormal !== undefined
-            ? { overtimeCalcTypeNormal: input.overtimeCalcTypeNormal }
-            : {}),
-          ...(input.overtimeRateHoliday !== undefined
-            ? {
-                overtimeRateHoliday: this.parseNullableNumber(
-                  input.overtimeRateHoliday,
-                ),
-              }
-            : {}),
-          ...(input.overtimeCalcTypeHoliday !== undefined
-            ? { overtimeCalcTypeHoliday: input.overtimeCalcTypeHoliday }
-            : {}),
-          ...(input.overtimeRateNational !== undefined
-            ? {
-                overtimeRateNational: this.parseNullableNumber(
-                  input.overtimeRateNational,
-                ),
-              }
-            : {}),
-          ...(input.overtimeCalcTypeNational !== undefined
-            ? { overtimeCalcTypeNational: input.overtimeCalcTypeNational }
-            : {}),
-          ...(input.woIncentiveRate !== undefined
-            ? {
-                woIncentiveRate: this.parseNullableNumber(
-                  input.woIncentiveRate,
-                ),
-              }
-            : {}),
-          ...(input.lateDeductionRate !== undefined
-            ? {
-                lateDeductionRate: this.parseNullableNumber(
-                  input.lateDeductionRate,
-                ),
-              }
-            : {}),
-          ...(input.absentDeductionRate !== undefined
-            ? {
-                absentDeductionRate: this.parseNullableNumber(
-                  input.absentDeductionRate,
-                ),
-              }
-            : {}),
-          ...(input.joinDate !== undefined
-            ? { joinDate: input.joinDate ? new Date(input.joinDate) : null }
-            : {}),
-          ...(input.ptkpStatus !== undefined
-            ? { ptkpStatus: input.ptkpStatus }
-            : {}),
-          ...(input.bpjsKesehatan !== undefined
-            ? { bpjsKesehatan: input.bpjsKesehatan }
-            : {}),
-          ...(input.bpjsKetenagakerjaan !== undefined
-            ? { bpjsKetenagakerjaan: input.bpjsKetenagakerjaan }
-            : {}),
-        },
+      await this.userRepository.updateSalaryConfig(userId, {
+        ...(input.employeeType !== undefined
+          ? { employeeType: input.employeeType }
+          : {}),
+        ...(input.basicSalary !== undefined
+          ? { basicSalary: this.parseNullableNumber(input.basicSalary) }
+          : {}),
+        ...(input.overtimeRateNormal !== undefined
+          ? {
+              overtimeRateNormal: this.parseNullableNumber(
+                input.overtimeRateNormal,
+              ),
+            }
+          : {}),
+        ...(input.overtimeCalcTypeNormal !== undefined
+          ? { overtimeCalcTypeNormal: input.overtimeCalcTypeNormal }
+          : {}),
+        ...(input.overtimeRateHoliday !== undefined
+          ? {
+              overtimeRateHoliday: this.parseNullableNumber(
+                input.overtimeRateHoliday,
+              ),
+            }
+          : {}),
+        ...(input.overtimeCalcTypeHoliday !== undefined
+          ? { overtimeCalcTypeHoliday: input.overtimeCalcTypeHoliday }
+          : {}),
+        ...(input.overtimeRateNational !== undefined
+          ? {
+              overtimeRateNational: this.parseNullableNumber(
+                input.overtimeRateNational,
+              ),
+            }
+          : {}),
+        ...(input.overtimeCalcTypeNational !== undefined
+          ? { overtimeCalcTypeNational: input.overtimeCalcTypeNational }
+          : {}),
+        ...(input.woIncentiveRate !== undefined
+          ? {
+              woIncentiveRate: this.parseNullableNumber(input.woIncentiveRate),
+            }
+          : {}),
+        ...(input.lateDeductionRate !== undefined
+          ? {
+              lateDeductionRate: this.parseNullableNumber(
+                input.lateDeductionRate,
+              ),
+            }
+          : {}),
+        ...(input.absentDeductionRate !== undefined
+          ? {
+              absentDeductionRate: this.parseNullableNumber(
+                input.absentDeductionRate,
+              ),
+            }
+          : {}),
+        ...(input.joinDate !== undefined
+          ? { joinDate: input.joinDate ? new Date(input.joinDate) : null }
+          : {}),
+        ...(input.ptkpStatus !== undefined
+          ? { ptkpStatus: input.ptkpStatus }
+          : {}),
+        ...(input.bpjsKesehatan !== undefined
+          ? { bpjsKesehatan: input.bpjsKesehatan }
+          : {}),
+        ...(input.bpjsKetenagakerjaan !== undefined
+          ? { bpjsKetenagakerjaan: input.bpjsKetenagakerjaan }
+          : {}),
       });
 
       return { success: true };
@@ -333,9 +250,8 @@ export class SalaryUserService {
 
   async removeUser(userId: string): Promise<ServiceResult<void>> {
     try {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { basicSalary: null },
+      await this.userRepository.updateSalaryConfig(userId, {
+        basicSalary: null,
       });
 
       return { success: true };
@@ -398,9 +314,9 @@ export class SalaryUserService {
 
   async removeComponent(assignmentId: string): Promise<ServiceResult<void>> {
     try {
-      await prisma.userSalaryComponent.delete({
-        where: { id: assignmentId },
-      });
+      await this.componentRepository.deleteUserComponentAssignment(
+        assignmentId,
+      );
 
       return { success: true };
     } catch {

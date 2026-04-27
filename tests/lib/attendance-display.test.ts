@@ -6,7 +6,7 @@ import {
   getPermitDisplayLabel,
   hasAutoCheckoutNote,
   isHistoricalAutoCheckoutAbsence,
-} from "@/lib/attendance-display";
+} from "@/modules/attendance";
 import { ATTENDANCE_CONSTANTS } from "@/modules/attendance/utils/constants";
 
 describe("attendance display semantics", () => {

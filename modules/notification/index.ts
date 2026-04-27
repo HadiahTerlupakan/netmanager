@@ -1,4 +1,5 @@
 export * from "./services/NotificationService";
+export * from "./services/AnnouncementService";
 export * from "./services/email-service";
 export {
   sendCustomerPushNotification,

@@ -16,6 +16,7 @@ export * from "./services/UnmatchedMutationService";
 export * from "./services/FinancePageQueriesService";
 export * from "./services/FinanceExpenseBridgeService";
 export * from "./services/InvestorAdminService";
+export * from "./services/RabApprovalService";
 
 // Payment Gateway
 export * from "./services/PaymentGatewayTestService";
@@ -28,3 +29,4 @@ export * from "./utils/rab-revisions";
 export * from "./utils/rab-approval-reminder";
 export * from "./utils/rab-bottleneck-metrics";
 export * from "./utils/rab-revision-variance";
+export * from "./utils/rabTarget";

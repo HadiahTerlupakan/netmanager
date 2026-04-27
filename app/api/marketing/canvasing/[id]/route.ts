@@ -2,19 +2,19 @@ import { ZodError } from "zod";
 import { NextRequest } from "next/server";
 import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
-import { createCanvasingService } from "@/modules/marketing";
+import {
+  createCanvasingService,
+  GENERIC_STATUS_UPDATE_FORBIDDEN_MESSAGE,
+  getCanvasingValidationMessage,
+  hasGenericStatusUpdate,
+  parseUpdateCanvasingInput,
+} from "@/modules/marketing";
 import {
   apiSuccess,
   ApiErrors,
   apiError,
   ErrorCodes,
 } from "@/lib/api-response";
-import {
-  GENERIC_STATUS_UPDATE_FORBIDDEN_MESSAGE,
-  getCanvasingValidationMessage,
-  hasGenericStatusUpdate,
-  parseUpdateCanvasingInput,
-} from "@/modules/marketing/validators/canvasingValidation";
 import { canAccessCanvasingSite } from "../canvasingRouteAccess";
 
 function canReadCanvasing(

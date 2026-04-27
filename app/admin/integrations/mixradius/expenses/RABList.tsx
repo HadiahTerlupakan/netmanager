@@ -18,7 +18,7 @@ import toast from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
-import { calculateRabUnitCosts } from "@/lib/finance/rabTarget";
+import { calculateRabUnitCosts } from "@/modules/finance/utils/rabTarget";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
 import RABCompare from "./RABCompare";

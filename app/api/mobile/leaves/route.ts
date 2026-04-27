@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  LeaveRepository,
+  EmployeeLeaveQueryService,
   MobileLeaveRequestService,
 } from "@/modules/attendance";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 
-const repo = new LeaveRepository();
+const employeeLeaveQueryService = new EmployeeLeaveQueryService();
 const mobileLeaveRequestService = new MobileLeaveRequestService();
 
 export async function GET(request: NextRequest) {
@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
     const userId = payload.id as string;
     const tenantId = payload.tenantId as string;
 
-    const leaves = await repo.findAll({ userId, tenantId });
+    const leaves = await employeeLeaveQueryService.getRequests({
+      userId,
+      tenantId,
+    });
     return NextResponse.json({ success: true, data: leaves });
   } catch (error: unknown) {
     const errorMessage =

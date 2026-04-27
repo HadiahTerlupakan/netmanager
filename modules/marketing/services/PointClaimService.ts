@@ -1,5 +1,4 @@
 import type { PointClaim, PointClaimStatus } from "@prisma/client";
-import type { PrismaClient } from "@prisma/client";
 import type {
   IPointClaimRepository,
   CreatePointClaimInput,
@@ -11,11 +10,10 @@ import {
   notifyNewPointClaim,
 } from "../../notification/services/NotificationService";
 
+const COMPLETED_WORK_ORDER_STATUSES = ["COMPLETED", "VERIFIED", "CLOSED"];
+
 export class PointClaimService {
-  constructor(
-    private readonly repository: IPointClaimRepository,
-    private readonly db: PrismaClient,
-  ) {}
+  constructor(private readonly repository: IPointClaimRepository) {}
 
   /**
    * Submit claim poin oleh sales
@@ -24,14 +22,9 @@ export class PointClaimService {
    */
   async submitClaim(data: CreatePointClaimInput): Promise<PointClaim> {
     // 1. Check if canvasing exists and has completed WO
-    const canvasing = await this.db.canvasing.findUnique({
-      where: { id: data.canvasingId },
-      include: {
-        workOrder: true,
-        pointClaims: true,
-        user: { select: { name: true, siteId: true } },
-      },
-    });
+    const canvasing = await this.repository.findCanvasingClaimSubmission(
+      data.canvasingId,
+    );
 
     if (!canvasing) {
       throw new Error("Canvasing tidak ditemukan");
@@ -49,8 +42,7 @@ export class PointClaimService {
       throw new Error("Work Order belum dibuat untuk canvasing ini");
     }
 
-    const completedStatuses = ["COMPLETED", "VERIFIED", "CLOSED"];
-    if (!completedStatuses.includes(canvasing.workOrder.status)) {
+    if (!COMPLETED_WORK_ORDER_STATUSES.includes(canvasing.workOrder.status)) {
       throw new Error(
         "Work Order belum selesai. Status saat ini: " +
           canvasing.workOrder.status,
@@ -65,10 +57,7 @@ export class PointClaimService {
     const claim = await this.repository.create(data);
 
     // 3. Lock canvasing
-    await this.db.canvasing.update({
-      where: { id: data.canvasingId },
-      data: { isLocked: true },
-    });
+    await this.repository.updateCanvasingLock(data.canvasingId, true);
 
     // 4. Notify admins about new claim
     const salesName = canvasing.user?.name || "Sales";
@@ -170,10 +159,7 @@ export class PointClaimService {
     }
 
     // Unlock canvasing when claim is rejected so sales can re-submit
-    await this.db.canvasing.update({
-      where: { id: claim.canvasingId },
-      data: { isLocked: false },
-    });
+    await this.repository.updateCanvasingLock(claim.canvasingId, false);
 
     // Notify sales that claim was rejected
     createNotification({
@@ -214,10 +200,7 @@ export class PointClaimService {
     }
 
     // Unlock canvasing
-    await this.db.canvasing.update({
-      where: { id: claim.canvasingId },
-      data: { isLocked: false },
-    });
+    await this.repository.updateCanvasingLock(claim.canvasingId, false);
 
     await this.repository.delete(id);
   }

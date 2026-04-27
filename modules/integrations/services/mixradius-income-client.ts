@@ -5,6 +5,10 @@ import {
   DUITKU_DEFAULT_FEES,
   normalizePaymentMethod,
 } from "@/modules/integrations/constants/DuitkuDefaults";
+import {
+  buildMixRadiusAllowedOwners,
+  normalizeMixRadiusOwnerName,
+} from "../utils/mixradius-owner-matching";
 
 import {
   MixRadiusConfigError,
@@ -36,19 +40,6 @@ function isMixRadiusConfigError(message: string) {
     message.includes("valid") ||
     message.includes("Missing credentials")
   );
-}
-
-function buildAllowedOwners(owners: string[]): Set<string> {
-  const allowedOwners = new Set<string>();
-
-  owners.forEach((owner) => {
-    if (!owner) return;
-    const lower = owner.toLowerCase().trim();
-    allowedOwners.add(lower);
-    allowedOwners.add(lower.split(/[—–-]/)[0].trim());
-  });
-
-  return allowedOwners;
 }
 
 function parseIncomeValue(value: string | number | undefined): number {
@@ -344,7 +335,7 @@ export async function fetchMixRadiusIncomeByPeriod(
         where: { siteId },
         select: { owners: true },
       });
-      const allowedOwners = buildAllowedOwners(
+      const allowedOwners = buildMixRadiusAllowedOwners(
         groups.flatMap((group) => group.owners),
       );
       allData = allData.filter(
@@ -361,7 +352,7 @@ export async function fetchMixRadiusIncomeByPeriod(
       });
 
       if (group?.owners) {
-        const allowedOwners = buildAllowedOwners(group.owners);
+        const allowedOwners = buildMixRadiusAllowedOwners(group.owners);
         allData = allData.filter(
           (item) =>
             item.owner_name &&
@@ -373,13 +364,15 @@ export async function fetchMixRadiusIncomeByPeriod(
     }
 
     if (ownerId && ownerId !== "all") {
-      const lowerId = ownerId.toLowerCase().trim();
-      const prefixId = lowerId.split(/[—–-]/)[0].trim();
+      const normalizedOwnerId = normalizeMixRadiusOwnerName(ownerId);
 
       allData = allData.filter((item) => {
         if (!item.owner_name) return false;
-        const itemOwner = item.owner_name.toLowerCase().trim();
-        return itemOwner === lowerId || itemOwner === prefixId;
+        const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
+        return (
+          normalizedOwner.full === normalizedOwnerId.full ||
+          normalizedOwner.full === normalizedOwnerId.prefix
+        );
       });
     }
 

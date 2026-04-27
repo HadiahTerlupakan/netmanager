@@ -13,6 +13,11 @@ export {
   MitraCommissionSyncService,
   getMitraCommissionSyncService,
 } from "./services/MitraCommissionSyncService";
+export {
+  MobileDashboardService,
+  mobileDashboardService,
+} from "./services/MobileDashboardService";
+export type { MobileDashboardUserPayload } from "./services/MobileDashboardService";
 export * from "./services/TenantProvisioningService";
 export * from "./services/tenant-constants";
 

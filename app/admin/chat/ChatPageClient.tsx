@@ -18,7 +18,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { shouldNotifyForChatMessage } from "@/lib/chat/shouldNotifyForChatMessage";
+import { shouldNotifyForChatMessage } from "@/modules/chat/utils/shouldNotifyForChatMessage";
 
 interface ChatUser {
   id: string;
@@ -442,11 +442,11 @@ export default function ChatPageClient() {
   const handleNewMessage = useCallback(
     (payload: ChatMessage & { conversationId: string }) => {
       if (
-        shouldNotifyForChatMessage(
-          Boolean(payload.isOwn),
-          selectedConversation,
-          payload.conversationId,
-        )
+        shouldNotifyForChatMessage({
+          isOwnMessage: Boolean(payload.isOwn),
+          selectedConversationId: selectedConversation,
+          incomingConversationId: payload.conversationId,
+        })
       ) {
         playNotificationSound("chat");
         showBrowserNotification(

@@ -3,7 +3,6 @@ import type {
   PelangganWithPackage,
   FilterOptions,
 } from "../repositories/PelangganRepository";
-import { prisma } from "@/modules/database";
 import type {
   Pelanggan,
   Status,
@@ -299,16 +298,14 @@ export class PelangganService {
     return this.pelangganRepository.delete(id);
   }
 
+  /** Update customer status and trigger radius synchronization. */
   async updateStatusPelanggan(id: string, status: Status): Promise<Pelanggan> {
     const existing = await this.pelangganRepository.findById(id);
     if (!existing) {
       throw new Error("Pelanggan tidak ditemukan");
     }
 
-    const pelanggan = await prisma.pelanggan.update({
-      where: { id },
-      data: { status },
-    });
+    const pelanggan = await this.pelangganRepository.update(id, { status });
 
     const syncResult = await afterCustomerUpdate(undefined, id, {
       statusChanged: existing.status !== pelanggan.status,

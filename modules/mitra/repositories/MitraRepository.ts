@@ -1,5 +1,6 @@
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { Prisma, WithdrawStatus } from "@prisma/client-mitra";
+import { createInsensitiveContainsFilter } from "@/modules/finance/utils/prisma-search-filters";
 import type { MitraFilters, MitraWithDetails } from "../dto/MitraDTO";
 
 export class MitraRepository {
@@ -81,9 +82,9 @@ export class MitraRepository {
       ...(filters.tenantId && { tenantId: filters.tenantId }),
       ...(filters.search && {
         OR: [
-          { name: { contains: filters.search, mode: "insensitive" } },
-          { email: { contains: filters.search, mode: "insensitive" } },
-          { phone: { contains: filters.search, mode: "insensitive" } },
+          { name: createInsensitiveContainsFilter(filters.search) },
+          { email: createInsensitiveContainsFilter(filters.search) },
+          { phone: createInsensitiveContainsFilter(filters.search) },
         ],
       }),
     };

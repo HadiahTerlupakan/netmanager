@@ -51,8 +51,29 @@ export type PointClaimDashboardSummary = Pick<
   "totalPoints" | "approvedClaims" | "pendingClaims"
 >;
 
+export interface CanvasingClaimSubmission {
+  id: string;
+  nama: string;
+  salesId: string;
+  isLocked: boolean;
+  workOrder: {
+    status: string;
+  } | null;
+  pointClaims: {
+    id: string;
+  } | null;
+  user: {
+    name: string | null;
+    siteId: string | null;
+  } | null;
+}
+
 export interface IPointClaimRepository {
   create(data: CreatePointClaimInput): Promise<PointClaim>;
+  findCanvasingClaimSubmission(
+    canvasingId: string,
+  ): Promise<CanvasingClaimSubmission | null>;
+  updateCanvasingLock(canvasingId: string, isLocked: boolean): Promise<void>;
   findById(id: string): Promise<PointClaimWithRelations | null>;
   findByCanvasingId(canvasingId: string): Promise<PointClaim | null>;
   findAll(filters?: {

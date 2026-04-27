@@ -7,6 +7,10 @@ import {
   parseMixRadiusInvoicesFromHtml,
 } from "./mixradius-invoice-utils";
 import {
+  buildMixRadiusAllowedOwners,
+  normalizeMixRadiusOwnerName,
+} from "../utils/mixradius-owner-matching";
+import {
   MixRadiusConfigError,
   type FetchCustomersParams,
   type MixRadiusCustomer,
@@ -28,14 +32,6 @@ type MixRadiusCustomerClientParams = {
 };
 
 const MAX_SESSION_RETRY = 1;
-
-function normalizeOwnerName(value: string) {
-  const lower = value.toLowerCase().trim();
-  return {
-    full: lower,
-    prefix: lower.split(/[—–-]/)[0].trim(),
-  };
-}
 
 function isMixRadiusConfigError(message: string) {
   return (
@@ -280,18 +276,13 @@ export async function fetchMixRadiusCustomersPPP(
         select: { owners: true },
       });
 
-      const allowedOwners = new Set<string>();
-      groups.forEach((group) => {
-        group.owners.forEach((owner) => {
-          const normalizedOwner = normalizeOwnerName(owner);
-          allowedOwners.add(normalizedOwner.full);
-          allowedOwners.add(normalizedOwner.prefix);
-        });
-      });
+      const allowedOwners = buildMixRadiusAllowedOwners(
+        groups.flatMap((group) => group.owners),
+      );
 
       allData = allData.filter((item) => {
         if (!item.owner_name) return false;
-        const normalizedOwner = normalizeOwnerName(item.owner_name);
+        const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
         return (
           allowedOwners.has(normalizedOwner.full) ||
           allowedOwners.has(normalizedOwner.prefix)
@@ -366,14 +357,14 @@ export async function fetchMixRadiusCustomersPPP(
       if (group && group.owners && group.owners.length > 0) {
         const allowedOwners = new Set<string>();
         group.owners.forEach((owner) => {
-          const normalizedOwner = normalizeOwnerName(owner);
+          const normalizedOwner = normalizeMixRadiusOwnerName(owner);
           allowedOwners.add(normalizedOwner.full);
           allowedOwners.add(normalizedOwner.prefix);
         });
 
         allData = allData.filter((item) => {
           if (!item.owner_name) return false;
-          const normalizedOwner = normalizeOwnerName(item.owner_name);
+          const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
           return (
             allowedOwners.has(normalizedOwner.full) ||
             allowedOwners.has(normalizedOwner.prefix)
@@ -385,10 +376,10 @@ export async function fetchMixRadiusCustomersPPP(
     }
 
     if (filters.ownerName) {
-      const normalizedName = normalizeOwnerName(filters.ownerName);
+      const normalizedName = normalizeMixRadiusOwnerName(filters.ownerName);
       allData = allData.filter((item) => {
         if (!item.owner_name) return false;
-        const normalizedOwner = normalizeOwnerName(item.owner_name);
+        const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
         return (
           normalizedOwner.full === normalizedName.full ||
           normalizedOwner.prefix === normalizedName.prefix

@@ -7,10 +7,33 @@ import type {
   PointClaimWithRelations,
   PointSummary,
   PointClaimDashboardSummary,
+  CanvasingClaimSubmission,
 } from "./IPointClaimRepository";
 
 export class PointClaimRepository implements IPointClaimRepository {
   constructor(private readonly db: PrismaClient) {}
+
+  /** Get canvasing data required for point claim submission. */
+  async findCanvasingClaimSubmission(
+    canvasingId: string,
+  ): Promise<CanvasingClaimSubmission | null> {
+    return this.db.canvasing.findUnique({
+      where: { id: canvasingId },
+      include: {
+        workOrder: true,
+        pointClaims: true,
+        user: { select: { name: true, siteId: true } },
+      },
+    }) as Promise<CanvasingClaimSubmission | null>;
+  }
+
+  /** Update canvasing lock state. */
+  async updateCanvasingLock(canvasingId: string, isLocked: boolean) {
+    await this.db.canvasing.update({
+      where: { id: canvasingId },
+      data: { isLocked },
+    });
+  }
 
   async create(data: CreatePointClaimInput): Promise<PointClaim> {
     return this.db.pointClaim.create({

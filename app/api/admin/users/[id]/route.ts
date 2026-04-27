@@ -1,28 +1,25 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { prisma } from "@/modules/database";
-import { hash } from "bcryptjs";
 import { logger } from "@/lib/logger";
-import { firebaseRealtimeService } from "@/lib/realtime";
-import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
 import { updateUserSchema } from "@/lib/validations/user";
+import { AdminUserRouteService } from "@/modules/users";
 import type { Session } from "next-auth";
-import {
-  Prisma,
-  AttendanceGeofencePolicy,
-  RateType,
-  TargetSchema,
-  WorkingHourMode,
-} from "@prisma/client";
-import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 
-/**
- * @swagger
- * /api/admin/users/{id}:
- *   get:
- *     summary: Get user by ID
- *     description: Mengambil detail pengguna berdasarkan ID. Hanya bisa diakses oleh ADMIN.
- *     tags: [Users]
- */
+const adminUserRouteService = new AdminUserRouteService();
+
+function getUserId(params: Record<string, string | string[] | undefined>) {
+  const rawId = params.id;
+  return typeof rawId === "string" ? rawId : "";
+}
+
+function toApiError(code: number, message: string) {
+  if (code === 400) return ApiErrors.badRequest(message);
+  if (code === 403) return ApiErrors.forbidden(message);
+  if (code === 404) return ApiErrors.notFound("User");
+  if (code === 409) return ApiErrors.conflict(message);
+  return ApiErrors.badRequest(message);
+}
+
+/** Get user detail for admin route. */
 export const GET = createHandler(
   {
     auth: true,
@@ -31,110 +28,35 @@ export const GET = createHandler(
   async (_req, ctx) => {
     const startTime = Date.now();
     const { session, params } = ctx;
-    const { id } = params;
+    const userId = getUserId(params);
 
     if (!session) return ApiErrors.unauthorized();
-    if (!id) return ApiErrors.badRequest("User ID is required");
+    if (!userId) return ApiErrors.badRequest("User ID is required");
 
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        isActive: true,
-        createdAt: true,
-        departmentId: true,
-        siteId: true,
-        roleId: true,
-        workingHourMode: true,
-        attendanceGeofencePolicy: true,
-        startWorkTime: true,
-        endWorkTime: true,
-        workDays: true,
-        flexibleTargetHour: true,
-        canvasingTarget: true,
-        targetSchema: true,
-        isSales: true,
-        isAttendanceRequired: true,
-        shiftId: true,
-        basicSalary: true,
-        payPeriodDay: true,
-        payDay: true,
-        woIncentiveEnabled: true,
-        woIncentiveRate: true,
-        lateDeductionRate: true,
-        absentDeductionRate: true,
-        overtimeRateNormal: true,
-        overtimeRateHoliday: true,
-        overtimeRateNational: true,
-        overtimeCalcTypeNormal: true,
-        overtimeCalcTypeHoliday: true,
-        overtimeCalcTypeNational: true,
-        shift: {
-          select: { id: true, name: true, startTime: true, endTime: true },
-        },
-        departments: {
-          select: { id: true, name: true },
-        },
-        sites: {
-          select: { id: true, code: true, name: true },
-        },
-        role: {
-          select: { id: true, name: true },
-        },
-        tenant: {
-          select: { id: true, name: true },
-        },
-        userSites: {
-          select: {
-            id: true,
-            siteId: true,
-            isPrimary: true,
-            site: {
-              select: { id: true, code: true, name: true },
-            },
-          },
-          orderBy: { isPrimary: "desc" },
-        },
-      },
-    });
-
-    if (!user) return ApiErrors.notFound("User");
-
-    const isSelfView = session.user.id === id;
-
-    if (
-      !isSelfView &&
-      !canAccessSite(session as Session, "users", user.siteId)
-    ) {
-      return ApiErrors.forbidden("Anda hanya dapat melihat user di site Anda");
+    const result = await adminUserRouteService.getAdminUserById(
+      session as Session & { user: { id: string } },
+      userId,
+    );
+    if (result.ok === false) {
+      return toApiError(result.error.code, result.error.message);
     }
 
     logger.apiRequest(
       "GET",
-      `/api/admin/users/${id}`,
+      `/api/admin/users/${userId}`,
       200,
       Date.now() - startTime,
       {
         userId: session.user.id,
-        targetUserId: id,
+        targetUserId: userId,
       },
     );
 
-    return apiSuccess({ user });
+    return apiSuccess(result.data);
   },
 );
 
-/**
- * @swagger
- * /api/admin/users/{id}:
- *   patch:
- *     summary: Update user
- *     description: Mengupdate data pengguna. Hanya bisa diakses oleh ADMIN.
- *     tags: [Users]
- */
+/** Update user from admin route. */
 export const PATCH = createHandler(
   {
     auth: true,
@@ -143,240 +65,45 @@ export const PATCH = createHandler(
   },
   async (_req, ctx) => {
     const startTime = Date.now();
-    const { session, params, validated: body } = ctx;
-    const { id } = params;
+    const { session, params, validated } = ctx;
+    const userId = getUserId(params);
 
     if (!session) return ApiErrors.unauthorized();
-    if (!id) return ApiErrors.badRequest("User ID is required");
+    if (!userId) return ApiErrors.badRequest("User ID is required");
 
-    const isSelfUpdate = session.user.id === id;
-
-    const currentData = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        email: true,
-        roleId: true,
-        siteId: true,
-        departmentId: true,
-        isActive: true,
-        tenantId: true,
-      },
-    });
-
-    if (!currentData) return ApiErrors.notFound("User");
-
-    if (isSelfUpdate) {
-      if (body.roleId !== undefined && body.roleId !== currentData.roleId) {
-        return ApiErrors.forbidden("Tidak dapat mengubah role sendiri");
-      }
-      if (body.siteId !== undefined && body.siteId !== currentData.siteId) {
-        return ApiErrors.forbidden("Tidak dapat mengubah site sendiri");
-      }
-      if (
-        body.departmentId !== undefined &&
-        body.departmentId !== currentData.departmentId
-      ) {
-        return ApiErrors.forbidden("Tidak dapat mengubah departemen sendiri");
-      }
-      if (
-        body.isActive !== undefined &&
-        body.isActive !== currentData.isActive
-      ) {
-        return ApiErrors.forbidden("Tidak dapat mengubah status aktif sendiri");
-      }
+    const result = await adminUserRouteService.updateAdminUser(
+      session as Session & { user: { id: string; isSuperAdmin?: boolean } },
+      userId,
+      validated,
+    );
+    if (result.ok === false) {
+      return toApiError(result.error.code, result.error.message);
     }
 
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
-      session as Session,
-      "users",
+    logger.apiRequest(
+      "PATCH",
+      `/api/admin/users/${userId}`,
+      200,
+      Date.now() - startTime,
+      {
+        userId: session.user.id,
+        targetUserId: userId,
+        changes: Object.keys(validated),
+      },
     );
 
-    if (isRestricted && !isSelfUpdate) {
-      if (!canAccessSite(session as Session, "users", currentData.siteId)) {
-        return ApiErrors.forbidden(
-          "Anda hanya dapat mengupdate user di site Anda",
-        );
-      }
-      if (body.siteId && body.siteId !== primarySiteId) {
-        return ApiErrors.forbidden(
-          "Anda tidak dapat mengubah site user ke site lain",
-        );
-      }
-    }
+    await logger.logActivity({
+      action: "UPDATE",
+      subject: "User",
+      userId: session.user.id,
+      details: { id: userId, changes: Object.keys(validated) },
+    });
 
-    const { password, userSites, email, tenantId, ...updateData } = body;
-    const data: Prisma.UserUncheckedUpdateInput = {};
-
-    if (updateData.name !== undefined) data.name = updateData.name;
-    if (updateData.phone !== undefined) data.phone = updateData.phone;
-    if (updateData.roleId !== undefined) data.roleId = updateData.roleId;
-    if (updateData.siteId !== undefined) data.siteId = updateData.siteId;
-    if (updateData.isAttendanceRequired !== undefined)
-      data.isAttendanceRequired = updateData.isAttendanceRequired;
-    if (updateData.departmentId !== undefined)
-      data.departmentId = updateData.departmentId;
-    if (updateData.isActive !== undefined) data.isActive = updateData.isActive;
-    if (updateData.isSales !== undefined) data.isSales = updateData.isSales;
-    if (updateData.workingHourMode !== undefined)
-      data.workingHourMode = updateData.workingHourMode as WorkingHourMode;
-    if (updateData.attendanceGeofencePolicy !== undefined)
-      data.attendanceGeofencePolicy =
-        updateData.attendanceGeofencePolicy as AttendanceGeofencePolicy;
-    if (updateData.startWorkTime !== undefined)
-      data.startWorkTime = updateData.startWorkTime;
-    if (updateData.endWorkTime !== undefined)
-      data.endWorkTime = updateData.endWorkTime;
-    if (updateData.workDays !== undefined) data.workDays = updateData.workDays;
-    if (updateData.flexibleTargetHour !== undefined)
-      data.flexibleTargetHour = updateData.flexibleTargetHour;
-    if (updateData.shiftId !== undefined) data.shiftId = updateData.shiftId;
-    if (updateData.canvasingTarget !== undefined)
-      data.canvasingTarget = updateData.canvasingTarget;
-    if (updateData.targetSchema !== undefined)
-      data.targetSchema = updateData.targetSchema as TargetSchema;
-    if (updateData.basicSalary !== undefined)
-      data.basicSalary = updateData.basicSalary;
-    if (updateData.payPeriodDay !== undefined)
-      data.payPeriodDay = updateData.payPeriodDay;
-    if (updateData.payDay !== undefined) data.payDay = updateData.payDay;
-    if (updateData.overtimeRateNormal !== undefined)
-      data.overtimeRateNormal = updateData.overtimeRateNormal;
-    if (updateData.overtimeRateHoliday !== undefined)
-      data.overtimeRateHoliday = updateData.overtimeRateHoliday;
-    if (updateData.overtimeRateNational !== undefined)
-      data.overtimeRateNational = updateData.overtimeRateNational;
-    if (updateData.overtimeCalcTypeNormal !== undefined)
-      data.overtimeCalcTypeNormal =
-        updateData.overtimeCalcTypeNormal as RateType;
-    if (updateData.overtimeCalcTypeHoliday !== undefined)
-      data.overtimeCalcTypeHoliday =
-        updateData.overtimeCalcTypeHoliday as RateType;
-    if (updateData.overtimeCalcTypeNational !== undefined)
-      data.overtimeCalcTypeNational =
-        updateData.overtimeCalcTypeNational as RateType;
-    if (updateData.woIncentiveEnabled !== undefined)
-      data.woIncentiveEnabled = updateData.woIncentiveEnabled;
-    if (updateData.woIncentiveRate !== undefined)
-      data.woIncentiveRate = updateData.woIncentiveRate;
-    if (updateData.lateDeductionRate !== undefined)
-      data.lateDeductionRate = updateData.lateDeductionRate;
-    if (updateData.absentDeductionRate !== undefined)
-      data.absentDeductionRate = updateData.absentDeductionRate;
-
-    if (tenantId !== undefined) {
-      if (session.user.isSuperAdmin) {
-        data.tenantId = tenantId || null;
-      } else if (tenantId !== currentData.tenantId) {
-        return ApiErrors.forbidden(
-          "Hanya Super Admin yang dapat mengubah tenantId",
-        );
-      }
-    }
-
-    if (email && email !== currentData.email) {
-      const globalCheck = await checkGlobalIdentifier(email, "EMPLOYEE", id);
-      if (globalCheck.exists) {
-        return ApiErrors.conflict(
-          `Email sudah terdaftar sebagai ${globalCheck.role}`,
-        );
-      }
-      data.email = email;
-    }
-
-    if (password) {
-      data.passwordHash = await hash(password, 10);
-    }
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        const updatedUser = await tx.user.update({
-          where: { id },
-          data,
-        });
-
-        if (userSites !== undefined && Array.isArray(userSites)) {
-          await tx.userSite.deleteMany({ where: { userId: id } });
-
-          if (userSites.length > 0) {
-            await tx.userSite.createMany({
-              data: userSites.map((us) => ({
-                userId: id,
-                siteId: us.siteId,
-                isPrimary: us.isPrimary || false,
-              })),
-            });
-
-            const primarySite = userSites.find((us) => us.isPrimary);
-            if (primarySite) {
-              await tx.user.update({
-                where: { id },
-                data: { siteId: primarySite.siteId },
-              });
-            }
-          } else {
-            await tx.user.update({
-              where: { id },
-              data: { siteId: null },
-            });
-          }
-        }
-
-        return updatedUser;
-      });
-
-      if (body.roleId !== undefined) {
-        const { invalidatePermissionCache } = await import("@/lib/auth");
-        await invalidatePermissionCache(id);
-
-        void firebaseRealtimeService
-          .publish({
-            type: "user.permissions_update",
-            scope: { kind: "user", id },
-            payload: { userId: id },
-          })
-          .catch((error) => {
-            console.error(
-              "[users/update] Failed to publish realtime permissions update",
-              error,
-            );
-          });
-      }
-
-      logger.apiRequest(
-        "PATCH",
-        `/api/admin/users/${id}`,
-        200,
-        Date.now() - startTime,
-        {
-          userId: session.user.id,
-          targetUserId: id,
-          changes: Object.keys(body),
-        },
-      );
-
-      await logger.logActivity({
-        action: "UPDATE",
-        subject: "User",
-        userId: session.user.id,
-        details: { id, changes: Object.keys(body) },
-      });
-
-      return apiSuccess({ ok: true }, { message: "User berhasil diperbarui" });
-    } catch (error) {
-      throw error;
-    }
+    return apiSuccess({ ok: true }, { message: "User berhasil diperbarui" });
   },
 );
 
-/**
- * @swagger
- * /api/admin/users/{id}:
- *   delete:
- *     summary: Delete user
- *     description: Menghapus pengguna. Hanya bisa diakses oleh ADMIN.
- *     tags: [Users]
- */
+/** Delete user from admin route. */
 export const DELETE = createHandler(
   {
     auth: true,
@@ -385,45 +112,27 @@ export const DELETE = createHandler(
   async (_req, ctx) => {
     const startTime = Date.now();
     const { session, params } = ctx;
-    const { id } = params;
+    const userId = getUserId(params);
 
     if (!session) return ApiErrors.unauthorized();
-    if (!id) return ApiErrors.badRequest("User ID is required");
+    if (!userId) return ApiErrors.badRequest("User ID is required");
 
-    const { isRestricted } = checkSiteRestriction(session as Session, "users");
-
-    if (isRestricted) {
-      const targetUser = await prisma.user.findUnique({
-        where: { id },
-        select: { siteId: true, name: true },
-      });
-
-      if (!targetUser) return ApiErrors.notFound("User");
-
-      if (!canAccessSite(session as Session, "users", targetUser.siteId)) {
-        return ApiErrors.forbidden(
-          "Anda hanya dapat menghapus user di site Anda",
-        );
-      }
+    const result = await adminUserRouteService.deleteAdminUser(
+      session as Session & { user: { id: string } },
+      userId,
+    );
+    if (result.ok === false) {
+      return toApiError(result.error.code, result.error.message);
     }
-
-    const targetUserForLog = await prisma.user.findUnique({
-      where: { id },
-      select: { name: true },
-    });
-
-    if (!targetUserForLog) return ApiErrors.notFound("User");
-
-    await prisma.user.delete({ where: { id } });
 
     logger.apiRequest(
       "DELETE",
-      `/api/admin/users/${id}`,
+      `/api/admin/users/${userId}`,
       200,
       Date.now() - startTime,
       {
         userId: session.user.id,
-        targetUserId: id,
+        targetUserId: userId,
       },
     );
 
@@ -431,7 +140,7 @@ export const DELETE = createHandler(
       action: "DELETE",
       subject: "User",
       userId: session.user.id,
-      details: { id, name: targetUserForLog.name },
+      details: { id: userId, name: result.data.deletedUserName },
     });
 
     return apiSuccess({ ok: true }, { message: "User berhasil dihapus" });

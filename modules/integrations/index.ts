@@ -5,5 +5,6 @@ export * from "./services/MixRadiusPageService";
 export * from "./services/mixradius-owner-group-service";
 export * from "./services/mixradius-income-client";
 export * from "./services/mixradius-customer-client";
+export * from "./utils/mixradius-owner-matching";
 export * from "./repositories/MixRadiusConfigRepository";
 export * from "./factories/IntegrationFactory";

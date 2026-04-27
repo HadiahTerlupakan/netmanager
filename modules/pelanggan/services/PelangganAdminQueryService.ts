@@ -1,5 +1,5 @@
-import { prisma } from "@/modules/database";
 import { CustomerUsageService } from "./CustomerUsageService";
+import { PelangganRepository } from "../repositories/PelangganRepository";
 
 export type PppTechnicalInfo = Awaited<
   ReturnType<CustomerUsageService["getTechnicalInfo"]>
@@ -21,28 +21,14 @@ const sanitizePelangganResponse = <
 };
 
 export class PelangganAdminQueryService {
+  private readonly pelangganRepository = new PelangganRepository();
+
+  /** Get detailed PPP customer data for admin view. */
   async getPppDetail(id: string, tenantId?: string | null) {
-    const pelanggan = await prisma.pelanggan.findFirst({
-      where: tenantId ? { id, tenantId } : { id },
-      include: {
-        hargaPaket: {
-          include: {
-            profilePPP: {
-              include: {
-                mikroTikRouter: true,
-              },
-            },
-            bandwidth: true,
-          },
-        },
-        odp: {
-          select: {
-            name: true,
-            location: true,
-          },
-        },
-      },
-    });
+    const pelanggan = await this.pelangganRepository.findAdminPppDetail(
+      id,
+      tenantId,
+    );
 
     if (!pelanggan) return null;
 
@@ -57,16 +43,8 @@ export class PelangganAdminQueryService {
     return { pelanggan: sanitizePelangganResponse(pelanggan), technicalInfo };
   }
 
+  /** Get minimal PPP customer context for admin mutation flow. */
   async getPppMutationContext(id: string, tenantId?: string | null) {
-    return prisma.pelanggan.findFirst({
-      where: tenantId ? { id, tenantId } : { id },
-      select: {
-        id: true,
-        username: true,
-        status: true,
-        siteId: true,
-        nama: true,
-      },
-    });
+    return this.pelangganRepository.findAdminMutationContext(id, tenantId);
   }
 }
