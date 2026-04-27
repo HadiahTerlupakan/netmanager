@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
-import { prisma } from "@/modules/database";
-import { ProfilePPPService } from "@/modules/network";
+import { ProfilePPPService, getIPPoolRanges } from "@/modules/network";
 import { Prisma } from "@prisma/client";
 
 const profilePPPService = new ProfilePPPService();
@@ -114,16 +113,9 @@ export async function GET(
     }
 
     const { id } = await params;
-    const profilePPP = await prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        hargaPaket: {
-          include: {
-            bandwidth: true,
-          },
-        },
-        mikroTikRouter: true,
-      },
+    const profilePPP = await profilePPPService.getProfilePPPDetail({
+      id,
+      getIPPoolRanges,
     });
 
     if (!profilePPP) {
@@ -133,29 +125,7 @@ export async function GET(
       );
     }
 
-    // Jika ada mikroTikRouterId, ambil IP Pool ranges dari MikroTik untuk mengisi ipRangeStart dan ipRangeEnd
-    let ipRange: string | null = null;
-    if (profilePPP.mikroTikRouterId && profilePPP.mikroTikRouter) {
-      try {
-        const { getIPPoolRanges } = await import("@/modules/network");
-        const poolResult = await getIPPoolRanges(
-          profilePPP.mikroTikRouterId,
-          profilePPP.remoteAddress,
-        );
-        if (poolResult.success && poolResult.ranges) {
-          ipRange = poolResult.ranges;
-        }
-      } catch (error: unknown) {
-        console.error("[API ProfilePPP] Error getting IP Pool ranges:", error);
-        // Jangan gagalkan request, hanya log error
-      }
-    }
-
-    // Tambahkan ipRange ke response (tidak disimpan di database, hanya untuk frontend)
-    return NextResponse.json({
-      ...profilePPP,
-      ipRange, // Format: "192.168.1.100-192.168.1.200"
-    });
+    return NextResponse.json(profilePPP);
   } catch (error: unknown) {
     console.error("Error fetching profile PPP:", error);
     return NextResponse.json(

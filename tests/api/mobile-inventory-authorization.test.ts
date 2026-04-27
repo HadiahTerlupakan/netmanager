@@ -63,6 +63,76 @@ vi.mock("@/modules/inventory", async (importOriginal) => {
   return {
     ...actual,
     InventoryRepository: class {
+      findMobileActorUser = (input: { actorId: string; tenantId: string }) =>
+        mockFns.userFindFirst({
+          where: { id: input.actorId, tenantId: input.tenantId },
+          include: {
+            role: { include: { permission: true } },
+            sites: true,
+            userSites: { select: { siteId: true } },
+          },
+        });
+      findMobileActorMitra = (actorId: string) =>
+        mockFns.mitraFindUnique({
+          where: { id: actorId },
+          select: { id: true, siteId: true },
+        });
+      findMobileGudangs = (input: { tenantId: string; siteIds?: string[] }) =>
+        mockFns.gudangFindMany({
+          where: buildMockGudangWhere(input.tenantId, input.siteIds),
+          select: { id: true, kode: true, nama: true, lokasi: true },
+          orderBy: { nama: "asc" },
+        });
+      findMobileBarangForMasuk = (input: {
+        tenantId: string;
+        siteIds?: string[];
+      }) => mockFns.barangFindMany({ where: buildMockBarangMasukWhere(input) });
+      findMobileBarangForKeluar = (input: {
+        tenantId: string;
+        gudangId: string;
+        siteIds?: string[];
+      }) =>
+        mockFns.barangGudangFindMany({
+          where: buildMockBarangKeluarWhere(input),
+        });
+      findMobileGudangSites = (input: { gudangId: string; tenantId: string }) =>
+        mockFns.gudangFindFirst({
+          where: { id: input.gudangId, tenantId: input.tenantId },
+          select: { id: true, sites: { select: { id: true } } },
+        });
+      findMobileBarangGudangStock = (input: {
+        barangId: string;
+        gudangId: string;
+        tenantId: string;
+      }) =>
+        mockFns.barangGudangFindFirst({
+          where: {
+            barangId: input.barangId,
+            gudangId: input.gudangId,
+            tenantId: input.tenantId,
+          },
+          include: { barang: { select: { nama: true } } },
+        });
+      findMobileHistoryMasuk = (input: {
+        where: Record<string, unknown>;
+        take: number;
+      }) =>
+        mockFns.barangMasukFindMany({
+          where: input.where,
+          include: mockHistoryInclude(),
+          orderBy: { tanggal: "desc" },
+          take: input.take,
+        });
+      findMobileHistoryKeluar = (input: {
+        where: Record<string, unknown>;
+        take: number;
+      }) =>
+        mockFns.barangKeluarFindMany({
+          where: input.where,
+          include: mockHistoryInclude(),
+          orderBy: { tanggal: "desc" },
+          take: input.take,
+        });
       addStock = (...args: unknown[]) => mockFns.inventoryAddStock(...args);
       removeStock = (...args: unknown[]) =>
         mockFns.inventoryRemoveStock(...args);
@@ -84,6 +154,53 @@ vi.mock("@/lib/websocket/emitter", () => ({
       mockFns.socketInventoryUpdate(...args),
   },
 }));
+
+function buildMockGudangWhere(tenantId: string, siteIds?: string[]) {
+  return {
+    isActive: true,
+    tenantId,
+    ...(siteIds ? { sites: { some: { id: { in: siteIds } } } } : {}),
+  };
+}
+
+function buildMockBarangMasukWhere(input: {
+  tenantId: string;
+  siteIds?: string[];
+}) {
+  return {
+    tenantId: input.tenantId,
+    ...(input.siteIds
+      ? {
+          barangGudang: {
+            some: {
+              gudang: { sites: { some: { id: { in: input.siteIds } } } },
+            },
+          },
+        }
+      : {}),
+  };
+}
+
+function buildMockBarangKeluarWhere(input: {
+  tenantId: string;
+  gudangId: string;
+  siteIds?: string[];
+}) {
+  return {
+    gudangId: input.gudangId,
+    tenantId: input.tenantId,
+    ...(input.siteIds
+      ? { gudang: { sites: { some: { id: { in: input.siteIds } } } } }
+      : {}),
+  };
+}
+
+function mockHistoryInclude() {
+  return {
+    barang: { select: { kode: true, nama: true, satuan: true } },
+    gudang: { select: { nama: true } },
+  };
+}
 
 vi.mock("@/lib/api-response", () => ({
   apiError: (message: string, _code?: string, init?: { status?: number }) =>

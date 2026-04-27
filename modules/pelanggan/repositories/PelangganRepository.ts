@@ -116,6 +116,20 @@ export interface FilterOptions {
  * Concrete pelanggan repository backed by Prisma.
  */
 export class PelangganRepository implements IPelangganRepository {
+  /** Find customer access metadata for legacy billing route. */
+  async findCustomerBillingAccess(input: {
+    pelangganId: string;
+    tenantId?: string | null;
+  }): Promise<{ id: string; siteId: string | null } | null> {
+    return prisma.pelanggan.findFirst({
+      where: {
+        id: input.pelangganId,
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+      },
+      select: { id: true, siteId: true },
+    });
+  }
+
   /** Get all customers using optional filters. */
   async findAll(filter?: FilterOptions) {
     const where = this.buildWhereClause(filter);

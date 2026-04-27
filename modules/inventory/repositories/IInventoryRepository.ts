@@ -203,6 +203,28 @@ export interface UpdatedStockOpnameResult {
   selisih: number;
 }
 
+export interface MobileGudangRecord {
+  id: string;
+  kode: string;
+  nama: string;
+  lokasi: string | null;
+}
+
+export interface MobileActorUserRecord {
+  id: string;
+  role?: {
+    name?: string | null;
+    permission?: Array<{ resource: string; action: string }>;
+  } | null;
+  sites?: { id: string } | null;
+  userSites?: Array<{ siteId: string }> | null;
+}
+
+export interface MobileActorMitraRecord {
+  id: string;
+  siteId?: string | null;
+}
+
 export interface IInventoryRepository {
   // ... existing Barang methods ...
 
@@ -267,6 +289,15 @@ export interface IInventoryRepository {
   // Stock Queries
   getStockLevel(barangId: string, gudangId: string): Promise<number>;
   getAllGudang(params?: { siteId?: string }): Promise<Gudang[]>;
+  findMobileActorUser(input: {
+    actorId: string;
+    tenantId: string;
+  }): Promise<MobileActorUserRecord | null>;
+  findMobileActorMitra(actorId: string): Promise<MobileActorMitraRecord | null>;
+  findMobileGudangs(input: {
+    tenantId: string;
+    siteIds?: string[];
+  }): Promise<MobileGudangRecord[]>;
   getStockBreakdown(
     barangId: string,
     gudangId: string,

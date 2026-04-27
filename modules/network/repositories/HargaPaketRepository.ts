@@ -66,6 +66,12 @@ type ProfilePppDeleteRecord = ProfilePppMutationRecord & {
   }>;
 };
 
+interface ProfilePppListInput {
+  status?: string;
+  siteIds?: string[];
+  siteId?: string;
+}
+
 export class HargaPaketRepository {
   /**
    * Get all harga pakets with filters
@@ -235,6 +241,42 @@ export class HargaPaketRepository {
   async countPelangganByHargaPaket(hargaPaketId: string): Promise<number> {
     return prisma.pelanggan.count({
       where: { hargaPaketId },
+    });
+  }
+
+  /** Get profile PPP records for list flow. */
+  async findProfilePpps(input: ProfilePppListInput) {
+    const where: Prisma.ProfilePPPWhereInput = {};
+
+    if (input.status) {
+      where.status = input.status as Status;
+    }
+
+    if (input.siteIds) {
+      where.OR = [{ siteId: { in: input.siteIds } }, { siteId: null }];
+    } else if (input.siteId) {
+      where.OR = [{ siteId: input.siteId }, { siteId: null }];
+    }
+
+    return prisma.profilePPP.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        site: { select: { id: true, name: true } },
+        mikroTikRouter: { select: { id: true, name: true, ipAddress: true } },
+        _count: { select: { hargaPaket: true } },
+      },
+    });
+  }
+
+  /** Get profile PPP detail record. */
+  async findProfilePppDetail(id: string) {
+    return prisma.profilePPP.findUnique({
+      where: { id },
+      include: {
+        hargaPaket: { include: { bandwidth: true } },
+        mikroTikRouter: true,
+      },
     });
   }
 

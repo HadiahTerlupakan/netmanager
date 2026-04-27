@@ -36,6 +36,7 @@ export async function uploadCustomerPaymentReceipt(options: {
     payment.notes,
     Number(payment.amount),
     options.file,
+    Reflect.get(payment, "tenantId") as string | null | undefined,
   );
   const receiptUrl = await convertAndSaveImage(
     options.file,
@@ -66,10 +67,12 @@ async function buildReceiptNotes(
   existingNotes: string | null,
   expectedAmount: number,
   file: File,
+  tenantId?: string | null,
 ) {
   const ocrResult = await analyzeReceiptWithOCR(
     await file.arrayBuffer(),
     file.type,
+    tenantId,
   );
   let notes = existingNotes ? `${existingNotes}\n---\n` : "";
 

@@ -43,6 +43,39 @@ interface DeleteProfilePPPInput {
   id: string;
 }
 
+interface ProfilePPPRepository {
+  findProfilePpps(input: ProfilePPPListRepositoryInput): Promise<unknown[]>;
+  findProfilePppDetail(id: string): Promise<ProfilePPPDetailRecord | null>;
+  findProfilePppForUpdate(id: string): Promise<ProfilePPPRecord | null>;
+  findProfilePppForDelete(id: string): Promise<DeleteProfilePPPRecord | null>;
+  createProfilePpp(data: Record<string, unknown>): Promise<ProfilePPPRecord>;
+  updateProfilePpp(
+    id: string,
+    data: Record<string, unknown>,
+  ): Promise<ProfilePPPRecord>;
+  deleteProfilePpp(id: string): Promise<void>;
+  findRoutersForProfileBroadcast(input: {
+    tenantId?: string | null;
+    siteId?: string | null;
+  }): Promise<Array<{ id: string; name: string }>>;
+}
+
+interface ProfilePPPListRepositoryInput {
+  status?: string;
+  siteIds?: string[];
+  siteId?: string;
+}
+
+interface ProfilePPPDetailRecord {
+  id: string;
+  remoteAddress: string;
+  mikroTikRouterId: string | null;
+  mikroTikRouter?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 interface ProfilePPPRecord {
   id: string;
   name: string;
@@ -91,7 +124,10 @@ type DeleteProfilePPPResult =
     };
 
 export class ProfilePPPService {
-  private readonly hargaPaketRepository = new HargaPaketRepository();
+  constructor(
+    private readonly hargaPaketRepository: ProfilePPPRepository = new HargaPaketRepository(),
+  ) {}
+
   private async getRadiusSyncService(): Promise<RadiusSyncService> {
     return new RadiusSyncService();
   }
@@ -429,6 +465,65 @@ export class ProfilePPPService {
         "[API ProfilePPP] Error during MikroTik profile broadcast (POST):",
         syncError,
       );
+    }
+  }
+
+  async listProfilePPPs(input: {
+    status?: string | null;
+    siteId?: string | null;
+    restriction: { isRestricted: boolean; siteIds: string[] };
+  }) {
+    return this.hargaPaketRepository.findProfilePpps({
+      status: input.status || undefined,
+      siteIds: input.restriction.isRestricted
+        ? input.restriction.siteIds
+        : undefined,
+      siteId: input.restriction.isRestricted
+        ? undefined
+        : input.siteId || undefined,
+    });
+  }
+
+  async getProfilePPPDetail(input: {
+    id: string;
+    getIPPoolRanges: (
+      routerId: string,
+      remoteAddress: string,
+    ) => Promise<{ success: boolean; ranges?: string | null }>;
+  }) {
+    const profile = await this.hargaPaketRepository.findProfilePppDetail(
+      input.id,
+    );
+    if (!profile) {
+      return null;
+    }
+
+    return {
+      ...profile,
+      ipRange: await this.resolveProfileIpRange(profile, input.getIPPoolRanges),
+    };
+  }
+
+  private async resolveProfileIpRange(
+    profile: ProfilePPPDetailRecord,
+    getIPPoolRanges: (
+      routerId: string,
+      remoteAddress: string,
+    ) => Promise<{ success: boolean; ranges?: string | null }>,
+  ) {
+    if (!profile.mikroTikRouterId || !profile.mikroTikRouter) {
+      return null;
+    }
+
+    try {
+      const result = await getIPPoolRanges(
+        profile.mikroTikRouterId,
+        profile.remoteAddress,
+      );
+      return result.success ? result.ranges || null : null;
+    } catch (error) {
+      console.error("[API ProfilePPP] Error getting IP Pool ranges:", error);
+      return null;
     }
   }
 

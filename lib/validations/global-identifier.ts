@@ -1,77 +1,132 @@
-import { prismaAuth } from '@/lib/prisma'
-import { prismaMitraAuth } from '@/lib/prisma-mitra'
+import { prismaAuth } from "@/lib/prisma";
+import { prismaMitraAuth } from "@/lib/prisma-mitra";
 
-export type RoleToExclude = 'EMPLOYEE' | 'CUSTOMER' | 'MITRA'
+export type RoleToExclude = "EMPLOYEE" | "CUSTOMER" | "MITRA";
+export type GlobalIdentifierResult =
+  | { exists: true; role: string; field: string }
+  | { exists: false };
 
-/**
- * Checks if an identifier (email, username, or ID) exists across all user types
- * (Pelanggan, User/Employee, Mitra) to prevent cross-role conflicts.
- * This is crucial for unified login where users authenticate regardless of role.
- */
-export async function checkGlobalIdentifier(
+interface GlobalIdentifierLookupInput {
+  identifier: string;
+  excludeId?: string;
+}
+
+interface GlobalIdentifierRepository {
+  findPelangganIdentifier(input: GlobalIdentifierLookupInput): Promise<{
+    username: string | null;
+    idPelanggan: string | null;
+    email: string | null;
+  } | null>;
+  findEmployeeIdentifier(
+    input: GlobalIdentifierLookupInput,
+  ): Promise<{ id: string } | null>;
+  findMitraIdentifier(
+    input: GlobalIdentifierLookupInput,
+  ): Promise<{ id: string } | null>;
+}
+
+class PrismaGlobalIdentifierRepository implements GlobalIdentifierRepository {
+  async findPelangganIdentifier(input: GlobalIdentifierLookupInput) {
+    return prismaAuth.pelanggan.findFirst({
+      where: {
+        OR: [
+          { username: { equals: input.identifier, mode: "insensitive" } },
+          { idPelanggan: { equals: input.identifier, mode: "insensitive" } },
+          { email: { equals: input.identifier, mode: "insensitive" } },
+        ],
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      },
+      select: { id: true, username: true, idPelanggan: true, email: true },
+    });
+  }
+
+  async findEmployeeIdentifier(input: GlobalIdentifierLookupInput) {
+    return prismaAuth.user.findFirst({
+      where: {
+        email: { equals: input.identifier, mode: "insensitive" },
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+  }
+
+  async findMitraIdentifier(input: GlobalIdentifierLookupInput) {
+    return prismaMitraAuth.mitra.findFirst({
+      where: {
+        email: { equals: input.identifier, mode: "insensitive" },
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+  }
+}
+
+export class GlobalIdentifierService {
+  constructor(
+    private readonly repository: GlobalIdentifierRepository = new PrismaGlobalIdentifierRepository(),
+  ) {}
+
+  /** Checks whether an identifier exists across customer, employee, and mitra accounts. */
+  async check(
     identifier: string,
     excludeRole?: RoleToExclude,
-    excludeId?: string
-): Promise<{ exists: true; role: string; field: string } | { exists: false }> {
-    if (!identifier) return { exists: false }
+    excludeId?: string,
+  ): Promise<GlobalIdentifierResult> {
+    if (!identifier) return { exists: false };
 
-    const id = identifier.trim()
-    const idLower = id.toLowerCase()
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+    const lookup = { identifier: normalizedIdentifier, excludeId };
 
-    // 1. Check Pelanggan
-    if (excludeRole !== 'CUSTOMER') {
-        const pelanggan = await prismaAuth.pelanggan.findFirst({
-            where: {
-                OR: [
-                    { username: { equals: idLower, mode: 'insensitive' } },
-                    { idPelanggan: { equals: idLower, mode: 'insensitive' } },
-                    { email: { equals: idLower, mode: 'insensitive' } }
-                ],
-                ...(excludeId ? { id: { not: excludeId } } : {})
-            },
-            select: { id: true, username: true, idPelanggan: true, email: true }
-        })
-
-        if (pelanggan) {
-            let field = 'identifier'
-            if (pelanggan.username?.toLowerCase() === idLower) field = 'username'
-            else if (pelanggan.idPelanggan?.toLowerCase() === idLower) field = 'ID Pelanggan'
-            else if (pelanggan.email?.toLowerCase() === idLower) field = 'email'
-
-            return { exists: true, role: 'Pelanggan', field }
-        }
+    if (excludeRole !== "CUSTOMER") {
+      const pelanggan = await this.repository.findPelangganIdentifier(lookup);
+      if (pelanggan)
+        return this.mapPelangganResult(pelanggan, normalizedIdentifier);
     }
 
-    // 2. Check User (Karyawan)
-    if (excludeRole !== 'EMPLOYEE') {
-        // Use prismaAuth (un-isolated) because email is global unique
-        const user = await prismaAuth.user.findFirst({
-            where: {
-                email: { equals: idLower, mode: 'insensitive' },
-                ...(excludeId ? { id: { not: excludeId } } : {})
-            },
-            select: { id: true }
-        })
-
-        if (user) {
-            return { exists: true, role: 'Karyawan', field: 'email' }
-        }
+    if (excludeRole !== "EMPLOYEE") {
+      const user = await this.repository.findEmployeeIdentifier(lookup);
+      if (user) return { exists: true, role: "Karyawan", field: "email" };
     }
 
-    // 3. Check Mitra
-    if (excludeRole !== 'MITRA') {
-        const mitra = await prismaMitraAuth.mitra.findFirst({
-            where: {
-                email: { equals: idLower, mode: 'insensitive' },
-                ...(excludeId ? { id: { not: excludeId } } : {})
-            },
-            select: { id: true }
-        })
-
-        if (mitra) {
-            return { exists: true, role: 'Mitra', field: 'email' }
-        }
+    if (excludeRole !== "MITRA") {
+      const mitra = await this.repository.findMitraIdentifier(lookup);
+      if (mitra) return { exists: true, role: "Mitra", field: "email" };
     }
 
-    return { exists: false }
+    return { exists: false };
+  }
+
+  private mapPelangganResult(
+    pelanggan: {
+      username: string | null;
+      idPelanggan: string | null;
+      email: string | null;
+    },
+    identifier: string,
+  ): GlobalIdentifierResult {
+    if (pelanggan.username?.toLowerCase() === identifier) {
+      return { exists: true, role: "Pelanggan", field: "username" };
+    }
+
+    if (pelanggan.idPelanggan?.toLowerCase() === identifier) {
+      return { exists: true, role: "Pelanggan", field: "ID Pelanggan" };
+    }
+
+    if (pelanggan.email?.toLowerCase() === identifier) {
+      return { exists: true, role: "Pelanggan", field: "email" };
+    }
+
+    return { exists: true, role: "Pelanggan", field: "identifier" };
+  }
+}
+
+const globalIdentifierService = new GlobalIdentifierService();
+
+/** Checks if an identifier exists across all user types. */
+export async function checkGlobalIdentifier(
+  identifier: string,
+  excludeRole?: RoleToExclude,
+  excludeId?: string,
+): Promise<GlobalIdentifierResult> {
+  return globalIdentifierService.check(identifier, excludeRole, excludeId);
 }

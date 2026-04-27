@@ -13,5 +13,6 @@ export * from "./services/appBranding";
 export * from "./services/tenantSettings";
 export * from "./services/whatsappSettings";
 export * from "./services/apiSettings";
+export * from "./services/GeminiOcrService";
 export type * from "./domain/ports/ISettingsRepository";
 export type * from "./domain/ports/IAcsSettingsRepository";

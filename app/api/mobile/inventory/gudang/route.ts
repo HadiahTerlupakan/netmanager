@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/modules/database";
-import { prismaMitra } from "@/modules/database";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { hasAnyMobilePermission } from "@/lib/mobile-auth";
-import { isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
-  buildGudangSiteFilter,
-  resolveInventoryActorScope,
+  InventoryRepository,
+  MobileInventoryError,
+  MobileInventoryService,
 } from "@/modules/inventory";
 
-// GET - Get gudang list for mobile
+const service = new MobileInventoryService(new InventoryRepository());
+
 export async function GET(req: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(req);
-    if (authResult instanceof NextResponse) {
-      return authResult;
-    }
+    if (authResult instanceof NextResponse) return authResult;
 
-    const decoded = authResult;
-    const userId = decoded.id as string;
-    const tenantId = decoded.tenantId as string;
-    const permissions = decoded.permissions as string[] | undefined;
-
+    const permissions = authResult.permissions as string[] | undefined;
     if (
       !hasAnyMobilePermission(permissions, [
         "m_barang:read",
@@ -35,75 +28,19 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      include: {
-        role: { include: { permission: true } },
-        sites: true,
-        userSites: {
-          select: { siteId: true },
-        },
-      },
+    const gudangList = await service.getGudangs({
+      actorId: authResult.id as string,
+      tenantId: authResult.tenantId as string,
     });
 
-    const mitra = !user
-      ? await prismaMitra.mitra.findUnique({
-          where: { id: userId },
-          select: { id: true, siteId: true },
-        })
-      : null;
-
-    const actorScope = resolveInventoryActorScope({
-      user: user
-        ? {
-            id: user.id,
-            role: user.role,
-            sites: user.sites,
-            userSites: user.userSites,
-          }
-        : null,
-      mitra,
-      isSuperAdmin: user ? isSuperAdmin({ role: user.role?.name }) : false,
-    });
-
-    if (!actorScope) {
-      return apiError("User tidak ditemukan", ErrorCodes.NOT_FOUND, {
-        status: 404,
+    return NextResponse.json({ gudangList });
+  } catch (error) {
+    if (error instanceof MobileInventoryError) {
+      return apiError(error.message, ErrorCodes.FORBIDDEN, {
+        status: error.status,
       });
     }
 
-    const whereClause: Record<string, unknown> = { isActive: true, tenantId };
-
-    if (actorScope.isRestricted) {
-      if (actorScope.allowedSiteIds.length === 0) {
-        return apiError(
-          "Akses ditolak: Tidak ada site yang ditugaskan",
-          ErrorCodes.FORBIDDEN,
-          {
-            status: 403,
-          },
-        );
-      }
-
-      Object.assign(
-        whereClause,
-        buildGudangSiteFilter(actorScope.allowedSiteIds),
-      );
-    }
-
-    const gudangs = await prisma.gudang.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        kode: true,
-        nama: true,
-        lokasi: true,
-      },
-      orderBy: { nama: "asc" },
-    });
-
-    return NextResponse.json({ gudangList: gudangs });
-  } catch (error) {
     console.error("Error fetching gudangs (mobile):", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,

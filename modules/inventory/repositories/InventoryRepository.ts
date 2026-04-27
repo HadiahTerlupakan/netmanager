@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma, AlertType } from "@prisma/client";
 import type { Barang, BarangMasuk, BarangKeluar, Gudang } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { prismaMitra } from "@/lib/prisma-mitra";
 import {
   USEFUL_LIFE_MONTHS,
   STOCK_FIELD_MAP,
@@ -688,6 +689,155 @@ export class InventoryRepository implements IInventoryDomainRepository {
     if (siteId)
       (where as Record<string, unknown>).sites = { some: { id: siteId } };
     return this.db.gudang.findMany({ where, orderBy: { nama: "asc" } });
+  }
+
+  async findMobileActorUser(input: { actorId: string; tenantId: string }) {
+    return this.db.user.findFirst({
+      where: { id: input.actorId, tenantId: input.tenantId },
+      include: {
+        role: { include: { permission: true } },
+        sites: true,
+        userSites: { select: { siteId: true } },
+      },
+    });
+  }
+
+  async findMobileActorMitra(actorId: string) {
+    return prismaMitra.mitra.findUnique({
+      where: { id: actorId },
+      select: { id: true, siteId: true },
+    });
+  }
+
+  async findMobileGudangs(input: { tenantId: string; siteIds?: string[] }) {
+    return this.db.gudang.findMany({
+      where: this.buildMobileGudangWhere(input),
+      select: { id: true, kode: true, nama: true, lokasi: true },
+      orderBy: { nama: "asc" },
+    });
+  }
+
+  async findMobileBarangForMasuk(input: {
+    tenantId: string;
+    siteIds?: string[];
+  }) {
+    const where: Prisma.BarangWhereInput = { tenantId: input.tenantId };
+
+    if (input.siteIds) {
+      where.barangGudang = {
+        some: { gudang: this.buildSiteFilter(input.siteIds) },
+      };
+    }
+
+    return this.db.barang.findMany({
+      where,
+      select: this.mobileBarangSelect(),
+      orderBy: { nama: "asc" },
+    });
+  }
+
+  async findMobileBarangForKeluar(input: {
+    tenantId: string;
+    gudangId: string;
+    siteIds?: string[];
+  }) {
+    const where: Prisma.BarangGudangWhereInput = {
+      gudangId: input.gudangId,
+      tenantId: input.tenantId,
+    };
+
+    if (input.siteIds) {
+      where.gudang = this.buildSiteFilter(input.siteIds);
+    }
+
+    return this.db.barangGudang.findMany({
+      where,
+      include: { barang: { select: this.mobileBarangSelect() } },
+      orderBy: { barang: { nama: "asc" } },
+    });
+  }
+
+  async findMobileGudangSites(input: { gudangId: string; tenantId: string }) {
+    return this.db.gudang.findFirst({
+      where: { id: input.gudangId, tenantId: input.tenantId },
+      select: { id: true, sites: { select: { id: true } } },
+    });
+  }
+
+  async findMobileBarangGudangStock(input: {
+    barangId: string;
+    gudangId: string;
+    tenantId: string;
+  }) {
+    return this.db.barangGudang.findFirst({
+      where: {
+        barangId: input.barangId,
+        gudangId: input.gudangId,
+        tenantId: input.tenantId,
+      },
+      include: { barang: { select: { nama: true } } },
+    });
+  }
+
+  async findMobileHistoryMasuk(input: {
+    where: Record<string, unknown>;
+    take: number;
+  }) {
+    return this.db.barangMasuk.findMany({
+      where: input.where,
+      include: this.mobileHistoryInclude(),
+      orderBy: { tanggal: "desc" },
+      take: input.take,
+    });
+  }
+
+  async findMobileHistoryKeluar(input: {
+    where: Record<string, unknown>;
+    take: number;
+  }) {
+    return this.db.barangKeluar.findMany({
+      where: input.where,
+      include: this.mobileHistoryInclude(),
+      orderBy: { tanggal: "desc" },
+      take: input.take,
+    });
+  }
+
+  private buildMobileGudangWhere(input: {
+    tenantId: string;
+    siteIds?: string[];
+  }): Prisma.GudangWhereInput {
+    const where: Prisma.GudangWhereInput = {
+      isActive: true,
+      tenantId: input.tenantId,
+    };
+
+    if (input.siteIds) {
+      where.sites = { some: { id: { in: input.siteIds } } };
+    }
+
+    return where;
+  }
+
+  private buildSiteFilter(siteIds: string[]): Prisma.GudangWhereInput {
+    return { sites: { some: { id: { in: siteIds } } } };
+  }
+
+  private mobileBarangSelect() {
+    return {
+      id: true,
+      kode: true,
+      nama: true,
+      satuan: true,
+      isWorkOrderMaterial: true,
+    } satisfies Prisma.BarangSelect;
+  }
+
+  private mobileHistoryInclude() {
+    return {
+      barang: { select: { kode: true, nama: true, satuan: true } },
+      gudang: { select: { nama: true } },
+    } satisfies Prisma.BarangMasukInclude;
   }
 
   async findGudangById(id: string): Promise<Gudang | null> {

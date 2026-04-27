@@ -10,6 +10,7 @@ export * from "./services/InventoryRestockCheckService";
 export * from "./services/InventoryOpnameService";
 export * from "./services/InventoryDashboardService";
 export * from "./services/RestockRequestService";
+export * from "./services/MobileInventoryService";
 
 // Utils
 export * from "./utils/validation";

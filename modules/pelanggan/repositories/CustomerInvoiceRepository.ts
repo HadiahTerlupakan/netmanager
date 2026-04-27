@@ -29,6 +29,37 @@ export type CustomerDashboardBillingSummary = {
  * Handles invoice queries with items, payment history, and dashboard summaries
  */
 export class CustomerInvoiceRepository {
+  /** Get invoice records for legacy customer billing response. */
+  async findLegacyTagihanByPelanggan(input: {
+    pelangganId: string;
+    tenantId?: string | null;
+  }) {
+    return prismaBilling.invoice.findMany({
+      where: {
+        pelangganId: input.pelangganId,
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        subtotal: true,
+        discountAmount: true,
+        taxAmount: true,
+        totalAmount: true,
+        status: true,
+        dueDate: true,
+        paidAt: true,
+        createdAt: true,
+        payment: {
+          select: { paymentMethod: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   /**
    * Get invoices with pagination and optional status filter
    * Includes invoice items and last payment

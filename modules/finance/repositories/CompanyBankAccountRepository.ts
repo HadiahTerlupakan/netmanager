@@ -1,24 +1,31 @@
-import { prisma } from '@/modules/database'
-import type { CompanyBankAccount } from '@prisma/client'
+import { prisma } from "@/modules/database";
+import type { CompanyBankAccount } from "@prisma/client";
 
 export type CompanyBankAccountInput = {
-  bankName: string
-  accountNumber: string
-  accountName: string
-  description?: string | null
-  isActive: boolean
-  priority: number
-}
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  description?: string | null;
+  isActive: boolean;
+  priority: number;
+};
 
 export class CompanyBankAccountRepository {
+  async findActive(): Promise<CompanyBankAccount[]> {
+    return prisma.companyBankAccount.findMany({
+      where: { isActive: true },
+      orderBy: { priority: "asc" },
+    });
+  }
+
   async findAll(): Promise<CompanyBankAccount[]> {
     return prisma.companyBankAccount.findMany({
-      orderBy: { priority: 'asc' },
-    })
+      orderBy: { priority: "asc" },
+    });
   }
 
   async findById(id: string): Promise<CompanyBankAccount | null> {
-    return prisma.companyBankAccount.findUnique({ where: { id } })
+    return prisma.companyBankAccount.findUnique({ where: { id } });
   }
 
   async create(data: CompanyBankAccountInput): Promise<CompanyBankAccount> {
@@ -31,10 +38,13 @@ export class CompanyBankAccountRepository {
         isActive: data.isActive,
         priority: data.priority,
       },
-    })
+    });
   }
 
-  async update(id: string, data: CompanyBankAccountInput): Promise<CompanyBankAccount> {
+  async update(
+    id: string,
+    data: CompanyBankAccountInput,
+  ): Promise<CompanyBankAccount> {
     return prisma.companyBankAccount.update({
       where: { id },
       data: {
@@ -45,10 +55,10 @@ export class CompanyBankAccountRepository {
         isActive: data.isActive,
         priority: data.priority,
       },
-    })
+    });
   }
 
   async delete(id: string): Promise<void> {
-    await prisma.companyBankAccount.delete({ where: { id } })
+    await prisma.companyBankAccount.delete({ where: { id } });
   }
 }

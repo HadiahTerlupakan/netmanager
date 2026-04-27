@@ -36,6 +36,7 @@ export {
   getCustomerPortalService,
 } from "./services/CustomerPortalService";
 export * from "./services/CustomerPaymentRouteService";
+export * from "./services/CustomerLegacyBillingService";
 export * from "./services/CustomerPaymentReceiptService";
 export * from "./services/CustomerPaymentStatusStreamService";
 export {
