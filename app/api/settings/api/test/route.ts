@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server'
-import { createHandler, apiSuccess } from '@/lib/api'
-import { googleGeminiTestSchema, type GoogleGeminiTestInput } from '@/lib/validations/settings'
-import { testGoogleGeminiApiKey } from '@/modules/settings'
+import { NextResponse } from "next/server";
+import { createHandler, apiSuccess } from "@/lib/api";
+import {
+  googleGeminiTestSchema,
+  type GoogleGeminiTestInput,
+} from "@/lib/validations/settings";
+import { testGoogleGeminiApiKey } from "@/modules/settings";
 
 /**
  * POST /api/settings/api/test
@@ -10,28 +13,28 @@ import { testGoogleGeminiApiKey } from '@/modules/settings'
 export const POST = createHandler<GoogleGeminiTestInput>(
   {
     auth: true,
-    permissions: ['settings:update'],
+    permissions: ["api:update"],
     schema: googleGeminiTestSchema,
   },
   async (_req, ctx) => {
-    const { apiKey } = ctx.validated
+    const { apiKey } = ctx.validated;
 
-    const result = await testGoogleGeminiApiKey(apiKey)
+    const result = await testGoogleGeminiApiKey(apiKey);
 
-    if ('error' in result) {
+    if ("error" in result) {
       return NextResponse.json(
         {
           error: result.error,
           valid: false,
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
     return apiSuccess({
       success: true,
       valid: true,
-      message: 'API Key valid dan dapat digunakan',
-    })
-  }
-)
+      message: "API Key valid dan dapat digunakan",
+    });
+  },
+);

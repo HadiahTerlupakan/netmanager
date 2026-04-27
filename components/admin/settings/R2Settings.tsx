@@ -1,25 +1,31 @@
-"use client"
+"use client";
 
-import { Cloud, Eye, EyeOff, Globe, Key, ShieldCheck, Box } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/Button'
+import { Cloud, Eye, EyeOff, Globe, Key, ShieldCheck, Box } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/Button";
+
+const SECRET_PLACEHOLDER = "********";
+
+function getSecretInputPlaceholder(secretAccessKey: string): string {
+  return secretAccessKey === SECRET_PLACEHOLDER ? "Secret tersimpan" : "";
+}
 
 type R2SettingsProps = {
   settings: {
-    r2AccountId: string
-    r2AccessKeyId: string
-    r2SecretAccessKey: string
-    r2BucketName: string
-    r2PublicUrl: string
-    r2Enabled: boolean
-  }
-  showR2Secret: boolean
-  setShowR2Secret: (show: boolean) => void
-  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  handleToggle: (e: React.ChangeEvent<HTMLInputElement>) => void
-  handleTestR2: () => void
-  testing: boolean
-}
+    r2AccountId: string;
+    r2AccessKeyId: string;
+    r2SecretAccessKey: string;
+    r2BucketName: string;
+    r2PublicUrl: string;
+    r2Enabled: boolean;
+  };
+  showR2Secret: boolean;
+  setShowR2Secret: (show: boolean) => void;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleToggle: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleTestR2: () => void;
+  testing: boolean;
+};
 
 export function R2Settings({
   settings,
@@ -28,7 +34,7 @@ export function R2Settings({
   handleChange,
   handleToggle,
   handleTestR2,
-  testing
+  testing,
 }: R2SettingsProps) {
   return (
     <Card>
@@ -40,7 +46,8 @@ export function R2Settings({
               Cloudflare R2 Storage
             </CardTitle>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Penyimpanan objek S3-compatible untuk backup database dan file statis
+              Penyimpanan objek S3-compatible untuk backup database dan file
+              statis
             </p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
@@ -53,15 +60,20 @@ export function R2Settings({
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
             <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {settings.r2Enabled ? 'Aktif' : 'Nonaktif'}
+              {settings.r2Enabled ? "Aktif" : "Nonaktif"}
             </span>
           </label>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${!settings.r2Enabled ? 'opacity-50' : ''}`}>
+        <div
+          className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${!settings.r2Enabled ? "opacity-50" : ""}`}
+        >
           <div className="space-y-2">
-            <label htmlFor="r2AccountId" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="r2AccountId"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               R2 Account ID
             </label>
             <input
@@ -77,7 +89,10 @@ export function R2Settings({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="r2BucketName" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="r2BucketName"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Bucket Name
             </label>
             <div className="relative">
@@ -96,7 +111,10 @@ export function R2Settings({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="r2AccessKeyId" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="r2AccessKeyId"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               R2 Access Key ID
             </label>
             <div className="relative">
@@ -114,7 +132,10 @@ export function R2Settings({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="r2SecretAccessKey" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label
+              htmlFor="r2SecretAccessKey"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               R2 Secret Access Key
             </label>
             <div className="relative">
@@ -122,10 +143,13 @@ export function R2Settings({
               <input
                 id="r2SecretAccessKey"
                 name="r2SecretAccessKey"
-                type={showR2Secret ? 'text' : 'password'}
+                type={showR2Secret ? "text" : "password"}
                 value={settings.r2SecretAccessKey}
                 onChange={handleChange}
                 disabled={!settings.r2Enabled}
+                placeholder={getSecretInputPlaceholder(
+                  settings.r2SecretAccessKey,
+                )}
                 className="w-full pl-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none pr-10 disabled:cursor-not-allowed"
               />
               <button
@@ -133,14 +157,21 @@ export function R2Settings({
                 onClick={() => setShowR2Secret(!showR2Secret)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
-                {showR2Secret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showR2Secret ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        <div className={`space-y-2 ${!settings.r2Enabled ? 'opacity-50' : ''}`}>
-          <label htmlFor="r2PublicUrl" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className={`space-y-2 ${!settings.r2Enabled ? "opacity-50" : ""}`}>
+          <label
+            htmlFor="r2PublicUrl"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             R2 Public URL (Custom Domain atau R2.dev)
           </label>
           <div className="relative">
@@ -169,10 +200,10 @@ export function R2Settings({
             disabled={!settings.r2Enabled || testing}
             className="gap-2"
           >
-            {testing ? 'Mencoba...' : 'Test Koneksi R2'}
+            {testing ? "Mencoba..." : "Test Koneksi R2"}
           </Button>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

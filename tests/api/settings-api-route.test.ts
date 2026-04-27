@@ -5,18 +5,24 @@ const mockGetApiSettings = vi.fn();
 const mockUpdateApiSettings = vi.fn();
 const mockClearR2SettingsCache = vi.fn();
 const mockLogActivitySafe = vi.fn();
+const mockTestCloudflareR2Connection = vi.fn();
+const mockTestGoogleGeminiApiKey = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   createHandler: (
-    _options: unknown,
+    options: unknown,
     handler: (req: Request, ctx: unknown) => unknown,
-  ) => handler,
+  ) => Object.assign(handler, { options }),
   apiSuccess: <T>(data: T) => data,
 }));
 
 vi.mock("@/modules/settings", () => ({
   getApiSettings: (...args: unknown[]) => mockGetApiSettings(...args),
   updateApiSettings: (...args: unknown[]) => mockUpdateApiSettings(...args),
+  testCloudflareR2Connection: (...args: unknown[]) =>
+    mockTestCloudflareR2Connection(...args),
+  testGoogleGeminiApiKey: (...args: unknown[]) =>
+    mockTestGoogleGeminiApiKey(...args),
 }));
 
 vi.mock("@/lib/utils/r2-client", () => ({
@@ -29,6 +35,8 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { GET, POST } from "@/app/api/settings/api/route";
+import { POST as TEST_GEMINI } from "@/app/api/settings/api/test/route";
+import { POST as TEST_R2 } from "@/app/api/settings/api/r2/test/route";
 
 describe("api settings route tenant scope", () => {
   beforeEach(() => {
@@ -95,5 +103,26 @@ describe("api settings route tenant scope", () => {
       }),
     );
     expect(result).toEqual({ success: true });
+  });
+
+  it("uses api:update permission for saving API settings", () => {
+    expect(
+      (POST as unknown as { options: { permissions: string[] } }).options
+        .permissions,
+    ).toEqual(["api:update"]);
+  });
+
+  it("uses api:update permission for R2 connection test", () => {
+    expect(
+      (TEST_R2 as unknown as { options: { permissions: string[] } }).options
+        .permissions,
+    ).toEqual(["api:update"]);
+  });
+
+  it("uses api:update permission for Gemini API key test", () => {
+    expect(
+      (TEST_GEMINI as unknown as { options: { permissions: string[] } }).options
+        .permissions,
+    ).toEqual(["api:update"]);
   });
 });

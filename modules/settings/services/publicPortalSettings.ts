@@ -1,5 +1,5 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import { getR2Settings } from "@/lib/utils/r2-client";
+import { getR2PublicBaseUrl } from "@/lib/utils/r2-client";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type { SettingsEntity } from "../domain/entities/Settings";
 import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
@@ -114,10 +114,5 @@ function resolvePublicLogoUrl(
 }
 
 async function getPublicR2BaseUrl(): Promise<string | null> {
-  const publicUrl = (await getR2Settings())?.publicUrl?.trim();
-  if (!publicUrl) {
-    return null;
-  }
-
-  return publicUrl.replace(/\/$/, "");
+  return getR2PublicBaseUrl();
 }

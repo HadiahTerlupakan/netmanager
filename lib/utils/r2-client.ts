@@ -29,11 +29,34 @@ let r2SettingsCacheTime: number = 0;
 const R2_SETTINGS_CACHE_TTL = 60000; // 1 minute cache
 const ENCRYPTED_SECRET_PATTERN = /^[0-9a-f]{32}:[0-9a-f]+$/i;
 
+function normalizePublicBaseUrl(publicUrl: string | null): string | null {
+  const normalizedPublicUrl = publicUrl?.trim();
+  if (!normalizedPublicUrl) {
+    return null;
+  }
+
+  return normalizedPublicUrl.replace(/\/$/, "");
+}
+
 /**
  * Get R2 settings from database
  */
 function shouldDecryptSecretAccessKey(secretAccessKey: string): boolean {
   return ENCRYPTED_SECRET_PATTERN.test(secretAccessKey);
+}
+
+export async function getR2PublicBaseUrl(): Promise<string | null> {
+  try {
+    const publicUrl = await prismaAuth.settings.findFirst({
+      where: { key: "R2_PUBLIC_URL" },
+      select: { value: true },
+    });
+
+    return normalizePublicBaseUrl(publicUrl?.value ?? null);
+  } catch (error) {
+    console.error("Error fetching R2 public URL:", error);
+    return null;
+  }
 }
 
 export async function getR2Settings(): Promise<R2Settings | null> {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { encryptApiKey } from "@/lib/utils/encryption";
 import {
@@ -19,6 +19,10 @@ const updateTenantScopedApiSettings = updateApiSettings as unknown as (
 ) => Promise<void>;
 
 describe("api settings service tenant scope", () => {
+  const consoleErrorSpy = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => {});
+
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.settings.findMany.mockResolvedValue([]);
@@ -32,6 +36,10 @@ describe("api settings service tenant scope", () => {
 
       return Promise.resolve(callback);
     });
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockClear();
   });
 
   it("reads api settings from the authenticated tenant scope", async () => {
@@ -68,6 +76,37 @@ describe("api settings service tenant scope", () => {
       r2Enabled: true,
       r2SecretAccessKey: "tenant-secret",
     });
+  });
+
+  it("returns secret placeholder when encrypted R2 secret cannot be decrypted", async () => {
+    prismaMock.settings.findMany.mockResolvedValue([
+      {
+        key: "R2_SECRET_ACCESS_KEY",
+        value: "0123456789abcdef0123456789abcdef:badciphertext",
+        encrypted: true,
+      },
+    ]);
+
+    const result = await getTenantScopedApiSettings("tenant-1");
+
+    expect(result.r2SecretAccessKey).toBe("********");
+  });
+
+  it("does not overwrite encrypted R2 secret when placeholder is submitted", async () => {
+    await updateTenantScopedApiSettings("tenant-1", {
+      r2SecretAccessKey: "********",
+      r2BucketName: "tenant-bucket",
+    });
+
+    expect(prismaMock.settings.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.settings.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          key: "R2_BUCKET_NAME",
+          value: "tenant-bucket",
+        }),
+      }),
+    );
   });
 
   it("writes api settings into the authenticated tenant scope", async () => {

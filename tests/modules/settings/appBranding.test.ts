@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  mockGetR2Settings,
+  mockGetR2PublicBaseUrl,
   mockHasR2Object,
   mockFindLatestR2ObjectKeyByFilename,
 } = vi.hoisted(() => ({
-  mockGetR2Settings: vi.fn(),
+  mockGetR2PublicBaseUrl: vi.fn(),
   mockHasR2Object: vi.fn(),
   mockFindLatestR2ObjectKeyByFilename: vi.fn(),
 }));
@@ -28,7 +28,7 @@ vi.mock("../../../lib/tenant-context", () => ({
 }));
 
 vi.mock("../../../lib/utils/r2-client", () => ({
-  getR2Settings: mockGetR2Settings,
+  getR2PublicBaseUrl: mockGetR2PublicBaseUrl,
   hasR2Object: mockHasR2Object,
   findLatestR2ObjectKeyByFilename: mockFindLatestR2ObjectKeyByFilename,
 }));
@@ -36,7 +36,7 @@ vi.mock("../../../lib/utils/r2-client", () => ({
 describe("resolveAppBranding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetR2Settings.mockResolvedValue(null);
+    mockGetR2PublicBaseUrl.mockResolvedValue(null);
     mockHasR2Object.mockResolvedValue(false);
     mockFindLatestR2ObjectKeyByFilename.mockResolvedValue(null);
   });
@@ -157,14 +157,7 @@ describe("resolveAppBranding", () => {
   });
 
   it("converts legacy global logo path to R2 public URL when tenant logo missing", async () => {
-    mockGetR2Settings.mockResolvedValue({
-      accountId: "acc-1",
-      accessKeyId: "key-1",
-      secretAccessKey: "secret-1",
-      bucketName: "bucket-1",
-      publicUrl: "https://cdn.radpro.id",
-      enabled: true,
-    });
+    mockGetR2PublicBaseUrl.mockResolvedValue("https://cdn.radpro.id");
     vi.mocked(getTenantIdFromContext).mockResolvedValue({
       tenantId: "tenant-2",
       isSuperAdmin: false,
@@ -202,14 +195,7 @@ describe("resolveAppBranding", () => {
   });
 
   it("uses latest timestamped R2 logo when legacy app logo path no longer exists as exact object", async () => {
-    mockGetR2Settings.mockResolvedValue({
-      accountId: "acc-1",
-      accessKeyId: "key-1",
-      secretAccessKey: "secret-1",
-      bucketName: "bucket-1",
-      publicUrl: "https://cdn.radpro.id",
-      enabled: true,
-    });
+    mockGetR2PublicBaseUrl.mockResolvedValue("https://cdn.radpro.id");
     mockHasR2Object.mockResolvedValue(false);
     mockFindLatestR2ObjectKeyByFilename.mockResolvedValue(
       "uploads/logos/1776751579231-logo-aplikasi.png",

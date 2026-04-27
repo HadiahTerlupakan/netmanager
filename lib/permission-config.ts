@@ -63,6 +63,7 @@ export const PERMISSION_GROUPS = {
     "roles",
     "payment_gateway",
     "api",
+    "captcha",
     "nada_dering",
     "app_version",
     "acs",

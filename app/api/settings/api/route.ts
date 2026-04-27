@@ -28,7 +28,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["settings:update"],
+    permissions: ["api:update"],
     schema: apiSettingsSchema,
   },
   async (_req, ctx) => {

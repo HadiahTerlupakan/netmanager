@@ -21,6 +21,7 @@ export type ApiSettingsPayload = {
 export type ApiSettingsPostPayload = Partial<ApiSettingsPayload>;
 
 const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
+const SECRET_PLACEHOLDER = "********";
 
 export const API_SETTINGS_KEYS: string[] = [
   "GOOGLE_GEMINI_API_KEY",
@@ -47,7 +48,7 @@ function getSettingValue(records: SettingsEntity[], key: string): string {
         `[apiSettings] Failed to decrypt setting key: ${key}`,
         error,
       );
-      return "";
+      return SECRET_PLACEHOLDER;
     }
   }
 
@@ -114,12 +115,14 @@ export function buildApiSettingsUpserts(
 
   if (payload.r2SecretAccessKey !== undefined) {
     const secretValue = payload.r2SecretAccessKey?.trim() || "";
-    upserts.push({
-      key: "R2_SECRET_ACCESS_KEY",
-      value: secretValue ? encryptApiKey(secretValue) : null,
-      description: "Cloudflare R2 Secret Access Key",
-      encrypted: true,
-    });
+    if (secretValue !== SECRET_PLACEHOLDER) {
+      upserts.push({
+        key: "R2_SECRET_ACCESS_KEY",
+        value: secretValue ? encryptApiKey(secretValue) : null,
+        description: "Cloudflare R2 Secret Access Key",
+        encrypted: true,
+      });
+    }
   }
 
   if (payload.r2BucketName !== undefined) {

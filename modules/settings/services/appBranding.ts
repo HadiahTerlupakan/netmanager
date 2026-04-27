@@ -1,7 +1,7 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import {
   findLatestR2ObjectKeyByFilename,
-  getR2Settings,
+  getR2PublicBaseUrl,
   hasR2Object,
 } from "@/lib/utils/r2-client";
 import { SettingsRepository } from "../repositories/SettingsRepository";
@@ -152,10 +152,5 @@ async function resolveAppLogoUrl(
 }
 
 async function getPublicR2BaseUrl(): Promise<string | null> {
-  const publicUrl = (await getR2Settings())?.publicUrl?.trim();
-  if (!publicUrl) {
-    return null;
-  }
-
-  return publicUrl.replace(/\/$/, "");
+  return getR2PublicBaseUrl();
 }
