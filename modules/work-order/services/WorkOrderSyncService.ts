@@ -7,8 +7,20 @@ import { randomUUID } from "crypto";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { TicketRepository } from "../repositories/TicketRepository";
 
-const workOrderRepo = new WorkOrderRepository();
-const ticketRepo = new TicketRepository();
+let workOrderRepository: WorkOrderRepository | null = null;
+let ticketRepository: TicketRepository | null = null;
+
+/** Return a lazily-created work-order repository. */
+function getWorkOrderRepository() {
+  workOrderRepository ??= new WorkOrderRepository();
+  return workOrderRepository;
+}
+
+/** Return a lazily-created ticket repository. */
+function getTicketRepository() {
+  ticketRepository ??= new TicketRepository();
+  return ticketRepository;
+}
 
 export async function syncWoStatusToTicket(
   workOrderId: string,
@@ -16,7 +28,9 @@ export async function syncWoStatusToTicket(
 ) {
   try {
     const workOrder =
-      await workOrderRepo.findByIdWithTicketAndAttachments(workOrderId);
+      await getWorkOrderRepository().findByIdWithTicketAndAttachments(
+        workOrderId,
+      );
 
     if (!workOrder) {
       return;
@@ -27,12 +41,15 @@ export async function syncWoStatusToTicket(
     }
 
     if (status === "IN_PROGRESS") {
-      await ticketRepo.updateStatus(
+      await getTicketRepository().updateStatus(
         workOrder.ticketId,
         TicketStatus.IN_PROGRESS,
       );
     } else if (status === "COMPLETED") {
-      await ticketRepo.updateStatus(workOrder.ticketId, TicketStatus.RESOLVED);
+      await getTicketRepository().updateStatus(
+        workOrder.ticketId,
+        TicketStatus.RESOLVED,
+      );
 
       const completionPhotos = (
         workOrder.attachments as WorkOrderAttachments[]
@@ -55,7 +72,7 @@ export async function syncWoStatusToTicket(
         (p: WorkOrderAttachments) => p.filePath,
       );
 
-      await ticketRepo.createReply({
+      await getTicketRepository().createReply({
         id: randomUUID(),
         ticketId: workOrder.ticketId,
         message: message,
@@ -72,6 +89,7 @@ export async function syncWoStatusToTicket(
 
 export async function closeWoOnTicketClose(ticketId: string) {
   try {
+    const workOrderRepo = getWorkOrderRepository();
     const wos = await workOrderRepo.findManyByTicketId(ticketId);
 
     for (const wo of wos) {

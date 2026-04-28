@@ -20,4 +20,14 @@ describe("module public api boundaries", () => {
       expect(source).not.toMatch(/^export .*\.\/repositories\//m);
     },
   );
+
+  it("does not instantiate work-order repositories at sync service module load", () => {
+    const source = readProjectFile(
+      "modules/work-order/services/WorkOrderSyncService.ts",
+    );
+
+    expect(source).not.toMatch(
+      /^const\s+\w+\s*=\s*new\s+(WorkOrderRepository|TicketRepository)\(/m,
+    );
+  });
 });
