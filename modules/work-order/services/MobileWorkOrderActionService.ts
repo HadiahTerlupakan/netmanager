@@ -103,7 +103,11 @@ interface HandleMobileActionInput {
  * Mobile work order action service.
  */
 export class MobileWorkOrderActionService {
-  private readonly repository = new WorkOrderRepository(prisma);
+  private readonly repository: WorkOrderRepository;
+
+  constructor(repository?: WorkOrderRepository) {
+    this.repository = repository ?? new WorkOrderRepository(prisma);
+  }
 
   /**
    * Update task status from mobile route.

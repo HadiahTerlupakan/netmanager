@@ -1,6 +1,6 @@
 import { hasPermission } from "@/lib/rbac";
 import { ApiErrors, createHandler } from "@/lib/api";
-import { adminWorkOrderDashboardService } from "@/modules/work-order";
+import { getAdminWorkOrderDashboardService } from "@/modules/work-order";
 
 // GET /api/admin/workorders/analytics
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -15,7 +15,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = req.nextUrl;
   const period = searchParams.get("period") || "all_time";
 
-  return adminWorkOrderDashboardService.getAnalyticsData({
+  return getAdminWorkOrderDashboardService().getAnalyticsData({
     user,
     permissions: ctx.permissions,
     period,

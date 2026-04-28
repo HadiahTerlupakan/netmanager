@@ -18,7 +18,11 @@ export interface AdminWorkOrderDashboardOptions {
 }
 
 export class AdminWorkOrderDashboardService {
-  private readonly workOrderRepo = new WorkOrderRepository(prisma);
+  private readonly workOrderRepo: WorkOrderRepository;
+
+  constructor(workOrderRepo?: WorkOrderRepository) {
+    this.workOrderRepo = workOrderRepo ?? new WorkOrderRepository(prisma);
+  }
 
   async getDashboardData(
     options: AdminWorkOrderDashboardOptions,
@@ -418,5 +422,12 @@ export class AdminWorkOrderDashboardService {
   }
 }
 
-export const adminWorkOrderDashboardService =
-  new AdminWorkOrderDashboardService();
+let adminWorkOrderDashboardServiceInstance: AdminWorkOrderDashboardService | null =
+  null;
+
+/** Return the shared admin work-order dashboard service lazily. */
+export function getAdminWorkOrderDashboardService() {
+  adminWorkOrderDashboardServiceInstance ??=
+    new AdminWorkOrderDashboardService();
+  return adminWorkOrderDashboardServiceInstance;
+}

@@ -37,7 +37,11 @@ interface MobileWorkOrderUserContext {
 }
 
 export class EmployeeWorkOrderQueryService {
-  constructor(private readonly repository = new WorkOrderRepository()) {}
+  private readonly repository: WorkOrderRepository;
+
+  constructor(repository?: WorkOrderRepository) {
+    this.repository = repository ?? new WorkOrderRepository();
+  }
 
   /** Mengambil daftar work order yang ditugaskan ke user. */
   async getAssignedWorkOrders(userId: string) {
@@ -97,5 +101,12 @@ export class EmployeeWorkOrderQueryService {
 }
 
 export type MobileWorkOrderDetail = WorkOrderWithRelations;
-export const employeeWorkOrderQueryService =
-  new EmployeeWorkOrderQueryService();
+
+let employeeWorkOrderQueryServiceInstance: EmployeeWorkOrderQueryService | null =
+  null;
+
+/** Return the shared employee work-order query service lazily. */
+export function getEmployeeWorkOrderQueryService() {
+  employeeWorkOrderQueryServiceInstance ??= new EmployeeWorkOrderQueryService();
+  return employeeWorkOrderQueryServiceInstance;
+}

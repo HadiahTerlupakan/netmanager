@@ -21,13 +21,20 @@ describe("module public api boundaries", () => {
     },
   );
 
-  it("does not instantiate work-order repositories at sync service module load", () => {
-    const source = readProjectFile(
-      "modules/work-order/services/WorkOrderSyncService.ts",
-    );
+  it("does not instantiate work-order repositories while loading public API services", () => {
+    const publicApiSource = readProjectFile("modules/work-order/index.ts");
+    const exportedServicePaths = [
+      ...publicApiSource.matchAll(/export \* from "(\.\/services\/[^\"]+)";/g),
+    ]
+      .map((match) => `modules/work-order/${match[1].slice(2)}.ts`)
+      .filter((filePath) => statSync(join(process.cwd(), filePath)).isFile());
 
-    expect(source).not.toMatch(
-      /^const\s+\w+\s*=\s*new\s+(WorkOrderRepository|TicketRepository)\(/m,
-    );
+    for (const servicePath of exportedServicePaths) {
+      const source = readProjectFile(servicePath);
+
+      expect(source, servicePath).not.toMatch(
+        /(constructor\([^)]*=\s*new\s+|private\s+(?:readonly\s+)?\w+\s*=\s*new\s+|^export\s+const\s+\w+\s*=\s*new\s+|^const\s+\w+\s*=\s*new\s+)(WorkOrderRepository|TicketRepository)\(/m,
+      );
+    }
   });
 });

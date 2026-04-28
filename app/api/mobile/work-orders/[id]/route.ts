@@ -5,7 +5,7 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
-import { employeeWorkOrderQueryService } from "@/modules/work-order";
+import { getEmployeeWorkOrderQueryService } from "@/modules/work-order";
 
 /** Mengambil detail work order mobile untuk user yang berhak. */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
@@ -14,7 +14,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 
   try {
     const workOrder =
-      await employeeWorkOrderQueryService.getMobileWorkOrderDetail(
+      await getEmployeeWorkOrderQueryService().getMobileWorkOrderDetail(
         workOrderId,
         {
           id: user.id,

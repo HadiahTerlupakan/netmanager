@@ -148,9 +148,9 @@ vi.mock("@/modules/work-order", () => ({
     return workOrder;
   },
   syncWoStatusToTicket: mockFns.syncWoStatusToTicket,
-  employeeWorkOrderQueryService: {
+  getEmployeeWorkOrderQueryService: () => ({
     getMobileWorkOrderDetail: mockFns.getMobileWorkOrderDetail,
-  },
+  }),
   MobileWorkOrderActionService: class MockMobileWorkOrderActionService {
     updateTaskStatus = mockFns.updateTask;
     handleAction = mockFns.updateStatus;
