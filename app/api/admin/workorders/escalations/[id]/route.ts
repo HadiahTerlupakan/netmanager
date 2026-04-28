@@ -1,4 +1,4 @@
-import { adminWorkOrderConfigService } from "@/modules/work-order";
+import { getAdminWorkOrderConfigService } from "@/modules/work-order";
 import { workOrderEscalationUpdateSchema } from "@/lib/validations/workorder-escalation";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -17,7 +17,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderConfigService.getEscalationById(
+  const result = await getAdminWorkOrderConfigService().getEscalationById(
     ctx.params.id,
   );
 
@@ -46,7 +46,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const validatedData = workOrderEscalationUpdateSchema.parse(body);
-  const result = await adminWorkOrderConfigService.updateEscalation(
+  const result = await getAdminWorkOrderConfigService().updateEscalation(
     ctx.params.id,
     validatedData,
   );
@@ -76,7 +76,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderConfigService.deleteEscalation(
+  const result = await getAdminWorkOrderConfigService().deleteEscalation(
     ctx.params.id,
   );
 

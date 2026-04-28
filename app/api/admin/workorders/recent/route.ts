@@ -1,4 +1,4 @@
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
@@ -16,7 +16,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderRouteService.getRecentWorkOrders({
+  const result = await getAdminWorkOrderRouteService().getRecentWorkOrders({
     limit: Number.parseInt(req.nextUrl.searchParams.get("limit") || "5", 10),
     user: ctx.session!.user,
     permissions: ctx.permissions,

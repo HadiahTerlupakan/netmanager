@@ -52,11 +52,11 @@ vi.mock("@/modules/notification", () => ({
 }));
 
 vi.mock("@/modules/work-order", () => ({
-  adminWorkOrderRouteService: {
+  getAdminWorkOrderRouteService: () => ({
     addComment: mockFns.addComment,
     addTask: mockFns.addTask,
     getUserContext: mockFns.getUserContext,
-  },
+  }),
   getWorkOrderService: () => ({
     getWorkOrderById: mockFns.getWorkOrderById,
   }),

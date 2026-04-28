@@ -1,6 +1,6 @@
 import {
   getWorkOrderService,
-  adminWorkOrderRouteService,
+  getAdminWorkOrderRouteService,
 } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -13,7 +13,7 @@ import {
 
 /** GET /api/admin/workorders/[id]/tasks */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const userContext = await adminWorkOrderRouteService.getUserContext(
+  const userContext = await getAdminWorkOrderRouteService().getUserContext(
     ctx.session!.user,
     ctx.permissions,
   );
@@ -64,7 +64,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const result = await adminWorkOrderRouteService.addTask({
+  const result = await getAdminWorkOrderRouteService().addTask({
     workOrderId: ctx.params.id,
     title: body.title,
     description: body.description,

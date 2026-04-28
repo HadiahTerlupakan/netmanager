@@ -310,4 +310,11 @@ export class AdminWorkOrderConfigService {
   }
 }
 
-export const adminWorkOrderConfigService = new AdminWorkOrderConfigService();
+let adminWorkOrderConfigServiceInstance: AdminWorkOrderConfigService | null =
+  null;
+
+/** Return the shared admin work-order config service lazily. */
+export function getAdminWorkOrderConfigService() {
+  adminWorkOrderConfigServiceInstance ??= new AdminWorkOrderConfigService();
+  return adminWorkOrderConfigServiceInstance;
+}

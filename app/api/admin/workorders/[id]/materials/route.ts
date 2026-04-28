@@ -6,7 +6,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 import * as z from "zod";
 
 const addMaterialSchema = z.object({
@@ -32,7 +32,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const result = await adminWorkOrderRouteService.addMaterial({
+  const result = await getAdminWorkOrderRouteService().addMaterial({
     workOrderId: ctx.params.id,
     barangId: validation.data.barangId,
     quantity: validation.data.quantity,

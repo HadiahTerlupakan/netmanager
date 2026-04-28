@@ -24,9 +24,9 @@ vi.mock("@/lib/api", () => ({
 }));
 
 vi.mock("@/modules/work-order", () => ({
-  mobileWorkOrderRequestService: {
+  getMobileWorkOrderRequestService: () => ({
     createRequest: mockFns.createRequest,
-  },
+  }),
   WorkOrderRepository: class MockWorkOrderRepository {
     constructor() {}
     findById = mockFns.repositoryFindById;

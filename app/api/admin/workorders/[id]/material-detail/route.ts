@@ -5,7 +5,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 
 /** GET /api/admin/workorders/[id]/material-detail */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -17,7 +17,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const result = await adminWorkOrderRouteService.getMaterialDetail(
+  const result = await getAdminWorkOrderRouteService().getMaterialDetail(
     ctx.params.id,
     updateId,
   );

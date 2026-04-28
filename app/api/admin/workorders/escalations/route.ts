@@ -1,4 +1,4 @@
-import { adminWorkOrderConfigService } from "@/modules/work-order";
+import { getAdminWorkOrderConfigService } from "@/modules/work-order";
 import {
   workOrderEscalationCreateSchema,
   workOrderEscalationQuerySchema,
@@ -35,7 +35,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     sortOrder: searchParams.get("sortOrder") || "desc",
   });
 
-  const result = await adminWorkOrderConfigService.getEscalations(query);
+  const result = await getAdminWorkOrderConfigService().getEscalations(query);
 
   if (!result.success || !result.data) {
     return apiError(
@@ -58,7 +58,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const validatedData = workOrderEscalationCreateSchema.parse(body);
-  const result = await adminWorkOrderConfigService.createEscalation(
+  const result = await getAdminWorkOrderConfigService().createEscalation(
     validatedData,
     ctx.session!.user.id,
   );

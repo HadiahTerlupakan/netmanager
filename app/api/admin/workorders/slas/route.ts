@@ -1,4 +1,4 @@
-import { adminWorkOrderConfigService } from "@/modules/work-order";
+import { getAdminWorkOrderConfigService } from "@/modules/work-order";
 import { slaCreateSchema, slaQuerySchema } from "@/lib/validations/sla";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -30,7 +30,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     sortOrder: searchParams.get("sortOrder") || "desc",
   });
 
-  const result = await adminWorkOrderConfigService.getSlas(query);
+  const result = await getAdminWorkOrderConfigService().getSlas(query);
 
   if (!result.success || !result.data) {
     return apiError(
@@ -53,7 +53,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const validatedData = slaCreateSchema.parse(body);
-  const result = await adminWorkOrderConfigService.createSla(
+  const result = await getAdminWorkOrderConfigService().createSla(
     validatedData,
     ctx.session!.user.id,
   );

@@ -1,4 +1,4 @@
-import { adminWorkOrderConfigService } from "@/modules/work-order";
+import { getAdminWorkOrderConfigService } from "@/modules/work-order";
 import {
   workOrderTemplateCreateSchema,
   workOrderTemplateQuerySchema,
@@ -33,7 +33,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     sortOrder: searchParams.get("sortOrder") || "desc",
   });
 
-  const result = await adminWorkOrderConfigService.getTemplates(query);
+  const result = await getAdminWorkOrderConfigService().getTemplates(query);
 
   if (!result.success || !result.data) {
     return apiError(
@@ -56,7 +56,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const validatedData = workOrderTemplateCreateSchema.parse(body);
-  const result = await adminWorkOrderConfigService.createTemplate(
+  const result = await getAdminWorkOrderConfigService().createTemplate(
     validatedData,
     ctx.session!.user.id,
   );

@@ -1,4 +1,4 @@
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
@@ -41,7 +41,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderRouteService.processRequestApproval({
+  const result = await getAdminWorkOrderRouteService().processRequestApproval({
     workOrderId: id,
     action: body.action,
     actor: user,

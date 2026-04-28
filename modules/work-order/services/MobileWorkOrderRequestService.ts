@@ -190,5 +190,11 @@ export class MobileWorkOrderRequestService {
   }
 }
 
-export const mobileWorkOrderRequestService =
-  new MobileWorkOrderRequestService();
+let mobileWorkOrderRequestServiceInstance: MobileWorkOrderRequestService | null =
+  null;
+
+/** Return the shared mobile work-order request service lazily. */
+export function getMobileWorkOrderRequestService() {
+  mobileWorkOrderRequestServiceInstance ??= new MobileWorkOrderRequestService();
+  return mobileWorkOrderRequestServiceInstance;
+}

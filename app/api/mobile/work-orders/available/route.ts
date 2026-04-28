@@ -1,10 +1,10 @@
 import { apiSuccess, apiError, ErrorCodes, createHandler } from "@/lib/api";
-import { mobileAvailableWorkOrderService } from "@/modules/work-order";
+import { getMobileAvailableWorkOrderService } from "@/modules/work-order";
 
 // GET - List available work orders (PENDING status, not assigned)
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const workOrders =
-    await mobileAvailableWorkOrderService.getAvailableWorkOrders(
+    await getMobileAvailableWorkOrderService().getAvailableWorkOrders(
       ctx.session!.user,
     );
 
@@ -22,10 +22,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const result = await mobileAvailableWorkOrderService.claimAvailableWorkOrder(
-    workOrderId,
-    ctx.session!.user,
-  );
+  const result =
+    await getMobileAvailableWorkOrderService().claimAvailableWorkOrder(
+      workOrderId,
+      ctx.session!.user,
+    );
 
   if (result instanceof Response) {
     return result;

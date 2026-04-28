@@ -1,6 +1,6 @@
 import {
   getWorkOrderService,
-  adminWorkOrderRouteService,
+  getAdminWorkOrderRouteService,
 } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -19,7 +19,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const userContext = await adminWorkOrderRouteService.getUserContext(
+  const userContext = await getAdminWorkOrderRouteService().getUserContext(
     ctx.session!.user,
     ctx.permissions,
   );
@@ -55,7 +55,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 /** PATCH /api/admin/workorders/{id} */
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const body = await req.json();
-  const userContext = await adminWorkOrderRouteService.getUserContext(
+  const userContext = await getAdminWorkOrderRouteService().getUserContext(
     ctx.session!.user,
     ctx.permissions,
   );
@@ -149,7 +149,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderRouteService.deleteWorkOrder({
+  const result = await getAdminWorkOrderRouteService().deleteWorkOrder({
     workOrderId: ctx.params.id,
     permanent: isPermanent,
     reason,

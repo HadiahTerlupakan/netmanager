@@ -31,10 +31,25 @@ describe("module public api boundaries", () => {
 
     for (const servicePath of exportedServicePaths) {
       const source = readProjectFile(servicePath);
+      const serviceClassName = servicePath
+        .split("/")
+        .at(-1)
+        ?.replace(".ts", "");
 
       expect(source, servicePath).not.toMatch(
         /(constructor\([^)]*=\s*new\s+|private\s+(?:readonly\s+)?\w+\s*=\s*new\s+|^export\s+const\s+\w+\s*=\s*new\s+|^const\s+\w+\s*=\s*new\s+)(WorkOrderRepository|TicketRepository)\(/m,
       );
+
+      if (
+        serviceClassName &&
+        /WorkOrderRepository|TicketRepository/.test(source)
+      ) {
+        expect(source, servicePath).not.toMatch(
+          new RegExp(
+            `export\\s+const\\s+\\w+\\s*=\\s*new\\s+${serviceClassName}\\(`,
+          ),
+        );
+      }
     }
   });
 });

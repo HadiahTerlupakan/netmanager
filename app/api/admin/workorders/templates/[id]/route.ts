@@ -1,4 +1,4 @@
-import { adminWorkOrderConfigService } from "@/modules/work-order";
+import { getAdminWorkOrderConfigService } from "@/modules/work-order";
 import { workOrderTemplateUpdateSchema } from "@/lib/validations/workorder-template";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -17,7 +17,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderConfigService.getTemplateById(
+  const result = await getAdminWorkOrderConfigService().getTemplateById(
     ctx.params.id,
   );
 
@@ -46,7 +46,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const validatedData = workOrderTemplateUpdateSchema.parse(body);
-  const result = await adminWorkOrderConfigService.updateTemplate(
+  const result = await getAdminWorkOrderConfigService().updateTemplate(
     ctx.params.id,
     validatedData,
   );
@@ -76,7 +76,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderConfigService.deleteTemplate(
+  const result = await getAdminWorkOrderConfigService().deleteTemplate(
     ctx.params.id,
   );
 

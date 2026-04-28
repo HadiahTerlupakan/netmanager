@@ -842,4 +842,11 @@ export class AdminWorkOrderRouteService {
   }
 }
 
-export const adminWorkOrderRouteService = new AdminWorkOrderRouteService();
+let adminWorkOrderRouteServiceInstance: AdminWorkOrderRouteService | null =
+  null;
+
+/** Return the shared admin work-order route service lazily. */
+export function getAdminWorkOrderRouteService() {
+  adminWorkOrderRouteServiceInstance ??= new AdminWorkOrderRouteService();
+  return adminWorkOrderRouteServiceInstance;
+}

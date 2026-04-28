@@ -6,7 +6,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 
 /** POST /api/admin/workorders/[id]/comments */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
@@ -28,7 +28,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const result = await adminWorkOrderRouteService.addComment({
+  const result = await getAdminWorkOrderRouteService().addComment({
     workOrderId: id,
     message,
     actor: user,

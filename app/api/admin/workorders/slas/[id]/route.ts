@@ -1,4 +1,4 @@
-import { adminWorkOrderConfigService } from "@/modules/work-order";
+import { getAdminWorkOrderConfigService } from "@/modules/work-order";
 import { slaUpdateSchema } from "@/lib/validations/sla";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -17,7 +17,9 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderConfigService.getSlaById(ctx.params.id);
+  const result = await getAdminWorkOrderConfigService().getSlaById(
+    ctx.params.id,
+  );
 
   if (!result.success) {
     if (result.code === ErrorCodes.NOT_FOUND) {
@@ -44,7 +46,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const validatedData = slaUpdateSchema.parse(body);
-  const result = await adminWorkOrderConfigService.updateSla(
+  const result = await getAdminWorkOrderConfigService().updateSla(
     ctx.params.id,
     validatedData,
   );
@@ -72,7 +74,9 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderConfigService.deleteSla(ctx.params.id);
+  const result = await getAdminWorkOrderConfigService().deleteSla(
+    ctx.params.id,
+  );
 
   if (!result.success) {
     if (result.code === ErrorCodes.NOT_FOUND) {

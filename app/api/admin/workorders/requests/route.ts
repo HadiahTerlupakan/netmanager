@@ -1,6 +1,6 @@
 import {
   getWorkOrderService,
-  adminWorkOrderRouteService,
+  getAdminWorkOrderRouteService,
 } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -31,7 +31,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const departmentId =
     req.nextUrl.searchParams.get("departmentId") || undefined;
   const siteId = req.nextUrl.searchParams.get("siteId") || undefined;
-  const access = await adminWorkOrderRouteService.buildAccessFilters(
+  const access = await getAdminWorkOrderRouteService().buildAccessFilters(
     user,
     ctx.permissions,
   );

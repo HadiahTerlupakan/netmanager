@@ -1,5 +1,5 @@
 import { apiSuccess, apiError, createHandler, ErrorCodes } from "@/lib/api";
-import { mobileWorkOrderRequestService } from "@/modules/work-order";
+import { getMobileWorkOrderRequestService } from "@/modules/work-order";
 
 /**
  * POST /api/mobile/work-orders/request
@@ -19,7 +19,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const workOrder = await mobileWorkOrderRequestService.createRequest(
+  const workOrder = await getMobileWorkOrderRequestService().createRequest(
     body,
     userSession,
   );

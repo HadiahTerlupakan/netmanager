@@ -37,9 +37,9 @@ vi.mock("@/lib/middleware/request-logger", () => ({
 vi.unmock("@/lib/tenant-context");
 
 vi.mock("@/modules/work-order", () => ({
-  mobileWorkOrderRequestService: {
+  getMobileWorkOrderRequestService: () => ({
     createRequest: (...args: unknown[]) => mockFns.createRequest(...args),
-  },
+  }),
 }));
 
 import { POST } from "@/app/api/mobile/work-orders/request/route";

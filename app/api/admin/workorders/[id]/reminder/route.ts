@@ -6,7 +6,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 
 /** POST /api/admin/workorders/[id]/reminder */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
@@ -27,7 +27,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     customMessage = undefined;
   }
 
-  const result = await adminWorkOrderRouteService.sendReminder({
+  const result = await getAdminWorkOrderRouteService().sendReminder({
     workOrderId: ctx.params.id,
     customMessage,
     targetDepartmentId,

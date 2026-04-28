@@ -8,7 +8,7 @@ import {
 } from "@/lib/api";
 import {
   getWorkOrderService,
-  adminWorkOrderRouteService,
+  getAdminWorkOrderRouteService,
 } from "@/modules/work-order";
 import { logActivitySafe } from "@/lib/logger";
 
@@ -31,7 +31,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const userContext = await adminWorkOrderRouteService.getUserContext(
+  const userContext = await getAdminWorkOrderRouteService().getUserContext(
     ctx.session!.user,
     ctx.permissions,
   );

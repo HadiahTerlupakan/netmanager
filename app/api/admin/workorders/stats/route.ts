@@ -1,4 +1,4 @@
-import { adminWorkOrderRouteService } from "@/modules/work-order";
+import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
@@ -16,7 +16,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const result = await adminWorkOrderRouteService.getStats({
+  const result = await getAdminWorkOrderRouteService().getStats({
     filters: {
       departmentId: req.nextUrl.searchParams.get("departmentId") || undefined,
       assignedToId: req.nextUrl.searchParams.get("assignedToId") || undefined,

@@ -8,7 +8,7 @@ import {
 } from "@/lib/api";
 import {
   getWorkOrderService,
-  adminWorkOrderRouteService,
+  getAdminWorkOrderRouteService,
 } from "@/modules/work-order";
 
 /** DELETE /api/admin/workorders/[id]/attachments/[attachmentId] */
@@ -29,7 +29,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  const userContext = await adminWorkOrderRouteService.getUserContext(
+  const userContext = await getAdminWorkOrderRouteService().getUserContext(
     ctx.session!.user,
     ctx.permissions,
   );

@@ -299,5 +299,12 @@ export class MobileAvailableWorkOrderService {
   }
 }
 
-export const mobileAvailableWorkOrderService =
-  new MobileAvailableWorkOrderService();
+let mobileAvailableWorkOrderServiceInstance: MobileAvailableWorkOrderService | null =
+  null;
+
+/** Return the shared mobile available work-order service lazily. */
+export function getMobileAvailableWorkOrderService() {
+  mobileAvailableWorkOrderServiceInstance ??=
+    new MobileAvailableWorkOrderService();
+  return mobileAvailableWorkOrderServiceInstance;
+}

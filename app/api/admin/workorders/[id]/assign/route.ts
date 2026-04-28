@@ -1,6 +1,6 @@
 import {
   getWorkOrderService,
-  adminWorkOrderRouteService,
+  getAdminWorkOrderRouteService,
 } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -19,7 +19,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const userContext = await adminWorkOrderRouteService.getUserContext(
+  const userContext = await getAdminWorkOrderRouteService().getUserContext(
     ctx.session!.user,
     ctx.permissions,
   );
