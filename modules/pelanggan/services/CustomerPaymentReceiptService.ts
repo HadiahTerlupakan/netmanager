@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
-import { analyzeReceiptWithOCR } from "@/lib/services/receipt-ocr";
+import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
+import { analyzeReceiptWithOCR } from "@/modules/integrations";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import {
   findPendingManualCustomerTransfer,
@@ -11,6 +12,10 @@ import { PelangganRepository } from "../repositories/PelangganRepository";
 type ReceiptUploadResult =
   | { status: "not-found" }
   | { status: "uploaded"; receiptUrl: string };
+
+const RECEIPT_NOTIFICATION_TITLE = "Persetujuan Pembayaran";
+const RECEIPT_NOTIFICATION_MESSAGE = "Struk pembayaran baru diunggah pelanggan";
+const RECEIPT_NOTIFICATION_URL = "/admin/payments/approval";
 
 const pelangganRepository = new PelangganRepository();
 
@@ -57,6 +62,7 @@ export async function uploadCustomerPaymentReceipt(options: {
     paymentId: updatedPayment.id,
     amount: Number(payment.amount),
   });
+  await notifyAdminsAboutReceiptUpload();
 
   return {
     status: "uploaded",
@@ -109,6 +115,7 @@ function buildAmountWarnings(nominal: number | null, expectedAmount: number) {
   return [];
 }
 
+/** Mempublikasikan event realtime admin setelah bukti pembayaran masuk. */
 async function publishPaymentUploadNotification(options: {
   customerId: string;
   paymentId: string;
@@ -136,4 +143,19 @@ async function publishPaymentUploadNotification(options: {
   ).catch((error) => {
     logger.error("[upload-receipt] Failed to publish realtime update", error);
   });
+}
+
+/** Mengirim push notification admin setelah pelanggan mengunggah bukti pembayaran. */
+async function notifyAdminsAboutReceiptUpload() {
+  try {
+    const tokens = await getAdminTokens();
+    await sendFCMNotification(
+      tokens,
+      RECEIPT_NOTIFICATION_TITLE,
+      RECEIPT_NOTIFICATION_MESSAGE,
+      { url: RECEIPT_NOTIFICATION_URL },
+    );
+  } catch (error) {
+    logger.error("[FCM] Push failed", error);
+  }
 }

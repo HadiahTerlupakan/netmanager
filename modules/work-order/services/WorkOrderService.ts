@@ -15,8 +15,20 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
-import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { logger } from "@/lib/logger";
+import {
+  applyWorkOrderListRestrictions,
+  buildInactiveEmployeeMessage,
+  createEmptyWorkOrderListResult,
+  createWorkOrderNotFoundResult,
+  getWorkOrderErrorCode,
+  hasActiveEmployeeStatus,
+  isGenericNotFoundError,
+  isMobileMaterialValidationError,
+  isWorkOrderNotFoundError,
+  logWorkOrderServiceError,
+  resolveTenantIdFromContext,
+} from "./work-order-service-helpers";
 import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
 import { UserLookupService } from "@/modules/users";
 
@@ -106,15 +118,6 @@ export interface WorkOrderListOptions {
   userRole?: string;
 }
 
-const EMPTY_WORK_ORDER_LIST_SUMMARY: WorkOrderListSummary = {
-  completed: 0,
-  unfinished: 0,
-  focut: 0,
-  dismantle: 0,
-  averageCompletionTimeHours: 0,
-  topCustomers: [],
-};
-
 export interface ServiceResult<T> {
   success: boolean;
   data?: T;
@@ -188,48 +191,16 @@ export class WorkOrderService {
         userRole,
       } = options;
 
-      const appliedFilters = { ...filters };
+      const appliedFilters = applyWorkOrderListRestrictions({
+        filters,
+        userPermissions,
+        userDepartmentId,
+        userSiteId,
+        userRole,
+      });
 
-      // Apply department restriction
-      const hasDepartmentRestriction = userPermissions.includes(
-        "workorders:department_only",
-      );
-      const isSuperAdmin = userRole === "SUPER_ADMIN";
-
-      if (hasDepartmentRestriction && !isSuperAdmin) {
-        if (!userDepartmentId) {
-          return {
-            success: true,
-            data: {
-              workOrders: [],
-              total: 0,
-              page,
-              totalPages: 0,
-              summary: EMPTY_WORK_ORDER_LIST_SUMMARY,
-            },
-          };
-        }
-        appliedFilters.departmentId = userDepartmentId;
-      }
-
-      // Apply site restriction
-      const hasSiteRestriction = userPermissions.includes(
-        "workorders:site_only",
-      );
-      if (hasSiteRestriction && !isSuperAdmin) {
-        if (!userSiteId) {
-          return {
-            success: true,
-            data: {
-              workOrders: [],
-              total: 0,
-              page,
-              totalPages: 0,
-              summary: EMPTY_WORK_ORDER_LIST_SUMMARY,
-            },
-          };
-        }
-        appliedFilters.siteId = userSiteId;
+      if (!appliedFilters) {
+        return createEmptyWorkOrderListResult(page);
       }
 
       // Use optimized query for list views
@@ -241,10 +212,7 @@ export class WorkOrderService {
 
       return { success: true, data: result };
     } catch (error) {
-      logger.error(
-        "WorkOrderService.getWorkOrders failed",
-        error instanceof Error ? error : undefined,
-      );
+      logWorkOrderServiceError("WorkOrderService.getWorkOrders failed", error);
       return {
         success: false,
         error: "Gagal mengambil daftar work order",
@@ -463,11 +431,7 @@ export class WorkOrderService {
       // Check exists
       const existing = await this.repository.findById(id);
       if (!existing) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+        return createWorkOrderNotFoundResult();
       }
 
       // Update - ensure scheduledDate is Date or undefined
@@ -501,10 +465,7 @@ export class WorkOrderService {
           error instanceof Error
             ? error.message
             : "Gagal mengupdate work order",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "UPDATE_ERROR",
+        code: getWorkOrderErrorCode(error, "UPDATE_ERROR"),
       };
     }
   }
@@ -524,11 +485,7 @@ export class WorkOrderService {
 
       const existing = await this.repository.findById(id);
       if (!existing) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+        return createWorkOrderNotFoundResult();
       }
 
       const previousStatus = existing.status;
@@ -565,29 +522,15 @@ export class WorkOrderService {
       const result = await this.repository.findById(id);
       return { success: true, data: result as WorkOrderWithRelations };
     } catch (error) {
-      logger.error(
-        "WorkOrderService.updateStatus failed",
-        error instanceof Error ? error : undefined,
-      );
-      if (
-        isPrismaRecordNotFoundError(error) ||
-        (error instanceof Error &&
-          error.message === "Work order tidak ditemukan")
-      ) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+      logWorkOrderServiceError("WorkOrderService.updateStatus failed", error);
+      if (isWorkOrderNotFoundError(error)) {
+        return createWorkOrderNotFoundResult();
       }
       return {
         success: false,
         error:
           error instanceof Error ? error.message : "Gagal mengupdate status",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "STATUS_ERROR",
+        code: getWorkOrderErrorCode(error, "STATUS_ERROR"),
       };
     }
   }
@@ -609,11 +552,7 @@ export class WorkOrderService {
 
       const existing = await this.repository.findById(id);
       if (!existing) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+        return createWorkOrderNotFoundResult();
       }
 
       // Validate employee status
@@ -627,10 +566,12 @@ export class WorkOrderService {
         };
       }
 
-      if (!(employee as { isActive: boolean }).isActive) {
+      if (!hasActiveEmployeeStatus(employee as { isActive: boolean })) {
         return {
           success: false,
-          error: `Tidak dapat menugaskan work order ke karyawan yang tidak aktif: ${(employee as { name: string | null }).name || "Tidak Diketahui"}`,
+          error: buildInactiveEmployeeMessage(
+            (employee as { name: string | null }).name,
+          ),
           code: "EMPLOYEE_INACTIVE",
         };
       }
@@ -694,11 +635,7 @@ export class WorkOrderService {
 
       const existing = await this.repository.findById(id);
       if (!existing) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+        return createWorkOrderNotFoundResult();
       }
 
       if (existing.status !== "REQUESTED") {
@@ -763,11 +700,7 @@ export class WorkOrderService {
 
       const existing = await this.repository.findById(id);
       if (!existing) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+        return createWorkOrderNotFoundResult();
       }
 
       if (existing.status !== "REQUESTED") {
@@ -823,11 +756,7 @@ export class WorkOrderService {
 
       const existing = await this.repository.findById(id);
       if (!existing) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+        return createWorkOrderNotFoundResult();
       }
 
       const deletedById = userContext.id;
@@ -842,20 +771,12 @@ export class WorkOrderService {
 
       return { success: true };
     } catch (error) {
-      logger.error(
+      logWorkOrderServiceError(
         "WorkOrderService.deleteWorkOrder failed",
-        error instanceof Error ? error : undefined,
+        error,
       );
-      if (
-        isPrismaRecordNotFoundError(error) ||
-        (error instanceof Error &&
-          error.message === "Work order tidak ditemukan")
-      ) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
+      if (isWorkOrderNotFoundError(error)) {
+        return createWorkOrderNotFoundResult();
       }
       return {
         success: false,
@@ -962,20 +883,12 @@ export class WorkOrderService {
         error:
           error instanceof Error ? error.message : "Terjadi kesalahan server",
         code:
-          error instanceof Error &&
-          (error.message.includes("Akses ditolak") ||
-            error.message.includes("tidak memiliki akses"))
-            ? "FORBIDDEN"
-            : error instanceof Error &&
-                (error.message.includes("wajib") ||
-                  error.message.includes("harus") ||
-                  error.message.includes("Stok") ||
-                  error.message.includes("Data stok"))
-              ? "VALIDATION_ERROR"
-              : error instanceof Error &&
-                  error.message.includes("tidak ditemukan")
-                ? "NOT_FOUND"
-                : "INTERNAL_ERROR",
+          getWorkOrderErrorCode(error, "") ||
+          (isMobileMaterialValidationError(error)
+            ? "VALIDATION_ERROR"
+            : isGenericNotFoundError(error)
+              ? "NOT_FOUND"
+              : "INTERNAL_ERROR"),
       };
     }
   }
@@ -993,7 +906,10 @@ export class WorkOrderService {
         userContext,
       });
 
-      const tenantId = workOrder.tenantId || userContext.tenantId;
+      const tenantId = resolveTenantIdFromContext({
+        workOrderTenantId: workOrder.tenantId,
+        userContext,
+      });
       const results = await this.prismaClient.$transaction(async (tx) => {
         const createdItems: MobileWorkOrderMaterialReturnResult[] = [];
 
@@ -1087,21 +1003,12 @@ export class WorkOrderService {
         error:
           error instanceof Error ? error.message : "Terjadi kesalahan server",
         code:
-          error instanceof Error &&
-          (error.message.includes("Akses ditolak") ||
-            error.message.includes("tidak memiliki akses"))
-            ? "FORBIDDEN"
-            : error instanceof Error &&
-                (error.message.includes("wajib") ||
-                  error.message.includes("harus") ||
-                  error.message.includes("Stok") ||
-                  error.message.includes("Data stok") ||
-                  error.message.includes("Kondisi"))
-              ? "VALIDATION_ERROR"
-              : error instanceof Error &&
-                  error.message.includes("tidak ditemukan")
-                ? "NOT_FOUND"
-                : "INTERNAL_ERROR",
+          getWorkOrderErrorCode(error, "") ||
+          (isMobileMaterialValidationError(error)
+            ? "VALIDATION_ERROR"
+            : isGenericNotFoundError(error)
+              ? "NOT_FOUND"
+              : "INTERNAL_ERROR"),
       };
     }
   }

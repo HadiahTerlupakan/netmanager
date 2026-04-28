@@ -9,7 +9,7 @@ import { logActivitySafe } from "@/lib/logger";
 import {
   buildInventoryAccessSession,
   validateGudangSiteAccess,
-} from "@/lib/inventory/access-session";
+} from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { parsePaginationParams } from "@/lib/utils/pagination";
 

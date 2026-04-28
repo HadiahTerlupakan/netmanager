@@ -6,7 +6,7 @@ import {
   Prisma as PrismaBilling,
 } from "@prisma/client-billing";
 import { logActivitySafe } from "@/lib/logger";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
+import { getPelangganService } from "@/modules/pelanggan";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 
@@ -53,8 +53,8 @@ export type PaymentRouteError =
 const invoiceRepository = new InvoiceRepository();
 const paymentRepository = new PaymentRepository();
 
-function getPelangganRepository() {
-  return new PelangganRepository();
+function getPelangganLookupService() {
+  return getPelangganService();
 }
 
 /** Lists payments for route responses with pagination. */
@@ -131,7 +131,7 @@ export async function createPaymentForRoute(options: {
   input: PaymentCreateInput;
   user: RouteUser;
 }): Promise<PaymentCreateResult> {
-  const pelanggan = await getPelangganRepository().findById(
+  const pelanggan = await getPelangganLookupService().getPelanggan(
     options.input.pelangganId,
   );
   if (!pelanggan) {

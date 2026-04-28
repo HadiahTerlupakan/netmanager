@@ -4,7 +4,7 @@ import {
   sendPushToDepartment as sendExpoPushToDepartment,
 } from "./ExpoPushService";
 import { NotificationRepository } from "../repositories/NotificationRepository";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { UserLookupService } from "@/modules/users";
 import { Prisma } from "@prisma/client";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
@@ -30,7 +30,7 @@ type EligibleUser = {
 };
 
 const notificationRepo = new NotificationRepository();
-const userRepo = new UserRepository();
+const userRepo = new UserLookupService();
 
 export type NotificationType =
   | "WORK_ORDER"

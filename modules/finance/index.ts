@@ -37,6 +37,7 @@ export * from "./services/RabProjectRouteService";
 export * from "./services/ReceivablesPageService";
 export * from "./dto/ReceivableDTO";
 export * from "./services/RouteServiceError";
+export * from "./utils/rabTarget";
 
 // Payment Gateway
 export * from "./services/PaymentGatewayTestService";

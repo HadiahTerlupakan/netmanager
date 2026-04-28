@@ -1,4 +1,4 @@
-import { createNotification } from "@/modules/notification";
+import { createNotification, sendPushToUsers } from "@/modules/notification";
 import {
   onWorkOrderUpdated,
   sendWorkOrderReminder,
@@ -22,10 +22,21 @@ const WORK_ORDER_REMINDER_STATUSES = [
 const CANCEL_REASON_DEFAULT = "Cancelled by admin";
 
 type PermissionList = string[] | undefined;
+type WorkOrderRequestAction = "APPROVE" | "REJECT";
+
+type WorkOrderListRouteFilters = Record<string, string | string[] | boolean>;
 
 interface DateRange {
   dateFrom?: Date;
   dateTo?: Date;
+}
+
+interface WorkOrderApprovalInput {
+  workOrderId: string;
+  action: WorkOrderRequestAction;
+  actor: { id: string; role?: string; name?: string | null };
+  permissions?: PermissionList;
+  reason?: string;
 }
 
 /** Service route admin untuk orkestrasi work order tanpa akses database di route. */
@@ -101,6 +112,81 @@ export class AdminWorkOrderRouteService {
       userDepartmentId: profile.departmentId || undefined,
       userSiteId: profile.siteId || undefined,
     };
+  }
+
+  /** Bangun filter list work order dari query string route admin. */
+  buildListFilters(searchParams: URLSearchParams): WorkOrderListRouteFilters {
+    const filters: WorkOrderListRouteFilters = {};
+
+    this.assignListFilterValue(filters, "status", searchParams.get("status"));
+    this.assignListFilterValue(
+      filters,
+      "priority",
+      searchParams.get("priority"),
+    );
+    this.assignListFilterValue(filters, "type", searchParams.get("type"));
+    this.assignScalarFilter(
+      filters,
+      "departmentId",
+      searchParams.get("departmentId"),
+    );
+    this.assignScalarFilter(filters, "siteId", searchParams.get("siteId"));
+    this.assignScalarFilter(
+      filters,
+      "assignedToId",
+      searchParams.get("assignedToId"),
+    );
+    this.assignScalarFilter(filters, "search", searchParams.get("search"));
+    this.assignUnassignedFilter(filters, searchParams.get("unassignedOnly"));
+    this.assignWorkOrderTypeFilter(filters, searchParams.get("woType"));
+
+    return filters;
+  }
+
+  /** Approve atau reject request work order beserta notifikasi peminta. */
+  async processRequestApproval(input: WorkOrderApprovalInput) {
+    const userContext = await this.getUserContext(
+      input.actor,
+      input.permissions,
+    );
+
+    if (!userContext) {
+      return { success: false as const, code: "UNAUTHORIZED" };
+    }
+
+    const workOrderResult = await this.workOrderService.getWorkOrderById(
+      input.workOrderId,
+      userContext,
+    );
+
+    if (!workOrderResult.success || !workOrderResult.data) {
+      return {
+        success: false as const,
+        code: workOrderResult.code || "NOT_FOUND",
+        error: workOrderResult.error,
+      };
+    }
+
+    const actionResult = await this.executeRequestApprovalAction({
+      action: input.action,
+      workOrderId: input.workOrderId,
+      userContext,
+      reason: input.reason,
+    });
+
+    if (!actionResult.success) {
+      return actionResult;
+    }
+
+    await this.notifyRequesterOfApprovalResult({
+      requesterId: workOrderResult.data.requestedById,
+      action: input.action,
+      title: workOrderResult.data.title,
+      workOrderId: input.workOrderId,
+      reason: input.reason,
+    });
+
+    return actionResult;
   }
 
   /** Tambahkan komentar WO dan kirim notifikasi side effect. */
@@ -521,6 +607,122 @@ export class AdminWorkOrderRouteService {
         },
       },
     };
+  }
+
+  private assignListFilterValue(
+    filters: WorkOrderListRouteFilters,
+    key: string,
+    value: string | null,
+  ) {
+    if (!value) {
+      return;
+    }
+
+    filters[key] = value.includes(",") ? value.split(",") : value;
+  }
+
+  private assignScalarFilter(
+    filters: WorkOrderListRouteFilters,
+    key: string,
+    value: string | null,
+  ) {
+    if (!value) {
+      return;
+    }
+
+    filters[key] = value;
+  }
+
+  private assignUnassignedFilter(
+    filters: WorkOrderListRouteFilters,
+    value: string | null,
+  ) {
+    if (value === "true") {
+      filters.unassignedOnly = true;
+    }
+  }
+
+  private assignWorkOrderTypeFilter(
+    filters: WorkOrderListRouteFilters,
+    value: string | null,
+  ) {
+    if (value === "customer") {
+      filters.isInternal = false;
+      return;
+    }
+
+    if (value === "internal") {
+      filters.isInternal = true;
+    }
+  }
+
+  private async executeRequestApprovalAction(input: {
+    workOrderId: string;
+    action: WorkOrderRequestAction;
+    userContext: UserContext;
+    reason?: string;
+  }) {
+    if (input.action === "APPROVE") {
+      return this.workOrderService.approveRequest(
+        input.workOrderId,
+        input.userContext,
+      );
+    }
+
+    return this.workOrderService.rejectRequest(
+      input.workOrderId,
+      input.userContext,
+      input.reason || "",
+    );
+  }
+
+  /** Mengirim notifikasi hasil approve/reject kepada peminta work order. */
+  private async notifyRequesterOfApprovalResult(input: {
+    requesterId?: string | null;
+    action: WorkOrderRequestAction;
+    title: string;
+    workOrderId: string;
+    reason?: string;
+  }) {
+    if (!input.requesterId) {
+      return;
+    }
+
+    const notificationTitle =
+      input.action === "APPROVE"
+        ? "✅ WO Request Disetujui"
+        : "❌ WO Request Ditolak";
+    const notificationMessage =
+      input.action === "APPROVE"
+        ? `Request Anda "${input.title}" telah disetujui and siap dikerjakan.`
+        : `Request Anda "${input.title}" ditolak: ${input.reason}`;
+
+    try {
+      await createNotification({
+        type: "WORK_ORDER",
+        priority: input.action === "REJECT" ? "HIGH" : "NORMAL",
+        title: notificationTitle,
+        message: notificationMessage,
+        link: `/admin/workorders/${input.workOrderId}`,
+        userId: input.requesterId,
+        sourceType: "WORK_ORDER",
+        sourceId: input.workOrderId,
+      });
+
+      await sendPushToUsers(
+        [input.requesterId],
+        notificationTitle,
+        notificationMessage,
+        {
+          workOrderId: input.workOrderId,
+          type: "WO_REQUEST_RESULT",
+          action: input.action,
+          screen: "WorkOrderDetail",
+        },
+      );
+    } catch {
+      return;
+    }
   }
 
   private async resolveGudangId(

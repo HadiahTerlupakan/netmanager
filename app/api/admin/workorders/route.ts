@@ -11,35 +11,6 @@ import {
   createHandler,
 } from "@/lib/api";
 
-/** Build work order list filters from query params. */
-function buildFilters(searchParams: URLSearchParams) {
-  const filters: Record<string, string | string[] | boolean> = {};
-  const status = searchParams.get("status");
-  const priority = searchParams.get("priority");
-  const type = searchParams.get("type");
-  const departmentId = searchParams.get("departmentId");
-  const siteId = searchParams.get("siteId");
-  const assignedToId = searchParams.get("assignedToId");
-  const search = searchParams.get("search");
-  const unassignedOnly = searchParams.get("unassignedOnly") === "true";
-  const woType = searchParams.get("woType");
-
-  if (status)
-    filters.status = status.includes(",") ? status.split(",") : status;
-  if (priority)
-    filters.priority = priority.includes(",") ? priority.split(",") : priority;
-  if (type) filters.type = type.includes(",") ? type.split(",") : type;
-  if (departmentId) filters.departmentId = departmentId;
-  if (siteId) filters.siteId = siteId;
-  if (assignedToId) filters.assignedToId = assignedToId;
-  if (search) filters.search = search;
-  if (unassignedOnly) filters.unassignedOnly = true;
-  if (woType === "customer") filters.isInternal = false;
-  if (woType === "internal") filters.isInternal = true;
-
-  return filters;
-}
-
 /** GET /api/admin/workorders */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
@@ -66,7 +37,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const result = await workOrderService.getWorkOrders({
     page,
     limit,
-    filters: buildFilters(searchParams),
+    filters: adminWorkOrderRouteService.buildListFilters(searchParams),
     userId: user.id,
     userPermissions: ctx.permissions || [],
     userDepartmentId: access.userDepartmentId,

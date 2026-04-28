@@ -27,11 +27,19 @@ vi.mock("@/lib/customer-auth", () => ({
 
 vi.mock("@/lib/utils/image-upload", () => ({
   convertAndSaveImage: mockFns.convertAndSaveImage,
+  uploadInventoryPhotos: vi.fn(),
 }));
 
-vi.mock("@/lib/services/receipt-ocr", () => ({
-  analyzeReceiptWithOCR: mockFns.analyzeReceiptWithOCR,
-}));
+vi.mock("@/modules/integrations", async () => {
+  const actual = await vi.importActual<typeof import("@/modules/integrations")>(
+    "@/modules/integrations",
+  );
+
+  return {
+    ...actual,
+    analyzeReceiptWithOCR: mockFns.analyzeReceiptWithOCR,
+  };
+});
 
 vi.mock("@/lib/realtime", () => ({
   firebaseRealtimeService: {

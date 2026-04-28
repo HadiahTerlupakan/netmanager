@@ -12,6 +12,8 @@ export interface ReceiptOCRResult {
   catatan_analisis: string;
 }
 
+const OCR_TEMPERATURE = 0.1;
+
 const receiptSchema = {
   type: "OBJECT",
   properties: {
@@ -59,7 +61,7 @@ const receiptSchema = {
 const receiptPrompt =
   'Anda adalah asisten verifikator keuangan yang sangat teliti. Analisis gambar bukti pembayaran (struk transfer bank / e-wallet) ini. Ekstrak data nominal, tanggal, dan nama bank. PENTING: Perhatikan dengan saksama indikasi editan/palsu SECARA VISUAL seperti: 1) Ada bekas tempelan kotak menutupi teks asli, 2) Font teks nominal atau nama tidak sesuai dengan font standar bank pada umumnya, 3) Pixel disekitar teks penting terlihat lebih kasar (bekas hapusan/smudge). Isi `is_potentially_fake` menjadi true HANYA JIKA ada indikasi visual ini. JANGAN isi true hanya karena masalah logika tanggal seperti "berada di masa depan".';
 
-/** Service untuk mendeteksi keaslian dan mengekstrak data bukti pembayaran. */
+/** Mendeteksi keaslian dan mengekstrak data bukti pembayaran dengan OCR. */
 export async function analyzeReceiptWithOCR(
   fileBuffer: ArrayBuffer,
   fileType: string,
@@ -72,14 +74,22 @@ export async function analyzeReceiptWithOCR(
       mimeType: resolveGeminiMimeType(fileType),
       base64Data: Buffer.from(fileBuffer).toString("base64"),
       responseSchema: receiptSchema,
-      temperature: 0.1,
+      temperature: OCR_TEMPERATURE,
     });
   } catch (error) {
     logger.error("[ReceiptOCR] Error:", error);
-    return {
-      is_valid_receipt: true,
-      is_potentially_fake: false,
-      catatan_analisis: `[Sistem OCR Gagal: ${(error as Error).message}] Pembayaran tidak diverifikasi otomatis.`,
-    };
+    return buildReceiptOcrFallback(error);
   }
+}
+
+function buildReceiptOcrFallback(error: unknown): ReceiptOCRResult {
+  return {
+    is_valid_receipt: true,
+    is_potentially_fake: false,
+    catatan_analisis: `[Sistem OCR Gagal: ${getErrorMessage(error)}] Pembayaran tidak diverifikasi otomatis.`,
+  };
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
 }

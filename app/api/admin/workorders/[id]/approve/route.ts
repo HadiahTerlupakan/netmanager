@@ -1,10 +1,5 @@
-import {
-  getWorkOrderService,
-  adminWorkOrderRouteService,
-  type UserContext,
-} from "@/modules/work-order";
+import { adminWorkOrderRouteService } from "@/modules/work-order";
 import { hasPermission } from "@/lib/rbac";
-import { createNotification, sendPushToUsers } from "@/modules/notification";
 import {
   apiSuccess,
   ApiErrors,
@@ -46,36 +41,19 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const userContext = await adminWorkOrderRouteService.getUserContext(
-    user,
-    ctx.permissions,
-  );
-
-  if (!userContext) {
-    return ApiErrors.unauthorized();
-  }
-
-  const workOrderService = getWorkOrderService();
-  const getResult = await workOrderService.getWorkOrderById(
-    id,
-    userContext as UserContext,
-  );
-
-  if (!getResult.success) {
-    if (getResult.code === "FORBIDDEN") {
-      return ApiErrors.forbidden(getResult.error || "Akses ditolak");
-    }
-
-    return ApiErrors.notFound("Work Order");
-  }
-
-  const existingWO = getResult.data!;
-  const result =
-    body.action === "APPROVE"
-      ? await workOrderService.approveRequest(id, userContext)
-      : await workOrderService.rejectRequest(id, userContext, body.reason);
+  const result = await adminWorkOrderRouteService.processRequestApproval({
+    workOrderId: id,
+    action: body.action,
+    actor: user,
+    permissions: ctx.permissions,
+    reason: body.reason,
+  });
 
   if (!result.success) {
+    if (result.code === "UNAUTHORIZED") {
+      return ApiErrors.unauthorized();
+    }
+
     if (result.code === "FORBIDDEN") {
       return ApiErrors.forbidden(result.error || "Akses ditolak");
     }
@@ -92,14 +70,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  await notifyRequester({
-    requesterId: existingWO.requestedById,
-    action: body.action,
-    title: existingWO.title,
-    workOrderId: id,
-    reason: body.reason,
-  });
-
   return apiSuccess(result.data, {
     message:
       body.action === "APPROVE"
@@ -107,52 +77,3 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
         : "Work order request ditolak",
   });
 });
-
-/** Notify requester after approval result. */
-async function notifyRequester(input: {
-  requesterId?: string | null;
-  action: "APPROVE" | "REJECT";
-  title: string;
-  workOrderId: string;
-  reason?: string;
-}) {
-  if (!input.requesterId) {
-    return;
-  }
-
-  const notificationTitle =
-    input.action === "APPROVE"
-      ? "✅ WO Request Disetujui"
-      : "❌ WO Request Ditolak";
-  const notificationMessage =
-    input.action === "APPROVE"
-      ? `Request Anda "${input.title}" telah disetujui and siap dikerjakan.`
-      : `Request Anda "${input.title}" ditolak: ${input.reason}`;
-
-  try {
-    await createNotification({
-      type: "WORK_ORDER",
-      priority: input.action === "REJECT" ? "HIGH" : "NORMAL",
-      title: notificationTitle,
-      message: notificationMessage,
-      link: `/admin/workorders/${input.workOrderId}`,
-      userId: input.requesterId,
-      sourceType: "WORK_ORDER",
-      sourceId: input.workOrderId,
-    });
-
-    await sendPushToUsers(
-      [input.requesterId],
-      notificationTitle,
-      notificationMessage,
-      {
-        workOrderId: input.workOrderId,
-        type: "WO_REQUEST_RESULT",
-        action: input.action,
-        screen: "WorkOrderDetail",
-      },
-    );
-  } catch {
-    return;
-  }
-}

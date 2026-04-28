@@ -4,7 +4,7 @@ import {
   calculateEffectiveRabTargetSubscribers,
   calculateRabProjectedRevenue,
   calculateRabUnitCosts,
-} from "@/lib/finance/rabTarget";
+} from "@/modules/finance";
 
 describe("RAB target basis", () => {
   it("uses target subscribers directly for homeconnect basis", () => {

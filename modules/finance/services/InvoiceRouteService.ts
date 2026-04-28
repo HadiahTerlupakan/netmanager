@@ -1,7 +1,7 @@
 import type { InvoiceStatus, Prisma } from "@prisma/client-billing";
+import { getPelangganService } from "@/modules/pelanggan";
+import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
 
 type RouteUser = {
   id: string;
@@ -52,10 +52,10 @@ type InvoiceResponseShape = {
 };
 
 const invoiceRepository = new InvoiceRepository();
-const userRepository = new UserRepository();
+const userLookupService = new UserLookupService();
 
-function getPelangganRepository() {
-  return new PelangganRepository();
+function getPelangganLookupService() {
+  return getPelangganService();
 }
 
 /** Returns invoice detail data for route responses. */
@@ -69,7 +69,7 @@ export async function getInvoiceForRoute(options: {
     return null;
   }
 
-  const pelanggan = await getPelangganRepository().findById(
+  const pelanggan = await getPelangganLookupService().getPelanggan(
     invoice.pelangganId,
   );
 
@@ -104,7 +104,7 @@ export async function updateInvoiceForRoute(options: {
     invoiceItem: options.input.invoiceItem,
     updateData: buildInvoiceUpdateData(options.input, restrictedSiteId),
   });
-  const pelanggan = await getPelangganRepository().findById(
+  const pelanggan = await getPelangganLookupService().getPelanggan(
     updatedInvoice.pelangganId,
   );
 
@@ -140,7 +140,7 @@ export async function sendInvoiceForRoute(options: {
     return { status: "not-draft" as const };
   }
 
-  const pelanggan = await getPelangganRepository().findById(
+  const pelanggan = await getPelangganLookupService().getPelanggan(
     invoice.pelangganId,
   );
   const email = options.input.recipientEmail || pelanggan?.email;
@@ -195,7 +195,7 @@ async function findInvoiceByAccess(options: {
 }
 
 async function getRestrictedSiteId(userId: string) {
-  const user = await userRepository.findByIdWithSite(userId);
+  const user = await userLookupService.findByIdWithSite(userId);
   return user?.siteId || undefined;
 }
 

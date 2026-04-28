@@ -65,6 +65,17 @@ vi.mock("@/modules/work-order", () => ({
   adminWorkOrderRouteService: {
     getUserContext: mockFns.getUserContext,
     deleteWorkOrder: mockFns.deleteWorkOrder,
+    processRequestApproval: async (input: { action: "APPROVE" | "REJECT" }) => {
+      const workOrderResult = await mockFns.getWorkOrderById();
+
+      if (!workOrderResult.success) {
+        return workOrderResult;
+      }
+
+      return input.action === "APPROVE"
+        ? mockFns.approveRequest()
+        : mockFns.rejectRequest();
+    },
   },
   getWorkOrderService: () => ({
     getWorkOrderById: mockFns.getWorkOrderById,

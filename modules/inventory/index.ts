@@ -15,6 +15,8 @@ export * from "./services/InventoryRouteService";
 export * from "./services/InventoryPhotoUploadService";
 export * from "./services/RestockRequestService";
 export * from "./services/MobileInventoryService";
+export * from "./utils/session";
+export * from "./utils/validation";
 
 // DTO
 export * from "./dto/AssetDTO";

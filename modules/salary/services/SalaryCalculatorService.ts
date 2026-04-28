@@ -1,8 +1,24 @@
-import type {
-  EmployeeType,
-  PtkpStatus,
-  RateType,
-} from "../domain/entities/SalaryEntity";
+import type { EmployeeType } from "../domain/entities/SalaryEntity";
+import {
+  applyAttendanceStatus,
+  applyOvertimeMinutes,
+  calculateOvertimePay,
+  calculatePph21Ter,
+  calculateProratedBasicSalary,
+  calculateWorkDays,
+  createAttendanceStats,
+  createOvertimeStats,
+  createPayrollEvaluationMap,
+  getDateKey,
+  getDefaultWorkDaysString,
+  getPeriodDateRange,
+  isNationalHolidayState,
+  type AttendanceStats,
+  type OvertimeStats,
+  type PayrollEvaluationSummary,
+  type UserCalculationData,
+} from "../utils/salary-calculation-helpers";
+export type { UserCalculationData } from "../utils/salary-calculation-helpers";
 import type { ISalaryComponentRepository } from "../domain/ports/ISalaryComponentRepository";
 import type { ISalaryRepository } from "../domain/ports/ISalaryRepository";
 import { SalaryComponentRepository } from "../repositories/SalaryComponentRepository";
@@ -44,147 +60,6 @@ interface SalaryCalculationResult {
   totalDeductions: number;
   netSalary: number;
 }
-
-interface AttendanceStats {
-  present: number;
-  late: number;
-  absent: number;
-  sick: number;
-  permit: number;
-  workDays: number;
-}
-
-interface OvertimeStats {
-  totalMinutes: number;
-  normalMinutes: number;
-  holidayMinutes: number;
-  nationalHolidayMinutes: number;
-  normalCount: number;
-  holidayCount: number;
-  nationalCount: number;
-  totalCount: number;
-}
-
-type PayrollEvaluationSummary = {
-  workDate: Date;
-  finalStatus: string | null;
-  holidayState: string | null;
-  overtimeMinutesApproved: number;
-  overtimeMinutesHeld: number;
-  payrollHoldState: string | null;
-};
-
-function createAttendanceStats(workDays: number): AttendanceStats {
-  return { present: 0, late: 0, absent: 0, sick: 0, permit: 0, workDays };
-}
-
-function applyAttendanceStatus(stats: AttendanceStats, status: string | null) {
-  if (status === "ON_TIME") stats.present++;
-  else if (status === "LATE") {
-    stats.present++;
-    stats.late++;
-  } else if (status === "ALPHA" || status === "ABSENT") stats.absent++;
-  else if (status === "SICK") stats.sick++;
-  else if (status === "PERMIT") stats.permit++;
-}
-
-function createOvertimeStats(): OvertimeStats {
-  return {
-    totalMinutes: 0,
-    normalMinutes: 0,
-    holidayMinutes: 0,
-    nationalHolidayMinutes: 0,
-    normalCount: 0,
-    holidayCount: 0,
-    nationalCount: 0,
-    totalCount: 0,
-  };
-}
-
-function applyOvertimeMinutes(
-  stats: OvertimeStats,
-  minutes: number,
-  isNationalHoliday: boolean,
-  isHolidayOvertime: boolean,
-) {
-  if (minutes <= 0) {
-    return;
-  }
-
-  stats.totalMinutes += minutes;
-  stats.totalCount++;
-
-  if (isNationalHoliday) {
-    stats.nationalHolidayMinutes += minutes;
-    stats.nationalCount++;
-    return;
-  }
-
-  if (isHolidayOvertime) {
-    stats.holidayMinutes += minutes;
-    stats.holidayCount++;
-    return;
-  }
-
-  stats.normalMinutes += minutes;
-  stats.normalCount++;
-}
-
-function getDateKey(date: Date | null | undefined): string | null {
-  if (!date) {
-    return null;
-  }
-
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function createPayrollEvaluationMap(
-  payrollEvaluations: PayrollEvaluationSummary[],
-): Map<string, PayrollEvaluationSummary> {
-  const evaluationMap = new Map<string, PayrollEvaluationSummary>();
-
-  for (const evaluation of payrollEvaluations) {
-    const dateKey = getDateKey(evaluation.workDate);
-    if (dateKey) {
-      evaluationMap.set(dateKey, evaluation);
-    }
-  }
-
-  return evaluationMap;
-}
-
-function isNationalHolidayState(holidayState: string | null): boolean {
-  return holidayState === "LIBUR_NASIONAL";
-}
-
-export type UserCalculationData = {
-  id: string;
-  name: string | null;
-  basicSalary: number | null;
-  employeeType: EmployeeType;
-  departmentId: string | null;
-  siteId: string | null;
-  payPeriodDay: number | null;
-  payDay: number | null;
-  woIncentiveEnabled: boolean;
-  woIncentiveRate: number | null;
-  lateDeductionRate: number | null;
-  absentDeductionRate: number | null;
-  overtimeRateNormal: number | null;
-  overtimeRateHoliday: number | null;
-  overtimeRateNational: number | null;
-  overtimeCalcTypeNormal: RateType | null;
-  overtimeCalcTypeHoliday: RateType | null;
-  overtimeCalcTypeNational: RateType | null;
-  workDays: string | null;
-  joinDate: Date | null;
-  ptkpStatus: PtkpStatus | null;
-  bpjsKesehatan: boolean;
-  bpjsKetenagakerjaan: boolean;
-};
 
 export class SalaryCalculatorService {
   private salaryRepo: ISalaryRepository;
@@ -238,11 +113,11 @@ export class SalaryCalculatorService {
     }
     const basicSalary = user.basicSalary as number;
 
-    const { startDate, endDate } = this.getPeriodDateRange(
+    const { startDate, endDate } = getPeriodDateRange({
       month,
       year,
-      user.payPeriodDay ?? 25,
-    );
+      payPeriodDay: user.payPeriodDay ?? 25,
+    });
 
     const payrollEvaluations =
       await this.attendanceRepo.findManyPayrollEvaluationsByUserAndDateRange({
@@ -260,26 +135,13 @@ export class SalaryCalculatorService {
     const earnings: SalaryCalculationResult["earnings"] = [];
     const deductions: SalaryCalculationResult["deductions"] = [];
 
-    let effectiveBasicSalary = basicSalary;
-    let isProrated = false;
-    if (
-      user.joinDate &&
-      user.joinDate > startDate &&
-      user.joinDate <= endDate
-    ) {
-      const workDaysSinceJoin = this.calculateWorkDays(
-        user.joinDate,
-        endDate,
-        user.workDays || "Senin,Selasa,Rabu,Kamis,Jumat,Sabtu",
-      );
-      effectiveBasicSalary = Math.round(
-        (basicSalary / attendanceStats.workDays) * workDaysSinceJoin,
-      );
-      isProrated = true;
-    } else if (user.joinDate && user.joinDate > endDate) {
-      effectiveBasicSalary = 0;
-      isProrated = true;
-    }
+    const { effectiveBasicSalary, isProrated } = calculateProratedBasicSalary({
+      user,
+      startDate,
+      endDate,
+      basicSalary,
+      attendanceWorkDays: attendanceStats.workDays,
+    });
 
     earnings.push({
       name: "Gaji Pokok",
@@ -302,10 +164,10 @@ export class SalaryCalculatorService {
         effectiveBasicSalary > 0 &&
         uc.component.type === "EARNING"
       ) {
-        const workDaysSinceJoin = this.calculateWorkDays(
+        const workDaysSinceJoin = calculateWorkDays(
           user.joinDate!,
           endDate,
-          user.workDays || "Senin,Selasa,Rabu,Kamis,Jumat,Sabtu",
+          user.workDays || getDefaultWorkDaysString(),
         );
         amount = Math.round(
           (uc.amount / attendanceStats.workDays) * workDaysSinceJoin,
@@ -337,16 +199,15 @@ export class SalaryCalculatorService {
       const effectiveOtRateHoliday = user.overtimeRateHoliday || 0;
       const effectiveOtRateNational = user.overtimeRateNational || 0;
 
-      const overtimePay = this.calculateOvertimePay(
-        overtimeStats,
-        effectiveOtRateType,
-        effectiveOtRateNormal,
-        effectiveOtRateHoliday,
-        effectiveOtRateNational,
+      const overtimePay = calculateOvertimePay({
+        stats: overtimeStats,
+        rateType: effectiveOtRateType,
+        rateNormal: effectiveOtRateNormal,
+        rateHoliday: effectiveOtRateHoliday,
+        rateNational: effectiveOtRateNational,
         basicSalary,
-        attendanceStats.workDays,
-      );
-
+        workDays: attendanceStats.workDays,
+      });
       if (overtimePay.amount > 0) {
         earnings.push({
           name: "Lembur",
@@ -480,7 +341,7 @@ export class SalaryCalculatorService {
 
     const grossIncome = earnings.reduce((sum, e) => sum + e.amount, 0);
     if (user.ptkpStatus && grossIncome > 0) {
-      const pph21Amount = this.calculatePph21Ter(grossIncome, user.ptkpStatus);
+      const pph21Amount = calculatePph21Ter(grossIncome, user.ptkpStatus);
       if (pph21Amount > 0) {
         deductions.push({
           name: "Pajak PPh 21 (TER)",
@@ -651,24 +512,6 @@ export class SalaryCalculatorService {
     return { success, failed };
   }
 
-  private getPeriodDateRange(
-    month: number,
-    year: number,
-    payPeriodDay: number,
-  ): { startDate: Date; endDate: Date } {
-    let startMonth = month - 1;
-    let startYear = year;
-    if (startMonth === 0) {
-      startMonth = 12;
-      startYear = year - 1;
-    }
-
-    const startDate = new Date(startYear, startMonth - 1, payPeriodDay + 1);
-    const endDate = new Date(year, month - 1, payPeriodDay, 23, 59, 59);
-
-    return { startDate, endDate };
-  }
-
   private async getAttendanceStats(
     userId: string,
     startDate: Date,
@@ -684,10 +527,10 @@ export class SalaryCalculatorService {
       this.userRepository.findWorkDays(userId),
     ]);
 
-    const workDays = this.calculateWorkDays(
+    const workDays = calculateWorkDays(
       startDate,
       endDate,
-      userWorkDays?.workDays || "Senin,Selasa,Rabu,Kamis,Jumat,Sabtu",
+      userWorkDays?.workDays || getDefaultWorkDaysString(),
     );
 
     const stats = createAttendanceStats(workDays);
@@ -716,48 +559,6 @@ export class SalaryCalculatorService {
     }
 
     return stats;
-  }
-
-  private calculateWorkDays(
-    startDate: Date,
-    endDate: Date,
-    workDaysStr: string,
-  ): number {
-    const dayMap: Record<string, number> = {
-      Sun: 0,
-      Mon: 1,
-      Tue: 2,
-      Wed: 3,
-      Thu: 4,
-      Fri: 5,
-      Sat: 6,
-      Minggu: 0,
-      Senin: 1,
-      Selasa: 2,
-      Rabu: 3,
-      Kamis: 4,
-      Jumat: 5,
-      Sabtu: 6,
-    };
-
-    const activeDays = workDaysStr
-      .split(",")
-      .map((d) => {
-        const trimmed = d.trim();
-        const parsed = parseInt(trimmed);
-        return isNaN(parsed) ? dayMap[trimmed] : parsed;
-      })
-      .filter((d): d is number => d !== undefined);
-
-    let count = 0;
-    const cur = new Date(startDate);
-    while (cur <= endDate) {
-      if (activeDays.includes(cur.getDay())) {
-        count++;
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
-    return count || 22;
   }
 
   private async getOvertimeStats(
@@ -825,117 +626,5 @@ export class SalaryCalculatorService {
     );
 
     return { completed: count };
-  }
-
-  private calculateOvertimePay(
-    stats: OvertimeStats,
-    rateType: RateType,
-    rateNormal: number,
-    rateHoliday: number,
-    rateNational: number,
-    basicSalary: number,
-    workDays: number,
-  ): { amount: number; hours: number; rate: number } {
-    const totalHours = stats.totalMinutes / 60;
-
-    if (rateType === "FIXED") {
-      const amount =
-        stats.normalCount * rateNormal +
-        stats.holidayCount * rateHoliday +
-        stats.nationalCount * rateNational;
-
-      return {
-        amount,
-        hours: totalHours,
-        rate: rateNormal,
-      };
-    } else if (rateType === "PERCENTAGE") {
-      const dailySalary = basicSalary / workDays;
-      const hourlyRate = (dailySalary * rateNormal) / 100;
-
-      const normalHours = stats.normalMinutes / 60;
-      const holidayHours = stats.holidayMinutes / 60;
-      const nationalHours = stats.nationalHolidayMinutes / 60;
-
-      const holidayMultiplier = rateHoliday > 0 ? rateHoliday / 100 : 2;
-      const nationalMultiplier = rateNational > 0 ? rateNational / 100 : 3;
-
-      const amount =
-        normalHours * hourlyRate +
-        holidayHours * hourlyRate * holidayMultiplier +
-        nationalHours * hourlyRate * nationalMultiplier;
-
-      return { amount, hours: totalHours, rate: hourlyRate };
-    } else if (rateType === "DAILY_SALARY") {
-      const dailySalary = basicSalary / workDays;
-
-      const normalShifts = stats.normalMinutes / 60 / 8;
-      const holidayShifts = stats.holidayMinutes / 60 / 8;
-      const nationalShifts = stats.nationalHolidayMinutes / 60 / 8;
-
-      const holidayMult = rateHoliday > 0 ? rateHoliday / 100 : 1;
-      const nationalMult = rateNational > 0 ? rateNational / 100 : 1;
-
-      const amount =
-        normalShifts * dailySalary +
-        holidayShifts * dailySalary * holidayMult +
-        nationalShifts * dailySalary * nationalMult;
-
-      return {
-        amount,
-        hours: totalHours,
-        rate: dailySalary,
-      };
-    } else {
-      const normalHours = stats.normalMinutes / 60;
-      const holidayHours = stats.holidayMinutes / 60;
-      const nationalHours = stats.nationalHolidayMinutes / 60;
-
-      const amount =
-        normalHours * rateNormal +
-        holidayHours * rateHoliday +
-        nationalHours * rateNational;
-
-      return { amount, hours: totalHours, rate: rateNormal };
-    }
-  }
-
-  private calculatePph21Ter(
-    grossIncome: number,
-    ptkpStatus: PtkpStatus,
-  ): number {
-    let rate = 0;
-
-    if (["TK_0", "TK_1", "K_0"].includes(ptkpStatus)) {
-      if (grossIncome <= 5400000) rate = 0;
-      else if (grossIncome <= 5650000) rate = 0.0025;
-      else if (grossIncome <= 5950000) rate = 0.005;
-      else if (grossIncome <= 6300000) rate = 0.0075;
-      else if (grossIncome <= 6750000) rate = 0.01;
-      else if (grossIncome <= 7500000) rate = 0.0125;
-      else if (grossIncome <= 8550000) rate = 0.015;
-      else if (grossIncome <= 9650000) rate = 0.0175;
-      else if (grossIncome <= 10050000) rate = 0.02;
-      else if (grossIncome <= 10350000) rate = 0.0225;
-      else if (grossIncome <= 10700000) rate = 0.025;
-      else rate = 0.03;
-    } else if (["TK_2", "TK_3", "K_1", "K_2"].includes(ptkpStatus)) {
-      if (grossIncome <= 6200000) rate = 0;
-      else if (grossIncome <= 6500000) rate = 0.0025;
-      else if (grossIncome <= 6850000) rate = 0.005;
-      else if (grossIncome <= 7300000) rate = 0.0075;
-      else if (grossIncome <= 9200000) rate = 0.015;
-      else if (grossIncome <= 10750000) rate = 0.02;
-      else rate = 0.03;
-    } else if (["K_3"].includes(ptkpStatus)) {
-      if (grossIncome <= 6600000) rate = 0;
-      else if (grossIncome <= 6950000) rate = 0.0025;
-      else if (grossIncome <= 7350000) rate = 0.005;
-      else if (grossIncome <= 7800000) rate = 0.0075;
-      else if (grossIncome <= 8850000) rate = 0.01;
-      else rate = 0.03;
-    }
-
-    return Math.floor(grossIncome * rate);
   }
 }

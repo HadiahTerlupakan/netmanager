@@ -1213,9 +1213,15 @@ vi.mock("socket.io-client", () => {
   );
 });
 
-vi.mock("@/lib/chat/shouldNotifyForChatMessage", () => ({
-  shouldNotifyForChatMessage: mockShouldNotifyForChatMessage,
-}));
+vi.mock("@/modules/chat", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/modules/chat")>("@/modules/chat");
+
+  return {
+    ...actual,
+    shouldNotifyForChatMessage: mockShouldNotifyForChatMessage,
+  };
+});
 
 vi.mock("react-icons/fi", () => ({
   FiEdit: mockIcon,

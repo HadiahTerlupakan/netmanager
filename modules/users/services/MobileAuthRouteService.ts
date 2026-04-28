@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { compare } from "bcryptjs";
+import { tryMobileMitraLogin } from "@/modules/mitra";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
@@ -67,6 +68,10 @@ export interface MobileLoginPayload {
   password: string;
   versionCode: number;
   versionName?: string | null;
+}
+
+export interface MobileLoginRouteInput extends MobileLoginPayload {
+  loginType: string;
 }
 
 export type MobileLoginResult =
@@ -137,6 +142,43 @@ export async function tryMobileEmployeeLogin(
   return buildSuccessfulEmployeeLogin(user, input);
 }
 
+/** Menangani orkestrasi login mobile lintas tipe akun. */
+export async function loginMobileRoute(input: MobileLoginRouteInput) {
+  if (!input.email || !input.password) {
+    return apiError(
+      "Email/Username dan password harus diisi",
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
+
+  const unsupportedResponse = await buildUnsupportedVersionResponse(
+    input.versionCode,
+  );
+  if (unsupportedResponse) {
+    return unsupportedResponse;
+  }
+
+  const result = await resolveRouteLoginResult(input);
+  if (!result.found) {
+    return apiError("Email/ID tidak ditemukan", ErrorCodes.UNAUTHORIZED, {
+      status: 401,
+    });
+  }
+
+  if (result.success === false) {
+    if (result.response) {
+      return result.response;
+    }
+
+    return apiError(result.error ?? "Login gagal", ErrorCodes.UNAUTHORIZED, {
+      status: result.status || 401,
+    });
+  }
+
+  return NextResponse.json({ success: true, ...result.data });
+}
+
 /** Memperbarui access token customer dari refresh token. */
 export async function tryRefreshCustomerToken(refreshToken: string) {
   const verified = await verifyPelangganRefreshToken(refreshToken);
@@ -166,6 +208,45 @@ export async function tryRefreshMobileToken(
   );
   if (!payload) return { kind: "invalid" as const };
   return buildMobileRefreshResult(payload, details);
+}
+
+/** Menentukan urutan fallback login berdasarkan tipe login yang diminta. */
+async function resolveRouteLoginResult(input: MobileLoginRouteInput) {
+  if (input.loginType === "MITRA") {
+    return tryPriorityLogins(
+      [tryMobileMitraLogin, tryMobileEmployeeLogin, tryMobileCustomerLogin],
+      input,
+    );
+  }
+
+  if (input.loginType === "CUSTOMER") {
+    return tryPriorityLogins(
+      [tryMobileCustomerLogin, tryMobileEmployeeLogin, tryMobileMitraLogin],
+      input,
+    );
+  }
+
+  return tryPriorityLogins(
+    [tryMobileEmployeeLogin, tryMobileMitraLogin, tryMobileCustomerLogin],
+    input,
+  );
+}
+
+/** Menjalankan login berurutan sampai ada handler yang mengenali akun. */
+async function tryPriorityLogins(
+  loginHandlers: Array<
+    (input: MobileLoginPayload) => Promise<MobileLoginResult>
+  >,
+  input: MobileLoginPayload,
+) {
+  for (const loginHandler of loginHandlers) {
+    const result = await loginHandler(input);
+    if (result.found) {
+      return result;
+    }
+  }
+
+  return { found: false as const };
 }
 
 function buildEmployeeMePayload(

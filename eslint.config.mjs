@@ -1,6 +1,48 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
+const MODULE_PUBLIC_API_IMPORT_MESSAGE =
+  "Lintas module wajib import via public API (@/modules/<module>) atau entrypoint publik yang disepakati.";
+const MODULE_INTERNAL_SUBPATH_PATTERNS = [
+  "@/modules/*/repositories/**",
+  "@/modules/*/services/**",
+  "@/modules/*/domain/**",
+  "@/modules/*/dto/**",
+  "@/modules/*/types/**",
+  "@/modules/*/mappers/**",
+  "@/modules/*/factories/**",
+  "@/modules/*/validators/**",
+  "@/modules/*/utils/**"
+];
+/** Build restricted import patterns for module boundary guardrails. */
+function createModuleBoundaryPatterns() {
+  return [
+    {
+      group: MODULE_INTERNAL_SUBPATH_PATTERNS,
+      message: MODULE_PUBLIC_API_IMPORT_MESSAGE
+    },
+    {
+      group: ["@/lib/prisma", "@/lib/prisma*"],
+      message: "Layer ini tidak boleh mengakses Prisma secara langsung."
+    }
+  ];
+}
+
+/** Build syntax restrictions for dynamic internal module imports. */
+function createDynamicModuleBoundaryRules() {
+  return [
+    {
+      selector:
+        "ImportExpression[source.value=/^@\\/modules\\/[^/]+\\/(repositories|services|domain|dto|types|mappers|factories|validators|utils)\\//]",
+      message: MODULE_PUBLIC_API_IMPORT_MESSAGE
+    },
+    {
+      selector: "ImportExpression[source.value=/^@\\/lib\\/prisma/]",
+      message: "Layer ini tidak boleh mengakses Prisma secara langsung."
+    }
+  ];
+}
+
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
@@ -33,60 +75,45 @@ const eslintConfig = [
     }
   },
   {
-    files: ["app/**/*.tsx"],
+    files: ["app/**/*.ts", "app/**/*.tsx"],
+    ignores: ["app/api/**/*.ts", "app/api/**/*.tsx"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
-          patterns: [
-            {
-              group: ["@/modules/*/repositories/**"],
-              message: "UI layer must not import repositories directly. Use API boundary instead."
-            },
-            {
-              group: ["@/modules/*/services/**"],
-              message: "UI layer should not call module services directly. Use API boundary instead."
-            },
-            {
-              group: ["@/lib/prisma", "@/lib/prisma*"],
-              message: "UI layer must not access Prisma directly."
-            }
-          ]
+          patterns: createModuleBoundaryPatterns()
         }
-      ]
+      ],
+      "no-restricted-syntax": ["error", ...createDynamicModuleBoundaryRules()]
     }
   },
   {
-    files: ["app/api/**/*.ts"],
+    files: ["app/api/**/*.ts", "app/api/**/*.tsx"],
     rules: {
       "no-restricted-imports": [
-        "warn",
+        "error",
         {
           patterns: [
             {
-              group: ["@/modules/*/repositories/**"],
-              message: "API routes should not import repositories directly. Use module public API/service facade."
-            },
-            {
               group: ["@/modules/*/**"],
-              message: "API routes should import modules via public entrypoint (@/modules/<module>)."
+              message: "API route wajib import module via public entrypoint (@/modules/<module>)."
             },
             {
               group: ["@/lib/prisma", "@/lib/prisma*"],
-              message: "API routes should avoid direct Prisma usage; move orchestration to service/repository layers."
+              message: "API route tidak boleh mengakses Prisma langsung; pindahkan ke service/repository."
             }
           ]
         }
       ],
       "no-restricted-syntax": [
-        "warn",
+        "error",
         {
           selector: "ImportExpression[source.value=/^@\\/modules\\/[^/]+\\/.+/]",
-          message: "API routes should dynamic-import modules via public entrypoint (@/modules/<module>) only."
+          message: "API route wajib dynamic-import module via public entrypoint (@/modules/<module>)."
         },
         {
           selector: "ImportExpression[source.value=/^@\\/lib\\/prisma/]",
-          message: "API routes should avoid dynamic-importing Prisma directly; move orchestration to service/repository layers."
+          message: "API route tidak boleh dynamic-import Prisma langsung; pindahkan ke service/repository."
         }
       ]
     }

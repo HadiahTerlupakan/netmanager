@@ -31,6 +31,13 @@ import type {
   CreateInventoryBarangData,
 } from "../domain/ports/IInventoryRepository";
 import { InventoryBarangMapper } from "../mappers/InventoryBarangMapper";
+import {
+  assertPositiveIntegerQuantity,
+  buildDecrementBarangGudangPayload,
+  buildIncrementBarangGudangPayload,
+  getConditionStockAmount,
+  getStockFieldByCondition,
+} from "./inventory-stock-helpers";
 
 type InventoryActorRecord = {
   actorType: string | null;
@@ -529,29 +536,20 @@ export class InventoryRepository implements IInventoryDomainRepository {
       }
     }
 
-    const kondisi = data.kondisi || DEFAULT_KONDISI;
-    const stockField = STOCK_FIELD_MAP[kondisi] || "stokBaru";
+    const stockMutation = buildIncrementBarangGudangPayload({
+      barangId: data.barangId,
+      gudangId: data.gudangId,
+      quantity: data.jumlah,
+      kondisi: data.kondisi,
+      tenantId: data.tenantId,
+    });
 
     await tx.barangGudang.upsert({
       where: {
         barangId_gudangId: { barangId: data.barangId, gudangId: data.gudangId },
       },
-      create: {
-        id: crypto.randomUUID(),
-        barangId: data.barangId,
-        gudangId: data.gudangId,
-        stok: data.jumlah,
-        stokBaru: kondisi === "BARU" ? data.jumlah : 0,
-        stokBekas: kondisi === "BEKAS" ? data.jumlah : 0,
-        stokRusak: kondisi === "RUSAK" ? data.jumlah : 0,
-        updatedAt: new Date(),
-        tenantId: data.tenantId || null,
-      },
-      update: {
-        stok: { increment: data.jumlah },
-        [stockField]: { increment: data.jumlah },
-        updatedAt: new Date(),
-      } as Prisma.BarangGudangUpdateInput,
+      create: stockMutation.create,
+      update: stockMutation.update,
     });
 
     return masuk as unknown as BarangMasuk;
@@ -561,12 +559,9 @@ export class InventoryRepository implements IInventoryDomainRepository {
     return this.db.$transaction(async (tx) => {
       const actor = resolveInventoryActor(data);
 
-      // Ensure integer quantity
-      if (Math.floor(data.jumlah) !== data.jumlah)
-        throw new Error("Jumlah tidak boleh angka desimal");
+      assertPositiveIntegerQuantity(data.jumlah);
 
       const jumlahInt = data.jumlah;
-      if (jumlahInt <= 0) throw new Error("Jumlah harus angka bulat positif");
 
       const currentStock = await tx.barangGudang.findUnique({
         where: {
@@ -584,10 +579,11 @@ export class InventoryRepository implements IInventoryDomainRepository {
         );
 
       const kondisi = data.kondisi || DEFAULT_KONDISI;
-      const stockField = STOCK_FIELD_MAP[kondisi] || "stokBaru";
-      const stokByKondisi = currentStock[
-        stockField as keyof typeof currentStock
-      ] as number;
+      const stockField = getStockFieldByCondition(kondisi);
+      const stokByKondisi = getConditionStockAmount(
+        currentStock as unknown as Record<string, unknown>,
+        stockField,
+      );
 
       if (typeof stokByKondisi !== "number" || isNaN(stokByKondisi))
         throw new Error(`Data stok tidak valid untuk kondisi ${kondisi}`);
@@ -596,10 +592,10 @@ export class InventoryRepository implements IInventoryDomainRepository {
           `Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`,
         );
 
-      const updateData = {
-        stok: { decrement: jumlahInt },
-        [stockField]: { decrement: jumlahInt },
-      } as Prisma.BarangGudangUpdateInput;
+      const updateData = buildDecrementBarangGudangPayload({
+        stockField,
+        quantity: jumlahInt,
+      });
 
       const updated = await tx.barangGudang.updateMany({
         where: {

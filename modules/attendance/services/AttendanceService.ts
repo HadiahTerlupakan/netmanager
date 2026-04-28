@@ -9,8 +9,21 @@ import {
 import { AttendanceEvaluationAuditService } from "./AttendanceEvaluationAuditService";
 import { AttendanceStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { redis } from "@/lib/redis";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import {
+  buildFlexibleCheckoutWarning,
+  getCachedUserAttendanceSettings,
+  getScheduleEndTimeForPolicy,
+  mergeAttendanceNotes,
+  normalizeReasonCodes,
+  normalizeSourceRefs,
+  resolveCheckInStatus,
+  resolveCheckInTimeContext,
+  type CachedUserAttendanceSettings,
+  formatCurrentAttendanceTime,
+  formatCurrentAttendanceWarningDate,
+  isSameAttendanceDay,
+} from "./attendance-service-helpers";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { OvertimeRepository } from "@/modules/overtime/repositories/OvertimeRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
@@ -31,17 +44,6 @@ interface CheckInParams {
   timezone?: string;
   tenantId?: string;
 }
-
-type AttendanceGeofencePolicy = "STRICT" | "WARN" | "DISABLED";
-
-type CachedUserAttendanceSettings = {
-  startWorkTime: string | null;
-  endWorkTime: string | null;
-  workingHourMode: string | null;
-  attendanceGeofencePolicy: AttendanceGeofencePolicy | null;
-  shiftId: string | null;
-  shift: { startTime: string; endTime: string } | null;
-};
 
 type CurrentAttendanceUiStatus = "idle" | "checked-in" | "checked-out";
 
@@ -75,15 +77,6 @@ type ActiveAttendanceSessionRow = {
   } | null;
 };
 
-type AttendancePolicyScheduleContext = {
-  endWorkTime: string | null;
-  workingHourMode: string | null;
-  shift?: {
-    startTime: string | null;
-    endTime: string | null;
-  } | null;
-} | null;
-
 type PersistedAttendanceEvaluationRow = Awaited<
   ReturnType<AttendanceRepository["findLatestEvaluationForUser"]>
 >;
@@ -92,8 +85,6 @@ type CurrentAttendanceEvaluationRow = Pick<
   AttendanceEvaluationResult,
   "finalStatus" | "reviewState" | "reasonCodes" | "anomalyCodes"
 > | null;
-
-const USER_SCHEDULE_CACHE_TTL_SECONDS = 60;
 
 export type HistoricalAttendanceRecomputeResult = {
   processedCount: number;
@@ -116,60 +107,6 @@ export type CurrentAttendanceStatusResult = {
     endTime: string | null;
   } | null;
 };
-
-function formatCurrentAttendanceTime(
-  value: Date | null,
-  timezone: string,
-): string | null {
-  if (!value) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: timezone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(value);
-}
-
-function formatCurrentAttendanceWarningDate(
-  value: Date,
-  timezone: string,
-): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: timezone,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-    .format(value)
-    .replace(",", "");
-}
-
-function isSameAttendanceDay(a: Date, b: Date, timezone: string): boolean {
-  return (
-    a.toLocaleDateString("en-CA", { timeZone: timezone }) ===
-    b.toLocaleDateString("en-CA", { timeZone: timezone })
-  );
-}
-
-function normalizeReasonCodes(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
-function normalizeSourceRefs(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
-}
 
 function mapPersistedAttendanceEvaluation(
   evaluation: PersistedAttendanceEvaluationRow,
@@ -442,21 +379,6 @@ export class AttendanceService {
     return nextEvaluation;
   }
 
-  private getScheduleEndTimeForPolicy(
-    workingHourMode: string | null | undefined,
-    userDetails: AttendancePolicyScheduleContext,
-    shift:
-      | { startTime: string | null; endTime: string | null }
-      | null
-      | undefined,
-  ) {
-    if (workingHourMode === "SHIFT") {
-      return shift?.endTime ?? userDetails?.endWorkTime ?? null;
-    }
-
-    return userDetails?.endWorkTime ?? null;
-  }
-
   private async assertNoActiveSessionConflict(
     userId: string,
     userDetails: CachedUserAttendanceSettings | null,
@@ -495,7 +417,7 @@ export class AttendanceService {
         },
       },
       now: atTime,
-      scheduleEndTime: this.getScheduleEndTimeForPolicy(
+      scheduleEndTime: getScheduleEndTimeForPolicy(
         workingHourMode,
         userDetails,
         shift,
@@ -523,11 +445,16 @@ export class AttendanceService {
 
     // 1. Timezone & Date Context
     // Use offlineTime if provided (trusted for sync), else server time
-    const tz = timezone || (await this.timezoneService.getTimezone(tenantId));
-    const { now: currentTime } = this.timezoneService.getEffectiveDate(tz);
-    const checkInTime = offlineTime || currentTime;
-    const effectiveToday = toStartOfDay(checkInTime, tz);
-
+    const {
+      timezone: tz,
+      checkInTime,
+      effectiveToday,
+    } = await resolveCheckInTimeContext({
+      offlineTime,
+      timezone,
+      tenantId,
+      timezoneService: this.timezoneService,
+    });
     // 2. Cross-Module Validation (Leave & Holiday)
     // Check using the User's Timezone Date
     const eligibility = await this.validationService.validateCheckInEligibility(
@@ -541,38 +468,10 @@ export class AttendanceService {
     }
 
     // 3. User Settings & Schedule (with Redis caching for cross-pod consistency)
-    const cacheKey = `user:schedule:${userId}`;
-    let userDetails: CachedUserAttendanceSettings | null = null;
-
-    try {
-      const cachedRaw = await redis.get(cacheKey);
-      if (cachedRaw) {
-        userDetails = JSON.parse(cachedRaw) as CachedUserAttendanceSettings;
-      }
-    } catch (error) {
-      logger.error(
-        `Failed to read attendance schedule cache for ${cacheKey}`,
-        error instanceof Error ? error : undefined,
-      );
-    }
-
-    if (!userDetails) {
-      userDetails = await this.userRepo.findAttendanceSettingsById(userId);
-      if (userDetails) {
-        try {
-          await redis.setex(
-            cacheKey,
-            USER_SCHEDULE_CACHE_TTL_SECONDS,
-            JSON.stringify(userDetails),
-          );
-        } catch (error) {
-          logger.error(
-            `Failed to write attendance schedule cache for ${cacheKey}`,
-            error instanceof Error ? error : undefined,
-          );
-        }
-      }
-    }
+    const userDetails = await getCachedUserAttendanceSettings({
+      userId,
+      userRepo: this.userRepo,
+    });
 
     // 4. Auto-Checkout Stale Sessions
     await this.processAutoCheckout(
@@ -619,23 +518,12 @@ export class AttendanceService {
     }
 
     // 6. Status Calculation (LATE vs ON_TIME)
-    let status: AttendanceStatus = "ON_TIME";
-    if (userDetails?.workingHourMode !== "FLEXIBLE") {
-      // Determine schedule time: for SHIFT mode, use shift schedule; otherwise use user's startWorkTime
-      let scheduleTime = userDetails?.startWorkTime;
-      if (userDetails?.workingHourMode === "SHIFT" && userDetails?.shift) {
-        scheduleTime = userDetails.shift.startTime;
-      }
-
-      if (scheduleTime) {
-        status = await this.timezoneService.calculateStatus(
-          checkInTime,
-          scheduleTime,
-          tz,
-        );
-      }
-    }
-
+    const status = await resolveCheckInStatus({
+      checkInTime,
+      timezone: tz,
+      userDetails,
+      timezoneService: this.timezoneService,
+    });
     // 7. Create Record with transaction to prevent race condition
     // checkInDate is the date-only portion in the user's timezone,
     // used for the unique constraint to prevent duplicate check-ins per day
@@ -774,7 +662,7 @@ export class AttendanceService {
               },
             },
             now: policyNow,
-            scheduleEndTime: this.getScheduleEndTimeForPolicy(
+            scheduleEndTime: getScheduleEndTimeForPolicy(
               userDetails?.workingHourMode,
               userDetails,
               userDetails?.shift,
@@ -839,24 +727,14 @@ export class AttendanceService {
     const checkOutTime = offlineTime || new Date();
 
     // 2. Calculate warning for FLEXIBLE users
-    let warning: string | undefined;
-    if (attendance.user.workingHourMode === "FLEXIBLE") {
-      const checkInTime = new Date(attendance.checkIn).getTime();
-      const effectiveCheckoutTime = checkOutTime.getTime();
-      const durationHours =
-        (effectiveCheckoutTime - checkInTime) / (1000 * 60 * 60);
-      const targetHours = attendance.user.flexibleTargetHour || 8;
-
-      if (durationHours < targetHours) {
-        const workedHours = Math.floor(durationHours);
-        const workedMinutes = Math.round((durationHours % 1) * 60);
-        const remainingHours = targetHours - durationHours;
-        const remainingHoursInt = Math.floor(remainingHours);
-        const remainingMinutes = Math.round((remainingHours % 1) * 60);
-
-        warning = `Jam kerja Anda baru ${workedHours} jam ${workedMinutes} menit. Target kerja: ${targetHours} jam. Kurang ${remainingHoursInt} jam ${remainingMinutes} menit.`;
-      }
-    }
+    const warning =
+      attendance.user.workingHourMode === "FLEXIBLE"
+        ? buildFlexibleCheckoutWarning({
+            checkIn: attendance.checkIn,
+            checkOutTime,
+            targetHours: attendance.user.flexibleTargetHour || 8,
+          })
+        : undefined;
 
     // 3. Geofence validation
     let checkOutGeofenceStatus = "UNKNOWN";
@@ -879,11 +757,10 @@ export class AttendanceService {
     }
 
     // 4. Prepare notes
-    const finalNotes = notes
-      ? attendance.notes
-        ? `${attendance.notes}; Checkout Note: ${notes}`
-        : notes
-      : attendance.notes;
+    const finalNotes = mergeAttendanceNotes({
+      existingNotes: attendance.notes,
+      checkoutNotes: notes,
+    });
 
     // 5. Update record
     const updateData: Prisma.AttendanceUncheckedUpdateInput = {

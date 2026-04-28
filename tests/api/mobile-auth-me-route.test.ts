@@ -14,6 +14,7 @@ vi.mock("@/lib/mobile-api-auth", () => ({
 
 vi.mock("@/modules/users", () => ({
   getMobileEmployeeMe: mockFns.getMobileEmployeeMe,
+  UserLookupService: class MockUserLookupService {},
 }));
 
 vi.mock("@/modules/database", () => ({

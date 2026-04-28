@@ -218,7 +218,7 @@ import { POST as postKeluar } from "@/app/api/mobile/inventory/keluar/route";
 import {
   buildInventoryActorFilter,
   resolveInventoryActorScope,
-} from "@/lib/inventory/access-session";
+} from "@/modules/inventory";
 
 describe("mobile inventory authorization", () => {
   beforeEach(() => {

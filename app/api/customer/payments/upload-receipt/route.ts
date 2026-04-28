@@ -59,8 +59,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      await notifyAdminsAboutReceiptUpload();
-
       return apiSuccess(
         {
           receiptUrl: result.receiptUrl,
@@ -74,21 +72,5 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error("Error in upload-receipt:", error);
     return ApiErrors.internalError("Terjadi kesalahan pada server");
-  }
-}
-
-async function notifyAdminsAboutReceiptUpload() {
-  try {
-    const { getAdminTokens, sendFCMNotification } =
-      await import("@/lib/firebase/messaging");
-    const tokens = await getAdminTokens();
-    await sendFCMNotification(
-      tokens,
-      "Persetujuan Pembayaran",
-      "Struk pembayaran baru diunggah pelanggan",
-      { url: "/admin/payments/approval" },
-    );
-  } catch (error) {
-    logger.error("[FCM] Push failed", error);
   }
 }

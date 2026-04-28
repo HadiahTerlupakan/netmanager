@@ -1,7 +1,7 @@
+import { createPointClaimService } from "@/modules/marketing";
+import { UserLookupService } from "@/modules/users";
 import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
 import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
-import { createPointClaimService } from "@/modules/marketing";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
 import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
 import type {
   DashboardLimitInput,
@@ -238,7 +238,7 @@ export function createDashboardService(
       dependencies?.pointClaimService ?? createPointClaimService(),
     inventoryRepository:
       dependencies?.inventoryRepository ?? new InventoryRepository(),
-    userRepository: dependencies?.userRepository ?? new UserRepository(),
+    userRepository: dependencies?.userRepository ?? new UserLookupService(),
   });
 }
 

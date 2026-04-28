@@ -76,6 +76,43 @@ export class UserLookupService {
     return this.repository.findWithSitesById(userId);
   }
 
+  /** Find user with basic site context by id. */
+  findByIdWithSite(userId: string, tenantId?: string | null) {
+    return this.repository.findByIdWithSite(userId, tenantId);
+  }
+
+  /** Find admins for notification delivery. */
+  findAdminsForNotification(
+    tenantId: string | null | undefined,
+    userSiteId: string | null | undefined,
+  ) {
+    return this.repository.findAdminsForNotification(tenantId, userSiteId);
+  }
+
+  /** Find user with department context. */
+  findByIdWithDepartment(userId: string) {
+    return this.repository.findByIdWithDepartment(userId);
+  }
+
+  /** Find user with push tokens for direct notifications. */
+  findByIdWithPushToken(userId: string) {
+    return this.repository.findByIdWithPushToken(userId);
+  }
+
+  /** Find users with custom where clause for notification targeting. */
+  findManyWithCustomWhere(
+    where: Parameters<typeof this.repository.findManyWithCustomWhere>[0],
+  ) {
+    return this.repository.findManyWithCustomWhere(where);
+  }
+
+  /** Find users with detailed relations for notification targeting. */
+  findManyWithDetailedRelations(
+    where: Parameters<typeof this.repository.findManyWithDetailedRelations>[0],
+  ) {
+    return this.repository.findManyWithDetailedRelations(where);
+  }
+
   /** Find active users with push tokens by site. */
   findManyActiveWithPushTokenAndSite(
     departmentId?: string,

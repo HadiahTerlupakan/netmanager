@@ -43,6 +43,7 @@ vi.mock("@/modules/notification/services/NotificationService", () => ({
 vi.mock("@/lib/utils/image-upload", () => ({
   convertAndSaveBase64: mockFns.convertAndSaveBase64,
   convertAndSaveImage: mockFns.convertAndSaveBase64,
+  uploadInventoryPhotos: vi.fn(),
 }));
 
 import { POST } from "@/app/api/mobile/leaves/route";

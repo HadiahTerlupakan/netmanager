@@ -1,5 +1,7 @@
 import { RabRevisionStatus } from "@prisma/client";
 
+import { isSuperAdmin } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
 import { prisma } from "@/modules/database";
 
 import {
@@ -10,7 +12,28 @@ import {
 } from "../utils/rab-revisions";
 import { createRouteServiceError } from "./RouteServiceError";
 
+interface RevisionAccessUser {
+  id: string;
+  role?: string;
+  isSuperAdmin?: boolean;
+}
+
 export class RabRevisionRouteService {
+  /** Memastikan user memiliki akses untuk melihat atau mengubah revisi RAB. */
+  async assertRevisionAccess(user: RevisionAccessUser) {
+    const hasAccess =
+      isSuperAdmin(user) ||
+      (await hasPermission("expense:update")) ||
+      (await hasPermission("mixradius_expenses:update"));
+
+    if (!hasAccess) {
+      throw createRouteServiceError(
+        "Akses ditolak. Anda memerlukan permission: expense:update ATAU mixradius_expenses:update",
+        403,
+      );
+    }
+  }
+
   /** Get all revisions for a RAB project. */
   async getRevisions(projectId: string) {
     const revisions = await prisma.rabRevision.findMany({

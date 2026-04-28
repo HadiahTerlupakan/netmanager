@@ -16,6 +16,11 @@ import type {
 } from "../domain/entities/RadiusEntity";
 import type { IRadiusRepository } from "../domain/ports/IRadiusRepository";
 import { parseIpRange } from "@/lib/utils/ip-helpers";
+import {
+  buildMikrotikRateLimit,
+  parseRadiusRateLimitMbps,
+  toRadiusRateLimitMbps,
+} from "../utils/radius-rate-limit";
 
 type PrismaInstance = typeof defaultPrisma;
 
@@ -108,9 +113,7 @@ export class RadiusRepository implements IRadiusRepository {
     bandwidth: RadiusBandwidthEntity,
     tenantId: string,
   ): Promise<void> {
-    const uploadBps = bandwidth.uploadMbps * 1000000;
-    const downloadBps = bandwidth.downloadMbps * 1000000;
-    const rateLimit = `${uploadBps}/${downloadBps}`;
+    const rateLimit = toRadiusRateLimitMbps(bandwidth);
 
     // Delete existing bandwidth entries
     await this.radiusClient.radreply.deleteMany({
@@ -150,15 +153,7 @@ export class RadiusRepository implements IRadiusRepository {
 
     if (!reply) return null;
 
-    // Parse "upload/download" format
-    const parts = reply.value.split("/").map(Number);
-    const upload = parts[0] ?? 0;
-    const download = parts[1] ?? 0;
-
-    return {
-      uploadMbps: upload / 1000000,
-      downloadMbps: download / 1000000,
-    };
+    return parseRadiusRateLimitMbps(reply.value);
   }
 
   /**
@@ -169,15 +164,10 @@ export class RadiusRepository implements IRadiusRepository {
     bandwidth: string | RadiusBandwidthEntity,
     tenantId: string,
   ): Promise<void> {
-    let rateLimit = "";
-
-    if (typeof bandwidth === "string") {
-      rateLimit = bandwidth;
-    } else {
-      const uploadBps = bandwidth.uploadMbps * 1000000;
-      const downloadBps = bandwidth.downloadMbps * 1000000;
-      rateLimit = `${uploadBps}/${downloadBps}`;
-    }
+    const rateLimit =
+      typeof bandwidth === "string"
+        ? bandwidth
+        : toRadiusRateLimitMbps(bandwidth);
 
     // Delete existing bandwidth entries for the group
     await this.radiusClient.radgroupreply.deleteMany({
@@ -313,15 +303,7 @@ export class RadiusRepository implements IRadiusRepository {
 
     if (!reply) return null;
 
-    // Parse "upload/download" format
-    const parts = reply.value.split("/").map(Number);
-    const upload = parts[0] ?? 0;
-    const download = parts[1] ?? 0;
-
-    return {
-      uploadMbps: upload / 1000000,
-      downloadMbps: download / 1000000,
-    };
+    return parseRadiusRateLimitMbps(reply.value);
   }
 
   /**
@@ -633,51 +615,19 @@ export class RadiusRepository implements IRadiusRepository {
       // rx-rate/tx-rate [burst-rate] [burst-threshold] [burst-time] [priority] [min-limit]
       // rx = upload, tx = download
 
-      let rateLimit = `${pkg.bandwidth.maxLimitUpload}/${pkg.bandwidth.maxLimitDownload}`;
-
-      // Tambahkan burst jika ada
-      if (pkg.bandwidth.burstLimitUpload || pkg.bandwidth.burstLimitDownload) {
-        const burstRx =
-          pkg.bandwidth.burstLimitUpload || pkg.bandwidth.maxLimitUpload;
-        const burstTx =
-          pkg.bandwidth.burstLimitDownload || pkg.bandwidth.maxLimitDownload;
-        rateLimit += ` ${burstRx}/${burstTx}`;
-      }
-
-      // Tambahkan threshold jika ada
-      if (
-        pkg.bandwidth.burstThresholdUpload ||
-        pkg.bandwidth.burstThresholdDownload
-      ) {
-        const thresholdRx =
-          pkg.bandwidth.burstThresholdUpload || pkg.bandwidth.maxLimitUpload;
-        const thresholdTx =
-          pkg.bandwidth.burstThresholdDownload ||
-          pkg.bandwidth.maxLimitDownload;
-        rateLimit += ` ${thresholdRx}/${thresholdTx}`;
-      }
-
-      // Tambahkan burst time jika ada
-      if (pkg.bandwidth.burstTimeUpload || pkg.bandwidth.burstTimeDownload) {
-        const timeRx = pkg.bandwidth.burstTimeUpload || 1;
-        const timeTx =
-          pkg.bandwidth.burstTimeDownload || pkg.bandwidth.burstTimeUpload || 1;
-        rateLimit += ` ${timeRx}/${timeTx}`;
-      }
-
-      // Tambahkan priority jika ada
-      if (pkg.bandwidth.priority) {
-        rateLimit += ` ${pkg.bandwidth.priority}`;
-      }
-
-      // Tambahkan min-limit jika ada
-      if (pkg.bandwidth.minLimitUpload || pkg.bandwidth.minLimitDownload) {
-        const minRx =
-          pkg.bandwidth.minLimitUpload || pkg.bandwidth.maxLimitUpload;
-        const minTx =
-          pkg.bandwidth.minLimitDownload || pkg.bandwidth.maxLimitDownload;
-        rateLimit += ` ${minRx}/${minTx}`;
-      }
+      const rateLimit = buildMikrotikRateLimit({
+        maxLimitUpload: pkg.bandwidth.maxLimitUpload,
+        maxLimitDownload: pkg.bandwidth.maxLimitDownload,
+        burstLimitUpload: pkg.bandwidth.burstLimitUpload,
+        burstLimitDownload: pkg.bandwidth.burstLimitDownload,
+        burstThresholdUpload: pkg.bandwidth.burstThresholdUpload,
+        burstThresholdDownload: pkg.bandwidth.burstThresholdDownload,
+        burstTimeUpload: pkg.bandwidth.burstTimeUpload,
+        burstTimeDownload: pkg.bandwidth.burstTimeDownload,
+        priority: pkg.bandwidth.priority,
+        minLimitUpload: pkg.bandwidth.minLimitUpload,
+        minLimitDownload: pkg.bandwidth.minLimitDownload,
+      });
 
       // Using pkg.id as group name for stability
       await this.setGroupBandwidth(pkg.id, rateLimit, tenantId);
