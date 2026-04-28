@@ -1,8 +1,9 @@
+import { logger } from "@/lib/logger";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
-import { prisma } from "@/modules/database";
 import { MAIN_TENANT_ID } from "@/modules/mitra";
+import { getTenantContextLookupService } from "@/modules/admin";
 
 export interface TenantContextResult {
   tenantId: string | null;
@@ -66,24 +67,7 @@ async function resolveTenantContextFromHost(
     return resolvePrimaryTenantContext();
   }
 
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      domain: normalizedHost,
-      isActive: true,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!tenant) {
-    return null;
-  }
-
-  return {
-    tenantId: tenant.id,
-    isSuperAdmin: false,
-  };
+  return getTenantContextLookupService().resolveFromHost(normalizedHost);
 }
 
 /**
@@ -213,7 +197,7 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
               });
             }
           } catch (err) {
-            console.error(
+            logger.error(
               "[TENANT_CONTEXT] Investor token verification failed:",
               err instanceof Error ? err.message : err,
             );

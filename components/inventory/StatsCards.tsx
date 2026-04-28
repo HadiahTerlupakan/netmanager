@@ -9,6 +9,7 @@ import {
   HiOutlineBuildingOffice2,
   HiOutlineExclamationTriangle,
 } from "react-icons/hi2";
+import { clientLogger } from "@/lib/client-logger";
 
 interface StatsData {
   totalBarang: number;
@@ -74,7 +75,7 @@ export function StatsCards() {
         lowStock,
       });
     } catch (error) {
-      console.error("Failed to fetch inventory stats:", error);
+      clientLogger.error("Failed to fetch inventory stats:", error);
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export function StatsCards() {
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {
-    console.log("[Inventory] Stats received update, refreshing...");
+    clientLogger.info("[Inventory] Stats received update, refreshing...");
     fetchStats();
   });
 

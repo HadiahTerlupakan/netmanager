@@ -1,5 +1,7 @@
-import { LogType, Prisma } from "@prisma/client";
-import { prisma } from "@/modules/database";
+import { LogType } from "@prisma/client";
+import { SystemLogMapper } from "../mappers/SystemLogMapper";
+import { SystemLogRepository } from "../repositories/SystemLogRepository";
+import type { ISystemLogRepository } from "../domain/ports/ISystemLogRepository";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -14,65 +16,46 @@ type SystemLogInput = {
   restrictedSiteIds?: string[];
 };
 
-function buildUserFilter(input: SystemLogInput) {
-  if (input.restrictedSiteIds && input.restrictedSiteIds.length > 0) {
-    return { siteId: { in: input.restrictedSiteIds } };
+function resolveType(typeKey?: string | null) {
+  if (!typeKey || !Object.values(LogType).includes(typeKey as LogType)) {
+    return undefined;
   }
-  if (input.requestedSiteId) {
-    return { siteId: input.requestedSiteId };
-  }
-  return undefined;
+  return typeKey as LogType;
 }
 
-function buildWhere(input: SystemLogInput) {
-  const where: Prisma.SystemLogWhereInput = {};
-  if (input.search) {
-    where.OR = [
-      { subject: { contains: input.search, mode: "insensitive" } },
-      { action: { contains: input.search, mode: "insensitive" } },
-      { details: { contains: input.search, mode: "insensitive" } },
-      { user: { name: { contains: input.search, mode: "insensitive" } } },
-      { user: { email: { contains: input.search, mode: "insensitive" } } },
-    ];
+function resolveUserSiteIds(input: SystemLogInput) {
+  if (input.restrictedSiteIds && input.restrictedSiteIds.length > 0) {
+    return input.restrictedSiteIds;
   }
-  if (
-    input.typeKey &&
-    Object.values(LogType).includes(input.typeKey as LogType)
-  ) {
-    where.type = input.typeKey as LogType;
-  }
-  if (input.action) {
-    where.action = input.action;
-  }
-  const userFilter = buildUserFilter(input);
-  if (userFilter) where.user = userFilter;
-  return where;
+  return input.requestedSiteId ? [input.requestedSiteId] : undefined;
 }
 
 export class SystemLogRouteService {
+  constructor(
+    private readonly repository: ISystemLogRepository = new SystemLogRepository(),
+  ) {}
+
   /** Get paginated system logs with search and site restriction. */
   async getLogs(input: SystemLogInput) {
     const page = input.page || DEFAULT_PAGE;
     const limit = input.limit || DEFAULT_LIMIT;
     const skip = (page - 1) * limit;
-    const where = buildWhere(input);
-    const [total, logs] = await Promise.all([
-      prisma.systemLog.count({ where }),
-      prisma.systemLog.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip,
-        include: { user: { select: { name: true, email: true } } },
-      }),
-    ]);
+    const result = await this.repository.findAll({
+      type: resolveType(input.typeKey),
+      action: input.action ?? undefined,
+      search: input.search ?? undefined,
+      skip,
+      take: limit,
+      userSiteIds: resolveUserSiteIds(input),
+    });
+
     return {
-      logs,
+      logs: SystemLogMapper.toListItems(result.data),
       pagination: {
-        total,
+        total: result.total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(result.total / limit),
       },
     };
   }

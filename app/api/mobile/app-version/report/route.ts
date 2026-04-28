@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse, NextRequest } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
-    console.error("Error reporting app version:", error);
+    logger.error("Error reporting app version:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

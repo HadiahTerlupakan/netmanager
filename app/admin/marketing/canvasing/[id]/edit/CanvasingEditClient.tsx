@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -39,7 +40,7 @@ export default function CanvasingEditClient({ id }: { id: string }) {
         sn: data.sn || "",
       });
     } catch (error) {
-      console.error("Fetch detail error:", error);
+      clientLogger.error("Fetch detail error:", error);
       const errorMessage = getLoadErrorMessage(error);
       setLoadErrorMessage(errorMessage);
       toast.error(errorMessage);

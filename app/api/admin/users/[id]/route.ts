@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { updateUserSchema } from "@/modules/users";
+import { updateUserSchema } from "@/lib/validations/user";
 import { AdminUserRouteService } from "@/modules/users";
 import type { Session } from "next-auth";
 

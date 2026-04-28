@@ -33,6 +33,7 @@ vi.mock("@/lib/jwt", () => ({
 }));
 
 vi.mock("@/modules/database", () => ({
+  prisma: {},
   prismaAuth: {
     pelanggan: {
       findUnique: (...args: unknown[]) => mockFindCustomer(...args),

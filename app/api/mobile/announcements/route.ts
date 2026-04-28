@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(announcements);
   } catch (error) {
-    console.error("Mobile announcement listing error:", error);
+    logger.error("Mobile announcement listing error:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

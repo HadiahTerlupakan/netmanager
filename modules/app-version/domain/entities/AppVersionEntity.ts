@@ -1,9 +1,24 @@
-import type { Prisma, User } from "@prisma/client";
-
-export type AppVersion = Prisma.AppVersionGetPayload<Record<string, never>>;
+export interface AppVersion {
+  id: string;
+  version: string;
+  buildNumber: number;
+  versionCode: number;
+  platform: string;
+  apkUrl: string | null;
+  apkSize: bigint | null;
+  releaseNotes: string | null;
+  isForceUpdate: boolean;
+  minVersion: string | null;
+  isActive: boolean;
+  publishedAt: Date | null;
+  createdBy: string | null;
+  tenantId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type AppVersionWithUser = AppVersion & {
-  user: Pick<User, "id" | "name" | "email"> | null;
+  user: { id: string; name: string | null; email: string } | null;
 };
 
 export interface CreateAppVersionDTO {

@@ -1,5 +1,10 @@
-import type { Prisma } from "@prisma/client-billing";
 import type { InvoiceEntity } from "../entities/InvoiceEntity";
+
+export type InvoiceWhereInput = Record<string, unknown>;
+export type InvoiceSelectInput = Record<string, unknown>;
+export type InvoiceCreateInput = Record<string, unknown>;
+export type InvoiceUpdateInput = Record<string, unknown>;
+export type PaymentCreateInput = Record<string, unknown>;
 
 export type InvoiceWithPayment = InvoiceEntity & {
   payment: NonNullable<InvoiceEntity["payment"]>;
@@ -28,25 +33,25 @@ export interface IInvoiceRepository {
     siteId: string,
   ): Promise<InvoiceEntity | null>;
   findMany(
-    where: Prisma.InvoiceWhereInput,
-    select?: Prisma.InvoiceSelect,
+    where: InvoiceWhereInput,
+    select?: InvoiceSelectInput,
   ): Promise<unknown[]>;
   findPaginatedWithItemsAndPayments(options: {
-    where: Prisma.InvoiceWhereInput;
+    where: InvoiceWhereInput;
     page: number;
     limit: number;
   }): Promise<{ data: InvoiceEntity[]; total: number }>;
-  count(where: Prisma.InvoiceWhereInput): Promise<number>;
+  count(where: InvoiceWhereInput): Promise<number>;
   countByMonth(date: Date): Promise<number>;
-  update(id: string, data: Prisma.InvoiceUpdateInput): Promise<InvoiceEntity>;
+  update(id: string, data: InvoiceUpdateInput): Promise<InvoiceEntity>;
   updatePaymentStatus(
     id: string,
-    data: Prisma.InvoiceUpdateInput,
+    data: InvoiceUpdateInput,
   ): Promise<InvoiceEntity>;
   markAsSent(id: string): Promise<InvoiceEntity>;
   updateWithItemsTransaction(options: {
     invoiceId: string;
-    updateData: Prisma.InvoiceUpdateInput;
+    updateData: InvoiceUpdateInput;
     invoiceItem?: Array<{
       id?: string;
       description: string;
@@ -56,9 +61,9 @@ export interface IInvoiceRepository {
     }>;
   }): Promise<InvoiceEntity>;
   deleteById(id: string): Promise<InvoiceEntity>;
-  create(data: Prisma.InvoiceCreateInput): Promise<InvoiceEntity>;
-  createWithItems(data: Prisma.InvoiceCreateInput): Promise<InvoiceEntity>;
-  createPayment(data: Prisma.PaymentCreateInput): Promise<unknown>;
+  create(data: InvoiceCreateInput): Promise<InvoiceEntity>;
+  createWithItems(data: InvoiceCreateInput): Promise<InvoiceEntity>;
+  createPayment(data: PaymentCreateInput): Promise<unknown>;
   findManyForDateRange(
     dueDateStart: Date,
     dueDateEnd: Date,
@@ -75,8 +80,8 @@ export interface IInvoiceRepository {
     pelangganIds: string[],
   ): Promise<Array<{ pelangganId: string | null }>>;
   findUnpaidInvoices(
-    where: Prisma.InvoiceWhereInput,
-    select?: Prisma.InvoiceSelect,
+    where: InvoiceWhereInput,
+    select?: InvoiceSelectInput,
   ): Promise<unknown[]>;
   findOverdueInvoices(beforeDate: Date): Promise<InvoiceEntity[]>;
   voidInvoiceTransaction(

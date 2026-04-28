@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { createHandler, ApiErrors, apiSuccess } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
@@ -28,7 +29,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 
     return apiSuccess(sites);
   } catch (e) {
-    console.error("Error fetching MixRadiusInvestorSite:", e);
+    logger.error("Error fetching MixRadiusInvestorSite:", e);
     return ApiErrors.internalError("Gagal mengambil data Site Investor");
   }
 });
@@ -66,7 +67,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
     return apiSuccess(newSite);
   } catch (e) {
-    console.error("Error creating MixRadiusInvestorSite:", e);
+    logger.error("Error creating MixRadiusInvestorSite:", e);
     return ApiErrors.internalError("Gagal membuat Site Investor");
   }
 });

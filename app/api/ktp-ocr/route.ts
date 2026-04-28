@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { GeminiOcrService, resolveGeminiMimeType } from "@/modules/settings";
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
         ? error.message
         : "Terjadi kesalahan saat memproses KTP";
     const status = message.includes("API Key") ? 500 : 500;
-    console.error("Error processing KTP OCR:", error);
+    logger.error("Error processing KTP OCR:", error);
     return NextResponse.json({ error: message }, { status });
   }
 }

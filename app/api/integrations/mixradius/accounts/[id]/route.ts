@@ -1,9 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-import {
-  getMixRadiusConfigService,
-  IntegrationFactory,
-} from "@/modules/integrations";
+import { getMixRadiusConfigService } from "@/modules/integrations";
+import { IntegrationFactory } from "@/lib/integrations/IntegrationFactory";
 import {
   apiSuccess,
   apiError,

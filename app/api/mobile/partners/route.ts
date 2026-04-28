@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { ApiErrors, apiError, ErrorCodes } from "@/lib/api-response";
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    console.error("Mobile Partner List Error:", error);
+    logger.error("Mobile Partner List Error:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

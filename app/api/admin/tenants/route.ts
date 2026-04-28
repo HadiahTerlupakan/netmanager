@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
     const tenants = await tenantService.getTenants({ activeOnly });
     return NextResponse.json({ success: true, data: tenants });
   } catch (error) {
-    console.error("[TENANT_GET]", error);
+    logger.error("[TENANT_GET]", error);
     return apiError("Failed to fetch tenants", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       message: `Tenant ${tenant.name} berhasil dibuat dengan data default.`,
     });
   } catch (error) {
-    console.error("[TENANT_POST]", error);
+    logger.error("[TENANT_POST]", error);
     return apiError("Failed to create tenant", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

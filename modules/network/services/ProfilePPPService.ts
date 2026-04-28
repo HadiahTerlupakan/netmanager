@@ -1,5 +1,7 @@
+import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
 import type { Session } from "next-auth";
+import { Prisma } from "@prisma/client";
 import {
   profilePPPSchema,
   type ProfilePPPSchema,
@@ -14,6 +16,7 @@ import * as z from "zod";
 import {
   createPPPProfileInMikroTik,
   deletePPPProfileInMikroTik,
+  getIPPoolRanges,
   getRateLimitFromBandwidth,
   updatePPPProfileInMikroTik,
 } from "./mikrotik-ppp-profile";
@@ -122,6 +125,32 @@ type DeleteProfilePPPResult =
       status: number;
       error: string;
     };
+
+export function mapProfilePPPRouteError(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return null;
+  }
+
+  if (error.code === "P2025") {
+    return { status: 404, body: { error: "Profile PPP tidak ditemukan" } };
+  }
+
+  if (error.code === "P2002") {
+    return { status: 400, body: { error: "Nama profile PPP sudah digunakan" } };
+  }
+
+  if (error.code === "P2003") {
+    return {
+      status: 400,
+      body: {
+        error:
+          "Profile PPP tidak dapat dihapus karena masih digunakan oleh paket",
+      },
+    };
+  }
+
+  return null;
+}
 
 export class ProfilePPPService {
   constructor(
@@ -335,7 +364,7 @@ export class ProfilePPPService {
         }
       }
     } catch (error) {
-      console.error(
+      logger.error(
         "[API ProfilePPP] RADIUS sync error during creation:",
         error,
       );
@@ -385,7 +414,7 @@ export class ProfilePPPService {
         }
       }
     } catch (error) {
-      console.error("[API ProfilePPP] RADIUS sync error during update:", error);
+      logger.error("[API ProfilePPP] RADIUS sync error during update:", error);
     }
   }
 
@@ -428,7 +457,7 @@ export class ProfilePPPService {
               profilePPPDataForMikrotik,
             );
           } catch (routerErr) {
-            console.error(
+            logger.error(
               `[API ProfilePPP] Failed to create profile in router ${router.name}:`,
               routerErr,
             );
@@ -461,11 +490,15 @@ export class ProfilePPPService {
         );
       }
     } catch (syncError) {
-      console.error(
+      logger.error(
         "[API ProfilePPP] Error during MikroTik profile broadcast (POST):",
         syncError,
       );
     }
+  }
+
+  toProfilePPPRouteError(error: unknown) {
+    return mapProfilePPPRouteError(error);
   }
 
   async listProfilePPPs(input: {
@@ -484,33 +517,19 @@ export class ProfilePPPService {
     });
   }
 
-  async getProfilePPPDetail(input: {
-    id: string;
-    getIPPoolRanges: (
-      routerId: string,
-      remoteAddress: string,
-    ) => Promise<{ success: boolean; ranges?: string | null }>;
-  }) {
-    const profile = await this.hargaPaketRepository.findProfilePppDetail(
-      input.id,
-    );
+  async getProfilePPPDetail(id: string) {
+    const profile = await this.hargaPaketRepository.findProfilePppDetail(id);
     if (!profile) {
       return null;
     }
 
     return {
       ...profile,
-      ipRange: await this.resolveProfileIpRange(profile, input.getIPPoolRanges),
+      ipRange: await this.resolveProfileIpRange(profile),
     };
   }
 
-  private async resolveProfileIpRange(
-    profile: ProfilePPPDetailRecord,
-    getIPPoolRanges: (
-      routerId: string,
-      remoteAddress: string,
-    ) => Promise<{ success: boolean; ranges?: string | null }>,
-  ) {
+  private async resolveProfileIpRange(profile: ProfilePPPDetailRecord) {
     if (!profile.mikroTikRouterId || !profile.mikroTikRouter) {
       return null;
     }
@@ -522,7 +541,7 @@ export class ProfilePPPService {
       );
       return result.success ? result.ranges || null : null;
     } catch (error) {
-      console.error("[API ProfilePPP] Error getting IP Pool ranges:", error);
+      logger.error("[API ProfilePPP] Error getting IP Pool ranges:", error);
       return null;
     }
   }
@@ -568,7 +587,7 @@ export class ProfilePPPService {
               profilePPPDataForMikrotik,
             );
           } catch (routerErr) {
-            console.error(
+            logger.error(
               `[API ProfilePPP] Failed to update profile in router ${router.name}:`,
               routerErr,
             );
@@ -602,7 +621,7 @@ export class ProfilePPPService {
         );
       }
     } catch (syncError) {
-      console.error(
+      logger.error(
         "[API ProfilePPP] Error during MikroTik profile broadcast:",
         syncError,
       );

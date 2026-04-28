@@ -1,9 +1,9 @@
 import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
+import { DeviceBackupService } from "@/modules/network";
 import {
-  DeviceBackupService,
   deviceBackupCreateSchema,
   deviceBackupQuerySchema,
-} from "@/modules/network";
+} from "@/lib/validations/device-backup";
 import * as z from "zod";
 
 const backupService = new DeviceBackupService();

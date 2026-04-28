@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
@@ -27,7 +28,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     if (!result.success) {
-      console.error(`[Generate API User] Failed: ${result.logs.join(", ")}`);
+      logger.error(`[Generate API User] Failed: ${result.logs.join(", ")}`);
       return NextResponse.json(
         {
           error: "Gagal membuat API user",

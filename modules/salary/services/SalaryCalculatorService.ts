@@ -7,11 +7,9 @@ import type { ISalaryComponentRepository } from "../domain/ports/ISalaryComponen
 import type { ISalaryRepository } from "../domain/ports/ISalaryRepository";
 import { SalaryComponentRepository } from "../repositories/SalaryComponentRepository";
 import { SalaryRepository } from "../repositories/SalaryRepository";
-import {
-  AttendanceRepository,
-  LeaveBalanceRepository,
-} from "@/modules/attendance";
-import { OvertimeRepository } from "@/modules/overtime";
+import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
+import { LeaveBalanceRepository } from "@/modules/attendance/repositories/LeaveBalanceRepository";
+import { OvertimeRepository } from "@/modules/overtime/repositories/OvertimeRepository";
 import {
   UserRepository,
   EmployeeLoanRepository,

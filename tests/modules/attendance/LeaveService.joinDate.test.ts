@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LeaveService } from "@/modules/attendance/services/LeaveService";
+import { LeaveService } from "@/modules/attendance";
 
 const mockLeaveRepo = {
   findApprovedInRangeWithUser: vi.fn(),

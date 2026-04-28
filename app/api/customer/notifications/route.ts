@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getCustomerNotificationService } from "@/modules/pelanggan";
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       ...result,
     });
   } catch (error) {
-    console.error("[Customer Notifications GET] Error:", error);
+    logger.error("[Customer Notifications GET] Error:", error);
     return NextResponse.json(
       { success: false, error: "Gagal mengambil notifikasi" },
       { status: 500 },

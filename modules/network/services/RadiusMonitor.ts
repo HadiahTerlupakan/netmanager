@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { BaseMonitor } from "./BaseMonitor";
@@ -48,7 +49,7 @@ export class RadiusMonitor extends BaseMonitor {
           payload: recentSessions,
         });
       } catch (error) {
-        console.error(
+        logger.error(
           `[RadiusMonitor] Error polling for tenant ${tenant.id}:`,
           error,
         );

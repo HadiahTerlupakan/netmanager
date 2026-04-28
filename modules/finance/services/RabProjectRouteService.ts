@@ -5,12 +5,16 @@ import {
   buildRabRevisionVarianceSummary,
   getVarianceLabel,
 } from "../utils/rab-revision-variance";
-import { RabProjectRepository } from "../repositories/RabProjectRepository";
+import {
+  RabProjectRepository,
+  type RabProjectUpdateInput,
+} from "../repositories/RabProjectRepository";
 import { ExpenseRepository } from "../repositories/ExpenseRepository";
 import { createRouteServiceError } from "./RouteServiceError";
 
 const DEFAULT_CONTINGENCY = "0";
 const EMPTY_ITEM_ID = "";
+const APPROVAL_ONLY_STATUSES = new Set(["APPROVED", "REJECTED"]);
 type ActualAchievementInput = {
   rabProjectId: string;
   month: number;
@@ -52,6 +56,27 @@ export class RabProjectRouteService {
     }
 
     return this.serializeProjectDetail(project);
+  }
+
+  /** Update a RAB project and return route-ready serialized data. */
+  async updateProject(id: string, input: RabProjectUpdateInput) {
+    if (this.isApprovalOnlyStatus(input.status)) {
+      throw createRouteServiceError(
+        "Status approval RAB wajib diproses melalui endpoint approval.",
+        400,
+      );
+    }
+
+    const project = await this.rabProjectRepository.updateProjectWithRelations(
+      id,
+      input,
+    );
+
+    if (!project) {
+      throw createRouteServiceError("Proyek RAB", 404);
+    }
+
+    return this.serializeUpdatedProject(project);
   }
 
   /** Delete a draft RAB project safely. */
@@ -253,6 +278,10 @@ export class RabProjectRouteService {
     };
   }
 
+  private isApprovalOnlyStatus(status: string | undefined) {
+    return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
+  }
+
   private pickProjectSummary(project: {
     id: string;
     name: string;
@@ -326,6 +355,42 @@ export class RabProjectRouteService {
             achievement.manualCompanyShare?.toString() || null,
         }),
       ),
+    };
+  }
+
+  private serializeUpdatedProject(
+    project: {
+      projectedRevenue: bigint;
+      projectedOpex: bigint;
+      arpu: bigint | null;
+      contingencyAmount: bigint | null;
+      opexBufferInvestorFixedAmount: bigint | null;
+      items: Array<{
+        unitPrice: bigint;
+        totalPrice: bigint;
+        disbursements?: Array<{ amount: bigint }>;
+      }>;
+    } & Record<string, unknown>,
+  ) {
+    return {
+      ...project,
+      projectedRevenue: project.projectedRevenue.toString(),
+      projectedOpex: project.projectedOpex.toString(),
+      arpu: project.arpu?.toString() || null,
+      contingencyAmount:
+        project.contingencyAmount?.toString() || DEFAULT_CONTINGENCY,
+      opexBufferInvestorFixedAmount:
+        project.opexBufferInvestorFixedAmount?.toString() ||
+        DEFAULT_CONTINGENCY,
+      items: project.items.map((item) => ({
+        ...item,
+        unitPrice: item.unitPrice.toString(),
+        totalPrice: item.totalPrice.toString(),
+        disbursements: (item.disbursements || []).map((disbursement) => ({
+          ...disbursement,
+          amount: disbursement.amount.toString(),
+        })),
+      })),
     };
   }
 

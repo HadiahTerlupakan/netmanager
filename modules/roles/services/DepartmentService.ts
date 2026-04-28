@@ -1,5 +1,6 @@
+import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type {
   DepartmentDetailDTO,

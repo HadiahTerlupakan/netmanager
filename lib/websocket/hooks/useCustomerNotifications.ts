@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -80,7 +81,7 @@ export function useCustomerNotifications(
         setAnnouncements(data.announcements || []);
       }
     } catch (error) {
-      console.error("[CustomerNotifications] Error fetching:", error);
+      clientLogger.error("[CustomerNotifications] Error fetching:", error);
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ export function useCustomerNotifications(
   // Handle new notification from WebSocket
   const handleNewNotification = useCallback(
     (payload: NotificationPayload) => {
-      console.log(
+      clientLogger.info(
         "[CustomerNotifications] New notification received:",
         payload.title,
       );

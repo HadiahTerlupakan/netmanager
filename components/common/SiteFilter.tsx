@@ -1,49 +1,56 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from 'react'
-import { HiOutlineMap } from 'react-icons/hi2'
+import { useEffect, useState } from "react";
+import { HiOutlineMap } from "react-icons/hi2";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Site {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
 interface SiteFilterProps {
-  onSiteChange: (siteId: string | undefined) => void
-  className?: string | undefined
-  isInput?: boolean | undefined // If true, behaves like a form input (auto-selects & shows static if single site)
-  value?: string | undefined
-  resource?: string
+  onSiteChange: (siteId: string | undefined) => void;
+  className?: string | undefined;
+  isInput?: boolean | undefined; // If true, behaves like a form input (auto-selects & shows static if single site)
+  value?: string | undefined;
+  resource?: string;
 }
 
-export function SiteFilter({ onSiteChange, className = '', isInput = false, value, resource }: SiteFilterProps) {
-  const [sites, setSites] = useState<Site[]>([])
-  const [selectedSite, setSelectedSite] = useState<string>(value || '')
-  const [loading, setLoading] = useState(true)
+export function SiteFilter({
+  onSiteChange,
+  className = "",
+  isInput = false,
+  value,
+  resource,
+}: SiteFilterProps) {
+  const [sites, setSites] = useState<Site[]>([]);
+  const [selectedSite, setSelectedSite] = useState<string>(value || "");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const url = resource ? `/api/sites?resource=${resource}` : '/api/sites';
+    const url = resource ? `/api/sites?resource=${resource}` : "/api/sites";
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        setSites(data.sites || [])
-        setLoading(false)
+        setSites(data.sites || []);
+        setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to fetch sites:', err)
-        setLoading(false)
-      })
-  }, [resource])
+        clientLogger.error("Failed to fetch sites:", err);
+        setLoading(false);
+      });
+  }, [resource]);
 
   // Sync with value prop if provided
   useEffect(() => {
     if (value !== undefined) {
       // Defer state update to avoid synchronous setState in effect
       requestAnimationFrame(() => {
-        setSelectedSite(value)
-      })
+        setSelectedSite(value);
+      });
     }
-  }, [value])
+  }, [value]);
 
   // Auto-select if only one site exists (e.g., restricted admin) AND it is an input field
   // Or if it is a filter, we might still want to auto-select if restricted, but KEEP the dropdown visible?
@@ -58,26 +65,27 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
   useEffect(() => {
     // If input mode (required selection), auto-select single site
     if (isInput && !loading && sites.length === 1 && !selectedSite) {
-      const singleSite = sites[0]
+      const singleSite = sites[0];
       if (singleSite) {
         // Defer state updates to avoid synchronous setState in effect
         requestAnimationFrame(() => {
-          setSelectedSite(singleSite.id)
-          onSiteChange(singleSite.id)
-        })
+          setSelectedSite(singleSite.id);
+          onSiteChange(singleSite.id);
+        });
       }
     }
     // If filter mode, we usually default to "Semua Site" (''), unless we want to force?
     // Let's leave filter mode as manual selection (default ''), enabling 'Semua Site'.
-  }, [loading, sites, selectedSite, onSiteChange, isInput])
+  }, [loading, sites, selectedSite, onSiteChange, isInput]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value
-    setSelectedSite(val)
-    onSiteChange(val === '' ? undefined : val)
-  }
+    const val = e.target.value;
+    setSelectedSite(val);
+    onSiteChange(val === "" ? undefined : val);
+  };
 
-  if (loading) return <div className="animate-pulse h-10 w-48 bg-gray-200 rounded"></div>
+  if (loading)
+    return <div className="animate-pulse h-10 w-48 bg-gray-200 rounded"></div>;
 
   return (
     <div className={`relative ${className}`}>
@@ -92,7 +100,8 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
       */}
       {isInput && sites.length === 1 ? (
         <div className="block w-full pl-10 pr-3 py-2 text-base border border-gray-200 bg-gray-50 text-gray-500 rounded-md sm:text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
-          {sites[0]?.name} <span className='text-xs ml-1 text-gray-400'>(Otomatis)</span>
+          {sites[0]?.name}{" "}
+          <span className="text-xs ml-1 text-gray-400">(Otomatis)</span>
         </div>
       ) : (
         <select
@@ -109,5 +118,5 @@ export function SiteFilter({ onSiteChange, className = '', isInput = false, valu
         </select>
       )}
     </div>
-  )
+  );
 }

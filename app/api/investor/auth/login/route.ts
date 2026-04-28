@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import {
   checkStrictLoginRateLimit,
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    console.error("[INVESTOR_LOGIN] Error:", error);
+    logger.error("[INVESTOR_LOGIN] Error:", error);
     return apiError(
       "Terjadi kesalahan pada server",
       ErrorCodes.INTERNAL_ERROR,

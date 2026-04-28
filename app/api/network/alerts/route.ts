@@ -1,11 +1,12 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
+import { getNetworkAlertService } from "@/modules/network";
 import {
-  getNetworkAlertService,
   networkAlertCreateSchema,
   networkAlertQuerySchema,
-} from "@/modules/network";
+} from "@/lib/validations/network-performance";
 import * as z from "zod";
+import type { NetworkAlertCreateData } from "@/lib/validations/network-performance";
 
 /**
  * @swagger
@@ -192,7 +193,7 @@ export const POST = createHandler(
     schema: networkAlertCreateSchema,
   },
   async (_req, ctx) => {
-    const data = ctx.validated;
+    const data = ctx.validated as NetworkAlertCreateData;
     const networkAlertService = getNetworkAlertService();
 
     try {

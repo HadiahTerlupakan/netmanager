@@ -9,7 +9,7 @@ const mockFns = vi.hoisted(() => ({
   getTopInstallationSites: vi.fn(),
 }));
 
-vi.mock("@/modules/network", () => ({
+vi.mock("@/modules/network/repositories/MikroTikRouterRepository", () => ({
   MikroTikRouterRepository: class MockMikroTikRouterRepository {
     getStatistics = mockFns.getStatistics;
   },

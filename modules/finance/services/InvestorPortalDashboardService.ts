@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { MixRadiusCustomer } from "@/modules/integrations";
 import {
   getMixRadiusService,
@@ -163,7 +164,7 @@ export class InvestorPortalDashboardService {
       });
       return response.data || [];
     } catch (error) {
-      console.error("[INVESTOR_DASHBOARD] MixRadius fetch error:", error);
+      logger.error("[INVESTOR_DASHBOARD] MixRadius fetch error:", error);
       return [] as MixRadiusCustomer[];
     }
   }

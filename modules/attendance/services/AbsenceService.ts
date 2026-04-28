@@ -1,7 +1,7 @@
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 import { randomUUID } from "crypto";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import { AttendanceEventDispatcher } from "@/modules/events";
@@ -11,13 +11,13 @@ export class AbsenceService {
   private holidayRepo: HolidayRepository;
   private leaveRepo: LeaveRepository;
   private attendanceRepo: AttendanceRepository;
-  private userRepo: UserRepository;
+  private userRepo: UserLookupService;
 
   constructor() {
     this.holidayRepo = new HolidayRepository();
     this.leaveRepo = new LeaveRepository();
     this.attendanceRepo = new AttendanceRepository();
-    this.userRepo = new UserRepository();
+    this.userRepo = new UserLookupService();
   }
 
   /**
@@ -59,8 +59,6 @@ export class AbsenceService {
     let dayOffCount = 0;
 
     // 3. Iterate and Check
-    // console.log(`[AbsenceService] Processing ${users.length} active users for ${targetDate.toDateString()}`)
-
     for (const user of users) {
       // 3.1 Check Work Days
       const dayOfWeek = targetDate.getDay(); // 0-6
@@ -150,7 +148,7 @@ export class AbsenceService {
           });
           dayOffCount++;
         } catch (error) {
-          console.error(
+          logger.error(
             `[AbsenceService] Error creating Day Off for ${user.name}:`,
             error,
           );
@@ -193,7 +191,7 @@ export class AbsenceService {
 
         absentCount++;
       } catch (error) {
-        console.error(
+        logger.error(
           `[AbsenceService] Error creating Absent for ${user.name}:`,
           error,
         );

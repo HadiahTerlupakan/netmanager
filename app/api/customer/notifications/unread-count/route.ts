@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getCustomerNotificationService } from "@/modules/pelanggan";
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
       count: unreadCount,
     });
   } catch (error) {
-    console.error("[Customer Notifications Unread Count] Error:", error);
+    logger.error("[Customer Notifications Unread Count] Error:", error);
     return NextResponse.json(
       { success: false, error: "Gagal mengambil jumlah notifikasi" },
       { status: 500 },

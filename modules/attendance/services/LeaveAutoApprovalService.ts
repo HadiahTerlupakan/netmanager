@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { getLeaveService } from "./LeaveService";
 
@@ -81,7 +82,7 @@ async function approvePendingRequests(
       );
       approvedIds.push(request.id);
     } catch (error) {
-      console.error(
+      logger.error(
         `[Cron Auto-Approve Leave] Failed to approve request ${request.id}:`,
         error,
       );

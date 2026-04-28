@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import {
   useState,
@@ -270,7 +271,7 @@ export default function ExpensesClient() {
         setRabProjects(json.data);
       }
     } catch (e) {
-      console.error("Failed to fetch RAB projects", e);
+      clientLogger.error("Failed to fetch RAB projects", e);
     }
   }, [rabRefreshKey]);
 
@@ -292,7 +293,7 @@ export default function ExpensesClient() {
           );
         }
       } catch (e) {
-        console.error("Failed to fetch sites", e);
+        clientLogger.error("Failed to fetch sites", e);
       }
     };
 
@@ -309,7 +310,7 @@ export default function ExpensesClient() {
           );
         }
       } catch (e) {
-        console.error("Failed to fetch investor sites", e);
+        clientLogger.error("Failed to fetch investor sites", e);
       }
     };
 
@@ -326,7 +327,7 @@ export default function ExpensesClient() {
           );
         }
       } catch (e) {
-        console.error("Failed to fetch internal sites", e);
+        clientLogger.error("Failed to fetch internal sites", e);
       }
     };
 
@@ -362,7 +363,7 @@ export default function ExpensesClient() {
           setFilterCategories(json.data);
         }
       } catch (e) {
-        console.error("Failed to fetch filter categories", e);
+        clientLogger.error("Failed to fetch filter categories", e);
       }
     };
 
@@ -379,7 +380,7 @@ export default function ExpensesClient() {
         setCategories(json.data);
       }
     } catch (e) {
-      console.error("Failed to fetch categories", e);
+      clientLogger.error("Failed to fetch categories", e);
     } finally {
       setIsLoadingCategories(false);
     }
@@ -445,7 +446,7 @@ export default function ExpensesClient() {
         setRabBottleneckMetrics(result.data);
       }
     } catch (err) {
-      console.error("Failed to fetch RAB bottleneck metrics", err);
+      clientLogger.error("Failed to fetch RAB bottleneck metrics", err);
     } finally {
       setIsLoadingRabMetrics(false);
     }

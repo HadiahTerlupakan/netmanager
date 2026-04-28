@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * RADIUS Sync Service
  *
@@ -60,7 +61,7 @@ export class RadiusSyncService {
         return "MIKROTIK_API";
       }
     } catch (_error) {
-      console.warn(
+      logger.warn(
         "[RadiusSyncService] Could not read connection mode, defaulting to RADIUS",
       );
     }

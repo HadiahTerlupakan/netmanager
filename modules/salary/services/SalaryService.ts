@@ -1,4 +1,5 @@
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logger } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type {
   EmployeeType,

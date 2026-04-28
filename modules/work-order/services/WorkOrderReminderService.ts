@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { sendWorkOrderReminder } from "./WorkOrderNotifications";
 
@@ -103,7 +104,7 @@ async function sendReminder(workOrder: StaleWorkOrder, now: Date) {
       sentCount,
     };
   } catch (error) {
-    console.error(
+    logger.error(
       `[Cron WO Reminder] Error sending reminder for ${workOrder.workOrderNumber}:`,
       error,
     );

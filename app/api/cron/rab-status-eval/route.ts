@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { headers } from "next/headers";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getEnv } from "@/lib/env";
@@ -29,7 +30,7 @@ export async function POST(_request: Request) {
       { message: "Evaluasi status RAB otomatis berhasil dijalankan" },
     );
   } catch (error: unknown) {
-    console.error("[Cron RAB Status] Error:", error);
+    logger.error("[Cron RAB Status] Error:", error);
     const errorMessage =
       error instanceof Error
         ? error.message

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       }
     }
 
-    console.error("Error FCM Token API:", error);
+    logger.error("Error FCM Token API:", error);
     return ApiErrors.internalError("Terjadi kesalahan pada server");
   }
 }

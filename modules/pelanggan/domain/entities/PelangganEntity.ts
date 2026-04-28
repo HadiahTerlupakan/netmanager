@@ -2,7 +2,8 @@
  * Pure pelanggan domain entities for pelanggan module.
  */
 
-import type { DiscountType, DurasiUnit } from "@prisma/client";
+export type PelangganDiscountType = "PERCENT" | "FIXED";
+export type PelangganDurationUnit = "HARI" | "BULAN" | "TAHUN" | string;
 
 export interface PelangganSiteEntity {
   id: string;
@@ -37,7 +38,7 @@ export interface PelangganPackageEntity {
   usePPN?: boolean;
   ppnPercentage?: number | null;
   useDiscount?: boolean;
-  discountType?: DiscountType | null;
+  discountType?: PelangganDiscountType | null;
   discountValue?: number | null;
   profilePPP?: PelangganProfilePppEntity | null;
   bandwidth?: PelangganBandwidthEntity | null;
@@ -79,10 +80,10 @@ export interface PelangganEntity {
   usePPN?: boolean;
   useDiscount?: boolean;
   useProrate?: boolean;
-  discountType?: DiscountType | null;
+  discountType?: PelangganDiscountType | null;
   discountValue?: number | null;
   discountDuration?: number | null;
-  discountDurationUnit?: DurasiUnit | null;
+  discountDurationUnit?: PelangganDurationUnit | null;
   biayaInstalasi?: number | null;
   biayaSewaPerangkat?: number | null;
   biayaLainnya?: number | null;

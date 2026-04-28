@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { OvertimeStatus } from "@prisma/client";
 import * as z from "zod";
 
 import { ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
-import { lemburFilterSchema, OvertimeRouteService } from "@/modules/overtime";
+import type { OvertimeStatusValue } from "@/modules/overtime";
+import { OvertimeRouteService } from "@/modules/overtime";
+import { lemburFilterSchema } from "@/lib/validations/lembur";
 
 const overtimeRouteService = new OvertimeRouteService();
 
@@ -29,7 +30,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     session: ctx.session as never,
     page: parseResult.data.page,
     limit: parseResult.data.limit,
-    status: parseResult.data.status as OvertimeStatus | undefined,
+    status: parseResult.data.status as OvertimeStatusValue | undefined,
     holidayType: parseResult.data.holidayType,
     siteId: parseResult.data.siteId,
     departmentId: parseResult.data.departmentId,

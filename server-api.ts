@@ -8,7 +8,7 @@ import "dotenv/config";
 if (!process.env.TZ) {
   process.env.TZ = "Asia/Jakarta";
 }
-console.log(
+logger.info(
   `[API Server] Timezone set to: ${process.env.TZ} (${new Date().toString()})`,
 );
 
@@ -22,12 +22,13 @@ import {
   startPushRetryProcessor,
   stopPushRetryProcessor,
 } from "./modules/notification/services/PushRetryQueue";
+import { logger } from "./lib/logger";
 
 // Standalone Hono app for custom server (separate from Next.js App Router route)
 const honoApp = new Hono().basePath("/api");
 
 honoApp.onError((err, c) => {
-  console.error(err);
+  logger.error(err);
   if (err instanceof AppError) {
     return c.json(
       {
@@ -59,8 +60,8 @@ const server = serve(
     hostname,
   },
   (info) => {
-    console.log(`\n  ▲ Hono API Server (${dev ? "dev" : "production"})`);
-    console.log(`  - Local:        http://${hostname}:${info.port}\n`);
+    logger.info(`\n  ▲ Hono API Server (${dev ? "dev" : "production"})`);
+    logger.info(`  - Local:        http://${hostname}:${info.port}\n`);
   },
 ) as unknown as import("http").Server;
 
@@ -71,7 +72,7 @@ import("./modules/network/services/RadiusMonitor")
     startRadiusMonitoring();
   })
   .catch((err) =>
-    console.error("[Server] Failed to start Radius monitoring:", err),
+    logger.error("[Server] Failed to start Radius monitoring:", err),
   );
 
 import("./modules/network/services/MikroTikMonitor")
@@ -80,7 +81,7 @@ import("./modules/network/services/MikroTikMonitor")
     mikroTikMonitor.start();
   })
   .catch((err) =>
-    console.error("[Server] Failed to start MikroTik monitoring:", err),
+    logger.error("[Server] Failed to start MikroTik monitoring:", err),
   );
 
 if (startInternalCronIfEnabled({ startAll: () => {} })) {
@@ -89,37 +90,37 @@ if (startInternalCronIfEnabled({ startAll: () => {} })) {
       cronRegistry.startAll();
     })
     .catch((err) =>
-      console.error("[Server] Failed to load Cron Registry:", err),
+      logger.error("[Server] Failed to load Cron Registry:", err),
     );
 }
 
 const gracefulShutdown = (signal: string) => {
-  console.log(`[Server] ${signal} received, shutting down gracefully`);
+  logger.info(`[Server] ${signal} received, shutting down gracefully`);
 
   import("./lib/cron-registry")
     .then(({ cronRegistry }) => {
       cronRegistry.stopAll();
     })
     .catch((err) =>
-      console.error("[Server] Failed to stop Cron Registry:", err),
+      logger.error("[Server] Failed to stop Cron Registry:", err),
     );
 
   try {
     stopRadiusMonitoring();
     stopPushRetryProcessor();
     mikroTikMonitorRef?.stop();
-    console.log("[Server] Monitoring services stopped");
+    logger.info("[Server] Monitoring services stopped");
   } catch (e) {
-    console.error("[Server] Error stopping services:", e);
+    logger.error("[Server] Error stopping services:", e);
   }
 
   server.close(() => {
-    console.log("[Server] HTTP server closed");
+    logger.info("[Server] HTTP server closed");
     process.exit(0);
   });
 
   setTimeout(() => {
-    console.error("[Server] Forced exit after timeout");
+    logger.error("[Server] Forced exit after timeout");
     process.exit(1);
   }, 5000);
 };

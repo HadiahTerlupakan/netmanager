@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type {
   Prisma,
   RegistrationStatus as PrismaRegistrationStatus,
@@ -137,7 +138,7 @@ export class RegistrationRepository implements IRegistrationRepository {
     try {
       return decryptApiKey(encryptedValue);
     } catch (error) {
-      console.error(
+      logger.error(
         `[RegistrationRepository] Failed to decrypt setting: ${key}`,
         error,
       );

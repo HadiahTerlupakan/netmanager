@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // BCA API Payment Provider Implementation
 // Documentation: https://developer.bca.co.id/
 
@@ -58,7 +59,7 @@ export class BCAProvider implements PaymentProvider {
       const data = (await response.json()) as { access_token: string };
       return data.access_token;
     } catch (error: unknown) {
-      console.error("BCA getAccessToken error:", error);
+      logger.error("BCA getAccessToken error:", error);
       throw error;
     }
   }
@@ -168,7 +169,7 @@ export class BCAProvider implements PaymentProvider {
         expiresAt: expiryDate,
       });
     } catch (error: unknown) {
-      console.error("BCA createPayment error:", error);
+      logger.error("BCA createPayment error:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create payment";
       return {
@@ -243,14 +244,13 @@ export class BCAProvider implements PaymentProvider {
         transactionId: data.TransactionID,
       });
     } catch (error: unknown) {
-      console.error("BCA checkStatus error:", error);
+      logger.error("BCA checkStatus error:", error);
       throw error;
     }
   }
 
   async cancelPayment(_orderId: string): Promise<void> {
     // BCA Virtual Account biasanya tidak support cancel, akan expired otomatis
-    // console.log(`BCA VA will auto-expire for order: ${orderId}`)
   }
 
   verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
@@ -278,7 +278,7 @@ export class BCAProvider implements PaymentProvider {
 
       return crypto.timingSafeEqual(source, target);
     } catch (error) {
-      console.error("BCA webhook verification error:", error);
+      logger.error("BCA webhook verification error:", error);
       return false;
     }
   }
@@ -311,7 +311,7 @@ export class BCAProvider implements PaymentProvider {
         raw: payload,
       });
     } catch (error: unknown) {
-      console.error("BCA processWebhook error:", error);
+      logger.error("BCA processWebhook error:", error);
       throw error;
     }
   }

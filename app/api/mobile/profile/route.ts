@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
 
     return apiSuccess(profile);
   } catch (error: unknown) {
-    console.error("Profile fetch error:", error);
+    logger.error("Profile fetch error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 });
@@ -57,7 +58,7 @@ export async function PATCH(request: Request) {
       }),
     );
   } catch (error: unknown) {
-    console.error("Profile update error:", error);
+    logger.error("Profile update error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 });

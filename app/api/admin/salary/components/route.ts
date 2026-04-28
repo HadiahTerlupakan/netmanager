@@ -1,5 +1,4 @@
 import { getSalaryComponentService } from "@/modules/salary";
-import { SalaryComponentType } from "@prisma/client";
 import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
@@ -11,6 +10,8 @@ import {
 import * as z from "zod";
 
 const componentService = getSalaryComponentService();
+const SALARY_COMPONENT_TYPES = ["EARNING", "DEDUCTION"] as const;
+type SalaryComponentTypeValue = (typeof SALARY_COMPONENT_TYPES)[number];
 
 const createComponentSchema = z.object({
   action: z.enum(["assign", "create"]).optional(),
@@ -21,7 +22,7 @@ const createComponentSchema = z.object({
   notes: z.string().max(500).optional(),
   // For create action
   name: z.string().min(1).max(100).optional(),
-  type: z.enum(SalaryComponentType).optional(),
+  type: z.enum(SALARY_COMPONENT_TYPES).optional(),
   rateType: z.enum(["FIXED", "PERCENTAGE"]).optional(),
   defaultAmount: z.number().optional(),
   description: z.string().max(500).optional(),
@@ -31,7 +32,7 @@ const createComponentSchema = z.object({
 const updateComponentSchema = z.object({
   id: z.uuid({ error: "ID komponen wajib diisi" }),
   name: z.string().min(1).max(100).optional(),
-  type: z.enum(SalaryComponentType).optional(),
+  type: z.enum(SALARY_COMPONENT_TYPES).optional(),
   rateType: z.enum(["FIXED", "PERCENTAGE"]).optional(),
   defaultAmount: z.number().optional(),
   description: z.string().max(500).optional(),
@@ -47,7 +48,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
   }
 
   const { searchParams } = req.nextUrl;
-  const type = searchParams.get("type") as SalaryComponentType | undefined;
+  const type = searchParams.get("type") as SalaryComponentTypeValue | undefined;
   const userId = searchParams.get("userId");
 
   const { components, userComponents } = await componentService.getComponents(

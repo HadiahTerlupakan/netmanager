@@ -1,11 +1,12 @@
+import { logger } from "@/lib/logger";
 /**
  * Utility untuk mengelola localStorage dengan expiry time
  * Data akan otomatis expired setelah waktu tertentu
  */
 
 interface StorageItem<T> {
-  value: T
-  expiry: number // Unix timestamp dalam milliseconds
+  value: T;
+  expiry: number; // Unix timestamp dalam milliseconds
 }
 
 /**
@@ -14,18 +15,22 @@ interface StorageItem<T> {
  * @param value - Value yang akan disimpan
  * @param ttlSeconds - Time to live dalam detik (default: 10 detik)
  */
-export function setWithExpiry<T>(key: string, value: T, ttlSeconds: number = 10): void {
-  if (typeof window === 'undefined') return
+export function setWithExpiry<T>(
+  key: string,
+  value: T,
+  ttlSeconds: number = 10,
+): void {
+  if (typeof window === "undefined") return;
 
   const item: StorageItem<T> = {
     value,
-    expiry: Date.now() + (ttlSeconds * 1000),
-  }
+    expiry: Date.now() + ttlSeconds * 1000,
+  };
 
   try {
-    localStorage.setItem(key, JSON.stringify(item))
+    localStorage.setItem(key, JSON.stringify(item));
   } catch (error) {
-    console.error(`Error setting localStorage item ${key}:`, error)
+    logger.error(`Error setting localStorage item ${key}:`, error);
   }
 }
 
@@ -35,34 +40,34 @@ export function setWithExpiry<T>(key: string, value: T, ttlSeconds: number = 10)
  * @returns Value jika masih valid, null jika expired atau tidak ada
  */
 export function getWithExpiry<T>(key: string): T | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === "undefined") return null;
 
   try {
-    const itemStr = localStorage.getItem(key)
-    if (!itemStr) return null
+    const itemStr = localStorage.getItem(key);
+    if (!itemStr) return null;
 
-    const parsed = JSON.parse(itemStr)
-    
+    const parsed = JSON.parse(itemStr);
+
     // Backward compatibility: jika data lama (tanpa wrapper expiry), langsung return
     if (!parsed.expiry && !parsed.value) {
       // Ini adalah data lama dalam format langsung, return as is
-      return parsed as T
+      return parsed as T;
     }
 
     // Data baru dengan wrapper expiry
-    const item: StorageItem<T> = parsed
-    const now = Date.now()
+    const item: StorageItem<T> = parsed;
+    const now = Date.now();
 
     // Check jika sudah expired
     if (now > item.expiry) {
-      localStorage.removeItem(key)
-      return null
+      localStorage.removeItem(key);
+      return null;
     }
 
-    return item.value
+    return item.value;
   } catch {
-    console.error(`Error getting localStorage item ${key}`)
-    return null
+    logger.error(`Error getting localStorage item ${key}`);
+    return null;
   }
 }
 
@@ -70,24 +75,24 @@ export function getWithExpiry<T>(key: string): T | null {
  * Remove item dari localStorage
  */
 export function removeWithExpiry(key: string): void {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem(key)
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(key);
 }
 
 /**
  * Check jika item masih valid (belum expired)
  */
 export function isExpired(key: string): boolean {
-  if (typeof window === 'undefined') return true
+  if (typeof window === "undefined") return true;
 
   try {
-    const itemStr = localStorage.getItem(key)
-    if (!itemStr) return true
+    const itemStr = localStorage.getItem(key);
+    if (!itemStr) return true;
 
-    const item: StorageItem<unknown> = JSON.parse(itemStr)
-    return Date.now() > item.expiry
+    const item: StorageItem<unknown> = JSON.parse(itemStr);
+    return Date.now() > item.expiry;
   } catch {
-    return true
+    return true;
   }
 }
 
@@ -96,29 +101,32 @@ export function isExpired(key: string): boolean {
  * @param key - Key untuk migrate
  * @param ttlSeconds - Time to live dalam detik (default: 10 detik)
  */
-export function migrateOldData<T>(key: string, ttlSeconds: number = 10): T | null {
-  if (typeof window === 'undefined') return null
+export function migrateOldData<T>(
+  key: string,
+  ttlSeconds: number = 10,
+): T | null {
+  if (typeof window === "undefined") return null;
 
   try {
-    const itemStr = localStorage.getItem(key)
-    if (!itemStr) return null
+    const itemStr = localStorage.getItem(key);
+    if (!itemStr) return null;
 
-    const parsed = JSON.parse(itemStr)
-    
+    const parsed = JSON.parse(itemStr);
+
     // Jika sudah dalam format baru (ada expiry dan value), return langsung
     if (parsed.expiry && parsed.value !== undefined) {
-      return parsed.value as T
+      return parsed.value as T;
     }
 
     // Jika data lama (langsung value tanpa wrapper), migrate ke format baru
     if (!parsed.expiry && !parsed.value) {
-      setWithExpiry(key, parsed, ttlSeconds)
-      return parsed as T
+      setWithExpiry(key, parsed, ttlSeconds);
+      return parsed as T;
     }
 
-    return null
+    return null;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -126,29 +134,28 @@ export function migrateOldData<T>(key: string, ttlSeconds: number = 10): T | nul
  * Clear semua expired items dari localStorage
  */
 export function clearExpiredItems(): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
 
-  const keysToRemove: string[] = []
-  
+  const keysToRemove: string[] = [];
+
   for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (!key) continue
+    const key = localStorage.key(i);
+    if (!key) continue;
 
     try {
-      const itemStr = localStorage.getItem(key)
-      if (!itemStr) continue
+      const itemStr = localStorage.getItem(key);
+      if (!itemStr) continue;
 
-      const item = JSON.parse(itemStr)
+      const item = JSON.parse(itemStr);
       // Check jika memiliki struktur expiry
       if (item.expiry && Date.now() > item.expiry) {
-        keysToRemove.push(key)
+        keysToRemove.push(key);
       }
     } catch {
       // Bukan item dengan expiry, skip
-      continue
+      continue;
     }
   }
 
-  keysToRemove.forEach(key => localStorage.removeItem(key))
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
 }
-

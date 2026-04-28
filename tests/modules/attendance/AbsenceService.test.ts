@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prismaMock } from "../../setup";
-import { AbsenceService } from "@/modules/attendance/services/AbsenceService";
+import { AbsenceService } from "@/modules/attendance";
 import { HolidayRepository } from "@/modules/attendance/repositories/HolidayRepository";
 
 describe("AbsenceService canonical absence status", () => {

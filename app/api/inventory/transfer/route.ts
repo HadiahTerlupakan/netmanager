@@ -1,17 +1,28 @@
+import { logger } from "@/lib/logger";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
-  buildInventoryAccessSession,
-  getInventoryRouteService,
-  InventoryRepository,
+  inventoryTransferRouteService,
+  type InventoryTransferRouteResult,
 } from "@/modules/inventory";
-import { logger, logActivitySafe } from "@/lib/logger";
-import { validateGudangSiteAccess } from "@/modules/inventory";
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { logActivitySafe } from "@/lib/logger";
 import {
-  buildPaginationMeta,
-  parsePaginationParams,
-} from "@/lib/utils/pagination";
+  buildInventoryAccessSession,
+  validateGudangSiteAccess,
+} from "@/lib/inventory/access-session";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { parsePaginationParams } from "@/lib/utils/pagination";
+
+type InventoryTransferRouteFailure = Extract<
+  InventoryTransferRouteResult<unknown>,
+  { success: false }
+>;
+
+function isInventoryTransferRouteFailure(
+  result: InventoryTransferRouteResult<unknown>,
+): result is InventoryTransferRouteFailure {
+  return !result.success;
+}
 
 /**
  * GET /api/inventory/transfer
@@ -29,39 +40,28 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const barangId = searchParams.get("barangId") || undefined;
   const dariGudangId = searchParams.get("dariGudangId") || undefined;
   const keGudangId = searchParams.get("keGudangId") || undefined;
-  let siteId = searchParams.get("siteId") || undefined;
+  const siteId = searchParams.get("siteId") || undefined;
   const { page, limit } = parsePaginationParams(searchParams, {
     page: 1,
     limit: 20,
   });
-  const offset = (page - 1) * limit;
-
-  // SITE RESTRICTION
   const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-
-  if (
-    !isSuper &&
-    (permissions.includes("transfer:site_only") ||
-      permissions.includes("k_barang:site_only"))
-  ) {
-    siteId = await getInventoryRouteService().getUserSiteId(user.id);
-  }
-
-  const inventoryRepository = new InventoryRepository();
 
   try {
     const dbStart = Date.now();
-
-    const { items: transferList, total } =
-      await inventoryRepository.findAllTransfers({
-        skip: offset,
-        take: limit,
-        ...(barangId && { barangId }),
-        ...(dariGudangId && { dariGudangId }),
-        ...(keGudangId && { keGudangId }),
-        ...(siteId && { siteId }),
-      });
+    const result = await inventoryTransferRouteService.listTransfers({
+      userId: user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(user),
+      page,
+      limit,
+      barangId,
+      dariGudangId,
+      keGudangId,
+      siteId,
+    });
+    const transferList = result.transferList;
+    const total = result.pagination.total;
 
     logger.dbOperation(
       "findMany",
@@ -86,14 +86,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       },
     );
 
-    return apiSuccess({
-      transferList,
-      pagination: buildPaginationMeta({
-        page,
-        limit,
-        total,
-      }),
-    });
+    return apiSuccess(result);
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
     logger.error("Error fetching transfer records", err, {
@@ -116,35 +109,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden();
   }
 
-  const inventoryRepository = new InventoryRepository();
-
   const body = await req.json();
-  const {
-    barangId,
-    dariGudangId,
-    keGudangId,
-    jumlah,
-    kondisi,
-    keterangan,
-    fotoBukti,
-    fotoMetadata,
-  } = body;
-
-  // Validation
-  if (!barangId || !dariGudangId || !keGudangId || !jumlah || jumlah <= 0) {
-    return ApiErrors.badRequest(
-      "Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi dengan benar",
-    );
-  }
-
-  if (dariGudangId === keGudangId) {
-    return ApiErrors.badRequest("Gudang sumber dan tujuan tidak boleh sama");
-  }
-
-  // Validate photo data if provided
-  if (fotoBukti && !Array.isArray(fotoBukti)) {
-    return ApiErrors.badRequest("fotoBukti harus berupa array URL foto");
-  }
+  const { barangId, dariGudangId, keGudangId, jumlah } = body;
 
   const accessSession = await buildInventoryAccessSession(user);
 
@@ -164,17 +130,19 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   try {
     const dbStart = Date.now();
 
-    const transferRecord = await inventoryRepository.createTransfer({
-      barangId,
-      dariGudangId,
-      keGudangId,
-      jumlah,
-      kondisi,
-      keterangan,
+    const result = await inventoryTransferRouteService.createTransfer({
       userId: user.id,
-      fotoBukti,
-      fotoMetadata,
+      body,
     });
+
+    if (isInventoryTransferRouteFailure(result)) {
+      return ApiErrors.badRequest(result.error);
+    }
+
+    const transferRecord = result.data as {
+      id: string;
+      kodeTransfer: string;
+    };
 
     logger.dbOperation(
       "transaction",

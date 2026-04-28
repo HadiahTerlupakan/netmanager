@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     );
     return apiSuccess(bandwidths);
   } catch (error: unknown) {
-    console.error("Error fetching bandwidths:", error);
+    logger.error("Error fetching bandwidths:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Gagal mengambil data bandwidth";
     return ApiErrors.internalError(errorMessage);
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       message: "Bandwidth berhasil dibuat",
     });
   } catch (error: unknown) {
-    console.error("Error creating bandwidth:", error);
+    logger.error("Error creating bandwidth:", error);
     const structuredError = error as {
       code?: string;
       message?: string;

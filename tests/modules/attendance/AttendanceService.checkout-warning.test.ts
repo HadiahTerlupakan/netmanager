@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
+import { AttendanceService } from "@/modules/attendance";
 import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
 
 vi.mock("@/modules/events", () => ({

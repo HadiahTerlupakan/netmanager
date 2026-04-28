@@ -1,100 +1,104 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { HiOutlineCalendarDays } from 'react-icons/hi2'
+import { clientLogger } from "@/lib/client-logger";
+import { useState, useEffect, useCallback } from "react";
+import { HiOutlineCalendarDays } from "react-icons/hi2";
 
 interface LeaveBalanceData {
-  leaveType: string
-  quota: number
-  used: number
-  remaining: number
+  leaveType: string;
+  quota: number;
+  used: number;
+  remaining: number;
 }
 
 interface Props {
-  userId: string
-  workingHourMode?: string
+  userId: string;
+  workingHourMode?: string;
 }
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
-  CUTI: 'Cuti',
-  SAKIT: 'Sakit',
-  IZIN: 'Izin',
-  LAINNYA: 'Lainnya',
-  TUKAR_LIBUR: 'Tukar Libur'
-}
+  CUTI: "Cuti",
+  SAKIT: "Sakit",
+  IZIN: "Izin",
+  LAINNYA: "Lainnya",
+  TUKAR_LIBUR: "Tukar Libur",
+};
 
 const LEAVE_TYPE_COLORS: Record<string, string> = {
-  CUTI: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-  SAKIT: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
-  IZIN: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
-  LAINNYA: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400',
-  TUKAR_LIBUR: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-}
+  CUTI: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+  SAKIT: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+  IZIN: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+  LAINNYA: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400",
+  TUKAR_LIBUR:
+    "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400",
+};
 
 /**
  * Compact leave quota display for user profile view mode
  */
 export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
-  const [balances, setBalances] = useState<LeaveBalanceData[]>([])
-  const [loading, setLoading] = useState(true)
-  const currentYear = new Date().getFullYear()
+  const [balances, setBalances] = useState<LeaveBalanceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const currentYear = new Date().getFullYear();
 
   const fetchBalances = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/leave-balance?userId=${userId}&year=${currentYear}`)
-      const data = await res.json()
+      const res = await fetch(
+        `/api/admin/leave-balance?userId=${userId}&year=${currentYear}`,
+      );
+      const data = await res.json();
       if (res.ok) {
-        const responseData = data.data || data
-        const fetchedBalances = responseData.balances || []
+        const responseData = data.data || data;
+        const fetchedBalances = responseData.balances || [];
 
         // If no balances returned, use defaults
         if (fetchedBalances.length === 0) {
           setBalances([
-            { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
-            { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
-            { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
-            { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
-            { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
-          ])
+            { leaveType: "CUTI", quota: 12, used: 0, remaining: 12 },
+            { leaveType: "SAKIT", quota: 6, used: 0, remaining: 6 },
+            { leaveType: "IZIN", quota: 6, used: 0, remaining: 6 },
+            { leaveType: "LAINNYA", quota: 3, used: 0, remaining: 3 },
+            { leaveType: "TUKAR_LIBUR", quota: 365, used: 0, remaining: 365 },
+          ]);
         } else {
-          setBalances(fetchedBalances)
+          setBalances(fetchedBalances);
         }
       } else {
         // On error, show defaults
         setBalances([
-          { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
-          { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
-          { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
-          { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
-          { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
-        ])
+          { leaveType: "CUTI", quota: 12, used: 0, remaining: 12 },
+          { leaveType: "SAKIT", quota: 6, used: 0, remaining: 6 },
+          { leaveType: "IZIN", quota: 6, used: 0, remaining: 6 },
+          { leaveType: "LAINNYA", quota: 3, used: 0, remaining: 3 },
+          { leaveType: "TUKAR_LIBUR", quota: 365, used: 0, remaining: 365 },
+        ]);
       }
     } catch (error) {
-      console.error('Error fetching leave balances:', error)
+      clientLogger.error("Error fetching leave balances:", error);
       // On error, show defaults
       setBalances([
-        { leaveType: 'CUTI', quota: 12, used: 0, remaining: 12 },
-        { leaveType: 'SAKIT', quota: 6, used: 0, remaining: 6 },
-        { leaveType: 'IZIN', quota: 6, used: 0, remaining: 6 },
-        { leaveType: 'LAINNYA', quota: 3, used: 0, remaining: 3 },
-        { leaveType: 'TUKAR_LIBUR', quota: 365, used: 0, remaining: 365 },
-      ])
+        { leaveType: "CUTI", quota: 12, used: 0, remaining: 12 },
+        { leaveType: "SAKIT", quota: 6, used: 0, remaining: 6 },
+        { leaveType: "IZIN", quota: 6, used: 0, remaining: 6 },
+        { leaveType: "LAINNYA", quota: 3, used: 0, remaining: 3 },
+        { leaveType: "TUKAR_LIBUR", quota: 365, used: 0, remaining: 365 },
+      ]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [userId, currentYear])
+  }, [userId, currentYear]);
 
   useEffect(() => {
-    if (workingHourMode !== 'FLEXIBLE') {
-      fetchBalances()
+    if (workingHourMode !== "FLEXIBLE") {
+      fetchBalances();
     } else {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [workingHourMode, fetchBalances])
+  }, [workingHourMode, fetchBalances]);
 
   // FLEXIBLE users don't have leave quotas
-  if (workingHourMode === 'FLEXIBLE') {
-    return null
+  if (workingHourMode === "FLEXIBLE") {
+    return null;
   }
 
   if (loading) {
@@ -104,7 +108,7 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
           <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-indigo-500"></div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -115,17 +119,20 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
             <HiOutlineCalendarDays className="w-5 h-5 text-teal-600 dark:text-teal-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Sisa Kuota Cuti {currentYear}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Sisa Kuota Cuti {currentYear}
+            </h3>
           </div>
         </div>
       </div>
 
       <div className="p-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {balances.map(balance => {
-            const colorClass = LEAVE_TYPE_COLORS[balance.leaveType] || LEAVE_TYPE_COLORS.LAINNYA
-            const isLow = balance.remaining <= 2 && balance.remaining > 0
-            const isEmpty = balance.remaining <= 0
+          {balances.map((balance) => {
+            const colorClass =
+              LEAVE_TYPE_COLORS[balance.leaveType] || LEAVE_TYPE_COLORS.LAINNYA;
+            const isLow = balance.remaining <= 2 && balance.remaining > 0;
+            const isEmpty = balance.remaining <= 0;
 
             return (
               <div
@@ -135,17 +142,19 @@ export default function LeaveQuotaSummary({ userId, workingHourMode }: Props) {
                 <div className="text-xs font-medium opacity-80 mb-1">
                   {LEAVE_TYPE_LABELS[balance.leaveType] || balance.leaveType}
                 </div>
-                <div className={`text-2xl font-bold ${isEmpty ? 'text-red-600 dark:text-red-400' : isLow ? 'text-amber-600 dark:text-amber-400' : ''}`}>
+                <div
+                  className={`text-2xl font-bold ${isEmpty ? "text-red-600 dark:text-red-400" : isLow ? "text-amber-600 dark:text-amber-400" : ""}`}
+                >
                   {balance.remaining}
                 </div>
                 <div className="text-xs opacity-60">
                   dari {balance.quota} hari
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       </div>
     </div>
-  )
+  );
 }

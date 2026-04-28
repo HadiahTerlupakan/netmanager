@@ -1,14 +1,14 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { hasAnyMobilePermission } from "@/lib/mobile-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
-  InventoryRepository,
+  getMobileInventoryService,
   MobileInventoryError,
-  MobileInventoryService,
 } from "@/modules/inventory";
 
-const service = new MobileInventoryService(new InventoryRepository());
+const service = getMobileInventoryService();
 
 export async function GET(req: NextRequest) {
   try {
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    console.error("Error fetching barangs (mobile):", error);
+    logger.error("Error fetching barangs (mobile):", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

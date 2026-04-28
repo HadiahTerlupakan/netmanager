@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // Gateway Manager - Manages all payment providers
 
 import { PaymentGatewayConfigRepository } from "../../repositories/PaymentGatewayConfigRepository";
@@ -105,7 +106,7 @@ export class PaymentGatewayManager {
 
       return result;
     } catch (error: unknown) {
-      console.error(
+      logger.error(
         `Payment creation failed with ${providerConfig.provider}:`,
         error,
       );

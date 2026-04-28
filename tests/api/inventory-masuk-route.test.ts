@@ -11,6 +11,8 @@ const mockFns = vi.hoisted(() => ({
   logActivitySafe: vi.fn(),
   addStock: vi.fn(),
   getStockLevel: vi.fn(),
+  buildInventoryAccessSession: vi.fn(),
+  createMasuk: vi.fn(),
   validateGudangSiteAccess: vi.fn(),
   userFindUnique: vi.fn(),
   inventoryUpdate: vi.fn(),
@@ -88,6 +90,10 @@ vi.mock("@/modules/inventory", () => ({
     addStock = mockFns.addStock;
     getStockLevel = mockFns.getStockLevel;
   },
+  buildInventoryAccessSession: mockFns.buildInventoryAccessSession,
+  inventoryMasukRouteService: {
+    createMasuk: mockFns.createMasuk,
+  },
   validateGudangSiteAccess: mockFns.validateGudangSiteAccess,
 }));
 
@@ -103,7 +109,14 @@ describe("POST /api/inventory/masuk", () => {
       siteId: "site-1",
       role: "ADMIN",
     });
+    mockFns.buildInventoryAccessSession.mockResolvedValue({
+      userId: "admin-1",
+    });
     mockFns.validateGudangSiteAccess.mockResolvedValue({ allowed: true });
+    mockFns.createMasuk.mockResolvedValue({
+      success: false,
+      error: "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
+    });
     mockFns.addStock.mockResolvedValue({
       id: "masuk-1",
       barang: { nama: "Barang Uji" },
@@ -144,5 +157,9 @@ describe("POST /api/inventory/masuk", () => {
       error: "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
     });
     expect(mockFns.addStock).not.toHaveBeenCalled();
+    expect(mockFns.createMasuk).toHaveBeenCalledWith({
+      userId: "admin-1",
+      body: expect.objectContaining({ kondisi: "cacat" }),
+    });
   });
 });

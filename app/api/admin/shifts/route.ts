@@ -1,69 +1,82 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/auth-helpers'
-import { hasPermission } from '@/lib/rbac'
-import { ShiftService } from '@/modules/shift'
-import { apiSuccess, ApiErrors, ErrorCodes, apiError } from '@/lib/api-response'
-import { logger } from '@/lib/logger'
+import { NextResponse, type NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/auth-helpers";
+import { hasPermission } from "@/lib/rbac";
+import { ShiftService } from "@/modules/shift";
+import {
+  apiSuccess,
+  ApiErrors,
+  ErrorCodes,
+  apiError,
+} from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-const shiftService = new ShiftService()
+const shiftService = new ShiftService();
 
 export async function GET(request: NextRequest) {
-    const session = await requireAdmin(request)
-    if (session instanceof NextResponse) return session
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
 
-    if (!(await hasPermission('shift:read'))) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk melihat shift')
-    }
+  if (!(await hasPermission("shift:read"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk melihat shift");
+  }
 
-    try {
-        const { searchParams } = new URL(request.url)
-        const includeInactive = searchParams.get('includeInactive') === 'true'
+  try {
+    const { searchParams } = new URL(request.url);
+    const includeInactive = searchParams.get("includeInactive") === "true";
 
-        const shifts = await shiftService.getAllShifts(session.user.tenantId, includeInactive)
-        return apiSuccess(shifts)
-    } catch (error) {
-        console.error('[Shifts API] Error:', error)
-        return ApiErrors.internalError('Gagal mengambil data shift')
-    }
+    const shifts = await shiftService.getAllShifts(
+      session.user.tenantId,
+      includeInactive,
+    );
+    return apiSuccess(shifts);
+  } catch (error) {
+    logger.error("[Shifts API] Error:", error);
+    return ApiErrors.internalError("Gagal mengambil data shift");
+  }
 }
 
 export async function POST(request: NextRequest) {
-    const session = await requireAdmin(request)
-    if (session instanceof NextResponse) return session
+  const session = await requireAdmin(request);
+  if (session instanceof NextResponse) return session;
 
-    if (!(await hasPermission('shift:create'))) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk membuat shift')
+  if (!(await hasPermission("shift:create"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk membuat shift");
+  }
+
+  try {
+    const body = await request.json();
+
+    // Validate required fields
+    if (!body.name || !body.startTime || !body.endTime) {
+      return apiError(
+        "name, startTime, dan endTime wajib diisi",
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400 },
+      );
     }
 
-    try {
-        const body = await request.json()
+    const shift = await shiftService.createShift(session.user.tenantId, {
+      name: body.name,
+      code: body.code || null,
+      startTime: body.startTime,
+      endTime: body.endTime,
+      description: body.description || null,
+    });
 
-        // Validate required fields
-        if (!body.name || !body.startTime || !body.endTime) {
-            return apiError('name, startTime, dan endTime wajib diisi', ErrorCodes.VALIDATION_ERROR, { status: 400 })
-        }
+    await logger.logActivity({
+      action: "CREATE",
+      subject: "Shift",
+      details: { id: shift.id, name: shift.name, code: shift.code },
+      userId: session.user.id,
+    });
 
-        const shift = await shiftService.createShift(session.user.tenantId, {
-            name: body.name,
-            code: body.code || null,
-            startTime: body.startTime,
-            endTime: body.endTime,
-            description: body.description || null
-        })
-
-        await logger.logActivity({
-            action: 'CREATE',
-            subject: 'Shift',
-            details: { id: shift.id, name: shift.name, code: shift.code },
-            userId: session.user.id
-        })
-
-        return apiSuccess(shift, { status: 201, message: 'Shift berhasil dibuat' })
-    } catch (error) {
-        console.error('[Shifts API] Error:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Gagal membuat shift'
-        return apiError(errorMessage, ErrorCodes.VALIDATION_ERROR, { status: 400 })
-    }
+    return apiSuccess(shift, { status: 201, message: "Shift berhasil dibuat" });
+  } catch (error) {
+    logger.error("[Shifts API] Error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Gagal membuat shift";
+    return apiError(errorMessage, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
 }

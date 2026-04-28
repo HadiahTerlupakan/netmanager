@@ -1,60 +1,35 @@
-import type { Prisma } from "@prisma/client";
 import type {
+  ChatConversationEntity,
+  ChatMessageEntity,
+  ChatParticipantEntity,
+  ChatUserSummaryEntity,
   CreateConversationInput,
   CreateMessageInput,
 } from "../entities/ChatEntity";
+
+type ChatRepositoryResult = ChatConversationEntity & Record<string, unknown>;
+type ChatMessageResult = ChatMessageEntity & Record<string, unknown>;
+type ChatParticipantResult = ChatParticipantEntity & Record<string, unknown>;
+type ChatUserResult = ChatUserSummaryEntity & Record<string, unknown>;
 
 export interface IChatRepository {
   findConversationsForUser(
     userId: string,
     tenantId: string,
-  ): Promise<
-    Array<
-      Prisma.ConversationGetPayload<{
-        include: {
-          participants: {
-            include: {
-              user: {
-                select: { id: true; name: true; image: true; email: true };
-              };
-            };
-          };
-          messages: {
-            include: { sender: { select: { id: true; name: true } } };
-          };
-        };
-      }>
-    >
-  >;
+  ): Promise<ChatRepositoryResult[]>;
   findConversationById(
     conversationId: string,
     tenantId: string,
-  ): Promise<Prisma.ConversationGetPayload<{
-    include: {
-      participants: {
-        include: { user: { select: { id: true; name: true; image: true } } };
-      };
-    };
-  }> | null>;
+  ): Promise<ChatRepositoryResult | null>;
   findMessages(
     conversationId: string,
     tenantId: string,
     options?: { cursor?: string; limit?: number },
-  ): Promise<
-    Array<
-      Prisma.MessageGetPayload<{
-        include: { sender: { select: { id: true; name: true; image: true } } };
-      }>
-    >
-  >;
-  createMessage(input: CreateMessageInput & { tenantId: string }): Promise<
-    Prisma.MessageGetPayload<{
-      include: { sender: { select: { id: true; name: true; image: true } } };
-    }>
-  >;
-  findOrCreateGlobalChat(
-    tenantId: string,
-  ): Promise<Prisma.ConversationGetPayload<Record<string, never>>>;
+  ): Promise<ChatMessageResult[]>;
+  createMessage(
+    input: CreateMessageInput & { tenantId: string },
+  ): Promise<ChatMessageResult>;
+  findOrCreateGlobalChat(tenantId: string): Promise<ChatRepositoryResult>;
   isParticipant(
     conversationId: string,
     userId: string,
@@ -64,19 +39,19 @@ export interface IChatRepository {
     conversationId: string,
     userId: string,
     tenantId: string,
-  ): Promise<Prisma.ConversationParticipantGetPayload<Record<string, never>>>;
+  ): Promise<ChatParticipantResult>;
   updateLastRead(
     conversationId: string,
     userId: string,
     tenantId: string,
-  ): Promise<Prisma.BatchPayload>;
+  ): Promise<{ count: number }>;
   createConversation(
     input: CreateConversationInput & { tenantId: string },
-  ): Promise<Prisma.ConversationGetPayload<Record<string, never>>>;
+  ): Promise<ChatRepositoryResult>;
   findExisting1on1(
     userIds: string[],
     tenantId: string,
-  ): Promise<Prisma.ConversationGetPayload<Record<string, never>> | null>;
+  ): Promise<ChatRepositoryResult | null>;
   getOtherParticipants(
     conversationId: string,
     excludeUserId: string,
@@ -90,20 +65,7 @@ export interface IChatRepository {
     tenantId: string,
     search?: string,
     excludeUserId?: string,
-  ): Promise<
-    Array<
-      Prisma.UserGetPayload<{
-        select: {
-          id: true;
-          name: true;
-          email: true;
-          image: true;
-          departments: { select: { name: true } };
-          sites: { select: { name: true } };
-        };
-      }>
-    >
-  >;
+  ): Promise<ChatUserResult[]>;
   isEmployeeUser(userId: string, tenantId: string): Promise<boolean>;
   getAllActiveUsers(tenantId: string): Promise<Array<{ id: string }>>;
 }

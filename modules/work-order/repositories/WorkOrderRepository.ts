@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
 import type {
   WorkOrders,
@@ -155,7 +156,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
           prismaError?.code === "P2002" &&
           prismaError?.meta?.target?.includes("workOrderNumber")
         ) {
-          console.warn(
+          logger.warn(
             `[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`,
           );
           if (error instanceof Error) {
@@ -175,7 +176,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     }
 
     // If all retries failed, throw the last error
-    console.error(
+    logger.error(
       "[WorkOrderRepo] Failed to create work order after all retries",
     );
     throw (
@@ -1157,7 +1158,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
           prismaError?.code === "P2002" &&
           prismaError?.meta?.target?.includes("workOrderNumber")
         ) {
-          console.warn(
+          logger.warn(
             `[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`,
           );
           lastError = error instanceof Error ? error : new Error(String(error));
@@ -1170,7 +1171,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
       }
     }
 
-    console.error(
+    logger.error(
       "[WorkOrderRepo] Failed to create work order request after all retries",
     );
     throw (

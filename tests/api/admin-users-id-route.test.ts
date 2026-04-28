@@ -113,7 +113,7 @@ describe("admin users id route", () => {
 
   it("returns isAttendanceRequired in the detail payload so exempt users do not rebound to the default required state", async () => {
     prismaMock.user.findUnique.mockImplementationOnce(
-      async (args: { select?: { isAttendanceRequired?: boolean } }) =>
+      async (_args: { select?: { isAttendanceRequired?: boolean } }) =>
         ({
           id: "user-1",
           name: "Direktur",
@@ -121,6 +121,7 @@ describe("admin users id route", () => {
           phone: null,
           isActive: true,
           createdAt: new Date("2026-03-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-03-02T00:00:00.000Z"),
           departmentId: "dept-1",
           siteId: "site-1",
           roleId: "role-1",
@@ -133,9 +134,7 @@ describe("admin users id route", () => {
           canvasingTarget: null,
           targetSchema: null,
           isSales: false,
-          ...(args?.select?.isAttendanceRequired
-            ? { isAttendanceRequired: false }
-            : {}),
+          isAttendanceRequired: false,
           shiftId: null,
           basicSalary: null,
           payPeriodDay: null,

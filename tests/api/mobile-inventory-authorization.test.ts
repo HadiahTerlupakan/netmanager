@@ -1,24 +1,137 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockFns = vi.hoisted(() => ({
-  getMobileAuthPayload: vi.fn(),
-  userFindFirst: vi.fn(),
-  mitraFindUnique: vi.fn(),
-  workOrderFindFirst: vi.fn(),
-  gudangFindMany: vi.fn(),
-  gudangFindFirst: vi.fn(),
-  barangFindMany: vi.fn(),
-  barangGudangFindMany: vi.fn(),
-  barangGudangFindFirst: vi.fn(),
-  barangMasukFindMany: vi.fn(),
-  barangKeluarFindMany: vi.fn(),
-  inventoryAddStock: vi.fn(),
-  inventoryRemoveStock: vi.fn(),
-  inventoryGetStockLevel: vi.fn(),
-  loggerLogActivity: vi.fn(),
-  socketInventoryUpdate: vi.fn(),
-}));
+const { mockFns, MockInventoryRepository } = vi.hoisted(() => {
+  const mockFns = {
+    getMobileAuthPayload: vi.fn(),
+    userFindFirst: vi.fn(),
+    mitraFindUnique: vi.fn(),
+    workOrderFindFirst: vi.fn(),
+    gudangFindMany: vi.fn(),
+    gudangFindFirst: vi.fn(),
+    barangFindMany: vi.fn(),
+    barangGudangFindMany: vi.fn(),
+    barangGudangFindFirst: vi.fn(),
+    barangMasukFindMany: vi.fn(),
+    barangKeluarFindMany: vi.fn(),
+    inventoryAddStock: vi.fn(),
+    inventoryRemoveStock: vi.fn(),
+    inventoryGetStockLevel: vi.fn(),
+    loggerLogActivity: vi.fn(),
+    socketInventoryUpdate: vi.fn(),
+  };
+
+  class MockInventoryRepository {
+    findMobileActorUser = (input: { actorId: string; tenantId: string }) =>
+      mockFns.userFindFirst({
+        where: { id: input.actorId, tenantId: input.tenantId },
+        include: {
+          role: { include: { permission: true } },
+          sites: true,
+          userSites: { select: { siteId: true } },
+        },
+      });
+    findMobileActorMitra = (actorId: string) =>
+      mockFns.mitraFindUnique({
+        where: { id: actorId },
+        select: { id: true, siteId: true },
+      });
+    findMobileGudangs = (input: { tenantId: string; siteIds?: string[] }) =>
+      mockFns.gudangFindMany({
+        where: {
+          isActive: true,
+          tenantId: input.tenantId,
+          ...(input.siteIds
+            ? { sites: { some: { id: { in: input.siteIds } } } }
+            : {}),
+        },
+        select: { id: true, kode: true, nama: true, lokasi: true },
+        orderBy: { nama: "asc" },
+      });
+    findMobileBarangForMasuk = (input: {
+      tenantId: string;
+      siteIds?: string[];
+    }) =>
+      mockFns.barangFindMany({
+        where: {
+          tenantId: input.tenantId,
+          ...(input.siteIds
+            ? {
+                barangGudang: {
+                  some: {
+                    gudang: { sites: { some: { id: { in: input.siteIds } } } },
+                  },
+                },
+              }
+            : {}),
+        },
+      });
+    findMobileBarangForKeluar = (input: {
+      tenantId: string;
+      gudangId: string;
+      siteIds?: string[];
+    }) =>
+      mockFns.barangGudangFindMany({
+        where: {
+          gudangId: input.gudangId,
+          tenantId: input.tenantId,
+          ...(input.siteIds
+            ? { gudang: { sites: { some: { id: { in: input.siteIds } } } } }
+            : {}),
+        },
+      });
+    findMobileGudangSites = (input: { gudangId: string; tenantId: string }) =>
+      mockFns.gudangFindFirst({
+        where: { id: input.gudangId, tenantId: input.tenantId },
+        select: { id: true, sites: { select: { id: true } } },
+      });
+    findMobileBarangGudangStock = (input: {
+      barangId: string;
+      gudangId: string;
+      tenantId: string;
+    }) =>
+      mockFns.barangGudangFindFirst({
+        where: {
+          barangId: input.barangId,
+          gudangId: input.gudangId,
+          tenantId: input.tenantId,
+        },
+        include: { barang: { select: { nama: true } } },
+      });
+    findMobileHistoryMasuk = (input: {
+      where: Record<string, unknown>;
+      take: number;
+    }) =>
+      mockFns.barangMasukFindMany({
+        where: input.where,
+        include: {
+          barang: { select: { kode: true, nama: true, satuan: true } },
+          gudang: { select: { nama: true } },
+        },
+        orderBy: { tanggal: "desc" },
+        take: input.take,
+      });
+    findMobileHistoryKeluar = (input: {
+      where: Record<string, unknown>;
+      take: number;
+    }) =>
+      mockFns.barangKeluarFindMany({
+        where: input.where,
+        include: {
+          barang: { select: { kode: true, nama: true, satuan: true } },
+          gudang: { select: { nama: true } },
+        },
+        orderBy: { tanggal: "desc" },
+        take: input.take,
+      });
+    addStock = (...args: unknown[]) => mockFns.inventoryAddStock(...args);
+    removeStock = (...args: unknown[]) => mockFns.inventoryRemoveStock(...args);
+    getStockLevel = (...args: unknown[]) =>
+      mockFns.inventoryGetStockLevel(...args);
+  }
+
+  return { mockFns, MockInventoryRepository };
+});
 
 vi.mock("@/lib/mobile-api-auth", () => ({
   getMobileAuthPayload: mockFns.getMobileAuthPayload,
@@ -57,88 +170,16 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
+vi.mock("@/modules/inventory/repositories/InventoryRepository", () => ({
+  InventoryRepository: MockInventoryRepository,
+}));
+
 vi.mock("@/modules/inventory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/modules/inventory")>();
 
   return {
     ...actual,
-    InventoryRepository: class {
-      findMobileActorUser = (input: { actorId: string; tenantId: string }) =>
-        mockFns.userFindFirst({
-          where: { id: input.actorId, tenantId: input.tenantId },
-          include: {
-            role: { include: { permission: true } },
-            sites: true,
-            userSites: { select: { siteId: true } },
-          },
-        });
-      findMobileActorMitra = (actorId: string) =>
-        mockFns.mitraFindUnique({
-          where: { id: actorId },
-          select: { id: true, siteId: true },
-        });
-      findMobileGudangs = (input: { tenantId: string; siteIds?: string[] }) =>
-        mockFns.gudangFindMany({
-          where: buildMockGudangWhere(input.tenantId, input.siteIds),
-          select: { id: true, kode: true, nama: true, lokasi: true },
-          orderBy: { nama: "asc" },
-        });
-      findMobileBarangForMasuk = (input: {
-        tenantId: string;
-        siteIds?: string[];
-      }) => mockFns.barangFindMany({ where: buildMockBarangMasukWhere(input) });
-      findMobileBarangForKeluar = (input: {
-        tenantId: string;
-        gudangId: string;
-        siteIds?: string[];
-      }) =>
-        mockFns.barangGudangFindMany({
-          where: buildMockBarangKeluarWhere(input),
-        });
-      findMobileGudangSites = (input: { gudangId: string; tenantId: string }) =>
-        mockFns.gudangFindFirst({
-          where: { id: input.gudangId, tenantId: input.tenantId },
-          select: { id: true, sites: { select: { id: true } } },
-        });
-      findMobileBarangGudangStock = (input: {
-        barangId: string;
-        gudangId: string;
-        tenantId: string;
-      }) =>
-        mockFns.barangGudangFindFirst({
-          where: {
-            barangId: input.barangId,
-            gudangId: input.gudangId,
-            tenantId: input.tenantId,
-          },
-          include: { barang: { select: { nama: true } } },
-        });
-      findMobileHistoryMasuk = (input: {
-        where: Record<string, unknown>;
-        take: number;
-      }) =>
-        mockFns.barangMasukFindMany({
-          where: input.where,
-          include: mockHistoryInclude(),
-          orderBy: { tanggal: "desc" },
-          take: input.take,
-        });
-      findMobileHistoryKeluar = (input: {
-        where: Record<string, unknown>;
-        take: number;
-      }) =>
-        mockFns.barangKeluarFindMany({
-          where: input.where,
-          include: mockHistoryInclude(),
-          orderBy: { tanggal: "desc" },
-          take: input.take,
-        });
-      addStock = (...args: unknown[]) => mockFns.inventoryAddStock(...args);
-      removeStock = (...args: unknown[]) =>
-        mockFns.inventoryRemoveStock(...args);
-      getStockLevel = (...args: unknown[]) =>
-        mockFns.inventoryGetStockLevel(...args);
-    },
+    InventoryRepository: MockInventoryRepository,
   };
 });
 
@@ -154,53 +195,6 @@ vi.mock("@/lib/websocket/emitter", () => ({
       mockFns.socketInventoryUpdate(...args),
   },
 }));
-
-function buildMockGudangWhere(tenantId: string, siteIds?: string[]) {
-  return {
-    isActive: true,
-    tenantId,
-    ...(siteIds ? { sites: { some: { id: { in: siteIds } } } } : {}),
-  };
-}
-
-function buildMockBarangMasukWhere(input: {
-  tenantId: string;
-  siteIds?: string[];
-}) {
-  return {
-    tenantId: input.tenantId,
-    ...(input.siteIds
-      ? {
-          barangGudang: {
-            some: {
-              gudang: { sites: { some: { id: { in: input.siteIds } } } },
-            },
-          },
-        }
-      : {}),
-  };
-}
-
-function buildMockBarangKeluarWhere(input: {
-  tenantId: string;
-  gudangId: string;
-  siteIds?: string[];
-}) {
-  return {
-    gudangId: input.gudangId,
-    tenantId: input.tenantId,
-    ...(input.siteIds
-      ? { gudang: { sites: { some: { id: { in: input.siteIds } } } } }
-      : {}),
-  };
-}
-
-function mockHistoryInclude() {
-  return {
-    barang: { select: { kode: true, nama: true, satuan: true } },
-    gudang: { select: { nama: true } },
-  };
-}
 
 vi.mock("@/lib/api-response", () => ({
   apiError: (message: string, _code?: string, init?: { status?: number }) =>
@@ -224,7 +218,7 @@ import { POST as postKeluar } from "@/app/api/mobile/inventory/keluar/route";
 import {
   buildInventoryActorFilter,
   resolveInventoryActorScope,
-} from "@/modules/inventory";
+} from "@/lib/inventory/access-session";
 
 describe("mobile inventory authorization", () => {
   beforeEach(() => {

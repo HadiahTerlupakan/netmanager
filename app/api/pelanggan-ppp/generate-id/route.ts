@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
@@ -39,7 +40,7 @@ export async function GET(_req: NextRequest) {
     const result = await pelangganPppRouteService.generateUniqueId();
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error("Error generating pelanggan ID:", error);
+    logger.error("Error generating pelanggan ID:", error);
     return NextResponse.json(
       {
         error:

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getLogoSettings } from '@/modules/settings'
+import { logger } from "@/lib/logger";
+import { NextRequest, NextResponse } from "next/server";
+import { getLogoSettings } from "@/modules/settings";
 
 /**
  * GET /api/settings/logo/public
@@ -7,13 +8,13 @@ import { getLogoSettings } from '@/modules/settings'
  */
 export async function GET(_req: NextRequest) {
   try {
-    const settings = await getLogoSettings()
-    return NextResponse.json(settings)
+    const settings = await getLogoSettings();
+    return NextResponse.json(settings);
   } catch (error) {
-    console.error('Error fetching logo settings:', error)
+    logger.error("Error fetching logo settings:", error);
     return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      { error: "Terjadi kesalahan server" },
+      { status: 500 },
+    );
   }
 }

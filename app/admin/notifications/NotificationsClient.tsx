@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -59,7 +60,7 @@ export function ClientComponent() {
         }
       }
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      clientLogger.error("Error fetching notifications:", error);
     } finally {
       setLoading(false);
     }
@@ -89,7 +90,7 @@ export function ClientComponent() {
         );
       }
     } catch (error) {
-      console.error("Error marking as read:", error);
+      clientLogger.error("Error marking as read:", error);
     }
   };
 
@@ -114,7 +115,7 @@ export function ClientComponent() {
         fetchNotifications();
       }
     } catch (error) {
-      console.error("Error marking all as read:", error);
+      clientLogger.error("Error marking all as read:", error);
     }
   };
 

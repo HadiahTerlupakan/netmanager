@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { getServerSession, type Session } from "next-auth";
 import { authConfig, getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getInventoryRouteService } from "@/modules/inventory";
-import { logger } from "@/lib/logger";
+import { inventoryKeluarRouteService } from "@/modules/inventory";
 import {
   apiError,
   apiSuccess,
@@ -13,305 +12,116 @@ import { hasPermission } from "@/lib/rbac";
 
 interface UserSession {
   id: string;
-  siteId?: string | null;
   role?: string;
   isSuperAdmin?: boolean;
 }
 
-const inventoryRouteService = getInventoryRouteService();
-
-async function requireAdmin(): Promise<{
-  session: Session;
-  user: UserSession;
-} | null> {
+async function requireAdmin(): Promise<UserSession | null> {
   const session = (await getServerSession(authConfig)) as Session | null;
-  if (!session?.user) {
-    return null;
-  }
-  return { session, user: session.user as UserSession };
+  return session?.user ? (session.user as UserSession) : null;
 }
 
-/** Validasi akses site untuk record barang keluar. */
-async function validateKeluarSiteAccess(
-  keluarId: string,
-  user: UserSession,
-  permissions: string[],
-) {
-  const record = await inventoryRouteService.getKeluarRecordWithSite(keluarId);
-  if (!record) {
-    return { allowed: false, error: "Record tidak ditemukan" };
-  }
-
-  if (isSuperAdmin(user)) {
-    return { allowed: true, record };
-  }
-
-  const hasSiteRestriction =
-    permissions.includes("keluar:site_only") ||
-    permissions.includes("k_barang:site_only") ||
-    permissions.includes("gudang:site_only");
-  const gudangSiteIds =
-    record.gudang.sites?.map((site: { id: string }) => site.id) || [];
-
-  if (
-    hasSiteRestriction &&
-    user.siteId &&
-    !gudangSiteIds.includes(user.siteId)
-  ) {
-    return { allowed: false, error: "Anda tidak memiliki akses ke data ini" };
-  }
-
-  return { allowed: true, record };
+function routeFailure(result: { status: number; error: string }) {
+  if (result.status === 404) return ApiErrors.notFound(result.error);
+  if (result.status === 403) return ApiErrors.forbidden(result.error);
+  return apiError(result.error, ErrorCodes.VALIDATION_ERROR, {
+    status: result.status,
+  });
 }
 
-/**
- * GET /api/inventory/keluar/[id]
- * Get specific stock-out record by ID
- */
+async function buildAccessInput(id: string, user: UserSession) {
+  return {
+    id,
+    userId: user.id,
+    permissions: await getUserPermissions(user.id),
+    isSuperAdmin: isSuperAdmin(user),
+  };
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
-
-  try {
-    const auth = await requireAdmin();
-    if (!auth) {
-      logger.warn(
-        "Unauthorized access attempt to GET /api/inventory/keluar/[id]",
-      );
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    const { user } = auth;
-    if (!(await hasPermission("keluar:read", user))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk melihat data barang keluar",
-      );
-    }
-
-    const { id } = await params;
-    const permissions = await getUserPermissions(user.id);
-    const accessCheck = await validateKeluarSiteAccess(id, user, permissions);
-
-    if (!accessCheck.allowed) {
-      if (accessCheck.error === "Record tidak ditemukan") {
-        return ApiErrors.notFound("Record barang keluar");
-      }
-      return ApiErrors.forbidden(accessCheck.error || "Akses ditolak");
-    }
-
-    logger.apiRequest(
-      "GET",
-      "/api/inventory/keluar/[id]",
-      200,
-      Date.now() - startTime,
-      {
-        userId: user.id,
-        keluarId: id,
-      },
+  const user = await requireAdmin();
+  if (!user) return ApiErrors.unauthorized("Session tidak valid");
+  if (!(await hasPermission("keluar:read", user))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat data barang keluar",
     );
-
-    return apiSuccess({ keluar: accessCheck.record });
-  } catch (error) {
-    const err = error as Error;
-    logger.error("Error fetching barang keluar", err, {
-      path: "/api/inventory/keluar/[id]",
-      method: "GET",
-    });
-    return ApiErrors.internalError("Gagal memuat data barang keluar");
   }
+
+  const { id } = await params;
+  const result = await inventoryKeluarRouteService.getKeluarDetail(
+    await buildAccessInput(id, user),
+  );
+  return result.success === true
+    ? apiSuccess(result.data)
+    : routeFailure(result);
 }
 
-/**
- * PUT /api/inventory/keluar/[id]
- * Update stock-out record
- */
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
+  const user = await requireAdmin();
+  if (!user) return ApiErrors.unauthorized("Session tidak valid");
+  if (!(await hasPermission("keluar:update", user))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk mengubah data barang keluar",
+    );
+  }
 
   try {
-    const auth = await requireAdmin();
-    if (!auth) {
-      logger.warn(
-        "Unauthorized access attempt to PUT /api/inventory/keluar/[id]",
-      );
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    const { user } = auth;
-    if (!(await hasPermission("keluar:update", user))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk mengubah data barang keluar",
-      );
-    }
-
     const { id } = await params;
-    const permissions = await getUserPermissions(user.id);
-    const accessCheck = await validateKeluarSiteAccess(id, user, permissions);
-
-    if (!accessCheck.allowed) {
-      if (accessCheck.error === "Record tidak ditemukan") {
-        return ApiErrors.notFound("Record barang keluar");
-      }
-      return ApiErrors.forbidden(accessCheck.error || "Akses ditolak");
-    }
-
-    const body = await req.json();
-    const { jumlah, keterangan } = body;
-    if (!jumlah || jumlah <= 0) {
-      return apiError(
-        "Jumlah harus diisi dengan angka positif",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    const dbStart = Date.now();
-    const transactionResult = await inventoryRouteService.updateKeluarRecord({
-      id,
-      jumlah,
-      keterangan,
+    const result = await inventoryKeluarRouteService.updateKeluar({
+      ...(await buildAccessInput(id, user)),
+      body: await req.json(),
     });
-
-    logger.dbOperation(
-      "transaction",
-      "BarangKeluar+BarangGudang",
-      Date.now() - dbStart,
-    );
-    logger.apiRequest(
-      "PUT",
-      "/api/inventory/keluar/[id]",
-      200,
-      Date.now() - startTime,
-      {
-        userId: user.id,
-        keluarId: id,
-        jumlah,
-      },
-    );
-
-    await logger.logActivity({
-      action: "UPDATE",
-      subject: "Inventory Out (Admin)",
-      details: {
-        id,
-        namaBarang: transactionResult.barangNama,
-        jumlahLama: transactionResult.jumlahLama,
-        jumlahBaru: jumlah,
-        keterangan,
-      },
-      userId: user.id,
-    });
-
-    return apiSuccess(null, { message: "Barang keluar berhasil diperbarui" });
+    return result.success === true
+      ? apiSuccess(null, { message: "Barang keluar berhasil diperbarui" })
+      : routeFailure(result);
   } catch (error) {
-    const err = error as Error;
-    logger.error("Error updating barang keluar", err, {
-      path: "/api/inventory/keluar/[id]",
-      method: "PUT",
-    });
-
-    if (err.message === "Record barang keluar tidak ditemukan") {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "Record barang keluar tidak ditemukan") {
       return ApiErrors.notFound("Record barang keluar");
     }
-    if (err.message === "Stok tidak mencukupi untuk perubahan ini") {
-      return apiError(
-        "Stok tidak mencukupi untuk perubahan ini",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
+    if (message === "Stok tidak mencukupi untuk perubahan ini") {
+      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
-
     return ApiErrors.internalError("Gagal memperbarui barang keluar");
   }
 }
 
-/**
- * DELETE /api/inventory/keluar/[id]
- * Delete stock-out record and restore stock
- */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
+  const user = await requireAdmin();
+  if (!user) return ApiErrors.unauthorized("Session tidak valid");
+  if (!(await hasPermission("keluar:delete", user))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk menghapus data barang keluar",
+    );
+  }
 
   try {
-    const auth = await requireAdmin();
-    if (!auth) {
-      logger.warn(
-        "Unauthorized access attempt to DELETE /api/inventory/keluar/[id]",
-      );
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    const { user } = auth;
-    if (!(await hasPermission("keluar:delete", user))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk menghapus data barang keluar",
-      );
-    }
-
     const { id } = await params;
-    const permissions = await getUserPermissions(user.id);
-    const accessCheck = await validateKeluarSiteAccess(id, user, permissions);
-
-    if (!accessCheck.allowed) {
-      if (accessCheck.error === "Record tidak ditemukan") {
-        return ApiErrors.notFound("Record barang keluar");
-      }
-      return ApiErrors.forbidden(accessCheck.error || "Akses ditolak");
-    }
-
-    const dbStart = Date.now();
-    const transactionResult =
-      await inventoryRouteService.deleteKeluarRecord(id);
-
-    logger.dbOperation(
-      "transaction",
-      "BarangKeluar+BarangGudang",
-      Date.now() - dbStart,
+    const result = await inventoryKeluarRouteService.deleteKeluar(
+      await buildAccessInput(id, user),
     );
-    logger.apiRequest(
-      "DELETE",
-      "/api/inventory/keluar/[id]",
-      200,
-      Date.now() - startTime,
-      {
-        userId: user.id,
-        keluarId: id,
-      },
-    );
-
-    await logger.logActivity({
-      action: "DELETE",
-      subject: "Inventory Out (Admin)",
-      details: {
-        id,
-        namaBarang: transactionResult.barangNama,
-        jumlahRestored: transactionResult.jumlah,
-      },
-      userId: user.id,
-    });
-
-    return apiSuccess(null, {
-      message: "Record barang keluar berhasil dihapus dan stok dikembalikan",
-    });
+    return result.success === true
+      ? apiSuccess(null, {
+          message:
+            "Record barang keluar berhasil dihapus dan stok dikembalikan",
+        })
+      : routeFailure(result);
   } catch (error) {
-    const err = error as Error;
-    logger.error("Error deleting barang keluar", err, {
-      path: "/api/inventory/keluar/[id]",
-      method: "DELETE",
-    });
-
-    if (err.message === "Record barang keluar tidak ditemukan") {
+    if (
+      error instanceof Error &&
+      error.message === "Record barang keluar tidak ditemukan"
+    ) {
       return ApiErrors.notFound("Record barang keluar");
     }
-
     return ApiErrors.internalError("Gagal menghapus record barang keluar");
   }
 }

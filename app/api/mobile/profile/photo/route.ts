@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       }),
     );
   } catch (error: unknown) {
-    console.error("Profile photo upload error:", error);
+    logger.error("Profile photo upload error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 });

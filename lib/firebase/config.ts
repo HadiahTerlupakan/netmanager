@@ -1,3 +1,4 @@
+import { clientLogger } from "@/lib/client-logger";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import type { Auth } from "firebase/auth";
@@ -36,7 +37,7 @@ if (app) {
   try {
     auth = getAuth(app);
   } catch (error) {
-    console.error("Firebase Auth Initialization Error:", error);
+    clientLogger.error("Firebase Auth Initialization Error:", error);
   }
 }
 
@@ -44,7 +45,7 @@ if (app && "Notification" in window) {
   try {
     messaging = getMessaging(app);
   } catch (error) {
-    console.error("Firebase Messaging Initialization Error:", error);
+    clientLogger.error("Firebase Messaging Initialization Error:", error);
   }
 }
 

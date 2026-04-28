@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getReadableNotificationForUser,
@@ -55,7 +56,7 @@ export async function PATCH(
       message: "Notifikasi telah ditandai dibaca",
     });
   } catch (error) {
-    console.error("Error marking notification as read:", error);
+    logger.error("Error marking notification as read:", error);
     return NextResponse.json(
       { error: "Gagal menandai notifikasi sebagai dibaca" },
       { status: 500 },

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
-import { InvoiceStatus } from "@prisma/client-billing";
 import { createHandler, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import {
@@ -8,6 +7,15 @@ import {
   getInvoiceForRoute,
   updateInvoiceForRoute,
 } from "@/modules/finance";
+
+const INVOICE_STATUSES = [
+  "DRAFT",
+  "SENT",
+  "OVERDUE",
+  "PAID",
+  "PARTIAL_PAID",
+  "CANCELLED",
+] as const;
 
 const updateSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -21,7 +29,7 @@ const updateSchema = z.object({
     .string()
     .transform((str) => new Date(str))
     .optional(),
-  status: z.enum(InvoiceStatus).optional(),
+  status: z.enum(INVOICE_STATUSES).optional(),
   subtotal: z.number().optional(),
   taxAmount: z.number().optional(),
   discountAmount: z.number().optional(),

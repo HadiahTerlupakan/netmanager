@@ -1,12 +1,16 @@
-import type { Prisma, Payment } from "@prisma/client-billing";
 import type { PaymentEntity } from "../entities/PaymentEntity";
+
+export type PaymentWhereInput = Record<string, unknown>;
+export type PaymentSelectInput = Record<string, unknown>;
+export type PaymentCreateInput = Record<string, unknown>;
+export type PaymentUpdateManyInput = Record<string, unknown>;
 
 /** Repository port for finance payment persistence. */
 export interface IPaymentRepository {
   findManyByDateRange(startDate: Date, endDate: Date): Promise<PaymentEntity[]>;
   findMany(
-    where: Prisma.PaymentWhereInput,
-    select?: Prisma.PaymentSelect,
+    where: PaymentWhereInput,
+    select?: PaymentSelectInput,
   ): Promise<unknown[]>;
   findPendingManualTransfer(options: {
     invoiceId: string;
@@ -19,19 +23,17 @@ export interface IPaymentRepository {
   }): Promise<PaymentEntity>;
   findByIdWithInvoice(id: string): Promise<PaymentEntity | null>;
   findPaginatedWithInvoice(options: {
-    where: Prisma.PaymentWhereInput;
+    where: PaymentWhereInput;
     page: number;
     limit: number;
   }): Promise<{ data: PaymentEntity[]; total: number }>;
-  count(where: Prisma.PaymentWhereInput): Promise<number>;
-  create(data: Prisma.PaymentUncheckedCreateInput): Promise<PaymentEntity>;
-  createWithInvoice(
-    data: Prisma.PaymentUncheckedCreateInput,
-  ): Promise<PaymentEntity>;
+  count(where: PaymentWhereInput): Promise<number>;
+  create(data: PaymentCreateInput): Promise<PaymentEntity>;
+  createWithInvoice(data: PaymentCreateInput): Promise<PaymentEntity>;
   updateManyInTransaction(
     tx: unknown,
-    where: Prisma.PaymentWhereInput,
-    data: Prisma.PaymentUpdateManyArgs["data"],
+    where: PaymentWhereInput,
+    data: PaymentUpdateManyInput,
   ): Promise<{ count: number }>;
   createCustomerPaymentsForInvoices(options: {
     customerId: string;
@@ -58,5 +60,5 @@ export interface IPaymentRepository {
     expiresAt?: Date | null;
     gatewayProvider?: string | null;
   }): Promise<{ count: number }>;
-  findFirstAuth(where: Prisma.PaymentWhereInput): Promise<Payment | null>;
+  findFirstAuth(where: PaymentWhereInput): Promise<PaymentEntity | null>;
 }

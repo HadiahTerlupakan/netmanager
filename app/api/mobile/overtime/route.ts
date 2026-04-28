@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error("Mobile Overtime GET Error:", error);
+    logger.error("Mobile Overtime GET Error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
       { status: 500 },
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
       status: 400,
     });
   } catch (error: unknown) {
-    console.error("Mobile Overtime POST Error:", error);
+    logger.error("Mobile Overtime POST Error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
       { status: 400 },

@@ -1,4 +1,4 @@
-import { shouldNotifyForChatMessage as shouldNotifyForChatMessageFromModule } from "@/modules/chat";
+import { shouldNotifyForChatMessage as shouldNotifyForChatMessageFromModule } from "@/modules/chat/utils/shouldNotifyForChatMessage";
 
 /** Menentukan apakah pesan chat perlu memicu notifikasi UI. */
 export function shouldNotifyForChatMessage(

@@ -1,19 +1,22 @@
+import { logger } from "@/lib/logger";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
-  getInventoryRouteService,
-  InventoryRepository,
+  inventoryGudangRouteService,
+  type InventoryGudangRouteResult,
 } from "@/modules/inventory";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
-/**
- * Generate automatic warehouse code
- */
-async function generateGudangCode(): Promise<string> {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `GD${timestamp.toString().slice(-6)}${random.toString().padStart(3, "0")}`;
+type InventoryGudangRouteFailure = Extract<
+  InventoryGudangRouteResult<unknown>,
+  { success: false }
+>;
+
+function isInventoryGudangRouteFailure(
+  result: InventoryGudangRouteResult<unknown>,
+): result is InventoryGudangRouteFailure {
+  return !result.success;
 }
 
 /**
@@ -59,43 +62,18 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  const inventoryRepository = new InventoryRepository();
-
   const { searchParams } = req.nextUrl;
   const viewAll = searchParams.get("view") === "all";
-
-  // Check for site restriction
   const permissions = await getUserPermissions(user.id);
-
-  // Need to fetch siteId because createHandler session doesn't map it
-  const siteId = await getInventoryRouteService().getUserSiteId(user.id);
-
-  // Only restrict if:
-  // 1. User has restriction permission
-  // 2. User has a site assigned
-  // 3. User is NOT requesting (and authorized for) view=all
-  //    (Super Admins or users with Admin Panel access can view all)
-  const isSuper = isSuperAdmin(user);
-  // ONLY Super Admin can bypass site restrictions via view=all
-  // Other users with accessAdminPanel must still respect site_only permission
-  const canViewAll = isSuper;
-
-  // Check strict site restriction
-  // Support both administrative 'gudang:site_only' and mobile 'k_barang:site_only'
-  const hasRestriction =
-    permissions.includes("gudang:site_only") ||
-    permissions.includes("k_barang:site_only");
-  let shouldRestrict: boolean = !!(hasRestriction && siteId);
-
-  if (viewAll && canViewAll) {
-    shouldRestrict = false;
-  }
 
   try {
     const dbStart = Date.now();
-    const gudangs = await inventoryRepository.getAllGudang(
-      shouldRestrict ? { siteId } : undefined,
-    );
+    const gudangs = await inventoryGudangRouteService.listGudang({
+      userId: user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(user),
+      viewAll,
+    });
 
     logger.dbOperation("findMany", "Gudang", Date.now() - dbStart);
 
@@ -190,49 +168,23 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  const inventoryRepository = new InventoryRepository();
-
   const body = await req.json();
-  const { nama, lokasi, isActive, siteIds } = body;
-
-  // Validation
-  if (!nama) {
-    return ApiErrors.badRequest("Nama gudang harus diisi");
-  }
-
-  // Note: siteIds is optional, gudang-site relationship managed from Site menu
+  const permissions = await getUserPermissions(user.id);
 
   try {
     const dbStart = Date.now();
+    const result = await inventoryGudangRouteService.createGudang({
+      userId: user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(user),
+      body,
+    });
 
-    // Generate automatic gudang code
-    const kode = await generateGudangCode();
-
-    // NEW: Enforce Site Restriction on Creation
-    const permissions = await getUserPermissions(user.id);
-    const isSuper = isSuperAdmin(user);
-
-    // Fetch siteId
-    const userSiteId = await getInventoryRouteService().getUserSiteId(user.id);
-
-    let finalSiteIds = siteIds;
-    const hasRestriction =
-      permissions.includes("gudang:site_only") ||
-      permissions.includes("k_barang:site_only");
-
-    if (!isSuper && hasRestriction) {
-      if (userSiteId) {
-        finalSiteIds = [userSiteId]; // Force assignment to user's site
-      }
+    if (isInventoryGudangRouteFailure(result)) {
+      return ApiErrors.badRequest(result.error);
     }
 
-    const gudang = await inventoryRepository.createGudang({
-      kode,
-      nama,
-      isActive: isActive ?? true,
-      ...(lokasi ? { lokasi } : {}),
-      ...(finalSiteIds ? { siteIds: finalSiteIds } : {}),
-    });
+    const gudang = result.data as { id: string; kode: string; nama: string };
 
     logger.dbOperation("create", "Gudang", Date.now() - dbStart);
 

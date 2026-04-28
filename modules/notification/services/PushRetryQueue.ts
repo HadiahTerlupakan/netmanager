@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 
 const RETRY_QUEUE_KEY = "push:retry:queue";
@@ -47,9 +48,8 @@ export async function enqueuePushRetry(
       createdAt: Date.now(),
     };
     await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(retryItem));
-    // console.log(`[PushRetry] Enqueued ${item.type} push for user ${item.userId}`)
   } catch (error) {
-    console.error("[PushRetry] Failed to enqueue:", error);
+    logger.error("[PushRetry] Failed to enqueue:", error);
   }
 }
 
@@ -96,7 +96,7 @@ export async function processRetryQueue(): Promise<{
         item.retryCount > MAX_RETRIES ||
         Date.now() - item.createdAt > 3_600_000
       ) {
-        console.warn(
+        logger.warn(
           `[PushRetry] Dropping push for user ${item.userId} after ${item.retryCount} retries`,
         );
         await redis.lrem(RETRY_PROCESSING_KEY, 1, raw);
@@ -116,7 +116,7 @@ export async function processRetryQueue(): Promise<{
           continue;
         }
       } catch (error) {
-        console.error(
+        logger.error(
           `[PushRetry] Retry attempt ${item.retryCount} failed for ${item.userId}:`,
           error,
         );
@@ -127,7 +127,6 @@ export async function processRetryQueue(): Promise<{
 
       if (success) {
         stats.succeeded++;
-        // console.log(`[PushRetry] Retry succeeded for user ${item.userId} on attempt ${item.retryCount}`)
       } else {
         // Re-enqueue for next retry cycle
         await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(item));
@@ -135,12 +134,11 @@ export async function processRetryQueue(): Promise<{
     }
   } catch (error) {
     if (!isRedisUnavailableError(error)) {
-      console.error("[PushRetry] Queue processing error:", error);
+      logger.error("[PushRetry] Queue processing error:", error);
     }
   }
 
   if (stats.processed > 0) {
-    // console.log(`[PushRetry] Processed: ${stats.processed}, Succeeded: ${stats.succeeded}, Dropped: ${stats.dropped}`)
   }
 
   return stats;
@@ -185,18 +183,15 @@ export function startPushRetryProcessor(): void {
     try {
       await processRetryQueue();
     } catch (error) {
-      console.error("[PushRetry] Processor error:", error);
+      logger.error("[PushRetry] Processor error:", error);
     }
   }, RETRY_INTERVAL_MS);
-
-  // console.log(`[PushRetry] Retry processor started (interval: ${RETRY_INTERVAL_MS / 1000}s)`)
 }
 
 export function stopPushRetryProcessor(): void {
   if (retryIntervalId) {
     clearInterval(retryIntervalId);
     retryIntervalId = null;
-    // console.log('[PushRetry] Retry processor stopped')
   }
 }
 
@@ -212,7 +207,7 @@ export async function getRetryQueueStats(): Promise<{
     const processingLength = await redis.llen(RETRY_PROCESSING_KEY);
     return { queueLength, processingLength };
   } catch (error) {
-    console.error("[PushRetry] Failed to get queue stats:", error);
+    logger.error("[PushRetry] Failed to get queue stats:", error);
     return { queueLength: 0, processingLength: 0 };
   }
 }

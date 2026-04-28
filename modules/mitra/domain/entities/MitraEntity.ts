@@ -70,6 +70,21 @@ export interface MitraSummaryEntity {
   siteId: string | null;
 }
 
+export interface MitraIdCardEntity {
+  id: string;
+  name: string | null;
+  mitraType: string;
+  nik: string | null;
+  fotoDiri: string | null;
+  phone: string | null;
+  createdAt: Date;
+  site: { name: string } | null;
+}
+
+export interface MitraIdCardTitleEntity {
+  name: string | null;
+}
+
 export interface MitraListEntity {
   mitras: MitraEntity[];
   total: number;

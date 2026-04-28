@@ -5,10 +5,8 @@ const mockFns = vi.hoisted(() => ({
   verifyAuth: vi.fn(),
   getUserPermissions: vi.fn(),
   isSuperAdminRole: vi.fn(),
-  getRequestById: vi.fn(),
-  getRequestByIdWithSales: vi.fn(),
-  updateRequest: vi.fn(),
-  cancelApproval: vi.fn(),
+  getDetail: vi.fn(),
+  patchDetail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -20,58 +18,54 @@ vi.mock("@/lib/auth-helpers", () => ({
   isSuperAdminRole: mockFns.isSuperAdminRole,
 }));
 
-vi.mock("@/modules/marketing", async () => {
-  const actual = await vi.importActual<typeof import("@/modules/marketing")>(
-    "@/modules/marketing",
-  );
-
-  return {
-    ...actual,
-    createCanvasingService: () => ({
-      getRequestById: mockFns.getRequestById,
-      getRequestByIdWithSales: mockFns.getRequestByIdWithSales,
-      updateRequest: mockFns.updateRequest,
-      cancelApproval: mockFns.cancelApproval,
-    }),
-  };
-});
+vi.mock("@/modules/marketing", () => ({
+  marketingCanvasingDetailRouteService: {
+    getDetail: mockFns.getDetail,
+    patchDetail: mockFns.patchDetail,
+  },
+}));
 
 import { GET, PATCH } from "@/app/api/marketing/canvasing/[id]/route";
+
+const baseSession = {
+  id: "user-1",
+  role: "ADMIN",
+};
+
+const routeContext = { params: Promise.resolve({ id: "cv-1" }) };
+
+function createRequest(method: string, body?: Record<string, unknown>) {
+  return new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
+    method,
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 describe("GET /api/marketing/canvasing/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.verifyAuth.mockResolvedValue({
-      id: "user-1",
-      role: "ADMIN",
-    });
+    mockFns.verifyAuth.mockResolvedValue(baseSession);
     mockFns.getUserPermissions.mockResolvedValue([]);
     mockFns.isSuperAdminRole.mockReturnValue(false);
-    mockFns.getRequestById.mockResolvedValue({
-      id: "cv-1",
-      salesId: "sales-1",
-      status: "PENDING",
-    });
-    mockFns.getRequestByIdWithSales.mockResolvedValue({
-      id: "cv-1",
-      salesId: "sales-1",
-      status: "PENDING",
-      user: { siteId: "site-1" },
-      mitra: null,
+    mockFns.getDetail.mockResolvedValue({
+      success: true,
+      data: { id: "cv-1" },
     });
   });
 
   it("mengizinkan verifier melihat detail canvasing", async () => {
     mockFns.getUserPermissions.mockResolvedValue(["canvasing:verify"]);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "GET",
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
-    );
+    const response = await GET(createRequest("GET"), routeContext);
 
     expect(response.status).toBe(200);
+    expect(mockFns.getDetail).toHaveBeenCalledWith({
+      id: "cv-1",
+      session: baseSession,
+      permissions: ["canvasing:verify"],
+      isSuperAdmin: false,
+    });
     await expect(response.json()).resolves.toMatchObject({
       success: true,
       data: { id: "cv-1" },
@@ -79,12 +73,13 @@ describe("GET /api/marketing/canvasing/[id]", () => {
   });
 
   it("menolak detail canvasing bila bukan owner dan tanpa permission read atau verify", async () => {
-    const response = await GET(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "GET",
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
-    );
+    mockFns.getDetail.mockResolvedValue({
+      success: false,
+      status: 403,
+      error: "Anda tidak memiliki akses untuk melihat data ini",
+    });
+
+    const response = await GET(createRequest("GET"), routeContext);
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
@@ -94,21 +89,20 @@ describe("GET /api/marketing/canvasing/[id]", () => {
 
   it("menolak user site-only melihat detail canvasing site lain", async () => {
     mockFns.verifyAuth.mockResolvedValue({
-      id: "user-1",
-      role: "ADMIN",
+      ...baseSession,
       siteId: "site-2",
     });
     mockFns.getUserPermissions.mockResolvedValue([
       "canvasing:verify",
       "canvasing:site_only",
     ]);
+    mockFns.getDetail.mockResolvedValue({
+      success: false,
+      status: 403,
+      error: "Anda tidak memiliki akses untuk melihat data ini",
+    });
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "GET",
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
-    );
+    const response = await GET(createRequest("GET"), routeContext);
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
@@ -120,91 +114,78 @@ describe("GET /api/marketing/canvasing/[id]", () => {
 describe("PATCH /api/marketing/canvasing/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.verifyAuth.mockResolvedValue({
-      id: "user-1",
-      role: "ADMIN",
-    });
+    mockFns.verifyAuth.mockResolvedValue(baseSession);
     mockFns.getUserPermissions.mockResolvedValue([]);
     mockFns.isSuperAdminRole.mockReturnValue(false);
-    mockFns.getRequestById.mockResolvedValue({
-      id: "cv-1",
-      salesId: "sales-1",
-      status: "PENDING",
-    });
-    mockFns.getRequestByIdWithSales.mockResolvedValue({
-      id: "cv-1",
-      salesId: "sales-1",
-      status: "PENDING",
-      user: { siteId: "site-1" },
-      mitra: null,
-    });
-    mockFns.updateRequest.mockResolvedValue({
-      id: "cv-1",
-      nama: "Nama Baru",
-    });
-    mockFns.cancelApproval.mockResolvedValue({
-      id: "cv-1",
-      status: "PENDING",
+    mockFns.patchDetail.mockResolvedValue({
+      success: true,
+      data: { id: "cv-1", nama: "Nama Baru" },
     });
   });
 
   it("mengembalikan 400 ketika payload memakai action reject pada generic PATCH", async () => {
     mockFns.getUserPermissions.mockResolvedValue(["canvasing:update"]);
+    mockFns.patchDetail.mockResolvedValue({
+      success: false,
+      status: 400,
+      code: "VALIDATION_ERROR",
+      error: 'Unrecognized key: "action"',
+    });
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "PATCH",
-        body: JSON.stringify({ action: "reject" }),
-        headers: { "Content-Type": "application/json" },
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
+      createRequest("PATCH", { action: "reject" }),
+      routeContext,
     );
 
     expect(response.status).toBe(400);
+    expect(mockFns.patchDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "cv-1",
+        body: { action: "reject" },
+        permissions: ["canvasing:update"],
+      }),
+    );
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringContaining('Unrecognized key: "action"'),
     });
-    expect(mockFns.updateRequest).not.toHaveBeenCalled();
   });
 
   it("mengembalikan 400 ketika payload membawa status REJECTED", async () => {
     mockFns.getUserPermissions.mockResolvedValue(["canvasing:update"]);
+    mockFns.patchDetail.mockResolvedValue({
+      success: false,
+      status: 400,
+      error: "Perubahan status harus melalui endpoint aksi khusus",
+    });
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "PATCH",
-        body: JSON.stringify({ status: "REJECTED" }),
-        headers: { "Content-Type": "application/json" },
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
+      createRequest("PATCH", { status: "REJECTED" }),
+      routeContext,
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       error: "Perubahan status harus melalui endpoint aksi khusus",
     });
-    expect(mockFns.updateRequest).not.toHaveBeenCalled();
   });
 
   it("mengizinkan owner mengubah field biasa tanpa permission update", async () => {
-    mockFns.verifyAuth.mockResolvedValue({
-      id: "sales-1",
-      role: "MARKETING",
-    });
+    const salesSession = { id: "sales-1", role: "MARKETING" };
+    mockFns.verifyAuth.mockResolvedValue(salesSession);
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "PATCH",
-        body: JSON.stringify({ nama: "Nama Baru" }),
-        headers: { "Content-Type": "application/json" },
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
+      createRequest("PATCH", { nama: "Nama Baru" }),
+      routeContext,
     );
 
     expect(response.status).toBe(200);
-    expect(mockFns.updateRequest).toHaveBeenCalledWith("cv-1", {
-      nama: "Nama Baru",
-    });
+    expect(mockFns.patchDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "cv-1",
+        session: salesSession,
+        body: { nama: "Nama Baru" },
+      }),
+    );
   });
 
   it("menolak owner membatalkan approval tanpa permission update", async () => {
@@ -212,52 +193,46 @@ describe("PATCH /api/marketing/canvasing/[id]", () => {
       id: "sales-1",
       role: "MARKETING",
     });
-    mockFns.getRequestById.mockResolvedValue({
-      id: "cv-1",
-      salesId: "sales-1",
-      status: "APPROVED",
+    mockFns.patchDetail.mockResolvedValue({
+      success: false,
+      status: 403,
+      error: "Anda tidak memiliki akses untuk mengubah data ini",
     });
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "PATCH",
-        body: JSON.stringify({ action: "cancel_approval" }),
-        headers: { "Content-Type": "application/json" },
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
+      createRequest("PATCH", { action: "cancel_approval" }),
+      routeContext,
     );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
       error: "Anda tidak memiliki akses untuk mengubah data ini",
     });
-    expect(mockFns.cancelApproval).not.toHaveBeenCalled();
   });
 
   it("menolak user site-only mengubah canvasing site lain", async () => {
     mockFns.verifyAuth.mockResolvedValue({
-      id: "user-1",
-      role: "ADMIN",
+      ...baseSession,
       siteId: "site-2",
     });
     mockFns.getUserPermissions.mockResolvedValue([
       "canvasing:update",
       "canvasing:site_only",
     ]);
+    mockFns.patchDetail.mockResolvedValue({
+      success: false,
+      status: 403,
+      error: "Anda tidak memiliki akses untuk mengubah data ini",
+    });
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/marketing/canvasing/cv-1", {
-        method: "PATCH",
-        body: JSON.stringify({ nama: "Nama Baru" }),
-        headers: { "Content-Type": "application/json" },
-      }),
-      { params: Promise.resolve({ id: "cv-1" }) },
+      createRequest("PATCH", { nama: "Nama Baru" }),
+      routeContext,
     );
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
       error: "Anda tidak memiliki akses untuk mengubah data ini",
     });
-    expect(mockFns.updateRequest).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getNotificationsForUser,
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
       unreadCount,
     });
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    logger.error("Error fetching notifications:", error);
     return NextResponse.json(
       { error: "Gagal mengambil notifikasi" },
       { status: 500 },
@@ -206,7 +207,7 @@ export async function PATCH(request: NextRequest) {
       message: "Semua notifikasi telah ditandai dibaca",
     });
   } catch (error) {
-    console.error("Error marking notifications as read:", error);
+    logger.error("Error marking notifications as read:", error);
     return NextResponse.json(
       { error: "Gagal menandai notifikasi sebagai dibaca" },
       { status: 500 },

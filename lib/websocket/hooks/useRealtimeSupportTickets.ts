@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
@@ -107,7 +108,7 @@ export function useRealtimeSupportTickets(
         const newCount = data.count || 0;
 
         if (newCount > lastCountRef.current && lastCountRef.current > 0) {
-          console.log("[Tickets] New ticket detected!");
+          clientLogger.info("[Tickets] New ticket detected!");
         }
 
         lastCountRef.current = newCount;
@@ -119,7 +120,7 @@ export function useRealtimeSupportTickets(
         setTickets(data.tickets || []);
       }
     } catch (error) {
-      console.error("[Tickets] Error fetching:", error);
+      clientLogger.error("[Tickets] Error fetching:", error);
     } finally {
       setLoading(false);
     }
@@ -134,7 +135,9 @@ export function useRealtimeSupportTickets(
   const playSound = useCallback(() => {
     try {
       const audio = new Audio("/sounds/notification.mp3");
-      audio.play().catch((_err) => console.log("Audio play failed:", _err));
+      audio
+        .play()
+        .catch((_err) => clientLogger.info("Audio play failed:", _err));
     } catch (_error) {
       // Ignore audio errors
     }
@@ -146,7 +149,7 @@ export function useRealtimeSupportTickets(
         return;
       }
 
-      console.log("[Tickets] New ticket received:", payload.ticketNumber);
+      clientLogger.info("[Tickets] New ticket received:", payload.ticketNumber);
       playSound();
       void fetchTickets();
     },
@@ -159,7 +162,7 @@ export function useRealtimeSupportTickets(
         return;
       }
 
-      console.log("[Tickets] Ticket updated:", payload.ticketNumber);
+      clientLogger.info("[Tickets] Ticket updated:", payload.ticketNumber);
       setTickets((prev) =>
         prev.map((ticket) =>
           ticket.id === payload.id
@@ -181,7 +184,7 @@ export function useRealtimeSupportTickets(
         return;
       }
 
-      console.log("[Tickets] Ticket reply:", payload.ticketNumber);
+      clientLogger.info("[Tickets] Ticket reply:", payload.ticketNumber);
       playSound();
       void fetchTickets();
     },

@@ -1,7 +1,7 @@
 import { toDate, toZonedTime } from "date-fns-tz";
 import { endOfDay as fnsEndOfDay, startOfDay as fnsStartOfDay } from "date-fns";
 
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
@@ -28,12 +28,12 @@ function isDateWithinDay(
 export class AttendanceValidationService {
   private leaveRepo: ILeaveRepository;
   private holidayRepo: IHolidayRepository;
-  private userRepo: UserRepository;
+  private userRepo: UserLookupService;
 
   constructor(
     leaveRepo: ILeaveRepository = new LeaveRepository(),
     holidayRepo: IHolidayRepository = new HolidayRepository(),
-    userRepo: UserRepository = new UserRepository(),
+    userRepo: UserLookupService = new UserLookupService(),
   ) {
     this.leaveRepo = leaveRepo;
     this.holidayRepo = holidayRepo;

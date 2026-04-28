@@ -1,10 +1,24 @@
 import { NextRequest } from "next/server";
-import { InventoryRepository } from "@/modules/inventory";
+import {
+  inventoryTransferRouteService,
+  type InventoryTransferRouteResult,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { hasPermission } from "@/lib/rbac";
+
+type InventoryTransferRouteFailure = Extract<
+  InventoryTransferRouteResult<unknown>,
+  { success: false }
+>;
+
+function isInventoryTransferRouteFailure(
+  result: InventoryTransferRouteResult<unknown>,
+): result is InventoryTransferRouteFailure {
+  return !result.success;
+}
 
 /**
  * GET /api/inventory/transfer/[id]
@@ -26,12 +40,10 @@ export async function GET(
     }
 
     const { id } = await params;
-    const inventoryRepository = new InventoryRepository();
 
     try {
       const dbStart = Date.now();
-
-      const transferRecord = await inventoryRepository.findTransferById(id);
+      const result = await inventoryTransferRouteService.getTransferDetail(id);
 
       logger.dbOperation(
         "findUnique",
@@ -39,9 +51,11 @@ export async function GET(
         Date.now() - dbStart,
       );
 
-      if (!transferRecord) {
+      if (!result.found) {
         return ApiErrors.notFound("Record transfer tidak ditemukan");
       }
+
+      const transferRecord = result.transfer;
 
       logger.apiRequest(
         "GET",
@@ -89,16 +103,19 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { keterangan } = body;
-
-    const inventoryRepository = new InventoryRepository();
 
     try {
       const dbStart = Date.now();
-
-      const transferRecord = await inventoryRepository.updateTransfer(id, {
-        keterangan,
+      const result = await inventoryTransferRouteService.updateTransfer({
+        id,
+        body,
       });
+
+      if (isInventoryTransferRouteFailure(result)) {
+        return ApiErrors.badRequest(result.error);
+      }
+
+      const transferRecord = result.data;
 
       logger.dbOperation("update", "TransferAntarGudang", Date.now() - dbStart);
 
@@ -155,12 +172,10 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const inventoryRepository = new InventoryRepository();
 
     try {
       const dbStart = Date.now();
-
-      await inventoryRepository.deleteTransfer(id);
+      await inventoryTransferRouteService.deleteTransfer(id);
 
       logger.dbOperation(
         "transaction",

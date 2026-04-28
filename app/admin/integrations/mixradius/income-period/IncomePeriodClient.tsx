@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -275,7 +276,7 @@ export default function IncomePeriodClient() {
           }
         }
       } catch (err) {
-        console.error("Failed to fetch filter data:", err);
+        clientLogger.error("Failed to fetch filter data:", err);
       }
     };
     fetchFilterData();
@@ -341,7 +342,7 @@ export default function IncomePeriodClient() {
           }
         }
       } catch (err) {
-        console.error("Failed to fetch RAB project:", err);
+        clientLogger.error("Failed to fetch RAB project:", err);
         setRabProject(null);
       } finally {
         setRabLoading(false);
@@ -484,7 +485,7 @@ export default function IncomePeriodClient() {
             }
           }
         } catch (err) {
-          console.error("Error fetching expenses", err);
+          clientLogger.error("Error fetching expenses", err);
         }
         setTotalExpenses(expensesTotal);
 
@@ -498,7 +499,7 @@ export default function IncomePeriodClient() {
           setGlobalRecords([]);
         }
       } catch (e) {
-        console.error("Error calculating net income", e);
+        clientLogger.error("Error calculating net income", e);
       } finally {
         setIsCalculatingNet(false);
       }
@@ -637,7 +638,7 @@ export default function IncomePeriodClient() {
         setCumulativeExpenses(roi.totalExpenses);
         setCumulativeNetIncome(roi.operatingProfit);
       } catch (err) {
-        console.error("Error calculating ROI:", err);
+        clientLogger.error("Error calculating ROI:", err);
       } finally {
         setRoiLoading(false);
       }
@@ -663,7 +664,7 @@ export default function IncomePeriodClient() {
         toast.error("Gagal menyimpan");
       }
     } catch (e) {
-      console.error(e);
+      clientLogger.error("Gagal menyimpan konfigurasi fee", e);
       toast.error("Terjadi kesalahan");
     }
   };
@@ -810,7 +811,7 @@ export default function IncomePeriodClient() {
       toast.success("Export berhasil!", { id: "export" });
     } catch (err) {
       toast.error("Gagal export data", { id: "export" });
-      console.error(err);
+      clientLogger.error("Gagal export data pendapatan MixRadius", err);
     }
   };
 
@@ -902,7 +903,7 @@ export default function IncomePeriodClient() {
         toast.error(result.message || "Gagal sinkronisasi komisi");
       }
     } catch (err) {
-      console.error(err);
+      clientLogger.error("Gagal sinkronisasi komisi mitra", err);
       toast.error("Terjadi kesalahan sistem");
     } finally {
       setSyncingMitra(null);

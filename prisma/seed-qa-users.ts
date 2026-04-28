@@ -14,6 +14,7 @@ import { randomUUID } from "crypto";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
+import { logger } from "../lib/logger";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -256,23 +257,23 @@ const QA_USERS: UserDefinition[] = [
 ];
 
 async function main() {
-  console.log("🧪 Seeding QA Test Users and Roles...\n");
+  logger.info("🧪 Seeding QA Test Users and Roles...\n");
 
   const tenant = await prisma.tenant.findFirst();
   if (!tenant) throw new Error("No tenant found");
   const MAIN_TENANT_ID = tenant.id;
-  console.log(`🏢 Using Tenant: ${tenant.name} (${MAIN_TENANT_ID})`);
+  logger.info(`🏢 Using Tenant: ${tenant.name} (${MAIN_TENANT_ID})`);
 
   const defaultDept = await prisma.departments.findFirst();
   const defaultSite = await prisma.sites.findFirst();
 
   if (!defaultDept || !defaultSite) {
-    console.error("❌ Please run the main seed first");
+    logger.error("❌ Please run the main seed first");
     process.exit(1);
   }
 
   // Create Roles
-  console.log("👥 Creating QA Roles...");
+  logger.info("👥 Creating QA Roles...");
   const roleMap = new Map<string, string>();
 
   for (const roleDef of QA_ROLES) {
@@ -325,13 +326,13 @@ async function main() {
     });
 
     roleMap.set(roleDef.name, role.id);
-    console.log(
+    logger.info(
       `   ✅ Role: ${roleDef.name} (${permissionRecords.length} permissions)`,
     );
   }
 
   // Create Users
-  console.log("\n👤 Creating QA Users...");
+  logger.info("\n👤 Creating QA Users...");
 
   for (const userDef of QA_USERS) {
     const roleId = roleMap.get(userDef.roleName);
@@ -365,28 +366,28 @@ async function main() {
         workDays: "Mon,Tue,Wed,Thu,Fri",
       },
     });
-    console.log(`   ✅ User: ${userDef.email} (${userDef.roleName})`);
+    logger.info(`   ✅ User: ${userDef.email} (${userDef.roleName})`);
   }
 
-  console.log("\n" + "=".repeat(60));
-  console.log("✅ QA Seeding completed!");
-  console.log("=".repeat(60));
-  console.log("\n📝 QA Test Credentials (password: qatest123)");
-  console.log("");
-  console.log("  qa.readonly@test.com      - Read-Only Admin");
-  console.log("  qa.workorder@test.com     - Work Order Full Access");
-  console.log("  qa.hr@test.com            - HR/Attendance Admin");
-  console.log("  qa.network@test.com       - Network/RADIUS Admin");
-  console.log("  qa.support@test.com       - Support Tickets Only");
-  console.log("  qa.sitemanager@test.com   - Sites & Departments");
-  console.log("  qa.fieldtech@test.com     - Enhanced Field Tech");
-  console.log("  qa.noperm@test.com        - No Permissions (403 Test)");
-  console.log("");
+  logger.info("\n" + "=".repeat(60));
+  logger.info("✅ QA Seeding completed!");
+  logger.info("=".repeat(60));
+  logger.info("\n📝 QA Test Credentials (password: qatest123)");
+  logger.info("");
+  logger.info("  qa.readonly@test.com      - Read-Only Admin");
+  logger.info("  qa.workorder@test.com     - Work Order Full Access");
+  logger.info("  qa.hr@test.com            - HR/Attendance Admin");
+  logger.info("  qa.network@test.com       - Network/RADIUS Admin");
+  logger.info("  qa.support@test.com       - Support Tickets Only");
+  logger.info("  qa.sitemanager@test.com   - Sites & Departments");
+  logger.info("  qa.fieldtech@test.com     - Enhanced Field Tech");
+  logger.info("  qa.noperm@test.com        - No Permissions (403 Test)");
+  logger.info("");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ QA Seed failed:", e);
+    logger.error("❌ QA Seed failed:", e);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

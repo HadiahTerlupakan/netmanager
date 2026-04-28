@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { firebaseRealtimeService } from "@/lib/realtime";
@@ -95,7 +96,7 @@ function registerDefaultHandlers(): void {
 
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, async (job) => {
     const { payload } = job.data;
-    console.log(
+    logger.info(
       `[Worker] Invoice paid: ${payload.invoiceId} for customer ${payload.pelangganId}`,
     );
 
@@ -105,11 +106,11 @@ function registerDefaultHandlers(): void {
         payload.pelangganId,
         "AKTIF",
       );
-      console.log(
+      logger.info(
         `[Worker] Customer ${payload.pelangganId} activated after payment`,
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `[Worker] Failed to activate customer ${payload.pelangganId}:`,
         error,
       );
@@ -162,7 +163,7 @@ function registerDefaultHandlers(): void {
         });
       }
     } catch (error) {
-      console.error("[Worker] WebSocket notification error:", error);
+      logger.error("[Worker] WebSocket notification error:", error);
     }
   });
 
@@ -204,7 +205,7 @@ function registerDefaultHandlers(): void {
         triggeredByUserId: payload.triggeredBy,
       });
     } catch (error) {
-      console.error("[Worker] Work order created handler error:", error);
+      logger.error("[Worker] Work order created handler error:", error);
       throw error;
     }
   });
@@ -243,7 +244,7 @@ function registerDefaultHandlers(): void {
         triggeredByUserId: payload.triggeredBy,
       });
     } catch (error) {
-      console.error("[Worker] Work order assigned handler error:", error);
+      logger.error("[Worker] Work order assigned handler error:", error);
       throw error;
     }
   });
@@ -264,7 +265,7 @@ function registerDefaultHandlers(): void {
         siteId: payload.siteId,
       });
     } catch (error) {
-      console.error("[Worker] Inventory stock-in handler error:", error);
+      logger.error("[Worker] Inventory stock-in handler error:", error);
     }
   });
 
@@ -282,7 +283,7 @@ function registerDefaultHandlers(): void {
         siteId: payload.siteId,
       });
     } catch (error) {
-      console.error("[Worker] Inventory stock-out handler error:", error);
+      logger.error("[Worker] Inventory stock-out handler error:", error);
     }
   });
 
@@ -304,7 +305,7 @@ function registerDefaultHandlers(): void {
         payload.siteId,
       );
     } catch (error) {
-      console.error("[Worker] Ticket created handler error:", error);
+      logger.error("[Worker] Ticket created handler error:", error);
     }
   });
 
@@ -324,7 +325,7 @@ function registerDefaultHandlers(): void {
         payload.targetUserId,
       );
     } catch (error) {
-      console.error("[Worker] Ticket reply handler error:", error);
+      logger.error("[Worker] Ticket reply handler error:", error);
     }
   });
 
@@ -343,7 +344,7 @@ function registerDefaultHandlers(): void {
         payload.siteId,
       );
     } catch (error) {
-      console.error("[Worker] Ticket status changed handler error:", error);
+      logger.error("[Worker] Ticket status changed handler error:", error);
     }
   });
 
@@ -358,7 +359,7 @@ function registerDefaultHandlers(): void {
         timestamp: payload.timestamp,
       });
     } catch (error) {
-      console.error("[Worker] Attendance checkin handler error:", error);
+      logger.error("[Worker] Attendance checkin handler error:", error);
     }
   });
 
@@ -371,7 +372,7 @@ function registerDefaultHandlers(): void {
         timestamp: payload.timestamp,
       });
     } catch (error) {
-      console.error("[Worker] Attendance absent handler error:", error);
+      logger.error("[Worker] Attendance absent handler error:", error);
     }
   });
 
@@ -379,7 +380,7 @@ function registerDefaultHandlers(): void {
 
   registerEventHandler(EVENT_NAMES.NETWORK_DEVICE_OFFLINE, async (job) => {
     const { payload } = job.data;
-    console.log(
+    logger.info(
       `[Worker] Network device offline: ${payload.deviceName} (${payload.deviceType})`,
     );
     // Could trigger alerts, auto-ticket creation, etc.
@@ -395,11 +396,11 @@ async function processEventJob(job: Job<EventJobData>): Promise<void> {
   const handlers = eventHandlers.get(eventName);
 
   if (!handlers || handlers.length === 0) {
-    console.log(`[Worker] No handlers registered for event: ${eventName}`);
+    logger.info(`[Worker] No handlers registered for event: ${eventName}`);
     return;
   }
 
-  console.log(
+  logger.info(
     `[Worker] Processing event: ${eventName} (handlers: ${handlers.length})`,
   );
 
@@ -412,7 +413,7 @@ async function processNotificationJob(
   job: Job<NotificationJobData>,
 ): Promise<void> {
   const data = job.data;
-  console.log(
+  logger.info(
     `[Worker] Processing notification: ${data.type} for ${data.userId || data.departmentId || "broadcast"}`,
   );
 
@@ -428,7 +429,7 @@ async function processNotificationJob(
           data.data,
         );
       } catch (error) {
-        console.error("[Worker] Expo push failed:", error);
+        logger.error("[Worker] Expo push failed:", error);
         throw error; // Retry
       }
       break;
@@ -439,12 +440,12 @@ async function processNotificationJob(
       try {
         const published = publishWebsocketNotification(data);
         if (!published) {
-          console.warn(
+          logger.warn(
             `[Worker] Unsupported websocket notification event: ${data.event}`,
           );
         }
       } catch (error) {
-        console.error("[Worker] WebSocket emit failed:", error);
+        logger.error("[Worker] WebSocket emit failed:", error);
       }
       break;
     }
@@ -453,7 +454,7 @@ async function processNotificationJob(
 
 async function processWebhookJob(job: Job<WebhookJobData>): Promise<void> {
   const { provider, payload, signature } = job.data;
-  console.log(`[Worker] Processing webhook from: ${provider}`);
+  logger.info(`[Worker] Processing webhook from: ${provider}`);
 
   try {
     const { PaymentGatewayManager } = await import("@/modules/finance");
@@ -462,14 +463,14 @@ async function processWebhookJob(job: Job<WebhookJobData>): Promise<void> {
     const gatewayManager = new PaymentGatewayManager(prisma as any);
     await gatewayManager.processWebhook(provider, payload, signature ?? "");
   } catch (error) {
-    console.error(`[Worker] Webhook processing failed for ${provider}:`, error);
+    logger.error(`[Worker] Webhook processing failed for ${provider}:`, error);
     throw error; // Retry
   }
 }
 
 async function processOutboxJob(job: Job<OutboxJobData>): Promise<void> {
   const { outboxEventId, eventName, payload } = job.data;
-  console.log(
+  logger.info(
     `[Worker] Processing outbox event: ${eventName} (${outboxEventId})`,
   );
 
@@ -538,7 +539,7 @@ export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
     schedules = await repository.findSchedulesForRehydration(startupTime);
   } catch (error) {
     if (isMissingOvertimeAutoCheckoutScheduleTable(error)) {
-      console.warn(
+      logger.warn(
         "[EventBus] Skipping overtime auto checkout rehydration because database migration is pending",
       );
       return;
@@ -715,22 +716,22 @@ export function startWorkers(): void {
   // Event listeners for monitoring
   for (const worker of workers) {
     worker.on("completed", (job) => {
-      console.log(`[BullMQ] ${worker.name}: Job ${job.id} completed`);
+      logger.info(`[BullMQ] ${worker.name}: Job ${job.id} completed`);
     });
 
     worker.on("failed", (job, err) => {
-      console.error(
+      logger.error(
         `[BullMQ] ${worker.name}: Job ${job?.id} failed:`,
         err.message,
       );
     });
 
     worker.on("error", (err) => {
-      console.error(`[BullMQ] ${worker.name}: Worker error:`, err.message);
+      logger.error(`[BullMQ] ${worker.name}: Worker error:`, err.message);
     });
   }
 
-  console.log("[BullMQ] All workers started");
+  logger.info("[BullMQ] All workers started");
 }
 
 /**
@@ -740,7 +741,7 @@ export async function stopWorkers(): Promise<void> {
   const stopPromises = workers.map((worker) => worker.close());
   await Promise.allSettled(stopPromises);
   workers = [];
-  console.log("[BullMQ] All workers stopped");
+  logger.info("[BullMQ] All workers stopped");
 }
 
 /**

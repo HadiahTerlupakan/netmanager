@@ -1,4 +1,11 @@
-import { LeaveStatus, LeaveType } from "@prisma/client";
+const LEAVE_TYPES = [
+  "CUTI",
+  "SAKIT",
+  "IZIN",
+  "LAINNYA",
+  "TUKAR_LIBUR",
+] as const;
+type LeaveStatusFilter = string;
 import * as z from "zod";
 
 import {
@@ -15,7 +22,7 @@ const leaveRouteService = new AdminLeaveRouteService();
 
 const createLeaveSchema = z.object({
   userId: z.uuid({ error: "Invalid user ID" }),
-  type: z.enum(LeaveType),
+  type: z.enum(LEAVE_TYPES),
   startDate: z
     .string()
     .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date format"),
@@ -45,7 +52,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const result = await leaveRouteService.getLeaves({
     session: ctx.session as never,
     tenantId,
-    ...(status ? { status: status as LeaveStatus } : {}),
+    ...(status ? { status: status as LeaveStatusFilter } : {}),
   });
 
   if (!result.success) {

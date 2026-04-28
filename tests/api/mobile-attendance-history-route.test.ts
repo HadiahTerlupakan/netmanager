@@ -90,7 +90,19 @@ describe("mobile attendance history route", () => {
       id: "user-1",
       joinDate: new Date("2026-04-01T00:00:00.000Z"),
     } as never);
-    prismaMock.attendance.findMany.mockResolvedValueOnce([
+    const attendanceRows: Array<{
+      id: string;
+      userId: string;
+      tenantId: string;
+      checkIn: Date;
+      checkOut: Date;
+      status: string;
+      user: {
+        workingHourMode: string;
+        flexibleTargetHour: number | null;
+        shift: null;
+      };
+    }> = [
       {
         id: "att-before-join",
         userId: "user-1",
@@ -117,8 +129,16 @@ describe("mobile attendance history route", () => {
           shift: null,
         },
       },
-    ] as never);
-    prismaMock.attendance.count.mockResolvedValueOnce(2);
+    ];
+    prismaMock.attendance.findMany.mockImplementationOnce(
+      async (args: { where: { checkIn: { gte: Date } } }) =>
+        attendanceRows.filter((row) => row.checkIn >= args.where.checkIn.gte),
+    );
+    prismaMock.attendance.count.mockImplementationOnce(
+      async (args: { where: { checkIn: { gte: Date } } }) =>
+        attendanceRows.filter((row) => row.checkIn >= args.where.checkIn.gte)
+          .length,
+    );
 
     const response = await getMobileAttendanceHistory(
       new NextRequest(
@@ -141,6 +161,13 @@ describe("mobile attendance history route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(prismaMock.attendance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          checkIn: { gte: new Date("2026-04-01T00:00:00.000Z") },
+        }),
+      }),
+    );
     expect(body.data).toHaveLength(1);
     expect(body.data[0].id).toBe("att-after-join");
   });

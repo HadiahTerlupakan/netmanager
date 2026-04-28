@@ -1,3 +1,4 @@
+import { clientLogger } from "@/lib/client-logger";
 import { useCallback, useState } from "react";
 import type { ConfirmationModalState } from "./ConfirmationModal";
 import { toast } from "react-hot-toast";
@@ -41,7 +42,7 @@ async function deleteCanvasing(id: string, refetch: () => Promise<void>) {
 
     await refreshAfterSuccess("Data berhasil dihapus", refetch);
   } catch (error) {
-    console.error("Delete error:", error);
+    clientLogger.error("Delete error:", error);
     toast.error("Terjadi kesalahan saat menghapus data");
   }
 }
@@ -69,7 +70,7 @@ async function cancelCanvasingApproval(
       refetch,
     );
   } catch (error) {
-    console.error("Cancel approval error:", error);
+    clientLogger.error("Cancel approval error:", error);
     toast.error("Terjadi kesalahan saat membatalkan approval");
   }
 }

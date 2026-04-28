@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import * as z from "zod";
@@ -61,8 +62,8 @@ export async function POST(
       message?: string;
     };
 
-    console.error("Error rejecting RAB revision:", error);
-    console.error("[RAB_REVISION_REJECT_DIAG] Reject failed", {
+    logger.error("Error rejecting RAB revision:", error);
+    logger.error("[RAB_REVISION_REJECT_DIAG] Reject failed", {
       code: maybePrismaError?.code ?? null,
       message: maybePrismaError?.message ?? null,
       meta: maybePrismaError?.meta ?? null,

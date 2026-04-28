@@ -19,6 +19,7 @@ import {
 import { getWithAuth, deleteWithAuth } from "@/lib/api-client";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { clientLogger } from "@/lib/client-logger";
 
 interface BarangKeluar {
   id: string;
@@ -120,7 +121,7 @@ export function KeluarTable({
         ...(responseData.pagination || {}),
       }));
     } catch (error) {
-      console.error("Failed to fetch barang keluar:", error);
+      clientLogger.error("Failed to fetch barang keluar:", error);
       setError(error instanceof Error ? error.message : "Gagal memuat data");
     } finally {
       setLoading(false);
@@ -136,7 +137,7 @@ export function KeluarTable({
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {
-    console.log("[Inventory] KeluarTable received update, refreshing...");
+    clientLogger.info("[Inventory] KeluarTable received update, refreshing...");
     fetchKeluarList();
   });
 
@@ -162,7 +163,7 @@ export function KeluarTable({
       // Refresh data
       window.location.reload();
     } catch (error) {
-      console.error("Failed to delete barang keluar:", error);
+      clientLogger.error("Failed to delete barang keluar:", error);
       alert(
         error instanceof Error
           ? error.message

@@ -1,17 +1,28 @@
+import { logger } from "@/lib/logger";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
-  buildInventoryAccessSession,
-  getInventoryRouteService,
-  InventoryRepository,
+  inventoryMasukRouteService,
+  type InventoryMasukRouteResult,
 } from "@/modules/inventory";
-import { logger, logActivitySafe } from "@/lib/logger";
-import { validateGudangSiteAccess } from "@/modules/inventory";
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { logActivitySafe } from "@/lib/logger";
 import {
-  buildPaginationMeta,
-  parsePaginationParams,
-} from "@/lib/utils/pagination";
+  buildInventoryAccessSession,
+  validateGudangSiteAccess,
+} from "@/lib/inventory/access-session";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { parsePaginationParams } from "@/lib/utils/pagination";
+
+type InventoryMasukRouteFailure = Extract<
+  InventoryMasukRouteResult<unknown>,
+  { success: false }
+>;
+
+function isInventoryMasukRouteFailure(
+  result: InventoryMasukRouteResult<unknown>,
+): result is InventoryMasukRouteFailure {
+  return !result.success;
+}
 
 /**
  * @swagger
@@ -34,39 +45,28 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const barangId = searchParams.get("barangId") || undefined;
   const gudangId = searchParams.get("gudangId") || undefined;
   const search = searchParams.get("search") || undefined;
-  let siteId = searchParams.get("siteId") || undefined;
+  const siteId = searchParams.get("siteId") || undefined;
   const { page, limit } = parsePaginationParams(searchParams, {
     page: 1,
     limit: 20,
   });
-  const offset = (page - 1) * limit;
-
-  // SITE RESTRICTION
   const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-
-  if (
-    !isSuper &&
-    (permissions.includes("masuk:site_only") ||
-      permissions.includes("k_barang:site_only"))
-  ) {
-    siteId = await getInventoryRouteService().getUserSiteId(user.id);
-  }
 
   try {
     const dbStart = Date.now();
-
-    const inventoryRepository = new InventoryRepository();
-
-    const { items: masukList, total } =
-      await inventoryRepository.getHistoryMasuk({
-        skip: offset,
-        take: limit,
-        ...(barangId && { barangId }),
-        ...(gudangId && { gudangId }),
-        ...(search && { search }),
-        ...(siteId && { siteId }),
-      });
+    const result = await inventoryMasukRouteService.listMasuk({
+      userId: user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(user),
+      page,
+      limit,
+      barangId,
+      gudangId,
+      search,
+      siteId,
+    });
+    const masukList = result.masukList;
+    const total = result.pagination.total;
 
     logger.dbOperation(
       "findMany",
@@ -90,14 +90,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       },
     );
 
-    return apiSuccess({
-      masukList,
-      pagination: buildPaginationMeta({
-        page,
-        limit,
-        total,
-      }),
-    });
+    return apiSuccess(result);
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
     logger.error("Error fetching barang masuk", err, {
@@ -126,46 +119,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
-  const {
-    barangId,
-    gudangId,
-    jumlah,
-    kondisi,
-    keterangan,
-    fotoBukti,
-    fotoMetadata,
-  } = body;
-
-  // Validation
-  const parsedJumlah = Number(jumlah);
-
-  if (
-    !barangId ||
-    !gudangId ||
-    !jumlah ||
-    isNaN(parsedJumlah) ||
-    parsedJumlah <= 0
-  ) {
-    return ApiErrors.badRequest(
-      "Barang, gudang, dan jumlah harus diisi dengan benar",
-    );
-  }
-
-  const validConditions = ["BARU", "BEKAS", "RUSAK"];
-  if (kondisi && !validConditions.includes(kondisi)) {
-    return ApiErrors.badRequest(
-      "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
-    );
-  }
-
-  // Validate photo data if provided
-  if (fotoBukti && !Array.isArray(fotoBukti)) {
-    return ApiErrors.badRequest("fotoBukti harus berupa array URL foto");
-  }
-
-  if (fotoMetadata && typeof fotoMetadata !== "object") {
-    return ApiErrors.badRequest("fotoMetadata harus berupa object JSON");
-  }
+  const { barangId, gudangId } = body;
 
   const accessSession = await buildInventoryAccessSession(user);
   const access = await validateGudangSiteAccess(accessSession, gudangId);
@@ -176,27 +130,21 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   try {
-    const inventoryRepository = new InventoryRepository();
     const dbStart = Date.now();
-
-    // Use repository to add stock
-    const masukRecord = await inventoryRepository.addStock({
-      barangId,
-      gudangId,
-      jumlah: parsedJumlah,
-      kondisi: kondisi || "BARU",
-      keterangan,
+    const result = await inventoryMasukRouteService.createMasuk({
       userId: user.id,
-      fotoBukti: fotoBukti || [],
-      fotoMetadata: fotoMetadata || null,
-      tanggal: new Date(),
+      body,
     });
 
-    // Get updated stock level for WebSocket broadcast
-    const finalStock = await inventoryRepository.getStockLevel(
-      barangId,
-      gudangId,
-    );
+    if (isInventoryMasukRouteFailure(result)) {
+      return ApiErrors.badRequest(result.error);
+    }
+
+    const { masukRecord, finalStock, parsedJumlah } = result.data as {
+      masukRecord: { id: string } & Record<string, unknown>;
+      finalStock: number;
+      parsedJumlah: number;
+    };
 
     logger.dbOperation(
       "transaction",

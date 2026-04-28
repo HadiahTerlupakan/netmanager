@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getCustomerPackageService } from "@/modules/pelanggan";
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.error("[Customer Package Error]:", error);
+    logger.error("[Customer Package Error]:", error);
     return NextResponse.json(
       { error: "Terjadi kesalahan server" },
       { status: 500 },

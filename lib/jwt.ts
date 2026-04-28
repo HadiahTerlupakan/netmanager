@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import jwt from "jsonwebtoken";
 import { prisma } from "./prisma";
 
@@ -37,7 +38,7 @@ const getJwtSecret = () => {
         "[SECURITY] NEXTAUTH_SECRET environment variable is required in production!",
       );
     }
-    console.warn(
+    logger.warn(
       "[SECURITY] Using development-only JWT secret. Set NEXTAUTH_SECRET in production.",
     );
     return "development-only-secret-do-not-use-in-production";
@@ -138,7 +139,7 @@ export function verifyPelangganAccessToken(
 
     return decoded;
   } catch (error) {
-    console.error("JWT verification error:", error);
+    logger.error("JWT verification error:", error);
     return null;
   }
 }
@@ -184,7 +185,7 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
       appVersionName: decoded.appVersionName ?? null,
     };
   } catch (error) {
-    console.error("Refresh token verification error:", error);
+    logger.error("Refresh token verification error:", error);
     return { id: "", valid: false };
   }
 }

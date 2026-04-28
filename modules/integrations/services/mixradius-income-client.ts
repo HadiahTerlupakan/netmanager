@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prismaBilling } from "@/lib/prisma-billing";
 import type { AxiosInstance } from "axios";
 
@@ -499,7 +500,7 @@ export async function fetchMixRadiusIncomeByPeriod(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (fetchIncomeByPeriod): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
@@ -507,7 +508,7 @@ export async function fetchMixRadiusIncomeByPeriod(
         : new MixRadiusConfigError(message);
     }
 
-    console.error("[MixRadius] Fetch income period error:", message);
+    logger.error("[MixRadius] Fetch income period error:", message);
     if (
       message.includes("session") ||
       (error as { response?: { status: number } }).response?.status === 401
@@ -547,7 +548,7 @@ export async function fetchMixRadiusIncomeSummary(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (fetchIncomeSummary): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
@@ -555,7 +556,7 @@ export async function fetchMixRadiusIncomeSummary(
         : new MixRadiusConfigError(message);
     }
 
-    console.error("[MixRadius] Failed to fetch income summary:", error);
+    logger.error("[MixRadius] Failed to fetch income summary:", error);
     throw error;
   }
 }
@@ -607,7 +608,7 @@ export async function fetchMixRadiusOwnersWithIds(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (getOwnersWithIds): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
@@ -615,7 +616,7 @@ export async function fetchMixRadiusOwnersWithIds(
         : new MixRadiusConfigError(message);
     }
 
-    console.error("[MixRadius] Failed to fetch owners from HTML:", error);
+    logger.error("[MixRadius] Failed to fetch owners from HTML:", error);
     return [];
   }
 }
@@ -641,7 +642,7 @@ export async function fetchMixRadiusUniqueOwners(params: {
 
     return Array.from(owners).sort();
   } catch (error) {
-    console.error(
+    logger.error(
       "[MixRadius] Get owners error:",
       error instanceof Error ? error.message : error,
     );
@@ -681,14 +682,14 @@ export async function deleteMixRadiusIncomeRecord(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (deleteIncomeRecord): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
         ? error
         : new MixRadiusConfigError(message);
     }
-    console.error(`[MixRadius] Delete record ${id} error:`, message);
+    logger.error(`[MixRadius] Delete record ${id} error:`, message);
     throw new Error(`Failed to delete record: ${message}`);
   }
 }
@@ -719,13 +720,13 @@ export async function getMixRadiusPrintInvoiceHtml(
       error instanceof Error ? error.message : "Terjadi kesalahan";
 
     if (isMixRadiusConfigError(message)) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (getPrintInvoiceHtml): ${message}`,
       );
       return '<div style="padding:20px;text-align:center;"><h3>MixRadius Integration Not Configured</h3><p>Please configure MixRadius credentials in Settings.</p></div>';
     }
 
-    console.error("[MixRadius] Get print HTML error:", message);
+    logger.error("[MixRadius] Get print HTML error:", message);
     throw new Error(`Failed to get print view: ${message}`);
   }
 }
@@ -768,7 +769,7 @@ export async function fetchMixRadiusProfitReport(
     };
   } catch (error) {
     if (error instanceof MixRadiusConfigError) throw error;
-    console.error("[MixRadius] Error fetching profit report:", error);
+    logger.error("[MixRadius] Error fetching profit report:", error);
     return {
       income: Array(12).fill(0),
       transactions: Array(12).fill(0),

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { AdminSalesRouteService } from "@/modules/marketing";
@@ -13,7 +14,7 @@ export const GET = createHandler({ auth: true }, async (_req, _ctx) => {
   try {
     return apiSuccess(await adminSalesRouteService.getSalesOverview());
   } catch (error) {
-    console.error("Error fetching sales data:", error);
+    logger.error("Error fetching sales data:", error);
     return ApiErrors.internalError(
       "Gagal mengambil data sales: " +
         (error instanceof Error ? error.message : String(error)),

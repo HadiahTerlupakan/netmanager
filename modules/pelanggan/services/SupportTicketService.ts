@@ -1,5 +1,6 @@
+import { logger } from "@/lib/logger";
 import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { TicketEventDispatcher } from "@/modules/events";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";

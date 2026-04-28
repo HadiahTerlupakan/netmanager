@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { logger } from "@/lib/logger";
 import { paymentSchema } from "@/lib/validations/payment";
 import {
   apiSuccess,
@@ -7,7 +7,11 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
-import { createPaymentForRoute, listPaymentsForRoute } from "@/modules/finance";
+import {
+  createPaymentForRoute,
+  listPaymentsForRoute,
+  mapPaymentRouteError,
+} from "@/modules/finance";
 
 export const GET = createHandler({ auth: true }, async (req, _ctx) => {
   const { searchParams } = req.nextUrl;
@@ -49,12 +53,10 @@ export const POST = createHandler(
 
       return apiSuccess(result.data, { status: 201 });
     } catch (error: unknown) {
-      console.error("Error creating payment:", error);
+      logger.error("Error creating payment:", error);
 
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2003"
-      ) {
+      const routeError = mapPaymentRouteError(error);
+      if (routeError.status === "foreign-key-error") {
         return apiError(
           "Pelanggan atau Invoice tidak ditemukan",
           ErrorCodes.VALIDATION_ERROR,
@@ -62,9 +64,7 @@ export const POST = createHandler(
         );
       }
 
-      return ApiErrors.internalError(
-        error instanceof Error ? error.message : "Terjadi kesalahan server",
-      );
+      return ApiErrors.internalError(routeError.message);
     }
   },
 );

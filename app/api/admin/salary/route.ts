@@ -1,5 +1,4 @@
 import { getSalaryService } from "@/modules/salary";
-import { SalaryStatus, EmployeeType } from "@prisma/client";
 import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
@@ -11,6 +10,14 @@ import {
 import * as z from "zod";
 
 const service = getSalaryService();
+const EMPLOYEE_TYPES = ["KARYAWAN"] as const;
+type SalaryStatusValue =
+  | "DRAFT"
+  | "CALCULATED"
+  | "AUDITED"
+  | "APPROVED"
+  | "PAID"
+  | "REVISED";
 
 const calculateSalarySchema = z.object({
   action: z.enum(["calculate-single", "calculate-bulk"]),
@@ -19,7 +26,7 @@ const calculateSalarySchema = z.object({
   year: z.number().int().min(2000).max(2100),
   departmentId: z.uuid().optional(),
   siteId: z.uuid().optional(),
-  employeeType: z.enum(EmployeeType).optional(),
+  employeeType: z.enum(EMPLOYEE_TYPES).optional(),
 });
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -35,7 +42,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const monthStr = searchParams.get("month");
   const yearStr = searchParams.get("year");
-  const status = searchParams.get("status") as SalaryStatus | undefined;
+  const status = searchParams.get("status") as SalaryStatusValue | undefined;
   const userId = searchParams.get("userId") || undefined;
   const departmentId = searchParams.get("departmentId") || undefined;
   const employeeType = searchParams.get("employeeType") || undefined;

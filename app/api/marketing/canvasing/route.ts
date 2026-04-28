@@ -1,6 +1,5 @@
 import { ZodError } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import { CanvasingStatus } from "@prisma/client";
 import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
 import { hasMobilePermission } from "@/lib/mobile-auth";
@@ -11,6 +10,8 @@ import {
   parseCanvasingStatusParam,
   parseCreateCanvasingInput,
 } from "@/modules/marketing";
+
+type CanvasingStatusValue = "PENDING" | "APPROVED" | "REJECTED";
 
 export async function GET(req: NextRequest) {
   try {
@@ -62,13 +63,13 @@ export async function GET(req: NextRequest) {
 
     const service = createCanvasingService();
     const filterParams: {
-      status?: CanvasingStatus;
+      status?: CanvasingStatusValue;
       salesId?: string;
       siteId?: string;
       search?: string;
     } = {};
 
-    if (status) filterParams.status = status as CanvasingStatus;
+    if (status) filterParams.status = status as CanvasingStatusValue;
     if (salesId) filterParams.salesId = salesId;
     if (filterSiteId) filterParams.siteId = filterSiteId;
     if (search) filterParams.search = search;

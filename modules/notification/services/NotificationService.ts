@@ -1,9 +1,10 @@
+import { logger } from "@/lib/logger";
 import {
   sendPushNotification as sendExpoPush,
   sendPushToDepartment as sendExpoPushToDepartment,
 } from "./ExpoPushService";
 import { NotificationRepository } from "../repositories/NotificationRepository";
-import { UserRepository } from "@/modules/users";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 import { Prisma } from "@prisma/client";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
@@ -105,7 +106,7 @@ export async function createNotification(data: CreateNotificationData) {
         url: data.link || "/employee/notifications",
         sourceType: data.sourceType || "",
         sourceId: data.sourceId || "",
-      }).catch((err) => console.error("[FCM Push] Error:", err));
+      }).catch((err) => logger.error("[FCM Push] Error:", err));
     }
 
     if (!data.skipExpoPush) {
@@ -113,7 +114,7 @@ export async function createNotification(data: CreateNotificationData) {
         link: data.link || undefined,
         sourceType: data.sourceType || undefined,
         sourceId: data.sourceId || undefined,
-      }).catch((err) => console.error("[Expo Push] Error:", err));
+      }).catch((err) => logger.error("[Expo Push] Error:", err));
     }
   }
 
@@ -134,7 +135,7 @@ export async function createNotification(data: CreateNotificationData) {
         url: data.link || "/employee/notifications",
         sourceType: data.sourceType || "",
         sourceId: data.sourceId || "",
-      }).catch((err) => console.error("[FCM Push Dept] Error:", err));
+      }).catch((err) => logger.error("[FCM Push Dept] Error:", err));
     }
 
     if (!data.skipExpoPush) {
@@ -142,7 +143,7 @@ export async function createNotification(data: CreateNotificationData) {
         link: data.link || undefined,
         sourceType: data.sourceType || undefined,
         sourceId: data.sourceId || undefined,
-      }).catch((err) => console.error("[Expo Push Dept] Error:", err));
+      }).catch((err) => logger.error("[Expo Push Dept] Error:", err));
     }
   }
 
@@ -160,7 +161,7 @@ export async function createNotification(data: CreateNotificationData) {
         url: data.link || "/employee/notifications",
         sourceType: data.sourceType || "",
         sourceId: data.sourceId || "",
-      }).catch((err) => console.error("[FCM Push Admin] Error:", err));
+      }).catch((err) => logger.error("[FCM Push Admin] Error:", err));
     }
   }
 
@@ -173,7 +174,7 @@ async function findEligibleRecipients(
   excludeUserId?: string,
 ): Promise<RecipientUser[]> {
   if (!excludeUserId) {
-    console.warn(
+    logger.warn(
       `[NotificationDebug] WARNING: findEligibleRecipients called without excludeUserId.`,
     );
   }
@@ -254,7 +255,7 @@ export async function notifyNewWorkOrder(
   );
 
   if (recipients.length === 0) {
-    console.warn(
+    logger.warn(
       `[NotificationDebug] NO RECIPIENTS FOUND for New WO ${data.workOrderNumber}.`,
     );
     return null;
@@ -615,7 +616,7 @@ async function findCanvasingVerifiers(
 export async function notifyNewCanvasing(data: CanvasingNotificationData) {
   const recipients = await findCanvasingVerifiers(data.siteId);
   if (recipients.length === 0) {
-    console.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New Canvasing.`);
+    logger.warn(`[NotificationDebug] NO RECIPIENTS FOUND for New Canvasing.`);
     return null;
   }
   await Promise.all(

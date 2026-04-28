@@ -1,14 +1,16 @@
 import { NextRequest } from "next/server";
 import { verifyAuth, getUserPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
-import { createCanvasingService } from "@/modules/marketing";
+import {
+  canAccessCanvasingSite,
+  createCanvasingService,
+} from "@/modules/marketing";
 import {
   apiSuccess,
   ApiErrors,
   apiError,
   ErrorCodes,
 } from "@/lib/api-response";
-import { canAccessCanvasingSite } from "../../canvasingRouteAccess";
 
 export async function POST(
   req: NextRequest,
@@ -36,12 +38,12 @@ export async function POST(
     if (!existingRequest) return ApiErrors.notFound("Data canvasing");
 
     if (
-      !canAccessCanvasingSite(
+      !canAccessCanvasingSite({
         isSuperAdmin,
         permissions,
         session,
-        existingRequest,
-      )
+        canvasing: existingRequest,
+      })
     ) {
       return ApiErrors.forbidden(
         "Anda tidak memiliki akses untuk menyetujui canvasing",

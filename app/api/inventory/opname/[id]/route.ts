@@ -228,7 +228,7 @@ export async function DELETE(
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    console.error("Delete error:", err.message);
+    logger.error("Delete error:", err.message);
 
     if (err.message.includes("tidak ditemukan")) {
       return ApiErrors.notFound(err.message);

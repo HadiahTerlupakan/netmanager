@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { z, ZodError } from "zod";
-import { AssetStatus } from "@prisma/client";
 import {
   apiSuccess,
   ApiErrors,
@@ -13,11 +12,19 @@ import {
 } from "@/lib/api-response";
 
 const assetService = new AssetService();
+const ASSET_STATUSES = [
+  "ACTIVE",
+  "INSTALLED",
+  "SOLD",
+  "DISPOSED",
+  "LOST",
+  "REPAIR",
+] as const;
 
 // Validation schema for updates
 const updateAssetSchema = z.object({
   kodeAsset: z.string().optional(),
-  status: z.enum(AssetStatus).optional(),
+  status: z.enum(ASSET_STATUSES).optional(),
   location: z.string().optional(),
   assignedTo: z.string().optional(),
 });

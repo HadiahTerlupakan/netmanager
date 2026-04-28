@@ -1,14 +1,14 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { hasMobilePermission } from "@/lib/mobile-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
-  InventoryRepository,
+  getMobileInventoryService,
   MobileInventoryError,
-  MobileInventoryService,
 } from "@/modules/inventory";
 
-const service = new MobileInventoryService(new InventoryRepository());
+const service = getMobileInventoryService();
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.error("Mobile Barang Masuk Error:", error);
+    logger.error("Mobile Barang Masuk Error:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

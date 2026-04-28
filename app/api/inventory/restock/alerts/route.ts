@@ -1,6 +1,7 @@
+import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { getInventoryRouteService } from "@/modules/inventory";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 const inventoryRouteService = getInventoryRouteService();

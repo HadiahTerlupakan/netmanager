@@ -1,5 +1,6 @@
+import { logger } from "@/lib/logger";
 import { RadiusConnectionError } from "../utils/errors";
-import { MikroTikRouterRepository } from "@/modules/network";
+import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
 import { RouterOSAPI } from "node-routeros-v2";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 
@@ -105,7 +106,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
               userOnline: apiResult.userOnline ?? 0,
             };
           } catch (error: unknown) {
-            console.error(`Error checking router ${router.id}:`, error);
+            logger.error(`Error checking router ${router.id}:`, error);
             try {
               await routerRepository.update(
                 router.id,
@@ -117,7 +118,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
                 tenant.id,
               );
             } catch (updateError: unknown) {
-              console.error(`Error updating router ${router.id}:`, updateError);
+              logger.error(`Error updating router ${router.id}:`, updateError);
             }
             return { id: router.id, success: false, userOnline: 0 };
           }
@@ -126,7 +127,7 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
         const results = await Promise.all(checkPromises);
         totalUpdatedCount += results.length;
       } catch (tenantError) {
-        console.error(
+        logger.error(
           `Error checking routers for tenant ${tenant.id}:`,
           tenantError,
         );
@@ -177,7 +178,7 @@ export async function checkSingleMikroTikRouterStatus(
 
     return apiResult.success;
   } catch (error: unknown) {
-    console.error(`Error checking single router ${id}:`, error);
+    logger.error(`Error checking single router ${id}:`, error);
     throw new RadiusConnectionError(
       "Gagal terhubung ke router: " +
         (error instanceof Error ? error.message : String(error)),

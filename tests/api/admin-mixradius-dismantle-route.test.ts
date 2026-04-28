@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockFns = vi.hoisted(() => ({
   getUserPermissions: vi.fn(),
   isSuperAdmin: vi.fn(),
-  fetchCustomerDetail: vi.fn(),
+  createDismantleRequest: vi.fn(),
   createWorkOrder: vi.fn(),
   onWorkOrderCreated: vi.fn(),
 }));
@@ -19,8 +19,14 @@ vi.mock("@/modules/database", () => ({
 }));
 
 vi.mock("@/modules/integrations", () => ({
-  MixRadiusService: class MockMixRadiusService {
-    fetchCustomerDetail = mockFns.fetchCustomerDetail;
+  MixRadiusConfigError: class MockMixRadiusConfigError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "MixRadiusConfigError";
+    }
+  },
+  MixRadiusDismantleService: class MockMixRadiusDismantleService {
+    createDismantleRequest = mockFns.createDismantleRequest;
   },
 }));
 
@@ -30,6 +36,11 @@ vi.mock("@/modules/work-order", () => ({
     create = mockFns.createWorkOrder;
   },
   onWorkOrderCreated: mockFns.onWorkOrderCreated,
+}));
+
+vi.mock("@/modules/finance", () => ({
+  isRouteServiceError: (error: unknown): error is { status: number } =>
+    error instanceof Error && "status" in error,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -85,11 +96,12 @@ describe("POST /api/integrations/mixradius/dismantle", () => {
   });
 
   it("returns 503 config error instead of creating bogus dismantle work order", async () => {
-    const configError = new Error(
-      "URL MixRadius tidak valid atau belum dikonfigurasi.",
+    const { MixRadiusConfigError } = await import("@/modules/integrations");
+    mockFns.createDismantleRequest.mockRejectedValue(
+      new MixRadiusConfigError(
+        "URL MixRadius tidak valid atau belum dikonfigurasi.",
+      ),
     );
-    configError.name = "MixRadiusConfigError";
-    mockFns.fetchCustomerDetail.mockRejectedValue(configError);
 
     const request = new NextRequest(
       "http://localhost/api/integrations/mixradius/dismantle",
@@ -112,7 +124,12 @@ describe("POST /api/integrations/mixradius/dismantle", () => {
     } as never);
     const json = await response.json();
 
-    expect(mockFns.fetchCustomerDetail).toHaveBeenCalledWith("cust-1");
+    expect(mockFns.createDismantleRequest).toHaveBeenCalledWith({
+      userId: "user-1",
+      customerId: "cust-1",
+      reason: "Isolir/Tunggakan",
+      notes: "Request otomatis dari Aplikasi Mobile (Menu Isolir)",
+    });
     expect(mockFns.createWorkOrder).not.toHaveBeenCalled();
     expect(mockFns.onWorkOrderCreated).not.toHaveBeenCalled();
     expect(response.status).toBe(503);

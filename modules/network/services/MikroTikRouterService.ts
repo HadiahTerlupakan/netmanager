@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { logActivitySafe } from "@/lib/logger";
 import { RouterOSAPI } from "node-routeros-v2";
@@ -138,7 +139,7 @@ async function testMikroTikAPI(
           clearTimeout(timer);
           const errorMessage =
             error instanceof Error ? error.message : String(error);
-          console.error("Error getting router info:", error);
+          logger.error("Error getting router info:", error);
           resolve({
             success: true,
             message: `Koneksi API berhasil, tetapi gagal mengambil informasi router: ${errorMessage}`,
@@ -333,7 +334,7 @@ export class MikroTikRouterService {
         );
 
         if (!provisioningResult.success) {
-          console.warn(
+          logger.warn(
             `Router created but provisioning failed: ${provisioningResult.logs.join(", ")}`,
           );
         }
@@ -358,19 +359,19 @@ export class MikroTikRouterService {
             },
           });
         } else {
-          console.warn(
+          logger.warn(
             `API User creation failed: ${apiUserResult.logs.join(", ")}`,
           );
         }
       } catch (error: unknown) {
-        console.error("Provisioning CRITICAL error:", error);
+        logger.error("Provisioning CRITICAL error:", error);
       }
     }
 
     try {
       await checkSingleMikroTikRouterStatus(router.id);
     } catch (error: unknown) {
-      console.error("Failed to perform initial router check:", error);
+      logger.error("Failed to perform initial router check:", error);
     }
 
     logActivitySafe({
@@ -484,10 +485,10 @@ export class MikroTikRouterService {
         );
 
         if (!result.success) {
-          console.warn(`Deprovisioning failed: ${result.logs.join(", ")}`);
+          logger.warn(`Deprovisioning failed: ${result.logs.join(", ")}`);
         }
       } catch (error: unknown) {
-        console.error("Failed to auto-deprovision:", error);
+        logger.error("Failed to auto-deprovision:", error);
       }
     }
 
@@ -545,7 +546,7 @@ export class MikroTikRouterService {
         details: { routerId: params.id, username: result.username },
       });
     } catch (error: unknown) {
-      console.error("Logging failed", error);
+      logger.error("Logging failed", error);
     }
 
     return result;
@@ -580,7 +581,7 @@ export class MikroTikRouterService {
           finalApiPassword = router.apiPasswordGenerated || router.apiPassword;
         }
       } catch (error) {
-        console.error("Error fetching router:", error);
+        logger.error("Error fetching router:", error);
       }
     }
 
@@ -625,7 +626,7 @@ export class MikroTikRouterService {
           tenantId,
         );
       } catch (error: unknown) {
-        console.error("Error updating connection status:", error);
+        logger.error("Error updating connection status:", error);
       }
     } else if (resolvedRouterId) {
       try {
@@ -639,7 +640,7 @@ export class MikroTikRouterService {
           tenantId,
         );
       } catch (error: unknown) {
-        console.error("Error updating connection status:", error);
+        logger.error("Error updating connection status:", error);
       }
     }
 

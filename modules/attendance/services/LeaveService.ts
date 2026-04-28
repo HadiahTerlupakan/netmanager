@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { Prisma } from "@prisma/client";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
@@ -6,10 +7,10 @@ import { LeaveRepository } from "../repositories/LeaveRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
 import { createNotification } from "@/modules/notification";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { LeaveStatus, LeaveType, AttendanceStatus } from "@prisma/client";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
@@ -143,7 +144,7 @@ export class LeaveService {
   private balanceRepository: ILeaveBalanceRepository & LeaveBalanceRepository;
   private holidayRepository: IHolidayRepository & HolidayRepository;
   private attendanceRepository: AttendanceRepository;
-  private userRepository: UserRepository;
+  private userRepository: UserLookupService;
 
   constructor(
     repository: ILeaveRepository & LeaveRepository = new LeaveRepository(),
@@ -152,7 +153,7 @@ export class LeaveService {
     holidayRepository: IHolidayRepository &
       HolidayRepository = new HolidayRepository(),
     attendanceRepository: AttendanceRepository = new AttendanceRepository(),
-    userRepository: UserRepository = new UserRepository(),
+    userRepository: UserLookupService = new UserLookupService(),
   ) {
     this.repository = repository;
     this.balanceRepository = balanceRepository;
@@ -845,7 +846,7 @@ export class LeaveService {
         sourceId,
       });
     } catch (error) {
-      console.error("Failed to notify user", error);
+      logger.error("Failed to notify user", error);
     }
   }
 }

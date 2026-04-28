@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Work Order Notification Integration
  *
@@ -13,11 +14,11 @@ import {
   createNotification,
 } from "@/modules/notification";
 import { CanvasingRepository } from "../repositories/CanvasingRepository";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 import { sendPushToUsers } from "@/modules/notification";
 
 let canvasingRepo: CanvasingRepository | null = null;
-let userRepo: UserRepository | null = null;
+let userRepo: UserLookupService | null = null;
 
 function getCanvasingRepository() {
   if (!canvasingRepo) {
@@ -27,9 +28,9 @@ function getCanvasingRepository() {
   return canvasingRepo;
 }
 
-function getUserRepository() {
+function getUserLookupService() {
   if (!userRepo) {
-    userRepo = new UserRepository();
+    userRepo = new UserLookupService();
   }
 
   return userRepo;
@@ -65,9 +66,9 @@ export async function onWorkOrderCreated(
       siteId: workOrder.siteId || undefined,
       triggeredByUserId,
     });
-    // console.log(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
+    // logger.info(`[Notification] New WO notification triggered for Dept: ${workOrder.departmentId}, Site: ${workOrder.siteId}`);
   } catch (error) {
-    console.error("[Notification] Error sending new WO notification:", error);
+    logger.error("[Notification] Error sending new WO notification:", error);
   }
 }
 
@@ -93,9 +94,9 @@ export async function onWorkOrderAssigned(
       assigneeName,
       triggeredByUserId,
     });
-    // console.log(`[Notification] Assignment notification processed for WO: ${workOrder.workOrderNumber}`);
+    // logger.info(`[Notification] Assignment notification processed for WO: ${workOrder.workOrderNumber}`);
   } catch (error) {
-    console.error(
+    logger.error(
       "[Notification] Error sending assignment notification:",
       error,
     );
@@ -127,12 +128,12 @@ export async function onWorkOrderStatusChanged(
       newStatus,
       triggeredByUserId,
     });
-    // console.log(`[Notification] Status change notification processed: ${oldStatus} -> ${newStatus}`);
+    // logger.info(`[Notification] Status change notification processed: ${oldStatus} -> ${newStatus}`);
 
     // Notify canvasing sales if this WO is from canvasing
     await notifyCanvasingSalesOnWOStatusChange(workOrder.id, newStatus);
   } catch (error) {
-    console.error(
+    logger.error(
       "[Notification] Error sending status change notification:",
       error,
     );
@@ -165,7 +166,7 @@ async function notifyCanvasingSalesOnWOStatusChange(
         sourceType: "CANVASING",
         sourceId: canvasing.id,
       });
-      // console.log(`[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`);
+      // logger.info(`[Notification] Canvasing IN_PROGRESS notif sent to sales: ${canvasing.salesId}`);
     } else if (["COMPLETED", "VERIFIED", "CLOSED"].includes(newStatus)) {
       await createNotification({
         type: "ANNOUNCEMENT",
@@ -177,10 +178,10 @@ async function notifyCanvasingSalesOnWOStatusChange(
         sourceType: "CANVASING",
         sourceId: canvasing.id,
       });
-      // console.log(`[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`);
+      // logger.info(`[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`);
     }
   } catch (error) {
-    console.error("[Notification] Error notifying canvasing sales:", error);
+    logger.error("[Notification] Error notifying canvasing sales:", error);
   }
 }
 
@@ -210,9 +211,9 @@ export async function onWorkOrderUpdated(
       triggeredByUserId,
       excludeUserIds,
     });
-    // console.log(`[Notification] Update notification processed for WO: ${workOrder.workOrderNumber}`);
+    // logger.info(`[Notification] Update notification processed for WO: ${workOrder.workOrderNumber}`);
   } catch (error) {
-    console.error("[Notification] Error sending update notification:", error);
+    logger.error("[Notification] Error sending update notification:", error);
   }
 }
 
@@ -237,7 +238,7 @@ export async function sendWorkOrderReminder(
 
     // Case 1: WO sudah diambil → Reminder hanya ke teknisi yang mengambil
     if (workOrder.assignedToId) {
-      // console.log(`[Push] Sending reminder to assigned user: ${workOrder.assignedToId}`);
+      // logger.info(`[Push] Sending reminder to assigned user: ${workOrder.assignedToId}`);
       return await sendPushToUsers([workOrder.assignedToId], title, message, {
         workOrderId: workOrder.id,
         type: "WORK_ORDER",
@@ -247,12 +248,12 @@ export async function sendWorkOrderReminder(
 
     // Case 2: WO belum diambil → WAJIB berdasarkan site
     if (!workOrder.siteId) {
-      // console.log('[Push] No siteId found for unassigned WO - cannot send reminder');
+      // logger.info('[Push] No siteId found for unassigned WO - cannot send reminder');
       return 0;
     }
 
     const techniciansInSite =
-      await getUserRepository().findManyActiveWithPushTokenAndSite(
+      await getUserLookupService().findManyActiveWithPushTokenAndSite(
         workOrder.departmentId || undefined,
         workOrder.siteId,
       );
@@ -261,13 +262,13 @@ export async function sendWorkOrderReminder(
       const _deptInfo = workOrder.departmentId
         ? ` in department ${workOrder.departmentId}`
         : "";
-      // console.log(`[Push] No technicians with push tokens in site ${workOrder.siteId}${_deptInfo}`);
+      // logger.info(`[Push] No technicians with push tokens in site ${workOrder.siteId}${_deptInfo}`);
       return 0;
     }
 
     const userIds = techniciansInSite.map((u: { id: string }) => u.id);
     const _deptInfo = workOrder.departmentId ? ` (filtered by dept)` : "";
-    // console.log(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${_deptInfo}`);
+    // logger.info(`[Push] Sending reminder to ${userIds.length} technicians in site ${workOrder.siteId}${_deptInfo}`);
 
     return await sendPushToUsers(userIds, title, message, {
       workOrderId: workOrder.id,
@@ -275,7 +276,7 @@ export async function sendWorkOrderReminder(
       screen: "WorkOrderList",
     });
   } catch (error) {
-    console.error("[Notification] Error sending reminder:", error);
+    logger.error("[Notification] Error sending reminder:", error);
     return 0;
   }
 }

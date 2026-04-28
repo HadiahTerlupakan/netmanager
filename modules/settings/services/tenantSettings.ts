@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { decryptApiKey } from "@/lib/utils/encryption";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type {
@@ -86,10 +87,7 @@ function decryptTenantSettingValue(
   try {
     return decryptApiKey(value);
   } catch (error) {
-    console.error(
-      `[tenantSettings] Failed to decrypt key ${field.key}:`,
-      error,
-    );
+    logger.error(`[tenantSettings] Failed to decrypt key ${field.key}:`, error);
     return field.defaultValue;
   }
 }

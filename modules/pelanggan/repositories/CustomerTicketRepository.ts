@@ -9,7 +9,11 @@ import {
 } from "@prisma/client";
 import { randomUUID } from "crypto";
 
-import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
+import type {
+  CustomerTicketQuery,
+  CustomerTicketUpdateData,
+  ICustomerTicketRepository,
+} from "../domain/ports/ICustomerTicketRepository";
 import { SupportTicketMapper } from "../mappers/SupportTicketMapper";
 
 const ACTIVE_UNREAD_TICKET_STATUSES: TicketStatus[] = [
@@ -137,13 +141,9 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   }
 
   /** Get admin ticket list. */
-  async findAllAdmin(
-    where: Prisma.SupportTicketsWhereInput,
-    skip: number,
-    take: number,
-  ) {
+  async findAllAdmin(where: CustomerTicketQuery, skip: number, take: number) {
     const tickets = await prisma.supportTickets.findMany({
-      where,
+      where: where as Prisma.SupportTicketsWhereInput,
       orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
       skip,
       take,
@@ -179,15 +179,17 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   }
 
   /** Count admin tickets. */
-  async countAdmin(where: Prisma.SupportTicketsWhereInput) {
-    return prisma.supportTickets.count({ where });
+  async countAdmin(where: CustomerTicketQuery) {
+    return prisma.supportTickets.count({
+      where: where as Prisma.SupportTicketsWhereInput,
+    });
   }
 
   /** Get grouped ticket status counts. */
-  async getStatusCounts(where: Prisma.SupportTicketsWhereInput) {
+  async getStatusCounts(where: CustomerTicketQuery) {
     const counts = await prisma.supportTickets.groupBy({
       by: ["status"],
-      where,
+      where: where as Prisma.SupportTicketsWhereInput,
       _count: {
         status: true,
       },
@@ -200,9 +202,12 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   }
 
   /** Get closed tickets with rating replies. */
-  async getClosedTicketsWithReplies(where: Prisma.SupportTicketsWhereInput) {
+  async getClosedTicketsWithReplies(where: CustomerTicketQuery) {
     return prisma.supportTickets.findMany({
-      where: { ...where, status: TicketStatus.CLOSED },
+      where: {
+        ...(where as Prisma.SupportTicketsWhereInput),
+        status: TicketStatus.CLOSED,
+      },
       select: {
         replies: {
           where: { isFromAdmin: false, message: { contains: "⭐" } },
@@ -265,10 +270,10 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   }
 
   /** Update admin ticket. */
-  async updateAdmin(id: string, updateData: Prisma.SupportTicketsUpdateInput) {
+  async updateAdmin(id: string, updateData: CustomerTicketUpdateData) {
     const ticket = await prisma.supportTickets.update({
       where: { id },
-      data: updateData,
+      data: updateData as Prisma.SupportTicketsUpdateInput,
       include: {
         pelanggan: {
           select: { nama: true, idPelanggan: true },

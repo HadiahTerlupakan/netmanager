@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { createHandler, ApiErrors, apiSuccess } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
@@ -34,7 +35,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     if (isRouteServiceError(e) && e.status === 404) {
       return ApiErrors.notFound(e.message);
     }
-    console.error("Error fetching MixRadiusInvestorSite detail:", e);
+    logger.error("Error fetching MixRadiusInvestorSite detail:", e);
     return ApiErrors.internalError("Gagal mengambil detail Site Investor");
   }
 });
@@ -76,7 +77,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     if (isRouteServiceError(e) && e.status === 404) {
       return ApiErrors.notFound(e.message);
     }
-    console.error("Error updating MixRadiusInvestorSite:", e);
+    logger.error("Error updating MixRadiusInvestorSite:", e);
     return ApiErrors.internalError("Gagal memperbarui Site Investor");
   }
 });
@@ -109,7 +110,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     if (isRouteServiceError(e)) {
       return ApiErrors.internalError(e.message);
     }
-    console.error("Error deleting MixRadiusInvestorSite:", e);
+    logger.error("Error deleting MixRadiusInvestorSite:", e);
     return ApiErrors.internalError(
       "Gagal menghapus Site Investor. Mungkin data sedang digunakan.",
     );

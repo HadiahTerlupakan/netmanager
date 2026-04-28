@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, ...result.data });
   } catch (error) {
-    console.error("Mobile Login Error:", error);
+    logger.error("Mobile Login Error:", error);
     return apiError(
       "Terjadi kesalahan server. Silakan coba lagi.",
       ErrorCodes.INTERNAL_ERROR,

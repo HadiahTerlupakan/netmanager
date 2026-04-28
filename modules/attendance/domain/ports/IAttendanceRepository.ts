@@ -1,28 +1,27 @@
-import type { Prisma } from "@prisma/client";
+export type AttendanceWhereInput = Record<string, unknown>;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AttendanceQueryResult = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AttendanceQueryParams = any;
 
 export interface IAttendanceRepository {
   /** Find one attendance record. */
-  findUnique<T extends Prisma.AttendanceFindUniqueArgs>(
-    params: Prisma.SelectSubset<T, Prisma.AttendanceFindUniqueArgs>,
-  ): Promise<Prisma.AttendanceGetPayload<T> | null>;
+  findUnique(
+    params: AttendanceQueryParams,
+  ): Promise<AttendanceQueryResult | null>;
 
   /** Find many attendance records. */
-  findMany<T extends Prisma.AttendanceFindManyArgs>(
-    params: Prisma.SelectSubset<T, Prisma.AttendanceFindManyArgs>,
-  ): Promise<Prisma.AttendanceGetPayload<T>[]>;
+  findMany(params: AttendanceQueryParams): Promise<AttendanceQueryResult[]>;
 
-  /** Update one attendance record by Prisma args. */
-  updateByArgs<T extends Prisma.AttendanceUpdateArgs>(
-    params: Prisma.SelectSubset<T, Prisma.AttendanceUpdateArgs>,
-  ): Promise<Prisma.AttendanceGetPayload<T>>;
+  /** Update one attendance record by args. */
+  updateByArgs(params: AttendanceQueryParams): Promise<AttendanceQueryResult>;
 
   /** Delete one attendance record. */
-  delete<T extends Prisma.AttendanceDeleteArgs>(
-    params: Prisma.SelectSubset<T, Prisma.AttendanceDeleteArgs>,
-  ): Promise<Prisma.AttendanceGetPayload<T>>;
+  delete(params: AttendanceQueryParams): Promise<AttendanceQueryResult>;
 
   /** Count attendance records. */
-  count(where?: Prisma.AttendanceWhereInput): Promise<number>;
+  count(where?: AttendanceWhereInput): Promise<number>;
 
   /** Find evaluation lookups for canonical status mapping. */
   findManyEvaluationLookups(params: {
@@ -46,5 +45,5 @@ export interface IAttendanceRepository {
   >;
 
   /** Delete many attendance records. */
-  deleteMany(where: Prisma.AttendanceWhereInput): Promise<{ count: number }>;
+  deleteMany(where: AttendanceWhereInput): Promise<{ count: number }>;
 }

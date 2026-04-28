@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { ensureAdminAccess } from "@/lib/server-auth";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (e) {
     const error = e as Error;
-    console.error("Error verifying manual payment:", error);
+    logger.error("Error verifying manual payment:", error);
     if (isRouteServiceError(error)) {
       return NextResponse.json(
         { success: false, error: error.message },

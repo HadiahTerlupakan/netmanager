@@ -1,3 +1,4 @@
+import { clientLogger } from "@/lib/client-logger";
 /**
  * RADIUS Auto-Sync Hooks
  *
@@ -36,10 +37,12 @@ export async function afterCustomerCreate(
     const syncService = new RadiusSyncService();
     await syncService.syncSingleCustomer(customerId);
 
-    console.log(`[RADIUS Hook] Customer created and synced: ${customerId}`);
+    clientLogger.info(
+      `[RADIUS Hook] Customer created and synced: ${customerId}`,
+    );
     return { success: true };
   } catch (error) {
-    console.error("[RADIUS Hook] Error in afterCustomerCreate:", error);
+    clientLogger.error("[RADIUS Hook] Error in afterCustomerCreate:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Terjadi kesalahan",
@@ -71,12 +74,14 @@ export async function afterCustomerUpdate(
 
     if (changes.statusChanged && changes.newStatus) {
       await syncService.handleStatusChange(customerId, changes.newStatus);
-      console.log(
+      clientLogger.info(
         `[RADIUS Hook] Customer status changed: ${customerId} → ${changes.newStatus}`,
       );
     } else {
       await syncService.syncSingleCustomer(customerId);
-      console.log(`[RADIUS Hook] Customer updated and synced: ${customerId}`);
+      clientLogger.info(
+        `[RADIUS Hook] Customer updated and synced: ${customerId}`,
+      );
     }
 
     if (!isUsernameRenamed) {
@@ -107,7 +112,7 @@ export async function afterCustomerUpdate(
 
     return { success: true };
   } catch (error) {
-    console.error("[RADIUS Hook] Error in afterCustomerUpdate:", error);
+    clientLogger.error("[RADIUS Hook] Error in afterCustomerUpdate:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Terjadi kesalahan",
@@ -134,12 +139,14 @@ export async function beforeCustomerDelete(
 
     if (user?.tenantId) {
       await syncService.deleteRadiusUserByUsername(username, user.tenantId);
-      console.log(`[RADIUS Hook] Customer removed from RADIUS: ${username}`);
+      clientLogger.info(
+        `[RADIUS Hook] Customer removed from RADIUS: ${username}`,
+      );
     }
 
     return { success: true };
   } catch (error) {
-    console.error("[RADIUS Hook] Error in beforeCustomerDelete:", error);
+    clientLogger.error("[RADIUS Hook] Error in beforeCustomerDelete:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Terjadi kesalahan",
@@ -156,9 +163,9 @@ export function logSyncResult(
   result: SyncResult,
 ): void {
   if (result.success) {
-    console.log(`[RADIUS Sync] ${operation} - Success: ${customerId}`);
+    clientLogger.info(`[RADIUS Sync] ${operation} - Success: ${customerId}`);
   } else {
-    console.error(
+    clientLogger.error(
       `[RADIUS Sync] ${operation} - Failed: ${customerId}`,
       result.error,
     );

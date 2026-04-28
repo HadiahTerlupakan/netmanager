@@ -126,6 +126,7 @@ describe("firebase browser config", () => {
 
     expect(consoleWarnMock).toHaveBeenCalledWith(
       expect.stringContaining("Using bundled Firebase browser config defaults"),
+      undefined,
     );
   });
 

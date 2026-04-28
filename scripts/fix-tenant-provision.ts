@@ -8,6 +8,7 @@ import {
   getTenantAdminRoleId,
 } from "../modules/mitra/services/TenantProvisioningService";
 import { MAIN_TENANT_ID } from "../modules/mitra/services/tenant-constants";
+import { logger } from "../lib/logger";
 
 const { client: prisma, pool } = createPrismaClient();
 let optionalFailureCount = 0;
@@ -31,29 +32,29 @@ function createPrismaClient() {
 }
 
 async function main() {
-  console.log("🔧 Fixing tenant provisioning for existing tenants...\n");
+  logger.info("🔧 Fixing tenant provisioning for existing tenants...\n");
 
   const tenants = await prisma.tenant.findMany({
     where: { id: { not: MAIN_TENANT_ID } },
   });
 
-  console.log(`Found ${tenants.length} non-main tenant(s):\n`);
+  logger.info(`Found ${tenants.length} non-main tenant(s):\n`);
 
   for (const tenant of tenants) {
-    console.log(`\n━━━ Tenant: ${tenant.name} (${tenant.id}) ━━━`);
+    logger.info(`\n━━━ Tenant: ${tenant.name} (${tenant.id}) ━━━`);
 
     const existingRoles = await prisma.role.count({
       where: { tenantId: tenant.id },
     });
 
     if (existingRoles > 0) {
-      console.log(
+      logger.info(
         `  ⚠️  Already has ${existingRoles} roles, skipping provisioning.`,
       );
     } else {
-      console.log("  📦 Provisioning data...");
+      logger.info("  📦 Provisioning data...");
       const result = await provisionTenantData(prisma, tenant.id);
-      console.log(
+      logger.info(
         `  ✅ Created: ${result.rolesCreated} roles, ${result.permissionsCreated} permissions, ${result.settingsCreated} settings`,
       );
     }
@@ -72,7 +73,7 @@ async function main() {
       });
 
       if (userRole && userRole.tenantId !== tenant.id) {
-        console.log(
+        logger.info(
           `  🔄 User "${user.name}" points to role "${userRole.name}" from tenant ${userRole.tenantId}`,
         );
 
@@ -86,7 +87,7 @@ async function main() {
             where: { id: user.id },
             data: { roleId: correctRole.id },
           });
-          console.log(
+          logger.info(
             `  ✅ Re-assigned to correct tenant role (${correctRole.id})`,
           );
           continue;
@@ -98,24 +99,24 @@ async function main() {
             where: { id: user.id },
             data: { roleId: adminRoleId },
           });
-          console.log(
+          logger.info(
             `  ✅ Assigned to admin role (${adminRoleId}) as fallback`,
           );
           continue;
         }
 
         optionalFailureCount += 1;
-        console.log(`  ❌ No suitable role found for user "${user.name}"`);
+        logger.info(`  ❌ No suitable role found for user "${user.name}"`);
       }
     }
   }
 
-  console.log("\n✅ Done!");
+  logger.info("\n✅ Done!");
 }
 
 main()
   .catch((error) => {
-    console.error("❌ Error:", error);
+    logger.error("❌ Error:", error);
     process.exit(1);
   })
   .finally(async () => {

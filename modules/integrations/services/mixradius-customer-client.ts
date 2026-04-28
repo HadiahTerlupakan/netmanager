@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prismaBilling } from "@/lib/prisma-billing";
 import { LRUCache } from "@/lib/utils/lru-cache";
 import type { AxiosInstance } from "axios";
@@ -42,9 +43,7 @@ function isMixRadiusConfigError(message: string) {
 }
 
 function getCustomerConfigError(message: string, context: string) {
-  console.warn(
-    `[MixRadius] Integration not available (${context}): ${message}`,
-  );
+  logger.warn(`[MixRadius] Integration not available (${context}): ${message}`);
   return new MixRadiusConfigError(message);
 }
 
@@ -107,7 +106,7 @@ export async function fetchMixRadiusActiveSessionsPPP(
         : getCustomerConfigError(message, "fetchActiveSessionsPPP");
     }
 
-    console.error("[MixRadius] Failed to fetch active sessions:", message);
+    logger.error("[MixRadius] Failed to fetch active sessions:", message);
     return new Map();
   }
 }
@@ -460,7 +459,7 @@ export async function fetchMixRadiusCustomersPPP(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
-    console.error("[MixRadius] Fetch error:", message);
+    logger.error("[MixRadius] Fetch error:", message);
 
     if (
       error instanceof MixRadiusConfigError ||
@@ -519,7 +518,7 @@ export async function fetchMixRadiusCustomerDetail(
       html.includes("404 - Data Not Found") ||
       html.includes("Data tidak ditemukan")
     ) {
-      console.error(
+      logger.error(
         `[MixRadius] 404 Not Found for ID ${customerId}. URL: ${baseUrl}/rad-customers/edit/${customerId}`,
       );
 
@@ -542,7 +541,7 @@ export async function fetchMixRadiusCustomerDetail(
             }
           }
         } catch (resolveError) {
-          console.error("[MixRadius] ID resolution failed:", resolveError);
+          logger.error("[MixRadius] ID resolution failed:", resolveError);
         }
       }
 
@@ -558,7 +557,7 @@ export async function fetchMixRadiusCustomerDetail(
       (html.includes("id_plan") && html.includes("username"));
 
     if (!hasCorrectHeader) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Page structure check failed for customer ${customerId}. Marker elements not found.`,
       );
     }
@@ -692,7 +691,7 @@ export async function fetchMixRadiusCustomerDetail(
     };
 
     if (!customerDetail.username && !customerDetail.member_id) {
-      console.error(
+      logger.error(
         `[MixRadius] Scraping Validation Failed for ID ${customerId}. HTML snippet: ${html.substring(0, 500)}...`,
       );
       throw new Error(
@@ -714,7 +713,7 @@ export async function fetchMixRadiusCustomerDetail(
         : getCustomerConfigError(message, "fetchCustomerDetail");
     }
 
-    console.error("[MixRadius] Fetch customer detail error:", message);
+    logger.error("[MixRadius] Fetch customer detail error:", message);
     throw new Error(`Failed to fetch customer detail: ${message}`);
   }
 }
@@ -796,7 +795,7 @@ export async function fetchMixRadiusInvoiceCounts(params: {
         const cacheKey = buildInvoiceCountCacheKey(id, lastRenewedOn);
         invoiceCountCache.set(cacheKey, { ...counts, lastRenewedOn });
       } catch (error) {
-        console.error(
+        logger.error(
           `[MixRadius] Failed to fetch invoice count for ${id}:`,
           error,
         );

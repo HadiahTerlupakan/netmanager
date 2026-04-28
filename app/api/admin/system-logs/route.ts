@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse, NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     });
     return apiSuccess(result);
   } catch (error) {
-    console.error("Error fetching system logs:", error);
+    logger.error("Error fetching system logs:", error);
     return ApiErrors.internalError("Gagal mengambil system log");
   }
 }

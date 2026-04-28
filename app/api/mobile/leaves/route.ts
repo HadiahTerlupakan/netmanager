@@ -1,8 +1,7 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  EmployeeLeaveQueryService,
-  MobileLeaveRequestService,
-} from "@/modules/attendance";
+import { EmployeeLeaveQueryService } from "@/modules/attendance";
+import { MobileLeaveRequestService } from "@/modules/attendance";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error: unknown) {
-    console.error("Leave request error:", error);
+    logger.error("Leave request error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
       { status: 500 },

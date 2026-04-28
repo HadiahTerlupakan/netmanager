@@ -1,13 +1,14 @@
-import type { EventName, EventPayloadMap, EventMetadata } from './types'
-import { EVENT_METADATA } from './types'
+import { logger } from "@/lib/logger";
+import type { EventName, EventPayloadMap, EventMetadata } from "./types";
+import { EVENT_METADATA } from "./types";
 
 /**
  * In-memory event handler type
  */
 type EventHandler<T extends EventName = EventName> = (
   payload: EventPayloadMap[T],
-  metadata: EventMetadata
-) => Promise<void> | void
+  metadata: EventMetadata,
+) => Promise<void> | void;
 
 /**
  * EventBus - Centralized event publisher for the RadPro application
@@ -25,7 +26,7 @@ type EventHandler<T extends EventName = EventName> = (
  *
  * // Subscribe to events
  * eventBus.on('billing:invoice.paid', async (payload) => {
- *   console.log(`Invoice ${payload.invoiceId} paid!`)
+ *   logger.info(`Invoice ${payload.invoiceId} paid!`)
  * })
  *
  * // Publish events (fire-and-forget for async, await for sync)
@@ -38,34 +39,37 @@ type EventHandler<T extends EventName = EventName> = (
  * ```
  */
 class EventBus {
-  private handlers = new Map<EventName, Set<EventHandler>>()
-  private initialized = false
+  private handlers = new Map<EventName, Set<EventHandler>>();
+  private initialized = false;
 
   /**
    * Subscribe to an event
    */
   on<T extends EventName>(eventName: T, handler: EventHandler<T>): () => void {
     if (!this.handlers.has(eventName)) {
-      this.handlers.set(eventName, new Set())
+      this.handlers.set(eventName, new Set());
     }
-    this.handlers.get(eventName)!.add(handler as EventHandler)
+    this.handlers.get(eventName)!.add(handler as EventHandler);
 
     // Return unsubscribe function
     return () => {
-      this.handlers.get(eventName)?.delete(handler as EventHandler)
-    }
+      this.handlers.get(eventName)?.delete(handler as EventHandler);
+    };
   }
 
   /**
    * Subscribe to an event only once
    */
-  once<T extends EventName>(eventName: T, handler: EventHandler<T>): () => void {
+  once<T extends EventName>(
+    eventName: T,
+    handler: EventHandler<T>,
+  ): () => void {
     const wrappedHandler: EventHandler<T> = async (payload, metadata) => {
-      unsubscribe()
-      await handler(payload, metadata)
-    }
-    const unsubscribe = this.on(eventName, wrappedHandler)
-    return unsubscribe
+      unsubscribe();
+      await handler(payload, metadata);
+    };
+    const unsubscribe = this.on(eventName, wrappedHandler);
+    return unsubscribe;
   }
 
   /**
@@ -77,61 +81,74 @@ class EventBus {
     payload: EventPayloadMap[T],
     options?: {
       /** Skip outbox persistence even if event metadata says persistent */
-      skipOutbox?: boolean
+      skipOutbox?: boolean;
       /** Skip async processing even if event metadata says async */
-      skipAsync?: boolean
+      skipAsync?: boolean;
       /** Custom priority override */
-      priority?: number
-    }
+      priority?: number;
+    },
   ): Promise<void> {
-    const metadata = EVENT_METADATA[eventName]
+    const metadata = EVENT_METADATA[eventName];
     if (!metadata) {
-      console.warn(`[EventBus] Unknown event: ${eventName}`)
-      return
+      logger.warn(`[EventBus] Unknown event: ${eventName}`);
+      return;
     }
 
     // Enrich payload with timestamp if not present
     const enrichedPayload = {
       ...payload,
       timestamp: payload.timestamp || new Date().toISOString(),
-    } as EventPayloadMap[T]
+    } as EventPayloadMap[T];
 
     // 1. Execute in-memory handlers (synchronous)
-    const eventHandlers = this.handlers.get(eventName)
+    const eventHandlers = this.handlers.get(eventName);
     if (eventHandlers && eventHandlers.size > 0) {
       const promises = Array.from(eventHandlers).map(async (handler) => {
         try {
-          await handler(enrichedPayload, metadata)
+          await handler(enrichedPayload, metadata);
         } catch (error) {
-          console.error(`[EventBus] Handler error for ${eventName}:`, error)
+          logger.error(`[EventBus] Handler error for ${eventName}:`, error);
           // Don't throw — one handler failure shouldn't block others
         }
-      })
-      await Promise.allSettled(promises)
+      });
+      await Promise.allSettled(promises);
     }
 
     // 2. Persist to outbox if persistent and not skipped
     if (metadata.persistent && !options?.skipOutbox) {
       try {
-        const { saveToOutbox } = await import('./outbox')
+        const { saveToOutbox } = await import("./outbox");
         await saveToOutbox({
           eventName,
           payload: enrichedPayload,
           priority: options?.priority ?? metadata.priority,
           category: metadata.category,
-        })
+        });
       } catch (error) {
-        console.error(`[EventBus] Failed to save to outbox for ${eventName}:`, error)
+        logger.error(
+          `[EventBus] Failed to save to outbox for ${eventName}:`,
+          error,
+        );
         // Fallback: try direct async processing
         if (metadata.async && !options?.skipAsync) {
-          await this.dispatchToQueue(eventName, enrichedPayload, metadata, options?.priority)
+          await this.dispatchToQueue(
+            eventName,
+            enrichedPayload,
+            metadata,
+            options?.priority,
+          );
         }
       }
     }
 
     // 3. Dispatch to BullMQ queue if async and not skipped
     if (metadata.async && !options?.skipAsync) {
-      await this.dispatchToQueue(eventName, enrichedPayload, metadata, options?.priority)
+      await this.dispatchToQueue(
+        eventName,
+        enrichedPayload,
+        metadata,
+        options?.priority,
+      );
     }
   }
 
@@ -143,16 +160,19 @@ class EventBus {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     payload: Record<string, any>,
     metadata: EventMetadata,
-    priorityOverride?: number
+    priorityOverride?: number,
   ): Promise<void> {
     try {
-      const { addEventJob } = await import('./queues')
+      const { addEventJob } = await import("./queues");
       await addEventJob(eventName, payload, {
         priority: priorityOverride ?? metadata.priority,
         category: metadata.category,
-      })
+      });
     } catch (error) {
-      console.error(`[EventBus] Failed to dispatch ${eventName} to queue:`, error)
+      logger.error(
+        `[EventBus] Failed to dispatch ${eventName} to queue:`,
+        error,
+      );
       // Queue dispatch failure is non-fatal — the outbox processor will retry
     }
   }
@@ -161,36 +181,36 @@ class EventBus {
    * Get all registered event names
    */
   getRegisteredEvents(): EventName[] {
-    return Array.from(this.handlers.keys())
+    return Array.from(this.handlers.keys());
   }
 
   /**
    * Get handler count for an event
    */
   getHandlerCount(eventName: EventName): number {
-    return this.handlers.get(eventName)?.size ?? 0
+    return this.handlers.get(eventName)?.size ?? 0;
   }
 
   /**
    * Remove all handlers (useful for testing)
    */
   removeAllHandlers(): void {
-    this.handlers.clear()
+    this.handlers.clear();
   }
 
   /**
    * Check if event bus has handlers for an event
    */
   hasHandlers(eventName: EventName): boolean {
-    return (this.handlers.get(eventName)?.size ?? 0) > 0
+    return (this.handlers.get(eventName)?.size ?? 0) > 0;
   }
 }
 
 // Singleton instance
-const globalForEventBus = globalThis as unknown as { eventBus?: EventBus }
+const globalForEventBus = globalThis as unknown as { eventBus?: EventBus };
 
-export const eventBus = globalForEventBus.eventBus ?? new EventBus()
+export const eventBus = globalForEventBus.eventBus ?? new EventBus();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForEventBus.eventBus = eventBus
+if (process.env.NODE_ENV !== "production") {
+  globalForEventBus.eventBus = eventBus;
 }

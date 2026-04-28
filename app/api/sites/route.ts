@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { getHybridUser } from "@/lib/hybrid-auth";
 import { SiteAccessRouteService } from "@/modules/roles";
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
     );
     return NextResponse.json(result);
   } catch (error) {
-    console.error("[SITES_GET]", error);
+    logger.error("[SITES_GET]", error);
     return new NextResponse("Terjadi kesalahan server", { status: 500 });
   }
 }

@@ -2,24 +2,39 @@ import { getSalaryUserService } from "@/modules/salary";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import * as z from "zod";
-import { EmployeeType, RateType, PtkpStatus } from "@prisma/client";
 
 const service = getSalaryUserService();
+const EMPLOYEE_TYPES = ["KARYAWAN"] as const;
+const RATE_TYPES = ["FIXED", "PER_HOUR", "PERCENTAGE", "DAILY_SALARY"] as const;
+const PTKP_STATUSES = [
+  "TK_0",
+  "TK_1",
+  "TK_2",
+  "TK_3",
+  "K_0",
+  "K_1",
+  "K_2",
+  "K_3",
+  "KI_0",
+  "KI_1",
+  "KI_2",
+  "KI_3",
+] as const;
 
 const updateSalaryConfigSchema = z.object({
   basicSalary: z.union([z.number(), z.string()]).optional().nullable(),
-  employeeType: z.enum(EmployeeType).optional(),
+  employeeType: z.enum(EMPLOYEE_TYPES).optional(),
   overtimeRateNormal: z.union([z.number(), z.string()]).optional().nullable(),
-  overtimeCalcTypeNormal: z.enum(RateType).optional(),
+  overtimeCalcTypeNormal: z.enum(RATE_TYPES).optional(),
   overtimeRateHoliday: z.union([z.number(), z.string()]).optional().nullable(),
-  overtimeCalcTypeHoliday: z.enum(RateType).optional(),
+  overtimeCalcTypeHoliday: z.enum(RATE_TYPES).optional(),
   overtimeRateNational: z.union([z.number(), z.string()]).optional().nullable(),
-  overtimeCalcTypeNational: z.enum(RateType).optional(),
+  overtimeCalcTypeNational: z.enum(RATE_TYPES).optional(),
   woIncentiveRate: z.union([z.number(), z.string()]).optional().nullable(),
   lateDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
   absentDeductionRate: z.union([z.number(), z.string()]).optional().nullable(),
   joinDate: z.string().optional().nullable(),
-  ptkpStatus: z.enum(PtkpStatus).optional().nullable(),
+  ptkpStatus: z.enum(PTKP_STATUSES).optional().nullable(),
   bpjsKesehatan: z.boolean().optional(),
   bpjsKetenagakerjaan: z.boolean().optional(),
 });

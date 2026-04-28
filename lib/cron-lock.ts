@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 
 export const CRON_LOCK_UNAVAILABLE_MESSAGE =
@@ -29,7 +30,7 @@ export async function acquireCronLock(
     return result === "OK" ? "acquired" : "locked";
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
+    logger.error(
       `[CronLock] Redis error acquiring lock for "${jobName}": ${message}`,
     );
     return "unavailable";

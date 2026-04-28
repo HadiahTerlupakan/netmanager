@@ -1,6 +1,6 @@
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 
-import { ExpenseRepository } from "@/modules/finance";
+import { ExpenseRepository } from "@/modules/finance/repositories/ExpenseRepository";
 import { getMixRadiusService, MixRadiusConfigError } from "./MixRadiusService";
 
 const TOP_EXPENSE_LIMIT = 5;

@@ -1,61 +1,12 @@
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import * as z from "zod";
-import {
-  RabItemCategory,
-  RabExpenseType,
-  RabGrowthType,
-  RabPaymentType,
-} from "@prisma/client";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import {
-  RabProjectRepository,
-  RabProjectRouteService,
-  isRouteServiceError,
-} from "@/modules/finance";
+import { RabProjectRouteService, isRouteServiceError } from "@/modules/finance";
+import { rabProjectUpdateSchema } from "@/lib/validations/rab-project";
 
 export const dynamic = "force-dynamic";
 
 const rabProjectRouteService = new RabProjectRouteService();
-
-// Growth settings schemas
-const linearGrowthSchema = z.object({
-  subscribersPerMonth: z.number().min(1),
-});
-
-const percentageGrowthSchema = z.object({
-  initialPercent: z.number().min(0).max(100),
-  monthlyGrowthPercent: z.number().min(0).max(100),
-});
-
-const customMilestoneSchema = z.object({
-  month: z.number().min(1),
-  percent: z.number().min(0).max(100),
-});
-
-const customGrowthSchema = z.object({
-  milestones: z.array(customMilestoneSchema).min(1),
-});
-
-const wbsSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1),
-  order: z.number().default(0),
-});
-
-const disbursementSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1),
-  percentage: z.number().min(0).max(100),
-  amount: z
-    .union([z.string(), z.number()])
-    .transform((v) => BigInt(Math.round(Number(v)))),
-  estimatedDate: z
-    .string()
-    .optional()
-    .transform((v) => (v ? new Date(v) : undefined)),
-  isPaid: z.boolean().default(false),
-});
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
@@ -84,166 +35,10 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 });
 
-const rabTargetBasisSchema = z.enum(["HOMECONNECT", "HOMEPASS"]);
-const rabInvestorProfitShareModeSchema = z.enum(["FLAT", "TIERED_AFTER_BEP"]);
-
-const opexBufferFundingModeSchema = z.enum([
-  "INVESTOR",
-  "COMPANY",
-  "SHARED_PERCENTAGE",
-  "FIXED",
-]);
-
-const SHARED_OPEX_BUFFER_FUNDING_MODE = "SHARED_PERCENTAGE";
-
-type RabOpexBufferFundingModeInput = z.infer<
-  typeof opexBufferFundingModeSchema
->;
-
-const APPROVAL_ONLY_STATUSES = new Set(["APPROVED", "REJECTED"]);
-
-function isApprovalOnlyStatus(status: string | undefined) {
-  return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
-}
-
-function validateOpexBufferSharingPercent(data: {
-  opexBufferFundingMode?: RabOpexBufferFundingModeInput;
-  opexBufferInvestorPercent?: number;
-  opexBufferCompanyPercent?: number;
-}) {
-  if (data.opexBufferFundingMode !== SHARED_OPEX_BUFFER_FUNDING_MODE) {
-    return true;
-  }
-
-  return (
-    Number(data.opexBufferInvestorPercent || 0) +
-      Number(data.opexBufferCompanyPercent || 0) ===
-    100
-  );
-}
-
-const updateSchema = z
-  .object({
-    name: z.string().optional(),
-    description: z.string().optional(),
-    siteId: z.string().nullable().optional(),
-    mixRadiusGroupId: z.string().nullable().optional(),
-    mixRadiusInvestorSiteId: z.string().nullable().optional(),
-    status: z
-      .enum([
-        "DRAFT",
-        "PENDING_APPROVAL",
-        "APPROVED",
-        "REJECTED",
-        "PENGADAAN",
-        "PENGGELARAN_JARINGAN",
-        "PENJUALAN",
-        "TARGET_TERCAPAI",
-        "SELESAI",
-        "CANCELLED",
-      ])
-      .optional(),
-    projectedRevenue: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v !== undefined && v !== null && v !== ""
-          ? BigInt(Math.round(Number(v)))
-          : undefined,
-      ),
-    projectedOpex: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v !== undefined && v !== null && v !== ""
-          ? BigInt(Math.round(Number(v)))
-          : undefined,
-      ),
-
-    // Growth period fields
-    targetBasis: rabTargetBasisSchema.optional(),
-    targetHomepass: z.number().min(0).optional(),
-    targetTakeUpRatePercent: z.number().min(0).max(100).optional(),
-    targetSubscribers: z.number().optional(),
-    arpu: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v !== undefined && v !== null && v !== ""
-          ? BigInt(Math.round(Number(v)))
-          : undefined,
-      ),
-    growthType: z.enum(RabGrowthType).optional(),
-    paymentType: z.enum(RabPaymentType).optional(),
-    growthSettings: z
-      .union([linearGrowthSchema, percentageGrowthSchema, customGrowthSchema])
-      .optional(),
-    startDate: z
-      .string()
-      .optional()
-      .transform((v) => (v ? new Date(v) : undefined)),
-    investmentDurationMonths: z.number().min(1).optional(),
-    investmentRecoveryType: z.enum(["PERCENTAGE", "FIXED"]).optional(),
-    investmentRecoveryValue: z.number().optional(),
-    investorProfitSharePercent: z.number().min(0).max(100).optional(),
-    investorProfitShareMode: rabInvestorProfitShareModeSchema.optional(),
-    investorProfitShareBeforeBepPercent: z.number().min(0).max(100).optional(),
-    investorProfitShareAfterBepPercent: z.number().min(0).max(100).optional(),
-
-    // Enterprise features
-    contingencyPercent: z.number().min(0).max(100).optional(),
-    contingencyAmount: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v !== undefined && v !== null && v !== ""
-          ? BigInt(Math.round(Number(v)))
-          : undefined,
-      ),
-    nplTolerancePercent: z.number().min(0).max(100).optional(),
-    opexBufferFundingMode: opexBufferFundingModeSchema.optional(),
-    opexBufferInvestorPercent: z.number().min(0).max(100).optional(),
-    opexBufferCompanyPercent: z.number().min(0).max(100).optional(),
-    opexBufferInvestorFixedAmount: z
-      .union([z.string(), z.number()])
-      .optional()
-      .transform((v) =>
-        v !== undefined && v !== null && v !== ""
-          ? BigInt(Math.round(Number(v)))
-          : undefined,
-      ),
-    opexBufferSafetyPercent: z.number().min(0).max(100).optional(),
-    hasDisbursementPlan: z.boolean().optional(),
-    wbsGroups: z.array(wbsSchema).optional(),
-    investorIds: z.array(z.string()).optional(),
-
-    items: z
-      .array(
-        z.object({
-          name: z.string(),
-          description: z.string().optional(),
-          quantity: z.number(),
-          unitPrice: z
-            .union([z.string(), z.number()])
-            .transform((v) => BigInt(Math.round(Number(v)))),
-          category: z.enum(RabItemCategory),
-          expenseType: z.enum(RabExpenseType).default(RabExpenseType.CAPEX),
-          expenseCategoryId: z.string().optional(),
-          wbsGroupId: z.string().optional(),
-          disbursements: z.array(disbursementSchema).optional(),
-        }),
-      )
-      .optional(),
-  })
-  .refine(validateOpexBufferSharingPercent, {
-    message: "Total persentase buffer OPEX investor dan perusahaan harus 100%",
-    path: ["opexBufferInvestorPercent"],
-  });
-
 export const PATCH = createHandler(
   {
     auth: true,
-    schema: updateSchema,
+    schema: rabProjectUpdateSchema,
   },
   async (_req, ctx) => {
     const user = ctx.session!.user;
@@ -261,41 +56,23 @@ export const PATCH = createHandler(
       );
     }
 
-    if (isApprovalOnlyStatus(ctx.validated.status)) {
-      return ApiErrors.badRequest(
-        "Status approval RAB wajib diproses melalui endpoint approval.",
+    try {
+      const project = await rabProjectRouteService.updateProject(
+        id,
+        ctx.validated,
       );
+      return apiSuccess(project);
+    } catch (error) {
+      if (isRouteServiceError(error) && error.status === 404) {
+        return ApiErrors.notFound(error.message);
+      }
+
+      if (isRouteServiceError(error) && error.status === 400) {
+        return ApiErrors.badRequest(error.message);
+      }
+
+      throw error;
     }
-
-    const rabProjectRepository = new RabProjectRepository();
-
-    const project = await rabProjectRepository.updateProjectWithRelations(
-      id,
-      ctx.validated,
-    );
-
-    if (!project) return ApiErrors.notFound("Proyek RAB");
-
-    const serialized = {
-      ...project,
-      projectedRevenue: project.projectedRevenue.toString(),
-      projectedOpex: project.projectedOpex.toString(),
-      arpu: project.arpu?.toString() || null,
-      contingencyAmount: project.contingencyAmount?.toString() || "0",
-      opexBufferInvestorFixedAmount:
-        project.opexBufferInvestorFixedAmount?.toString() || "0",
-      items: project.items.map((i) => ({
-        ...i,
-        unitPrice: i.unitPrice.toString(),
-        totalPrice: i.totalPrice.toString(),
-        disbursements: (i.disbursements || []).map((d) => ({
-          ...d,
-          amount: d.amount.toString(),
-        })),
-      })),
-    };
-
-    return apiSuccess(serialized);
   },
 );
 

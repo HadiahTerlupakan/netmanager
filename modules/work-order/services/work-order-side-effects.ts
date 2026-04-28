@@ -1,10 +1,11 @@
+import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
 
 import type { WorkOrderPriority, WorkOrderStatus } from "@prisma/client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { WorkOrderEventDispatcher } from "@/modules/events";
 import { notifyAdminsAboutMobileAction } from "@/modules/notification";

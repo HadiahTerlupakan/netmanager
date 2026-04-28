@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import Image from 'next/image'
-import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
-import { PhotoThumbnail, PhotoThumbnailWithCount } from './PhotoThumbnail'
+import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { PhotoThumbnail, PhotoThumbnailWithCount } from "./PhotoThumbnail";
 import {
   HiXMark,
   HiChevronLeft,
@@ -12,27 +12,28 @@ import {
   HiMagnifyingGlassMinus,
   HiMagnifyingGlassPlus,
   HiArrowDownTray,
-  HiMiniPhoto
-} from 'react-icons/hi2'
+  HiMiniPhoto,
+} from "react-icons/hi2";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Photo {
-  id: string
-  url: string
-  name?: string
-  size?: number
-  uploadedAt?: string
+  id: string;
+  url: string;
+  name?: string;
+  size?: number;
+  uploadedAt?: string;
 }
 
 interface PhotoGalleryProps {
-  photos: Photo[]
-  onDelete?: (photoId: string) => void
-  showDeleteButton?: boolean
-  columns?: number
-  gap?: number
-  maxThumbnails?: number
-  className?: string
-  emptyMessage?: string
-  disabled?: boolean
+  photos: Photo[];
+  onDelete?: (photoId: string) => void;
+  showDeleteButton?: boolean;
+  columns?: number;
+  gap?: number;
+  maxThumbnails?: number;
+  className?: string;
+  emptyMessage?: string;
+  disabled?: boolean;
 }
 
 export function PhotoGallery({
@@ -42,134 +43,144 @@ export function PhotoGallery({
   columns = 4,
   gap = 4,
   maxThumbnails,
-  className = '',
-  emptyMessage = 'Tidak ada foto',
-  disabled = false
+  className = "",
+  emptyMessage = "Tidak ada foto",
+  disabled = false,
 }: PhotoGalleryProps) {
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [zoomLevel, setZoomLevel] = useState(1)
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Reset zoom when photo changes
   useEffect(() => {
     // Use queueMicrotask to avoid synchronous setState
-    queueMicrotask(() => setZoomLevel(1))
-  }, [selectedPhoto])
+    queueMicrotask(() => setZoomLevel(1));
+  }, [selectedPhoto]);
 
-  const handlePhotoClick = useCallback((photo: Photo) => {
-    const index = photos.findIndex(p => p.id === photo.id)
-    setCurrentIndex(index)
-    setSelectedPhoto(photo)
-  }, [photos])
+  const handlePhotoClick = useCallback(
+    (photo: Photo) => {
+      const index = photos.findIndex((p) => p.id === photo.id);
+      setCurrentIndex(index);
+      setSelectedPhoto(photo);
+    },
+    [photos],
+  );
 
   const handleClose = useCallback(() => {
-    setSelectedPhoto(null)
-    setZoomLevel(1)
-  }, [])
+    setSelectedPhoto(null);
+    setZoomLevel(1);
+  }, []);
 
   const handlePrevious = useCallback(() => {
     if (currentIndex > 0) {
-      const newIndex = currentIndex - 1
-      setCurrentIndex(newIndex)
-      setSelectedPhoto(photos[newIndex] ?? null)
+      const newIndex = currentIndex - 1;
+      setCurrentIndex(newIndex);
+      setSelectedPhoto(photos[newIndex] ?? null);
     }
-  }, [currentIndex, photos])
+  }, [currentIndex, photos]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < photos.length - 1) {
-      const newIndex = currentIndex + 1
-      setCurrentIndex(newIndex)
-      setSelectedPhoto(photos[newIndex] ?? null)
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(newIndex);
+      setSelectedPhoto(photos[newIndex] ?? null);
     }
-  }, [currentIndex, photos])
+  }, [currentIndex, photos]);
 
   const handleZoomIn = useCallback(() => {
-    setZoomLevel(prev => Math.min(prev + 0.25, 3))
-  }, [])
+    setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+  }, []);
 
   const handleZoomOut = useCallback(() => {
-    setZoomLevel(prev => Math.max(prev - 0.25, 0.5))
-  }, [])
+    setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+  }, []);
 
   const handleDownload = useCallback(async () => {
-    if (!selectedPhoto?.url) return
+    if (!selectedPhoto?.url) return;
 
     try {
       // Create a temporary link element
-      const link = document.createElement('a')
-      link.href = selectedPhoto.url
-      link.download = selectedPhoto.name || `photo-${selectedPhoto.id}.jpg`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const link = document.createElement("a");
+      link.href = selectedPhoto.url;
+      link.download = selectedPhoto.name || `photo-${selectedPhoto.id}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
-      console.error('Download failed:', error)
+      clientLogger.error("Download failed:", error);
     }
-  }, [selectedPhoto])
+  }, [selectedPhoto]);
 
   const handleDeleteFromModal = useCallback(() => {
     if (selectedPhoto && onDelete) {
-      onDelete(selectedPhoto.id)
-      handleClose()
+      onDelete(selectedPhoto.id);
+      handleClose();
     }
-  }, [selectedPhoto, onDelete, handleClose])
+  }, [selectedPhoto, onDelete, handleClose]);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedPhoto) return
+      if (!selectedPhoto) return;
 
       switch (e.key) {
-        case 'ArrowLeft':
-          e.preventDefault()
-          handlePrevious()
-          break
-        case 'ArrowRight':
-          e.preventDefault()
-          handleNext()
-          break
-        case '+':
-        case '=':
-          e.preventDefault()
-          handleZoomIn()
-          break
-        case '-':
-        case '_':
-          e.preventDefault()
-          handleZoomOut()
-          break
-        case 'Escape':
-          e.preventDefault()
-          handleClose()
-          break
+        case "ArrowLeft":
+          e.preventDefault();
+          handlePrevious();
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          handleNext();
+          break;
+        case "+":
+        case "=":
+          e.preventDefault();
+          handleZoomIn();
+          break;
+        case "-":
+        case "_":
+          e.preventDefault();
+          handleZoomOut();
+          break;
+        case "Escape":
+          e.preventDefault();
+          handleClose();
+          break;
       }
-    }
+    };
 
     if (selectedPhoto) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
     }
-  }, [selectedPhoto, handlePrevious, handleNext, handleZoomIn, handleZoomOut, handleClose])
+  }, [
+    selectedPhoto,
+    handlePrevious,
+    handleNext,
+    handleZoomIn,
+    handleZoomOut,
+    handleClose,
+  ]);
 
   const gridClasses = {
-    1: 'grid-cols-1',
-    2: 'grid-cols-2',
-    3: 'grid-cols-3',
-    4: 'grid-cols-4',
-    5: 'grid-cols-5',
-    6: 'grid-cols-6'
-  }
+    1: "grid-cols-1",
+    2: "grid-cols-2",
+    3: "grid-cols-3",
+    4: "grid-cols-4",
+    5: "grid-cols-5",
+    6: "grid-cols-6",
+  };
 
   const gapClasses = {
-    1: 'gap-1',
-    2: 'gap-2',
-    3: 'gap-3',
-    4: 'gap-4',
-    6: 'gap-6',
-    8: 'gap-8'
-  }
+    1: "gap-1",
+    2: "gap-2",
+    3: "gap-3",
+    4: "gap-4",
+    6: "gap-6",
+    8: "gap-8",
+  };
 
-  const displayPhotos = maxThumbnails ? photos.slice(0, maxThumbnails) : photos
+  const displayPhotos = maxThumbnails ? photos.slice(0, maxThumbnails) : photos;
 
   if (photos.length === 0) {
     return (
@@ -177,13 +188,15 @@ export function PhotoGallery({
         <HiMiniPhoto className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
         <p className="text-gray-500 dark:text-gray-400">{emptyMessage}</p>
       </div>
-    )
+    );
   }
 
   return (
     <div className={className}>
       {/* Photo Grid */}
-      <div className={`grid ${gridClasses[columns as keyof typeof gridClasses] || gridClasses[4]} ${gapClasses[gap as keyof typeof gapClasses] || gapClasses[4]}`}>
+      <div
+        className={`grid ${gridClasses[columns as keyof typeof gridClasses] || gridClasses[4]} ${gapClasses[gap as keyof typeof gapClasses] || gapClasses[4]}`}
+      >
         {displayPhotos.map((photo) => (
           <PhotoThumbnail
             key={photo.id}
@@ -199,7 +212,8 @@ export function PhotoGallery({
       {/* Show more indicator */}
       {maxThumbnails && photos.length > maxThumbnails && (
         <div className="mt-4 text-center">
-          <Button onClick={() => setSelectedPhoto(photos[0] ?? null)}
+          <Button
+            onClick={() => setSelectedPhoto(photos[0] ?? null)}
             className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           >
             Lihat {photos.length - maxThumbnails} foto lagi
@@ -234,36 +248,27 @@ export function PhotoGallery({
               <div className="flex items-center gap-2">
                 {/* Zoom Controls */}
                 <div className="flex items-center bg-gray-800 rounded-lg">
-                  <Button onClick={handleZoomOut}
-                    
-                    title="Zoom out (-)"
-                  >
+                  <Button onClick={handleZoomOut} title="Zoom out (-)">
                     <HiMagnifyingGlassMinus className="w-5 h-5" />
                   </Button>
                   <span className="px-3 text-sm">
                     {Math.round(zoomLevel * 100)}%
                   </span>
-                  <Button onClick={handleZoomIn}
-                    
-                    title="Zoom in (+)"
-                  >
+                  <Button onClick={handleZoomIn} title="Zoom in (+)">
                     <HiMagnifyingGlassPlus className="w-5 h-5" />
                   </Button>
                 </div>
 
                 {/* Download Button */}
-                <Button onClick={handleDownload}
-                  
-                  title="Download foto"
-                >
+                <Button onClick={handleDownload} title="Download foto">
                   <HiArrowDownTray className="w-5 h-5" />
                 </Button>
 
                 {/* Delete Button */}
                 {showDeleteButton && onDelete && (
-                  <Button variant="destructive"
+                  <Button
+                    variant="destructive"
                     onClick={handleDeleteFromModal}
-                    
                     title="Hapus foto"
                   >
                     <HiXMark className="w-5 h-5" />
@@ -271,10 +276,7 @@ export function PhotoGallery({
                 )}
 
                 {/* Close Button */}
-                <Button onClick={handleClose}
-                  
-                  title="Tutup (Esc)"
-                >
+                <Button onClick={handleClose} title="Tutup (Esc)">
                   <HiXMark className="w-5 h-5" />
                 </Button>
               </div>
@@ -284,8 +286,9 @@ export function PhotoGallery({
             <div className="flex-1 relative overflow-hidden flex items-center justify-center">
               {/* Previous Button */}
               {currentIndex > 0 && (
-                <Button onClick={handlePrevious}
-                   className="absolute left-4 z-10"
+                <Button
+                  onClick={handlePrevious}
+                  className="absolute left-4 z-10"
                   title="Previous (←)"
                 >
                   <HiChevronLeft className="w-6 h-6" />
@@ -300,7 +303,7 @@ export function PhotoGallery({
                 >
                   <Image
                     src={selectedPhoto.url}
-                    alt={selectedPhoto.name || 'Photo'}
+                    alt={selectedPhoto.name || "Photo"}
                     width={1200}
                     height={800}
                     className="max-w-full max-h-[calc(100vh-120px)] object-contain"
@@ -311,8 +314,9 @@ export function PhotoGallery({
 
               {/* Next Button */}
               {currentIndex < photos.length - 1 && (
-                <Button onClick={handleNext}
-                   className="absolute right-4 z-10"
+                <Button
+                  onClick={handleNext}
+                  className="absolute right-4 z-10"
                   title="Next (→)"
                 >
                   <HiChevronRight className="w-6 h-6" />
@@ -330,16 +334,18 @@ export function PhotoGallery({
                 {/* Thumbnail Navigation */}
                 <div className="flex gap-1 max-w-md overflow-x-auto">
                   {photos.map((photo, index) => (
-                    <Button key={photo.id}
+                    <Button
+                      key={photo.id}
                       onClick={() => {
-                        setCurrentIndex(index)
-                        setSelectedPhoto(photo)
+                        setCurrentIndex(index);
+                        setSelectedPhoto(photo);
                       }}
                       className={`
                         relative w-12 h-12 rounded overflow-hidden border-2 transition-all
-                        ${index === currentIndex
-                          ? 'border-blue-500 scale-110'
-                          : 'border-gray-600 hover:border-gray-400'
+                        ${
+                          index === currentIndex
+                            ? "border-blue-500 scale-110"
+                            : "border-gray-600 hover:border-gray-400"
                         }
                       `}
                     >
@@ -359,25 +365,25 @@ export function PhotoGallery({
         </Modal>
       )}
     </div>
-  )
+  );
 }
 
 // Compact Gallery for use in tables or forms
 interface CompactGalleryProps {
-  photos: Photo[]
-  maxVisible?: number
-  onViewAll?: (photos: Photo[]) => void
-  className?: string
+  photos: Photo[];
+  maxVisible?: number;
+  onViewAll?: (photos: Photo[]) => void;
+  className?: string;
 }
 
 export function CompactGallery({
   photos,
   maxVisible = 3,
   onViewAll,
-  className = ''
+  className = "",
 }: CompactGalleryProps) {
   if (photos.length === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -388,5 +394,5 @@ export function CompactGallery({
       size="sm"
       className={className}
     />
-  )
+  );
 }

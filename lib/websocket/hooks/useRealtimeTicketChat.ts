@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -65,7 +66,7 @@ export function useRealtimeTicketChat(
       // Only process if it's for this ticket
       if (payload.ticketId !== ticketId) return;
 
-      console.log(
+      clientLogger.info(
         "[TicketChat] New message received:",
         payload.reply.message.substring(0, 50),
       );

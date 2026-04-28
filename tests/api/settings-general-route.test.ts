@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetGeneralSettings = vi.fn();
 const mockUpdateGeneralSettings = vi.fn();
 const mockLogActivitySafe = vi.fn();
+const mockLoggerError = vi.fn();
 const mockInvalidateTimezoneCache = vi.fn();
 const mockAttendanceInvalidateCache = vi.fn();
 
@@ -22,6 +23,9 @@ vi.mock("@/modules/settings", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+  },
   logActivitySafe: (...args: unknown[]) => mockLogActivitySafe(...args),
 }));
 
@@ -84,7 +88,10 @@ describe("general settings route cache invalidation", () => {
     expect(mockUpdateGeneralSettings).toHaveBeenCalledTimes(1);
     expect(mockInvalidateTimezoneCache).toHaveBeenCalledTimes(1);
     expect(mockAttendanceInvalidateCache).toHaveBeenCalledTimes(1);
-    expect(console.error).toHaveBeenCalled();
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      "[settings/general] Failed to invalidate attendance timezone cache:",
+      expect.any(Error),
+    );
     expect(result).toEqual({ success: true });
   });
 });

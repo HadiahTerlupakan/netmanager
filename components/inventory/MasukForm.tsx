@@ -1,141 +1,156 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { PhotoUpload } from './PhotoUpload'
-import type { PhotoUploadRef } from './PhotoUpload'
-import { Button } from '@/components/ui/Button'
-import { Combobox } from '@/components/ui/Combobox'
-import { getStockStatusColor, getKondisiColor } from '@/lib/utils/inventory-helpers'
+import { useState, useEffect, useRef, useCallback } from "react";
+import { PhotoUpload } from "./PhotoUpload";
+import type { PhotoUploadRef } from "./PhotoUpload";
+import { Button } from "@/components/ui/Button";
+import { Combobox } from "@/components/ui/Combobox";
+import {
+  getStockStatusColor,
+  getKondisiColor,
+} from "@/lib/utils/inventory-helpers";
+import { clientLogger } from "@/lib/client-logger";
 
 interface MasukFormProps {
   initialData?: {
-    id?: string
-    barangId: string
-    gudangId: string
-    jumlah: number
-    hargaBeliSatuan?: number
-    kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
-    keterangan?: string
-    tanggal?: string
+    id?: string;
+    barangId: string;
+    gudangId: string;
+    jumlah: number;
+    hargaBeliSatuan?: number;
+    kondisi: "BARU" | "BEKAS" | "RUSAK";
+    keterangan?: string;
+    tanggal?: string;
     barang?: {
-      id: string
-      kode: string
-      nama: string
-      satuan: string
-      stockPerGudang?: Array<{ gudangId: string; stok: number }>
-    }
-  }
-  onClose: () => void
+      id: string;
+      kode: string;
+      nama: string;
+      satuan: string;
+      stockPerGudang?: Array<{ gudangId: string; stok: number }>;
+    };
+  };
+  onClose: () => void;
 }
 
 export function MasukForm({ initialData, onClose }: MasukFormProps) {
   const [formData, setFormData] = useState({
-    barangId: '',
-    gudangId: '',
-    jumlah: '',
-    hargaBeliSatuan: '', // Added field
-    kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
-    keterangan: '',
-    tanggal: new Date().toISOString().split('T')[0]
-  })
-  const [barangs, setBarangs] = useState<{
-    id: string
-    kode: string
-    nama: string
-    satuan: string
-    stockPerGudang?: Array<{ gudangId: string; stok: number }>
-  }[]>([])
-  const [gudangs, setGudangs] = useState<{
-    id: string
-    kode: string
-    nama: string
-    lokasi?: string
-  }[]>([])
-  const [currentStock, setCurrentStock] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [isSearching, setIsSearching] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [uploadedPhotos, setUploadedPhotos] = useState<{ status: string; error?: string }[]>([])
-  const [transactionId, setTransactionId] = useState<string | null>(null)
+    barangId: "",
+    gudangId: "",
+    jumlah: "",
+    hargaBeliSatuan: "", // Added field
+    kondisi: "BARU" as "BARU" | "BEKAS" | "RUSAK",
+    keterangan: "",
+    tanggal: new Date().toISOString().split("T")[0],
+  });
+  const [barangs, setBarangs] = useState<
+    {
+      id: string;
+      kode: string;
+      nama: string;
+      satuan: string;
+      stockPerGudang?: Array<{ gudangId: string; stok: number }>;
+    }[]
+  >([]);
+  const [gudangs, setGudangs] = useState<
+    {
+      id: string;
+      kode: string;
+      nama: string;
+      lokasi?: string;
+    }[]
+  >([]);
+  const [currentStock, setCurrentStock] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [uploadedPhotos, setUploadedPhotos] = useState<
+    { status: string; error?: string }[]
+  >([]);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
 
   // Persist the full details of the selected barang so it doesn't disappear if search results update
   const [persistedBarang, setPersistedBarang] = useState<{
-    id: string
-    kode: string
-    nama: string
-    satuan: string
-    stockPerGudang?: Array<{ gudangId: string; stok: number }>
-  } | null>(null)
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+    stockPerGudang?: Array<{ gudangId: string; stok: number }>;
+  } | null>(null);
 
-  const photoUploadRef = useRef<PhotoUploadRef>(null)
+  const photoUploadRef = useRef<PhotoUploadRef>(null);
 
-  const fetchBarangs = async (query = '') => {
-    setIsSearching(true)
+  const fetchBarangs = async (query = "") => {
+    setIsSearching(true);
     try {
-        const params = new URLSearchParams()
-        params.append('limit', '50') 
-        if (query) params.append('search', query)
-        
-        const response = await fetch(`/api/inventory/barang?${params.toString()}`)
-        const data = await response.json()
-        // Standardized apiSuccess: { success: true, data: { barangs, pagination } }
-        const result = data.data || data
-        setBarangs(result.barangs || [])
+      const params = new URLSearchParams();
+      params.append("limit", "50");
+      if (query) params.append("search", query);
+
+      const response = await fetch(
+        `/api/inventory/barang?${params.toString()}`,
+      );
+      const data = await response.json();
+      // Standardized apiSuccess: { success: true, data: { barangs, pagination } }
+      const result = data.data || data;
+      setBarangs(result.barangs || []);
     } catch (err) {
-        console.error('Error fetching barangs:', err)
+      clientLogger.error("Error fetching barangs:", err);
     } finally {
-        setIsSearching(false)
+      setIsSearching(false);
     }
-  }
+  };
 
   useEffect(() => {
     async function fetchInitialData() {
       try {
         // Fetch initial barang list
-        await fetchBarangs()
+        await fetchBarangs();
 
         // Fetch gudang
-        const gudangResponse = await fetch('/api/inventory/gudang')
-        const gudangData = await gudangResponse.json()
+        const gudangResponse = await fetch("/api/inventory/gudang");
+        const gudangData = await gudangResponse.json();
         // Standardized apiSuccess: { success: true, data: { gudangs } }
-        const gudangResult = gudangData.data || gudangData
-        setGudangs(gudangResult.gudangs || [])
+        const gudangResult = gudangData.data || gudangData;
+        setGudangs(gudangResult.gudangs || []);
 
         // If in edit mode, populate form with initial data
         if (initialData) {
           setFormData({
-            barangId: initialData.barangId || '',
-            gudangId: initialData.gudangId || '',
-            jumlah: initialData.jumlah?.toString() || '',
-            hargaBeliSatuan: initialData.hargaBeliSatuan?.toString() || '',
-            kondisi: initialData.kondisi || 'BARU',
-            keterangan: initialData.keterangan || '',
-            tanggal: initialData.tanggal ? new Date(initialData.tanggal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-          })
-          setTransactionId(initialData.id || null)
-          
+            barangId: initialData.barangId || "",
+            gudangId: initialData.gudangId || "",
+            jumlah: initialData.jumlah?.toString() || "",
+            hargaBeliSatuan: initialData.hargaBeliSatuan?.toString() || "",
+            kondisi: initialData.kondisi || "BARU",
+            keterangan: initialData.keterangan || "",
+            tanggal: initialData.tanggal
+              ? new Date(initialData.tanggal).toISOString().split("T")[0]
+              : new Date().toISOString().split("T")[0],
+          });
+          setTransactionId(initialData.id || null);
+
           // If we have an initial barangId, we might need to fetch its details explicitly if not in the list
           // But usually initialData should contain the barang object too?
           // If initialData.barang exists, set it as persisted
           if (initialData.barang) {
-             setPersistedBarang(initialData.barang)
-          } 
+            setPersistedBarang(initialData.barang);
+          }
         }
       } catch (error) {
-        console.error('Error fetching initial data:', error)
-        setError('Gagal memuat data awal')
+        clientLogger.error("Error fetching initial data:", error);
+        setError("Gagal memuat data awal");
       }
     }
 
-    fetchInitialData()
-  }, [initialData])
+    fetchInitialData();
+  }, [initialData]);
 
   // Logic to determine the currently active barang details
   // 1. Try to find in the current list
   // 2. If not found, use the persisted one if IDs match
-  const selectedBarang = barangs.find(b => b.id === formData.barangId) || 
-    (persistedBarang?.id === formData.barangId ? persistedBarang : undefined)
+  const selectedBarang =
+    barangs.find((b) => b.id === formData.barangId) ||
+    (persistedBarang?.id === formData.barangId ? persistedBarang : undefined);
 
   useEffect(() => {
     async function fetchCurrentStock() {
@@ -143,137 +158,156 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         try {
           // Use selectedBarang (which could be persisted)
           if (selectedBarang) {
-            const stockInfo = selectedBarang.stockPerGudang?.find((s: { gudangId: string; stok: number }) => s.gudangId === formData.gudangId)
-            setCurrentStock(stockInfo?.stok || 0)
+            const stockInfo = selectedBarang.stockPerGudang?.find(
+              (s: { gudangId: string; stok: number }) =>
+                s.gudangId === formData.gudangId,
+            );
+            setCurrentStock(stockInfo?.stok || 0);
           }
         } catch (error) {
-          console.error('Error fetching current stock:', error)
+          clientLogger.error("Error fetching current stock:", error);
         }
       } else {
-        setCurrentStock(0)
+        setCurrentStock(0);
       }
     }
 
-    fetchCurrentStock()
-  }, [formData.barangId, formData.gudangId, selectedBarang])
+    fetchCurrentStock();
+  }, [formData.barangId, formData.gudangId, selectedBarang]);
 
   const resetForm = useCallback(() => {
-      setFormData({
-        barangId: '',
-        gudangId: '',
-        jumlah: '',
-        hargaBeliSatuan: '',
-        kondisi: 'BARU',
-        keterangan: '',
-        tanggal: new Date().toISOString().split('T')[0]
-      })
-      setCurrentStock(0)
-      setUploadedPhotos([])
-      setTransactionId(null)
-      setPersistedBarang(null)
-      onClose()
-  }, [onClose])
+    setFormData({
+      barangId: "",
+      gudangId: "",
+      jumlah: "",
+      hargaBeliSatuan: "",
+      kondisi: "BARU",
+      keterangan: "",
+      tanggal: new Date().toISOString().split("T")[0],
+    });
+    setCurrentStock(0);
+    setUploadedPhotos([]);
+    setTransactionId(null);
+    setPersistedBarang(null);
+    onClose();
+  }, [onClose]);
 
   // Effect to handle photo upload completion
   useEffect(() => {
     // Check if all photos have been uploaded successfully
     if (transactionId && uploadedPhotos.length > 0) {
-      const allUploaded = uploadedPhotos.every(photo => photo.status === 'success')
-      const hasError = uploadedPhotos.some(photo => photo.status === 'error')
+      const allUploaded = uploadedPhotos.every(
+        (photo) => photo.status === "success",
+      );
+      const hasError = uploadedPhotos.some((photo) => photo.status === "error");
 
       if (allUploaded) {
-        setSuccess('Barang masuk berhasil dicatat! Foto berhasil diunggah.')
+        setSuccess("Barang masuk berhasil dicatat! Foto berhasil diunggah.");
 
         // Reset form after a short delay
         setTimeout(() => {
-          resetForm()
-        }, 2000)
+          resetForm();
+        }, 2000);
       } else if (hasError) {
-        setSuccess('Barang masuk berhasil dicatat, namun beberapa foto gagal diunggah.')
+        setSuccess(
+          "Barang masuk berhasil dicatat, namun beberapa foto gagal diunggah.",
+        );
       }
     }
-  }, [uploadedPhotos, transactionId, resetForm])
+  }, [uploadedPhotos, transactionId, resetForm]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    setError('')
-  }
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setError("");
+  };
 
   const handleBarangChange = (value: string) => {
-      setFormData(prev => ({ ...prev, barangId: value }))
-      setError('')
-      
-      // Update persisted barang when selection changes
-      const item = barangs.find(b => b.id === value)
-      if (item) {
-          setPersistedBarang(item)
-      }
-  }
+    setFormData((prev) => ({ ...prev, barangId: value }));
+    setError("");
+
+    // Update persisted barang when selection changes
+    const item = barangs.find((b) => b.id === value);
+    if (item) {
+      setPersistedBarang(item);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setSuccess('')
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
 
     // Validation - only validate in create mode
     if (!initialData) {
       if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
-        setError('Barang, gudang, dan jumlah harus diisi')
-        return
+        setError("Barang, gudang, dan jumlah harus diisi");
+        return;
       }
 
-      const jumlah = parseInt(formData.jumlah)
+      const jumlah = parseInt(formData.jumlah);
       if (isNaN(jumlah) || jumlah <= 0) {
-        setError('Jumlah harus berupa angka positif')
-        return
+        setError("Jumlah harus berupa angka positif");
+        return;
       }
     }
 
-    setLoading(true)
-    setError('')
-    setSuccess('')
+    setLoading(true);
+    setError("");
+    setSuccess("");
 
     try {
       if (initialData) {
         // Edit mode - we already have a transaction ID
         if (uploadedPhotos.length > 0) {
-          setSuccess('Mengunggah foto...')
+          setSuccess("Mengunggah foto...");
           // The PhotoUpload component will handle the upload automatically
         } else {
-          setSuccess('Tidak ada foto baru untuk diunggah')
+          setSuccess("Tidak ada foto baru untuk diunggah");
           setTimeout(() => {
-            onClose()
-          }, 1000)
+            onClose();
+          }, 1000);
         }
       } else {
         // Create mode
-        const jumlah = parseInt(formData.jumlah)
+        const jumlah = parseInt(formData.jumlah);
 
         // Upload photos first if any exist
-        let fotoBuktiUrls: string[] = []
-        let uploadedPhotosList: { status: string; file?: File; error?: string }[] = []
+        let fotoBuktiUrls: string[] = [];
+        let uploadedPhotosList: {
+          status: string;
+          file?: File;
+          error?: string;
+        }[] = [];
 
         if (photoUploadRef.current) {
-          const currentPhotos = photoUploadRef.current.getPhotos()
+          const currentPhotos = photoUploadRef.current.getPhotos();
 
           if (currentPhotos.length > 0) {
-            setSuccess('Mengunggah foto...')
-            fotoBuktiUrls = await photoUploadRef.current.uploadPhotos()
-            uploadedPhotosList = photoUploadRef.current.getPhotos()
+            setSuccess("Mengunggah foto...");
+            fotoBuktiUrls = await photoUploadRef.current.uploadPhotos();
+            uploadedPhotosList = photoUploadRef.current.getPhotos();
 
-            const failedPhotos = uploadedPhotosList.filter(photo => photo.status === 'error')
+            const failedPhotos = uploadedPhotosList.filter(
+              (photo) => photo.status === "error",
+            );
             if (failedPhotos.length > 0) {
-              throw new Error(`Beberapa foto gagal diunggah: ${failedPhotos.map(p => p.error).join(', ')}`)
+              throw new Error(
+                `Beberapa foto gagal diunggah: ${failedPhotos.map((p) => p.error).join(", ")}`,
+              );
             }
           }
         }
 
-        const response = await fetch('/api/inventory/masuk', {
-          method: 'POST',
+        const response = await fetch("/api/inventory/masuk", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             barangId: String(formData.barangId),
@@ -281,64 +315,69 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             jumlah: Number(jumlah),
             hargaBeliSatuan: Number(formData.hargaBeliSatuan || 0),
             kondisi: String(formData.kondisi),
-            keterangan: String(formData.keterangan || ''),
+            keterangan: String(formData.keterangan || ""),
             tanggal: String(formData.tanggal),
             fotoBukti: fotoBuktiUrls,
-            fotoMetadata: uploadedPhotosList.length > 0 ? {
-              uploadedAt: new Date().toISOString(),
-              count: uploadedPhotosList.length,
-              totalSize: uploadedPhotosList.reduce((sum, photo) => sum + (photo.file?.size || 0), 0)
-            } : null
+            fotoMetadata:
+              uploadedPhotosList.length > 0
+                ? {
+                    uploadedAt: new Date().toISOString(),
+                    count: uploadedPhotosList.length,
+                    totalSize: uploadedPhotosList.reduce(
+                      (sum, photo) => sum + (photo.file?.size || 0),
+                      0,
+                    ),
+                  }
+                : null,
           }),
-        })
+        });
 
-        const data = await response.json()
+        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Gagal mencatat barang masuk')
+          throw new Error(data.error || "Gagal mencatat barang masuk");
         }
 
-        const result = data.data || data
+        const result = data.data || data;
         if (result.masukId) {
-          setTransactionId(result.masukId)
-          setSuccess('Barang masuk berhasil dicatat!')
+          setTransactionId(result.masukId);
+          setSuccess("Barang masuk berhasil dicatat!");
 
           setTimeout(() => {
-            resetForm()
-             if (photoUploadRef.current) {
-              photoUploadRef.current.resetPhotos()
+            resetForm();
+            if (photoUploadRef.current) {
+              photoUploadRef.current.resetPhotos();
             }
-          }, 1500)
+          }, 1500);
         } else {
-          setSuccess('Barang masuk berhasil dicatat!')
+          setSuccess("Barang masuk berhasil dicatat!");
           setTimeout(() => {
-            resetForm()
-          }, 1000)
+            resetForm();
+          }, 1000);
         }
       }
-
     } catch (error) {
-      console.error('Error submitting barang masuk:', error)
-      setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
+      clientLogger.error("Error submitting barang masuk:", error);
+      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const selectedGudang = gudangs.find(g => g.id === formData.gudangId)
+  const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
 
   // Combine barangs with persistedBarang for the Options list to ensure selected item is always visible
-  const barangOptions = barangs.map(b => ({
-      value: b.id,
-      label: `${b.kode} - ${b.nama}`
-  }))
-  
+  const barangOptions = barangs.map((b) => ({
+    value: b.id,
+    label: `${b.kode} - ${b.nama}`,
+  }));
+
   // Ensure the persisted/selected item is in the options list if it's not already
-  if (persistedBarang && !barangs.find(b => b.id === persistedBarang.id)) {
-      barangOptions.unshift({
-          value: persistedBarang.id,
-          label: `${persistedBarang.kode} - ${persistedBarang.nama}`
-      })
+  if (persistedBarang && !barangs.find((b) => b.id === persistedBarang.id)) {
+    barangOptions.unshift({
+      value: persistedBarang.id,
+      label: `${persistedBarang.kode} - ${persistedBarang.nama}`,
+    });
   }
 
   return (
@@ -346,7 +385,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       {/* Form Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {initialData ? 'Edit Barang Masuk' : 'Catat Barang Masuk'}
+          {initialData ? "Edit Barang Masuk" : "Catat Barang Masuk"}
         </h2>
         {initialData && (
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -369,19 +408,22 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="flex flex-col">
-          <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label
+            htmlFor="barangId"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
             Barang *
           </label>
-           <Combobox
-             value={formData.barangId}
-             onChange={handleBarangChange}
-             options={barangOptions}
-             placeholder="Cari & pilih barang..."
-             disabled={loading || !!initialData}
-             onSearch={fetchBarangs}
-             loading={isSearching}
-             className="w-full"
-           />
+          <Combobox
+            value={formData.barangId}
+            onChange={handleBarangChange}
+            options={barangOptions}
+            placeholder="Cari & pilih barang..."
+            disabled={loading || !!initialData}
+            onSearch={fetchBarangs}
+            loading={isSearching}
+            className="w-full"
+          />
           {initialData && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Barang tidak dapat diubah pada mode edit
@@ -390,7 +432,10 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
         </div>
 
         <div>
-          <label htmlFor="gudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label
+            htmlFor="gudangId"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
             Gudang *
           </label>
           <select
@@ -422,7 +467,9 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {selectedBarang && (
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Barang terpilih:</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Barang terpilih:
+                </p>
                 <p className="font-medium text-gray-900 dark:text-white">
                   {selectedBarang.kode} - {selectedBarang.nama}
                 </p>
@@ -433,25 +480,29 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             )}
             {selectedGudang && (
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Gudang terpilih:</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Gudang terpilih:
+                </p>
                 <p className="font-medium text-gray-900 dark:text-white">
                   {selectedGudang.kode} - {selectedGudang.nama}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Lokasi: {selectedGudang.lokasi || '-'}
+                  Lokasi: {selectedGudang.lokasi || "-"}
                 </p>
               </div>
             )}
             {currentStock >= 0 && (
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Stok saat ini:</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Stok saat ini:
+                </p>
                 <p className={`text-lg ${getStockStatusColor(currentStock)}`}>
-                  {currentStock} {selectedBarang?.satuan || 'pcs'}
+                  {currentStock} {selectedBarang?.satuan || "pcs"}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentStock === 0 && 'Stok kosong'}
-                  {currentStock > 0 && currentStock < 5 && 'Stok menipis'}
-                  {currentStock >= 5 && 'Stok aman'}
+                  {currentStock === 0 && "Stok kosong"}
+                  {currentStock > 0 && currentStock < 5 && "Stok menipis"}
+                  {currentStock >= 5 && "Stok aman"}
                 </p>
               </div>
             )}
@@ -461,7 +512,10 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label
+            htmlFor="jumlah"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
             Jumlah *
           </label>
           <div className="relative">
@@ -477,7 +531,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
               disabled={loading || !!initialData}
             />
             <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm">
-              {selectedBarang?.satuan || 'pcs'}
+              {selectedBarang?.satuan || "pcs"}
             </span>
           </div>
           {initialData && (
@@ -487,10 +541,11 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           )}
         </div>
 
-
-
         <div>
-          <label htmlFor="kondisi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label
+            htmlFor="kondisi"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
             Kondisi Barang *
           </label>
           <select
@@ -498,8 +553,11 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             name="kondisi"
             value={formData.kondisi}
             onChange={(e) => {
-              const { value } = e.target
-              setFormData(prev => ({ ...prev, kondisi: value as 'BARU' | 'BEKAS' | 'RUSAK' }))
+              const { value } = e.target;
+              setFormData((prev) => ({
+                ...prev,
+                kondisi: value as "BARU" | "BEKAS" | "RUSAK",
+              }));
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loading || !!initialData}
@@ -509,10 +567,12 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
             <option value="RUSAK">Rusak</option>
           </select>
           <div className="mt-1">
-            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}>
-              {formData.kondisi === 'BARU' && 'Baru - Siap pakai'}
-              {formData.kondisi === 'BEKAS' && 'Bekas - Pernah dipakai'}
-              {formData.kondisi === 'RUSAK' && 'Rusak - Perlu perbaikan'}
+            <span
+              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiColor(formData.kondisi)}`}
+            >
+              {formData.kondisi === "BARU" && "Baru - Siap pakai"}
+              {formData.kondisi === "BEKAS" && "Bekas - Pernah dipakai"}
+              {formData.kondisi === "RUSAK" && "Rusak - Perlu perbaikan"}
             </span>
           </div>
           {initialData && (
@@ -524,7 +584,10 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       </div>
 
       <div>
-        <label htmlFor="tanggal" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label
+          htmlFor="tanggal"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
           Tanggal
         </label>
         <input
@@ -544,7 +607,10 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       </div>
 
       <div>
-        <label htmlFor="keterangan" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label
+          htmlFor="keterangan"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
           Keterangan
         </label>
         <textarea
@@ -572,20 +638,20 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
             {initialData
-              ? 'Tambah foto barang untuk dokumentasi (maksimal 5 foto)'
-              : 'Upload foto barang saat masuk untuk dokumentasi (maksimal 5 foto)'
-            }
+              ? "Tambah foto barang untuk dokumentasi (maksimal 5 foto)"
+              : "Upload foto barang saat masuk untuk dokumentasi (maksimal 5 foto)"}
           </p>
           {initialData && (
             <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
               <p className="text-sm text-blue-800 dark:text-blue-300">
-                <strong>Mode Edit:</strong> Anda dapat menambahkan foto baru untuk transaksi ini.
+                <strong>Mode Edit:</strong> Anda dapat menambahkan foto baru
+                untuk transaksi ini.
               </p>
             </div>
           )}
           <PhotoUpload
             ref={photoUploadRef}
-            transactionId={transactionId || 'temp-' + Date.now()}
+            transactionId={transactionId || "temp-" + Date.now()}
             transactionType="inventory-masuk"
             onPhotosChange={setUploadedPhotos}
             maxPhotos={5}
@@ -598,33 +664,29 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       {initialData && !transactionId && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-sm text-yellow-800">
-            <strong>Perhatian:</strong> Data transaksi sedang dimuat. Foto dapat ditambahkan setelah data tersedia.
+            <strong>Perhatian:</strong> Data transaksi sedang dimuat. Foto dapat
+            ditambahkan setelah data tersedia.
           </p>
         </div>
       )}
 
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button variant="outline"
+        <Button
+          variant="outline"
           type="button"
           onClick={onClose}
-          
           disabled={loading}
         >
           Batal
         </Button>
-        <Button variant="success"
-          type="submit"
-          disabled={loading}
-          
-        >
+        <Button variant="success" type="submit" disabled={loading}>
           {loading
-            ? 'Menyimpan...'
+            ? "Menyimpan..."
             : initialData
-              ? 'Update & Upload Foto'
-              : 'Simpan'
-          }
+              ? "Update & Upload Foto"
+              : "Simpan"}
         </Button>
       </div>
     </form>
-  )
+  );
 }

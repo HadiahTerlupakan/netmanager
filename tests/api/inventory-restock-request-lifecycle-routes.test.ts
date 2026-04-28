@@ -213,7 +213,7 @@ describe("inventory restock request lifecycle routes", () => {
 
     expect(prismaMock.purchaseRequest.findUnique).toHaveBeenCalledWith({
       where: { id: "pr-1" },
-      select: { purchaseOrderId: true },
+      select: { purchaseOrderId: true, status: true },
     });
     expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledWith({
       purchaseOrderId: "po-1",

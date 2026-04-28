@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * API Response Utilities
  * Standardizes API response format across the application
@@ -172,7 +173,7 @@ export function withErrorHandler(
     try {
       return await handler(req, context);
     } catch (error: unknown) {
-      console.error("[API Error]", error);
+      logger.error("[API Error]", error);
 
       if (error instanceof Error) {
         // Check for known error types

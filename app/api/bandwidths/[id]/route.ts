@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import {
@@ -37,7 +38,7 @@ export async function GET(
 
     return apiSuccess(bandwidth);
   } catch (error: unknown) {
-    console.error("Error fetching bandwidth:", error);
+    logger.error("Error fetching bandwidth:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Gagal mengambil data bandwidth";
     return ApiErrors.internalError(errorMessage);
@@ -66,7 +67,7 @@ export async function PUT(
     const bandwidth = await bandwidthRouteService.updateBandwidth(id, body);
     return apiSuccess(bandwidth, { message: "Bandwidth berhasil diperbarui" });
   } catch (error: unknown) {
-    console.error("Error updating bandwidth:", error);
+    logger.error("Error updating bandwidth:", error);
     const structuredError = error as {
       code?: string;
       message?: string;
@@ -111,7 +112,7 @@ export async function DELETE(
     await bandwidthRouteService.deleteBandwidth(id);
     return apiSuccess(null, { message: "Bandwidth berhasil dihapus" });
   } catch (error: unknown) {
-    console.error("Error deleting bandwidth:", error);
+    logger.error("Error deleting bandwidth:", error);
     const structuredError = error as { code?: string; message?: string };
 
     if (structuredError.code === "P2025") {

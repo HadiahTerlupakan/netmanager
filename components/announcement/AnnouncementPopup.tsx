@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Announcement {
   id: string;
@@ -92,7 +93,7 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
           }
         }
       } catch (_error) {
-        console.error("Failed to fetch announcements", _error);
+        clientLogger.error("Failed to fetch announcements", _error);
       } finally {
         setLoading(false);
       }

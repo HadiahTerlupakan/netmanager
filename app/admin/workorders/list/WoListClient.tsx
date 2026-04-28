@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
@@ -230,7 +231,7 @@ export function ClientComponent() {
         setSites(data.data || []);
       }
     } catch (error: unknown) {
-      console.error("Error fetching sites:", error);
+      clientLogger.error("Error fetching sites:", error);
     }
   };
 
@@ -243,7 +244,7 @@ export function ClientComponent() {
         setDepartments(data.data || data || []);
       }
     } catch (error: unknown) {
-      console.error("Error fetching departments:", error);
+      clientLogger.error("Error fetching departments:", error);
     }
   };
 
@@ -274,7 +275,7 @@ export function ClientComponent() {
         setTotalPages(data.totalPages || 1);
       }
     } catch (error: unknown) {
-      console.error("Error fetching work orders:", error);
+      clientLogger.error("Error fetching work orders:", error);
     } finally {
       setLoading(false);
       setInitialLoading(false);
@@ -319,7 +320,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal memverifikasi work order");
       }
     } catch (error: unknown) {
-      console.error("Error verifying:", error);
+      clientLogger.error("Error verifying:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -364,7 +365,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal menolak work order");
       }
     } catch (error: unknown) {
-      console.error("Error rejecting:", error);
+      clientLogger.error("Error rejecting:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -404,7 +405,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal membatalkan work order");
       }
     } catch (error: unknown) {
-      console.error("Error cancelling:", error);
+      clientLogger.error("Error cancelling:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -438,7 +439,7 @@ export function ClientComponent() {
         showToast("error", "Gagal menghapus work order");
       }
     } catch (error: unknown) {
-      console.error("Error deleting:", error);
+      clientLogger.error("Error deleting:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -478,7 +479,7 @@ export function ClientComponent() {
         showToast("error", data.error || "Gagal mengirim reminder");
       }
     } catch (error: unknown) {
-      console.error("Error sending reminder:", error);
+      clientLogger.error("Error sending reminder:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setSendingReminderId(null);
@@ -511,7 +512,7 @@ export function ClientComponent() {
         showToast("error", data.error || "Gagal menyetujui request");
       }
     } catch (error: unknown) {
-      console.error("Error approving request:", error);
+      clientLogger.error("Error approving request:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -550,7 +551,7 @@ export function ClientComponent() {
         showToast("error", data.error || "Gagal menolak request");
       }
     } catch (error: unknown) {
-      console.error("Error rejecting request:", error);
+      clientLogger.error("Error rejecting request:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);

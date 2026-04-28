@@ -5,9 +5,15 @@ import {
   PelangganPppRouteService,
   RouteServiceError,
 } from "@/modules/pelanggan";
-import { Status } from "@prisma/client";
 
 const pelangganPppRouteService = new PelangganPppRouteService();
+const CUSTOMER_STATUSES = [
+  "AKTIF",
+  "NONAKTIF",
+  "MAINTENANCE",
+  "ISOLIR",
+  "DISMANTLE",
+] as const;
 
 export async function PATCH(
   req: NextRequest,
@@ -25,7 +31,7 @@ export async function PATCH(
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    if (!status || !Object.values(Status).includes(status)) {
+    if (!status || !CUSTOMER_STATUSES.includes(status)) {
       return NextResponse.json(
         { error: "Valid status is required" },
         { status: 400 },
@@ -56,7 +62,7 @@ export async function PATCH(
       message: result.message,
     });
   } catch (error: unknown) {
-    console.error("[API] Error updating status:", error);
+    logger.error("[API] Error updating status:", error);
     if (error instanceof RouteServiceError) {
       return NextResponse.json(
         { error: error.message },

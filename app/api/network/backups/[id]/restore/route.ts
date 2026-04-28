@@ -1,8 +1,6 @@
 import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
-import {
-  configurationRestoreCreateSchema,
-  DeviceBackupService,
-} from "@/modules/network";
+import { DeviceBackupService } from "@/modules/network";
+import { configurationRestoreCreateSchema } from "@/lib/validations/device-backup";
 
 const backupService = new DeviceBackupService();
 

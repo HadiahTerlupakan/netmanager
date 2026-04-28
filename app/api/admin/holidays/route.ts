@@ -1,11 +1,10 @@
-import { randomUUID } from "crypto";
-import { HolidayRepository } from "@/modules/attendance";
+import { AdminHolidayRouteService } from "@/modules/attendance";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import * as z from "zod";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 
-const holidayRepo = new HolidayRepository();
+const holidayService = new AdminHolidayRouteService();
 
 const holidayFilterSchema = z.object({
   year: z.coerce
@@ -46,7 +45,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const tenantId = ctx.session!.user.tenantId;
   if (!tenantId) return ApiErrors.badRequest("Tenant ID tidak ditemukan");
 
-  const holidays = await holidayRepo.getHolidaysByYear(
+  const holidays = await holidayService.getHolidaysByYear(
     parseResult.data.year,
     tenantId,
   );
@@ -70,44 +69,29 @@ export const POST = createHandler(
     const tenantId = ctx.session!.user.tenantId;
     if (!tenantId) return ApiErrors.badRequest("Tenant ID tidak ditemukan");
 
-    try {
-      const holiday = await holidayRepo.create(
-        {
-          id: randomUUID(),
-          date: new Date(date),
-          description,
-          isNational,
-          updatedAt: new Date(),
-        },
-        tenantId,
-      );
-
-      await logger.logActivity({
-        action: "CREATE",
-        subject: "Holiday",
-        details: {
-          id: holiday.id,
-          date: holiday.date,
-          description: holiday.description,
-        },
-        userId: ctx.session!.user.id,
-        tenantId,
-      });
-
-      return apiSuccess(holiday, {
-        status: 201,
-        message: "Hari libur berhasil dibuat",
-      });
-    } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "P2002"
-      ) {
-        return ApiErrors.conflict("Hari libur untuk tanggal ini sudah ada");
-      }
-      throw error;
+    const holiday = await holidayService.createHoliday(
+      { date, description, isNational },
+      tenantId,
+    );
+    if (!holiday) {
+      return ApiErrors.conflict("Hari libur untuk tanggal ini sudah ada");
     }
+
+    await logger.logActivity({
+      action: "CREATE",
+      subject: "Holiday",
+      details: {
+        id: holiday.id,
+        date: holiday.date,
+        description: holiday.description,
+      },
+      userId: ctx.session!.user.id,
+      tenantId,
+    });
+
+    return apiSuccess(holiday, {
+      status: 201,
+      message: "Hari libur berhasil dibuat",
+    });
   },
 );

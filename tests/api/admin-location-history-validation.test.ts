@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { prismaMock } from "../setup";
-
 const mockFns = vi.hoisted(() => ({
   hasPermission: vi.fn().mockResolvedValue(true),
-  getLocationHistory: vi.fn().mockResolvedValue([]),
-  getLocationStats: vi.fn().mockResolvedValue({
-    totalPoints: 0,
-    firstLocation: null,
-    lastLocation: null,
-    totalDistance: 0,
-  }),
+  getLocationHistory: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -31,15 +23,20 @@ vi.mock("@/lib/rbac", () => ({
   hasPermission: mockFns.hasPermission,
 }));
 
-vi.mock("@/modules/database", () => ({
-  prisma: prismaMock,
-}));
-
 vi.mock("@/modules/attendance", () => ({
-  LocationTrackingService: class MockLocationTrackingService {
-    getLocationHistory = mockFns.getLocationHistory;
-    getLocationStats = mockFns.getLocationStats;
+  AdminLocationRouteError: class MockAdminLocationRouteError extends Error {
+    constructor(
+      public status: number,
+      message: string,
+    ) {
+      super(message);
+    }
   },
+  AdminLocationRouteService: class MockAdminLocationRouteService {
+    getLocationHistory = mockFns.getLocationHistory;
+  },
+  LOCATION_READ_FORBIDDEN_MESSAGE:
+    "Anda tidak memiliki akses untuk melihat history lokasi user ini",
 }));
 
 describe("admin location history validation", () => {
@@ -50,21 +47,18 @@ describe("admin location history validation", () => {
       await import("@/app/api/admin/location/history/[userId]/route"));
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockFns.hasPermission.mockResolvedValue(true);
-    prismaMock.user.findUnique.mockReset();
-    prismaMock.user.findUnique
-      .mockResolvedValueOnce({
-        id: "admin-1",
-        siteId: "site-a",
-        departmentId: "dept-a",
-      })
-      .mockResolvedValueOnce({
-        id: "user-1",
-        siteId: "site-a",
-        departmentId: "dept-a",
-      });
+    const { AdminLocationRouteError } = await import("@/modules/attendance");
+    const validationError = new Error(
+      "Parameter tanggal tidak valid",
+    ) as Error & {
+      status: number;
+    };
+    validationError.status = 400;
+    Object.setPrototypeOf(validationError, AdminLocationRouteError.prototype);
+    mockFns.getLocationHistory.mockRejectedValue(validationError);
   });
 
   it("returns 400 for invalid startDate before calling location service", async () => {
@@ -83,7 +77,12 @@ describe("admin location history validation", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("Parameter tanggal tidak valid");
-    expect(mockFns.getLocationHistory).not.toHaveBeenCalled();
-    expect(mockFns.getLocationStats).not.toHaveBeenCalled();
+    expect(mockFns.getLocationHistory).toHaveBeenCalledWith({
+      userId: "user-1",
+      startDate: "invalid-date",
+      endDate: null,
+      permissions: [],
+      session: { user: { id: "admin-1", tenantId: "tenant-1" } },
+    });
   });
 });

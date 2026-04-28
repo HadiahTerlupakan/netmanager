@@ -1,65 +1,69 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { logger } from '@/lib/logger'
+import { NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 /**
  * Request/Response Logging Middleware
- * 
+ *
  * Auto-logging untuk semua API requests dan responses
  * Mencatat: method, path, headers, status, duration, errors
  */
 
 export interface RequestLogOptions {
-  logRequestBody?: boolean
-  logResponseBody?: boolean
-  logHeaders?: boolean
-  excludePaths?: string[]
-  maxBodyLength?: number
+  logRequestBody?: boolean;
+  logResponseBody?: boolean;
+  logHeaders?: boolean;
+  excludePaths?: string[];
+  maxBodyLength?: number;
   /** Enable automatic audit logging to SystemLog for write operations */
-  audit?: boolean
+  audit?: boolean;
 }
 
 const defaultOptions: Required<RequestLogOptions> = {
   logRequestBody: false, // Jangan log body secara default (privacy)
   logResponseBody: false, // Jangan log body secara default (privacy)
   logHeaders: false, // Jangan log headers secara default (privacy)
-  excludePaths: ['/api/health', '/api/docs'], // Exclude health check dari logging
+  excludePaths: ["/api/health", "/api/docs"], // Exclude health check dari logging
   maxBodyLength: 1000, // Max length untuk body logging
   audit: false,
-}
+};
 
 const SENSITIVE_FIELDS = [
-  'password',
-  'apiPassword',
-  'secret',
-  'secretRadius',
-  'token',
-  'accessToken',
-  'refreshToken',
-  'clientSecret',
-]
+  "password",
+  "apiPassword",
+  "secret",
+  "secretRadius",
+  "token",
+  "accessToken",
+  "refreshToken",
+  "clientSecret",
+];
 
 /**
  * Redact sensitive fields from an object recursively
  */
 function redactSensitiveData(data: unknown): unknown {
-  if (!data || typeof data !== 'object') {
-    return data
+  if (!data || typeof data !== "object") {
+    return data;
   }
 
   if (Array.isArray(data)) {
-    return data.map(redactSensitiveData)
+    return data.map(redactSensitiveData);
   }
 
-  const redacted = { ...data as Record<string, unknown> }
+  const redacted = { ...(data as Record<string, unknown>) };
   for (const key in redacted) {
-    if (SENSITIVE_FIELDS.some(field => key.toLowerCase().includes(field.toLowerCase()))) {
-      redacted[key] = '[REDACTED]'
-    } else if (typeof redacted[key] === 'object') {
-      redacted[key] = redactSensitiveData(redacted[key])
+    if (
+      SENSITIVE_FIELDS.some((field) =>
+        key.toLowerCase().includes(field.toLowerCase()),
+      )
+    ) {
+      redacted[key] = "[REDACTED]";
+    } else if (typeof redacted[key] === "object") {
+      redacted[key] = redactSensitiveData(redacted[key]);
     }
   }
 
-  return redacted
+  return redacted;
 }
 
 /**
@@ -67,14 +71,14 @@ function redactSensitiveData(data: unknown): unknown {
  * Focus on Finance, PII, and sensitive records.
  */
 const SENSITIVE_READ_PATHS = [
-  '/api/admin/salary',
-  '/api/admin/pelanggan',
-  '/api/admin/investors',
-  '/api/finance',
-  '/api/mobile/salary',
-  '/api/pelanggan-ppp',
-  '/api/tagihan',
-]
+  "/api/admin/salary",
+  "/api/admin/pelanggan",
+  "/api/admin/investors",
+  "/api/finance",
+  "/api/mobile/salary",
+  "/api/pelanggan-ppp",
+  "/api/tagihan",
+];
 
 /**
  * Log audit activity to SystemLog
@@ -84,52 +88,68 @@ export async function logAuditActivity(
   res: NextResponse,
   userId?: string,
   tenantId?: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<void> {
-  const method = req.method
-  const pathname = req.nextUrl.pathname
-  const status = res.status
+  const method = req.method;
+  const pathname = req.nextUrl.pathname;
+  const status = res.status;
 
   // 1. Determine if this request should be audited
-  const isWriteOp = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
-  const isSensitiveRead = method === 'GET' && SENSITIVE_READ_PATHS.some(path => pathname.startsWith(path))
+  const isWriteOp = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+  const isSensitiveRead =
+    method === "GET" &&
+    SENSITIVE_READ_PATHS.some((path) => pathname.startsWith(path));
 
   // Only audit successful write operations or sensitive reads
   if ((!isWriteOp && !isSensitiveRead) || status >= 400) {
-    return
+    return;
   }
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-             req.headers.get('x-real-ip') || 
-             'unknown'
-  const userAgent = req.headers.get('user-agent') || 'unknown'
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0] ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
+  const userAgent = req.headers.get("user-agent") || "unknown";
 
-  let action = 'UNKNOWN'
+  let action = "UNKNOWN";
   switch (method) {
-    case 'GET': action = 'READ'; break
-    case 'POST': action = 'CREATE'; break
-    case 'PUT':
-    case 'PATCH': action = 'UPDATE'; break
-    case 'DELETE': action = 'DELETE'; break
+    case "GET":
+      action = "READ";
+      break;
+    case "POST":
+      action = "CREATE";
+      break;
+    case "PUT":
+    case "PATCH":
+      action = "UPDATE";
+      break;
+    case "DELETE":
+      action = "DELETE";
+      break;
   }
 
   // Generate subject from path (e.g., /api/mikrotik-routers -> MikroTik Routers)
-  const subject = pathname
-    .split('/')
-    .filter(Boolean)
-    .filter(p => p !== 'api')
-    .map(p => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, ' '))
-    .join(' ') || 'API Action'
+  const subject =
+    pathname
+      .split("/")
+      .filter(Boolean)
+      .filter((p) => p !== "api")
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, " "))
+      .join(" ") || "API Action";
 
-  await logger.logActivity({
-    action,
-    subject,
-    userId,
-    tenantId,
-    ipAddress: ip,
-    userAgent,
-    details: body ? redactSensitiveData(body) as Record<string, unknown> : { path: pathname, status }
-  }).catch(err => console.error('[Audit Log Error]', err))
+  await logger
+    .logActivity({
+      action,
+      subject,
+      userId,
+      tenantId,
+      ipAddress: ip,
+      userAgent,
+      details: body
+        ? (redactSensitiveData(body) as Record<string, unknown>)
+        : { path: pathname, status },
+    })
+    .catch((err) => logger.error("[Audit Log Error]", err));
 }
 
 /**
@@ -137,39 +157,40 @@ export async function logAuditActivity(
  */
 function logRequestInternal(
   req: NextRequest,
-  options: RequestLogOptions = {}
+  options: RequestLogOptions = {},
 ): void {
-  const opts = { ...defaultOptions, ...options }
-  const pathname = req.nextUrl?.pathname || 'unknown'
+  const opts = { ...defaultOptions, ...options };
+  const pathname = req.nextUrl?.pathname || "unknown";
 
   // Skip logging untuk excluded paths
   if (opts.excludePaths.some((path) => pathname.startsWith(path))) {
-    return
+    return;
   }
 
-  const method = req.method || 'UNKNOWN'
-  const url = req.nextUrl?.href || 'unknown'
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-             req.headers.get('x-real-ip') || 
-             'unknown'
+  const method = req.method || "UNKNOWN";
+  const url = req.nextUrl?.href || "unknown";
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0] ||
+    req.headers.get("x-real-ip") ||
+    "unknown";
 
   const logContext: Record<string, unknown> = {
     method,
     path: pathname,
     url,
     ip,
-  }
+  };
 
   // Log headers jika diminta
   if (opts.logHeaders) {
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = {};
     req.headers.forEach((value, key) => {
-      headers[key] = value
-    })
-    logContext.headers = headers
+      headers[key] = value;
+    });
+    logContext.headers = headers;
   }
 
-  logger.info(`→ ${method} ${pathname}`, logContext)
+  logger.info(`→ ${method} ${pathname}`, logContext);
 }
 
 /**
@@ -179,78 +200,81 @@ function logResponseInternal(
   req: NextRequest,
   res: NextResponse,
   duration: number,
-  options: RequestLogOptions = {}
+  options: RequestLogOptions = {},
 ): void {
-  const opts = { ...defaultOptions, ...options }
-  const pathname = req.nextUrl?.pathname || 'unknown'
+  const opts = { ...defaultOptions, ...options };
+  const pathname = req.nextUrl?.pathname || "unknown";
 
   // Skip logging untuk excluded paths
   if (opts.excludePaths.some((path) => pathname.startsWith(path))) {
-    return
+    return;
   }
 
-  const method = req.method || 'UNKNOWN'
-  const status = res.status || 200
+  const method = req.method || "UNKNOWN";
+  const status = res.status || 200;
 
   const logContext: Record<string, unknown> = {
     method,
     path: pathname,
     status,
     duration: `${duration}ms`,
-  }
+  };
 
   // Log response headers jika diminta
   if (opts.logHeaders) {
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = {};
     res.headers.forEach((value, key) => {
-      headers[key] = value
-    })
-    logContext.responseHeaders = headers
+      headers[key] = value;
+    });
+    logContext.responseHeaders = headers;
   }
 
   // Log berdasarkan status code
   if (status >= 500) {
-    logger.error(`← ${method} ${pathname} ${status}`, undefined, logContext)
+    logger.error(`← ${method} ${pathname} ${status}`, undefined, logContext);
   } else if (status >= 400) {
-    logger.warn(`← ${method} ${pathname} ${status}`, logContext)
+    logger.warn(`← ${method} ${pathname} ${status}`, logContext);
   } else {
-    logger.info(`← ${method} ${pathname} ${status}`, logContext)
+    logger.info(`← ${method} ${pathname} ${status}`, logContext);
   }
 }
 
 /**
  * Request Logger Middleware
- * 
+ *
  * Usage di API route:
  * ```ts
  * export async function GET(req: NextRequest) {
  *   const startTime = Date.now()
  *   logRequest(req)
- *   
+ *
  *   // ... your handler logic
- *   
+ *
  *   const response = NextResponse.json({ data: '...' })
  *   logResponse(req, response, Date.now() - startTime)
  *   return response
  * }
  * ```
  */
-export function logRequest(req: NextRequest, options?: RequestLogOptions): void {
-  logRequestInternal(req, options)
+export function logRequest(
+  req: NextRequest,
+  options?: RequestLogOptions,
+): void {
+  logRequestInternal(req, options);
 }
 
 export function logResponse(
   req: NextRequest,
   res: NextResponse,
   duration: number,
-  options?: RequestLogOptions
+  options?: RequestLogOptions,
 ): void {
-  logResponseInternal(req, res, duration, options)
+  logResponseInternal(req, res, duration, options);
 }
 
 /**
  * Helper untuk wrap API handler dengan auto-logging
- * 
+ *
  * Usage:
  * ```ts
  * export const GET = withRequestLogging(async (req: NextRequest) => {
@@ -261,53 +285,49 @@ export function logResponse(
  */
 export function withRequestLogging(
   handler: (req: NextRequest) => Promise<NextResponse>,
-  options?: RequestLogOptions
+  options?: RequestLogOptions,
 ) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const startTime = Date.now()
-    
+    const startTime = Date.now();
+
     try {
       // Log request
-      logRequestInternal(req, options)
-      
+      logRequestInternal(req, options);
+
       // Execute handler
-      const response = await handler(req)
-      
+      const response = await handler(req);
+
       // Log response
-      logResponseInternal(req, response, Date.now() - startTime, options)
-      
-      return response
+      logResponseInternal(req, response, Date.now() - startTime, options);
+
+      return response;
     } catch (error) {
       // Log error
-      const duration = Date.now() - startTime
-      const pathname = req.nextUrl?.pathname || 'unknown'
-      const method = req.method || 'UNKNOWN'
+      const duration = Date.now() - startTime;
+      const pathname = req.nextUrl?.pathname || "unknown";
+      const method = req.method || "UNKNOWN";
 
-      logger.error(
-        `✗ ${method} ${pathname} ERROR`,
-        error as Error,
-        {
-          method,
-          path: pathname,
-          duration: `${duration}ms`,
-        }
-      )
+      logger.error(`✗ ${method} ${pathname} ERROR`, error as Error, {
+        method,
+        path: pathname,
+        duration: `${duration}ms`,
+      });
 
       // Return error response
       const errorResponse = NextResponse.json(
-        { error: (error as Error).message || 'Internal server error' },
-        { status: 500 }
-      )
-      
-      logResponseInternal(req, errorResponse, duration, options)
-      return errorResponse
+        { error: (error as Error).message || "Internal server error" },
+        { status: 500 },
+      );
+
+      logResponseInternal(req, errorResponse, duration, options);
+      return errorResponse;
     }
-  }
+  };
 }
 
 /**
  * Helper untuk log request body (harus dipanggil sebelum body dibaca)
- * 
+ *
  * Usage:
  * ```ts
  * const body = await req.json()
@@ -317,36 +337,34 @@ export function withRequestLogging(
 export function logRequestBody(
   req: NextRequest,
   body: unknown,
-  options?: RequestLogOptions
+  options?: RequestLogOptions,
 ): void {
-  const opts = { ...defaultOptions, ...options }
+  const opts = { ...defaultOptions, ...options };
 
   if (!opts.logRequestBody) {
-    return
+    return;
   }
 
-  const pathname = req.nextUrl?.pathname || 'unknown'
-  const method = req.method || 'UNKNOWN'
+  const pathname = req.nextUrl?.pathname || "unknown";
+  const method = req.method || "UNKNOWN";
 
-  let bodyStr = ''
+  let bodyStr = "";
   try {
-    bodyStr = typeof body === 'string'
-      ? body
-      : JSON.stringify(body)
+    bodyStr = typeof body === "string" ? body : JSON.stringify(body);
 
     // Truncate jika terlalu panjang
     if (bodyStr.length > opts.maxBodyLength) {
-      bodyStr = bodyStr.substring(0, opts.maxBodyLength) + '... (truncated)'
+      bodyStr = bodyStr.substring(0, opts.maxBodyLength) + "... (truncated)";
     }
   } catch (_e) {
-    bodyStr = '[Unable to stringify body]'
+    bodyStr = "[Unable to stringify body]";
   }
 
   logger.debug(`Request body for ${method} ${pathname}`, {
     method,
     path: pathname,
     body: bodyStr,
-  })
+  });
 }
 
 /**
@@ -362,29 +380,27 @@ export function logResponseBody(
   req: NextRequest,
   res: NextResponse,
   body: unknown,
-  options?: RequestLogOptions
+  options?: RequestLogOptions,
 ): void {
-  const opts = { ...defaultOptions, ...options }
+  const opts = { ...defaultOptions, ...options };
 
   if (!opts.logResponseBody) {
-    return
+    return;
   }
 
-  const pathname = req.nextUrl?.pathname || 'unknown'
-  const method = req.method || 'UNKNOWN'
+  const pathname = req.nextUrl?.pathname || "unknown";
+  const method = req.method || "UNKNOWN";
 
-  let bodyStr = ''
+  let bodyStr = "";
   try {
-    bodyStr = typeof body === 'string'
-      ? body
-      : JSON.stringify(body)
+    bodyStr = typeof body === "string" ? body : JSON.stringify(body);
 
     // Truncate jika terlalu panjang
     if (bodyStr.length > opts.maxBodyLength) {
-      bodyStr = bodyStr.substring(0, opts.maxBodyLength) + '... (truncated)'
+      bodyStr = bodyStr.substring(0, opts.maxBodyLength) + "... (truncated)";
     }
   } catch (_e) {
-    bodyStr = '[Unable to stringify body]'
+    bodyStr = "[Unable to stringify body]";
   }
 
   logger.debug(`Response body for ${method} ${pathname}`, {
@@ -392,6 +408,5 @@ export function logResponseBody(
     path: pathname,
     status: res.status,
     body: bodyStr,
-  })
+  });
 }
-

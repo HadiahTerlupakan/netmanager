@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
-import { AttendanceIdempotencyService } from "@/modules/attendance/services/AttendanceIdempotencyService";
-import { AttendanceTimezoneService } from "@/modules/attendance/services/AttendanceTimezoneService";
+import { AttendanceService } from "@/modules/attendance";
+import { AttendanceIdempotencyService } from "@/modules/attendance";
+import { AttendanceTimezoneService } from "@/modules/attendance";
 
 const verifySignatureMock = vi.hoisted(() => vi.fn());
 

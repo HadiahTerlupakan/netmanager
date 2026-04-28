@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { testR2Connection } from "@/lib/utils/r2-client";
 import { decryptApiKey, encryptApiKey } from "@/lib/utils/encryption";
 import { SettingsRepository } from "../repositories/SettingsRepository";
@@ -44,7 +45,7 @@ function getSettingValue(records: SettingsEntity[], key: string): string {
     try {
       return decryptApiKey(setting.value);
     } catch (error) {
-      console.error(
+      logger.error(
         `[apiSettings] Failed to decrypt setting key: ${key}`,
         error,
       );
@@ -206,7 +207,7 @@ async function fetchAvailableGeminiModels(
 
     return "\n\nTidak ada model yang tersedia untuk key ini (Mungkin perlu aktifkan Generative Language API).";
   } catch (error) {
-    console.error("[apiSettings] Failed to list Gemini models", error);
+    logger.error("[apiSettings] Failed to list Gemini models", error);
     return null;
   }
 }
@@ -243,7 +244,7 @@ export async function testGoogleGeminiApiKey(
     try {
       responseBody = await response.json();
     } catch (error) {
-      console.error(
+      logger.error(
         "[apiSettings] Unable to parse Gemini test error response",
         error,
       );
@@ -263,7 +264,7 @@ export async function testGoogleGeminiApiKey(
 
     return { success: false, error: errorMessage };
   } catch (error) {
-    console.error("[apiSettings] Failed to validate Gemini API key", error);
+    logger.error("[apiSettings] Failed to validate Gemini API key", error);
     return {
       success: false,
       error: "Gagal memverifikasi API Key. Silakan coba lagi.",
@@ -297,7 +298,7 @@ export async function testCloudflareR2Connection(
 
     return { success: false, error: error ?? "Koneksi gagal" };
   } catch (error) {
-    console.error("[apiSettings] R2 connection test failed", error);
+    logger.error("[apiSettings] R2 connection test failed", error);
     return { success: false, error: "Koneksi gagal" };
   }
 }

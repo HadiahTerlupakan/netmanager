@@ -1,49 +1,56 @@
-import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
+import { logger } from "@/lib/logger";
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 // Skip rate limiting in development mode
-const isDevelopment = process.env.NODE_ENV === 'development'
-const DISABLE_RATE_LIMIT = process.env.DISABLE_RATE_LIMIT === 'true' || isDevelopment
+const isDevelopment = process.env.NODE_ENV === "development";
+const DISABLE_RATE_LIMIT =
+  process.env.DISABLE_RATE_LIMIT === "true" || isDevelopment;
 
 export interface AdvancedRateLimitOptions {
-  maxRequests: number
-  windowSeconds: number
-  algorithm?: 'fixed-window' | 'sliding-window' | 'token-bucket' | 'exponential-backoff'
-  keyGenerator?: (req: NextRequest) => string
-  skipSuccessfulRequests?: boolean
-  skipFailedRequests?: boolean
-  customResponse?: (retryAfter: number) => NextResponse
-  enableBurstProtection?: boolean
-  burstLimit?: number
+  maxRequests: number;
+  windowSeconds: number;
+  algorithm?:
+    | "fixed-window"
+    | "sliding-window"
+    | "token-bucket"
+    | "exponential-backoff";
+  keyGenerator?: (req: NextRequest) => string;
+  skipSuccessfulRequests?: boolean;
+  skipFailedRequests?: boolean;
+  customResponse?: (retryAfter: number) => NextResponse;
+  enableBurstProtection?: boolean;
+  burstLimit?: number;
 }
 
 interface RateLimitInfo {
-  count: number
-  resetTime: number
-  firstRequest: number
-  lastRequest: number
-  consecutiveHits: number
+  count: number;
+  resetTime: number;
+  firstRequest: number;
+  lastRequest: number;
+  consecutiveHits: number;
 }
 
 // In-memory fallback (for when Redis is unavailable)
-const memoryStore = new Map<string, RateLimitInfo>()
+const memoryStore = new Map<string, RateLimitInfo>();
 
 /**
  * Advanced Rate Limiting dengan multiple algorithms
  */
 export class AdvancedRateLimiter {
-  private algorithm: AdvancedRateLimitOptions['algorithm']
-  private skipSuccessful: boolean
-  private skipFailed: boolean
-  private enableBurstProtection: boolean
-  private burstLimit: number
+  private algorithm: AdvancedRateLimitOptions["algorithm"];
+  private skipSuccessful: boolean;
+  private skipFailed: boolean;
+  private enableBurstProtection: boolean;
+  private burstLimit: number;
 
   constructor(options: Partial<AdvancedRateLimitOptions> = {}) {
-    this.algorithm = options.algorithm || 'sliding-window'
-    this.skipSuccessful = options.skipSuccessfulRequests || false
-    this.skipFailed = options.skipFailedRequests || false
-    this.enableBurstProtection = options.enableBurstProtection || false
-    this.burstLimit = options.burstLimit || Math.floor((options.maxRequests || 100) / 10)
+    this.algorithm = options.algorithm || "sliding-window";
+    this.skipSuccessful = options.skipSuccessfulRequests || false;
+    this.skipFailed = options.skipFailedRequests || false;
+    this.enableBurstProtection = options.enableBurstProtection || false;
+    this.burstLimit =
+      options.burstLimit || Math.floor((options.maxRequests || 100) / 10);
   }
 
   /**
@@ -53,28 +60,63 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    _request: NextRequest
-  ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
+    _request: NextRequest,
+  ): Promise<{
+    allowed: boolean;
+    retryAfter: number;
+    remaining: number;
+    resetTime: number;
+  }> {
     // Skip rate limiting in development mode
     if (DISABLE_RATE_LIMIT) {
-      return { allowed: true, retryAfter: 0, remaining: maxRequests, resetTime: Date.now() + windowSeconds * 1000 }
+      return {
+        allowed: true,
+        retryAfter: 0,
+        remaining: maxRequests,
+        resetTime: Date.now() + windowSeconds * 1000,
+      };
     }
 
     try {
       switch (this.algorithm) {
-        case 'sliding-window':
-          return await this.slidingWindowAlgorithm(key, maxRequests, windowSeconds, _request)
-        case 'token-bucket':
-          return await this.tokenBucketAlgorithm(key, maxRequests, windowSeconds, _request)
-        case 'exponential-backoff':
-          return await this.exponentialBackoffAlgorithm(key, maxRequests, windowSeconds, _request)
+        case "sliding-window":
+          return await this.slidingWindowAlgorithm(
+            key,
+            maxRequests,
+            windowSeconds,
+            _request,
+          );
+        case "token-bucket":
+          return await this.tokenBucketAlgorithm(
+            key,
+            maxRequests,
+            windowSeconds,
+            _request,
+          );
+        case "exponential-backoff":
+          return await this.exponentialBackoffAlgorithm(
+            key,
+            maxRequests,
+            windowSeconds,
+            _request,
+          );
         default:
-          return await this.fixedWindowAlgorithm(key, maxRequests, windowSeconds, _request)
+          return await this.fixedWindowAlgorithm(
+            key,
+            maxRequests,
+            windowSeconds,
+            _request,
+          );
       }
     } catch (error) {
-      console.error('Rate limiting error:', error)
+      logger.error("Rate limiting error:", error);
       // Fail safe - allow request but log the error
-      return { allowed: true, retryAfter: 0, remaining: maxRequests, resetTime: Date.now() + windowSeconds * 1000 }
+      return {
+        allowed: true,
+        retryAfter: 0,
+        remaining: maxRequests,
+        resetTime: Date.now() + windowSeconds * 1000,
+      };
     }
   }
 
@@ -85,13 +127,19 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    _request: NextRequest
-  ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
-    const now = Date.now()
-    const windowStart = Math.floor(now / (windowSeconds * 1000)) * (windowSeconds * 1000)
-    const resetTime = windowStart + (windowSeconds * 1000)
+    _request: NextRequest,
+  ): Promise<{
+    allowed: boolean;
+    retryAfter: number;
+    remaining: number;
+    resetTime: number;
+  }> {
+    const now = Date.now();
+    const windowStart =
+      Math.floor(now / (windowSeconds * 1000)) * (windowSeconds * 1000);
+    const resetTime = windowStart + windowSeconds * 1000;
 
-    let info = memoryStore.get(key)
+    let info = memoryStore.get(key);
 
     if (!info || info.resetTime !== windowStart) {
       info = {
@@ -99,26 +147,26 @@ export class AdvancedRateLimiter {
         resetTime,
         firstRequest: now,
         lastRequest: now,
-        consecutiveHits: 0
-      }
+        consecutiveHits: 0,
+      };
     }
 
-    info.count++
-    info.lastRequest = now
+    info.count++;
+    info.lastRequest = now;
 
     // Check burst protection
     if (this.enableBurstProtection && info.count > this.burstLimit) {
-      const retryAfter = Math.ceil((resetTime - now) / 1000)
-      return { allowed: false, retryAfter, remaining: 0, resetTime }
+      const retryAfter = Math.ceil((resetTime - now) / 1000);
+      return { allowed: false, retryAfter, remaining: 0, resetTime };
     }
 
-    memoryStore.set(key, info)
+    memoryStore.set(key, info);
 
-    const allowed = info.count <= maxRequests
-    const remaining = Math.max(0, maxRequests - info.count)
-    const retryAfter = allowed ? 0 : Math.ceil((resetTime - now) / 1000)
+    const allowed = info.count <= maxRequests;
+    const remaining = Math.max(0, maxRequests - info.count);
+    const retryAfter = allowed ? 0 : Math.ceil((resetTime - now) / 1000);
 
-    return { allowed, retryAfter, remaining, resetTime }
+    return { allowed, retryAfter, remaining, resetTime };
   }
 
   /**
@@ -128,12 +176,17 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    _request: NextRequest
-  ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
-    const now = Date.now()
-    const windowMs = windowSeconds * 1000
+    _request: NextRequest,
+  ): Promise<{
+    allowed: boolean;
+    retryAfter: number;
+    remaining: number;
+    resetTime: number;
+  }> {
+    const now = Date.now();
+    const windowMs = windowSeconds * 1000;
 
-    let info = memoryStore.get(key)
+    let info = memoryStore.get(key);
 
     if (!info) {
       info = {
@@ -141,36 +194,41 @@ export class AdvancedRateLimiter {
         resetTime: now + windowMs,
         firstRequest: now,
         lastRequest: now,
-        consecutiveHits: 0
-      }
+        consecutiveHits: 0,
+      };
     }
 
     // Remove old requests outside the sliding window
-    const cutoff = now - windowMs
+    const cutoff = now - windowMs;
     if (info.firstRequest < cutoff) {
-      info.count = 0
-      info.firstRequest = now
-      info.consecutiveHits = 0
+      info.count = 0;
+      info.firstRequest = now;
+      info.consecutiveHits = 0;
     }
 
-    info.count++
-    info.lastRequest = now
-    info.consecutiveHits++
+    info.count++;
+    info.lastRequest = now;
+    info.consecutiveHits++;
 
     // Check burst protection
     if (this.enableBurstProtection && info.consecutiveHits > this.burstLimit) {
-      const retryAfter = Math.ceil(windowSeconds)
-      return { allowed: false, retryAfter, remaining: 0, resetTime: now + windowMs }
+      const retryAfter = Math.ceil(windowSeconds);
+      return {
+        allowed: false,
+        retryAfter,
+        remaining: 0,
+        resetTime: now + windowMs,
+      };
     }
 
-    info.resetTime = now + windowMs
-    memoryStore.set(key, info)
+    info.resetTime = now + windowMs;
+    memoryStore.set(key, info);
 
-    const allowed = info.count <= maxRequests
-    const remaining = Math.max(0, maxRequests - info.count)
-    const retryAfter = allowed ? 0 : Math.ceil(windowSeconds)
+    const allowed = info.count <= maxRequests;
+    const remaining = Math.max(0, maxRequests - info.count);
+    const retryAfter = allowed ? 0 : Math.ceil(windowSeconds);
 
-    return { allowed, retryAfter, remaining, resetTime: info.resetTime }
+    return { allowed, retryAfter, remaining, resetTime: info.resetTime };
   }
 
   /**
@@ -180,13 +238,18 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    _request: NextRequest
-  ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
-    const now = Date.now()
-    const refillRate = maxRequests / windowSeconds // tokens per second
-    const bucketCapacity = maxRequests
+    _request: NextRequest,
+  ): Promise<{
+    allowed: boolean;
+    retryAfter: number;
+    remaining: number;
+    resetTime: number;
+  }> {
+    const now = Date.now();
+    const refillRate = maxRequests / windowSeconds; // tokens per second
+    const bucketCapacity = maxRequests;
 
-    let info = memoryStore.get(key)
+    let info = memoryStore.get(key);
 
     if (!info) {
       info = {
@@ -194,37 +257,47 @@ export class AdvancedRateLimiter {
         resetTime: now,
         firstRequest: now,
         lastRequest: now,
-        consecutiveHits: 0
-      }
+        consecutiveHits: 0,
+      };
     }
 
     // Refill tokens based on time elapsed
-    const timePassed = (now - info.lastRequest) / 1000
-    const tokensToAdd = Math.floor(timePassed * refillRate)
-    info.count = Math.min(bucketCapacity, info.count + tokensToAdd)
+    const timePassed = (now - info.lastRequest) / 1000;
+    const tokensToAdd = Math.floor(timePassed * refillRate);
+    info.count = Math.min(bucketCapacity, info.count + tokensToAdd);
 
     // Check burst protection
-    if (this.enableBurstProtection && info.consecutiveHits > this.burstLimit && info.count < 1) {
-      const retryAfter = Math.ceil(1 / refillRate) // Time to get 1 token
-      return { allowed: false, retryAfter, remaining: 0, resetTime: now + retryAfter * 1000 }
+    if (
+      this.enableBurstProtection &&
+      info.consecutiveHits > this.burstLimit &&
+      info.count < 1
+    ) {
+      const retryAfter = Math.ceil(1 / refillRate); // Time to get 1 token
+      return {
+        allowed: false,
+        retryAfter,
+        remaining: 0,
+        resetTime: now + retryAfter * 1000,
+      };
     }
 
-    const allowed = info.count >= 1
+    const allowed = info.count >= 1;
     if (allowed) {
-      info.count--
-      info.consecutiveHits++
+      info.count--;
+      info.consecutiveHits++;
     } else {
-      info.consecutiveHits = 0
+      info.consecutiveHits = 0;
     }
 
-    info.lastRequest = now
-    info.resetTime = now + Math.ceil((bucketCapacity - info.count) / refillRate) * 1000
-    memoryStore.set(key, info)
+    info.lastRequest = now;
+    info.resetTime =
+      now + Math.ceil((bucketCapacity - info.count) / refillRate) * 1000;
+    memoryStore.set(key, info);
 
-    const remaining = Math.max(0, info.count)
-    const retryAfter = allowed ? 0 : Math.ceil(1 / refillRate)
+    const remaining = Math.max(0, info.count);
+    const retryAfter = allowed ? 0 : Math.ceil(1 / refillRate);
 
-    return { allowed, retryAfter, remaining, resetTime: info.resetTime }
+    return { allowed, retryAfter, remaining, resetTime: info.resetTime };
   }
 
   /**
@@ -234,112 +307,126 @@ export class AdvancedRateLimiter {
     key: string,
     maxRequests: number,
     windowSeconds: number,
-    _request: NextRequest
-  ): Promise<{ allowed: boolean; retryAfter: number; remaining: number; resetTime: number }> {
-    const now = Date.now()
+    _request: NextRequest,
+  ): Promise<{
+    allowed: boolean;
+    retryAfter: number;
+    remaining: number;
+    resetTime: number;
+  }> {
+    const now = Date.now();
 
-    let info = memoryStore.get(key)
+    let info = memoryStore.get(key);
 
     if (!info) {
       info = {
         count: 0,
-        resetTime: now + (windowSeconds * 1000),
+        resetTime: now + windowSeconds * 1000,
         firstRequest: now,
         lastRequest: now,
-        consecutiveHits: 0
-      }
+        consecutiveHits: 0,
+      };
     }
 
     // Check if we're in backoff period
     if (info.consecutiveHits > 0) {
       const backoffTime = Math.min(
         Math.pow(2, info.consecutiveHits - 1) * 1000, // 2^n seconds, max 1 hour
-        3600 * 1000
-      )
-      const backoffEnd = info.lastRequest + backoffTime
+        3600 * 1000,
+      );
+      const backoffEnd = info.lastRequest + backoffTime;
 
       if (now < backoffEnd) {
-        const retryAfter = Math.ceil((backoffEnd - now) / 1000)
-        return { allowed: false, retryAfter, remaining: 0, resetTime: backoffEnd }
+        const retryAfter = Math.ceil((backoffEnd - now) / 1000);
+        return {
+          allowed: false,
+          retryAfter,
+          remaining: 0,
+          resetTime: backoffEnd,
+        };
       }
     }
 
     // Use sliding window for normal rate limiting
-    const windowMs = windowSeconds * 1000
-    const cutoff = now - windowMs
+    const windowMs = windowSeconds * 1000;
+    const cutoff = now - windowMs;
 
     if (info.firstRequest < cutoff) {
-      info.count = 0
-      info.firstRequest = now
-      info.consecutiveHits = 0
+      info.count = 0;
+      info.firstRequest = now;
+      info.consecutiveHits = 0;
     }
 
-    info.count++
-    info.lastRequest = now
+    info.count++;
+    info.lastRequest = now;
 
-    const allowed = info.count <= maxRequests
+    const allowed = info.count <= maxRequests;
 
     if (!allowed) {
-      info.consecutiveHits++
+      info.consecutiveHits++;
     } else {
-      info.consecutiveHits = 0
+      info.consecutiveHits = 0;
     }
 
-    info.resetTime = now + windowMs
-    memoryStore.set(key, info)
+    info.resetTime = now + windowMs;
+    memoryStore.set(key, info);
 
-    const remaining = Math.max(0, maxRequests - info.count)
-    const retryAfter = allowed ? 0 : Math.ceil(windowSeconds)
+    const remaining = Math.max(0, maxRequests - info.count);
+    const retryAfter = allowed ? 0 : Math.ceil(windowSeconds);
 
-    return { allowed, retryAfter, remaining, resetTime: info.resetTime }
+    return { allowed, retryAfter, remaining, resetTime: info.resetTime };
   }
 
   /**
    * Clean up expired entries
    */
   cleanup(): void {
-    const now = Date.now()
-    const expiredKeys: string[] = []
+    const now = Date.now();
+    const expiredKeys: string[] = [];
 
     for (const [key, info] of memoryStore.entries()) {
-      if (now > info.resetTime + 300000) { // Keep for 5 minutes after expiry
-        expiredKeys.push(key)
+      if (now > info.resetTime + 300000) {
+        // Keep for 5 minutes after expiry
+        expiredKeys.push(key);
       }
     }
 
-    expiredKeys.forEach(key => memoryStore.delete(key))
+    expiredKeys.forEach((key) => memoryStore.delete(key));
   }
 }
 
 // Global rate limiter instance
-const globalRateLimiter = new AdvancedRateLimiter()
+const globalRateLimiter = new AdvancedRateLimiter();
 
 // Run cleanup every 5 minutes
-setInterval(() => {
-  globalRateLimiter.cleanup()
-}, 5 * 60 * 1000)
+setInterval(
+  () => {
+    globalRateLimiter.cleanup();
+  },
+  5 * 60 * 1000,
+);
 
 /**
  * Advanced rate limiting middleware
  */
 export async function advancedRateLimit(
   request: NextRequest,
-  options: AdvancedRateLimitOptions
+  options: AdvancedRateLimitOptions,
 ): Promise<NextResponse | null> {
   try {
     const {
       maxRequests,
       windowSeconds,
-      algorithm = 'sliding-window',
+      algorithm = "sliding-window",
       keyGenerator = defaultKeyGenerator,
       customResponse,
       enableBurstProtection = false,
-      burstLimit = Math.floor(maxRequests / 10)
-    } = options
+      burstLimit = Math.floor(maxRequests / 10),
+    } = options;
 
-    const key = keyGenerator(request)
+    const key = keyGenerator(request);
     if (!key) {
-      return null
+      return null;
     }
 
     // Use appropriate rate limiter instance
@@ -348,45 +435,56 @@ export async function advancedRateLimit(
       enableBurstProtection,
       burstLimit,
       skipSuccessfulRequests: options.skipSuccessfulRequests ?? false,
-      skipFailedRequests: options.skipFailedRequests ?? false
-    })
+      skipFailedRequests: options.skipFailedRequests ?? false,
+    });
 
-    const result = await rateLimiter.checkRateLimit(key, maxRequests, windowSeconds, request)
+    const result = await rateLimiter.checkRateLimit(
+      key,
+      maxRequests,
+      windowSeconds,
+      request,
+    );
 
     if (!result.allowed) {
       if (customResponse) {
-        return customResponse(result.retryAfter)
+        return customResponse(result.retryAfter);
       }
 
-      return NextResponse.json({
-        error: 'Rate limit exceeded',
-        message: 'Too many requests. Please try again later.',
-        retryAfter: result.retryAfter,
-        limit: maxRequests,
-        window: windowSeconds,
-        remaining: result.remaining
-      }, {
-        status: 429,
-        headers: {
-          'Retry-After': String(result.retryAfter),
-          'X-RateLimit-Limit': String(maxRequests),
-          'X-RateLimit-Remaining': String(result.remaining),
-          'X-RateLimit-Reset': String(Math.ceil(result.resetTime / 1000)),
-          'X-RateLimit-Window': String(windowSeconds)
-        }
-      })
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          message: "Too many requests. Please try again later.",
+          retryAfter: result.retryAfter,
+          limit: maxRequests,
+          window: windowSeconds,
+          remaining: result.remaining,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(result.retryAfter),
+            "X-RateLimit-Limit": String(maxRequests),
+            "X-RateLimit-Remaining": String(result.remaining),
+            "X-RateLimit-Reset": String(Math.ceil(result.resetTime / 1000)),
+            "X-RateLimit-Window": String(windowSeconds),
+          },
+        },
+      );
     }
 
     // Add rate limit headers to successful responses
-    const responseHeaders = new Headers()
-    responseHeaders.set('X-RateLimit-Limit', String(maxRequests))
-    responseHeaders.set('X-RateLimit-Remaining', String(result.remaining))
-    responseHeaders.set('X-RateLimit-Reset', String(Math.ceil(result.resetTime / 1000)))
+    const responseHeaders = new Headers();
+    responseHeaders.set("X-RateLimit-Limit", String(maxRequests));
+    responseHeaders.set("X-RateLimit-Remaining", String(result.remaining));
+    responseHeaders.set(
+      "X-RateLimit-Reset",
+      String(Math.ceil(result.resetTime / 1000)),
+    );
 
-    return null
+    return null;
   } catch (error) {
-    console.error('Advanced rate limit error:', error)
-    return null
+    logger.error("Advanced rate limit error:", error);
+    return null;
   }
 }
 
@@ -395,19 +493,22 @@ export async function advancedRateLimit(
  */
 function defaultKeyGenerator(request: NextRequest): string {
   // Try to get user ID first for more specific rate limiting
-  const userId = request.headers.get('x-user-id') ||
-    request.cookies.get('user-id')?.value ||
-    request.cookies.get('next-auth.session-token')?.value
+  const userId =
+    request.headers.get("x-user-id") ||
+    request.cookies.get("user-id")?.value ||
+    request.cookies.get("next-auth.session-token")?.value;
 
   if (userId) {
-    return `rate-limit:user:${crypto.createHash('sha256').update(userId).digest('hex').substring(0, 16)}`
+    return `rate-limit:user:${crypto.createHash("sha256").update(userId).digest("hex").substring(0, 16)}`;
   }
 
   // Fallback to IP address
-  const forwarded = request.headers.get('x-forwarded-for')
-  const clientIp = forwarded ? forwarded.split(',')[0].trim() : request.headers.get('x-real-ip') || 'unknown'
+  const forwarded = request.headers.get("x-forwarded-for");
+  const clientIp = forwarded
+    ? forwarded.split(",")[0].trim()
+    : request.headers.get("x-real-ip") || "unknown";
 
-  return `rate-limit:ip:${crypto.createHash('sha256').update(clientIp).digest('hex').substring(0, 16)}`
+  return `rate-limit:ip:${crypto.createHash("sha256").update(clientIp).digest("hex").substring(0, 16)}`;
 }
 
 /**
@@ -417,42 +518,42 @@ export const rateLimiters = {
   authentication: {
     maxRequests: 5,
     windowSeconds: 300, // 5 per 5 minutes
-    algorithm: 'exponential-backoff' as const,
+    algorithm: "exponential-backoff" as const,
     enableBurstProtection: true,
-    burstLimit: 2
+    burstLimit: 2,
   },
 
   api: {
     maxRequests: 100,
     windowSeconds: 60, // 100 per minute
-    algorithm: 'sliding-window' as const,
+    algorithm: "sliding-window" as const,
     enableBurstProtection: true,
-    burstLimit: 20
+    burstLimit: 20,
   },
 
   fileUpload: {
     maxRequests: 10,
     windowSeconds: 300, // 10 per 5 minutes
-    algorithm: 'token-bucket' as const,
+    algorithm: "token-bucket" as const,
     enableBurstProtection: true,
-    burstLimit: 3
+    burstLimit: 3,
   },
 
   financial: {
     maxRequests: 50,
     windowSeconds: 60, // 50 per minute
-    algorithm: 'sliding-window' as const,
+    algorithm: "sliding-window" as const,
     enableBurstProtection: true,
-    burstLimit: 10
+    burstLimit: 10,
   },
 
   admin: {
     maxRequests: 200,
     windowSeconds: 60, // 200 per minute
-    algorithm: 'token-bucket' as const,
+    algorithm: "token-bucket" as const,
     enableBurstProtection: true,
-    burstLimit: 40
-  }
-}
+    burstLimit: 40,
+  },
+};
 
-export default AdvancedRateLimiter
+export default AdvancedRateLimiter;

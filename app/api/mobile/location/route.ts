@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(null, { message: "Lokasi tersimpan" });
   } catch (error: unknown) {
-    console.error(`[API][${timestamp}] ❌ Error saving location:`, error);
+    logger.error(`[API][${timestamp}] ❌ Error saving location:`, error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

@@ -1,74 +1,113 @@
-'use client'
-import Image from 'next/image';
+"use client";
+import Image from "next/image";
 
-import { useState } from 'react'
-import { FiCalendar, FiPackage, FiHome, FiUser, FiEdit3, FiPaperclip, FiCamera, FiCheckCircle, FiAlertTriangle, FiXCircle, FiMinusCircle, FiFileText, FiZoomIn } from 'react-icons/fi'
-import { Button } from '@/components/ui/Button'
-import { Modal, ModalFooter } from '@/components/ui/Modal'
-import { ImageLightbox } from '@/components/ui/ImageLightbox'
-import { getKondisiBadge, formatInventoryDate } from '@/lib/utils/inventory-helpers'
+import { useState } from "react";
+import {
+  FiCalendar,
+  FiPackage,
+  FiHome,
+  FiUser,
+  FiEdit3,
+  FiPaperclip,
+  FiCamera,
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiXCircle,
+  FiMinusCircle,
+  FiFileText,
+  FiZoomIn,
+} from "react-icons/fi";
+import { Button } from "@/components/ui/Button";
+import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
+import {
+  getKondisiBadge,
+  formatInventoryDate,
+} from "@/lib/utils/inventory-helpers";
+import { clientLogger } from "@/lib/client-logger";
 
 interface BarangKeluar {
-  id: string
-  barangId: string
-  gudangId: string
-  jumlah: number
-  kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
-  isHilang?: boolean
-  keterangan: string | null
-  tanggal: string
-  createdAt: string
-  employeeId?: string | null
-  purpose?: string | null
-  fotoBukti: string[]
+  id: string;
+  barangId: string;
+  gudangId: string;
+  jumlah: number;
+  kondisi: "BARU" | "BEKAS" | "RUSAK";
+  isHilang?: boolean;
+  keterangan: string | null;
+  tanggal: string;
+  createdAt: string;
+  employeeId?: string | null;
+  purpose?: string | null;
+  fotoBukti: string[];
   fotoMetadata?: {
-    uploadedAt?: string
-    [key: string]: unknown
-  }
+    uploadedAt?: string;
+    [key: string]: unknown;
+  };
   barang: {
-    id: string
-    kode: string
-    nama: string
-    satuan: string
-  }
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+  };
   gudang: {
-    id: string
-    kode: string
-    nama: string
-  }
+    id: string;
+    kode: string;
+    nama: string;
+  };
   user?: {
-    id: string
-    name: string | null
-    email: string
-  } | null
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
 }
 
 interface DetailKeluarModalProps {
-  keluar: BarangKeluar | null
-  isOpen: boolean
-  onClose: () => void
-  onEdit?: ((keluar: BarangKeluar) => void) | undefined
+  keluar: BarangKeluar | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onEdit?: ((keluar: BarangKeluar) => void) | undefined;
 }
 
-export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKeluarModalProps) {
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState(0)
+export function DetailKeluarModal({
+  keluar,
+  isOpen,
+  onClose,
+  onEdit,
+}: DetailKeluarModalProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  if (!isOpen || !keluar) return null
+  if (!isOpen || !keluar) return null;
 
   const openLightbox = (index: number) => {
-    setLightboxIndex(index)
-    setLightboxOpen(true)
-  }
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   const getKondisiLabel = (kondisi: string) => {
     switch (kondisi) {
-      case 'BARU': return <span className="flex items-center gap-1"><FiCheckCircle className="w-3 h-3" /> Baru</span>
-      case 'BEKAS': return <span className="flex items-center gap-1"><FiAlertTriangle className="w-3 h-3" /> Bekas</span>
-      case 'RUSAK': return <span className="flex items-center gap-1"><FiXCircle className="w-3 h-3" /> Rusak</span>
-      default: return kondisi
+      case "BARU":
+        return (
+          <span className="flex items-center gap-1">
+            <FiCheckCircle className="w-3 h-3" /> Baru
+          </span>
+        );
+      case "BEKAS":
+        return (
+          <span className="flex items-center gap-1">
+            <FiAlertTriangle className="w-3 h-3" /> Bekas
+          </span>
+        );
+      case "RUSAK":
+        return (
+          <span className="flex items-center gap-1">
+            <FiXCircle className="w-3 h-3" /> Rusak
+          </span>
+        );
+      default:
+        return kondisi;
     }
-  }
+  };
 
   return (
     <Modal
@@ -108,23 +147,37 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Kode Barang</label>
-              <p className="font-medium text-gray-900 dark:text-white">{keluar.barang.kode}</p>
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Kode Barang
+              </label>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {keluar.barang.kode}
+              </p>
             </div>
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Nama Barang</label>
-              <p className="font-medium text-gray-900 dark:text-white">{keluar.barang.nama}</p>
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Nama Barang
+              </label>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {keluar.barang.nama}
+              </p>
             </div>
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Jumlah</label>
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Jumlah
+              </label>
               <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
                 -{keluar.jumlah} {keluar.barang.satuan}
               </p>
             </div>
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Kondisi</label>
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Kondisi
+              </label>
               <div className="mt-1 flex flex-col gap-1">
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiBadge(keluar.kondisi)}`}>
+                <span
+                  className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getKondisiBadge(keluar.kondisi)}`}
+                >
                   {getKondisiLabel(keluar.kondisi)}
                 </span>
                 {keluar.isHilang && (
@@ -145,12 +198,20 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Kode Gudang</label>
-              <p className="font-medium text-gray-900 dark:text-white">{keluar.gudang.kode}</p>
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Kode Gudang
+              </label>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {keluar.gudang.kode}
+              </p>
             </div>
             <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Nama Gudang</label>
-              <p className="font-medium text-gray-900 dark:text-white">{keluar.gudang.nama}</p>
+              <label className="text-sm text-gray-600 dark:text-gray-400">
+                Nama Gudang
+              </label>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {keluar.gudang.nama}
+              </p>
             </div>
           </div>
         </div>
@@ -164,7 +225,7 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           {keluar.user ? (
             <div>
               <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                <FiUser className="w-4 h-4" /> {keluar.user.name || 'Unknown'}
+                <FiUser className="w-4 h-4" /> {keluar.user.name || "Unknown"}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {keluar.user.email}
@@ -189,7 +250,10 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
               )}
               {keluar.purpose && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                  <span className="font-medium flex items-center gap-1"><FiFileText className="w-3 h-3" /> Tujuan: </span>{keluar.purpose}
+                  <span className="font-medium flex items-center gap-1">
+                    <FiFileText className="w-3 h-3" /> Tujuan:{" "}
+                  </span>
+                  {keluar.purpose}
                 </div>
               )}
             </div>
@@ -207,7 +271,12 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
               <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
                 <span>{keluar.fotoBukti.length} foto terlampir</span>
                 {keluar.fotoMetadata && (
-                  <span>Diupload: {formatInventoryDate(keluar.fotoMetadata.uploadedAt || keluar.createdAt)}</span>
+                  <span>
+                    Diupload:{" "}
+                    {formatInventoryDate(
+                      keluar.fotoMetadata.uploadedAt || keluar.createdAt,
+                    )}
+                  </span>
                 )}
               </div>
 
@@ -220,16 +289,16 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
                       className="group relative overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors h-48"
                       onClick={() => openLightbox(index)}
                     >
-                      <Image 
+                      <Image
                         fill
                         sizes="(max-width: 640px) 100vw, 300px"
                         src={url}
                         alt={`Foto bukti ${index + 1}`}
                         className="object-contain bg-white dark:bg-gray-900"
                         onError={(e) => {
-                          console.error('Failed to load image:', url);
+                          clientLogger.error("Failed to load image:", url);
                           const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
+                          target.style.display = "none";
                           target.parentElement!.innerHTML = `
                             <div class="flex flex-col items-center justify-center h-48 text-gray-400">
                               <svg class="h-12 w-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -255,7 +324,9 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           ) : (
             <div className="text-center py-6 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <FiCamera className="h-8 w-8 mx-auto text-gray-400 dark:text-gray-500 mb-2" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">Tidak ada foto bukti</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Tidak ada foto bukti
+              </p>
             </div>
           )}
         </div>
@@ -271,16 +342,14 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
       </div>
 
       <ModalFooter>
-        <Button variant="secondary"
-          onClick={onClose}
-          
-        >
+        <Button variant="secondary" onClick={onClose}>
           Tutup
         </Button>
         {onEdit && (
-          <Button onClick={() => {
-              onEdit(keluar)
-              onClose()
+          <Button
+            onClick={() => {
+              onEdit(keluar);
+              onClose();
             }}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center"
           >
@@ -289,6 +358,6 @@ export function DetailKeluarModal({ keluar, isOpen, onClose, onEdit }: DetailKel
           </Button>
         )}
       </ModalFooter>
-    </Modal >
-  )
+    </Modal>
+  );
 }

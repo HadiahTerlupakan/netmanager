@@ -5,7 +5,7 @@ import { logActivitySafe } from "@/lib/logger";
 import {
   attendanceBulkDeleteSchema,
   attendanceFilterSchema,
-} from "@/modules/attendance";
+} from "@/lib/validations/attendance";
 import { hasPermission } from "@/lib/rbac";
 import { AdminAttendanceRouteService } from "@/modules/attendance";
 

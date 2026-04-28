@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse, NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -45,7 +46,7 @@ export async function PUT(
       message: "Tenant updated successfully",
     });
   } catch (error: unknown) {
-    console.error("[TENANT_PUT]", error);
+    logger.error("[TENANT_PUT]", error);
     const message =
       error instanceof Error
         ? error.message
@@ -77,7 +78,7 @@ export async function DELETE(
       message: "Tenant deleted successfully",
     });
   } catch (error: unknown) {
-    console.error("[TENANT_DELETE]", error);
+    logger.error("[TENANT_DELETE]", error);
     return apiError(
       tenantRouteErrorMessages.TENANT_DELETE_FAILED,
       ErrorCodes.INTERNAL_ERROR,

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const globalChat = await chatService.getGlobalChat(userId, tenantId);
     return NextResponse.json({ success: true, data: globalChat });
   } catch (error: unknown) {
-    console.error("Error getting global chat:", error);
+    logger.error("Error getting global chat:", error);
 
     if (
       error instanceof Error &&

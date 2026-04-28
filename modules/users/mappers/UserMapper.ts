@@ -211,6 +211,7 @@ export class UserMapper {
       phone: entity.phone,
       isActive: entity.isActive,
       isSales: entity.isSales,
+      isAttendanceRequired: entity.isAttendanceRequired,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
       role: entity.role ?? null,

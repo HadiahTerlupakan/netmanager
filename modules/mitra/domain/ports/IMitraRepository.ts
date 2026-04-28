@@ -1,6 +1,8 @@
 import type {
   FaceVerificationLogListEntity,
   MitraEntity,
+  MitraIdCardEntity,
+  MitraIdCardTitleEntity,
   MitraListEntity,
   MitraPushTokenEntity,
   MitraStatsEntity,
@@ -58,6 +60,12 @@ export interface IMitraRepository {
 
   /** Mengambil ringkasan mitra untuk kebutuhan canvasing. */
   findCanvasingSummary(id: string): Promise<MitraSummaryEntity | null>;
+
+  /** Mengambil data mitra aktif untuk ID card publik. */
+  findIdCardById(id: string): Promise<MitraIdCardEntity | null>;
+
+  /** Mengambil nama mitra untuk metadata ID card. */
+  findIdCardTitleById(id: string): Promise<MitraIdCardTitleEntity | null>;
 
   /** Mengambil daftar mitra dengan filter dan paginasi. */
   findAll(

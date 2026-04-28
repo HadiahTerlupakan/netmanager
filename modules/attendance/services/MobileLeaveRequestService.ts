@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { LeaveStatus, LeaveType, Prisma } from "@prisma/client";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
@@ -197,12 +198,12 @@ export class MobileLeaveRequestService {
           });
         }
       } catch (error) {
-        console.error("Failed to notify admins", error);
+        logger.error("Failed to notify admins", error);
       }
 
       return requestData;
     } catch (error: unknown) {
-      console.error("Leave request error:", error);
+      logger.error("Leave request error:", error);
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
         { status: 500 },

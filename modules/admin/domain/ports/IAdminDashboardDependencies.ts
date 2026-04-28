@@ -1,4 +1,9 @@
-import type { MikroTikRouterStatistics } from "@/modules/network";
+export type DashboardMikroTikRouterStatistics = {
+  total: number;
+  online: number;
+  offline: number;
+  totalUserOnline: number;
+};
 
 export type DashboardTenantInput = {
   tenantId: string;
@@ -136,5 +141,5 @@ export interface IMikroTikStatisticsRepository {
   getStatistics(
     tenantId: string,
     siteId?: string,
-  ): Promise<MikroTikRouterStatistics>;
+  ): Promise<DashboardMikroTikRouterStatistics>;
 }

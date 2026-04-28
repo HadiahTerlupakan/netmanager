@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // Duitku Payment Provider Implementation
 
 import crypto from "crypto";
@@ -87,7 +88,7 @@ export class DuitkuProvider implements PaymentProvider {
         };
       }
     } catch (error: unknown) {
-      console.error("Duitku createPayment error:", error);
+      logger.error("Duitku createPayment error:", error);
       const message =
         error instanceof Error ? error.message : "Failed to create payment";
       return {
@@ -163,7 +164,7 @@ export class DuitkuProvider implements PaymentProvider {
         transactionId: result.reference,
       };
     } catch (error: unknown) {
-      console.error("Duitku checkStatus error:", error);
+      logger.error("Duitku checkStatus error:", error);
       throw error;
     }
   }
@@ -171,7 +172,6 @@ export class DuitkuProvider implements PaymentProvider {
   async cancelPayment(_orderId: string): Promise<void> {
     // Duitku doesn't have explicit cancel endpoint
     // Transactions automatically expire after expiry period
-    // console.log(`Duitku: Payment ${orderId} will auto-expire`)
   }
 
   verifyWebhook(
@@ -196,7 +196,7 @@ export class DuitkuProvider implements PaymentProvider {
 
       return payload.signature === expectedSignature;
     } catch (error) {
-      console.error("Duitku webhook verification error:", error);
+      logger.error("Duitku webhook verification error:", error);
       return false;
     }
   }
@@ -236,7 +236,7 @@ export class DuitkuProvider implements PaymentProvider {
         raw: payload,
       };
     } catch (error: unknown) {
-      console.error("Duitku processWebhook error:", error);
+      logger.error("Duitku processWebhook error:", error);
       throw error;
     }
   }

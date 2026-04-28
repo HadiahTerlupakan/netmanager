@@ -26,7 +26,7 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
-import { runProcessAbsenceCron } from "@/modules/attendance/services/ProcessAbsenceCronService";
+import { runProcessAbsenceCron } from "@/modules/attendance";
 
 describe("runProcessAbsenceCron", () => {
   beforeEach(() => {

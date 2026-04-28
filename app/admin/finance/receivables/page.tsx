@@ -1,33 +1,10 @@
-import { prismaBilling } from '@/modules/database';
-import ReceivablesClient from './ReceivablesClient'
+import { receivablesPageService } from "@/modules/finance";
+import ReceivablesClient from "./ReceivablesClient";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function ReceivablesPage() {
-  const receivables = await prismaBilling.invoice.findMany({
-    orderBy: {
-      dueDate: 'desc'
-    },
-    include: {
-      payment: true
-    }
-  })
+  const receivables = await receivablesPageService.getReceivables();
 
-  // Basic serialization if needed (BigInt handling)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formattedData = receivables.map((inv: any) => ({
-    ...inv,
-    totalAmount: Number(inv.totalAmount),
-    paidAmount: Number(inv.paidAmount),
-    subtotal: Number(inv.subtotal),
-    taxAmount: Number(inv.taxAmount),
-    discountAmount: Number(inv.discountAmount),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payment: inv.payment?.map((p: any) => ({
-      ...p,
-      amount: Number(p.amount)
-    })) || []
-  }))
-
-  return <ReceivablesClient initialData={formattedData} />
+  return <ReceivablesClient initialData={receivables} />;
 }

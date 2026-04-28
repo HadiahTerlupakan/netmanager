@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { runWorkOrderReminderCron } from "@/modules/work-order";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(await runWorkOrderReminderCron());
   } catch (error: unknown) {
-    console.error("[Cron WO Reminder] Error:", error);
+    logger.error("[Cron WO Reminder] Error:", error);
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return ApiErrors.internalError(message);

@@ -1,8 +1,10 @@
+import { logger } from "@/lib/logger";
 import { OvertimeStatus } from "@prisma/client";
 
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { AttendanceRepository, HolidayRepository } from "@/modules/attendance";
-import { UserRepository } from "@/modules/users";
+import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
+import { HolidayRepository } from "@/modules/attendance/repositories/HolidayRepository";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 
 import { createNotification } from "../../notification/services/NotificationService";
 import type {
@@ -348,7 +350,7 @@ export class OvertimeService {
         });
       }
     } catch (error) {
-      console.error("Failed to send notification:", error);
+      logger.error("Failed to send notification:", error);
     }
   }
 
@@ -488,7 +490,7 @@ export class OvertimeService {
       return;
     }
 
-    console.warn(
+    logger.warn(
       `[Overtime] User ${userId} starting overtime without regular attendance`,
     );
   }
@@ -517,7 +519,7 @@ export class OvertimeService {
     }
 
     const shortfall = (targetHours - durationHours).toFixed(1);
-    console.warn(
+    logger.warn(
       `[Overtime] User ${userId} starting overtime with incomplete regular shift: ${durationHours.toFixed(1)}h worked vs ${targetHours}h target (shortfall: ${shortfall}h)`,
     );
   }
@@ -579,7 +581,7 @@ export class OvertimeService {
     overtimeId: string,
     error: unknown,
   ): void {
-    console.error(
+    logger.error(
       `[Overtime] Failed to ${action} auto checkout for ${overtimeId}`,
       error,
     );
@@ -669,7 +671,7 @@ export class OvertimeService {
         tenantId: result.tenantId || undefined,
       });
     } catch (error) {
-      console.error("Failed to send notification:", error);
+      logger.error("Failed to send notification:", error);
     }
   }
 
@@ -691,7 +693,7 @@ export class OvertimeService {
         tenantId: result.tenantId || undefined,
       });
     } catch (error) {
-      console.error("Failed to send notification:", error);
+      logger.error("Failed to send notification:", error);
     }
   }
 }

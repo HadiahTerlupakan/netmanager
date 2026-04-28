@@ -1,7 +1,7 @@
-import { prismaBilling } from "@/modules/database";
+import { prisma, prismaBilling } from "@/modules/database";
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { MitraType, type Prisma } from "@prisma/client-mitra";
-import { createInsensitiveContainsFilter } from "@/modules/finance";
+import { createInsensitiveContainsFilter } from "@/modules/finance/utils/prisma-search-filters";
 import type {
   CreateMitraDTO,
   MitraFilters,
@@ -100,6 +100,29 @@ export class MitraRepository implements IMitraRepository {
     });
 
     return mitra ? toMitraSummaryEntity(mitra) : null;
+  }
+
+  /** Mengambil data mitra aktif untuk ID card publik. */
+  async findIdCardById(id: string) {
+    const mitra = await prismaMitra.mitra.findFirst({
+      where: { id, isActive: true },
+      select: this.getMitraIdCardSelect(),
+    });
+
+    if (!mitra) {
+      return null;
+    }
+
+    const site = await this.findSiteName(mitra.siteId);
+    return { ...mitra, site };
+  }
+
+  /** Mengambil nama mitra untuk metadata ID card. */
+  findIdCardTitleById(id: string) {
+    return prismaMitra.mitra.findUnique({
+      where: { id },
+      select: { name: true },
+    });
   }
 
   /** Mengambil daftar mitra dengan filter dan paginasi. */
@@ -341,6 +364,30 @@ export class MitraRepository implements IMitraRepository {
   ) {
     if (feeRate <= 0) return 0;
     return Math.floor(remainingFeePelanggan / feeRate);
+  }
+
+  private getMitraIdCardSelect() {
+    return {
+      id: true,
+      name: true,
+      mitraType: true,
+      nik: true,
+      fotoDiri: true,
+      phone: true,
+      createdAt: true,
+      siteId: true,
+    } as const;
+  }
+
+  private async findSiteName(siteId: string | null) {
+    if (!siteId) {
+      return null;
+    }
+
+    return prisma.sites.findUnique({
+      where: { id: siteId },
+      select: { name: true },
+    });
   }
 
   private getMitraListSelect() {

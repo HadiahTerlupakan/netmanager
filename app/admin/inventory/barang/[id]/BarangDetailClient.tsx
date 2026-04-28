@@ -1,108 +1,117 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import Link from 'next/link'
+import { clientLogger } from "@/lib/client-logger";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import {
   FiArrowLeft,
   FiEdit,
   FiEye,
   FiDownload,
   FiUpload,
-  FiClipboard
-} from 'react-icons/fi'
-import ResponsiveTable from '@/components/ui/ResponsiveTable'
-import { usePermission } from '@/hooks/use-permission'
+  FiClipboard,
+} from "react-icons/fi";
+import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import { usePermission } from "@/hooks/use-permission";
 
 interface Gudang {
-  kode: string
-  nama: string
+  kode: string;
+  nama: string;
 }
 
 interface RawBarangGudang {
-  gudangId: string
-  gudang?: Gudang
-  stok: number
+  gudangId: string;
+  gudang?: Gudang;
+  stok: number;
 }
 
 interface BarangGudang {
-  gudangId: string
-  gudangKode: string
-  gudangNama: string
-  stok: number
+  gudangId: string;
+  gudangKode: string;
+  gudangNama: string;
+  stok: number;
 }
 
 interface BarangDetail {
-  id: string
-  kode: string
-  nama: string
-  satuan: string
-  stockPerGudang?: BarangGudang[]
-  barangGudang?: RawBarangGudang[]
-  stok?: RawBarangGudang[]
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
+  stockPerGudang?: BarangGudang[];
+  barangGudang?: RawBarangGudang[];
+  stok?: RawBarangGudang[];
 }
 
 export function ClientComponent() {
-  const params = useParams()
-  const { hasPermission } = usePermission()
+  const params = useParams();
+  const { hasPermission } = usePermission();
 
   // Permission checks
-  const canUpdate = hasPermission('barang:update')
-  const canCreateMasuk = hasPermission('masuk:create') || hasPermission('stockmasuk:create')
-  const canCreateKeluar = hasPermission('keluar:create') || hasPermission('stockkeluar:create')
-  const canCreateOpname = hasPermission('opname:create') || hasPermission('stockopname:create')
+  const canUpdate = hasPermission("barang:update");
+  const canCreateMasuk =
+    hasPermission("masuk:create") || hasPermission("stockmasuk:create");
+  const canCreateKeluar =
+    hasPermission("keluar:create") || hasPermission("stockkeluar:create");
+  const canCreateOpname =
+    hasPermission("opname:create") || hasPermission("stockopname:create");
 
-  const [barang, setBarang] = useState<BarangDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [barang, setBarang] = useState<BarangDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function fetchBarang() {
       try {
-        const response = await fetch(`/api/inventory/barang/${params.id}`)
+        const response = await fetch(`/api/inventory/barang/${params.id}`);
 
         if (!response.ok) {
-          throw new Error('Barang tidak ditemukan')
+          throw new Error("Barang tidak ditemukan");
         }
 
-        const jsonResponse = await response.json()
+        const jsonResponse = await response.json();
         // Handle standard apiSuccess format { success: true, data: { barang: ... } }
-        const barangData = jsonResponse.data?.barang || jsonResponse.barang || jsonResponse
+        const barangData =
+          jsonResponse.data?.barang || jsonResponse.barang || jsonResponse;
 
         // Map barangGudang to stockPerGudang if needed
-        const rawStock = barangData.barangGudang || barangData.stok || []
+        const rawStock = barangData.barangGudang || barangData.stok || [];
         if (!barangData.stockPerGudang) {
           barangData.stockPerGudang = rawStock.map((s: RawBarangGudang) => ({
             gudangId: s.gudangId,
-            gudangKode: s.gudang?.kode || '-',
-            gudangNama: s.gudang?.nama || '-',
-            stok: s.stok || 0
-          }))
+            gudangKode: s.gudang?.kode || "-",
+            gudangNama: s.gudang?.nama || "-",
+            stok: s.stok || 0,
+          }));
         }
 
-        setBarang(barangData)
+        setBarang(barangData);
       } catch (error: unknown) {
-        console.error('Error fetching barang:', error)
-        setError(error instanceof Error ? error.message : 'Gagal memuat data barang')
+        clientLogger.error("Error fetching barang:", error);
+        setError(
+          error instanceof Error ? error.message : "Gagal memuat data barang",
+        );
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
     if (params.id) {
-      fetchBarang()
+      fetchBarang();
     }
-  }, [params.id])
+  }, [params.id]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Memuat data barang...</p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Memuat data barang...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -121,20 +130,24 @@ export function ClientComponent() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!barang) {
-    return null
+    return null;
   }
 
   const getStockStatusColor = (stock: number) => {
-    if (stock === 0) return 'bg-red-100 text-red-800'
-    if (stock < 5) return 'bg-yellow-100 text-yellow-800'
-    return 'bg-green-100 text-green-800'
-  }
+    if (stock === 0) return "bg-red-100 text-red-800";
+    if (stock < 5) return "bg-yellow-100 text-yellow-800";
+    return "bg-green-100 text-green-800";
+  };
 
-  const totalStock = barang.stockPerGudang?.reduce((sum: number, stock: BarangGudang) => sum + stock.stok, 0) || 0
+  const totalStock =
+    barang.stockPerGudang?.reduce(
+      (sum: number, stock: BarangGudang) => sum + stock.stok,
+      0,
+    ) || 0;
 
   return (
     <div className="space-y-6">
@@ -184,7 +197,9 @@ export function ClientComponent() {
                     Total Stok
                   </dt>
                   <dd className="flex items-baseline">
-                    <div className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(totalStock)}`}>
+                    <div
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(totalStock)}`}
+                    >
                       {totalStock} {barang.satuan}
                     </div>
                   </dd>
@@ -199,7 +214,9 @@ export function ClientComponent() {
             <div className="flex items-center">
               <div className="shrink-0">
                 <div className="h-6 w-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">{barang.kode?.slice(-1) || '-'}</span>
+                  <span className="text-blue-600 dark:text-blue-400 text-xs font-bold">
+                    {barang.kode?.slice(-1) || "-"}
+                  </span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -209,7 +226,7 @@ export function ClientComponent() {
                   </dt>
                   <dd>
                     <div className="text-lg font-medium text-gray-900 dark:text-white">
-                      {barang.kode || '-'}
+                      {barang.kode || "-"}
                     </div>
                   </dd>
                 </dl>
@@ -223,7 +240,9 @@ export function ClientComponent() {
             <div className="flex items-center">
               <div className="shrink-0">
                 <div className="h-6 w-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 dark:text-green-400 text-xs font-bold">S</span>
+                  <span className="text-green-600 dark:text-green-400 text-xs font-bold">
+                    S
+                  </span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -233,7 +252,7 @@ export function ClientComponent() {
                   </dt>
                   <dd>
                     <div className="text-lg font-medium text-gray-900 dark:text-white">
-                      {barang.satuan || '-'}
+                      {barang.satuan || "-"}
                     </div>
                   </dd>
                 </dl>
@@ -247,7 +266,9 @@ export function ClientComponent() {
             <div className="flex items-center">
               <div className="shrink-0">
                 <div className="h-6 w-6 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <span className="text-purple-600 dark:text-purple-400 text-xs font-bold">G</span>
+                  <span className="text-purple-600 dark:text-purple-400 text-xs font-bold">
+                    G
+                  </span>
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -307,9 +328,9 @@ export function ClientComponent() {
                 keyField="gudangId"
                 columns={[
                   {
-                    key: 'gudangNama',
-                    header: 'Gudang',
-                    priority: 'primary',
+                    key: "gudangNama",
+                    header: "Gudang",
+                    priority: "primary",
                     render: (item: BarangGudang) => (
                       <div className="font-medium text-gray-900 dark:text-white">
                         {item.gudangNama}
@@ -317,36 +338,44 @@ export function ClientComponent() {
                           {item.gudangKode}
                         </div>
                       </div>
-                    )
+                    ),
                   },
                   {
-                    key: 'gudangKode',
-                    header: 'Kode',
-                    priority: 'secondary',
-                    render: (item: BarangGudang) => (
-                      <span className="text-gray-500 dark:text-gray-400">{item.gudangKode}</span>
-                    )
-                  },
-                  {
-                    key: 'stok',
-                    header: 'Stok',
-                    priority: 'primary',
-                    render: (item: BarangGudang) => (
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(item.stok)}`}>
-                        {item.stok} {barang.satuan}
-                      </span>
-                    )
-                  },
-                  {
-                    key: 'status',
-                    header: 'Status',
-                    priority: 'secondary',
+                    key: "gudangKode",
+                    header: "Kode",
+                    priority: "secondary",
                     render: (item: BarangGudang) => (
                       <span className="text-gray-500 dark:text-gray-400">
-                        {item.stok === 0 ? 'Habis' : item.stok < 5 ? 'Menipis' : 'Tersedia'}
+                        {item.gudangKode}
                       </span>
-                    )
-                  }
+                    ),
+                  },
+                  {
+                    key: "stok",
+                    header: "Stok",
+                    priority: "primary",
+                    render: (item: BarangGudang) => (
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(item.stok)}`}
+                      >
+                        {item.stok} {barang.satuan}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "status",
+                    header: "Status",
+                    priority: "secondary",
+                    render: (item: BarangGudang) => (
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {item.stok === 0
+                          ? "Habis"
+                          : item.stok < 5
+                            ? "Menipis"
+                            : "Tersedia"}
+                      </span>
+                    ),
+                  },
                 ]}
                 renderActions={(_item: BarangGudang) => (
                   <div className="flex justify-end space-x-2">
@@ -385,5 +414,5 @@ export function ClientComponent() {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -88,8 +88,11 @@ describe("firebase admin bootstrap", () => {
     expect(getFirestoreMock).not.toHaveBeenCalled();
     expect(getDatabaseMock).not.toHaveBeenCalled();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "Firebase admin initialization error",
-      expect.any(Error),
+      expect.stringContaining("Firebase admin initialization error"),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "Error stack:",
+      expect.stringContaining("invalid credential"),
     );
   });
 

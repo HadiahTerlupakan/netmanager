@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { hash } from "bcryptjs";
 import type { Session } from "next-auth";
 import {
@@ -14,7 +15,7 @@ import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
 import { prisma, prismaAuth } from "@/modules/database";
 import { getTenantAdminRoleId } from "@/modules/mitra";
-import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
+import { AdminLeaveBalanceRouteService } from "@/modules/attendance/services/AdminLeaveBalanceRouteService";
 import type { LeaveType } from "@prisma/client";
 import type { UserEntity } from "../domain/entities/UserEntity";
 import type { IUserRepository } from "../domain/ports/IUserRepository";
@@ -288,7 +289,7 @@ async function publishPermissionUpdate(userId: string): Promise<void> {
       payload: { userId },
     })
     .catch((error) => {
-      console.error(
+      logger.error(
         "[users/update] Failed to publish realtime permissions update",
         error,
       );

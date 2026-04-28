@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { HargaPaketRepository } from "../repositories/HargaPaketRepository";
 import type {
   HargaPaketCreateInput,
@@ -119,7 +120,7 @@ export class HargaPaketService {
         await radiusRepo.syncPackageToRadius(hargaPaket.id);
       }
     } catch (error) {
-      console.error("[HargaPaketService] RADIUS sync error:", error);
+      logger.error("[HargaPaketService] RADIUS sync error:", error);
     }
 
     // Log activity
@@ -200,7 +201,7 @@ export class HargaPaketService {
           await radiusRepo.syncPackageToRadius(updated.id);
         }
       } catch (error) {
-        console.error(
+        logger.error(
           "[HargaPaketService] RADIUS sync error during update:",
           error,
         );
@@ -287,7 +288,6 @@ export class HargaPaketService {
         connectionMode === "RADIUS" &&
         hargaPaket.profilePPP.poolMode === "RADIUS"
       ) {
-        // console.log('[HargaPaketService] Skipping MikroTik rate limit sync because profile uses RADIUS pool mode')
         return;
       }
 
@@ -298,7 +298,6 @@ export class HargaPaketService {
       );
 
       if (rateLimit) {
-        // console.log('[HargaPaketService] Updating rate limit in MikroTik:', rateLimit)
         const updateResult = await updatePPPProfileInMikroTik(
           hargaPaket.profilePPP.mikroTikRouterId,
           hargaPaket.profilePPP.name,
@@ -309,14 +308,14 @@ export class HargaPaketService {
         );
 
         if (!updateResult.success) {
-          console.error(
+          logger.error(
             "[HargaPaketService] Failed to update rate limit:",
             updateResult.error,
           );
         }
       }
     } catch (error: unknown) {
-      console.error("[HargaPaketService] Error syncing MikroTik:", error);
+      logger.error("[HargaPaketService] Error syncing MikroTik:", error);
     }
   }
 }

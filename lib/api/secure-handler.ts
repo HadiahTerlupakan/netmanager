@@ -123,7 +123,7 @@ export function secure(handler: HandlerFunction, options: SecureOptions = {}) {
       );
     } catch (error) {
       // 5. Global Error Handling
-      console.error(`[SecureHandler] Error in ${method} ${path}:`, error);
+      logger.error(`[SecureHandler] Error in ${method} ${path}:`, error);
 
       if (error instanceof Error) {
         // If it's already a known API error response structure, return strictly

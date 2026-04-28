@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { InvoiceStatus } from "@prisma/client-billing";
 import type {
   GatewayPaymentStatus,
@@ -95,7 +96,7 @@ export class WebhookProcessingService {
     const providerType = input.providerType.toUpperCase();
 
     if (!this.isSupportedProvider(providerType)) {
-      console.warn(`[Webhook] Unknown provider: ${providerType}`);
+      logger.warn(`[Webhook] Unknown provider: ${providerType}`);
       return {
         status: 400,
         body: { error: "Unknown payment provider" },
@@ -141,7 +142,7 @@ export class WebhookProcessingService {
         payment &&
         this.hasAmountMismatch(payment.amount, webhookResult.amount)
       ) {
-        console.warn(
+        logger.warn(
           `[Webhook] Amount mismatch for payment ${payment.id}: expected ${payment.amount}, received ${webhookResult.amount}`,
         );
         return {
@@ -152,7 +153,7 @@ export class WebhookProcessingService {
 
       if (!payment) {
         await this.recordUnmatchedMutationForMoota(providerType, webhookResult);
-        console.warn(
+        logger.warn(
           `[Webhook] Payment not found for ${providerType === "MOOTA" ? `amount: ${webhookResult.amount}` : `orderId: ${webhookResult.orderId}`}`,
         );
         return {
@@ -167,7 +168,7 @@ export class WebhookProcessingService {
           webhookResult.transactionId,
         )
       ) {
-        console.warn(
+        logger.warn(
           `[Webhook] Transaction mismatch for payment ${payment.id}: expected ${payment.transactionId}, received ${webhookResult.transactionId}`,
         );
         return {
@@ -247,7 +248,7 @@ export class WebhookProcessingService {
       };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(
+      logger.error(
         `[Webhook] Error processing ${providerType}:`,
         err.message,
         err.stack,
@@ -300,7 +301,7 @@ export class WebhookProcessingService {
         }
         return payload;
       } catch {
-        console.error(
+        logger.error(
           `[Webhook] Invalid body from ${providerType}: Not JSON or Form-Urlencoded`,
         );
         return null;
@@ -449,7 +450,7 @@ export class WebhookProcessingService {
         await this.invoiceRepository.findUniqueAuthWithPayment(invoiceId);
 
       if (!invoice) {
-        console.warn(`[Webhook] Invoice ${invoiceId} not found`);
+        logger.warn(`[Webhook] Invoice ${invoiceId} not found`);
         continue;
       }
 
@@ -496,7 +497,7 @@ export class WebhookProcessingService {
       }
 
       await AutomaticBillingService.handleInvoicePaid(invId).catch((err) => {
-        console.error(
+        logger.error(
           `[Webhook] Error triggering side-effects for invoice ${invId}:`,
           err,
         );
@@ -523,7 +524,7 @@ export class WebhookProcessingService {
         (id: unknown): id is string => typeof id === "string" && id.length > 0,
       );
     } catch (error) {
-      console.warn("[Webhook] Failed to parse payment notes metadata:", error);
+      logger.warn("[Webhook] Failed to parse payment notes metadata:", error);
       return [];
     }
   }

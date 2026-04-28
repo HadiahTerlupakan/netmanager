@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: salary });
   } catch (error) {
-    console.error("Error fetching mobile salary detail:", error);
+    logger.error("Error fetching mobile salary detail:", error);
     return apiError("Gagal mengambil detail gaji", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
@@ -165,7 +166,7 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error("Error fetching customer usage:", error);
+    logger.error("Error fetching customer usage:", error);
     if (error instanceof RouteServiceError) {
       return NextResponse.json(
         { error: error.message, details: error.details },

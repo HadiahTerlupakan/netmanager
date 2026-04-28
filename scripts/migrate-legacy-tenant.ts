@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
 import { MAIN_TENANT_NAME } from "../modules/mitra/services/tenant-constants";
+import { logger } from "../lib/logger";
 
 /**
  * Script ini bersifat IDEMPOTENT (aman dijalankan berkali-kali).
@@ -59,7 +60,7 @@ function isTenantBackfillCandidate(model: Prisma.DMMF.Model) {
 const { client: prisma, pool } = createPrismaClient();
 
 async function main() {
-  console.log("🚀 [migrate-legacy-tenant] Checking for orphaned data...");
+  logger.info("🚀 [migrate-legacy-tenant] Checking for orphaned data...");
 
   let optionalFailureCount = 0;
 
@@ -75,11 +76,11 @@ async function main() {
     }
 
     if (!tenant) {
-      console.log("⚠️ No tenant found. Skipping legacy migration.");
+      logger.info("⚠️ No tenant found. Skipping legacy migration.");
       return;
     }
 
-    console.log(`✅ Using tenant: "${tenant.name}" (${tenant.id})`);
+    logger.info(`✅ Using tenant: "${tenant.name}" (${tenant.id})`);
 
     const modelsWithTenantId = Prisma.dmmf.datamodel.models.filter(
       isTenantBackfillCandidate,
@@ -104,25 +105,25 @@ async function main() {
         });
 
         if (result.count > 0) {
-          console.log(`  🔹 ${model.name}: Updated ${result.count} records`);
+          logger.info(`  🔹 ${model.name}: Updated ${result.count} records`);
           totalUpdated += result.count;
         }
       } catch (error) {
         optionalFailureCount += 1;
         const message = (error as Error).message.split("\n")[0];
-        console.error(`  ❌ ${model.name}: ${message}`);
+        logger.error(`  ❌ ${model.name}: ${message}`);
       }
     }
 
     if (totalUpdated === 0) {
-      console.log("  ℹ️  No orphaned records found.");
+      logger.info("  ℹ️  No orphaned records found.");
     }
 
-    console.log(
+    logger.info(
       `✅ [migrate-legacy-tenant] Complete. Total updated: ${totalUpdated}`,
     );
   } catch (error) {
-    console.error("❌ Migration Error:", error);
+    logger.error("❌ Migration Error:", error);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

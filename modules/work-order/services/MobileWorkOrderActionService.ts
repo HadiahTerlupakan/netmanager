@@ -811,7 +811,7 @@ export class MobileWorkOrderActionService {
         departmentId: updatedWorkOrder.departmentId,
       }),
       ...(updatedWorkOrder.siteId && { siteId: updatedWorkOrder.siteId }),
-    }).catch((error) => console.error("[TaskNotify] Error:", error));
+    }).catch((error) => logger.error("[TaskNotify] Error:", error));
   }
 
   private async notifyAdmins(

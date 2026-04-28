@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -134,7 +135,7 @@ export function ClientComponent() {
           }
         })
         .catch((err) => {
-          console.error("Error fetching ticket details:", err);
+          clientLogger.error("Error fetching ticket details:", err);
           // Fallback to URL params if fetch fails
           const title = searchParams.get("title");
           const description = searchParams.get("description");
@@ -160,7 +161,7 @@ export function ClientComponent() {
         setSites(result.data || []);
       }
     } catch (error: unknown) {
-      console.error("Error fetching sites:", error);
+      clientLogger.error("Error fetching sites:", error);
     }
   };
 
@@ -172,7 +173,7 @@ export function ClientComponent() {
         setDepartments(result.data || []);
       }
     } catch (error: unknown) {
-      console.error("Error fetching departments:", error);
+      clientLogger.error("Error fetching departments:", error);
     }
   };
 
@@ -187,7 +188,7 @@ export function ClientComponent() {
         setPelangganList(result.data || []);
       }
     } catch (error: unknown) {
-      console.error("Error searching pelanggan:", error);
+      clientLogger.error("Error searching pelanggan:", error);
       toast.error("Gagal mencari pelanggan. Silakan coba lagi.");
     } finally {
       setSearchingPelanggan(false);
@@ -203,7 +204,7 @@ export function ClientComponent() {
       const customers = await readMixRadiusSearchResponse(response);
       setMixRadiusList(customers);
     } catch (error: unknown) {
-      console.error("Error searching MixRadius:", error);
+      clientLogger.error("Error searching MixRadius:", error);
       const message =
         error instanceof Error
           ? error.message
@@ -286,7 +287,7 @@ export function ClientComponent() {
       }
     } catch (error: unknown) {
       const err = error as Error;
-      console.error("Sync Error:", error);
+      clientLogger.error("Sync Error:", error);
       toast.error(err.message || "Gagal memuat data MixRadius");
     } finally {
       setSearchingPelanggan(false);
@@ -540,7 +541,7 @@ export function ClientComponent() {
         );
       }
     } catch (error: unknown) {
-      console.error("Error creating work order:", error);
+      clientLogger.error("Error creating work order:", error);
       toast.error("Terjadi kesalahan jaringan. Silakan coba lagi.");
     } finally {
       setLoading(false);

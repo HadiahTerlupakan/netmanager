@@ -1,6 +1,9 @@
+import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
-import { prisma, prismaAuth } from "@/modules/database";
+import { prismaAuth } from "@/modules/database";
 import { provisionTenantData } from "@/modules/mitra";
+import { TenantRepository } from "../repositories/TenantRepository";
+import type { ITenantRepository } from "../domain/ports/ITenantRepository";
 
 const DEFAULT_TENANT_ACTIVE = true;
 const DUPLICATE_DOMAIN_CODE = "DUPLICATE_DOMAIN";
@@ -36,23 +39,18 @@ function isForeignKeyError(error: unknown) {
 }
 
 export class AdminTenantRouteService {
+  constructor(
+    private readonly repository: ITenantRepository = new TenantRepository(),
+  ) {}
+
   /** Ambil daftar tenant sesuai filter aktif. */
-  async getTenants(input: TenantQueryInput) {
-    return prisma.tenant.findMany({
-      where: input.activeOnly ? { isActive: true } : undefined,
-      orderBy: { createdAt: "desc" },
-    });
+  getTenants(input: TenantQueryInput) {
+    return this.repository.findMany(input);
   }
 
   /** Buat tenant baru dan lakukan provisioning default. */
   async createTenant(input: TenantPayload) {
-    const tenant = await prisma.tenant.create({
-      data: {
-        name: input.name,
-        domain: normalizeDomain(input.domain),
-        isActive: input.isActive ?? DEFAULT_TENANT_ACTIVE,
-      },
-    });
+    const tenant = await this.repository.create(this.buildWriteInput(input));
 
     await this.provisionTenant(tenant.id, tenant.name);
     return tenant;
@@ -68,14 +66,10 @@ export class AdminTenantRouteService {
       );
     }
 
-    const tenant = await prisma.tenant.update({
-      where: { id },
-      data: {
-        name: input.name,
-        domain: normalizeDomain(input.domain),
-        isActive: input.isActive ?? DEFAULT_TENANT_ACTIVE,
-      },
-    });
+    const tenant = await this.repository.update(
+      id,
+      this.buildWriteInput(input),
+    );
 
     return { ok: true as const, data: tenant };
   }
@@ -83,7 +77,7 @@ export class AdminTenantRouteService {
   /** Hapus tenant dan kembalikan error terstruktur bila gagal. */
   async deleteTenant(id: string) {
     try {
-      await prisma.tenant.delete({ where: { id } });
+      await this.repository.delete(id);
       return { ok: true as const };
     } catch (error) {
       if (isForeignKeyError(error)) {
@@ -97,25 +91,28 @@ export class AdminTenantRouteService {
   }
 
   /** Cari domain tenant duplikat selain tenant aktif. */
-  private async findDuplicateDomain(id: string, domain?: string | null) {
+  private findDuplicateDomain(id: string, domain?: string | null) {
     const normalizedDomain = normalizeDomain(domain);
     if (!normalizedDomain) return null;
 
-    return prisma.tenant.findFirst({
-      where: {
-        domain: normalizedDomain,
-        id: { not: id },
-      },
-    });
+    return this.repository.findDuplicateDomain(id, normalizedDomain);
+  }
+
+  private buildWriteInput(input: TenantPayload) {
+    return {
+      name: input.name,
+      domain: normalizeDomain(input.domain),
+      isActive: input.isActive ?? DEFAULT_TENANT_ACTIVE,
+    };
   }
 
   /** Provision data default tenant tanpa menggagalkan pembuatan tenant. */
   private async provisionTenant(tenantId: string, tenantName: string) {
     try {
       const result = await provisionTenantData(prismaAuth, tenantId);
-      console.log(`[TENANT_POST] Provisioned tenant ${tenantName}:`, result);
+      logger.info(`[TENANT_POST] Provisioned tenant ${tenantName}:`, result);
     } catch (error) {
-      console.error(
+      logger.error(
         `[TENANT_POST] Warning: Provisioning failed for tenant ${tenantId}:`,
         error,
       );

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import {
   S3Client,
   HeadBucketCommand,
@@ -54,7 +55,7 @@ export async function getR2PublicBaseUrl(): Promise<string | null> {
 
     return normalizePublicBaseUrl(publicUrl?.value ?? null);
   } catch (error) {
-    console.error("Error fetching R2 public URL:", error);
+    logger.error("Error fetching R2 public URL:", error);
     return null;
   }
 }
@@ -108,7 +109,7 @@ export async function getR2Settings(): Promise<R2Settings | null> {
       try {
         secretAccessKey = decryptApiKey(storedSecretAccessKey);
       } catch (error) {
-        console.error("Error decrypting R2 secret access key:", error);
+        logger.error("Error decrypting R2 secret access key:", error);
         return null;
       }
     }
@@ -128,7 +129,7 @@ export async function getR2Settings(): Promise<R2Settings | null> {
 
     return r2Settings;
   } catch (error) {
-    console.error("Error fetching R2 settings:", error);
+    logger.error("Error fetching R2 settings:", error);
     return null;
   }
 }
@@ -198,7 +199,7 @@ export async function testR2Connection(
 
     return { success: true };
   } catch (error) {
-    console.error("R2 connection test failed:", error);
+    logger.error("R2 connection test failed:", error);
 
     const err = error as { name?: string; Code?: string; message?: string };
     let errorMessage = "Koneksi ke R2 gagal";
@@ -263,7 +264,7 @@ export async function getPresignedUrl(
 
     return { uploadUrl, publicUrl };
   } catch (error) {
-    console.error("Error generating presigned URL:", error);
+    logger.error("Error generating presigned URL:", error);
     throw new Error("Gagal membuat presigned URL");
   }
 }
@@ -317,7 +318,7 @@ export async function uploadToR2(
       return `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${key}`;
     }
   } catch (error) {
-    console.error("Error uploading to R2:", error);
+    logger.error("Error uploading to R2:", error);
     const err = error as Error;
     throw new Error(`Gagal mengupload file ke R2: ${err.message}`);
   }
@@ -344,7 +345,7 @@ export async function deleteFromR2(key: string): Promise<boolean> {
     );
     return true;
   } catch (error) {
-    console.error("Error deleting from R2:", error);
+    logger.error("Error deleting from R2:", error);
     return false;
   }
 }
@@ -431,7 +432,7 @@ export async function getR2ObjectMetadata(
       contentType: result.ContentType ?? null,
     };
   } catch (error) {
-    console.error("Error reading R2 object metadata:", error);
+    logger.error("Error reading R2 object metadata:", error);
     throw new Error("File APK yang diupload tidak ditemukan di R2");
   }
 }
@@ -460,7 +461,7 @@ export async function getR2ObjectBuffer(key: string): Promise<Buffer> {
     const bytes = await body.transformToByteArray();
     return Buffer.from(bytes);
   } catch (error) {
-    console.error("Error downloading object from R2:", error);
+    logger.error("Error downloading object from R2:", error);
     throw new Error("Gagal membaca file APK yang sudah diupload ke R2");
   }
 }

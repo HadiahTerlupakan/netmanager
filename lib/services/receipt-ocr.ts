@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { GeminiOcrService, resolveGeminiMimeType } from "@/modules/settings";
 
 export interface ReceiptOCRResult {
@@ -74,7 +75,7 @@ export async function analyzeReceiptWithOCR(
       temperature: 0.1,
     });
   } catch (error) {
-    console.error("[ReceiptOCR] Error:", error);
+    logger.error("[ReceiptOCR] Error:", error);
     return {
       is_valid_receipt: true,
       is_potentially_fake: false,

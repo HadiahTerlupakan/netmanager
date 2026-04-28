@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { SignJWT, jwtVerify } from "jose";
 import {
   getAppVersionService,
@@ -35,7 +36,7 @@ async function getMobileTokenVersion(payload: Record<string, unknown>) {
     });
     return user?.tokenVersion ?? 0;
   } catch (error) {
-    console.error("[MOBILE_AUTH] Error fetching tokenVersion:", error);
+    logger.error("[MOBILE_AUTH] Error fetching tokenVersion:", error);
     return 0;
   }
 }
@@ -199,7 +200,7 @@ export async function getMobileTokenDetails(
       versionAccess,
     };
   } catch (error) {
-    console.error("[MOBILE_AUTH] Token parsing failed:", error);
+    logger.error("[MOBILE_AUTH] Token parsing failed:", error);
     return null;
   }
 }
@@ -224,7 +225,7 @@ async function verifyValidatedMobileToken(
     }
 
     if (!versionAccess.isSupported) {
-      console.log(
+      logger.info(
         `[MOBILE_AUTH] App version unsupported for user ${userId}. Version code: ${versionCode}, minimum: ${versionAccess.minimumVersion}`,
       );
       return null;
@@ -339,7 +340,7 @@ async function verifyValidatedMobileToken(
       isSuperAdmin,
     } as MobileTokenPayload;
   } catch (error) {
-    console.error("[MOBILE_AUTH] Token verification failed:", error);
+    logger.error("[MOBILE_AUTH] Token verification failed:", error);
     return null;
   }
 }

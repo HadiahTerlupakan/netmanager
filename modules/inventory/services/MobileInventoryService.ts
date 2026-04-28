@@ -569,3 +569,14 @@ export class MobileInventoryService {
     }));
   }
 }
+
+let mobileInventoryServiceInstance: MobileInventoryService | null = null;
+
+/** Ambil singleton service inventory mobile. */
+export function getMobileInventoryService() {
+  if (!mobileInventoryServiceInstance) {
+    mobileInventoryServiceInstance = new MobileInventoryService();
+  }
+
+  return mobileInventoryServiceInstance;
+}

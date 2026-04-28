@@ -27,7 +27,6 @@ export default function ConsoleWarning(): React.ReactElement | null {
 
     const linkStyle = ["color: blue", "font-size: 14px"].join(";");
 
-    // Display warning messages using console.log (not removed by Terser)
     console.log("%cStop!", stopStyle);
     console.log(
       "%cIni adalah fitur browser yang ditujukan untuk developer.\n\n" +

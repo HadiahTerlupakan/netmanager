@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { Prisma as PrismaBilling } from "@prisma/client-billing";
 import { logActivitySafe } from "@/lib/logger";
-import { PelangganRepository } from "@/modules/pelanggan";
-import { UserRepository } from "@/modules/users";
+import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 
 type RouteUser = {
@@ -41,6 +41,11 @@ type InvoiceCreateResult =
   | { status: "forbidden-user-site" }
   | { status: "forbidden-customer-site" }
   | { status: "created"; data: SerializedCreatedInvoice };
+
+export type InvoiceRouteError =
+  | { status: "duplicate-invoice-number" }
+  | { status: "foreign-key-error" }
+  | { status: "unknown" };
 
 type SerializedCreatedInvoice = {
   subtotal: string;
@@ -92,6 +97,17 @@ export async function listInvoicesForRoute(options: {
 }
 
 /** Creates an invoice for route responses with legacy amount conversion. */
+export function mapInvoiceRouteError(error: unknown): InvoiceRouteError {
+  if (!(error instanceof PrismaBilling.PrismaClientKnownRequestError)) {
+    return { status: "unknown" };
+  }
+
+  if (error.code === "P2002") return { status: "duplicate-invoice-number" };
+  if (error.code === "P2003") return { status: "foreign-key-error" };
+
+  return { status: "unknown" };
+}
+
 export async function createInvoiceForRoute(options: {
   input: InvoiceCreateInput;
   user: RouteUser;

@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -74,7 +75,7 @@ export function useRealtimeWorkOrderActivity(
       // Only process if it's for this work order
       if (payload.workOrderId !== workOrderId) return;
 
-      console.log(
+      clientLogger.info(
         "[WorkOrderActivity] New activity received:",
         payload.activity.type,
       );

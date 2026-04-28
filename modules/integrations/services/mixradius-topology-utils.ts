@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 export function parseDMSToDecimal(dms: string): number | null {
   if (!dms) return null;
 
@@ -26,7 +27,7 @@ export function parseDMSToDecimal(dms: string): number | null {
   const decimal = parseFloat(cleaned);
   if (!isNaN(decimal)) return decimal;
 
-  console.warn(`[MixRadius] Could not parse DMS: "${dms}" -> "${cleaned}"`);
+  logger.warn(`[MixRadius] Could not parse DMS: "${dms}" -> "${cleaned}"`);
   return null;
 }
 
@@ -58,11 +59,11 @@ export function parseGoogleMapsCoords(
       };
     }
 
-    console.warn(
+    logger.warn(
       `[MixRadius] Failed to parse coords: lat="${latStr}" -> ${lat}, lng="${lngStr}" -> ${lng}`,
     );
   } else {
-    console.warn(
+    logger.warn(
       `[MixRadius] No coordinate match in URL: ${url.substring(0, 100)}`,
     );
   }

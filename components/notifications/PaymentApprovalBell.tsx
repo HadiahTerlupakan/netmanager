@@ -10,6 +10,7 @@ import { id } from "date-fns/locale";
 
 import { usePermission } from "@/hooks/use-permission";
 import { useRealtimePaymentApprovals } from "@/lib/websocket/hooks/useRealtimePaymentApprovals";
+import { clientLogger } from "@/lib/client-logger";
 
 const LAST_READ_KEY = "payment-approval-last-read";
 
@@ -82,9 +83,11 @@ function PaymentApprovalBellContent() {
       ) {
         try {
           const audio = new Audio("/sounds/notification.mp3");
-          audio.play().catch((e) => console.error("Audio play failed:", e));
+          audio
+            .play()
+            .catch((e) => clientLogger.error("Audio play failed:", e));
         } catch (e) {
-          console.error("Audio initialization failed:", e);
+          clientLogger.error("Audio initialization failed:", e);
         }
       }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ZodError } from "zod";
+import { ZodError, z } from "zod";
 
 const { mockCreateRabProject, mockHasPermission, mockIsSuperAdmin } =
   vi.hoisted(() => ({
@@ -23,6 +23,7 @@ vi.mock("@/modules/finance", () => ({
       createRabProject: mockCreateRabProject,
     };
   }),
+  rabProjectCreateSchema: z.record(z.string(), z.unknown()),
 }));
 
 vi.mock("@/lib/api", () => ({

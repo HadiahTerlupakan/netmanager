@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prismaMock } from "../../setup";
-import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
+import { AttendanceService } from "@/modules/attendance";
 
 const mockFns = vi.hoisted(() => ({
   getStatsByDateRange: vi.fn(),

@@ -1,6 +1,7 @@
+import { logger } from "@/lib/logger";
 import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
 import { firebaseRealtimeService } from "@/lib/realtime";
-import { MikroTikRouterRepository } from "@/modules/network";
+import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 
 class MikroTikMonitor {
@@ -78,7 +79,7 @@ class MikroTikMonitor {
             payload: stats,
           });
         } catch (e) {
-          console.error(
+          logger.error(
             `[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`,
             e,
           );
@@ -100,18 +101,18 @@ class MikroTikMonitor {
 
       if (this.isConnectionError(error)) {
         const code = (error as { code?: string }).code || "ECONNREFUSED";
-        console.warn(
+        logger.warn(
           `[MikroTikMonitor] DB connection failed (${code}) - attempt ${this.errorCount}/${this.MAX_ERRORS}`,
         );
       } else {
-        console.error(
+        logger.error(
           `[MikroTikMonitor] Error (${this.errorCount}/${this.MAX_ERRORS}):`,
           error instanceof Error ? error.message : error,
         );
       }
 
       if (this.errorCount >= this.MAX_ERRORS) {
-        console.error(
+        logger.error(
           "[MikroTikMonitor] Stopping after too many consecutive failures",
         );
         this.stop();

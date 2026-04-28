@@ -37,12 +37,12 @@ export class MitraLookupService {
   }
 }
 
-let instance: MitraLookupService | null = null;
+let mitraLookupServiceInstance: MitraLookupService | null = null;
 
 export function getMitraLookupService(): MitraLookupService {
-  if (!instance) {
-    instance = new MitraLookupService();
+  if (!mitraLookupServiceInstance) {
+    mitraLookupServiceInstance = new MitraLookupService();
   }
 
-  return instance;
+  return mitraLookupServiceInstance;
 }

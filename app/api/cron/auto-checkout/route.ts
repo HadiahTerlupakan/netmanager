@@ -11,6 +11,7 @@ import {
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export async function POST(_request: Request) {
       { message: "Auto-checkout berhasil dijalankan" },
     );
   } catch (error: unknown) {
-    console.error("Error running auto-checkout:", error);
+    logger.error("Error running auto-checkout:", error);
     const errorMessage =
       error instanceof Error
         ? error.message

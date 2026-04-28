@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
@@ -48,7 +49,7 @@ export async function PATCH(
       message: "Task berhasil diupdate",
     });
   } catch (error) {
-    console.error("Task Update Error:", error);
+    logger.error("Task Update Error:", error);
 
     if (error instanceof Error && error.message === "TASK_NOT_FOUND") {
       return apiError(

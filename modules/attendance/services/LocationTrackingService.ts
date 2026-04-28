@@ -9,7 +9,7 @@ import {
   type LocationData,
 } from "../repositories/LocationTrackingRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 
 /**
  * LocationTrackingService - Mengelola data lokasi karyawan selama jam kerja
@@ -20,12 +20,12 @@ const LOCATION_RETENTION_DAYS = 30;
 export class LocationTrackingService {
   private locationRepo: ILocationTrackingRepository;
   private attendanceRepo: AttendanceRepository;
-  private userRepo: UserRepository;
+  private userRepo: UserLookupService;
 
   constructor(
     locationRepo: ILocationTrackingRepository = new LocationTrackingRepository(),
     attendanceRepo: AttendanceRepository = new AttendanceRepository(),
-    userRepo: UserRepository = new UserRepository(),
+    userRepo: UserLookupService = new UserLookupService(),
   ) {
     this.locationRepo = locationRepo;
     this.attendanceRepo = attendanceRepo;

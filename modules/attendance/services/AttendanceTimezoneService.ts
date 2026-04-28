@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Attendance Timezone Service
  * Centralized timezone and tolerance management with caching
@@ -39,7 +40,7 @@ export class AttendanceTimezoneService {
       const cached = await redis.get(cacheKey);
       if (cached) return cached;
     } catch (error) {
-      console.error(
+      logger.error(
         `[AttendanceTimezoneService] Failed to read timezone cache for ${cacheKey}:`,
         error,
       );
@@ -55,7 +56,7 @@ export class AttendanceTimezoneService {
     try {
       await redis.setex(cacheKey, TIMEZONE_CACHE_TTL_SECONDS, timezone);
     } catch (error) {
-      console.error(
+      logger.error(
         `[AttendanceTimezoneService] Failed to write timezone cache for ${cacheKey}:`,
         error,
       );
@@ -76,7 +77,7 @@ export class AttendanceTimezoneService {
       const cached = await redis.get(cacheKey);
       if (cached) return parseInt(cached);
     } catch (error) {
-      console.error(
+      logger.error(
         `[AttendanceTimezoneService] Failed to read tolerance cache for ${cacheKey}:`,
         error,
       );
@@ -96,7 +97,7 @@ export class AttendanceTimezoneService {
         tolerance.toString(),
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `[AttendanceTimezoneService] Failed to write tolerance cache for ${cacheKey}:`,
         error,
       );
@@ -173,7 +174,7 @@ export class AttendanceTimezoneService {
     try {
       await redis.del(...keys);
     } catch (error) {
-      console.error(
+      logger.error(
         "[AttendanceTimezoneService] Failed to invalidate timezone cache:",
         error,
       );

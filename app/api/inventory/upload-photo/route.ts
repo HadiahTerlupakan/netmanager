@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { getInventoryRouteService } from "@/modules/inventory";
+import { inventoryPhotoUploadService } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-import {
-  validateInventoryPhotos,
-  uploadInventoryPhotos,
-} from "@/lib/utils/image-upload";
-import * as path from "path";
+import type { InventoryPhotoUploadResult } from "@/modules/inventory";
 
-const inventoryRouteService = getInventoryRouteService();
+type InventoryPhotoUploadError = Extract<
+  InventoryPhotoUploadResult,
+  { ok: false }
+>;
+
+function isUploadError(
+  result: InventoryPhotoUploadResult,
+): result is InventoryPhotoUploadError {
+  return !result.ok;
+}
 
 /**
  * POST /api/inventory/upload-photo
@@ -24,98 +29,17 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const photos = formData.getAll("photos") as File[];
-    const validPhotos = photos.filter(
-      (file): file is File => file instanceof File && file.size > 0,
-    );
-    const transactionId = formData.get("transactionId") as string;
-    const transactionType = formData.get("transactionType") as
-      | "inventory-masuk"
-      | "inventory-keluar"
-      | "inventory-transfer";
-
-    if (!transactionId) {
-      return NextResponse.json(
-        { error: "ID Transaksi wajib disertakan" },
-        { status: 400 },
-      );
-    }
-
-    if (
-      !transactionType ||
-      ![
-        "inventory-masuk",
-        "inventory-keluar",
-        "inventory-transfer",
-        "finance-transaction",
-      ].includes(transactionType)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Tipe transaksi tidak valid. Gunakan: inventory-masuk, inventory-keluar, inventory-transfer, atau finance-transaction",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (validPhotos.length === 0) {
-      return NextResponse.json(
-        { error: "Minimal 1 foto harus diunggah" },
-        { status: 400 },
-      );
-    }
-
-    const validation = validateInventoryPhotos(validPhotos, 5, 5);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        {
-          error: "Validasi foto gagal: " + validation.errors.join(", "),
-          details: validation.errors,
-        },
-        { status: 400 },
-      );
-    }
-
-    if (!transactionId.startsWith("temp-")) {
-      const dbStart = Date.now();
-      const transaction =
-        await inventoryRouteService.verifyInventoryTransaction({
-          transactionId,
-          transactionType,
-        });
-
-      if (!transaction) {
-        const errorByType: Record<string, string> = {
-          "inventory-masuk": "Transaksi barang masuk tidak ditemukan",
-          "inventory-keluar": "Transaksi barang keluar tidak ditemukan",
-          "inventory-transfer": "Transaksi transfer tidak ditemukan",
-        };
-        return NextResponse.json(
-          {
-            error: errorByType[transactionType] || "Transaksi tidak ditemukan",
-          },
-          { status: 404 },
-        );
-      }
-
-      logger.dbOperation("findUnique", transactionType, Date.now() - dbStart);
-    }
-
-    const uploadDir = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      transactionType,
-      new Date().getFullYear().toString(),
-      String(new Date().getMonth() + 1).padStart(2, "0"),
-    );
-    const uploadedUrls = await uploadInventoryPhotos(
-      validPhotos,
+    const transactionId = String(formData.get("transactionId") ?? "");
+    const transactionType = String(formData.get("transactionType") ?? "");
+    const result = await inventoryPhotoUploadService.upload({
+      photos: formData.getAll("photos") as File[],
       transactionId,
       transactionType,
-      uploadDir,
-    );
+    });
+
+    if (isUploadError(result)) {
+      return NextResponse.json(result.body, { status: result.status });
+    }
 
     logger.apiRequest(
       "POST",
@@ -126,20 +50,11 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         transactionId,
         transactionType,
-        photoCount: uploadedUrls.length,
+        photoCount: result.body.data.count,
       },
     );
 
-    return NextResponse.json({
-      success: true,
-      message: `${uploadedUrls.length} photo(s) uploaded successfully`,
-      data: {
-        urls: uploadedUrls,
-        transactionId,
-        transactionType,
-        count: uploadedUrls.length,
-      },
-    });
+    return NextResponse.json(result.body);
   } catch (error) {
     const err = error as Error;
     logger.error("Error in inventory photo upload endpoint", err, {

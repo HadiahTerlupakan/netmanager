@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
       headers: { "Cache-Control": CACHE_HEADER },
     });
   } catch (error: unknown) {
-    console.error("Error fetching topology data:", error);
+    logger.error("Error fetching topology data:", error);
     return apiError(
       "Gagal mengambil data topologi",
       ErrorCodes.INTERNAL_ERROR,

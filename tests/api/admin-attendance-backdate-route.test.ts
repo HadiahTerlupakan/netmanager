@@ -40,13 +40,27 @@ describe("admin attendance backdate route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.isSuperAdmin.mockReturnValue(true);
-    prismaMock.user.findMany.mockResolvedValue([
-      {
-        id: "user-1",
-        workDays: "Mon,Tue,Wed,Thu,Fri",
-        joinDate: new Date("2026-04-01T00:00:00.000Z"),
+    prismaMock.user.findMany.mockImplementation(
+      async (args: {
+        where?: { OR?: Array<{ joinDate?: { lte?: Date } }> };
+      }): Promise<Array<{ id: string; workDays: string; joinDate: Date }>> => {
+        const referenceDate = args.where?.OR?.[1]?.joinDate?.lte;
+        if (
+          referenceDate &&
+          referenceDate < new Date("2026-04-01T00:00:00.000Z")
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            id: "user-1",
+            workDays: "Mon,Tue,Wed,Thu,Fri",
+            joinDate: new Date("2026-04-01T00:00:00.000Z"),
+          },
+        ] as never;
       },
-    ] as never);
+    );
     prismaMock.holiday.findFirst.mockResolvedValue(null);
     prismaMock.attendance.findFirst.mockResolvedValue(null);
     prismaMock.attendance.create.mockResolvedValue({ id: "att-1" } as never);
@@ -75,6 +89,13 @@ describe("admin attendance backdate route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ joinDate: null }, { joinDate: { lte: expect.any(Date) } }],
+        }),
+      }),
+    );
     expect(prismaMock.attendance.create).not.toHaveBeenCalled();
   });
 });

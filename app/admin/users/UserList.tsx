@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -145,7 +146,7 @@ export default function UserList() {
         toast.error(data.error || "Gagal memuat data pengguna");
       }
     } catch (error) {
-      console.error("Error fetching users:", error);
+      clientLogger.error("Error fetching users:", error);
       toast.error("Terjadi kesalahan saat memuat data pengguna");
     } finally {
       setLoading(false);
@@ -177,7 +178,7 @@ export default function UserList() {
         toast.error(data.error || "Gagal menghapus pengguna");
       }
     } catch (error) {
-      console.error("Error deleting user:", error);
+      clientLogger.error("Error deleting user:", error);
       toast.error("Terjadi kesalahan saat menghapus pengguna");
     } finally {
       setDeleting(false);
@@ -198,7 +199,7 @@ export default function UserList() {
         toast.error(data.error || "Gagal force logout user");
       }
     } catch (error) {
-      console.error("Error force logout user:", error);
+      clientLogger.error("Error force logout user:", error);
       toast.error("Terjadi kesalahan saat force logout");
     } finally {
       setForcingLogout(false);

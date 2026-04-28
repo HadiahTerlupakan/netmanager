@@ -1,7 +1,7 @@
 import type { Session } from "next-auth";
 import { isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { UserRepository, type IUserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 import { LocationTrackingService } from "./LocationTrackingService";
 
 const LOCATION_READ_FORBIDDEN_MESSAGE =
@@ -36,11 +36,11 @@ class AdminLocationRouteError extends Error {
 /** Service untuk route live tracking dan history lokasi admin. */
 export class AdminLocationRouteService {
   private readonly locationService: LocationTrackingService;
-  private readonly userRepository: IUserRepository;
+  private readonly userRepository: UserLookupService;
 
   constructor(
     locationService: LocationTrackingService = new LocationTrackingService(),
-    userRepository: IUserRepository = new UserRepository(),
+    userRepository: UserLookupService = new UserLookupService(),
   ) {
     this.locationService = locationService;
     this.userRepository = userRepository;

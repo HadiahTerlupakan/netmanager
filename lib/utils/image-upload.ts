@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import sharp from "sharp";
 import { writeFile, mkdir, rm } from "fs/promises";
 import path from "path";
@@ -90,7 +91,7 @@ export async function convertAndSaveImage(
     // OPTIMIZATION: Log file size for monitoring
     const fileSize = file.size;
     if (fileSize > LARGE_FILE_THRESHOLD) {
-      console.log(
+      logger.info(
         `[Image Upload] Large file detected: ${(fileSize / 1024 / 1024).toFixed(2)}MB. Using optimized processing.`,
       );
     }
@@ -106,7 +107,7 @@ export async function convertAndSaveImage(
       watermarkLines,
     );
   } catch (error) {
-    console.error("Error converting image to WebP:", error);
+    logger.error("Error converting image to WebP:", error);
     throw new Error(
       `Gagal mengkonversi gambar: ${error instanceof Error ? error.message : "Terjadi kesalahan"}`,
     );
@@ -137,7 +138,7 @@ export async function convertAndSaveBase64(
       watermarkLines,
     );
   } catch (error) {
-    console.error("Error converting base64 to WebP:", error);
+    logger.error("Error converting base64 to WebP:", error);
     throw new Error(
       `Gagal mengkonversi base64: ${error instanceof Error ? error.message : "Terjadi kesalahan"}`,
     );
@@ -185,7 +186,7 @@ async function processAndSaveBuffer(
     );
 
     const url = await uploadToR2(webpBuffer, key, "image/webp");
-    console.log("Image uploaded to R2:", { key, url });
+    logger.info("Image uploaded to R2:", { key, url });
     return url;
   }
 
@@ -200,7 +201,7 @@ async function processAndSaveBuffer(
   let relativePath = outputPath.replace(publicPath, "");
   relativePath = relativePath.replace(/\\/g, "/"); // Normalize path separator untuk URL
 
-  console.log("Image saved locally:", {
+  logger.info("Image saved locally:", {
     outputPath,
     publicPath,
     relativePath,
@@ -242,7 +243,7 @@ export async function saveFile(
         key,
         file.type || "application/octet-stream",
       );
-      console.log("File uploaded to R2:", { key, url });
+      logger.info("File uploaded to R2:", { key, url });
       return url;
     }
 
@@ -258,13 +259,13 @@ export async function saveFile(
     );
     const normalizedPath = relativePath.replace(/\\/g, "/"); // Normalize path separator untuk URL
 
-    console.log("File saved locally:", {
+    logger.info("File saved locally:", {
       outputPath,
       relativePath: normalizedPath,
     });
     return normalizedPath;
   } catch (error) {
-    console.error("Error saving file:", error);
+    logger.error("Error saving file:", error);
     throw new Error(
       `Gagal menyimpan file: ${error instanceof Error ? error.message : "Terjadi kesalahan"}`,
     );
@@ -330,12 +331,12 @@ export async function uploadInventoryPhotos(
       uploadedUrls.push(url);
     }
 
-    console.log(
+    logger.info(
       `Successfully uploaded ${uploadedUrls.length} inventory photos for transaction ${transactionId}`,
     );
     return uploadedUrls;
   } catch (error) {
-    console.error("Error uploading inventory photos:", error);
+    logger.error("Error uploading inventory photos:", error);
     throw new Error(
       `Gagal mengupload foto inventaris: ${error instanceof Error ? error.message : "Terjadi kesalahan"}`,
     );

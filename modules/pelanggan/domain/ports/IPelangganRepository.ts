@@ -2,18 +2,77 @@
  * Abstraction for pelanggan repository operations.
  */
 
-import type { Prisma } from "@prisma/client";
 import type {
   PelangganAdminDeleteEntity,
   PelangganAdminMutationContextEntity,
   PelangganAdminMutationEntity,
   PelangganAuthEntity,
   EligibleBillingCustomerEntity,
+  PelangganDiscountType,
+  PelangganDurationUnit,
   PelangganEntity,
   PelangganProfilePreferenceEntity,
   PelangganPushTokenEntity,
   PelangganWithPackageEntity,
 } from "../entities/PelangganEntity";
+
+export interface CreatePelangganDTO {
+  idPelanggan: string;
+  nama: string;
+  username: string;
+  password: string;
+  passwordHash: string;
+  hargaPaketId: string;
+  tipe: string;
+  tanggalAktif: Date;
+  jatuhTempo: Date;
+  status: string;
+  autoIsolir?: boolean;
+  alamat?: string | null;
+  provinsi?: string | null;
+  kabupatenKota?: string | null;
+  kelurahanDesa?: string | null;
+  kecamatan?: string | null;
+  noTelp?: string | null;
+  email?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  jenisDokumen?: string | null;
+  noDokumen?: string | null;
+  fileKTP?: string | null;
+  fileRumahSekitar?: string | null;
+  fileBAST?: string | null;
+  catatan?: string | null;
+  usePPN?: boolean;
+  useDiscount?: boolean;
+  useProrate?: boolean;
+  discountType?: PelangganDiscountType | null;
+  discountValue?: number | null;
+  discountDuration?: number | null;
+  discountDurationUnit?: PelangganDurationUnit | null;
+  biayaInstalasi?: number | null;
+  biayaInstalasiIsRecurring?: boolean;
+  biayaInstalasiDiskon?: number | null;
+  biayaSewaPerangkat?: number | null;
+  biayaSewaPerangkatIsRecurring?: boolean;
+  biayaSewaPerangkatDiskon?: number | null;
+  biayaLainnya?: number | null;
+  biayaLainnyaIsRecurring?: boolean;
+  biayaLainnyaDiskon?: number | null;
+  keteranganBiayaLainnya?: string | null;
+  odpId?: string | null;
+  siteId?: string | null;
+}
+
+export type FilterOptions = {
+  status?: unknown;
+  siteId?: string | Record<string, unknown>;
+  search?: string;
+};
+
+export type PelangganWithPackage = PelangganWithPackageEntity;
+
+type PelangganAdminPppUpdateInput = Record<string, unknown>;
 
 type PaymentHistoryRecord = {
   id: string;
@@ -36,11 +95,6 @@ type UpgradePackageOption = {
     maxLimitUpload: string | null;
   } | null;
 };
-import type {
-  CreatePelangganDTO,
-  FilterOptions,
-} from "../../repositories/PelangganRepository";
-
 export interface IPelangganRepository {
   /** Get all customers using optional filters. */
   findAll(filter?: FilterOptions): Promise<PelangganWithPackageEntity[]>;
@@ -79,7 +133,7 @@ export interface IPelangganRepository {
   /** Update PPP fields for admin mutation flow. */
   updateAdminPppById(
     id: string,
-    data: Prisma.PelangganUncheckedUpdateInput,
+    data: PelangganAdminPppUpdateInput,
   ): Promise<PelangganEntity>;
 
   /** Get admin delete payload. */

@@ -1,6 +1,7 @@
+import { logger } from "@/lib/logger";
 import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logActivitySafe } from "@/lib/logger";
 import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 import type {
   CreateMitraDTO,

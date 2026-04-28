@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -86,7 +87,7 @@ export function useRealtimeNotifications(
       setUnreadCount(countData.count || 0);
       setNotifications(listData.notifications || []);
     } catch (error) {
-      console.error("[Notifications] Error fetching:", error);
+      clientLogger.error("[Notifications] Error fetching:", error);
       setError("Gagal mengambil notifikasi");
     } finally {
       setLoading(false);
@@ -109,7 +110,10 @@ export function useRealtimeNotifications(
         return;
       }
 
-      console.log("[Notifications] New notification received:", payload.title);
+      clientLogger.info(
+        "[Notifications] New notification received:",
+        payload.title,
+      );
 
       // Play notification sound based on settings
       try {
@@ -126,7 +130,9 @@ export function useRealtimeNotifications(
           }
 
           const audio = new Audio(audioSrc);
-          audio.play().catch((_err) => console.log("Audio play failed:", _err));
+          audio
+            .play()
+            .catch((_err) => clientLogger.info("Audio play failed:", _err));
         }
       } catch (_error) {
         // Ignore audio errors
@@ -169,7 +175,7 @@ export function useRealtimeNotifications(
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error("[Notifications] Error marking as read:", error);
+      clientLogger.error("[Notifications] Error marking as read:", error);
     }
   }, []);
 
@@ -187,7 +193,7 @@ export function useRealtimeNotifications(
         setUnreadCount(0);
       }
     } catch (error) {
-      console.error("[Notifications] Error marking all as read:", error);
+      clientLogger.error("[Notifications] Error marking all as read:", error);
     }
   }, []);
 

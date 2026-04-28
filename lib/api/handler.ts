@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Unified API Route Handler
  *
@@ -243,7 +244,7 @@ export function createHandler<T = unknown>(
 
             ctx.validated = result.data;
           } catch (e) {
-            console.error("[API Middleware] JSON Parsing/Validation Error:", e);
+            logger.error("[API Middleware] JSON Parsing/Validation Error:", e);
             return apiError("Invalid JSON body", ErrorCodes.VALIDATION_ERROR, {
               status: 400,
             });
@@ -271,7 +272,7 @@ export function createHandler<T = unknown>(
         ctx.session?.user?.id,
         ctx.session?.user?.tenantId,
         ctx.validated, // Use validated body for audit log
-      ).catch((err) => console.error("[Audit Log Fire-and-Forget Error]", err));
+      ).catch((err) => logger.error("[Audit Log Fire-and-Forget Error]", err));
 
       return response;
     } catch (error) {
@@ -306,7 +307,7 @@ function handleError(
   request: NextRequest,
 ): NextResponse<ErrorResponse> {
   // Log to console
-  console.error("[API Error]", {
+  logger.error("[API Error]", {
     url: request.nextUrl.pathname,
     method: request.method,
     error,

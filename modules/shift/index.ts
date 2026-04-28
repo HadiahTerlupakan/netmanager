@@ -12,5 +12,4 @@ export type {
   ShiftOptionDTO,
   UpdateShiftDTO,
 } from "./dto/ShiftDTO";
-export type { IShiftRepository } from "./domain/ports/IShiftRepository";
 export { ShiftService } from "./services/ShiftService";

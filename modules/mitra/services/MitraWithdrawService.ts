@@ -1,6 +1,7 @@
+import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
-import { logger, logActivitySafe } from "@/lib/logger";
-import { AttendanceSettingsService } from "@/modules/attendance";
+import { logActivitySafe } from "@/lib/logger";
+import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
 import type { WithdrawRequestDTO } from "../dto/MitraDTO";
 import type { IMitraWithdrawRepository } from "../domain/ports/IMitraWithdrawRepository";
 import { getMitraWithdrawRepository } from "../repositories/MitraWithdrawRepository";

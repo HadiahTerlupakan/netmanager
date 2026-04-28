@@ -5,7 +5,7 @@ import {
   createHandler,
   ErrorCodes,
 } from "@/lib/api";
-import { attendanceUpdateSchema } from "@/modules/attendance";
+import { attendanceUpdateSchema } from "@/lib/validations/attendance";
 import { idSchema } from "@/lib/validations/common";
 import { hasPermission } from "@/lib/rbac";
 import { AdminAttendanceDetailRouteService } from "@/modules/attendance";

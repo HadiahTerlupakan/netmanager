@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     });
     return apiSuccess(result);
   } catch (error: unknown) {
-    console.error("Error fetching sales dashboard:", error);
+    logger.error("Error fetching sales dashboard:", error);
     return ApiErrors.internalError("Gagal mengambil data sales dashboard");
   }
 }

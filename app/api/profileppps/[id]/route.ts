@@ -1,7 +1,7 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
-import { ProfilePPPService, getIPPoolRanges } from "@/modules/network";
-import { Prisma } from "@prisma/client";
+import { ProfilePPPService } from "@/modules/network";
 
 const profilePPPService = new ProfilePPPService();
 
@@ -113,10 +113,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const profilePPP = await profilePPPService.getProfilePPPDetail({
-      id,
-      getIPPoolRanges,
-    });
+    const profilePPP = await profilePPPService.getProfilePPPDetail(id);
 
     if (!profilePPP) {
       return NextResponse.json(
@@ -127,7 +124,7 @@ export async function GET(
 
     return NextResponse.json(profilePPP);
   } catch (error: unknown) {
-    console.error("Error fetching profile PPP:", error);
+    logger.error("Error fetching profile PPP:", error);
     return NextResponse.json(
       {
         error:
@@ -289,22 +286,11 @@ export async function PUT(
 
     return NextResponse.json(result.profilePPP);
   } catch (error: unknown) {
-    console.error("Error updating profile PPP:", error);
+    logger.error("Error updating profile PPP:", error);
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2025") {
-        return NextResponse.json(
-          { error: "Profile PPP tidak ditemukan" },
-          { status: 404 },
-        );
-      }
-
-      if (error.code === "P2002") {
-        return NextResponse.json(
-          { error: "Nama profile PPP sudah digunakan" },
-          { status: 400 },
-        );
-      }
+    const routeError = profilePPPService.toProfilePPPRouteError(error);
+    if (routeError) {
+      return NextResponse.json(routeError.body, { status: routeError.status });
     }
 
     return NextResponse.json(
@@ -401,25 +387,11 @@ export async function DELETE(
 
     return NextResponse.json({ message: result.message });
   } catch (error: unknown) {
-    console.error("Error deleting profile PPP:", error);
+    logger.error("Error deleting profile PPP:", error);
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2025") {
-        return NextResponse.json(
-          { error: "Profile PPP tidak ditemukan" },
-          { status: 404 },
-        );
-      }
-
-      if (error.code === "P2003") {
-        return NextResponse.json(
-          {
-            error:
-              "Profile PPP tidak dapat dihapus karena masih digunakan oleh paket",
-          },
-          { status: 400 },
-        );
-      }
+    const routeError = profilePPPService.toProfilePPPRouteError(error);
+    if (routeError) {
+      return NextResponse.json(routeError.body, { status: routeError.status });
     }
 
     return NextResponse.json(

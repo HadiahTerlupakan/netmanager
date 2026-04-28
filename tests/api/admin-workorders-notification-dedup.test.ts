@@ -18,6 +18,7 @@ const mockFns = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   workOrderFindUnique: vi.fn(),
   invalidateAllCaches: vi.fn(),
+  getUserContext: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -61,6 +62,10 @@ vi.mock("@/modules/work-order/services/WorkOrderNotifications", () => ({
 }));
 
 vi.mock("@/modules/work-order", () => ({
+  adminWorkOrderRouteService: {
+    getUserContext: mockFns.getUserContext,
+    deleteWorkOrder: mockFns.deleteWorkOrder,
+  },
   getWorkOrderService: () => ({
     getWorkOrderById: mockFns.getWorkOrderById,
     assignWorkOrder: mockFns.assignWorkOrder,
@@ -137,6 +142,13 @@ describe("admin workorder notification dedup", () => {
     vi.clearAllMocks();
     mockFns.hasPermission.mockResolvedValue(true);
     mockFns.isSuperAdmin.mockReturnValue(false);
+    mockFns.getUserContext.mockResolvedValue({
+      userId: "admin-1",
+      isSuperAdmin: false,
+      permissions: ["*"],
+      siteId: "site-1",
+      departmentId: "dept-1",
+    });
     mockFns.userFindUnique.mockImplementation(
       async ({ where }: { where: { id: string } }) => {
         if (where.id === "tech-1") {
@@ -278,7 +290,7 @@ describe("admin workorder notification dedup", () => {
   });
 
   it("returns 404 when cancel delete reports missing work order", async () => {
-    mockFns.updateStatus.mockResolvedValue({
+    mockFns.deleteWorkOrder.mockResolvedValue({
       success: false,
       error: "Work order tidak ditemukan",
       code: "NOT_FOUND",
@@ -400,7 +412,7 @@ describe("admin workorder notification dedup", () => {
   });
 
   it("returns 403 when cancel delete service denies access", async () => {
-    mockFns.updateStatus.mockResolvedValue({
+    mockFns.deleteWorkOrder.mockResolvedValue({
       success: false,
       error: "Akses ditolak: Site berbeda",
       code: "FORBIDDEN",

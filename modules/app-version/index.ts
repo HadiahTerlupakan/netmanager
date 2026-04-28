@@ -1,12 +1,9 @@
 // Public API for App Version Module
-export type * from "./domain/entities/AppVersionEntity";
-export type * from "./domain/ports/IAppVersionRepository";
-export { AppVersionRepository } from "./repositories/AppVersionRepository";
 export type {
   CreateAppVersionDTO,
   UpdateAppVersionDTO,
   AppVersionWithUser,
-} from "./repositories/AppVersionRepository";
+} from "./domain/entities/AppVersionEntity";
 
 export {
   AppVersionService,

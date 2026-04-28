@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { getUserPermissions, isSuperAdminUser } from "@/lib/auth";
 import { ensureAdminAccess } from "@/lib/server-auth";
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, data });
   } catch (e) {
     const error = e as Error;
-    console.error("Error fetching pending manual payments:", error);
+    logger.error("Error fetching pending manual payments:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },

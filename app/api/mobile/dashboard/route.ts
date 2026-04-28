@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
-import { mobileDashboardService } from "@/modules/mitra";
+import { getMobileDashboardService } from "@/modules/mitra";
 import type { MobileDashboardUserPayload } from "@/modules/mitra";
 import type { MobileTokenPayload } from "@/lib/mobile-auth";
 
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result =
-      await mobileDashboardService.getDashboardStats(dashboardUser);
+      await getMobileDashboardService().getDashboardStats(dashboardUser);
     return NextResponse.json(result);
   } catch (error) {
     const message =

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -23,7 +24,7 @@ export async function GET() {
     );
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error("[INVESTOR_DASHBOARD] Error:", error);
+    logger.error("[INVESTOR_DASHBOARD] Error:", error);
     return NextResponse.json({ message: "Terjadi kesalahan" }, { status: 500 });
   }
 }

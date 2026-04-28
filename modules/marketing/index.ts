@@ -1,7 +1,7 @@
 // Public API for Marketing Module
 
 import { prisma } from "@/lib/prisma";
-import { WorkOrderRepository } from "@/modules/work-order";
+import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
 import { getMitraLookupService } from "@/modules/mitra";
 import { SiteService } from "@/modules/roles";
 import { CanvasingRepository } from "./repositories/CanvasingRepository";
@@ -15,6 +15,8 @@ export { PointClaimService } from "./services/PointClaimService";
 export { AdminSalesRouteService } from "./services/AdminSalesRouteService";
 export { TestCanvasingRouteService } from "./services/TestCanvasingRouteService";
 export * from "./services/CanvasingAccessService";
+export * from "./services/CanvasingSiteAccessService";
+export * from "./services/MarketingCanvasingDetailRouteService";
 
 export function createCanvasingService(): CanvasingService {
   const mitraLookupService = getMitraLookupService();

@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import React, { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
@@ -74,7 +75,7 @@ export function ClientComponent({
         setIpInfo(await res.json());
       }
     } catch (e) {
-      console.error("Failed to fetch IP info", e);
+      clientLogger.error("Failed to fetch IP info", e);
     }
   }, []);
 
@@ -93,7 +94,7 @@ export function ClientComponent({
       }
     } catch (e) {
       setError("Gagal memuat data");
-      console.error(e);
+      clientLogger.error("Gagal memuat detail pendaftaran", e);
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +128,7 @@ export function ClientComponent({
       }
     } catch (e) {
       setError("Terjadi kesalahan");
-      console.error(e);
+      clientLogger.error("Gagal mengubah status pendaftaran", e);
     } finally {
       setIsSaving(false);
     }

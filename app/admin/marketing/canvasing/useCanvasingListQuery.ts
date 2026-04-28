@@ -1,3 +1,4 @@
+import { clientLogger } from "@/lib/client-logger";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import type {
@@ -98,7 +99,7 @@ export function useCanvasingListQuery(): UseCanvasingListQueryResult {
           return;
         }
 
-        console.error("Failed to fetch canvasing", error);
+        clientLogger.error("Failed to fetch canvasing", error);
         toast.error("Gagal menghubungi server, coba lagi nanti");
       } finally {
         if (requestId === latestRequestRef.current && !signal?.aborted) {

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import {
@@ -67,11 +68,11 @@ export async function POST(request: NextRequest) {
         { message: "Bukti pembayaran berhasil diunggah" },
       );
     } catch (uploadError) {
-      console.error("Failed to upload image:", uploadError);
+      logger.error("Failed to upload image:", uploadError);
       return ApiErrors.internalError("Gagal menyimpan file bukti pembayaran");
     }
   } catch (error) {
-    console.error("Error in upload-receipt:", error);
+    logger.error("Error in upload-receipt:", error);
     return ApiErrors.internalError("Terjadi kesalahan pada server");
   }
 }
@@ -88,6 +89,6 @@ async function notifyAdminsAboutReceiptUpload() {
       { url: "/admin/payments/approval" },
     );
   } catch (error) {
-    console.error("[FCM] Push failed", error);
+    logger.error("[FCM] Push failed", error);
   }
 }

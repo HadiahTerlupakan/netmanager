@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import cron from "node-cron";
 import type { ScheduledTask } from "node-cron";
 import { acquireCronLock } from "@/lib/cron-lock";
@@ -14,107 +15,107 @@ export class CronRegistry {
   private tasks: Map<string, ScheduledTask> = new Map();
 
   public startAll() {
-    console.log("[CronRegistry] Starting all cron jobs...");
+    logger.info("[CronRegistry] Starting all cron jobs...");
 
     // Start Automatic Billing Service (Daily at 01:00 AM)
-    import("../modules/finance/services/AutomaticBillingService")
+    import("../modules/finance")
       .then(({ AutomaticBillingService }) => {
         const billingCronTask = cron.schedule("0 1 * * *", async () => {
           if (!(await canRunCronJob("billing", 82800))) return;
-          console.log("[Cron] Running daily billing check");
+          logger.info("[Cron] Running daily billing check");
           AutomaticBillingService.generateDailyInvoices();
         });
         this.tasks.set("billing", billingCronTask);
-        console.log("[CronRegistry] Automatic billing cron scheduled");
+        logger.info("[CronRegistry] Automatic billing cron scheduled");
 
         const reminderCronTask = cron.schedule("* * * * *", async () => {
           if (!(await canRunCronJob("reminder", 55))) return;
           AutomaticBillingService.sendDailyReminders();
         });
         this.tasks.set("reminder", reminderCronTask);
-        console.log(
+        logger.info(
           "[CronRegistry] Automatic reminder check cron scheduled (Every minute)",
         );
       })
       .catch((err) =>
-        console.error(
+        logger.error(
           "[CronRegistry] Failed to start Automatic Billing Service:",
           err,
         ),
       );
 
     // Start Automatic Isolation Service (Daily at 00:00 AM)
-    import("../modules/finance/services/AutomaticIsolationService")
+    import("../modules/finance")
       .then(({ AutomaticIsolationService }) => {
         const isolationTask = cron.schedule("0 0 * * *", async () => {
           if (!(await canRunCronJob("isolation", 82800))) return;
-          console.log("[Cron] Running daily isolation check");
+          logger.info("[Cron] Running daily isolation check");
           AutomaticIsolationService.runDailyCheck();
         });
         this.tasks.set("isolation", isolationTask);
-        console.log(
+        logger.info(
           "[CronRegistry] Automatic isolation cron scheduled (00:00)",
         );
       })
       .catch((err) =>
-        console.error(
+        logger.error(
           "[CronRegistry] Failed to start Automatic Isolation Service:",
           err,
         ),
       );
 
     // Start Attendance Orchestrator (Every minute)
-    import("../modules/attendance/services/AttendanceCronOrchestratorService")
+    import("../modules/attendance")
       .then(({ runAttendanceCronOrchestrator }) => {
         const attendanceOrchestratorTask = cron.schedule(
           "* * * * *",
           async () => {
             if (!(await canRunCronJob("attendanceOrchestrator", 55))) return;
-            console.log("[Cron] Running attendance orchestrator");
+            logger.info("[Cron] Running attendance orchestrator");
             await runAttendanceCronOrchestrator();
           },
         );
         this.tasks.set("attendanceOrchestrator", attendanceOrchestratorTask);
-        console.log(
+        logger.info(
           "[CronRegistry] Attendance orchestrator cron scheduled (Every minute)",
         );
       })
       .catch((err) =>
-        console.error(
+        logger.error(
           "[CronRegistry] Failed to start AttendanceCronOrchestratorService:",
           err,
         ),
       );
 
     // Start Location Cleanup Service (Daily at 02:00 AM)
-    import("../modules/attendance/services/LocationTrackingService")
+    import("../modules/attendance")
       .then(({ LocationTrackingService }) => {
         const locationCleanupTask = cron.schedule("0 2 * * *", async () => {
           if (!(await canRunCronJob("locationCleanup", 82800))) return;
-          console.log("[Cron] Running daily location cleanup");
+          logger.info("[Cron] Running daily location cleanup");
           const service = new LocationTrackingService();
           service
             .cleanupOldLocations()
             .catch((err) =>
-              console.error("[Cron] Location cleanup failed:", err),
+              logger.error("[Cron] Location cleanup failed:", err),
             );
         });
         this.tasks.set("locationCleanup", locationCleanupTask);
-        console.log("[CronRegistry] Location cleanup cron scheduled (02:00)");
+        logger.info("[CronRegistry] Location cleanup cron scheduled (02:00)");
       })
       .catch((err) =>
-        console.error(
+        logger.error(
           "[CronRegistry] Failed to start Location Tracking Service for cleanup:",
           err,
         ),
       );
 
     // Start Monthly Asset Depreciation Service (Monthly on 1st at 02:00 AM)
-    import("../modules/inventory/services/AssetService")
+    import("../modules/inventory")
       .then(({ AssetService }) => {
         const assetDepreciationTask = cron.schedule("0 2 1 * *", async () => {
           if (!(await canRunCronJob("assetDepreciation", 2505600))) return;
-          console.log("[Cron] Running monthly asset depreciation");
+          logger.info("[Cron] Running monthly asset depreciation");
           try {
             const { prisma } = await import("./prisma");
             const systemUser =
@@ -127,52 +128,52 @@ export class CronRegistry {
               const results = await assetService.runMonthlyDepreciationCycle(
                 systemUser.id,
               );
-              console.log(
+              logger.info(
                 `[Cron] Depreciation complete. Processed ${results.length} assets.`,
               );
             } else {
-              console.error(
+              logger.error(
                 "[Cron] Failed to run depreciation: No system user found",
               );
             }
           } catch (err) {
-            console.error("[Cron] Depreciation cycle failed:", err);
+            logger.error("[Cron] Depreciation cycle failed:", err);
           }
         });
         this.tasks.set("assetDepreciation", assetDepreciationTask);
-        console.log(
+        logger.info(
           "[CronRegistry] Asset depreciation cron scheduled (Monthly 1st 02:00)",
         );
       })
       .catch((err) =>
-        console.error("[CronRegistry] Failed to start Asset Service:", err),
+        logger.error("[CronRegistry] Failed to start Asset Service:", err),
       );
 
     // Start MixRadius Invoice Sync Service (Hourly at minute 0)
-    import("../modules/integrations/services/MixRadiusSyncService")
-      .then(({ syncService }) => {
+    import("../modules/integrations")
+      .then(({ getMixRadiusSyncService }) => {
         const mixRadiusInvoiceTask = cron.schedule("0 * * * *", async () => {
           if (!(await canRunCronJob("mixRadiusInvoiceSync", 3540))) return;
-          console.log("[Cron] Running hourly MixRadius invoice sync");
-          syncService.syncInvoices();
+          logger.info("[Cron] Running hourly MixRadius invoice sync");
+          getMixRadiusSyncService().syncInvoices();
         });
         this.tasks.set("mixRadiusInvoiceSync", mixRadiusInvoiceTask);
-        console.log(
+        logger.info(
           "[CronRegistry] MixRadius invoice sync cron scheduled (Hourly)",
         );
 
         const mixRadiusSettlementTask = cron.schedule("5 0 * * *", async () => {
           if (!(await canRunCronJob("mixRadiusSettlementSync", 82800))) return;
-          console.log("[Cron] Running daily MixRadius settlement sync (T-1)");
-          syncService.syncYesterdaySettlement();
+          logger.info("[Cron] Running daily MixRadius settlement sync (T-1)");
+          getMixRadiusSyncService().syncYesterdaySettlement();
         });
         this.tasks.set("mixRadiusSettlementSync", mixRadiusSettlementTask);
-        console.log(
+        logger.info(
           "[CronRegistry] MixRadius settlement sync cron scheduled (00:05)",
         );
       })
       .catch((err) =>
-        console.error(
+        logger.error(
           "[CronRegistry] Failed to start MixRadius Sync Service:",
           err,
         ),
@@ -181,7 +182,7 @@ export class CronRegistry {
     // Start RAB Status Evaluation Service (Daily at 01:00 AM)
     const rabStatusTask = cron.schedule("0 1 * * *", async () => {
       if (!(await canRunCronJob("rabStatusEvaluation", 82800))) return;
-      console.log("[Cron] Running daily RAB status evaluation");
+      logger.info("[Cron] Running daily RAB status evaluation");
       try {
         const port = process.env.PORT || "3000";
         const res = await fetch(
@@ -194,20 +195,20 @@ export class CronRegistry {
           },
         );
         const data = await res.json();
-        console.log("[Cron] RAB status evaluation result:", data);
+        logger.info("[Cron] RAB status evaluation result:", data);
       } catch (err) {
-        console.error("[Cron] Failed to run RAB status evaluation:", err);
+        logger.error("[Cron] Failed to run RAB status evaluation:", err);
       }
     });
     this.tasks.set("rabStatusEvaluation", rabStatusTask);
-    console.log("[CronRegistry] RAB status evaluation cron scheduled (01:00)");
+    logger.info("[CronRegistry] RAB status evaluation cron scheduled (01:00)");
   }
 
   public stopAll() {
-    console.log(`[CronRegistry] Stopping ${this.tasks.size} cron jobs...`);
+    logger.info(`[CronRegistry] Stopping ${this.tasks.size} cron jobs...`);
     for (const [name, task] of this.tasks.entries()) {
       task.stop();
-      console.log(`[CronRegistry] Stopped task: ${name}`);
+      logger.info(`[CronRegistry] Stopped task: ${name}`);
     }
     this.tasks.clear();
   }

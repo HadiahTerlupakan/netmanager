@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { MixRadiusConfigError, MixRadiusService } from "@/modules/integrations";
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error searching MixRadius customers:", error);
+    logger.error("Error searching MixRadius customers:", error);
 
     if (
       error instanceof MixRadiusConfigError ||

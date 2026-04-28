@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -42,7 +43,7 @@ export async function POST() {
 
     return NextResponse.json({ token: customToken });
   } catch (error) {
-    console.error("Firebase custom token error:", error);
+    logger.error("Firebase custom token error:", error);
     return NextResponse.json(
       { error: "Gagal membuat Firebase custom token" },
       { status: 500 },

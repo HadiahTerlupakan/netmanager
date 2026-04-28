@@ -1,11 +1,17 @@
-import type { LeaveType } from "@prisma/client";
+export type LeaveBalanceType =
+  | "CUTI"
+  | "SAKIT"
+  | "IZIN"
+  | "LAINNYA"
+  | "TUKAR_LIBUR"
+  | string;
 
 export interface ILeaveBalanceRepository {
   /** Check whether employee still has enough leave quota. */
   hasEnoughDays(
     userId: string,
     year: number,
-    leaveType: LeaveType,
+    leaveType: LeaveBalanceType,
     requiredDays: number,
     tenantId?: string,
   ): Promise<boolean>;
@@ -14,7 +20,7 @@ export interface ILeaveBalanceRepository {
   getRemainingDays(
     userId: string,
     year: number,
-    leaveType: LeaveType,
+    leaveType: LeaveBalanceType,
     tenantId?: string,
   ): Promise<number>;
 }

@@ -1,21 +1,30 @@
+import { logger } from "@/lib/logger";
 /**
  * Centralized Authorization Middleware
- * 
+ *
  * Pattern berdasarkan Context7 Next.js & NextAuth.js documentation:
  * - Two-tier security: Authentication + Authorization
  * - Session verification via getServerSession
  * - Role and permission-based access control
  * - Site restriction support
- * 
+ *
  * @see https://nextjs.org/docs/guides/authentication (Context7)
  * @see https://next-auth.js.org/tutorials/securing-pages-and-api-routes (Context7)
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession, type NextAuthOptions, type Session } from 'next-auth'
-import { authConfig, getUserPermissions, isSuperAdmin as isSuperAdminHelper } from '@/lib/auth'
-import { checkSiteRestriction } from '@/modules/roles'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getServerSession,
+  type NextAuthOptions,
+  type Session,
+} from "next-auth";
+import {
+  authConfig,
+  getUserPermissions,
+  isSuperAdmin as isSuperAdminHelper,
+} from "@/lib/auth";
+import { checkSiteRestriction } from "@/modules/roles";
+import { prisma } from "@/lib/prisma";
 
 // =============================================================================
 // Types
@@ -23,45 +32,45 @@ import { prisma } from '@/lib/prisma'
 
 export interface AuthorizationConfig {
   /** Required permissions - OR logic by default */
-  permissions?: string[]
+  permissions?: string[];
   /** Require ALL permissions (AND logic) instead of ANY */
-  requireAll?: boolean
+  requireAll?: boolean;
   /** Allow access to own resources (self-access) */
-  allowSelf?: boolean
+  allowSelf?: boolean;
   /** URL param name for self-check (default: 'id') */
-  selfIdParam?: string
+  selfIdParam?: string;
   /** Apply site restrictions - user can only access resources from their site */
-  siteRestricted?: boolean
+  siteRestricted?: boolean;
   /** Field name for site ID in resource (default: 'siteId') */
-  siteIdField?: string
+  siteIdField?: string;
   /** Log authorization attempts to SystemLog */
-  auditLog?: boolean
+  auditLog?: boolean;
   /** Custom error messages */
   errorMessages?: {
-    unauthorized?: string
-    forbidden?: string
-    siteRestricted?: string
-  }
+    unauthorized?: string;
+    forbidden?: string;
+    siteRestricted?: string;
+  };
 }
 
 export interface AuthorizedSession {
   user: {
-    id: string
-    email: string
-    name: string | null
-    role: string
+    id: string;
+    email: string;
+    name: string | null;
+    role: string;
     /** @deprecated Use siteIds for multi-site */
-    siteId?: string | null
+    siteId?: string | null;
     /** Multi-site: Array of site IDs */
-    siteIds?: string[]
+    siteIds?: string[];
     /** Multi-site: Primary site ID */
-    primarySiteId?: string | null
-    departmentId?: string | null
-    isSales?: boolean
-    isSuperAdmin?: boolean
-    tenantId?: string | null
-  }
-  permissions: string[]
+    primarySiteId?: string | null;
+    departmentId?: string | null;
+    isSales?: boolean;
+    isSuperAdmin?: boolean;
+    tenantId?: string | null;
+  };
+  permissions: string[];
 }
 
 interface SessionUser {
@@ -80,7 +89,7 @@ interface SessionUser {
 
 export type AuthorizationResult =
   | { error: NextResponse; session?: never }
-  | { session: AuthorizedSession; error?: never }
+  | { session: AuthorizedSession; error?: never };
 
 // =============================================================================
 // Main Authorization Function
@@ -88,22 +97,22 @@ export type AuthorizationResult =
 
 /**
  * Centralized authorization function for API Route Handlers.
- * 
+ *
  * Pattern from Context7 Next.js docs:
  * 1. Check if user is authenticated (session exists)
  * 2. Check if user has required permissions
  * 3. Check site restrictions if applicable
- * 
+ *
  * @example
  * ```typescript
  * export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
- *   const auth = await authorize(req, { 
+ *   const auth = await authorize(req, {
  *     permissions: ['users:read'],
- *     siteRestricted: true 
+ *     siteRestricted: true
  *   })
- *   
+ *
  *   if ('error' in auth) return auth.error
- *   
+ *
  *   const { session } = auth
  *   // Proceed with authorized user...
  * }
@@ -112,32 +121,35 @@ export type AuthorizationResult =
 export async function authorize(
   request: NextRequest,
   config: AuthorizationConfig = {},
-  params?: { id?: string }
+  params?: { id?: string },
 ): Promise<AuthorizationResult> {
   const {
     permissions = [],
     requireAll = false,
     allowSelf = false,
-    selfIdParam = 'id',
+    selfIdParam = "id",
     siteRestricted = false,
     auditLog = false,
-    errorMessages = {}
-  } = config
+    errorMessages = {},
+  } = config;
 
   // -------------------------------------------------------------------------
   // Step 1: Authentication Check (from Context7 Next.js pattern)
   // -------------------------------------------------------------------------
-  let session: Record<string, unknown> | null
+  let session: Record<string, unknown> | null;
   try {
-    session = await getServerSession(authConfig as NextAuthOptions) as Record<string, unknown> | null
+    session = (await getServerSession(authConfig as NextAuthOptions)) as Record<
+      string,
+      unknown
+    > | null;
   } catch (error) {
-    console.error('[AUTH] Error getting session:', error)
+    logger.error("[AUTH] Error getting session:", error);
     return {
       error: NextResponse.json(
-        { error: errorMessages.unauthorized || 'Kesalahan autentikasi' },
-        { status: 500 }
-      )
-    }
+        { error: errorMessages.unauthorized || "Kesalahan autentikasi" },
+        { status: 500 },
+      ),
+    };
   }
 
   if (!(session?.user as SessionUser)?.id) {
@@ -145,33 +157,33 @@ export async function authorize(
       await logAuthAttempt({
         userId: null,
         url: request.url,
-        action: 'AUTHENTICATION_FAILED',
+        action: "AUTHENTICATION_FAILED",
         granted: false,
-        details: { reason: 'No session found' }
-      })
+        details: { reason: "No session found" },
+      });
     }
 
     return {
       error: NextResponse.json(
-        { error: errorMessages.unauthorized || 'Autentikasi diperlukan' },
-        { status: 401 }
-      )
-    }
+        { error: errorMessages.unauthorized || "Autentikasi diperlukan" },
+        { status: 401 },
+      ),
+    };
   }
 
-  const user = session.user as SessionUser
-  const userId = user.id
-  const userRole = user.role || ''
-  const userSiteId = user.siteId
-  const userSiteIds = user.siteIds || (userSiteId ? [userSiteId] : [])
-  const primarySiteId = user.primarySiteId || userSiteId
-  const isSuperAdmin = isSuperAdminHelper(user)
+  const user = session.user as SessionUser;
+  const userId = user.id;
+  const userRole = user.role || "";
+  const userSiteId = user.siteId;
+  const userSiteIds = user.siteIds || (userSiteId ? [userSiteId] : []);
+  const primarySiteId = user.primarySiteId || userSiteId;
+  const isSuperAdmin = isSuperAdminHelper(user);
 
   // -------------------------------------------------------------------------
   // Step 2: Load User Permissions (always from database)
   // -------------------------------------------------------------------------
-  let userPermissions: string[] = []
-  
+  let userPermissions: string[] = [];
+
   // Super Admin Bypass - Early return if user is Super Admin
   // Consistent with hasPermission logic in rbac.ts
   if (isSuperAdmin) {
@@ -179,7 +191,7 @@ export async function authorize(
       session: {
         user: {
           id: userId,
-          email: user.email || '',
+          email: user.email || "",
           name: user.name || null,
           role: userRole,
           siteId: primarySiteId,
@@ -188,31 +200,31 @@ export async function authorize(
           departmentId: user.departmentId,
           isSales: user.isSales,
           isSuperAdmin: true,
-          tenantId: user.tenantId
+          tenantId: user.tenantId,
         },
-        permissions: ['*'] // Represent all permissions
-      }
-    }
+        permissions: ["*"], // Represent all permissions
+      },
+    };
   }
 
   try {
-    userPermissions = await getUserPermissions(userId)
+    userPermissions = await getUserPermissions(userId);
   } catch (error) {
-    console.error('[AUTH] Error loading permissions:', error)
+    logger.error("[AUTH] Error loading permissions:", error);
     // Fail-closed: deny access if permissions can't be loaded
     return {
       error: NextResponse.json(
-        { error: 'Kesalahan otorisasi' },
-        { status: 500 }
-      )
-    }
+        { error: "Kesalahan otorisasi" },
+        { status: 500 },
+      ),
+    };
   }
 
   // -------------------------------------------------------------------------
   // Step 3: Self-Access Check (if enabled)
   // -------------------------------------------------------------------------
-  const resourceId = params?.[selfIdParam as keyof typeof params] || params?.id
-  const isSelfAccess = allowSelf && resourceId === userId
+  const resourceId = params?.[selfIdParam as keyof typeof params] || params?.id;
+  const isSelfAccess = allowSelf && resourceId === userId;
 
   if (isSelfAccess) {
     // Self-access granted - bypass permission check for viewing own resources
@@ -220,18 +232,18 @@ export async function authorize(
       session: {
         user: {
           id: userId,
-          email: user.email || '',
+          email: user.email || "",
           name: user.name || null,
           role: userRole,
           siteId: primarySiteId,
           siteIds: userSiteIds,
           primarySiteId,
           departmentId: user.departmentId,
-          isSales: user.isSales
+          isSales: user.isSales,
         },
-        permissions: userPermissions
-      }
-    }
+        permissions: userPermissions,
+      },
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -239,37 +251,37 @@ export async function authorize(
   // -------------------------------------------------------------------------
   if (permissions.length > 0) {
     const hasAccess = requireAll
-      ? permissions.every(p => userPermissions.includes(p))
-      : permissions.some(p => userPermissions.includes(p))
+      ? permissions.every((p) => userPermissions.includes(p))
+      : permissions.some((p) => userPermissions.includes(p));
 
     if (!hasAccess) {
       if (auditLog) {
         await logAuthAttempt({
           userId,
           url: request.url,
-          action: 'PERMISSION_DENIED',
+          action: "PERMISSION_DENIED",
           granted: false,
-          details: { 
-            required: permissions, 
+          details: {
+            required: permissions,
             requireAll,
-            userPermissions: userPermissions.length 
-          }
-        })
+            userPermissions: userPermissions.length,
+          },
+        });
       }
 
-      console.warn('[AUTH] Permission denied', {
+      logger.warn("[AUTH] Permission denied", {
         userId,
         required: permissions,
         requireAll,
-        userHas: userPermissions.length
-      })
+        userHas: userPermissions.length,
+      });
 
       return {
         error: NextResponse.json(
-          { error: errorMessages.forbidden || 'Izin tidak mencukupi' },
-          { status: 403 }
-        )
-      }
+          { error: errorMessages.forbidden || "Izin tidak mencukupi" },
+          { status: 403 },
+        ),
+      };
     }
   }
 
@@ -277,8 +289,11 @@ export async function authorize(
   // Step 5: Site Restriction Check
   // -------------------------------------------------------------------------
   if (siteRestricted && userSiteId) {
-    const restrictionResult = checkSiteRestriction(session as unknown as Session, 'resource')
-    
+    const restrictionResult = checkSiteRestriction(
+      session as unknown as Session,
+      "resource",
+    );
+
     if (restrictionResult.isRestricted) {
       // User is site-restricted - they can only access resources from their site
       // The actual filtering should be done in the route handler using getSiteFilter()
@@ -293,17 +308,17 @@ export async function authorize(
     await logAuthAttempt({
       userId,
       url: request.url,
-      action: 'ACCESS_GRANTED',
+      action: "ACCESS_GRANTED",
       granted: true,
-      details: { permissions: permissions.length > 0 ? permissions : '*' }
-    })
+      details: { permissions: permissions.length > 0 ? permissions : "*" },
+    });
   }
 
   return {
     session: {
       user: {
         id: userId,
-        email: user.email || '',
+        email: user.email || "",
         name: user.name || null,
         role: userRole,
         siteId: primarySiteId,
@@ -312,11 +327,11 @@ export async function authorize(
         departmentId: user.departmentId,
         isSales: user.isSales,
         isSuperAdmin: false, // In this branch, we know it's not a bypassed superadmin
-        tenantId: user.tenantId
+        tenantId: user.tenantId,
       },
-      permissions: userPermissions
-    }
-  }
+      permissions: userPermissions,
+    },
+  };
 }
 
 // =============================================================================
@@ -327,9 +342,9 @@ export async function authorize(
  * Quick authorization check - just authentication, no permission check
  */
 export async function authorizeBasic(
-  request: NextRequest
+  request: NextRequest,
 ): Promise<AuthorizationResult> {
-  return authorize(request, {})
+  return authorize(request, {});
 }
 
 /**
@@ -337,9 +352,9 @@ export async function authorizeBasic(
  */
 export async function authorizeWithPermission(
   request: NextRequest,
-  permission: string
+  permission: string,
 ): Promise<AuthorizationResult> {
-  return authorize(request, { permissions: [permission] })
+  return authorize(request, { permissions: [permission] });
 }
 
 /**
@@ -347,9 +362,9 @@ export async function authorizeWithPermission(
  */
 export async function authorizeWithAnyPermission(
   request: NextRequest,
-  permissions: string[]
+  permissions: string[],
 ): Promise<AuthorizationResult> {
-  return authorize(request, { permissions, requireAll: false })
+  return authorize(request, { permissions, requireAll: false });
 }
 
 /**
@@ -357,9 +372,9 @@ export async function authorizeWithAnyPermission(
  */
 export async function authorizeWithAllPermissions(
   request: NextRequest,
-  permissions: string[]
+  permissions: string[],
 ): Promise<AuthorizationResult> {
-  return authorize(request, { permissions, requireAll: true })
+  return authorize(request, { permissions, requireAll: true });
 }
 
 /**
@@ -367,9 +382,9 @@ export async function authorizeWithAllPermissions(
  */
 export function hasPermissionInSession(
   session: AuthorizedSession,
-  permission: string
+  permission: string,
 ): boolean {
-  return session.permissions.includes(permission)
+  return session.permissions.includes(permission);
 }
 
 /**
@@ -377,9 +392,9 @@ export function hasPermissionInSession(
  */
 export function hasAnyPermissionInSession(
   session: AuthorizedSession,
-  permissions: string[]
+  permissions: string[],
 ): boolean {
-  return permissions.some(p => session.permissions.includes(p))
+  return permissions.some((p) => session.permissions.includes(p));
 }
 
 // =============================================================================
@@ -387,11 +402,11 @@ export function hasAnyPermissionInSession(
 // =============================================================================
 
 interface LogAuthAttemptParams {
-  userId: string | null
-  url: string
-  action: string
-  granted: boolean
-  details?: Record<string, unknown>
+  userId: string | null;
+  url: string;
+  action: string;
+  granted: boolean;
+  details?: Record<string, unknown>;
 }
 
 async function logAuthAttempt({
@@ -399,22 +414,22 @@ async function logAuthAttempt({
   url,
   action,
   granted,
-  details
+  details,
 }: LogAuthAttemptParams): Promise<void> {
   try {
     await prisma.systemLog.create({
       data: {
         id: crypto.randomUUID(),
-        type: 'AUTH',
+        type: "AUTH",
         action,
         subject: url.substring(0, 500), // Limit URL length
         ...(userId ? { userId } : {}),
-        details: JSON.stringify({ granted, ...details })
-      }
-    })
+        details: JSON.stringify({ granted, ...details }),
+      },
+    });
   } catch (error) {
     // Non-blocking - log error but don't fail the request
-    console.error('[AUTH] Failed to log auth attempt:', error)
+    logger.error("[AUTH] Failed to log auth attempt:", error);
   }
 }
 
@@ -426,16 +441,16 @@ async function logAuthAttempt({
  * Type guard to check if authorization result is an error
  */
 export function isAuthError(
-  result: AuthorizationResult
+  result: AuthorizationResult,
 ): result is { error: NextResponse } {
-  return 'error' in result
+  return "error" in result;
 }
 
 /**
  * Type guard to check if authorization result is successful
  */
 export function isAuthorized(
-  result: AuthorizationResult
+  result: AuthorizationResult,
 ): result is { session: AuthorizedSession } {
-  return 'session' in result
+  return "session" in result;
 }

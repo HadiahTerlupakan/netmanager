@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { analyzeReceiptWithOCR } from "@/lib/services/receipt-ocr";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
@@ -26,7 +27,7 @@ export async function uploadCustomerPaymentReceipt(options: {
   });
 
   if (!payment) {
-    console.error(
+    logger.error(
       `[upload-receipt] FAIL: No pending BANK_TRANSFER found. invoiceId: ${options.invoiceId}, pelangganId: ${options.customerCode}`,
     );
     return { status: "not-found" };
@@ -133,6 +134,6 @@ async function publishPaymentUploadNotification(options: {
       }),
     ),
   ).catch((error) => {
-    console.error("[upload-receipt] Failed to publish realtime update", error);
+    logger.error("[upload-receipt] Failed to publish realtime update", error);
   });
 }

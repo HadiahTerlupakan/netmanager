@@ -1,9 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import {
-  AdminUserRouteService,
-  createUserSchema,
-  getUserService,
-} from "@/modules/users";
+import { AdminUserRouteService, getUserService } from "@/modules/users";
+import { createUserSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
 import { checkSiteRestriction } from "@/modules/roles";
 import type { Session } from "next-auth";

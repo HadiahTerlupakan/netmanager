@@ -1,10 +1,16 @@
 import type { Session } from "next-auth";
-import type { LeaveStatus, LeaveType } from "@prisma/client";
+type LeaveStatusValue = string;
+type LeaveTypeValue = string;
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 
-import { getLeaveService, type ServiceResult } from "./LeaveService";
+import {
+  getLeaveService,
+  type CreateLeaveData,
+  type LeaveFilters,
+  type ServiceResult,
+} from "./LeaveService";
 
 interface AdminLeaveSession {
   user: Session["user"] & {
@@ -14,14 +20,14 @@ interface AdminLeaveSession {
 }
 
 interface AdminLeaveListInput {
-  status?: LeaveStatus;
+  status?: LeaveStatusValue;
   tenantId: string;
   session: AdminLeaveSession;
 }
 
 interface AdminLeaveCreateInput {
   userId: string;
-  type: LeaveType;
+  type: LeaveTypeValue;
   startDate: Date;
   endDate: Date;
   reason: string;
@@ -50,21 +56,23 @@ const DEPARTMENT_FORBIDDEN_MESSAGE = "Dibatasi hanya untuk Departemen Anda";
 /** Service untuk thin controller route admin leave. */
 export class AdminLeaveRouteService {
   private readonly leaveService = getLeaveService();
-  private readonly userRepository: UserRepository;
+  private readonly userRepository: UserLookupService;
 
-  constructor(userRepository: UserRepository = new UserRepository()) {
+  constructor(userRepository: UserLookupService = new UserLookupService()) {
     this.userRepository = userRepository;
   }
 
   /** Ambil daftar leave admin sesuai scope permission. */
   async getLeaves(input: AdminLeaveListInput) {
     const scope = await this.resolveScope(input.session);
-    return this.leaveService.getLeaves({
+    const filters = {
       ...(input.status ? { status: input.status } : {}),
       ...(scope.siteId ? { siteId: scope.siteId } : {}),
       ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
       tenantId: input.tenantId,
-    });
+    } as LeaveFilters;
+
+    return this.leaveService.getLeaves(filters);
   }
 
   /** Buat leave manual oleh admin dengan auto approve. */
@@ -80,7 +88,7 @@ export class AdminLeaveRouteService {
           ? { replacementDate: input.replacementDate }
           : {}),
         ...(input.attachmentUrl ? { attachmentUrl: input.attachmentUrl } : {}),
-      },
+      } as CreateLeaveData,
       input.session.user.id,
       input.session.user.tenantId as string,
       true,

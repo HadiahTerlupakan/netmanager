@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type {
   SettingsEntity,
@@ -81,7 +82,7 @@ export function mapGeneralSettingsResponse(
     try {
       rekeningBank = JSON.parse(rekeningBankStr);
     } catch (error) {
-      console.error("Error parsing rekening bank:", error);
+      logger.error("Error parsing rekening bank:", error);
     }
   }
 

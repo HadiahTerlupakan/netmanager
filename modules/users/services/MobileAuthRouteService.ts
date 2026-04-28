@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { compare } from "bcryptjs";
 
@@ -213,7 +214,7 @@ async function isCustomerPasswordValid(
     return compare(password, customer.passwordHash);
   }
 
-  console.warn(
+  logger.warn(
     `[MobileAuth] WARNING: Customer ${customer.id} is using legacy plaintext password. Please migrate to bcrypt hash.`,
   );
   return customer.password === password;

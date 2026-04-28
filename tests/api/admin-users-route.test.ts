@@ -23,6 +23,7 @@ vi.mock("@/modules/roles", () => ({
 }));
 
 vi.mock("@/modules/users", () => ({
+  createUserSchema: {},
   getUserService: mockFns.getUserService,
 }));
 

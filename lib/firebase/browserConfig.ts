@@ -1,3 +1,4 @@
+import { clientLogger } from "@/lib/client-logger";
 const firebaseBrowserDefaults = {
   apiKey: "AIzaSyDihrl023fOQnXf8oZ7A2rU7YxzJzQN5Lc",
   authDomain: "netmanager-96742.firebaseapp.com",
@@ -74,7 +75,7 @@ export function getFirebaseBrowserConfig() {
   const fallbackFields = getFirebaseBrowserFallbackFields();
 
   if (process.env.NODE_ENV === "production" && fallbackFields.length > 0) {
-    console.warn(
+    clientLogger.warn(
       `Using bundled Firebase browser config defaults for: ${fallbackFields.join(", ")}`,
     );
   }

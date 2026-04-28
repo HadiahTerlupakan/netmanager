@@ -1,9 +1,10 @@
-import type { Prisma } from "@prisma/client";
 import type {
   AvailableWorkOrderEntity,
   MobileAvailableMitraProfileEntity,
   MobileAvailableUserProfileEntity,
 } from "../entities/WorkOrderEntity";
+
+export type AvailableWorkOrderFilter = Record<string, unknown>;
 
 export interface ClaimAvailableWorkOrderData {
   workOrderId: string;
@@ -35,7 +36,7 @@ export interface IWorkOrderAvailabilityRepository {
 
   /** Get work orders that match the given availability filter. */
   findAvailableWorkOrders(
-    where: Prisma.WorkOrdersWhereInput,
+    where: AvailableWorkOrderFilter,
   ): Promise<AvailableWorkOrderEntity[]>;
 
   /** Find one work order in current tenant. */

@@ -8,6 +8,7 @@ import {
   MAIN_TENANT_ID,
   MAIN_TENANT_NAME,
 } from "../modules/mitra/services/tenant-constants";
+import { logger } from "../lib/logger";
 
 const { client: prisma, pool } = createPrismaClient();
 let optionalFailureCount = 0;
@@ -67,7 +68,7 @@ async function createMainTenant() {
     },
   });
 
-  console.log(
+  logger.info(
     `✨ Created new tenant: "${MAIN_TENANT_NAME}" (ID: ${tenant.id})`,
   );
   return tenant;
@@ -79,7 +80,7 @@ async function findOrCreateMainTenant(): Promise<TenantRecord> {
   });
 
   if (currentTenant) {
-    console.log(
+    logger.info(
       `✅ Tenant "${MAIN_TENANT_NAME}" sudah ada (ID: ${currentTenant.id})`,
     );
     return currentTenant;
@@ -93,7 +94,7 @@ async function findOrCreateMainTenant(): Promise<TenantRecord> {
     return createMainTenant();
   }
 
-  console.log(
+  logger.info(
     `🔄 Renaming tenant "${oldestTenant.name}" → "${MAIN_TENANT_NAME}"`,
   );
   const renamedTenant = await prisma.tenant.update({
@@ -101,7 +102,7 @@ async function findOrCreateMainTenant(): Promise<TenantRecord> {
     data: { name: MAIN_TENANT_NAME },
   });
 
-  console.log(`✅ Tenant renamed successfully (ID: ${renamedTenant.id})`);
+  logger.info(`✅ Tenant renamed successfully (ID: ${renamedTenant.id})`);
   return renamedTenant;
 }
 
@@ -125,7 +126,7 @@ async function backfillModel(
     });
 
     if (result.count > 0) {
-      console.log(
+      logger.info(
         `✅ [${modelName.padEnd(25)}] Updated ${result.count} orphaned records`,
       );
     }
@@ -134,7 +135,7 @@ async function backfillModel(
   } catch (error) {
     const message = (error as Error).message.split("\n")[0];
     optionalFailureCount += 1;
-    console.error(`❌ [${modelName.padEnd(25)}] Failed: ${message}`);
+    logger.error(`❌ [${modelName.padEnd(25)}] Failed: ${message}`);
     return 0;
   }
 }
@@ -144,10 +145,10 @@ async function backfillTenantRecords(tenantId: string) {
   let totalUpdated = 0;
   let tablesAffected = 0;
 
-  console.log(
+  logger.info(
     `\n🔍 Found ${models.length} safe tables with nullable tenantId.`,
   );
-  console.log("⚙️  Backfilling orphaned records (tenantId = null)...\n");
+  logger.info("⚙️  Backfilling orphaned records (tenantId = null)...\n");
 
   for (const model of models) {
     const updatedCount = await backfillModel(model, tenantId);
@@ -168,21 +169,21 @@ function logSummary(summary: {
   totalUpdated: number;
   tablesAffected: number;
 }) {
-  console.log("\n=============================================");
-  console.log("🎉 BACKFILL COMPLETE!");
-  console.log("=============================================");
-  console.log(`📊 Tables updated  : ${summary.tablesAffected}`);
-  console.log(`📊 Rows updated    : ${summary.totalUpdated}`);
-  console.log(`🔑 Tenant ID       : ${summary.tenant.id}`);
-  console.log(`🏢 Tenant Name     : ${summary.tenant.name}`);
-  console.log("=============================================");
+  logger.info("\n=============================================");
+  logger.info("🎉 BACKFILL COMPLETE!");
+  logger.info("=============================================");
+  logger.info(`📊 Tables updated  : ${summary.tablesAffected}`);
+  logger.info(`📊 Rows updated    : ${summary.totalUpdated}`);
+  logger.info(`🔑 Tenant ID       : ${summary.tenant.id}`);
+  logger.info(`🏢 Tenant Name     : ${summary.tenant.name}`);
+  logger.info("=============================================");
 }
 
 async function main() {
-  console.log("=============================================");
-  console.log("🏗️  MULTI-TENANT DATA BACKFILL SCRIPT");
-  console.log("=============================================");
-  console.log(`Target Tenant Name: "${MAIN_TENANT_NAME}"\n`);
+  logger.info("=============================================");
+  logger.info("🏗️  MULTI-TENANT DATA BACKFILL SCRIPT");
+  logger.info("=============================================");
+  logger.info(`Target Tenant Name: "${MAIN_TENANT_NAME}"\n`);
 
   const tenant = await findOrCreateMainTenant();
   const summary = await backfillTenantRecords(tenant.id);
@@ -192,7 +193,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("Fatal Error:", error);
+    logger.error("Fatal Error:", error);
     process.exitCode = 1;
   })
   .finally(async () => {

@@ -1,39 +1,41 @@
-import { Prisma, PrismaClient } from '@prisma/client'
-import crypto from 'crypto'
+import { logger } from "@/lib/logger";
+import { Prisma, PrismaClient } from "@prisma/client";
+import crypto from "crypto";
 
 // Encryption keys (in production, use proper key management)
-const ENCRYPTION_KEY = process.env.DB_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex')
-const IV_LENGTH = 16
+const ENCRYPTION_KEY =
+  process.env.DB_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
+const IV_LENGTH = 16;
 
 export interface DatabaseSecurityOptions {
-  enableRowLevelSecurity?: boolean
-  enableAuditLogging?: boolean
-  enableDataEncryption?: boolean
-  encryptSensitiveFields?: string[]
-  dataRetentionDays?: number
+  enableRowLevelSecurity?: boolean;
+  enableAuditLogging?: boolean;
+  enableDataEncryption?: boolean;
+  encryptSensitiveFields?: string[];
+  dataRetentionDays?: number;
 }
 
 /**
  * Database Security Manager
  */
 export class DatabaseSecurity {
-  private prisma: PrismaClient
-  private options: Required<DatabaseSecurityOptions>
+  private prisma: PrismaClient;
+  private options: Required<DatabaseSecurityOptions>;
 
   constructor(prisma: PrismaClient, options: DatabaseSecurityOptions = {}) {
-    this.prisma = prisma
+    this.prisma = prisma;
     this.options = {
       enableRowLevelSecurity: options.enableRowLevelSecurity ?? true,
       enableAuditLogging: options.enableAuditLogging ?? true,
       enableDataEncryption: options.enableDataEncryption ?? true,
       encryptSensitiveFields: options.encryptSensitiveFields ?? [
-        'nik',
-        'nomorKk',
-        'phone',
-        'email'
+        "nik",
+        "nomorKk",
+        "phone",
+        "email",
       ],
-      dataRetentionDays: options.dataRetentionDays ?? 2555 // 7 years
-    }
+      dataRetentionDays: options.dataRetentionDays ?? 2555, // 7 years
+    };
   }
 
   /**
@@ -41,22 +43,28 @@ export class DatabaseSecurity {
    */
   encrypt(text: string): string {
     if (!this.options.enableDataEncryption || !text) {
-      return text
+      return text;
     }
 
     try {
-      const iv = crypto.randomBytes(IV_LENGTH)
-      const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv)
-      cipher.setAAD(Buffer.from('netmanager-db')) // Additional authenticated data
+      const iv = crypto.randomBytes(IV_LENGTH);
+      const cipher = crypto.createCipheriv(
+        "aes-256-gcm",
+        Buffer.from(ENCRYPTION_KEY, "hex"),
+        iv,
+      );
+      cipher.setAAD(Buffer.from("netmanager-db")); // Additional authenticated data
 
-      let encrypted = cipher.update(text, 'utf8', 'hex')
-      encrypted += cipher.final('hex')
+      let encrypted = cipher.update(text, "utf8", "hex");
+      encrypted += cipher.final("hex");
 
-      const authTag = cipher.getAuthTag()
-      return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted
+      const authTag = cipher.getAuthTag();
+      return (
+        iv.toString("hex") + ":" + authTag.toString("hex") + ":" + encrypted
+      );
     } catch (error) {
-      console.error('Encryption error:', error)
-      return text // Fallback to plaintext
+      logger.error("Encryption error:", error);
+      return text; // Fallback to plaintext
     }
   }
 
@@ -65,36 +73,40 @@ export class DatabaseSecurity {
    */
   decrypt(encryptedText: string): string {
     if (!this.options.enableDataEncryption || !encryptedText) {
-      return encryptedText
+      return encryptedText;
     }
 
     try {
-      const parts = encryptedText.split(':')
+      const parts = encryptedText.split(":");
       if (parts.length !== 3) {
-        return encryptedText // Not encrypted
+        return encryptedText; // Not encrypted
       }
 
-      const [p0, p1, p2] = parts
+      const [p0, p1, p2] = parts;
 
       if (!p0 || !p1 || !p2) {
-        return encryptedText
+        return encryptedText;
       }
 
-      const iv = Buffer.from(p0, 'hex')
-      const authTag = Buffer.from(p1, 'hex')
-      const encrypted = p2
+      const iv = Buffer.from(p0, "hex");
+      const authTag = Buffer.from(p1, "hex");
+      const encrypted = p2;
 
-      const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv)
-      decipher.setAAD(Buffer.from('netmanager-db'))
-      decipher.setAuthTag(authTag)
+      const decipher = crypto.createDecipheriv(
+        "aes-256-gcm",
+        Buffer.from(ENCRYPTION_KEY, "hex"),
+        iv,
+      );
+      decipher.setAAD(Buffer.from("netmanager-db"));
+      decipher.setAuthTag(authTag);
 
-      let decrypted = decipher.update(encrypted, 'hex', 'utf8')
-      decrypted += decipher.final('utf8')
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
 
-      return decrypted
+      return decrypted;
     } catch (error) {
-      console.error('Decryption error:', error)
-      return encryptedText // Return as-is if decryption fails
+      logger.error("Decryption error:", error);
+      return encryptedText; // Return as-is if decryption fails
     }
   }
 
@@ -105,10 +117,10 @@ export class DatabaseSecurity {
     userId: string,
     _resourceType: string,
     _resourceId: string,
-    _action: 'READ' | 'WRITE' | 'DELETE'
+    _action: "READ" | "WRITE" | "DELETE",
   ): Promise<boolean> {
     if (!this.options.enableRowLevelSecurity) {
-      return true
+      return true;
     }
 
     try {
@@ -117,18 +129,18 @@ export class DatabaseSecurity {
         where: { id: userId },
         select: {
           id: true,
-        }
-      })
+        },
+      });
 
       if (!user) {
-        return false
+        return false;
       }
 
       // For now, if user exists, allow access (API routes handle auth separately)
-      return true
+      return true;
     } catch (error) {
-      console.error('Access check error:', error)
-      return false // Fail closed
+      logger.error("Access check error:", error);
+      return false; // Fail closed
     }
   }
 
@@ -140,15 +152,17 @@ export class DatabaseSecurity {
     action: string,
     resourceType: string,
     resourceId: string,
-    _metadata?: Record<string, unknown>
+    _metadata?: Record<string, unknown>,
   ): Promise<void> {
     if (!this.options.enableAuditLogging) {
-      return
+      return;
     }
 
     try {
       // FinancialAuditLog model not available
-      console.log(`[AUDIT] ${action} on ${resourceType}:${resourceId} by ${userId}`)
+      logger.info(
+        `[AUDIT] ${action} on ${resourceType}:${resourceId} by ${userId}`,
+      );
       /*
       await this.prisma.financialAuditLog.create({
         data: {
@@ -164,7 +178,7 @@ export class DatabaseSecurity {
       })
       */
     } catch (error) {
-      console.error('Audit logging error:', error)
+      logger.error("Audit logging error:", error);
     }
   }
 
@@ -173,28 +187,28 @@ export class DatabaseSecurity {
    */
   async cleanupOldData(): Promise<void> {
     try {
-      const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - this.options.dataRetentionDays)
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - this.options.dataRetentionDays);
 
       // Clean old financial audit logs (keep longer)
-      const auditCutoff = new Date()
-      auditCutoff.setDate(auditCutoff.getDate() - 3650) // 10 years
+      const auditCutoff = new Date();
+      auditCutoff.setDate(auditCutoff.getDate() - 3650); // 10 years
 
       // Clean old sessions
       await this.prisma.session.deleteMany({
         where: {
           expires: {
-            lt: cutoffDate
-          }
-        }
-      })
+            lt: cutoffDate,
+          },
+        },
+      });
 
       // Clean old login attempts
       // Note: You would need to add a LoginAttempt model to your schema
 
-      console.log('Database cleanup completed')
+      logger.info("Database cleanup completed");
     } catch (error) {
-      console.error('Database cleanup error:', error)
+      logger.error("Database cleanup error:", error);
     }
   }
 
@@ -203,34 +217,43 @@ export class DatabaseSecurity {
    */
   sanitizeData<T extends Record<string, unknown>>(
     data: T,
-    context: 'output' | 'logging' = 'output'
+    context: "output" | "logging" = "output",
   ): Partial<T> {
-    const sanitized: Partial<T> = { ...data }
+    const sanitized: Partial<T> = { ...data };
 
-    if (context === 'output') {
+    if (context === "output") {
       // Remove sensitive fields from API output
-      this.options.encryptSensitiveFields.forEach(field => {
+      this.options.encryptSensitiveFields.forEach((field) => {
         if (field in sanitized) {
-          delete (sanitized as Record<string, unknown>)[field]
+          delete (sanitized as Record<string, unknown>)[field];
         }
-      })
-    } else if (context === 'logging') {
+      });
+    } else if (context === "logging") {
       // Encrypt sensitive fields for logging
-      this.options.encryptSensitiveFields.forEach(field => {
-        if (field in sanitized && (sanitized as Record<string, unknown>)[field]) {
-          (sanitized as Record<string, unknown>)[field] = this.encrypt(String((sanitized as Record<string, unknown>)[field]))
+      this.options.encryptSensitiveFields.forEach((field) => {
+        if (
+          field in sanitized &&
+          (sanitized as Record<string, unknown>)[field]
+        ) {
+          (sanitized as Record<string, unknown>)[field] = this.encrypt(
+            String((sanitized as Record<string, unknown>)[field]),
+          );
         }
-      })
+      });
     }
 
-    return sanitized
+    return sanitized;
   }
 
   /**
    * Hash sensitive identifiers for logging
    */
   hashIdentifier(identifier: string): string {
-    return crypto.createHash('sha256').update(identifier).digest('hex').substring(0, 16)
+    return crypto
+      .createHash("sha256")
+      .update(identifier)
+      .digest("hex")
+      .substring(0, 16);
   }
 
   /**
@@ -239,21 +262,18 @@ export class DatabaseSecurity {
   async validateDataIntegrity(
     _tableName: string,
     _recordId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
   ): Promise<boolean> {
     try {
       // Calculate checksum of current data
-      crypto
-        .createHash('sha256')
-        .update(JSON.stringify(data))
-        .digest('hex')
+      crypto.createHash("sha256").update(JSON.stringify(data)).digest("hex");
 
       // In a real implementation, you would store and compare checksums
       // For now, return true as the data was just processed
-      return true
+      return true;
     } catch (error) {
-      console.error('Data integrity validation error:', error)
-      return false
+      logger.error("Data integrity validation error:", error);
+      return false;
     }
   }
 
@@ -262,17 +282,17 @@ export class DatabaseSecurity {
    */
   static createSecureConnection(databaseUrl: string): PrismaClient {
     // Add connection pooling and SSL settings
-    const secureUrl = new URL(databaseUrl)
+    const secureUrl = new URL(databaseUrl);
 
     // Ensure SSL is enabled in production
-    if (process.env.NODE_ENV === 'production') {
-      secureUrl.searchParams.set('sslmode', 'require')
+    if (process.env.NODE_ENV === "production") {
+      secureUrl.searchParams.set("sslmode", "require");
     }
 
     // Connection pool settings
-    secureUrl.searchParams.set('connection_limit', '20')
-    secureUrl.searchParams.set('pool_timeout', '30')
-    secureUrl.searchParams.set('connect_timeout', '10')
+    secureUrl.searchParams.set("connection_limit", "20");
+    secureUrl.searchParams.set("pool_timeout", "30");
+    secureUrl.searchParams.set("connect_timeout", "10");
 
     return new PrismaClient({
       datasources: {
@@ -280,8 +300,11 @@ export class DatabaseSecurity {
           url: secureUrl.toString(),
         },
       },
-      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
-    } as Prisma.PrismaClientOptions)
+      log:
+        process.env.NODE_ENV === "development"
+          ? ["query", "error", "warn"]
+          : ["error"],
+    } as Prisma.PrismaClientOptions);
   }
 
   /**
@@ -291,7 +314,7 @@ export class DatabaseSecurity {
     try {
       // This would implement actual backup logic
       // For now, just log that backup was attempted
-      console.log('Database backup initiated')
+      logger.info("Database backup initiated");
 
       // In production, you would:
       // 1. Export data to secure storage
@@ -301,14 +324,14 @@ export class DatabaseSecurity {
 
       return {
         success: true,
-        message: 'Backup completed successfully'
-      }
+        message: "Backup completed successfully",
+      };
     } catch (error) {
-      console.error('Backup error:', error)
+      logger.error("Backup error:", error);
       return {
         success: false,
-        message: 'Backup failed'
-      }
+        message: "Backup failed",
+      };
     }
   }
 }
@@ -316,59 +339,63 @@ export class DatabaseSecurity {
 /**
  * Middleware for database security
  */
-export function withDatabaseSecurity(
-  options: DatabaseSecurityOptions = {}
-) {
-  return (_target: unknown, propertyName: string, descriptor: PropertyDescriptor) => {
-    const originalMethod = descriptor.value
+export function withDatabaseSecurity(options: DatabaseSecurityOptions = {}) {
+  return (
+    _target: unknown,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) => {
+    const originalMethod = descriptor.value;
 
-    descriptor.value = async function (this: { prisma: PrismaClient }, ...args: unknown[]) {
-      const dbSecurity = new DatabaseSecurity(this.prisma, options)
+    descriptor.value = async function (
+      this: { prisma: PrismaClient },
+      ...args: unknown[]
+    ) {
+      const dbSecurity = new DatabaseSecurity(this.prisma, options);
 
       // Extract user context from first argument (usually request)
-      const request = args[0] as { headers: Headers; user?: { id: string } }
-      const userId = request.headers.get('x-user-id') ||
-        request.user?.id ||
-        'anonymous'
+      const request = args[0] as { headers: Headers; user?: { id: string } };
+      const userId =
+        request.headers.get("x-user-id") || request.user?.id || "anonymous";
 
       try {
         // Log access attempt
         await dbSecurity.logDatabaseAccess(
           userId,
-          'ACCESS',
-          'unknown',
+          "ACCESS",
+          "unknown",
           propertyName,
-          { method: propertyName, timestamp: new Date().toISOString() }
-        )
+          { method: propertyName, timestamp: new Date().toISOString() },
+        );
 
         // Execute original method
-        const result = await originalMethod.apply(this, args)
+        const result = await originalMethod.apply(this, args);
 
         // Sanitize result before returning
-        if (result && typeof result === 'object') {
-          return dbSecurity.sanitizeData(result, 'output')
+        if (result && typeof result === "object") {
+          return dbSecurity.sanitizeData(result, "output");
         }
 
-        return result
+        return result;
       } catch (error) {
         // Log error
         await dbSecurity.logDatabaseAccess(
           userId,
-          'ERROR',
-          'unknown',
+          "ERROR",
+          "unknown",
           propertyName,
           {
-            error: error instanceof Error ? error.message : 'Terjadi kesalahan',
-            timestamp: new Date().toISOString()
-          }
-        )
+            error: error instanceof Error ? error.message : "Terjadi kesalahan",
+            timestamp: new Date().toISOString(),
+          },
+        );
 
-        throw error
+        throw error;
       }
-    }
+    };
 
-    return descriptor
-  }
+    return descriptor;
+  };
 }
 
 /**
@@ -379,7 +406,11 @@ export const dbSecurity = {
    * Hash sensitive identifiers for logging
    */
   hashIdentifier(identifier: string): string {
-    return crypto.createHash('sha256').update(identifier).digest('hex').substring(0, 16)
+    return crypto
+      .createHash("sha256")
+      .update(identifier)
+      .digest("hex")
+      .substring(0, 16);
   },
 
   /**
@@ -387,25 +418,34 @@ export const dbSecurity = {
    */
   validateConnectionSecurity(url: string): boolean {
     try {
-      const parsed = new URL(url)
+      const parsed = new URL(url);
 
       // Check if SSL is enabled for production
-      if (process.env.NODE_ENV === 'production') {
-        const sslmode = parsed.searchParams.get('sslmode')
-        if (sslmode !== 'require' && sslmode !== 'verify-full' && sslmode !== 'verify-ca') {
-          return false
+      if (process.env.NODE_ENV === "production") {
+        const sslmode = parsed.searchParams.get("sslmode");
+        if (
+          sslmode !== "require" &&
+          sslmode !== "verify-full" &&
+          sslmode !== "verify-ca"
+        ) {
+          return false;
         }
       }
 
       // Check if password is not default
-      const password = parsed.password
-      if (password && (password === 'password' || password === '123456' || password === 'admin')) {
-        return false
+      const password = parsed.password;
+      if (
+        password &&
+        (password === "password" ||
+          password === "123456" ||
+          password === "admin")
+      ) {
+        return false;
       }
 
-      return true
+      return true;
     } catch (_error) {
-      return false
+      return false;
     }
   },
 
@@ -413,19 +453,19 @@ export const dbSecurity = {
    * Generate secure database credentials
    */
   generateSecureCredentials(): {
-    username: string
-    password: string
-    connectionString: string
+    username: string;
+    password: string;
+    connectionString: string;
   } {
-    const username = `netmgr_${crypto.randomBytes(8).toString('hex')}`
-    const password = crypto.randomBytes(32).toString('hex')
+    const username = `netmgr_${crypto.randomBytes(8).toString("hex")}`;
+    const password = crypto.randomBytes(32).toString("hex");
 
     return {
       username,
       password,
-      connectionString: `postgresql://${username}:${password}@localhost:5432/netmanager`
-    }
-  }
-}
+      connectionString: `postgresql://${username}:${password}@localhost:5432/netmanager`,
+    };
+  },
+};
 
-export default DatabaseSecurity
+export default DatabaseSecurity;

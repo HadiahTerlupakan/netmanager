@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import {
   acquireCronLock,
@@ -94,7 +95,7 @@ async function processAbsenceForActiveTenants(targetDate: Date) {
       );
       results.push({ tenantId: tenant.id, ...result });
     } catch (error) {
-      console.error(`[Cron] Error for tenant ${tenant.id}:`, error);
+      logger.error(`[Cron] Error for tenant ${tenant.id}:`, error);
     }
   }
 

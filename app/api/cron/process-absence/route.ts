@@ -5,6 +5,7 @@ import {
   runProcessAbsenceCron,
 } from "@/modules/attendance";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result.payload);
   } catch (error: unknown) {
-    console.error("Error processing absence:", error);
+    logger.error("Error processing absence:", error);
     return NextResponse.json(
       { success: false, error: "Terjadi kesalahan server" },
       { status: 500 },

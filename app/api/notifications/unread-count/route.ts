@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig, getUserPermissions, isSuperAdmin } from "@/lib/auth";
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({ count });
   } catch (error) {
-    console.error("Error fetching unread count:", error);
+    logger.error("Error fetching unread count:", error);
     return apiSuccess({ count: 0 });
   }
 }

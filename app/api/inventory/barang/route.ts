@@ -1,14 +1,23 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
-  getInventoryBarangService,
-  getInventoryRouteService,
+  inventoryBarangRouteService,
+  type InventoryBarangRouteResult,
 } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { parsePaginationParams } from "@/lib/utils/pagination";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
-const service = getInventoryBarangService();
+type InventoryBarangRouteFailure<T> = Extract<
+  InventoryBarangRouteResult<T>,
+  { success: false }
+>;
+
+function isInventoryBarangRouteFailure<T>(
+  result: InventoryBarangRouteResult<T>,
+): result is InventoryBarangRouteFailure<T> {
+  return !result.success;
+}
 
 /**
  * @swagger
@@ -171,38 +180,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   try {
     const dbStart = Date.now();
 
-    // Enforce Site Restriction
     const permissions = await getUserPermissions(user.id);
-    const isSuper = isSuperAdmin(user);
-
-    // Check restriction: barang:site_only (specific) OR k_barang:site_only (mobile) OR gudang:site_only (inherited)
-    const hasRestriction =
-      permissions.includes("barang:site_only") ||
-      permissions.includes("k_barang:site_only") ||
-      permissions.includes("gudang:site_only");
-
-    // ctx.session.user structure in createHandler might not have siteId directly mapped if it's strict
-    // We should fetch user or use what's available. `isSuperAdmin` helper usually takes a user object with role.
-    // If we need siteId, let's fetch it or trust it's in user object if createHandler passes it through (it does strictly type it though).
-    // In previous Finance migration, I fetched it from DB to be safe.
-    // However, here `isSuperAdmin` expects { role?: string, isSuperAdmin?: boolean }.
-    // Let's assume user has id. We can fetch siteId if needed.
-    // Wait, previous code used `session.siteId`. `session` was `Session` from next-auth.
-    // `createHandler` defines `session.user` as `{ id, email, name?, role? }`. It does NOT include siteId.
-    // So I MUST fetch siteId if restriction applies.
-
-    let siteId: string | undefined = undefined;
-    if (!isSuper && hasRestriction) {
-      siteId = await getInventoryRouteService().getUserSiteId(user.id);
-    }
-
-    const result = await service.listBarang({
+    const result = await inventoryBarangRouteService.listBarang({
       userId: user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(user),
       search,
       gudangId,
       page,
       limit,
-      siteId,
     });
 
     logger.dbOperation("findMany", "Barang+BarangGudang", Date.now() - dbStart);
@@ -249,25 +235,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
-  const { nama, satuan, isWorkOrderMaterial } = body;
-
-  // Validation
-  if (!nama || !satuan) {
-    return ApiErrors.badRequest("Nama dan satuan barang harus diisi");
-  }
 
   try {
     const dbStart = Date.now();
-    const result = await service.createBarang({
+    const result = await inventoryBarangRouteService.createBarang({
       userId: user.id,
-      kode: body.kode,
-      nama,
-      satuan,
-      isWorkOrderMaterial,
-      jenis: body.jenis,
-      kategoriAset: body.kategoriAset,
-      minStokDefault: body.minStokDefault,
+      body,
     });
+
+    if (isInventoryBarangRouteFailure(result)) {
+      return ApiErrors.badRequest(result.error);
+    }
 
     logger.dbOperation("create", "Barang", Date.now() - dbStart);
 
@@ -278,14 +256,14 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       Date.now() - startTime,
       {
         userId: user.id,
-        barangId: result.barang.id,
-        kode: result.barang.kode,
+        barangId: result.data.barang.id,
+        kode: result.data.barang.kode,
       },
     );
 
-    return apiSuccess(result, {
+    return apiSuccess(result.data, {
       status: 201,
-      message: "Barang berhasil dibuat",
+      message: result.message,
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");

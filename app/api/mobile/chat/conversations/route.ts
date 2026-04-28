@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const conversations = await chatService.getConversations(userId, tenantId);
     return NextResponse.json({ success: true, data: conversations });
   } catch (error: unknown) {
-    console.error("Error fetching conversations:", error);
+    logger.error("Error fetching conversations:", error);
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: conversation });
   } catch (error: unknown) {
-    console.error("Error creating conversation:", error);
+    logger.error("Error creating conversation:", error);
 
     if (
       error instanceof Error &&

@@ -1,7 +1,7 @@
 import type { InvoiceStatus, Prisma } from "@prisma/client-billing";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { PelangganRepository } from "@/modules/pelanggan";
-import { UserRepository } from "@/modules/users";
+import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 
 type RouteUser = {
   id: string;

@@ -11,6 +11,7 @@ import {
   getStockStatusColor,
   getKondisiColor,
 } from "@/lib/utils/inventory-helpers";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Barang {
   id: string;
@@ -85,7 +86,7 @@ export function TransferForm({
         const gudangResult = gudangData.data || gudangData;
         setGudangs(gudangResult.gudangs || []);
       } catch (error) {
-        console.error("Error fetching initial data:", error);
+        clientLogger.error("Error fetching initial data:", error);
         setError("Gagal memuat data awal");
       }
     }
@@ -124,7 +125,7 @@ export function TransferForm({
             }
           }
         } catch (error) {
-          console.error("Error fetching stock by condition:", error);
+          clientLogger.error("Error fetching stock by condition:", error);
           // Fallback to current logic
           const selectedBarang = barangs.find(
             (b) => b.id === formData.barangId,
@@ -242,12 +243,12 @@ export function TransferForm({
                 fetch(url.replace("/uploads/", "/api/uploads/delete/"), {
                   method: "DELETE",
                 }).catch((err) =>
-                  console.error("Failed to cleanup photo:", err),
+                  clientLogger.error("Failed to cleanup photo:", err),
                 ),
               ),
             );
           } catch (cleanupError) {
-            console.error("Error during photo cleanup:", cleanupError);
+            clientLogger.error("Error during photo cleanup:", cleanupError);
           }
         }
         throw new Error(data.error || "Gagal melakukan transfer");
@@ -283,7 +284,7 @@ export function TransferForm({
         router.refresh();
       }, 2000);
     } catch (error) {
-      console.error("Error submitting transfer:", error);
+      clientLogger.error("Error submitting transfer:", error);
       setError(error instanceof Error ? error.message : "Terjadi kesalahan");
     } finally {
       setLoading(false);

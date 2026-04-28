@@ -1,11 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { prismaMock } from "../setup";
-
 const mockFns = vi.hoisted(() => ({
   hasPermission: vi.fn(),
-  getRouterById: vi.fn(),
-  provisionRadius: vi.fn(),
+  reconfigureRouters: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -66,27 +63,17 @@ vi.mock("@/lib/rbac", () => ({
   hasPermission: mockFns.hasPermission,
 }));
 
-vi.mock("@/modules/database", () => ({
-  prisma: prismaMock,
-}));
-
 vi.mock("@/modules/network", () => ({
-  RouterAccessDeniedError: class MockRouterAccessDeniedError extends Error {},
-  MikroTikRouterService: class MockMikroTikRouterService {
-    getRouterById = mockFns.getRouterById;
-  },
-  MikroTikProvisioningService: class MockMikroTikProvisioningService {
-    provisionRadius = mockFns.provisionRadius;
+  RouterReconfigureRouteService: class MockRouterReconfigureRouteService {
+    reconfigureRouters = mockFns.reconfigureRouters;
   },
 }));
 
 describe("POST /api/mikrotik-routers/reconfigure", () => {
   let POST: (typeof import("@/app/api/mikrotik-routers/reconfigure/route"))["POST"];
-  let RouterAccessDeniedError: (typeof import("@/modules/network"))["RouterAccessDeniedError"];
 
   beforeAll(async () => {
     ({ POST } = await import("@/app/api/mikrotik-routers/reconfigure/route"));
-    ({ RouterAccessDeniedError } = await import("@/modules/network"));
   });
 
   beforeEach(() => {
@@ -98,9 +85,7 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
       return false;
     });
 
-    prismaMock.settings.findMany.mockResolvedValue([]);
-    prismaMock.mikroTikRouter.findMany.mockResolvedValue([]);
-    mockFns.provisionRadius.mockResolvedValue({ success: true, logs: [] });
+    mockFns.reconfigureRouters.mockResolvedValue({ processed: 0, logs: [] });
   });
 
   it("hanya memproses router yang lolos site restriction", async () => {
@@ -110,38 +95,7 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
       return false;
     });
 
-    prismaMock.mikroTikRouter.findMany.mockResolvedValue([
-      {
-        id: "router-site-a",
-        name: "Router Site A",
-        ipAddress: "10.10.10.1",
-        apiPort: 8728,
-        apiUsername: "master-a",
-        apiPassword: "master-pass-a",
-        pingStatus: "online",
-      },
-      {
-        id: "router-site-b",
-        name: "Router Site B",
-        ipAddress: "10.10.10.2",
-        apiPort: 8728,
-        apiUsername: "master-b",
-        apiPassword: "master-pass-b",
-        pingStatus: "online",
-      },
-    ]);
-
-    mockFns.getRouterById
-      .mockResolvedValueOnce({
-        id: "router-site-a",
-        name: "Router Site A",
-        ipAddress: "10.10.10.1",
-        apiPort: 8728,
-        apiUsername: "master-a",
-        apiPassword: "master-pass-a",
-        pingStatus: "online",
-      })
-      .mockRejectedValueOnce(new Error("Akses ditolak"));
+    mockFns.reconfigureRouters.mockResolvedValue({ processed: 1, logs: [] });
 
     const request = new Request(
       "http://localhost/api/mikrotik-routers/reconfigure",
@@ -156,7 +110,15 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
 
     await (POST as unknown as (req: Request) => Promise<unknown>)(request);
 
-    expect(mockFns.provisionRadius).toHaveBeenCalledTimes(1);
+    expect(mockFns.reconfigureRouters).toHaveBeenCalledWith(
+      ["router-site-a", "router-site-b"],
+      {
+        tenantId: "tenant-1",
+        userId: "admin-1",
+        role: "ADMIN",
+        restrictedToOwnSite: true,
+      },
+    );
   });
 
   it("mengembalikan forbidden ketika semua router ditolak oleh site restriction", async () => {
@@ -166,8 +128,8 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
       return false;
     });
 
-    mockFns.getRouterById.mockRejectedValue(
-      new RouterAccessDeniedError("Akses ditolak"),
+    mockFns.reconfigureRouters.mockRejectedValue(
+      new Error("FORBIDDEN:Akses ditolak"),
     );
 
     const request = new Request(
@@ -190,36 +152,15 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
       error: "Akses ditolak",
       status: 403,
     });
-    expect(mockFns.provisionRadius).not.toHaveBeenCalled();
+    expect(mockFns.reconfigureRouters).toHaveBeenCalledWith(["router-site-b"], {
+      tenantId: "tenant-1",
+      userId: "admin-1",
+      role: "ADMIN",
+      restrictedToOwnSite: true,
+    });
   });
 
-  it("memprioritaskan generated credentials saat provisioning", async () => {
-    prismaMock.mikroTikRouter.findMany.mockResolvedValue([
-      {
-        id: "router-1",
-        name: "Router 1",
-        ipAddress: "10.10.10.10",
-        apiPort: 8728,
-        apiUsername: "master-user",
-        apiPassword: "master-pass",
-        apiUsernameGenerated: "generated-user",
-        apiPasswordGenerated: "generated-pass",
-        pingStatus: "online",
-      },
-    ]);
-
-    mockFns.getRouterById.mockResolvedValue({
-      id: "router-1",
-      name: "Router 1",
-      ipAddress: "10.10.10.10",
-      apiPort: 8728,
-      apiUsername: "master-user",
-      apiPassword: "master-pass",
-      apiUsernameGenerated: "generated-user",
-      apiPasswordGenerated: "generated-pass",
-      pingStatus: "online",
-    });
-
+  it("meneruskan routerIds ke route service", async () => {
     const request = new Request(
       "http://localhost/api/mikrotik-routers/reconfigure",
       {
@@ -233,14 +174,13 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
 
     await (POST as unknown as (req: Request) => Promise<unknown>)(request);
 
-    expect(mockFns.provisionRadius).toHaveBeenCalledWith(
+    expect(mockFns.reconfigureRouters).toHaveBeenCalledWith(
+      ["router-1"],
       expect.objectContaining({
-        username: "generated-user",
-        password: "generated-pass",
+        tenantId: "tenant-1",
+        userId: "admin-1",
+        role: "ADMIN",
       }),
-      null,
-      "testing123",
-      undefined,
     );
   });
 });

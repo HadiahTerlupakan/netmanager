@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 
@@ -60,7 +61,7 @@ export async function POST(
       message: `Undangan berhasil ${body.response === "APPROVED" ? "diterima" : "ditolak"}`,
     });
   } catch (error) {
-    console.error("[API] Error responding to partner invitation:", error);
+    logger.error("[API] Error responding to partner invitation:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { redisMock } from "../../setup";
-import { AttendanceTimezoneService } from "@/modules/attendance/services/AttendanceTimezoneService";
+import { AttendanceTimezoneService } from "@/modules/attendance";
 import { SettingsRepository } from "@/modules/attendance/repositories/SettingsRepository";
 
 describe("AttendanceTimezoneService", () => {

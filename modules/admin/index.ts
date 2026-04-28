@@ -7,13 +7,17 @@ export {
   getDashboardService,
 } from "./services/DashboardService";
 export type { SystemSummary, TopEmployee } from "./services/DashboardService";
-export type { SiteStat } from "./domain/ports/IAdminDashboardDependencies";
 export { AdminDashboardPageService } from "./services/AdminDashboardPageService";
 export { SystemLogRouteService } from "./services/SystemLogRouteService";
 export {
   AdminTenantRouteService,
   tenantRouteErrorMessages,
 } from "./services/AdminTenantRouteService";
+export {
+  TenantContextLookupService,
+  getTenantContextLookupService,
+} from "./services/TenantContextLookupService";
+export type { TenantContextLookupResult } from "./services/TenantContextLookupService";
 export type {
   AdminDashboardHeroViewModel,
   AdminDashboardKpiCards,

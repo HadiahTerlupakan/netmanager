@@ -1,92 +1,100 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { FiInfo } from 'react-icons/fi'
-import { Button } from '@/components/ui/Button'
-import { usePermission } from '@/hooks/use-permission'
+import { useState } from "react";
+import { FiInfo } from "react-icons/fi";
+import { Button } from "@/components/ui/Button";
+import { usePermission } from "@/hooks/use-permission";
+import { clientLogger } from "@/lib/client-logger";
 
 interface GudangFormData {
-  nama: string
-  lokasi: string
-  isActive: boolean
+  nama: string;
+  lokasi: string;
+  isActive: boolean;
 }
 
 interface GudangFormProps {
   initialData?: {
-    id?: string
-    kode: string
-    nama: string
-    lokasi: string | null
-    isActive: boolean
-  }
-  onSubmit: (data: GudangFormData) => void
-  onCancel: () => void
+    id?: string;
+    kode: string;
+    nama: string;
+    lokasi: string | null;
+    isActive: boolean;
+  };
+  onSubmit: (data: GudangFormData) => void;
+  onCancel: () => void;
 }
 
-export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps) {
-  const { hasPermission } = usePermission()
-  const canCreate = hasPermission('gudang:create')
-  const canUpdate = hasPermission('gudang:update')
-  const isEditing = !!initialData?.id
-  const hasAccess = isEditing ? canUpdate : canCreate
+export function GudangForm({
+  initialData,
+  onSubmit,
+  onCancel,
+}: GudangFormProps) {
+  const { hasPermission } = usePermission();
+  const canCreate = hasPermission("gudang:create");
+  const canUpdate = hasPermission("gudang:update");
+  const isEditing = !!initialData?.id;
+  const hasAccess = isEditing ? canUpdate : canCreate;
 
   const [formData, setFormData] = useState({
-    nama: initialData?.nama || '',
-    lokasi: initialData?.lokasi || '',
-    isActive: initialData?.isActive ?? true
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+    nama: initialData?.nama || "",
+    lokasi: initialData?.lokasi || "",
+    isActive: initialData?.isActive ?? true,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!formData.nama.trim()) {
-      setError('Nama gudang harus diisi')
-      return
+      setError("Nama gudang harus diisi");
+      return;
     }
 
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
 
     try {
       if (initialData?.id) {
         // Include kode for update request (API requires it)
         const updateData = {
           ...formData,
-          kode: initialData.kode
-        }
-        const response = await fetch(`/api/inventory/gudang/${initialData.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
-        })
+          kode: initialData.kode,
+        };
+        const response = await fetch(
+          `/api/inventory/gudang/${initialData.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updateData),
+          },
+        );
 
         if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || 'Gagal mengupdate gudang')
+          const data = await response.json();
+          throw new Error(data.error || "Gagal mengupdate gudang");
         }
       } else {
-        const response = await fetch('/api/inventory/gudang', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/inventory/gudang", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
-        })
+        });
 
         if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || 'Gagal menambah gudang')
+          const data = await response.json();
+          throw new Error(data.error || "Gagal menambah gudang");
         }
       }
 
-      onSubmit(formData)
+      onSubmit(formData);
     } catch (error) {
-      console.error('Error submitting gudang:', error)
-      setError(error instanceof Error ? error.message : 'Terjadi kesalahan')
+      clientLogger.error("Error submitting gudang:", error);
+      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -99,14 +107,18 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
       {!initialData?.id && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-            <FiInfo className="w-4 h-4 shrink-0" /> Kode gudang akan di-generate otomatis
+            <FiInfo className="w-4 h-4 shrink-0" /> Kode gudang akan di-generate
+            otomatis
           </p>
         </div>
       )}
 
       {initialData?.id && (
         <div>
-          <label htmlFor="kode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label
+            htmlFor="kode"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
             Kode Gudang *
           </label>
           <input
@@ -123,7 +135,10 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
       )}
 
       <div>
-        <label htmlFor="nama" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label
+          htmlFor="nama"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
           Nama Gudang *
         </label>
         <input
@@ -138,7 +153,10 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
       </div>
 
       <div>
-        <label htmlFor="lokasi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label
+          htmlFor="lokasi"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
           Lokasi
         </label>
         <input
@@ -158,34 +176,36 @@ export function GudangForm({ initialData, onSubmit, onCancel }: GudangFormProps)
             type="checkbox"
             id="isActive"
             checked={formData.isActive}
-            onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+            onChange={(e) =>
+              setFormData({ ...formData, isActive: e.target.checked })
+            }
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50"
             disabled={loading || !hasAccess}
           />
-          <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="isActive"
+            className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+          >
             Gudang Aktif
           </label>
         </div>
       </div>
 
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button variant="outline"
+        <Button
+          variant="outline"
           type="button"
           onClick={onCancel}
-          
           disabled={loading}
         >
-          {hasAccess ? 'Batal' : 'Kembali'}
+          {hasAccess ? "Batal" : "Kembali"}
         </Button>
         {hasAccess && (
-          <Button type="submit"
-            disabled={loading}
-            
-          >
-            {loading ? 'Menyimpan...' : initialData?.id ? 'Update' : 'Simpan'}
+          <Button type="submit" disabled={loading}>
+            {loading ? "Menyimpan..." : initialData?.id ? "Update" : "Simpan"}
           </Button>
         )}
       </div>
     </form>
-  )
+  );
 }

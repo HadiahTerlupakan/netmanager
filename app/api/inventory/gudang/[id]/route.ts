@@ -1,9 +1,22 @@
-import { InventoryRepository } from "@/modules/inventory";
-import { logger, logActivitySafe } from "@/lib/logger";
+import { logger } from "@/lib/logger";
+import {
+  inventoryGudangRouteService,
+  type InventoryGudangRouteResult,
+} from "@/modules/inventory";
+import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 
-// Standardized permission checks used in route handlers
+type InventoryGudangRouteFailure = Extract<
+  InventoryGudangRouteResult<unknown>,
+  { success: false }
+>;
+
+function isInventoryGudangRouteFailure(
+  result: InventoryGudangRouteResult<unknown>,
+): result is InventoryGudangRouteFailure {
+  return !result.success;
+}
 
 /**
  * GET /api/inventory/gudang/[id]
@@ -17,16 +30,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden();
   }
 
-  const inventoryRepository = new InventoryRepository();
-
   try {
     const dbStart = Date.now();
+    const result = await inventoryGudangRouteService.getGudangDetail(id);
 
-    const gudang = await inventoryRepository.findGudangById(id);
-
-    if (!gudang) {
+    if (!result.found) {
       return ApiErrors.notFound("Gudang tidak ditemukan");
     }
+
+    const gudang = result.gudang;
 
     logger.dbOperation("findUnique", "Gudang", Date.now() - dbStart);
 
@@ -67,36 +79,17 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const body = await req.json();
   const { kode, nama, lokasi, isActive } = body;
 
-  // Validation
-  if (!kode || !nama) {
-    return ApiErrors.badRequest("Kode dan nama gudang harus diisi");
-  }
-
-  const inventoryRepository = new InventoryRepository();
-
   try {
     const dbStart = Date.now();
+    const result = await inventoryGudangRouteService.updateGudang({ id, body });
 
-    // Check if gudang exists
-    const existingGudang = await inventoryRepository.findGudangById(id);
-
-    if (!existingGudang) {
-      return ApiErrors.notFound("Gudang tidak ditemukan");
+    if (isInventoryGudangRouteFailure(result)) {
+      if (result.status === 404)
+        return ApiErrors.notFound("Gudang tidak ditemukan");
+      return ApiErrors.badRequest(result.error);
     }
 
-    // Check if kode conflicts with another gudang
-    const kodeConflict = await inventoryRepository.findGudangByKode(kode);
-
-    if (kodeConflict && kodeConflict.id !== id) {
-      return ApiErrors.badRequest("Kode gudang sudah digunakan");
-    }
-
-    const updatedGudang = await inventoryRepository.updateGudang(id, {
-      kode,
-      nama,
-      lokasi,
-      isActive: isActive !== undefined ? isActive : existingGudang.isActive,
-    });
+    const updatedGudang = result.data as { id: string };
 
     logger.dbOperation("update", "Gudang", Date.now() - dbStart);
 
@@ -146,29 +139,15 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.forbidden();
   }
 
-  const inventoryRepository = new InventoryRepository();
-
   try {
     const dbStart = Date.now();
+    const result = await inventoryGudangRouteService.deleteGudang(id);
 
-    // Check if gudang exists
-    const existingGudang = await inventoryRepository.findGudangById(id);
-
-    if (!existingGudang) {
-      return ApiErrors.notFound("Gudang tidak ditemukan");
+    if (isInventoryGudangRouteFailure(result)) {
+      if (result.status === 404)
+        return ApiErrors.notFound("Gudang tidak ditemukan");
+      return ApiErrors.badRequest(result.error);
     }
-
-    // Check if gudang has stock
-    const hasStock = await inventoryRepository.hasStockInGudang(id);
-
-    if (hasStock) {
-      return ApiErrors.badRequest(
-        "Tidak dapat menghapus gudang yang masih memiliki stok barang",
-      );
-    }
-
-    // Hard delete via repository
-    await inventoryRepository.deleteGudang(id);
 
     logger.dbOperation("update", "Gudang", Date.now() - dbStart);
 
@@ -188,7 +167,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       action: "DELETE",
       subject: "Gudang",
       userId: ctx.session!.user.id,
-      details: { id: id, name: existingGudang.nama },
+      details: { id },
     });
 
     return apiSuccess({ message: "Gudang berhasil dihapus" });

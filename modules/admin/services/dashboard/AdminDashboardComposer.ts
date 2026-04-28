@@ -1,4 +1,4 @@
-import { MikroTikRouterRepository } from "@/modules/network";
+import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
 import type { IMikroTikStatisticsRepository } from "../../domain/ports/IAdminDashboardDependencies";
 import {
   getDashboardService,

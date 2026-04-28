@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
@@ -28,12 +28,12 @@ interface BackdateAttendanceResult {
 export class AdminAttendanceBackdateRouteService {
   private readonly attendanceRepository: AttendanceRepository;
   private readonly holidayRepository: HolidayRepository;
-  private readonly userRepository: UserRepository;
+  private readonly userRepository: UserLookupService;
 
   constructor(
     attendanceRepository: AttendanceRepository = new AttendanceRepository(),
     holidayRepository: HolidayRepository = new HolidayRepository(),
-    userRepository: UserRepository = new UserRepository(),
+    userRepository: UserLookupService = new UserLookupService(),
   ) {
     this.attendanceRepository = attendanceRepository;
     this.holidayRepository = holidayRepository;

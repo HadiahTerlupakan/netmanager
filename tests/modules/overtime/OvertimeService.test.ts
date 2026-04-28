@@ -258,8 +258,13 @@ describe("OvertimeService", () => {
 
       expect(result.status).toBe(OvertimeStatus.IN_PROGRESS);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[Overtime] Failed to schedule auto checkout for overtime-1",
-        scheduleError,
+        expect.stringContaining(
+          "[Overtime] Failed to schedule auto checkout for overtime-1",
+        ),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error stack:",
+        expect.stringContaining(scheduleError.message),
       );
     });
   });
@@ -367,8 +372,13 @@ describe("OvertimeService", () => {
 
       expect(result.status).toBe(OvertimeStatus.COMPLETED);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[Overtime] Failed to cancel auto checkout for overtime-1",
-        cancelError,
+        expect.stringContaining(
+          "[Overtime] Failed to cancel auto checkout for overtime-1",
+        ),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error stack:",
+        expect.stringContaining(cancelError.message),
       );
     });
   });

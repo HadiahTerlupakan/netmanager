@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -212,7 +213,7 @@ export function ClientComponent() {
         setWoTypeStats(data.woTypeStats);
       }
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+      clientLogger.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
@@ -239,7 +240,7 @@ export function ClientComponent() {
         setResponseStats(data.responseStats);
       }
     } catch (error) {
-      console.error("Error fetching detailed stats:", error);
+      clientLogger.error("Error fetching detailed stats:", error);
     }
   }, [performancePeriod]);
 
@@ -258,7 +259,7 @@ export function ClientComponent() {
         setTypeTrend(result.data.typeTrend || []);
       }
     } catch (error) {
-      console.error("Error fetching trend data:", error);
+      clientLogger.error("Error fetching trend data:", error);
     } finally {
       setTrendLoading(false);
     }

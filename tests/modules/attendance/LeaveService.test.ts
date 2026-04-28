@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { LeaveService } from "@/modules/attendance/services/LeaveService";
+import { LeaveService } from "@/modules/attendance";
 import { LeaveType } from "@prisma/client";
 
 // Mock repositories

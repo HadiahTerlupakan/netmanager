@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 
@@ -50,7 +51,7 @@ export async function POST(
       { status: 201 },
     );
   } catch (error) {
-    console.error("[API] Error adding partner to work order:", error);
+    logger.error("[API] Error adding partner to work order:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -146,7 +147,7 @@ export async function DELETE(
       message: "Partner berhasil dihapus dari work order",
     });
   } catch (error) {
-    console.error("[API] Error removing partner from work order:", error);
+    logger.error("[API] Error removing partner from work order:", error);
 
     if (error instanceof Error && error.message === "ASSIGNMENT_NOT_FOUND") {
       return apiError("Assignment tidak ditemukan", ErrorCodes.NOT_FOUND, {

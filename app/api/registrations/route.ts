@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { RegistrationService } from "@/modules/registration";
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
     );
   } catch (error: unknown) {
     const err = error as Error;
-    console.error("[API Registration] Error:", err);
+    logger.error("[API Registration] Error:", err);
     return NextResponse.json(
       { error: "Terjadi kesalahan internal server." },
       { status: 500 },

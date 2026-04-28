@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
@@ -114,7 +115,7 @@ export function ClientComponent() {
       const response = await fetch(`/api/admin/workorders/${workOrderId}`);
       if (response.ok) {
         const result = await response.json();
-        console.log(
+        clientLogger.info(
           "[WorkOrder] Fetched w/ attachments:",
           result.data.attachments?.length,
         );
@@ -130,7 +131,7 @@ export function ClientComponent() {
       }
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { error?: string } } };
-      console.error("Error fetching work order:", error);
+      clientLogger.error("Error fetching work order:", error);
       alert(
         "Terjadi kesalahan saat memuat work order: " +
           (axiosError.response?.data?.error || "Kesalahan tidak diketahui"),
@@ -155,10 +156,10 @@ export function ClientComponent() {
           type: updateType === "MATERIAL_PICKUP" ? "keluar" : "masuk",
         });
       } else {
-        console.error("Failed to fetch material detail");
+        clientLogger.error("Failed to fetch material detail");
       }
     } catch (error) {
-      console.error("Error fetching material detail:", error);
+      clientLogger.error("Error fetching material detail:", error);
     } finally {
       setLoadingMaterialDetail(false);
     }
@@ -207,7 +208,7 @@ export function ClientComponent() {
         throw new Error("Gagal melampirkan gambar ke work order");
       fetchWorkOrder();
     } catch (error) {
-      console.error("Upload failed:", error);
+      clientLogger.error("Upload failed:", error);
       alert("Gagal mengunggah gambar");
     } finally {
       setIsUploading(false);
@@ -234,7 +235,7 @@ export function ClientComponent() {
       }
       fetchWorkOrder();
     } catch (error) {
-      console.error("Error deleting attachment:", error);
+      clientLogger.error("Error deleting attachment:", error);
       alert("Gagal menghapus attachment");
     }
   };
@@ -244,7 +245,10 @@ export function ClientComponent() {
   const handleNewActivity = useCallback(
     (payload: WorkOrderActivityPayload) => {
       if (payload.workOrderId !== workOrderId) return;
-      console.log("[WorkOrder] New activity received:", payload.activity.type);
+      clientLogger.info(
+        "[WorkOrder] New activity received:",
+        payload.activity.type,
+      );
       fetchWorkOrder();
     },
     [workOrderId, fetchWorkOrder],
@@ -259,7 +263,7 @@ export function ClientComponent() {
     (payload: { id?: string; workOrderId?: string }) => {
       const updatedId = payload.id || payload.workOrderId;
       if (updatedId === workOrderId) {
-        console.log("[WorkOrder] Update received, refreshing...");
+        clientLogger.info("[WorkOrder] Update received, refreshing...");
         fetchWorkOrder();
       }
     },
@@ -294,7 +298,7 @@ export function ClientComponent() {
         alert(`Error: ${error.error || "Gagal memperbarui"}`);
       }
     } catch (error) {
-      console.error("Error updating:", error);
+      clientLogger.error("Error updating:", error);
       alert("Terjadi kesalahan");
     }
   };
@@ -316,7 +320,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal memverifikasi work order");
       }
     } catch (error) {
-      console.error("Error verifying:", error);
+      clientLogger.error("Error verifying:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -349,7 +353,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal menolak work order");
       }
     } catch (error) {
-      console.error("Error rejecting:", error);
+      clientLogger.error("Error rejecting:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -380,7 +384,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal membatalkan work order");
       }
     } catch (error) {
-      console.error("Error cancelling:", error);
+      clientLogger.error("Error cancelling:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -412,7 +416,7 @@ export function ClientComponent() {
         alert("Gagal menghapus work order");
       }
     } catch (error) {
-      console.error("Error deleting:", error);
+      clientLogger.error("Error deleting:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -438,7 +442,7 @@ export function ClientComponent() {
         fetchWorkOrder();
       }
     } catch (error) {
-      console.error("Error adding task:", error);
+      clientLogger.error("Error adding task:", error);
     } finally {
       setAddingTask(false);
     }
@@ -482,7 +486,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal menambahkan komentar");
       }
     } catch (error) {
-      console.error("Error adding comment:", error);
+      clientLogger.error("Error adding comment:", error);
       alert("Terjadi kesalahan saat menambahkan komentar");
     } finally {
       setAddingComment(false);

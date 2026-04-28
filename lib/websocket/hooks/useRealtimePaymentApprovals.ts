@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -43,7 +44,7 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
         setPayments(json.data);
       }
     } catch (error) {
-      console.error("Failed to fetch pending payments:", error);
+      clientLogger.error("Failed to fetch pending payments:", error);
     } finally {
       setLoading(false);
     }
@@ -56,16 +57,16 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
 
   const handlePaymentNew = useCallback(
     (payload: unknown) => {
-      console.log("[WS] New payment pending:", payload);
+      clientLogger.info("[WS] New payment pending:", payload);
       // Refetch to get consistent latest data
       fetchPendingPayments();
 
       // Play notification sound
       try {
         const audio = new Audio("/sounds/notification.mp3");
-        audio.play().catch((e) => console.error("Audio play failed:", e));
+        audio.play().catch((e) => clientLogger.error("Audio play failed:", e));
       } catch (e) {
-        console.error("Audio initialization failed:", e);
+        clientLogger.error("Audio initialization failed:", e);
       }
     },
     [fetchPendingPayments],

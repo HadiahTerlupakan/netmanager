@@ -1,5 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -667,7 +669,7 @@ export default function RABList({
       doc.save(`RAB-${project.name.replace(/\\s+/g, "-")}.pdf`);
       toast.success("RAB berhasil diekspor ke PDF");
     } catch (error) {
-      console.error("PDF generation error:", error);
+      clientLogger.error("PDF generation error:", error);
       toast.error("Gagal membuat file PDF");
     }
   };
@@ -681,7 +683,7 @@ export default function RABList({
       const res = await fetch(requestUrl);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.error("RAB fetch error:", res.status, errorData);
+        clientLogger.error("RAB fetch error:", res.status, errorData);
         throw new Error(
           errorData.error || `Gagal mengambil data RAB (status: ${res.status})`,
         );
@@ -690,7 +692,7 @@ export default function RABList({
       const rabData = Array.isArray(result) ? result : result.data || [];
       setData(rabData);
     } catch (error) {
-      console.error(error);
+      clientLogger.error("Gagal mengambil data RAB", error);
       toast.error(
         error instanceof Error ? error.message : "Gagal mengambil data RAB",
       );

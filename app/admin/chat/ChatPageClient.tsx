@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -18,7 +19,7 @@ import { usePermission } from "@/hooks/use-permission";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { shouldNotifyForChatMessage } from "@/modules/chat";
+import { shouldNotifyForChatMessage } from "@/modules/chat/utils/shouldNotifyForChatMessage";
 
 interface ChatUser {
   id: string;
@@ -155,7 +156,7 @@ export default function ChatPageClient() {
         setGlobalChat(globalData.data);
       }
     } catch (error) {
-      console.error("Error loading conversations:", error);
+      clientLogger.error("Error loading conversations:", error);
     } finally {
       setLoadingConversations(false);
     }
@@ -218,7 +219,7 @@ export default function ChatPageClient() {
             const blob = base64ToBlob(src);
             audioSrc = URL.createObjectURL(blob);
           } catch (e) {
-            console.error("Failed to convert data URI to blob:", e);
+            clientLogger.error("Failed to convert data URI to blob:", e);
             // Fallback to original src if blob fails
           }
         }
@@ -235,17 +236,19 @@ export default function ChatPageClient() {
         if (!src.startsWith("data:")) {
           audio.onerror = () => {
             if (src === "/sounds/chat.mp3") {
-              console.log("[Chat] chat.mp3 not found, falling back to default");
+              clientLogger.info(
+                "[Chat] chat.mp3 not found, falling back to default",
+              );
               new Audio("/sounds/notification.mp3")
                 .play()
-                .catch((e) => console.error("Fallback audio failed:", e));
+                .catch((e) => clientLogger.error("Fallback audio failed:", e));
             }
           };
         }
 
         await audio.play();
       } catch (e) {
-        console.error("Audio init/play failed:", e);
+        clientLogger.error("Audio init/play failed:", e);
       }
     },
     [],
@@ -282,7 +285,7 @@ export default function ChatPageClient() {
           // Handle notifications only during silent updates (polling)
           if (silent && newMessages.length > 0) {
             const latestMsg = newMessages[newMessages.length - 1];
-            console.log("[Chat] Polling check:", {
+            clientLogger.info("[Chat] Polling check:", {
               latestId: latestMsg.id,
               trackedId: lastMessageIdRef.current,
               isOwn: latestMsg.isOwn,
@@ -290,7 +293,7 @@ export default function ChatPageClient() {
 
             // Verify correct condition: new ID, not own message, and different from last tracked
             if (latestMsg.id !== lastMessageIdRef.current && !latestMsg.isOwn) {
-              console.log("[Chat] TRIGGERING NOTIFICATION");
+              clientLogger.info("[Chat] TRIGGERING NOTIFICATION");
               playNotificationSound("chat");
               showBrowserNotification(
                 latestMsg.senderName || "User",
@@ -307,7 +310,7 @@ export default function ChatPageClient() {
           }
         }
       } catch (error) {
-        console.error("Error loading messages:", error);
+        clientLogger.error("Error loading messages:", error);
       } finally {
         if (!silent) setLoadingMessages(false);
       }
@@ -338,7 +341,7 @@ export default function ChatPageClient() {
         loadConversations(); // Refresh conversation list
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      clientLogger.error("Error sending message:", error);
     } finally {
       setSendingMessage(false);
     }
@@ -356,7 +359,7 @@ export default function ChatPageClient() {
         setNewChatUsers(data.data);
       }
     } catch (error) {
-      console.error("Error searching users:", error);
+      clientLogger.error("Error searching users:", error);
     } finally {
       setSearchingUsers(false);
     }
@@ -382,7 +385,7 @@ export default function ChatPageClient() {
         loadMessages(data.data.id);
       }
     } catch (error) {
-      console.error("Error creating conversation:", error);
+      clientLogger.error("Error creating conversation:", error);
     }
   };
 
@@ -413,7 +416,7 @@ export default function ChatPageClient() {
         }
       }
     } catch (error) {
-      console.error("Error sending broadcast:", error);
+      clientLogger.error("Error sending broadcast:", error);
     } finally {
       setSendingBroadcast(false);
     }

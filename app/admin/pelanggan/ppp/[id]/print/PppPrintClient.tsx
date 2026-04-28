@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -133,7 +134,7 @@ export default function PppPrintClient() {
         if (pelangganPayload?.id) {
           setPelanggan(pelangganPayload);
         } else {
-          console.error("Unknown pelanggan format", pelangganData);
+          clientLogger.error("Unknown pelanggan format", pelangganData);
         }
 
         // Fetch latest tagihan
@@ -142,7 +143,7 @@ export default function PppPrintClient() {
         );
         if (tagihanRes.ok) {
           const tagihanData = await tagihanRes.json();
-          console.log("PRINT TAGIHAN RES:", tagihanData);
+          clientLogger.info("PRINT TAGIHAN RES:", tagihanData);
           if (tagihanData.data?.tagihan) {
             setTagihan(tagihanData.data.tagihan);
           } else if (tagihanData.tagihan) {
@@ -160,13 +161,13 @@ export default function PppPrintClient() {
             if (normalizedLogoUrl) {
               const testImg = new window.Image();
               testImg.onload = () => {
-                console.log(
+                clientLogger.info(
                   "Logo image loaded successfully:",
                   normalizedLogoUrl,
                 );
               };
               testImg.onerror = () => {
-                console.warn(
+                clientLogger.warn(
                   "Logo tidak dapat diakses, akan menggunakan fallback:",
                   normalizedLogoUrl,
                 );
@@ -176,7 +177,7 @@ export default function PppPrintClient() {
             setLogoSettings(logoData);
           }
         } catch (_e) {
-          console.warn("Failed to load logo settings");
+          clientLogger.warn("Failed to load logo settings");
         }
 
         // Fetch general settings
@@ -187,7 +188,7 @@ export default function PppPrintClient() {
             setGeneralSettings(generalData);
           }
         } catch (_e) {
-          console.warn("Failed to load general settings");
+          clientLogger.warn("Failed to load general settings");
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Terjadi kesalahan");

@@ -5,7 +5,8 @@ const routeMocks = vi.hoisted(() => ({
   getUserPermissions: vi.fn(),
   isSuperAdminUser: vi.fn(),
   findPayments: vi.fn(),
-  findCustomers: vi.fn(),
+  findAllCustomers: vi.fn(),
+  findCustomerById: vi.fn(),
 }));
 
 vi.mock("@/lib/server-auth", () => ({
@@ -17,17 +18,21 @@ vi.mock("@/lib/auth", () => ({
   isSuperAdminUser: routeMocks.isSuperAdminUser,
 }));
 
-vi.mock("@/modules/database", () => ({
-  prismaBilling: {
-    payment: {
-      findMany: routeMocks.findPayments,
-    },
+vi.mock("@/modules/finance/repositories/PaymentRepository", () => ({
+  PaymentRepository: class {
+    findMany = routeMocks.findPayments;
   },
-  prisma: {
-    pelanggan: {
-      findMany: routeMocks.findCustomers,
-    },
+}));
+
+vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
+  PelangganRepository: class {
+    findAll = routeMocks.findAllCustomers;
+    findById = routeMocks.findCustomerById;
   },
+}));
+
+vi.mock("@/modules/notification", () => ({
+  sendCustomerPushNotification: vi.fn(),
 }));
 
 import { GET } from "@/app/api/admin/payments/pending-manual/route";
@@ -44,7 +49,7 @@ describe("admin pending manual payments route", () => {
     });
     routeMocks.getUserPermissions.mockResolvedValue(["manual_payments:read"]);
     routeMocks.isSuperAdminUser.mockReturnValue(false);
-    routeMocks.findCustomers.mockResolvedValue([{ id: "customer-owned" }]);
+    routeMocks.findAllCustomers.mockResolvedValue([{ id: "customer-owned" }]);
     routeMocks.findPayments.mockResolvedValue([]);
   });
 
@@ -74,17 +79,14 @@ describe("admin pending manual payments route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(routeMocks.findCustomers).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { siteId: "site-owned" },
-      }),
-    );
+    expect(routeMocks.findAllCustomers).toHaveBeenCalledWith({
+      siteId: "site-owned",
+    });
     expect(routeMocks.findPayments).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          pelangganId: { in: ["customer-owned"] },
-        }),
+        pelangganId: { in: ["customer-owned"] },
       }),
+      expect.any(Object),
     );
   });
 
@@ -106,13 +108,12 @@ describe("admin pending manual payments route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(routeMocks.findCustomers).not.toHaveBeenCalled();
+    expect(routeMocks.findAllCustomers).not.toHaveBeenCalled();
     expect(routeMocks.findPayments).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          pelangganId: { in: [] },
-        }),
+        pelangganId: { in: [] },
       }),
+      expect.any(Object),
     );
   });
 });

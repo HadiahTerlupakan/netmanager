@@ -1,10 +1,10 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { Prisma } from "@prisma/client";
 import { checkSiteRestriction } from "@/modules/roles";
-import { ProfilePPPService } from "@/modules/network";
+import { mapProfilePPPRouteError, ProfilePPPService } from "@/modules/network";
 
 const profilePPPService = new ProfilePPPService();
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(profilePPPs);
   } catch (error: unknown) {
-    console.error("Error fetching profile PPPs:", error);
+    logger.error("Error fetching profile PPPs:", error);
     return NextResponse.json(
       {
         error:
@@ -80,16 +80,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result.profilePPP, { status: 201 });
   } catch (error: unknown) {
-    console.error("Error creating profile PPP:", error);
+    logger.error("Error creating profile PPP:", error);
 
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return NextResponse.json(
-        { error: "Nama profile PPP sudah digunakan" },
-        { status: 400 },
-      );
+    const routeError = mapProfilePPPRouteError(error);
+    if (routeError) {
+      return NextResponse.json(routeError.body, { status: routeError.status });
     }
 
     return NextResponse.json(

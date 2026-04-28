@@ -1,12 +1,11 @@
+import { logger } from "@/lib/logger";
 import {
   convertAndSaveImage,
   saveFile,
   isImageFile,
 } from "@/lib/utils/image-upload";
 import path from "path";
-import { Status, Prisma } from "@prisma/client";
 import { getPelangganService } from "@/modules/pelanggan";
-import type { FilterOptions } from "@/modules/pelanggan";
 import { checkSiteRestriction } from "@/modules/roles";
 import {
   apiSuccess,
@@ -15,9 +14,23 @@ import {
   createHandler,
   apiError,
 } from "@/lib/api";
-import { createPelangganSchema } from "@/modules/pelanggan";
+import { createPelangganSchema } from "@/lib/validations/pelanggan";
 import { validateFileSignature } from "@/lib/utils/file-validation";
 import * as z from "zod";
+
+type CustomerStatusValue =
+  | "AKTIF"
+  | "NONAKTIF"
+  | "MAINTENANCE"
+  | "ISOLIR"
+  | "DISMANTLE";
+
+type SiteInFilter = { in: string[] };
+type FilterOptions = {
+  status?: CustomerStatusValue;
+  search?: string;
+  siteId?: string | SiteInFilter;
+};
 
 const sanitizePelangganResponse = <
   T extends { password?: string | null; passwordHash?: string | null },
@@ -44,7 +57,7 @@ export const GET = createHandler(
   async (req, ctx) => {
     const session = ctx.session!;
     const { searchParams } = req.nextUrl;
-    const status = searchParams.get("status") as Status | null;
+    const status = searchParams.get("status") as CustomerStatusValue | null;
     const siteIdParam = searchParams.get("siteId");
     const search = searchParams.get("search");
 
@@ -60,7 +73,7 @@ export const GET = createHandler(
     if (isRestricted) {
       if (siteIds.length === 0)
         return ApiErrors.forbidden("User tidak memiliki akses site");
-      filter.siteId = { in: siteIds } as Prisma.StringNullableFilter;
+      filter.siteId = { in: siteIds } as SiteInFilter;
     } else if (siteIdParam) {
       filter.siteId = siteIdParam;
     }
@@ -179,7 +192,7 @@ export const POST = createHandler(
             );
       }
     } catch (e) {
-      console.error("Error saving files:", e);
+      logger.error("Error saving files:", e);
       return ApiErrors.internalError("Gagal memproses upload file");
     }
 

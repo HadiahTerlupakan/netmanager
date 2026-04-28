@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import {
@@ -144,7 +145,7 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error("Error suspending customer service:", error);
+    logger.error("Error suspending customer service:", error);
     if (error instanceof RouteServiceError) {
       return NextResponse.json(
         { error: error.message, details: error.details },

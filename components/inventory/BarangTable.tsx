@@ -10,6 +10,7 @@ import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { usePermission } from "@/hooks/use-permission";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Barang {
   id: string;
@@ -68,7 +69,7 @@ export function BarangTable() {
         const result = data.data || data;
         setGudangs(result.gudangs || []);
       } catch (error) {
-        console.error("Failed to fetch gudangs:", error);
+        clientLogger.error("Failed to fetch gudangs:", error);
       }
     }
 
@@ -100,7 +101,7 @@ export function BarangTable() {
       setBarangs(result.barangs || []);
       setPagination((prev) => result.pagination || prev);
     } catch (error) {
-      console.error("Failed to fetch barang:", error);
+      clientLogger.error("Failed to fetch barang:", error);
       setError(error instanceof Error ? error.message : "Gagal memuat data");
     } finally {
       setLoading(false);
@@ -132,7 +133,7 @@ export function BarangTable() {
       // Soft refresh - reload data without full page reload
       await fetchBarangs();
     } catch (error) {
-      console.error("Failed to delete barang:", error);
+      clientLogger.error("Failed to delete barang:", error);
       showToast(
         "error",
         error instanceof Error ? error.message : "Gagal menghapus barang",

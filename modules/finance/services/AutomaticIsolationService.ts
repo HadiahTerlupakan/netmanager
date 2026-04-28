@@ -1,5 +1,5 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { AttendanceSettingsService } from "@/modules/attendance";
+import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
 import { logger } from "@/lib/logger";
 import { Status } from "@prisma/client";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
@@ -73,15 +73,15 @@ export class AutomaticIsolationService {
             },
           });
         } catch (err) {
-          console.error(
+          logger.error(
             `[AutoIsolation] Error isolating customer ${customer.id}:`,
             err,
           );
         }
       }
     } catch (error) {
-      console.error("[AutoIsolation] Fatal error:", error);
-      console.error(error);
+      logger.error("[AutoIsolation] Fatal error:", error);
+      logger.error(error);
     }
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * BaseMonitor - Abstract base class for all monitoring services
  * Provides proper interval management with exponential backoff and error handling
@@ -34,11 +35,11 @@ export abstract class BaseMonitor {
    */
   start(): void {
     if (this.isRunning) {
-      console.log(`[${this.getMonitorName()}] Already running`);
+      logger.info(`[${this.getMonitorName()}] Already running`);
       return;
     }
 
-    console.log(`[${this.getMonitorName()}] Starting...`);
+    logger.info(`[${this.getMonitorName()}] Starting...`);
     this.isRunning = true;
     this.errorCount = 0;
     this.backoffMultiplier = 1;
@@ -56,7 +57,7 @@ export abstract class BaseMonitor {
   stop(): void {
     if (!this.isRunning) return;
 
-    console.log(`[${this.getMonitorName()}] Stopping...`);
+    logger.info(`[${this.getMonitorName()}] Stopping...`);
     this.isRunning = false;
 
     if (this.interval) {
@@ -108,7 +109,7 @@ export abstract class BaseMonitor {
 
       // Reset error count and backoff on success
       if (this.errorCount > 0) {
-        console.log(
+        logger.info(
           `[${this.getMonitorName()}] Connection restored, resuming normal operation`,
         );
       }
@@ -120,11 +121,11 @@ export abstract class BaseMonitor {
       // Log connection errors concisely (no stack trace spam)
       if (this.isConnectionError(error)) {
         const code = (error as { code?: string }).code || "ECONNREFUSED";
-        console.warn(
+        logger.warn(
           `[${this.getMonitorName()}] DB connection failed (${code}) - attempt ${this.errorCount}/${this.maxErrors}`,
         );
       } else {
-        console.error(
+        logger.error(
           `[${this.getMonitorName()}] Poll error (${this.errorCount}/${this.maxErrors}):`,
           error instanceof Error ? error.message : error,
         );
@@ -133,14 +134,14 @@ export abstract class BaseMonitor {
       // Exponential backoff after 2 consecutive errors
       if (this.errorCount > 2) {
         this.backoffMultiplier = Math.min(2 ** (this.errorCount - 2), 8);
-        console.log(
+        logger.info(
           `[${this.getMonitorName()}] Next retry in ${((this.getPollInterval() * this.backoffMultiplier) / 1000).toFixed(0)}s (backoff ${this.backoffMultiplier}x)`,
         );
       }
 
       // Stop after max errors
       if (this.errorCount >= this.maxErrors) {
-        console.error(
+        logger.error(
           `[${this.getMonitorName()}] Stopping after ${this.maxErrors} consecutive failures. Will not auto-restart.`,
         );
         this.stop();

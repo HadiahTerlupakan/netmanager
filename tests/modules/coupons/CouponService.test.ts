@@ -55,6 +55,14 @@ describe("CouponService", () => {
       mockRepo.create.mockResolvedValueOnce({
         id: "new-coupon",
         code: "NEWCODE",
+        discountType: "FIXED",
+        discountValue: 10000,
+        startDate: new Date("2026-04-01T00:00:00.000Z"),
+        endDate: new Date("2026-04-30T00:00:00.000Z"),
+        minTransaction: 0,
+        quota: 100,
+        usedCount: 0,
+        isActive: true,
       });
 
       const result = await service.createCoupon({

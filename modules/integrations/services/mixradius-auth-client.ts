@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { AxiosInstance } from "axios";
 
 import { getTenantIdFromContext } from "@/lib/tenant-context";
@@ -76,7 +77,7 @@ export async function loginMixRadius(params: {
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
-    console.error("[MixRadius] Login error:", message);
+    logger.error("[MixRadius] Login error:", message);
     throw new Error(`MixRadius login failed: ${message}`);
   }
 }
@@ -131,14 +132,14 @@ function validateCredentials(credentials: MixRadiusCredentials) {
   );
 
   if (!validation.isValid) {
-    console.warn("[MixRadius] Invalid or missing Base URL");
+    logger.warn("[MixRadius] Invalid or missing Base URL");
     throw new MixRadiusConfigError(
       "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
     );
   }
 
   if (!credentials.username || !credentials.password) {
-    console.warn("[MixRadius] Missing credentials");
+    logger.warn("[MixRadius] Missing credentials");
     throw new MixRadiusConfigError(
       "Username atau Password MixRadius belum dikonfigurasi.",
     );

@@ -10,6 +10,7 @@ import {
   getSubdomainFromWindow,
 } from "@/lib/utils/subdomain-client";
 import { Button } from "@/components/ui/Button";
+import { clientLogger } from "@/lib/client-logger";
 
 const schema = z.object({
   email: z
@@ -74,7 +75,7 @@ export default function LoginForm() {
       }
 
       if (res.error) {
-        console.error("[LoginForm] Login error:", res.error);
+        clientLogger.error("[LoginForm] Login error:", res.error);
 
         // Jika error terkait rate limiting, redirect ke halaman error
         if (
@@ -155,7 +156,7 @@ export default function LoginForm() {
       const adminUrl = getAdminUrl(targetPath);
       window.location.assign(adminUrl);
     } catch (error) {
-      console.error("[LoginForm] Unexpected error:", error);
+      clientLogger.error("[LoginForm] Unexpected error:", error);
       setError("password", {
         message: "Terjadi kesalahan tak terduga. Silakan coba lagi.",
       });

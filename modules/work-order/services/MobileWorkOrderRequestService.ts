@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import { createNotification, sendPushToUsers } from "@/modules/notification";
@@ -126,7 +127,7 @@ export class MobileWorkOrderRequestService {
         workOrder.siteId || undefined,
       );
     } catch (error) {
-      console.error("[Mobile WO Request] Socket error:", error);
+      logger.error("[Mobile WO Request] Socket error:", error);
     }
   }
 
@@ -169,7 +170,7 @@ export class MobileWorkOrderRequestService {
             sourceType: "WORK_ORDER",
             sourceId: workOrder.id,
             skipExpoPush: true,
-          }).catch((error) => console.error("Notification error:", error)),
+          }).catch((error) => logger.error("Notification error:", error)),
         ),
       );
 
@@ -182,9 +183,9 @@ export class MobileWorkOrderRequestService {
           type: "WO_REQUEST",
           screen: "WorkOrderRequests",
         },
-      ).catch((error) => console.error("Push error:", error));
+      ).catch((error) => logger.error("Push error:", error));
     } catch (error) {
-      console.error("Notify admins error:", error);
+      logger.error("Notify admins error:", error);
     }
   }
 }

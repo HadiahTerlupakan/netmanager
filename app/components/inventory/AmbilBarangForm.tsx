@@ -1,8 +1,9 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { clientLogger } from "@/lib/client-logger";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   HiOutlineCube,
   HiOutlineMagnifyingGlass,
@@ -10,10 +11,10 @@ import {
   HiOutlineXMark,
   HiOutlineCamera,
   HiOutlinePhoto,
-  HiOutlineInformationCircle
-} from 'react-icons/hi2'
-import { PhotoUpload, type UploadedPhoto } from './PhotoUpload'
-import { Button } from '@/components/ui/Button'
+  HiOutlineInformationCircle,
+} from "react-icons/hi2";
+import { PhotoUpload, type UploadedPhoto } from "./PhotoUpload";
+import { Button } from "@/components/ui/Button";
 
 interface BarangStock {
   gudangId: string;
@@ -35,182 +36,205 @@ interface Gudang {
 }
 
 export default function AmbilBarangForm() {
-  const _router = useRouter()
+  const _router = useRouter();
   const [formData, setFormData] = useState({
-    barangId: '',
-    gudangId: '',
-    jumlah: '',
-    kondisi: 'BARU' as 'BARU' | 'BEKAS' | 'RUSAK',
-    purpose: '' // Employee-specific field untuk keperluan
-  })
-  const [barangs, setBarangs] = useState<Barang[]>([])
-  const [gudangs, setGudangs] = useState<Gudang[]>([])
-  const [currentStock, setCurrentStock] = useState(0)
+    barangId: "",
+    gudangId: "",
+    jumlah: "",
+    kondisi: "BARU" as "BARU" | "BEKAS" | "RUSAK",
+    purpose: "", // Employee-specific field untuk keperluan
+  });
+  const [barangs, setBarangs] = useState<Barang[]>([]);
+  const [gudangs, setGudangs] = useState<Gudang[]>([]);
+  const [currentStock, setCurrentStock] = useState(0);
   const [stockPerKondisi, setStockPerKondisi] = useState({
     BARU: 0,
     BEKAS: 0,
-    RUSAK: 0
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [photos, setPhotos] = useState<UploadedPhoto[]>([])
-  const [transactionId] = useState<string>(() => 'temp-' + Date.now())
+    RUSAK: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
+  const [transactionId] = useState<string>(() => "temp-" + Date.now());
 
   // Check for URL params (from items page)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const barangId = params.get('barangId')
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const barangId = params.get("barangId");
       if (barangId) {
         // Use setTimeout to avoid synchronous setState
-        setTimeout(() => setFormData(prev => ({ ...prev, barangId })), 0)
+        setTimeout(() => setFormData((prev) => ({ ...prev, barangId })), 0);
       }
     }
-  }, [])
+  }, []);
 
   const fetchStockByCondition = useCallback(async () => {
     try {
       const response = await fetch(
-        `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.gudangId}`
-      )
+        `/api/inventory/barang/stock/by-kondisi?barangId=${formData.barangId}&gudangId=${formData.gudangId}`,
+      );
       if (response.ok) {
-        const data = await response.json()
-        setCurrentStock(data.totalStock || 0)
-        setStockPerKondisi(data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 })
+        const data = await response.json();
+        setCurrentStock(data.totalStock || 0);
+        setStockPerKondisi(
+          data.stockPerKondisi || { BARU: 0, BEKAS: 0, RUSAK: 0 },
+        );
       }
     } catch (error) {
-      console.error('Error fetching stock by condition:', error)
+      clientLogger.error("Error fetching stock by condition:", error);
       // Fallback to basic stock info
-      const selectedBarang = barangs.find(b => b.id === formData.barangId)
+      const selectedBarang = barangs.find((b) => b.id === formData.barangId);
       if (selectedBarang) {
-        const stockInfo = selectedBarang.stockPerGudang?.find((s: BarangStock) => s.gudangId === formData.gudangId)
-        setCurrentStock(stockInfo?.stok || 0)
+        const stockInfo = selectedBarang.stockPerGudang?.find(
+          (s: BarangStock) => s.gudangId === formData.gudangId,
+        );
+        setCurrentStock(stockInfo?.stok || 0);
       }
     }
-  }, [formData.barangId, formData.gudangId, barangs])
+  }, [formData.barangId, formData.gudangId, barangs]);
 
   useEffect(() => {
     async function fetchInitialData() {
       try {
         // Fetch barang dengan stock info
-        const barangResponse = await fetch('/api/inventory/barang?limit=100')
-        const barangData = await barangResponse.json()
-        setBarangs(barangData.barangs || [])
+        const barangResponse = await fetch("/api/inventory/barang?limit=100");
+        const barangData = await barangResponse.json();
+        setBarangs(barangData.barangs || []);
 
         // Fetch gudang
-        const gudangResponse = await fetch('/api/inventory/gudang')
-        const gudangData = await gudangResponse.json()
+        const gudangResponse = await fetch("/api/inventory/gudang");
+        const gudangData = await gudangResponse.json();
         // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const gudangResult = gudangData.data || gudangData
-        setGudangs(gudangResult.gudangs || [])
+        const gudangResult = gudangData.data || gudangData;
+        setGudangs(gudangResult.gudangs || []);
       } catch (error) {
-        console.error('Error fetching initial data:', error)
-        setError('Gagal memuat data awal')
+        clientLogger.error("Error fetching initial data:", error);
+        setError("Gagal memuat data awal");
       }
     }
 
-    fetchInitialData()
-  }, [])
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
     if (formData.barangId && formData.gudangId) {
       // Fetch stock by condition from API
       queueMicrotask(() => {
-        void fetchStockByCondition()
-      })
+        void fetchStockByCondition();
+      });
     } else {
       queueMicrotask(() => {
-        setCurrentStock(0)
-        setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 })
-      })
+        setCurrentStock(0);
+        setStockPerKondisi({ BARU: 0, BEKAS: 0, RUSAK: 0 });
+      });
     }
-  }, [formData.barangId, formData.gudangId, fetchStockByCondition])
+  }, [formData.barangId, formData.gudangId, fetchStockByCondition]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => {
-      const newData = { ...prev, [name]: value }
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      const newData = { ...prev, [name]: value };
 
       // Auto-switch to available condition if current condition has no stock
-      if (name === 'kondisi' || (name === 'barangId' || name === 'gudangId')) {
-        const availableKondisi = Object.entries(stockPerKondisi).find(([, stock]) => stock > 0)
-        if (availableKondisi && (!newData.kondisi || stockPerKondisi[newData.kondisi as keyof typeof stockPerKondisi] === 0)) {
-          newData.kondisi = availableKondisi[0] as 'BARU' | 'BEKAS' | 'RUSAK'
+      if (name === "kondisi" || name === "barangId" || name === "gudangId") {
+        const availableKondisi = Object.entries(stockPerKondisi).find(
+          ([, stock]) => stock > 0,
+        );
+        if (
+          availableKondisi &&
+          (!newData.kondisi ||
+            stockPerKondisi[newData.kondisi as keyof typeof stockPerKondisi] ===
+              0)
+        ) {
+          newData.kondisi = availableKondisi[0] as "BARU" | "BEKAS" | "RUSAK";
         }
       }
 
-      return newData
-    })
-    setError('')
-    setSuccess('')
-  }
+      return newData;
+    });
+    setError("");
+    setSuccess("");
+  };
 
   const handlePhotosChange = (newPhotos: UploadedPhoto[]) => {
-    setPhotos(newPhotos)
-    setError('')
-    setSuccess('')
-  }
+    setPhotos(newPhotos);
+    setError("");
+    setSuccess("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!formData.barangId || !formData.gudangId || !formData.jumlah || !formData.kondisi || !formData.purpose) {
-      setError('Semua field harus diisi')
-      return
+    if (
+      !formData.barangId ||
+      !formData.gudangId ||
+      !formData.jumlah ||
+      !formData.kondisi ||
+      !formData.purpose
+    ) {
+      setError("Semua field harus diisi");
+      return;
     }
 
-    const jumlah = parseInt(formData.jumlah)
+    const jumlah = parseInt(formData.jumlah);
     if (jumlah <= 0) {
-      setError('Jumlah harus lebih dari 0')
-      return
+      setError("Jumlah harus lebih dari 0");
+      return;
     }
 
     // Check stock based on selected condition
-    const availableStockForCondition = stockPerKondisi[formData.kondisi] || 0
+    const availableStockForCondition = stockPerKondisi[formData.kondisi] || 0;
     if (jumlah > availableStockForCondition) {
-      setError(`Stok ${formData.kondisi.toLowerCase()} tidak mencukupi. Stok tersedia: ${availableStockForCondition} ${selectedBarang?.satuan || ''}`)
-      return
+      setError(
+        `Stok ${formData.kondisi.toLowerCase()} tidak mencukupi. Stok tersedia: ${availableStockForCondition} ${selectedBarang?.satuan || ""}`,
+      );
+      return;
     }
 
-    setLoading(true)
-    setError('')
-    setSuccess('')
+    setLoading(true);
+    setError("");
+    setSuccess("");
 
     try {
       // Upload photos first if any exist
-      let fotoBuktiUrls: string[] = []
+      let fotoBuktiUrls: string[] = [];
 
       if (photos.length > 0) {
-        setSuccess('Mengunggah foto...')
+        setSuccess("Mengunggah foto...");
 
-        const uploadFormData = new FormData()
+        const uploadFormData = new FormData();
         photos.forEach((photo) => {
           if (photo.file) {
-            uploadFormData.append('photos', photo.file)
+            uploadFormData.append("photos", photo.file);
           }
-        })
-        uploadFormData.append('transactionId', transactionId)
-        uploadFormData.append('transactionType', 'inventory-keluar')
+        });
+        uploadFormData.append("transactionId", transactionId);
+        uploadFormData.append("transactionType", "inventory-keluar");
 
-        const uploadResponse = await fetch('/api/inventory/upload-photo', {
-          method: 'POST',
-          body: uploadFormData
-        })
+        const uploadResponse = await fetch("/api/inventory/upload-photo", {
+          method: "POST",
+          body: uploadFormData,
+        });
 
         if (uploadResponse.ok) {
-          const uploadResult = await uploadResponse.json()
-          fotoBuktiUrls = uploadResult.data?.urls || []
+          const uploadResult = await uploadResponse.json();
+          fotoBuktiUrls = uploadResult.data?.urls || [];
         } else {
-          console.error('Photo upload failed')
+          clientLogger.error("Photo upload failed");
         }
       }
 
       // Create the inventory transaction with photo URLs
-      const response = await fetch('/api/inventory/keluar', {
-        method: 'POST',
+      const response = await fetch("/api/inventory/keluar", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           barangId: formData.barangId,
@@ -219,54 +243,57 @@ export default function AmbilBarangForm() {
           kondisi: formData.kondisi,
           keterangan: formData.purpose,
           fotoBukti: fotoBuktiUrls,
-          fotoMetadata: fotoBuktiUrls.length > 0 ? {
-            uploadedAt: new Date().toISOString(),
-            count: fotoBuktiUrls.length
-          } : null
+          fotoMetadata:
+            fotoBuktiUrls.length > 0
+              ? {
+                  uploadedAt: new Date().toISOString(),
+                  count: fotoBuktiUrls.length,
+                }
+              : null,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.error || 'Gagal mengambil barang')
-        setLoading(false)
-        return
+        const errorData = await response.json();
+        setError(errorData.error || "Gagal mengambil barang");
+        setLoading(false);
+        return;
       }
 
-      setSuccess('Barang berhasil diambil!')
-      resetForm()
+      setSuccess("Barang berhasil diambil!");
+      resetForm();
     } catch (error) {
-      console.error('Error taking item:', error)
-      setError('Terjadi kesalahan. Silakan coba lagi.')
-      setLoading(false)
+      clientLogger.error("Error taking item:", error);
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+      setLoading(false);
     }
-  }
+  };
 
   const resetForm = () => {
-    setLoading(false)
+    setLoading(false);
     setFormData({
-      barangId: '',
-      gudangId: '',
-      jumlah: '',
-      kondisi: 'BARU',
-      purpose: ''
-    })
-    setPhotos([])
-    setCurrentStock(0)
+      barangId: "",
+      gudangId: "",
+      jumlah: "",
+      kondisi: "BARU",
+      purpose: "",
+    });
+    setPhotos([]);
+    setCurrentStock(0);
 
     // Refresh barang data untuk update stock
-    fetch('/api/inventory/barang?limit=100')
-      .then(res => res.json())
-      .then(data => setBarangs(data.barangs || []))
+    fetch("/api/inventory/barang?limit=100")
+      .then((res) => res.json())
+      .then((data) => setBarangs(data.barangs || []));
 
     // Clear success message after 2 seconds
     setTimeout(() => {
-      setSuccess('')
-    }, 2000)
-  }
+      setSuccess("");
+    }, 2000);
+  };
 
-  const selectedBarang = barangs.find(b => b.id === formData.barangId)
-  const selectedGudang = gudangs.find(g => g.id === formData.gudangId)
+  const selectedBarang = barangs.find((b) => b.id === formData.barangId);
+  const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
 
   return (
     <div className="space-y-6">
@@ -310,13 +337,18 @@ export default function AmbilBarangForm() {
           {success && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
               <HiOutlineCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
-              <p className="text-sm text-green-800 dark:text-green-200">{success}</p>
+              <p className="text-sm text-green-800 dark:text-green-200">
+                {success}
+              </p>
             </div>
           )}
 
           {/* Barang Selection */}
           <div>
-            <label htmlFor="barangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="barangId"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Pilih Barang
             </label>
             <select
@@ -338,7 +370,10 @@ export default function AmbilBarangForm() {
 
           {/* Gudang Selection */}
           <div>
-            <label htmlFor="gudangId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="gudangId"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Pilih Gudang
             </label>
             <select
@@ -360,7 +395,10 @@ export default function AmbilBarangForm() {
 
           {/* Kondisi Barang */}
           <div>
-            <label htmlFor="kondisi" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="kondisi"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Kondisi Barang
             </label>
             <select
@@ -372,13 +410,22 @@ export default function AmbilBarangForm() {
               required
             >
               <option value="BARU" disabled={stockPerKondisi.BARU === 0}>
-                Baru {stockPerKondisi.BARU > 0 ? `(${stockPerKondisi.BARU})` : '(Tidak tersedia)'}
+                Baru{" "}
+                {stockPerKondisi.BARU > 0
+                  ? `(${stockPerKondisi.BARU})`
+                  : "(Tidak tersedia)"}
               </option>
               <option value="BEKAS" disabled={stockPerKondisi.BEKAS === 0}>
-                Bekas {stockPerKondisi.BEKAS > 0 ? `(${stockPerKondisi.BEKAS})` : '(Tidak tersedia)'}
+                Bekas{" "}
+                {stockPerKondisi.BEKAS > 0
+                  ? `(${stockPerKondisi.BEKAS})`
+                  : "(Tidak tersedia)"}
               </option>
               <option value="RUSAK" disabled={stockPerKondisi.RUSAK === 0}>
-                Rusak {stockPerKondisi.RUSAK > 0 ? `(${stockPerKondisi.RUSAK})` : '(Tidak tersedia)'}
+                Rusak{" "}
+                {stockPerKondisi.RUSAK > 0
+                  ? `(${stockPerKondisi.RUSAK})`
+                  : "(Tidak tersedia)"}
               </option>
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -388,7 +435,10 @@ export default function AmbilBarangForm() {
 
           {/* Jumlah */}
           <div>
-            <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="jumlah"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Jumlah
             </label>
             <input
@@ -405,7 +455,8 @@ export default function AmbilBarangForm() {
             />
             {(stockPerKondisi[formData.kondisi] || 0) > 0 && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Maksimal {formData.kondisi.toLowerCase()}: {stockPerKondisi[formData.kondisi]} {selectedBarang?.satuan}
+                Maksimal {formData.kondisi.toLowerCase()}:{" "}
+                {stockPerKondisi[formData.kondisi]} {selectedBarang?.satuan}
               </p>
             )}
           </div>
@@ -439,19 +490,25 @@ export default function AmbilBarangForm() {
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded">
-                    <p className="text-xs text-green-700 dark:text-green-300 font-medium">Baru</p>
+                    <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+                      Baru
+                    </p>
                     <p className="text-sm font-bold text-green-800 dark:text-green-200">
                       {stockPerKondisi.BARU}
                     </p>
                   </div>
                   <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded">
-                    <p className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">Bekas</p>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+                      Bekas
+                    </p>
                     <p className="text-sm font-bold text-yellow-800 dark:text-yellow-200">
                       {stockPerKondisi.BEKAS}
                     </p>
                   </div>
                   <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded">
-                    <p className="text-xs text-red-700 dark:text-red-300 font-medium">Rusak</p>
+                    <p className="text-xs text-red-700 dark:text-red-300 font-medium">
+                      Rusak
+                    </p>
                     <p className="text-sm font-bold text-red-800 dark:text-red-200">
                       {stockPerKondisi.RUSAK}
                     </p>
@@ -463,7 +520,10 @@ export default function AmbilBarangForm() {
 
           {/* Keperluan */}
           <div>
-            <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="purpose"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Keperluan
             </label>
             <textarea
@@ -518,14 +578,21 @@ export default function AmbilBarangForm() {
           </div>
 
           {/* Submit Button */}
-          <Button type="submit"
-            disabled={loading || !formData.barangId || !formData.gudangId || !formData.jumlah || !formData.purpose}
+          <Button
+            type="submit"
+            disabled={
+              loading ||
+              !formData.barangId ||
+              !formData.gudangId ||
+              !formData.jumlah ||
+              !formData.purpose
+            }
             loading={loading}
             size="lg"
             className="w-full"
           >
             {loading ? (
-              'Memproses...'
+              "Memproses..."
             ) : (
               <>
                 <HiOutlineCheckCircle className="w-5 h-5" />
@@ -567,5 +634,5 @@ export default function AmbilBarangForm() {
         </div>
       </div>
     </div>
-  )
+  );
 }

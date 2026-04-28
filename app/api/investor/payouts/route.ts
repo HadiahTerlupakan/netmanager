@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
     );
     return NextResponse.json(response);
   } catch (error: unknown) {
-    console.error("Get Payouts error:", error);
+    logger.error("Get Payouts error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Internal server error";
     const status = errorMessage.includes("Permission") ? 403 : 500;

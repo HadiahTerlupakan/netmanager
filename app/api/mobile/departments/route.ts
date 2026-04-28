@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       data: await getMobileDepartments(),
     });
   } catch (error) {
-    console.error("Error fetching departments:", error);
+    logger.error("Error fetching departments:", error);
     return apiError(
       "Gagal mengambil daftar departemen",
       ErrorCodes.INTERNAL_ERROR,

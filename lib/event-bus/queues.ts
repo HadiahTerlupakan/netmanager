@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { Queue, type JobsOptions, type RepeatOptions } from "bullmq";
 import Redis from "ioredis";
 import type { EventName, QueueName } from "./types";
@@ -25,7 +26,7 @@ function createRedisConnection(): Redis {
   });
   conn.on("error", (err) => {
     if (err.message.includes("ECONNREFUSED")) {
-      console.warn("[BullMQ] Redis connection refused, retrying...");
+      logger.warn("[BullMQ] Redis connection refused, retrying...");
     }
   });
   return conn;
@@ -451,5 +452,5 @@ export async function closeAllQueues(): Promise<void> {
   _overtimeAutoCheckoutQueue = null;
   _attendanceAutoCheckoutQueue = null;
 
-  console.log("[BullMQ] All queues closed");
+  logger.info("[BullMQ] All queues closed");
 }

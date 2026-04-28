@@ -5,12 +5,33 @@ const DEFAULT_RESTOCK_LIMIT = 20;
 const DEFAULT_USAGE_DAYS = 30;
 const STOCKOUT_WARNING_DAYS = 7;
 
+interface ResolveRestrictedSiteIdInput {
+  userId: string;
+  permissions: string[];
+  isSuperAdmin: boolean;
+  restrictedPermissions: string[];
+}
+
 export class InventoryRouteService {
-  private readonly repository = new InventoryApiRepository();
+  constructor(private readonly repository = new InventoryApiRepository()) {}
 
   /** Ambil siteId user untuk pembatasan akses route. */
   async getUserSiteId(userId: string) {
     return this.repository.findUserSiteId(userId);
+  }
+
+  /** Selesaikan siteId ketika permission route dibatasi site. */
+  async resolveRestrictedSiteId(input: ResolveRestrictedSiteIdInput) {
+    if (input.isSuperAdmin) return undefined;
+    if (!this.hasRestrictedPermission(input)) return undefined;
+
+    return this.getUserSiteId(input.userId);
+  }
+
+  private hasRestrictedPermission(input: ResolveRestrictedSiteIdInput) {
+    return input.permissions.some((permission) =>
+      input.restrictedPermissions.includes(permission),
+    );
   }
 
   /** Ambil statistik inventory untuk dashboard route. */

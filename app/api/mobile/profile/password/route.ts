@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
       return apiError(error.message, error.code, { status: error.status });
     }
 
-    console.error("Password change error:", error);
+    logger.error("Password change error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return NextResponse.json({ error: errorMessage }, { status: 500 });

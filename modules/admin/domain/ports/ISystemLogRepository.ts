@@ -10,6 +10,7 @@ export interface SystemLogFilters {
   type?: SystemLogType;
   action?: string;
   userId?: string;
+  userSiteIds?: string[];
   startDate?: Date;
   endDate?: Date;
   search?: string;

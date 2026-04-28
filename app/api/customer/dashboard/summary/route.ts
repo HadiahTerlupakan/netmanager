@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       billing: result.billing,
     });
   } catch (error) {
-    console.error("[Customer Dashboard Summary GET Error]:", error);
+    logger.error("[Customer Dashboard Summary GET Error]:", error);
 
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan server";

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getPublicPortalSettings } from "@/modules/settings";
 
@@ -21,7 +22,7 @@ export async function GET(_request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[API] Get public settings error:", error);
+    logger.error("[API] Get public settings error:", error);
     return NextResponse.json(
       { success: false, error: "Gagal memuat pengaturan" },
       { status: 500 },

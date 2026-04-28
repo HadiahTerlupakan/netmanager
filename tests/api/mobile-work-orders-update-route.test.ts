@@ -16,6 +16,7 @@ const mockFns = vi.hoisted(() => ({
   addAttachment: vi.fn(),
   notifyAdminsAboutMobileAction: vi.fn(),
   getMobileAuthPayload: vi.fn(),
+  getMobileWorkOrderDetail: vi.fn(),
   socketUpdateWorkOrder: vi.fn(),
   syncWoStatusToTicket: vi.fn(),
 }));
@@ -147,6 +148,13 @@ vi.mock("@/modules/work-order", () => ({
     return workOrder;
   },
   syncWoStatusToTicket: mockFns.syncWoStatusToTicket,
+  employeeWorkOrderQueryService: {
+    getMobileWorkOrderDetail: mockFns.getMobileWorkOrderDetail,
+  },
+  MobileWorkOrderActionService: class MockMobileWorkOrderActionService {
+    updateTaskStatus = mockFns.updateTask;
+    handleAction = mockFns.updateStatus;
+  },
 }));
 
 vi.mock("@/lib/mobile-api-auth", () => ({
@@ -209,21 +217,15 @@ describe("mobile work order routes", () => {
       tenantId: "tenant-1",
       name: "Teknisi Satu",
     });
+    mockFns.getMobileWorkOrderDetail.mockResolvedValue({ id: "wo-1" });
     mockFns.syncWoStatusToTicket.mockResolvedValue(undefined);
   });
 
   describe("GET /api/mobile/work-orders/[id]", () => {
     it("mengembalikan 403 saat user mobile bukan lead atau partner approved", async () => {
-      mockFns.findById.mockResolvedValue({
-        id: "wo-1",
-        tenantId: "tenant-1",
-        workOrderNumber: "WO-001",
-        title: "Instalasi Baru",
-        status: "IN_PROGRESS",
-        assignedToId: "tech-lain",
-        assignedMitraId: null,
-        assignments: [],
-      });
+      mockFns.getMobileWorkOrderDetail.mockRejectedValueOnce(
+        new Error("Akses ditolak: Work order ini bukan tanggung jawab Anda"),
+      );
 
       const response = await getWorkOrderDetail(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1"),
@@ -237,7 +239,7 @@ describe("mobile work order routes", () => {
     });
 
     it("mengembalikan 500 saat detail work order gagal dimuat karena error internal", async () => {
-      mockFns.findById.mockRejectedValueOnce(
+      mockFns.getMobileWorkOrderDetail.mockRejectedValueOnce(
         new Error("Koneksi database gagal"),
       );
 
@@ -257,16 +259,9 @@ describe("mobile work order routes", () => {
     });
 
     it("mengembalikan 403 saat status work order tidak diizinkan untuk detail mobile", async () => {
-      mockFns.findById.mockResolvedValue({
-        id: "wo-1",
-        tenantId: "tenant-1",
-        workOrderNumber: "WO-001",
-        title: "Instalasi Baru",
-        status: "ARCHIVED",
-        assignedToId: "tech-1",
-        assignedMitraId: null,
-        assignments: [],
-      });
+      mockFns.getMobileWorkOrderDetail.mockRejectedValueOnce(
+        new Error("Work order tidak dapat diakses pada status ini"),
+      );
 
       const response = await getWorkOrderDetail(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1"),
@@ -330,16 +325,16 @@ describe("mobile work order routes", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(mockFns.findById).toHaveBeenCalledWith("wo-1");
-      expect(mockFns.workOrderFindFirst).not.toHaveBeenCalled();
-      expect(mockFns.addUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          workOrderId: "wo-1",
-          updateType: "NOTE",
-          message: "Catatan teknisi",
-          createdById: "tech-1",
+      expect(mockFns.updateStatus).toHaveBeenCalledWith({
+        workOrderId: "wo-1",
+        tenantId: "tenant-1",
+        actor: expect.objectContaining({ id: "tech-1" }),
+        payload: expect.objectContaining({
+          action: "NOTE",
+          notes: "Catatan teknisi",
         }),
-      );
+      });
+      expect(mockFns.workOrderFindFirst).not.toHaveBeenCalled();
     });
 
     it("mengembalikan 403 jika requester hanya creator tetapi bukan teknisi assigned atau partner approved", async () => {
@@ -356,6 +351,9 @@ describe("mobile work order routes", () => {
         departmentId: "dept-1",
         siteId: "site-1",
       });
+      mockFns.updateStatus.mockRejectedValueOnce(
+        new Error("Akses ditolak: Work order ini bukan tanggung jawab Anda"),
+      );
 
       const response = await updateWorkOrder(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1/update", {
@@ -402,9 +400,11 @@ describe("mobile work order routes", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(mockFns.syncWoStatusToTicket).toHaveBeenCalledWith(
-        "wo-1",
-        "IN_PROGRESS",
+      expect(mockFns.updateStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workOrderId: "wo-1",
+          payload: expect.objectContaining({ action: "START" }),
+        }),
       );
     });
 
@@ -422,6 +422,9 @@ describe("mobile work order routes", () => {
         departmentId: "dept-1",
         siteId: "site-1",
       });
+      mockFns.updateStatus.mockRejectedValueOnce(
+        new Error("Akses ditolak: Work order ini bukan tanggung jawab Anda"),
+      );
 
       const response = await updateWorkOrder(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1/update", {
@@ -436,7 +439,9 @@ describe("mobile work order routes", () => {
       );
 
       expect(response.status).toBe(403);
-      expect(mockFns.findById).toHaveBeenCalledWith("wo-1");
+      expect(mockFns.updateStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ workOrderId: "wo-1" }),
+      );
       expect(mockFns.workOrderFindFirst).not.toHaveBeenCalled();
     });
 
@@ -454,6 +459,9 @@ describe("mobile work order routes", () => {
         departmentId: "dept-1",
         siteId: "site-1",
       });
+      mockFns.updateStatus.mockRejectedValueOnce(
+        new Error("Akses ditolak: Work order ini bukan tanggung jawab Anda"),
+      );
 
       const response = await updateWorkOrder(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1/update", {
@@ -487,6 +495,9 @@ describe("mobile work order routes", () => {
         siteId: "site-1",
       });
       mockFns.workOrderTaskFindFirst.mockResolvedValue({ title: "Task 1" });
+      mockFns.updateTask.mockRejectedValueOnce(
+        new Error("Akses ditolak: Work order ini bukan tanggung jawab Anda"),
+      );
 
       const response = await updateWorkOrderTask(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1/tasks", {
@@ -500,7 +511,17 @@ describe("mobile work order routes", () => {
       );
 
       expect(response.status).toBe(403);
-      expect(mockFns.updateTask).not.toHaveBeenCalled();
+      expect(mockFns.updateTask).toHaveBeenCalledWith({
+        workOrderId: "wo-1",
+        taskId: "task-1",
+        isCompleted: true,
+        tenantId: "tenant-1",
+        actor: expect.objectContaining({
+          id: "tech-1",
+          tenantId: "tenant-1",
+          isSuperAdmin: false,
+        }),
+      });
     });
 
     it("mengembalikan 404 saat task tidak termasuk ke work order yang diminta", async () => {
@@ -517,6 +538,7 @@ describe("mobile work order routes", () => {
         siteId: "site-1",
       });
       mockFns.workOrderTaskFindFirst.mockResolvedValue(null);
+      mockFns.updateTask.mockRejectedValueOnce(new Error("TASK_NOT_FOUND"));
 
       const response = await updateWorkOrderTask(
         new NextRequest("http://localhost/api/mobile/work-orders/wo-1/tasks", {
@@ -530,7 +552,17 @@ describe("mobile work order routes", () => {
       );
 
       expect(response.status).toBe(404);
-      expect(mockFns.updateTask).not.toHaveBeenCalled();
+      expect(mockFns.updateTask).toHaveBeenCalledWith({
+        workOrderId: "wo-1",
+        taskId: "task-lain",
+        isCompleted: true,
+        tenantId: "tenant-1",
+        actor: expect.objectContaining({
+          id: "tech-1",
+          tenantId: "tenant-1",
+          isSuperAdmin: false,
+        }),
+      });
     });
   });
 });

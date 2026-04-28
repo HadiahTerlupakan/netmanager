@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type {
   IPointClaimRepository,
   CreatePointClaimInput,
@@ -265,7 +266,7 @@ export class PointClaimService {
       salesName: canvasing.userName || "Sales",
       pointValue: claim.pointValue,
       siteId: canvasing.userSiteId,
-    }).catch((error) => console.error("[PointClaim Notif] Error:", error));
+    }).catch((error) => logger.error("[PointClaim Notif] Error:", error));
   }
 
   private notifyApprovedClaim(claim: PointClaimEntity): void {
@@ -278,7 +279,7 @@ export class PointClaimService {
       userId: claim.salesId,
       sourceType: "POINT_CLAIM",
       sourceId: claim.id,
-    }).catch((error) => console.error("[PointClaim Notif] Error:", error));
+    }).catch((error) => logger.error("[PointClaim Notif] Error:", error));
   }
 
   private notifyRejectedClaim(
@@ -295,7 +296,7 @@ export class PointClaimService {
       userId: claim.salesId,
       sourceType: "POINT_CLAIM",
       sourceId,
-    }).catch((error) => console.error("[PointClaim Notif] Error:", error));
+    }).catch((error) => logger.error("[PointClaim Notif] Error:", error));
   }
 
   /** Add mitra commission after claim approval when sales belongs to mitra sales. */

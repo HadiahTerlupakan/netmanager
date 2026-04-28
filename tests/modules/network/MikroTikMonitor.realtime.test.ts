@@ -19,7 +19,7 @@ vi.mock("@/modules/network/services/mikrotik-ping-check", () => ({
   checkAllMikroTikRouterStatus: mockFns.checkAllMikroTikRouterStatus,
 }));
 
-vi.mock("@/modules/network", () => ({
+vi.mock("@/modules/network/repositories/MikroTikRouterRepository", () => ({
   MikroTikRouterRepository: class {
     getStatistics = mockFns.getStatistics;
   },

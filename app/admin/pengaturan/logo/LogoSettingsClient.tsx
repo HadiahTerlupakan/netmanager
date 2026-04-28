@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -67,7 +68,7 @@ export function ClientComponent() {
         setError(errorData.error || "Gagal memuat pengaturan");
       }
     } catch (err: unknown) {
-      console.error("Error loading settings:", err);
+      clientLogger.error("Error loading settings:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -162,7 +163,7 @@ export function ClientComponent() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
-      console.error("Error uploading logo:", err);
+      clientLogger.error("Error uploading logo:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -212,7 +213,7 @@ export function ClientComponent() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
-      console.error("Error removing logo:", err);
+      clientLogger.error("Error removing logo:", err);
       setError(
         err instanceof Error
           ? err.message

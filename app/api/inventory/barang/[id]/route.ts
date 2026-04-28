@@ -1,13 +1,25 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
   getInventoryRouteService,
-  InventoryRepository,
+  inventoryBarangRouteService,
 } from "@/modules/inventory";
+import type { InventoryBarangRouteResult } from "@/modules/inventory";
+
+type InventoryBarangRouteFailure = Extract<
+  InventoryBarangRouteResult<unknown>,
+  { success: false }
+>;
 
 const inventoryRouteService = getInventoryRouteService();
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+
+function isInventoryBarangRouteFailure(
+  result: InventoryBarangRouteResult<unknown>,
+): result is InventoryBarangRouteFailure {
+  return !result.success;
+}
 
 /**
  * GET /api/inventory/barang/[id]
@@ -24,64 +36,31 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const inventoryRepository = new InventoryRepository();
-
-  // Site Restriction Check
   const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasRestriction =
-    permissions.includes("barang:site_only") ||
-    permissions.includes("k_barang:site_only") ||
-    permissions.includes("gudang:site_only");
-
-  let siteId: string | undefined = undefined;
-  if (!isSuper && hasRestriction) {
-    siteId = await inventoryRouteService.getUserSiteId(user.id);
-  }
+  const siteId = await inventoryRouteService.resolveRestrictedSiteId({
+    userId: user.id,
+    permissions,
+    isSuperAdmin: isSuperAdmin(user),
+    restrictedPermissions: [
+      "barang:site_only",
+      "k_barang:site_only",
+      "gudang:site_only",
+    ],
+  });
 
   try {
     const dbStart = Date.now();
 
-    const barang = await inventoryRepository.findBarangDetail(id);
+    const result = await inventoryBarangRouteService.getBarangDetail({
+      id,
+      siteId,
+    });
 
-    if (!barang) {
+    if (!result.found) {
       return ApiErrors.notFound("Barang");
     }
 
-    // If site restricted, check if barang has stock in user's site
-    if (siteId) {
-      const _hasStockInSite = (barang.barangGudang || []).some((bg) =>
-        (
-          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
-        ).gudang?.sites?.some((s) => s.id === siteId),
-      );
-      // If it's a new item with no stock yet, we might still want to allow viewing if it's "visible"
-      // but the instruction says "MUST include siteId verification".
-      // For now, let's filter the barangGudang list at least.
-    }
-
-    // Calculate total stock (filtered by site if restricted)
-    let totalStock = 0;
-    let filteredBarangGudang = barang.barangGudang || [];
-
-    if (siteId) {
-      filteredBarangGudang = (barang.barangGudang || []).filter((bg) =>
-        (
-          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
-        ).gudang?.sites?.some((s) => s.id === siteId),
-      );
-    }
-
-    totalStock = filteredBarangGudang.reduce(
-      (sum: number, stock: { stok: number }) => sum + stock.stok,
-      0,
-    );
-
-    const barangWithStats = {
-      ...barang,
-      barangGudang: filteredBarangGudang,
-      totalStock,
-    };
+    const barangWithStats = result.barang;
 
     logger.dbOperation("findUnique", "Barang+Relations", Date.now() - dbStart);
 
@@ -92,7 +71,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       Date.now() - startTime,
       {
         userId: user.id,
-        barangId: barang.id,
+        barangId: barangWithStats.id,
       },
     );
 
@@ -124,68 +103,36 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
-  const { kode, nama, satuan, isWorkOrderMaterial } = body;
+  const { kode, nama, satuan } = body;
 
-  // Validation
-  if (!kode || !nama || !satuan) {
-    return ApiErrors.badRequest("Kode, nama, dan satuan barang harus diisi");
-  }
-
-  const inventoryRepository = new InventoryRepository();
-
-  // Site Restriction Check
   const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasRestriction =
-    permissions.includes("barang:site_only") ||
-    permissions.includes("k_barang:site_only") ||
-    permissions.includes("gudang:site_only");
-
-  let siteId: string | undefined = undefined;
-  if (!isSuper && hasRestriction) {
-    siteId = await inventoryRouteService.getUserSiteId(user.id);
-  }
+  const siteId = await inventoryRouteService.resolveRestrictedSiteId({
+    userId: user.id,
+    permissions,
+    isSuperAdmin: isSuperAdmin(user),
+    restrictedPermissions: [
+      "barang:site_only",
+      "k_barang:site_only",
+      "gudang:site_only",
+    ],
+  });
 
   try {
     const dbStart = Date.now();
 
-    // Check if barang exists
-    const existingBarang = await inventoryRepository.findBarangById(id);
-
-    if (!existingBarang) {
-      return ApiErrors.notFound("Barang");
-    }
-
-    // Site Isolation Verification
-    if (siteId) {
-      const hasAccessToBarang = (existingBarang.barangGudang || []).some((bg) =>
-        (
-          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
-        ).gudang?.sites?.some((s) => s.id === siteId),
-      );
-      if (!hasAccessToBarang) {
-        return ApiErrors.forbidden(
-          "Anda tidak memiliki akses ke barang ini di site Anda",
-        );
-      }
-    }
-
-    // Check if kode conflicts with another barang
-    const kodeConflict = await inventoryRepository.findBarangByKode(kode);
-
-    if (kodeConflict && kodeConflict.id !== id) {
-      return ApiErrors.badRequest("Kode barang sudah digunakan");
-    }
-
-    const updatedBarang = await inventoryRepository.updateBarang(id, {
-      kode,
-      nama,
-      satuan,
-      isWorkOrderMaterial,
-      jenis: body.jenis,
-      kategoriAset: body.kategoriAset,
-      minStokDefault: body.minStokDefault,
+    const result = await inventoryBarangRouteService.updateBarang({
+      id,
+      siteId,
+      body,
     });
+
+    if (isInventoryBarangRouteFailure(result)) {
+      if (result.status === 403) return ApiErrors.forbidden(result.error);
+      if (result.status === 404) return ApiErrors.notFound("Barang");
+      return ApiErrors.badRequest(result.error);
+    }
+
+    const updatedBarang = result.data as { id: string };
 
     logger.dbOperation("update", "Barang", Date.now() - dbStart);
 
@@ -208,10 +155,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       details: { id: updatedBarang.id, changes: { kode, nama, satuan } },
     });
 
-    return apiSuccess(
-      { barang: updatedBarang },
-      { message: "Barang berhasil diperbarui" },
-    );
+    return apiSuccess({ barang: updatedBarang }, { message: result.message });
   } catch (error) {
     const err = error as Error;
     logger.error("Error updating barang", err, {
@@ -245,47 +189,31 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const inventoryRepository = new InventoryRepository();
-
-  // Site Restriction Check
   const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasRestriction =
-    permissions.includes("barang:site_only") ||
-    permissions.includes("k_barang:site_only") ||
-    permissions.includes("gudang:site_only");
-
-  let siteId: string | undefined = undefined;
-  if (!isSuper && hasRestriction) {
-    siteId = await inventoryRouteService.getUserSiteId(user.id);
-  }
+  const siteId = await inventoryRouteService.resolveRestrictedSiteId({
+    userId: user.id,
+    permissions,
+    isSuperAdmin: isSuperAdmin(user),
+    restrictedPermissions: [
+      "barang:site_only",
+      "k_barang:site_only",
+      "gudang:site_only",
+    ],
+  });
 
   try {
     const dbStart = Date.now();
 
-    // Check if barang exists
-    const existingBarang = await inventoryRepository.findBarangById(id);
+    const result = await inventoryBarangRouteService.deleteBarang({
+      id,
+      siteId,
+    });
 
-    if (!existingBarang) {
-      return ApiErrors.notFound("Barang");
+    if (isInventoryBarangRouteFailure(result)) {
+      if (result.status === 403) return ApiErrors.forbidden(result.error);
+      if (result.status === 404) return ApiErrors.notFound("Barang");
+      return ApiErrors.badRequest(result.error);
     }
-
-    // Site Isolation Verification
-    if (siteId) {
-      const hasAccessToBarang = (existingBarang.barangGudang || []).some((bg) =>
-        (
-          bg as unknown as { gudang?: { sites?: Array<{ id: string }> } }
-        ).gudang?.sites?.some((s) => s.id === siteId),
-      );
-      if (!hasAccessToBarang) {
-        return ApiErrors.forbidden(
-          "Anda tidak memiliki akses untuk menghapus barang ini",
-        );
-      }
-    }
-
-    // Safe delete via repository
-    await inventoryRepository.deleteBarang(id);
 
     logger.dbOperation("delete", "Barang", Date.now() - dbStart);
 
@@ -308,7 +236,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       details: { id },
     });
 
-    return apiSuccess(null, { message: "Barang berhasil dihapus" });
+    return apiSuccess(null, { message: result.message });
   } catch (error) {
     const err = error as Error;
 

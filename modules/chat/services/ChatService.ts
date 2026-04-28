@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { ChatRepository } from "../repositories/ChatRepository";
 import type { IChatRepository } from "../domain/ports/IChatRepository";
 
@@ -310,7 +311,7 @@ export class ChatService {
           conversationId: globalChat.id,
           messageId: message.id,
         },
-      ).catch((error) => console.error("[Chat] Broadcast push error:", error));
+      ).catch((error) => logger.error("[Chat] Broadcast push error:", error));
 
       otherUserIds.forEach((otherUserId) => {
         this.emitChatMessage(otherUserId, {
@@ -323,7 +324,7 @@ export class ChatService {
           isOwn: false,
           isBroadcast: true,
         }).catch((error) =>
-          console.error("[Chat] Broadcast socket emit error:", error),
+          logger.error("[Chat] Broadcast socket emit error:", error),
         );
       });
     }
@@ -475,10 +476,10 @@ export class ChatService {
           senderName: input.senderName,
           createdAt: message.createdAt.toISOString(),
           isOwn: false,
-        }).catch((error) => console.error("[Chat] Socket emit error:", error));
+        }).catch((error) => logger.error("[Chat] Socket emit error:", error));
       });
     } catch (error) {
-      console.error("[Chat] Error sending push notifications:", error);
+      logger.error("[Chat] Error sending push notifications:", error);
     }
   }
 }

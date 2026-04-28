@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess(result.data);
   } catch (error) {
-    console.error("Face Verification Error:", error);
+    logger.error("Face Verification Error:", error);
     return apiError("Terjadi kesalahan sistem.", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

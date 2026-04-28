@@ -9,8 +9,7 @@ const mockFns = vi.hoisted(() => ({
   apiRequest: vi.fn(),
   error: vi.fn(),
   logActivity: vi.fn(),
-  findBarangById: vi.fn(),
-  findBarangByKode: vi.fn(),
+  resolveRestrictedSiteId: vi.fn(),
   updateBarang: vi.fn(),
 }));
 
@@ -61,10 +60,11 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 vi.mock("@/modules/inventory", () => ({
-  InventoryRepository: class {
-    findBarangById = mockFns.findBarangById;
-    findBarangByKode = mockFns.findBarangByKode;
-    updateBarang = mockFns.updateBarang;
+  getInventoryRouteService: () => ({
+    resolveRestrictedSiteId: mockFns.resolveRestrictedSiteId,
+  }),
+  inventoryBarangRouteService: {
+    updateBarang: mockFns.updateBarang,
   },
 }));
 
@@ -76,17 +76,12 @@ describe("PUT /api/inventory/barang/[id]", () => {
     mockFns.hasPermission.mockResolvedValue(true);
     mockFns.getUserPermissions.mockResolvedValue([]);
     mockFns.isSuperAdmin.mockReturnValue(true);
-    mockFns.findBarangById.mockResolvedValue({
-      id: "barang-1",
-      kode: "BRG-001",
-      nama: "Kabel Fiber",
-      satuan: "pcs",
-      barangGudang: [],
+    mockFns.resolveRestrictedSiteId.mockResolvedValue(undefined);
+    mockFns.updateBarang.mockResolvedValue({
+      success: false,
+      status: 400,
+      error: "Satuan barang tidak boleh diubah saat stok masih tersedia",
     });
-    mockFns.findBarangByKode.mockResolvedValue(null);
-    mockFns.updateBarang.mockRejectedValue(
-      new Error("Satuan barang tidak boleh diubah saat stok masih tersedia"),
-    );
   });
 
   it("returns bad request when unit change is blocked by existing stock", async () => {

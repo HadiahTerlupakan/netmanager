@@ -4,4 +4,4 @@ export {
   calculateRabUnitCosts,
   getRabTargetBasisLabel,
   type RabTargetBasis,
-} from "@/modules/finance";
+} from "@/modules/finance/utils/rabTarget";

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import {
   TicketStatus,
   TicketCategory,
@@ -186,7 +187,7 @@ export class AdminSupportTicketService {
         },
       };
     } catch (error) {
-      console.error("[AdminSupportTicketService.getTickets] Error:", error);
+      logger.error("[AdminSupportTicketService.getTickets] Error:", error);
       return {
         success: false,
         error: "Gagal mengambil daftar tiket",
@@ -223,7 +224,7 @@ export class AdminSupportTicketService {
 
       return { success: true, data: ticket };
     } catch (error) {
-      console.error("[AdminSupportTicketService.getTicketById] Error:", error);
+      logger.error("[AdminSupportTicketService.getTicketById] Error:", error);
       return {
         success: false,
         error: "Gagal mengambil detail tiket",
@@ -323,13 +324,13 @@ export class AdminSupportTicketService {
           siteId: existing.pelanggan?.siteId,
           triggeredBy: user.id,
         }).catch((err) =>
-          console.error("Failed to publish TICKET_STATUS_CHANGED event:", err),
+          logger.error("Failed to publish TICKET_STATUS_CHANGED event:", err),
         );
       }
 
       return { success: true, data: ticket };
     } catch (error) {
-      console.error("[AdminSupportTicketService.updateTicket] Error:", error);
+      logger.error("[AdminSupportTicketService.updateTicket] Error:", error);
       return {
         success: false,
         error: "Gagal mengupdate tiket",
@@ -371,7 +372,7 @@ export class AdminSupportTicketService {
 
       return { success: true, data: { id } };
     } catch (error) {
-      console.error("[AdminSupportTicketService.deleteTicket] Error:", error);
+      logger.error("[AdminSupportTicketService.deleteTicket] Error:", error);
       if (isPrismaRecordNotFoundError(error)) {
         return {
           success: false,
@@ -418,7 +419,7 @@ export class AdminSupportTicketService {
         data: { reply: this.buildReplyPayload(reply), whatsappSent },
       };
     } catch (error) {
-      console.error("[AdminSupportTicketService.replyToTicket] Error:", error);
+      logger.error("[AdminSupportTicketService.replyToTicket] Error:", error);
       return {
         success: false,
         error: "Gagal mengirim balasan",
@@ -455,7 +456,7 @@ export class AdminSupportTicketService {
         },
       };
     } catch (error) {
-      console.error("[AdminSupportTicketService.getUnreadCount] Error:", error);
+      logger.error("[AdminSupportTicketService.getUnreadCount] Error:", error);
       return {
         success: false,
         error: "Gagal mengambil jumlah tiket",
@@ -578,7 +579,7 @@ export class AdminSupportTicketService {
       });
       return result.success;
     } catch (error) {
-      console.error("[Admin Reply] WhatsApp error:", error);
+      logger.error("[Admin Reply] WhatsApp error:", error);
       return false;
     }
   }

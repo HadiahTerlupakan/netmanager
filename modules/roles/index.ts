@@ -21,7 +21,6 @@ export type {
   SiteOptionDTO,
   UpdateSiteDTO,
 } from "./dto/SiteDTO";
-export type { RoleFilterOptions } from "./domain/ports/IRoleRepository";
 
 export {
   DepartmentService,

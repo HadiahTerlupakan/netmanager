@@ -1,5 +1,5 @@
-import { procurementEndpointDisabled } from '@/app/api/procurement/_utils/disabled'
+import { procurementEndpointDisabled } from "@/modules/procurement";
 
 export async function GET() {
-    return procurementEndpointDisabled()
+  return procurementEndpointDisabled();
 }

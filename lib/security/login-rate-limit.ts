@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 
 const DELAY_STEP_SECONDS = 30;
@@ -62,7 +63,7 @@ export async function checkStrictLoginRateLimit(
     return "allowed";
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Strict login rate limit error:", message);
+    logger.error("Strict login rate limit error:", message);
     return "unavailable";
   }
 }

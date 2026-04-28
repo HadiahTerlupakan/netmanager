@@ -1,4 +1,4 @@
-import { TicketStatus } from "@prisma/client";
+const WAITING_CUSTOMER_STATUS = "WAITING_CUSTOMER";
 import {
   apiSuccess,
   ApiErrors,
@@ -36,7 +36,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     ticketId: id,
     senderId: user.id,
     message,
-    updateStatus: updateStatus || TicketStatus.WAITING_CUSTOMER,
+    updateStatus: updateStatus || WAITING_CUSTOMER_STATUS,
     sendWhatsApp,
     attachments,
   });

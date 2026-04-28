@@ -12,6 +12,11 @@ const mockFns = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/coupons", () => ({
+  couponService: {
+    verifyCoupon: mockFns.verifyCoupon,
+    recordUsage: mockFns.recordUsage,
+    incrementUsage: mockFns.incrementUsage,
+  },
   CouponService: class MockCouponService {
     verifyCoupon = mockFns.verifyCoupon;
     recordUsage = mockFns.recordUsage;

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
   getMobileAuthPayload: vi.fn(),
-  userFindById: vi.fn(),
+  getMobileEmployeeMe: vi.fn(),
   mitraFindUnique: vi.fn(),
   getUserFeaturesWithCanvasing: vi.fn(),
 }));
@@ -13,12 +13,11 @@ vi.mock("@/lib/mobile-api-auth", () => ({
 }));
 
 vi.mock("@/modules/users", () => ({
-  UserRepository: class MockUserRepository {
-    findById = mockFns.userFindById;
-  },
+  getMobileEmployeeMe: mockFns.getMobileEmployeeMe,
 }));
 
 vi.mock("@/modules/database", () => ({
+  prisma: {},
   prismaMitra: {
     mitra: {
       findUnique: mockFns.mitraFindUnique,
@@ -43,7 +42,7 @@ describe("mobile auth me route", () => {
       tenantId: "tenant-1",
       role: "ADMIN",
     });
-    mockFns.userFindById.mockResolvedValue({
+    mockFns.getMobileEmployeeMe.mockResolvedValue({
       id: "user-1",
       name: "Admin One",
       email: "admin@example.com",

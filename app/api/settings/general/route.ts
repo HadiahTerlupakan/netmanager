@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess } from "@/lib/api";
 import { invalidateTimezoneCache } from "@/lib/utils/get-timezone";
 import { logActivitySafe } from "@/lib/logger";
@@ -209,7 +210,7 @@ export const POST = createHandler(
     try {
       await tzService.invalidateCache();
     } catch (error) {
-      console.error(
+      logger.error(
         "[settings/general] Failed to invalidate attendance timezone cache:",
         error,
       );

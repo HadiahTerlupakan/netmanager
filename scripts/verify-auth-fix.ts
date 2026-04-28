@@ -1,56 +1,66 @@
-
-import { prismaAuth } from '../lib/prisma'
-import { prismaMitraAuth } from '../lib/prisma-mitra'
+import { prismaAuth } from "../lib/prisma";
+import { prismaMitraAuth } from "../lib/prisma-mitra";
+import { logger } from "../lib/logger";
 
 async function verify() {
-  console.log('--- VERIFYING AUTH LOOKUP (No Tenant Context) ---')
-  
+  logger.info("--- VERIFYING AUTH LOOKUP (No Tenant Context) ---");
+
   // Test Employee Lookup
-  const testEmail = 'admin@example.com'
-  console.log(`Checking Employee: ${testEmail}...`)
+  const testEmail = "admin@example.com";
+  logger.info(`Checking Employee: ${testEmail}...`);
   try {
     const user = await prismaAuth.user.findUnique({
-      where: { email: testEmail }
-    })
+      where: { email: testEmail },
+    });
     if (user) {
-      console.log('✅ Success: Employee found globally!')
-      console.log({ id: user.id, email: user.email, tenantId: user.tenantId })
+      logger.info("✅ Success: Employee found globally!");
+      logger.info({ id: user.id, email: user.email, tenantId: user.tenantId });
     } else {
-      console.log('❌ Failed: Employee not found globally.')
+      logger.info("❌ Failed: Employee not found globally.");
     }
   } catch (e: any) {
-    console.error('Error:', e.message)
+    logger.error("Error:", e.message);
   }
 
   // Test Mitra Lookup (if any)
-  console.log('\nChecking Mitra...')
+  logger.info("\nChecking Mitra...");
   try {
-    const mitra = await prismaMitraAuth.mitra.findFirst()
+    const mitra = await prismaMitraAuth.mitra.findFirst();
     if (mitra) {
-      console.log('✅ Success: Mitra found globally!')
-      console.log({ id: mitra.id, email: mitra.email, tenantId: mitra.tenantId })
+      logger.info("✅ Success: Mitra found globally!");
+      logger.info({
+        id: mitra.id,
+        email: mitra.email,
+        tenantId: mitra.tenantId,
+      });
     } else {
-      console.log('ℹ️ Info: No mitras in DB to test, but lookup mechanism is active.')
+      logger.info(
+        "ℹ️ Info: No mitras in DB to test, but lookup mechanism is active.",
+      );
     }
   } catch (e: any) {
-    console.error('Error:', e.message)
+    logger.error("Error:", e.message);
   }
 
   // Double Check with Isolated Client (should fail without context)
-  console.log('\n--- VERIFYING ISOLATION STILL WORKS ---')
-  const { prisma } = await import('../lib/prisma')
+  logger.info("\n--- VERIFYING ISOLATION STILL WORKS ---");
+  const { prisma } = await import("../lib/prisma");
   try {
     const isolatedUser = await prisma.user.findUnique({
-      where: { email: testEmail }
-    })
+      where: { email: testEmail },
+    });
     if (!isolatedUser) {
-      console.log('✅ Success: Isolated client correctly blocked lookup without context.')
+      logger.info(
+        "✅ Success: Isolated client correctly blocked lookup without context.",
+      );
     } else {
-      console.log('⚠️ Warning: Isolated client found user! (Maybe running as Super Admin or context exists?)')
+      logger.info(
+        "⚠️ Warning: Isolated client found user! (Maybe running as Super Admin or context exists?)",
+      );
     }
   } catch (e: any) {
-     console.log('✅ Success: Isolated client blocked/errored as expected.')
+    logger.info("✅ Success: Isolated client blocked/errored as expected.");
   }
 }
 
-verify().catch(console.error)
+verify().catch(logger.error);

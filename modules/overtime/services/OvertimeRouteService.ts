@@ -1,9 +1,9 @@
 import type { Session } from "next-auth";
-import type { OvertimeStatus } from "@prisma/client";
+import type { OvertimeStatusValue } from "../domain/entities/OvertimeEntity";
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { UserRepository } from "@/modules/users";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 
 import { OvertimeMapper } from "../mappers/OvertimeMapper";
 import { OvertimeService } from "./OvertimeService";
@@ -19,7 +19,7 @@ interface AdminOvertimeListInput {
   session: RouteSession;
   page: number;
   limit: number;
-  status?: OvertimeStatus;
+  status?: OvertimeStatusValue;
   holidayType?: string;
   siteId?: string;
   departmentId?: string;
@@ -131,7 +131,7 @@ export class OvertimeRouteService {
     const filters: {
       skip: number;
       take: number;
-      status?: OvertimeStatus;
+      status?: OvertimeStatusValue;
       holidayType?: string;
       siteId?: string;
       departmentId?: string;

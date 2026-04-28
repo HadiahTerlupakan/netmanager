@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Security Test Suite
  *
@@ -462,7 +463,7 @@ export class SecurityTests {
    * Run all security tests
    */
   async runAllTests(): Promise<SecurityTestResult[]> {
-    console.log("🔒 Running Security Tests...\n");
+    logger.info("🔒 Running Security Tests...\n");
 
     this.testEnvironmentSecurity();
     this.testJWTSecurity();
@@ -477,25 +478,25 @@ export class SecurityTests {
 
     const summary = this.getSummary();
 
-    console.log("\n📊 Security Test Results:");
-    console.log(`Total Tests: ${summary.total}`);
-    console.log(`✅ Passed: ${summary.passed}`);
-    console.log(`❌ Failed: ${summary.failed}`);
-    console.log(`⚠️  Warnings: ${summary.warnings}`);
-    console.log(`📈 Score: ${summary.score}%\n`);
+    logger.info("\n📊 Security Test Results:");
+    logger.info(`Total Tests: ${summary.total}`);
+    logger.info(`✅ Passed: ${summary.passed}`);
+    logger.info(`❌ Failed: ${summary.failed}`);
+    logger.info(`⚠️  Warnings: ${summary.warnings}`);
+    logger.info(`📈 Score: ${summary.score}%\n`);
 
     if (summary.failed > 0) {
-      console.log("🚨 Failed Tests:");
+      logger.info("🚨 Failed Tests:");
       this.results
         .filter((r) => r.status === "FAIL")
-        .forEach((r) => console.log(`  ❌ ${r.testName}: ${r.message}`));
+        .forEach((r) => logger.info(`  ❌ ${r.testName}: ${r.message}`));
     }
 
     if (summary.warnings > 0) {
-      console.log("⚠️  Warnings:");
+      logger.info("⚠️  Warnings:");
       this.results
         .filter((r) => r.status === "WARN")
-        .forEach((r) => console.log(`  ⚠️  ${r.testName}: ${r.message}`));
+        .forEach((r) => logger.info(`  ⚠️  ${r.testName}: ${r.message}`));
     }
 
     return this.results;

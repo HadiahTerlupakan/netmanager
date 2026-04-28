@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
@@ -97,7 +98,7 @@ export function IzinClient() {
         setLeaves(leavesData);
       }
     } catch (error) {
-      console.error(error);
+      clientLogger.error("Gagal mengambil data izin", error);
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ export function IzinClient() {
         setUsers(usersList);
       }
     } catch (error) {
-      console.error("Failed to fetch users", error);
+      clientLogger.error("Failed to fetch users", error);
     }
   };
 
@@ -153,7 +154,7 @@ export function IzinClient() {
         toast.error(err.error || "Gagal upload gambar");
       }
     } catch (error) {
-      console.error(error);
+      clientLogger.error("Gagal upload lampiran izin", error);
       toast.error("Terjadi kesalahan saat upload");
     } finally {
       setUploading(false);
@@ -264,7 +265,7 @@ export function IzinClient() {
         toast.error("Gagal memproses pengajuan");
       }
     } catch (error) {
-      console.error(error);
+      clientLogger.error("Gagal memproses pengajuan izin", error);
       toast.error("Terjadi kesalahan");
     } finally {
       setActionLoading(false);
@@ -297,7 +298,7 @@ export function IzinClient() {
         toast.error(err.error || "Gagal menghapus");
       }
     } catch (error) {
-      console.error(error);
+      clientLogger.error("Gagal menghapus pengajuan izin", error);
       toast.error("Terjadi kesalahan");
     } finally {
       setActionLoading(false);

@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -113,7 +114,7 @@ export default function CanvasingDetailClient({ id }: { id: string }) {
         const res = await axios.get(`/api/marketing/canvasing/${id}`);
         setItem(res.data?.data || res.data);
       } catch (error) {
-        console.error("Fetch detail error:", error);
+        clientLogger.error("Fetch detail error:", error);
         const axiosError = error as {
           response?: { data?: { error?: string }; status?: number };
         };

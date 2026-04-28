@@ -3,6 +3,8 @@ import type { Prisma, TargetAudience } from "@prisma/client";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
+import { AnnouncementRepository } from "../repositories/AnnouncementRepository";
+import type { IAnnouncementRepository } from "../domain/ports/IAnnouncementRepository";
 
 const ANNOUNCEMENT_PREVIEW_LIMIT = 100;
 const EMPLOYEE_ROLE_NAMES = ["EMPLOYEE", "TEKNISI"];
@@ -88,6 +90,29 @@ class AnnouncementServiceError extends Error {
 }
 
 export class AnnouncementService {
+  constructor(
+    private readonly announcementRepository: IAnnouncementRepository = new AnnouncementRepository(),
+  ) {}
+
+  /** Ambil data announcement untuk form edit. */
+  async getAnnouncementEditData(id: string) {
+    const announcement = await this.announcementRepository.findEditById(id);
+    if (!announcement) {
+      return null;
+    }
+
+    return {
+      id: announcement.id,
+      title: announcement.title,
+      content: announcement.content,
+      target: announcement.target,
+      isActive: announcement.isActive,
+      isPinned: announcement.isPinned,
+      startDate: announcement.startDate?.toISOString() ?? null,
+      endDate: announcement.endDate?.toISOString() ?? null,
+    };
+  }
+
   /** List announcements using the same filters used by the existing route. */
   async getAnnouncements(filters: AnnouncementFilters) {
     const now = new Date();

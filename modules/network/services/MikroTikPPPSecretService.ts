@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * MikroTik PPP Secret Service
  *
@@ -7,7 +8,7 @@
 
 import { RouterOSAPI } from "node-routeros-v2";
 import { NetworkRepository } from "../repositories/NetworkRepository";
-import { MikroTikRouterRepository } from "@/modules/network";
+import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
 
 interface PPPSecretData {
   name: string;
@@ -209,7 +210,7 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error("[PPPSecretService] createSecret error:", error);
+      logger.error("[PPPSecretService] createSecret error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
@@ -264,7 +265,7 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error("[PPPSecretService] setSecretProfile error:", error);
+      logger.error("[PPPSecretService] setSecretProfile error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
@@ -320,7 +321,7 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error("[PPPSecretService] disconnectSession error:", error);
+      logger.error("[PPPSecretService] disconnectSession error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, disconnected: 0, error: errorMessage };
@@ -482,7 +483,7 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error("[PPPSecretService] debugActiveSessionUsage error:", error);
+      logger.error("[PPPSecretService] debugActiveSessionUsage error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
@@ -542,7 +543,7 @@ export class MikroTikPPPSecretService {
         throw error;
       }
     } catch (error: unknown) {
-      console.error("[PPPSecretService] deleteSecret error:", error);
+      logger.error("[PPPSecretService] deleteSecret error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMessage };
@@ -600,7 +601,7 @@ export class MikroTikPPPSecretService {
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error("[PPPSecretService] isolateCustomer error:", error);
+      logger.error("[PPPSecretService] isolateCustomer error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
@@ -658,7 +659,7 @@ export class MikroTikPPPSecretService {
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error("[PPPSecretService] unIsolateCustomer error:", error);
+      logger.error("[PPPSecretService] unIsolateCustomer error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
@@ -695,7 +696,7 @@ export class MikroTikPPPSecretService {
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error("[PPPSecretService] dismantleCustomer error:", error);
+      logger.error("[PPPSecretService] dismantleCustomer error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };
@@ -738,7 +739,7 @@ export class MikroTikPPPSecretService {
 
       return { success: true, logs };
     } catch (error: unknown) {
-      console.error("[PPPSecretService] syncNewCustomer error:", error);
+      logger.error("[PPPSecretService] syncNewCustomer error:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return { success: false, logs, error: errorMessage };

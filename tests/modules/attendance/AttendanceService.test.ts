@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { prismaMock, redisMock } from "../../setup";
 import { getCrossSurfaceAttendanceFixture } from "../../fixtures/attendance/crossSurfaceAttendanceFixtures";
-import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
+import { AttendanceService } from "@/modules/attendance";
 import { AttendanceDailyEvaluator } from "@/modules/attendance/services/AttendanceDailyEvaluator";
 import { AttendanceEvaluationAuditService } from "@/modules/attendance/services/AttendanceEvaluationAuditService";
-import { AttendanceValidationService } from "@/modules/attendance/services/AttendanceValidationService";
-import { AttendanceTimezoneService } from "@/modules/attendance/services/AttendanceTimezoneService";
-import { GeofenceService } from "@/modules/attendance/services/GeofenceService";
+import { AttendanceValidationService } from "@/modules/attendance";
+import { AttendanceTimezoneService } from "@/modules/attendance";
+import { GeofenceService } from "@/modules/attendance";
 import type { AttendanceStatus } from "@prisma/client";
 import type { AttendanceEvaluationResult } from "@/modules/attendance/types/AttendanceEvaluation";
 

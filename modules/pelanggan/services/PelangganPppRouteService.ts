@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { RadiusSyncService } from "@/modules/network";
 import { getPelangganService } from "./PelangganService";
@@ -439,7 +440,7 @@ export class PelangganPppRouteService {
         pelanggan.tenantId,
       );
     } catch (error) {
-      console.error(
+      logger.error(
         "Error handling RADIUS operations during suspension:",
         error,
       );
@@ -452,7 +453,7 @@ export class PelangganPppRouteService {
     try {
       await this.radiusService.handleStatusChange(id, Status.AKTIF);
     } catch (error) {
-      console.error(
+      logger.error(
         "Error handling RADIUS operations during activation:",
         error,
       );
@@ -1129,7 +1130,7 @@ function publishSuspensionEvent(customerId: string, customerName: string) {
     oldStatus: "AKTIF",
     newStatus: "NONAKTIF",
   }).catch((error) =>
-    console.error("Failed to publish CUSTOMER_SUSPENDED event:", error),
+    logger.error("Failed to publish CUSTOMER_SUSPENDED event:", error),
   );
 }
 
@@ -1140,7 +1141,7 @@ function publishActivationEvent(customerId: string, customerName: string) {
     oldStatus: "NONAKTIF",
     newStatus: "AKTIF",
   }).catch((error) =>
-    console.error("Failed to publish CUSTOMER_ACTIVATED event:", error),
+    logger.error("Failed to publish CUSTOMER_ACTIVATED event:", error),
   );
 }
 

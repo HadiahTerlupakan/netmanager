@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.error("Error FCM token mobile API:", error);
+    logger.error("Error FCM token mobile API:", error);
     return ApiErrors.internalError("Terjadi kesalahan pada server");
   }
 }

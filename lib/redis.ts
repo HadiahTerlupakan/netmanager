@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import Redis from "ioredis";
 
 const DEFAULT_LOCAL_REDIS_URL = "redis://localhost:6379";
@@ -63,7 +64,7 @@ export async function checkRateLimit(
       const delayKey = `delay:${safeKey}`;
       await redis.setex(delayKey, delaySeconds, "1");
 
-      console.log(
+      logger.info(
         `Rate limit exceeded for ${safeKey}. Delay: ${delaySeconds}s`,
       );
       return false;
@@ -73,7 +74,7 @@ export async function checkRateLimit(
   } catch (error: unknown) {
     // Jika Redis gagal (misconfig/NOAUTH), jangan blokir request (fail open)
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Redis rate limit error:", errorMessage);
+    logger.error("Redis rate limit error:", errorMessage);
     return true;
   }
 }
@@ -96,7 +97,7 @@ export async function checkDelay(key: string): Promise<number> {
     return ttl > 0 ? ttl : 0;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Redis delay check error:", errorMessage);
+    logger.error("Redis delay check error:", errorMessage);
     return 0;
   }
 }

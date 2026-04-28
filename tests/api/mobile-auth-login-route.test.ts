@@ -12,6 +12,7 @@ vi.mock("bcryptjs", () => ({
 }));
 
 vi.mock("@/modules/database", () => ({
+  prisma: {},
   prismaAuth: {
     pelanggan: {
       findFirst: (...args: unknown[]) => mockCustomerFindFirst(...args),

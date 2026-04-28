@@ -9,6 +9,7 @@ import { useRealtimeNotifications } from "@/lib/realtime/hooks/useRealtimeNotifi
 import { usePermission } from "@/hooks/use-permission";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { normalizeKaryawanNotificationLink } from "@/lib/notifications/normalizeKaryawanNotificationLink";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Announcement {
   id: string;
@@ -51,7 +52,7 @@ export function KaryawanNotificationBell() {
           setAnnouncements(data);
         }
       } catch (_error) {
-        console.error("Failed to fetch announcements", _error);
+        clientLogger.error("Failed to fetch announcements", _error);
       } finally {
         setAnnouncementsLoading(false);
       }

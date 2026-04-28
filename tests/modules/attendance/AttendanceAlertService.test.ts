@@ -70,7 +70,7 @@ import {
   processIncompleteAttendance,
   processFlexibleReminders,
   runScheduledAttendanceCheck,
-} from "@/modules/attendance/services/AttendanceAlertService";
+} from "@/modules/attendance";
 
 describe("AttendanceAlertService", () => {
   beforeEach(() => {

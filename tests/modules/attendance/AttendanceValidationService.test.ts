@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { cache } from "@/lib/cache";
-import { AttendanceValidationService } from "@/modules/attendance/services/AttendanceValidationService";
+import { AttendanceValidationService } from "@/modules/attendance";
 import { prismaMock } from "../../setup";
 
 describe("AttendanceValidationService", () => {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prismaMock } from "../../setup";
-import { AutoCheckoutService } from "@/modules/attendance/services/AutoCheckoutService";
+import { AutoCheckoutService } from "@/modules/attendance";
 import { ATTENDANCE_CONSTANTS } from "@/modules/attendance/utils/constants";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import {

@@ -1,4 +1,5 @@
-import { UserRepository } from "@/modules/users";
+import { logger } from "@/lib/logger";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 import {
   getMitraLookupService,
   type MitraLookupService,
@@ -89,7 +90,7 @@ async function handleFailedTokens(
     .filter((f) => f.error === "DeviceNotRegistered")
     .map((f) => f.token);
   if (tokensToRemove.length > 0) {
-    console.log(
+    logger.info(
       `[Push] Removing ${tokensToRemove.length} unregistered Expo push tokens`,
     );
     await Promise.all([
@@ -156,7 +157,7 @@ async function sendExpoPush(
           body: JSON.stringify(chunk),
         });
         if (!response.ok) {
-          console.error(
+          logger.error(
             `[Push] Expo API HTTP error ${response.status} for chunk ${chunkIndex + 1}/${chunks.length}`,
           );
           allSucceeded = false;
@@ -181,7 +182,7 @@ async function sendExpoPush(
           });
         }
       } catch (chunkError) {
-        console.error(
+        logger.error(
           `[Push] Failed to send chunk ${chunkIndex + 1}/${chunks.length}:`,
           chunkError,
         );
@@ -192,7 +193,7 @@ async function sendExpoPush(
     }
     return { success: allSucceeded, failedTokens };
   } catch (error) {
-    console.error("[Push] Expo API error:", error);
+    logger.error("[Push] Expo API error:", error);
     return {
       success: false,
       failedTokens: messages.map((message) => ({
@@ -226,7 +227,7 @@ export async function sendPushNotification(
       await handleFailedTokens(failedTokens, messages);
     return success;
   } catch (error) {
-    console.error("[Push] Error sending notification:", error);
+    logger.error("[Push] Error sending notification:", error);
     return false;
   }
 }
@@ -255,7 +256,7 @@ export async function sendCustomerPushNotification(
       await handleFailedTokens(failedTokens, messages);
     return success;
   } catch (error) {
-    console.error("[Push] Error sending customer notification:", error);
+    logger.error("[Push] Error sending customer notification:", error);
     return false;
   }
 }
@@ -292,7 +293,7 @@ export async function sendPushToUsers(
       await handleFailedTokens(failedTokens, messages);
     return allTokens.length - failedTokens.length;
   } catch (error) {
-    console.error("[Push] Error sending notifications:", error);
+    logger.error("[Push] Error sending notifications:", error);
     return 0;
   }
 }
@@ -336,7 +337,7 @@ export async function sendPushToDepartment(
       await handleFailedTokens(failedTokens, messages);
     return users.length - failedTokens.length;
   } catch (error) {
-    console.error("[Push] Error sending to department:", error);
+    logger.error("[Push] Error sending to department:", error);
     return 0;
   }
 }

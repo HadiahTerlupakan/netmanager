@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { App } from "firebase-admin/app";
 import { cert, getApp, getApps, initializeApp } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
@@ -32,7 +33,7 @@ function initializeFirebaseAdmin(): App | null {
       databaseURL: process.env.FIREBASE_DATABASE_URL,
     });
   } catch (error) {
-    console.error("Firebase admin initialization error", error);
+    logger.error("Firebase admin initialization error", error);
     return null;
   }
 }

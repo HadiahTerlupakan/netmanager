@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getPublicGeneralSettings } from '@/modules/settings'
+import { logger } from "@/lib/logger";
+import { NextRequest, NextResponse } from "next/server";
+import { getPublicGeneralSettings } from "@/modules/settings";
 
 /**
  * GET /api/settings/general/public
@@ -9,20 +10,13 @@ import { getPublicGeneralSettings } from '@/modules/settings'
  */
 export async function GET(_req: NextRequest) {
   try {
-    const settings = await getPublicGeneralSettings()
-    return NextResponse.json(settings)
+    const settings = await getPublicGeneralSettings();
+    return NextResponse.json(settings);
   } catch (error: unknown) {
-    console.error('Error fetching public general settings:', error)
+    logger.error("Error fetching public general settings:", error);
     return NextResponse.json(
-      { error: 'Terjadi kesalahan server' },
-      { status: 500 }
-    )
+      { error: "Terjadi kesalahan server" },
+      { status: 500 },
+    );
   }
 }
-
-
-
-
-
-
-

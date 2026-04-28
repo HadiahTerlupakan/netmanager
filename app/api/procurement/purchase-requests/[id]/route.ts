@@ -1,11 +1,11 @@
-import { procurementEndpointDisabled } from '@/app/api/procurement/_utils/disabled'
+import { procurementEndpointDisabled } from "@/modules/procurement";
 
 /**
  * GET /api/procurement/purchase-requests/[id]
  * Get Purchase Request by ID
  */
 export async function GET() {
-    return procurementEndpointDisabled()
+  return procurementEndpointDisabled();
 }
 
 /**
@@ -14,5 +14,5 @@ export async function GET() {
  * If approved, automatically generates a Purchase Order
  */
 export async function PATCH() {
-    return procurementEndpointDisabled()
+  return procurementEndpointDisabled();
 }

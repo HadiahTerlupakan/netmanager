@@ -3,16 +3,39 @@
  */
 
 import type {
-  Prisma,
-  TicketCategory,
-  TicketPriority,
-  TicketStatus,
-} from "@prisma/client";
-import type {
   SupportTicketEntity,
   SupportTicketListResultEntity,
 } from "../entities/SupportTicketEntity";
-import type { CustomerTicketListItemDTO } from "../../mappers/SupportTicketMapper";
+
+export type CustomerTicketQuery = Record<string, unknown>;
+export type CustomerTicketUpdateData = Record<string, unknown>;
+export type CustomerTicketCategory = string;
+export type CustomerTicketPriority = string;
+export type CustomerTicketStatus = string;
+
+export interface CustomerTicketPaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface CustomerTicketListItem {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastReply: {
+    createdAt: Date;
+    message: string;
+    isFromAdmin: boolean;
+  } | null;
+  replyCount: number;
+}
 
 export interface ICustomerTicketRepository {
   /** Get customer tickets with pagination. */
@@ -31,8 +54,8 @@ export interface ICustomerTicketRepository {
   create(data: {
     pelangganId: string;
     ticketNumber: string;
-    category: TicketCategory;
-    priority: TicketPriority;
+    category: CustomerTicketCategory;
+    priority: CustomerTicketPriority;
     subject: string;
     description: string;
   }): Promise<SupportTicketEntity>;
@@ -40,33 +63,33 @@ export interface ICustomerTicketRepository {
   /** Map ticket entities into customer response DTOs. */
   mapCustomerTicketResponses(
     tickets: SupportTicketEntity[],
-  ): CustomerTicketListItemDTO[];
+  ): CustomerTicketListItem[];
 
   /** Build customer pagination metadata. */
   buildCustomerTicketPagination(
     page: number,
     limit: number,
     total: number,
-  ): ReturnType<typeof import("@/lib/utils/pagination").buildPaginationMeta>;
+  ): CustomerTicketPaginationMeta;
 
   /** Get admin ticket list. */
   findAllAdmin(
-    where: Prisma.SupportTicketsWhereInput,
+    where: CustomerTicketQuery,
     skip: number,
     take: number,
   ): Promise<SupportTicketEntity[]>;
 
   /** Count admin tickets. */
-  countAdmin(where: Prisma.SupportTicketsWhereInput): Promise<number>;
+  countAdmin(where: CustomerTicketQuery): Promise<number>;
 
   /** Get grouped admin ticket counts by status. */
   getStatusCounts(
-    where: Prisma.SupportTicketsWhereInput,
+    where: CustomerTicketQuery,
   ): Promise<Array<{ status: string; _count: { status: number } }>>;
 
   /** Get closed tickets with rating replies. */
   getClosedTicketsWithReplies(
-    where: Prisma.SupportTicketsWhereInput,
+    where: CustomerTicketQuery,
   ): Promise<Array<{ replies: Array<{ message: string }> }>>;
 
   /** Get admin ticket detail by id. */
@@ -78,7 +101,7 @@ export interface ICustomerTicketRepository {
   /** Update admin ticket. */
   updateAdmin(
     id: string,
-    updateData: Prisma.SupportTicketsUpdateInput,
+    updateData: CustomerTicketUpdateData,
   ): Promise<SupportTicketEntity>;
 
   /** Create reply for ticket. */
@@ -92,7 +115,10 @@ export interface ICustomerTicketRepository {
   }): Promise<unknown>;
 
   /** Count active tickets whose latest reply is from customer. */
-  countNeedsReplyAdmin(status: TicketStatus, siteId?: string): Promise<number>;
+  countNeedsReplyAdmin(
+    status: CustomerTicketStatus,
+    siteId?: string,
+  ): Promise<number>;
 
   /** Get customer-owned ticket detail by id. */
   findByIdForCustomer(

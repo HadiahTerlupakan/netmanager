@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import type {
   CanvasingCompletionSummaryEntity,
@@ -14,7 +15,7 @@ import type {
   CanvasingDetailDTO,
   CanvasingListItemDTO,
 } from "../dto/MarketingDTO";
-import type { IWorkOrderRepository } from "@/modules/work-order";
+import type { IWorkOrderRepository } from "@/modules/work-order/repositories/IWorkOrderRepository";
 import { MarketingMapper } from "../mappers/MarketingMapper";
 import { createNotification, notifyNewCanvasing } from "@/modules/notification";
 
@@ -265,7 +266,7 @@ export class CanvasingService {
       salesId: canvasing.salesId,
       salesName: canvasing.user?.name || canvasing.mitra?.name || undefined,
       siteId: canvasing.user?.siteId || canvasing.mitra?.siteId,
-    }).catch((error) => console.error("[Canvasing Notif] Error:", error));
+    }).catch((error) => logger.error("[Canvasing Notif] Error:", error));
   }
 
   private notifyApprovedCanvasing(
@@ -286,7 +287,7 @@ export class CanvasingService {
       userId: request.salesId,
       sourceType: "CANVASING",
       sourceId: canvasingId,
-    }).catch((error) => console.error("[Canvasing Notif] Error:", error));
+    }).catch((error) => logger.error("[Canvasing Notif] Error:", error));
   }
 
   private notifyRejectedCanvasing(
@@ -306,6 +307,6 @@ export class CanvasingService {
       userId: request.salesId,
       sourceType: "CANVASING",
       sourceId: canvasingId,
-    }).catch((error) => console.error("[Canvasing Notif] Error:", error));
+    }).catch((error) => logger.error("[Canvasing Notif] Error:", error));
   }
 }

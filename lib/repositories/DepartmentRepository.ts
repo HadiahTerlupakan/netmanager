@@ -1,1 +1,1 @@
-export { DepartmentRepository } from "@/modules/users";
+export { DepartmentRepository } from "@/modules/users/repositories/DepartmentRepository";

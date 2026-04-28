@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { RadiusConnectionError } from "../utils/errors";
 import { RouterOSAPI } from "node-routeros-v2";
 import { NetworkRepository } from "../repositories/NetworkRepository";
@@ -46,7 +47,7 @@ async function checkIPPoolExists(
     const pools = await conn.write("/ip/pool/print", ["?name=" + poolName]);
     return pools && pools.length > 0;
   } catch (error) {
-    console.error("[MikroTik IP Pool] Error checking pool:", error);
+    logger.error("[MikroTik IP Pool] Error checking pool:", error);
     throw new RadiusConnectionError(
       "Gagal terhubung ke router: " +
         (error instanceof Error ? error.message : String(error)),
@@ -145,7 +146,7 @@ export async function getRateLimitFromBandwidth(
     const rateLimit = formatRateLimitFromBandwidth(bandwidth);
     return rateLimit;
   } catch (error) {
-    console.error(
+    logger.error(
       "[MikroTik PPP] Error getting rate limit from bandwidth:",
       error,
     );
@@ -163,7 +164,8 @@ export async function getIPPoolRanges(
   try {
     const networkRepo = new NetworkRepository();
     const router = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } = await import("@/modules/network");
+    const { MikroTikRouterRepository } =
+      await import("@/modules/network/repositories/MikroTikRouterRepository");
     const routerRepo = new MikroTikRouterRepository();
     const routerFull = router
       ? await routerRepo.findById(routerId, router.tenantId!)
@@ -200,7 +202,7 @@ export async function getIPPoolRanges(
       return { success: true, ranges: ranges };
     } catch (error) {
       conn.close();
-      console.error("[MikroTik IP Pool] Error getting pool ranges:", error);
+      logger.error("[MikroTik IP Pool] Error getting pool ranges:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return {
@@ -209,7 +211,7 @@ export async function getIPPoolRanges(
       };
     }
   } catch (error) {
-    console.error("[MikroTik IP Pool] Error connecting to MikroTik:", error);
+    logger.error("[MikroTik IP Pool] Error connecting to MikroTik:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -300,7 +302,7 @@ async function createIPPool(
 
     return { success: true };
   } catch (error) {
-    console.error("[MikroTik IP Pool] Error creating/updating pool:", error);
+    logger.error("[MikroTik IP Pool] Error creating/updating pool:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -316,7 +318,8 @@ export async function createPPPProfileInMikroTik(
   try {
     const networkRepo = new NetworkRepository();
     const routerTenant = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } = await import("@/modules/network");
+    const { MikroTikRouterRepository } =
+      await import("@/modules/network/repositories/MikroTikRouterRepository");
     const routerRepo = new MikroTikRouterRepository();
     const router = routerTenant
       ? await routerRepo.findById(routerId, routerTenant.tenantId!)
@@ -452,11 +455,11 @@ export async function createPPPProfileInMikroTik(
           createdProfile["rate-limit"] || createdProfile["rateLimit"] || null;
 
         if (!actualRateLimit || actualRateLimit.trim() === "") {
-          console.warn(
+          logger.warn(
             "[MikroTik PPP] WARNING: rate-limit tidak ter-set di MikroTik!",
           );
         } else if (actualRateLimit !== profileData.rateLimit) {
-          console.warn("[MikroTik PPP] WARNING: rate-limit tidak sesuai!");
+          logger.warn("[MikroTik PPP] WARNING: rate-limit tidak sesuai!");
         }
       }
 
@@ -464,7 +467,7 @@ export async function createPPPProfileInMikroTik(
       return { success: true };
     } catch (error) {
       conn.close();
-      console.error("Error creating PPP profile in MikroTik:", error);
+      logger.error("Error creating PPP profile in MikroTik:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return {
@@ -473,7 +476,7 @@ export async function createPPPProfileInMikroTik(
       };
     }
   } catch (error) {
-    console.error("Error connecting to MikroTik:", error);
+    logger.error("Error connecting to MikroTik:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -490,7 +493,8 @@ export async function updatePPPProfileInMikroTik(
   try {
     const networkRepo = new NetworkRepository();
     const routerTenant = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } = await import("@/modules/network");
+    const { MikroTikRouterRepository } =
+      await import("@/modules/network/repositories/MikroTikRouterRepository");
     const routerRepo = new MikroTikRouterRepository();
     const router = routerTenant
       ? await routerRepo.findById(routerId, routerTenant.tenantId!)
@@ -541,7 +545,7 @@ export async function updatePPPProfileInMikroTik(
               profileData.ipRange,
             );
             if (!poolResult.success) {
-              console.error(
+              logger.error(
                 "[MikroTik PPP] Failed to update IP Pool:",
                 poolResult.error,
               );
@@ -667,11 +671,11 @@ export async function updatePPPProfileInMikroTik(
             updatedProfile["rate-limit"] || updatedProfile["rateLimit"] || null;
 
           if (!actualRateLimit || actualRateLimit.trim() === "") {
-            console.warn(
+            logger.warn(
               "[MikroTik PPP] WARNING: rate-limit tidak ter-set di MikroTik setelah update!",
             );
           } else if (actualRateLimit !== profileData.rateLimit) {
-            console.warn(
+            logger.warn(
               "[MikroTik PPP] WARNING: rate-limit tidak sesuai setelah update!",
             );
           }
@@ -682,7 +686,7 @@ export async function updatePPPProfileInMikroTik(
       return { success: true };
     } catch (error) {
       conn.close();
-      console.error("Error updating PPP profile in MikroTik:", error);
+      logger.error("Error updating PPP profile in MikroTik:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return {
@@ -691,7 +695,7 @@ export async function updatePPPProfileInMikroTik(
       };
     }
   } catch (error) {
-    console.error("Error connecting to MikroTik:", error);
+    logger.error("Error connecting to MikroTik:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -731,7 +735,7 @@ async function deleteIPPool(
 
     const firstPool = verifyPools?.[0];
     if (firstPool) {
-      console.warn(
+      logger.warn(
         "[MikroTik IP Pool] WARNING: Pool masih ada setelah dihapus!",
       );
       const retryPoolId = firstPool[".id"];
@@ -744,7 +748,7 @@ async function deleteIPPool(
           "?name=" + poolName,
         ]);
         if (verifyPools2 && verifyPools2.length > 0) {
-          console.error(
+          logger.error(
             "[MikroTik IP Pool] ERROR: Pool masih ada setelah retry delete!",
           );
           return {
@@ -758,7 +762,7 @@ async function deleteIPPool(
 
     return { success: true };
   } catch (error) {
-    console.error("[MikroTik IP Pool] Error deleting pool:", error);
+    logger.error("[MikroTik IP Pool] Error deleting pool:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -775,7 +779,8 @@ export async function deletePPPProfileInMikroTik(
   try {
     const networkRepo = new NetworkRepository();
     const routerTenant = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } = await import("@/modules/network");
+    const { MikroTikRouterRepository } =
+      await import("@/modules/network/repositories/MikroTikRouterRepository");
     const routerRepo = new MikroTikRouterRepository();
     const router = routerTenant
       ? await routerRepo.findById(routerId, routerTenant.tenantId!)
@@ -809,7 +814,7 @@ export async function deletePPPProfileInMikroTik(
         if (profileRemoteAddress) {
           const poolResult = await deleteIPPool(conn, profileRemoteAddress);
           if (!poolResult.success) {
-            console.error(
+            logger.error(
               "[MikroTik PPP] Failed to delete IP Pool:",
               poolResult.error,
             );
@@ -836,12 +841,12 @@ export async function deletePPPProfileInMikroTik(
         "?name=" + profileName,
       ]);
       if (verifyProfiles && verifyProfiles.length > 0) {
-        console.warn(
+        logger.warn(
           "[MikroTik PPP] WARNING: Profile masih ada setelah dihapus!",
         );
         const retryProfile = verifyProfiles[0];
         if (!retryProfile) {
-          console.error("[MikroTik PPP] Error accessing retry profile");
+          logger.error("[MikroTik PPP] Error accessing retry profile");
           conn.close();
           return { success: false, error: "Error accessing profile for retry" };
         }
@@ -852,7 +857,7 @@ export async function deletePPPProfileInMikroTik(
           "?name=" + profileName,
         ]);
         if (verifyProfiles2 && verifyProfiles2.length > 0) {
-          console.error(
+          logger.error(
             "[MikroTik PPP] ERROR: Profile masih ada setelah retry delete!",
           );
           conn.close();
@@ -867,7 +872,7 @@ export async function deletePPPProfileInMikroTik(
       if (profileRemoteAddress) {
         const poolResult = await deleteIPPool(conn, profileRemoteAddress);
         if (!poolResult.success) {
-          console.error(
+          logger.error(
             "[MikroTik PPP] Failed to delete IP Pool:",
             poolResult.error,
           );
@@ -878,7 +883,7 @@ export async function deletePPPProfileInMikroTik(
       return { success: true };
     } catch (error) {
       conn.close();
-      console.error("Error deleting PPP profile in MikroTik:", error);
+      logger.error("Error deleting PPP profile in MikroTik:", error);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       return {
@@ -887,7 +892,7 @@ export async function deletePPPProfileInMikroTik(
       };
     }
   } catch (error) {
-    console.error("Error connecting to MikroTik:", error);
+    logger.error("Error connecting to MikroTik:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,

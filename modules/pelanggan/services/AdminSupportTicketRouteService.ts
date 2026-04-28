@@ -1,7 +1,7 @@
 import { TicketPriority, TicketStatus } from "@prisma/client";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { buildMultiSiteWhereClause } from "@/modules/roles";
-import { UserRepository } from "@/modules/users";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
 import { getAdminSupportTicketService } from "./AdminSupportTicketService";
 
 const SUPPORT_READ_PERMISSION = "support:read";

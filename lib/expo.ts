@@ -1,43 +1,44 @@
-import { Expo, type ExpoPushMessage } from 'expo-server-sdk';
+import { logger } from "@/lib/logger";
+import { Expo, type ExpoPushMessage } from "expo-server-sdk";
 
 const expo = new Expo();
 
 export const sendExpoPushNotifications = async (
-    tokens: string[],
-    title: string,
-    body: string,
-    data?: Record<string, unknown>
+  tokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
 ) => {
-    if (!tokens.length) return;
+  if (!tokens.length) return;
 
-    const messages: ExpoPushMessage[] = [];
-    for (const token of tokens) {
-        if (!Expo.isExpoPushToken(token)) {
-            console.error(`Push token ${token} is not a valid Expo push token`);
-            continue;
-        }
-
-        messages.push({
-            to: token,
-            sound: 'default',
-            title,
-            body,
-            data,
-        });
+  const messages: ExpoPushMessage[] = [];
+  for (const token of tokens) {
+    if (!Expo.isExpoPushToken(token)) {
+      logger.error(`Push token ${token} is not a valid Expo push token`);
+      continue;
     }
 
-    const chunks = expo.chunkPushNotifications(messages);
-    const tickets = [];
+    messages.push({
+      to: token,
+      sound: "default",
+      title,
+      body,
+      data,
+    });
+  }
 
-    for (const chunk of chunks) {
-        try {
-            const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-            tickets.push(...ticketChunk);
-        } catch (error) {
-            console.error(error);
-        }
+  const chunks = expo.chunkPushNotifications(messages);
+  const tickets = [];
+
+  for (const chunk of chunks) {
+    try {
+      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+      tickets.push(...ticketChunk);
+    } catch (error) {
+      logger.error(error);
     }
+  }
 
-    // Optional: processing receipts logic could go here
-    return tickets;
+  // Optional: processing receipts logic could go here
+  return tickets;
 };

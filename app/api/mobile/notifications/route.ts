@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import {
@@ -149,7 +150,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error("Error fetching notifications:", error);
+    logger.error("Error fetching notifications:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
       status: 400,
     });
   } catch (error: unknown) {
-    console.error("Error updating notifications:", error);
+    logger.error("Error updating notifications:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return NextResponse.json({ error: errorMessage }, { status: 500 });

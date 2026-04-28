@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { SupportTicketService } from "@/modules/pelanggan";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (error: unknown) {
-    console.error("[Customer Ticket Close] Error:", error);
+    logger.error("[Customer Ticket Close] Error:", error);
     const message =
       error instanceof Error ? error.message : "Gagal menutup tiket";
     const status =

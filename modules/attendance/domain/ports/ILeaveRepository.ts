@@ -1,4 +1,3 @@
-import type { LeaveRequest, LeaveStatus, Prisma } from "@prisma/client";
 import type {
   ActiveLeaveEntity,
   LeaveApproverEntity,
@@ -6,7 +5,18 @@ import type {
   TukarLiburDateEntity,
 } from "../entities/LeaveEntity";
 
-export type LeaveListItemEntity = LeaveRequest & {
+export type LeaveStatusValue =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED"
+  | string;
+export type LeaveCreateInput = Record<string, unknown>;
+export type LeaveUpdateInput = Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type LeaveRequestRecord = any;
+
+export type LeaveListItemEntity = LeaveRequestRecord & {
   user: {
     name: string | null;
     image?: string | null;
@@ -15,7 +25,7 @@ export type LeaveListItemEntity = LeaveRequest & {
   } | null;
 };
 
-export type LeaveWithUserEntity = LeaveRequest & {
+export type LeaveWithUserEntity = LeaveRequestRecord & {
   user: {
     id: string;
     name: string | null;
@@ -30,7 +40,7 @@ export type LeaveWithUserEntity = LeaveRequest & {
 
 export type LeaveFiltersEntity = {
   userId?: string;
-  status?: LeaveStatus;
+  status?: LeaveStatusValue;
   startDate?: Date;
   endDate?: Date;
   departmentId?: string;
@@ -42,9 +52,7 @@ export type LeaveFiltersEntity = {
 
 export interface ILeaveRepository {
   /** Create a leave request record. */
-  create(
-    data: Omit<Prisma.LeaveRequestUncheckedCreateInput, "id" | "updatedAt">,
-  ): Promise<LeaveRequest>;
+  create(data: LeaveCreateInput): Promise<LeaveRequestRecord>;
 
   /** List leave requests using the provided filters. */
   findAll(filters?: LeaveFiltersEntity): Promise<LeaveListItemEntity[]>;
@@ -72,13 +80,11 @@ export interface ILeaveRepository {
   ): Promise<LeaveWithUserEntity[]>;
 
   /** Update a leave request record. */
-  update(
-    id: string,
-    data: Prisma.LeaveRequestUpdateInput,
-  ): Promise<LeaveRequest>;
+  update(id: string, data: LeaveUpdateInput): Promise<LeaveRequestRecord>;
 
   /** Delete a leave request record. */
-  delete(id: string): Promise<LeaveRequest>;
+  delete(id: string): Promise<LeaveRequestRecord>;
+
   /** Load requester schedule context for leave submission. */
   findRequesterContext(
     userId: string,

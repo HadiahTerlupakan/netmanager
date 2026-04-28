@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { AcsDeviceService } from "@/modules/network";
 
@@ -22,7 +23,7 @@ export const POST = createHandler(
       return ApiErrors.internalError(result.message);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("Error in WAN Manager:", message);
+      logger.error("Error in WAN Manager:", message);
       return ApiErrors.internalError(`Konfigurasi WAN gagal: ${message}`);
     }
   },

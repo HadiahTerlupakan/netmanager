@@ -1,3 +1,4 @@
+import { clientLogger } from "@/lib/client-logger";
 import { useCallback, useEffect, useState } from "react";
 
 import { toast } from "react-hot-toast";
@@ -78,7 +79,7 @@ export function useMikrotikRouterList() {
         setPppConnectionMode(settingsData.pppConnectionMode || "RADIUS");
       }
     } catch (error) {
-      console.error("Error loading routers:", error);
+      clientLogger.error("Error loading routers:", error);
       toast.error("Gagal memuat data Router");
     } finally {
       setLoading(false);

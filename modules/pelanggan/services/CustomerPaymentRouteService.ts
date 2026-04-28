@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { couponService } from "@/modules/coupons";
 import {
   createCustomerPaymentsForInvoices,
@@ -115,7 +116,7 @@ async function createGatewayPaymentIfNeeded(
     })) as GatewayPaymentResult;
 
     if (!result.success) {
-      console.error("[Gateway Payment Error]:", result.error);
+      logger.error("[Gateway Payment Error]:", result.error);
       return { paymentUrl: null, transactionId: null };
     }
 
@@ -135,7 +136,7 @@ async function createGatewayPaymentIfNeeded(
 
     return { paymentUrl, transactionId };
   } catch (error) {
-    console.error("[Gateway Integration Error]:", error);
+    logger.error("[Gateway Integration Error]:", error);
     return { paymentUrl: null, transactionId: null };
   }
 }

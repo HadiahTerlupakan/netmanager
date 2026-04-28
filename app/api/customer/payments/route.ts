@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     return apiSuccess(result);
   } catch (error) {
     const err = error as Error;
-    console.error("[Customer Payments GET Error]:", err);
+    logger.error("[Customer Payments GET Error]:", err);
     return ApiErrors.internalError(err.message || "Terjadi kesalahan server");
   }
 }
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const err = error as Error;
-    console.error("[Payment Create Error]:", err);
+    logger.error("[Payment Create Error]:", err);
 
     if (
       err.message === "Beberapa tagihan tidak valid atau sudah dibayar" ||

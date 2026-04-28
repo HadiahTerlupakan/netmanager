@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -42,7 +43,7 @@ export async function POST(
       });
     }
 
-    console.error("Mobile mark announcement read error:", error);
+    logger.error("Mobile mark announcement read error:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

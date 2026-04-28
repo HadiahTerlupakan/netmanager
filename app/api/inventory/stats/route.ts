@@ -26,15 +26,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const permissions = await getUserPermissions(session.id);
-    const isSuper = isSuperAdmin(session);
-
-    // Site filter logic - inherit from gudang/barang restrictions
-    const hasRestriction =
-      permissions.includes("barang:site_only") ||
-      permissions.includes("k_barang:site_only") ||
-      permissions.includes("gudang:site_only");
-
-    const siteId = !isSuper && hasRestriction ? session.siteId : undefined;
+    const siteId = await inventoryRouteService.resolveRestrictedSiteId({
+      userId: session.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(session),
+      restrictedPermissions: [
+        "barang:site_only",
+        "k_barang:site_only",
+        "gudang:site_only",
+      ],
+    });
 
     const startOfDay = new Date();
     startOfDay.setTime(toStartOfDay(startOfDay).getTime());

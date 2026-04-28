@@ -114,6 +114,9 @@ export class SystemLogRepository implements ISystemLogRepository {
       ...(filters.type ? { type: filters.type } : {}),
       ...(filters.action ? { action: filters.action } : {}),
       ...(filters.userId ? { userId: filters.userId } : {}),
+      ...(filters.userSiteIds
+        ? { user: { siteId: { in: filters.userSiteIds } } }
+        : {}),
       ...this.buildDateRangeWhere(filters.startDate, filters.endDate),
       ...this.buildSearchWhere(filters.search),
     };
@@ -144,6 +147,9 @@ export class SystemLogRepository implements ISystemLogRepository {
       OR: [
         { subject: { contains: search, mode: "insensitive" } },
         { action: { contains: search, mode: "insensitive" } },
+        { details: { contains: search, mode: "insensitive" } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
       ],
     };
   }

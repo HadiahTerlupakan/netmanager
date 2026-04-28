@@ -1,9 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import {
-  getNetworkAlertService,
-  networkAlertUpdateSchema,
-} from "@/modules/network";
+import { getNetworkAlertService } from "@/modules/network";
+import { networkAlertUpdateSchema } from "@/lib/validations/network-performance";
 
 /**
  * @swagger

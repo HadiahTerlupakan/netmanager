@@ -138,20 +138,54 @@ class Logger {
     }
   }
 
-  debug(message: string, context?: LogContext) {
-    this.log(LogLevel.DEBUG, message, context);
+  private normalizeMessage(message: unknown): string {
+    return typeof message === "string" ? message : JSON.stringify(message);
   }
 
-  info(message: string, context?: LogContext) {
-    this.log(LogLevel.INFO, message, context);
+  private normalizeContext(args: unknown[]): LogContext | undefined {
+    if (args.length === 0) return undefined;
+    return { args };
   }
 
-  warn(message: string, context?: LogContext) {
-    this.log(LogLevel.WARN, message, context);
+  private normalizeError(error: unknown): Error | undefined {
+    if (error instanceof Error) return error;
+    if (error === undefined || error === null) return undefined;
+    return new Error(typeof error === "string" ? error : JSON.stringify(error));
   }
 
-  error(message: string, error?: Error, context?: LogContext) {
-    this.log(LogLevel.ERROR, message, context, error);
+  debug(message: unknown, ...args: unknown[]) {
+    this.log(
+      LogLevel.DEBUG,
+      this.normalizeMessage(message),
+      this.normalizeContext(args),
+    );
+  }
+
+  info(message: unknown, ...args: unknown[]) {
+    this.log(
+      LogLevel.INFO,
+      this.normalizeMessage(message),
+      this.normalizeContext(args),
+    );
+  }
+
+  warn(message: unknown, ...args: unknown[]) {
+    this.log(
+      LogLevel.WARN,
+      this.normalizeMessage(message),
+      this.normalizeContext(args),
+    );
+  }
+
+  error(message: unknown, error?: unknown, context?: unknown) {
+    this.log(
+      LogLevel.ERROR,
+      this.normalizeMessage(message),
+      context && typeof context === "object"
+        ? (context as LogContext)
+        : undefined,
+      this.normalizeError(error),
+    );
   }
 
   // Helper untuk logging API requests
@@ -363,13 +397,11 @@ export const logger = new Logger(
 
 /**
  * Fire-and-forget activity logging helper.
- * Replaces the repetitive try/catch boilerplate:
- *   try { const { logger } = await import('@/lib/logger'); await logger.logActivity({...}) } catch (e) { console.error('Logging failed', e) }
- * With a single line:
- *   logActivitySafe({ action: 'CREATE', subject: 'Invoice', userId: '...', details: { ... } })
  */
 export function logActivitySafe(data: ActivityLogInput): void {
-  logger.logActivity(data).catch((e) => console.error("Logging failed", e));
+  logger
+    .logActivity(data)
+    .catch((error) => logger.error("Logging failed", error as Error));
 }
 
 // Export class untuk testing

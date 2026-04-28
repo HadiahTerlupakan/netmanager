@@ -11,7 +11,7 @@ import "next/dist/server/node-environment-baseline";
 if (!process.env.TZ) {
   process.env.TZ = "Asia/Jakarta";
 }
-console.log(
+logger.info(
   `[Server] Timezone set to: ${process.env.TZ} (${new Date().toString()})`,
 );
 
@@ -25,9 +25,10 @@ import {
   startPushRetryProcessor,
   stopPushRetryProcessor,
 } from "./modules/notification/services/PushRetryQueue";
-import { prisma } from "./lib/prisma";
+import { UserRepository } from "./modules/users/repositories/UserRepository";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import { isPublicUploadPath } from "./lib/upload/upload-policy";
+import { logger } from "./lib/logger";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "127.0.0.1";
@@ -35,6 +36,7 @@ const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+const userRepository = new UserRepository();
 
 app.prepare().then(() => {
   let mikroTikMonitorRef: { stop: () => void; start: () => void } | null = null;
@@ -82,12 +84,9 @@ app.prepare().then(() => {
           return;
         }
 
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          include: {
-            role: { include: { permission: true } },
-          },
-        });
+        const dbUser = await userRepository.findUploadPermissionContextById(
+          user.id,
+        );
 
         if (!dbUser) {
           res.writeHead(401, { "Content-Type": "application/json" });
@@ -109,7 +108,7 @@ app.prepare().then(() => {
           hasAdminPanelAccess;
 
         if (!hasCreatePermission) {
-          console.log(
+          logger.info(
             `[Upload] Forbidden access by ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}, Permissions count: ${userPermissions.length}`,
           );
           res.writeHead(403, { "Content-Type": "application/json" });
@@ -121,7 +120,7 @@ app.prepare().then(() => {
           return;
         }
 
-        console.log(
+        logger.info(
           `[Upload] Access granted for ${dbUser.email}. Role: ${userRole}, AdminPanelAccess: ${hasAdminPanelAccess}`,
         );
 
@@ -186,7 +185,6 @@ app.prepare().then(() => {
         }
 
         try {
-          const { logger } = await import("./lib/logger");
           await logger.logActivity({
             action: "CREATE",
             subject: "AppVersion",
@@ -194,7 +192,7 @@ app.prepare().then(() => {
             details: { id: appVersion.id, version: appVersion.version },
           });
         } catch (e) {
-          console.error("Logging failed", e);
+          logger.error("Logging failed", e);
         }
 
         res.writeHead(201, { "Content-Type": "application/json" });
@@ -207,7 +205,7 @@ app.prepare().then(() => {
         );
         return;
       } catch (error) {
-        console.error("[Server] Error uploading app version:", error);
+        logger.error("[Server] Error uploading app version:", error);
 
         const err = error as {
           message?: string;
@@ -228,7 +226,7 @@ app.prepare().then(() => {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify(errorDetails));
         } catch (writeError) {
-          console.error("[Server] Failed to write error response:", writeError);
+          logger.error("[Server] Failed to write error response:", writeError);
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: errorMessage }));
         }
@@ -265,7 +263,7 @@ app.prepare().then(() => {
         });
 
         if (!token) {
-          console.warn(
+          logger.warn(
             `[Server] Unauthorized access attempt to ${pathname} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
           );
           res.writeHead(401, { "Content-Type": "application/json" });
@@ -289,7 +287,7 @@ app.prepare().then(() => {
         !requestedPath.startsWith(uploadsRootDir + path.sep) &&
         requestedPath !== uploadsRootDir
       ) {
-        console.warn(`[Server] Blocked potential path traversal: ${pathname}`);
+        logger.warn(`[Server] Blocked potential path traversal: ${pathname}`);
         res.writeHead(403, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Akses ditolak" }));
         return;
@@ -317,7 +315,7 @@ app.prepare().then(() => {
   startPushRetryProcessor();
   if (process.env.ENABLE_EVENT_BUS_WORKERS !== "false") {
     initializeEventBus().catch((err) =>
-      console.error("[Server] Failed to initialize Event Bus:", err),
+      logger.error("[Server] Failed to initialize Event Bus:", err),
     );
   }
   startInternalCronIfEnabled({ startAll: () => cronRegistry.startAll() });
@@ -327,7 +325,7 @@ app.prepare().then(() => {
       startRadiusMonitoring();
     })
     .catch((err) =>
-      console.error("[Server] Failed to start Radius monitoring:", err),
+      logger.error("[Server] Failed to start Radius monitoring:", err),
     );
 
   import("./modules/network/services/MikroTikMonitor")
@@ -336,24 +334,24 @@ app.prepare().then(() => {
       mikroTikMonitor.start();
     })
     .catch((err) =>
-      console.error("[Server] Failed to start MikroTik monitoring:", err),
+      logger.error("[Server] Failed to start MikroTik monitoring:", err),
     );
 
   server.listen(port, hostname, () => {
-    console.log("");
-    console.log(`  ▲ Next.js ${dev ? "dev" : "production"} server`);
-    console.log(`  - Local:        http://${hostname}:${port}`);
-    console.log("");
+    logger.info("");
+    logger.info(`  ▲ Next.js ${dev ? "dev" : "production"} server`);
+    logger.info(`  - Local:        http://${hostname}:${port}`);
+    logger.info("");
   });
 
   const gracefulShutdown = async (signal: string) => {
-    console.log(`[Server] ${signal} received, shutting down gracefully`);
+    logger.info(`[Server] ${signal} received, shutting down gracefully`);
 
     try {
       await shutdownEventBus();
-      console.log("[Server] Event Bus stopped");
+      logger.info("[Server] Event Bus stopped");
     } catch (e) {
-      console.error("[Server] Error stopping Event Bus:", e);
+      logger.error("[Server] Error stopping Event Bus:", e);
     }
 
     cronRegistry.stopAll();
@@ -362,18 +360,18 @@ app.prepare().then(() => {
       stopRadiusMonitoring();
       stopPushRetryProcessor();
       mikroTikMonitorRef?.stop();
-      console.log("[Server] Monitoring services stopped");
+      logger.info("[Server] Monitoring services stopped");
     } catch (e) {
-      console.error("[Server] Error stopping services:", e);
+      logger.error("[Server] Error stopping services:", e);
     }
 
     server.close(() => {
-      console.log("[Server] HTTP server closed");
+      logger.info("[Server] HTTP server closed");
       process.exit(0);
     });
 
     setTimeout(() => {
-      console.error("[Server] Forced exit after timeout");
+      logger.error("[Server] Forced exit after timeout");
       process.exit(1);
     }, 5000);
   };

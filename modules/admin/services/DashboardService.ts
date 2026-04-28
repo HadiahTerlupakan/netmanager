@@ -1,8 +1,8 @@
-import { AttendanceRepository } from "@/modules/attendance";
-import { InventoryRepository } from "@/modules/inventory";
+import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
+import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
 import { createPointClaimService } from "@/modules/marketing";
-import { UserRepository } from "@/modules/users";
-import { WorkOrderRepository } from "@/modules/work-order";
+import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
 import type {
   DashboardLimitInput,
   DashboardTenantInput,

@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -302,7 +303,7 @@ export function ClientComponent({
         );
       }
     } catch (error: unknown) {
-      console.error("Error fetching user:", error);
+      clientLogger.error("Error fetching user:", error);
       const message =
         error instanceof Error ? error.message : "Terjadi kesalahan";
       toast.error("Gagal memuat data user: " + message);
@@ -321,7 +322,7 @@ export function ClientComponent({
         setDepartments(Array.isArray(depts) ? depts : []);
       }
     } catch (error) {
-      console.error("Error fetching departments:", error);
+      clientLogger.error("Error fetching departments:", error);
     }
   }, []);
 
@@ -335,7 +336,7 @@ export function ClientComponent({
         setRoles(result.roles || result || []);
       }
     } catch (error) {
-      console.error("Error fetching roles:", error);
+      clientLogger.error("Error fetching roles:", error);
     }
   }, []);
 
@@ -350,7 +351,7 @@ export function ClientComponent({
         setSites((currentSites) => mergeSites(currentSites, availableSites));
       }
     } catch (error) {
-      console.error("Error fetching sites:", error);
+      clientLogger.error("Error fetching sites:", error);
     }
   }, []);
 
@@ -362,7 +363,7 @@ export function ClientComponent({
         setTenants(data.data || []);
       }
     } catch (error) {
-      console.error("Error fetching tenants:", error);
+      clientLogger.error("Error fetching tenants:", error);
     }
   }, []);
 
@@ -531,7 +532,7 @@ export function ClientComponent({
             }),
           });
         } catch (error) {
-          console.error("Failed to save leave quotas:", error);
+          clientLogger.error("Failed to save leave quotas:", error);
           // Don't fail the whole save just because quotas failed
         }
       }
@@ -541,7 +542,7 @@ export function ClientComponent({
         router.push("/admin/users");
       }, 2000);
     } catch (error: unknown) {
-      console.error("Error in handleSubmit:", error);
+      clientLogger.error("Error in handleSubmit:", error);
       setErrors({
         submit:
           error instanceof Error ? error.message : "Gagal memperbarui pengguna",

@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -98,7 +99,7 @@ export function useRealtimeWorkOrders(
         setUnreadCount(unreadInList);
       }
     } catch (error) {
-      console.error("[WorkOrders] Error fetching:", error);
+      clientLogger.error("[WorkOrders] Error fetching:", error);
     } finally {
       setLoading(false);
     }
@@ -114,7 +115,9 @@ export function useRealtimeWorkOrders(
   const playSound = () => {
     try {
       const audio = new Audio("/sounds/notification.mp3");
-      audio.play().catch((_err) => console.log("Audio play failed:", _err));
+      audio
+        .play()
+        .catch((_err) => clientLogger.info("Audio play failed:", _err));
     } catch (_error) {
       // Ignore audio errors
     }
@@ -126,7 +129,10 @@ export function useRealtimeWorkOrders(
       // Only process if it is a WORK_ORDER type
       if (payload.type !== "WORK_ORDER") return;
 
-      console.log("[WorkOrders] New notification received:", payload.title);
+      clientLogger.info(
+        "[WorkOrders] New notification received:",
+        payload.title,
+      );
       playSound();
 
       // Add to beginning of list
@@ -153,7 +159,7 @@ export function useRealtimeWorkOrders(
 
   const handleWorkOrderActivity = useCallback(
     (_payload: unknown) => {
-      console.log("[WorkOrders] Activity received, refreshing...");
+      clientLogger.info("[WorkOrders] Activity received, refreshing...");
       playSound();
       fetchNotifications();
     },
@@ -192,7 +198,7 @@ export function useRealtimeWorkOrders(
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error("[WorkOrders] Error marking as read:", error);
+      clientLogger.error("[WorkOrders] Error marking as read:", error);
     }
   }, []);
 
@@ -210,7 +216,7 @@ export function useRealtimeWorkOrders(
         setUnreadCount(0);
       }
     } catch (error) {
-      console.error("[WorkOrders] Error marking all as read:", error);
+      clientLogger.error("[WorkOrders] Error marking all as read:", error);
     }
   }, []);
 

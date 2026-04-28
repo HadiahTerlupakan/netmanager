@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Event Bus Module — Public API
  *
@@ -34,7 +35,7 @@
  *
  * // Subscribe to events
  * eventBus.on(EVENT_NAMES.INVOICE_PAID, async (payload) => {
- *   console.log(`Invoice ${payload.invoiceId} paid!`)
+ *   logger.info(`Invoice ${payload.invoiceId} paid!`)
  * })
  * ```
  */
@@ -131,7 +132,7 @@ export async function initializeEventBus(): Promise<void> {
   await rehydrateOvertimeAutoCheckoutJobs();
   startOutboxProcessor();
 
-  console.log(
+  logger.info(
     "[EventBus] Initialized: workers + overtime rehydration + outbox processor",
   );
 }
@@ -149,5 +150,5 @@ export async function shutdownEventBus(): Promise<void> {
   await stopWorkers();
   await closeAllQueues();
 
-  console.log("[EventBus] Shutdown complete");
+  logger.info("[EventBus] Shutdown complete");
 }

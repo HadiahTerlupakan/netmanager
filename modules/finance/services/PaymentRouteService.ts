@@ -6,7 +6,7 @@ import {
   Prisma as PrismaBilling,
 } from "@prisma/client-billing";
 import { logActivitySafe } from "@/lib/logger";
-import { PelangganRepository } from "@/modules/pelanggan";
+import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 
@@ -45,6 +45,10 @@ type PaymentCreateResult =
   | { status: "pelanggan-not-found" }
   | { status: "invoice-not-found" }
   | { status: "created"; data: unknown };
+
+export type PaymentRouteError =
+  | { status: "foreign-key-error" }
+  | { status: "unknown"; message: string };
 
 const invoiceRepository = new InvoiceRepository();
 const paymentRepository = new PaymentRepository();
@@ -109,6 +113,18 @@ export async function getPaymentForRoute(options: {
   }
 
   return { status: "ok" as const, data: payment };
+}
+
+export function mapPaymentRouteError(error: unknown): PaymentRouteError {
+  if (error instanceof PrismaBilling.PrismaClientKnownRequestError) {
+    if (error.code === "P2003") return { status: "foreign-key-error" };
+  }
+
+  return {
+    status: "unknown",
+    message:
+      error instanceof Error ? error.message : "Terjadi kesalahan server",
+  };
 }
 
 export async function createPaymentForRoute(options: {

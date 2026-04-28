@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
-    console.error("Error fetching messages:", error);
+    logger.error("Error fetching messages:", error);
 
     if (error instanceof Error && error.message === "Not a participant") {
       return apiError("Not a participant", ErrorCodes.FORBIDDEN, {
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true, data: message });
   } catch (error: unknown) {
-    console.error("Error sending message:", error);
+    logger.error("Error sending message:", error);
 
     if (error instanceof Error && error.message === "Not a participant") {
       return apiError("Not a participant", ErrorCodes.FORBIDDEN, {

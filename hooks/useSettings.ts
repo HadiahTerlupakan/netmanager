@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { mergeSettingsPayload } from "@/lib/settings/mergeSettingsPayload";
+import { clientLogger } from "@/lib/client-logger";
 
 type GeneralSettings = {
   perusahaan: string;
@@ -44,7 +45,7 @@ export function useSettings() {
           );
         }
       } catch (error) {
-        console.error("Failed to fetch settings:", error);
+        clientLogger.error("Failed to fetch settings:", error);
       } finally {
         setLoading(false);
       }

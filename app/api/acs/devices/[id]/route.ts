@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { AcsDeviceService } from "@/modules/network";
 
@@ -19,7 +20,7 @@ export const GET = createHandler(
       return ApiErrors.internalError(result.message);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("Error fetching ACS device detail:", message);
+      logger.error("Error fetching ACS device detail:", message);
       return ApiErrors.internalError(`Koneksi ke GenieACS gagal: ${message}`);
     }
   },

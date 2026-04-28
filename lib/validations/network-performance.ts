@@ -1,7 +1,19 @@
+import type { z } from "zod";
+
+import {
+  networkAlertCreateSchema,
+  networkAlertQuerySchema,
+  networkAlertUpdateSchema,
+  networkPerformanceCreateSchema,
+  networkPerformanceQuerySchema,
+} from "@/modules/network/validators/network-performance";
+
 export {
   networkAlertCreateSchema,
   networkAlertQuerySchema,
   networkAlertUpdateSchema,
   networkPerformanceCreateSchema,
   networkPerformanceQuerySchema,
-} from "@/modules/network";
+};
+
+export type NetworkAlertCreateData = z.infer<typeof networkAlertCreateSchema>;

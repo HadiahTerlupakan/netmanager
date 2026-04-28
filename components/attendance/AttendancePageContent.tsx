@@ -23,6 +23,7 @@ import { id } from "date-fns/locale";
 import { AttendanceStatusIndicator } from "./AttendanceStatusIndicator";
 import { GeofenceStatusBadge } from "./GeofenceStatusBadge";
 import { AttendanceAnalytics } from "./AttendanceAnalytics";
+import { clientLogger } from "@/lib/client-logger";
 
 interface AttendancePageContentProps {
   holidayInfo?: {
@@ -136,7 +137,7 @@ export default function AttendancePageContent({
         }
       }
     } catch (error) {
-      console.error("Failed to fetch status", error);
+      clientLogger.error("Failed to fetch status", error);
     }
   }, []);
 
@@ -182,11 +183,11 @@ export default function AttendancePageContent({
         try {
           await videoRef.current.play();
         } catch (_e) {
-          console.error("Error checking video play", _e);
+          clientLogger.error("Error checking video play", _e);
         }
       }
     } catch (_err) {
-      console.error("Error accessing camera", _err);
+      clientLogger.error("Error accessing camera", _err);
       toast.error("Gagal mengakses kamera");
       setShowCamera(false);
     }
@@ -207,11 +208,11 @@ export default function AttendancePageContent({
 
       if (context) {
         // Set canvas to match video dimensions
-        console.log(
+        clientLogger.info(
           `[ABSENSI] Video dimensions: ${video.videoWidth}x${video.videoHeight}`,
         );
         if (video.videoWidth === 0 || video.videoHeight === 0) {
-          console.warn(
+          clientLogger.warn(
             "[ABSENSI] Video dimensions zero, forcing default 640x480",
           );
           canvas.width = 640;
@@ -336,7 +337,7 @@ export default function AttendancePageContent({
         setAddress(data.display_name);
       }
     } catch (error) {
-      console.error("Failed to fetch address:", error);
+      clientLogger.error("Failed to fetch address:", error);
     }
   }, []);
 
@@ -358,7 +359,7 @@ export default function AttendancePageContent({
           resolve(loc);
         },
         (err) => {
-          console.error("Geo error", err);
+          clientLogger.error("Geo error", err);
           resolve(null);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
@@ -399,7 +400,7 @@ export default function AttendancePageContent({
   };
 
   const handleAttendance = async () => {
-    console.log("[ABSENSI] handleAttendance triggered", {
+    clientLogger.info("[ABSENSI] handleAttendance triggered", {
       status,
       photo: photo ? "exists" : "null",
       location,
@@ -414,16 +415,16 @@ export default function AttendancePageContent({
     setLoading(true);
 
     try {
-      console.log("[ABSENSI] Converting photo to blob...");
+      clientLogger.info("[ABSENSI] Converting photo to blob...");
 
       let file: File;
       try {
         // Primary method: Use safer conversion
         const blob = dataURLtoBlob(photo);
         file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
-        console.log("[ABSENSI] Blob created:", file.size, file.type);
+        clientLogger.info("[ABSENSI] Blob created:", file.size, file.type);
       } catch (_blobError) {
-        console.error(
+        clientLogger.error(
           "[ABSENSI] Blob conversion failed, trying fetch method:",
           _blobError,
         );
@@ -431,7 +432,11 @@ export default function AttendancePageContent({
         const response = await fetch(photo);
         const blob = await response.blob();
         file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
-        console.log("[ABSENSI] Fallback blob created:", file.size, file.type);
+        clientLogger.info(
+          "[ABSENSI] Fallback blob created:",
+          file.size,
+          file.type,
+        );
       }
 
       // Ensure location is present
@@ -455,23 +460,23 @@ export default function AttendancePageContent({
         status === "idle"
           ? "/api/attendance/check-in"
           : "/api/attendance/check-out";
-      console.log("[ABSENSI] Sending request to:", endpoint);
+      clientLogger.info("[ABSENSI] Sending request to:", endpoint);
 
       const response = await fetch(endpoint, {
         method: "POST",
         body: formData,
         credentials: "include", // Ensure cookies are sent
       });
-      console.log("[ABSENSI] Response received:", response.status);
+      clientLogger.info("[ABSENSI] Response received:", response.status);
 
       if (!response.ok) {
         const errData = await response.json();
-        console.error("[ABSENSI] Server error:", errData);
+        clientLogger.error("[ABSENSI] Server error:", errData);
         throw new Error(errData.error || "Gagal melakukan absensi");
       }
 
       const data = await response.json();
-      console.log("[ABSENSI] Success data:", data);
+      clientLogger.info("[ABSENSI] Success data:", data);
 
       toast.dismiss(toastId);
       toast.success(
@@ -484,7 +489,7 @@ export default function AttendancePageContent({
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (_error) {
       toast.dismiss(toastId);
-      console.error("[ABSENSI] Error in handleAttendance:", _error);
+      clientLogger.error("[ABSENSI] Error in handleAttendance:", _error);
       const message =
         _error instanceof Error
           ? _error.message

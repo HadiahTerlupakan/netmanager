@@ -1,122 +1,127 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { FiDownload, FiPlus, FiSearch, FiCalendar, FiFilter } from 'react-icons/fi'
-import { MasukForm } from '@/components/inventory/MasukForm'
-import { MasukTable } from '@/components/inventory/MasukTable'
-import DetailMasukModal from '@/components/inventory/DetailMasukModal'
-import { getWithAuth } from '@/lib/api-client'
-import { usePermission } from '@/hooks/use-permission'
-import { Modal } from '@/components/ui/Modal'
+import { clientLogger } from "@/lib/client-logger";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import {
+  FiDownload,
+  FiPlus,
+  FiSearch,
+  FiCalendar,
+  FiFilter,
+} from "react-icons/fi";
+import { MasukForm } from "@/components/inventory/MasukForm";
+import { MasukTable } from "@/components/inventory/MasukTable";
+import DetailMasukModal from "@/components/inventory/DetailMasukModal";
+import { getWithAuth } from "@/lib/api-client";
+import { usePermission } from "@/hooks/use-permission";
+import { Modal } from "@/components/ui/Modal";
 
 interface Site {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
 interface Gudang {
-  id: string
-  nama: string
+  id: string;
+  nama: string;
 }
 
-
 interface FotoMetadata {
-  [key: string]: unknown
+  [key: string]: unknown;
 }
 
 interface BarangMasuk {
-  id: string
-  barangId: string
-  gudangId: string
-  jumlah: number
-  kondisi: 'BARU' | 'BEKAS' | 'RUSAK'
-  keterangan: string | null
-  tanggal: string
-  createdAt: string
-  employeeId?: string | null
-  fotoBukti: string[]
-  fotoMetadata?: FotoMetadata
+  id: string;
+  barangId: string;
+  gudangId: string;
+  jumlah: number;
+  kondisi: "BARU" | "BEKAS" | "RUSAK";
+  keterangan: string | null;
+  tanggal: string;
+  createdAt: string;
+  employeeId?: string | null;
+  fotoBukti: string[];
+  fotoMetadata?: FotoMetadata;
   barang: {
-    id: string
-    kode: string
-    nama: string
-    satuan: string
-  }
+    id: string;
+    kode: string;
+    nama: string;
+    satuan: string;
+  };
   gudang: {
-    id: string
-    kode: string
-    nama: string
-  }
+    id: string;
+    kode: string;
+    nama: string;
+  };
   user?: {
-    id: string
-    name: string | null
-    email: string
-  } | null
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
 }
 
 export default function BarangMasukPage() {
-  const { hasPermission } = usePermission()
-  const canCreate = hasPermission('masuk:create')
-  const canUpdate = hasPermission('masuk:update')
+  const { hasPermission } = usePermission();
+  const canCreate = hasPermission("masuk:create");
+  const canUpdate = hasPermission("masuk:update");
 
-  const [showForm, setShowForm] = useState(false)
-  const [editingMasuk, setEditingMasuk] = useState<BarangMasuk | null>(null)
-  const [viewingMasuk, setViewingMasuk] = useState<BarangMasuk | null>(null)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [showForm, setShowForm] = useState(false);
+  const [editingMasuk, setEditingMasuk] = useState<BarangMasuk | null>(null);
+  const [viewingMasuk, setViewingMasuk] = useState<BarangMasuk | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Filters
-  const [search, setSearch] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [siteId, setSiteId] = useState('')
-  const [gudangId, setGudangId] = useState('')
-  const [sites, setSites] = useState<Site[]>([])
-  const [gudangs, setGudangs] = useState<Gudang[]>([])
+  const [search, setSearch] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [siteId, setSiteId] = useState("");
+  const [gudangId, setGudangId] = useState("");
+  const [sites, setSites] = useState<Site[]>([]);
+  const [gudangs, setGudangs] = useState<Gudang[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Fetch Sites
-        const siteRes = await getWithAuth('/api/admin/sites')
+        const siteRes = await getWithAuth("/api/admin/sites");
         if (siteRes.ok) {
-          const data = await siteRes.json()
-          setSites(data.data || [])
+          const data = await siteRes.json();
+          setSites(data.data || []);
         }
 
         // Fetch Gudangs
-        const gudangRes = await getWithAuth('/api/inventory/gudang?view=all')
+        const gudangRes = await getWithAuth("/api/inventory/gudang?view=all");
         if (gudangRes.ok) {
-          const data = await gudangRes.json()
-          const result = data.data || data
-          setGudangs(result.gudangs || [])
+          const data = await gudangRes.json();
+          const result = data.data || data;
+          setGudangs(result.gudangs || []);
         }
       } catch (err: unknown) {
-        console.error('Failed to fetch data', err)
+        clientLogger.error("Failed to fetch data", err);
       }
-    }
-    fetchData()
-  }, [])
-
+    };
+    fetchData();
+  }, []);
 
   const handleEdit = (masuk: BarangMasuk) => {
-    setEditingMasuk(masuk)
-    setShowForm(true)
-  }
+    setEditingMasuk(masuk);
+    setShowForm(true);
+  };
 
   const handleView = (masuk: BarangMasuk) => {
-    setViewingMasuk(masuk)
-  }
+    setViewingMasuk(masuk);
+  };
 
   const handleFormClose = () => {
-    setShowForm(false)
-    setEditingMasuk(null)
-    setRefreshTrigger(prev => prev + 1)
-  }
+    setShowForm(false);
+    setEditingMasuk(null);
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   const handleViewClose = () => {
-    setViewingMasuk(null)
-  }
+    setViewingMasuk(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -154,13 +159,10 @@ export default function BarangMasukPage() {
       <Modal
         isOpen={showForm}
         onClose={handleFormClose}
-        title={editingMasuk ? 'Edit Barang Masuk' : 'Catat Barang Masuk'}
+        title={editingMasuk ? "Edit Barang Masuk" : "Catat Barang Masuk"}
         size="lg"
       >
-        <MasukForm
-          initialData={editingMasuk}
-          onClose={handleFormClose}
-        />
+        <MasukForm initialData={editingMasuk} onClose={handleFormClose} />
       </Modal>
 
       {/* List Container */}
@@ -199,8 +201,10 @@ export default function BarangMasukPage() {
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
               >
                 <option value="">Semua Site</option>
-                {sites.map(site => (
-                  <option key={site.id} value={site.id}>{site.name}</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -216,8 +220,10 @@ export default function BarangMasukPage() {
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 sm:text-sm"
               >
                 <option value="">Semua Gudang</option>
-                {gudangs.map(gudang => (
-                  <option key={gudang.id} value={gudang.id}>{gudang.nama}</option>
+                {gudangs.map((gudang) => (
+                  <option key={gudang.id} value={gudang.id}>
+                    {gudang.nama}
+                  </option>
                 ))}
               </select>
             </div>
@@ -272,5 +278,5 @@ export default function BarangMasukPage() {
         onEdit={canUpdate ? handleEdit : undefined}
       />
     </div>
-  )
+  );
 }

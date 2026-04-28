@@ -1,7 +1,9 @@
+import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/modules/database";
-import { onWorkOrderCreated, WorkOrderRepository } from "@/modules/work-order";
+import { onWorkOrderCreated } from "@/modules/work-order";
+import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
 
 import { MixRadiusConfigError, MixRadiusService } from "./MixRadiusService";
 import { createRouteServiceError } from "@/modules/finance";
@@ -159,7 +161,7 @@ export class MixRadiusDismantleService {
       },
       userId,
     ).catch((error) => {
-      console.error("[Dismantle] Notification error:", error);
+      logger.error("[Dismantle] Notification error:", error);
     });
 
     try {
@@ -180,7 +182,7 @@ export class MixRadiusDismantleService {
         workOrder.departmentId || undefined,
       );
     } catch (error) {
-      console.error("[Dismantle] Socket broadcast failed", error);
+      logger.error("[Dismantle] Socket broadcast failed", error);
     }
   }
 }

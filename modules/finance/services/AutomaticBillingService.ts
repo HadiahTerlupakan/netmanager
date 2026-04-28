@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import { BillingEventDispatcher } from "@/modules/events";
-import { AttendanceSettingsService } from "@/modules/attendance";
+import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import {
@@ -131,7 +131,7 @@ export class AutomaticBillingService {
             // Generate Invoice
             await this.createInvoiceForCustomer(customer, invoiceDueDate);
           } catch (err) {
-            console.error(
+            logger.error(
               `[Billing] Error processing customer ${row.nama}:`,
               err,
             );
@@ -146,7 +146,7 @@ export class AutomaticBillingService {
         }
       }
     } catch (error) {
-      console.error("[Billing] Fatal error in generateDailyInvoices:", error);
+      logger.error("[Billing] Fatal error in generateDailyInvoices:", error);
     }
   }
 
@@ -225,11 +225,11 @@ export class AutomaticBillingService {
       };
 
       await this.createInvoiceForCustomer(customerPayload, invoiceDueDate);
-      console.log(
+      logger.info(
         `[Billing] Real-time invoice generated for customer ${customer.nama}`,
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `[Billing] Error in checkAndGenerateRealtimeInvoice for ${pelangganId}:`,
         error,
       );
@@ -315,11 +315,11 @@ export class AutomaticBillingService {
         );
       }
 
-      console.log(
+      logger.info(
         `[Billing] Immediate invoice generated for customer ${customer.nama}, isPaid: ${isPaid}`,
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `[Billing] Error in generateImmediateInvoice for ${pelangganId}:`,
         error,
       );
@@ -398,7 +398,7 @@ export class AutomaticBillingService {
         priority: "NORMAL",
       });
     } catch (notifErr) {
-      console.error(
+      logger.error(
         `[Billing] Failed to send notification for ${customer.nama}:`,
         notifErr,
       );
@@ -422,7 +422,7 @@ export class AutomaticBillingService {
         );
       }
     } catch (pushErr) {
-      console.error(
+      logger.error(
         `[Billing] Failed to send push notification for ${customer.nama}:`,
         pushErr,
       );
@@ -571,7 +571,7 @@ export class AutomaticBillingService {
         return;
       }
 
-      console.log("[Billing] Starting daily reminders check...");
+      logger.info("[Billing] Starting daily reminders check...");
 
       const reminderDays = parseInt(
         settingsMap.get("GENERAL_REMINDER_OTOMATIS") || "3",
@@ -647,7 +647,7 @@ export class AutomaticBillingService {
         return;
       }
 
-      console.log(
+      logger.info(
         `[Billing] Found ${unpaidInvoices.length} invoices to remind.`,
       );
 
@@ -672,7 +672,7 @@ export class AutomaticBillingService {
                 },
               );
             } catch (e) {
-              console.error(
+              logger.error(
                 `[Billing] Error sending reminder for invoice ${invoice.id}:`,
                 e,
               );
@@ -681,9 +681,9 @@ export class AutomaticBillingService {
         );
       }
 
-      console.log("[Billing] Daily reminders check completed.");
+      logger.info("[Billing] Daily reminders check completed.");
     } catch (error) {
-      console.error("[Billing] Error in sendDailyReminders:", error);
+      logger.error("[Billing] Error in sendDailyReminders:", error);
     }
   }
 }

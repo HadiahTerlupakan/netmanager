@@ -1,4 +1,3 @@
-import { RabExpenseType, RabItemCategory } from "@prisma/client";
 import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
@@ -11,6 +10,19 @@ import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
+const RAB_EXPENSE_TYPES = ["CAPEX", "OPEX"] as const;
+const RAB_ITEM_CATEGORIES = [
+  "HARDWARE",
+  "LICENSE",
+  "INSTALLATION",
+  "OTHER",
+  "DEVICE",
+  "CABLE",
+  "ACCESSORIES",
+  "SERVICE",
+  "OPERATIONAL",
+] as const;
+
 const revisionItemSchema = z.object({
   rabItemId: z.string().optional(),
   name: z.string().min(1),
@@ -19,8 +31,8 @@ const revisionItemSchema = z.object({
   unitPrice: z
     .union([z.string(), z.number()])
     .transform((value) => BigInt(Math.round(Number(value)))),
-  category: z.enum(RabItemCategory).default(RabItemCategory.HARDWARE),
-  expenseType: z.enum(RabExpenseType).default(RabExpenseType.CAPEX),
+  category: z.enum(RAB_ITEM_CATEGORIES).default("HARDWARE"),
+  expenseType: z.enum(RAB_EXPENSE_TYPES).default("CAPEX"),
   expenseCategoryId: z.string().nullable().optional(),
   wbsId: z.string().nullable().optional(),
   sortOrder: z.number().optional(),

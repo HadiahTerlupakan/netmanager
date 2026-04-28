@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getCustomerPaymentStreamStatus } from "@/modules/pelanggan";
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
           await new Promise((resolve) => setTimeout(resolve, 5000));
         } catch (error) {
-          console.error("[SSE Generator Error]:", error);
+          logger.error("[SSE Generator Error]:", error);
           keepChecking = false;
           clearTimeout(timeout);
           try {

@@ -1,63 +1,70 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import Link from 'next/link'
-import { FiArrowLeft } from 'react-icons/fi'
-import { BarangForm } from '@/components/inventory/BarangForm'
+import { clientLogger } from "@/lib/client-logger";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import { FiArrowLeft } from "react-icons/fi";
+import { BarangForm } from "@/components/inventory/BarangForm";
 
 interface BarangData {
-  id: string
-  kode: string
-  nama: string
-  satuan: string
+  id: string;
+  kode: string;
+  nama: string;
+  satuan: string;
 }
 
 export function ClientComponent() {
-  const router = useRouter()
-  const params = useParams()
-  const [initialData, setInitialData] = useState<BarangData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const router = useRouter();
+  const params = useParams();
+  const [initialData, setInitialData] = useState<BarangData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function fetchBarang() {
       try {
-        const response = await fetch(`/api/inventory/barang/${params.id}`)
+        const response = await fetch(`/api/inventory/barang/${params.id}`);
 
         if (!response.ok) {
-          throw new Error('Barang tidak ditemukan')
+          throw new Error("Barang tidak ditemukan");
         }
 
-        const jsonResponse = await response.json()
-        setInitialData(jsonResponse.data?.barang || jsonResponse.barang || jsonResponse)
+        const jsonResponse = await response.json();
+        setInitialData(
+          jsonResponse.data?.barang || jsonResponse.barang || jsonResponse,
+        );
       } catch (error: unknown) {
-        console.error('Error fetching barang:', error)
-        setError(error instanceof Error ? error.message : 'Gagal memuat data barang')
+        clientLogger.error("Error fetching barang:", error);
+        setError(
+          error instanceof Error ? error.message : "Gagal memuat data barang",
+        );
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
     if (params.id) {
-      fetchBarang()
+      fetchBarang();
     }
-  }, [params.id])
+  }, [params.id]);
 
   const handleSubmit = async () => {
     // Redirect to inventory page after successful update
-    router.push('/admin/inventory')
-  }
+    router.push("/admin/inventory");
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Memuat data barang...</p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Memuat data barang...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -76,11 +83,11 @@ export function ClientComponent() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!initialData) {
-    return null
+    return null;
   }
 
   return (
@@ -119,5 +126,5 @@ export function ClientComponent() {
         </div>
       </div>
     </div>
-  )
+  );
 }

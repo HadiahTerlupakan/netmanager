@@ -17,7 +17,7 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
-import { autoApproveTukarLibur } from "@/modules/attendance/services/LeaveAutoApprovalService";
+import { autoApproveTukarLibur } from "@/modules/attendance";
 
 describe("autoApproveTukarLibur", () => {
   beforeEach(() => {

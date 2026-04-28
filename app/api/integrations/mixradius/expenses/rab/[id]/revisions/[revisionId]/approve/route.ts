@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 
@@ -38,7 +39,7 @@ export async function POST(
       );
     }
 
-    console.error("Error approving RAB revision:", error);
+    logger.error("Error approving RAB revision:", error);
     return NextResponse.json(
       {
         error: "Terjadi kesalahan internal saat memproses persetujuan revisi.",

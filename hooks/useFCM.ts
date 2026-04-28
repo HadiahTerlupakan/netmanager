@@ -6,6 +6,7 @@ import {
 import { normalizeForegroundNotificationPayload } from "@/lib/notifications/normalizeForegroundNotificationPayload";
 import { getToken, onMessage } from "firebase/messaging";
 import { toast } from "react-hot-toast";
+import { clientLogger } from "@/lib/client-logger";
 
 type NotificationSupportState = NotificationPermission | "unsupported";
 
@@ -78,7 +79,10 @@ export const useFCM = () => {
       const token = await registerToken();
       return Boolean(token);
     } catch (error) {
-      console.error("An error occurred while retrieving FCM token.", error);
+      clientLogger.error(
+        "An error occurred while retrieving FCM token.",
+        error,
+      );
       return false;
     } finally {
       setIsLoading(false);

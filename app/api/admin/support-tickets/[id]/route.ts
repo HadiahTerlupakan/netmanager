@@ -1,10 +1,8 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { idSchema } from "@/lib/validations/common";
-import {
-  getAdminSupportTicketRouteService,
-  supportTicketUpdateSchema,
-} from "@/modules/pelanggan";
+import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
+import { supportTicketUpdateSchema } from "@/lib/validations/support-ticket";
 import * as z from "zod";
 
 const supportTicketRouteService = getAdminSupportTicketRouteService();

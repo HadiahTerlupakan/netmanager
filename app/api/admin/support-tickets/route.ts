@@ -1,8 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import {
-  getAdminSupportTicketService,
-  supportTicketFilterSchema,
-} from "@/modules/pelanggan";
+import { getAdminSupportTicketService } from "@/modules/pelanggan";
+import { supportTicketFilterSchema } from "@/lib/validations/support-ticket";
 import { checkSiteRestriction } from "@/modules/roles";
 import { logger } from "@/lib/logger";
 import * as z from "zod";

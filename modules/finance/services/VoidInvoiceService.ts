@@ -51,7 +51,7 @@ export class VoidInvoiceService {
       );
 
       if (!pelanggan) {
-        console.warn(
+        logger.warn(
           `[VoidInvoiceService] Pelanggan ${invoice.pelangganId} not found in main DB for invoice ${invoiceId}`,
         );
         return {
@@ -84,7 +84,7 @@ export class VoidInvoiceService {
             "ISOLIR",
           );
         } catch (radiusErr) {
-          console.error(
+          logger.error(
             "[VoidInvoiceService] Failed to sync to RADIUS:",
             radiusErr,
           );
@@ -102,7 +102,7 @@ export class VoidInvoiceService {
           priority: "HIGH",
         });
       } catch (notifErr) {
-        console.error(
+        logger.error(
           "[VoidInvoiceService] Failed to send notification:",
           notifErr,
         );
@@ -139,7 +139,7 @@ export class VoidInvoiceService {
         },
       };
     } catch (error: unknown) {
-      console.error("[VoidInvoiceService] Fatal error:", error);
+      logger.error("[VoidInvoiceService] Fatal error:", error);
       throw error;
     }
   }

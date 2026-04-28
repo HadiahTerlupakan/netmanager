@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import axios, { type AxiosInstance } from "axios";
 import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
@@ -335,7 +336,7 @@ export class MixRadiusService {
       !this.credentials.password ||
       !this.credentials.baseUrl
     ) {
-      console.warn(
+      logger.warn(
         "[MixRadius] Credentials missing in Env vars. MixRadius integration will fail until configured.",
       );
     }
@@ -600,7 +601,6 @@ export class MixRadiusService {
     this.loginExpiresAt = 0;
     this.customersCache = { data: [], expiresAt: 0 }; // Clear local cache too
     this.jar = new CookieJar();
-    // console.log('[MixRadius] Session and caches cleared')
   }
 
   /**
@@ -652,7 +652,6 @@ export class MixRadiusService {
    */
   clearTopologyCache(): void {
     this.topologyCache = { data: null, expiresAt: 0, ownerFilter: null };
-    // console.log('[MixRadius] Topology cache cleared')
   }
 
   /**

@@ -41,6 +41,7 @@ vi.mock("@/modules/attendance/repositories/LocationTrackingRepository", () => ({
 
 vi.mock("@/modules/users", () => ({
   UserRepository: class {},
+  UserLookupService: class {},
 }));
 
 describe("LocationTrackingService live map timezone", () => {

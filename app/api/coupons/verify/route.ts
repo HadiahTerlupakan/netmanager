@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { ZodError } from "zod";
 
 import { couponService, verifyCouponSchema } from "@/modules/coupons";
@@ -30,7 +31,7 @@ export const POST = createHandler({ auth: false }, async (req, _ctx) => {
       );
     }
 
-    console.error("Coupon verify error:", error);
+    logger.error("Coupon verify error:", error);
     const message =
       error instanceof Error ? error.message : "Gagal memverifikasi kupon";
     return ApiErrors.internalError(message);

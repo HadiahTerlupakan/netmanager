@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
@@ -163,7 +164,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         );
       }
     } catch (error) {
-      console.error(`Failed to sync NAS for router ${router.name}:`, error);
+      logger.error(`Failed to sync NAS for router ${router.name}:`, error);
     }
 
     return { id: router.id };
@@ -278,7 +279,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
             );
           }
         } catch (error) {
-          console.error(`Failed to sync NAS update for router ${id}:`, error);
+          logger.error(`Failed to sync NAS update for router ${id}:`, error);
         }
       }
     }
@@ -342,7 +343,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         await this.radiusRepo.deleteNas(nas.id, existingRouter.tenantId!);
       }
     } catch (error) {
-      console.error(`Failed to delete NAS for router ${id}:`, error);
+      logger.error(`Failed to delete NAS for router ${id}:`, error);
     }
   }
 

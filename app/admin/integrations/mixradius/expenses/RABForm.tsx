@@ -1,5 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useMemo, type ComponentProps } from "react";
 import {
@@ -364,7 +366,7 @@ export default function RABForm({
           Array.isArray(data?.data ?? data) ? (data?.data ?? data) : [],
         );
       } catch (error) {
-        console.error("Failed fetching categories", error);
+        clientLogger.error("Failed fetching categories", error);
       }
     };
 
@@ -376,7 +378,7 @@ export default function RABForm({
           setInvestorsList(normalizeInvestorListResponse(data));
         }
       } catch (error) {
-        console.error("Failed fetching investors", error);
+        clientLogger.error("Failed fetching investors", error);
       }
     };
 
@@ -920,7 +922,7 @@ export default function RABForm({
       toast.success(initialData ? "RAB diperbarui" : "RAB dibuat");
       onSaved();
     } catch (error) {
-      console.error(error);
+      clientLogger.error("Gagal menyimpan RAB", error);
       toast.error(error instanceof Error ? error.message : "Terjadi kesalahan");
     } finally {
       setIsSubmitting(false);

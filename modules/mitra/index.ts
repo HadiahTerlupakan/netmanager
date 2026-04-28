@@ -3,6 +3,7 @@ export {
   MitraLookupService,
   getMitraLookupService,
 } from "./services/MitraLookupService";
+export * from "./services/MitraIdCardService";
 export {
   MitraWalletService,
   getMitraWalletService,
@@ -17,7 +18,7 @@ export {
 } from "./services/MitraCommissionSyncService";
 export {
   MobileDashboardService,
-  mobileDashboardService,
+  getMobileDashboardService,
 } from "./services/MobileDashboardService";
 export {
   MobileMitraRouteService,

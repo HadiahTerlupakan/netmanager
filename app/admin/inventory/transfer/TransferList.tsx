@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { TransferForm } from "@/components/inventory/TransferForm";
@@ -115,7 +116,7 @@ export default function TransferPage() {
             result.pagination?.totalPages || result.meta?.totalPages || 0,
         }));
       } catch (error: unknown) {
-        console.error("Error fetching transfers:", error);
+        clientLogger.error("Error fetching transfers:", error);
         setError(error instanceof Error ? error.message : "Terjadi kesalahan");
       } finally {
         setLoading(false);
@@ -138,7 +139,7 @@ export default function TransferPage() {
       setSelectedTransfer(detailTransfer);
       setShowDetails(true);
     } catch (error: unknown) {
-      console.error("Error fetching transfer detail:", error);
+      clientLogger.error("Error fetching transfer detail:", error);
       setError(error instanceof Error ? error.message : "Terjadi kesalahan");
     }
   };

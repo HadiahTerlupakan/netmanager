@@ -1,11 +1,13 @@
+import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import { bandwidthSchema } from "@/lib/validations/bandwidth";
 import { sanitizeInput } from "@/lib/utils/sanitize";
 import { logActivitySafe } from "@/lib/logger";
 import { checkSiteRestriction } from "@/modules/roles";
 import { RadiusSyncService } from "./radius-sync-service";
 import { RadiusRepository } from "../repositories/RadiusRepository";
+import { BandwidthRepository } from "../repositories/BandwidthRepository";
+import type { IBandwidthRepository } from "../domain/ports/IBandwidthRepository";
 import * as z from "zod";
 import type { Session } from "next-auth";
 
@@ -32,91 +34,60 @@ interface BandwidthMutationInput {
 
 /** Service untuk kebutuhan route bandwidth. */
 export class BandwidthRouteService {
+  constructor(
+    private readonly repository: IBandwidthRepository = new BandwidthRepository(),
+  ) {}
+
   /** Ambil daftar bandwidth sesuai filter dan pembatasan site. */
-  async getBandwidths(reqUrl: string, session: Session) {
-    const where = this.buildListWhere(reqUrl, session);
-    return prisma.bandwidth.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { hargaPaket: true } } },
-    });
+  getBandwidths(reqUrl: string, session: Session) {
+    return this.repository.findMany(this.buildListFilters(reqUrl, session));
   }
 
   /** Buat bandwidth baru dari payload request. */
   async createBandwidth(body: Record<string, unknown>, session: Session) {
     const siteId = this.resolveSiteId(body.siteId, session);
     const payload = this.validatePayload(this.buildMutationInput(body, siteId));
-    const bandwidth = await prisma.bandwidth.create({
-      data: this.toCreateInput(payload),
-    });
+    const bandwidth = await this.repository.create(this.toCreateInput(payload));
     this.logCreateActivity(bandwidth, session, siteId);
     return bandwidth;
   }
 
   /** Ambil detail bandwidth beserta relasinya. */
-  async getBandwidthById(id: string) {
-    return prisma.bandwidth.findUnique({
-      where: { id },
-      include: { hargaPaket: { include: { profilePPP: true } } },
-    });
+  getBandwidthById(id: string) {
+    return this.repository.findById(id);
   }
 
   /** Perbarui bandwidth dan sinkronkan RADIUS bila perlu. */
   async updateBandwidth(id: string, body: Record<string, unknown>) {
     const payload = this.validatePayload(this.buildMutationInput(body));
-    const bandwidth = await prisma.bandwidth.update({
-      where: { id },
-      data: payload,
-    });
+    const bandwidth = await this.repository.update(id, payload);
     await this.syncBandwidthToRadius(id);
     return bandwidth;
   }
 
   /** Hapus bandwidth jika tidak sedang dipakai paket. */
   async deleteBandwidth(id: string) {
-    const bandwidth = await prisma.bandwidth.findUnique({
-      where: { id },
-      include: { hargaPaket: { select: { id: true, name: true } } },
-    });
+    const bandwidth = await this.repository.findForDelete(id);
 
     if (!bandwidth) {
       throw new Error("NOT_FOUND:Bandwidth");
     }
 
     this.ensureBandwidthDeletable(bandwidth);
-    await prisma.bandwidth.delete({ where: { id } });
+    await this.repository.delete(id);
   }
 
-  private buildListWhere(
-    reqUrl: string,
-    session: Session,
-  ): Prisma.BandwidthWhereInput {
+  private buildListFilters(reqUrl: string, session: Session) {
     const { searchParams } = new URL(reqUrl);
-    const status = searchParams.get("status");
-    const siteId = searchParams.get("siteId");
-    const where: Prisma.BandwidthWhereInput = {};
-    if (status) where.status = status as Prisma.EnumStatusFilter<"Bandwidth">;
-    return this.applySiteRestriction(where, siteId, session);
-  }
-
-  private applySiteRestriction(
-    where: Prisma.BandwidthWhereInput,
-    requestedSiteId: string | null,
-    session: Session,
-  ): Prisma.BandwidthWhereInput {
+    const status = searchParams.get("status") ?? undefined;
+    const requestedSiteId = searchParams.get("siteId");
     const restriction = checkSiteRestriction(session, "bandwidth");
+
     if (restriction.isRestricted && restriction.siteIds.length > 0) {
-      return {
-        ...where,
-        OR: [{ siteId: { in: restriction.siteIds } }, { siteId: null }],
-      };
+      return { status, siteIds: restriction.siteIds, includeGlobal: true };
     }
 
-    if (requestedSiteId) {
-      return { ...where, OR: [{ siteId: requestedSiteId }, { siteId: null }] };
-    }
-
-    return where;
+    return { status, requestedSiteId, includeGlobal: true };
   }
 
   private resolveSiteId(rawSiteId: unknown, session: Session): string | null {
@@ -186,7 +157,7 @@ export class BandwidthRouteService {
       if (mode !== "RADIUS") return;
       await new RadiusRepository().syncBandwidthToRadius(id);
     } catch (error) {
-      console.error("[BandwidthRouteService] RADIUS sync error:", error);
+      logger.error("[BandwidthRouteService] RADIUS sync error:", error);
     }
   }
 

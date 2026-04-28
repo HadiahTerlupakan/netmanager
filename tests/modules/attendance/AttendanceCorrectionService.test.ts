@@ -4,8 +4,8 @@ vi.mock("@/lib/utils/get-timezone", () => ({
   getTimezone: vi.fn().mockResolvedValue("Asia/Jakarta"),
 }));
 
-import { AttendanceCorrectionService } from "@/modules/attendance/services/AttendanceCorrectionService";
-import { AttendanceTimezoneService } from "@/modules/attendance/services/AttendanceTimezoneService";
+import { AttendanceCorrectionService } from "@/modules/attendance";
+import { AttendanceTimezoneService } from "@/modules/attendance";
 
 describe("AttendanceCorrectionService", () => {
   type AttendanceCorrectionRepository = ConstructorParameters<

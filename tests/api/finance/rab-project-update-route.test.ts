@@ -4,12 +4,13 @@ import { ZodError } from "zod";
 
 import { prismaMock } from "@/tests/setup";
 
-const { mockHasPermission, mockIsSuperAdmin, mockUpdateProjectWithRelations } =
-  vi.hoisted(() => ({
+const { mockHasPermission, mockIsSuperAdmin, mockUpdateProject } = vi.hoisted(
+  () => ({
     mockHasPermission: vi.fn(),
     mockIsSuperAdmin: vi.fn(),
-    mockUpdateProjectWithRelations: vi.fn(),
-  }));
+    mockUpdateProject: vi.fn(),
+  }),
+);
 
 vi.mock("@/modules/database", () => ({
   prisma: prismaMock,
@@ -23,13 +24,51 @@ vi.mock("@/lib/rbac", () => ({
   hasPermission: mockHasPermission,
 }));
 
-vi.mock("@/modules/finance", () => ({
-  RabProjectRepository: vi.fn(function RabProjectRepository() {
-    return {
-      updateProjectWithRelations: mockUpdateProjectWithRelations,
-    };
-  }),
-}));
+vi.mock("@/modules/finance", async () => {
+  const { z } = await import("zod");
+
+  return {
+    isRouteServiceError: (
+      error: unknown,
+    ): error is { status: number; message: string } =>
+      error instanceof Error && "status" in error,
+    rabProjectUpdateSchema: z
+      .object({
+        status: z.enum(["DRAFT", "APPROVED"]).optional(),
+        opexBufferFundingMode: z.string().optional(),
+        opexBufferInvestorPercent: z.number().optional(),
+        opexBufferCompanyPercent: z.number().optional(),
+        targetBasis: z.string().optional(),
+        targetHomepass: z.number().optional(),
+        targetTakeUpRatePercent: z.number().optional(),
+        targetSubscribers: z.number().optional(),
+        projectedRevenue: z.number().optional(),
+      })
+      .superRefine((value, ctx) => {
+        if (
+          value.opexBufferFundingMode === "SHARED_PERCENTAGE" &&
+          (value.opexBufferInvestorPercent ?? 0) +
+            (value.opexBufferCompanyPercent ?? 0) !==
+            100
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Total persentase harus 100",
+          });
+        }
+
+        if (value.status === "APPROVED") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Perubahan approval harus melalui endpoint approval",
+          });
+        }
+      }),
+    RabProjectRouteService: class MockRabProjectRouteService {
+      updateProject = mockUpdateProject;
+    },
+  };
+});
 
 vi.mock("@/lib/api", () => ({
   createHandler:
@@ -102,18 +141,18 @@ describe("rab project update route", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toContain("persentase");
-    expect(mockUpdateProjectWithRelations).not.toHaveBeenCalled();
+    expect(mockUpdateProject).not.toHaveBeenCalled();
   });
 
   it("forwards homepass target fields to the repository", async () => {
-    mockUpdateProjectWithRelations.mockResolvedValue({
+    mockUpdateProject.mockResolvedValue({
       id: "rab-1",
       status: "DRAFT",
-      projectedRevenue: 30_000_000n,
-      projectedOpex: 0n,
-      arpu: 150_000n,
-      contingencyAmount: 0n,
-      opexBufferInvestorFixedAmount: 0n,
+      projectedRevenue: 30_000_000,
+      projectedOpex: 0,
+      arpu: 150_000,
+      contingencyAmount: 0,
+      opexBufferInvestorFixedAmount: 0,
       items: [],
     });
 
@@ -133,7 +172,7 @@ describe("rab project update route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockUpdateProjectWithRelations).toHaveBeenCalledWith(
+    expect(mockUpdateProject).toHaveBeenCalledWith(
       "rab-1",
       expect.objectContaining({
         targetBasis: "HOMEPASS",
@@ -146,13 +185,13 @@ describe("rab project update route", () => {
   });
 
   it("does not allow generic update permission to approve a RAB", async () => {
-    mockUpdateProjectWithRelations.mockResolvedValue({
+    mockUpdateProject.mockResolvedValue({
       id: "rab-1",
       status: "APPROVED",
-      projectedRevenue: 0n,
-      projectedOpex: 0n,
+      projectedRevenue: 0,
+      projectedOpex: 0,
       arpu: null,
-      contingencyAmount: 0n,
+      contingencyAmount: 0,
       items: [],
     });
 
@@ -168,6 +207,6 @@ describe("rab project update route", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toContain("approval");
-    expect(mockUpdateProjectWithRelations).not.toHaveBeenCalled();
+    expect(mockUpdateProject).not.toHaveBeenCalled();
   });
 });

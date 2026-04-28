@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { getMixRadiusService } from "@/modules/integrations";
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(filteredGroups);
   } catch (error) {
-    console.error("Error fetching MixRadius groups:", error);
+    logger.error("Error fetching MixRadius groups:", error);
     return apiError(
       "Gagal mengambil grup MixRadius",
       ErrorCodes.INTERNAL_ERROR,

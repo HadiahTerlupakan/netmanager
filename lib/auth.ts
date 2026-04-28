@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import _NextAuth from "next-auth";
 import type { NextAuthOptions, Session } from "next-auth";
 
@@ -24,16 +25,16 @@ const CredentialsProvider =
 // Database connection validation
 async function validateDatabaseConnection(): Promise<boolean> {
   try {
-    console.log("[AUTH] Validating database connection...");
-    console.log("[AUTH] ENV check:", {
+    logger.info("[AUTH] Validating database connection...");
+    logger.info("[AUTH] ENV check:", {
       NEXTAUTH_URL: process.env.NEXTAUTH_URL,
       COOKIE_DOMAIN: process.env.COOKIE_DOMAIN,
     });
     await prismaAuth.$queryRaw`SELECT 1`;
-    console.log("[AUTH] Database connection: OK");
+    logger.info("[AUTH] Database connection: OK");
     return true;
   } catch (error) {
-    console.error("[AUTH] Database connection failed:", error);
+    logger.error("[AUTH] Database connection failed:", error);
     return false;
   }
 }
@@ -136,20 +137,20 @@ export const authConfig: NextAuthOptions = {
             .trim();
           const password = creds?.password ?? "";
 
-          console.log(
+          logger.info(
             "[AUTH] Login attempt with identifier:",
             identifier?.substring(0, 3) + "***",
           );
 
           if (!identifier || !password) {
-            console.log("[AUTH] Missing identifier or password");
+            logger.info("[AUTH] Missing identifier or password");
             return null;
           }
 
           // Validate database connection before proceeding
           const dbConnected = await validateDatabaseConnection();
           if (!dbConnected) {
-            console.error(
+            logger.error(
               "[AUTH] Database connection failed during login attempt",
             );
             throw new Error(
@@ -169,7 +170,7 @@ export const authConfig: NextAuthOptions = {
             }
 
             if (rateLimitResult === "rate_limited") {
-              console.log("[AUTH] Rate limit exceeded for:", identifier);
+              logger.info("[AUTH] Rate limit exceeded for:", identifier);
               throw new Error("Terlalu banyak percobaan. Coba lagi nanti.");
             }
           }
@@ -178,7 +179,7 @@ export const authConfig: NextAuthOptions = {
 
           // Login with email. This must use the unfiltered client because the user
           // is not authenticated yet, so there is no tenant context to resolve.
-          console.log("[AUTH] Attempting email login");
+          logger.info("[AUTH] Attempting email login");
           user = await prismaAuth.user.findUnique({
             where: { email: identifier },
             select: {
@@ -194,31 +195,31 @@ export const authConfig: NextAuthOptions = {
               passwordHash: true,
             },
           });
-          console.log("[AUTH] User found by email:", !!user);
+          logger.info("[AUTH] User found by email:", !!user);
 
           if (!user?.passwordHash) {
             user = null;
           }
 
           if (!user) {
-            console.log("[AUTH] No user found for identifier:", identifier);
+            logger.info("[AUTH] No user found for identifier:", identifier);
             return null;
           }
 
           // Verify password
-          console.log("[AUTH] Verifying password...");
+          logger.info("[AUTH] Verifying password...");
           const ok = await compare(password, user.passwordHash ?? "");
-          console.log("[AUTH] Password valid:", ok);
+          logger.info("[AUTH] Password valid:", ok);
 
           if (!ok) {
-            console.log("[AUTH] Password mismatch");
+            logger.info("[AUTH] Password mismatch");
             return null;
           }
 
           // Strict Portal Access Control
           const portal = creds?.portal;
           if (portal) {
-            console.log(`[AUTH] Checking access for portal: ${portal}`);
+            logger.info(`[AUTH] Checking access for portal: ${portal}`);
             const userWithRole = await prismaAuth.user.findUnique({
               where: { id: user.id },
               include: { role: true },
@@ -228,10 +229,10 @@ export const authConfig: NextAuthOptions = {
 
             // Super Admin bypass
             if (role?.name === "SUPER_ADMIN" || role?.name === "Super Admin") {
-              console.log("[AUTH] SUPER_ADMIN access granted");
+              logger.info("[AUTH] SUPER_ADMIN access granted");
             } else {
               if (portal === "admin" && !role?.accessAdminPanel) {
-                console.warn(
+                logger.warn(
                   "[AUTH] Access denied: User tried to access ADMIN portal without permission",
                 );
                 throw new Error(
@@ -240,7 +241,7 @@ export const authConfig: NextAuthOptions = {
               }
 
               if (portal === "employee" && !role?.accessEmployeePanel) {
-                console.warn(
+                logger.warn(
                   "[AUTH] Access denied: User tried to access EMPLOYEE portal without permission",
                 );
                 throw new Error(
@@ -250,7 +251,7 @@ export const authConfig: NextAuthOptions = {
             }
           }
 
-          console.log("[AUTH] Login successful for:", user.email);
+          logger.info("[AUTH] Login successful for:", user.email);
 
           return {
             id: user.id,
@@ -259,7 +260,7 @@ export const authConfig: NextAuthOptions = {
             image: user.image ?? null,
           } as unknown as import("next-auth").User;
         } catch (error) {
-          console.error("[AUTH] Error in authorize:", error);
+          logger.error("[AUTH] Error in authorize:", error);
           throw error;
         }
       },
@@ -346,7 +347,7 @@ export const authConfig: NextAuthOptions = {
           // Token version for force logout feature
           token.tokenVersion = dbUser?.tokenVersion ?? 0;
 
-          console.log("[AUTH JWT] Token initialized:", {
+          logger.info("[AUTH JWT] Token initialized:", {
             id: token.id,
             role: token.role,
             department: token.departmentName,
@@ -357,7 +358,7 @@ export const authConfig: NextAuthOptions = {
             primarySiteId: token.primarySiteId,
           });
         } catch (error) {
-          console.error("[AUTH JWT] Error fetching user role:", error);
+          logger.error("[AUTH JWT] Error fetching user role:", error);
           token.role = "USER";
           token.accessAdminPanel = false;
           token.accessEmployeePanel = false;
@@ -501,7 +502,7 @@ export const authConfig: NextAuthOptions = {
 
           // If user doesn't exist, is inactive, or token version mismatch - invalidate session
           if (!dbUser || !dbUser.isActive) {
-            console.log(
+            logger.info(
               `[AUTH SESSION] User ${token.id} not found or inactive. Invalidating session.`,
             );
             return {
@@ -513,7 +514,7 @@ export const authConfig: NextAuthOptions = {
 
           const tokenVersion = (token.tokenVersion as number) ?? 0;
           if (dbUser.tokenVersion > tokenVersion) {
-            console.log(
+            logger.info(
               `[AUTH SESSION] Token version mismatch for user ${token.id}. DB: ${dbUser.tokenVersion}, Token: ${tokenVersion}. Forcing logout.`,
             );
             // Invalidate cache to ensure next check hits DB
@@ -574,14 +575,14 @@ export const authConfig: NextAuthOptions = {
 
           // Debugging Session Creation
           if (process.env.NODE_ENV === "development") {
-            console.log(
+            logger.info(
               `[AUTH SESSION] Session created for ${sessionUser.email}. Tenant: ${sessionUser.tenantId}, isSuper: ${sessionUser.isSuperAdmin}`,
             );
           }
         } catch (error) {
-          console.error("[AUTH SESSION] Error validating tokenVersion:", error);
+          logger.error("[AUTH SESSION] Error validating tokenVersion:", error);
           // SECURITY: Fail-closed - invalidate session on validation error
-          console.warn(
+          logger.warn(
             "[AUTH SESSION] SECURITY: Invalidating session due to validation error",
           );
           return {
@@ -620,7 +621,7 @@ export const authConfig: NextAuthOptions = {
           data: { lastLoginAt: new Date() },
         });
       } catch (e) {
-        console.error("[AUTH] Failed to fetch user role for logging:", e);
+        logger.error("[AUTH] Failed to fetch user role for logging:", e);
       }
 
       await logger.logAuth({
@@ -699,7 +700,7 @@ export async function verifyAuth(
   try {
     // 1. Check for Bearer token (Mobile)
     const authHeader = request.headers.get("Authorization");
-    console.log(
+    logger.info(
       "[AUTH_VERIFY] Authorization header:",
       authHeader ? authHeader.substring(0, 15) + "..." : "Missing",
     );
@@ -707,14 +708,14 @@ export async function verifyAuth(
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
       if (token === "null" || !token) {
-        console.warn('[AUTH_VERIFY] Bearer token is literal "null" or empty');
+        logger.warn('[AUTH_VERIFY] Bearer token is literal "null" or empty');
         return null;
       }
 
       const mobilePayload = await verifyMobileToken(token);
 
       if (mobilePayload) {
-        console.log(
+        logger.info(
           "[AUTH_VERIFY] Mobile token verified for:",
           mobilePayload.email,
         );
@@ -736,7 +737,7 @@ export async function verifyAuth(
           canApproveRab: mobilePayload.canApproveRab as boolean | undefined,
         };
       } else {
-        console.warn("[AUTH_VERIFY] Mobile token verification failed");
+        logger.warn("[AUTH_VERIFY] Mobile token verification failed");
       }
     }
 
@@ -747,7 +748,7 @@ export async function verifyAuth(
     });
 
     if (!token) {
-      console.log("[AUTH_VERIFY] No valid session or Bearer token found");
+      logger.info("[AUTH_VERIFY] No valid session or Bearer token found");
       return null;
     }
 
@@ -771,7 +772,7 @@ export async function verifyAuth(
       canApproveRab: (token.canApproveRab as boolean) || false,
     };
   } catch (error) {
-    console.error("[AUTH_VERIFY] Error verifying auth:", error);
+    logger.error("[AUTH_VERIFY] Error verifying auth:", error);
     return null;
   }
 }
@@ -800,10 +801,9 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
         }
       }
     } catch (e) {
-      console.warn("[AUTH] Redis cache read error, falling back to DB:", e);
+      logger.warn("[AUTH] Redis cache read error, falling back to DB:", e);
     }
   } else {
-    // console.log('[AUTH] Debug mode enabled, skipping permission cache lookup', { userId })
   }
 
   // Load from database
@@ -819,7 +819,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       },
     });
 
-    // console.log('[AUTH DB] Found user for permissions check:', {
+    // logger.info('[AUTH DB] Found user for permissions check:', {
     //   id: userId,
     //   email: user?.email,
     //   role: user?.role?.name,
@@ -843,13 +843,13 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
           JSON.stringify(allPermissions),
         );
       } catch (e) {
-        console.warn("[AUTH] Redis cache write error:", e);
+        logger.warn("[AUTH] Redis cache write error:", e);
       }
       return allPermissions;
     }
 
     if (!user?.role?.permission || user.role.permission.length === 0) {
-      console.warn("[AUTH] User has no permissions in database", {
+      logger.warn("[AUTH] User has no permissions in database", {
         userId,
         role: user?.role?.name,
       });
@@ -869,18 +869,18 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
         PERMISSION_CACHE_TTL,
         JSON.stringify(permissions),
       );
-      console.log("[AUTH] Permissions cached from database", {
+      logger.info("[AUTH] Permissions cached from database", {
         userId,
         count: permissions.length,
       });
     } catch (e) {
       // Cache write failed - continue without caching
-      console.warn("[AUTH] Redis cache write error:", e);
+      logger.warn("[AUTH] Redis cache write error:", e);
     }
 
     return permissions;
   } catch (error) {
-    console.error("[AUTH] Error loading permissions:", error);
+    logger.error("[AUTH] Error loading permissions:", error);
     return [];
   }
 }
@@ -897,9 +897,9 @@ export async function invalidatePermissionCache(userId: string): Promise<void> {
   const sessionCacheKey = `session:${userId}`;
   try {
     await redis.del(permCacheKey, sessionCacheKey);
-    console.debug("[AUTH] Permission + session cache invalidated", { userId });
+    logger.debug("[AUTH] Permission + session cache invalidated", { userId });
   } catch (e) {
-    console.warn("[AUTH] Failed to invalidate caches:", e);
+    logger.warn("[AUTH] Failed to invalidate caches:", e);
   }
 }
 
@@ -922,12 +922,12 @@ export async function invalidateRolePermissionCache(
     );
 
     await Promise.all(invalidationPromises);
-    console.debug("[AUTH] Role permission cache invalidated", {
+    logger.debug("[AUTH] Role permission cache invalidated", {
       roleId,
       userCount: users.length,
     });
   } catch (e) {
-    console.warn("[AUTH] Failed to invalidate role permission cache:", e);
+    logger.warn("[AUTH] Failed to invalidate role permission cache:", e);
   }
 }
 

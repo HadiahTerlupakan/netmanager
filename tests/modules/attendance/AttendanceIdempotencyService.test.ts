@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cache } from "@/lib/cache";
-import { AttendanceIdempotencyService } from "@/modules/attendance/services/AttendanceIdempotencyService";
+import { AttendanceIdempotencyService } from "@/modules/attendance";
 
 const redisStore = new Map<string, { value: string; expiresAt: number }>();
 

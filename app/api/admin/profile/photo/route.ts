@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import {
   apiSuccess,
@@ -57,7 +58,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.notFound("User");
     }
 
-    console.error(
+    logger.error(
       "Profile photo upload error:",
       error instanceof Error ? error.message : error,
     );

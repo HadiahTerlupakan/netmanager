@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import {
   createContext,
@@ -545,7 +546,7 @@ export function useRealtimeSubscription<TPayload>(
           });
         },
         (error) => {
-          console.error("Realtime Firestore subscription failed", {
+          clientLogger.error("Realtime Firestore subscription failed", {
             scope: serializeScope(scope),
             channel: buildScopeChannel(scope),
             event,

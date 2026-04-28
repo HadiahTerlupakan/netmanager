@@ -1,149 +1,185 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useCallback } from 'react'
-import { HiOutlinePlus, HiArrowPath, HiMagnifyingGlass, HiXMark } from 'react-icons/hi2'
-import Link from 'next/link'
-import PageLoader from '@/components/ui/PageLoader'
-import ResponsiveTable from '@/components/ui/ResponsiveTable'
-import { SiteFilter } from '@/components/common/SiteFilter'
-import { createPppListColumns, renderPppListActions, type PelangganPPP } from './pppListColumns'
-import { deletePppCustomer, updatePppCustomerStatus } from './pppListActions'
+import { clientLogger } from "@/lib/client-logger";
+import { useEffect, useState, useCallback } from "react";
+import {
+  HiOutlinePlus,
+  HiArrowPath,
+  HiMagnifyingGlass,
+  HiXMark,
+} from "react-icons/hi2";
+import Link from "next/link";
+import PageLoader from "@/components/ui/PageLoader";
+import ResponsiveTable from "@/components/ui/ResponsiveTable";
+import { SiteFilter } from "@/components/common/SiteFilter";
+import {
+  createPppListColumns,
+  renderPppListActions,
+  type PelangganPPP,
+} from "./pppListColumns";
+import { deletePppCustomer, updatePppCustomerStatus } from "./pppListActions";
 
 export default function PelangganPPPPage() {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([])
-  const [disableDuration, setDisableDuration] = useState<number>(5)
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pelanggans, setPelanggans] = useState<PelangganPPP[]>([]);
+  const [disableDuration, setDisableDuration] = useState<number>(5);
 
   // Filters
-  const [siteId, setSiteId] = useState<string | undefined>(undefined)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [siteId, setSiteId] = useState<string | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   // Pagination
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [limit] = useState(10)
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit] = useState(10);
 
   // Debounce effect
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
-      setPage(1) // Reset to first page on search
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [searchQuery])
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Reset page when other filters change
   useEffect(() => {
-    setPage(1)
-  }, [siteId, statusFilter])
+    setPage(1);
+  }, [siteId, statusFilter]);
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const params = new URLSearchParams()
-      if (siteId) params.append('siteId', siteId)
-      if (debouncedSearch) params.append('search', debouncedSearch)
-      if (statusFilter) params.append('status', statusFilter)
-      params.append('page', page.toString())
-      params.append('limit', limit.toString())
+      const params = new URLSearchParams();
+      if (siteId) params.append("siteId", siteId);
+      if (debouncedSearch) params.append("search", debouncedSearch);
+      if (statusFilter) params.append("status", statusFilter);
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
 
       const [resPelanggan, resSettings] = await Promise.all([
         fetch(`/api/pelanggan-ppp?${params.toString()}`, {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' },
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
         }),
-        fetch('/api/settings/general')
-      ])
+        fetch("/api/settings/general"),
+      ]);
 
-      if (!resPelanggan.ok) throw new Error('Gagal memuat data pelanggan PPP')
+      if (!resPelanggan.ok) throw new Error("Gagal memuat data pelanggan PPP");
 
       if (resSettings.ok) {
         try {
-          const settingsJson = await resSettings.json()
-          const settingsData = settingsJson.data || settingsJson
+          const settingsJson = await resSettings.json();
+          const settingsData = settingsJson.data || settingsJson;
           if (settingsData.disablePerpanjanganPaket) {
-            setDisableDuration(parseInt(settingsData.disablePerpanjanganPaket) || 5)
+            setDisableDuration(
+              parseInt(settingsData.disablePerpanjanganPaket) || 5,
+            );
           }
         } catch (_e) {
-          console.error('Error parsing settings:', _e)
+          clientLogger.error("Error parsing settings:", _e);
         }
       }
 
-      let data: PelangganPPP[] = []
+      let data: PelangganPPP[] = [];
       try {
-        const text = await resPelanggan.text()
+        const text = await resPelanggan.text();
         if (text) {
-          const parsed = JSON.parse(text)
+          const parsed = JSON.parse(text);
           if (Array.isArray(parsed)) {
-            data = parsed
-            setTotalPages(1)
+            data = parsed;
+            setTotalPages(1);
           } else if (parsed && parsed.data && Array.isArray(parsed.data)) {
-            data = parsed.data
+            data = parsed.data;
             if (parsed.meta) {
-              setTotalPages(Math.ceil((parsed.meta.total || 0) / limit))
+              setTotalPages(Math.ceil((parsed.meta.total || 0) / limit));
             }
           } else if (parsed.error) {
-            throw new Error(parsed.error)
+            throw new Error(parsed.error);
           } else {
-            data = []
+            data = [];
           }
         }
       } catch (_e) {
-        throw new Error('Gagal memproses data pelanggan')
+        throw new Error("Gagal memproses data pelanggan");
       }
 
-      setPelanggans(data)
+      setPelanggans(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat memuat data')
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat memuat data",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [siteId, debouncedSearch, statusFilter, page, limit])
+  }, [siteId, debouncedSearch, statusFilter, page, limit]);
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadData();
+  }, [loadData]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.')) return
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin menghapus pelanggan ini? Tindakan ini tidak dapat dibatalkan.",
+      )
+    )
+      return;
 
     try {
-      await deletePppCustomer(id)
-      await loadData()
+      await deletePppCustomer(id);
+      await loadData();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus data')
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat menghapus data",
+      );
     }
-  }
+  };
 
-  const handleStatusUpdate = async (id: string, newStatus: string, actionName: string) => {
-    if (!confirm(`Apakah Anda yakin ingin mengubah status pelanggan ini menjadi ${actionName}? Akses internet akan ${newStatus === 'AKTIF' ? 'diaktifkan' : 'dimatikan'}.`)) return
+  const handleStatusUpdate = async (
+    id: string,
+    newStatus: string,
+    actionName: string,
+  ) => {
+    if (
+      !confirm(
+        `Apakah Anda yakin ingin mengubah status pelanggan ini menjadi ${actionName}? Akses internet akan ${newStatus === "AKTIF" ? "diaktifkan" : "dimatikan"}.`,
+      )
+    )
+      return;
 
     try {
-      setLoading(true)
-      await updatePppCustomerStatus(id, newStatus)
-      await loadData()
+      setLoading(true);
+      await updatePppCustomerStatus(id, newStatus);
+      await loadData();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Gagal mengubah status')
+      alert(err instanceof Error ? err.message : "Gagal mengubah status");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const columns = createPppListColumns(disableDuration)
+  const columns = createPppListColumns(disableDuration);
 
-  if (loading && pelanggans.length === 0) return <PageLoader />
+  if (loading && pelanggans.length === 0) return <PageLoader />;
 
   return (
     <div className="space-y-6 pb-8">
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pelanggan PPP</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Pelanggan PPP
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Kelola data dan status akses internet pelanggan PPPoE
           </p>
@@ -171,8 +207,12 @@ export default function PelangganPPPPage() {
           <div className="flex">
             <HiXMark className="h-5 w-5 text-rose-500 mt-0.5 shrink-0" />
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-rose-800 dark:text-rose-200">Terjadi kesalahan</h3>
-              <p className="mt-1 text-sm text-rose-700 dark:text-rose-300">{error}</p>
+              <h3 className="text-sm font-medium text-rose-800 dark:text-rose-200">
+                Terjadi kesalahan
+              </h3>
+              <p className="mt-1 text-sm text-rose-700 dark:text-rose-300">
+                {error}
+              </p>
             </div>
           </div>
         </div>
@@ -182,7 +222,12 @@ export default function PelangganPPPPage() {
       <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Pencarian</label>
+            <label
+              htmlFor="search"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
+              Pencarian
+            </label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <HiMagnifyingGlass className="h-5 w-5 text-gray-400" />
@@ -198,15 +243,22 @@ export default function PelangganPPPPage() {
             </div>
           </div>
           <div className="w-full md:w-64">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Site Area</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Site Area
+            </label>
             <SiteFilter
-              value={siteId || ''}
-              onSiteChange={(id) => setSiteId(id || '')}
+              value={siteId || ""}
+              onSiteChange={(id) => setSiteId(id || "")}
               resource="pelanggan"
             />
           </div>
           <div className="w-full md:w-48">
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Status</label>
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
+              Status
+            </label>
             <select
               id="status"
               className="block w-full rounded-lg border-0 py-2.5 pl-3 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 transition-all"
@@ -230,25 +282,37 @@ export default function PelangganPPPPage() {
           columns={columns}
           keyField="id"
           loading={loading}
-          emptyMessage={searchQuery ? "Pelanggan tidak ditemukan berdasarkan pencarian Anda." : "Belum ada data pelanggan PPP"}
+          emptyMessage={
+            searchQuery
+              ? "Pelanggan tidak ditemukan berdasarkan pencarian Anda."
+              : "Belum ada data pelanggan PPP"
+          }
           page={page}
           totalPages={totalPages}
           onPageChange={setPage}
           renderActions={(item: PelangganPPP) => {
             const allowed = (() => {
-              const today = new Date()
-              today.setTime(new Date(today.toDateString()).getTime())
-              const jatuhTempoDate = new Date(item.jatuhTempo)
-              jatuhTempoDate.setTime(new Date(jatuhTempoDate.toDateString()).getTime())
-              const allowedDate = new Date(jatuhTempoDate)
-              allowedDate.setDate(allowedDate.getDate() - disableDuration)
-              return today >= allowedDate
-            })()
+              const today = new Date();
+              today.setTime(new Date(today.toDateString()).getTime());
+              const jatuhTempoDate = new Date(item.jatuhTempo);
+              jatuhTempoDate.setTime(
+                new Date(jatuhTempoDate.toDateString()).getTime(),
+              );
+              const allowedDate = new Date(jatuhTempoDate);
+              allowedDate.setDate(allowedDate.getDate() - disableDuration);
+              return today >= allowedDate;
+            })();
 
-            return renderPppListActions(item, allowed, disableDuration, handleDelete, handleStatusUpdate)
+            return renderPppListActions(
+              item,
+              allowed,
+              disableDuration,
+              handleDelete,
+              handleStatusUpdate,
+            );
           }}
         />
       </div>
     </div>
-  )
+  );
 }

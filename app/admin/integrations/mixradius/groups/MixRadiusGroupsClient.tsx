@@ -36,7 +36,7 @@ export default function MixRadiusGroupsClient() {
   const canUpdate = hasPermission("mixradius_sites:update");
   const canDelete = hasPermission("mixradius_sites:delete");
 
-  // console.log('MixRadiusGroups Permissions:', {
+  // logger.info('MixRadiusGroups Permissions:', {
   //   canCreate,
   //   hasSiteCreate: hasPermission('mixradius_sites:create'),
   //   hasGenericCreate: hasPermission('mixradius:create'),

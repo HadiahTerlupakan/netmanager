@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import {
   authConfig,
   getUserPermissions,
@@ -28,7 +29,7 @@ export async function hasPermission(
   }
 
   if (!currentUser) {
-    if (!options.silent) console.log("[RBAC] No user found in session");
+    if (!options.silent) logger.info("[RBAC] No user found in session");
     return false;
   }
 
@@ -36,19 +37,16 @@ export async function hasPermission(
   // Note: SUPER_ADMIN has all permissions from seed, so no bypass needed
   const userId = currentUser.id;
   if (!userId) {
-    if (!options.silent) console.log("[RBAC] No userId found");
+    if (!options.silent) logger.info("[RBAC] No userId found");
     return false;
   }
 
   // Bypass for SUPER_ADMIN to prevent lockout if permissions are missing in DB
   if (isSuperAdminHelper(currentUser)) {
-    // console.log('[RBAC] Super Admin bypass for user:', userId)
     return true;
   }
 
   // Debugging non-super admin access
-  // console.log('[RBAC] Checking permission for user:', userId, 'Role:', currentUser.role, 'isSuperAdmin:', currentUser.isSuperAdmin)
-
   const permissions = await getUserPermissions(userId);
 
   // Check for wildcard permission
@@ -60,7 +58,7 @@ export async function hasPermission(
   const has = hasPermissionWithAlias(permissions, requiredPermission);
 
   if (!has && !options.silent) {
-    console.log(
+    logger.info(
       `[RBAC] Access Denied. User: ${userId}, Role: ${currentUser.role}, Required: ${requiredPermission}, Has: ${permissions.length} perms`,
     );
   }

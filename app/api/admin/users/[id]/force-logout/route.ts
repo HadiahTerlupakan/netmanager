@@ -1,9 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { socketEmitter } from "@/lib/websocket/emitter";
-import {
-  forceLogoutSchema,
-  AdminUserPerformanceRouteService,
-} from "@/modules/users";
+import { AdminUserPerformanceRouteService } from "@/modules/users";
+import { forceLogoutSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
 
 /**

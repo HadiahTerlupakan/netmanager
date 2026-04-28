@@ -13,6 +13,7 @@ import {
 import { AttendanceStatusIndicator } from "./AttendanceStatusIndicator";
 import { GeofenceStatusBadge } from "./GeofenceStatusBadge";
 import { Button } from "@/components/ui/Button";
+import { clientLogger } from "@/lib/client-logger";
 
 export default function AttendanceCard() {
   const [loading, setLoading] = useState(false);
@@ -79,7 +80,7 @@ export default function AttendanceCard() {
         setStatus("idle");
       }
     } catch (error) {
-      console.error("Failed to fetch attendance status", error);
+      clientLogger.error("Failed to fetch attendance status", error);
       toast.error("Gagal memuat status absensi");
     } finally {
       setCheckingStatus(false);
@@ -99,7 +100,7 @@ export default function AttendanceCard() {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.error("Error accessing camera", err);
+      clientLogger.error("Error accessing camera", err);
       toast.error("Gagal mengakses kamera. Pastikan izin diberikan.");
       setShowCamera(false);
     }
@@ -149,7 +150,7 @@ export default function AttendanceCard() {
           toast.success("Lokasi berhasil didapatkan");
         },
         (error) => {
-          console.error("Error getting location", error);
+          clientLogger.error("Error getting location", error);
           toast.error("Gagal mendapatkan lokasi");
         },
       );

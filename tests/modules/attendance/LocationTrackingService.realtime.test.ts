@@ -24,7 +24,7 @@ vi.mock("@/modules/attendance/repositories/AttendanceRepository", () => ({
   AttendanceRepository: class {},
 }));
 
-vi.mock("@/modules/users", () => ({
+vi.mock("@/modules/users/repositories/UserRepository", () => ({
   UserRepository: class {
     findById = mockFns.findById;
   },

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { announcementService } from "@/modules/notification";
@@ -25,7 +26,7 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Customer mark announcement read error:", error);
+    logger.error("Customer mark announcement read error:", error);
     if (
       error instanceof Error &&
       error.message === "Pengumuman tidak ditemukan"

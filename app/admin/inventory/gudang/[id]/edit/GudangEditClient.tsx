@@ -1,79 +1,86 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { FiArrowLeft } from 'react-icons/fi'
-import { GudangForm } from '@/components/inventory/GudangForm'
+import { clientLogger } from "@/lib/client-logger";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { FiArrowLeft } from "react-icons/fi";
+import { GudangForm } from "@/components/inventory/GudangForm";
 
 interface Gudang {
-  id: string
-  kode: string
-  nama: string
-  lokasi: string | null
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
+  id: string;
+  kode: string;
+  nama: string;
+  lokasi: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export function ClientComponent({ params }: { params: Promise<{ id: string }> }) {
-  const [gudang, setGudang] = useState<Gudang | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [gudangId, setGudangId] = useState<string | null>(null)
+export function ClientComponent({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const [gudang, setGudang] = useState<Gudang | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [gudangId, setGudangId] = useState<string | null>(null);
 
   useEffect(() => {
     async function getParams() {
-      const { id } = await params
-      setGudangId(id)
+      const { id } = await params;
+      setGudangId(id);
     }
-    getParams()
-  }, [params])
+    getParams();
+  }, [params]);
 
   useEffect(() => {
-    if (!gudangId) return
+    if (!gudangId) return;
 
     async function fetchGudang() {
       try {
-        const response = await fetch(`/api/inventory/gudang/${gudangId}`)
-        const data = await response.json()
+        const response = await fetch(`/api/inventory/gudang/${gudangId}`);
+        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Gagal memuat data gudang')
+          throw new Error(data.error || "Gagal memuat data gudang");
         }
 
         // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data
-        setGudang(result.gudang || result)
+        const result = data.data || data;
+        setGudang(result.gudang || result);
       } catch (error: unknown) {
-        console.error('Failed to fetch gudang:', error)
-        setError(error instanceof Error ? error.message : 'Gagal memuat data')
+        clientLogger.error("Failed to fetch gudang:", error);
+        setError(error instanceof Error ? error.message : "Gagal memuat data");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    fetchGudang()
-  }, [gudangId])
+    fetchGudang();
+  }, [gudangId]);
 
   const handleSuccess = () => {
     // Redirect back to gudang list
-    window.location.href = '/admin/inventory/gudang'
-  }
+    window.location.href = "/admin/inventory/gudang";
+  };
 
   const handleCancel = () => {
     // Go back to previous page
-    window.history.back()
-  }
+    window.history.back();
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">Memuat data gudang...</p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
+            Memuat data gudang...
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !gudang) {
@@ -94,10 +101,10 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
         </div>
 
         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
-          {error || 'Gudang tidak ditemukan'}
+          {error || "Gudang tidak ditemukan"}
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -131,5 +138,5 @@ export function ClientComponent({ params }: { params: Promise<{ id: string }> })
         </div>
       </div>
     </div>
-  )
+  );
 }

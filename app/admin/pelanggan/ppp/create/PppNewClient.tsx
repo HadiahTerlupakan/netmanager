@@ -1,89 +1,101 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { useToast } from '@/hooks/use-toast'
-import { fetchWithHandling, formatErrorMessage, isFetchError } from '@/lib/utils/fetch-wrapper'
-import { PppClientFormActions } from '@/app/admin/pelanggan/ppp/components/actions/PppClientFormActions'
-import { PppClientInfoTabSection } from '@/app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection'
-import { PppClientSiteSection } from '@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection'
-import { PppClientMapPickerModal } from '@/app/admin/pelanggan/ppp/components/modal/PppClientMapPickerModal'
-import { PppClientBillingPreferencesSection } from '@/app/admin/pelanggan/ppp/components/package/PppClientBillingPreferencesSection'
-import { PppClientPackageDateSection } from '@/app/admin/pelanggan/ppp/components/package/PppClientPackageDateSection'
-import { PppClientStatusTypeSection } from '@/app/admin/pelanggan/ppp/components/package/PppClientStatusTypeSection'
-import { PppClientTabNavigation } from '@/app/admin/pelanggan/ppp/components/shell/PppClientTabNavigation'
-import { PppClientBillingSummarySidebar } from '@/app/admin/pelanggan/ppp/components/sidebars/PppClientBillingSummarySidebar'
-import { PppClientDocumentUploadSidebar } from '@/app/admin/pelanggan/ppp/components/sidebars/PppClientDocumentUploadSidebar'
-import { buildPppClientFormData, validatePppClientForm } from '@/app/admin/pelanggan/ppp/shared/form'
-import { usePppDocumentUploads } from '@/app/admin/pelanggan/ppp/hooks/usePppDocumentUploads'
-import { usePppFormOrchestration } from '@/app/admin/pelanggan/ppp/hooks/usePppFormOrchestration'
-import { usePppIdValidation } from '@/app/admin/pelanggan/ppp/hooks/usePppIdValidation'
+import { clientLogger } from "@/lib/client-logger";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import {
+  fetchWithHandling,
+  formatErrorMessage,
+  isFetchError,
+} from "@/lib/utils/fetch-wrapper";
+import { PppClientFormActions } from "@/app/admin/pelanggan/ppp/components/actions/PppClientFormActions";
+import { PppClientInfoTabSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection";
+import { PppClientSiteSection } from "@/app/admin/pelanggan/ppp/components/info/PppClientSiteSection";
+import { PppClientMapPickerModal } from "@/app/admin/pelanggan/ppp/components/modal/PppClientMapPickerModal";
+import { PppClientBillingPreferencesSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientBillingPreferencesSection";
+import { PppClientPackageDateSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientPackageDateSection";
+import { PppClientStatusTypeSection } from "@/app/admin/pelanggan/ppp/components/package/PppClientStatusTypeSection";
+import { PppClientTabNavigation } from "@/app/admin/pelanggan/ppp/components/shell/PppClientTabNavigation";
+import { PppClientBillingSummarySidebar } from "@/app/admin/pelanggan/ppp/components/sidebars/PppClientBillingSummarySidebar";
+import { PppClientDocumentUploadSidebar } from "@/app/admin/pelanggan/ppp/components/sidebars/PppClientDocumentUploadSidebar";
+import {
+  buildPppClientFormData,
+  validatePppClientForm,
+} from "@/app/admin/pelanggan/ppp/shared/form";
+import { usePppDocumentUploads } from "@/app/admin/pelanggan/ppp/hooks/usePppDocumentUploads";
+import { usePppFormOrchestration } from "@/app/admin/pelanggan/ppp/hooks/usePppFormOrchestration";
+import { usePppIdValidation } from "@/app/admin/pelanggan/ppp/hooks/usePppIdValidation";
 
 type HargaPaket = {
-  id: string
-  name: string
-  harga: number
-  durasi: number
-  durasiUnit: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN'
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-  usePPN?: boolean
-  ppnPercentage?: number | null
-  useDiscount?: boolean
-  discountType?: 'FIXED' | 'PERCENT' | null
-  discountValue?: number | null
-  discountDuration?: number | null
-  discountDurationUnit?: 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null
-  profilePPP?: { id: string; name: string } | null
-  bandwidth?: { id: string; name: string } | null
-}
+  id: string;
+  name: string;
+  harga: number;
+  durasi: number;
+  durasiUnit: "JAM" | "HARI" | "BULAN" | "TAHUN";
+  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE";
+  usePPN?: boolean;
+  ppnPercentage?: number | null;
+  useDiscount?: boolean;
+  discountType?: "FIXED" | "PERCENT" | null;
+  discountValue?: number | null;
+  discountDuration?: number | null;
+  discountDurationUnit?: "JAM" | "HARI" | "BULAN" | "TAHUN" | null;
+  profilePPP?: { id: string; name: string } | null;
+  bandwidth?: { id: string; name: string } | null;
+};
 
 type Odp = {
-  id: string
-  name: string
-  location: string | null
-  status: 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE'
-}
+  id: string;
+  name: string;
+  location: string | null;
+  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE";
+};
 
 export function PppClientCreateForm() {
-  const router = useRouter()
-  const { showToast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([])
-  const [odps, setOdps] = useState<Odp[]>([])
+  const router = useRouter();
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
+  const [odps, setOdps] = useState<Odp[]>([]);
   const initialFormData = {
-    idPelanggan: '',
-    nama: '',
-    username: '',
-    password: '123456', // Default password PPPoE
-    passwordLogin: '123456', // Default password untuk login portal pelanggan
-    hargaPaketId: '',
-    tipe: 'REGULER' as 'REGULER' | 'NON_REGULER',
-    tanggalAktif: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() ?? '', // Default: hari ini
-    jatuhTempo: '',
-    status: 'AKTIF' as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE',
+    idPelanggan: "",
+    nama: "",
+    username: "",
+    password: "123456", // Default password PPPoE
+    passwordLogin: "123456", // Default password untuk login portal pelanggan
+    hargaPaketId: "",
+    tipe: "REGULER" as "REGULER" | "NON_REGULER",
+    tanggalAktif:
+      (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      })() ?? "", // Default: hari ini
+    jatuhTempo: "",
+    status: "AKTIF" as "AKTIF" | "NONAKTIF" | "MAINTENANCE",
     autoIsolir: true, // Default: auto isolir aktif
-    alamat: '',
-    provinsi: '',
-    kabupatenKota: '',
-    kelurahanDesa: '',
-    kecamatan: '',
-    noTelp: '',
-    email: '',
+    alamat: "",
+    provinsi: "",
+    kabupatenKota: "",
+    kelurahanDesa: "",
+    kecamatan: "",
+    noTelp: "",
+    email: "",
     latitude: null as number | null,
     longitude: null as number | null,
-    jenisDokumen: null as 'KTP' | 'SIM' | 'Paspor' | null,
-    noDokumen: '',
-    catatan: '',
+    jenisDokumen: null as "KTP" | "SIM" | "Paspor" | null,
+    noDokumen: "",
+    catatan: "",
     usePPN: true, // Gunakan PPN atau tidak
     useDiscount: false, // Gunakan diskon atau tidak
     useProrate: false, // Gunakan perhitungan prorate atau tidak
     // Custom diskon per pelanggan
-    discountType: null as 'FIXED' | 'PERCENT' | null,
+    discountType: null as "FIXED" | "PERCENT" | null,
     discountValue: null as number | null,
     discountDuration: null as number | null,
-    discountDurationUnit: null as 'JAM' | 'HARI' | 'BULAN' | 'TAHUN' | null,
+    discountDurationUnit: null as "JAM" | "HARI" | "BULAN" | "TAHUN" | null,
     // Biaya lain-lain
     biayaInstalasi: null as number | null,
     biayaInstalasiIsRecurring: false, // Default: 1x
@@ -97,11 +109,14 @@ export function PppClientCreateForm() {
     biayaLainnyaIsRecurring: false, // Default: 1x
     useDiskonBiayaLainnya: false, // Centang untuk menggunakan diskon biaya lainnya
     biayaLainnyaDiskon: null as number | null,
-    keteranganBiayaLainnya: '',
-    odpId: '', // ODP yang digunakan pelanggan
+    keteranganBiayaLainnya: "",
+    odpId: "", // ODP yang digunakan pelanggan
     siteId: undefined as string | undefined,
-    billingAction: 'DO_NOTHING' as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING',
-  }
+    billingAction: "DO_NOTHING" as
+      | "CREATE_PAID_INVOICE"
+      | "CREATE_UNPAID_INVOICE"
+      | "DO_NOTHING",
+  };
 
   const {
     formData,
@@ -123,11 +138,12 @@ export function PppClientCreateForm() {
     initialFormData,
     hargaPakets,
     allowNonPositiveProrate: false,
-  })
+  });
 
-  const { idPelangganError, checkingId, resetIdPelangganError } = usePppIdValidation({
-    idPelanggan: formData.idPelanggan,
-  })
+  const { idPelangganError, checkingId, resetIdPelangganError } =
+    usePppIdValidation({
+      idPelanggan: formData.idPelanggan,
+    });
 
   const {
     fileKTP,
@@ -142,56 +158,60 @@ export function PppClientCreateForm() {
   } = usePppDocumentUploads({
     setFormData,
     setActiveTab,
-  })
+  });
 
   // Generate ID pelanggan otomatis (angka unik 8 digit) - sync version (fallback)
   const generateIdPelangganSync = useCallback(() => {
-    const now = new Date()
+    const now = new Date();
     // Menggunakan beberapa digit terakhir dari timestamp + random untuk memastikan unik
-    const timestamp = now.getTime() // Timestamp dalam milidetik
-    const timestampStr = String(timestamp)
+    const timestamp = now.getTime(); // Timestamp dalam milidetik
+    const timestampStr = String(timestamp);
     // Ambil 5 digit terakhir dari timestamp (unik per detik/menit)
-    const timestampPart = timestampStr.slice(-5)
+    const timestampPart = timestampStr.slice(-5);
     // Random 3 digit untuk memastikan tidak duplikat
-    const random = Math.floor(Math.random() * 1000) // Random 0-999
+    const random = Math.floor(Math.random() * 1000); // Random 0-999
     // Format: 5 digit timestamp + 3 digit random = 8 digit (contoh: 68001234)
-    return timestampPart + String(random).padStart(3, '0')
-  }, [])
+    return timestampPart + String(random).padStart(3, "0");
+  }, []);
 
   // Generate ID pelanggan dari API (async)
   const generateIdPelanggan = useCallback(async () => {
     try {
-      const res = await fetchWithHandling<{ idPelanggan: string }>('/api/pelanggan-ppp/generate-id')
+      const res = await fetchWithHandling<{ idPelanggan: string }>(
+        "/api/pelanggan-ppp/generate-id",
+      );
       if (res.data?.idPelanggan) {
-        return res.data.idPelanggan
+        return res.data.idPelanggan;
       }
       // Fallback: generate di frontend jika API error
-      return generateIdPelangganSync()
+      return generateIdPelangganSync();
     } catch (error) {
-      console.error('Error generating ID:', error)
+      clientLogger.error("Error generating ID:", error);
       // Fallback: generate di frontend jika API error
-      return generateIdPelangganSync()
+      return generateIdPelangganSync();
     }
-  }, [generateIdPelangganSync])
+  }, [generateIdPelangganSync]);
 
   // Load atau generate ID pelanggan yang terjamin unik dari API
   const loadOrGenerateIdPelanggan = useCallback(async () => {
     try {
       // Panggil API untuk generate ID yang terjamin unik
-      const res = await fetchWithHandling<{ idPelanggan: string }>('/api/pelanggan-ppp/generate-id')
+      const res = await fetchWithHandling<{ idPelanggan: string }>(
+        "/api/pelanggan-ppp/generate-id",
+      );
       if (res.data?.idPelanggan) {
-        return res.data.idPelanggan
+        return res.data.idPelanggan;
       }
 
       // Fallback: generate di frontend jika API error
-      console.warn('API generate-id tidak tersedia, menggunakan fallback')
-      return generateIdPelangganSync()
+      clientLogger.warn("API generate-id tidak tersedia, menggunakan fallback");
+      return generateIdPelangganSync();
     } catch (error) {
       // Fallback: generate di frontend jika API error
-      console.warn('Error memanggil API generate-id:', error)
-      return generateIdPelangganSync()
+      clientLogger.warn("Error memanggil API generate-id:", error);
+      return generateIdPelangganSync();
     }
-  }, [generateIdPelangganSync])
+  }, [generateIdPelangganSync]);
 
   useEffect(() => {
     // Generate ID pelanggan otomatis saat component mount
@@ -200,144 +220,164 @@ export function PppClientCreateForm() {
         ...prev,
         idPelanggan: id,
         username: id, // Set username sama dengan ID pelanggan secara default
-      }))
-    })
-  }, [loadOrGenerateIdPelanggan, setFormData]) // Generate ID only once on mount
+      }));
+    });
+  }, [loadOrGenerateIdPelanggan, setFormData]); // Generate ID only once on mount
 
   const loadHargaPakets = useCallback(async () => {
     try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      params.append('status', 'AKTIF')
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.append("status", "AKTIF");
       if (formData.siteId) {
-        params.append('siteId', formData.siteId)
+        params.append("siteId", formData.siteId);
       }
 
-      const res = await fetchWithHandling<HargaPaket[]>(`/api/hargapakets?${params.toString()}`)
+      const res = await fetchWithHandling<HargaPaket[]>(
+        `/api/hargapakets?${params.toString()}`,
+      );
       if (res.data) {
-        setHargaPakets(res.data)
+        setHargaPakets(res.data);
       }
     } catch (err: unknown) {
-      console.error('Error loading harga pakets:', err)
+      clientLogger.error("Error loading harga pakets:", err);
       if (isFetchError(err)) {
-        showToast('error', formatErrorMessage(err))
+        showToast("error", formatErrorMessage(err));
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [formData.siteId, showToast])
+  }, [formData.siteId, showToast]);
 
   const loadOdps = useCallback(async () => {
     try {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams();
       if (formData.siteId) {
-        params.append('siteId', formData.siteId)
+        params.append("siteId", formData.siteId);
       }
 
-      const res = await fetchWithHandling<{ odps: Odp[] }>(`/api/odps?${params.toString()}`)
+      const res = await fetchWithHandling<{ odps: Odp[] }>(
+        `/api/odps?${params.toString()}`,
+      );
       if (res.data?.odps) {
-        setOdps(res.data.odps)
+        setOdps(res.data.odps);
       }
     } catch (err: unknown) {
-      console.error('Error loading ODPs:', err)
+      clientLogger.error("Error loading ODPs:", err);
       if (isFetchError(err)) {
-        showToast('error', formatErrorMessage(err))
+        showToast("error", formatErrorMessage(err));
       }
     }
-  }, [formData.siteId, showToast])
+  }, [formData.siteId, showToast]);
 
   useEffect(() => {
-    loadHargaPakets()
-    loadOdps()
-  }, [loadHargaPakets, loadOdps])
+    loadHargaPakets();
+    loadOdps();
+  }, [loadHargaPakets, loadOdps]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     const validationError = validatePppClientForm(formData, {
-      mode: 'create',
+      mode: "create",
       idPelangganError,
-    })
+    });
     if (validationError) {
-      setError(validationError)
-      return
+      setError(validationError);
+      return;
     }
 
     try {
-      setSubmitting(true)
+      setSubmitting(true);
 
       // Buat FormData untuk mengirim file
       const formDataToSend = buildPppClientFormData(formData, {
         fileKTP,
         fileRumahSekitar,
         fileBAST,
-      })
+      });
 
       // Use fetch directly for FormData, but handle response manually or assume backend returns standard format
       // Note: fetchWithHandling expects JSON usually, but we are sending FormData.
       // However, fetchWithHandling sets Content-Type to application/json by default which breaks FormData.
       // So we use raw fetch but handle errors similarly.
 
-      const res = await fetch('/api/pelanggan-ppp', {
-        method: 'POST',
+      const res = await fetch("/api/pelanggan-ppp", {
+        method: "POST",
         body: formDataToSend,
         // Do NOT set Content-Type header for FormData, let browser set it with boundary
-      })
+      });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        console.error("API Error details:", errorData)
+        const errorData = await res.json().catch(() => ({}));
+        clientLogger.error("API Error details:", errorData);
 
         // Handle rate limit
         if (res.status === 429) {
-          const retryAfter = res.headers.get('Retry-After')
-          showToast('error', `Terlalu banyak permintaan. Coba lagi dalam ${retryAfter || 60} detik.`)
-          return
+          const retryAfter = res.headers.get("Retry-After");
+          showToast(
+            "error",
+            `Terlalu banyak permintaan. Coba lagi dalam ${retryAfter || 60} detik.`,
+          );
+          return;
         }
 
         // Jika error karena ID duplikat, generate ID baru dan retry
-        if (errorData.error?.includes('sudah digunakan') || errorData.error?.includes('unique') || res.status === 409) {
-          const newId = await generateIdPelanggan()
-          setFormData(prev => ({ ...prev, idPelanggan: newId }))
-          setError('ID Pelanggan sudah digunakan. ID baru telah di-generate. Silakan submit ulang.')
-          showToast('warning', 'ID Pelanggan diperbarui karena duplikat')
-          return
+        if (
+          errorData.error?.includes("sudah digunakan") ||
+          errorData.error?.includes("unique") ||
+          res.status === 409
+        ) {
+          const newId = await generateIdPelanggan();
+          setFormData((prev) => ({ ...prev, idPelanggan: newId }));
+          setError(
+            "ID Pelanggan sudah digunakan. ID baru telah di-generate. Silakan submit ulang.",
+          );
+          showToast("warning", "ID Pelanggan diperbarui karena duplikat");
+          return;
         }
-        throw new Error(errorData.error || 'Gagal menyimpan pelanggan PPP')
+        throw new Error(errorData.error || "Gagal menyimpan pelanggan PPP");
       }
 
       // Berhasil, redirect ke halaman list
-      showToast('success', 'Pelanggan berhasil disimpan')
-      router.push('/admin/pelanggan/ppp')
+      showToast("success", "Pelanggan berhasil disimpan");
+      router.push("/admin/pelanggan/ppp");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan data'
-      setError(message)
-      showToast('error', message)
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat menyimpan data";
+      setError(message);
+      showToast("error", message);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    baseHandleChange(e, resetIdPelangganError)
-  }
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    baseHandleChange(e, resetIdPelangganError);
+  };
 
   const createStatusOptions = [
-    { value: 'AKTIF', label: 'Aktif sekarang' },
-    { value: 'NONAKTIF', label: 'Menunggu' },
-  ]
+    { value: "AKTIF", label: "Aktif sekarang" },
+    { value: "NONAKTIF", label: "Menunggu" },
+  ];
 
   return (
     <div className="w-full space-y-5">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Tambah Pelanggan PPP</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          Tambah Pelanggan PPP
+        </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
           Tambah pelanggan baru dengan koneksi PPPoE
         </p>
       </div>
-
-
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Form - 2 kolom */}
@@ -345,16 +385,24 @@ export function PppClientCreateForm() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <form className="space-y-5" onSubmit={handleSubmit}>
               {/* Tab Navigation */}
-              <PppClientTabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+              <PppClientTabNavigation
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
 
               {/* Tab Content */}
-              {activeTab === 'paket' && (
+              {activeTab === "paket" && (
                 <div className="space-y-5">
                   <PppClientSiteSection
                     siteId={formData.siteId}
                     helperText="Pilih site terlebih dahulu untuk melihat Paket dan ODP yang tersedia."
                     onSiteChange={(siteId) => {
-                      setFormData((prev) => ({ ...prev, siteId, hargaPaketId: '', odpId: '' }))
+                      setFormData((prev) => ({
+                        ...prev,
+                        siteId,
+                        hargaPaketId: "",
+                        odpId: "",
+                      }));
                     }}
                     roundedClassName="rounded-xl"
                   />
@@ -364,9 +412,18 @@ export function PppClientCreateForm() {
                     tipe={formData.tipe}
                     autoIsolir={formData.autoIsolir}
                     statusOptions={createStatusOptions}
-                    onStatusChange={(value) => setFormData((prev) => ({ ...prev, status: value as 'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' }))}
-                    onTipeChange={(value) => setFormData((prev) => ({ ...prev, tipe: value }))}
-                    onAutoIsolirChange={(checked) => setFormData((prev) => ({ ...prev, autoIsolir: checked }))}
+                    onStatusChange={(value) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        status: value as "AKTIF" | "NONAKTIF" | "MAINTENANCE",
+                      }))
+                    }
+                    onTipeChange={(value) =>
+                      setFormData((prev) => ({ ...prev, tipe: value }))
+                    }
+                    onAutoIsolirChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, autoIsolir: checked }))
+                    }
                   />
 
                   <PppClientPackageDateSection
@@ -379,51 +436,112 @@ export function PppClientCreateForm() {
                     roundedClassName="rounded-xl"
                     actionSlot={
                       <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Opsi Penagihan Awal</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Tentukan bagaimana tagihan pertama untuk pelanggan ini akan ditangani.</p>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                          Opsi Penagihan Awal
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Tentukan bagaimana tagihan pertama untuk pelanggan ini
+                          akan ditangani.
+                        </p>
                         <div className="space-y-3">
-                          <label className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === 'CREATE_PAID_INVOICE' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                          <label
+                            className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === "CREATE_PAID_INVOICE" ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20" : "border-gray-200 dark:border-gray-700"}`}
+                          >
                             <input
                               type="radio"
                               name="billingAction"
                               value="CREATE_PAID_INVOICE"
-                              checked={formData.billingAction === 'CREATE_PAID_INVOICE'}
-                              onChange={(e) => setFormData((prev) => ({ ...prev, billingAction: e.target.value as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING' }))}
+                              checked={
+                                formData.billingAction === "CREATE_PAID_INVOICE"
+                              }
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  billingAction: e.target.value as
+                                    | "CREATE_PAID_INVOICE"
+                                    | "CREATE_UNPAID_INVOICE"
+                                    | "DO_NOTHING",
+                                }))
+                              }
                               className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                             />
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">Prepaid: Buat & Lunas <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Disarankan</span></span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tagihan langsung dibuat dan statusnya <b>LUNAS</b>. Disarankan untuk pendaftaran baru yang pelanggan sudah langsung membayar. Pemasukan akan langsung dicatat.</span>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                Prepaid: Buat & Lunas{" "}
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                  Disarankan
+                                </span>
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Tagihan langsung dibuat dan statusnya{" "}
+                                <b>LUNAS</b>. Disarankan untuk pendaftaran baru
+                                yang pelanggan sudah langsung membayar.
+                                Pemasukan akan langsung dicatat.
+                              </span>
                             </div>
                           </label>
 
-                          <label className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === 'CREATE_UNPAID_INVOICE' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                          <label
+                            className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === "CREATE_UNPAID_INVOICE" ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20" : "border-gray-200 dark:border-gray-700"}`}
+                          >
                             <input
                               type="radio"
                               name="billingAction"
                               value="CREATE_UNPAID_INVOICE"
-                              checked={formData.billingAction === 'CREATE_UNPAID_INVOICE'}
-                              onChange={(e) => setFormData((prev) => ({ ...prev, billingAction: e.target.value as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING' }))}
+                              checked={
+                                formData.billingAction ===
+                                "CREATE_UNPAID_INVOICE"
+                              }
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  billingAction: e.target.value as
+                                    | "CREATE_PAID_INVOICE"
+                                    | "CREATE_UNPAID_INVOICE"
+                                    | "DO_NOTHING",
+                                }))
+                              }
                               className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                             />
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">Prepaid: Buat & Belum Lunas</span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tagihan langsung dibuat dengan status <b>BELUM LUNAS</b>. Pelanggan dapat melihat tagihan ini di aplikasi dan harus membayarnya.</span>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                Prepaid: Buat & Belum Lunas
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Tagihan langsung dibuat dengan status{" "}
+                                <b>BELUM LUNAS</b>. Pelanggan dapat melihat
+                                tagihan ini di aplikasi dan harus membayarnya.
+                              </span>
                             </div>
                           </label>
 
-                          <label className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === 'DO_NOTHING' ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                          <label
+                            className={`flex items-start gap-4 cursor-pointer p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${formData.billingAction === "DO_NOTHING" ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20" : "border-gray-200 dark:border-gray-700"}`}
+                          >
                             <input
                               type="radio"
                               name="billingAction"
                               value="DO_NOTHING"
-                              checked={formData.billingAction === 'DO_NOTHING'}
-                              onChange={(e) => setFormData((prev) => ({ ...prev, billingAction: e.target.value as 'CREATE_PAID_INVOICE' | 'CREATE_UNPAID_INVOICE' | 'DO_NOTHING' }))}
+                              checked={formData.billingAction === "DO_NOTHING"}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  billingAction: e.target.value as
+                                    | "CREATE_PAID_INVOICE"
+                                    | "CREATE_UNPAID_INVOICE"
+                                    | "DO_NOTHING",
+                                }))
+                              }
                               className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
                             />
                             <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">Postpaid: Jangan Buat Tagihan</span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tagihan pertama akan otomatis dibuat <b>mendekati tanggal jatuh tempo berikutnya</b>.</span>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                Postpaid: Jangan Buat Tagihan
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Tagihan pertama akan otomatis dibuat{" "}
+                                <b>mendekati tanggal jatuh tempo berikutnya</b>.
+                              </span>
                             </div>
                           </label>
                         </div>
@@ -441,7 +559,7 @@ export function PppClientCreateForm() {
                 </div>
               )}
 
-              {activeTab === 'info' && (
+              {activeTab === "info" && (
                 <PppClientInfoTabSection
                   formData={formData}
                   handleChange={handleChange}
@@ -450,7 +568,9 @@ export function PppClientCreateForm() {
                   checkingId={checkingId}
                   odps={odps}
                   showPasswordLogin={showPasswordLogin}
-                  onToggleShowPasswordLogin={() => setShowPasswordLogin(!showPasswordLogin)}
+                  onToggleShowPasswordLogin={() =>
+                    setShowPasswordLogin(!showPasswordLogin)
+                  }
                   onOpenMapPicker={() => setShowMapPicker(true)}
                   roundedClassName="rounded-xl"
                 />
@@ -471,7 +591,7 @@ export function PppClientCreateForm() {
         {mounted && (
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 sticky top-5">
-              {activeTab === 'info' ? (
+              {activeTab === "info" ? (
                 <PppClientDocumentUploadSidebar
                   fileKTP={fileKTP}
                   fileRumahSekitar={fileRumahSekitar}
@@ -509,10 +629,10 @@ export function PppClientCreateForm() {
             ...prev,
             latitude: lat,
             longitude: lon,
-          }))
+          }));
         }}
         roundedClassName="rounded-xl"
       />
     </div>
-  )
+  );
 }

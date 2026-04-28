@@ -1,20 +1,27 @@
-import type { Prisma } from "@prisma/client";
-import { WorkOrderStatus } from "@prisma/client";
 import { getMixRadiusService } from "@/modules/integrations";
-import { prisma, prismaMitra } from "@/modules/database";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
+import { MobileDashboardRepository } from "../repositories/MobileDashboardRepository";
+import type { IMobileDashboardRepository } from "../domain/ports/IMobileDashboardRepository";
 
-const CLOSED_WORK_ORDER_STATUSES = ["COMPLETED", "VERIFIED", "CLOSED"] as const;
-const ACTIVE_WORK_ORDER_STATUSES = [
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "ON_HOLD",
-] as const;
 const DEFAULT_CANVASING_TARGET = 30;
 const DEFAULT_TARGET_SCHEMA = "MONTHLY_RESET";
 const MIXRADIUS_FETCH_LENGTH = 100000;
 
-const mixRadiusService = getMixRadiusService();
+interface MobileDashboardPeriods {
+  today: Date;
+  weekStart: Date;
+  monthStart: Date;
+}
+
+interface MobileDashboardMixRadiusService {
+  fetchIncomeByPeriod(input: {
+    startDate: string;
+    endDate: string;
+    length: number;
+  }): Promise<{
+    data?: Array<{ owner_name?: string; member_id?: string; invoice: string }>;
+  } | null>;
+}
 
 export interface MobileDashboardUserPayload {
   id: string;
@@ -23,6 +30,13 @@ export interface MobileDashboardUserPayload {
 }
 
 export class MobileDashboardService {
+  constructor(
+    private readonly repository: IMobileDashboardRepository = new MobileDashboardRepository(),
+    private readonly mixRadiusService?: MobileDashboardMixRadiusService,
+    private readonly createPeriods: () => MobileDashboardPeriods = () =>
+      this.createDashboardPeriods(),
+  ) {}
+
   /** Build mobile dashboard stats for mitra and regular employee users. */
   async getDashboardStats(payload: MobileDashboardUserPayload) {
     if (payload.role === "MITRA") {
@@ -34,66 +48,34 @@ export class MobileDashboardService {
 
   /** Build dashboard payload for mitra users. */
   private async getMitraDashboardStats(userId: string, tenantId: string) {
-    const mitra = await prismaMitra.mitra.findUnique({
-      where: { id: userId },
-      select: {
-        siteId: true,
-        mitraType: true,
-        targetHarian: true,
-        enableFeePelanggan: true,
-        mitraRateFeePelanggan: true,
-        mixradiusOwnerNames: true,
-        mitraWallet: { select: { balance: true } },
-      },
-    });
+    const mitra = await this.repository.findMitraDashboardProfile(userId);
 
     if (!mitra) {
       throw new Error("Mitra tidak ditemukan");
     }
 
-    const periods = this.createDashboardPeriods();
+    const periods = this.createPeriods();
     const [
       workOrdersAssigned,
       woCompletedToday,
       woCompletedWeek,
       woCompletedMonth,
     ] = await Promise.all([
-      prisma.workOrderAssignments.count({
-        where: {
-          mitraId: userId,
-          tenantId,
-          workOrders: { status: { in: [...ACTIVE_WORK_ORDER_STATUSES] } },
-        },
+      this.repository.countAssignedMitraWorkOrders({ userId, tenantId }),
+      this.repository.countClosedMitraWorkOrders({
+        userId,
+        tenantId,
+        since: periods.today,
       }),
-      prisma.workOrderAssignments.count({
-        where: {
-          mitraId: userId,
-          tenantId,
-          workOrders: {
-            status: { in: [...CLOSED_WORK_ORDER_STATUSES] },
-            completedAt: { gte: periods.today },
-          },
-        },
+      this.repository.countClosedMitraWorkOrders({
+        userId,
+        tenantId,
+        since: periods.weekStart,
       }),
-      prisma.workOrderAssignments.count({
-        where: {
-          mitraId: userId,
-          tenantId,
-          workOrders: {
-            status: { in: [...CLOSED_WORK_ORDER_STATUSES] },
-            completedAt: { gte: periods.weekStart },
-          },
-        },
-      }),
-      prisma.workOrderAssignments.count({
-        where: {
-          mitraId: userId,
-          tenantId,
-          workOrders: {
-            status: { in: [...CLOSED_WORK_ORDER_STATUSES] },
-            completedAt: { gte: periods.monthStart },
-          },
-        },
+      this.repository.countClosedMitraWorkOrders({
+        userId,
+        tenantId,
+        since: periods.monthStart,
       }),
     ]);
 
@@ -107,7 +89,7 @@ export class MobileDashboardService {
       enableFeePelanggan: mitra.enableFeePelanggan,
       mitraRateFeePelanggan: mitra.mitraRateFeePelanggan,
       mixradiusOwnerNames: mitra.mixradiusOwnerNames,
-      currentBalance: mitra.mitraWallet?.balance?.toNumber() || 0,
+      currentBalance: mitra.currentBalance,
     });
 
     return {
@@ -128,27 +110,17 @@ export class MobileDashboardService {
 
   /** Build dashboard payload for employee users. */
   private async getEmployeeDashboardStats(userId: string, tenantId: string) {
-    const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: {
-        siteId: true,
-        departmentId: true,
-        userSites: { select: { siteId: true } },
-      },
-    });
+    const user = await this.repository.findEmployeeDashboardProfile(
+      userId,
+      tenantId,
+    );
 
     if (!user) {
       throw new Error("User tidak ditemukan");
     }
 
     const userSiteIds = this.extractUserSiteIds(user.siteId, user.userSites);
-    const periods = this.createDashboardPeriods();
-    const pendingWhere = this.buildPendingWorkOrderWhere(
-      tenantId,
-      user.departmentId,
-      userSiteIds,
-    );
-
+    const periods = this.createPeriods();
     const [
       workOrdersAssigned,
       workOrdersPending,
@@ -157,53 +129,41 @@ export class MobileDashboardService {
       woCompletedMonth,
       barangKeluarToday,
       barangMasukToday,
-      userDetails,
     ] = await Promise.all([
-      prisma.workOrders.count({
-        where: {
-          assignedToId: userId,
-          status: { in: [...ACTIVE_WORK_ORDER_STATUSES] },
-          tenantId,
-        },
+      this.repository.countAssignedEmployeeWorkOrders({ userId, tenantId }),
+      this.repository.countPendingEmployeeWorkOrders({
+        tenantId,
+        departmentId: user.departmentId,
+        userSiteIds,
       }),
-      prisma.workOrders.count({ where: pendingWhere }),
-      prisma.workOrders.count({
-        where: {
-          assignedToId: userId,
-          status: { in: [...CLOSED_WORK_ORDER_STATUSES] },
-          completedAt: { gte: periods.today },
-          tenantId,
-        },
+      this.repository.countClosedEmployeeWorkOrders({
+        userId,
+        tenantId,
+        since: periods.today,
       }),
-      prisma.workOrders.count({
-        where: {
-          assignedToId: userId,
-          status: { in: [...CLOSED_WORK_ORDER_STATUSES] },
-          completedAt: { gte: periods.weekStart },
-          tenantId,
-        },
+      this.repository.countClosedEmployeeWorkOrders({
+        userId,
+        tenantId,
+        since: periods.weekStart,
       }),
-      prisma.workOrders.count({
-        where: {
-          assignedToId: userId,
-          status: { in: [...CLOSED_WORK_ORDER_STATUSES] },
-          completedAt: { gte: periods.monthStart },
-          tenantId,
-        },
+      this.repository.countClosedEmployeeWorkOrders({
+        userId,
+        tenantId,
+        since: periods.monthStart,
       }),
-      prisma.barangKeluar.count({
-        where: { userId, tanggal: { gte: periods.today }, tenantId },
+      this.repository.countBarangKeluarToday({
+        userId,
+        tenantId,
+        since: periods.today,
       }),
-      prisma.barangMasuk.count({
-        where: { userId, tanggal: { gte: periods.today }, tenantId },
-      }),
-      prisma.user.findFirst({
-        where: { id: userId, tenantId },
-        select: { canvasingTarget: true, targetSchema: true },
+      this.repository.countBarangMasukToday({
+        userId,
+        tenantId,
+        since: periods.today,
       }),
     ]);
 
-    const targetSchema = userDetails?.targetSchema || DEFAULT_TARGET_SCHEMA;
+    const targetSchema = user.targetSchema || DEFAULT_TARGET_SCHEMA;
     const unclaimedCanvasing = await this.getEmployeeCanvasingProgress({
       userId,
       tenantId,
@@ -220,7 +180,7 @@ export class MobileDashboardService {
       barangKeluarToday,
       barangMasukToday,
       unclaimedCanvasing,
-      canvasingTarget: userDetails?.canvasingTarget || DEFAULT_CANVASING_TARGET,
+      canvasingTarget: user.canvasingTarget || DEFAULT_CANVASING_TARGET,
       targetSchema,
     };
   }
@@ -255,28 +215,6 @@ export class MobileDashboardService {
     return siteId ? [siteId] : [];
   }
 
-  /** Build pending WO access filter consistent with available mobile WO route. */
-  private buildPendingWorkOrderWhere(
-    tenantId: string,
-    departmentId: string | null,
-    userSiteIds: string[],
-  ): Prisma.WorkOrdersWhereInput {
-    const departmentFilter: Prisma.WorkOrdersWhereInput = departmentId
-      ? { OR: [{ departmentId: null }, { departmentId }] }
-      : { departmentId: null };
-    const siteFilter: Prisma.WorkOrdersWhereInput =
-      userSiteIds.length > 0
-        ? { OR: [{ siteId: null }, { siteId: { in: userSiteIds } }] }
-        : { siteId: null };
-
-    return {
-      status: WorkOrderStatus.PENDING,
-      assignedToId: null,
-      tenantId,
-      AND: [departmentFilter, siteFilter],
-    };
-  }
-
   /** Resolve employee canvasing progress based on target schema. */
   private async getEmployeeCanvasingProgress(input: {
     userId: string;
@@ -285,24 +223,10 @@ export class MobileDashboardService {
     monthStart: Date;
   }) {
     if (input.targetSchema === "ACCUMULATED") {
-      return prisma.pointClaim.count({
-        where: {
-          salesId: input.userId,
-          status: "APPROVED",
-          isCashedOut: false,
-          tenantId: input.tenantId,
-        },
-      });
+      return this.repository.countAccumulatedCanvasing(input);
     }
 
-    return prisma.canvasing.count({
-      where: {
-        salesId: input.userId,
-        status: "APPROVED",
-        createdAt: { gte: input.monthStart },
-        tenantId: input.tenantId,
-      },
-    });
+    return this.repository.countMonthlyCanvasing(input);
   }
 
   /** Build extra sales metrics for mitra sales users. */
@@ -327,13 +251,10 @@ export class MobileDashboardService {
       };
     }
 
-    const suksesClosingMonth = await prisma.canvasing.count({
-      where: {
-        mitraId: input.userId,
-        status: "APPROVED",
-        createdAt: { gte: input.monthStart },
-        tenantId: input.tenantId,
-      },
+    const suksesClosingMonth = await this.repository.countMitraClosingMonth({
+      userId: input.userId,
+      tenantId: input.tenantId,
+      monthStart: input.monthStart,
     });
 
     const feeStats = input.enableFeePelanggan
@@ -353,6 +274,10 @@ export class MobileDashboardService {
     };
   }
 
+  private getMixRadiusService(): MobileDashboardMixRadiusService {
+    return this.mixRadiusService ?? getMixRadiusService();
+  }
+
   /** Calculate mitra customer fee stats from MixRadius income data. */
   private async getMitraFeePelangganStats(input: {
     monthStart: Date;
@@ -363,11 +288,13 @@ export class MobileDashboardService {
     try {
       const startDate = input.monthStart.toISOString().split("T")[0] || "";
       const endDate = input.today.toISOString().split("T")[0] || "";
-      const incomeResult = await mixRadiusService.fetchIncomeByPeriod({
-        startDate,
-        endDate,
-        length: MIXRADIUS_FETCH_LENGTH,
-      });
+      const incomeResult = await this.getMixRadiusService().fetchIncomeByPeriod(
+        {
+          startDate,
+          endDate,
+          length: MIXRADIUS_FETCH_LENGTH,
+        },
+      );
 
       if (!incomeResult?.data?.length) {
         return { activeCustomers: 0, totalFeePelanggan: 0 };
@@ -435,4 +362,13 @@ export class MobileDashboardService {
   }
 }
 
-export const mobileDashboardService = new MobileDashboardService();
+let mobileDashboardServiceInstance: MobileDashboardService | null = null;
+
+/** Return the shared mobile dashboard service lazily. */
+export function getMobileDashboardService(): MobileDashboardService {
+  if (!mobileDashboardServiceInstance) {
+    mobileDashboardServiceInstance = new MobileDashboardService();
+  }
+
+  return mobileDashboardServiceInstance;
+}

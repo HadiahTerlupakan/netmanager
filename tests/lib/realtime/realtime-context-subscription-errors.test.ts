@@ -120,13 +120,17 @@ describe("useRealtimeSubscription error diagnostics", () => {
     useRealtimeSubscription("mikrotik.update", vi.fn());
 
     expect(consoleErrorMock).toHaveBeenCalledWith(
-      "Realtime Firestore subscription failed",
+      expect.stringContaining("Realtime Firestore subscription failed"),
       {
-        scope: "admin:mikrotik",
-        channel: "admins/mikrotik/events",
-        event: "mikrotik.update",
-        message: "Missing or insufficient permissions.",
-        code: "permission-denied",
+        args: [
+          {
+            scope: "admin:mikrotik",
+            channel: "admins/mikrotik/events",
+            event: "mikrotik.update",
+            message: "Missing or insufficient permissions.",
+            code: "permission-denied",
+          },
+        ],
       },
     );
   });

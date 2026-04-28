@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { parseOptionalDate } from "@/lib/utils/server-datetime";
 import type {
   IMixRadiusDataRepository,
@@ -67,7 +68,7 @@ export class MixRadiusSyncService {
     yesterday.setDate(yesterday.getDate() - 1);
     const dateStr = yesterday.toISOString().split("T")[0];
 
-    console.log(`[MixRadiusSync] Running daily settlement sync for ${dateStr}`);
+    logger.info(`[MixRadiusSync] Running daily settlement sync for ${dateStr}`);
     return this.syncInvoices(dateStr, dateStr);
   }
 
@@ -213,7 +214,7 @@ export class MixRadiusSyncService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Terjadi kesalahan";
-      console.warn(
+      logger.warn(
         `[MixRadiusSync] Failed to link to Pelanggan table: ${message}`,
       );
     }
@@ -251,7 +252,7 @@ export class MixRadiusSyncService {
       await this.upsertInvoice(record, undefined);
       return 1;
     } catch (error) {
-      console.error(
+      logger.error(
         `[MixRadiusSync] Failed to sync invoice ${record.invoice}:`,
         error,
       );
@@ -314,13 +315,13 @@ export class MixRadiusSyncService {
   private handleSyncError(error: unknown, subject: string, logLabel: string) {
     if (this.isConfigError(error)) {
       const message = this.getErrorMessage(error);
-      console.warn(
+      logger.warn(
         `[MixRadiusSync] Berhenti sinkronisasi ${subject}: ${message}`,
       );
       return { success: false, count: 0, reason: message };
     }
 
-    console.error(`[MixRadiusSync] ${logLabel}:`, error);
+    logger.error(`[MixRadiusSync] ${logLabel}:`, error);
     throw error;
   }
 
@@ -512,4 +513,13 @@ export class MixRadiusSyncService {
   }
 }
 
-export const syncService = new MixRadiusSyncService();
+let syncServiceInstance: MixRadiusSyncService | null = null;
+
+/** Return the shared MixRadius sync service lazily. */
+export function getMixRadiusSyncService(): MixRadiusSyncService {
+  if (!syncServiceInstance) {
+    syncServiceInstance = new MixRadiusSyncService();
+  }
+
+  return syncServiceInstance;
+}

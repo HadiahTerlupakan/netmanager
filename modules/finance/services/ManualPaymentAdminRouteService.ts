@@ -1,7 +1,7 @@
 import { AutomaticBillingService } from "./AutomaticBillingService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
-import { PelangganRepository } from "@/modules/pelanggan";
+import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { createRouteServiceError } from "./RouteServiceError";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";

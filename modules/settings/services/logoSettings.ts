@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import path from "path";
 import { access, unlink } from "fs/promises";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
@@ -110,7 +111,7 @@ async function safeDeletePublicFile(publicPath: string): Promise<void> {
     const errorCode =
       error instanceof Error && "code" in error ? error.code : undefined;
     if (errorCode !== "ENOENT") {
-      console.warn("[logoSettings] Failed to delete logo file:", error);
+      logger.warn("[logoSettings] Failed to delete logo file:", error);
     }
   }
 }

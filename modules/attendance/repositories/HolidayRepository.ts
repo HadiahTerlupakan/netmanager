@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { redis } from "@/lib/redis";
@@ -81,7 +82,7 @@ export class HolidayRepository implements IHolidayRepository {
       const version = await redis.get(`holiday:${tenantId}:version`);
       if (version) cacheVersion = version;
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
         error,
       );
@@ -103,7 +104,7 @@ export class HolidayRepository implements IHolidayRepository {
         };
       }
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to read holiday cache for ${cacheKey}:`,
         error,
       );
@@ -131,7 +132,7 @@ export class HolidayRepository implements IHolidayRepository {
         JSON.stringify(result),
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to write holiday cache for ${cacheKey}:`,
         error,
       );
@@ -149,7 +150,7 @@ export class HolidayRepository implements IHolidayRepository {
       const version = await redis.get(`holiday:${tenantId}:version`);
       if (version) cacheVersion = version;
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
         error,
       );
@@ -161,7 +162,7 @@ export class HolidayRepository implements IHolidayRepository {
       const cachedRaw = await redis.get(cacheKey);
       if (cachedRaw) return JSON.parse(cachedRaw) as Holiday[];
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to read holidays-by-year cache for ${cacheKey}:`,
         error,
       );
@@ -190,7 +191,7 @@ export class HolidayRepository implements IHolidayRepository {
         JSON.stringify(holidays),
       );
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to write holidays-by-year cache for ${cacheKey}:`,
         error,
       );
@@ -207,7 +208,7 @@ export class HolidayRepository implements IHolidayRepository {
     try {
       await redis.incr(`holiday:${tenantId}:version`);
     } catch (error) {
-      console.error(
+      logger.error(
         `[HolidayRepository] Failed to invalidate holiday cache for tenant ${tenantId}:`,
         error,
       );

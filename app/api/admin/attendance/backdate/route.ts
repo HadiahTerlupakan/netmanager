@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import * as z from "zod";
 
@@ -54,7 +55,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.badRequest(error.message);
     }
 
-    console.error("Attendance Backdate Error:", error);
+    logger.error("Attendance Backdate Error:", error);
     return ApiErrors.internalError("Gagal melakukan backfill absensi");
   }
 });

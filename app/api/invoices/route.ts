@@ -1,8 +1,12 @@
-import { Prisma } from "@prisma/client";
+import { logger } from "@/lib/logger";
 import { invoiceSchema } from "@/lib/validations/invoice";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { createInvoiceForRoute, listInvoicesForRoute } from "@/modules/finance";
+import {
+  createInvoiceForRoute,
+  listInvoicesForRoute,
+  mapInvoiceRouteError,
+} from "@/modules/finance";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { searchParams } = req.nextUrl;
@@ -51,13 +55,14 @@ export const POST = createHandler(
 
       return apiSuccess(result.data, { status: 201 });
     } catch (error: unknown) {
-      console.error("Error creating invoice:", error);
+      logger.error("Error creating invoice:", error);
 
-      if (isPrismaErrorCode(error, "P2002")) {
+      const routeError = mapInvoiceRouteError(error);
+      if (routeError.status === "duplicate-invoice-number") {
         return ApiErrors.conflict("Nomor invoice sudah digunakan");
       }
 
-      if (isPrismaErrorCode(error, "P2003")) {
+      if (routeError.status === "foreign-key-error") {
         return ApiErrors.badRequest(
           "Pelanggan tidak ditemukan (Foreign Key Error)",
         );
@@ -71,11 +76,5 @@ export const POST = createHandler(
 async function canOnlyAccessOwnSite(user: { role?: string | null }) {
   return (
     (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN"
-  );
-}
-
-function isPrismaErrorCode(error: unknown, code: string) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError && error.code === code
   );
 }

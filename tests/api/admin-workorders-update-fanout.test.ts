@@ -14,6 +14,7 @@ const mockFns = vi.hoisted(() => ({
   workOrderActivity: vi.fn(),
   updateWorkOrder: vi.fn(),
   logActivity: vi.fn(),
+  getUserContext: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -51,9 +52,12 @@ vi.mock("@/modules/notification", () => ({
 }));
 
 vi.mock("@/modules/work-order", () => ({
-  getWorkOrderService: () => ({
+  adminWorkOrderRouteService: {
     addComment: mockFns.addComment,
     addTask: mockFns.addTask,
+    getUserContext: mockFns.getUserContext,
+  },
+  getWorkOrderService: () => ({
     getWorkOrderById: mockFns.getWorkOrderById,
   }),
   onWorkOrderUpdated: mockFns.onWorkOrderUpdated,
@@ -115,6 +119,13 @@ describe("admin workorder update fanout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.hasPermission.mockResolvedValue(true);
+    mockFns.getUserContext.mockResolvedValue({
+      userId: "admin-1",
+      isSuperAdmin: false,
+      permissions: ["*"],
+      siteId: "site-1",
+      departmentId: "dept-1",
+    });
     mockFns.userFindUnique.mockResolvedValue({
       siteId: "site-1",
       departmentId: "dept-1",
@@ -179,23 +190,14 @@ describe("admin workorder update fanout", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(mockFns.createNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "tech-1",
-        sourceType: "WORK_ORDER",
-        sourceId: "wo-1",
-      }),
-    );
-    expect(mockFns.onWorkOrderUpdated).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "wo-1",
-        assignedToId: "tech-1",
-      }),
-      "Admin One: Teknisi tolong cek ulang",
-      "Admin One",
-      "admin-1",
-      ["tech-1"],
-    );
+    expect(mockFns.addComment).toHaveBeenCalledWith({
+      workOrderId: "wo-1",
+      message: "Teknisi tolong cek ulang",
+      actor: session.user,
+      permissions: ["*"],
+    });
+    expect(mockFns.createNotification).not.toHaveBeenCalled();
+    expect(mockFns.onWorkOrderUpdated).not.toHaveBeenCalled();
   });
 
   it("comments route preserves forbidden service failures", async () => {
@@ -326,22 +328,15 @@ describe("admin workorder update fanout", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(mockFns.createNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "tech-1",
-        sourceType: "WORK_ORDER",
-        sourceId: "wo-1",
-      }),
-    );
-    expect(mockFns.onWorkOrderUpdated).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "wo-1",
-        assignedToId: "tech-1",
-      }),
-      'Admin menambahkan tugas: "Pasang modem"',
-      "Admin One",
-      "admin-1",
-      ["tech-1"],
-    );
+    expect(mockFns.addTask).toHaveBeenCalledWith({
+      workOrderId: "wo-1",
+      title: "Pasang modem",
+      description: "Segera kerjakan",
+      order: undefined,
+      actor: session.user,
+      permissions: ["*"],
+    });
+    expect(mockFns.createNotification).not.toHaveBeenCalled();
+    expect(mockFns.onWorkOrderUpdated).not.toHaveBeenCalled();
   });
 });

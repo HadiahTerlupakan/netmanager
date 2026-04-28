@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { deleteWithAuth } from "@/lib/api-client";
 import { buildTransferDeleteConfirmMessage } from "@/lib/utils/inventory-helpers";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import { clientLogger } from "@/lib/client-logger";
 
 interface Transfer {
   id: string;
@@ -85,7 +86,7 @@ export function TransferTable({
 
       onRefresh();
     } catch (error) {
-      console.error("Error deleting transfer:", error);
+      clientLogger.error("Error deleting transfer:", error);
       alert(
         error instanceof Error ? error.message : "Gagal membatalkan transfer",
       );

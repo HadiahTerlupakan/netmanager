@@ -17,8 +17,8 @@ import type {
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { logger } from "@/lib/logger";
-import { InventoryRepository } from "@/modules/inventory";
-import { UserRepository } from "@/modules/users";
+import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
+import { UserLookupService } from "@/modules/users";
 
 import type {
   WorkOrderFilters,
@@ -144,7 +144,7 @@ export interface MobileWorkOrderMaterialReturnResult {
  */
 export class WorkOrderService {
   private repository: WorkOrderRepository;
-  private userRepo: UserRepository;
+  private userRepo: UserLookupService;
   private ticketRepo: TicketRepository;
   private templateRepo: WorkOrderTemplateRepository;
   private warrantyRepo: WarrantyCheckRepository;
@@ -155,7 +155,7 @@ export class WorkOrderService {
   constructor(prismaClient?: PrismaClient) {
     this.prismaClient = prismaClient ?? defaultPrisma;
     this.repository = new WorkOrderRepository(this.prismaClient);
-    this.userRepo = new UserRepository();
+    this.userRepo = new UserLookupService();
     this.ticketRepo = new TicketRepository();
     this.templateRepo = new WorkOrderTemplateRepository();
     this.warrantyRepo = new WarrantyCheckRepository();

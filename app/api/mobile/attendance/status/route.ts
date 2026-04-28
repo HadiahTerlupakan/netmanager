@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { createHandler } from "@/lib/api";
-import {
-  AttendanceService,
-  AttendanceTimezoneService,
-  AttendanceValidationService,
-} from "@/modules/attendance";
+import { AttendanceService } from "@/modules/attendance";
+import { AttendanceTimezoneService } from "@/modules/attendance";
+import { AttendanceValidationService } from "@/modules/attendance";
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const userId = ctx.session!.user.id;

@@ -1,10 +1,12 @@
-import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
+import type {
+  FilterOptions,
+  IPelangganRepository,
+} from "../domain/ports/IPelangganRepository";
 import type {
   PelangganEntity,
   PelangganWithPackageEntity,
 } from "../domain/entities/PelangganEntity";
 import { PelangganRepository } from "../repositories/PelangganRepository";
-import type { FilterOptions } from "../repositories/PelangganRepository";
 import type {
   Status,
   TipePelanggan,
@@ -215,7 +217,7 @@ export class PelangganService {
     try {
       const syncResult = await afterCustomerCreate(undefined, pelanggan.id);
       if (!syncResult.success) {
-        console.warn(
+        logger.warn(
           "[RADIUS] Auto-sync failed for customer:",
           pelanggan.username,
           syncResult.error,
@@ -235,7 +237,7 @@ export class PelangganService {
         );
       }
     } catch (syncError: unknown) {
-      console.error("[RADIUS] Auto-sync error:", syncError);
+      logger.error("[RADIUS] Auto-sync error:", syncError);
       // Update DB with failure
       const errorMessage =
         syncError instanceof Error ? syncError.message : "Terjadi kesalahan";
@@ -266,7 +268,7 @@ export class PelangganService {
         );
       }
     } catch (billingErr) {
-      console.error(
+      logger.error(
         "[Billing] Failed to trigger invoice generation for new customer:",
         billingErr,
       );

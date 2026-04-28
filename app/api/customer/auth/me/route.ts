@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import { requireCustomerAuth } from "@/lib/customer-auth";
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Customer Me Error]:", error);
+    logger.error("[Customer Me Error]:", error);
     return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
       status: 500,
     });

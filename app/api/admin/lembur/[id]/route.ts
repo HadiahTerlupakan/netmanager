@@ -1,7 +1,8 @@
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { lemburActionSchema, OvertimeRouteService } from "@/modules/overtime";
+import { OvertimeRouteService } from "@/modules/overtime";
+import { lemburActionSchema } from "@/lib/validations/lembur";
 import * as z from "zod";
 
 const overtimeRouteService = new OvertimeRouteService();

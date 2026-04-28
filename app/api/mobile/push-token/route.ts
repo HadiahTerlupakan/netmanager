@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: result.message });
   } catch (error: unknown) {
-    console.error("Push token registration error:", error);
+    logger.error("Push token registration error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
@@ -56,7 +57,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: result.message });
   } catch (error: unknown) {
-    console.error("Push token removal error:", error);
+    logger.error("Push token removal error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return NextResponse.json({ error: errorMessage }, { status: 500 });

@@ -9,4 +9,3 @@ export * from "./services/MixRadiusFeeSettingsService";
 export * from "./services/MixRadiusProfitLossService";
 export * from "./services/MixRadiusDismantleService";
 export * from "./constants/DuitkuDefaults";
-export * from "./factories/IntegrationFactory";

@@ -1,27 +1,30 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { syncService } from "@/modules/integrations";
+import { getMixRadiusSyncService } from "@/modules/integrations";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
-  const isSuper = isSuperAdmin(user)
+  const user = ctx.session!.user;
+  const isSuper = isSuperAdmin(user);
 
   if (!isSuper) {
     const permissions = await getUserPermissions(user.id);
-    const hasAccess = permissions.includes('*') || permissions.includes("mixradius:read");
+    const hasAccess =
+      permissions.includes("*") || permissions.includes("mixradius:read");
     if (!hasAccess) {
-      return ApiErrors.forbidden("Anda tidak memiliki izin untuk mengakses statistik MixRadius");
+      return ApiErrors.forbidden(
+        "Anda tidak memiliki izin untuk mengakses statistik MixRadius",
+      );
     }
   }
 
   const { searchParams } = req.nextUrl;
-  const groupId = searchParams.get('groupId') || undefined;
+  const groupId = searchParams.get("groupId") || undefined;
 
   try {
-    const stats = await syncService.getNPLStatistics(groupId);
+    const stats = await getMixRadiusSyncService().getNPLStatistics(groupId);
     return apiSuccess(stats);
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'MixRadiusConfigError') {
+    if (error instanceof Error && error.name === "MixRadiusConfigError") {
       return apiSuccess({
         error: error.message,
         isConfigError: true,
@@ -29,9 +32,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
         between30And60: { count: 0, sum: 0 },
         between60And90: { count: 0, sum: 0 },
         over90: { count: 0, sum: 0 },
-        totalCustomers: 0
-      })
+        totalCustomers: 0,
+      });
     }
-    throw error
+    throw error;
   }
-})
+});

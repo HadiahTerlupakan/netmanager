@@ -4,6 +4,8 @@
 
 import type { OvertimeStatusValue } from "../domain/entities/OvertimeEntity";
 
+export type { OvertimeStatusValue };
+
 // ==================== Response DTOs ====================
 
 /**

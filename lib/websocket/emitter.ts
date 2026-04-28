@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import {
   firebaseRealtimeService,
   LEGACY_TO_REALTIME_EVENT,
@@ -41,7 +42,7 @@ function dispatchRealtime(
   payload: unknown,
 ) {
   void publishLegacyEvent(event, scope, payload).catch((error) => {
-    console.error(
+    logger.error(
       `[Realtime] Failed to publish ${event} to ${scope.kind}:${scope.id}`,
       error,
     );

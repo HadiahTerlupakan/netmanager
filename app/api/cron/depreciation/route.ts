@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { DepreciationCronService } from "@/modules/inventory";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 const depreciationCronService = new DepreciationCronService();
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       },
     );
   } catch (error: unknown) {
-    console.error("Depreciation Cron Failed:", error);
+    logger.error("Depreciation Cron Failed:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Depreciation cron failed";
     return ApiErrors.internalError(errorMessage);

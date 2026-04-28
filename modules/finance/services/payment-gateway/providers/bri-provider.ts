@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // BRI API Payment Provider Implementation
 // Documentation: https://developers.bri.co.id/
 
@@ -60,7 +61,7 @@ export class BRIProvider implements PaymentProvider {
       const data = (await response.json()) as { access_token: string };
       return data.access_token;
     } catch (error: unknown) {
-      console.error("BRI getAccessToken error:", error);
+      logger.error("BRI getAccessToken error:", error);
       throw error;
     }
   }
@@ -163,7 +164,7 @@ export class BRIProvider implements PaymentProvider {
         expiresAt: expiryDate,
       });
     } catch (error: unknown) {
-      console.error("BRI createPayment error:", error);
+      logger.error("BRI createPayment error:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create payment";
       return {
@@ -234,14 +235,13 @@ export class BRIProvider implements PaymentProvider {
         transactionId: data.trxId,
       });
     } catch (error: unknown) {
-      console.error("BRI checkStatus error:", error);
+      logger.error("BRI checkStatus error:", error);
       throw error;
     }
   }
 
   async cancelPayment(_orderId: string): Promise<void> {
     // BRI Virtual Account biasanya tidak support cancel, akan expired otomatis
-    // console.log(`BRI VA will auto-expire for order: ${orderId}`)
   }
 
   verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
@@ -266,7 +266,7 @@ export class BRIProvider implements PaymentProvider {
 
       return signature === expectedSignature;
     } catch (error) {
-      console.error("BRI webhook verification error:", error);
+      logger.error("BRI webhook verification error:", error);
       return false;
     }
   }
@@ -297,7 +297,7 @@ export class BRIProvider implements PaymentProvider {
         raw: payload,
       });
     } catch (error: unknown) {
-      console.error("BRI processWebhook error:", error);
+      logger.error("BRI processWebhook error:", error);
       throw error;
     }
   }

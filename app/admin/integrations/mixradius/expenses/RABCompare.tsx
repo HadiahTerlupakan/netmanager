@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { calculateRabUnitCosts } from "@/modules/finance/client";
 import {
@@ -363,7 +364,7 @@ export default function RABCompare({
       doc.save(`Komparasi-RAB-${new Date().getTime()}.pdf`);
       toast.success("PDF berhasil dibuat");
     } catch (error) {
-      console.error("Failed to export PDF:", error);
+      clientLogger.error("Failed to export PDF:", error);
       toast.error("Gagal mengekspor PDF");
     }
   };

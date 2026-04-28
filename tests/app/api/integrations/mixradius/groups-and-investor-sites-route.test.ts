@@ -113,6 +113,7 @@ vi.mock("@/modules/roles", () => ({
 }));
 
 vi.mock("@/modules/database", () => ({
+  prisma: {},
   prismaBilling: {
     mixRadiusInvestorSite: {
       findMany: mockFindManyInvestorSites,
@@ -124,6 +125,11 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
+vi.mock("@/modules/finance", () => ({
+  isRouteServiceError: (error: unknown): error is { status: number } =>
+    error instanceof Error && "status" in error,
+}));
+
 vi.mock("@/modules/integrations", () => ({
   getMixRadiusService: () => ({
     getOwnerGroups: mockGetOwnerGroups,
@@ -131,6 +137,13 @@ vi.mock("@/modules/integrations", () => ({
     updateOwnerGroup: mockUpdateOwnerGroup,
     deleteOwnerGroup: mockDeleteOwnerGroup,
   }),
+  MixRadiusInvestorSiteService: class MockMixRadiusInvestorSiteService {
+    getSites = mockFindManyInvestorSites;
+    getSite = mockFindUniqueInvestorSite;
+    createSite = mockCreateInvestorSite;
+    updateSite = mockUpdateInvestorSite;
+    deleteSite = mockDeleteInvestorSite;
+  },
 }));
 
 import { GET as GET_GROUPS } from "@/app/api/integrations/mixradius/groups/route";
@@ -196,7 +209,7 @@ describe("MixRadius groups and investor sites routes", () => {
     expect(mockGetOwnerGroups).not.toHaveBeenCalled();
   });
 
-  it("passes tenantId when creating owner group", async () => {
+  it("passes tenantId when creating investor site", async () => {
     await (
       POST_INVESTOR_SITES as unknown as (
         req: Request,
@@ -212,9 +225,9 @@ describe("MixRadius groups and investor sites routes", () => {
       ),
     );
 
-    expect(mockCreateInvestorSite).toHaveBeenCalledWith({
-      data: expect.objectContaining({ tenantId: "tenant-1" }),
-    });
+    expect(mockCreateInvestorSite).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "tenant-1" }),
+    );
   });
 
   it("filters investor sites GET by tenantId for non-superadmin", async () => {
@@ -226,9 +239,7 @@ describe("MixRadius groups and investor sites routes", () => {
       new Request("http://localhost/api/integrations/mixradius/investor-sites"),
     );
 
-    expect(mockFindManyInvestorSites).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { tenantId: "tenant-1" } }),
-    );
+    expect(mockFindManyInvestorSites).toHaveBeenCalledWith("tenant-1");
   });
 
   it("filters investor site detail by tenantId for non-superadmin", async () => {
@@ -242,9 +253,10 @@ describe("MixRadius groups and investor sites routes", () => {
       ),
     );
 
-    expect(mockFindUniqueInvestorSite).toHaveBeenCalledWith({
-      where: { id: "entity-1", tenantId: "tenant-1" },
-    });
+    expect(mockFindUniqueInvestorSite).toHaveBeenCalledWith(
+      "entity-1",
+      "tenant-1",
+    );
   });
 
   it("updates investor site by id and tenantId for non-superadmin", async () => {
@@ -267,10 +279,10 @@ describe("MixRadius groups and investor sites routes", () => {
       ),
     );
 
-    expect(mockUpdateInvestorSite).toHaveBeenCalledWith({
-      where: { id: "entity-1", tenantId: "tenant-1" },
-      data: expect.objectContaining({ name: "Investor A" }),
-    });
+    expect(mockUpdateInvestorSite).toHaveBeenCalledWith(
+      "entity-1",
+      expect.objectContaining({ name: "Investor A", tenantId: "tenant-1" }),
+    );
   });
 
   it("deletes investor site by id and tenantId for non-superadmin", async () => {
@@ -285,9 +297,7 @@ describe("MixRadius groups and investor sites routes", () => {
       ),
     );
 
-    expect(mockDeleteInvestorSite).toHaveBeenCalledWith({
-      where: { id: "entity-1", tenantId: "tenant-1" },
-    });
+    expect(mockDeleteInvestorSite).toHaveBeenCalledWith("entity-1", "tenant-1");
   });
 
   it("updates owner group by id and tenantId for non-superadmin", async () => {

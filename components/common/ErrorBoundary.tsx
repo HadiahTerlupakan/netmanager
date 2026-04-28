@@ -1,21 +1,22 @@
-'use client'
+"use client";
 
-import React, { Component, type ErrorInfo, type ReactNode } from 'react'
-import { HiExclamationTriangle, HiArrowPath, HiHome } from 'react-icons/hi2'
-import { Button } from '@/components/ui/Button'
+import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import { HiExclamationTriangle, HiArrowPath, HiHome } from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
+import { clientLogger } from "@/lib/client-logger";
 
 interface ErrorBoundaryProps {
-  children: ReactNode
-  fallback?: ReactNode
-  onError?: (error: Error, errorInfo: ErrorInfo) => void
-  onReset?: () => void
-  showHomeButton?: boolean
+  children: ReactNode;
+  fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  onReset?: () => void;
+  showHomeButton?: boolean;
 }
 
 interface ErrorBoundaryState {
-  hasError: boolean
-  error: Error | null
-  errorInfo: ErrorInfo | null
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
 /**
@@ -31,27 +32,27 @@ interface ErrorBoundaryState {
  */
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
-    super(props)
+    super(props);
     this.state = {
       hasError: false,
       error: null,
       errorInfo: null,
-    }
+    };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log error details
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    clientLogger.error("ErrorBoundary caught an error:", error, errorInfo);
 
     // Update state with error info
-    this.setState({ errorInfo })
+    this.setState({ errorInfo });
 
     // Call optional error handler
-    this.props.onError?.(error, errorInfo)
+    this.props.onError?.(error, errorInfo);
   }
 
   handleReset = (): void => {
@@ -59,19 +60,19 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       hasError: false,
       error: null,
       errorInfo: null,
-    })
-    this.props.onReset?.()
-  }
+    });
+    this.props.onReset?.();
+  };
 
   handleGoHome = (): void => {
-    window.location.href = '/admin'
-  }
+    window.location.href = "/admin";
+  };
 
   override render(): ReactNode {
     if (this.state.hasError) {
       // Render custom fallback if provided
       if (this.props.fallback) {
-        return this.props.fallback
+        return this.props.fallback;
       }
 
       // Default fallback UI
@@ -91,11 +92,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
               {/* Error Description */}
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Maaf, terjadi kesalahan yang tidak terduga. Silakan coba lagi atau hubungi tim support.
+                Maaf, terjadi kesalahan yang tidak terduga. Silakan coba lagi
+                atau hubungi tim support.
               </p>
 
               {/* Error Details (Development Only) */}
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {process.env.NODE_ENV === "development" && this.state.error && (
                 <div className="w-full mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-left overflow-auto">
                   <p className="text-sm font-mono text-red-600 dark:text-red-400 wrap-break-word">
                     {this.state.error.message}
@@ -110,9 +112,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <Button onClick={this.handleReset}
-                  className="flex-1"
-                >
+                <Button onClick={this.handleReset} className="flex-1">
                   <HiArrowPath className="w-5 h-5" />
                   Coba Lagi
                 </Button>
@@ -131,10 +131,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             </div>
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
@@ -146,7 +146,7 @@ export function ErrorBoundaryWrapper({
   children,
   ...props
 }: ErrorBoundaryProps): React.ReactElement {
-  return <ErrorBoundary {...props}>{children}</ErrorBoundary>
+  return <ErrorBoundary {...props}>{children}</ErrorBoundary>;
 }
 
-export default ErrorBoundary
+export default ErrorBoundary;

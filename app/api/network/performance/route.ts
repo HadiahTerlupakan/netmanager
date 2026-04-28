@@ -1,9 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { getNetworkPerformanceService } from "@/modules/network";
 import {
-  getNetworkPerformanceService,
   networkPerformanceCreateSchema,
   networkPerformanceQuerySchema,
-} from "@/modules/network";
+} from "@/lib/validations/network-performance";
 import * as z from "zod";
 
 /**

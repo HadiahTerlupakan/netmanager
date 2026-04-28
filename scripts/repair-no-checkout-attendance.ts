@@ -3,6 +3,7 @@ import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { NoCheckoutRepairService } from "@/modules/attendance/services/NoCheckoutRepairService";
+import { logger } from "@/lib/logger";
 
 import {
   parseRepairArgs,
@@ -59,21 +60,21 @@ async function logCandidates(args: TenantRepairArgs) {
     (record) => !hasCheckoutEvidence(record) && !args.includeAutoCheckoutOnly,
   );
 
-  console.log(`Kandidat aman ditemukan: ${safeCandidates.length}`);
+  logger.info(`Kandidat aman ditemukan: ${safeCandidates.length}`);
   for (const candidate of safeCandidates) {
-    console.log(formatRecord(candidate));
+    logger.info(formatRecord(candidate));
   }
 
-  console.log(
+  logger.info(
     `Kandidat incident auto-checkout-only: ${autoCheckoutOnlyRecords.length}`,
   );
   for (const record of autoCheckoutOnlyRecords) {
-    console.log(formatRecord(record));
+    logger.info(formatRecord(record));
   }
 
-  console.log(`Butuh review manual: ${manualReviewRecords.length}`);
+  logger.info(`Butuh review manual: ${manualReviewRecords.length}`);
   for (const record of manualReviewRecords) {
-    console.log(formatRecord(record));
+    logger.info(formatRecord(record));
   }
 }
 
@@ -103,12 +104,12 @@ async function repairTenant(args: TenantRepairArgs) {
   const timezone = await getTimezone(args.tenantId);
   const service = new NoCheckoutRepairService();
 
-  console.log("=== REPAIR NO_CHECKOUT ATTENDANCE ===");
-  console.log(`Tenant  : ${args.tenantId}`);
-  console.log(
+  logger.info("=== REPAIR NO_CHECKOUT ATTENDANCE ===");
+  logger.info(`Tenant  : ${args.tenantId}`);
+  logger.info(
     `Range   : ${args.startDate.toISOString()} - ${args.endDate.toISOString()}`,
   );
-  console.log(`Mode    : ${args.dryRun ? "DRY-RUN" : "APPLY"}`);
+  logger.info(`Mode    : ${args.dryRun ? "DRY-RUN" : "APPLY"}`);
 
   await logCandidates(args);
 
@@ -122,10 +123,10 @@ async function repairTenant(args: TenantRepairArgs) {
     includeAutoCheckoutOnly: args.includeAutoCheckoutOnly,
   });
 
-  console.log("=== SUMMARY ===");
-  console.log(`Scanned    : ${summary.scanned}`);
-  console.log(`Repairable : ${summary.repairable}`);
-  console.log(`Repaired   : ${summary.repaired}`);
+  logger.info("=== SUMMARY ===");
+  logger.info(`Scanned    : ${summary.scanned}`);
+  logger.info(`Repairable : ${summary.repairable}`);
+  logger.info(`Repaired   : ${summary.repaired}`);
 
   return summary;
 }
@@ -134,7 +135,7 @@ async function main() {
   const args = parseRepairArgs();
   const tenantIds = await resolveRepairTenantIds(args);
 
-  console.log(`Tenant diproses: ${tenantIds.length}`);
+  logger.info(`Tenant diproses: ${tenantIds.length}`);
 
   for (const tenantId of tenantIds) {
     await runRepairTenantContext(tenantId, () =>
@@ -143,7 +144,7 @@ async function main() {
   }
 
   if (args.dryRun) {
-    console.log(
+    logger.info(
       "Tidak ada data diubah. Tambahkan --apply untuk menjalankan repair.",
     );
   }
@@ -151,7 +152,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error(error);
+    logger.error(error);
     process.exitCode = 1;
   })
   .finally(async () => {

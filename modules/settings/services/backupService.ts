@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -434,7 +435,7 @@ export async function importBackupArchive({
                 }),
             });
           } catch (pushError) {
-            console.warn(
+            logger.warn(
               `[backup:import] prisma db push warning for ${dbName}:`,
               String(pushError).substring(0, 300),
             );
@@ -463,7 +464,7 @@ export async function importBackupArchive({
               await execAsync(backfillCommand, { shell: "/bin/sh" });
             }
           } catch (backfillError) {
-            console.warn(
+            logger.warn(
               `[backup:import] Auto-backfill warning for ${dbName}:`,
               String(backfillError).substring(0, 300),
             );
@@ -636,7 +637,7 @@ export async function runBackupBackfillJob(): Promise<BackupBackfillResult> {
   const { stdout, stderr } = await execAsync(command);
 
   if (stderr && stderr.toLowerCase().includes("error")) {
-    console.error("[backup:backfill] Script Error details:", stderr);
+    logger.error("[backup:backfill] Script Error details:", stderr);
   }
 
   return {

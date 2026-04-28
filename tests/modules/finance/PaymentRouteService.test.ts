@@ -10,7 +10,7 @@ const mockFns = vi.hoisted(() => ({
   findPaymentWithInvoice: vi.fn(),
 }));
 
-vi.mock("@/modules/pelanggan", () => ({
+vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
   PelangganRepository: class MockPelangganRepository {
     findById = mockFns.findPelangganById;
   },

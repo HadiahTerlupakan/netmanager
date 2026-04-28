@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import axios from "axios";
 import { logActivitySafe } from "@/lib/logger";
 import { SettingsRepository } from "../repositories/SettingsRepository";
@@ -228,7 +229,7 @@ export async function testAcsConnectivity(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Tidak dapat menjangkau server";
-    console.error("Test ACS URL Error:", message);
+    logger.error("Test ACS URL Error:", message);
     return {
       reachable: false,
       message: `Koneksi gagal: ${message}`,

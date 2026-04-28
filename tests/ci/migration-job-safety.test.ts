@@ -422,7 +422,7 @@ describe("migration job safety", () => {
     );
 
     expect(fixTenantProvision).toContain(
-      'console.log(`  ❌ No suitable role found for user "${user.name}"`)',
+      'logger.info(`  ❌ No suitable role found for user "${user.name}"`)',
     );
     expect(fixTenantProvision).toContain("optionalFailureCount");
     expect(fixTenantProvision).toContain("process.exitCode = 1");

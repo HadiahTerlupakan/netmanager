@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
@@ -75,7 +76,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error("Mobile upload delete error:", error);
+    logger.error("Mobile upload delete error:", error);
     return apiError(
       error instanceof Error ? error.message : "Failed to delete file",
       ErrorCodes.INTERNAL_ERROR,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       try {
         watermarkLines = JSON.parse(watermarkLinesStr);
       } catch (e) {
-        console.warn("Invalid watermark lines JSON", e);
+        logger.warn("Invalid watermark lines JSON", e);
       }
     }
 
@@ -234,7 +235,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error("Mobile upload error:", error);
+    logger.error("Mobile upload error:", error);
     return apiError(
       error instanceof Error ? error.message : "Failed to upload file",
       ErrorCodes.INTERNAL_ERROR,

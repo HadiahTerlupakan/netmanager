@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { toZonedTime } from "date-fns-tz";
 import { toEndOfDay } from "@/lib/utils/server-datetime";
 import { getTimezone } from "@/lib/utils/get-timezone";
@@ -111,7 +112,7 @@ export class AutoCheckoutService {
         );
         updatedCount++;
       } catch (error) {
-        console.error(
+        logger.error(
           `[AutoCheckout] Failed to enqueue attendance ${attendance.id}:`,
           error,
         );

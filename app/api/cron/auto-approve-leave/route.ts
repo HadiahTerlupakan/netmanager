@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { autoApproveTukarLibur } from "@/modules/attendance";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function POST(_request: Request) {
       { message: "Auto-approve leave berhasil dijalankan" },
     );
   } catch (error: unknown) {
-    console.error("[Cron Auto-Approve Leave] Error:", error);
+    logger.error("[Cron Auto-Approve Leave] Error:", error);
     const errorMessage =
       error instanceof Error
         ? error.message

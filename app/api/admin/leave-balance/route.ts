@@ -1,7 +1,15 @@
+import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { authorize, isAuthError } from "@/lib/authorization-middleware";
 import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
-import { LeaveType } from "@prisma/client";
+const LEAVE_TYPES = [
+  "CUTI",
+  "SAKIT",
+  "IZIN",
+  "LAINNYA",
+  "TUKAR_LIBUR",
+] as const;
+type LeaveTypeValue = (typeof LEAVE_TYPES)[number];
 import {
   apiSuccess,
   ApiErrors,
@@ -9,10 +17,8 @@ import {
   apiError,
 } from "@/lib/api-response";
 import * as z from "zod";
-import { UserRepository } from "@/modules/users";
 
 const leaveBalanceService = new AdminLeaveBalanceRouteService();
-const userRepository = new UserRepository();
 
 /**
  * Validation schema for setting leave quota
@@ -20,7 +26,7 @@ const userRepository = new UserRepository();
 const setQuotaSchema = z.object({
   userId: z.uuid({ error: "Invalid user ID" }),
   year: z.number().int().min(2000).max(2100).optional(),
-  quotas: z.record(z.enum(LeaveType), z.number().int().min(0).max(365)),
+  quotas: z.record(z.enum(LEAVE_TYPES), z.number().int().min(0).max(365)),
 });
 
 /**
@@ -44,16 +50,12 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get("userId");
 
   try {
-    if (userId && !session.user.isSuperAdmin) {
-      const targetUser = await userRepository.findById(userId);
-      if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
-        console.warn("[AUTH_DEBUG] Tenant mismatch or user not found:", {
-          requesterId: session.user.id,
-          requesterTenant: session.user.tenantId,
-          targetUserId: userId,
-          targetUserEmail: targetUser?.email,
-          targetTenant: targetUser?.tenantId,
-        });
+    if (userId) {
+      const canAccessUser = await leaveBalanceService.canAccessUser(userId, {
+        requesterTenantId: session.user.tenantId,
+        isSuperAdmin: session.user.isSuperAdmin,
+      });
+      if (!canAccessUser) {
         return ApiErrors.forbidden(
           "Anda tidak memiliki akses ke data user ini",
         );
@@ -71,7 +73,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(result);
   } catch (error: unknown) {
-    console.error("Error fetching leave balances:", error);
+    logger.error("Error fetching leave balances:", error);
     return ApiErrors.internalError("Gagal mengambil data saldo cuti");
   }
 }
@@ -102,19 +104,18 @@ export async function POST(req: NextRequest) {
     }
 
     const { userId, year, quotas } = parseResult.data;
-    if (!session.user.isSuperAdmin) {
-      const targetUser = await userRepository.findById(userId);
-      if (!targetUser || targetUser.tenantId !== session.user.tenantId) {
-        return ApiErrors.forbidden(
-          "Anda tidak diizinkan mengubah data user ini",
-        );
-      }
+    const canAccessUser = await leaveBalanceService.canAccessUser(userId, {
+      requesterTenantId: session.user.tenantId,
+      isSuperAdmin: session.user.isSuperAdmin,
+    });
+    if (!canAccessUser) {
+      return ApiErrors.forbidden("Anda tidak diizinkan mengubah data user ini");
     }
 
     const result = await leaveBalanceService.updateQuota({
       userId,
       year,
-      quotas: quotas as Partial<Record<LeaveType, number>>,
+      quotas: quotas as Partial<Record<LeaveTypeValue, number>>,
       access: {
         requesterTenantId: session.user.tenantId,
         isSuperAdmin: session.user.isSuperAdmin,
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(result, { message: "Kuota cuti berhasil diperbarui" });
   } catch (error: unknown) {
-    console.error("Error updating leave quota:", error);
+    logger.error("Error updating leave quota:", error);
     return ApiErrors.internalError("Gagal memperbarui kuota cuti");
   }
 }

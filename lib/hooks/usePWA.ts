@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -33,7 +34,10 @@ export function usePWA() {
           setIsReady(true);
         })
         .catch((error) => {
-          console.error("[PWA] Service Worker registration failed:", error);
+          clientLogger.error(
+            "[PWA] Service Worker registration failed:",
+            error,
+          );
         });
     } else {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -79,7 +83,7 @@ export function usePWA() {
         return true;
       }
     } catch (error) {
-      console.error("[PWA] Error during install:", error);
+      clientLogger.error("[PWA] Error during install:", error);
     }
 
     return false;

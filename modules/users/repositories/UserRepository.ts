@@ -72,6 +72,14 @@ export class UserRepository implements IUserRepository {
     return user ? UserMapper.toDomain(user) : null;
   }
 
+  /** Find user context for upload permission checks. */
+  findUploadPermissionContextById(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+      include: { role: { include: { permission: true } } },
+    });
+  }
+
   /** Create a user entity. */
   async create(data: CreateUserRepositoryInput): Promise<UserEntity> {
     const user = await prisma.user.create({

@@ -31,7 +31,10 @@ interface DateRange {
 /** Service route admin untuk orkestrasi work order tanpa akses database di route. */
 export class AdminWorkOrderRouteService {
   private readonly repository = new AdminWorkOrderRouteRepository();
-  private readonly workOrderService = getWorkOrderService();
+
+  private get workOrderService() {
+    return getWorkOrderService();
+  }
 
   /** Ambil user context lengkap untuk route admin. */
   async getUserContext(

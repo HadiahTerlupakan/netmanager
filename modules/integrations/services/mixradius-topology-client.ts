@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { AxiosInstance } from "axios";
 
 import {
@@ -56,7 +57,7 @@ export async function fetchMixRadiusODPList(params: {
       try {
         data = JSON.parse(data);
       } catch (error) {
-        console.error(
+        logger.error(
           "[MixRadius] Failed to parse ODP mapping response:",
           error,
         );
@@ -97,7 +98,7 @@ export async function fetchMixRadiusODPList(params: {
 
       const isValidCoord = lat >= -12 && lat <= 8 && lng >= 94 && lng <= 142;
       if (!isValidCoord) {
-        console.warn(
+        logger.warn(
           `[MixRadius] ODP ${item.odp_name} has invalid coords: lat=${lat}, lng=${lng}`,
         );
         continue;
@@ -124,13 +125,13 @@ export async function fetchMixRadiusODPList(params: {
       message.includes("valid") ||
       message.includes("Missing credentials")
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (fetchODPList): ${message}`,
       );
       return [];
     }
 
-    console.error("[MixRadius] Fetch ODP list error:", message);
+    logger.error("[MixRadius] Fetch ODP list error:", message);
     throw new Error(`Failed to fetch ODP list: ${message}`);
   }
 }
@@ -222,7 +223,7 @@ export async function fetchMixRadiusODPCustomers(params: {
         coords.lng >= 94 &&
         coords.lng <= 142;
       if (!isValidCoord) {
-        console.warn(
+        logger.warn(
           `[MixRadius] Invalid coords for customer ${customerId}: lat=${coords.lat}, lng=${coords.lng}`,
         );
         continue;
@@ -252,13 +253,13 @@ export async function fetchMixRadiusODPCustomers(params: {
       message.includes("valid") ||
       message.includes("Missing credentials")
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (fetchODPCustomers): ${message}`,
       );
       return [];
     }
 
-    console.error(
+    logger.error(
       `[MixRadius] Fetch ODP customers error for ${odpId}:`,
       message,
     );
@@ -319,7 +320,7 @@ export async function fetchMixRadiusTopologyData(params: {
           try {
             return await fetchODPCustomers(odp.id);
           } catch {
-            console.error(
+            logger.error(
               `[MixRadius] Failed to fetch customers for ODP ${odp.id}`,
             );
             return [];
@@ -357,7 +358,7 @@ export async function fetchMixRadiusTopologyData(params: {
       message.includes("valid") ||
       message.includes("Missing credentials")
     ) {
-      console.warn(
+      logger.warn(
         `[MixRadius] Integration not available (fetchTopologyData): ${message}`,
       );
       return {
@@ -366,7 +367,7 @@ export async function fetchMixRadiusTopologyData(params: {
       };
     }
 
-    console.error("[MixRadius] Fetch topology data error:", message);
+    logger.error("[MixRadius] Fetch topology data error:", message);
     throw new Error(`Failed to fetch topology data: ${message}`);
   }
 }

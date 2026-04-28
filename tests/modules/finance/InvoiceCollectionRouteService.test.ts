@@ -9,13 +9,13 @@ const mockFns = vi.hoisted(() => ({
   createInvoiceWithItems: vi.fn(),
 }));
 
-vi.mock("@/modules/users", () => ({
+vi.mock("@/modules/users/repositories/UserRepository", () => ({
   UserRepository: class MockUserRepository {
     findByIdWithSite = mockFns.findByIdWithSite;
   },
 }));
 
-vi.mock("@/modules/pelanggan", () => ({
+vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
   PelangganRepository: class MockPelangganRepository {
     findById = mockFns.findPelangganById;
   },

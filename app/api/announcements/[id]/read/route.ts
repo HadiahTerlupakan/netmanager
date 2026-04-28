@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import {
@@ -33,7 +34,7 @@ export async function POST(
       );
     }
 
-    console.error("Mark announcement read error:", error);
+    logger.error("Mark announcement read error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
@@ -60,7 +61,7 @@ export async function GET(
       );
     }
 
-    console.error("Get announcement read stats error:", error);
+    logger.error("Get announcement read stats error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

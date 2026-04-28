@@ -4,7 +4,11 @@
  * DTOs define the shape of data for API responses and requests.
  */
 
-import type { TicketStatus, TicketPriority, TicketCategory } from '@prisma/client'
+import type {
+  TicketCategoryValue as TicketCategory,
+  TicketPriorityValue as TicketPriority,
+  TicketStatusValue as TicketStatus,
+} from "../types/pelanggan-types";
 
 // ==================== Response DTOs ====================
 
@@ -12,94 +16,94 @@ import type { TicketStatus, TicketPriority, TicketCategory } from '@prisma/clien
  * Minimal DTO for list views
  */
 export interface TicketListItemDTO {
-    id: string
-    ticketNumber: string
-    subject: string
-    category: TicketCategory
-    status: TicketStatus
-    priority: TicketPriority
-    createdAt: string
-    updatedAt: string
-    // Flattened relations
-    pelangganName: string | null
-    assignedToName: string | null
-    lastReplyAt: string | null
-    unreadCount: number
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  category: TicketCategory;
+  status: TicketStatus;
+  priority: TicketPriority;
+  createdAt: string;
+  updatedAt: string;
+  // Flattened relations
+  pelangganName: string | null;
+  assignedToName: string | null;
+  lastReplyAt: string | null;
+  unreadCount: number;
 }
 
 /**
  * Full DTO for detail views
  */
 export interface TicketDetailDTO {
-    id: string
-    ticketNumber: string
-    subject: string
-    description: string
-    category: TicketCategory
-    status: TicketStatus
-    priority: TicketPriority
-    createdAt: string
-    updatedAt: string
-    closedAt: string | null
-    // Relations
-    pelanggan: {
-        id: string
-        idPelanggan: string
-        nama: string
-        email: string | null
-        noTelp: string | null
-    } | null
-    assignedTo: {
-        id: string
-        name: string | null
-        email: string
-    } | null
-    // Messages
-    messages: TicketMessageDTO[]
-    // Attachments
-    attachments: TicketAttachmentDTO[]
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  category: TicketCategory;
+  status: TicketStatus;
+  priority: TicketPriority;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  // Relations
+  pelanggan: {
+    id: string;
+    idPelanggan: string;
+    nama: string;
+    email: string | null;
+    noTelp: string | null;
+  } | null;
+  assignedTo: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+  // Messages
+  messages: TicketMessageDTO[];
+  // Attachments
+  attachments: TicketAttachmentDTO[];
 }
 
 /**
  * DTO for ticket messages/replies
  */
 export interface TicketMessageDTO {
-    id: string
-    message: string
-    isFromAdmin: boolean
-    createdAt: string
-    sender: {
-        id: string
-        name: string | null
-        type: 'admin' | 'customer'
-    } | null
-    attachments: TicketAttachmentDTO[]
+  id: string;
+  message: string;
+  isFromAdmin: boolean;
+  createdAt: string;
+  sender: {
+    id: string;
+    name: string | null;
+    type: "admin" | "customer";
+  } | null;
+  attachments: TicketAttachmentDTO[];
 }
 
 /**
  * DTO for attachments
  */
 export interface TicketAttachmentDTO {
-    id: string
-    fileName: string
-    fileUrl: string
-    fileType: string | null
-    fileSize: number | null
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string | null;
+  fileSize: number | null;
 }
 
 /**
  * DTO for customer portal (simplified)
  */
 export interface TicketPortalDTO {
-    id: string
-    ticketNumber: string
-    subject: string
-    category: TicketCategory
-    status: TicketStatus
-    priority: TicketPriority
-    createdAt: string
-    lastReplyAt: string | null
-    hasNewReply: boolean
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  category: TicketCategory;
+  status: TicketStatus;
+  priority: TicketPriority;
+  createdAt: string;
+  lastReplyAt: string | null;
+  hasNewReply: boolean;
 }
 
 // ==================== Request DTOs ====================
@@ -108,25 +112,25 @@ export interface TicketPortalDTO {
  * DTO for creating ticket
  */
 export interface CreateTicketDTO {
-    category: TicketCategory
-    subject: string
-    description: string
-    priority?: TicketPriority
+  category: TicketCategory;
+  subject: string;
+  description: string;
+  priority?: TicketPriority;
 }
 
 /**
  * DTO for replying to ticket
  */
 export interface ReplyTicketDTO {
-    message: string
-    attachmentIds?: string[]
+  message: string;
+  attachmentIds?: string[];
 }
 
 /**
  * DTO for admin updating ticket
  */
 export interface UpdateTicketDTO {
-    status?: TicketStatus
-    priority?: TicketPriority
-    assignedToId?: string | null
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  assignedToId?: string | null;
 }

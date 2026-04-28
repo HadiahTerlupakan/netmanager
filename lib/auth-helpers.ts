@@ -1,26 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import type { Session } from 'next-auth'
-import { authConfig } from '@/lib/auth'
+import { logger } from "@/lib/logger";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import type { Session } from "next-auth";
+import { authConfig } from "@/lib/auth";
 
 // Log security events
 function logSecurityEvent(
   request: NextRequest,
   event: string,
-  details: unknown = null
+  details: unknown = null,
 ) {
-  const timestamp = new Date().toISOString()
-  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown'
-  const userAgent = request.headers.get('user-agent') || 'Unknown'
+  const timestamp = new Date().toISOString();
+  const ip =
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "Unknown";
+  const userAgent = request.headers.get("user-agent") || "Unknown";
 
-  console.warn(`[SECURITY] ${event}`, {
+  logger.warn(`[SECURITY] ${event}`, {
     timestamp,
     ip,
     userAgent,
     url: request.url,
     method: request.method,
     details,
-  })
+  });
 }
 
 /**
@@ -30,23 +34,25 @@ function logSecurityEvent(
  */
 export async function getCurrentSession(_request: NextRequest) {
   try {
-    const session = await getServerSession(authConfig) as (Session & { user: { role?: string, id: string, employee?: unknown } }) | null
+    const session = (await getServerSession(authConfig)) as
+      | (Session & { user: { role?: string; id: string; employee?: unknown } })
+      | null;
 
     if (!session) {
-      return null
+      return null;
     }
 
     if (session?.user) {
       // Jika session ada dan user ada, tapi role tidak ada, set role sebagai ADMIN
       if (!session.user.role) {
-        session.user.role = 'ADMIN'
+        session.user.role = "ADMIN";
       }
     }
 
-    return session
+    return session;
   } catch (error) {
-    console.error('[AUTH] Error getting session:', error)
-    return null
+    logger.error("[AUTH] Error getting session:", error);
+    return null;
   }
 }
 
@@ -57,20 +63,20 @@ export async function getCurrentSession(_request: NextRequest) {
  * @returns NextResponse error jika belum login, null jika sudah login
  */
 export async function requireAuth(request: NextRequest) {
-  const session = await getCurrentSession(request)
+  const session = await getCurrentSession(request);
 
   if (!session?.user) {
-    logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
-      reason: 'No session found'
-    })
+    logSecurityEvent(request, "UNAUTHORIZED_ACCESS", {
+      reason: "No session found",
+    });
 
     return NextResponse.json(
-      { error: 'Autentikasi diperlukan' },
-      { status: 401 }
-    )
+      { error: "Autentikasi diperlukan" },
+      { status: 401 },
+    );
   }
 
-  return session // Return session for use in the handler
+  return session; // Return session for use in the handler
 }
 
 /**
@@ -80,20 +86,20 @@ export async function requireAuth(request: NextRequest) {
  * @returns NextResponse error jika belum login, null jika sudah login
  */
 export async function requireAdmin(request: NextRequest) {
-  const session = await getCurrentSession(request)
+  const session = await getCurrentSession(request);
 
   if (!session) {
-    logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
-      reason: 'No session found'
-    })
+    logSecurityEvent(request, "UNAUTHORIZED_ACCESS", {
+      reason: "No session found",
+    });
 
     return NextResponse.json(
-      { error: 'Tidak terautentikasi' },
-      { status: 401 }
-    )
+      { error: "Tidak terautentikasi" },
+      { status: 401 },
+    );
   }
 
-  return session // Return session for use in the handler
+  return session; // Return session for use in the handler
 }
 
 // Note: requireAdminOrEmployee and requireEmployeeOrAdmin functions are removed
@@ -105,36 +111,39 @@ export async function requireAdmin(request: NextRequest) {
  * @param resourceId ID resource yang akan diakses
  * @returns NextResponse error jika tidak punya akses, null jika boleh akses
  */
-export async function requireSelfAccess(request: NextRequest, resourceId: string) {
-  const session = await getCurrentSession(request)
+export async function requireSelfAccess(
+  request: NextRequest,
+  resourceId: string,
+) {
+  const session = await getCurrentSession(request);
 
   if (!session) {
-    logSecurityEvent(request, 'UNAUTHORIZED_ACCESS', {
-      reason: 'No session found'
-    })
+    logSecurityEvent(request, "UNAUTHORIZED_ACCESS", {
+      reason: "No session found",
+    });
 
     return NextResponse.json(
-      { error: 'Autentikasi diperlukan' },
-      { status: 401 }
-    )
+      { error: "Autentikasi diperlukan" },
+      { status: 401 },
+    );
   }
 
-  const userId = session.user.id
+  const userId = session.user.id;
 
   // If trying to access someone else's data
   if (resourceId !== userId) {
-    logSecurityEvent(request, 'UNAUTHORIZED_SELF_ACCESS', {
+    logSecurityEvent(request, "UNAUTHORIZED_SELF_ACCESS", {
       userId,
-      attemptedAccess: resourceId
-    })
+      attemptedAccess: resourceId,
+    });
 
     return NextResponse.json(
-      { error: 'Tidak dapat mengakses data user lain' },
-      { status: 403 }
-    )
+      { error: "Tidak dapat mengakses data user lain" },
+      { status: 403 },
+    );
   }
 
-  return session // Return session for use in the handler
+  return session; // Return session for use in the handler
 }
 
 /**
@@ -142,9 +151,11 @@ export async function requireSelfAccess(request: NextRequest, resourceId: string
  * @param request NextRequest object
  * @returns user ID atau null
  */
-export async function getCurrentUserId(request: NextRequest): Promise<string | null> {
-  const session = await getCurrentSession(request)
-  return session?.user?.id || null
+export async function getCurrentUserId(
+  request: NextRequest,
+): Promise<string | null> {
+  const session = await getCurrentSession(request);
+  return session?.user?.id || null;
 }
 
 /**
@@ -153,8 +164,8 @@ export async function getCurrentUserId(request: NextRequest): Promise<string | n
  * @returns employee data atau null
  */
 export async function getCurrentEmployee(request: NextRequest) {
-  const session = await getCurrentSession(request)
-  return session?.user?.employee || null
+  const session = await getCurrentSession(request);
+  return session?.user?.employee || null;
 }
 
 /**
@@ -163,8 +174,8 @@ export async function getCurrentEmployee(request: NextRequest) {
  * @returns true jika admin, false jika tidak
  */
 export async function isAdmin(request: NextRequest): Promise<boolean> {
-  const session = await getCurrentSession(request)
-  return session?.user?.role === 'ADMIN'
+  const session = await getCurrentSession(request);
+  return session?.user?.role === "ADMIN";
 }
 
 // Note: isEmployee function is removed since we only have ADMIN role now.
@@ -177,5 +188,5 @@ export async function isAdmin(request: NextRequest): Promise<boolean> {
  * @returns true jika SUPER_ADMIN, false jika tidak
  */
 export function isSuperAdminRole(roleName: string | undefined | null): boolean {
-  return roleName === 'SUPER_ADMIN' || roleName === 'Super Admin'
+  return roleName === "SUPER_ADMIN" || roleName === "Super Admin";
 }

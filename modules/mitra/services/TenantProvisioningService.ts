@@ -1,194 +1,236 @@
-import { PrismaClient } from '@prisma/client'
-import { randomUUID } from 'crypto'
-import { MAIN_TENANT_ID } from './tenant-constants'
+import type { PrismaClient } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { MAIN_TENANT_ID } from "./tenant-constants";
 
-/**
- * Provision default data for a newly created tenant.
- * Clones essential Roles, Permissions, and Settings from the main tenant.
- * 
- * @param prismaClient - Unfiltered Prisma client (prismaAuth, NOT prisma with tenant isolation)
- * @param tenantId - The ID of the newly created tenant
- */
-export async function provisionTenantData(
-  prismaClient: PrismaClient,
-  tenantId: string
-): Promise<{ rolesCreated: number; permissionsCreated: number; settingsCreated: number }> {
-  // ── 1. Clone ALL Permissions ────────────────────────────────────────
-  // We MUST clone all permissions first so they exist for the new tenant
-  const mainPermissions = await prismaClient.permission.findMany({
-    where: { tenantId: MAIN_TENANT_ID }
-  })
+const SENSITIVE_SETTING_KEYS = new Set([
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_ACCOUNT_ID",
+  "R2_BUCKET_NAME",
+  "R2_PUBLIC_URL",
+  "GOOGLE_GEMINI_API_KEY",
+  "captcha_secret_key",
+  "captcha_site_key",
+]);
 
-  let permissionsCreated = 0
-  for (const perm of mainPermissions) {
-    const existingPerm = await prismaClient.permission.findFirst({
-      where: { resource: perm.resource, action: perm.action, tenantId }
-    })
+export interface TenantProvisioningResult {
+  rolesCreated: number;
+  permissionsCreated: number;
+  settingsCreated: number;
+}
 
-    if (!existingPerm) {
-      await prismaClient.permission.create({
-        data: {
-          id: randomUUID(),
-          name: perm.name,
-          action: perm.action,
-          resource: perm.resource,
-          description: perm.description,
+export class TenantProvisioningService {
+  constructor(
+    private readonly prismaClient: PrismaClient,
+    private readonly createId: () => string = randomUUID,
+    private readonly createDate: () => Date = () => new Date(),
+  ) {}
+
+  /** Provision default roles, permissions, and settings for a tenant. */
+  async provisionTenantData(
+    tenantId: string,
+  ): Promise<TenantProvisioningResult> {
+    const permissionsCreated = await this.clonePermissions(tenantId);
+    const rolesCreated = await this.cloneRoles(tenantId);
+    await this.ensureAdminRole(tenantId);
+    const settingsCreated = await this.cloneSettings(tenantId);
+
+    return { rolesCreated, permissionsCreated, settingsCreated };
+  }
+
+  /** Get tenant admin role id, preferring super admin roles. */
+  async getTenantAdminRoleId(tenantId: string): Promise<string | null> {
+    const superAdminRole = await this.prismaClient.role.findFirst({
+      where: { tenantId, isSuperAdmin: true },
+      select: { id: true },
+    });
+
+    if (superAdminRole) {
+      return superAdminRole.id;
+    }
+
+    const adminRole = await this.prismaClient.role.findFirst({
+      where: { tenantId, accessAdminPanel: true },
+      select: { id: true },
+    });
+
+    return adminRole?.id || null;
+  }
+
+  private async clonePermissions(tenantId: string) {
+    const mainPermissions = await this.prismaClient.permission.findMany({
+      where: { tenantId: MAIN_TENANT_ID },
+    });
+    let permissionsCreated = 0;
+
+    for (const permission of mainPermissions) {
+      const exists = await this.prismaClient.permission.findFirst({
+        where: {
+          resource: permission.resource,
+          action: permission.action,
           tenantId,
-          updatedAt: new Date()
-        }
-      })
-      permissionsCreated++
-    }
-  }
+        },
+      });
 
-  // ── 2. Clone Roles ──────────────────────────────────────────────────
-  const mainRoles = await prismaClient.role.findMany({
-    where: { 
-      tenantId: MAIN_TENANT_ID,
-      isSuperAdmin: false // Don't clone Super Admin roles to sub-tenants
-    },
-    include: {
-      permission: { select: { resource: true, action: true } }
-    }
-  })
-
-  // Map old role ID -> new role ID (for user re-assignment later)
-  const roleIdMap = new Map<string, string>()
-
-  for (const role of mainRoles) {
-    const newRoleId = randomUUID()
-    roleIdMap.set(role.id, newRoleId)
-
-    // Find the newly created permissions for this tenant that match the original role's permissions
-    const tenantPermissions = await prismaClient.permission.findMany({
-      where: {
-        tenantId,
-        OR: role.permission.map(p => ({
-          resource: p.resource,
-          action: p.action
-        }))
-      },
-      select: { id: true }
-    })
-
-    // Create the role for the new tenant
-    await prismaClient.role.create({
-      data: {
-        id: newRoleId,
-        name: role.name,
-        description: role.description,
-        accessAdminPanel: role.accessAdminPanel, 
-        accessEmployeePanel: role.accessEmployeePanel,
-        isRestricted: role.isRestricted,
-        isTechnical: role.isTechnical,
-        isSuperAdmin: false, // Force isSuperAdmin to false for all tenant-level roles
-        canApproveRab: role.canApproveRab,
-        tenantId,
-        updatedAt: new Date(),
-        permission: {
-          connect: tenantPermissions.map(p => ({ id: p.id }))
-        }
+      if (exists) {
+        continue;
       }
-    })
+
+      await this.prismaClient.permission.create({
+        data: {
+          id: this.createId(),
+          name: permission.name,
+          action: permission.action,
+          resource: permission.resource,
+          description: permission.description,
+          tenantId,
+          updatedAt: this.createDate(),
+        },
+      });
+      permissionsCreated += 1;
+    }
+
+    return permissionsCreated;
   }
 
-  // ── 3. Ensure Admin Role Exists ────────────────────────────────────
-  // If no admin role was cloned, create a default 'ADMIN' role
-  const existingAdmin = await getTenantAdminRoleId(prismaClient, tenantId)
-  if (!existingAdmin) {
-    const adminRoleId = randomUUID()
-    
-    // Find all permissions created for this tenant to give them to the new admin
-    const tenantPermissions = await prismaClient.permission.findMany({
-      where: { tenantId },
-      select: { id: true }
-    })
+  private async cloneRoles(tenantId: string) {
+    const mainRoles = await this.prismaClient.role.findMany({
+      where: { tenantId: MAIN_TENANT_ID, isSuperAdmin: false },
+      include: { permission: { select: { resource: true, action: true } } },
+    });
 
-    await prismaClient.role.create({
+    for (const role of mainRoles) {
+      const tenantPermissions = await this.findTenantRolePermissions(
+        tenantId,
+        role.permission,
+      );
+
+      await this.prismaClient.role.create({
+        data: {
+          id: this.createId(),
+          name: role.name,
+          description: role.description,
+          accessAdminPanel: role.accessAdminPanel,
+          accessEmployeePanel: role.accessEmployeePanel,
+          isRestricted: role.isRestricted,
+          isTechnical: role.isTechnical,
+          isSuperAdmin: false,
+          canApproveRab: role.canApproveRab,
+          tenantId,
+          updatedAt: this.createDate(),
+          permission: {
+            connect: tenantPermissions.map((permission) => ({
+              id: permission.id,
+            })),
+          },
+        },
+      });
+    }
+
+    return mainRoles.length;
+  }
+
+  private async ensureAdminRole(tenantId: string) {
+    const existingAdmin = await this.getTenantAdminRoleId(tenantId);
+
+    if (existingAdmin) {
+      return;
+    }
+
+    const tenantPermissions = await this.prismaClient.permission.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    await this.prismaClient.role.create({
       data: {
-        id: adminRoleId,
-        name: 'ADMIN',
-        description: 'Administrator dengan akses penuh (Auto-generated)',
-        accessAdminPanel: true, // MUST be true for admin
+        id: this.createId(),
+        name: "ADMIN",
+        description: "Administrator dengan akses penuh (Auto-generated)",
+        accessAdminPanel: true,
         accessEmployeePanel: true,
         isRestricted: true,
         isTechnical: false,
         isSuperAdmin: false,
         canApproveRab: true,
         tenantId,
-        updatedAt: new Date(),
+        updatedAt: this.createDate(),
         permission: {
-          connect: tenantPermissions.map(p => ({ id: p.id }))
-        }
-      }
-    })
-    console.log(`[TENANT_PROVISION] Created default ADMIN role for tenant ${tenantId}`)
+          connect: tenantPermissions.map((permission) => ({
+            id: permission.id,
+          })),
+        },
+      },
+    });
   }
 
-  // ── 4. Clone Settings (non-encrypted only) ──────────────────────────
-  const mainSettings = await prismaClient.settings.findMany({
-    where: { tenantId: MAIN_TENANT_ID, encrypted: false }
-  })
+  private async cloneSettings(tenantId: string) {
+    const mainSettings = await this.prismaClient.settings.findMany({
+      where: { tenantId: MAIN_TENANT_ID, encrypted: false },
+    });
+    let settingsCreated = 0;
 
-  // Filter sensitive keys that should not be cloned
-  const sensitiveKeys = [
-    'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID', 'R2_BUCKET_NAME', 'R2_PUBLIC_URL',
-    'GOOGLE_GEMINI_API_KEY', 'captcha_secret_key', 'captcha_site_key'
-  ]
+    for (const setting of mainSettings) {
+      if (SENSITIVE_SETTING_KEYS.has(setting.key)) {
+        continue;
+      }
 
-  let settingsCreated = 0
-  for (const setting of mainSettings) {
-    if (sensitiveKeys.includes(setting.key)) continue
+      const exists = await this.prismaClient.settings.findFirst({
+        where: { key: setting.key, tenantId },
+      });
 
-    const existing = await prismaClient.settings.findFirst({
-      where: { key: setting.key, tenantId }
-    })
+      if (exists) {
+        continue;
+      }
 
-    if (!existing) {
-      await prismaClient.settings.create({
+      await this.prismaClient.settings.create({
         data: {
-          id: randomUUID(),
+          id: this.createId(),
           key: setting.key,
           value: setting.value,
           encrypted: false,
           description: setting.description,
           tenantId,
-          updatedAt: new Date()
-        }
-      })
-      settingsCreated++
+          updatedAt: this.createDate(),
+        },
+      });
+      settingsCreated += 1;
     }
+
+    return settingsCreated;
   }
 
-  console.log(`[TENANT_PROVISION] Provisioned tenant ${tenantId}: ${mainRoles.length} roles, ${permissionsCreated} permissions, ${settingsCreated} settings`)
-
-  return {
-    rolesCreated: mainRoles.length,
-    permissionsCreated,
-    settingsCreated
+  private findTenantRolePermissions(
+    tenantId: string,
+    permissions: Array<{ resource: string; action: string }>,
+  ) {
+    return this.prismaClient.permission.findMany({
+      where: {
+        tenantId,
+        OR: permissions.map((permission) => ({
+          resource: permission.resource,
+          action: permission.action,
+        })),
+      },
+      select: { id: true },
+    });
   }
 }
 
-/**
- * Get the admin role ID for a given tenant.
- * Returns the role with isSuperAdmin=true, or the first role with accessAdminPanel=true.
- */
-export async function getTenantAdminRoleId(
+export function provisionTenantData(
   prismaClient: PrismaClient,
-  tenantId: string
-): Promise<string | null> {
-  // Prefer SUPER_ADMIN role
-  const superAdminRole = await prismaClient.role.findFirst({
-    where: { tenantId, isSuperAdmin: true },
-    select: { id: true }
-  })
-  if (superAdminRole) return superAdminRole.id
-
-  // Fallback to any admin role
-  const adminRole = await prismaClient.role.findFirst({
-    where: { tenantId, accessAdminPanel: true },
-    select: { id: true }
-  })
-  return adminRole?.id || null
+  tenantId: string,
+): Promise<TenantProvisioningResult> {
+  return new TenantProvisioningService(prismaClient).provisionTenantData(
+    tenantId,
+  );
 }
 
+export function getTenantAdminRoleId(
+  prismaClient: PrismaClient,
+  tenantId: string,
+): Promise<string | null> {
+  return new TenantProvisioningService(prismaClient).getTenantAdminRoleId(
+    tenantId,
+  );
+}

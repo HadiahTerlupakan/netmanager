@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       refreshToken: mobileTokens.refreshToken,
     });
   } catch (error) {
-    console.error("Mobile Refresh Error:", error);
+    logger.error("Mobile Refresh Error:", error);
     return apiError(
       "Terjadi kesalahan server. Silakan coba lagi.",
       ErrorCodes.INTERNAL_ERROR,

@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -207,7 +208,7 @@ export function ClientComponent() {
           hasLoadedReferenceData.current = false;
           referenceDataPromise = null;
           if (!isMounted) return;
-          console.error("Error fetching reference data:", error);
+          clientLogger.error("Error fetching reference data:", error);
           toast.error("Gagal memuat data referensi pengguna");
         });
     }
@@ -222,7 +223,7 @@ export function ClientComponent() {
           hasLoadedTenants.current = false;
           tenantsPromise = null;
           if (!isMounted) return;
-          console.error("Error fetching tenants:", error);
+          clientLogger.error("Error fetching tenants:", error);
         });
     }
 
@@ -323,7 +324,7 @@ export function ClientComponent() {
           }
         }
       } catch (error) {
-        console.error("Error checking email:", error);
+        clientLogger.error("Error checking email:", error);
       } finally {
         setFormData((prev) => ({ ...prev, isCheckingEmail: false }));
       }
@@ -419,7 +420,7 @@ export function ClientComponent() {
         }
       }
     } catch (error) {
-      console.error("Error:", error);
+      clientLogger.error("Error:", error);
       setErrors({ submit: "Terjadi kesalahan. Silakan coba lagi." });
     } finally {
       setLoading(false);

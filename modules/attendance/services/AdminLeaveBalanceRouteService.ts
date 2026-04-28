@@ -1,4 +1,5 @@
 import { LeaveType } from "@prisma/client";
+import { UserLookupService } from "@/modules/users";
 import {
   DEFAULT_LEAVE_QUOTAS,
   LeaveBalanceRepository,
@@ -27,7 +28,17 @@ interface LeaveQuotaUpdateInput {
 export class AdminLeaveBalanceRouteService {
   constructor(
     private readonly leaveBalanceRepository = new LeaveBalanceRepository(),
+    private readonly userRepository = new UserLookupService(),
   ) {}
+
+  /** Pastikan user target berada dalam scope tenant requester. */
+  async canAccessUser(userId: string, access: LeaveBalanceAccessContext) {
+    if (access.isSuperAdmin) return true;
+    const targetUser = await this.userRepository.findById(userId);
+    return Boolean(
+      targetUser && targetUser.tenantId === access.requesterTenantId,
+    );
+  }
 
   /** Ambil saldo cuti user tertentu atau seluruh user sesuai scope tenant. */
   async getBalances(input: LeaveBalanceListInput) {

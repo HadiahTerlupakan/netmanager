@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import crypto from "crypto";
 import type {
   PaymentProvider,
@@ -103,7 +104,7 @@ export class TripayProvider implements PaymentProvider {
         transactionId: data.reference,
       };
     } catch (error: unknown) {
-      console.error("Tripay create payment error:", error);
+      logger.error("Tripay create payment error:", error);
       const message =
         error instanceof Error ? error.message : "Failed to create payment";
       return {
@@ -158,7 +159,7 @@ export class TripayProvider implements PaymentProvider {
         transactionId: data.reference,
       };
     } catch (error: unknown) {
-      console.error("Tripay check status error:", error);
+      logger.error("Tripay check status error:", error);
       throw error;
     }
   }

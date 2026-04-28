@@ -15,6 +15,7 @@ import {
   acquireCronLock,
   CRON_LOCK_UNAVAILABLE_MESSAGE,
 } from "@/lib/cron-lock";
+import { logger } from "@/lib/logger";
 
 function getAttendanceAlertLock(type: string): {
   jobName: string;
@@ -39,7 +40,6 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
 
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      // console.log('[Cron] Unauthorized access attempt')
       return ApiErrors.unauthorized("Tidak terautentikasi");
     }
 
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
         });
     }
   } catch (error: unknown) {
-    console.error("[Cron] Attendance alert error:", error);
+    logger.error("[Cron] Attendance alert error:", error);
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
     return ApiErrors.internalError(message);

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authConfig } from "@/lib/auth";
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
     );
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error("Error checking pelanggan ID:", error);
+    logger.error("Error checking pelanggan ID:", error);
     return NextResponse.json(
       {
         error:

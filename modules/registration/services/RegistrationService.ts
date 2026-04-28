@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { IRegistrationRepository } from "../domain/ports/IRegistrationRepository";
 import type {
   RegistrationStatus,
@@ -167,10 +168,7 @@ export class RegistrationService {
       );
       return { success: true, data: RegistrationMapper.toDTO(registration) };
     } catch (error) {
-      console.error(
-        "[RegistrationService] Error creating registration:",
-        error,
-      );
+      logger.error("[RegistrationService] Error creating registration:", error);
       return this.failure(
         REGISTRATION_ERROR_MESSAGE,
         HTTP_INTERNAL_SERVER_ERROR,
@@ -237,7 +235,7 @@ export class RegistrationService {
       if (outcome.success) return { success: true };
       return this.failure(CAPTCHA_FAILED_MESSAGE, HTTP_BAD_REQUEST);
     } catch (error) {
-      console.error("[RegistrationService] Captcha verification error:", error);
+      logger.error("[RegistrationService] Captcha verification error:", error);
       return this.failure(CAPTCHA_ERROR_MESSAGE, HTTP_INTERNAL_SERVER_ERROR);
     }
   }

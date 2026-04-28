@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import { HiOutlineCalendarDays } from "react-icons/hi2";
@@ -88,7 +89,7 @@ export default function LeaveBalanceSettings({
         setBalances(defaultBalances);
       }
     } catch (error) {
-      console.error("Error fetching leave balances:", error);
+      clientLogger.error("Error fetching leave balances:", error);
       // On error, show defaults
       const defaultBalances: LeaveBalanceData[] = [
         { leaveType: "CUTI", quota: 12, used: 0, remaining: 12 },

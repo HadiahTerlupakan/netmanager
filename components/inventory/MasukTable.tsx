@@ -17,6 +17,7 @@ import {
 } from "react-icons/fi";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { getWithAuth } from "@/lib/api-client";
+import { clientLogger } from "@/lib/client-logger";
 
 interface BarangMasuk {
   id: string;
@@ -110,7 +111,7 @@ export function MasukTable({
         setPagination((prev) => ({ ...prev, ...responseData.pagination }));
       }
     } catch (error) {
-      console.error("Failed to fetch barang masuk:", error);
+      clientLogger.error("Failed to fetch barang masuk:", error);
       setError(error instanceof Error ? error.message : "Gagal memuat data");
     } finally {
       setLoading(false);
@@ -126,7 +127,7 @@ export function MasukTable({
 
   // Listen for inventory updates
   useRealtimeEvent("inventory.update", () => {
-    console.log("[Inventory] MasukTable received update, refreshing...");
+    clientLogger.info("[Inventory] MasukTable received update, refreshing...");
     fetchMasukList();
   });
 
@@ -154,7 +155,7 @@ export function MasukTable({
       // Refresh data
       window.location.reload();
     } catch (error) {
-      console.error("Failed to delete barang masuk:", error);
+      clientLogger.error("Failed to delete barang masuk:", error);
       alert(
         error instanceof Error
           ? error.message

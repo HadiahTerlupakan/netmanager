@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 import {
   sendPushNotification,
@@ -9,12 +10,12 @@ import { getTimezone } from "@/lib/utils/get-timezone";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
-import { UserRepository } from "@/modules/users";
+import { UserLookupService } from "@/modules/users";
 
 const attendanceRepo = new AttendanceRepository();
 const leaveRepo = new LeaveRepository();
 const holidayRepo = new HolidayRepository();
-const userRepository = new UserRepository();
+const userRepository = new UserLookupService();
 
 /**
  * Attendance Alert Service
@@ -57,7 +58,7 @@ async function acquireReminderLock(
     return result === "OK";
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(
+    logger.error(
       `[AttendanceAlert] Reminder lock unavailable for "${key}": ${message}`,
     );
     return false;
@@ -249,7 +250,7 @@ export async function processCheckInReminders(
     const users = await getUsersNeedingCheckInReminder(reminderMinutes);
 
     if (users.length === 0) {
-      console.log(
+      logger.info(
         "[AttendanceAlert] No users need check-in reminder at this time",
       );
       return { usersNotified: 0, details: [] };
@@ -280,12 +281,12 @@ export async function processCheckInReminders(
       }
     }
 
-    console.log(
+    logger.info(
       `[AttendanceAlert] Sent check-in reminder to ${notified} users`,
     );
     return { usersNotified: notified, details };
   } catch (error) {
-    console.error("[AttendanceAlert] Error sending check-in reminders:", error);
+    logger.error("[AttendanceAlert] Error sending check-in reminders:", error);
     return { usersNotified: 0, details: [] };
   }
 }
@@ -300,7 +301,7 @@ export async function processCheckOutReminders(
     const users = await getUsersNeedingCheckOutReminder(reminderMinutes);
 
     if (users.length === 0) {
-      console.log(
+      logger.info(
         "[AttendanceAlert] No users need check-out reminder at this time",
       );
       return { usersNotified: 0, details: [] };
@@ -331,15 +332,12 @@ export async function processCheckOutReminders(
       }
     }
 
-    console.log(
+    logger.info(
       `[AttendanceAlert] Sent check-out reminder to ${notified} users`,
     );
     return { usersNotified: notified, details };
   } catch (error) {
-    console.error(
-      "[AttendanceAlert] Error sending check-out reminders:",
-      error,
-    );
+    logger.error("[AttendanceAlert] Error sending check-out reminders:", error);
     return { usersNotified: 0, details: [] };
   }
 }
@@ -514,14 +512,14 @@ export async function processFixedHourAutoAlpha(): Promise<{
     }
 
     if (usersMarkedAlpha > 0) {
-      console.log(
+      logger.info(
         `[AttendanceAlert] Auto-marked ABSENT for ${usersMarkedAlpha} fixed-hour users`,
       );
     }
 
     return { usersMarkedAlpha, details };
   } catch (error) {
-    console.error(
+    logger.error(
       "[AttendanceAlert] Error auto-marking fixed-hour ABSENT:",
       error,
     );
@@ -572,12 +570,12 @@ export async function processLateCheckOutReminders(): Promise<{
       }
     }
 
-    console.log(
+    logger.info(
       `[AttendanceAlert] Sent LATE check-out reminder to ${notified} users`,
     );
     return { usersNotified: notified, details };
   } catch (error) {
-    console.error(
+    logger.error(
       "[AttendanceAlert] Error sending late check-out reminders:",
       error,
     );
@@ -612,7 +610,7 @@ export async function runScheduledAttendanceCheck(
     processFlexibleReminders(),
   ]);
 
-  console.log("[AttendanceAlert] Scheduled check completed:", {
+  logger.info("[AttendanceAlert] Scheduled check completed:", {
     checkIn: checkInResult.usersNotified,
     checkOut: checkOutResult.usersNotified,
     lateCheckOut: lateCheckOutResult.usersNotified,
@@ -690,14 +688,14 @@ export async function processFlexibleReminders(): Promise<{
     }
 
     if (notified > 0) {
-      console.log(
+      logger.info(
         `[AttendanceAlert] Sent FLEXIBLE reminder to ${notified} users`,
       );
     }
 
     return { usersNotified: notified, details };
   } catch (error) {
-    console.error("[AttendanceAlert] Error sending flexible reminders:", error);
+    logger.error("[AttendanceAlert] Error sending flexible reminders:", error);
     return { usersNotified: 0, details: [] };
   }
 }

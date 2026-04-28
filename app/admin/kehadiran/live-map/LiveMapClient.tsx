@@ -1,4 +1,5 @@
 "use client";
+import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -75,7 +76,7 @@ export default function LiveMapClient() {
       const data = await res.json();
 
       if (data.success) {
-        console.log("[LiveMapClient] API Response:", data);
+        clientLogger.info("[LiveMapClient] API Response:", data);
         setLocations(data.data.locations || []);
         setTenantId(data.data.tenantId || null);
         setLastUpdated(new Date());

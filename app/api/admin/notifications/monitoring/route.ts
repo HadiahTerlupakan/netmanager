@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { ensureAdminAccess } from "@/lib/server-auth";
 import { AdminNotificationMonitoringRouteService } from "@/modules/notification";
@@ -14,7 +15,7 @@ export async function GET() {
       message: "Berhasil mengambil statistik antrean push retry",
     });
   } catch (error: unknown) {
-    console.error("[API] Error fetching push queue stats:", error);
+    logger.error("[API] Error fetching push queue stats:", error);
     const errorMessage =
       error instanceof Error
         ? error.message

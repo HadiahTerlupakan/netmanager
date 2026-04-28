@@ -93,13 +93,16 @@ describe("CanvasingRepository", () => {
       include: {
         user: {
           select: {
+            id: true,
             name: true,
             email: true,
+            siteId: true,
           },
         },
         workOrder: {
           select: {
             status: true,
+            workOrderNumber: true,
           },
         },
         pointClaims: {

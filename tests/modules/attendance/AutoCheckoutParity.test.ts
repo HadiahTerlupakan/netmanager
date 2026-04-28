@@ -4,8 +4,8 @@ import type { AttendanceStatus } from "@prisma/client";
 
 import { prismaMock } from "../../setup";
 import { getCrossSurfaceAttendanceFixture } from "../../fixtures/attendance/crossSurfaceAttendanceFixtures";
-import { AutoCheckoutService } from "@/modules/attendance/services/AutoCheckoutService";
-import { AttendanceService } from "@/modules/attendance/services/AttendanceService";
+import { AutoCheckoutService } from "@/modules/attendance";
+import { AttendanceService } from "@/modules/attendance";
 import { addAttendanceAutoCheckoutJob } from "@/lib/event-bus/queues";
 
 vi.mock("@/lib/utils/get-timezone", async (importOriginal) => {
