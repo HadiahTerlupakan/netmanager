@@ -77,9 +77,10 @@ export function ClientComponent() {
     accessEmployeePanel: false,
     isRestricted: false,
     isTechnical: false,
-    isSuperAdmin: false, // New field
-    canApproveRab: false, // RAB Approval toggle
-    permissions: [] as string[], // Store permission IDs (resource:action)
+    isSuperAdmin: false,
+    canApproveRab: false,
+    canReceiveWhatsappApproval: false,
+    permissions: [] as string[],
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,7 +98,8 @@ export function ClientComponent() {
       isRestricted: template.isRestricted,
       isTechnical: template.isTechnical,
       isSuperAdmin: template.isSuperAdmin,
-      canApproveRab: false, // Default false for templates
+      canApproveRab: false,
+      canReceiveWhatsappApproval: false,
       permissions: [...template.permissions],
     });
     setSelectedTemplate(template.id);
@@ -160,8 +162,10 @@ export function ClientComponent() {
               accessEmployeePanel: roleData.accessEmployeePanel || false,
               isRestricted: roleData.isRestricted || false,
               isTechnical: roleData.isTechnical || false,
-              isSuperAdmin: roleData.isSuperAdmin || false, // Load from API
+              isSuperAdmin: roleData.isSuperAdmin || false,
               canApproveRab: roleData.canApproveRab || false,
+              canReceiveWhatsappApproval:
+                roleData.canReceiveWhatsappApproval || false,
               // Convert backend permissions (objects) to string format resource:action
               permissions: roleData.permissions.map(
                 (p: { resource: string; action: string }) =>
@@ -525,6 +529,30 @@ export function ClientComponent() {
                   menyetujui, mencetak Tanda Tangan, dan mengubah status dokumen
                   Pengajuan RAB dari <strong>DRAFT</strong> menuju{" "}
                   <strong>APPROVED</strong>.
+                </span>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-4 border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/20 cursor-pointer transition-colors mt-4">
+              <input
+                type="checkbox"
+                checked={formData.canReceiveWhatsappApproval}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    canReceiveWhatsappApproval: e.target.checked,
+                  })
+                }
+                className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300 mt-0.5"
+              />
+              <div>
+                <span className="block font-medium text-green-900 dark:text-green-300">
+                  Penerima Approval WhatsApp
+                </span>
+                <span className="text-sm text-green-700 dark:text-green-400">
+                  Role ini akan menerima pesan WhatsApp untuk approval lembur
+                  dan izin. Pisahkan dari permission approve agar tidak semua
+                  approver otomatis mendapat notifikasi WA.
                 </span>
               </div>
             </label>

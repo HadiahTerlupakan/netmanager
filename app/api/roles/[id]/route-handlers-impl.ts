@@ -21,6 +21,7 @@ const roleUpdateSchema = z.object({
   isTechnical: z.boolean().optional(),
   isSuperAdmin: z.boolean().optional(),
   canApproveRab: z.boolean().optional(),
+  canReceiveWhatsappApproval: z.boolean().optional(),
 });
 
 type RoleRouteContext = {

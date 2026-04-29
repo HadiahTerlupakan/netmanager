@@ -21,8 +21,7 @@ const DEFAULT_REFERENCE_DATE_FILTER = "SUPER_ADMIN";
 const WORKORDER_RESOURCE = "workorders";
 const WORKORDER_ACTION_READ = "read";
 const WORKORDER_ACTION_SITE_ONLY = "site_only";
-const OVERTIME_RESOURCE = "lembur";
-const OVERTIME_ACTION_UPDATE = "update";
+const NOTIFICATION_ADMIN_SELECT = { id: true, phone: true } as const;
 
 export type UserWithRelations = UserEntity;
 
@@ -201,7 +200,7 @@ export class UserRepository implements IUserRepository {
   ) {
     return prisma.user.findMany({
       where: this.buildNotificationWhere(tenantId, userSiteId),
-      select: { id: true },
+      select: NOTIFICATION_ADMIN_SELECT,
     });
   }
 
@@ -658,19 +657,10 @@ export class UserRepository implements IUserRepository {
     return {
       tenantId,
       OR: [
-        { role: { name: DEFAULT_REFERENCE_DATE_FILTER } },
+        { role: { isSuperAdmin: true } },
         {
           AND: [
-            {
-              role: {
-                permission: {
-                  some: {
-                    resource: OVERTIME_RESOURCE,
-                    action: OVERTIME_ACTION_UPDATE,
-                  },
-                },
-              },
-            },
+            { role: { canReceiveWhatsappApproval: true } },
             ...this.buildNotificationSiteScope(userSiteId),
           ],
         },

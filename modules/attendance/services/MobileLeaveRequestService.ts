@@ -10,8 +10,14 @@ import { HolidayRepository } from "../repositories/HolidayRepository";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
 import { validateTukarLiburRules } from "./LeaveService";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
-import { createNotification } from "@/modules/notification";
+import {
+  createNotification,
+  WhatsAppApprovalButtonService,
+} from "@/modules/notification";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+
+const LEAVE_APPROVAL_LINK = "/admin/kehadiran/izin";
+const LEAVE_APPROVAL_TITLE = "Pengajuan Izin Baru (Mobile)";
 
 export interface MobileLeaveRequestInput {
   userId: string;
@@ -28,6 +34,7 @@ export class MobileLeaveRequestService {
   private readonly leaveRepository: ILeaveRepository;
   private readonly leaveBalanceRepository: ILeaveBalanceRepository;
   private readonly holidayRepository: IHolidayRepository;
+  private readonly whatsAppApprovalButtonService: WhatsAppApprovalButtonService;
 
   constructor(
     leaveRepository: ILeaveRepository = new LeaveRepository(),
@@ -37,6 +44,7 @@ export class MobileLeaveRequestService {
     this.leaveRepository = leaveRepository;
     this.leaveBalanceRepository = leaveBalanceRepository;
     this.holidayRepository = holidayRepository;
+    this.whatsAppApprovalButtonService = new WhatsAppApprovalButtonService();
   }
 
   /** Create leave request from mobile payload. */
@@ -185,16 +193,23 @@ export class MobileLeaveRequestService {
           });
 
         for (const admin of admins) {
+          const message = `${userData?.name} mengajukan ${type}: ${reason}`;
           await createNotification({
             type: "SYSTEM",
             priority: "NORMAL",
-            title: "📋 Pengajuan Izin Baru (Mobile)",
-            message: `${userData?.name} mengajukan ${type}: ${reason}`,
-            link: "/admin/kehadiran/izin",
+            title: LEAVE_APPROVAL_TITLE,
+            message,
+            link: LEAVE_APPROVAL_LINK,
             userId: admin.id,
             sourceType: "LEAVE",
             sourceId: requestData.id,
             tenantId,
+          });
+          await this.whatsAppApprovalButtonService.sendApprovalButton({
+            phone: admin.phone,
+            title: LEAVE_APPROVAL_TITLE,
+            message,
+            approvalUrl: LEAVE_APPROVAL_LINK,
           });
         }
       } catch (error) {

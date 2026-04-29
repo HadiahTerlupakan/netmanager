@@ -65,7 +65,7 @@ describe("mobile leaves route", () => {
       siteId: "site-1",
     });
     mockFns.findApproverIdsForMobileLeaveNotification.mockResolvedValue([
-      { id: "admin-1" },
+      { id: "admin-1", phone: "628123456789" },
     ]);
   });
 
@@ -76,7 +76,9 @@ describe("mobile leaves route", () => {
       name: "Budi",
       siteId: "site-1",
     });
-    prismaMock.user.findMany.mockResolvedValue([{ id: "admin-1" }]);
+    prismaMock.user.findMany.mockResolvedValue([
+      { id: "admin-1", phone: "628123456789" },
+    ]);
 
     const response = await POST(
       new NextRequest("http://localhost/api/mobile/leaves", {

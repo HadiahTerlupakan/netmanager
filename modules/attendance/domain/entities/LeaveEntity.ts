@@ -49,4 +49,5 @@ export interface TukarLiburDateEntity {
 
 export interface LeaveApproverEntity {
   id: string;
+  phone: string | null;
 }

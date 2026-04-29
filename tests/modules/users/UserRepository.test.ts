@@ -54,4 +54,31 @@ describe("UserRepository", () => {
 
     expect(result).toMatchObject({ total: 1, active: 0, inactive: 1 });
   });
+
+  it("targets overtime WhatsApp approval to the dedicated role type only", async () => {
+    const repository = new UserRepository();
+    await repository.findAdminsForNotification("tenant-1", "site-1");
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        tenantId: "tenant-1",
+        OR: expect.arrayContaining([
+          { role: { isSuperAdmin: true } },
+          expect.objectContaining({
+            AND: expect.arrayContaining([
+              { role: { canReceiveWhatsappApproval: true } },
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { siteId: "site-1" },
+                  { siteId: null },
+                  { userSites: { some: { siteId: "site-1" } } },
+                ]),
+              }),
+            ]),
+          }),
+        ]),
+      }),
+      select: { id: true, phone: true },
+    });
+  });
 });

@@ -8,7 +8,10 @@ import {
 } from "@/modules/attendance";
 import { UserLookupService } from "@/modules/users";
 
-import { createNotification } from "../../notification/services/NotificationService";
+import {
+  createNotification,
+  WhatsAppApprovalButtonService,
+} from "@/modules/notification";
 import type {
   IOvertimeRepository,
   OvertimeQueryFilters,
@@ -21,6 +24,8 @@ import { OvertimeAutoCheckoutSchedulerService } from "./OvertimeAutoCheckoutSche
 const DEFAULT_TARGET_HOURS = 8;
 const MAX_OVERTIME_DURATION_MS = 8 * 60 * 60 * 1000;
 const MIN_DURATION_MINUTES = 0;
+const OVERTIME_APPROVAL_LINK = "/admin/lembur";
+const OVERTIME_APPROVAL_TITLE = "Pengajuan Lembur Baru";
 const DAY_MAP: Record<number, string> = {
   0: "SUN",
   1: "MON",
@@ -63,6 +68,7 @@ export class OvertimeService {
   private userRepository: UserLookupService;
   private attendanceRepository: AttendanceQueryService;
   private autoCheckoutScheduler: OvertimeAutoCheckoutSchedulerService;
+  private whatsAppApprovalButtonService: WhatsAppApprovalButtonService;
 
   constructor(
     repository: IOvertimeRepository = new OvertimeRepository(),
@@ -74,6 +80,7 @@ export class OvertimeService {
     this.attendanceRepository = new AttendanceQueryService();
     this.autoCheckoutScheduler =
       scheduler ?? new OvertimeAutoCheckoutSchedulerService(repository);
+    this.whatsAppApprovalButtonService = new WhatsAppApprovalButtonService();
   }
 
   /** Create new overtime request for a day. */
@@ -339,16 +346,23 @@ export class OvertimeService {
       );
 
       for (const admin of admins) {
+        const message = `${user?.name || "Karyawan"} mengajukan lembur: ${reason}`;
         await createNotification({
           type: "SYSTEM",
           priority: "NORMAL",
-          title: "Pengajuan Lembur Baru",
-          message: `${user?.name || "Karyawan"} mengajukan lembur: ${reason}`,
-          link: "/admin/lembur",
+          title: OVERTIME_APPROVAL_TITLE,
+          message,
+          link: OVERTIME_APPROVAL_LINK,
           userId: admin.id,
           sourceType: "OVERTIME",
           sourceId: request.id,
           tenantId,
+        });
+        await this.whatsAppApprovalButtonService.sendApprovalButton({
+          phone: admin.phone,
+          title: OVERTIME_APPROVAL_TITLE,
+          message,
+          approvalUrl: OVERTIME_APPROVAL_LINK,
         });
       }
     } catch (error) {

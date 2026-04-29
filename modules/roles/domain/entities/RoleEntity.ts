@@ -20,6 +20,7 @@ export interface RoleEntity {
   isTechnical: boolean;
   isSuperAdmin: boolean;
   canApproveRab: boolean;
+  canReceiveWhatsappApproval: boolean;
   createdAt: Date;
   updatedAt: Date;
   permissions: PermissionEntity[];

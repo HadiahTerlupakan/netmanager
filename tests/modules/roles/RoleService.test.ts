@@ -33,14 +33,12 @@ vi.mock("@/modules/roles/repositories/RoleRepository", () => ({
       .mockImplementation((data: unknown) =>
         prismaMock.role.create({ data: data as unknown as Role }),
       );
-    update = vi
-      .fn()
-      .mockImplementation((id: string, data: unknown) =>
-        prismaMock.role.update({
-          where: { id },
-          data: data as unknown as Role,
-        }),
-      );
+    update = vi.fn().mockImplementation((id: string, data: unknown) =>
+      prismaMock.role.update({
+        where: { id },
+        data: data as unknown as Role,
+      }),
+    );
     delete = vi
       .fn()
       .mockImplementation((id: string) =>
@@ -264,6 +262,7 @@ describe("RoleService", () => {
           isTechnical: false,
           isSuperAdmin: false,
           canApproveRab: false,
+          canReceiveWhatsappApproval: false,
           permissions: [],
           counts: { users: 0 },
         };

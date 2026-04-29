@@ -82,6 +82,7 @@ describe("auth session permissions", () => {
           accessEmployeePanel: true,
           isSuperAdmin: false,
           canApproveRab: false,
+          canReceiveWhatsappApproval: false,
           permission: [{ id: "perm-1" }],
         },
         departments: { name: "Ops" },
@@ -132,6 +133,7 @@ describe("auth session permissions", () => {
       primarySiteId: "site-1",
       isSuperAdmin: false,
       canApproveRab: false,
+      canReceiveWhatsappApproval: false,
     });
     mockFns.userFindUnique.mockResolvedValueOnce({
       role: {

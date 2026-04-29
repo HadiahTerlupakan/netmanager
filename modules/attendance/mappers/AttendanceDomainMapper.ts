@@ -58,8 +58,9 @@ export function toTukarLiburDateEntity(input: {
 /** Map approver projection into pure approver entity. */
 export function toLeaveApproverEntity(input: {
   id: string;
+  phone: string | null;
 }): LeaveApproverEntity {
-  return { id: input.id };
+  return { id: input.id, phone: input.phone };
 }
 
 /** Map settings projection into pure setting entity. */

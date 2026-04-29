@@ -97,6 +97,7 @@ export class RoleRepository implements IRoleRepository {
         isTechnical: data.isTechnical ?? false,
         isSuperAdmin: data.isSuperAdmin ?? false,
         canApproveRab: data.canApproveRab ?? false,
+        canReceiveWhatsappApproval: data.canReceiveWhatsappApproval ?? false,
         permission: {
           connect: this.mapPermissionConnections(data.permissionIds),
         },
@@ -176,6 +177,9 @@ export class RoleRepository implements IRoleRepository {
       updateData.isSuperAdmin = data.isSuperAdmin;
     if (data.canApproveRab !== undefined)
       updateData.canApproveRab = data.canApproveRab;
+    if (data.canReceiveWhatsappApproval !== undefined) {
+      updateData.canReceiveWhatsappApproval = data.canReceiveWhatsappApproval;
+    }
     if (data.permissionIds !== undefined) {
       updateData.permission = {
         set: this.mapPermissionConnections(data.permissionIds),

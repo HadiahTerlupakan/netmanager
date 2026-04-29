@@ -50,6 +50,7 @@ type RoleMutationInput = {
   isTechnical?: boolean;
   isSuperAdmin?: boolean;
   canApproveRab?: boolean;
+  canReceiveWhatsappApproval?: boolean;
 };
 
 type RoleMutationContext = {
@@ -264,6 +265,7 @@ export class RoleService {
       isTechnical: input.isTechnical,
       isSuperAdmin: input.isSuperAdmin,
       canApproveRab: input.canApproveRab,
+      canReceiveWhatsappApproval: input.canReceiveWhatsappApproval,
     };
   }
 
@@ -280,6 +282,7 @@ export class RoleService {
       isTechnical: data.isTechnical,
       isSuperAdmin: data.isSuperAdmin,
       canApproveRab: data.canApproveRab,
+      canReceiveWhatsappApproval: data.canReceiveWhatsappApproval,
       permissionIds,
     };
   }
@@ -297,6 +300,7 @@ export class RoleService {
       isTechnical: data.isTechnical,
       isSuperAdmin: data.isSuperAdmin,
       canApproveRab: data.canApproveRab,
+      canReceiveWhatsappApproval: data.canReceiveWhatsappApproval,
       permissionIds,
     };
   }

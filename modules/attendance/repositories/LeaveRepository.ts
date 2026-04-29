@@ -48,25 +48,13 @@ export class LeaveRepository implements ILeaveRepository {
         isActive: true,
         tenantId: input.tenantId,
         OR: [
-          { role: { name: { in: ["SUPER_ADMIN", "Super Admin"] } } },
+          { role: { isSuperAdmin: true } },
           {
-            AND: [
-              {
-                role: {
-                  permission: {
-                    some: {
-                      resource: "izin",
-                      action: "verify",
-                    },
-                  },
-                },
-              },
-              ...siteScope,
-            ],
+            AND: [{ role: { canReceiveWhatsappApproval: true } }, ...siteScope],
           },
         ],
       },
-      select: { id: true },
+      select: { id: true, phone: true },
     });
 
     return approvers.map(toLeaveApproverEntity);

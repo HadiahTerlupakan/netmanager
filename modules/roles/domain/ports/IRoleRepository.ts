@@ -15,6 +15,7 @@ export interface CreateRoleRepositoryInput {
   isTechnical?: boolean;
   isSuperAdmin?: boolean;
   canApproveRab?: boolean;
+  canReceiveWhatsappApproval?: boolean;
   permissionIds?: string[];
 }
 
@@ -27,6 +28,7 @@ export interface UpdateRoleRepositoryInput {
   isTechnical?: boolean;
   isSuperAdmin?: boolean;
   canApproveRab?: boolean;
+  canReceiveWhatsappApproval?: boolean;
   permissionIds?: string[];
 }
 

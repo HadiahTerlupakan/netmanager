@@ -83,7 +83,12 @@ describe("approveRabRevision", () => {
   it("blocks users without RAB approval permission", async () => {
     mockFns.userFindUnique.mockResolvedValue({
       id: "user-1",
-      role: { canApproveRab: false, name: "Staff", isSuperAdmin: false },
+      role: {
+        canApproveRab: false,
+        canReceiveWhatsappApproval: false,
+        name: "Staff",
+        isSuperAdmin: false,
+      },
     });
 
     await expect(

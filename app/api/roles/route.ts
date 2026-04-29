@@ -22,6 +22,7 @@ const roleSchema = z.object({
   isTechnical: z.boolean().optional().default(false),
   isSuperAdmin: z.boolean().optional().default(false),
   canApproveRab: z.boolean().optional().default(false),
+  canReceiveWhatsappApproval: z.boolean().optional().default(false),
 });
 
 const handleGet: AuthenticatedHandler = async ({ request, user }) => {

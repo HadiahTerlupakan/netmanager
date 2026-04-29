@@ -116,6 +116,7 @@ export class TenantProvisioningService {
           isTechnical: role.isTechnical,
           isSuperAdmin: false,
           canApproveRab: role.canApproveRab,
+          canReceiveWhatsappApproval: role.canReceiveWhatsappApproval,
           tenantId,
           updatedAt: this.createDate(),
           permission: {
@@ -153,6 +154,7 @@ export class TenantProvisioningService {
         isTechnical: false,
         isSuperAdmin: false,
         canApproveRab: true,
+        canReceiveWhatsappApproval: false,
         tenantId,
         updatedAt: this.createDate(),
         permission: {
