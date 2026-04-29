@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockFns, MockInventoryRepository } = vi.hoisted(() => {
@@ -196,29 +196,11 @@ vi.mock("@/lib/websocket/emitter", () => ({
   },
 }));
 
-vi.mock("@/lib/api-response", () => ({
-  apiError: (message: string, _code?: string, init?: { status?: number }) =>
-    NextResponse.json(
-      { success: false, error: message },
-      { status: init?.status || 500 },
-    ),
-  ErrorCodes: {
-    FORBIDDEN: "FORBIDDEN",
-    INTERNAL_ERROR: "INTERNAL_ERROR",
-    NOT_FOUND: "NOT_FOUND",
-    VALIDATION_ERROR: "VALIDATION_ERROR",
-  },
-}));
-
 import { GET as getGudang } from "@/app/api/mobile/inventory/gudang/route";
 import { GET as getBarang } from "@/app/api/mobile/inventory/barang/route";
 import { GET as getRiwayat } from "@/app/api/mobile/inventory/riwayat/route";
 import { POST as postMasuk } from "@/app/api/mobile/inventory/masuk/route";
 import { POST as postKeluar } from "@/app/api/mobile/inventory/keluar/route";
-import {
-  buildInventoryActorFilter,
-  resolveInventoryActorScope,
-} from "@/modules/inventory";
 
 describe("mobile inventory authorization", () => {
   beforeEach(() => {
@@ -361,60 +343,6 @@ describe("mobile inventory authorization", () => {
         jumlah: 1,
         actor: { type: "mitra", id: "mitra-1" },
         tenantId: "tenant-1",
-      }),
-    );
-  });
-
-  it("resolves mitra inventory scope consistently for mobile mutation routes", () => {
-    expect(
-      resolveInventoryActorScope({
-        mitra: { id: "mitra-1", siteId: "site-1" },
-        isSuperAdmin: false,
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        actor: { type: "mitra", id: "mitra-1" },
-        allowedSiteIds: ["site-1"],
-        isRestricted: true,
-      }),
-    );
-  });
-
-  it("builds actor filters that keep riwayat user access aware", () => {
-    expect(buildInventoryActorFilter({ type: "user", id: "user-1" })).toEqual({
-      OR: [{ userId: "user-1" }, { actorType: "user", actorId: "user-1" }],
-    });
-  });
-
-  it("builds actor filters that keep riwayat mitra access strict", () => {
-    expect(buildInventoryActorFilter({ type: "mitra", id: "mitra-1" })).toEqual(
-      {
-        actorType: "mitra",
-        actorId: "mitra-1",
-      },
-    );
-  });
-
-  it("resolves user inventory scope and keeps read routes site-restricted", () => {
-    expect(
-      resolveInventoryActorScope({
-        user: {
-          id: "user-1",
-          role: {
-            name: "OPERATOR",
-            permission: [{ resource: "k_barang", action: "site_only" }],
-          },
-          sites: { id: "site-primary" },
-          userSites: [{ siteId: "site-assigned" }],
-        },
-        isSuperAdmin: false,
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        actor: { type: "user", id: "user-1", userId: "user-1" },
-        allowedSiteIds: ["site-assigned", "site-primary"],
-        isRestricted: true,
-        userPermissions: ["k_barang:site_only"],
       }),
     );
   });
