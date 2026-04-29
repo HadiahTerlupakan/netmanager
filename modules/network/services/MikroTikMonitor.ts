@@ -1,123 +1,194 @@
 import { logger } from "@/lib/logger";
-import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
 import { firebaseRealtimeService } from "@/lib/realtime";
-import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
+import type {
+  RealtimeEventType,
+  RealtimeScope,
+} from "@/lib/realtime/contracts";
+import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
+import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
 
-class MikroTikMonitor {
-  private intervalId: ReturnType<typeof setTimeout> | null = null;
-  private readonly CHECK_INTERVAL = 60000 * 5;
-  private errorCount: number = 0;
-  private readonly MAX_ERRORS = 5;
-  private networkRepo: NetworkRepository;
+const ROUTER_CHECK_INTERVAL_MS = 60000 * 5;
+const MAX_CONSECUTIVE_ERRORS = 5;
+const INITIAL_BACKOFF_THRESHOLD = 2;
+const MAX_BACKOFF_MULTIPLIER = 8;
+const REALTIME_SCOPE = {
+  kind: "admin",
+  id: "mikrotik",
+} satisfies RealtimeScope;
+const REALTIME_EVENT_TYPE = "mikrotik.update" satisfies RealtimeEventType;
 
-  constructor() {
-    this.networkRepo = new NetworkRepository();
+interface ActiveTenantRecord {
+  id: string;
+}
+
+interface RouterStatsRepository {
+  getStatistics(tenantId: string): Promise<unknown>;
+}
+
+interface TenantRepository {
+  findActiveTenants(): Promise<ActiveTenantRecord[]>;
+}
+
+interface RealtimePublisher {
+  publish(payload: {
+    type: RealtimeEventType;
+    scope: RealtimeScope;
+    payload: unknown;
+  }): Promise<unknown>;
+}
+
+function calculateBackoffMultiplier(errorCount: number): number {
+  if (errorCount <= INITIAL_BACKOFF_THRESHOLD) {
+    return 1;
   }
 
+  return Math.min(
+    2 ** (errorCount - INITIAL_BACKOFF_THRESHOLD),
+    MAX_BACKOFF_MULTIPLIER,
+  );
+}
+
+function isConnectionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const errorCode = (error as { code?: string }).code;
+  const errorMessage = (error as { message?: string }).message || "";
+
+  return (
+    errorCode === "ECONNREFUSED" ||
+    errorCode === "ENOTFOUND" ||
+    errorCode === "ETIMEDOUT" ||
+    errorMessage.includes("ECONNREFUSED") ||
+    errorMessage.includes("Connection refused")
+  );
+}
+
+async function publishTenantStats(
+  tenantRepository: TenantRepository,
+  statsRepository: RouterStatsRepository,
+  publisher: RealtimePublisher,
+) {
+  const tenants = await tenantRepository.findActiveTenants();
+
+  for (const tenant of tenants) {
+    try {
+      const stats = await statsRepository.getStatistics(tenant.id);
+      await publisher.publish({
+        type: REALTIME_EVENT_TYPE,
+        scope: REALTIME_SCOPE,
+        payload: stats,
+      });
+    } catch (error) {
+      logger.error(
+        `[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`,
+        error,
+      );
+    }
+  }
+}
+
+async function publishUpdatedCount(
+  publisher: RealtimePublisher,
+  updatedCount: number,
+) {
+  await publisher.publish({
+    type: REALTIME_EVENT_TYPE,
+    scope: REALTIME_SCOPE,
+    payload: {
+      timestamp: new Date(),
+      updatedCount,
+    },
+  });
+}
+
+function logMonitorError(error: unknown, errorCount: number) {
+  if (isConnectionError(error)) {
+    const errorCode = (error as { code?: string }).code || "ECONNREFUSED";
+    logger.warn(
+      `[MikroTikMonitor] DB connection failed (${errorCode}) - attempt ${errorCount}/${MAX_CONSECUTIVE_ERRORS}`,
+    );
+    return;
+  }
+
+  logger.error(
+    `[MikroTikMonitor] Error (${errorCount}/${MAX_CONSECUTIVE_ERRORS}):`,
+    error instanceof Error ? error.message : error,
+  );
+}
+
+/** Monitor status router MikroTik dan publikasikan statistik realtime. */
+class MikroTikMonitor {
+  private intervalId: ReturnType<typeof setTimeout> | null = null;
+  private errorCount = 0;
+  private readonly tenantRepository: TenantRepository;
+  private readonly statsRepository: RouterStatsRepository;
+  private readonly publisher: RealtimePublisher;
+
+  constructor() {
+    this.tenantRepository = new NetworkRepository();
+    this.statsRepository = new MikroTikRouterRepository();
+    this.publisher = firebaseRealtimeService;
+  }
+
+  /** Set socket server placeholder untuk kompatibilitas lama. */
   public setSocketServer(_io?: unknown) {}
 
+  /** Mulai loop monitoring router. */
   public start() {
     if (this.intervalId) {
       return;
     }
 
     this.errorCount = 0;
-    this.checkStatus();
-    this.scheduleNext();
+    void this.checkStatus();
   }
 
+  /** Hentikan loop monitoring router. */
   public stop() {
-    if (this.intervalId) {
-      clearTimeout(this.intervalId);
-      this.intervalId = null;
+    if (!this.intervalId) {
+      return;
     }
+
+    clearTimeout(this.intervalId);
+    this.intervalId = null;
   }
 
   private scheduleNext() {
-    const backoff =
-      this.errorCount > 2 ? Math.min(2 ** (this.errorCount - 2), 8) : 1;
-    const interval = this.CHECK_INTERVAL * backoff;
+    const interval =
+      ROUTER_CHECK_INTERVAL_MS * calculateBackoffMultiplier(this.errorCount);
 
     this.intervalId = setTimeout(() => {
-      this.checkStatus().then(() => {
-        if (this.intervalId) this.scheduleNext();
-      });
+      void this.checkStatus();
     }, interval);
   }
 
-  private isConnectionError(error: unknown): boolean {
-    if (error && typeof error === "object") {
-      const code = (error as { code?: string }).code;
-      const message = (error as { message?: string }).message || "";
-      return (
-        code === "ECONNREFUSED" ||
-        code === "ENOTFOUND" ||
-        code === "ETIMEDOUT" ||
-        message.includes("ECONNREFUSED") ||
-        message.includes("Connection refused")
-      );
-    }
-    return false;
-  }
-
-  private async checkStatus() {
+  public async checkStatus() {
     try {
-      const scope = { kind: "admin", id: "mikrotik" } as const;
       const updatedCount = await checkAllMikroTikRouterStatus();
-
-      const routerRepository = new MikroTikRouterRepository();
-
-      const tenants = await this.networkRepo.findActiveTenants();
-
-      for (const tenant of tenants) {
-        try {
-          const stats = await routerRepository.getStatistics(tenant.id);
-          await firebaseRealtimeService.publish({
-            type: "mikrotik.update",
-            scope,
-            payload: stats,
-          });
-        } catch (e) {
-          logger.error(
-            `[MikroTikMonitor] Error getting stats for tenant ${tenant.id}:`,
-            e,
-          );
-        }
-      }
-
+      await publishTenantStats(
+        this.tenantRepository,
+        this.statsRepository,
+        this.publisher,
+      );
+      await publishUpdatedCount(this.publisher, updatedCount);
       this.errorCount = 0;
+    } catch (error) {
+      this.errorCount += 1;
+      logMonitorError(error, this.errorCount);
 
-      await firebaseRealtimeService.publish({
-        type: "mikrotik.update",
-        scope,
-        payload: {
-          timestamp: new Date(),
-          updatedCount,
-        },
-      });
-    } catch (error: unknown) {
-      this.errorCount++;
-
-      if (this.isConnectionError(error)) {
-        const code = (error as { code?: string }).code || "ECONNREFUSED";
-        logger.warn(
-          `[MikroTikMonitor] DB connection failed (${code}) - attempt ${this.errorCount}/${this.MAX_ERRORS}`,
-        );
-      } else {
-        logger.error(
-          `[MikroTikMonitor] Error (${this.errorCount}/${this.MAX_ERRORS}):`,
-          error instanceof Error ? error.message : error,
-        );
-      }
-
-      if (this.errorCount >= this.MAX_ERRORS) {
+      if (this.errorCount >= MAX_CONSECUTIVE_ERRORS) {
         logger.error(
           "[MikroTikMonitor] Stopping after too many consecutive failures",
         );
         this.stop();
+        return;
       }
     }
+
+    this.scheduleNext();
   }
 }
 

@@ -1,11 +1,11 @@
-import { logger } from "@/lib/logger";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import {
-  inventoryMasukRouteService,
-  type InventoryMasukRouteResult,
-  logInventoryStockInEffects,
   buildInventoryAccessSession,
+  inventoryMasukRouteService,
+  logInventoryStockInEffects,
+  type InventoryMasukRouteResult,
   validateGudangSiteAccess,
 } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
@@ -77,7 +77,11 @@ function toCreatedMasukPayload(
   return result.data as CreatedMasukPayload;
 }
 
-function mapCreateMasukError(error: Error) {
+function handleCreateMasukError(error: Error) {
+  logger.error("Error creating barang masuk", error, {
+    path: "/api/inventory/masuk",
+    method: "POST",
+  });
   if (error.message === "Barang tidak ditemukan")
     return ApiErrors.notFound("Barang");
   if (error.message === "Gudang tidak ditemukan atau tidak aktif") {
@@ -193,10 +197,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Error creating barang masuk", err, {
-      path: "/api/inventory/masuk",
-      method: "POST",
-    });
-    return mapCreateMasukError(err);
+    return handleCreateMasukError(err);
   }
 });

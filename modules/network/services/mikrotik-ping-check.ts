@@ -1,16 +1,23 @@
 import { logger } from "@/lib/logger";
-import { RadiusConnectionError } from "../utils/errors";
-import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
 import { RouterOSAPI } from "node-routeros-v2";
+import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
+import { RadiusConnectionError } from "../utils/errors";
+
+const DEFAULT_MIKROTIK_TIMEOUT_MS = 5000;
+
+interface MikroTikPingResult {
+  success: boolean;
+  userOnline?: number;
+}
 
 async function testMikroTikAPI(
   ipAddress: string,
   port: number,
   username: string,
   password: string,
-  timeout: number = 5000,
-): Promise<{ success: boolean; userOnline?: number }> {
+  timeout: number = DEFAULT_MIKROTIK_TIMEOUT_MS,
+): Promise<MikroTikPingResult> {
   return new Promise((resolve) => {
     const conn = new RouterOSAPI({
       host: ipAddress,
@@ -63,125 +70,194 @@ async function testMikroTikAPI(
 }
 
 export async function checkAllMikroTikRouterStatus(): Promise<number> {
+  const routerRepository = new MikroTikRouterRepository();
+  const networkRepository = new NetworkRepository();
+  const tenants = await networkRepository.findActiveTenants();
+
+  let totalUpdatedCount = 0;
+
+  for (const tenant of tenants) {
+    totalUpdatedCount += await checkTenantRouters(routerRepository, tenant.id);
+  }
+
+  return totalUpdatedCount;
+}
+
+async function checkTenantRouters(
+  routerRepository: MikroTikRouterRepository,
+  tenantId: string,
+): Promise<number> {
   try {
-    const routerRepository = new MikroTikRouterRepository();
-    const networkRepo = new NetworkRepository();
+    const routers = await routerRepository.findAll(tenantId);
+    const results = await Promise.all(
+      routers.map((router) =>
+        checkAndPersistRouter(routerRepository, router, tenantId),
+      ),
+    );
 
-    const tenants = await networkRepo.findActiveTenants();
-
-    let totalUpdatedCount = 0;
-
-    for (const tenant of tenants) {
-      try {
-        const routers = await routerRepository.findAll(tenant.id);
-
-        const checkPromises = routers.map(async (router) => {
-          try {
-            const apiUsername =
-              router.apiUsernameGenerated || router.apiUsername;
-            const apiPassword =
-              router.apiPasswordGenerated || router.apiPassword;
-
-            const apiResult = await testMikroTikAPI(
-              router.ipAddress,
-              router.apiPort,
-              apiUsername,
-              apiPassword,
-              5000,
-            );
-
-            await routerRepository.update(
-              router.id,
-              {
-                pingStatus: apiResult.success ? "online" : "offline",
-                userOnline: apiResult.userOnline ?? 0,
-                lastStatusCheck: new Date(),
-              },
-              tenant.id,
-            );
-
-            return {
-              id: router.id,
-              success: apiResult.success,
-              userOnline: apiResult.userOnline ?? 0,
-            };
-          } catch (error: unknown) {
-            logger.error(`Error checking router ${router.id}:`, error);
-            try {
-              await routerRepository.update(
-                router.id,
-                {
-                  pingStatus: "offline",
-                  userOnline: 0,
-                  lastStatusCheck: new Date(),
-                },
-                tenant.id,
-              );
-            } catch (updateError: unknown) {
-              logger.error(`Error updating router ${router.id}:`, updateError);
-            }
-            return { id: router.id, success: false, userOnline: 0 };
-          }
-        });
-
-        const results = await Promise.all(checkPromises);
-        totalUpdatedCount += results.length;
-      } catch (tenantError) {
-        logger.error(
-          `Error checking routers for tenant ${tenant.id}:`,
-          tenantError,
-        );
-      }
-    }
-
-    return totalUpdatedCount;
-  } catch (error: unknown) {
-    throw error;
+    return results.length;
+  } catch (error) {
+    logger.error(`Error checking routers for tenant ${tenantId}:`, error);
+    return 0;
   }
 }
 
+async function checkAndPersistRouter(
+  routerRepository: MikroTikRouterRepository,
+  router: {
+    id: string;
+    ipAddress: string;
+    apiPort: number;
+    apiUsername: string;
+    apiPassword: string;
+    apiUsernameGenerated: string | null;
+    apiPasswordGenerated: string | null;
+  },
+  tenantId: string,
+) {
+  try {
+    const apiResult = await testMikroTikAPI(
+      router.ipAddress,
+      router.apiPort,
+      router.apiUsernameGenerated || router.apiUsername,
+      router.apiPasswordGenerated || router.apiPassword,
+    );
+
+    await updateRouterHealth(routerRepository, router.id, tenantId, apiResult);
+    return {
+      id: router.id,
+      success: apiResult.success,
+      userOnline: apiResult.userOnline ?? 0,
+    };
+  } catch (error) {
+    logger.error(`Error checking router ${router.id}:`, error);
+    await markRouterOffline(routerRepository, router.id, tenantId);
+    return { id: router.id, success: false, userOnline: 0 };
+  }
+}
+
+async function updateRouterHealth(
+  routerRepository: MikroTikRouterRepository,
+  routerId: string,
+  tenantId: string,
+  apiResult: MikroTikPingResult,
+) {
+  await routerRepository.update(
+    routerId,
+    {
+      pingStatus: apiResult.success ? "online" : "offline",
+      userOnline: apiResult.userOnline ?? 0,
+      lastStatusCheck: new Date(),
+    },
+    tenantId,
+  );
+}
+
+async function markRouterOffline(
+  routerRepository: MikroTikRouterRepository,
+  routerId: string,
+  tenantId: string,
+) {
+  try {
+    await updateRouterHealth(routerRepository, routerId, tenantId, {
+      success: false,
+      userOnline: 0,
+    });
+  } catch (error) {
+    logger.error(`Error updating router ${routerId}:`, error);
+  }
+}
+
+async function getRouterForStatusCheck(id: string) {
+  const routerRepository = new MikroTikRouterRepository();
+  const networkRepository = new NetworkRepository();
+  const routerTenant = await networkRepository.findRouterTenantId(id);
+
+  if (!routerTenant?.tenantId) {
+    return null;
+  }
+
+  const router = await routerRepository.findById(id, routerTenant.tenantId);
+  if (!router) {
+    return null;
+  }
+
+  return { routerRepository, tenantId: routerTenant.tenantId, router };
+}
+
+function createRadiusConnectionError(id: string, error: unknown) {
+  logger.error(`Error checking single router ${id}:`, error);
+  return new RadiusConnectionError(
+    "Gagal terhubung ke router: " +
+      (error instanceof Error ? error.message : String(error)),
+  );
+}
+
+function getRouterApiCredentials(router: {
+  apiUsername: string;
+  apiPassword: string;
+  apiUsernameGenerated: string | null;
+  apiPasswordGenerated: string | null;
+}) {
+  return {
+    username: router.apiUsernameGenerated || router.apiUsername,
+    password: router.apiPasswordGenerated || router.apiPassword,
+  };
+}
+
+function createRouterHealthUpdate(apiResult: MikroTikPingResult) {
+  return {
+    pingStatus: apiResult.success ? "online" : "offline",
+    userOnline: apiResult.userOnline ?? 0,
+    lastStatusCheck: new Date(),
+  } as const;
+}
+
+async function persistRouterHealth(
+  routerRepository: MikroTikRouterRepository,
+  routerId: string,
+  tenantId: string,
+  apiResult: MikroTikPingResult,
+) {
+  await routerRepository.update(
+    routerId,
+    createRouterHealthUpdate(apiResult),
+    tenantId,
+  );
+}
+
+async function runSingleRouterStatusCheck(id: string): Promise<boolean> {
+  const statusCheck = await getRouterForStatusCheck(id);
+
+  if (!statusCheck) {
+    return false;
+  }
+
+  const credentials = getRouterApiCredentials(statusCheck.router);
+  const apiResult = await testMikroTikAPI(
+    statusCheck.router.ipAddress,
+    statusCheck.router.apiPort,
+    credentials.username,
+    credentials.password,
+  );
+
+  await persistRouterHealth(
+    statusCheck.routerRepository,
+    statusCheck.router.id,
+    statusCheck.tenantId,
+    apiResult,
+  );
+
+  return apiResult.success;
+}
+
+/** Perbarui status koneksi satu router MikroTik. */
 export async function checkSingleMikroTikRouterStatus(
   id: string,
 ): Promise<boolean> {
   try {
-    const routerRepository = new MikroTikRouterRepository();
-    const networkRepo = new NetworkRepository();
-
-    const routerData = await networkRepo.findRouterTenantId(id);
-
-    if (!routerData?.tenantId) return false;
-
-    const router = await routerRepository.findById(id, routerData.tenantId);
-
-    if (!router) return false;
-
-    const apiUsername = router.apiUsernameGenerated || router.apiUsername;
-    const apiPassword = router.apiPasswordGenerated || router.apiPassword;
-
-    const apiResult = await testMikroTikAPI(
-      router.ipAddress,
-      router.apiPort,
-      apiUsername,
-      apiPassword,
-      5000,
-    );
-
-    await routerRepository.update(
-      router.id,
-      {
-        pingStatus: apiResult.success ? "online" : "offline",
-        userOnline: apiResult.userOnline ?? 0,
-        lastStatusCheck: new Date(),
-      },
-      routerData.tenantId,
-    );
-
-    return apiResult.success;
+    return await runSingleRouterStatusCheck(id);
   } catch (error: unknown) {
-    logger.error(`Error checking single router ${id}:`, error);
-    throw new RadiusConnectionError(
-      "Gagal terhubung ke router: " +
-        (error instanceof Error ? error.message : String(error)),
-    );
+    throw createRadiusConnectionError(id, error);
   }
 }

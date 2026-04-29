@@ -1,4 +1,7 @@
-import { prisma } from "@/lib/prisma";
+import {
+  NetworkRepository,
+  type RouterReconfigureRecord,
+} from "../repositories/NetworkRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   MikroTikRouterService,
@@ -6,11 +9,10 @@ import {
 } from "./MikroTikRouterService";
 
 const DEFAULT_RADIUS_SECRET = "testing123";
-const SETTINGS_KEYS = [
-  "RADIUS_SECRET",
-  "ISOLIR_URL",
-  "MIKROTIK_API_URL",
-] as const;
+const SETTINGS_KEYS = ["RADIUS_SECRET", "ISOLIR_URL"] as const;
+const FORBIDDEN_ERROR = "FORBIDDEN:Akses ditolak";
+const NOT_FOUND_ERROR = "NOT_FOUND:No valid routers found among selection";
+const PROVISIONING_FAILED_MESSAGE = "Provisioning failed";
 
 interface RouterCredentialsInput {
   apiUsername: string;
@@ -26,43 +28,84 @@ interface ReconfigureContext {
   restrictedToOwnSite: boolean;
 }
 
+interface RouterSettings {
+  radiusSecret: string;
+  isolirUrl?: string;
+}
+
+interface RouterReconfigureResult {
+  id: string;
+  name: string;
+  success: boolean;
+  logs: string[];
+  error: string | null;
+}
+
+function getSettingValue(
+  settings: Array<{ key: string; value: string }>,
+  key: string,
+) {
+  return settings.find((item) => item.key === key)?.value;
+}
+
+function getRouterCredentials(router: RouterCredentialsInput) {
+  return {
+    username: router.apiUsernameGenerated || router.apiUsername,
+    password: router.apiPasswordGenerated || router.apiPassword,
+  };
+}
+
+function buildRouterResult(
+  router: Pick<RouterReconfigureRecord, "id" | "name">,
+  success: boolean,
+  logs: string[],
+  error: string | null,
+): RouterReconfigureResult {
+  return { id: router.id, name: router.name, success, logs, error };
+}
+
 /** Service untuk kebutuhan route reconfigure router MikroTik. */
 export class RouterReconfigureRouteService {
   constructor(
     private readonly provisioningService: MikroTikProvisioningService = new MikroTikProvisioningService(),
     private readonly routerService: MikroTikRouterService = new MikroTikRouterService(),
+    private readonly networkRepository: NetworkRepository = new NetworkRepository(),
   ) {}
 
   /** Reconfigure router yang dipilih dan kembalikan hasil per router. */
   async reconfigureRouters(routerIds: string[], context: ReconfigureContext) {
     const settings = await this.getSettings();
     const routers = await this.getAuthorizedRouters(routerIds, context);
-    const results = await this.reconfigureAuthorizedRouters(
-      routers,
-      settings.radiusSecret,
-      settings.isolirUrl,
-    );
+    const results = await this.reconfigureAuthorizedRouters(routers, settings);
     const successCount = results.filter((item) => item.success).length;
-    return this.buildResponse(results, routers.length, successCount);
+
+    if (routers.length === 0) {
+      throw new Error(NOT_FOUND_ERROR);
+    }
+
+    return {
+      success: true,
+      message: `Reconfiguration completed. ${successCount}/${routers.length} successful.`,
+      results,
+    };
   }
 
-  private async getSettings() {
-    const settings = await prisma.settings.findMany({
-      where: { key: { in: [...SETTINGS_KEYS] } },
-    });
+  private async getSettings(): Promise<RouterSettings> {
+    const settings =
+      await this.networkRepository.findSettingsByKeys(SETTINGS_KEYS);
     return {
       radiusSecret:
-        settings.find((item) => item.key === "RADIUS_SECRET")?.value ||
-        DEFAULT_RADIUS_SECRET,
-      isolirUrl: settings.find((item) => item.key === "ISOLIR_URL")?.value,
+        getSettingValue(settings, "RADIUS_SECRET") || DEFAULT_RADIUS_SECRET,
+      isolirUrl: getSettingValue(settings, "ISOLIR_URL"),
     };
   }
 
   private async getAuthorizedRouters(
     routerIds: string[],
     context: ReconfigureContext,
-  ) {
+  ): Promise<RouterReconfigureRecord[]> {
     let hasDeniedRouter = false;
+
     const routers = await Promise.all(
       routerIds.map(async (routerId) => {
         try {
@@ -72,60 +115,54 @@ export class RouterReconfigureRouteService {
             userId: context.userId,
             restrictedToOwnSite: context.restrictedToOwnSite,
           });
-          return router.pingStatus === "online" ? router : null;
+
+          const reconfigureRouter =
+            await this.networkRepository.findRouterForReconfigure(
+              router.id,
+              context.tenantId || "",
+            );
+
+          return reconfigureRouter?.pingStatus === "online"
+            ? reconfigureRouter
+            : null;
         } catch (error) {
-          if (error instanceof RouterAccessDeniedError) hasDeniedRouter = true;
+          if (error instanceof RouterAccessDeniedError) {
+            hasDeniedRouter = true;
+          }
+
           return null;
         }
       }),
     );
 
-    if (hasDeniedRouter) throw new Error("FORBIDDEN:Akses ditolak");
-    return routers.filter(
-      (router): router is NonNullable<(typeof routers)[number]> =>
-        Boolean(router),
+    if (hasDeniedRouter) {
+      throw new Error(FORBIDDEN_ERROR);
+    }
+
+    return routers.filter((router): router is RouterReconfigureRecord =>
+      Boolean(router),
     );
   }
 
   private async reconfigureAuthorizedRouters(
-    routers: Array<{
-      id: string;
-      name: string;
-      ipAddress: string;
-      apiPort: number;
-      apiUsername: string;
-      apiPassword: string;
-      apiUsernameGenerated?: string | null;
-      apiPasswordGenerated?: string | null;
-    }>,
-    radiusSecret: string,
-    isolirUrl?: string,
+    routers: RouterReconfigureRecord[],
+    settings: RouterSettings,
   ) {
-    const results = [];
+    const results: RouterReconfigureResult[] = [];
+
     for (const router of routers) {
-      results.push(
-        await this.reconfigureSingleRouter(router, radiusSecret, isolirUrl),
-      );
+      results.push(await this.reconfigureSingleRouter(router, settings));
     }
+
     return results;
   }
 
   private async reconfigureSingleRouter(
-    router: {
-      id: string;
-      name: string;
-      ipAddress: string;
-      apiPort: number;
-      apiUsername: string;
-      apiPassword: string;
-      apiUsernameGenerated?: string | null;
-      apiPasswordGenerated?: string | null;
-    },
-    radiusSecret: string,
-    isolirUrl?: string,
-  ) {
+    router: RouterReconfigureRecord,
+    settings: RouterSettings,
+  ): Promise<RouterReconfigureResult> {
     try {
-      const credentials = this.getRouterCredentials(router);
+      const credentials = getRouterCredentials(router);
       const result = await this.provisioningService.provisionRadius(
         {
           ip: router.ipAddress,
@@ -134,54 +171,23 @@ export class RouterReconfigureRouteService {
           password: credentials.password,
         },
         null,
-        radiusSecret,
-        isolirUrl,
+        settings.radiusSecret,
+        settings.isolirUrl,
       );
-      return this.buildRouterResult(
+
+      return buildRouterResult(
         router,
         result.success,
         result.logs,
-        result.success ? null : "Provisioning failed",
+        result.success ? null : PROVISIONING_FAILED_MESSAGE,
       );
     } catch (error) {
-      return this.buildRouterResult(
+      return buildRouterResult(
         router,
         false,
         [],
         error instanceof Error ? error.message : "Terjadi kesalahan",
       );
     }
-  }
-
-  private getRouterCredentials(router: RouterCredentialsInput) {
-    return {
-      username: router.apiUsernameGenerated || router.apiUsername,
-      password: router.apiPasswordGenerated || router.apiPassword,
-    };
-  }
-
-  private buildRouterResult(
-    router: { id: string; name: string },
-    success: boolean,
-    logs: string[],
-    error: string | null,
-  ) {
-    return { id: router.id, name: router.name, success, logs, error };
-  }
-
-  private buildResponse(
-    results: unknown[],
-    total: number,
-    successCount: number,
-  ) {
-    if (total === 0) {
-      throw new Error("NOT_FOUND:No valid routers found among selection");
-    }
-
-    return {
-      success: true,
-      message: `Reconfiguration completed. ${successCount}/${total} successful.`,
-      results,
-    };
   }
 }

@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/lib/prisma";
 import { logActivitySafe } from "@/lib/logger";
 import { RouterOSAPI } from "node-routeros-v2";
+import { NetworkRepository } from "../repositories/NetworkRepository";
 import type {
   MikroTikRouterCreateData,
   MikroTikRouterPublic,
@@ -185,16 +185,13 @@ async function testMikroTikAPI(
 export class MikroTikRouterService {
   constructor(
     private readonly routerRepository: IMikroTikRouterRepository = new MikroTikRouterRepository(),
+    private readonly networkRepository: NetworkRepository = new NetworkRepository(),
   ) {}
 
   private async resolveRestrictedSiteId(
     userId: string,
   ): Promise<string | null> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { siteId: true },
-    });
-
+    const user = await this.networkRepository.findUserSite(userId);
     return user?.siteId ?? null;
   }
 
@@ -351,12 +348,9 @@ export class MikroTikRouterService {
           apiUserResult.username &&
           apiUserResult.password
         ) {
-          await prisma.mikroTikRouter.update({
-            where: { id: router.id },
-            data: {
-              apiUsernameGenerated: apiUserResult.username,
-              apiPasswordGenerated: apiUserResult.password,
-            },
+          await this.networkRepository.updateGeneratedApiUser(router.id, {
+            apiUsernameGenerated: apiUserResult.username,
+            apiPasswordGenerated: apiUserResult.password,
           });
         } else {
           logger.warn(

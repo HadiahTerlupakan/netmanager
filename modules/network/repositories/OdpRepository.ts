@@ -86,7 +86,6 @@ export class OdpRepository implements IOdpRepository {
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.status !== undefined && { status: data.status }),
-          ...(data.status !== undefined && { status: data.status }),
           ...(data.odcOutputId !== undefined && {
             odcOutputId: data.odcOutputId,
           }),
