@@ -13,17 +13,18 @@ export type MixRadiusConfigPayload = {
   apiKey?: string;
 };
 
-/**
- * Service for MixRadius config orchestration.
- */
 export class MixRadiusConfigService {
-  constructor(
-    private readonly configRepository: IMixRadiusConfigRepository = mixRadiusConfigRepo,
-  ) {}
+  private readonly configRepository: IMixRadiusConfigRepository;
 
-  /**
-   * Get active config based on tenant scope.
-   */
+  constructor(configRepository?: IMixRadiusConfigRepository) {
+    if (!configRepository) {
+      throw new Error("MixRadius config repository wajib disediakan");
+    }
+
+    this.configRepository = configRepository;
+  }
+
+  /** Get active config based on tenant scope. */
   async getActiveConfig(tenantId?: string | null) {
     if (tenantId) {
       return this.configRepository.getActiveConfigByTenant(tenantId);
@@ -32,9 +33,7 @@ export class MixRadiusConfigService {
     return this.configRepository.getActiveConfig();
   }
 
-  /**
-   * Get config list based on tenant scope.
-   */
+  /** Get config list based on tenant scope. */
   async getConfigs(tenantId?: string) {
     if (tenantId) {
       return this.configRepository.getAllConfigsByTenant(tenantId);
@@ -43,9 +42,7 @@ export class MixRadiusConfigService {
     return this.configRepository.getAllConfigs();
   }
 
-  /**
-   * Create MixRadius config for a tenant.
-   */
+  /** Create MixRadius config for a tenant. */
   async createConfig(tenantId: string, payload: MixRadiusConfigPayload) {
     const validatedPayload = this.validateCreatePayload(payload);
     this.ensureRequiredFields(validatedPayload.missingFields);
@@ -67,9 +64,7 @@ export class MixRadiusConfigService {
     });
   }
 
-  /**
-   * Update MixRadius config with optional tenant scoping.
-   */
+  /** Update MixRadius config with optional tenant scoping. */
   async updateConfig(
     configId: string,
     payload: MixRadiusConfigPayload,
@@ -88,9 +83,7 @@ export class MixRadiusConfigService {
     return this.configRepository.updateConfig(configId, updatePayload);
   }
 
-  /**
-   * Delete MixRadius config with optional tenant scoping.
-   */
+  /** Delete MixRadius config with optional tenant scoping. */
   async deleteConfig(configId: string, tenantId?: string) {
     if (tenantId) {
       return this.configRepository.deleteConfigForTenant(configId, tenantId);
@@ -174,13 +167,7 @@ export class MixRadiusConfigService {
       updatePayload.apiKey = payload.apiKey;
     }
 
-    const rawBaseUrl =
-      typeof payload.apiUrl === "string"
-        ? payload.apiUrl
-        : typeof payload.baseUrl === "string"
-          ? payload.baseUrl
-          : undefined;
-
+    const rawBaseUrl = this.resolveRawBaseUrl(payload);
     if (rawBaseUrl !== undefined) {
       const normalizedConfig = this.buildNormalizedConfig({
         name:
@@ -202,6 +189,18 @@ export class MixRadiusConfigService {
     return updatePayload;
   }
 
+  private resolveRawBaseUrl(payload: MixRadiusConfigPayload) {
+    if (typeof payload.apiUrl === "string") {
+      return payload.apiUrl;
+    }
+
+    if (typeof payload.baseUrl === "string") {
+      return payload.baseUrl;
+    }
+
+    return undefined;
+  }
+
   private resolveIsDefault(payload: MixRadiusConfigPayload): boolean {
     return payload.isDefault ?? payload.isActive ?? false;
   }
@@ -221,12 +220,13 @@ export class MixRadiusConfigService {
 
 let mixRadiusConfigServiceInstance: MixRadiusConfigService | null = null;
 
-/**
- * Get singleton MixRadius config service.
- */
+export function createMixRadiusConfigService() {
+  return new MixRadiusConfigService(mixRadiusConfigRepo);
+}
+
 export function getMixRadiusConfigService() {
   if (!mixRadiusConfigServiceInstance) {
-    mixRadiusConfigServiceInstance = new MixRadiusConfigService();
+    mixRadiusConfigServiceInstance = createMixRadiusConfigService();
   }
 
   return mixRadiusConfigServiceInstance;

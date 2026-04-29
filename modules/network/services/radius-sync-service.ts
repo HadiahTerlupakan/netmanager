@@ -12,7 +12,10 @@ import { logger } from "@/lib/logger";
 
 import { Status } from "@prisma/client";
 import { RadiusRepository } from "../repositories/RadiusRepository";
-import { MikroTikPPPSecretService } from "./MikroTikPPPSecretService";
+import {
+  createMikroTikPPPSecretService,
+  MikroTikPPPSecretService,
+} from "./MikroTikPPPSecretService";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { prismaRadius } from "@/lib/prisma-radius";
 
@@ -44,7 +47,7 @@ export class RadiusSyncService {
 
   constructor(radiusClient?: typeof prismaRadius) {
     this.radiusRepo = new RadiusRepository(undefined, radiusClient);
-    this.pppSecretService = new MikroTikPPPSecretService();
+    this.pppSecretService = createMikroTikPPPSecretService();
     this.networkRepo = new NetworkRepository();
   }
 

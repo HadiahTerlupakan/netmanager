@@ -1,0 +1,87 @@
+import { SiteService } from "@/modules/roles";
+import { getMixRadiusService } from "./MixRadiusService";
+import type { MixRadiusOwnerGroup } from "./MixRadiusOwnerGroupFacadeService";
+
+type SiteLookup = {
+  id: string;
+  name: string;
+};
+
+type MixRadiusGroupServicePort = {
+  getOwnerGroups(tenantId?: string): Promise<MixRadiusOwnerGroup[]>;
+};
+
+type SiteServicePort = {
+  getSites(): Promise<SiteLookup[]>;
+};
+
+type MixRadiusGroupRouteServiceDeps = {
+  mixRadiusService?: MixRadiusGroupServicePort;
+  siteService?: SiteServicePort;
+};
+
+export type MobileMixRadiusGroupDTO = {
+  id: string;
+  name: string;
+  owners: string[];
+  isActive: boolean;
+  siteId?: string;
+};
+
+export class MixRadiusGroupRouteService {
+  private readonly mixRadiusService: MixRadiusGroupServicePort;
+  private readonly siteService: SiteServicePort;
+
+  constructor(deps: MixRadiusGroupRouteServiceDeps = {}) {
+    this.mixRadiusService = deps.mixRadiusService ?? getMixRadiusService();
+    this.siteService = deps.siteService ?? new SiteService();
+  }
+
+  /** Get admin MixRadius owner groups enriched with site names. */
+  async getAdminGroups(tenantId?: string) {
+    const [groups, sites] = await Promise.all([
+      this.mixRadiusService.getOwnerGroups(tenantId),
+      this.siteService.getSites(),
+    ]);
+    const siteMap = new Map(sites.map((site) => [site.id, site.name]));
+
+    return groups.map((group) => ({
+      ...group,
+      site:
+        group.siteId && siteMap.has(group.siteId)
+          ? { name: siteMap.get(group.siteId) }
+          : undefined,
+    }));
+  }
+
+  /** Get mobile MixRadius owner groups scoped by site. */
+  async getMobileGroups(
+    siteId?: string | null,
+  ): Promise<MobileMixRadiusGroupDTO[]> {
+    if (!siteId) {
+      return [];
+    }
+
+    const groups = await this.mixRadiusService.getOwnerGroups();
+    const scopedGroups = groups.filter((group) => group.siteId === siteId);
+
+    return scopedGroups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      owners: group.owners,
+      isActive: group.isActive,
+      ...(group.siteId ? { siteId: group.siteId } : {}),
+    }));
+  }
+}
+
+let mixRadiusGroupRouteServiceInstance: MixRadiusGroupRouteService | null =
+  null;
+
+export function getMixRadiusGroupRouteService() {
+  if (!mixRadiusGroupRouteServiceInstance) {
+    mixRadiusGroupRouteServiceInstance = new MixRadiusGroupRouteService();
+  }
+
+  return mixRadiusGroupRouteServiceInstance;
+}

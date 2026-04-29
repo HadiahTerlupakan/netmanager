@@ -7,8 +7,14 @@ import { logger } from "@/lib/logger";
  */
 
 import { RouterOSAPI } from "node-routeros-v2";
-import { NetworkRepository } from "../repositories/NetworkRepository";
+import {
+  NetworkRepository,
+  type PelangganWithRouter,
+  type RouterTenantId,
+} from "../repositories/NetworkRepository";
 import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
+import type { MikroTikRouterEntity } from "../domain/entities/MikroTikRouterEntity";
+import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 
 interface PPPSecretData {
   name: string;
@@ -89,14 +95,32 @@ interface RouterConfig {
   apiPassword: string;
 }
 
+interface MikroTikPPPSecretNetworkRepository {
+  findRouterTenantId(routerId: string): Promise<RouterTenantId | null>;
+  findPelangganWithRouter(
+    pelangganId: string,
+  ): Promise<PelangganWithRouter | null>;
+}
+
+type MikroTikPPPSecretDependencies = {
+  networkRepository: MikroTikPPPSecretNetworkRepository;
+  routerRepository: IMikroTikRouterRepository;
+};
+
 const EXPIRED_PROFILE = "expired users";
 const CONNECTION_TIMEOUT = 10000;
 
 export class MikroTikPPPSecretService {
-  private networkRepo: NetworkRepository;
+  private readonly networkRepository: MikroTikPPPSecretNetworkRepository;
+  private readonly routerRepository: IMikroTikRouterRepository;
 
-  constructor() {
-    this.networkRepo = new NetworkRepository();
+  constructor(deps?: MikroTikPPPSecretDependencies) {
+    if (!deps) {
+      throw new Error("MikroTik PPP Secret dependencies wajib disediakan");
+    }
+
+    this.networkRepository = deps.networkRepository;
+    this.routerRepository = deps.routerRepository;
   }
 
   /**
@@ -114,6 +138,18 @@ export class MikroTikPPPSecretService {
     return conn;
   }
 
+  private async findRouter(
+    routerId: string,
+  ): Promise<MikroTikRouterEntity | null> {
+    const routerTenant =
+      await this.networkRepository.findRouterTenantId(routerId);
+    if (!routerTenant?.tenantId) {
+      return null;
+    }
+
+    return this.routerRepository.findById(routerId, routerTenant.tenantId);
+  }
+
   /**
    * Helper: Get router config dari pelanggan
    * Menggunakan generated API user jika tersedia, fallback ke master user
@@ -129,7 +165,7 @@ export class MikroTikPPPSecretService {
     profileName: string;
   } | null> {
     const pelanggan =
-      await this.networkRepo.findPelangganWithRouter(pelangganId);
+      await this.networkRepository.findPelangganWithRouter(pelangganId);
 
     if (!pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter) {
       return null;
@@ -161,11 +197,7 @@ export class MikroTikPPPSecretService {
     data: PPPSecretData,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const routerRepo = new MikroTikRouterRepository();
-      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant
-        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-        : null;
+      const router = await this.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -226,11 +258,7 @@ export class MikroTikPPPSecretService {
     profileName: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const routerRepo = new MikroTikRouterRepository();
-      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant
-        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-        : null;
+      const router = await this.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -280,11 +308,7 @@ export class MikroTikPPPSecretService {
     username: string,
   ): Promise<{ success: boolean; disconnected: number; error?: string }> {
     try {
-      const routerRepo = new MikroTikRouterRepository();
-      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant
-        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-        : null;
+      const router = await this.findRouter(routerId);
 
       if (!router) {
         return {
@@ -366,11 +390,7 @@ export class MikroTikPPPSecretService {
     error?: string;
   }> {
     try {
-      const routerRepo = new MikroTikRouterRepository();
-      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant
-        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-        : null;
+      const router = await this.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -498,11 +518,7 @@ export class MikroTikPPPSecretService {
     username: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const routerRepo = new MikroTikRouterRepository();
-      const routerTenant = await this.networkRepo.findRouterTenantId(routerId);
-      const router = routerTenant
-        ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-        : null;
+      const router = await this.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -745,6 +761,13 @@ export class MikroTikPPPSecretService {
       return { success: false, logs, error: errorMessage };
     }
   }
+}
+
+export function createMikroTikPPPSecretService() {
+  return new MikroTikPPPSecretService({
+    networkRepository: new NetworkRepository(),
+    routerRepository: new MikroTikRouterRepository(),
+  });
 }
 
 export default MikroTikPPPSecretService;

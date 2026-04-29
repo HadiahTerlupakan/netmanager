@@ -1,32 +1,9 @@
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
-import { getMixRadiusService } from "@/modules/integrations";
+import { getMixRadiusGroupRouteService } from "@/modules/integrations";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 
-type MobileMixRadiusGroup = {
-  id: string;
-  name: string;
-  owners: string[];
-  isActive: boolean;
-  siteId?: string | null;
-};
-
-function filterGroupsBySite(
-  groups: MobileMixRadiusGroup[],
-  siteId?: string | null,
-): MobileMixRadiusGroup[] {
-  if (!siteId) {
-    return groups;
-  }
-
-  return groups.filter((group) => group.siteId === siteId);
-}
-
-/**
- * GET /api/mobile/mixradius/groups
- * Return MixRadius owner groups scoped to the mobile user's site.
- */
 export async function GET(request: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(request);
@@ -43,20 +20,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const mixRadius = getMixRadiusService();
-    const groups = await mixRadius.getOwnerGroups();
-    const filteredGroups = filterGroupsBySite(
-      groups,
+    const routeService = getMixRadiusGroupRouteService();
+    const groups = await routeService.getMobileGroups(
       authResult.siteId as string | null | undefined,
-    ).map((group) => ({
-      id: group.id,
-      name: group.name,
-      owners: group.owners,
-      isActive: group.isActive,
-      ...(group.siteId ? { siteId: group.siteId } : {}),
-    }));
+    );
 
-    return apiSuccess(filteredGroups);
+    return apiSuccess(groups);
   } catch (error) {
     logger.error("Error fetching MixRadius groups:", error);
     return apiError(

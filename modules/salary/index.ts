@@ -16,6 +16,11 @@ export {
 } from "./services/SalaryComponentService";
 export { SalaryService, getSalaryService } from "./services/SalaryService";
 export {
+  formatSalarySlipReceipt,
+  mapSalaryReceiptData,
+  type SalaryReceiptData,
+} from "./services/SalarySlipReceiptFormatter";
+export {
   SalaryUserService,
   getSalaryUserService,
 } from "./services/SalaryUserService";

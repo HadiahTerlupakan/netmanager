@@ -1,5 +1,4 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getMixRadiusService } from "@/modules/integrations";
 import {
   apiSuccess,
   apiError,
@@ -8,25 +7,35 @@ import {
   createHandler,
 } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import { SiteService } from "@/modules/roles";
+import {
+  getMixRadiusGroupRouteService,
+  getMixRadiusService,
+} from "@/modules/integrations";
 
 export const dynamic = "force-dynamic";
 
-/**
- * GET /api/integrations/mixradius/groups
- * Get all owner groups (Sites)
- */
+const READ_PERMISSIONS = [
+  "mixradius_sites:read",
+  "mixradius:read",
+  "m_mixradius:read",
+];
+const CREATE_PERMISSIONS = ["mixradius_sites:create", "mixradius:create"];
+
+function hasAnyPermission(
+  permissions: string[],
+  requiredPermissions: string[],
+) {
+  return requiredPermissions.some((permission) =>
+    permissions.includes(permission),
+  );
+}
+
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user);
 
-  if (
-    !isSuper &&
-    !permissions.includes("mixradius_sites:read") &&
-    !permissions.includes("mixradius:read") &&
-    !permissions.includes("m_mixradius:read")
-  ) {
+  if (!isSuper && !hasAnyPermission(permissions, READ_PERMISSIONS)) {
     return ApiErrors.forbidden(
       "Akses ditolak. Anda memerlukan permission: mixradius_sites:read",
     );
@@ -41,24 +50,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   try {
-    const service = getMixRadiusService();
-    const groups = await service.getOwnerGroups(
+    const routeService = getMixRadiusGroupRouteService();
+    const groups = await routeService.getAdminGroups(
       isSuper ? undefined : user.tenantId,
     );
 
-    const siteService = new SiteService();
-    const sites = await siteService.getSites();
-    const siteMap = new Map(sites.map((s) => [s.id, s.name]));
-
-    const mappedGroups = groups.map((group) => ({
-      ...group,
-      site:
-        group.siteId && siteMap.has(group.siteId)
-          ? { name: siteMap.get(group.siteId) }
-          : undefined,
-    }));
-
-    return apiSuccess(mappedGroups);
+    return apiSuccess(groups);
   } catch (error: unknown) {
     if (error instanceof Error && error.name === "MixRadiusConfigError") {
       return apiError(error.message, ErrorCodes.INVALID_STATUS, {
@@ -70,20 +67,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 });
 
-/**
- * POST /api/integrations/mixradius/groups
- * Create new owner group
- */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user);
 
-  if (
-    !isSuper &&
-    !permissions.includes("mixradius_sites:create") &&
-    !permissions.includes("mixradius:create")
-  ) {
+  if (!isSuper && !hasAnyPermission(permissions, CREATE_PERMISSIONS)) {
     return ApiErrors.forbidden(
       "Akses ditolak. Anda memerlukan permission: mixradius_sites:create",
     );
@@ -91,11 +80,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const body = await req.json();
   const { name, owners, siteId } = body;
-
-  const missingFields: string[] = [];
-  if (!name || !name.trim()) missingFields.push("Nama Site");
-  if (!owners || !Array.isArray(owners) || owners.length === 0)
-    missingFields.push("Owner (minimal 1)");
+  const missingFields = getMissingGroupFields(name, owners);
 
   if (missingFields.length > 0) {
     return apiError(
@@ -121,7 +106,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     tenantId: isSuper ? undefined : user.tenantId,
   });
 
-  // System Log
   logActivitySafe({
     action: "CREATE",
     subject: "MixRadius Group",
@@ -131,3 +115,17 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   return apiSuccess(newGroup, { status: 201 });
 });
+
+function getMissingGroupFields(name: unknown, owners: unknown) {
+  const missingFields: string[] = [];
+
+  if (typeof name !== "string" || !name.trim()) {
+    missingFields.push("Nama Site");
+  }
+
+  if (!Array.isArray(owners) || owners.length === 0) {
+    missingFields.push("Owner (minimal 1)");
+  }
+
+  return missingFields;
+}

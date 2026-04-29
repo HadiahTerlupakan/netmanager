@@ -1,11 +1,10 @@
-import { logger } from "@/lib/logger";
 /**
  * Optimized SNMP utilities untuk handling large ONU data
  * Menggunakan GETBULK (bukan WALK), pagination, dan caching untuk improve performance
  */
 
 import snmp from "net-snmp";
-import { snmpGetBulkSimple } from "@/lib/utils/snmp-helpers";
+import { snmpGetBulkSimple } from "@/modules/network";
 
 // Cache configuration
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -125,6 +124,7 @@ const cache = new LRUCache<string, CacheValue>(100, CACHE_TTL);
 setInterval(() => {
   const removed = cache.cleanup();
   if (removed > 0) {
+    // console.log(`[SNMP Cache] Cleaned up ${removed} expired entries. Current size: ${cache.size}`)
   }
 }, 60000);
 
@@ -170,9 +170,12 @@ export async function snmpWalkOptimized(
   if (useCache) {
     const cached = getFromCache(cacheKey);
     if (cached) {
+      // console.log(`[SNMP-Optimized] Cache hit for ${oid} (${Object.keys(cached).length} items)`)
       return cached;
     }
   }
+
+  // console.log(`[SNMP-Optimized] Starting SNMP GETBULK for ${oid}...`)
   const startTime = Date.now();
 
   try {
@@ -192,13 +195,16 @@ export async function snmpWalkOptimized(
     }
 
     const _duration = Date.now() - startTime;
+    // console.log(`[SNMP-Optimized] GETBULK completed for ${oid} (${Object.keys(results).length} items, ${duration}ms)`)
+
     return results;
   } catch (error) {
-    logger.error(
+    console.error(
       `[SNMP-Optimized] GETBULK failed for ${oid}:`,
       error instanceof Error ? error.message : String(error),
     );
     // Fallback ke WALK dengan chunking jika GETBULK gagal
+    // console.log(`[SNMP-Optimized] Falling back to WALK with chunking...`)
     const session = await connectionPool.getSession(
       ipAddress,
       port,
@@ -253,6 +259,7 @@ async function snmpWalkWithChunking(
 
     const timeoutId = setTimeout(() => {
       if (!resolved) {
+        // console.log(`[SNMP-Optimized] Timeout reached, returning ${Object.keys(results).length} results`)
         finish();
       }
     }, timeout);
@@ -272,7 +279,7 @@ async function snmpWalkWithChunking(
       }
 
       if (error) {
-        logger.warn(`[SNMP-Optimized] SNMP walk error: ${error.message}`);
+        console.warn(`[SNMP-Optimized] SNMP walk error: ${error.message}`);
         // If error but have results, don't fail immediately
         if (Object.keys(results).length > 0) {
           finish();
@@ -313,6 +320,8 @@ async function snmpWalkWithChunking(
       // Add chunk to results if it reaches chunk size
       if (Object.keys(currentChunk).length >= chunkSize) {
         // chunkCount++
+        // console.log(`[SNMP-Optimized] Processing chunk ${chunkCount} (${Object.keys(currentChunk).length} items)`)
+
         Object.assign(results, currentChunk);
         currentChunk = {};
       }
@@ -322,7 +331,7 @@ async function snmpWalkWithChunking(
       try {
         processCallback(null, varbinds);
       } catch (callbackError) {
-        logger.error(
+        console.error(
           `[SNMP-Optimized] Callback error:`,
           callbackError instanceof Error
             ? callbackError.message
@@ -333,7 +342,7 @@ async function snmpWalkWithChunking(
 
     const doneCb = (error?: Error) => {
       if (error) {
-        logger.error(`[SNMP-Optimized] Subtree error:`, error.message);
+        console.error(`[SNMP-Optimized] Subtree error:`, error.message);
         finish(error);
       } else {
         finish();
@@ -344,7 +353,7 @@ async function snmpWalkWithChunking(
       // Use maxRepetitions = 20 for subtree walk
       session.subtree(oid, 20, feedCb, doneCb);
     } catch (subtreeError) {
-      logger.error(
+      console.error(
         `[SNMP-Optimized] Subtree setup error:`,
         subtreeError instanceof Error
           ? subtreeError.message
@@ -408,6 +417,7 @@ export async function fetchOnuDataPaginated(
 
   // Jika cache expired atau tidak ada, fetch baru
   if (!statusData) {
+    // console.log(`[SNMP-Optimized] Fetching status data (total count) for pagination...`)
     statusData = await snmpWalkOptimized(
       ipAddress,
       port,
@@ -441,8 +451,10 @@ export async function fetchOnuDataPaginated(
     // Cache status data
     if (statusData && Object.keys(statusData).length > 0) {
       setCache(statusCacheKey, statusData);
+      // console.log(`[SNMP-Optimized] Cached status data (${Object.keys(statusData).length} ONUs)`)
     }
   } else {
+    // console.log(`[SNMP-Optimized] Using cached status data (${Object.keys(statusData).length} ONUs)`)
   }
 
   const totalOnus = Object.keys(statusData).length;
@@ -464,9 +476,14 @@ export async function fetchOnuDataPaginated(
   const startIndex = (page - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalOnus);
   const indexes = Object.keys(statusData).slice(startIndex, endIndex);
+
+  // console.log(`[SNMP-Optimized] Fetching page ${page}/${totalPages} (${indexes.length} ONUs)`)
+
   // Fetch data dengan timeout lebih lama untuk dataset besar
   // Gunakan cache untuk mengurangi beban SNMP
   const dataTimeout = totalOnus > 500 ? SNMP_TIMEOUT : 60000; // 3 min untuk besar, 1 min untuk kecil
+  // console.log(`[SNMP-Optimized] Fetching ONU data with timeout ${dataTimeout / 1000}s (total ONUs: ${totalOnus})`)
+
   const [
     nameData,
     descData,
@@ -610,6 +627,7 @@ export async function fetchOnuDataPaginated(
 // Clear cache utility
 export function clearSNMPCache(): void {
   cache.clear();
+  // console.log('[SNMP-Optimized] Cache cleared')
 }
 
 // Cleanup function untuk connection pool

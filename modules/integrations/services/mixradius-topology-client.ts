@@ -18,6 +18,158 @@ export type MixRadiusTopologyCacheState = {
   ownerFilter: string | null;
 };
 
+type MixRadiusOdpRawItem = Record<string, unknown>;
+
+function parseCoordinate(value: unknown) {
+  const coordinate = String(value || "");
+  if (coordinate.includes("°")) {
+    return parseDMSToDecimal(coordinate) || 0;
+  }
+
+  return parseFloat(coordinate) || 0;
+}
+
+function normalizeLatitude(latitude: number) {
+  if (latitude > 0 && latitude < 15) {
+    return -latitude;
+  }
+
+  return latitude;
+}
+
+function isIndonesianCoordinate(latitude: number, longitude: number) {
+  return (
+    latitude >= -12 && latitude <= 8 && longitude >= 94 && longitude <= 142
+  );
+}
+
+function stripHtml(html: string) {
+  return html.replace(/<[^>]*>/g, "").trim();
+}
+
+export function mapMixRadiusOdpItem(
+  item: MixRadiusOdpRawItem,
+): MixRadiusODP | null {
+  const latitude = normalizeLatitude(parseCoordinate(item.odp_latitude));
+  const longitude = parseCoordinate(item.odp_longitude);
+
+  if (latitude === 0 && longitude === 0) {
+    return null;
+  }
+
+  if (!isIndonesianCoordinate(latitude, longitude)) {
+    logger.warn(
+      `[MixRadius] ODP ${item.odp_name} has invalid coords: lat=${latitude}, lng=${longitude}`,
+    );
+    return null;
+  }
+
+  return {
+    id: String(item.id),
+    name: String(item.odp_name || ""),
+    area: String(item.odp_area || ""),
+    latitude,
+    longitude,
+    ownerName: String(item.owner_name || ""),
+    customerCount: parseInt(String(item.customers_count || "0"), 10),
+  };
+}
+
+export function parseMixRadiusOdpCustomersHtml(
+  html: string,
+  odpId: string,
+): MixRadiusODPCustomer[] {
+  const odpNameMatch = html.match(/name="name"[^>]*value="([^"]+)"/i);
+  const odpName = odpNameMatch?.[1] ?? `ODP-${odpId}`;
+  const tableMatch = html.match(
+    /<table[^>]*id="dynamic-table"[^>]*>([\s\S]*?)<\/table>/i,
+  );
+
+  if (!tableMatch) {
+    return [];
+  }
+
+  return parseCustomerRows(tableMatch[1] ?? "", odpId, odpName);
+}
+
+function parseCustomerRows(
+  tableContent: string,
+  odpId: string,
+  odpName: string,
+) {
+  const customers: MixRadiusODPCustomer[] = [];
+  const rowRegex = /<tr>([\s\S]*?)<\/tr>/gi;
+  let rowMatch: RegExpExecArray | null;
+
+  while ((rowMatch = rowRegex.exec(tableContent)) !== null) {
+    const customer = parseCustomerRow(rowMatch[1] ?? "", odpId, odpName);
+    if (customer) {
+      customers.push(customer);
+    }
+  }
+
+  return customers;
+}
+
+function parseCustomerRow(rowHtml: string, odpId: string, odpName: string) {
+  if (rowHtml.includes("<th>")) {
+    return null;
+  }
+
+  const cells = extractTableCells(rowHtml);
+  if (cells.length < 7) {
+    return null;
+  }
+
+  const customerId = extractCustomerId(cells[0] ?? "");
+  const coords = extractCustomerCoords(cells[6] ?? "");
+  if (!customerId || !coords) {
+    return null;
+  }
+
+  if (!isIndonesianCoordinate(coords.lat, coords.lng)) {
+    logger.warn(
+      `[MixRadius] Invalid coords for customer ${customerId}: lat=${coords.lat}, lng=${coords.lng}`,
+    );
+    return null;
+  }
+
+  return {
+    id: customerId,
+    memberId: stripHtml(cells[1] ?? ""),
+    fullname: stripHtml(cells[2] ?? ""),
+    address: stripHtml(cells[3] ?? ""),
+    planName: stripHtml(cells[4] ?? ""),
+    ownerName: stripHtml(cells[5] ?? ""),
+    odpId: String(odpId),
+    odpName,
+    latitude: coords.lat,
+    longitude: coords.lng,
+  };
+}
+
+function extractTableCells(rowHtml: string) {
+  const cells: string[] = [];
+  const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+  let cellMatch: RegExpExecArray | null;
+
+  while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+    cells.push(cellMatch[1] ?? "");
+  }
+
+  return cells;
+}
+
+function extractCustomerId(cellHtml: string) {
+  const idMatch = cellHtml.match(/value="(\d+)"/);
+  return idMatch ? idMatch[1] : "";
+}
+
+function extractCustomerCoords(cellHtml: string) {
+  const mapsLinkMatch = cellHtml.match(/href="([^"]*google\.com\/maps[^"]*)"/i);
+  return mapsLinkMatch ? parseGoogleMapsCoords(mapsLinkMatch[1] ?? "") : null;
+}
+
 export async function fetchMixRadiusODPList(params: {
   client: AxiosInstance;
   baseUrl: string;
@@ -69,53 +221,9 @@ export async function fetchMixRadiusODPList(params: {
       return [];
     }
 
-    const odps: MixRadiusODP[] = [];
-
-    for (const item of data) {
-      let lat: number;
-      const latStr = String(item.odp_latitude || "");
-      if (latStr.includes("°")) {
-        lat = parseDMSToDecimal(latStr) || 0;
-      } else {
-        lat = parseFloat(latStr) || 0;
-      }
-
-      let lng: number;
-      const lngStr = String(item.odp_longitude || "");
-      if (lngStr.includes("°")) {
-        lng = parseDMSToDecimal(lngStr) || 0;
-      } else {
-        lng = parseFloat(lngStr) || 0;
-      }
-
-      if (lat === 0 && lng === 0) {
-        continue;
-      }
-
-      if (lat > 0 && lat < 15) {
-        lat = -lat;
-      }
-
-      const isValidCoord = lat >= -12 && lat <= 8 && lng >= 94 && lng <= 142;
-      if (!isValidCoord) {
-        logger.warn(
-          `[MixRadius] ODP ${item.odp_name} has invalid coords: lat=${lat}, lng=${lng}`,
-        );
-        continue;
-      }
-
-      odps.push({
-        id: String(item.id),
-        name: item.odp_name || "",
-        area: item.odp_area || "",
-        latitude: lat,
-        longitude: lng,
-        ownerName: item.owner_name || "",
-        customerCount: parseInt(item.customers_count || "0", 10),
-      });
-    }
-
-    return odps;
+    return data
+      .map((item) => mapMixRadiusOdpItem(item))
+      .filter((odp): odp is MixRadiusODP => Boolean(odp));
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
@@ -174,76 +282,7 @@ export async function fetchMixRadiusODPCustomers(params: {
       return onRetry();
     }
 
-    const odpNameMatch = html.match(/name="name"[^>]*value="([^"]+)"/i);
-    const odpName = odpNameMatch?.[1] ?? `ODP-${odpId}`;
-
-    const customers: MixRadiusODPCustomer[] = [];
-    const tableMatch = html.match(
-      /<table[^>]*id="dynamic-table"[^>]*>([\s\S]*?)<\/table>/i,
-    );
-    if (!tableMatch) {
-      return customers;
-    }
-
-    const tableContent = tableMatch[1] ?? "";
-    const rowRegex = /<tr>([\s\S]*?)<\/tr>/gi;
-    let rowMatch: RegExpExecArray | null;
-
-    while ((rowMatch = rowRegex.exec(tableContent)) !== null) {
-      const rowHtml = rowMatch[1] ?? "";
-      if (rowHtml.includes("<th>")) continue;
-
-      const cells: string[] = [];
-      const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-      let cellMatch: RegExpExecArray | null;
-
-      while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
-        cells.push(cellMatch[1] ?? "");
-      }
-
-      if (cells.length < 7) continue;
-
-      const cell0 = cells[0] ?? "";
-      const idMatch = cell0.match(/value="(\d+)"/);
-      const customerId = idMatch ? idMatch[1] : "";
-
-      const cell6 = cells[6] ?? "";
-      const mapsLinkMatch = cell6.match(
-        /href="([^"]*google\.com\/maps[^"]*)"/i,
-      );
-      const coords = mapsLinkMatch
-        ? parseGoogleMapsCoords(mapsLinkMatch[1] ?? "")
-        : null;
-
-      if (!customerId || !coords) continue;
-
-      const isValidCoord =
-        coords.lat >= -12 &&
-        coords.lat <= 8 &&
-        coords.lng >= 94 &&
-        coords.lng <= 142;
-      if (!isValidCoord) {
-        logger.warn(
-          `[MixRadius] Invalid coords for customer ${customerId}: lat=${coords.lat}, lng=${coords.lng}`,
-        );
-        continue;
-      }
-
-      customers.push({
-        id: customerId,
-        memberId: (cells[1] ?? "").replace(/<[^>]*>/g, "").trim(),
-        fullname: (cells[2] ?? "").replace(/<[^>]*>/g, "").trim(),
-        address: (cells[3] ?? "").replace(/<[^>]*>/g, "").trim(),
-        planName: (cells[4] ?? "").replace(/<[^>]*>/g, "").trim(),
-        ownerName: (cells[5] ?? "").replace(/<[^>]*>/g, "").trim(),
-        odpId: String(odpId),
-        odpName,
-        latitude: coords.lat,
-        longitude: coords.lng,
-      });
-    }
-
-    return customers;
+    return parseMixRadiusOdpCustomersHtml(html, odpId);
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";

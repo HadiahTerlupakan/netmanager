@@ -69,6 +69,36 @@ export type BackupBackfillResult = {
   log: string;
 };
 
+export function summarizeBackupResults(
+  operation: "Import" | "Reset",
+  results: BackupResultItem[],
+) {
+  const successCount = results.filter(
+    (result) => result.status === "success",
+  ).length;
+  const errorCount = results.filter(
+    (result) => result.status === "error",
+  ).length;
+
+  if (operation === "Import") {
+    return {
+      success: errorCount === 0,
+      message:
+        errorCount === 0
+          ? `Import berhasil: ${successCount} database berhasil di-restore.`
+          : `Import selesai dengan ${errorCount} error. ${successCount} database berhasil.`,
+    };
+  }
+
+  return {
+    success: errorCount === 0,
+    message:
+      errorCount === 0
+        ? `Reset selesai: ${successCount} langkah berhasil (termasuk seed jika tersedia). Anda bisa login ulang.`
+        : `Reset selesai dengan ${errorCount} error. ${successCount} langkah berhasil.`,
+  };
+}
+
 function parseDatabaseUrl(url: string): ParsedDbConfig | null {
   try {
     const cleanUrl = url.split("?")[0];
@@ -480,19 +510,8 @@ export async function importBackupArchive({
       }
     }
 
-    const successCount = results.filter(
-      (result) => result.status === "success",
-    ).length;
-    const errorCount = results.filter(
-      (result) => result.status === "error",
-    ).length;
-
     return {
-      success: errorCount === 0,
-      message:
-        errorCount === 0
-          ? `Import berhasil: ${successCount} database berhasil di-restore.`
-          : `Import selesai dengan ${errorCount} error. ${successCount} database berhasil.`,
+      ...summarizeBackupResults("Import", results),
       results,
     };
   } finally {
@@ -608,19 +627,8 @@ export async function resetDatabasesAndSchema(): Promise<BackupResetResult> {
     }
   }
 
-  const successCount = results.filter(
-    (result) => result.status === "success",
-  ).length;
-  const errorCount = results.filter(
-    (result) => result.status === "error",
-  ).length;
-
   return {
-    success: errorCount === 0,
-    message:
-      errorCount === 0
-        ? `Reset selesai: ${successCount} langkah berhasil (termasuk seed jika tersedia). Anda bisa login ulang.`
-        : `Reset selesai dengan ${errorCount} error. ${successCount} langkah berhasil.`,
+    ...summarizeBackupResults("Reset", results),
     results,
   };
 }
