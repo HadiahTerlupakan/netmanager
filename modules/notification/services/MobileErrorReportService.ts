@@ -1,13 +1,11 @@
-import { randomUUID } from "crypto";
-
-import { LogType } from "@prisma/client";
 import { NextRequest } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import { authenticateMobileRequest } from "@/lib/mobile-api-auth";
 import { validateRequired } from "@/lib/validation-utils";
-import { prisma } from "@/modules/database";
+import type { IMobileErrorReportRepository } from "../domain/ports/IMobileErrorReportRepository";
+import { MobileErrorReportRepository } from "../repositories/MobileErrorReportRepository";
 
 const DEFAULT_MESSAGE_MAX = 1000;
 const DEFAULT_KIND_MAX = 120;
@@ -15,6 +13,7 @@ const DEFAULT_SOURCE_MAX = 120;
 const DEFAULT_SEVERITY = "error";
 const DEFAULT_STACK_MAX = 8000;
 const MAX_BREADCRUMBS = 20;
+const mobileErrorReportRepository = new MobileErrorReportRepository();
 
 type MobileErrorReportPayload = {
   message?: unknown;
@@ -39,24 +38,23 @@ type MobileAuthContext = {
 };
 
 /** Memvalidasi dan menyimpan laporan error mobile ke system log. */
-export async function submitMobileErrorReport(request: NextRequest) {
+export async function submitMobileErrorReport(
+  request: NextRequest,
+  repository: IMobileErrorReportRepository = mobileErrorReportRepository,
+) {
   const body = (await request.json()) as MobileErrorReportPayload;
   const report = buildValidatedReport(body);
   const authPayload = await resolveOptionalAuthPayload(request);
   const reportDetails = buildReportDetails(report, authPayload);
 
   logger.error("Mobile error report received", undefined, reportDetails);
-  await prisma.systemLog.create({
-    data: {
-      id: randomUUID(),
-      type: LogType.SYSTEM,
-      action: "MOBILE_ERROR_REPORT",
-      subject: report.kind,
-      details: safeStringify(reportDetails),
-      userId: authPayload?.userId ?? null,
-      ipAddress: getClientIp(request),
-      userAgent: request.headers.get("user-agent"),
-    },
+  await repository.createSystemLog({
+    action: "MOBILE_ERROR_REPORT",
+    subject: report.kind,
+    details: safeStringify(reportDetails),
+    userId: authPayload?.userId ?? null,
+    ipAddress: getClientIp(request),
+    userAgent: request.headers.get("user-agent"),
   });
 }
 

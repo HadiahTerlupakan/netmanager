@@ -1,5 +1,15 @@
 import { prisma, prismaMitra } from "@/modules/database";
-import type { IPushTokenRepository } from "../domain/ports/IPushTokenRepository";
+import type {
+  IMobileFcmSession,
+  IPushTokenRepository,
+} from "../domain/ports/IPushTokenRepository";
+
+function buildLegacyPushTokenPayload(pushToken: string | null) {
+  return {
+    pushToken,
+    pushTokenUpdatedAt: pushToken ? new Date() : null,
+  };
+}
 
 export class PushTokenRepository implements IPushTokenRepository {
   async findUserPushToken(userId: string): Promise<string | null> {
@@ -177,6 +187,61 @@ export class PushTokenRepository implements IPushTokenRepository {
     await prisma.user.update({
       where: { id: userId },
       data: { fcmTokens: { set: fcmTokens } },
+    });
+  }
+
+  async clearLegacyPushTokenOwners(input: {
+    userId: string;
+    tenantId: string | null;
+    pushToken: string;
+  }) {
+    await Promise.all([
+      prisma.user.updateMany({
+        where: {
+          pushToken: input.pushToken,
+          id: { not: input.userId },
+          tenantId: input.tenantId ?? undefined,
+        },
+        data: { pushToken: null, pushTokenUpdatedAt: null },
+      }),
+      prisma.pelanggan.updateMany({
+        where: {
+          pushToken: input.pushToken,
+          id: { not: input.userId },
+          tenantId: input.tenantId ?? undefined,
+        },
+        data: { pushToken: null, pushTokenUpdatedAt: null },
+      }),
+      prismaMitra.mitra.updateMany({
+        where: { pushToken: input.pushToken, id: { not: input.userId } },
+        data: { pushToken: null, pushTokenUpdatedAt: null },
+      }),
+    ]);
+  }
+
+  async updateLegacyOwnerPushToken(
+    session: IMobileFcmSession,
+    pushToken: string | null,
+  ) {
+    if (session.role === "CUSTOMER") {
+      await prisma.pelanggan.update({
+        where: { id: session.id, tenantId: session.tenantId ?? undefined },
+        data: buildLegacyPushTokenPayload(pushToken),
+      });
+      return;
+    }
+
+    if (session.role === "MITRA") {
+      await prismaMitra.mitra.update({
+        where: { id: session.id },
+        data: buildLegacyPushTokenPayload(pushToken),
+      });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: session.id, tenantId: session.tenantId ?? undefined },
+      data: buildLegacyPushTokenPayload(pushToken),
     });
   }
 }

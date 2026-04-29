@@ -29,8 +29,173 @@ type EligibleUser = {
   } | null;
 };
 
+type NotificationAccessScopeInput = {
+  userId: string;
+  departmentId?: string;
+  siteId?: string;
+};
+
+type NotificationAccessScope = {
+  departmentId?: string;
+  tenantCondition: Prisma.NotificationsWhereInput;
+};
+
 const notificationRepo = new NotificationRepository();
 const userRepo = new UserLookupService();
+const MISSING_TENANT_ID = "___MISSING_TENANT_ID___";
+const FALLBACK_DEPARTMENT_ID = "NONE";
+const DEFAULT_NOTIFICATION_LIMIT = 50;
+const DEFAULT_NOTIFICATION_OFFSET = 0;
+
+async function resolveNotificationAccessScope(
+  input: NotificationAccessScopeInput,
+): Promise<NotificationAccessScope> {
+  const user = input.departmentId
+    ? null
+    : await userRepo.findByIdWithDepartment(input.userId);
+  const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
+  const effectiveTenantId =
+    !isSuperAdmin && !tenantId ? MISSING_TENANT_ID : tenantId;
+
+  return {
+    departmentId: input.departmentId || user?.departmentId || undefined,
+    tenantCondition: !isSuperAdmin ? { tenantId: effectiveTenantId } : {},
+  };
+}
+
+function buildNotificationAccessWhere(
+  input: NotificationAccessScopeInput,
+  scope: NotificationAccessScope,
+): Prisma.NotificationsWhereInput {
+  return {
+    ...scope.tenantCondition,
+    OR: [
+      { userId: input.userId },
+      {
+        AND: [
+          { departmentId: scope.departmentId || FALLBACK_DEPARTMENT_ID },
+          ...(input.siteId
+            ? [{ OR: [{ siteId: input.siteId }, { siteId: null }] }]
+            : []),
+        ],
+      },
+    ],
+  };
+}
+
+function resolveNotificationQueryOptions(options?: {
+  limit?: number;
+  offset?: number;
+}) {
+  return {
+    take: options?.limit || DEFAULT_NOTIFICATION_LIMIT,
+    skip: options?.offset || DEFAULT_NOTIFICATION_OFFSET,
+  };
+}
+
+function buildTenantSqlCondition(
+  isSuperAdmin: boolean,
+  tenantId?: string | null,
+) {
+  if (isSuperAdmin) {
+    return Prisma.empty;
+  }
+
+  return Prisma.sql`AND n."tenantId" = ${tenantId || MISSING_TENANT_ID}`;
+}
+
+function buildExcludedTypesSqlCondition(excludeTypes?: NotificationType[]) {
+  return excludeTypes && excludeTypes.length > 0
+    ? Prisma.sql`AND "type" NOT IN (${Prisma.join(excludeTypes)})`
+    : Prisma.empty;
+}
+
+function buildSiteSqlCondition(siteId?: string) {
+  return siteId
+    ? Prisma.sql`AND ("siteId" = ${siteId} OR "siteId" IS NULL)`
+    : Prisma.empty;
+}
+
+function buildNotificationMutationPayload() {
+  return {
+    isRead: true,
+    readAt: new Date(),
+  };
+}
+
+function shouldNotifyAdmins(data: CreateNotificationData) {
+  return (
+    data.priority === "HIGH" ||
+    data.priority === "URGENT" ||
+    data.type === "ALERT"
+  );
+}
+
+function buildNotificationPushMetadata(
+  notificationId: string,
+  data: Pick<CreateNotificationData, "link" | "sourceType" | "sourceId">,
+) {
+  return {
+    notificationId,
+    url: data.link || "/employee/notifications",
+    sourceType: data.sourceType || "",
+    sourceId: data.sourceId || "",
+  };
+}
+
+function buildWebsocketPayload(
+  notification: Awaited<ReturnType<typeof notificationRepo.createFull>>,
+) {
+  return {
+    id: notification.id,
+    type: notification.type,
+    priority: notification.priority,
+    title: notification.title,
+    message: notification.message,
+    link: notification.link || undefined,
+    createdAt: notification.createdAt.toISOString(),
+  };
+}
+
+function buildNotificationCreateData(
+  data: CreateNotificationData,
+  tenantId: string | null,
+) {
+  return {
+    id: crypto.randomUUID(),
+    type: data.type,
+    priority: data.priority || "NORMAL",
+    title: data.title,
+    message: data.message,
+    link: data.link || null,
+    userId: data.userId || null,
+    departmentId: data.departmentId || null,
+    siteId: data.siteId || null,
+    sourceType: data.sourceType || null,
+    sourceId: data.sourceId || null,
+    tenantId,
+  };
+}
+
+function buildAdminNotificationSiteId(siteId?: string) {
+  return siteId;
+}
+
+function buildAssigneeTitle(
+  isAssignee: boolean,
+  priorityEmoji: string,
+  workOrderNumber: string,
+) {
+  return isAssignee
+    ? `📋 Work Order Di-assign ke Anda`
+    : `${priorityEmoji} Work Order Baru: ${workOrderNumber}`;
+}
+
+function buildStatusChangeTitle(isAssignee: boolean, statusEmoji: string) {
+  return isAssignee
+    ? `${statusEmoji} Status WO Anda Berubah`
+    : `${statusEmoji} Status WO Berubah`;
+}
 
 export type NotificationType =
   | "WORK_ORDER"
@@ -71,42 +236,23 @@ export async function createNotification(data: CreateNotificationData) {
   const tenantContext = data.tenantId ? null : await getTenantIdFromContext();
   const tenantId = data.tenantId ?? tenantContext?.tenantId ?? null;
 
-  const notification = await notificationRepo.createFull({
-    id: crypto.randomUUID(),
-    type: data.type,
-    priority: data.priority || "NORMAL",
-    title: data.title,
-    message: data.message,
-    link: data.link || null,
-    userId: data.userId || null,
-    departmentId: data.departmentId || null,
-    siteId: data.siteId || null,
-    sourceType: data.sourceType || null,
-    sourceId: data.sourceId || null,
-    tenantId,
-  });
-
-  const wsPayload = {
-    id: notification.id,
-    type: notification.type,
-    priority: notification.priority,
-    title: notification.title,
-    message: notification.message,
-    link: notification.link || undefined,
-    createdAt: notification.createdAt.toISOString(),
-  };
+  const notification = await notificationRepo.createFull(
+    buildNotificationCreateData(data, tenantId),
+  );
+  const wsPayload = buildWebsocketPayload(notification);
+  const pushMetadata = buildNotificationPushMetadata(notification.id, data);
 
   if (data.userId) {
     socketEmitter.notifyUser(data.userId, wsPayload);
 
     const directRecipient = await userRepo.findByIdWithPushToken(data.userId);
     if (directRecipient?.fcmTokens?.length) {
-      sendFCMNotification(directRecipient.fcmTokens, data.title, data.message, {
-        notificationId: notification.id,
-        url: data.link || "/employee/notifications",
-        sourceType: data.sourceType || "",
-        sourceId: data.sourceId || "",
-      }).catch((err) => logger.error("[FCM Push] Error:", err));
+      sendFCMNotification(
+        directRecipient.fcmTokens,
+        data.title,
+        data.message,
+        pushMetadata,
+      ).catch((err) => logger.error("[FCM Push] Error:", err));
     }
 
     if (!data.skipExpoPush) {
@@ -130,12 +276,12 @@ export async function createNotification(data: CreateNotificationData) {
     );
 
     if (departmentFcmTokens.length > 0) {
-      sendFCMNotification(departmentFcmTokens, data.title, data.message, {
-        notificationId: notification.id,
-        url: data.link || "/employee/notifications",
-        sourceType: data.sourceType || "",
-        sourceId: data.sourceId || "",
-      }).catch((err) => logger.error("[FCM Push Dept] Error:", err));
+      sendFCMNotification(
+        departmentFcmTokens,
+        data.title,
+        data.message,
+        pushMetadata,
+      ).catch((err) => logger.error("[FCM Push Dept] Error:", err));
     }
 
     if (!data.skipExpoPush) {
@@ -147,21 +293,20 @@ export async function createNotification(data: CreateNotificationData) {
     }
   }
 
-  if (
-    data.priority === "HIGH" ||
-    data.priority === "URGENT" ||
-    data.type === "ALERT"
-  ) {
-    socketEmitter.notifyAdmins(wsPayload, data.siteId);
+  if (shouldNotifyAdmins(data)) {
+    socketEmitter.notifyAdmins(
+      wsPayload,
+      buildAdminNotificationSiteId(data.siteId),
+    );
 
     const adminTokens = await getAdminTokens();
     if (adminTokens.length > 0) {
-      sendFCMNotification(adminTokens, data.title, data.message, {
-        notificationId: notification.id,
-        url: data.link || "/employee/notifications",
-        sourceType: data.sourceType || "",
-        sourceId: data.sourceId || "",
-      }).catch((err) => logger.error("[FCM Push Admin] Error:", err));
+      sendFCMNotification(
+        adminTokens,
+        data.title,
+        data.message,
+        pushMetadata,
+      ).catch((err) => logger.error("[FCM Push Admin] Error:", err));
     }
   }
 
@@ -267,9 +412,11 @@ export async function notifyNewWorkOrder(
       await createNotification({
         type: "WORK_ORDER",
         priority: data.priority as NotificationPriority,
-        title: isAssignee
-          ? `📋 Work Order Di-assign ke Anda`
-          : `${priorityEmoji} Work Order Baru: ${data.workOrderNumber}`,
+        title: buildAssigneeTitle(
+          isAssignee,
+          priorityEmoji,
+          data.workOrderNumber,
+        ),
         message: `[${typeLabel}] ${data.title}`,
         link: `/admin/workorders/${data.workOrderId}`,
         userId: user.id,
@@ -345,9 +492,7 @@ export async function notifyWorkOrderStatusChange(
       await createNotification({
         type: "WORK_ORDER",
         priority: "NORMAL",
-        title: isAssignee
-          ? `${statusEmoji} Status WO Anda Berubah`
-          : `${statusEmoji} Status WO Berubah`,
+        title: buildStatusChangeTitle(isAssignee, statusEmoji),
         message: `${data.workOrderNumber}: ${data.oldStatus} → ${data.newStatus}`,
         link: `/admin/workorders/${data.workOrderId}`,
         userId: user.id,
@@ -444,41 +589,31 @@ export async function getNotificationsForUser(
     departmentId?: string;
   },
 ) {
-  const user = options?.departmentId
-    ? null
-    : await userRepo.findByIdWithDepartment(userId);
-  const userDepartmentId =
-    options?.departmentId || user?.departmentId || undefined;
-  const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-  const effectiveTenantId =
-    !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
-  const tenantCondition = !isSuperAdmin ? { tenantId: effectiveTenantId } : {};
-
-  const where: Prisma.NotificationsWhereInput = {
-    ...tenantCondition,
-    OR: [
-      { userId },
-      {
-        AND: [
-          { departmentId: userDepartmentId || "NONE" },
-          options?.siteId
-            ? { OR: [{ siteId: options.siteId }, { siteId: null }] }
-            : {},
-        ],
-      },
-    ],
-  };
+  const scope = await resolveNotificationAccessScope({
+    userId,
+    departmentId: options?.departmentId,
+    siteId: options?.siteId,
+  });
+  const where = buildNotificationAccessWhere(
+    {
+      userId,
+      departmentId: options?.departmentId,
+      siteId: options?.siteId,
+    },
+    scope,
+  );
 
   if (options?.unreadOnly) where.isRead = false;
   if (options?.type) where.type = options.type;
-  if (options?.excludeTypes && options.excludeTypes.length > 0)
+  if (options?.excludeTypes && options.excludeTypes.length > 0) {
     where.type = { notIn: options.excludeTypes };
+  }
 
   const [notifications, total] = await Promise.all([
-    notificationRepo.findManyForUser(where, {
-      take: options?.limit || 50,
-      skip: options?.offset || 0,
-    }),
+    notificationRepo.findManyForUser(
+      where,
+      resolveNotificationQueryOptions(options),
+    ),
     notificationRepo.countWhere(where),
   ]);
 
@@ -490,30 +625,22 @@ export async function getReadableNotificationForUser(
   userId: string,
   options?: { departmentId?: string; siteId?: string },
 ) {
-  const user = options?.departmentId
-    ? null
-    : await userRepo.findByIdWithDepartment(userId);
-  const userDepartmentId =
-    options?.departmentId || user?.departmentId || undefined;
-  const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-  const effectiveTenantId =
-    !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
-  const tenantCondition = !isSuperAdmin ? { tenantId: effectiveTenantId } : {};
+  const scope = await resolveNotificationAccessScope({
+    userId,
+    departmentId: options?.departmentId,
+    siteId: options?.siteId,
+  });
 
   return notificationRepo.findFirst({
     id: notificationId,
-    ...tenantCondition,
-    OR: [
-      { userId },
+    ...buildNotificationAccessWhere(
       {
-        AND: [
-          { departmentId: userDepartmentId || "NONE" },
-          options?.siteId
-            ? { OR: [{ siteId: options.siteId }, { siteId: null }] }
-            : {},
-        ],
+        userId,
+        departmentId: options?.departmentId,
+        siteId: options?.siteId,
       },
-    ],
+      scope,
+    ),
   });
 }
 
@@ -522,25 +649,13 @@ export async function getUnreadCount(
   excludeTypes?: NotificationType[],
   siteId?: string,
 ): Promise<number> {
-  const typeCondition =
-    excludeTypes && excludeTypes.length > 0
-      ? Prisma.sql`AND "type" NOT IN (${Prisma.join(excludeTypes)})`
-      : Prisma.empty;
-  const siteCondition = siteId
-    ? Prisma.sql`AND ("siteId" = ${siteId} OR "siteId" IS NULL)`
-    : Prisma.empty;
   const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-  const effectiveTenantId =
-    !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
-  const tenantCondition = !isSuperAdmin
-    ? Prisma.sql`AND n."tenantId" = ${effectiveTenantId}`
-    : Prisma.empty;
 
   return notificationRepo.getUnreadCountRaw(
     userId,
-    typeCondition,
-    siteCondition,
-    tenantCondition,
+    buildExcludedTypesSqlCondition(excludeTypes),
+    buildSiteSqlCondition(siteId),
+    buildTenantSqlCondition(isSuperAdmin, tenantId),
   );
 }
 
@@ -553,29 +668,17 @@ export async function markAllAsRead(
   type?: NotificationType,
   siteId?: string,
 ) {
-  const user = await userRepo.findByIdWithDepartment(userId);
-  const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-  const effectiveTenantId =
-    !isSuperAdmin && !tenantId ? "___MISSING_TENANT_ID___" : tenantId;
-  const tenantCondition = !isSuperAdmin ? { tenantId: effectiveTenantId } : {};
+  const scope = await resolveNotificationAccessScope({ userId, siteId });
   const where: Prisma.NotificationsWhereInput = {
-    ...tenantCondition,
+    ...buildNotificationAccessWhere({ userId, siteId }, scope),
     isRead: false,
-    OR: [
-      { userId },
-      {
-        AND: [
-          { departmentId: user?.departmentId || "NONE" },
-          siteId ? { OR: [{ siteId: siteId }, { siteId: null }] } : {},
-        ],
-      },
-    ],
   };
-  if (type) where.type = type;
-  return notificationRepo.updateMany(where, {
-    isRead: true,
-    readAt: new Date(),
-  });
+
+  if (type) {
+    where.type = type;
+  }
+
+  return notificationRepo.updateMany(where, buildNotificationMutationPayload());
 }
 
 export interface CanvasingNotificationData {

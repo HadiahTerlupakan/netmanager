@@ -42,4 +42,13 @@ export interface IPushTokenRepository {
     userId: string,
     fcmTokens: string[],
   ): Promise<void>;
+  clearLegacyPushTokenOwners(input: {
+    userId: string;
+    tenantId: string | null;
+    pushToken: string;
+  }): Promise<void>;
+  updateLegacyOwnerPushToken(
+    session: IMobileFcmSession,
+    pushToken: string | null,
+  ): Promise<void>;
 }

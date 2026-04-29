@@ -4,7 +4,10 @@ import { firebaseRealtimeService } from "@/lib/realtime";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { AnnouncementRepository } from "../repositories/AnnouncementRepository";
-import type { IAnnouncementRepository } from "../domain/ports/IAnnouncementRepository";
+import {
+  requireAnnouncementRepositoryMethod,
+  type IAnnouncementRepository,
+} from "../domain/ports/IAnnouncementRepository";
 
 const ANNOUNCEMENT_PREVIEW_LIMIT = 100;
 const EMPLOYEE_ROLE_NAMES = ["EMPLOYEE", "TEKNISI"];
@@ -34,7 +37,7 @@ interface AnnouncementRecord {
   id: string;
   title: string;
   content: string;
-  target: TargetAudience;
+  target: string;
   isPinned: boolean;
   createdAt: Date;
 }
@@ -94,6 +97,14 @@ export class AnnouncementService {
     private readonly announcementRepository: IAnnouncementRepository = new AnnouncementRepository(),
   ) {}
 
+  /** Resolve repository method safely for hybrid migration state. */
+  private getRepositoryMethod<TReturn>(
+    method: TReturn | undefined,
+    methodName: string,
+  ): TReturn {
+    return requireAnnouncementRepositoryMethod(method, methodName);
+  }
+
   /** Ambil data announcement untuk form edit. */
   async getAnnouncementEditData(id: string) {
     const announcement = await this.announcementRepository.findEditById(id);
@@ -118,23 +129,25 @@ export class AnnouncementService {
     const now = new Date();
     const where = this.buildAnnouncementWhere(filters, now);
 
-    return prisma.announcement.findMany({
+    return this.getRepositoryMethod(
+      this.announcementRepository.findMany,
+      "findMany",
+    ).call(this.announcementRepository, {
       where,
-      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-      include: { _count: { select: { reads: true } } },
+      includeReadCount: true,
     });
   }
 
   /** Create an announcement and trigger downstream side effects. */
   async createAnnouncement(input: AnnouncementCreateInput, createdBy: string) {
     const isAnnouncementActive = input.isActive ?? true;
-    const announcement = await prisma.announcement.create({
-      data: this.buildAnnouncementCreateData(
-        input,
-        createdBy,
-        isAnnouncementActive,
-      ),
-    });
+    const announcement = await this.getRepositoryMethod(
+      this.announcementRepository.create,
+      "create",
+    ).call(
+      this.announcementRepository,
+      this.buildAnnouncementCreateData(input, createdBy, isAnnouncementActive),
+    );
 
     await this.logAnnouncementCreation(announcement, createdBy);
 
@@ -151,15 +164,22 @@ export class AnnouncementService {
 
   /** Update an announcement using the existing route payload shape. */
   async updateAnnouncement(id: string, input: AnnouncementUpdateInput) {
-    return prisma.announcement.update({
-      where: { id },
-      data: this.buildAnnouncementUpdateData(input),
-    });
+    return this.getRepositoryMethod(
+      this.announcementRepository.update,
+      "update",
+    ).call(
+      this.announcementRepository,
+      id,
+      this.buildAnnouncementUpdateData(input),
+    );
   }
 
   /** Delete an announcement by id. */
   async deleteAnnouncement(id: string) {
-    await prisma.announcement.delete({ where: { id } });
+    await this.getRepositoryMethod(
+      this.announcementRepository.delete,
+      "delete",
+    ).call(this.announcementRepository, id);
     return { success: true };
   }
 
@@ -170,19 +190,13 @@ export class AnnouncementService {
     portal?: string,
   ) {
     await this.ensureAnnouncementExists(id);
-    const read = await prisma.announcementRead.upsert({
-      where: {
-        announcementId_userId: {
-          announcementId: id,
-          userId: actor.userId,
-        },
-      },
-      update: { readAt: new Date() },
-      create: {
-        announcementId: id,
-        userId: actor.userId,
-        portal: portal || DEFAULT_PORTAL,
-      },
+    const read = await this.getRepositoryMethod(
+      this.announcementRepository.upsertUserRead,
+      "upsertUserRead",
+    ).call(this.announcementRepository, {
+      announcementId: id,
+      userId: actor.userId,
+      portal: portal || DEFAULT_PORTAL,
     });
 
     return { success: true, read };
@@ -217,20 +231,14 @@ export class AnnouncementService {
     portal?: string,
   ) {
     await this.ensureAnnouncementExistsForTenant(id, actor.tenantId ?? null);
-    const read = await prisma.announcementRead.upsert({
-      where: {
-        announcementId_userId: {
-          announcementId: id,
-          userId: actor.userId,
-        },
-      },
-      update: { readAt: new Date() },
-      create: {
-        announcementId: id,
-        userId: actor.userId,
-        portal: portal || DEFAULT_MOBILE_PORTAL,
-        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
-      },
+    const read = await this.getRepositoryMethod(
+      this.announcementRepository.upsertUserRead,
+      "upsertUserRead",
+    ).call(this.announcementRepository, {
+      announcementId: id,
+      userId: actor.userId,
+      portal: portal || DEFAULT_MOBILE_PORTAL,
+      ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
     });
 
     return { success: true, read };
@@ -243,19 +251,13 @@ export class AnnouncementService {
     portal?: string,
   ) {
     await this.ensureAnnouncementExists(id);
-    const read = await prisma.announcementRead.upsert({
-      where: {
-        announcementId_pelangganId: {
-          announcementId: id,
-          pelangganId: actor.pelangganId,
-        },
-      },
-      update: { readAt: new Date() },
-      create: {
-        announcementId: id,
-        pelangganId: actor.pelangganId,
-        portal: portal || "customer",
-      },
+    const read = await this.getRepositoryMethod(
+      this.announcementRepository.upsertCustomerRead,
+      "upsertCustomerRead",
+    ).call(this.announcementRepository, {
+      announcementId: id,
+      pelangganId: actor.pelangganId,
+      portal: portal || "customer",
     });
 
     return { success: true, read };
@@ -265,7 +267,10 @@ export class AnnouncementService {
   async getAnnouncementReadStats(id: string) {
     const [announcement, readCount, recentReaders] = await Promise.all([
       this.findAnnouncementSummary(id),
-      prisma.announcementRead.count({ where: { announcementId: id } }),
+      this.getRepositoryMethod(
+        this.announcementRepository.countReads,
+        "countReads",
+      ).call(this.announcementRepository, id),
       this.findRecentReaders(id),
     ]);
 
@@ -332,10 +337,10 @@ export class AnnouncementService {
     id: string,
     tenantId: string | null,
   ) {
-    const announcement = await prisma.announcement.findFirst({
-      where: { id, ...(tenantId ? { tenantId } : {}) },
-      select: { id: true },
-    });
+    const announcement = await this.getRepositoryMethod(
+      this.announcementRepository.findExistingByIdAndTenant,
+      "findExistingByIdAndTenant",
+    ).call(this.announcementRepository, id, tenantId);
 
     if (announcement) {
       return;
@@ -410,9 +415,10 @@ export class AnnouncementService {
 
   /** Ensure an announcement exists before mutating its read state. */
   private async ensureAnnouncementExists(id: string) {
-    const announcement = await prisma.announcement.findUnique({
-      where: { id },
-    });
+    const announcement = await this.getRepositoryMethod(
+      this.announcementRepository.findExistingById,
+      "findExistingById",
+    ).call(this.announcementRepository, id);
     if (announcement) {
       return;
     }
@@ -422,20 +428,18 @@ export class AnnouncementService {
 
   /** Find announcement summary fields for stats output. */
   private findAnnouncementSummary(id: string) {
-    return prisma.announcement.findUnique({
-      where: { id },
-      select: { id: true, title: true, target: true },
-    });
+    return this.getRepositoryMethod(
+      this.announcementRepository.findSummaryById,
+      "findSummaryById",
+    ).call(this.announcementRepository, id);
   }
 
   /** Find recent readers for one announcement. */
   private findRecentReaders(id: string) {
-    return prisma.announcementRead.findMany({
-      where: { announcementId: id },
-      orderBy: { readAt: "desc" },
-      take: RECENT_READER_LIMIT,
-      include: { announcement: false },
-    });
+    return this.getRepositoryMethod(
+      this.announcementRepository.findRecentReaders,
+      "findRecentReaders",
+    ).call(this.announcementRepository, id, RECENT_READER_LIMIT);
   }
 
   /** Add resolved reader names without changing the existing response shape. */
@@ -469,11 +473,10 @@ export class AnnouncementService {
       return new Map<string, string>();
     }
 
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, name: true },
-    });
-
+    const users = await this.getRepositoryMethod(
+      this.announcementRepository.findUserNames,
+      "findUserNames",
+    ).call(this.announcementRepository, userIds);
     return new Map(users.map((user) => [user.id, user.name]));
   }
 
@@ -491,13 +494,13 @@ export class AnnouncementService {
       return new Map<string, string>();
     }
 
-    const pelanggans = await prisma.pelanggan.findMany({
-      where: { id: { in: pelangganIds } },
-      select: { id: true, nama: true },
-    });
+    const pelanggans = await this.getRepositoryMethod(
+      this.announcementRepository.findCustomerNames,
+      "findCustomerNames",
+    ).call(this.announcementRepository, pelangganIds);
 
     return new Map(
-      pelanggans.map((pelanggan) => [pelanggan.id, pelanggan.nama]),
+      pelanggans.map((pelanggan) => [pelanggan.id, pelanggan.name]),
     );
   }
 
@@ -624,10 +627,9 @@ export class AnnouncementService {
     announcement: AnnouncementRecord,
   ) {
     try {
-      const userFilter = this.buildNotificationUserFilter(announcement.target);
-      const dbUserFilter = this.buildNotificationDbUserFilter(
-        announcement.target,
-      );
+      const targetAudience = announcement.target as TargetAudience;
+      const userFilter = this.buildNotificationUserFilter(targetAudience);
+      const dbUserFilter = this.buildNotificationDbUserFilter(targetAudience);
       const users = await prisma.user.findMany({
         where: userFilter,
         select: { id: true, pushToken: true },
