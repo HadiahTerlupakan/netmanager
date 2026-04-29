@@ -306,7 +306,7 @@ model MixRadiusConfig {
   lastSyncedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  tenantId     String?
+  tenantId     String
 
   @@index([tenantId])
   @@map("mix_radius_configs")

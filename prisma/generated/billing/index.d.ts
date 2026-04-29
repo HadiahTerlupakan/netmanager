@@ -15318,7 +15318,7 @@ export namespace Prisma {
     lastSyncedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-    tenantId: string | null;
+    tenantId: string;
     _count: MixRadiusConfigCountAggregateOutputType | null;
     _min: MixRadiusConfigMinAggregateOutputType | null;
     _max: MixRadiusConfigMaxAggregateOutputType | null;
@@ -15443,7 +15443,7 @@ export namespace Prisma {
         lastSyncedAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        tenantId: string;
       },
       ExtArgs["result"]["mixRadiusConfig"]
     >;
@@ -18208,7 +18208,7 @@ export namespace Prisma {
       | null;
     createdAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string;
     updatedAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string;
-    tenantId?: StringNullableFilter<"MixRadiusConfig"> | string | null;
+    tenantId?: StringFilter<"MixRadiusConfig"> | string;
   };
 
   export type MixRadiusConfigOrderByWithRelationInput = {
@@ -18222,7 +18222,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrderInput | SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
-    tenantId?: SortOrderInput | SortOrder;
+    tenantId?: SortOrder;
   };
 
   export type MixRadiusConfigWhereUniqueInput = Prisma.AtLeast<
@@ -18244,7 +18244,7 @@ export namespace Prisma {
         | null;
       createdAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string;
       updatedAt?: DateTimeFilter<"MixRadiusConfig"> | Date | string;
-      tenantId?: StringNullableFilter<"MixRadiusConfig"> | string | null;
+      tenantId?: StringFilter<"MixRadiusConfig"> | string;
     },
     "id"
   >;
@@ -18260,7 +18260,7 @@ export namespace Prisma {
     lastSyncedAt?: SortOrderInput | SortOrder;
     createdAt?: SortOrder;
     updatedAt?: SortOrder;
-    tenantId?: SortOrderInput | SortOrder;
+    tenantId?: SortOrder;
     _count?: MixRadiusConfigCountOrderByAggregateInput;
     _max?: MixRadiusConfigMaxOrderByAggregateInput;
     _min?: MixRadiusConfigMinOrderByAggregateInput;
@@ -18288,10 +18288,7 @@ export namespace Prisma {
       | null;
     createdAt?: DateTimeWithAggregatesFilter<"MixRadiusConfig"> | Date | string;
     updatedAt?: DateTimeWithAggregatesFilter<"MixRadiusConfig"> | Date | string;
-    tenantId?:
-      | StringNullableWithAggregatesFilter<"MixRadiusConfig">
-      | string
-      | null;
+    tenantId?: StringWithAggregatesFilter<"MixRadiusConfig"> | string;
   };
 
   export type InvoiceCreateInput = {
@@ -19569,7 +19566,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
-    tenantId?: string | null;
+    tenantId: string;
   };
 
   export type MixRadiusConfigUncheckedCreateInput = {
@@ -19583,7 +19580,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
-    tenantId?: string | null;
+    tenantId: string;
   };
 
   export type MixRadiusConfigUpdateInput = {
@@ -19601,7 +19598,7 @@ export namespace Prisma {
       | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
-    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: StringFieldUpdateOperationsInput | string;
   };
 
   export type MixRadiusConfigUncheckedUpdateInput = {
@@ -19619,7 +19616,7 @@ export namespace Prisma {
       | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
-    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: StringFieldUpdateOperationsInput | string;
   };
 
   export type MixRadiusConfigCreateManyInput = {
@@ -19633,7 +19630,7 @@ export namespace Prisma {
     lastSyncedAt?: Date | string | null;
     createdAt?: Date | string;
     updatedAt?: Date | string;
-    tenantId?: string | null;
+    tenantId: string;
   };
 
   export type MixRadiusConfigUpdateManyMutationInput = {
@@ -19651,7 +19648,7 @@ export namespace Prisma {
       | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
-    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: StringFieldUpdateOperationsInput | string;
   };
 
   export type MixRadiusConfigUncheckedUpdateManyInput = {
@@ -19669,7 +19666,7 @@ export namespace Prisma {
       | null;
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string;
-    tenantId?: NullableStringFieldUpdateOperationsInput | string | null;
+    tenantId?: StringFieldUpdateOperationsInput | string;
   };
 
   export type StringFilter<$PrismaModel = never> = {
