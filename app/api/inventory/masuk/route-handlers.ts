@@ -11,20 +11,14 @@ import {
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { parsePaginationParams } from "@/lib/utils/pagination";
 
-type InventoryMasukRouteFailure = Extract<
-  InventoryMasukRouteResult<unknown>,
-  { success: false }
->;
-
 type CreatedMasukPayload = {
   masukRecord: { id: string } & Record<string, unknown>;
   finalStock: number;
   parsedJumlah: number;
 };
-
 function isInventoryMasukRouteFailure(
   result: InventoryMasukRouteResult<unknown>,
-): result is InventoryMasukRouteFailure {
+): result is Extract<InventoryMasukRouteResult<unknown>, { success: false }> {
   return !result.success;
 }
 
@@ -52,7 +46,6 @@ async function buildListInput(
     page: 1,
     limit: 20,
   });
-
   return {
     userId,
     permissions: await getUserPermissions(userId),
@@ -75,6 +68,10 @@ function toCreatedMasukPayload(
   result: Extract<InventoryMasukRouteResult<unknown>, { success: true }>,
 ) {
   return result.data as CreatedMasukPayload;
+}
+
+function getError(error: unknown) {
+  return error instanceof Error ? error : new Error("Terjadi kesalahan");
 }
 
 function handleCreateMasukError(error: Error) {
@@ -124,8 +121,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
     return apiSuccess(result);
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Error fetching barang masuk", err, {
+    logger.error("Error fetching barang masuk", getError(error), {
       path: "/api/inventory/masuk",
       method: "GET",
     });
@@ -196,7 +192,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       { status: 201 },
     );
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    return handleCreateMasukError(err);
+    return handleCreateMasukError(getError(error));
   }
 });

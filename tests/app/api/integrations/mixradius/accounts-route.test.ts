@@ -109,6 +109,7 @@ vi.mock("@/modules/integrations", () => ({
     updateConfigForTenant: mockUpdateConfigForTenant,
     deleteConfig: mockDeleteConfig,
     deleteConfigForTenant: mockDeleteConfigForTenant,
+    getConfigs: mockGetAllConfigs,
     getAllConfigs: mockGetAllConfigs,
     getAllConfigsByTenant: mockGetAllConfigsByTenant,
   }),
@@ -169,9 +170,10 @@ describe("MixRadius accounts routes", () => {
     )(request);
 
     expect(mockCreateConfig).toHaveBeenCalledWith(
+      "tenant-1",
       expect.objectContaining({
-        apiUrl: "https://mixradius.example.com",
-        isDefault: true,
+        baseUrl: "mixradius.example.com/",
+        isActive: true,
         username: "admin",
         password: "secret",
       }),
@@ -203,9 +205,10 @@ describe("MixRadius accounts routes", () => {
     expect(mockUpdateConfig).toHaveBeenCalledWith(
       "config-1",
       expect.objectContaining({
-        apiUrl: "https://mixradius.example.com",
+        baseUrl: "mixradius.example.com/",
         username: "admin",
       }),
+      undefined,
     );
     expect(response.success).toBe(true);
   });
@@ -231,9 +234,11 @@ describe("MixRadius accounts routes", () => {
       >
     )(request);
 
-    expect(mockUpdateConfig).toHaveBeenCalledWith("config-1", {
-      isDefault: true,
-    });
+    expect(mockUpdateConfig).toHaveBeenCalledWith(
+      "config-1",
+      { isActive: true },
+      undefined,
+    );
     expect(response.success).toBe(true);
   });
 
@@ -288,10 +293,10 @@ describe("MixRadius accounts routes", () => {
       ) => Promise<{ success: boolean; error?: string; status?: number }>
     )(request);
 
-    expect(mockUpdateConfigForTenant).toHaveBeenCalledWith(
+    expect(mockUpdateConfig).toHaveBeenCalledWith(
       "config-1",
+      { isActive: true },
       "tenant-1",
-      { isDefault: true },
     );
   });
 
@@ -312,10 +317,7 @@ describe("MixRadius accounts routes", () => {
       ) => Promise<{ success: boolean; error?: string; status?: number }>
     )(request);
 
-    expect(mockDeleteConfigForTenant).toHaveBeenCalledWith(
-      "config-1",
-      "tenant-1",
-    );
+    expect(mockDeleteConfig).toHaveBeenCalledWith("config-1", "tenant-1");
     expect(response.success).toBe(true);
   });
 });
