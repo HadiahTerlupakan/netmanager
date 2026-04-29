@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { AttendanceEvaluationResult } from "@/modules/attendance/types/AttendanceEvaluation";
+
 import {
   AttendanceDailyEvaluator,
   AttendanceEvaluationAuditService,

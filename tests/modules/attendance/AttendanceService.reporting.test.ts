@@ -14,7 +14,6 @@ type AttendanceServiceInternals = {
   };
 };
 
-const emptyStats = { total: 0, avgDurationMinutes: 0, statusCounts: {} };
 const summaryStats = {
   total: 100,
   avgDurationMinutes: 480,
