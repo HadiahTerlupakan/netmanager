@@ -1,15 +1,16 @@
-import { logger } from "@/lib/logger";
-import { prismaBilling } from "@/lib/prisma-billing";
 import type { AxiosInstance } from "axios";
+
+import { mixRadiusOwnerGroupRepository } from "@/modules/integrations/repositories/MixRadiusOwnerGroupRepository";
+import {
+  buildMixRadiusOwnerLookup,
+  isMixRadiusOwnerAllowed,
+  normalizeMixRadiusOwnerName,
+} from "@/modules/integrations/services/mixradius-owner-normalizer";
 
 import {
   DUITKU_DEFAULT_FEES,
   normalizePaymentMethod,
-} from "../constants/DuitkuDefaults";
-import {
-  buildMixRadiusAllowedOwners,
-  normalizeMixRadiusOwnerName,
-} from "../utils/mixradius-owner-matching";
+} from "@/modules/integrations/constants/DuitkuDefaults";
 
 import {
   MixRadiusConfigError,
@@ -332,32 +333,22 @@ export async function fetchMixRadiusIncomeByPeriod(
     }
 
     if (siteId) {
-      const groups = await prismaBilling.mixRadiusOwnerGroup.findMany({
-        where: { siteId },
-        select: { owners: true },
-      });
-      const allowedOwners = buildMixRadiusAllowedOwners(
-        groups.flatMap((group) => group.owners),
-      );
-      allData = allData.filter(
-        (item) =>
-          item.owner_name &&
-          allowedOwners.has(item.owner_name.toLowerCase().trim()),
+      const siteOwners =
+        await mixRadiusOwnerGroupRepository.findOwnersBySiteId(siteId);
+      const allowedOwners = buildMixRadiusOwnerLookup(siteOwners);
+      allData = allData.filter((item) =>
+        isMixRadiusOwnerAllowed(item.owner_name, allowedOwners),
       );
     }
 
     if (groupId) {
-      const group = await prismaBilling.mixRadiusOwnerGroup.findUnique({
-        where: { id: groupId },
-        select: { owners: true },
-      });
+      const groupOwners =
+        await mixRadiusOwnerGroupRepository.findOwnersByGroupId(groupId);
 
-      if (group?.owners) {
-        const allowedOwners = buildMixRadiusAllowedOwners(group.owners);
-        allData = allData.filter(
-          (item) =>
-            item.owner_name &&
-            allowedOwners.has(item.owner_name.toLowerCase().trim()),
+      if (groupOwners) {
+        const allowedOwners = buildMixRadiusOwnerLookup(groupOwners);
+        allData = allData.filter((item) =>
+          isMixRadiusOwnerAllowed(item.owner_name, allowedOwners),
         );
       } else {
         allData = [];
@@ -369,10 +360,12 @@ export async function fetchMixRadiusIncomeByPeriod(
 
       allData = allData.filter((item) => {
         if (!item.owner_name) return false;
-        const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
+        const normalizedOwnerName = normalizeMixRadiusOwnerName(
+          item.owner_name,
+        );
         return (
-          normalizedOwner.full === normalizedOwnerId.full ||
-          normalizedOwner.full === normalizedOwnerId.prefix
+          normalizedOwnerName.full === normalizedOwnerId.full ||
+          normalizedOwnerName.prefix === normalizedOwnerId.prefix
         );
       });
     }
@@ -500,7 +493,7 @@ export async function fetchMixRadiusIncomeByPeriod(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      logger.warn(
+      console.warn(
         `[MixRadius] Integration not available (fetchIncomeByPeriod): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
@@ -508,7 +501,7 @@ export async function fetchMixRadiusIncomeByPeriod(
         : new MixRadiusConfigError(message);
     }
 
-    logger.error("[MixRadius] Fetch income period error:", message);
+    console.error("[MixRadius] Fetch income period error:", message);
     if (
       message.includes("session") ||
       (error as { response?: { status: number } }).response?.status === 401
@@ -548,7 +541,7 @@ export async function fetchMixRadiusIncomeSummary(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      logger.warn(
+      console.warn(
         `[MixRadius] Integration not available (fetchIncomeSummary): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
@@ -556,7 +549,7 @@ export async function fetchMixRadiusIncomeSummary(
         : new MixRadiusConfigError(message);
     }
 
-    logger.error("[MixRadius] Failed to fetch income summary:", error);
+    console.error("[MixRadius] Failed to fetch income summary:", error);
     throw error;
   }
 }
@@ -608,7 +601,7 @@ export async function fetchMixRadiusOwnersWithIds(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      logger.warn(
+      console.warn(
         `[MixRadius] Integration not available (getOwnersWithIds): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
@@ -616,7 +609,7 @@ export async function fetchMixRadiusOwnersWithIds(
         : new MixRadiusConfigError(message);
     }
 
-    logger.error("[MixRadius] Failed to fetch owners from HTML:", error);
+    console.error("[MixRadius] Failed to fetch owners from HTML:", error);
     return [];
   }
 }
@@ -642,7 +635,7 @@ export async function fetchMixRadiusUniqueOwners(params: {
 
     return Array.from(owners).sort();
   } catch (error) {
-    logger.error(
+    console.error(
       "[MixRadius] Get owners error:",
       error instanceof Error ? error.message : error,
     );
@@ -682,14 +675,14 @@ export async function deleteMixRadiusIncomeRecord(
       error instanceof MixRadiusConfigError ||
       isMixRadiusConfigError(message)
     ) {
-      logger.warn(
+      console.warn(
         `[MixRadius] Integration not available (deleteIncomeRecord): ${message}`,
       );
       throw error instanceof MixRadiusConfigError
         ? error
         : new MixRadiusConfigError(message);
     }
-    logger.error(`[MixRadius] Delete record ${id} error:`, message);
+    console.error(`[MixRadius] Delete record ${id} error:`, message);
     throw new Error(`Failed to delete record: ${message}`);
   }
 }
@@ -720,13 +713,13 @@ export async function getMixRadiusPrintInvoiceHtml(
       error instanceof Error ? error.message : "Terjadi kesalahan";
 
     if (isMixRadiusConfigError(message)) {
-      logger.warn(
+      console.warn(
         `[MixRadius] Integration not available (getPrintInvoiceHtml): ${message}`,
       );
       return '<div style="padding:20px;text-align:center;"><h3>MixRadius Integration Not Configured</h3><p>Please configure MixRadius credentials in Settings.</p></div>';
     }
 
-    logger.error("[MixRadius] Get print HTML error:", message);
+    console.error("[MixRadius] Get print HTML error:", message);
     throw new Error(`Failed to get print view: ${message}`);
   }
 }
@@ -769,7 +762,7 @@ export async function fetchMixRadiusProfitReport(
     };
   } catch (error) {
     if (error instanceof MixRadiusConfigError) throw error;
-    logger.error("[MixRadius] Error fetching profit report:", error);
+    console.error("[MixRadius] Error fetching profit report:", error);
     return {
       income: Array(12).fill(0),
       transactions: Array(12).fill(0),

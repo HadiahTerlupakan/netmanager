@@ -1,19 +1,14 @@
-import { logger } from "@/lib/logger";
 import type { AxiosInstance } from "axios";
 
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import type { IMixRadiusConfigRepository } from "@/modules/integrations/domain/ports/IMixRadiusConfigRepository";
+import { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
+import { mixRadiusConfigRepo } from "@/modules/integrations/repositories/MixRadiusConfigRepository";
 
-import type { IMixRadiusConfigRepository } from "../domain/ports/IMixRadiusConfigRepository";
-import { MixRadiusConfigRepository } from "../repositories/MixRadiusConfigRepository";
-import { validateMixRadiusBaseUrl } from "../validators/MixRadiusConfigValidator";
 import {
   MixRadiusConfigError,
   type MixRadiusCredentials,
 } from "./MixRadiusService";
-
-const DEFAULT_LOGIN_TTL_MS = 50 * 60 * 1000;
-const DEFAULT_LOGIN_DELAY_MAX = 2000;
-const DEFAULT_LOGIN_DELAY_MIN = 800;
 
 export type MixRadiusSessionState = {
   isLoggedIn: boolean;
@@ -21,19 +16,31 @@ export type MixRadiusSessionState = {
   loggedInCredentials: { username: string; baseUrl: string } | null;
 };
 
-/** Load MixRadius credentials from tenant config or environment. */
 export async function loadMixRadiusCredentials(
-  configRepository: IMixRadiusConfigRepository = new MixRadiusConfigRepository(),
+  configRepository: IMixRadiusConfigRepository = mixRadiusConfigRepo,
 ): Promise<MixRadiusCredentials> {
   const tenantContext = await getTenantIdFromContext();
-  const activeConfig = await getActiveConfig(configRepository, tenantContext);
+  const activeConfig = tenantContext.tenantId
+    ? await configRepository.getActiveConfigByTenant(tenantContext.tenantId)
+    : await configRepository.getActiveConfig();
 
   if (activeConfig) {
-    return mapStoredCredentials(
+    const baseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
       activeConfig.apiUrl,
-      activeConfig.username,
-      activeConfig.password,
     );
+    const validation = IntegrationFactory.validateUrl(baseUrl);
+
+    if (!validation.isValid) {
+      throw new MixRadiusConfigError(
+        "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
+      );
+    }
+
+    return {
+      username: activeConfig.username,
+      password: activeConfig.password,
+      baseUrl,
+    };
   }
 
   if (tenantContext.tenantId && !tenantContext.isSuperAdmin) {
@@ -42,14 +49,24 @@ export async function loadMixRadiusCredentials(
     );
   }
 
-  return mapStoredCredentials(
+  const baseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
     process.env.MIXRADIUS_URL || "",
-    process.env.MIXRADIUS_USERNAME || "",
-    process.env.MIXRADIUS_PASSWORD || "",
   );
+  const validation = IntegrationFactory.validateUrl(baseUrl);
+
+  if (!validation.isValid) {
+    throw new MixRadiusConfigError(
+      "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
+    );
+  }
+
+  return {
+    username: process.env.MIXRADIUS_USERNAME || "",
+    password: process.env.MIXRADIUS_PASSWORD || "",
+    baseUrl,
+  };
 }
 
-/** Login to MixRadius and return the next session state. */
 export async function loginMixRadius(params: {
   client: AxiosInstance;
   credentials: MixRadiusCredentials;
@@ -58,143 +75,81 @@ export async function loginMixRadius(params: {
 }): Promise<MixRadiusSessionState> {
   const { client, credentials, session, randomDelay } = params;
 
-  if (isReusableSession(session, credentials)) {
-    return session;
-  }
-
-  const validatedCredentials = validateCredentials(credentials);
-
-  try {
-    await client.get(`${validatedCredentials.baseUrl}/rad-admin`);
-    await randomDelay(DEFAULT_LOGIN_DELAY_MIN, DEFAULT_LOGIN_DELAY_MAX);
-    const loginResponse = await submitLogin(client, validatedCredentials);
-
-    if (isDashboardResponse(loginResponse)) {
-      return buildLoggedInSession(validatedCredentials);
+  if (session.isLoggedIn && session.loginExpiresAt > Date.now()) {
+    if (
+      session.loggedInCredentials &&
+      session.loggedInCredentials.username === credentials.username &&
+      session.loggedInCredentials.baseUrl === credentials.baseUrl
+    ) {
+      return session;
     }
-
-    throw new Error("Login may have failed - unexpected response");
-  } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    logger.error("[MixRadius] Login error:", message);
-    throw new Error(`MixRadius login failed: ${message}`);
-  }
-}
-
-async function getActiveConfig(
-  configRepository: IMixRadiusConfigRepository,
-  tenantContext: { tenantId: string | null; isSuperAdmin: boolean },
-) {
-  if (tenantContext.tenantId) {
-    return configRepository.getActiveConfigByTenant(tenantContext.tenantId);
   }
 
-  return configRepository.getActiveConfig();
-}
-
-function mapStoredCredentials(
-  rawBaseUrl: string,
-  username: string,
-  password: string,
-): MixRadiusCredentials {
-  const { normalizedBaseUrl, validation } =
-    validateMixRadiusBaseUrl(rawBaseUrl);
-
-  const baseUrl = normalizedBaseUrl;
-
-  if (!validation.isValid) {
-    throw new MixRadiusConfigError(
-      "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
-    );
-  }
-
-  return { username, password, baseUrl };
-}
-
-function isReusableSession(
-  session: MixRadiusSessionState,
-  credentials: MixRadiusCredentials,
-) {
-  if (!session.isLoggedIn || session.loginExpiresAt <= Date.now()) {
-    return false;
-  }
-
-  return (
-    session.loggedInCredentials?.username === credentials.username &&
-    session.loggedInCredentials?.baseUrl === credentials.baseUrl
-  );
-}
-
-function validateCredentials(credentials: MixRadiusCredentials) {
-  const { normalizedBaseUrl, validation } = validateMixRadiusBaseUrl(
+  const normalizedBaseUrl = IntegrationFactory.normalizeMixRadiusBaseUrl(
     credentials.baseUrl,
   );
+  const validation = IntegrationFactory.validateUrl(normalizedBaseUrl);
 
   if (!validation.isValid) {
-    logger.warn("[MixRadius] Invalid or missing Base URL");
+    console.warn("[MixRadius] Invalid or missing Base URL");
     throw new MixRadiusConfigError(
       "URL MixRadius tidak valid atau belum dikonfigurasi. Silakan periksa pengaturan integrasi.",
     );
   }
 
   if (!credentials.username || !credentials.password) {
-    logger.warn("[MixRadius] Missing credentials");
+    console.warn("[MixRadius] Missing credentials");
     throw new MixRadiusConfigError(
       "Username atau Password MixRadius belum dikonfigurasi.",
     );
   }
 
-  return { ...credentials, baseUrl: normalizedBaseUrl };
-}
+  try {
+    await client.get(`${normalizedBaseUrl}/rad-admin`);
+    await randomDelay(800, 2000);
 
-async function submitLogin(
-  client: AxiosInstance,
-  credentials: MixRadiusCredentials,
-) {
-  const formData = new URLSearchParams({
-    username: credentials.username,
-    password: credentials.password,
-  });
-
-  return client.post(
-    `${credentials.baseUrl}/rad-admin/post`,
-    formData.toString(),
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Referer: `${credentials.baseUrl}/rad-admin`,
-        Origin: credentials.baseUrl,
-      },
-      maxRedirects: 5,
-    },
-  );
-}
-
-function isDashboardResponse(loginResponse: {
-  request?: { res?: { responseUrl?: string } };
-  data?: unknown;
-}) {
-  const responseUrl = loginResponse.request?.res?.responseUrl || "";
-  const responseHtml =
-    typeof loginResponse.data === "string" ? loginResponse.data : "";
-  const reachedDashboard = responseUrl.includes("dashboard");
-  const looksLikeLoginPage =
-    responseHtml.includes("<title>LOGIN</title>") ||
-    responseUrl.includes("/rad-admin/post");
-
-  return reachedDashboard && !looksLikeLoginPage;
-}
-
-function buildLoggedInSession(
-  credentials: MixRadiusCredentials,
-): MixRadiusSessionState {
-  return {
-    isLoggedIn: true,
-    loginExpiresAt: Date.now() + DEFAULT_LOGIN_TTL_MS,
-    loggedInCredentials: {
+    const formData = new URLSearchParams({
       username: credentials.username,
-      baseUrl: credentials.baseUrl,
-    },
-  };
+      password: credentials.password,
+    });
+
+    const loginResponse = await client.post(
+      `${normalizedBaseUrl}/rad-admin/post`,
+      formData.toString(),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Referer: `${normalizedBaseUrl}/rad-admin`,
+          Origin: normalizedBaseUrl,
+        },
+        maxRedirects: 5,
+      },
+    );
+
+    const responseUrl = loginResponse.request?.res?.responseUrl || "";
+    const responseHtml =
+      typeof loginResponse.data === "string" ? loginResponse.data : "";
+    const reachedDashboard = responseUrl.includes("dashboard");
+    const looksLikeLoginPage =
+      responseHtml.includes("<title>LOGIN</title>") ||
+      responseUrl.includes("/rad-admin/post");
+
+    if (reachedDashboard && !looksLikeLoginPage) {
+      return {
+        isLoggedIn: true,
+        loginExpiresAt: Date.now() + 50 * 60 * 1000,
+        loggedInCredentials: {
+          username: credentials.username,
+          baseUrl: normalizedBaseUrl,
+        },
+      };
+    }
+
+    throw new Error("Login may have failed - unexpected response");
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan";
+    console.error("[MixRadius] Login error:", message);
+    throw new Error(`MixRadius login failed: ${message}`);
+  }
 }

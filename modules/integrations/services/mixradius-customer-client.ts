@@ -1,16 +1,16 @@
-import { logger } from "@/lib/logger";
-import { prismaBilling } from "@/lib/prisma-billing";
 import { LRUCache } from "@/lib/utils/lru-cache";
+import { mixRadiusOwnerGroupRepository } from "@/modules/integrations/repositories/MixRadiusOwnerGroupRepository";
+import {
+  buildMixRadiusOwnerLookup,
+  isMixRadiusOwnerAllowed,
+  normalizeMixRadiusOwnerName,
+} from "@/modules/integrations/services/mixradius-owner-normalizer";
 import type { AxiosInstance } from "axios";
 
 import {
   buildInvoiceCountCacheKey,
   parseMixRadiusInvoicesFromHtml,
 } from "./mixradius-invoice-utils";
-import {
-  buildMixRadiusAllowedOwners,
-  normalizeMixRadiusOwnerName,
-} from "../utils/mixradius-owner-matching";
 import {
   MixRadiusConfigError,
   type FetchCustomersParams,
@@ -43,7 +43,9 @@ function isMixRadiusConfigError(message: string) {
 }
 
 function getCustomerConfigError(message: string, context: string) {
-  logger.warn(`[MixRadius] Integration not available (${context}): ${message}`);
+  console.warn(
+    `[MixRadius] Integration not available (${context}): ${message}`,
+  );
   return new MixRadiusConfigError(message);
 }
 
@@ -106,7 +108,7 @@ export async function fetchMixRadiusActiveSessionsPPP(
         : getCustomerConfigError(message, "fetchActiveSessionsPPP");
     }
 
-    logger.error("[MixRadius] Failed to fetch active sessions:", message);
+    console.error("[MixRadius] Failed to fetch active sessions:", message);
     return new Map();
   }
 }
@@ -270,23 +272,14 @@ export async function fetchMixRadiusCustomersPPP(
     const totalRecordsFromUpstream = allData.length;
 
     if (filters.siteId) {
-      const groups = await prismaBilling.mixRadiusOwnerGroup.findMany({
-        where: { siteId: filters.siteId },
-        select: { owners: true },
-      });
-
-      const allowedOwners = buildMixRadiusAllowedOwners(
-        groups.flatMap((group) => group.owners),
+      const siteOwners = await mixRadiusOwnerGroupRepository.findOwnersBySiteId(
+        filters.siteId,
       );
+      const allowedOwners = buildMixRadiusOwnerLookup(siteOwners);
 
-      allData = allData.filter((item) => {
-        if (!item.owner_name) return false;
-        const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
-        return (
-          allowedOwners.has(normalizedOwner.full) ||
-          allowedOwners.has(normalizedOwner.prefix)
-        );
-      });
+      allData = allData.filter((item) =>
+        isMixRadiusOwnerAllowed(item.owner_name, allowedOwners),
+      );
     }
 
     if (filters.authStatus === "Isolir") {
@@ -348,28 +341,17 @@ export async function fetchMixRadiusCustomersPPP(
     }
 
     if (filters.groupId) {
-      const group = await prismaBilling.mixRadiusOwnerGroup.findUnique({
-        where: { id: filters.groupId },
-        select: { owners: true },
-      });
+      const groupOwners =
+        await mixRadiusOwnerGroupRepository.findOwnersByGroupId(
+          filters.groupId,
+        );
 
-      if (group && group.owners && group.owners.length > 0) {
-        const allowedOwners = new Set<string>();
-        group.owners.forEach((owner) => {
-          const normalizedOwner = normalizeMixRadiusOwnerName(owner);
-          allowedOwners.add(normalizedOwner.full);
-          allowedOwners.add(normalizedOwner.prefix);
-        });
-
-        allData = allData.filter((item) => {
-          if (!item.owner_name) return false;
-          const normalizedOwner = normalizeMixRadiusOwnerName(item.owner_name);
-          return (
-            allowedOwners.has(normalizedOwner.full) ||
-            allowedOwners.has(normalizedOwner.prefix)
-          );
-        });
-      } else if (group) {
+      if (groupOwners && groupOwners.length > 0) {
+        const allowedOwners = buildMixRadiusOwnerLookup(groupOwners);
+        allData = allData.filter((item) =>
+          isMixRadiusOwnerAllowed(item.owner_name, allowedOwners),
+        );
+      } else if (groupOwners) {
         allData = [];
       }
     }
@@ -459,7 +441,7 @@ export async function fetchMixRadiusCustomersPPP(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
-    logger.error("[MixRadius] Fetch error:", message);
+    console.error("[MixRadius] Fetch error:", message);
 
     if (
       error instanceof MixRadiusConfigError ||
@@ -518,7 +500,7 @@ export async function fetchMixRadiusCustomerDetail(
       html.includes("404 - Data Not Found") ||
       html.includes("Data tidak ditemukan")
     ) {
-      logger.error(
+      console.error(
         `[MixRadius] 404 Not Found for ID ${customerId}. URL: ${baseUrl}/rad-customers/edit/${customerId}`,
       );
 
@@ -541,7 +523,7 @@ export async function fetchMixRadiusCustomerDetail(
             }
           }
         } catch (resolveError) {
-          logger.error("[MixRadius] ID resolution failed:", resolveError);
+          console.error("[MixRadius] ID resolution failed:", resolveError);
         }
       }
 
@@ -557,7 +539,7 @@ export async function fetchMixRadiusCustomerDetail(
       (html.includes("id_plan") && html.includes("username"));
 
     if (!hasCorrectHeader) {
-      logger.warn(
+      console.warn(
         `[MixRadius] Page structure check failed for customer ${customerId}. Marker elements not found.`,
       );
     }
@@ -691,7 +673,7 @@ export async function fetchMixRadiusCustomerDetail(
     };
 
     if (!customerDetail.username && !customerDetail.member_id) {
-      logger.error(
+      console.error(
         `[MixRadius] Scraping Validation Failed for ID ${customerId}. HTML snippet: ${html.substring(0, 500)}...`,
       );
       throw new Error(
@@ -713,7 +695,7 @@ export async function fetchMixRadiusCustomerDetail(
         : getCustomerConfigError(message, "fetchCustomerDetail");
     }
 
-    logger.error("[MixRadius] Fetch customer detail error:", message);
+    console.error("[MixRadius] Fetch customer detail error:", message);
     throw new Error(`Failed to fetch customer detail: ${message}`);
   }
 }
@@ -795,7 +777,7 @@ export async function fetchMixRadiusInvoiceCounts(params: {
         const cacheKey = buildInvoiceCountCacheKey(id, lastRenewedOn);
         invoiceCountCache.set(cacheKey, { ...counts, lastRenewedOn });
       } catch (error) {
-        logger.error(
+        console.error(
           `[MixRadius] Failed to fetch invoice count for ${id}:`,
           error,
         );

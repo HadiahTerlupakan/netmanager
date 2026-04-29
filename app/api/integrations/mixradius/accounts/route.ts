@@ -1,7 +1,4 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { logger } from "@/lib/logger";
-import { getMixRadiusConfigService } from "@/modules/integrations";
-import { IntegrationFactory } from "@/lib/integrations/IntegrationFactory";
 import {
   apiSuccess,
   apiError,
@@ -9,11 +6,14 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { getMixRadiusConfigService } from "@/modules/integrations";
+
+const mixRadiusConfigService = getMixRadiusConfigService();
 
 export const dynamic = "force-dynamic";
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -37,18 +37,17 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
       );
     }
 
-    const tenantConfigs = await configService.getAllConfigsByTenant(
+    const tenantConfigs = await mixRadiusConfigService.getConfigs(
       user.tenantId,
     );
     return apiSuccess(tenantConfigs);
   }
 
-  const configs = await configService.getAllConfigs();
+  const configs = await mixRadiusConfigService.getConfigs();
   return apiSuccess(configs);
 });
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -66,45 +65,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const body = await req.json();
-  const name = body.name || "Default";
-  const rawBaseUrl = body.apiUrl || body.baseUrl || "";
-  const username = body.username;
-  const password = body.password;
-  const isDefault =
-    body.isDefault !== undefined
-      ? body.isDefault
-      : body.isActive !== undefined
-        ? body.isActive
-        : false;
-  const apiKey = body.apiKey || "default-api-key";
-
-  const missingFields: string[] = [];
-  if (!rawBaseUrl.trim()) missingFields.push("API URL");
-  if (!username) missingFields.push("Username");
-  if (!password) missingFields.push("Password");
-
-  if (missingFields.length > 0) {
-    return apiError(
-      `Data berikut wajib diisi: ${missingFields.join(", ")}`,
-      ErrorCodes.VALIDATION_ERROR,
-      { details: { missingFields }, status: 400 },
-    );
-  }
-
-  const configInput = IntegrationFactory.createMixRadiusConfig({
-    name,
-    baseUrl: rawBaseUrl,
-    username,
-    password,
-  });
-  const validation = IntegrationFactory.validateUrl(configInput.baseUrl);
-  if (!validation.isValid) {
-    return apiError(
-      validation.error || "API URL tidak valid",
-      ErrorCodes.VALIDATION_ERROR,
-      { status: 400 },
-    );
-  }
 
   if (!user.tenantId) {
     return apiError(
@@ -114,16 +74,15 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const newConfig = await configService.createConfig({
-    name: configInput.name,
-    apiUrl: configInput.baseUrl,
-    apiKey,
-    username: configInput.username,
-    password: configInput.password,
-    isDefault: isDefault || false,
-    lastSyncedAt: null,
-    tenantId: user.tenantId,
-  });
+  let newConfig;
+
+  try {
+    newConfig = await mixRadiusConfigService.createConfig(user.tenantId, body);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan";
+    return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
 
   await logger.logActivity({
     userId: user.id,

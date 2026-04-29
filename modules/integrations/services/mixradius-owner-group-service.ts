@@ -1,47 +1,62 @@
-import type {
-  IMixRadiusOwnerGroupRepository,
-  MixRadiusOwnerGroupPayload,
-  MixRadiusOwnerGroupUpdatePayload,
-} from "../domain/ports/IMixRadiusOwnerGroupRepository";
-import { MixRadiusOwnerGroupRepository } from "../repositories/MixRadiusOwnerGroupRepository";
+import { mixRadiusOwnerGroupRepository } from "@/modules/integrations/repositories/MixRadiusOwnerGroupRepository";
 
-export type { MixRadiusOwnerGroupPayload, MixRadiusOwnerGroupUpdatePayload };
+export type MixRadiusOwnerGroupPayload = {
+  name: string;
+  owners: string[];
+  siteId?: string;
+  isActive?: boolean;
+  tenantId?: string;
+};
+
+export type MixRadiusOwnerGroupUpdatePayload = {
+  name?: string;
+  owners?: string[];
+  siteId?: string;
+  isActive?: boolean;
+  tenantId?: string;
+};
 
 export class MixRadiusOwnerGroupService {
-  constructor(
-    private readonly ownerGroupRepository: IMixRadiusOwnerGroupRepository = new MixRadiusOwnerGroupRepository(),
-  ) {}
-
-  /** Get owner groups with optional tenant filter. */
+  /**
+   * Get owner groups for a tenant.
+   */
   async getOwnerGroups(tenantId?: string) {
-    return this.ownerGroupRepository.getOwnerGroups(tenantId);
+    return mixRadiusOwnerGroupRepository.findMany(tenantId);
   }
 
-  /** Get a single owner group. */
+  /**
+   * Get owner group by id.
+   */
   async getOwnerGroup(id: string, tenantId?: string) {
-    return this.ownerGroupRepository.getOwnerGroup(id, tenantId);
+    return mixRadiusOwnerGroupRepository.findById(id, tenantId);
   }
 
-  /** Create a new owner group. */
+  /**
+   * Create a new owner group.
+   */
   async createOwnerGroup(data: MixRadiusOwnerGroupPayload) {
-    return this.ownerGroupRepository.createOwnerGroup(data);
+    return mixRadiusOwnerGroupRepository.create(data);
   }
 
-  /** Update an owner group. */
+  /**
+   * Update an existing owner group.
+   */
   async updateOwnerGroup(id: string, data: MixRadiusOwnerGroupUpdatePayload) {
-    return this.ownerGroupRepository.updateOwnerGroup(id, data);
+    const { tenantId, ...updateData } = data;
+    return mixRadiusOwnerGroupRepository.update(id, tenantId, updateData);
   }
 
-  /** Delete an owner group. */
+  /**
+   * Delete an owner group.
+   */
   async deleteOwnerGroup(id: string, tenantId?: string) {
-    return this.ownerGroupRepository.deleteOwnerGroup(id, tenantId);
+    return mixRadiusOwnerGroupRepository.delete(id, tenantId);
   }
 }
 
 let mixRadiusOwnerGroupServiceInstance: MixRadiusOwnerGroupService | null =
   null;
 
-/** Get the shared owner group service instance. */
 export function getMixRadiusOwnerGroupService(): MixRadiusOwnerGroupService {
   if (!mixRadiusOwnerGroupServiceInstance) {
     mixRadiusOwnerGroupServiceInstance = new MixRadiusOwnerGroupService();

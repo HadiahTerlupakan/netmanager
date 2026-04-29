@@ -3,6 +3,8 @@ import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
 import { getMixRadiusConfigService } from "@/modules/integrations";
 
+const mixRadiusConfigService = getMixRadiusConfigService();
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -10,7 +12,6 @@ export const dynamic = "force-dynamic";
  * Test endpoint untuk debug MixRadius login
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
-  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -23,9 +24,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
   }
 
-  const activeConfig = user.tenantId
-    ? await configService.getActiveConfigByTenant(user.tenantId)
-    : await configService.getActiveConfig();
+  const activeConfig = await mixRadiusConfigService.getActiveConfig(
+    user.tenantId,
+  );
   const baseUrl =
     activeConfig?.apiUrl ||
     process.env.MIXRADIUS_URL ||

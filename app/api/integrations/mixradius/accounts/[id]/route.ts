@@ -1,7 +1,4 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { logger } from "@/lib/logger";
-import { getMixRadiusConfigService } from "@/modules/integrations";
-import { IntegrationFactory } from "@/lib/integrations/IntegrationFactory";
 import {
   apiSuccess,
   apiError,
@@ -9,11 +6,14 @@ import {
   ErrorCodes,
   createHandler,
 } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { getMixRadiusConfigService } from "@/modules/integrations";
+
+const mixRadiusConfigService = getMixRadiusConfigService();
 
 export const dynamic = "force-dynamic";
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
-  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -36,69 +36,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       status: 400,
     });
 
-  const updatePayload: Record<string, unknown> = {};
-  const hasBaseUrlInput =
-    typeof body.apiUrl === "string" || typeof body.baseUrl === "string";
-
-  if (typeof body.name === "string") {
-    updatePayload.name = body.name || "Default";
-  }
-
-  if (hasBaseUrlInput) {
-    const rawBaseUrl =
-      typeof body.apiUrl === "string" ? body.apiUrl : body.baseUrl;
-    const configInput = IntegrationFactory.createMixRadiusConfig({
-      name: typeof body.name === "string" ? body.name || "Default" : "Default",
-      baseUrl: rawBaseUrl,
-      username: typeof body.username === "string" ? body.username : "",
-      password: typeof body.password === "string" ? body.password : "",
-    });
-
-    const validation = IntegrationFactory.validateUrl(configInput.baseUrl);
-    if (!validation.isValid) {
-      return apiError(
-        validation.error || "API URL tidak valid",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    updatePayload.apiUrl = configInput.baseUrl;
-  }
-
-  if (typeof body.username === "string") {
-    updatePayload.username = body.username;
-  }
-
-  if (typeof body.password === "string" && body.password.trim()) {
-    updatePayload.password = body.password;
-  }
-
-  if (body.apiKey !== undefined) {
-    updatePayload.apiKey = body.apiKey;
-  }
-
-  if (body.isDefault !== undefined) {
-    updatePayload.isDefault = body.isDefault;
-  } else if (body.isActive !== undefined) {
-    updatePayload.isDefault = body.isActive;
-  }
-
-  if (isSuper) {
-    const updatedConfig = await configService.updateConfig(id, updatePayload);
-
-    await logger.logActivity({
-      userId: user.id,
-      action: "UPDATE",
-      subject: "mixradius_config",
-      details: { id, changes: body },
-      ipAddress: req.headers.get("x-forwarded-for") || "unknown",
-      userAgent: req.headers.get("user-agent") || "unknown",
-    });
-    return apiSuccess(updatedConfig);
-  }
-
-  if (!user.tenantId) {
+  if (!isSuper && !user.tenantId) {
     return apiError(
       "Tenant MixRadius tidak ditemukan untuk user ini",
       ErrorCodes.VALIDATION_ERROR,
@@ -108,11 +46,19 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const updatedConfig = await configService.updateConfigForTenant(
-    id,
-    user.tenantId,
-    updatePayload,
-  );
+  let updatedConfig;
+
+  try {
+    updatedConfig = await mixRadiusConfigService.updateConfig(
+      id,
+      body,
+      isSuper ? undefined : user.tenantId,
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Terjadi kesalahan";
+    return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
+  }
 
   await logger.logActivity({
     userId: user.id,
@@ -126,7 +72,6 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 });
 
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
-  const configService = getMixRadiusConfigService();
   const user = ctx.session!.user;
   const isSuper = isSuperAdmin(user);
 
@@ -148,21 +93,20 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
       status: 400,
     });
 
-  if (isSuper) {
-    await configService.deleteConfig(id);
-  } else {
-    if (!user.tenantId) {
-      return apiError(
-        "Tenant MixRadius tidak ditemukan untuk user ini",
-        ErrorCodes.VALIDATION_ERROR,
-        {
-          status: 400,
-        },
-      );
-    }
-
-    await configService.deleteConfigForTenant(id, user.tenantId);
+  if (!isSuper && !user.tenantId) {
+    return apiError(
+      "Tenant MixRadius tidak ditemukan untuk user ini",
+      ErrorCodes.VALIDATION_ERROR,
+      {
+        status: 400,
+      },
+    );
   }
+
+  await mixRadiusConfigService.deleteConfig(
+    id,
+    isSuper ? undefined : user.tenantId,
+  );
 
   await logger.logActivity({
     userId: user.id,

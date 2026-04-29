@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { createLazyPrismaClient } from "./prisma-lazy-client";
 import { withTenantIsolation } from "./prisma-extension";
 import "dotenv/config";
 
@@ -35,25 +36,6 @@ const createPrismaClientBase = (): PrismaClient => {
   });
 };
 
-const createLazyClient = <T extends object>(getClient: () => T): T =>
-  new Proxy({} as T, {
-    get(_target, prop, receiver) {
-      return Reflect.get(getClient() as object, prop, receiver);
-    },
-    set(_target, prop, value, receiver) {
-      return Reflect.set(getClient() as object, prop, value, receiver);
-    },
-    has(_target, prop) {
-      return Reflect.has(getClient() as object, prop);
-    },
-    ownKeys() {
-      return Reflect.ownKeys(getClient() as object);
-    },
-    getOwnPropertyDescriptor(_target, prop) {
-      return Object.getOwnPropertyDescriptor(getClient() as object, prop);
-    },
-  });
-
 const getPrismaAuthClient = () => {
   if (!globalForPrismaAuth.prismaAuth) {
     globalForPrismaAuth.prismaAuth = createPrismaClientBase();
@@ -70,10 +52,12 @@ const getPrismaClient = () => {
   return prismaClient;
 };
 
-export const prismaAuth = createLazyClient(() =>
+export const prismaAuth = createLazyPrismaClient(() =>
   getPrismaAuthClient(),
 ) as PrismaClient;
-export const prisma = createLazyClient(() => getPrismaClient()) as PrismaClient;
+export const prisma = createLazyPrismaClient(() =>
+  getPrismaClient(),
+) as PrismaClient;
 
 if (process.env.NODE_ENV !== "production") {
   void globalForPrismaAuth;

@@ -1,525 +1,463 @@
-import { logger } from "@/lib/logger";
-import { parseOptionalDate } from "@/lib/utils/server-datetime";
-import type {
-  IMixRadiusDataRepository,
-  UpsertMixRadiusCustomerInput,
-} from "../domain/ports/IMixRadiusDataRepository";
 import { MixRadiusRepository } from "../repositories/MixRadiusRepository";
+import {
+  getCurrentMonthDateRange,
+  getYesterdayDateString,
+  parseMixRadiusDate,
+} from "./mixradius-date-utils";
 import type {
+  MixRadiusCustomer,
   MixRadiusCustomerDetail,
   MixRadiusIncomePeriodRecord,
 } from "./MixRadiusService";
 import { getMixRadiusService } from "./MixRadiusService";
 
-const DEFAULT_GLOBAL_AVERAGE_AMOUNT = 150000;
 const DEFAULT_TENANT_ID = "DEFAULT";
-const DAYS_30 = 30;
-const DAYS_60 = 60;
-const DAYS_90 = 90;
-const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
+const DEFAULT_GLOBAL_AVERAGE = 150000;
+const ONE_DAY_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
+
+type SyncCustomerPayload = {
+  mixRadiusId: string;
+  tenantId: string;
+  username: string;
+  fullName: string;
+  address?: string;
+  phoneNumber?: string;
+  planName?: string;
+  ownerName?: string;
+  status?: string;
+  expiredOn?: Date | null;
+  lastSyncedAt: Date;
+};
+
+type NplStats = {
+  under30: { count: number; sum: number };
+  between30And60: { count: number; sum: number };
+  between60And90: { count: number; sum: number };
+  over90: { count: number; sum: number };
+};
+
+function resolveTenantId(tenantId?: string) {
+  return tenantId || DEFAULT_TENANT_ID;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Terjadi kesalahan";
+}
+
+function isMixRadiusConfigError(error: unknown) {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "name" in error &&
+    error.name === "MixRadiusConfigError"
+  );
+}
+
+function buildCustomerPayload(
+  customer: Pick<
+    MixRadiusCustomerDetail,
+    | "id"
+    | "username"
+    | "fullname"
+    | "address"
+    | "phonenumber"
+    | "plan_name"
+    | "owner_name"
+    | "auth_status"
+    | "expired_on"
+  >,
+  tenantId?: string,
+): SyncCustomerPayload {
+  return {
+    mixRadiusId: customer.id,
+    tenantId: resolveTenantId(tenantId),
+    username: customer.username,
+    fullName: customer.fullname || customer.username,
+    address: customer.address,
+    phoneNumber: customer.phonenumber,
+    planName: customer.plan_name,
+    ownerName: customer.owner_name,
+    status: customer.auth_status,
+    expiredOn: parseMixRadiusDate(customer.expired_on),
+    lastSyncedAt: new Date(),
+  };
+}
+
+function buildCustomerPayloadFromInvoice(
+  record: MixRadiusIncomePeriodRecord,
+  tenantId?: string,
+): SyncCustomerPayload {
+  return {
+    mixRadiusId: record.customer_id || record.username,
+    tenantId: resolveTenantId(tenantId),
+    username: record.username,
+    fullName: record.fullname,
+    address: record.address,
+    phoneNumber: record.phonenumber,
+    planName: record.plan_name,
+    ownerName: record.owner_name,
+    expiredOn: parseMixRadiusDate(record.expired_on),
+    lastSyncedAt: new Date(),
+  };
+}
+
+function parseAmount(amount: string | number | undefined) {
+  if (!amount) {
+    return 0;
+  }
+
+  return typeof amount === "number"
+    ? amount
+    : parseFloat(amount.replace(/[^0-9.-]+/g, "")) || 0;
+}
+
+function normalizeInvoiceStatus(status: string) {
+  const upperCasedStatus = status.toUpperCase();
+  return upperCasedStatus === "SUCCESS" ? "PAID" : upperCasedStatus;
+}
+
+function createNplStats(): NplStats {
+  return {
+    under30: { count: 0, sum: 0 },
+    between30And60: { count: 0, sum: 0 },
+    between60And90: { count: 0, sum: 0 },
+    over90: { count: 0, sum: 0 },
+  };
+}
+
+function buildOwnerFilter(owners: string[]) {
+  return owners.map((owner) => owner.split(/[—–-]/)[0].trim().toLowerCase());
+}
+
+function isCustomerIncludedByOwner(
+  ownerName: string | undefined,
+  owners: string[] | null,
+) {
+  if (!owners) {
+    return true;
+  }
+
+  return !!ownerName && owners.includes(ownerName.toLowerCase().trim());
+}
+
+function isNplCustomer(params: {
+  authStatus: string;
+  expiredDate: Date | null;
+  now: Date;
+}) {
+  const isExpired = !!params.expiredDate && params.expiredDate < params.now;
+  return (
+    params.authStatus === "Disabled-Users" ||
+    params.authStatus === "Isolir" ||
+    (params.authStatus === "Enabled-Users" && isExpired)
+  );
+}
+
+function calculateExpiredDays(now: Date, expiredDate: Date) {
+  const timeDifference = now.getTime() - expiredDate.getTime();
+  return Math.max(0, Math.floor(timeDifference / ONE_DAY_IN_MILLISECONDS));
+}
+
+function buildPlanAverageMap(
+  planAverages: Array<{ planName: string | null; averageAmount: number }>,
+) {
+  const planAverageMap = new Map<string, number>();
+
+  planAverages.forEach((planAverage) => {
+    if (planAverage.planName && planAverage.averageAmount > 0) {
+      planAverageMap.set(planAverage.planName, planAverage.averageAmount);
+    }
+  });
+
+  return planAverageMap;
+}
+
+function resolveAmountFromPlanName(planName: string | undefined) {
+  if (!planName) {
+    return 0;
+  }
+
+  const planPriceMatch = planName.match(/(\d+)[kK]/);
+  return planPriceMatch ? parseInt(planPriceMatch[1], 10) * 1000 : 0;
+}
+
+function resolveEstimatedAmount(params: {
+  customer: Pick<MixRadiusCustomer, "total" | "plan_name">;
+  planAverageMap: Map<string, number>;
+  globalAverage: number;
+}) {
+  const directAmount = parseAmount(params.customer.total);
+  if (directAmount > 0) {
+    return directAmount;
+  }
+
+  if (params.customer.plan_name) {
+    const planAverage = params.planAverageMap.get(params.customer.plan_name);
+    if (planAverage !== undefined) {
+      return planAverage;
+    }
+  }
+
+  const inferredAmount = resolveAmountFromPlanName(params.customer.plan_name);
+  return inferredAmount || params.globalAverage;
+}
+
+function assignNplBucket(stats: NplStats, diffDays: number, amount: number) {
+  if (diffDays < 30) {
+    stats.under30.count += 1;
+    stats.under30.sum += amount;
+    return;
+  }
+
+  if (diffDays < 60) {
+    stats.between30And60.count += 1;
+    stats.between30And60.sum += amount;
+    return;
+  }
+
+  if (diffDays < 90) {
+    stats.between60And90.count += 1;
+    stats.between60And90.sum += amount;
+    return;
+  }
+
+  stats.over90.count += 1;
+  stats.over90.sum += amount;
+}
 
 export class MixRadiusSyncService {
-  constructor(
-    private readonly mixRadiusRepository: IMixRadiusDataRepository = new MixRadiusRepository(),
-  ) {}
+  private repo: MixRadiusRepository;
 
-  /** Sync a single customer into local storage. */
+  constructor() {
+    this.repo = new MixRadiusRepository();
+  }
+
+  /**
+   * Sync a single customer into local storage.
+   */
   async syncCustomer(data: MixRadiusCustomerDetail, tenantId?: string) {
-    this.ensureUsername(data.username);
+    if (!data.username) {
+      throw new Error("Username diperlukan untuk sinkronisasi");
+    }
 
-    const customerPayload = this.buildCustomerSyncPayload(data, tenantId);
-    const customer =
-      await this.mixRadiusRepository.upsertMixRadiusCustomer(customerPayload);
-    const linked = await this.linkPelanggan(data);
+    const customer = await this.repo.upsertMixRadiusCustomer(
+      buildCustomerPayload(data, tenantId),
+    );
+    const linked = await this.linkCustomerToPelanggan(data);
 
     return { action: "synced", customer, linked };
   }
 
-  /** Sync all MixRadius customers into local storage. */
+  /**
+   * Sync all MixRadius customers into local storage.
+   */
   async syncAllCustomers() {
     try {
       const service = getMixRadiusService();
       const response = await service.fetchCustomersPPP({ length: 10000 });
+      const customers = Array.isArray(response.data) ? response.data : [];
 
-      if (!response.data || !Array.isArray(response.data)) {
+      if (customers.length === 0) {
         return { success: true, count: 0 };
       }
 
       let count = 0;
-      for (const customer of response.data) {
-        const payload = this.buildBulkCustomerPayload(customer);
-        await this.mixRadiusRepository.upsertMixRadiusCustomer(payload);
+      for (const customer of customers) {
+        await this.repo.upsertMixRadiusCustomer(
+          buildCustomerPayload(
+            {
+              ...customer,
+              id: customer.id,
+              auth_status: customer.auth_status,
+              expired_on: customer.expired_on,
+            },
+            undefined,
+          ),
+        );
         count += 1;
       }
 
       return { success: true, count };
     } catch (error: unknown) {
-      return this.handleSyncError(
-        error,
-        "pelanggan",
-        "Full customer sync error",
-      );
+      if (isMixRadiusConfigError(error)) {
+        return { success: false, count: 0, reason: getErrorMessage(error) };
+      }
+
+      throw error;
     }
   }
 
-  /** Sync yesterday settlement invoices. */
+  /**
+   * Sync settlement data for yesterday.
+   */
   async syncYesterdaySettlement() {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateStr = yesterday.toISOString().split("T")[0];
-
-    logger.info(`[MixRadiusSync] Running daily settlement sync for ${dateStr}`);
-    return this.syncInvoices(dateStr, dateStr);
+    const settlementDate = getYesterdayDateString();
+    return this.syncInvoices(settlementDate, settlementDate);
   }
 
-  /** Sync MixRadius invoices for a date range. */
+  /**
+   * Sync invoice records into local storage.
+   */
   async syncInvoices(startDate?: string, endDate?: string) {
     try {
       const service = getMixRadiusService();
-      const { start, end } = this.resolveInvoiceRange(startDate, endDate);
+      const dateRange =
+        startDate && endDate
+          ? { startDate, endDate }
+          : getCurrentMonthDateRange();
+
       const response = await service.fetchIncomeByPeriod({
-        startDate: start,
-        endDate: end,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
         length: 10000,
       });
+      const records = Array.isArray(response.data) ? response.data : [];
 
-      if (!response.data || !Array.isArray(response.data)) {
+      if (records.length === 0) {
         return { success: true, count: 0 };
       }
 
       let syncCount = 0;
-      for (const record of response.data) {
-        syncCount += await this.syncInvoiceRecord(record);
+      for (const record of records) {
+        await this.upsertInvoice(record);
+        syncCount += 1;
       }
 
       return { success: true, count: syncCount };
     } catch (error: unknown) {
-      return this.handleSyncError(error, "invoice", "Invoice sync error");
+      if (isMixRadiusConfigError(error)) {
+        return { success: false, count: 0, reason: getErrorMessage(error) };
+      }
+
+      throw error;
     }
   }
 
-  /** Get NPL statistics from MixRadius customers. */
+  /**
+   * Get NPL statistics grouped by aging bucket.
+   */
   async getNPLStatistics(groupId?: string) {
-    const service = getMixRadiusService();
-    const owners = await this.resolveGroupOwners(groupId);
-    const response = await service.fetchCustomersPPP({ length: 10000 });
-    const allCustomers = response.data || [];
-    const stats = this.createEmptyNplStats();
-    const planAverageMap = await this.getPlanAverageMap();
-    const globalAverage = await this.getGlobalAverageAmount();
-    let totalCustomers = 0;
     const now = new Date();
+    const service = getMixRadiusService();
+    const ownerFilter = await this.getOwnerFilter(groupId);
+    const response = await service.fetchCustomersPPP({ length: 10000 });
+    const customers = Array.isArray(response.data) ? response.data : [];
+    const stats = createNplStats();
+    let totalCustomers = 0;
 
-    for (const customer of allCustomers) {
-      if (!this.isOwnerIncluded(customer.owner_name, owners)) {
-        continue;
+    const planAverageMap = buildPlanAverageMap(
+      await this.repo.getInvoicePlanAverages(),
+    );
+    const globalAverage =
+      (await this.repo.getInvoiceGlobalAverage()).averageAmount ||
+      DEFAULT_GLOBAL_AVERAGE;
+
+    customers.forEach((customer) => {
+      const expiredDate = parseMixRadiusDate(customer.expired_on);
+      if (
+        !isCustomerIncludedByOwner(customer.owner_name, ownerFilter) ||
+        !isNplCustomer({
+          authStatus: customer.auth_status,
+          expiredDate,
+          now,
+        })
+      ) {
+        return;
       }
 
       totalCustomers += 1;
-      this.accumulateNplStats({
+
+      if (!expiredDate) {
+        return;
+      }
+
+      const diffDays = calculateExpiredDays(now, expiredDate);
+      const amount = resolveEstimatedAmount({
         customer,
-        stats,
-        now,
         planAverageMap,
         globalAverage,
       });
-    }
+      assignNplBucket(stats, diffDays, amount);
+    });
 
     return { ...stats, totalCustomers };
   }
 
-  /** Parse a MixRadius date string safely. */
-  private parseDate(dateStr: string | null | undefined): Date | null {
-    if (dateStr === "0000-00-00 00:00:00") {
-      return null;
-    }
-
-    return parseOptionalDate(dateStr);
-  }
-
-  /** Ensure username exists before sync. */
-  private ensureUsername(username: string) {
-    if (!username) {
-      throw new Error("Username diperlukan untuk sinkronisasi");
-    }
-  }
-
-  /** Build customer sync payload from customer detail. */
-  private buildCustomerSyncPayload(
-    data: MixRadiusCustomerDetail,
-    tenantId?: string,
-  ): UpsertMixRadiusCustomerInput {
-    return {
-      mixRadiusId: data.id,
-      tenantId: tenantId || DEFAULT_TENANT_ID,
-      username: data.username,
-      fullName: data.fullname || data.username,
-      address: data.address,
-      phoneNumber: data.phonenumber,
-      planName: data.plan_name,
-      ownerName: data.owner_name,
-      status: data.auth_status,
-      expiredOn: this.parseDate(data.expired_on),
-      lastSyncedAt: new Date(),
-    };
-  }
-
-  /** Build bulk customer payload from customer list item. */
-  private buildBulkCustomerPayload(customer: {
-    id: string;
-    username: string;
-    fullname: string;
-    owner_name: string;
-    auth_status: string;
-    expired_on: string;
-  }): UpsertMixRadiusCustomerInput {
-    return {
-      mixRadiusId: customer.id,
-      tenantId: DEFAULT_TENANT_ID,
-      username: customer.username,
-      fullName: customer.fullname,
-      ownerName: customer.owner_name,
-      status: customer.auth_status,
-      expiredOn: this.parseDate(customer.expired_on),
-      lastSyncedAt: new Date(),
-    };
-  }
-
-  /** Link synced customer to pelanggan if found. */
-  private async linkPelanggan(data: MixRadiusCustomerDetail) {
-    let linkedToPelanggan = false;
-
+  private async linkCustomerToPelanggan(data: MixRadiusCustomerDetail) {
     try {
-      const pelanggan = await this.findMatchingPelanggan(
-        data.id,
-        data.username,
-      );
+      let pelanggan = await this.repo.findPelangganByMixRadiusId(data.id);
+
+      if (!pelanggan) {
+        pelanggan = await this.repo.findPelangganByUsername(data.username);
+      }
 
       if (!pelanggan) {
         return false;
       }
 
       if (pelanggan.mixRadiusId !== data.id) {
-        await this.mixRadiusRepository.updatePelangganMixRadiusLink(
-          pelanggan.id,
-          data.id,
-        );
-      } else {
-        await this.mixRadiusRepository.updatePelangganSyncTimestamp(
-          pelanggan.id,
-        );
+        await this.repo.updatePelangganMixRadiusLink(pelanggan.id, data.id);
+        return true;
       }
 
-      linkedToPelanggan = true;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Terjadi kesalahan";
-      logger.warn(
-        `[MixRadiusSync] Failed to link to Pelanggan table: ${message}`,
-      );
-    }
-
-    return linkedToPelanggan;
-  }
-
-  /** Find pelanggan by MixRadius id or username. */
-  private async findMatchingPelanggan(mixRadiusId: string, username: string) {
-    const pelangganByMixRadius =
-      await this.mixRadiusRepository.findPelangganByMixRadiusId(mixRadiusId);
-
-    if (pelangganByMixRadius) {
-      return pelangganByMixRadius;
-    }
-
-    return this.mixRadiusRepository.findPelangganByUsername(username);
-  }
-
-  /** Resolve invoice sync date range. */
-  private resolveInvoiceRange(startDate?: string, endDate?: string) {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = now.getFullYear();
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const start = startDate || `${year}-${month}-01`;
-    const end = endDate || `${year}-${month}-${lastDay}`;
-
-    return { start, end };
-  }
-
-  /** Sync a single invoice record. */
-  private async syncInvoiceRecord(record: MixRadiusIncomePeriodRecord) {
-    try {
-      await this.upsertInvoice(record, undefined);
-      return 1;
-    } catch (error) {
-      logger.error(
-        `[MixRadiusSync] Failed to sync invoice ${record.invoice}:`,
-        error,
-      );
-      return 0;
+      await this.repo.updatePelangganSyncTimestamp(pelanggan.id);
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  /** Upsert invoice-related local records. */
   private async upsertInvoice(
     record: MixRadiusIncomePeriodRecord,
     tenantId?: string,
   ) {
-    const finalTenantId = tenantId || DEFAULT_TENANT_ID;
-    const mixRadiusId = record.customer_id || record.username;
-    const expiredOn = this.parseDate(record.expired_on);
-    const issuedDate = this.parseDate(record.renewed_on) || new Date();
+    await this.repo.upsertMixRadiusCustomer(
+      buildCustomerPayloadFromInvoice(record, tenantId),
+    );
 
-    await this.mixRadiusRepository.upsertMixRadiusCustomer({
-      mixRadiusId,
-      tenantId: finalTenantId,
-      username: record.username,
-      fullName: record.fullname,
-      ownerName: record.owner_name,
-      address: record.address,
-      phoneNumber: record.phonenumber,
-      planName: record.plan_name,
-      lastSyncedAt: new Date(),
-    });
+    const expiredOn = parseMixRadiusDate(record.expired_on);
 
-    await this.mixRadiusRepository.upsertMixRadiusInvoice({
+    return this.repo.upsertMixRadiusInvoice({
       mixRadiusId: record.id,
-      tenantId: finalTenantId,
+      tenantId: resolveTenantId(tenantId),
       invoiceNumber: record.invoice,
       username: record.username,
       fullName: record.fullname,
       ownerName: record.owner_name,
       planName: record.plan_name,
-      amount: this.parseAmount(record.total),
-      status: this.normalizeInvoiceStatus(record.trx_status),
+      amount: parseAmount(record.total),
+      status: normalizeInvoiceStatus(record.trx_status),
       paymentMethod: record.payment_method,
-      issuedDate,
+      issuedDate: parseMixRadiusDate(record.renewed_on) || new Date(),
       dueDate: expiredOn,
       expiredOn,
       syncedAt: new Date(),
     });
   }
 
-  /** Parse invoice amount safely. */
-  private parseAmount(rawAmount: string) {
-    return parseFloat(rawAmount.replace(/[^0-9.-]+/g, "")) || 0;
-  }
-
-  /** Normalize invoice transaction status. */
-  private normalizeInvoiceStatus(status: string) {
-    const normalizedStatus = status.toUpperCase();
-    return normalizedStatus === "SUCCESS" ? "PAID" : normalizedStatus;
-  }
-
-  /** Handle config-aware sync errors. */
-  private handleSyncError(error: unknown, subject: string, logLabel: string) {
-    if (this.isConfigError(error)) {
-      const message = this.getErrorMessage(error);
-      logger.warn(
-        `[MixRadiusSync] Berhenti sinkronisasi ${subject}: ${message}`,
-      );
-      return { success: false, count: 0, reason: message };
-    }
-
-    logger.error(`[MixRadiusSync] ${logLabel}:`, error);
-    throw error;
-  }
-
-  /** Check whether error is a MixRadius config error. */
-  private isConfigError(error: unknown) {
-    return Boolean(
-      error &&
-      typeof error === "object" &&
-      "name" in error &&
-      error.name === "MixRadiusConfigError",
-    );
-  }
-
-  /** Get safe error message text. */
-  private getErrorMessage(error: unknown) {
-    return error && typeof error === "object" && "message" in error
-      ? String(error.message)
-      : "Unknown error";
-  }
-
-  /** Resolve normalized owners for a selected group. */
-  private async resolveGroupOwners(groupId?: string) {
+  private async getOwnerFilter(groupId?: string) {
     if (!groupId || groupId === "all") {
       return null;
     }
 
-    const group = await this.mixRadiusRepository.findOwnerGroupById(groupId);
+    const group = await this.repo.findOwnerGroupById(groupId);
     if (!group?.owners?.length) {
       return null;
     }
 
-    return group.owners.map((owner) => this.normalizeOwnerKey(owner));
-  }
-
-  /** Normalize owner key for matching. */
-  private normalizeOwnerKey(owner: string) {
-    return owner.split(/[—–-]/)[0].trim().toLowerCase();
-  }
-
-  /** Create the initial NPL stats object. */
-  private createEmptyNplStats() {
-    return {
-      under30: { count: 0, sum: 0 },
-      between30And60: { count: 0, sum: 0 },
-      between60And90: { count: 0, sum: 0 },
-      over90: { count: 0, sum: 0 },
-    };
-  }
-
-  /** Build a map of average invoice amounts by plan. */
-  private async getPlanAverageMap() {
-    const averages = await this.mixRadiusRepository.getInvoicePlanAverages();
-    const planAverageMap = new Map<string, number>();
-
-    averages.forEach((average) => {
-      if (average.planName && average.averageAmount > 0) {
-        planAverageMap.set(average.planName, average.averageAmount);
-      }
-    });
-
-    return planAverageMap;
-  }
-
-  /** Get the global average invoice amount. */
-  private async getGlobalAverageAmount() {
-    const average = await this.mixRadiusRepository.getInvoiceGlobalAverage();
-    return average.averageAmount || DEFAULT_GLOBAL_AVERAGE_AMOUNT;
-  }
-
-  /** Check whether owner should be included. */
-  private isOwnerIncluded(ownerName: string, owners: string[] | null) {
-    if (!owners) {
-      return true;
-    }
-
-    return Boolean(
-      ownerName && owners.includes(ownerName.toLowerCase().trim()),
-    );
-  }
-
-  /** Accumulate NPL statistics for a single customer. */
-  private accumulateNplStats(params: {
-    customer: {
-      auth_status: string;
-      expired_on: string;
-      total: string | number;
-      plan_name: string;
-    };
-    stats: ReturnType<MixRadiusSyncService["createEmptyNplStats"]>;
-    now: Date;
-    planAverageMap: Map<string, number>;
-    globalAverage: number;
-  }) {
-    const { customer, stats, now, planAverageMap, globalAverage } = params;
-    const expiredDate = this.parseDate(customer.expired_on);
-
-    if (
-      !expiredDate ||
-      !this.isNplCustomer(customer.auth_status, expiredDate, now)
-    ) {
-      return;
-    }
-
-    const overdueDays = this.calculateOverdueDays(now, expiredDate);
-    const amount = this.resolveCustomerAmount(
-      customer.total,
-      customer.plan_name,
-      planAverageMap,
-      globalAverage,
-    );
-
-    if (overdueDays < DAYS_30) {
-      this.addNplBucket(stats.under30, amount);
-      return;
-    }
-
-    if (overdueDays < DAYS_60) {
-      this.addNplBucket(stats.between30And60, amount);
-      return;
-    }
-
-    if (overdueDays < DAYS_90) {
-      this.addNplBucket(stats.between60And90, amount);
-      return;
-    }
-
-    this.addNplBucket(stats.over90, amount);
-  }
-
-  /** Check whether customer is in NPL status. */
-  private isNplCustomer(authStatus: string, expiredDate: Date, now: Date) {
-    if (authStatus === "Disabled-Users" || authStatus === "Isolir") {
-      return true;
-    }
-
-    return authStatus === "Enabled-Users" && expiredDate < now;
-  }
-
-  /** Calculate overdue days. */
-  private calculateOverdueDays(now: Date, expiredDate: Date) {
-    const diffTime = now.getTime() - expiredDate.getTime();
-    return Math.max(0, Math.floor(diffTime / MILLISECONDS_PER_DAY));
-  }
-
-  /** Resolve customer amount from direct total or plan estimates. */
-  private resolveCustomerAmount(
-    total: string | number,
-    planName: string,
-    planAverageMap: Map<string, number>,
-    globalAverage: number,
-  ) {
-    const directAmount = this.parseDirectAmount(total);
-
-    if (directAmount > 0) {
-      return directAmount;
-    }
-
-    const planAverage = planName ? planAverageMap.get(planName) : undefined;
-    if (planAverage !== undefined) {
-      return planAverage;
-    }
-
-    return this.parsePlanNameAmount(planName) || globalAverage;
-  }
-
-  /** Parse amount from total field. */
-  private parseDirectAmount(total: string | number) {
-    if (!total) {
-      return 0;
-    }
-
-    if (typeof total === "string") {
-      return parseFloat(total.replace(/[^0-9.-]+/g, "")) || 0;
-    }
-
-    return Number(total);
-  }
-
-  /** Parse amount hint from plan name. */
-  private parsePlanNameAmount(planName: string) {
-    const match = planName?.match(/(\d+)[kK]/);
-    return match?.[1] ? parseInt(match[1], 10) * 1000 : 0;
-  }
-
-  /** Add value into an NPL bucket. */
-  private addNplBucket(bucket: { count: number; sum: number }, amount: number) {
-    bucket.count += 1;
-    bucket.sum += amount;
+    return buildOwnerFilter(group.owners);
   }
 }
 
-let syncServiceInstance: MixRadiusSyncService | null = null;
+let mixRadiusSyncServiceInstance: MixRadiusSyncService | null = null;
 
-/** Return the shared MixRadius sync service lazily. */
-export function getMixRadiusSyncService(): MixRadiusSyncService {
-  if (!syncServiceInstance) {
-    syncServiceInstance = new MixRadiusSyncService();
+/** Get singleton MixRadius sync service. */
+export function getMixRadiusSyncService() {
+  if (!mixRadiusSyncServiceInstance) {
+    mixRadiusSyncServiceInstance = new MixRadiusSyncService();
   }
 
-  return syncServiceInstance;
+  return mixRadiusSyncServiceInstance;
 }
+
+export const syncService = getMixRadiusSyncService();
