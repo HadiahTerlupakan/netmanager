@@ -5,6 +5,10 @@ import type { SettingsUpsertEntity } from "../domain/entities/Settings";
 import { getTenantSettingsMap, upsertTenantSettings } from "./tenantSettings";
 import type { TenantSettingsMap } from "./tenantSettings";
 
+const SUPPORTED_WHATSAPP_PROVIDERS = ["WABLAS", "FONNTE", "MPWA"] as const;
+
+type SupportedWhatsAppProvider = (typeof SUPPORTED_WHATSAPP_PROVIDERS)[number];
+
 export type WhatsAppSettingsPayload = {
   whatsappProvider: string;
   whatsappApiKey: string;
@@ -33,11 +37,19 @@ function sanitizeString(value?: string): string {
 
 function mapToPayload(settingsMap: TenantSettingsMap): WhatsAppSettingsPayload {
   return {
-    whatsappProvider: (settingsMap["WHATSAPP_PROVIDER"] || "WABLAS").toString(),
+    whatsappProvider: normalizeProvider(settingsMap["WHATSAPP_PROVIDER"]),
     whatsappApiKey: settingsMap["WHATSAPP_API_KEY"] || "",
     whatsappDomain: settingsMap["WABLAS_DOMAIN"] || "",
     whatsappDeviceId: settingsMap["WABLAS_DEVICE_ID"] || "",
   };
+}
+
+function normalizeProvider(provider?: string): SupportedWhatsAppProvider {
+  return SUPPORTED_WHATSAPP_PROVIDERS.includes(
+    provider as SupportedWhatsAppProvider,
+  )
+    ? (provider as SupportedWhatsAppProvider)
+    : "WABLAS";
 }
 
 function buildUpsertEntries(
@@ -45,39 +57,36 @@ function buildUpsertEntries(
 ): SettingsUpsertEntity[] {
   const entries: SettingsUpsertEntity[] = [];
 
-  const providerValue = sanitizeString(payload.whatsappProvider);
-  if (providerValue) {
+  if (payload.whatsappProvider !== undefined) {
     entries.push({
       key: "WHATSAPP_PROVIDER",
-      value: providerValue,
+      value: normalizeProvider(payload.whatsappProvider),
       description: "WhatsApp configuration: WHATSAPP_PROVIDER",
     });
   }
 
-  const apiKeyValue = sanitizeString(payload.whatsappApiKey);
-  if (apiKeyValue) {
+  if (payload.whatsappApiKey !== undefined) {
+    const apiKeyValue = sanitizeString(payload.whatsappApiKey);
     entries.push({
       key: "WHATSAPP_API_KEY",
-      value: encryptApiKey(apiKeyValue),
-      encrypted: true,
+      value: apiKeyValue ? encryptApiKey(apiKeyValue) : "",
+      encrypted: !!apiKeyValue,
       description: "WhatsApp configuration: WHATSAPP_API_KEY",
     });
   }
 
-  const deviceIdValue = sanitizeString(payload.whatsappDeviceId);
-  if (deviceIdValue) {
+  if (payload.whatsappDeviceId !== undefined) {
     entries.push({
       key: "WABLAS_DEVICE_ID",
-      value: deviceIdValue,
+      value: sanitizeString(payload.whatsappDeviceId),
       description: "WhatsApp configuration: WABLAS_DEVICE_ID",
     });
   }
 
-  const domainValue = sanitizeString(payload.whatsappDomain);
-  if (domainValue) {
+  if (payload.whatsappDomain !== undefined) {
     entries.push({
       key: "WABLAS_DOMAIN",
-      value: domainValue,
+      value: sanitizeString(payload.whatsappDomain),
       description: "WhatsApp configuration: WABLAS_DOMAIN",
     });
   }
@@ -108,9 +117,12 @@ export async function updateWhatsAppSettings(
 }
 
 export async function testWhatsAppSettings(
+  tenantId: string,
   phone: string,
 ): Promise<WhatsAppTestResult> {
-  const whatsappService = new WhatsAppService();
+  const whatsappService = new WhatsAppService(undefined, () =>
+    getTenantSettingsMap(tenantId, WHATSAPP_SETTINGS_FIELDS),
+  );
 
   try {
     const result = await whatsappService.testConnection(phone);

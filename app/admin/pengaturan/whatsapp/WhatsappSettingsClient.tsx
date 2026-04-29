@@ -12,7 +12,7 @@ import {
 import PageLoader from "@/components/ui/PageLoader";
 
 interface WhatsAppSettings {
-  whatsappProvider: "WABLAS" | "FONNTE" | "OFFICIAL";
+  whatsappProvider: "WABLAS" | "FONNTE" | "MPWA" | "OFFICIAL";
   whatsappApiKey: string;
   whatsappDeviceId: string;
   whatsappDomain: string;
@@ -21,6 +21,7 @@ interface WhatsAppSettings {
 const PROVIDERS = [
   { id: "WABLAS", name: "Wablas", enabled: true },
   { id: "FONNTE", name: "Fonnte", enabled: true },
+  { id: "MPWA", name: "MPWA Gateway", enabled: true },
   { id: "OFFICIAL", name: "Official WhatsApp Business API", enabled: false },
 ];
 
@@ -36,6 +37,8 @@ export function ClientComponent() {
   });
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testPhone, setTestPhone] = useState("");
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -93,40 +96,38 @@ export function ClientComponent() {
   };
 
   const handleTest = async () => {
+    if (!testPhone.trim()) {
+      setError("Nomor WhatsApp test wajib diisi");
+      return;
+    }
+
     try {
       setTesting(true);
       setError(null);
-
-      const testPhone = prompt(
-        "Masukkan nomor WhatsApp untuk test (contoh: 628123456789):",
-      );
-      if (!testPhone) {
-        setTesting(false);
-        return;
-      }
+      setTestMessage(null);
 
       const response = await fetch("/api/admin/settings/whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: testPhone }),
       });
-
       const payload = await response.json();
 
-      if (response.ok && payload?.success && payload.data) {
-        const result = payload.data;
-        if (result.success) {
-          alert("Pesan percobaan berhasil dikirim!\n\nPeriksa WhatsApp Anda.");
-        } else {
-          alert(`Tes gagal!\n\n${result.message}`);
-        }
-      } else {
-        const message = payload?.error || "Gagal menjalankan tes WhatsApp";
-        alert(`Tes gagal!\n\n${message}`);
+      if (response.ok && payload?.success && payload.data?.success) {
+        setTestMessage(
+          "Pesan percobaan berhasil dikirim. Periksa WhatsApp Anda.",
+        );
+        return;
       }
+
+      setError(
+        payload?.data?.message ||
+          payload?.error ||
+          "Gagal menjalankan tes WhatsApp",
+      );
     } catch (error: unknown) {
       clientLogger.error("Error testing WhatsApp:", error);
-      alert("Kesalahan saat testing WhatsApp");
+      setError("Kesalahan saat testing WhatsApp");
     } finally {
       setTesting(false);
     }
@@ -172,6 +173,17 @@ export function ClientComponent() {
         </div>
       )}
 
+      {testMessage && (
+        <div className="max-w-4xl mx-auto mb-6">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
+            <HiOutlineCheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+            <span className="text-green-800 dark:text-green-200">
+              {testMessage}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Configuration Card */}
       <div className="max-w-4xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 space-y-6">
@@ -210,15 +222,19 @@ export function ClientComponent() {
             </p>
           </div>
 
-          {/* Wablas Configuration */}
-          {settings.whatsappProvider === "WABLAS" && (
+          {/* Gateway Configuration */}
+          {(settings.whatsappProvider === "WABLAS" ||
+            settings.whatsappProvider === "MPWA") && (
             <>
               <div>
                 <label
                   htmlFor="whatsapp-domain"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Wablas Domain *
+                  {settings.whatsappProvider === "MPWA"
+                    ? "Gateway Base URL"
+                    : "Wablas Domain"}{" "}
+                  *
                 </label>
                 <input
                   id="whatsapp-domain"
@@ -227,11 +243,17 @@ export function ClientComponent() {
                   onChange={(e) =>
                     setSettings({ ...settings, whatsappDomain: e.target.value })
                   }
-                  placeholder="console.wablas.com or yourdomain.wablas.id"
+                  placeholder={
+                    settings.whatsappProvider === "MPWA"
+                      ? "https://wagateway.example.com/send-message"
+                      : "console.wablas.com or yourdomain.wablas.id"
+                  }
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Your Wablas domain from dashboard (without https://)
+                  {settings.whatsappProvider === "MPWA"
+                    ? "Isi base URL atau endpoint kirim pesan lengkap dari dokumentasi MPWA/WAGateway"
+                    : "Your Wablas domain from dashboard (without https://)"}
                 </p>
               </div>
 
@@ -240,7 +262,9 @@ export function ClientComponent() {
                   htmlFor="whatsapp-device-id"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Device ID / Token
+                  {settings.whatsappProvider === "MPWA"
+                    ? "Sender Number"
+                    : "Device ID / Token"}
                 </label>
                 <input
                   id="whatsapp-device-id"
@@ -252,11 +276,17 @@ export function ClientComponent() {
                       whatsappDeviceId: e.target.value,
                     })
                   }
-                  placeholder="Enter your device ID or token (optional)"
+                  placeholder={
+                    settings.whatsappProvider === "MPWA"
+                      ? "62888xxxx"
+                      : "Enter your device ID or token (optional)"
+                  }
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Found in Wablas dashboard under Device Settings
+                  {settings.whatsappProvider === "MPWA"
+                    ? "Nomor device pengirim yang terhubung ke MPWA/WAGateway"
+                    : "Found in Wablas dashboard under Device Settings"}
                 </p>
               </div>
             </>
@@ -280,14 +310,18 @@ export function ClientComponent() {
               placeholder={
                 settings.whatsappProvider === "WABLAS"
                   ? "Enter Wablas API token"
-                  : "Enter Fonnte API token"
+                  : settings.whatsappProvider === "MPWA"
+                    ? "Enter MPWA/WAGateway API token"
+                    : "Enter Fonnte API token"
               }
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {settings.whatsappProvider === "WABLAS"
                 ? "Your Wablas API token from dashboard"
-                : "Your Fonnte API token from dashboard"}
+                : settings.whatsappProvider === "MPWA"
+                  ? "Token API dari dashboard MPWA/WAGateway"
+                  : "Your Fonnte API token from dashboard"}
             </p>
           </div>
 
@@ -295,7 +329,11 @@ export function ClientComponent() {
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h3 className="font-medium text-blue-900 dark:text-blue-400 mb-2 flex items-center gap-2">
               <HiOutlineDevicePhoneMobile className="w-5 h-5" />{" "}
-              {settings.whatsappProvider === "WABLAS" ? "Wablas" : "Fonnte"}{" "}
+              {settings.whatsappProvider === "WABLAS"
+                ? "Wablas"
+                : settings.whatsappProvider === "MPWA"
+                  ? "MPWA Gateway"
+                  : "Fonnte"}{" "}
               Setup Guide:
             </h3>
             {settings.whatsappProvider === "WABLAS" ? (
@@ -319,6 +357,17 @@ export function ClientComponent() {
                 <li>Generate API Token from API Settings</li>
                 <li>Paste credentials above and test</li>
               </ol>
+            ) : settings.whatsappProvider === "MPWA" ? (
+              <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
+                <li>
+                  Pastikan MPWA/WAGateway sudah aktif dan device tersambung
+                </li>
+                <li>Isi Gateway Base URL atau endpoint send-message lengkap</li>
+                <li>
+                  Isi API token dan Sender Number sesuai nomor device gateway
+                </li>
+                <li>Gunakan tombol test untuk memastikan pesan terkirim</li>
+              </ol>
             ) : (
               <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
                 <li>
@@ -340,22 +389,38 @@ export function ClientComponent() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={handleTest}
-              disabled={testing || !settings.whatsappApiKey}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+            <label
+              htmlFor="whatsapp-test-phone"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              {testing ? (
-                <>
-                  <HiOutlineArrowPath className="w-4 h-4 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>Test WhatsApp</>
-              )}
-            </button>
+              Nomor test WhatsApp
+            </label>
+            <div className="flex gap-3">
+              <input
+                id="whatsapp-test-phone"
+                type="tel"
+                value={testPhone}
+                onChange={(event) => setTestPhone(event.target.value)}
+                placeholder="628123456789"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={testing || !settings.whatsappApiKey}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {testing ? (
+                  <>
+                    <HiOutlineArrowPath className="w-4 h-4 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>Test WhatsApp</>
+                )}
+              </button>
+            </div>
             <button
               type="button"
               onClick={handleSave}

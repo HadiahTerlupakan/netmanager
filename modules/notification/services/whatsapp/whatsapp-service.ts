@@ -8,14 +8,23 @@ import type {
   WhatsAppConfig,
   SendMessageParams,
   SendFileParams,
+  SendButtonParams,
   SendResult,
+  WhatsAppProviderId,
 } from "./whatsapp-provider-interface";
+
+type WhatsAppSettingsProvider = () => Promise<Record<string, string>>;
 
 export class WhatsAppService {
   private settingsRepo?: AttendanceSettingsService;
+  private readonly settingsProvider?: WhatsAppSettingsProvider;
 
-  constructor(settingsRepo?: AttendanceSettingsService) {
+  constructor(
+    settingsRepo?: AttendanceSettingsService,
+    settingsProvider?: WhatsAppSettingsProvider,
+  ) {
     this.settingsRepo = settingsRepo;
+    this.settingsProvider = settingsProvider;
   }
 
   private getSettingsRepo(): AttendanceSettingsService {
@@ -44,37 +53,16 @@ export class WhatsAppService {
     }
   }
 
-  /**
-   * Load WhatsApp configuration from database
-   * Returns null if not configured
-   */
+  /** Load WhatsApp configuration from database or injected tenant settings. */
   private async loadConfig(): Promise<WhatsAppConfig | null> {
-    const settings = await this.getSettingsRepo().findManyByKeys([
-      "WHATSAPP_PROVIDER",
-      "WHATSAPP_API_KEY",
-      "WABLAS_DOMAIN",
-      "WABLAS_DEVICE_ID",
-    ]);
-
-    const settingsMap: Record<string, string> = {};
-    for (const setting of settings) {
-      if (setting.key === "WHATSAPP_API_KEY" && setting.value) {
-        try {
-          settingsMap[setting.key] = decryptApiKey(setting.value);
-        } catch (error) {
-          logger.error("[WhatsApp] Failed to decrypt API key:", error);
-          settingsMap[setting.key] = "";
-        }
-      } else {
-        settingsMap[setting.key] = setting.value || "";
-      }
-    }
+    const settingsMap = this.settingsProvider
+      ? await this.settingsProvider()
+      : await this.loadLegacySettingsMap();
 
     const provider =
-      (settingsMap["WHATSAPP_PROVIDER"] as "WABLAS" | "FONNTE" | "OFFICIAL") ||
-      (process.env.WHATSAPP_PROVIDER as "WABLAS" | "FONNTE" | "OFFICIAL") ||
+      (settingsMap["WHATSAPP_PROVIDER"] as WhatsAppProviderId) ||
+      (process.env.WHATSAPP_PROVIDER as WhatsAppProviderId) ||
       "WABLAS";
-
     const apiKey =
       settingsMap["WHATSAPP_API_KEY"] || process.env.FONNTE_API_KEY || "";
 
@@ -89,6 +77,35 @@ export class WhatsAppService {
       domain: settingsMap["WABLAS_DOMAIN"] || process.env.WABLAS_DOMAIN,
       deviceId: settingsMap["WABLAS_DEVICE_ID"] || process.env.WABLAS_DEVICE_ID,
     };
+  }
+
+  private async loadLegacySettingsMap() {
+    const settings = await this.getSettingsRepo().findManyByKeys([
+      "WHATSAPP_PROVIDER",
+      "WHATSAPP_API_KEY",
+      "WABLAS_DOMAIN",
+      "WABLAS_DEVICE_ID",
+    ]);
+    const settingsMap: Record<string, string> = {};
+
+    for (const setting of settings) {
+      settingsMap[setting.key] = this.resolveSettingValue(setting);
+    }
+
+    return settingsMap;
+  }
+
+  private resolveSettingValue(setting: { key: string; value?: string | null }) {
+    if (setting.key !== "WHATSAPP_API_KEY" || !setting.value) {
+      return setting.value || "";
+    }
+
+    try {
+      return decryptApiKey(setting.value);
+    } catch (error) {
+      logger.error("[WhatsApp] Failed to decrypt API key:", error);
+      return "";
+    }
   }
 
   /**
@@ -162,6 +179,40 @@ export class WhatsAppService {
         error: error instanceof Error ? error.message : "Terjadi kesalahan",
       };
     }
+  }
+
+  /**
+   * Send interactive button message.
+   */
+  async sendButton(params: SendButtonParams): Promise<SendResult> {
+    try {
+      const config = await this.loadConfig();
+      if (!config)
+        return { success: false, error: "WhatsApp belum dikonfigurasi" };
+
+      const provider = WhatsAppFactory.createProvider(config);
+      const result = provider.sendButton
+        ? await provider.sendButton(params)
+        : await provider.sendMessage(this.toButtonFallbackMessage(params));
+      if (!result.success)
+        logger.error(`[WhatsApp] Failed to send button:`, result.error);
+      return result;
+    } catch (error: unknown) {
+      logger.error("[WhatsApp] Error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Terjadi kesalahan",
+      };
+    }
+  }
+
+  private toButtonFallbackMessage(params: SendButtonParams): SendMessageParams {
+    const links = params.buttons
+      .filter((button) => button.type === "url" && button.url)
+      .map((button) => `${button.displayText}: ${button.url}`)
+      .join("\n");
+    const message = links ? `${params.message}\n\n${links}` : params.message;
+    return { phone: params.phone, message };
   }
 
   /**
