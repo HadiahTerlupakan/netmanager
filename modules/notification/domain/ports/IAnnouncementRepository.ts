@@ -1,4 +1,3 @@
-import type { Prisma, TargetAudience } from "@prisma/client";
 import type {
   AnnouncementEditEntity,
   AnnouncementEntity,
@@ -8,13 +7,31 @@ import type {
   AnnouncementReaderNameEntity,
   AnnouncementReadEntity,
   AnnouncementSummaryEntity,
+  AnnouncementTargetAudience,
 } from "../entities/AnnouncementEntity";
+
+type AnnouncementFieldFilter<TValue> = {
+  in?: TValue[];
+  lte?: TValue;
+  gte?: TValue;
+};
+
+export interface AnnouncementRepositoryWhere {
+  target?:
+    | AnnouncementTargetAudience
+    | AnnouncementFieldFilter<AnnouncementTargetAudience>;
+  isActive?: boolean;
+  tenantId?: string;
+  startDate?: AnnouncementFieldFilter<Date>;
+  endDate?: null | AnnouncementFieldFilter<Date>;
+  OR?: AnnouncementRepositoryWhere[];
+}
 
 export interface AnnouncementCreateRepositoryInput {
   id: string;
   title: string;
   content: string;
-  target: TargetAudience;
+  target: AnnouncementTargetAudience;
   isActive: boolean;
   isPinned: boolean;
   startDate: Date;
@@ -26,7 +43,7 @@ export interface AnnouncementCreateRepositoryInput {
 export interface AnnouncementUpdateRepositoryInput {
   title?: string;
   content?: string;
-  target?: TargetAudience;
+  target?: AnnouncementTargetAudience;
   isActive?: boolean;
   isPinned?: boolean;
   startDate?: Date | null;
@@ -39,7 +56,7 @@ export interface IAnnouncementRepository {
 
   /** Ambil daftar announcement untuk listing route. */
   findMany?(params: {
-    where: Prisma.AnnouncementWhereInput;
+    where: AnnouncementRepositoryWhere;
     includeReadCount?: boolean;
   }): Promise<AnnouncementListItemEntity[]>;
 

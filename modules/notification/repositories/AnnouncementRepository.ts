@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import type {
   AnnouncementCreateRepositoryInput,
+  AnnouncementRepositoryWhere,
   AnnouncementUpdateRepositoryInput,
   IAnnouncementRepository,
 } from "../domain/ports/IAnnouncementRepository";
@@ -19,11 +20,11 @@ export class AnnouncementRepository implements IAnnouncementRepository {
 
   /** Ambil daftar announcement dengan filter route yang ada. */
   findMany(params: {
-    where: Prisma.AnnouncementWhereInput;
+    where: AnnouncementRepositoryWhere;
     includeReadCount?: boolean;
   }) {
     return prisma.announcement.findMany({
-      where: params.where,
+      where: params.where as Prisma.AnnouncementWhereInput,
       orderBy: DEFAULT_ANNOUNCEMENT_ORDER,
       include: params.includeReadCount
         ? { _count: { select: { reads: true } } }
@@ -33,12 +34,17 @@ export class AnnouncementRepository implements IAnnouncementRepository {
 
   /** Membuat announcement baru. */
   create(data: AnnouncementCreateRepositoryInput) {
-    return prisma.announcement.create({ data });
+    return prisma.announcement.create({
+      data: data as Prisma.AnnouncementUncheckedCreateInput,
+    });
   }
 
   /** Memperbarui announcement yang ada. */
   update(id: string, data: AnnouncementUpdateRepositoryInput) {
-    return prisma.announcement.update({ where: { id }, data });
+    return prisma.announcement.update({
+      where: { id },
+      data: data as Prisma.AnnouncementUncheckedUpdateInput,
+    });
   }
 
   /** Menghapus announcement berdasarkan id. */

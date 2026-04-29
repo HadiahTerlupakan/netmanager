@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { Prisma, TargetAudience } from "@prisma/client";
+import type { AnnouncementTargetAudience } from "../domain/entities/AnnouncementEntity";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
@@ -26,7 +27,7 @@ type MobileAnnouncementPortal = "customer" | "employee" | "admin";
 
 const MOBILE_PORTAL_TARGETS: Record<
   MobileAnnouncementPortal,
-  TargetAudience[]
+  AnnouncementTargetAudience[]
 > = {
   customer: ["ALL", "CUSTOMER"],
   employee: ["ALL", "EMPLOYEE"],
@@ -45,7 +46,7 @@ interface AnnouncementRecord {
 interface AnnouncementCreateInput {
   title: string;
   content: string;
-  target: TargetAudience;
+  target: AnnouncementTargetAudience;
   isActive?: boolean;
   isPinned?: boolean;
   startDate?: string | null;
@@ -55,7 +56,7 @@ interface AnnouncementCreateInput {
 interface AnnouncementUpdateInput {
   title?: string;
   content?: string;
-  target?: TargetAudience;
+  target?: AnnouncementTargetAudience;
   isActive?: boolean;
   isPinned?: boolean;
   startDate?: string | null;
@@ -207,7 +208,11 @@ export class AnnouncementService {
     const portal = this.resolveMobilePortal(actor.role, actor.isSuperAdmin);
     const tenantId = actor.tenantId ?? null;
     const announcements = await prisma.announcement.findMany({
-      where: this.buildMobileAnnouncementWhere(tenantId, portal, new Date()),
+      where: this.buildMobileAnnouncementWhere(
+        tenantId,
+        portal,
+        new Date(),
+      ) as Prisma.AnnouncementWhereInput,
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
@@ -355,15 +360,13 @@ export class AnnouncementService {
       return undefined;
     }
 
-    const validTargets: TargetAudience[] = [
+    const validTargets: AnnouncementTargetAudience[] = [
       "ALL",
       "ADMIN",
       "EMPLOYEE",
       "CUSTOMER",
     ];
-    return validTargets.includes(target as TargetAudience)
-      ? (target as TargetAudience)
-      : undefined;
+    return validTargets.includes(target) ? target : undefined;
   }
 
   /** Build create data for an announcement row. */
@@ -404,7 +407,10 @@ export class AnnouncementService {
   }
 
   /** Build the common active portal filter. */
-  private buildPortalAnnouncementWhere(targets: TargetAudience[], now: Date) {
+  private buildPortalAnnouncementWhere(
+    targets: AnnouncementTargetAudience[],
+    now: Date,
+  ) {
     return {
       target: { in: targets },
       isActive: true,

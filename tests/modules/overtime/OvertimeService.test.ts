@@ -107,23 +107,14 @@ describe("OvertimeService", () => {
       expect(result.status).toBe(OvertimeStatus.PENDING);
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          select: { id: true },
+          select: { id: true, phone: true },
           where: expect.objectContaining({
             tenantId: "tenant-1",
             OR: expect.arrayContaining([
-              { role: { name: "SUPER_ADMIN" } },
+              { role: { isSuperAdmin: true } },
               expect.objectContaining({
                 AND: expect.arrayContaining([
-                  expect.objectContaining({
-                    role: {
-                      permission: {
-                        some: {
-                          resource: "lembur",
-                          action: "update",
-                        },
-                      },
-                    },
-                  }),
+                  { role: { canReceiveWhatsappApproval: true } },
                   {
                     OR: [
                       { siteId: "site-1" },

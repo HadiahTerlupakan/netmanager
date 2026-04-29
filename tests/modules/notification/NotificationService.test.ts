@@ -92,7 +92,7 @@ describe("NotificationService", () => {
           OR: [
             { userId: "user-2" },
             {
-              AND: [{ departmentId: "dept-2" }, {}],
+              AND: [{ departmentId: "dept-2" }],
             },
           ],
         },
@@ -431,7 +431,7 @@ describe("NotificationService", () => {
           OR: [
             { userId: "user-no-dept" },
             {
-              AND: [{ departmentId: "NONE" }, {}],
+              AND: [{ departmentId: "NONE" }],
             },
           ],
         },
@@ -445,7 +445,7 @@ describe("NotificationService", () => {
           OR: [
             { userId: "user-no-dept" },
             {
-              AND: [{ departmentId: "NONE" }, {}],
+              AND: [{ departmentId: "NONE" }],
             },
           ],
         },
@@ -543,7 +543,7 @@ describe("NotificationService", () => {
           OR: [
             { userId: "user-no-dept" },
             {
-              AND: [{ departmentId: "NONE" }, {}],
+              AND: [{ departmentId: "NONE" }],
             },
           ],
         },
