@@ -246,7 +246,19 @@ describe("module public api boundaries", () => {
       "lib/auth.ts",
       "lib/utils/snmp-helpers.ts",
       "modules/attendance/repositories/AttendanceRepository.ts",
+      "modules/attendance/services/AttendanceService.ts",
+      "modules/attendance/services/LeaveService.ts",
+      "modules/finance/repositories/RabProjectRepository.ts",
+      "modules/integrations/services/mixradius-customer-client.ts",
+      "modules/inventory/repositories/InventoryApiRepository.ts",
+      "modules/inventory/repositories/InventoryRepository.ts",
+      "modules/inventory/services/RestockRequestService.ts",
       "modules/network/repositories/RadiusRepository.ts",
+      "modules/network/services/mikrotik-ppp-profile.ts",
+      "modules/work-order/repositories/WorkOrderRepository.ts",
+      "modules/work-order/services/AdminWorkOrderRouteService.ts",
+      "modules/work-order/services/MobileWorkOrderActionService.ts",
+      "modules/work-order/services/WorkOrderService.ts",
     ]);
     const violations = backendFiles
       .map((filePath) => ({ filePath, lineCount: getLineCount(filePath) }))

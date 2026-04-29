@@ -22,14 +22,12 @@ type CreatedMasukPayload = {
   parsedJumlah: number;
 };
 
-/** Check whether inventory masuk route service returned a failure. */
 function isInventoryMasukRouteFailure(
   result: InventoryMasukRouteResult<unknown>,
 ): result is InventoryMasukRouteFailure {
   return !result.success;
 }
 
-/** Return forbidden response when user lacks read permission. */
 async function ensureReadPermission() {
   if (await hasPermission("masuk:read")) return null;
   return ApiErrors.forbidden(
@@ -37,7 +35,6 @@ async function ensureReadPermission() {
   );
 }
 
-/** Return forbidden response when user lacks create permission. */
 async function ensureCreatePermission() {
   if (await hasPermission("masuk:create")) return null;
   return ApiErrors.forbidden(
@@ -45,7 +42,6 @@ async function ensureCreatePermission() {
   );
 }
 
-/** Build list input from request and user context. */
 async function buildListInput(
   req: Request & { nextUrl: URL },
   userId: string,
@@ -70,33 +66,26 @@ async function buildListInput(
   };
 }
 
-/** Validate warehouse access for create flow. */
 async function validateCreateAccess(user: { id: string }, gudangId: string) {
   const accessSession = await buildInventoryAccessSession(user);
   return validateGudangSiteAccess(accessSession, gudangId);
 }
 
-/** Map create masuk payload from route service result. */
 function toCreatedMasukPayload(
   result: Extract<InventoryMasukRouteResult<unknown>, { success: true }>,
 ) {
   return result.data as CreatedMasukPayload;
 }
 
-/** Map create masuk domain errors into API responses. */
 function mapCreateMasukError(error: Error) {
-  if (error.message === "Barang tidak ditemukan") {
+  if (error.message === "Barang tidak ditemukan")
     return ApiErrors.notFound("Barang");
-  }
-
   if (error.message === "Gudang tidak ditemukan atau tidak aktif") {
     return ApiErrors.badRequest("Gudang tidak ditemukan atau tidak aktif");
   }
-
   return ApiErrors.internalError("Gagal mencatat barang masuk");
 }
 
-/** Handle list barang masuk request. */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
   const user = ctx.session!.user;
@@ -140,7 +129,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 });
 
-/** Handle create barang masuk request. */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
   const user = ctx.session!.user;
