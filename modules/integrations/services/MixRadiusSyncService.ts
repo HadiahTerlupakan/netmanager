@@ -1,4 +1,5 @@
-import { MixRadiusRepository } from "../repositories/MixRadiusRepository";
+import type { IMixRadiusDataRepository } from "../domain/ports/IMixRadiusDataRepository";
+import { createMixRadiusDataRepository } from "../factories/MixRadiusRepositoryFactory";
 import {
   getCurrentMonthDateRange,
   getYesterdayDateString,
@@ -226,11 +227,9 @@ function assignNplBucket(stats: NplStats, diffDays: number, amount: number) {
 }
 
 export class MixRadiusSyncService {
-  private repo: MixRadiusRepository;
-
-  constructor() {
-    this.repo = new MixRadiusRepository();
-  }
+  constructor(
+    private readonly repo: IMixRadiusDataRepository = createMixRadiusDataRepository(),
+  ) {}
 
   /**
    * Sync a single customer into local storage.

@@ -11,6 +11,10 @@ function readUsersDetailClient(): string {
   return readSourceFile("app/admin/users/[id]/UsersDetailClient.tsx");
 }
 
+function readUserDetailHelpers(): string {
+  return readSourceFile("app/admin/users/[id]/user-detail-helpers.ts");
+}
+
 function readUsersNewClient(): string {
   return readSourceFile("app/admin/users/new/UsersNewClient.tsx");
 }
@@ -156,12 +160,13 @@ describe("admin users edit safety", () => {
 
   it("normalizes edit-user site relations before filling Site Area Kerja", () => {
     const detailClientFile = readUsersDetailClient();
+    const helpersFile = readUserDetailHelpers();
 
-    expect(detailClientFile).toContain("function getSelectedSitesFromUser");
-    expect(detailClientFile).toContain(
+    expect(helpersFile).toContain("function getSelectedSitesFromUser");
+    expect(helpersFile).toContain(
       "siteId: userSite.siteId || userSite.site?.id",
     );
-    expect(detailClientFile).toContain(
+    expect(helpersFile).toContain(
       ".filter((site): site is SelectedSite => Boolean(site.siteId))",
     );
     expect(detailClientFile).toContain(
@@ -171,8 +176,9 @@ describe("admin users edit safety", () => {
 
   it("keeps assigned user sites visible when custom roles cannot list every site", () => {
     const detailClientFile = readUsersDetailClient();
+    const helpersFile = readUserDetailHelpers();
 
-    expect(detailClientFile).toContain("function getSitesFromUser");
+    expect(helpersFile).toContain("function getSitesFromUser");
     expect(detailClientFile).toContain(
       "const loadedSites = getSitesFromUser(usr)",
     );

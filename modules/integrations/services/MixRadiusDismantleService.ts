@@ -1,30 +1,17 @@
-import { logger } from "@/lib/logger";
-import { randomUUID } from "crypto";
-
-import { prisma } from "@/modules/database";
-import {
-  onWorkOrderCreated,
-  WorkOrderQueryService,
-} from "@/modules/work-order";
-
-import { MixRadiusConfigError, MixRadiusService } from "./MixRadiusService";
+import { WorkOrderQueryService } from "@/modules/work-order";
 import { createRouteServiceError } from "@/modules/finance";
+import { MixRadiusDismantleRepository } from "../repositories/MixRadiusDismantleRepository";
+import { MixRadiusConfigError, MixRadiusService } from "./MixRadiusService";
+import { MixRadiusDismantleNotificationService } from "./MixRadiusDismantleNotificationService";
 
 const TECHNICAL_DEPARTMENT_KEYWORD = "Teknis";
-const DISMANTLE_TASKS = [
-  "Konfirmasi jadwal kedatangan dengan pelanggan",
-  "Pastikan perangkat (Modem/Router) dalam keadaan lengkap (Unit + Adaptor)",
-  "Cek kondisi fisik perangkat (Baik/Rusak/Terbakar)",
-  "Foto dokumentasi penarikan perangkat",
-  "Foto dokumentasi lokasi/rumah pelanggan",
-  "Update status inventory barang masuk",
-  "Konfirmasi ke Admin untuk update data pelanggan",
-] as const;
 
 export class MixRadiusDismantleService {
   constructor(
     private readonly mixRadiusService = new MixRadiusService(),
     private readonly workOrderRepository = new WorkOrderQueryService(),
+    private readonly repository = new MixRadiusDismantleRepository(),
+    private readonly notificationService = new MixRadiusDismantleNotificationService(),
   ) {}
 
   /** Create dismantle work order from MixRadius customer data. */
@@ -35,32 +22,14 @@ export class MixRadiusDismantleService {
     notes?: string;
   }) {
     const customer = await this.findCustomer(input.customerId);
-    const [requester, localPelanggan, department] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: input.userId },
-        select: { id: true, siteId: true },
-      }),
-      prisma.pelanggan.findFirst({
-        where: {
-          OR: [
-            { idPelanggan: customer.member_id },
-            { username: customer.username },
-          ],
-        },
-        select: { id: true, siteId: true },
-      }),
-      prisma.departments.findFirst({
-        where: {
-          name: {
-            contains: TECHNICAL_DEPARTMENT_KEYWORD,
-            mode: "insensitive",
-          },
-        },
-        select: { id: true },
-      }),
-    ]);
+    const context = await this.repository.findRequestContext({
+      userId: input.userId,
+      memberId: customer.member_id,
+      username: customer.username,
+      departmentKeyword: TECHNICAL_DEPARTMENT_KEYWORD,
+    });
     const targetSiteId =
-      requester?.siteId || localPelanggan?.siteId || undefined;
+      context.requester?.siteId || context.localPelanggan?.siteId || undefined;
     const workOrder = await this.workOrderRepository.create({
       type: "DISCONNECTION",
       title: `Request Dismantle: ${customer.fullname} (${customer.username})`,
@@ -71,14 +40,21 @@ export class MixRadiusDismantleService {
       locationAddress: customer.address,
       disconnectionReason: input.reason,
       createdById: input.userId,
-      ...(localPelanggan?.id ? { pelangganId: localPelanggan.id } : {}),
+      ...(context.localPelanggan?.id
+        ? { pelangganId: context.localPelanggan.id }
+        : {}),
       ...(targetSiteId ? { siteId: targetSiteId } : {}),
-      ...(department?.id ? { departmentId: department.id } : {}),
+      ...(context.department?.id
+        ? { departmentId: context.department.id }
+        : {}),
       ...(input.notes ? { internalNotes: input.notes } : {}),
     });
 
-    await this.createDefaultTasks(workOrder.id);
-    await this.dispatchWorkOrderCreated(workOrder, input.userId);
+    await this.repository.createDefaultTasks(workOrder.id);
+    await this.notificationService.dispatchWorkOrderCreated(
+      workOrder,
+      input.userId,
+    );
     return workOrder;
   }
 
@@ -86,7 +62,6 @@ export class MixRadiusDismantleService {
     try {
       const customer =
         await this.mixRadiusService.fetchCustomerDetail(customerId);
-
       if (!customer) {
         throw createRouteServiceError(
           "Pelanggan tidak ditemukan di MixRadius",
@@ -96,10 +71,7 @@ export class MixRadiusDismantleService {
 
       return customer;
     } catch (error) {
-      if (error instanceof MixRadiusConfigError) {
-        throw error;
-      }
-
+      if (error instanceof MixRadiusConfigError) throw error;
       throw error;
     }
   }
@@ -122,69 +94,5 @@ export class MixRadiusDismantleService {
       `- Paket: ${customer.plan_name}\n` +
       `- Alamat (Portal): ${customer.address}`
     );
-  }
-
-  private async createDefaultTasks(workOrderId: string) {
-    await prisma.workOrderTasks.createMany({
-      data: DISMANTLE_TASKS.map((title, index) => ({
-        id: randomUUID(),
-        workOrderId,
-        title,
-        order: index,
-        status: "PENDING",
-        updatedAt: new Date(),
-      })),
-    });
-  }
-
-  private async dispatchWorkOrderCreated(
-    workOrder: {
-      id: string;
-      workOrderNumber: string;
-      title: string;
-      type: string;
-      priority: string;
-      departmentId: string | null;
-      siteId: string | null;
-      status: string;
-      createdAt: Date;
-    },
-    userId: string,
-  ) {
-    await onWorkOrderCreated(
-      {
-        id: workOrder.id,
-        workOrderNumber: workOrder.workOrderNumber,
-        title: workOrder.title,
-        type: workOrder.type,
-        priority: workOrder.priority,
-        departmentId: workOrder.departmentId,
-        siteId: workOrder.siteId,
-      },
-      userId,
-    ).catch((error) => {
-      logger.error("[Dismantle] Notification error:", error);
-    });
-
-    try {
-      const { socketEmitter } = await import("@/lib/websocket/emitter");
-      socketEmitter.newWorkOrder(
-        {
-          id: workOrder.id,
-          workOrderNumber: workOrder.workOrderNumber,
-          title: workOrder.title,
-          type: workOrder.type,
-          status: workOrder.status,
-          priority: workOrder.priority,
-          createdAt: workOrder.createdAt.toISOString(),
-          ...(workOrder.departmentId
-            ? { departmentId: workOrder.departmentId }
-            : {}),
-        },
-        workOrder.departmentId || undefined,
-      );
-    } catch (error) {
-      logger.error("[Dismantle] Socket broadcast failed", error);
-    }
   }
 }

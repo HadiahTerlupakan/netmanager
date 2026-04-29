@@ -17,20 +17,18 @@ export interface MixRadiusOwnerGroupUpdatePayload {
 }
 
 export interface IMixRadiusOwnerGroupRepository {
-  getOwnerGroups(tenantId?: string): Promise<MixRadiusOwnerGroupEntity[]>;
-  getOwnerGroup(
+  findMany(tenantId?: string): Promise<MixRadiusOwnerGroupEntity[]>;
+  findById(
     id: string,
     tenantId?: string,
   ): Promise<MixRadiusOwnerGroupEntity | null>;
-  createOwnerGroup(
-    data: MixRadiusOwnerGroupPayload,
-  ): Promise<MixRadiusOwnerGroupEntity>;
-  updateOwnerGroup(
+  create(data: MixRadiusOwnerGroupPayload): Promise<MixRadiusOwnerGroupEntity>;
+  update(
     id: string,
-    data: MixRadiusOwnerGroupUpdatePayload,
+    tenantId: string | undefined,
+    data: Omit<MixRadiusOwnerGroupUpdatePayload, "tenantId">,
   ): Promise<MixRadiusOwnerGroupEntity>;
-  deleteOwnerGroup(
-    id: string,
-    tenantId?: string,
-  ): Promise<MixRadiusOwnerGroupEntity>;
+  delete(id: string, tenantId?: string): Promise<MixRadiusOwnerGroupEntity>;
+  findOwnersBySiteId(siteId: string): Promise<string[]>;
+  findOwnersByGroupId(groupId: string): Promise<string[] | null>;
 }

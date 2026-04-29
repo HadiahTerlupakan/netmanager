@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import type { PrismaClient, WorkOrderStatus } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -15,6 +14,13 @@ import {
   logWorkOrderServiceError,
   resolveTenantIdFromContext,
 } from "./work-order-service-helpers";
+import {
+  buildWorkOrderUpdatePayload,
+  ensureRejectionReason,
+  ensureRequestedStatus,
+  ensureWorkOrderExists,
+} from "./work-order-service-guards";
+import { processMobileMaterialReturn } from "./work-order-mobile-material-return";
 import { InventoryStockService } from "@/modules/inventory";
 import { UserLookupService } from "@/modules/users";
 import type {
@@ -60,8 +66,8 @@ import {
   publishWorkOrderCreatedEvent,
   publishWorkOrderStatusSideEffects,
 } from "./work-order-side-effects";
-import { WorkOrderEventDispatcher } from "@/modules/events";
 import { syncWoStatusToTicket } from "./WorkOrderSyncService";
+import { WorkOrderActivityService } from "./WorkOrderActivityService";
 export type {
   CreateWorkOrderInput,
   MobileWorkOrderMaterialReturnInput,
@@ -83,6 +89,7 @@ export class WorkOrderService {
   private materialRepo: WorkOrderMaterialRepository;
   private inventoryRepo: InventoryStockService;
   private prismaClient: PrismaClient;
+  private activityService: WorkOrderActivityService;
   constructor(prismaClient?: PrismaClient) {
     this.prismaClient = prismaClient ?? defaultPrisma;
     this.repository = new WorkOrderRepository(this.prismaClient);
@@ -92,6 +99,7 @@ export class WorkOrderService {
     this.warrantyRepo = new WarrantyCheckRepository();
     this.materialRepo = new WorkOrderMaterialRepository(this.prismaClient);
     this.inventoryRepo = new InventoryStockService();
+    this.activityService = new WorkOrderActivityService(this.repository);
   }
   /**
    * Get paginated list of work orders with site/department restrictions
@@ -331,15 +339,11 @@ export class WorkOrderService {
       await this.validateWorkOrderAccess(id, userContext);
       // Check exists
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return createWorkOrderNotFoundResult();
+      const missingResult = ensureWorkOrderExists(existing);
+      if (missingResult) {
+        return missingResult;
       }
-      // Update - ensure scheduledDate is Date or undefined
-      const { scheduledDate: rawScheduledDate, ...restInput } = input;
-      const updateData = {
-        ...restInput,
-        ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
-      };
+      const updateData = buildWorkOrderUpdatePayload(input);
       const updated = await this.repository.update(id, updateData);
       logWorkOrderActivity("UPDATE", "Work Order", userContext.id, {
         id: updated.id,
@@ -377,8 +381,9 @@ export class WorkOrderService {
     try {
       await this.validateWorkOrderAccess(id, userContext);
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return createWorkOrderNotFoundResult();
+      const missingResult = ensureWorkOrderExists(existing);
+      if (missingResult) {
+        return missingResult;
       }
       const previousStatus = existing.status;
       const userId = userContext.id;
@@ -432,8 +437,9 @@ export class WorkOrderService {
     try {
       await this.validateWorkOrderAccess(id, userContext);
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return createWorkOrderNotFoundResult();
+      const missingResult = ensureWorkOrderExists(existing);
+      if (missingResult) {
+        return missingResult;
       }
       // Validate employee status
       const employee = await this.userRepo.findById(employeeId);
@@ -502,16 +508,16 @@ export class WorkOrderService {
     try {
       await this.validateWorkOrderAccess(id, userContext);
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return createWorkOrderNotFoundResult();
+      const missingResult = ensureWorkOrderExists(existing);
+      if (missingResult) {
+        return missingResult;
       }
-      if (existing.status !== "REQUESTED") {
-        return {
-          success: false,
-          error:
-            "Hanya work order dengan status REQUESTED yang dapat disetujui",
-          code: "INVALID_STATUS",
-        };
+      const invalidStatusResult = ensureRequestedStatus(
+        existing.status,
+        "disetujui",
+      );
+      if (invalidStatusResult) {
+        return invalidStatusResult;
       }
       const approvedById = userContext.id;
       await this.repository.approveRequest(id, approvedById);
@@ -550,23 +556,21 @@ export class WorkOrderService {
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
       await this.validateWorkOrderAccess(id, userContext);
-      if (!reason) {
-        return {
-          success: false,
-          error: "Alasan penolakan wajib diisi",
-          code: "VALIDATION_ERROR",
-        };
+      const invalidReasonResult = ensureRejectionReason(reason);
+      if (invalidReasonResult) {
+        return invalidReasonResult;
       }
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return createWorkOrderNotFoundResult();
+      const missingResult = ensureWorkOrderExists(existing);
+      if (missingResult) {
+        return missingResult;
       }
-      if (existing.status !== "REQUESTED") {
-        return {
-          success: false,
-          error: "Hanya work order dengan status REQUESTED yang dapat ditolak",
-          code: "INVALID_STATUS",
-        };
+      const invalidStatusResult = ensureRequestedStatus(
+        existing.status,
+        "ditolak",
+      );
+      if (invalidStatusResult) {
+        return invalidStatusResult;
       }
       const rejectedById = userContext.id;
       await this.repository.rejectRequest(id, rejectedById, reason);
@@ -605,8 +609,9 @@ export class WorkOrderService {
     try {
       await this.validateWorkOrderAccess(id, userContext);
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return createWorkOrderNotFoundResult();
+      const missingResult = ensureWorkOrderExists(existing);
+      if (missingResult) {
+        return missingResult;
       }
       const deletedById = userContext.id;
       await this.repository.delete(id);
@@ -745,54 +750,19 @@ export class WorkOrderService {
         workOrderTenantId: workOrder.tenantId,
         userContext,
       });
-      const results = await this.prismaClient.$transaction(async (tx) => {
-        const createdItems: MobileWorkOrderMaterialReturnResult[] = [];
-        for (const item of items) {
-          const kondisi = item.kondisi || "BEKAS";
-          const masuk = await this.inventoryRepo.addStockInTransaction(tx, {
-            barangId: item.barangId,
-            gudangId: item.gudangId,
-            jumlah: item.jumlah,
-            kondisi,
-            userId: userContext.id,
-            keterangan: `Pengembalian dari Work Order ${workOrder.workOrderNumber} - ${workOrder.title}`,
-            tenantId: tenantId || undefined,
-          });
-          const masukWithBarang = masuk as typeof masuk & {
-            barang: { nama: string; satuan: string };
-          };
-          createdItems.push({
-            id: masuk.id,
-            nama: masukWithBarang.barang.nama,
-            jumlah: item.jumlah,
-            satuan: masukWithBarang.barang.satuan,
-            kondisi,
-            barangId: item.barangId,
-            gudangId: item.gudangId,
-          });
-        }
-        await tx.$executeRaw`
-          UPDATE "work_orders"
-          SET "returnedMaterials" = COALESCE("returnedMaterials", '[]'::jsonb) || ${JSON.stringify(createdItems)}::jsonb,
-              "updatedAt" = NOW()
-          WHERE "id" = ${workOrder.id}
-        `;
-        const materialList = createdItems
-          .map((m) => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`)
-          .join(", ");
-        await tx.workOrderUpdates.create({
-          data: {
-            id: randomUUID(),
-            workOrderId: workOrder.id,
-            createdById: userContext.id,
-            updateType: "MATERIAL_RETURN",
-            message: `Mengembalikan barang: ${materialList}`,
-            oldStatus: workOrder.status,
-            newStatus: workOrder.status,
-            ...(tenantId ? { tenantId } : {}),
-          },
-        });
-        return createdItems;
+      const results = await processMobileMaterialReturn({
+        prismaClient: this.prismaClient,
+        inventoryService: this.inventoryRepo,
+        workOrder: {
+          id: workOrder.id,
+          tenantId: workOrder.tenantId,
+          workOrderNumber: workOrder.workOrderNumber,
+          title: workOrder.title,
+          status: workOrder.status,
+        },
+        items,
+        userContext,
+        tenantId: tenantId || undefined,
       });
       const materialList = results
         .map((m) => `${m.nama} (${m.jumlah})`)
@@ -859,41 +829,7 @@ export class WorkOrderService {
     message: string,
     userContext: UserContext,
   ): Promise<ServiceResult<unknown>> {
-    try {
-      await this.validateWorkOrderAccess(workOrderId, userContext);
-      const comment = await this.repository.addComment(
-        workOrderId,
-        message,
-        userContext.id,
-      );
-      await WorkOrderEventDispatcher.onActivity({
-        workOrderId,
-        activityId: (comment as { id: string }).id,
-        activityType: "comment",
-        message,
-        triggeredBy: userContext.id,
-      }).catch((err) =>
-        logger.error(
-          "Failed to publish WORK_ORDER_ACTIVITY event",
-          err instanceof Error ? err : undefined,
-        ),
-      );
-      return { success: true, data: comment };
-    } catch (error) {
-      logger.error(
-        "Gagal menambahkan komentar",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal menambahkan komentar",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "OPERATION_FAILED",
-      };
-    }
+    return this.activityService.addComment(workOrderId, message, userContext);
   }
   /**
    * Add a task to a work order
@@ -907,30 +843,7 @@ export class WorkOrderService {
     },
     userContext: UserContext,
   ): Promise<ServiceResult<unknown>> {
-    try {
-      await this.validateWorkOrderAccess(workOrderId, userContext);
-      const task = await this.repository.addTask({
-        workOrderId,
-        title: taskData.title,
-        ...(taskData.description && { description: taskData.description }),
-        ...(taskData.order !== undefined && { order: taskData.order }),
-      });
-      return { success: true, data: task };
-    } catch (error) {
-      logger.error(
-        "Gagal menambahkan tugas",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal menambahkan tugas",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "OPERATION_FAILED",
-      };
-    }
+    return this.activityService.addTask(workOrderId, taskData, userContext);
   }
   /**
    * Add attachment to work order
@@ -946,34 +859,7 @@ export class WorkOrderService {
     },
     userContext: UserContext,
   ): Promise<ServiceResult<unknown>> {
-    try {
-      await this.validateWorkOrderAccess(workOrderId, userContext);
-      const attachment = await this.repository.addAttachment(
-        workOrderId,
-        data.fileName,
-        data.filePath,
-        data.fileSize,
-        data.fileType,
-        data.caption,
-        userContext.id,
-      );
-      await invalidateWorkOrderCaches();
-      return { success: true, data: attachment };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.addAttachment failed",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal menambahkan lampiran",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "UPLOAD_ERROR",
-      };
-    }
+    return this.activityService.addAttachment(workOrderId, data, userContext);
   }
   /**
    * Delete attachment from work order
@@ -983,44 +869,11 @@ export class WorkOrderService {
     attachmentId: string,
     userContext: UserContext,
   ): Promise<ServiceResult<void>> {
-    try {
-      await this.validateWorkOrderAccess(workOrderId, userContext);
-      const workOrder = await this.repository.findById(workOrderId);
-      if (!workOrder) {
-        return {
-          success: false,
-          error: "Work order tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-      const attachment = workOrder.attachments?.find(
-        (a) => a.id === attachmentId,
-      );
-      if (!attachment) {
-        return {
-          success: false,
-          error: "Lampiran tidak ditemukan pada work order ini",
-          code: "NOT_FOUND",
-        };
-      }
-      await this.repository.deleteAttachment(attachmentId, userContext.id);
-      await invalidateWorkOrderCaches();
-      return { success: true };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.deleteAttachment failed",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal menghapus lampiran",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "DELETE_ERROR",
-      };
-    }
+    return this.activityService.deleteAttachment(
+      workOrderId,
+      attachmentId,
+      userContext,
+    );
   }
 }
 // Singleton instance

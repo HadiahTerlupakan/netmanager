@@ -1,7 +1,5 @@
-"use client";
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { clientLogger } from "@/lib/client-logger";
+"use client";
 
 import { useState, useEffect, useMemo, type ComponentProps } from "react";
 import {
@@ -35,7 +33,6 @@ import {
   calculateRealisticBEP,
 } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
-import { RABFormStepper } from "./RABFormStepper";
 import type {
   CustomGrowthSettings,
   CustomMilestone,
@@ -48,6 +45,10 @@ import type {
 } from "./rabTypes";
 import { Modal } from "@/components/ui/Modal";
 import { Combobox } from "@/components/ui/Combobox";
+import ItemDisbursementModal, {
+  type LocalDisbursement,
+  type LocalItem,
+} from "./ItemDisbursementModal";
 
 interface SiteOption {
   id: string;
@@ -177,18 +178,6 @@ export function normalizeInvestorListResponse(
   return Array.isArray(payload) ? payload.filter(isInvestorOption) : [];
 }
 
-interface LocalItem {
-  id: string;
-  name: string;
-  category: string;
-  expenseCategoryId?: string;
-  quantity: number;
-  unitPrice: number;
-  expenseType: ExpenseType;
-  wbsGroupId?: string;
-  disbursements: LocalDisbursement[];
-}
-
 interface LocalWbs {
   id: string;
   name: string;
@@ -270,15 +259,6 @@ function buildHierarchicalOptions(categories: Category[], expenseType: string) {
   addCategoryAndChildren(null, 0);
 
   return options;
-}
-
-interface LocalDisbursement {
-  id: string;
-  name: string;
-  percentage: number;
-  amount: number;
-  estimatedDate: string;
-  isPaid: boolean;
 }
 
 export default function RABForm({
@@ -367,7 +347,7 @@ export default function RABForm({
           Array.isArray(data?.data ?? data) ? (data?.data ?? data) : [],
         );
       } catch (error) {
-        clientLogger.error("Failed fetching categories", error);
+        console.error("Failed fetching categories", error);
       }
     };
 
@@ -379,7 +359,7 @@ export default function RABForm({
           setInvestorsList(normalizeInvestorListResponse(data));
         }
       } catch (error) {
-        clientLogger.error("Failed fetching investors", error);
+        console.error("Failed fetching investors", error);
       }
     };
 
@@ -923,7 +903,7 @@ export default function RABForm({
       toast.success(initialData ? "RAB diperbarui" : "RAB dibuat");
       onSaved();
     } catch (error) {
-      clientLogger.error("Gagal menyimpan RAB", error);
+      console.error(error);
       toast.error(error instanceof Error ? error.message : "Terjadi kesalahan");
     } finally {
       setIsSubmitting(false);
@@ -955,11 +935,45 @@ export default function RABForm({
       size="4xl"
     >
       <form onSubmit={handleSubmit} className="animate-in fade-in duration-300">
-        <RABFormStepper
-          activeTab={mainTab}
-          tabs={mainTabs}
-          onTabChange={setMainTab}
-        />
+        {/* Wizard Stepper Headers */}
+        <div className="flex items-center justify-between mb-8 px-4 relative">
+          {/* Background Line */}
+          <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 z-0 hidden sm:block"></div>
+
+          {mainTabs.map((tab, idx) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMainTab(tab.id)}
+              className="relative z-10 flex flex-col items-center group"
+            >
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                  mainTab === tab.id
+                    ? "bg-blue-600 border-blue-600 text-white shadow-lg scale-110"
+                    : mainTabs.findIndex((t) => t.id === mainTab) > idx
+                      ? "bg-green-500 border-green-500 text-white"
+                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 group-hover:border-blue-400"
+                }`}
+              >
+                {mainTabs.findIndex((t) => t.id === mainTab) > idx ? (
+                  <HiOutlineCheck className="w-6 h-6" />
+                ) : (
+                  <tab.icon className="w-5 h-5" />
+                )}
+              </div>
+              <span
+                className={`mt-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
+                  mainTab === tab.id
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-gray-400"
+                }`}
+              >
+                {tab.label.split(" ")[0]}
+              </span>
+            </button>
+          ))}
+        </div>
 
         {/* Tab Content Wrapper */}
         <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-800 p-1 sm:p-2 min-h-[450px]">
@@ -2837,304 +2851,5 @@ export default function RABForm({
         }}
       />
     </Modal>
-  );
-}
-
-function ItemDisbursementModal({
-  isOpen,
-  onClose,
-  item,
-  onUpdate,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  item?: LocalItem;
-  onUpdate: (d: LocalDisbursement[]) => void;
-}) {
-  // Need to have safe values when conditionally rendering in nested structure
-  const [disbursements, setDisbursements] = useState<LocalDisbursement[]>([]);
-
-  useEffect(() => {
-    if (isOpen && item) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDisbursements(item.disbursements || []);
-    }
-  }, [isOpen, item]);
-
-  if (!isOpen || !item) return null;
-
-  const totalAmount = item.quantity * item.unitPrice;
-
-  // Recalculate amounts based on percentage whenever disbursements or totalAmount changes
-  const calculatedDisbursements = disbursements.map((d) => ({
-    ...d,
-    amount: Math.round((d.percentage / 100) * totalAmount),
-  }));
-
-  const totalPercentage = calculatedDisbursements.reduce(
-    (sum, d) => sum + (Number(d.percentage) || 0),
-    0,
-  );
-  const isValid = totalPercentage === 100;
-
-  const handleAdd = () => {
-    setDisbursements([
-      ...disbursements,
-      {
-        id: crypto.randomUUID(),
-        name: `Termin ${disbursements.length + 1}`,
-        percentage: 0,
-        amount: 0,
-        estimatedDate: "",
-        isPaid: false,
-      },
-    ]);
-  };
-
-  const handleUpdate = (
-    id: string,
-    field: keyof LocalDisbursement,
-    value: any,
-  ) => {
-    setDisbursements((prev) =>
-      prev.map((d) => {
-        if (d.id === id) {
-          return { ...d, [field]: value };
-        }
-        return d;
-      }),
-    );
-  };
-
-  const handleRemove = (id: string) => {
-    setDisbursements((prev) => prev.filter((d) => d.id !== id));
-  };
-
-  const handleSave = () => {
-    if (!isValid && disbursements.length > 0) {
-      toast.error("Total persentase termin harus persis 100%");
-      return;
-    }
-    onUpdate(calculatedDisbursements);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              Jadwal Termin: {item.name}
-            </h3>
-            <p className="text-sm text-gray-500">
-              Total Harga:{" "}
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                {formatCurrency(totalAmount)}
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <div className="p-6 overflow-y-auto flex-1">
-          {disbursements.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
-                Belum ada termin pencairan untuk item ini.
-              </p>
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="px-4 py-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 font-bold rounded-lg text-sm hover:bg-indigo-100 transition-colors"
-              >
-                + Tambah Termin
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between items-end mb-2">
-                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                  Daftar Termin
-                </h4>
-                <button
-                  type="button"
-                  onClick={handleAdd}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-900/20"
-                >
-                  + Tambah Baris
-                </button>
-              </div>
-
-              <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-xl">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
-                        Keterangan
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
-                        Est. Tanggal
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase w-24">
-                        Persentase
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase w-40">
-                        Nominal
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase w-16">
-                        Aksi
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {calculatedDisbursements.map((d, idx) => (
-                      <tr
-                        key={d.id}
-                        className="bg-white dark:bg-gray-900 group"
-                      >
-                        <td className="px-4 py-2">
-                          <input
-                            type="text"
-                            value={d.name}
-                            onChange={(e) =>
-                              handleUpdate(d.id, "name", e.target.value)
-                            }
-                            className="w-full bg-transparent border border-transparent focus:border-indigo-300 rounded p-1.5 text-sm font-medium dark:text-white"
-                            placeholder={`Termin ${idx + 1}`}
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="date"
-                            value={
-                              d.estimatedDate
-                                ? new Date(d.estimatedDate)
-                                    .toISOString()
-                                    .split("T")[0]
-                                : ""
-                            }
-                            onChange={(e) =>
-                              handleUpdate(
-                                d.id,
-                                "estimatedDate",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full bg-transparent border border-transparent focus:border-indigo-300 rounded p-1.5 text-sm dark:text-white"
-                          />
-                        </td>
-                        <td className="px-4 py-2">
-                          <div className="flex items-center justify-end">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={d.percentage}
-                              onChange={(e) =>
-                                handleUpdate(
-                                  d.id,
-                                  "percentage",
-                                  Number(e.target.value),
-                                )
-                              }
-                              className="w-16 bg-transparent border border-transparent focus:border-indigo-300 rounded p-1 text-sm text-right font-bold dark:text-white"
-                            />
-                            <span className="text-gray-400 ml-1 text-xs">
-                              %
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2 text-right border-l border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
-                          <span className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400 block px-2">
-                            {formatCurrency(d.amount)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemove(d.id)}
-                            title="Hapus Termin"
-                            className="text-gray-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100 mx-auto block"
-                          >
-                            <HiOutlineTrash className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div
-                className={`p-4 rounded-xl flex flex-col sm:flex-row shadow-inner items-start sm:items-center justify-between gap-4 mt-8 ${isValid || disbursements.length === 0 ? "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"}`}
-              >
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
-                    Total Persentase
-                  </span>
-                  <span
-                    className={`text-2xl font-black ${isValid ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
-                  >
-                    {totalPercentage}%
-                  </span>
-                </div>
-                <div className="text-left sm:text-right flex flex-col">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
-                    Total Nominal Pencairan
-                  </span>
-                  <span
-                    className={`text-2xl font-mono font-black ${isValid ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
-                  >
-                    {formatCurrency(
-                      calculatedDisbursements.reduce(
-                        (sum, d) => sum + (d.amount || 0),
-                        0,
-                      ),
-                    )}
-                  </span>
-                </div>
-              </div>
-              {!isValid && disbursements.length > 0 && (
-                <p className="text-sm text-red-600 mt-2 font-bold px-4 py-3 bg-red-100 rounded-lg flex items-center gap-2 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Validasi Error: Total persentase termin harus persis 100%.
-                  Saat ini {totalPercentage}%.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3 rounded-b-2xl shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2.5 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors shadow-sm"
-          >
-            Batal
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="px-8 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2"
-            disabled={!isValid && disbursements.length > 0}
-          >
-            <HiOutlineCheck className="w-5 h-5" />
-            Terapkan Termin
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

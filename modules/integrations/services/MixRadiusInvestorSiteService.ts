@@ -1,9 +1,10 @@
-import { MixRadiusInvestorSiteRepository } from "../repositories/MixRadiusInvestorSiteRepository";
 import { createRouteServiceError } from "@/modules/finance";
+import type { IMixRadiusInvestorSiteRepository } from "../domain/ports/IMixRadiusInvestorSiteRepository";
+import { MixRadiusInvestorSiteRepository } from "../repositories/MixRadiusInvestorSiteRepository";
 
 export class MixRadiusInvestorSiteService {
   constructor(
-    private readonly siteRepository = new MixRadiusInvestorSiteRepository(),
+    private readonly siteRepository: IMixRadiusInvestorSiteRepository = new MixRadiusInvestorSiteRepository(),
   ) {}
 
   /** Get investor sites with optional tenant scoping. */

@@ -1,5 +1,4 @@
 "use client";
-import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
@@ -31,28 +30,13 @@ import {
   buildWorkOrderSummaryCardsFromCounts,
   type TopWorkOrderCustomer,
   type WorkOrderListSummary,
-  type WorkOrderSummaryCard,
 } from "./summary";
-
-const EMPTY_WORK_ORDER_SUMMARY: WorkOrderListSummary = {
-  completed: 0,
-  unfinished: 0,
-  focut: 0,
-  dismantle: 0,
-  averageCompletionTimeHours: 0,
-  topCustomers: [],
-};
-
-const summaryToneClasses: Record<WorkOrderSummaryCard["tone"], string> = {
-  emerald:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
-  amber:
-    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300",
-  sky: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300",
-  rose: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300",
-  indigo:
-    "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300",
-};
+import {
+  EMPTY_WORK_ORDER_SUMMARY,
+  WORK_ORDER_PAGE_SIZE,
+  WORK_ORDER_SEARCH_DEBOUNCE_MS,
+} from "./constants";
+import { WorkOrderSummarySection } from "./WorkOrderSummarySection";
 
 interface WorkOrder {
   id: string;
@@ -191,7 +175,7 @@ export function ClientComponent() {
     }
     debounceTimerRef.current = setTimeout(() => {
       setDebouncedSearch(search);
-    }, 300);
+    }, WORK_ORDER_SEARCH_DEBOUNCE_MS);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -231,7 +215,7 @@ export function ClientComponent() {
         setSites(data.data || []);
       }
     } catch (error: unknown) {
-      clientLogger.error("Error fetching sites:", error);
+      console.error("Error fetching sites:", error);
     }
   };
 
@@ -244,7 +228,7 @@ export function ClientComponent() {
         setDepartments(data.data || data || []);
       }
     } catch (error: unknown) {
-      clientLogger.error("Error fetching departments:", error);
+      console.error("Error fetching departments:", error);
     }
   };
 
@@ -253,7 +237,7 @@ export function ClientComponent() {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: "20",
+        limit: WORK_ORDER_PAGE_SIZE.toString(),
       });
 
       if (debouncedSearch) params.append("search", debouncedSearch); // Use debounced value
@@ -275,7 +259,7 @@ export function ClientComponent() {
         setTotalPages(data.totalPages || 1);
       }
     } catch (error: unknown) {
-      clientLogger.error("Error fetching work orders:", error);
+      console.error("Error fetching work orders:", error);
     } finally {
       setLoading(false);
       setInitialLoading(false);
@@ -320,7 +304,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal memverifikasi work order");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error verifying:", error);
+      console.error("Error verifying:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -365,7 +349,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal menolak work order");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error rejecting:", error);
+      console.error("Error rejecting:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -405,7 +389,7 @@ export function ClientComponent() {
         alert(errData.error || "Gagal membatalkan work order");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error cancelling:", error);
+      console.error("Error cancelling:", error);
       alert("Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -439,7 +423,7 @@ export function ClientComponent() {
         showToast("error", "Gagal menghapus work order");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error deleting:", error);
+      console.error("Error deleting:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -479,7 +463,7 @@ export function ClientComponent() {
         showToast("error", data.error || "Gagal mengirim reminder");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error sending reminder:", error);
+      console.error("Error sending reminder:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setSendingReminderId(null);
@@ -512,7 +496,7 @@ export function ClientComponent() {
         showToast("error", data.error || "Gagal menyetujui request");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error approving request:", error);
+      console.error("Error approving request:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -551,7 +535,7 @@ export function ClientComponent() {
         showToast("error", data.error || "Gagal menolak request");
       }
     } catch (error: unknown) {
-      clientLogger.error("Error rejecting request:", error);
+      console.error("Error rejecting request:", error);
       showToast("error", "Terjadi kesalahan");
     } finally {
       setProcessingApproval(false);
@@ -963,89 +947,11 @@ export function ClientComponent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-        {summaryCards.map((card) => (
-          <div
-            key={card.id}
-            className={`rounded-2xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${summaryToneClasses[card.tone]}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
-                  {card.label}
-                </p>
-                <p className="mt-2 text-3xl font-black leading-none">
-                  {card.value.toLocaleString("id-ID")}
-                </p>
-              </div>
-              <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold dark:bg-white/10">
-                WO
-              </span>
-            </div>
-            <p className="mt-3 text-xs font-medium opacity-75">
-              {card.description}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {visibleTopCustomers.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-gray-800">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Top Customer
-              </p>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                Nama customer yang paling sering muncul
-              </h2>
-            </div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Berdasarkan filter aktif
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            {visibleTopCustomers.map((customer, index) => (
-              <button
-                key={`${customer.name}-${customer.phone ?? "no-phone"}`}
-                type="button"
-                onClick={() => filterByTopCustomer(customer.name)}
-                className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-sky-500/40"
-                title={`Filter WO ${customer.name}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-black text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-                    #{index + 1}
-                  </span>
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {customer.count.toLocaleString("id-ID")} WO
-                  </span>
-                </div>
-                <p
-                  className="mt-3 truncate text-sm font-bold text-slate-900 dark:text-white"
-                  title={customer.name}
-                >
-                  {customer.name}
-                </p>
-                <p
-                  className="mt-1 truncate font-mono text-xs text-slate-500 dark:text-slate-400"
-                  title={customer.phone ?? undefined}
-                >
-                  {customer.phone || "No. telp belum ada"}
-                </p>
-                {customer.siteName && (
-                  <p
-                    className="mt-2 truncate text-xs font-semibold text-slate-500 dark:text-slate-400"
-                    title={customer.siteName}
-                  >
-                    Site: {customer.siteName}
-                  </p>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <WorkOrderSummarySection
+        summaryCards={summaryCards}
+        visibleTopCustomers={visibleTopCustomers}
+        onSelectTopCustomer={filterByTopCustomer}
+      />
 
       {/* Filters */}
       {showFilters && (
@@ -1210,8 +1116,9 @@ export function ClientComponent() {
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Menampilkan {(page - 1) * 20 + 1} - {Math.min(page * 20, total)}{" "}
-            dari {total} work orders
+            Menampilkan {(page - 1) * WORK_ORDER_PAGE_SIZE + 1} -{" "}
+            {Math.min(page * WORK_ORDER_PAGE_SIZE, total)} dari {total} work
+            orders
           </p>
           <div className="flex items-center gap-2">
             <button

@@ -6,6 +6,7 @@ import type {
 } from "../domain/entities/DeviceBackupEntity";
 import type { IDeviceBackupRepository } from "../domain/ports/IDeviceBackupRepository";
 import { DeviceBackupRepository } from "../repositories/DeviceBackupRepository";
+import { createEmptyDeviceBackupList } from "../utils/createEmptyDeviceBackupList";
 
 const MODEL_MISSING_ERROR_CODE = "P2021";
 
@@ -25,10 +26,7 @@ export class DeviceBackupService {
       return await this.repository.findMany(filters);
     } catch (error: unknown) {
       if (this.isModelMissingError(error)) {
-        return DeviceBackupRepository.createEmptyList(
-          filters.page,
-          filters.limit,
-        );
+        return createEmptyDeviceBackupList(filters.page, filters.limit);
       }
       throw error;
     }

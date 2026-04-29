@@ -15,3 +15,10 @@ export * from "./services/AdminWorkOrderDashboardService";
 export * from "./services/WorkOrderQueryService";
 export * from "./services/partner-invite-availability";
 export type { IWorkOrderRepository } from "./services/work-order.contracts";
+export { buildWorkOrderListSummary } from "./client";
+export type {
+  TopWorkOrderCustomer,
+  WorkOrderListItem,
+  WorkOrderListSummary,
+  WorkOrderListSummarySource,
+} from "./client";

@@ -1,12 +1,12 @@
 import { randomUUID } from "crypto";
-import { sendCustomerPushNotification } from "@/modules/notification";
 import { logger } from "@/lib/logger";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
-import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import { BillingEventDispatcher } from "@/modules/events";
 import { AttendanceSettingsService } from "@/modules/attendance";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
+import { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
+import { BillingReminderService } from "./BillingReminderService";
 import {
   getPelangganService,
   PelangganBillingBridgeService,
@@ -17,6 +17,9 @@ export class AutomaticBillingService {
   // Keep the bridge owned by the finance service layer so callers stay decoupled from pelanggan repositories.
   private static invoiceRepo = new InvoiceRepository();
   private static paymentRepo = new PaymentRepository();
+  private static invoiceCreationService: BillingInvoiceCreationService | null =
+    null;
+  private static reminderService: BillingReminderService | null = null;
 
   private static getPelangganBridge() {
     if (!this.pelangganBridge) {
@@ -28,6 +31,28 @@ export class AutomaticBillingService {
 
   private static getSettingsRepo() {
     return new AttendanceSettingsService();
+  }
+
+  private static getInvoiceCreationService() {
+    if (!this.invoiceCreationService) {
+      this.invoiceCreationService = new BillingInvoiceCreationService(
+        this.invoiceRepo,
+        this.getSettingsRepo(),
+      );
+    }
+
+    return this.invoiceCreationService;
+  }
+
+  private static getReminderService() {
+    if (!this.reminderService) {
+      this.reminderService = new BillingReminderService(
+        this.invoiceRepo,
+        this.getSettingsRepo(),
+      );
+    }
+
+    return this.reminderService;
   }
 
   /**
@@ -343,119 +368,10 @@ export class AutomaticBillingService {
     },
     dueDate: Date,
   ) {
-    const currentYear = new Date().getFullYear();
-    const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
-    const currentDay = String(new Date().getDate()).padStart(2, "0");
-
-    const uniqueSuffix = randomUUID()
-      .replace(/-/g, "")
-      .substring(0, 12)
-      .toUpperCase();
-    const invoiceNumber = `INV/${currentYear}/${currentMonth}/${currentDay}-${uniqueSuffix}`;
-
-    const amount = BigInt(customer.hargaPaket.harga);
-    let taxAmount = 0n;
-    if (customer.usePPN || customer.hargaPaket.usePPN) {
-      const ppnRate = customer.hargaPaket.ppnPercentage || 11;
-      taxAmount = (amount * BigInt(Math.round(ppnRate * 100))) / 10000n;
-    }
-
-    const totalAmount = amount + taxAmount;
-
-    const invoice = await this.invoiceRepo.create({
-      id: randomUUID(),
-      invoiceNumber,
-      pelangganId: customer.id,
-      issueDate: new Date(),
-      dueDate: dueDate,
-      status: "SENT",
-      subtotal: amount,
-      taxAmount: taxAmount,
-      totalAmount: totalAmount,
-      updatedAt: new Date(),
-      invoiceItem: {
-        create: [
-          {
-            id: randomUUID(),
-            description: `Berlangganan Internet Paket ${customer.hargaPaket.name}`,
-            quantity: 1,
-            unitPrice: amount,
-            totalPrice: amount,
-            itemType: "SERVICE",
-          },
-        ],
-      },
-    });
-
-    try {
-      await notifyCustomerFinanceNotification({
-        userId: customer.userId,
-        title: "Tagihan Baru Tersedia",
-        message: `Tagihan bulan ini sebesar Rp ${Number(invoice.totalAmount).toLocaleString("id-ID")} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString("id-ID")}.`,
-        link: "/tagihan",
-        sourceType: "INVOICE",
-        sourceId: invoice.id,
-        priority: "NORMAL",
-      });
-    } catch (notifErr) {
-      logger.error(
-        `[Billing] Failed to send notification for ${customer.nama}:`,
-        notifErr,
-      );
-    }
-
-    try {
-      const notifAppSetting =
-        await this.getSettingsRepo().findByKey("GENERAL_NOTIF_APP");
-      const isPushEnabled = notifAppSetting?.value !== "false";
-
-      if (isPushEnabled) {
-        await sendCustomerPushNotification(
-          customer.id,
-          "Tagihan Baru Tersedia",
-          `Tagihan bulan ini sebesar Rp ${Number(invoice.totalAmount).toLocaleString("id-ID")} telah terbit. Jatuh tempo pada ${dueDate.toLocaleDateString("id-ID")}.`,
-          {
-            type: "INVOICE_GENERATED",
-            invoiceId: invoice.id,
-            url: "/(customer)/tagihan",
-          },
-        );
-      }
-    } catch (pushErr) {
-      logger.error(
-        `[Billing] Failed to send push notification for ${customer.nama}:`,
-        pushErr,
-      );
-    }
-
-    await logger.logActivity({
-      action: "CREATE",
-      subject: "Invoice (Auto)",
-      details: {
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        customer: customer.nama,
-        actor: "SYSTEM_CRON",
-        nextDueDate: new Date(customer.jatuhTempo).toISOString(),
-      },
-    });
-
-    const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
-    await eventBus
-      .publish(EVENT_NAMES.INVOICE_CREATED, {
-        invoiceId: invoice.id,
-        pelangganId: customer.id,
-        amount: Number(invoice.totalAmount),
-        dueDate: dueDate.toISOString(),
-      })
-      .catch((err) =>
-        logger.error(
-          "Failed to publish INVOICE_CREATED event",
-          err instanceof Error ? err : undefined,
-        ),
-      );
-
-    return invoice;
+    return this.getInvoiceCreationService().createInvoiceForCustomer(
+      customer,
+      dueDate,
+    );
   }
 
   /**
@@ -549,141 +465,6 @@ export class AutomaticBillingService {
    * Called periodically (e.g. every minute) to check if the current time matches the reminderTime setting.
    */
   static async sendDailyReminders() {
-    try {
-      // 1. Get settings
-      const settingsParams = await this.getSettingsRepo().findManyByKeys([
-        "GENERAL_REMINDER_OTOMATIS",
-        "GENERAL_REMINDER_FREQUENCY",
-        "GENERAL_REMINDER_TIME",
-        "GENERAL_NOTIF_APP",
-      ]);
-      const settingsMap = new Map(settingsParams.map((s) => [s.key, s.value]));
-
-      const reminderTime = settingsMap.get("GENERAL_REMINDER_TIME") || "08:00";
-
-      // Check if current time matches reminderTime (e.g. "08:00")
-      const now = new Date();
-      const currentHour = String(now.getHours()).padStart(2, "0");
-      const currentMinute = String(now.getMinutes()).padStart(2, "0");
-
-      if (`${currentHour}:${currentMinute}` !== reminderTime) {
-        // Not the right time to send reminders
-        return;
-      }
-
-      logger.info("[Billing] Starting daily reminders check...");
-
-      const reminderDays = parseInt(
-        settingsMap.get("GENERAL_REMINDER_OTOMATIS") || "3",
-      );
-      const reminderFrequency =
-        settingsMap.get("GENERAL_REMINDER_FREQUENCY") || "DAILY";
-      const isPushEnabled = settingsMap.get("GENERAL_NOTIF_APP") !== "false";
-
-      if (!isPushEnabled) {
-        return; // Push notifications are disabled, no need to process
-      }
-
-      // Calculate target date limit (H-X)
-      const today = new Date();
-      today.setTime(toStartOfDay(today).getTime());
-
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + reminderDays);
-
-      // Fetch unpaid invoices
-      const unpaidInvoices = await this.invoiceRepo.findUnpaidInvoices(
-        {
-          status: { in: ["SENT", "PARTIAL_PAID"] },
-          dueDate:
-            reminderFrequency === "ONCE"
-              ? {
-                  gte: new Date(
-                    targetDate.getFullYear(),
-                    targetDate.getMonth(),
-                    targetDate.getDate(),
-                    0,
-                    0,
-                    0,
-                  ),
-                  lte: new Date(
-                    targetDate.getFullYear(),
-                    targetDate.getMonth(),
-                    targetDate.getDate(),
-                    23,
-                    59,
-                    59,
-                  ),
-                }
-              : {
-                  gte: new Date(
-                    today.getFullYear(),
-                    today.getMonth(),
-                    today.getDate(),
-                    0,
-                    0,
-                    0,
-                  ),
-                  lte: new Date(
-                    targetDate.getFullYear(),
-                    targetDate.getMonth(),
-                    targetDate.getDate(),
-                    23,
-                    59,
-                    59,
-                  ),
-                },
-        },
-        {
-          id: true,
-          pelangganId: true,
-          dueDate: true,
-          totalAmount: true,
-          paidAmount: true,
-        },
-      );
-
-      if (unpaidInvoices.length === 0) {
-        return;
-      }
-
-      logger.info(
-        `[Billing] Found ${unpaidInvoices.length} invoices to remind.`,
-      );
-
-      // Send push notifications in batches
-      const BATCH_SIZE = 50;
-      for (let i = 0; i < unpaidInvoices.length; i += BATCH_SIZE) {
-        const batch = unpaidInvoices.slice(i, i + BATCH_SIZE);
-        await Promise.all(
-          batch.map(async (invoice) => {
-            const amountDue = invoice.totalAmount - invoice.paidAmount;
-            const dueDateStr = invoice.dueDate.toLocaleDateString("id-ID");
-
-            try {
-              await sendCustomerPushNotification(
-                invoice.pelangganId,
-                "Pengingat Tagihan",
-                `Tagihan sebesar Rp ${Number(amountDue).toLocaleString("id-ID")} jatuh tempo pada ${dueDateStr}. Abaikan bila sudah membayar.`,
-                {
-                  type: "PAYMENT_REMINDER",
-                  invoiceId: invoice.id,
-                  url: "/(customer)/tagihan",
-                },
-              );
-            } catch (e) {
-              logger.error(
-                `[Billing] Error sending reminder for invoice ${invoice.id}:`,
-                e,
-              );
-            }
-          }),
-        );
-      }
-
-      logger.info("[Billing] Daily reminders check completed.");
-    } catch (error) {
-      logger.error("[Billing] Error in sendDailyReminders:", error);
-    }
+    return this.getReminderService().sendDailyReminders();
   }
 }

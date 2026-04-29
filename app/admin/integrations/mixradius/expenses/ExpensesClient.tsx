@@ -31,11 +31,19 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalBody } from "@/components/ui/Modal";
-import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
+import { Combobox } from "@/components/ui/Combobox";
 import { formatCurrency } from "@/lib/utils";
 import { usePermission } from "@/hooks/use-permission";
 import { buildDailyExpenseIndicators } from "@/modules/finance/client";
 import { buildExpenseCsvContent } from "./expense-csv";
+import {
+  buildExpenseIdempotencyKey,
+  buildHierarchicalCategoryOptions,
+  createDefaultExpenseFormData,
+  createDefaultExpenseItem,
+  filterCategoryOptionsByType,
+  mapExpenseToFormState,
+} from "./expenses.helpers";
 import RABList from "./RABList";
 import type { RABProject } from "./rabTypes";
 import RABForm from "./RABForm";
@@ -141,14 +149,6 @@ interface RabBottleneckMetrics {
 export default function ExpensesClient() {
   const { hasPermission } = usePermission();
 
-  const buildIdempotencyKey = (scope: "single" | "batch") => {
-    const randomPart =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    return `expenses-${scope}-${Date.now()}-${randomPart}`;
-  };
-
   // Permission checks (support both specific mixradius permission AND generic expense permission)
   const canCreate =
     hasPermission("mixradius_expenses:create") ||
@@ -198,29 +198,8 @@ export default function ExpensesClient() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [editingItem, setEditingItem] = useState<Expense | null>(null);
-  const defaultItem = (): FormItem => ({
-    amount: "",
-    description: "",
-    rabProjectId: "",
-    rabItemId: "",
-    category: "OPEX",
-    expenseCategoryId: "",
-    isUsefulLifeEnabled: false,
-    usefulLife: 0,
-    depreciation: "",
-  });
-  const [items, setItems] = useState<FormItem[]>([defaultItem()]);
-  const [formData, setFormData] = useState({
-    date: (() => {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    })(),
-    category: "OPEX",
-    siteId: "",
-    mixRadiusGroupId: "",
-    invoiceNumber: "",
-    invoiceFile: "",
-  });
+  const [items, setItems] = useState<FormItem[]>([createDefaultExpenseItem()]);
+  const [formData, setFormData] = useState(createDefaultExpenseFormData);
 
   const [rabProjects, setRabProjects] = useState<RABProject[]>([]);
   const [, setIsUsefulLifeEnabled] = useState(false);
@@ -466,7 +445,7 @@ export default function ExpensesClient() {
   };
 
   const addItem = () => {
-    setItems((prev) => [...prev, defaultItem()]);
+    setItems((prev) => [...prev, createDefaultExpenseItem()]);
   };
 
   const removeItem = (index: number) => {
@@ -502,79 +481,30 @@ export default function ExpensesClient() {
     }
   };
 
-  // Build hierarchical category options for Combobox
-  const hierarchicalCategoryOptions: ComboboxOption[] = useMemo(() => {
-    if (!categories.length) return [];
+  const hierarchicalCategoryOptions = useMemo(
+    () => buildHierarchicalCategoryOptions(categories),
+    [categories],
+  );
 
-    const roots = categories.filter((c) => !c.parentId);
-    const childrenMap = new Map<string, CategoryOption[]>();
-    for (const cat of categories) {
-      if (cat.parentId) {
-        const arr = childrenMap.get(cat.parentId) || [];
-        arr.push(cat);
-        childrenMap.set(cat.parentId, arr);
-      }
-    }
+  const opexCategoryOptions = useMemo(
+    () =>
+      filterCategoryOptionsByType(
+        hierarchicalCategoryOptions,
+        categories,
+        "OPEX",
+      ),
+    [hierarchicalCategoryOptions, categories],
+  );
 
-    const result: ComboboxOption[] = [];
-
-    const flatten = (catItems: CategoryOption[], depth: number) => {
-      for (const item of catItems) {
-        const children = childrenMap.get(item.id) || [];
-        const hasChildren = children.length > 0;
-        const indent = depth > 0 ? "\u2003".repeat(depth) : "";
-        const prefix = depth > 0 ? "└ " : "";
-
-        result.push({
-          value: item.id,
-          label: (
-            <span
-              className={`flex items-center gap-1 ${hasChildren && depth === 0 ? "font-semibold text-gray-700 dark:text-gray-200" : ""}`}
-            >
-              <span className="text-gray-400">
-                {indent}
-                {prefix}
-              </span>
-              <span>{item.name}</span>
-              {hasChildren && (
-                <span className="text-[10px] text-gray-400 ml-1">
-                  ({children.length})
-                </span>
-              )}
-            </span>
-          ),
-          searchLabel: item.name,
-        });
-
-        if (hasChildren) {
-          flatten(
-            children.sort((a, b) => a.name.localeCompare(b.name)),
-            depth + 1,
-          );
-        }
-      }
-    };
-
-    flatten(
-      roots.sort((a, b) => a.name.localeCompare(b.name)),
-      0,
-    );
-    return result;
-  }, [categories]);
-
-  const opexCategoryOptions = useMemo(() => {
-    return hierarchicalCategoryOptions.filter((opt) => {
-      const cat = categories.find((c) => c.id === opt.value);
-      return cat?.type === "OPEX";
-    });
-  }, [hierarchicalCategoryOptions, categories]);
-
-  const capexCategoryOptions = useMemo(() => {
-    return hierarchicalCategoryOptions.filter((opt) => {
-      const cat = categories.find((c) => c.id === opt.value);
-      return cat?.type === "CAPEX";
-    });
-  }, [hierarchicalCategoryOptions, categories]);
+  const capexCategoryOptions = useMemo(
+    () =>
+      filterCategoryOptionsByType(
+        hierarchicalCategoryOptions,
+        categories,
+        "CAPEX",
+      ),
+    [hierarchicalCategoryOptions, categories],
+  );
 
   const filteredData = data.filter((item) => {
     if (!debouncedSearch) return true;
@@ -678,45 +608,16 @@ export default function ExpensesClient() {
   const handleOpenModal = (item?: Expense) => {
     setStep(1);
     if (item) {
+      const editState = mapExpenseToFormState(item);
       setEditingItem(item);
       setIsUsefulLifeEnabled((item.usefulLife || 0) > 0);
-      setItems([
-        {
-          id: item.id,
-          amount: item.amount.toString(),
-          description: item.description || "",
-          rabProjectId: item.rabProject?.id || "",
-          rabItemId: item.rabItem?.id || "",
-          category: item.category,
-          expenseCategoryId: item.expenseCategoryId || "",
-          isUsefulLifeEnabled: (item.usefulLife || 0) > 0,
-          usefulLife: item.usefulLife || 0,
-          depreciation: item.depreciation ? item.depreciation.toString() : "",
-        },
-      ]);
-      setFormData({
-        date: new Date(item.date).toISOString().split("T")[0],
-        category: item.category,
-        siteId: item.siteId || "",
-        mixRadiusGroupId: item.mixRadiusGroupId || "",
-        invoiceNumber: item.invoiceNumber || "",
-        invoiceFile: item.invoiceFile || "",
-      });
+      setItems(editState.items);
+      setFormData(editState.formData);
     } else {
       setEditingItem(null);
       setIsUsefulLifeEnabled(false);
-      setItems([defaultItem()]);
-      setFormData({
-        date: (() => {
-          const d = new Date();
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        })(),
-        category: "OPEX",
-        siteId: "",
-        mixRadiusGroupId: "",
-        invoiceNumber: "",
-        invoiceFile: "",
-      });
+      setItems([createDefaultExpenseItem()]);
+      setFormData(createDefaultExpenseFormData());
     }
     setIsModalOpen(true);
   };
@@ -817,7 +718,7 @@ export default function ExpensesClient() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-idempotency-key": buildIdempotencyKey("single"),
+            "x-idempotency-key": buildExpenseIdempotencyKey("single"),
           },
           body: JSON.stringify(payload),
         });
@@ -855,7 +756,7 @@ export default function ExpensesClient() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-idempotency-key": buildIdempotencyKey("batch"),
+            "x-idempotency-key": buildExpenseIdempotencyKey("batch"),
           },
           body: JSON.stringify(payload),
         });

@@ -1,7 +1,10 @@
+import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 
 export class MikroTikStatisticsService {
-  constructor(private readonly repository = new MikroTikRouterRepository()) {}
+  constructor(
+    private readonly repository: IMikroTikRouterRepository = new MikroTikRouterRepository(),
+  ) {}
 
   /** Get aggregated MikroTik router statistics for a tenant. */
   getStatistics(tenantId?: string) {

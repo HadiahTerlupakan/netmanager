@@ -48,10 +48,7 @@ export {
   parseUpdateCanvasingInput,
   validateCanvasingForm,
 } from "./validators/canvasingValidation";
-export type {
-  CanvasingFormErrors,
-  CanvasingFormValues,
-} from "./validators/canvasingValidation";
+export type { CanvasingFormErrors, CanvasingFormValues } from "./client";
 
 // DTOs (public types for API responses and requests)
 export type {

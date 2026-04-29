@@ -10,6 +10,7 @@ import {
 } from "@/lib/event-bus/queues";
 import { AttendanceSessionPolicyService } from "./AttendanceSessionPolicyService";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
+import { getInactiveSessionStatuses } from "../repositories/attendance-repository-helpers";
 
 function buildAttendanceAutoCheckoutJobId(attendanceId: string): string {
   return `attendance:auto-checkout:${attendanceId}`;
@@ -53,11 +54,7 @@ export class AutoCheckoutService {
 
     for (const attendance of openAttendances) {
       try {
-        if (
-          ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"].includes(
-            attendance.status,
-          )
-        ) {
+        if (getInactiveSessionStatuses().includes(attendance.status as never)) {
           continue;
         }
 

@@ -1,4 +1,5 @@
 import { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
+import type { IMixRadiusConfigRepository } from "@/modules/integrations/domain/ports/IMixRadiusConfigRepository";
 import { mixRadiusConfigRepo } from "@/modules/integrations/repositories/MixRadiusConfigRepository";
 
 export type MixRadiusConfigPayload = {
@@ -16,15 +17,19 @@ export type MixRadiusConfigPayload = {
  * Service for MixRadius config orchestration.
  */
 export class MixRadiusConfigService {
+  constructor(
+    private readonly configRepository: IMixRadiusConfigRepository = mixRadiusConfigRepo,
+  ) {}
+
   /**
    * Get active config based on tenant scope.
    */
   async getActiveConfig(tenantId?: string | null) {
     if (tenantId) {
-      return mixRadiusConfigRepo.getActiveConfigByTenant(tenantId);
+      return this.configRepository.getActiveConfigByTenant(tenantId);
     }
 
-    return mixRadiusConfigRepo.getActiveConfig();
+    return this.configRepository.getActiveConfig();
   }
 
   /**
@@ -32,10 +37,10 @@ export class MixRadiusConfigService {
    */
   async getConfigs(tenantId?: string) {
     if (tenantId) {
-      return mixRadiusConfigRepo.getAllConfigsByTenant(tenantId);
+      return this.configRepository.getAllConfigsByTenant(tenantId);
     }
 
-    return mixRadiusConfigRepo.getAllConfigs();
+    return this.configRepository.getAllConfigs();
   }
 
   /**
@@ -50,7 +55,7 @@ export class MixRadiusConfigService {
       throw new Error("Tenant MixRadius tidak ditemukan untuk user ini");
     }
 
-    return mixRadiusConfigRepo.createConfig({
+    return this.configRepository.createConfig({
       name: normalizedConfig.name,
       apiUrl: normalizedConfig.baseUrl,
       apiKey: payload.apiKey || "default-api-key",
@@ -73,14 +78,14 @@ export class MixRadiusConfigService {
     const updatePayload = this.buildUpdatePayload(payload);
 
     if (tenantId) {
-      return mixRadiusConfigRepo.updateConfigForTenant(
+      return this.configRepository.updateConfigForTenant(
         configId,
         tenantId,
         updatePayload,
       );
     }
 
-    return mixRadiusConfigRepo.updateConfig(configId, updatePayload);
+    return this.configRepository.updateConfig(configId, updatePayload);
   }
 
   /**
@@ -88,10 +93,10 @@ export class MixRadiusConfigService {
    */
   async deleteConfig(configId: string, tenantId?: string) {
     if (tenantId) {
-      return mixRadiusConfigRepo.deleteConfigForTenant(configId, tenantId);
+      return this.configRepository.deleteConfigForTenant(configId, tenantId);
     }
 
-    return mixRadiusConfigRepo.deleteConfig(configId);
+    return this.configRepository.deleteConfig(configId);
   }
 
   private validateCreatePayload(payload: MixRadiusConfigPayload) {

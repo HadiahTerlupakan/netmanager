@@ -8,6 +8,7 @@ import { RadiusSyncService } from "./radius-sync-service";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { BandwidthRepository } from "../repositories/BandwidthRepository";
 import type { IBandwidthRepository } from "../domain/ports/IBandwidthRepository";
+import type { IRadiusBandwidthSyncRepository } from "../domain/ports/IRadiusBandwidthSyncRepository";
 import * as z from "zod";
 import type { Session } from "next-auth";
 
@@ -36,6 +37,7 @@ interface BandwidthMutationInput {
 export class BandwidthRouteService {
   constructor(
     private readonly repository: IBandwidthRepository = new BandwidthRepository(),
+    private readonly radiusRepository: IRadiusBandwidthSyncRepository = new RadiusRepository(),
   ) {}
 
   /** Ambil daftar bandwidth sesuai filter dan pembatasan site. */
@@ -155,7 +157,7 @@ export class BandwidthRouteService {
       const radiusSync = new RadiusSyncService();
       const mode = await radiusSync.getConnectionMode();
       if (mode !== "RADIUS") return;
-      await new RadiusRepository().syncBandwidthToRadius(id);
+      await this.radiusRepository.syncBandwidthToRadius(id);
     } catch (error) {
       logger.error("[BandwidthRouteService] RADIUS sync error:", error);
     }

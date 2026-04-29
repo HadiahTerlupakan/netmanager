@@ -7,6 +7,7 @@ import {
   type AttendanceEvaluationInput,
 } from "./AttendanceDailyEvaluator";
 import { AttendanceEvaluationAuditService } from "./AttendanceEvaluationAuditService";
+import { AttendanceReadService } from "./AttendanceReadService";
 import { AttendanceStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
@@ -18,24 +19,23 @@ import {
   resolveCheckInStatus,
   resolveCheckInTimeContext,
   type CachedUserAttendanceSettings,
-  formatCurrentAttendanceWarningDate,
-  isSameAttendanceDay,
 } from "./attendance-service-helpers";
-import { getAttendanceAnalytics } from "./attendance-analytics-helpers";
 import {
-  buildAttendanceScoreResult,
-  createUserScoreState,
-  getStandardMinutesPerDay,
-  toRoundedHours,
-} from "./attendance-report-helpers";
+  applyAbsencePenalty,
+  applyAttendanceDays,
+  applyDurationStats,
+  applyOfficialOvertime,
+  buildTopScorers,
+  calculateRate,
+  collectSummaryUserIds,
+  createCombinedTopEmployees,
+  createEmployeeSummary,
+  createStatsMap,
+  type UserScoreState,
+} from "./attendance-report-service-helpers";
 import {
-  buildIdleCurrentAttendanceStatus,
-  getCurrentAttendanceWarningMessage,
-  mapCurrentAttendanceStatusResult,
   mapPersistedAttendanceEvaluation,
   type ActiveAttendanceSessionRow,
-  type CurrentAttendanceEvaluationRow,
-  type CurrentAttendanceRow,
   type CurrentAttendanceStatusResult,
 } from "./attendance-current-status-helpers";
 export type { CurrentAttendanceStatusResult } from "./attendance-current-status-helpers";
@@ -69,6 +69,7 @@ export class AttendanceService {
   private leaveRepo: LeaveRepository;
   private holidayRepo: HolidayRepository;
   private overtimeRepo: OvertimeQueryService;
+  private readService: AttendanceReadService;
   constructor() {
     this.geofenceService = new GeofenceService();
     this.validationService = new AttendanceValidationService();
@@ -80,6 +81,11 @@ export class AttendanceService {
     this.leaveRepo = new LeaveRepository();
     this.holidayRepo = new HolidayRepository();
     this.overtimeRepo = new OvertimeQueryService();
+    this.readService = new AttendanceReadService({
+      attendanceRepo: this.attendanceRepo,
+      userRepo: this.userRepo,
+      timezoneService: this.timezoneService,
+    });
   }
   private getEvaluationWindow(referenceTime: Date, timezone: string) {
     const workDate = toStartOfDay(referenceTime, timezone);
@@ -622,6 +628,7 @@ export class AttendanceService {
     if (warning) result.warning = warning;
     return result;
   }
+  /** Ambil data laporan attendance agregat tanpa mengubah format public API. */
   async getReportData(
     startDate: Date,
     endDate: Date,
@@ -680,267 +687,29 @@ export class AttendanceService {
         departmentId,
       ),
     ]);
-    // Calculate Combined Top Employees (Star Employees)
-    const userMap = new Map<string, ReturnType<typeof createUserScoreState>>();
-    const getOrCreateUserScore = (userId: string) => {
-      if (!userMap.has(userId)) userMap.set(userId, createUserScoreState());
-      return userMap.get(userId)!;
-    };
-
-    /** Set jumlah hari hadir user pada periode laporan. */
-    const applyAttendanceDays = (userId: string, count: number) => {
-      getOrCreateUserScore(userId).days = count;
-    };
-
-    /** Tambahkan lembur resmi user pada periode laporan. */
-    const applyOfficialOvertime = (userId: string, totalDuration: number) => {
-      if (!userMap.has(userId)) return;
-      getOrCreateUserScore(userId).officialOtMinutes += totalDuration;
-    };
-
-    /** Simpan jumlah alpha user pada periode laporan. */
-    const applyAbsencePenalty = (userId: string, count: number) => {
-      if (!userMap.has(userId)) return;
-      getOrCreateUserScore(userId).alphaCount = count;
-    };
-
-    /** Simpan total menit kerja user pada periode laporan. */
-    const applyTotalMinutes = (userId: string, totalMinutes: number) => {
-      if (!userMap.has(userId)) return;
-      getOrCreateUserScore(userId).totalMinutes = totalMinutes;
-    };
-
-    /** Cek apakah user punya hari hadir untuk scoring. */
-    const hasAttendanceDays = (
-      stats: ReturnType<typeof createUserScoreState>,
-    ) => stats.days > 0;
-
-    /** Format menit menjadi jam 1 desimal. */
-    const formatHours = (totalMinutes: number) => toRoundedHours(totalMinutes);
-
-    /** Ambil semua user dari statistik gabungan. */
-    const allUserIds = new Set<string>([
-      ...userAttStats.map((u) => u.userId),
-      ...userAbsenceStats.map((u) => u.userId),
-      ...userLeaveStats.map((u) => u.userId),
-    ]);
-
-    /** Hitung persen aman dari pembagi nol. */
-    const calculateRate = (count: number, total: number) =>
-      total > 0 ? (count / total) * 100 : 0;
-
-    /** Bangun item summary karyawan. */
-    const buildEmployeeSummaryItem = (
-      userId: string,
-      user:
-        | Awaited<
-            ReturnType<UserLookupService["findManyWithFullDetails"]>
-          >[number]
-        | undefined,
-      hadir: number,
-      terlambat: number,
-      izin: number,
-      alpha: number,
-      lemburMinutes: number,
-      totalMinutes: number,
-    ) => ({
-      userId,
-      user: user
-        ? {
-            id: user.id,
-            name: user.name,
-            image: user.image,
-            site: user.sites,
-            department: user.departments,
-          }
-        : null,
-      hadir,
-      terlambat,
-      izin,
-      alpha,
-      lemburJam: formatHours(lemburMinutes),
-      totalJamKerja: formatHours(totalMinutes),
-    });
-
-    /** Bangun top employee gabungan dengan detail user. */
-    const buildCombinedTopEmployee = (
-      scorer: ReturnType<typeof buildAttendanceScoreResult>,
-      user:
-        | Awaited<
-            ReturnType<UserLookupService["findManyWithBasicInfo"]>
-          >[number]
-        | undefined,
-    ) => ({ user, score: scorer.score, details: scorer.details });
-
-    /** Ambil top scorer berdasar map score user. */
-    const buildTopScorers = () =>
-      Array.from(userMap.entries())
-        .filter(([_, score]) => hasAttendanceDays(score))
-        .map(([userId, score]) => buildAttendanceScoreResult(userId, score))
-        .sort((left, right) => right.score - left.score)
-        .slice(0, 5);
-
-    /** Cari user basic info untuk top scorer. */
-    const findTopScorerUser = (
-      users: Awaited<ReturnType<UserLookupService["findManyWithBasicInfo"]>>,
-      scorerUserId: string,
-    ) => users.find((user) => user.id === scorerUserId);
-
-    /** Ambil nilai map dengan default nol. */
-    const getMapValue = (map: Map<string, number>, userId: string) =>
-      map.get(userId) || 0;
-
-    /** Bangun map statistik numerik user. */
-    const createStatsMap = <T>(
-      items: T[],
-      getKey: (item: T) => string,
-      getValue: (item: T) => number,
-    ) => new Map(items.map((item) => [getKey(item), getValue(item)]));
-
-    /** Bangun map detail user untuk summary. */
-    const createUserDetailsMap = (
-      users: Awaited<ReturnType<UserLookupService["findManyWithFullDetails"]>>,
-    ) => new Map(users.map((user) => [user.id, user]));
-
-    /** Bangun map konfigurasi jam kerja user. */
-    const createUserConfigMap = (
-      users: Awaited<ReturnType<UserLookupService["findManyWithWorkConfig"]>>,
-    ) => new Map(users.map((user) => [user.id, user]));
-
-    /** Terapkan kelebihan menit kerja di atas standar user. */
-    const applyExcessMinutes = (
-      userId: string,
-      totalMinutes: number,
-      userConfigMap: Map<
-        string,
-        Awaited<ReturnType<UserLookupService["findManyWithWorkConfig"]>>[number]
-      >,
-    ) => {
-      if (!userMap.has(userId)) return;
-      const current = getOrCreateUserScore(userId);
-      if (!hasAttendanceDays(current)) return;
-      const standardMinutes =
-        current.days * getStandardMinutesPerDay(userId, userConfigMap as never);
-      if (totalMinutes > standardMinutes)
-        current.excessMinutes += totalMinutes - standardMinutes;
-    };
-
-    /** Hitung jumlah terlambat laporan. */
-    const getLateCount = () => stats.statusCounts["LATE"] || 0;
-
-    /** Hitung jumlah alpha laporan. */
-    const getAlphaCount = () => evaluationStats.statusCounts["ABSENT"] || 0;
-
-    /** Selesai menyiapkan helper lokal laporan attendance. */
-    // 1. Base Attendance Days (ONLY users with actual ON_TIME/LATE attendance)
-    userAttStats.forEach((item) => {
-      applyAttendanceDays(item.userId, item._count._all);
-    });
-    // 2. Formal Overtime (Approved/Completed) - ONLY add to existing users with attendance
-    userOtStats.forEach((item) => {
-      // Skip if user has no attendance record (shouldn't appear in Star Employees)
-      applyOfficialOvertime(item.userId, item.totalDuration || 0);
-    });
-    // 3. Absence Stats (Penalties) - ONLY for existing users
-    userAbsenceStats.forEach((item) => {
-      applyAbsencePenalty(item.userId, item._count._all);
-    });
-    // 4. Fetch User Work Hour Configuration for accurate standard hours calculation
-    const userIds = Array.from(userMap.keys());
+    const userMap = new Map<string, UserScoreState>();
+    applyAttendanceDays(userMap, userAttStats);
+    applyOfficialOvertime(userMap, userOtStats);
+    applyAbsencePenalty(userMap, userAbsenceStats);
+    const workConfigUserIds = Array.from(userMap.keys());
     const userConfigs =
-      userIds.length > 0
-        ? await this.userRepo.findManyWithWorkConfig(userIds)
+      workConfigUserIds.length > 0
+        ? await this.userRepo.findManyWithWorkConfig(workConfigUserIds)
         : [];
-    // Create user config map for quick lookup
-    const userConfigMap = createUserConfigMap(userConfigs);
-
-    /** Konversi menit ke jam desimal untuk summary. */
-    const buildSummaryHours = (minutes: number) => formatHours(minutes);
-
-    /** Bangun item summary employee dari map statistik. */
-    const createEmployeeSummary = (userId: string) => {
-      const user = userDetailsMap.get(userId);
-      const hadir = getMapValue(userAttMap, userId);
-      const terlambat = getMapValue(userLateMap, userId);
-      const izin = getMapValue(userLeaveMap, userId);
-      const alpha = getMapValue(userAbsenceMap, userId);
-      const lemburMinutes = getMapValue(userOtMap, userId);
-      const totalMinutes = userTotalDuration.get(userId) || 0;
-      return buildEmployeeSummaryItem(
-        userId,
-        user,
-        hadir,
-        terlambat,
-        izin,
-        alpha,
-        lemburMinutes,
-        totalMinutes,
-      );
-    };
-
-    /** Tandai summary employee valid. */
-    const isValidEmployeeSummary = (item: { user: unknown | null }) =>
-      item.user !== null;
-
-    /** Tandai top employee gabungan valid. */
-    const isValidCombinedTopEmployee = (item: { user: unknown }) =>
-      Boolean(item.user);
-
-    /** Buat detail top employee gabungan. */
-    const createCombinedTopEmployee = (
-      scorer: ReturnType<typeof buildAttendanceScoreResult>,
-      users: Awaited<ReturnType<UserLookupService["findManyWithBasicInfo"]>>,
-    ) => {
-      return buildCombinedTopEmployee(
-        scorer,
-        findTopScorerUser(users, scorer.userId),
-      );
-    };
-
-    /** Selesaikan helper report setelah user detail tersedia. */
-    void buildSummaryHours;
-    void isValidCombinedTopEmployee;
-    void isValidEmployeeSummary;
-    void createCombinedTopEmployee;
-    void createEmployeeSummary;
-    // 5. Implicit Overtime & Total Duration - ONLY for existing users
-    userTotalDuration.forEach((totalMinutes, userId) => {
-      // Skip if user has no attendance record
-      if (!userMap.has(userId)) return;
-      applyTotalMinutes(userId, totalMinutes);
-      applyExcessMinutes(userId, totalMinutes, userConfigMap);
-    });
-    // FILTER: Only include users with at least 1 day of attendance
-    const topScorers = buildTopScorers();
-    // Fetch User Details
-    let combinedTopEmployees: Array<{
-      user:
-        | {
-            id: string;
-            name: string | null;
-            image: string | null;
-            sites: { name: string } | null;
-            departments: { name: string } | null;
-          }
-        | undefined;
-      score: number;
-      details: Record<string, unknown>;
-    }> = [];
-    if (topScorers.length > 0) {
-      const topScorerDetails = await this.userRepo.findManyWithBasicInfo(
-        topScorers.map((scorer) => scorer.userId),
-      );
-      combinedTopEmployees = topScorers
-        .map((scorer) => createCombinedTopEmployee(scorer, topScorerDetails))
-        .filter(isValidCombinedTopEmployee);
-    }
-    // Calculate derived stats
-    const lateCount = getLateCount();
-    const lateRate = calculateRate(lateCount, stats.total);
-    const alphaCount = getAlphaCount();
-    const alphaRate = calculateRate(alphaCount, evaluationStats.total);
-    // Build Employee Summary for "Rekap Karyawan" tab
-    // Create maps for quick lookup
+    const userConfigMap = new Map(userConfigs.map((user) => [user.id, user]));
+    applyDurationStats(userMap, userTotalDuration, userConfigMap);
+    const topScorers = buildTopScorers(userMap);
+    const combinedTopEmployees =
+      topScorers.length > 0
+        ? createCombinedTopEmployees(
+            topScorers,
+            await this.userRepo.findManyWithBasicInfo(
+              topScorers.map((scorer) => scorer.userId),
+            ),
+          )
+        : [];
+    const lateCount = stats.statusCounts["LATE"] || 0;
+    const alphaCount = evaluationStats.statusCounts["ABSENT"] || 0;
     const userLateMap = createStatsMap(
       userLateStats,
       (item) => item.userId,
@@ -966,22 +735,33 @@ export class AttendanceService {
       (item) => item.userId,
       (item) => item._count._all,
     );
-    const allUsers = await this.userRepo.findManyWithFullDetails(
-      Array.from(allUserIds),
+    const summaryUserIds = collectSummaryUserIds(
+      userAttStats,
+      userAbsenceStats,
+      userLeaveStats,
     );
-    const userDetailsMap = createUserDetailsMap(allUsers);
-    const employeeSummary = Array.from(allUserIds)
-      .map((userId) => createEmployeeSummary(userId))
-      .filter(isValidEmployeeSummary);
+    const allUsers =
+      await this.userRepo.findManyWithFullDetails(summaryUserIds);
+    const userDetailsMap = new Map(allUsers.map((user) => [user.id, user]));
+    const employeeSummary = createEmployeeSummary({
+      userIds: summaryUserIds,
+      userDetailsMap,
+      userAttMap,
+      userLateMap,
+      userLeaveMap,
+      userAbsenceMap,
+      userOtMap,
+      userTotalDuration,
+    });
     return {
       summary: {
         totalAttendance: stats.total,
-        attendanceRate: 0, // Placeholder
+        attendanceRate: 0,
         avgDurationMinutes: stats.avgDurationMinutes,
         lateCount,
-        lateRate,
+        lateRate: calculateRate(lateCount, stats.total),
         alphaCount,
-        alphaRate,
+        alphaRate: calculateRate(alphaCount, evaluationStats.total),
       },
       trends: dailyStats,
       bySite: groupedBySite,
@@ -996,32 +776,7 @@ export class AttendanceService {
     userId: string,
     params: { page: number; limit: number },
   ) {
-    const { page, limit } = params;
-    const skip = (page - 1) * limit;
-    const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
-    const joinDate = userDetails?.joinDate ?? undefined;
-    const [attendances, total] = await Promise.all([
-      this.attendanceRepo.findManyForHistory({
-        userId,
-        skip,
-        take: limit,
-        joinDate,
-      }),
-      this.attendanceRepo.countByUserId(userId, joinDate),
-    ]);
-    const filteredAttendances = attendances.filter(
-      (attendance) => !joinDate || attendance.checkIn >= joinDate,
-    );
-    const filteredTotal = joinDate ? filteredAttendances.length + skip : total;
-    return {
-      attendances: filteredAttendances,
-      pagination: {
-        page,
-        limit,
-        total: filteredTotal,
-        totalPages: Math.ceil(filteredTotal / limit),
-      },
-    };
+    return this.readService.getAttendanceHistory(userId, params);
   }
   async recomputeHistoricalAttendanceEvaluations(params: {
     userId: string;
@@ -1079,92 +834,12 @@ export class AttendanceService {
     userId: string,
     options?: { tenantId?: string },
   ): Promise<CurrentAttendanceStatusResult> {
-    const sessionPolicyService = new AttendanceSessionPolicyService();
-    const timezone = await this.timezoneService.getTimezone(options?.tenantId);
-    const effectiveDate = this.timezoneService.getEffectiveDate(timezone);
-    const [attendance, evaluation] = await Promise.all([
-      this.attendanceRepo.findFirstForCurrentStatus({
-        userId,
-        tenantId: options?.tenantId,
-      }) as Promise<CurrentAttendanceRow | null>,
-      this.attendanceRepo.findLatestEvaluationForUser({
-        userId,
-        tenantId: options?.tenantId,
-        workDate: effectiveDate.startOfDay,
-      }) as Promise<CurrentAttendanceEvaluationRow>,
-    ]);
-    const decision = attendance
-      ? sessionPolicyService.resolve({
-          attendance,
-          now: new Date(),
-          scheduleEndTime: null,
-        })
-      : null;
-    if (!attendance) {
-      return buildIdleCurrentAttendanceStatus(undefined, null, evaluation);
-    }
-    const evaluationWarningMessage = getCurrentAttendanceWarningMessage(
-      evaluation,
-      null,
-    );
-    if (decision?.isStaleFlexibleSession) {
-      return buildIdleCurrentAttendanceStatus(
-        attendance,
-        getCurrentAttendanceWarningMessage(
-          evaluation,
-          `Sesi fleksibel lama sejak ${formatCurrentAttendanceWarningDate(attendance.checkIn, timezone)} belum checkout.`,
-        ),
-        evaluation,
-      );
-    }
-    const sameDay = isSameAttendanceDay(
-      attendance.checkIn,
-      new Date(),
-      timezone,
-    );
-    const shouldAppearActive =
-      decision?.isOvernightShiftActive ||
-      attendance.user?.workingHourMode === "FLEXIBLE" ||
-      sameDay;
-    if (!attendance.checkOut && shouldAppearActive) {
-      return mapCurrentAttendanceStatusResult({
-        attendance,
-        evaluation,
-        timezone,
-        status: "checked-in",
-        warningMessage: evaluationWarningMessage,
-      });
-    }
-    if (attendance.checkOut && sameDay) {
-      return mapCurrentAttendanceStatusResult({
-        attendance,
-        evaluation,
-        timezone,
-        status: "checked-out",
-        warningMessage: evaluationWarningMessage,
-      });
-    }
-    return buildIdleCurrentAttendanceStatus(
-      attendance,
-      evaluationWarningMessage,
-      evaluation,
-    );
+    return this.readService.getCurrentAttendanceStatus(userId, options);
   }
   async getAttendanceConfig(userId: string) {
-    const user = await this.userRepo.findWithSitesById(userId);
-    if (!user) {
-      throw new Error("USER_NOT_FOUND");
-    }
-    return {
-      site: user.sites,
-    };
+    return this.readService.getAttendanceConfig(userId);
   }
   async getAttendanceAnalytics(userId: string, days: number = 30) {
-    return getAttendanceAnalytics({
-      userId,
-      days,
-      attendanceRepo: this.attendanceRepo,
-      userRepo: this.userRepo,
-    });
+    return this.readService.getAttendanceAnalytics(userId, days);
   }
 }

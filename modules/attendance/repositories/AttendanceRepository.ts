@@ -1,11 +1,11 @@
-import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type { AttendanceStatus } from "@prisma/client";
-import { randomUUID } from "crypto";
-import { HolidayRepository } from "./HolidayRepository";
-import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
+import { getInactiveSessionStatuses } from "./attendance-repository-helpers";
+import { AttendanceCorrectionRepository } from "./AttendanceCorrectionRepository";
+import { AttendanceEvaluationRepository } from "./AttendanceEvaluationRepository";
+import { AttendanceReportRepository } from "./AttendanceReportRepository";
 
 export type AttendanceCorrectionSource = Prisma.AttendanceGetPayload<{
   include: {
@@ -14,19 +14,6 @@ export type AttendanceCorrectionSource = Prisma.AttendanceGetPayload<{
     };
   };
 }>;
-
-function buildActiveAttendanceWhere(
-  where: Prisma.AttendanceWhereInput,
-): Prisma.AttendanceWhereInput {
-  return {
-    ...where,
-    correctedAt: null,
-  };
-}
-
-function appendActiveAttendanceRawFilter(query: Prisma.Sql): Prisma.Sql {
-  return Prisma.sql`${query} AND a."correctedAt" IS NULL`;
-}
 
 export class AttendanceRepository implements IAttendanceRepository {
   async findUnique<T extends Prisma.AttendanceFindUniqueArgs>(
@@ -85,91 +72,20 @@ export class AttendanceRepository implements IAttendanceRepository {
     });
   }
 
+  private readonly reportRepository = new AttendanceReportRepository();
+
   async getStatsByDateRange(
     startDate: Date,
     endDate: Date,
     siteId?: string,
     departmentId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-
-      if (userIds.length === 0) {
-        return {
-          total: 0,
-          avgDurationMinutes: 0,
-          statusCounts: {},
-        };
-      }
-    }
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      ...(userIds !== undefined && { userId: { in: userIds } }),
-    });
-
-    const statusCounts = await prisma.attendance.groupBy({
-      by: ["status"],
-      where,
-      _count: { _all: true },
-    });
-
-    const total = await prisma.attendance.count({ where });
-
-    const { tenantId: contextTenantId, isSuperAdmin } =
-      await getTenantIdFromContext();
-    const effectiveTenantId =
-      !isSuperAdmin && !contextTenantId
-        ? "___MISSING_TENANT_ID___"
-        : contextTenantId;
-
-    let query = Prisma.sql`
-            SELECT
-                AVG(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "avgDuration"
-            FROM "Attendance" a
-            WHERE a."checkIn" >= ${startDate}
-            AND a."checkIn" <= ${endDate}
-            AND a."checkOut" IS NOT NULL
-        `;
-
-    if (effectiveTenantId) {
-      query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;
-    }
-
-    query = appendActiveAttendanceRawFilter(query);
-
-    if (userIds !== undefined) {
-      query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`;
-    }
-
-    const avgResult = await prisma.$queryRaw<{ avgDuration: number }[]>(query);
-
-    const avgDurationMinutes = avgResult[0]?.avgDuration
-      ? Math.round(avgResult[0].avgDuration)
-      : 0;
-
-    return {
-      total,
-      avgDurationMinutes,
-      statusCounts: statusCounts.reduce(
-        (
-          acc: Record<string, number>,
-          curr: { status: string; _count: { _all: number } },
-        ) => {
-          acc[curr.status] = curr._count._all;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
-    };
+    return this.reportRepository.getStatsByDateRange(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    );
   }
 
   async getEvaluationStatsByDateRange(
@@ -178,62 +94,12 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-
-      if (userIds.length === 0) {
-        return {
-          total: 0,
-          avgDurationMinutes: 0,
-          statusCounts: {},
-        };
-      }
-    }
-
-    const where = {
-      workDate: { gte: startDate, lte: endDate },
-      ...(userIds !== undefined ? { userId: { in: userIds } } : {}),
-    };
-
-    const [statusCounts, total, avgWorkMinutes] = await Promise.all([
-      prisma.attendanceEvaluation.groupBy({
-        by: ["finalStatus"],
-        where,
-        _count: { _all: true },
-      }),
-      prisma.attendanceEvaluation.count({ where }),
-      prisma.attendanceEvaluation.aggregate({
-        where,
-        _avg: { workMinutes: true },
-      }),
-    ]);
-
-    return {
-      total,
-      avgDurationMinutes: avgWorkMinutes._avg.workMinutes
-        ? Math.round(avgWorkMinutes._avg.workMinutes)
-        : 0,
-      statusCounts: statusCounts.reduce(
-        (
-          acc: Record<string, number>,
-          curr: { finalStatus: string | null; _count: { _all: number } },
-        ) => {
-          if (curr.finalStatus) {
-            acc[curr.finalStatus] = curr._count._all;
-          }
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
-    };
+    return this.reportRepository.getEvaluationStatsByDateRange(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    );
   }
 
   async getDailyStats(
@@ -243,142 +109,13 @@ export class AttendanceRepository implements IAttendanceRepository {
     departmentId?: string,
     tenantId?: string,
   ) {
-    const { tenantId: contextTenantId, isSuperAdmin } =
-      await getTenantIdFromContext();
-    const effectiveTenantId =
-      tenantId ??
-      (!isSuperAdmin && !contextTenantId
-        ? "___MISSING_TENANT_ID___"
-        : contextTenantId);
-
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-
-      if (userIds.length === 0) {
-        return [];
-      }
-    }
-
-    let query = Prisma.sql`
-            SELECT
-                TO_CHAR(a."checkIn", 'YYYY-MM-DD') as date,
-                COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
-                COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late
-            FROM "Attendance" a
-            WHERE a."checkIn" >= ${startDate}
-            AND a."checkIn" <= ${endDate}
-        `;
-
-    if (effectiveTenantId) {
-      query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;
-    }
-
-    query = appendActiveAttendanceRawFilter(query);
-
-    if (userIds !== undefined) {
-      query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`;
-    }
-
-    query = Prisma.sql`${query} GROUP BY TO_CHAR(a."checkIn", 'YYYY-MM-DD')`;
-
-    const attendanceStats =
-      await prisma.$queryRaw<{ date: string; present: number; late: number }[]>(
-        query,
-      );
-
-    const holidayRepo = new HolidayRepository();
-    const holidays = await holidayRepo.findMany(effectiveTenantId, {
-      where: { date: { gte: startDate, lte: endDate } },
-    });
-    const holidaySet = new Set<string>(
-      holidays.map((h: { date: Date }) => h.date.toISOString().split("T")[0]),
+    return this.reportRepository.getDailyStats(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+      tenantId,
     );
-
-    const leaveWhere: Prisma.LeaveRequestWhereInput = {
-      status: "APPROVED",
-      startDate: { lte: endDate },
-      endDate: { gte: startDate },
-      ...(userIds !== undefined && { userId: { in: userIds } }),
-    };
-
-    const leaves = await prisma.leaveRequest.findMany({
-      where: leaveWhere,
-      select: { startDate: true, endDate: true, type: true },
-    });
-
-    const dailyMap = new Map<
-      string,
-      {
-        present: number;
-        late: number;
-        absent: number;
-        isHoliday: boolean;
-        sakit: number;
-        cuti: number;
-        izin: number;
-      }
-    >();
-
-    const ensureDate = (dateKey: string) => {
-      if (!dailyMap.has(dateKey)) {
-        dailyMap.set(dateKey, {
-          present: 0,
-          late: 0,
-          absent: 0,
-          isHoliday: holidaySet.has(dateKey),
-          sakit: 0,
-          cuti: 0,
-          izin: 0,
-        });
-      }
-      return dailyMap.get(dateKey)!;
-    };
-
-    attendanceStats.forEach(
-      (stat: { date: string; present: number; late: number }) => {
-        const d = ensureDate(stat.date);
-        d.present = stat.present;
-        d.late = stat.late;
-      },
-    );
-
-    holidaySet.forEach((date: string) => {
-      if (date) ensureDate(date);
-    });
-
-    leaves.forEach(
-      (leave: { startDate: Date; endDate: Date; type: string }) => {
-        const current = new Date(leave.startDate);
-        const end = new Date(leave.endDate);
-        while (current <= end) {
-          if (current >= startDate && current <= endDate) {
-            const dateKey = current.toISOString().split("T")[0] ?? "";
-            if (dateKey) {
-              const stats = ensureDate(dateKey);
-              if (leave.type === "SAKIT") stats.sakit++;
-              else if (leave.type === "CUTI") stats.cuti++;
-              else if (leave.type === "IZIN") stats.izin++;
-            }
-          }
-          current.setDate(current.getDate() + 1);
-        }
-      },
-    );
-
-    return Array.from(dailyMap.entries())
-      .map(([date, stats]) => ({
-        date,
-        ...stats,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   async getGroupedStats(
@@ -387,79 +124,12 @@ export class AttendanceRepository implements IAttendanceRepository {
     groupBy: "department" | "site",
     tenantId?: string,
   ) {
-    const { tenantId: contextTenantId, isSuperAdmin } =
-      await getTenantIdFromContext();
-    const effectiveTenantId =
-      tenantId ??
-      (!isSuperAdmin && !contextTenantId
-        ? "___MISSING_TENANT_ID___"
-        : contextTenantId);
-
-    let query = Prisma.sql`
-            SELECT
-                a."userId",
-                COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
-                COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late,
-                COUNT(*)::int as total
-            FROM "Attendance" a
-            WHERE a."checkIn" >= ${startDate}
-            AND a."checkIn" <= ${endDate}
-            ${!isSuperAdmin ? Prisma.sql`AND a."tenantId" = ${effectiveTenantId}` : Prisma.empty}
-        `;
-
-    query = appendActiveAttendanceRawFilter(query);
-    query = Prisma.sql`${query} GROUP BY a."userId"`;
-
-    const userStats =
-      await prisma.$queryRaw<
-        { userId: string; present: number; late: number; total: number }[]
-      >(query);
-
-    if (userStats.length === 0) return [];
-
-    const users = await prisma.user.findMany({
-      where: { id: { in: userStats.map((s) => s.userId) } },
-      select: {
-        id: true,
-        siteId: true,
-        departmentId: true,
-        sites: { select: { name: true } },
-        departments: { select: { name: true } },
-      },
-    });
-
-    const groupMap = new Map<
-      string,
-      { id: string; name: string; present: number; late: number; total: number }
-    >();
-
-    userStats.forEach((stat) => {
-      const user = users.find((u) => u.id === stat.userId);
-      if (!user) return;
-
-      const groupId = groupBy === "site" ? user.siteId : user.departmentId;
-      const groupName =
-        groupBy === "site" ? user.sites?.name : user.departments?.name;
-
-      if (!groupId) return;
-
-      if (!groupMap.has(groupId)) {
-        groupMap.set(groupId, {
-          id: groupId,
-          name: groupName || "Unknown",
-          present: 0,
-          late: 0,
-          total: 0,
-        });
-      }
-
-      const g = groupMap.get(groupId)!;
-      g.present += stat.present;
-      g.late += stat.late;
-      g.total += stat.total;
-    });
-
-    return Array.from(groupMap.values());
+    return this.reportRepository.getGroupedStats(
+      startDate,
+      endDate,
+      groupBy,
+      tenantId,
+    );
   }
 
   async getTopEmployees(
@@ -469,56 +139,13 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-      if (userIds.length === 0) return [];
-    }
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      status: { in: ["ON_TIME", "LATE"] },
-      ...(userIds !== undefined && { userId: { in: userIds } }),
-    });
-
-    const groups = await prisma.attendance.groupBy({
-      by: ["userId"],
-      where,
-      _count: { _all: true },
-    });
-
-    groups.sort((a, b) => b._count._all - a._count._all);
-    const topIds = groups.slice(0, limit);
-
-    if (topIds.length === 0) return [];
-
-    const users = await prisma.user.findMany({
-      where: { id: { in: topIds.map((g) => g.userId) } },
-      select: {
-        id: true,
-        name: true,
-        image: true,
-        sites: { select: { name: true } },
-        departments: { select: { name: true } },
-      },
-    });
-
-    return topIds
-      .map((g) => {
-        const user = users.find((u) => u.id === g.userId);
-        return {
-          user,
-          count: g._count._all,
-        };
-      })
-      .filter((item) => item.user != null);
+    return this.reportRepository.getTopEmployees(
+      startDate,
+      endDate,
+      limit,
+      siteId,
+      departmentId,
+    );
   }
 
   async getTopAbsentees(
@@ -528,55 +155,13 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    const usersMatch = await prisma.user.findMany({
-      where: {
-        workingHourMode: { not: "FLEXIBLE" },
-        ...(siteId && { siteId }),
-        ...(departmentId && { departmentId }),
-      },
-      select: { id: true },
-    });
-    userIds = usersMatch.map((u) => u.id);
-    if (userIds.length === 0) return [];
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      status: { in: ["ALPHA", "ABSENT"] },
-      userId: { in: userIds },
-    });
-
-    const groups = await prisma.attendance.groupBy({
-      by: ["userId"],
-      where,
-      _count: { _all: true },
-    });
-
-    groups.sort((a, b) => b._count._all - a._count._all);
-    const topIds = groups.slice(0, limit);
-
-    if (topIds.length === 0) return [];
-
-    const users = await prisma.user.findMany({
-      where: { id: { in: topIds.map((g) => g.userId) } },
-      select: {
-        id: true,
-        name: true,
-        image: true,
-        sites: { select: { name: true } },
-        departments: { select: { name: true } },
-      },
-    });
-
-    return topIds
-      .map((g) => {
-        const user = users.find((u) => u.id === g.userId);
-        return {
-          user,
-          count: g._count._all,
-        };
-      })
-      .filter((item) => item.user != null);
+    return this.reportRepository.getTopAbsentees(
+      startDate,
+      endDate,
+      limit,
+      siteId,
+      departmentId,
+    );
   }
 
   async getUserAttendanceStats(
@@ -586,31 +171,13 @@ export class AttendanceRepository implements IAttendanceRepository {
     departmentId?: string,
     tenantId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-      if (userIds.length === 0) return [];
-    }
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      status: { in: ["ON_TIME", "LATE"] },
-      ...(userIds !== undefined && { userId: { in: userIds } }),
-      ...(tenantId ? { tenantId } : {}),
-    });
-
-    return prisma.attendance.groupBy({
-      by: ["userId"],
-      where,
-      _count: { _all: true },
-    });
+    return this.reportRepository.getUserAttendanceStats(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+      tenantId,
+    );
   }
 
   async getUserAbsenceStats(
@@ -619,28 +186,12 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    const usersMatch = await prisma.user.findMany({
-      where: {
-        workingHourMode: { not: "FLEXIBLE" },
-        ...(siteId && { siteId }),
-        ...(departmentId && { departmentId }),
-      },
-      select: { id: true },
-    });
-    const userIds = usersMatch.map((u) => u.id);
-    if (userIds.length === 0) return [];
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      status: { in: ["ALPHA", "ABSENT"] },
-      userId: { in: userIds },
-    });
-
-    return prisma.attendance.groupBy({
-      by: ["userId"],
-      where,
-      _count: { _all: true },
-    });
+    return this.reportRepository.getUserAbsenceStats(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    );
   }
 
   async getUserAttendanceRecords(
@@ -649,33 +200,12 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-      if (userIds.length === 0) return [];
-    }
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      status: { in: ["ON_TIME", "LATE"] },
-      ...(userIds !== undefined && { userId: { in: userIds } }),
-    });
-
-    return prisma.attendance.findMany({
-      where,
-      select: {
-        userId: true,
-        notes: true,
-        status: true,
-      },
-    });
+    return this.reportRepository.getUserAttendanceRecords(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    );
   }
 
   async getUserTotalDuration(
@@ -684,58 +214,12 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    const { tenantId: contextTenantId, isSuperAdmin } =
-      await getTenantIdFromContext();
-    const effectiveTenantId =
-      !isSuperAdmin && !contextTenantId
-        ? "___MISSING_TENANT_ID___"
-        : contextTenantId;
-
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-      if (userIds.length === 0) return new Map<string, number>();
-    }
-
-    let query = Prisma.sql`
-            SELECT
-                a."userId",
-                SUM(EXTRACT(EPOCH FROM (a."checkOut" - a."checkIn")) / 60)::float as "totalMinutes"
-            FROM "Attendance" a
-            WHERE a."checkIn" >= ${startDate}
-            AND a."checkIn" <= ${endDate}
-            AND a."checkOut" IS NOT NULL
-            AND a.status IN ('ON_TIME', 'LATE')
-        `;
-
-    if (effectiveTenantId) {
-      query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;
-    }
-
-    query = appendActiveAttendanceRawFilter(query);
-
-    if (userIds !== undefined) {
-      query = Prisma.sql`${query} AND a."userId" IN (${Prisma.join(userIds)})`;
-    }
-
-    query = Prisma.sql`${query} GROUP BY a."userId"`;
-
-    const results =
-      await prisma.$queryRaw<{ userId: string; totalMinutes: number }[]>(query);
-
-    const userDurationMap = new Map<string, number>();
-    results.forEach((r: { userId: string; totalMinutes: number }) => {
-      userDurationMap.set(r.userId, r.totalMinutes || 0);
-    });
-
-    return userDurationMap;
+    return this.reportRepository.getUserTotalDuration(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    );
   }
 
   async getUserLateStats(
@@ -744,30 +228,12 @@ export class AttendanceRepository implements IAttendanceRepository {
     siteId?: string,
     departmentId?: string,
   ) {
-    let userIds: string[] | undefined = undefined;
-    if (siteId || departmentId) {
-      const users = await prisma.user.findMany({
-        where: {
-          ...(siteId && { siteId }),
-          ...(departmentId && { departmentId }),
-        },
-        select: { id: true },
-      });
-      userIds = users.map((u) => u.id);
-      if (userIds.length === 0) return [];
-    }
-
-    const where = buildActiveAttendanceWhere({
-      checkIn: { gte: startDate, lte: endDate },
-      status: "LATE",
-      ...(userIds !== undefined && { userId: { in: userIds } }),
-    });
-
-    return prisma.attendance.groupBy({
-      by: ["userId"],
-      where,
-      _count: { _all: true },
-    });
+    return this.reportRepository.getUserLateStats(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    );
   }
 
   async findAllOpenSessionsWithUser(
@@ -783,7 +249,7 @@ export class AttendanceRepository implements IAttendanceRepository {
         },
         ...(tenantId ? { tenantId } : {}),
         status: {
-          notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"],
+          notIn: [...getInactiveSessionStatuses()],
         },
         OR: [
           {
@@ -843,25 +309,16 @@ export class AttendanceRepository implements IAttendanceRepository {
     });
   }
 
+  private readonly correctionRepository = new AttendanceCorrectionRepository();
+
   async findCorrectionSourceById(
     id: string,
   ): Promise<AttendanceCorrectionSource | null> {
-    return prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        user: {
-          include: {
-            shift: true,
-          },
-        },
-      },
-    });
+    return this.correctionRepository.findCorrectionSourceById(id);
   }
 
   async createCorrectedAttendance(data: Prisma.AttendanceUncheckedCreateInput) {
-    return prisma.attendance.create({
-      data,
-    });
+    return this.correctionRepository.createCorrectedAttendance(data);
   }
 
   async markAttendanceAsCorrected(input: {
@@ -872,19 +329,7 @@ export class AttendanceRepository implements IAttendanceRepository {
     correctionEvidencePhotoUrl: string;
     replacementAttendanceId: string;
   }) {
-    return prisma.attendance.update({
-      where: {
-        id: input.sourceAttendanceId,
-      },
-      data: {
-        correctedAt: new Date(),
-        correctedById: input.correctedById,
-        correctionReason: input.correctionReason,
-        correctionNotes: input.correctionNotes,
-        correctionEvidencePhotoUrl: input.correctionEvidencePhotoUrl,
-        correctionReplacementAttendanceId: input.replacementAttendanceId,
-      },
-    });
+    return this.correctionRepository.markAttendanceAsCorrected(input);
   }
 
   async applyMissedCheckInCorrection(input: {
@@ -902,64 +347,7 @@ export class AttendanceRepository implements IAttendanceRepository {
       >;
     };
   }) {
-    return prisma.$transaction(async (tx) => {
-      const createdAttendance = await tx.attendance.create({
-        data: {
-          ...input.createData,
-          id: input.createData.id || randomUUID(),
-        },
-      });
-
-      const updateResult = await tx.attendance.updateMany({
-        where: {
-          id: input.sourceAttendanceId,
-          correctedAt: null,
-          status: { in: ["ABSENT", "ALPHA"] },
-        },
-        data: {
-          correctedAt: new Date(),
-          correctedById: input.correctedById,
-          correctionReason: input.correctionReason,
-          correctionNotes: input.correctionNotes,
-          correctionEvidencePhotoUrl: input.correctionEvidencePhotoUrl,
-          correctionReplacementAttendanceId: createdAttendance.id,
-        },
-      });
-
-      if (updateResult.count !== 1) {
-        throw new AppError(
-          "Record mangkir ini sudah pernah dikoreksi",
-          409,
-          "CONFLICT",
-        );
-      }
-
-      if (input.evaluationChange) {
-        const evaluation = await tx.attendanceEvaluation.upsert({
-          where: {
-            tenantId_userId_workDate: {
-              tenantId: input.evaluationChange.evaluation.tenantId,
-              userId: input.evaluationChange.evaluation.userId,
-              workDate: input.evaluationChange.evaluation.workDate,
-            },
-          },
-          create: input.evaluationChange.evaluation,
-          update: input.evaluationChange.evaluation,
-        });
-
-        await tx.attendanceEvaluationAudit.create({
-          data: {
-            ...input.evaluationChange.audit,
-            evaluationId: evaluation.id,
-          },
-        });
-      }
-
-      return {
-        id: createdAttendance.id,
-        status: createdAttendance.status,
-      };
-    });
+    return this.correctionRepository.applyMissedCheckInCorrection(input);
   }
 
   async updateOpenSessionForAutoCheckout(params: {
@@ -1212,19 +600,14 @@ export class AttendanceRepository implements IAttendanceRepository {
     });
   }
 
+  private readonly evaluationRepository = new AttendanceEvaluationRepository();
+
   async findLatestEvaluationForUser(params: {
     userId: string;
     tenantId?: string;
     workDate?: Date;
   }) {
-    return prisma.attendanceEvaluation.findFirst({
-      where: {
-        userId: params.userId,
-        ...(params.tenantId ? { tenantId: params.tenantId } : {}),
-        ...(params.workDate ? { workDate: params.workDate } : {}),
-      },
-      orderBy: { evaluatedAt: "desc" },
-    });
+    return this.evaluationRepository.findLatestEvaluationForUser(params);
   }
 
   async findManyEvaluationLookups(params: {
@@ -1232,30 +615,7 @@ export class AttendanceRepository implements IAttendanceRepository {
     userIds: string[];
     workDates: Date[];
   }) {
-    if (params.userIds.length === 0 || params.workDates.length === 0) {
-      return [];
-    }
-
-    return prisma.attendanceEvaluation.findMany({
-      where: {
-        tenantId: params.tenantId,
-        userId: { in: params.userIds },
-        workDate: { in: params.workDates },
-      },
-      select: {
-        tenantId: true,
-        userId: true,
-        workDate: true,
-        finalStatus: true,
-        reviewState: true,
-        leaveState: true,
-        holidayState: true,
-        payrollHoldState: true,
-        evidenceQuality: true,
-        reasonCodes: true,
-        anomalyCodes: true,
-      },
-    });
+    return this.evaluationRepository.findManyEvaluationLookups(params);
   }
 
   async findManyPayrollEvaluationsByUserAndDateRange(params: {
@@ -1264,22 +624,9 @@ export class AttendanceRepository implements IAttendanceRepository {
     endDate: Date;
     tenantId?: string;
   }) {
-    return prisma.attendanceEvaluation.findMany({
-      where: {
-        userId: params.userId,
-        workDate: { gte: params.startDate, lte: params.endDate },
-        ...(params.tenantId ? { tenantId: params.tenantId } : {}),
-      },
-      orderBy: { workDate: "asc" },
-      select: {
-        workDate: true,
-        finalStatus: true,
-        holidayState: true,
-        overtimeMinutesApproved: true,
-        overtimeMinutesHeld: true,
-        payrollHoldState: true,
-      },
-    });
+    return this.evaluationRepository.findManyPayrollEvaluationsByUserAndDateRange(
+      params,
+    );
   }
 
   async findManyForHistory(params: {
@@ -1311,23 +658,13 @@ export class AttendanceRepository implements IAttendanceRepository {
   async upsertAttendanceEvaluation(
     data: Prisma.AttendanceEvaluationUncheckedCreateInput,
   ) {
-    return prisma.attendanceEvaluation.upsert({
-      where: {
-        tenantId_userId_workDate: {
-          tenantId: data.tenantId,
-          userId: data.userId,
-          workDate: data.workDate,
-        },
-      },
-      create: data,
-      update: data,
-    });
+    return this.evaluationRepository.upsertAttendanceEvaluation(data);
   }
 
   async createAttendanceEvaluationAudit(
     data: Prisma.AttendanceEvaluationAuditUncheckedCreateInput,
   ) {
-    return prisma.attendanceEvaluationAudit.create({ data });
+    return this.evaluationRepository.createAttendanceEvaluationAudit(data);
   }
 
   async recordEvaluationChange(data: {
@@ -1337,28 +674,7 @@ export class AttendanceRepository implements IAttendanceRepository {
       "evaluationId"
     >;
   }) {
-    return prisma.$transaction(async (tx) => {
-      const evaluation = await tx.attendanceEvaluation.upsert({
-        where: {
-          tenantId_userId_workDate: {
-            tenantId: data.evaluation.tenantId,
-            userId: data.evaluation.userId,
-            workDate: data.evaluation.workDate,
-          },
-        },
-        create: data.evaluation,
-        update: data.evaluation,
-      });
-
-      await tx.attendanceEvaluationAudit.create({
-        data: {
-          ...data.audit,
-          evaluationId: evaluation.id,
-        },
-      });
-
-      return evaluation;
-    });
+    return this.evaluationRepository.recordEvaluationChange(data);
   }
 
   async findManyForAnalytics(params: {

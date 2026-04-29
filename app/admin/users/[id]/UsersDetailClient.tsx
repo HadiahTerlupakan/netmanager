@@ -1,5 +1,4 @@
 "use client";
-import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,6 +31,11 @@ import UserPerformanceStats from "./UserPerformanceStats";
 import SalesPerformanceStats from "./SalesPerformanceStats";
 import MultiSiteSelect from "../components/MultiSiteSelect";
 import { usePermission } from "@/hooks/use-permission";
+import {
+  getSelectedSitesFromUser,
+  getSitesFromUser,
+  mergeSites,
+} from "./user-detail-helpers";
 
 interface SelectedSite {
   siteId: string;
@@ -101,35 +105,6 @@ interface UserData {
   isAttendanceRequired?: boolean;
   tenantId?: string | null;
   tenant?: { id: string; name: string } | null;
-}
-
-function getSelectedSitesFromUser(user: UserData): SelectedSite[] {
-  if (user.userSites?.length) {
-    return user.userSites
-      .map((userSite) => ({
-        siteId: userSite.siteId || userSite.site?.id || "",
-        isPrimary: userSite.isPrimary ?? false,
-      }))
-      .filter((site): site is SelectedSite => Boolean(site.siteId));
-  }
-
-  return user.siteId ? [{ siteId: user.siteId, isPrimary: true }] : [];
-}
-
-function getSitesFromUser(user: UserData): Site[] {
-  const relationSites =
-    user.userSites
-      ?.map((userSite) => userSite.site)
-      .filter((site): site is Site => Boolean(site?.id)) ?? [];
-
-  if (relationSites.length > 0) return relationSites;
-  return user.siteId && user.site ? [{ id: user.siteId, ...user.site }] : [];
-}
-
-function mergeSites(currentSites: Site[], nextSites: Site[]): Site[] {
-  const siteMap = new Map(currentSites.map((site) => [site.id, site]));
-  nextSites.forEach((site) => siteMap.set(site.id, site));
-  return Array.from(siteMap.values());
 }
 
 export function ClientComponent({
@@ -303,7 +278,7 @@ export function ClientComponent({
         );
       }
     } catch (error: unknown) {
-      clientLogger.error("Error fetching user:", error);
+      console.error("Error fetching user:", error);
       const message =
         error instanceof Error ? error.message : "Terjadi kesalahan";
       toast.error("Gagal memuat data user: " + message);
@@ -322,7 +297,7 @@ export function ClientComponent({
         setDepartments(Array.isArray(depts) ? depts : []);
       }
     } catch (error) {
-      clientLogger.error("Error fetching departments:", error);
+      console.error("Error fetching departments:", error);
     }
   }, []);
 
@@ -336,7 +311,7 @@ export function ClientComponent({
         setRoles(result.roles || result || []);
       }
     } catch (error) {
-      clientLogger.error("Error fetching roles:", error);
+      console.error("Error fetching roles:", error);
     }
   }, []);
 
@@ -351,7 +326,7 @@ export function ClientComponent({
         setSites((currentSites) => mergeSites(currentSites, availableSites));
       }
     } catch (error) {
-      clientLogger.error("Error fetching sites:", error);
+      console.error("Error fetching sites:", error);
     }
   }, []);
 
@@ -363,7 +338,7 @@ export function ClientComponent({
         setTenants(data.data || []);
       }
     } catch (error) {
-      clientLogger.error("Error fetching tenants:", error);
+      console.error("Error fetching tenants:", error);
     }
   }, []);
 
@@ -532,7 +507,7 @@ export function ClientComponent({
             }),
           });
         } catch (error) {
-          clientLogger.error("Failed to save leave quotas:", error);
+          console.error("Failed to save leave quotas:", error);
           // Don't fail the whole save just because quotas failed
         }
       }
@@ -542,7 +517,7 @@ export function ClientComponent({
         router.push("/admin/users");
       }, 2000);
     } catch (error: unknown) {
-      clientLogger.error("Error in handleSubmit:", error);
+      console.error("Error in handleSubmit:", error);
       setErrors({
         submit:
           error instanceof Error ? error.message : "Gagal memperbarui pengguna",

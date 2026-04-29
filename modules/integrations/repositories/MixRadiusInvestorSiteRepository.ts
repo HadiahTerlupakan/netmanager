@@ -1,6 +1,7 @@
 import { prismaBilling } from "@/modules/database";
+import type { IMixRadiusInvestorSiteRepository } from "../domain/ports/IMixRadiusInvestorSiteRepository";
 
-export class MixRadiusInvestorSiteRepository {
+export class MixRadiusInvestorSiteRepository implements IMixRadiusInvestorSiteRepository {
   /** Get many investor sites by optional tenant scope. */
   async findMany(tenantId?: string) {
     return prismaBilling.mixRadiusInvestorSite.findMany({

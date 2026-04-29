@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/lib/utils";
-import { Modal, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { Modal } from "@/components/ui/Modal";
 import {
   HiOutlineDocumentText,
   HiOutlineCube,
@@ -20,20 +20,21 @@ import { useSession } from "next-auth/react";
 import { calculateRabUnitCosts } from "@/modules/finance/client";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
-import {
-  formatRabGrowthTypeLabel,
-  formatRabProfitShareDescription,
-} from "./rab-formatters";
 import type { RABProject } from "./rabTypes";
 import RABRevisionSummaryCards from "./RABRevisionSummaryCards";
 import RABRevisionTimeline from "./RABRevisionTimeline";
 import RABTrackingSection from "./RABTrackingSection";
 import RABVarianceTable from "./RABVarianceTable";
+import RABItemsTable from "./RABItemsTable";
+import RABRejectRevisionModal from "./RABRejectRevisionModal";
+import { getProfitShareDescription, getStatusBadge } from "./rabView.helpers";
 
 import type {
   RABRevisionProfitLossSummary,
   RABRevisionRecord,
 } from "./rabRevisionTypes";
+
+const REQUIRED_APPROVALS = 2;
 
 interface RABViewProps {
   isOpen: boolean;
@@ -198,11 +199,10 @@ export default function RABView({
 
   if (!data) return null;
 
-  const requiredApprovals = 2;
   const approvalCount = data.approvals?.length ?? 0;
   const canManage =
     (currentUser as any)?.isSuperAdmin || (currentUser as any)?.canApproveRab;
-  const hasReachedApprovalTarget = approvalCount >= requiredApprovals;
+  const hasReachedApprovalTarget = approvalCount >= REQUIRED_APPROVALS;
 
   const capexItems = data.items.filter(
     (i) => !i.expenseType || i.expenseType === "CAPEX",
@@ -225,6 +225,19 @@ export default function RABView({
   const projectedRevenue = Number(data.projectedRevenue || 0);
   const { bepMonth, simpleBep, monthsToFullCapacity, roiPerYear } =
     calculateRealisticBEP(data);
+
+  const getGrowthTypeLabel = (type?: string) => {
+    switch (type) {
+      case "LINEAR":
+        return "Linear";
+      case "PERCENTAGE":
+        return "Persentase";
+      case "CUSTOM":
+        return "Kustom";
+      default:
+        return "-";
+    }
+  };
 
   const startYear = data.startDate
     ? new Date(data.startDate).getFullYear()
@@ -345,31 +358,6 @@ export default function RABView({
       toast.error("Gagal menghubungi server");
     } finally {
       setIsSendingReminder(false);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "DRAFT":
-        return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
-      case "PENDING_APPROVAL":
-        return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-      case "APPROVED":
-        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
-      case "REJECTED":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      case "PENGADAAN":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "PENGGELARAN_JARINGAN":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-      case "PENJUALAN":
-        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400";
-      case "TARGET_TERCAPAI":
-        return "bg-emerald-500 text-white font-bold";
-      case "SELESAI":
-        return "bg-gray-800 text-white dark:bg-white dark:text-gray-900 font-bold";
-      default:
-        return "bg-gray-100 text-gray-600";
     }
   };
 
@@ -594,7 +582,7 @@ export default function RABView({
                         Porsi Investor / Perusahaan
                       </p>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {formatRabProfitShareDescription(data)}
+                        {getProfitShareDescription(data)}
                       </p>
                     </div>
                   </div>
@@ -753,7 +741,7 @@ export default function RABView({
                   <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
                     <span className="text-gray-500">Tipe Pertumbuhan</span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatRabGrowthTypeLabel(data.growthType)}
+                      {getGrowthTypeLabel(data.growthType)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 pb-2">
@@ -981,511 +969,18 @@ export default function RABView({
           />
 
           {/* Items Lists */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between">
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                  <HiOutlineCube className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/30">
+                  <HiOutlineCube className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white">
                   Item & Biaya
                 </h3>
               </div>
             </div>
-
-            <div className="p-0">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-800/50">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Tipe
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Nama Item
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Kategori
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Qty
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Harga Satuan
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {data.items.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={6}
-                          className="px-6 py-8 text-center text-sm text-gray-500"
-                        >
-                          Tidak ada item pada RAB ini.
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        {(() => {
-                          const hasWbs =
-                            data.wbsGroups && data.wbsGroups.length > 0;
-                          if (!hasWbs) {
-                            return data.items.map((item) => (
-                              <React.Fragment key={item.id}>
-                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                  <td className="px-6 py-3 whitespace-nowrap text-sm">
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                        !item.expenseType ||
-                                        item.expenseType === "CAPEX"
-                                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                                          : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                                      }`}
-                                    >
-                                      {item.expenseType || "CAPEX"}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-3 text-sm text-gray-900 dark:text-white font-medium">
-                                    {item.name}
-                                  </td>
-                                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                    {(() => {
-                                      const cat = (item as any).expenseCategory;
-                                      if (!cat) return item.category || "-";
-                                      return cat.parent
-                                        ? `${cat.parent.name} - ${cat.name}`
-                                        : cat.name;
-                                    })()}
-                                  </td>
-                                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right font-medium">
-                                    {item.quantity}
-                                  </td>
-                                  <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                                    {formatCurrency(Number(item.unitPrice))}
-                                  </td>
-                                  <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">
-                                    {formatCurrency(Number(item.totalPrice))}
-                                  </td>
-                                </tr>
-                                {item.disbursements &&
-                                  item.disbursements.length > 0 && (
-                                    <tr className="bg-indigo-50/30 dark:bg-indigo-900/10">
-                                      <td colSpan={6} className="px-6 py-3">
-                                        <div className="pl-6 border-l-2 border-indigo-300 dark:border-indigo-700">
-                                          <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">
-                                            Termin Pencairan Vendor
-                                          </p>
-                                          <div className="overflow-x-auto">
-                                            <table className="min-w-full divide-y divide-indigo-100 dark:divide-indigo-900/30">
-                                              <thead>
-                                                <tr>
-                                                  <th className="py-2 text-left text-[9px] font-bold text-indigo-400 uppercase">
-                                                    Keterangan
-                                                  </th>
-                                                  <th className="py-2 text-left text-[9px] font-bold text-indigo-400 uppercase">
-                                                    Est. Tanggal
-                                                  </th>
-                                                  <th className="py-2 text-right text-[9px] font-bold text-indigo-400 uppercase">
-                                                    Persentase
-                                                  </th>
-                                                  <th className="py-2 text-right text-[9px] font-bold text-indigo-400 uppercase">
-                                                    Nominal
-                                                  </th>
-                                                  <th className="py-2 text-center text-[9px] font-bold text-indigo-400 uppercase">
-                                                    Status
-                                                  </th>
-                                                </tr>
-                                              </thead>
-                                              <tbody className="divide-y divide-indigo-50 dark:divide-indigo-900/20">
-                                                {item.disbursements.map(
-                                                  (d: any, idx: number) => (
-                                                    <tr key={d.id}>
-                                                      <td className="py-1.5 text-xs text-indigo-900 dark:text-indigo-300 font-medium">
-                                                        {d.name ||
-                                                          `Termin ${idx + 1}`}
-                                                      </td>
-                                                      <td className="py-1.5 text-xs text-indigo-500">
-                                                        {d.estimatedDate
-                                                          ? new Date(
-                                                              d.estimatedDate,
-                                                            ).toLocaleDateString(
-                                                              "id-ID",
-                                                            )
-                                                          : "-"}
-                                                      </td>
-                                                      <td className="py-1.5 text-xs text-indigo-900 dark:text-indigo-300 text-right font-bold">
-                                                        {d.percentage}%
-                                                      </td>
-                                                      <td className="py-1.5 text-xs text-indigo-700 dark:text-indigo-400 text-right font-mono font-medium">
-                                                        {formatCurrency(
-                                                          Number(d.amount),
-                                                        )}
-                                                      </td>
-                                                      <td className="py-1.5 text-center">
-                                                        <span
-                                                          className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${d.isPaid ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-500"}`}
-                                                        >
-                                                          {d.isPaid
-                                                            ? "Cair"
-                                                            : "Menunggu"}
-                                                        </span>
-                                                      </td>
-                                                    </tr>
-                                                  ),
-                                                )}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                              </React.Fragment>
-                            ));
-                          }
-
-                          // Grouping by WBS
-                          const groups = [...(data.wbsGroups || [])].sort(
-                            (a, b: any) => a.order - b.order,
-                          );
-                          const ungrouppedItems = data.items.filter(
-                            (i) => !(i as any).wbsId && !i.wbsGroupId,
-                          );
-
-                          return (
-                            <React.Fragment>
-                              {groups.map((wbs) => {
-                                const groupItems = data.items.filter(
-                                  (i) =>
-                                    (i as any).wbsId === wbs.id ||
-                                    i.wbsGroupId === wbs.id,
-                                );
-                                if (groupItems.length === 0) return null;
-
-                                const groupSubtotal = groupItems.reduce(
-                                  (sum, item) => sum + Number(item.totalPrice),
-                                  0,
-                                );
-                                return (
-                                  <React.Fragment key={wbs.id}>
-                                    <tr className="bg-gray-50/80 dark:bg-gray-900/40">
-                                      <td
-                                        colSpan={5}
-                                        className="px-6 py-3 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-wider border-l-4 border-indigo-500"
-                                      >
-                                        {wbs.name}
-                                      </td>
-                                      <td className="px-6 py-3 text-right text-sm font-black text-indigo-700 dark:text-indigo-400">
-                                        {formatCurrency(groupSubtotal)}
-                                      </td>
-                                    </tr>
-                                    {groupItems.map((item) => (
-                                      <React.Fragment key={item.id}>
-                                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                          <td className="px-6 py-2.5 whitespace-nowrap text-sm">
-                                            <span
-                                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                !item.expenseType ||
-                                                item.expenseType === "CAPEX"
-                                                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                                                  : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                                              }`}
-                                            >
-                                              {item.expenseType || "CAPEX"}
-                                            </span>
-                                          </td>
-                                          <td className="px-6 py-2.5 text-sm text-gray-900 dark:text-white font-medium pl-8">
-                                            {item.name}
-                                          </td>
-                                          <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {(() => {
-                                              const cat = (item as any)
-                                                .expenseCategory;
-                                              if (!cat)
-                                                return item.category || "-";
-                                              return cat.parent
-                                                ? `${cat.parent.name} - ${cat.name}`
-                                                : cat.name;
-                                            })()}
-                                          </td>
-                                          <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right font-medium">
-                                            {item.quantity}
-                                          </td>
-                                          <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                                            {formatCurrency(
-                                              Number(item.unitPrice),
-                                            )}
-                                          </td>
-                                          <td className="px-6 py-2.5 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">
-                                            {formatCurrency(
-                                              Number(item.totalPrice),
-                                            )}
-                                          </td>
-                                        </tr>
-                                        {item.disbursements &&
-                                          item.disbursements.length > 0 && (
-                                            <tr className="bg-indigo-50/30 dark:bg-indigo-900/10">
-                                              <td
-                                                colSpan={6}
-                                                className="px-6 py-2"
-                                              >
-                                                <div className="pl-12 border-l-2 border-indigo-300 dark:border-indigo-700">
-                                                  <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">
-                                                    Termin Pencairan Vendor
-                                                  </p>
-                                                  <div className="overflow-x-auto">
-                                                    <table className="min-w-full divide-y divide-indigo-100 dark:divide-indigo-900/30">
-                                                      <thead>
-                                                        <tr>
-                                                          <th className="py-1 text-left text-[9px] font-bold text-indigo-400 uppercase">
-                                                            Keterangan
-                                                          </th>
-                                                          <th className="py-1 text-left text-[9px] font-bold text-indigo-400 uppercase">
-                                                            Est. Tanggal
-                                                          </th>
-                                                          <th className="py-1 text-right text-[9px] font-bold text-indigo-400 uppercase">
-                                                            Persentase
-                                                          </th>
-                                                          <th className="py-1 text-right text-[9px] font-bold text-indigo-400 uppercase">
-                                                            Nominal
-                                                          </th>
-                                                          <th className="py-1 text-center text-[9px] font-bold text-indigo-400 uppercase">
-                                                            Status
-                                                          </th>
-                                                        </tr>
-                                                      </thead>
-                                                      <tbody className="divide-y divide-indigo-50 dark:divide-indigo-900/20">
-                                                        {item.disbursements.map(
-                                                          (
-                                                            d: any,
-                                                            idx: number,
-                                                          ) => (
-                                                            <tr key={d.id}>
-                                                              <td className="py-1 text-[11px] text-indigo-900 dark:text-indigo-300 font-medium">
-                                                                {d.name ||
-                                                                  `Termin ${idx + 1}`}
-                                                              </td>
-                                                              <td className="py-1 text-[11px] text-indigo-500">
-                                                                {d.estimatedDate
-                                                                  ? new Date(
-                                                                      d.estimatedDate,
-                                                                    ).toLocaleDateString(
-                                                                      "id-ID",
-                                                                    )
-                                                                  : "-"}
-                                                              </td>
-                                                              <td className="py-1 text-[11px] text-indigo-900 dark:text-indigo-300 text-right font-bold">
-                                                                {d.percentage}%
-                                                              </td>
-                                                              <td className="py-1 text-[11px] text-indigo-700 dark:text-indigo-400 text-right font-mono font-medium">
-                                                                {formatCurrency(
-                                                                  Number(
-                                                                    d.amount,
-                                                                  ),
-                                                                )}
-                                                              </td>
-                                                              <td className="py-1 text-center">
-                                                                <span
-                                                                  className={`inline-flex px-1 py-0.5 rounded text-[8px] font-bold uppercase ${d.isPaid ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-500"}`}
-                                                                >
-                                                                  {d.isPaid
-                                                                    ? "Cair"
-                                                                    : "Menunggu"}
-                                                                </span>
-                                                              </td>
-                                                            </tr>
-                                                          ),
-                                                        )}
-                                                      </tbody>
-                                                    </table>
-                                                  </div>
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          )}
-                                      </React.Fragment>
-                                    ))}
-                                  </React.Fragment>
-                                );
-                              })}
-                              {ungrouppedItems.length > 0 && (
-                                <React.Fragment>
-                                  <tr className="bg-gray-50/80 dark:bg-gray-900/40">
-                                    <td
-                                      colSpan={5}
-                                      className="px-6 py-3 text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-wider border-l-4 border-gray-400"
-                                    >
-                                      Lain-lain (Belum Digrup)
-                                    </td>
-                                    <td className="px-6 py-3 text-right text-sm font-black text-gray-700 dark:text-gray-400">
-                                      {formatCurrency(
-                                        ungrouppedItems.reduce(
-                                          (sum, item) =>
-                                            sum + Number(item.totalPrice),
-                                          0,
-                                        ),
-                                      )}
-                                    </td>
-                                  </tr>
-                                  {ungrouppedItems.map((item) => (
-                                    <React.Fragment key={item.id}>
-                                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm">
-                                          <span
-                                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                              !item.expenseType ||
-                                              item.expenseType === "CAPEX"
-                                                ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                                                : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-                                            }`}
-                                          >
-                                            {item.expenseType || "CAPEX"}
-                                          </span>
-                                        </td>
-                                        <td className="px-6 py-2.5 text-sm text-gray-900 dark:text-white font-medium pl-8">
-                                          {item.name}
-                                        </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                          {(() => {
-                                            const cat = (item as any)
-                                              .expenseCategory;
-                                            if (!cat)
-                                              return item.category || "-";
-                                            return cat.parent
-                                              ? `${cat.parent.name} - ${cat.name}`
-                                              : cat.name;
-                                          })()}
-                                        </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right font-medium">
-                                          {item.quantity}
-                                        </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-right">
-                                          {formatCurrency(
-                                            Number(item.unitPrice),
-                                          )}
-                                        </td>
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">
-                                          {formatCurrency(
-                                            Number(item.totalPrice),
-                                          )}
-                                        </td>
-                                      </tr>
-                                      {item.disbursements &&
-                                        item.disbursements.length > 0 && (
-                                          <tr className="bg-indigo-50/30 dark:bg-indigo-900/10">
-                                            <td
-                                              colSpan={6}
-                                              className="px-6 py-2"
-                                            >
-                                              <div className="pl-12 border-l-2 border-indigo-300 dark:border-indigo-700">
-                                                <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">
-                                                  Termin Pencairan Vendor
-                                                </p>
-                                                <div className="overflow-x-auto">
-                                                  <table className="min-w-full divide-y divide-indigo-100 dark:divide-indigo-900/30">
-                                                    <thead>
-                                                      <tr>
-                                                        <th className="py-1 text-left text-[9px] font-bold text-indigo-400 uppercase">
-                                                          Keterangan
-                                                        </th>
-                                                        <th className="py-1 text-left text-[9px] font-bold text-indigo-400 uppercase">
-                                                          Est. Tanggal
-                                                        </th>
-                                                        <th className="py-1 text-right text-[9px] font-bold text-indigo-400 uppercase">
-                                                          Persentase
-                                                        </th>
-                                                        <th className="py-1 text-right text-[9px] font-bold text-indigo-400 uppercase">
-                                                          Nominal
-                                                        </th>
-                                                        <th className="py-1 text-center text-[9px] font-bold text-indigo-400 uppercase">
-                                                          Status
-                                                        </th>
-                                                      </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-indigo-50 dark:divide-indigo-900/20">
-                                                      {item.disbursements.map(
-                                                        (
-                                                          d: any,
-                                                          idx: number,
-                                                        ) => (
-                                                          <tr key={d.id}>
-                                                            <td className="py-1 text-[11px] text-indigo-900 dark:text-indigo-300 font-medium">
-                                                              {d.name ||
-                                                                `Termin ${idx + 1}`}
-                                                            </td>
-                                                            <td className="py-1 text-[11px] text-indigo-500">
-                                                              {d.estimatedDate
-                                                                ? new Date(
-                                                                    d.estimatedDate,
-                                                                  ).toLocaleDateString(
-                                                                    "id-ID",
-                                                                  )
-                                                                : "-"}
-                                                            </td>
-                                                            <td className="py-1 text-[11px] text-indigo-900 dark:text-indigo-300 text-right font-bold">
-                                                              {d.percentage}%
-                                                            </td>
-                                                            <td className="py-1 text-[11px] text-indigo-700 dark:text-indigo-400 text-right font-mono font-medium">
-                                                              {formatCurrency(
-                                                                Number(
-                                                                  d.amount,
-                                                                ),
-                                                              )}
-                                                            </td>
-                                                            <td className="py-1 text-center">
-                                                              <span
-                                                                className={`inline-flex px-1 py-0.5 rounded text-[8px] font-bold uppercase ${d.isPaid ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-500"}`}
-                                                              >
-                                                                {d.isPaid
-                                                                  ? "Cair"
-                                                                  : "Menunggu"}
-                                                              </span>
-                                                            </td>
-                                                          </tr>
-                                                        ),
-                                                      )}
-                                                    </tbody>
-                                                  </table>
-                                                </div>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        )}
-                                    </React.Fragment>
-                                  ))}
-                                </React.Fragment>
-                              )}
-                            </React.Fragment>
-                          );
-                        })()}
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <RABItemsTable project={data} />
           </div>
 
           {/* APPROVER LIST SECTION */}
@@ -1536,7 +1031,7 @@ export default function RABView({
                     </span>
                   )}
                   <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">
-                    {approvalCount}/{requiredApprovals} approver
+                    {approvalCount}/{REQUIRED_APPROVALS} approver
                     {hasReachedApprovalTarget
                       ? " terpenuhi"
                       : " sudah menyetujui"}
@@ -1558,63 +1053,19 @@ export default function RABView({
         </div>
       </Modal>
 
-      <Modal
+      <RABRejectRevisionModal
         isOpen={isRejectModalOpen}
+        notes={rejectNotes}
+        rejectingRevision={rejectingRevision}
+        isSubmitting={Boolean(isSubmittingRevisionId)}
+        onChangeNotes={setRejectNotes}
         onClose={() => {
           setIsRejectModalOpen(false);
           setRejectingRevision(null);
           setRejectNotes("");
         }}
-        title="Tolak Revisi"
-        description={
-          rejectingRevision
-            ? `Revisi ${rejectingRevision.revisionNumber}`
-            : undefined
-        }
-        size="lg"
-      >
-        <ModalBody>
-          <div className="space-y-3">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Tambahkan catatan agar pembuat revisi tahu apa yang harus
-              diperbaiki sebelum mengajukan ulang.
-            </p>
-            <textarea
-              value={rejectNotes}
-              onChange={(event) => setRejectNotes(event.target.value)}
-              placeholder="Contoh: harga satuan item backbone belum pakai penawaran vendor terbaru"
-              className="min-h-[120px] w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-            />
-          </div>
-        </ModalBody>
-        <ModalFooter className="justify-between">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Catatan penolakan bersifat opsional, namun disarankan diisi.
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsRejectModalOpen(false);
-                setRejectingRevision(null);
-                setRejectNotes("");
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              disabled={Boolean(isSubmittingRevisionId)}
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmRejectRevision}
-              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/50"
-              disabled={Boolean(isSubmittingRevisionId)}
-            >
-              {isSubmittingRevisionId ? "Memproses..." : "Tolak Revisi"}
-            </button>
-          </div>
-        </ModalFooter>
-      </Modal>
+        onConfirm={handleConfirmRejectRevision}
+      />
     </>
   );
 }

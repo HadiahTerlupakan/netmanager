@@ -1,4 +1,5 @@
 import { prismaBilling } from "@/lib/prisma-billing";
+import type { IMixRadiusOwnerGroupRepository } from "../domain/ports/IMixRadiusOwnerGroupRepository";
 
 export type OwnerNameLookup = {
   full: string;
@@ -8,7 +9,7 @@ export type OwnerNameLookup = {
 /**
  * Repository for MixRadius owner-group persistence queries.
  */
-export class MixRadiusOwnerGroupRepository {
+export class MixRadiusOwnerGroupRepository implements IMixRadiusOwnerGroupRepository {
   /**
    * Get owner groups ordered by name.
    */

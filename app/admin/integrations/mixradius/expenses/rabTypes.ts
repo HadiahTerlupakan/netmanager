@@ -1,4 +1,4 @@
-import type { RabTargetBasis } from "@/modules/finance";
+import type { RabTargetBasis } from "@/modules/finance/client";
 
 import type { RABRevisionVarianceLabel } from "./rabRevisionTypes";
 

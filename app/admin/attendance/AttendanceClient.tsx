@@ -23,7 +23,7 @@ import {
   getDayOffDisplayLabel,
   getPermitDisplayLabel,
   isHistoricalAutoCheckoutAbsence,
-} from "@/modules/attendance/client";
+} from "@/lib/attendance-display";
 import {
   fetchWithHandling,
   isFetchError,
@@ -41,51 +41,8 @@ import {
   toggleAttendanceSelection,
   toggleCurrentPageAttendanceSelection,
 } from "@/app/admin/attendance/attendance-selection";
-
-interface Attendance {
-  id: string;
-  checkIn: string;
-  checkOut: string | null;
-  checkInPhoto: string | null;
-  checkOutPhoto: string | null;
-  checkOutLocation: string | null;
-  status: string;
-  displayStatus?: string | null;
-  notes: string | null;
-  location: string | null;
-  correctedAt?: string | null;
-  correctionReason?: string | null;
-  correctionReplacementAttendanceId?: string | null;
-  correctionSourceAttendanceId?: string | null;
-  correctionSource?: string | null;
-  user: {
-    name: string | null;
-    email: string;
-    image: string | null;
-    workingHourMode?: string | null;
-    startWorkTime?: string | null;
-    endWorkTime?: string | null;
-    shift?: {
-      startTime?: string | null;
-      endTime?: string | null;
-    } | null;
-    departments: {
-      name: string;
-    } | null;
-    sites?: {
-      name: string;
-    } | null;
-  };
-}
-
-function canCorrectMissedCheckInAttendance(item: Attendance) {
-  const normalizedDisplayStatus = item.displayStatus?.trim().toUpperCase();
-
-  return (
-    ["ABSENT", "ALPHA"].includes(item.status) ||
-    normalizedDisplayStatus === "TIDAK HADIR"
-  );
-}
+import { canCorrectMissedCheckInAttendance } from "./attendance-helpers";
+import type { Attendance, AttendanceOption } from "./attendance-types";
 
 export function ClientComponent() {
   const { hasPermission } = usePermission();
@@ -109,10 +66,8 @@ export function ClientComponent() {
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
 
   // Options
-  const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
-  const [departments, setDepartments] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [sites, setSites] = useState<AttendanceOption[]>([]);
+  const [departments, setDepartments] = useState<AttendanceOption[]>([]);
 
   // Filters
   const [startDate, setStartDate] = useState(() => {

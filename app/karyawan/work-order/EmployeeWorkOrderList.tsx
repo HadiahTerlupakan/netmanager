@@ -3,7 +3,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { WorkOrderListItem } from "@/modules/work-order/client";
+import type { WorkOrderListItem } from "@/modules/work-order";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 

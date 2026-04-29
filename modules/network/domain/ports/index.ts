@@ -10,3 +10,5 @@ export * from "./IOdpRepository";
 export * from "./IOtbRepository";
 export * from "./IPoleRepository";
 export * from "./IRadiusRepository";
+export * from "./IRadiusBandwidthSyncRepository";
+export * from "./IRouterAccessRepository";

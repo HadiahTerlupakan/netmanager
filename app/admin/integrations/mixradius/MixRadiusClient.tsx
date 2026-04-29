@@ -1,6 +1,5 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect, useCallback } from "react";
 import {
   HiOutlineArrowPath,
@@ -8,8 +7,6 @@ import {
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
   HiOutlineCloud,
-  HiOutlineCheckCircle,
-  HiOutlineXCircle,
   HiOutlineClock,
   HiOutlineEye,
   HiUserCircle,
@@ -19,98 +16,50 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 import toast from "react-hot-toast";
-import { Button } from "@/components/ui/Button";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import {
+  DEFAULT_PAGE_SIZE,
+  DISMANTLE_REASONS,
+  INVOICE_FETCH_CHUNK_SIZE,
+  INVOICE_FETCH_DELAY_MS,
+  SEARCH_DEBOUNCE_MS,
+} from "./constants";
+import { MixRadiusStatsCards } from "./MixRadiusStatsCards";
+import type {
+  InvoiceCount,
+  MixRadiusClientProps,
+  MixRadiusCustomer,
+  MixRadiusCustomerDetail,
+  MixRadiusGroup,
+  MixRadiusOwner,
+  MixRadiusResponse,
+} from "./types";
+import {
+  formatMixRadiusDate,
+  getMixRadiusStatusBadge,
+  isMixRadiusExpired,
+} from "./utils";
 
-interface MixRadiusCustomerDetail {
-  id: string;
-  member_id: string;
-  username: string;
-  fullname: string;
-  email: string;
-  phonenumber: string;
-  address: string;
-  plan_name: string;
-  payment_type: string;
-  auth_status: string;
-  subscription_type: string;
-  trx_status: string;
-  identity_number: string;
-  renewed_on: string;
-  expired_on: string;
-  note: string;
-  bind_mac: string;
-  mac_address: string;
-  latitude: string;
-  longitude: string;
-  // Extended fields
-  odp_name?: string;
-  owner_name?: string;
-  service_type?: string;
-  ip_type?: string;
-  portal_password?: string;
-  expired_action?: string;
-  uptime?: string;
-  quota_usage?: string;
-  online?: boolean;
-  invoices?: MixRadiusInvoice[];
+export type { MixRadiusClientProps, MixRadiusInvoice } from "./types";
+
+function hasSameInvoiceCount(left?: InvoiceCount, right?: InvoiceCount) {
+  return (
+    left?.paidCount === right?.paidCount &&
+    left?.totalCount === right?.totalCount
+  );
 }
 
-export interface MixRadiusInvoice {
-  id: string;
-  invoice_number: string;
-  plan_name: string;
-  amount: string;
-  activation_date: string;
-  deadline_date: string;
-  owner: string;
-  status: string;
-}
+function mergeInvoiceCounts(
+  currentCounts: Record<string, InvoiceCount>,
+  nextCounts: Record<string, InvoiceCount>,
+) {
+  const entries = Object.entries(nextCounts);
+  const hasChanges = entries.some(
+    ([id, count]) => !hasSameInvoiceCount(currentCounts[id], count),
+  );
 
-interface MixRadiusCustomer {
-  id: string;
-  member_id: string;
-  username: string;
-  fullname: string;
-  email: string;
-  phonenumber: string;
-  address: string;
-  plan_name: string;
-  type: string;
-  payment_type: string;
-  auth_status: string;
-  expired_on: string;
-  renewed_on: string;
-  created_at: string;
-  total: string | number;
-  trx_status: string;
-  trx_invoice: string;
-  owner_name: string;
-  online?: boolean;
-  active_session_ip?: string;
-}
-
-interface MixRadiusResponse {
-  draw: number;
-  recordsTotal: number;
-  recordsFiltered: number;
-  data: MixRadiusCustomer[];
-}
-
-interface MixRadiusGroup {
-  id: string;
-  name: string;
-}
-
-interface MixRadiusOwner {
-  id: string;
-  name: string;
-}
-
-export interface MixRadiusClientProps {
-  defaultStatus?: string;
-  viewMode?: "default" | "isolir";
+  return hasChanges ? { ...currentCounts, ...nextCounts } : currentCounts;
 }
 
 export default function MixRadiusClient({
@@ -138,7 +87,7 @@ export default function MixRadiusClient({
 
   // Pagination state
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [totalRecords, setTotalRecords] = useState(0);
   const [globalTotal, setGlobalTotal] = useState(0);
 
@@ -155,21 +104,9 @@ export default function MixRadiusClient({
   const [dismantleNotes, setDismantleNotes] = useState("");
   const [processingDismantle, setProcessingDismantle] = useState(false);
 
-  const DISMANTLE_REASONS = [
-    "Telat Bayar",
-    "Pindah Rumah",
-    "Pindah ke Provider Lain",
-    "Sering Gangguan",
-    "Pelayanan Pelanggan Buruk",
-    "Kebutuhan Menurun",
-    "Harga Terlalu Mahal",
-    "Kecepatan Tidak Sesuai Janji",
-    "Tidak Ada Keterangan",
-  ];
-
   // Invoice counts state with Initial Load from LocalStorage
   const [invoiceCounts, setInvoiceCounts] = useState<
-    Record<string, { paidCount: number; totalCount: number }>
+    Record<string, InvoiceCount>
   >(() => {
     if (typeof window !== "undefined") {
       const cached = localStorage.getItem("mixradius_invoice_counts");
@@ -179,7 +116,7 @@ export default function MixRadiusClient({
           // Simple validation: Ensure it's an object and not too old (optional)
           return parsed;
         } catch (e) {
-          clientLogger.error("Failed to parse cached invoice counts", e);
+          console.error("Failed to parse cached invoice counts", e);
         }
       }
     }
@@ -196,21 +133,21 @@ export default function MixRadiusClient({
     }
   }, [invoiceCounts]);
 
-  // Fetch invoice counts for visible data - PROGRESSIVE LOADING
   useEffect(() => {
     if (data.length === 0) return;
 
     const fetchCountsProgressively = async () => {
-      const ids = data.map((d) => d.id);
-      const CHUNK_SIZE = 1; // Fetch 1 by 1 as requested (non-aggressive)
+      const ids = data.map((customer) => customer.id);
+      const customerById = new Map(
+        data.map((customer) => [customer.id, customer]),
+      );
 
-      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-        const chunkIds = ids.slice(i, i + CHUNK_SIZE);
-
-        // Build validationData for this chunk (Smart-Cache Sync)
+      for (let i = 0; i < ids.length; i += INVOICE_FETCH_CHUNK_SIZE) {
+        const chunkIds = ids.slice(i, i + INVOICE_FETCH_CHUNK_SIZE);
         const chunkValidationData: Record<string, string> = {};
+
         chunkIds.forEach((id) => {
-          const customer = data.find((d) => d.id === id);
+          const customer = customerById.get(id);
           if (customer?.renewed_on) {
             chunkValidationData[id] = customer.renewed_on;
           }
@@ -225,16 +162,16 @@ export default function MixRadiusClient({
               body: JSON.stringify({
                 customerIds: chunkIds,
                 validationData: chunkValidationData,
-                bypassCache: isRefreshing, // Manual bypass still available
+                bypassCache: isRefreshing,
               }),
             },
           );
           const json = await res.json();
           if (json.data) {
-            setInvoiceCounts((prev) => ({ ...prev, ...json.data }));
+            setInvoiceCounts((prev) => mergeInvoiceCounts(prev, json.data));
           }
         } catch (err) {
-          clientLogger.error(
+          console.error(
             `Failed to fetch invoice counts for chunk starting at ${i}`,
             err,
           );
@@ -243,7 +180,7 @@ export default function MixRadiusClient({
       if (isRefreshing) setIsRefreshing(false);
     };
 
-    const timer = setTimeout(fetchCountsProgressively, 500);
+    const timer = setTimeout(fetchCountsProgressively, INVOICE_FETCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [data, isRefreshing]);
 
@@ -334,8 +271,9 @@ export default function MixRadiusClient({
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(0); // Reset to first page on search
-    }, 500);
+      setPage(0);
+    }, SEARCH_DEBOUNCE_MS);
+
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -350,13 +288,13 @@ export default function MixRadiusClient({
           setOwners(result.data || []);
         } else {
           // If it's a config error, it might be reported in global error or handled here
-          clientLogger.warn("Owners fetch failed:", result.error);
+          console.warn("Owners fetch failed:", result.error);
           if (result.details?.isConfigError) {
             setError(result.error);
           }
         }
       } catch (err) {
-        clientLogger.error("Failed to fetch owners", err);
+        console.error("Failed to fetch owners", err);
       }
     };
     fetchOwners();
@@ -369,13 +307,13 @@ export default function MixRadiusClient({
         if (response.ok) {
           setGroups(result.data || []);
         } else {
-          clientLogger.warn("Groups fetch failed:", result.error);
+          console.warn("Groups fetch failed:", result.error);
           if (result.details?.isConfigError) {
             setError(result.error);
           }
         }
       } catch (err) {
-        clientLogger.error("Failed to fetch groups", err);
+        console.error("Failed to fetch groups", err);
       }
     };
     fetchGroups();
@@ -457,57 +395,24 @@ export default function MixRadiusClient({
   );
 
   const clearCache = useCallback(() => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("mixradius_invoice_counts");
-      setInvoiceCounts({});
-      setIsRefreshing(true);
-      toast.success("Cache dibersihkan. Memuat data terbaru dari server...");
-    }
-  }, []);
+    if (typeof window === "undefined") return;
+
+    localStorage.removeItem("mixradius_invoice_counts");
+    setInvoiceCounts((currentCounts) => {
+      if (Object.keys(currentCounts).length === 0) return currentCounts;
+      return {};
+    });
+    setIsRefreshing(
+      (currentRefreshing) => currentRefreshing || data.length > 0,
+    );
+    toast.success("Cache dibersihkan. Memuat data terbaru dari server...");
+  }, [data.length]);
 
   useEffect(() => {
     fetchData(false);
   }, [fetchData]);
 
   const totalPages = Math.ceil(totalRecords / pageSize);
-
-  const getStatusBadge = (status: string) => {
-    if (status === "Enabled-Users") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-          <HiOutlineCheckCircle className="w-3 h-3" />
-          Active
-        </span>
-      );
-    } else if (status === "Disabled-Users") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-          <HiOutlineXCircle className="w-3 h-3" />
-          Disabled
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-        {status}
-      </span>
-    );
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const isExpired = (dateStr: string) => {
-    if (!dateStr) return false;
-    return new Date(dateStr) < new Date();
-  };
 
   const handleSort = (column: string, direction: "asc" | "desc") => {
     setSortColumn(column);
@@ -546,51 +451,14 @@ export default function MixRadiusClient({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {viewMode === "isolir"
-              ? "Total Pelanggan Isolir"
-              : "Total Pelanggan"}
-          </div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {totalRecords.toLocaleString()}
-            {viewMode === "isolir" && (
-              <span className="text-sm text-gray-500 dark:text-gray-400 font-normal ml-2">
-                / {globalTotal.toLocaleString()} Total
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Halaman
-          </div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {page + 1} / {totalPages || 1}
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 flex flex-col justify-between">
-          <div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Source
-            </div>
-            <div className="text-lg font-medium text-blue-600 dark:text-blue-400">
-              sblnet.topsetting.com
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={clearCache}
-            className="mt-2 flex items-center gap-2"
-            title="Hapus cache dan ambil data terbaru dari MixRadius"
-          >
-            <HiOutlineXCircle className="w-3.5 h-3.5" />
-            Bersihkan Cache
-          </Button>
-        </div>
-      </div>
+      <MixRadiusStatsCards
+        viewMode={viewMode}
+        totalRecords={totalRecords}
+        globalTotal={globalTotal}
+        page={page}
+        totalPages={totalPages}
+        onClearCache={clearCache}
+      />
 
       {/* Search with Filter */}
       <div className="flex gap-2">
@@ -743,9 +611,9 @@ export default function MixRadiusClient({
                       sortable: true,
                       render: (item) => (
                         <div
-                          className={`text-sm ${isExpired(item.expired_on) ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-900 dark:text-white"}`}
+                          className={`text-sm ${isMixRadiusExpired(item.expired_on) ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-900 dark:text-white"}`}
                         >
-                          {formatDate(item.expired_on)}
+                          {formatMixRadiusDate(item.expired_on)}
                         </div>
                       ),
                     },
@@ -859,7 +727,8 @@ export default function MixRadiusClient({
                       header: "Status",
                       priority: "secondary",
                       sortable: true,
-                      render: (item) => getStatusBadge(item.auth_status),
+                      render: (item) =>
+                        getMixRadiusStatusBadge(item.auth_status),
                     },
                     {
                       key: "online",
@@ -919,11 +788,11 @@ export default function MixRadiusClient({
                       render: (item) => (
                         <div>
                           <div
-                            className={`text-sm ${isExpired(item.expired_on) ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}
+                            className={`text-sm ${isMixRadiusExpired(item.expired_on) ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}
                           >
-                            {formatDate(item.expired_on)}
+                            {formatMixRadiusDate(item.expired_on)}
                           </div>
-                          {isExpired(item.expired_on) && (
+                          {isMixRadiusExpired(item.expired_on) && (
                             <span className="text-xs text-red-500 flex items-center gap-1">
                               <HiOutlineClock className="w-3 h-3" />
                               Expired

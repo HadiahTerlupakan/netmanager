@@ -39,7 +39,14 @@ export * from "./services/ReceivablesPageService";
 export * from "./dto/ReceivableDTO";
 export * from "./services/RouteServiceError";
 export * from "./utils/prisma-search-filters";
-export * from "./utils/rabTarget";
+export {
+  buildDailyExpenseIndicators,
+  calculateEffectiveRabTargetSubscribers,
+  calculateRabProjectedRevenue,
+  calculateRabUnitCosts,
+  getRabTargetBasisLabel,
+  type RabTargetBasis,
+} from "./client";
 
 // Payment Gateway
 export * from "./services/PaymentGatewayTestService";

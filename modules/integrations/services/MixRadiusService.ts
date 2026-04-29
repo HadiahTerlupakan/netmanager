@@ -28,11 +28,10 @@ import {
   fetchMixRadiusODPList,
   fetchMixRadiusTopologyData,
 } from "./mixradius-topology-client";
-import type { MixRadiusOwnerGroupEntity } from "../domain/entities/MixRadiusOwnerGroupEntity";
-import {
-  getMixRadiusOwnerGroupService,
-  type MixRadiusOwnerGroupPayload,
-  type MixRadiusOwnerGroupUpdatePayload,
+import { MixRadiusOwnerGroupFacadeService } from "./MixRadiusOwnerGroupFacadeService";
+import type {
+  MixRadiusOwnerGroupPayload,
+  MixRadiusOwnerGroupUpdatePayload,
 } from "./mixradius-owner-group-service";
 
 // Types
@@ -41,8 +40,6 @@ export interface MixRadiusCredentials {
   password: string;
   baseUrl: string;
 }
-
-export type MixRadiusOwnerGroup = MixRadiusOwnerGroupEntity;
 
 export class MixRadiusConfigError extends Error {
   constructor(message: string) {
@@ -251,6 +248,7 @@ export class MixRadiusService {
     string,
     { paidCount: number; totalCount: number; lastRenewedOn: string }
   >;
+  private readonly ownerGroupService = new MixRadiusOwnerGroupFacadeService();
 
   // Cache for Customers List - ENABLED
   // Set to 15 minutes to reduce load on upstream server
@@ -512,23 +510,23 @@ export class MixRadiusService {
   // --- Owner Group Methods ---
 
   async getOwnerGroups(tenantId?: string) {
-    return getMixRadiusOwnerGroupService().getOwnerGroups(tenantId);
+    return this.ownerGroupService.getOwnerGroups(tenantId);
   }
 
   async getOwnerGroup(id: string, tenantId?: string) {
-    return getMixRadiusOwnerGroupService().getOwnerGroup(id, tenantId);
+    return this.ownerGroupService.getOwnerGroup(id, tenantId);
   }
 
   async createOwnerGroup(data: MixRadiusOwnerGroupPayload) {
-    return getMixRadiusOwnerGroupService().createOwnerGroup(data);
+    return this.ownerGroupService.createOwnerGroup(data);
   }
 
   async updateOwnerGroup(id: string, data: MixRadiusOwnerGroupUpdatePayload) {
-    return getMixRadiusOwnerGroupService().updateOwnerGroup(id, data);
+    return this.ownerGroupService.updateOwnerGroup(id, data);
   }
 
   async deleteOwnerGroup(id: string, tenantId?: string) {
-    return getMixRadiusOwnerGroupService().deleteOwnerGroup(id, tenantId);
+    return this.ownerGroupService.deleteOwnerGroup(id, tenantId);
   }
 
   /**

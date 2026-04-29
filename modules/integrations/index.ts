@@ -11,5 +11,6 @@ export * from "./services/ReceiptOcrService";
 export * from "./services/mixradius-owner-group-service";
 export * from "./services/mixradius-income-client";
 export * from "./services/mixradius-customer-client";
-export * from "./utils/mixradius-owner-matching";
-export * from "./factories/IntegrationFactory";
+export { DUITKU_DEFAULT_FEES, normalizePaymentMethod } from "./client";
+export { IntegrationFactory } from "./factories/IntegrationFactory";
+export { matchesMixRadiusOwner } from "./utils/mixradius-owner-matching";

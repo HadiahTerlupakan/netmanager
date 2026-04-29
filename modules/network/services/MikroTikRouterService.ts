@@ -1,12 +1,13 @@
 import { logger } from "@/lib/logger";
 import { logActivitySafe } from "@/lib/logger";
 import { RouterOSAPI } from "node-routeros-v2";
+import type { IRouterAccessRepository } from "../domain/ports/IRouterAccessRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import type {
   MikroTikRouterCreateData,
-  MikroTikRouterPublic,
+  MikroTikRouterEntity,
   MikroTikRouterUpdateData,
-} from "../repositories/IMikroTikRouterRepository";
+} from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
@@ -185,7 +186,7 @@ async function testMikroTikAPI(
 export class MikroTikRouterService {
   constructor(
     private readonly routerRepository: IMikroTikRouterRepository = new MikroTikRouterRepository(),
-    private readonly networkRepository: NetworkRepository = new NetworkRepository(),
+    private readonly networkRepository: IRouterAccessRepository = new NetworkRepository(),
   ) {}
 
   private async resolveRestrictedSiteId(
@@ -200,7 +201,7 @@ export class MikroTikRouterService {
     tenantId: string;
     userId: string;
     restrictedToOwnSite: boolean;
-  }): Promise<MikroTikRouterPublic> {
+  }): Promise<MikroTikRouterEntity> {
     const router = await this.routerRepository.findById(
       params.id,
       params.tenantId,

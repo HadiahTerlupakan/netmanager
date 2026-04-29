@@ -1,4 +1,3 @@
-import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
 import type {
   WorkOrders,
@@ -23,10 +22,20 @@ import type {
 } from "./IWorkOrderRepository";
 import { buildWorkOrderListSummary } from "../utils/work-order-list-summary";
 import { validateStatusTransition } from "../utils/status-transitions";
-import { randomUUID } from "crypto";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { buildWorkOrderWhere } from "./work-order-query-builders";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import {
+  createWorkOrderRecord,
+  createWorkOrderRequestRecord,
+  generateNextWorkOrderNumber,
+} from "./work-order-repository-create";
+import {
+  approveRequestedWorkOrder,
+  findRequestedWorkOrders,
+  rejectRequestedWorkOrder,
+} from "./work-order-repository-requests";
+import { getWorkOrderStatisticsCore } from "./work-order-repository-statistics-core";
 import {
   WORK_ORDER_ASSIGNMENTS_INCLUDE,
   WORK_ORDER_CUSTOMER_SELECT,
@@ -50,17 +59,7 @@ import {
   getIssueStatistics,
   getSiteStatistics,
 } from "./work-order-repository-statistics";
-import {
-  addAssignment,
-  addAttachment,
-  addUpdate,
-  addTask,
-  deleteAttachment,
-  deleteTask,
-  getUpdates,
-  removeAssignment,
-  updateTask,
-} from "./work-order-repository-activity";
+import { WorkOrderActivityRepository } from "./WorkOrderActivityRepository";
 import {
   getDepartmentWorkload,
   getEmployeeDepartmentWorkOrders,
@@ -74,7 +73,13 @@ import {
 } from "./work-order-repository-performance";
 type PrismaInstance = typeof defaultPrisma;
 export class WorkOrderRepository implements IWorkOrderRepository {
-  constructor(private prisma: PrismaInstance = defaultPrisma) {}
+  private readonly activityRepository: WorkOrderActivityRepository;
+
+  constructor(private prisma: PrismaInstance = defaultPrisma) {
+    this.activityRepository = new WorkOrderActivityRepository(this.prisma, () =>
+      this.getTenantWhere(),
+    );
+  }
   /**
    * Helper to get tenant isolation filter based on current context.
    * Prevents cross-tenant data leakage (IDOR protection at Repo level).
@@ -86,130 +91,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     return { tenantId };
   }
   async generateWorkOrderNumber(tenantId?: string): Promise<string> {
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-    // Get tenantId from context if not provided
-    let effectiveTenantId = tenantId;
-    if (!effectiveTenantId) {
-      const context = await getTenantIdFromContext();
-      effectiveTenantId = context.tenantId || undefined;
-    }
-    // Get the highest sequence number for today instead of just count
-    // This handles deleted records and race conditions better
-    const lastWo = await this.prisma.workOrders.findFirst({
-      where: {
-        tenantId: effectiveTenantId,
-        workOrderNumber: {
-          startsWith: `WO-${dateStr}-`,
-        },
-      },
-      orderBy: {
-        workOrderNumber: "desc",
-      },
-      select: {
-        workOrderNumber: true,
-      },
-    });
-    let nextSequence = 1;
-    if (lastWo?.workOrderNumber) {
-      // Extract the sequence part: WO-YYYYMMDD-XXXX -> XXXX
-      const parts = (lastWo?.workOrderNumber ?? "").split("-");
-      if (parts.length >= 3) {
-        const lastSequence = parseInt(parts[2] || "0", 10);
-        if (!isNaN(lastSequence)) {
-          nextSequence = lastSequence + 1;
-        }
-      }
-    }
-    const sequence = nextSequence.toString().padStart(4, "0");
-    return `WO-${dateStr}-${sequence}`;
+    return generateNextWorkOrderNumber(this.prisma, tenantId);
   }
   async create(data: CreateWorkOrderData): Promise<WorkOrders> {
-    const MAX_RETRIES = 3;
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        // Determine tenantId for generation
-        const { tenantId: dataTenantId } = data as { tenantId?: string };
-        let generationTenantId = dataTenantId;
-        if (!generationTenantId) {
-          const context = await getTenantIdFromContext();
-          generationTenantId = context.tenantId || undefined;
-        }
-        const workOrderNumber =
-          await this.generateWorkOrderNumber(generationTenantId);
-        // Destructure pelangganId to handle it separately
-        const { pelangganId, ...restData } = data;
-        const persistedTenantId = generationTenantId ?? null;
-        const result = await this.prisma.workOrders.create({
-          data: {
-            id: randomUUID(),
-            updatedAt: new Date(),
-            workOrderNumber,
-            tenantId: persistedTenantId,
-            type: restData.type,
-            title: restData.title,
-            description: restData.description,
-            status: "PENDING",
-            priority: data.priority || "NORMAL",
-            createdById: data.createdById ?? null,
-            pelangganId: pelangganId || null,
-            siteId: restData.siteId || null,
-            departmentId: restData.departmentId || null,
-            assignedToId: restData.assignedToId || null,
-            contactName: restData.contactName ?? null,
-            contactPhone: restData.contactPhone ?? null,
-            locationAddress: restData.locationAddress ?? null,
-            scheduledDate: restData.scheduledDate ?? null,
-            scheduledTimeStart: restData.scheduledTimeStart ?? null,
-            scheduledTimeEnd: restData.scheduledTimeEnd ?? null,
-            estimatedHours: restData.estimatedHours ?? null,
-            estimatedCost: restData.estimatedCost ?? null,
-            requiredMaterials:
-              restData.requiredMaterials as Prisma.InputJsonValue,
-            internalNotes: restData.internalNotes ?? null,
-            disconnectionReason: restData.disconnectionReason || null,
-            isInternal: restData.isInternal || false, // Internal FOC flag
-          },
-        });
-        // NOTE: Notification moved to Service layer to avoid duplication
-        // and resolve "Cannot find name notifyNewWorkOrder" error
-        return result;
-      } catch (error: unknown) {
-        // Check if this is a unique constraint violation on workOrderNumber
-        const prismaError = error as {
-          code?: string;
-          meta?: { target?: string[] };
-        };
-        if (
-          prismaError?.code === "P2002" &&
-          prismaError?.meta?.target?.includes("workOrderNumber")
-        ) {
-          logger.warn(
-            `[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`,
-          );
-          if (error instanceof Error) {
-            lastError = error;
-          } else {
-            lastError = new Error(String(error));
-          }
-          // Wait a bit before retrying with exponential backoff
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 * Math.pow(2, attempt)),
-          );
-          continue;
-        }
-        // For other errors, throw immediately
-        throw error;
-      }
-    }
-    // If all retries failed, throw the last error
-    logger.error(
-      "[WorkOrderRepo] Failed to create work order after all retries",
-    );
-    throw (
-      lastError || new Error("Failed to create work order after max retries")
-    );
+    return createWorkOrderRecord(this.prisma, data) as Promise<WorkOrders>;
   }
   async findById(id: string): Promise<WorkOrderWithRelations | null> {
     const tenantWhere = await this.getTenantWhere();
@@ -454,76 +339,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
   async createRequest(
     data: CreateWorkOrderData & { requestedById: string },
   ): Promise<WorkOrders> {
-    const MAX_RETRIES = 3;
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      try {
-        const { tenantId: contextTenantId } = await getTenantIdFromContext();
-        const persistedTenantId = data.tenantId ?? contextTenantId ?? null;
-        const workOrderNumber = await this.generateWorkOrderNumber(
-          persistedTenantId ?? undefined,
-        );
-        const { pelangganId, requestedById, ...restData } = data;
-        const result = await this.prisma.workOrders.create({
-          data: {
-            id: randomUUID(),
-            updatedAt: new Date(),
-            workOrderNumber,
-            tenantId: persistedTenantId,
-            type: restData.type,
-            title: restData.title,
-            description: restData.description,
-            status: "REQUESTED", // Status menunggu approval
-            priority: data.priority || "NORMAL",
-            createdById: requestedById, // Same as requester for mobile requests
-            requestedById: requestedById,
-            requestedAt: new Date(),
-            pelangganId: pelangganId || null,
-            siteId: restData.siteId || null,
-            departmentId: restData.departmentId || null,
-            assignedToId: null, // Not assigned yet
-            contactName: restData.contactName ?? null,
-            contactPhone: restData.contactPhone ?? null,
-            locationAddress: restData.locationAddress ?? null,
-            locationLat: restData.locationLat ?? null,
-            locationLng: restData.locationLng ?? null,
-            scheduledDate: restData.scheduledDate ?? null,
-            internalNotes: restData.internalNotes ?? null,
-            isInternal: restData.isInternal || false, // Internal FOC flag
-          },
-        });
-        // NOTE: We do NOT notify department users here
-        // Only notify admins with approval permission (handled in route)
-        return result;
-      } catch (error: unknown) {
-        const prismaError = error as {
-          code?: string;
-          meta?: { target?: string[] };
-        };
-        if (
-          prismaError?.code === "P2002" &&
-          prismaError?.meta?.target?.includes("workOrderNumber")
-        ) {
-          logger.warn(
-            `[WorkOrderRepo] Unique constraint violation on workOrderNumber, retry attempt ${attempt + 1}/${MAX_RETRIES}`,
-          );
-          lastError = error instanceof Error ? error : new Error(String(error));
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 * Math.pow(2, attempt)),
-          );
-          continue;
-        }
-        throw error;
-      }
-    }
-    logger.error(
-      "[WorkOrderRepo] Failed to create work order request after all retries",
-    );
-    throw (
-      lastError ||
-      new Error("Failed to create work order request after max retries")
-    );
+    return createWorkOrderRequestRecord(
+      this.prisma,
+      data,
+    ) as Promise<WorkOrders>;
   }
+
   /**
    * Approve a Work Order Request
    * Changes status from REQUESTED to PENDING
@@ -538,15 +359,11 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         `Cannot approve: Work order status is ${workOrder.status}, expected REQUESTED`,
       );
     }
-    const result = await this.prisma.workOrders.update({
-      where: { id },
-      data: {
-        status: "PENDING",
-        approvedById: approvedById,
-        approvedAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+    const result = await approveRequestedWorkOrder(
+      this.prisma,
+      id,
+      approvedById,
+    );
     await this.addUpdate({
       workOrderId: id,
       updateType: "STATUS_CHANGE",
@@ -555,7 +372,6 @@ export class WorkOrderRepository implements IWorkOrderRepository {
       newStatus: "PENDING",
       createdById: approvedById,
     });
-    // NOTE: Notification moved to Service layer
     return result;
   }
   /**
@@ -576,16 +392,12 @@ export class WorkOrderRepository implements IWorkOrderRepository {
         `Cannot reject: Work order status is ${workOrder.status}, expected REQUESTED`,
       );
     }
-    const result = await this.prisma.workOrders.update({
-      where: { id },
-      data: {
-        status: "CANCELLED",
-        approvedById: rejectedById, // Admin who rejected
-        approvedAt: new Date(),
-        rejectionReason: reason,
-        updatedAt: new Date(),
-      },
-    });
+    const result = await rejectRequestedWorkOrder(
+      this.prisma,
+      id,
+      rejectedById,
+      reason,
+    );
     await this.addUpdate({
       workOrderId: id,
       updateType: "STATUS_CHANGE",
@@ -609,43 +421,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     page: number;
     totalPages: number;
   }> {
-    const where: Record<string, unknown> = {
-      status: "REQUESTED",
-    };
-    if (filters?.departmentId) {
-      where.departmentId = filters.departmentId;
-    }
-    if (filters?.siteId) {
-      where.siteId = filters.siteId;
-    }
-    if (filters?.search) {
-      where.OR = [
-        { workOrderNumber: { contains: filters.search, mode: "insensitive" } },
-        { title: { contains: filters.search, mode: "insensitive" } },
-        { description: { contains: filters.search, mode: "insensitive" } },
-      ];
-    }
-    const [workOrders, total] = await Promise.all([
-      this.prisma.workOrders.findMany({
-        where,
-        include: {
-          site: { select: { id: true, name: true, code: true } },
-          department: { select: { id: true, name: true } },
-          requestedBy: { select: { id: true, name: true, email: true } },
-          createdBy: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.workOrders.count({ where }),
-    ]);
-    return {
-      workOrders: workOrders as WorkOrderWithRelations[],
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    };
+    return findRequestedWorkOrders(this.prisma, filters, page, limit);
   }
   async assign(
     id: string,
@@ -674,32 +450,22 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     userId: string,
     role?: string,
   ): Promise<WorkOrderAssignments> {
-    return addAssignment(
-      this.prisma,
-      () => this.getTenantWhere(),
-      workOrderId,
-      userId,
-      role,
-    );
+    return this.activityRepository.addAssignment(workOrderId, userId, role);
   }
   async removeAssignment(assignmentId: string): Promise<void> {
-    await removeAssignment(
-      this.prisma,
-      () => this.getTenantWhere(),
-      assignmentId,
-    );
+    await this.activityRepository.removeAssignment(assignmentId);
   }
   async addTask(data: CreateTaskData): Promise<WorkOrderTasks> {
-    return addTask(this.prisma, () => this.getTenantWhere(), data);
+    return this.activityRepository.addTask(data);
   }
   async updateTask(
     taskId: string,
     data: UpdateTaskData,
   ): Promise<WorkOrderTasks> {
-    return updateTask(this.prisma, () => this.getTenantWhere(), taskId, data);
+    return this.activityRepository.updateTask(taskId, data);
   }
   async deleteTask(taskId: string): Promise<void> {
-    await deleteTask(this.prisma, () => this.getTenantWhere(), taskId);
+    await this.activityRepository.deleteTask(taskId);
   }
   async completeTask(taskId: string, userId: string): Promise<WorkOrderTasks> {
     return this.updateTask(taskId, {
@@ -708,10 +474,10 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     });
   }
   async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdates> {
-    return addUpdate(this.prisma, data);
+    return this.activityRepository.addUpdate(data);
   }
   async getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]> {
-    return getUpdates(this.prisma, () => this.getTenantWhere(), workOrderId);
+    return this.activityRepository.getUpdates(workOrderId);
   }
   async addAttachment(
     workOrderId: string,
@@ -722,136 +488,38 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     caption?: string,
     uploadedById?: string,
   ): Promise<WorkOrderAttachments> {
-    return addAttachment(
-      this.prisma,
-      () => this.getTenantWhere(),
+    return this.activityRepository.addAttachment(
+      {
+        workOrderId,
+        fileName,
+        filePath,
+        fileSize,
+        fileType,
+        caption,
+        uploadedById,
+      },
       (data) => this.addUpdate(data),
-      workOrderId,
-      fileName,
-      filePath,
-      fileSize,
-      fileType,
-      caption,
-      uploadedById,
     );
   }
   async deleteAttachment(
     attachmentId: string,
     deletedById?: string,
   ): Promise<void> {
-    await deleteAttachment(
-      this.prisma,
-      () => this.getTenantWhere(),
-      (data) => this.addUpdate(data),
+    await this.activityRepository.deleteAttachment(
       attachmentId,
       deletedById,
+      (data) => this.addUpdate(data),
     );
   }
   async getStatistics(
     filters?: Omit<WorkOrderFilters, "search">,
     tenantId?: string,
   ): Promise<WorkOrderStatistics> {
-    const where: Prisma.WorkOrdersWhereInput = {};
-    if (filters?.siteId) where.siteId = filters.siteId;
-    if (filters?.departmentId) where.departmentId = filters.departmentId;
-    if (filters?.assignedToId !== undefined)
-      where.assignedToId = filters.assignedToId;
-    if (filters?.pelangganId) where.pelangganId = filters.pelangganId;
-    if (filters?.dateFrom || filters?.dateTo) {
-      const createdAtFilter: Prisma.DateTimeFilter = {};
-      if (filters.dateFrom) createdAtFilter.gte = filters.dateFrom;
-      if (filters.dateTo) createdAtFilter.lte = filters.dateTo;
-      where.createdAt = createdAtFilter;
-    }
-    // Prepare conditions for raw query
-    // MANUALLY handle tenant isolation for raw query
-    const { tenantId: contextTenantId, isSuperAdmin } =
-      await getTenantIdFromContext();
-    const effectiveTenantId =
-      tenantId ??
-      (!isSuperAdmin && !contextTenantId
-        ? "___MISSING_TENANT_ID___"
-        : contextTenantId);
-    if (effectiveTenantId) {
-      where.tenantId = effectiveTenantId;
-    }
-    let query = Prisma.sql`
-            SELECT
-                AVG(EXTRACT(EPOCH FROM ("completedAt" - "startedAt")) / 3600)::float as "avgHours",
-                SUM("actualCost")::float as "totalCost"
-            FROM "work_orders"
-            WHERE "completedAt" IS NOT NULL
-            AND "startedAt" IS NOT NULL
-        `;
-    if (effectiveTenantId) {
-      query = Prisma.sql`${query} AND "tenantId" = ${effectiveTenantId}`;
-    }
-    if (filters?.siteId)
-      query = Prisma.sql`${query} AND "siteId" = ${filters.siteId}`;
-    if (filters?.departmentId)
-      query = Prisma.sql`${query} AND "departmentId" = ${filters.departmentId}`;
-    if (filters?.assignedToId)
-      query = Prisma.sql`${query} AND "assignedToId" = ${filters.assignedToId}`;
-    if (filters?.pelangganId)
-      query = Prisma.sql`${query} AND "pelangganId" = ${filters.pelangganId}`;
-    if (filters?.dateFrom)
-      query = Prisma.sql`${query} AND "createdAt" >= ${filters.dateFrom}`;
-    if (filters?.dateTo)
-      query = Prisma.sql`${query} AND "createdAt" <= ${filters.dateTo}`;
-    const [total, statusCounts, completionStats, ratingData, urgentOpen] =
-      await Promise.all([
-        this.prisma.workOrders.count({ where }),
-        this.prisma.workOrders.groupBy({
-          by: ["status"],
-          where,
-          _count: true,
-        }),
-        // Optimized aggregation for cost and duration
-        this.prisma.$queryRaw<{ avgHours: number; totalCost: number }[]>(query),
-        this.prisma.workOrders.aggregate({
-          where: {
-            ...where,
-            rating: { not: null },
-          },
-          _avg: {
-            rating: true,
-          },
-          _count: {
-            rating: true,
-          },
-        }),
-        this.prisma.workOrders.count({
-          where: {
-            ...where,
-            priority: { in: ["HIGH", "URGENT", "CRITICAL"] },
-            status: { notIn: ["COMPLETED", "VERIFIED", "CLOSED", "CANCELLED"] },
-          },
-        }),
-      ]);
-    const statusMap = statusCounts.reduce(
-      (acc, item) => {
-        acc[item.status] = item._count;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-    const stats = completionStats[0] || { avgHours: 0, totalCost: 0 };
-    return {
-      total,
-      pending: statusMap["PENDING"] || 0,
-      assigned: statusMap["ASSIGNED"] || 0,
-      inProgress: statusMap["IN_PROGRESS"] || 0,
-      onHold: statusMap["ON_HOLD"] || 0,
-      completed: statusMap["COMPLETED"] || 0,
-      verified: statusMap["VERIFIED"] || 0,
-      closed: statusMap["CLOSED"] || 0,
-      cancelled: statusMap["CANCELLED"] || 0,
-      urgentOpen,
-      avgCompletionTimeHours: stats.avgHours || 0,
-      totalCost: stats.totalCost || 0,
-      avgRating: ratingData._avg.rating || null,
-      totalWithRating: ratingData._count.rating || 0,
-    };
+    return getWorkOrderStatisticsCore({
+      prisma: this.prisma,
+      filters,
+      tenantId,
+    });
   }
   async getTopPerformers(
     limit: number = 5,
@@ -1004,15 +672,7 @@ export class WorkOrderRepository implements IWorkOrderRepository {
     message: string,
     userId: string,
   ): Promise<WorkOrderUpdates> {
-    return this.prisma.workOrderUpdates.create({
-      data: {
-        id: randomUUID(),
-        workOrderId,
-        updateType: "COMMENT",
-        message,
-        createdById: userId,
-      },
-    });
+    return this.activityRepository.addComment(workOrderId, message, userId);
   }
   /**
    * Get admin response statistics with detailed KPI per user
