@@ -1,18 +1,8 @@
 import { prisma } from "@/modules/database";
 import type { Account } from "@/types";
+import type { IUnpaidBillsReadRepository } from "../domain/ports/IUnpaidBillsReadRepository";
 
-type UnpaidPurchaseOrder = Awaited<
-  ReturnType<typeof prisma.purchaseOrder.findMany>
->[number] & { transactions: { amount: number }[] };
-
-export interface UnpaidBillsReadRepositoryPort {
-  findUnpaidBillsPageData(): Promise<{
-    unpaidPos: UnpaidPurchaseOrder[];
-    accounts: Account[];
-  }>;
-}
-
-export class UnpaidBillsReadRepository implements UnpaidBillsReadRepositoryPort {
+export class UnpaidBillsReadRepository implements IUnpaidBillsReadRepository {
   async findUnpaidBillsPageData() {
     const [unpaidPos, accounts] = await Promise.all([
       prisma.purchaseOrder.findMany({

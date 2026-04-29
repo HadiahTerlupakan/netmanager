@@ -1,6 +1,7 @@
 import { WorkOrderQueryService } from "@/modules/work-order";
 import { createRouteServiceError } from "@/modules/finance";
-import { MixRadiusDismantleRepository } from "../repositories/MixRadiusDismantleRepository";
+import type { IMixRadiusDismantleRepository } from "../domain/ports/IMixRadiusDismantleRepository";
+import { createMixRadiusDismantleRepository } from "../factories/MixRadiusDismantleRepositoryFactory";
 import { MixRadiusConfigError, MixRadiusService } from "./MixRadiusService";
 import { MixRadiusDismantleNotificationService } from "./MixRadiusDismantleNotificationService";
 
@@ -10,7 +11,7 @@ export class MixRadiusDismantleService {
   constructor(
     private readonly mixRadiusService = new MixRadiusService(),
     private readonly workOrderRepository = new WorkOrderQueryService(),
-    private readonly repository = new MixRadiusDismantleRepository(),
+    private readonly repository: IMixRadiusDismantleRepository = createMixRadiusDismantleRepository(),
     private readonly notificationService = new MixRadiusDismantleNotificationService(),
   ) {}
 

@@ -1,100 +1,51 @@
-import { prisma } from "@/lib/prisma";
-import { LeaveStatus, Prisma } from "@prisma/client";
-import { randomUUID } from "crypto";
-
+import type { LeaveStatus, Prisma } from "@prisma/client";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
-import {
-  toActiveLeaveEntity,
-  toLeaveApproverEntity,
-  toLeaveRequesterContextEntity,
-  toTukarLiburDateEntity,
-} from "../mappers/AttendanceDomainMapper";
+import { LeaveLookupRepository } from "./LeaveLookupRepository";
+import { LeaveMobileRepository } from "./LeaveMobileRepository";
+import { LeaveRequestRepository } from "./LeaveRequestRepository";
 
 export class LeaveRepository implements ILeaveRepository {
-  /** Get leave requester context for mobile submission. */
-  async findRequesterContext(userId: string, tenantId: string) {
-    const requester = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: {
-        workingHourMode: true,
-        workDays: true,
-        name: true,
-        siteId: true,
-      },
-    });
+  private readonly lookup = new LeaveLookupRepository();
+  private readonly mobile = new LeaveMobileRepository();
+  private readonly request = new LeaveRequestRepository();
 
-    return requester ? toLeaveRequesterContextEntity(requester) : null;
+  /** Get leave requester context for mobile submission. */
+  findRequesterContext(userId: string, tenantId: string) {
+    return this.mobile.findRequesterContext(userId, tenantId);
   }
 
   /** Get approver admin IDs for leave notification. */
-  async findApproverIdsForMobileLeaveNotification(input: {
+  findApproverIdsForMobileLeaveNotification(input: {
     tenantId: string;
     siteId?: string | null;
   }) {
-    const siteScope = input.siteId
-      ? [
-          {
-            OR: [
-              { siteId: input.siteId },
-              { siteId: null },
-              { userSites: { some: { siteId: input.siteId } } },
-            ],
-          },
-        ]
-      : [];
-
-    const approvers = await prisma.user.findMany({
-      where: {
-        isActive: true,
-        tenantId: input.tenantId,
-        OR: [
-          { role: { isSuperAdmin: true } },
-          {
-            AND: [{ role: { canReceiveWhatsappApproval: true } }, ...siteScope],
-          },
-        ],
-      },
-      select: { id: true, phone: true },
-    });
-
-    return approvers.map(toLeaveApproverEntity);
+    return this.mobile.findApproverIdsForMobileLeaveNotification(input);
   }
-  async create(
+
+  /** Create leave request with generated id. */
+  create(
     data: Omit<Prisma.LeaveRequestUncheckedCreateInput, "id" | "updatedAt">,
   ) {
-    return prisma.leaveRequest.create({
-      data: {
-        ...data,
-        id: randomUUID(),
-        updatedAt: new Date(),
-      },
-    });
+    return this.request.create(data);
   }
 
-  async update(id: string, data: Prisma.LeaveRequestUpdateInput) {
-    return prisma.leaveRequest.update({ where: { id }, data });
+  /** Update leave request by id. */
+  update(id: string, data: Prisma.LeaveRequestUpdateInput) {
+    return this.request.update(id, data);
   }
 
-  async delete(id: string) {
-    return prisma.leaveRequest.delete({ where: { id } });
+  /** Delete leave request by id. */
+  delete(id: string) {
+    return this.request.delete(id);
   }
 
-  async findById(id: string) {
-    return prisma.leaveRequest.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            name: true,
-            departments: { select: { name: true } },
-            sites: { select: { name: true } },
-          },
-        },
-      },
-    });
+  /** Find leave request with compact user metadata. */
+  findById(id: string) {
+    return this.request.findById(id);
   }
 
-  async findAll(filters?: {
+  /** Find leave requests with admin filters. */
+  findAll(filters?: {
     userId?: string;
     status?: LeaveStatus;
     startDate?: Date;
@@ -105,207 +56,99 @@ export class LeaveRepository implements ILeaveRepository {
     take?: number;
     tenantId?: string;
   }) {
-    const where: Prisma.LeaveRequestWhereInput = {
-      tenantId: filters?.tenantId,
-    };
-
-    if (filters?.userId) where.userId = filters.userId;
-    if (filters?.status) where.status = filters.status;
-    if (filters?.startDate && filters?.endDate) {
-      where.startDate = { gte: filters.startDate };
-      where.endDate = { lte: filters.endDate };
-    }
-
-    if (filters?.departmentId || filters?.siteId) {
-      where.user = {
-        ...(filters.departmentId && { departmentId: filters.departmentId }),
-        ...(filters.siteId && { siteId: filters.siteId }),
-      };
-    }
-
-    return prisma.leaveRequest.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            name: true,
-            image: true,
-            departments: { select: { name: true } },
-            sites: { select: { name: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      ...(filters?.skip !== undefined ? { skip: filters.skip } : {}),
-      ...(filters?.take !== undefined ? { take: filters.take } : {}),
-    });
+    return this.request.findAll(filters);
   }
 
-  async count(filters?: {
+  /** Count leave requests with admin filters. */
+  count(filters?: {
     userId?: string;
     status?: LeaveStatus;
     departmentId?: string;
     siteId?: string;
     tenantId?: string;
   }) {
-    const where: Prisma.LeaveRequestWhereInput = {
-      tenantId: filters?.tenantId,
-    };
-
-    if (filters?.userId) where.userId = filters.userId;
-    if (filters?.status) where.status = filters.status;
-    if (filters?.departmentId || filters?.siteId) {
-      where.user = {
-        ...(filters.departmentId && { departmentId: filters.departmentId }),
-        ...(filters.siteId && { siteId: filters.siteId }),
-      };
-    }
-
-    return prisma.leaveRequest.count({ where });
+    return this.request.count(filters);
   }
 
-  async getUserLeaveStats(
+  /** Get approved leave stats grouped by user. */
+  getUserLeaveStats(
     startDate: Date,
     endDate: Date,
     siteId?: string,
     departmentId?: string,
     tenantId?: string,
   ) {
-    const where: Prisma.LeaveRequestWhereInput = {
-      status: "APPROVED",
-      startDate: { lte: endDate },
-      endDate: { gte: startDate },
+    return this.lookup.getUserLeaveStats(
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
       tenantId,
-    };
-
-    if (siteId || departmentId) {
-      where.user = {
-        ...(siteId && { siteId }),
-        ...(departmentId && { departmentId }),
-      };
-    }
-
-    return prisma.leaveRequest.groupBy({
-      by: ["userId"],
-      where,
-      _count: { _all: true },
-    });
+    );
   }
 
-  /**
-   * Find active approved leave for a user on a specific date range.
-   * Used by AttendanceValidationService to check if user is on leave.
-   */
-  async findActiveLeaveForUserOnDate(
+  /** Find active approved leave for a user on date range. */
+  findActiveLeaveForUserOnDate(
     userId: string,
     startOfDay: Date,
     endOfDay: Date,
     tenantId?: string,
   ) {
-    const leave = await prisma.leaveRequest.findFirst({
-      where: {
-        userId,
-        ...(tenantId && { tenantId }),
-        status: "APPROVED",
-        startDate: { lte: endOfDay },
-        endDate: { gte: startOfDay },
-      },
-      select: {
-        type: true,
-        reason: true,
-      },
-    });
-
-    return leave ? toActiveLeaveEntity(leave) : null;
+    return this.lookup.findActiveLeaveForUserOnDate(
+      userId,
+      startOfDay,
+      endOfDay,
+      tenantId,
+    );
   }
 
-  async findApprovedTukarLiburForUserOnDate(
+  /** Find approved Tukar Libur for source/replacement date. */
+  findApprovedTukarLiburForUserOnDate(
     userId: string,
     startOfDay: Date,
     endOfDay: Date,
     tenantId?: string,
   ) {
-    const tukarLibur = await prisma.leaveRequest.findFirst({
-      where: {
-        userId,
-        ...(tenantId && { tenantId }),
-        type: "TUKAR_LIBUR",
-        status: "APPROVED",
-        OR: [
-          { startDate: { gte: startOfDay, lte: endOfDay } },
-          { replacementDate: { gte: startOfDay, lte: endOfDay } },
-        ],
-      },
-      select: {
-        startDate: true,
-        replacementDate: true,
-      },
-    });
-
-    return tukarLibur ? toTukarLiburDateEntity(tukarLibur) : null;
+    return this.lookup.findApprovedTukarLiburForUserOnDate(
+      userId,
+      startOfDay,
+      endOfDay,
+      tenantId,
+    );
   }
 
-  /**
-   * Find approved leave for a user on a date range (for auto-alpha check).
-   */
-  async findApprovedLeaveForUserOnDateRange(
+  /** Find approved leave for auto-alpha date range. */
+  findApprovedLeaveForUserOnDateRange(
     userId: string,
     tenantId: string,
     startOfDay: Date,
     endOfDay: Date,
   ) {
-    return prisma.leaveRequest.findFirst({
-      where: {
-        userId,
-        tenantId,
-        status: "APPROVED",
-        startDate: { lte: endOfDay },
-        endDate: { gte: startOfDay },
-      },
-    });
+    return this.lookup.findApprovedLeaveForUserOnDateRange(
+      userId,
+      tenantId,
+      startOfDay,
+      endOfDay,
+    );
   }
 
-  /**
-   * Find leave by ID with user relation included.
-   */
-  async findByIdWithUser(id: string, tenantId: string) {
-    return prisma.leaveRequest.findUnique({
-      where: { id, tenantId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            workingHourMode: true,
-            workDays: true,
-            tenantId: true,
-            joinDate: true,
-            siteId: true,
-            departmentId: true,
-          },
-        },
-      },
-    });
+  /** Find leave by ID with user relation included. */
+  findByIdWithUser(id: string, tenantId: string) {
+    return this.lookup.findByIdWithUser(id, tenantId);
   }
 
-  /**
-   * Find approved leaves in a date range with user relation included.
-   */
-  async findApprovedInRangeWithUser(
+  /** Find approved leaves in a date range with user relation included. */
+  findApprovedInRangeWithUser(
     startDate: Date,
     endDate: Date,
     tenantId: string,
     userId?: string,
   ) {
-    return prisma.leaveRequest.findMany({
-      where: {
-        tenantId,
-        status: "APPROVED",
-        ...(userId ? { userId } : {}),
-        startDate: { lte: endDate },
-        endDate: { gte: startDate },
-      },
-      include: { user: true },
-    });
+    return this.lookup.findApprovedInRangeWithUser(
+      startDate,
+      endDate,
+      tenantId,
+      userId,
+    );
   }
 }

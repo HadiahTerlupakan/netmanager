@@ -46,4 +46,15 @@ export interface IAttendanceRepository {
 
   /** Delete many attendance records. */
   deleteMany(where: AttendanceWhereInput): Promise<{ count: number }>;
+
+  /** Find attendance within a user/date range. */
+  findFirstByUserAndDateRange(
+    userId: string,
+    tenantId: string,
+    startOfDay: Date,
+    endOfDay: Date,
+  ): Promise<AttendanceQueryResult | null>;
+
+  /** Create attendance record. */
+  create(params: AttendanceQueryParams): Promise<AttendanceQueryResult>;
 }

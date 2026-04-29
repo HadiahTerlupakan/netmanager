@@ -1,0 +1,112 @@
+import { randomUUID } from "crypto";
+import { PurchaseRequestStatus, Prisma } from "@prisma/client";
+
+type PrismaClientLike = Prisma.TransactionClient;
+
+export class InventoryPurchaseRequestRepository {
+  constructor(private readonly db: PrismaClientLike) {}
+
+  /** Ambil daftar purchase request restock. */
+  async findPurchaseRequests(input: {
+    tenantId: string;
+    status?: string | null;
+  }) {
+    const requests = await this.db.purchaseRequest.findMany({
+      where: {
+        tenantId: input.tenantId,
+        ...(input.status
+          ? { status: input.status as PurchaseRequestStatus }
+          : {}),
+      },
+      include: {
+        items: { include: { barang: true } },
+        requester: { select: { name: true } },
+        approver: { select: { name: true } },
+        gudang: { select: { nama: true, id: true } },
+        purchaseOrder: { include: { items: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return requests.map((request) => ({
+      ...request,
+      items: request.items.map((item) => ({
+        ...item,
+        receivedQuantity:
+          request.purchaseOrder?.items.find(
+            (purchaseOrderItem) => purchaseOrderItem.barangId === item.barangId,
+          )?.receivedQuantity || 0,
+      })),
+    }));
+  }
+
+  /** Ambil purchase request milik tenant tertentu. */
+  async findPurchaseRequestById(input: { id: string; tenantId: string }) {
+    return this.db.purchaseRequest.findUnique({
+      where: { id: input.id, tenantId: input.tenantId },
+    });
+  }
+
+  /** Perbarui item purchase request draft/submitted. */
+  async updatePurchaseRequest(input: {
+    id: string;
+    tenantId: string;
+    gudangId: string;
+    keterangan?: string;
+    items: Array<{
+      barangId: string;
+      quantity: number;
+      keterangan?: string | null;
+    }>;
+  }) {
+    return this.db.$transaction(async (tx) => {
+      await tx.purchaseRequestItem.deleteMany({
+        where: { purchaseRequestId: input.id },
+      });
+      return tx.purchaseRequest.update({
+        where: { id: input.id },
+        data: {
+          gudangId: input.gudangId,
+          keterangan: input.keterangan,
+          items: {
+            create: input.items.map((item) => ({
+              id: randomUUID(),
+              barangId: item.barangId,
+              jumlah: item.quantity,
+              keterangan: item.keterangan || null,
+              hargaPerUnit: 0,
+              totalHarga: 0,
+              tenantId: input.tenantId,
+            })),
+          },
+        },
+        include: { items: true },
+      });
+    });
+  }
+
+  /** Hapus purchase request. */
+  async deletePurchaseRequest(id: string) {
+    await this.db.purchaseRequest.delete({ where: { id } });
+  }
+
+  /** Setujui purchase request sederhana untuk route approve. */
+  async approvePurchaseRequest(input: { id: string; approverId: string }) {
+    return this.db.purchaseRequest.update({
+      where: { id: input.id },
+      data: {
+        status: "APPROVED",
+        approvedBy: input.approverId,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /** Ambil ringkasan purchase request untuk proses receive/start shopping. */
+  async findPurchaseRequestProcessInfo(id: string) {
+    return this.db.purchaseRequest.findUnique({
+      where: { id },
+      select: { purchaseOrderId: true, status: true },
+    });
+  }
+}

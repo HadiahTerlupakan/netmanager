@@ -3,23 +3,13 @@ import { prisma as defaultPrisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import {
   applyWorkOrderListRestrictions,
-  buildInactiveEmployeeMessage,
   createEmptyWorkOrderListResult,
-  createWorkOrderNotFoundResult,
   getWorkOrderErrorCode,
-  hasActiveEmployeeStatus,
   isGenericNotFoundError,
   isMobileMaterialValidationError,
-  isWorkOrderNotFoundError,
   logWorkOrderServiceError,
   resolveTenantIdFromContext,
 } from "./work-order-service-helpers";
-import {
-  buildWorkOrderUpdatePayload,
-  ensureRejectionReason,
-  ensureRequestedStatus,
-  ensureWorkOrderExists,
-} from "./work-order-service-guards";
 import { processMobileMaterialReturn } from "./work-order-mobile-material-return";
 import { InventoryStockService } from "@/modules/inventory";
 import { UserLookupService } from "@/modules/users";
@@ -52,22 +42,14 @@ import {
   validateMobileWorkOrderMaterialReturnAccess,
   validateWorkOrderAccess as validateWorkOrderAccessHelper,
 } from "./work-order-access";
-import { prepareWorkOrderCreateData } from "./work-order-create-preparation";
 import {
-  broadcastWorkOrderCreatedSafely,
   invalidateWorkOrderCaches,
-  linkWorkOrderToTicketSafely,
   logMobileMaterialReturnActivity,
-  logWorkOrderActivity,
   notifyMobileWorkOrderMaterialActionSafely,
   notifyMobileWorkOrderMaterialReturnSafely,
-  notifyWorkOrderCreatedSafely,
-  publishWorkOrderAssignmentSideEffects,
-  publishWorkOrderCreatedEvent,
-  publishWorkOrderStatusSideEffects,
 } from "./work-order-side-effects";
-import { syncWoStatusToTicket } from "./WorkOrderSyncService";
 import { WorkOrderActivityService } from "./WorkOrderActivityService";
+import { WorkOrderMutationService } from "./WorkOrderMutationService";
 export type {
   CreateWorkOrderInput,
   MobileWorkOrderMaterialReturnInput,
@@ -90,6 +72,7 @@ export class WorkOrderService {
   private inventoryRepo: InventoryStockService;
   private prismaClient: PrismaClient;
   private activityService: WorkOrderActivityService;
+  private mutationService: WorkOrderMutationService;
   constructor(prismaClient?: PrismaClient) {
     this.prismaClient = prismaClient ?? defaultPrisma;
     this.repository = new WorkOrderRepository(this.prismaClient);
@@ -100,6 +83,12 @@ export class WorkOrderService {
     this.materialRepo = new WorkOrderMaterialRepository(this.prismaClient);
     this.inventoryRepo = new InventoryStockService();
     this.activityService = new WorkOrderActivityService(this.repository);
+    this.mutationService = new WorkOrderMutationService({
+      repository: this.repository,
+      userRepo: this.userRepo,
+      ticketRepo: this.ticketRepo,
+      warrantyRepo: this.warrantyRepo,
+    });
   }
   /**
    * Get paginated list of work orders with site/department restrictions
@@ -266,379 +255,80 @@ export class WorkOrderService {
     }
   }
   // ==================== CREATE OPERATIONS ====================
-  /**
-   * Create new work order with validation, notifications, and logging
-   */
+  /** Create new work order with validation, notifications, and logging. */
   async createWorkOrder(
     input: CreateWorkOrderInput,
     userContext: UserContext,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
-    try {
-      const createdById = userContext.id;
-      const createData = await prepareWorkOrderCreateData({
-        input,
-        userContext,
-        warrantyRepo: this.warrantyRepo,
-      });
-      const workOrder = await this.repository.create(createData);
-      await notifyWorkOrderCreatedSafely(workOrder, userContext.id);
-      await publishWorkOrderCreatedEvent({
-        workOrder,
-        triggeredBy: createdById,
-      });
-      broadcastWorkOrderCreatedSafely(workOrder);
-      if (input.ticketId) {
-        await linkWorkOrderToTicketSafely({
-          ticketRepo: this.ticketRepo,
-          workOrder,
-          ticketId: input.ticketId,
-          userId: createdById,
-        });
-      }
-      logWorkOrderActivity("CREATE", "Work Order", createdById, {
-        id: workOrder.id,
-        number: workOrder.workOrderNumber,
-        title: workOrder.title,
-      });
-      await invalidateWorkOrderCaches();
-      return { success: true, data: workOrder as WorkOrderWithRelations };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.createWorkOrder failed",
-        error instanceof Error ? error : undefined,
-      );
-      if (error instanceof Error) {
-        if (error.message === "Tipe, judul, dan deskripsi wajib diisi") {
-          return {
-            success: false,
-            error: error.message,
-            code: "VALIDATION_ERROR",
-          };
-        }
-        if (error.message.includes("Akses ditolak")) {
-          return { success: false, error: error.message, code: "FORBIDDEN" };
-        }
-      }
-      return {
-        success: false,
-        error: "Gagal membuat work order",
-        code: "CREATE_ERROR",
-      };
-    }
+    return this.mutationService.createWorkOrder(input, userContext);
   }
+
   // ==================== UPDATE OPERATIONS ====================
-  /**
-   * Update work order
-   */
+  /** Update work order. */
   async updateWorkOrder(
     id: string,
     input: UpdateWorkOrderInput,
     userContext: UserContext,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
-    try {
-      await this.validateWorkOrderAccess(id, userContext);
-      // Check exists
-      const existing = await this.repository.findById(id);
-      const missingResult = ensureWorkOrderExists(existing);
-      if (missingResult) {
-        return missingResult;
-      }
-      const updateData = buildWorkOrderUpdatePayload(input);
-      const updated = await this.repository.update(id, updateData);
-      logWorkOrderActivity("UPDATE", "Work Order", userContext.id, {
-        id: updated.id,
-        number: updated.workOrderNumber,
-        changes: input,
-      });
-      await invalidateWorkOrderCaches();
-      // Refetch with relations
-      const result = await this.repository.findById(id);
-      return { success: true, data: result as WorkOrderWithRelations };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.updateWorkOrder failed",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Gagal mengupdate work order",
-        code: getWorkOrderErrorCode(error, "UPDATE_ERROR"),
-      };
-    }
+    return this.mutationService.updateWorkOrder(id, input, userContext);
   }
-  /**
-   * Update work order status with notifications
-   */
+
+  /** Update work order status with notifications. */
   async updateStatus(
     id: string,
     status: WorkOrderStatus,
     userContext: UserContext,
     resolutionNotes?: string,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
-    try {
-      await this.validateWorkOrderAccess(id, userContext);
-      const existing = await this.repository.findById(id);
-      const missingResult = ensureWorkOrderExists(existing);
-      if (missingResult) {
-        return missingResult;
-      }
-      const previousStatus = existing.status;
-      const userId = userContext.id;
-      // Update status
-      if (status === "COMPLETED" && resolutionNotes) {
-        await this.repository.complete(id, resolutionNotes, userId);
-      } else {
-        await this.repository.updateStatus(id, status, userId);
-      }
-      const fullWorkOrder = await this.repository.findById(id);
-      if (fullWorkOrder) {
-        await publishWorkOrderStatusSideEffects({
-          workOrder: fullWorkOrder,
-          previousStatus,
-          status,
-          userId,
-        });
-      }
-      await syncWoStatusToTicket(id, status);
-      logWorkOrderActivity("STATUS_CHANGE", "Work Order", userId, {
-        id,
-        from: previousStatus,
-        to: status,
-      });
-      await invalidateWorkOrderCaches();
-      const result = await this.repository.findById(id);
-      return { success: true, data: result as WorkOrderWithRelations };
-    } catch (error) {
-      logWorkOrderServiceError("WorkOrderService.updateStatus failed", error);
-      if (isWorkOrderNotFoundError(error)) {
-        return createWorkOrderNotFoundResult();
-      }
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal mengupdate status",
-        code: getWorkOrderErrorCode(error, "STATUS_ERROR"),
-      };
-    }
+    return this.mutationService.updateStatus(
+      id,
+      status,
+      userContext,
+      resolutionNotes,
+    );
   }
+
   // ==================== ASSIGNMENT OPERATIONS ====================
-  /**
-   * Assign work order to employee
-   */
+  /** Assign work order to employee. */
   async assignWorkOrder(
     id: string,
     employeeId: string,
     userContext: UserContext,
     role?: string,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
-    try {
-      await this.validateWorkOrderAccess(id, userContext);
-      const existing = await this.repository.findById(id);
-      const missingResult = ensureWorkOrderExists(existing);
-      if (missingResult) {
-        return missingResult;
-      }
-      // Validate employee status
-      const employee = await this.userRepo.findById(employeeId);
-      if (!employee) {
-        return {
-          success: false,
-          error: "Karyawan tidak ditemukan",
-          code: "EMPLOYEE_NOT_FOUND",
-        };
-      }
-      if (!hasActiveEmployeeStatus(employee as { isActive: boolean })) {
-        return {
-          success: false,
-          error: buildInactiveEmployeeMessage(
-            (employee as { name: string | null }).name,
-          ),
-          code: "EMPLOYEE_INACTIVE",
-        };
-      }
-      const assignedById = userContext.id;
-      // Assign
-      await this.repository.assign(id, employeeId, role, assignedById);
-      const fullWorkOrder = await this.repository.findById(id);
-      if (fullWorkOrder) {
-        await publishWorkOrderAssignmentSideEffects({
-          workOrder: fullWorkOrder,
-          employeeId,
-          employeeName: employee.name || undefined,
-          assignedById,
-        });
-      }
-      logWorkOrderActivity("ASSIGN", "Work Order", assignedById, {
-        id,
-        employeeId,
-        role,
-      });
-      await invalidateWorkOrderCaches();
-      const result = await this.repository.findById(id);
-      return { success: true, data: result as WorkOrderWithRelations };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.assignWorkOrder failed",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Gagal menugaskan work order",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "ASSIGN_ERROR",
-      };
-    }
+    return this.mutationService.assignWorkOrder(
+      id,
+      employeeId,
+      userContext,
+      role,
+    );
   }
+
   // ==================== APPROVAL OPERATIONS ====================
-  /**
-   * Approve work order request
-   */
+  /** Approve work order request. */
   async approveRequest(
     id: string,
     userContext: UserContext,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
-    try {
-      await this.validateWorkOrderAccess(id, userContext);
-      const existing = await this.repository.findById(id);
-      const missingResult = ensureWorkOrderExists(existing);
-      if (missingResult) {
-        return missingResult;
-      }
-      const invalidStatusResult = ensureRequestedStatus(
-        existing.status,
-        "disetujui",
-      );
-      if (invalidStatusResult) {
-        return invalidStatusResult;
-      }
-      const approvedById = userContext.id;
-      await this.repository.approveRequest(id, approvedById);
-      logWorkOrderActivity("APPROVE", "Work Order", approvedById, {
-        id,
-        number: existing.workOrderNumber,
-      });
-      await invalidateWorkOrderCaches();
-      const result = await this.repository.findById(id);
-      return { success: true, data: result as WorkOrderWithRelations };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.approveRequest failed",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Gagal menyetujui permintaan",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "APPROVE_ERROR",
-      };
-    }
+    return this.mutationService.approveRequest(id, userContext);
   }
-  /**
-   * Reject work order request
-   */
+
+  /** Reject work order request. */
   async rejectRequest(
     id: string,
     userContext: UserContext,
     reason: string,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
-    try {
-      await this.validateWorkOrderAccess(id, userContext);
-      const invalidReasonResult = ensureRejectionReason(reason);
-      if (invalidReasonResult) {
-        return invalidReasonResult;
-      }
-      const existing = await this.repository.findById(id);
-      const missingResult = ensureWorkOrderExists(existing);
-      if (missingResult) {
-        return missingResult;
-      }
-      const invalidStatusResult = ensureRequestedStatus(
-        existing.status,
-        "ditolak",
-      );
-      if (invalidStatusResult) {
-        return invalidStatusResult;
-      }
-      const rejectedById = userContext.id;
-      await this.repository.rejectRequest(id, rejectedById, reason);
-      logWorkOrderActivity("REJECT", "Work Order", rejectedById, {
-        id,
-        number: existing.workOrderNumber,
-        reason,
-      });
-      await invalidateWorkOrderCaches();
-      const result = await this.repository.findById(id);
-      return { success: true, data: result as WorkOrderWithRelations };
-    } catch (error) {
-      logger.error(
-        "WorkOrderService.rejectRequest failed",
-        error instanceof Error ? error : undefined,
-      );
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal menolak permintaan",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "REJECT_ERROR",
-      };
-    }
+    return this.mutationService.rejectRequest(id, userContext, reason);
   }
+
   // ==================== DELETE OPERATIONS ====================
-  /**
-   * Delete work order
-   */
+  /** Delete work order. */
   async deleteWorkOrder(
     id: string,
     userContext: UserContext,
   ): Promise<ServiceResult<void>> {
-    try {
-      await this.validateWorkOrderAccess(id, userContext);
-      const existing = await this.repository.findById(id);
-      const missingResult = ensureWorkOrderExists(existing);
-      if (missingResult) {
-        return missingResult;
-      }
-      const deletedById = userContext.id;
-      await this.repository.delete(id);
-      logWorkOrderActivity("DELETE", "Work Order", deletedById, {
-        id,
-        number: existing.workOrderNumber,
-      });
-      await invalidateWorkOrderCaches();
-      return { success: true };
-    } catch (error) {
-      logWorkOrderServiceError(
-        "WorkOrderService.deleteWorkOrder failed",
-        error,
-      );
-      if (isWorkOrderNotFoundError(error)) {
-        return createWorkOrderNotFoundResult();
-      }
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Gagal menghapus work order",
-        code:
-          error instanceof Error && error.message.includes("Akses ditolak")
-            ? "FORBIDDEN"
-            : "DELETE_ERROR",
-      };
-    }
+    return this.mutationService.deleteWorkOrder(id, userContext);
   }
   // ==================== MATERIAL & TEMPLATE OPERATIONS ====================
   /**

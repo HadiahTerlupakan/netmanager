@@ -20,6 +20,7 @@ import type {
   RabStatus,
 } from "@prisma/client";
 import type { IRabProjectRepository } from "../domain/ports/IRabProjectRepository";
+import { RabProjectUpdateRepository } from "./RabProjectUpdateRepository";
 export interface RabProjectWithDetails extends RabProject {
   items?: (RabItem & { disbursements?: RabDisbursement[] })[];
   wbsGroups?: RabWbs[];
@@ -241,29 +242,11 @@ function splitInvestmentBase(
     (_, index) => baseAmount + (index < remainder ? 1 : 0),
   );
 }
-function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
-  return [
-    input.items,
-    input.projectedOpex,
-    input.targetBasis,
-    input.targetHomepass,
-    input.targetTakeUpRatePercent,
-    input.targetSubscribers,
-    input.arpu,
-    input.growthType,
-    input.paymentType,
-    input.growthSettings,
-    input.investmentDurationMonths,
-    input.investorProfitSharePercent,
-    input.nplTolerancePercent,
-    input.opexBufferFundingMode,
-    input.opexBufferInvestorPercent,
-    input.opexBufferInvestorFixedAmount,
-    input.opexBufferSafetyPercent,
-  ].some((value) => value !== undefined);
-}
 export class RabProjectRepository implements IRabProjectRepository {
-  constructor(private client: PrismaClient = prisma) {}
+  private updateRepository: RabProjectUpdateRepository;
+  constructor(private client: PrismaClient = prisma) {
+    this.updateRepository = new RabProjectUpdateRepository(this.client);
+  }
   /** Get active projects that need status evaluation. */
   async findProjectsForStatusEvaluation(): Promise<
     RabProjectStatusCandidate[]
@@ -530,229 +513,7 @@ export class RabProjectRepository implements IRabProjectRepository {
       })
     | null
   > {
-    return this.client.$transaction(async (tx) => {
-      const updateData: Prisma.RabProjectUpdateInput = {};
-      if (input.name !== undefined) updateData.name = input.name;
-      if (input.description !== undefined)
-        updateData.description = input.description;
-      if (input.siteId !== undefined) {
-        updateData.site = input.siteId
-          ? { connect: { id: input.siteId } }
-          : { disconnect: true };
-      }
-      if (input.mixRadiusGroupId !== undefined) {
-        updateData.mixRadiusGroupId = input.mixRadiusGroupId;
-      }
-      if (input.mixRadiusInvestorSiteId !== undefined) {
-        updateData.mixRadiusInvestorSiteId = input.mixRadiusInvestorSiteId;
-      }
-      if (input.status !== undefined) updateData.status = input.status;
-      if (input.projectedRevenue !== undefined)
-        updateData.projectedRevenue = input.projectedRevenue;
-      if (input.projectedOpex !== undefined)
-        updateData.projectedOpex = input.projectedOpex;
-      if (input.targetBasis !== undefined)
-        updateData.targetBasis = input.targetBasis;
-      if (input.targetHomepass !== undefined)
-        updateData.targetHomepass = input.targetHomepass;
-      if (input.targetTakeUpRatePercent !== undefined)
-        updateData.targetTakeUpRatePercent = input.targetTakeUpRatePercent;
-      if (input.targetSubscribers !== undefined)
-        updateData.targetSubscribers = input.targetSubscribers;
-      if (input.arpu !== undefined) updateData.arpu = input.arpu;
-      if (input.growthType !== undefined)
-        updateData.growthType = input.growthType;
-      if (input.paymentType !== undefined)
-        updateData.paymentType = input.paymentType;
-      if (input.growthSettings !== undefined)
-        updateData.growthSettings =
-          input.growthSettings as Prisma.InputJsonValue;
-      if (input.startDate !== undefined) updateData.startDate = input.startDate;
-      if (input.investmentDurationMonths !== undefined)
-        updateData.investmentDurationMonths = input.investmentDurationMonths;
-      if (input.investmentRecoveryType !== undefined)
-        updateData.investmentRecoveryType = input.investmentRecoveryType;
-      if (input.investmentRecoveryValue !== undefined)
-        updateData.investmentRecoveryValue = input.investmentRecoveryValue;
-      if (input.investorProfitSharePercent !== undefined)
-        updateData.investorProfitSharePercent =
-          input.investorProfitSharePercent;
-      if (input.investorProfitShareMode !== undefined)
-        updateData.investorProfitShareMode = input.investorProfitShareMode;
-      if (input.investorProfitShareBeforeBepPercent !== undefined)
-        updateData.investorProfitShareBeforeBepPercent =
-          input.investorProfitShareBeforeBepPercent;
-      if (input.investorProfitShareAfterBepPercent !== undefined)
-        updateData.investorProfitShareAfterBepPercent =
-          input.investorProfitShareAfterBepPercent;
-      if (input.contingencyPercent !== undefined)
-        updateData.contingencyPercent = input.contingencyPercent;
-      if (input.contingencyAmount !== undefined)
-        updateData.contingencyAmount = input.contingencyAmount;
-      if (input.nplTolerancePercent !== undefined)
-        updateData.nplTolerancePercent = input.nplTolerancePercent;
-      if (input.opexBufferFundingMode !== undefined)
-        updateData.opexBufferFundingMode = input.opexBufferFundingMode;
-      if (input.opexBufferInvestorPercent !== undefined)
-        updateData.opexBufferInvestorPercent = input.opexBufferInvestorPercent;
-      if (input.opexBufferCompanyPercent !== undefined)
-        updateData.opexBufferCompanyPercent = input.opexBufferCompanyPercent;
-      if (input.opexBufferInvestorFixedAmount !== undefined)
-        updateData.opexBufferInvestorFixedAmount =
-          input.opexBufferInvestorFixedAmount;
-      if (input.opexBufferSafetyPercent !== undefined)
-        updateData.opexBufferSafetyPercent = input.opexBufferSafetyPercent;
-      if (input.hasDisbursementPlan !== undefined)
-        updateData.hasDisbursementPlan = input.hasDisbursementPlan;
-      await tx.rabProject.update({
-        where: { id },
-        data: updateData,
-      });
-      if (input.items !== undefined) {
-        await tx.rabItem.deleteMany({ where: { rabProjectId: id } });
-        await tx.rabWbs.deleteMany({ where: { rabProjectId: id } });
-        const wbsMap = new Map<string, string>();
-        if (input.wbsGroups && input.wbsGroups.length > 0) {
-          for (const wbs of input.wbsGroups) {
-            const createdWbs = await tx.rabWbs.create({
-              data: {
-                rabProjectId: id,
-                name: wbs.name,
-                order: wbs.order,
-              },
-            });
-            if (wbs.id) {
-              wbsMap.set(wbs.id, createdWbs.id);
-            }
-          }
-        }
-        if (input.items.length > 0) {
-          for (const item of input.items) {
-            if (
-              item.name === undefined ||
-              item.quantity === undefined ||
-              item.unitPrice === undefined ||
-              item.category === undefined ||
-              item.expenseType === undefined
-            ) {
-              throw new Error(
-                "Invalid RAB item payload: name, quantity, unitPrice, category, and expenseType are required",
-              );
-            }
-            const createdItem = await tx.rabItem.create({
-              data: {
-                rabProjectId: id,
-                name: item.name,
-                description: item.description,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                category: item.category,
-                expenseType: item.expenseType,
-                expenseCategoryId: item.expenseCategoryId,
-                totalPrice: BigInt(item.quantity) * item.unitPrice,
-                wbsId: item.wbsGroupId
-                  ? wbsMap.get(item.wbsGroupId)
-                  : undefined,
-              },
-            });
-            if (item.disbursements && item.disbursements.length > 0) {
-              const disbursementData: Prisma.RabDisbursementCreateManyInput[] =
-                [];
-              for (const disbursement of item.disbursements) {
-                if (
-                  disbursement.name === undefined ||
-                  disbursement.percentage === undefined ||
-                  disbursement.amount === undefined
-                ) {
-                  continue;
-                }
-                disbursementData.push({
-                  rabItemId: createdItem.id,
-                  name: disbursement.name,
-                  percentage: disbursement.percentage,
-                  amount: disbursement.amount,
-                  estimatedDate: disbursement.estimatedDate,
-                  isPaid: disbursement.isPaid ?? false,
-                });
-              }
-              if (disbursementData.length === 0) {
-                continue;
-              }
-              await tx.rabDisbursement.createMany({
-                data: disbursementData,
-              });
-            }
-          }
-        }
-      }
-      if (input.investorIds !== undefined) {
-        await tx.rabInvestor.deleteMany({ where: { rabProjectId: id } });
-        if (input.investorIds.length > 0) {
-          const existingProject = await tx.rabProject.findUnique({
-            where: { id },
-            include: { items: true },
-          });
-          const investmentItems = input.items || existingProject?.items || [];
-          const currentProfitShare =
-            input.investorProfitSharePercent ??
-            existingProject?.investorProfitSharePercent ??
-            50;
-          const investmentBase = existingProject
-            ? getInvestorFundingBase(existingProject, investmentItems)
-            : getCapexTotal(investmentItems);
-          const amounts = splitInvestmentBase(
-            investmentBase,
-            input.investorIds,
-          );
-          await tx.rabInvestor.createMany({
-            data: input.investorIds.map((investorId, index) => ({
-              rabProjectId: id,
-              investorId,
-              investmentAmount: amounts[index],
-              profitSharePercent: currentProfitShare,
-            })),
-          });
-        }
-      } else if (hasInvestorFundingBaseChange(input)) {
-        const existingInvestors = await tx.rabInvestor.findMany({
-          where: { rabProjectId: id },
-        });
-        if (existingInvestors.length > 0) {
-          const existingProject = await tx.rabProject.findUnique({
-            where: { id },
-            include: { items: true },
-          });
-          const investmentItems = input.items || existingProject?.items || [];
-          const currentProfitShare =
-            input.investorProfitSharePercent ??
-            existingProject?.investorProfitSharePercent ??
-            50;
-          const investmentBase = existingProject
-            ? getInvestorFundingBase(existingProject, investmentItems)
-            : getCapexTotal(investmentItems);
-          const investorIds = existingInvestors.map(
-            (investor) => investor.investorId,
-          );
-          const amounts = splitInvestmentBase(investmentBase, investorIds);
-          for (const [index, investorId] of investorIds.entries()) {
-            await tx.rabInvestor.updateMany({
-              where: { rabProjectId: id, investorId },
-              data: {
-                investmentAmount: amounts[index],
-                profitSharePercent: currentProfitShare,
-              },
-            });
-          }
-        }
-      }
-      return tx.rabProject.findUnique({
-        where: { id },
-        include: {
-          items: { include: { disbursements: true } },
-          wbsGroups: true,
-        },
-      });
-    });
+    return this.updateRepository.updateProjectWithRelations(id, input);
   }
   /** Create a complete RAB project with nested items and investors. */
   async createFullProject(data: {

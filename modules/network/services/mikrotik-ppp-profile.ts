@@ -2,13 +2,12 @@ import { logger } from "@/lib/logger";
 import { RadiusConnectionError } from "../utils/errors";
 import { RouterOSAPI } from "node-routeros-v2";
 import { NetworkRepository } from "../repositories/NetworkRepository";
-
-interface MikroTikRouterConfig {
-  ipAddress: string;
-  apiPort: number;
-  apiUsername: string;
-  apiPassword: string;
-}
+import {
+  checkIPPoolExists,
+  connectToMikroTik,
+  createIPPool,
+  getIPPoolRanges as getMikroTikIPPoolRanges,
+} from "./mikrotik-ip-pool-client";
 
 interface PPPProfileData {
   name: string;
@@ -21,38 +20,6 @@ interface PPPProfileData {
   rateLimit?: string;
   skipPoolCheck?: boolean;
   skipRateLimit?: boolean;
-}
-
-async function connectToMikroTik(
-  config: MikroTikRouterConfig,
-  timeout: number = 5000,
-): Promise<RouterOSAPI> {
-  const conn = new RouterOSAPI({
-    host: config.ipAddress,
-    user: config.apiUsername,
-    password: config.apiPassword,
-    port: config.apiPort,
-    timeout: timeout,
-  });
-
-  await conn.connect();
-  return conn;
-}
-
-async function checkIPPoolExists(
-  conn: RouterOSAPI,
-  poolName: string,
-): Promise<boolean> {
-  try {
-    const pools = await conn.write("/ip/pool/print", ["?name=" + poolName]);
-    return pools && pools.length > 0;
-  } catch (error) {
-    logger.error("[MikroTik IP Pool] Error checking pool:", error);
-    throw new RadiusConnectionError(
-      "Gagal terhubung ke router: " +
-        (error instanceof Error ? error.message : String(error)),
-    );
-  }
 }
 
 function formatRateLimitFromBandwidth(bandwidth: {
@@ -159,156 +126,9 @@ export async function getRateLimitFromBandwidth(
 
 export async function getIPPoolRanges(
   routerId: string,
-  _poolName: string,
-): Promise<{ success: boolean; ranges?: string; error?: string }> {
-  try {
-    const networkRepo = new NetworkRepository();
-    const router = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } =
-      await import("@/modules/network/repositories/MikroTikRouterRepository");
-    const routerRepo = new MikroTikRouterRepository();
-    const routerFull = router
-      ? await routerRepo.findById(routerId, router.tenantId!)
-      : null;
-
-    if (!routerFull) {
-      return { success: false, error: "Router tidak ditemukan" };
-    }
-
-    const conn = await connectToMikroTik({
-      ipAddress: routerFull.ipAddress,
-      apiPort: routerFull.apiPort,
-      apiUsername: routerFull.apiUsernameGenerated || routerFull.apiUsername,
-      apiPassword: routerFull.apiPasswordGenerated || routerFull.apiPassword,
-    });
-
-    try {
-      const pools = await conn.write("/ip/pool/print", ["?name=" + _poolName]);
-
-      if (!pools || pools.length === 0 || !pools[0]) {
-        conn.close();
-        return { success: false, error: "IP Pool tidak ditemukan" };
-      }
-
-      const pool = pools[0];
-      const ranges = pool["ranges"] || null;
-
-      conn.close();
-
-      if (!ranges || ranges.trim() === "") {
-        return { success: false, error: "IP Pool tidak memiliki ranges" };
-      }
-
-      return { success: true, ranges: ranges };
-    } catch (error) {
-      conn.close();
-      logger.error("[MikroTik IP Pool] Error getting pool ranges:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      return {
-        success: false,
-        error: errorMessage || "Gagal mengambil IP Pool ranges dari MikroTik",
-      };
-    }
-  } catch (error) {
-    logger.error("[MikroTik IP Pool] Error connecting to MikroTik:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: errorMessage || "Gagal terhubung ke MikroTik Router",
-    };
-  }
-}
-
-async function createIPPool(
-  conn: RouterOSAPI,
   poolName: string,
-  ipRange: string,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const existingPools = await conn.write("/ip/pool/print", [
-      "?name=" + poolName,
-    ]);
-    const exists = existingPools && existingPools.length > 0;
-
-    const poolComment = `add by netmanager - ${poolName}`;
-
-    if (exists && existingPools && existingPools[0]) {
-      const poolId = existingPools[0][".id"];
-
-      const idParam = `=.id=${poolId}`;
-      const updateParams: string[] = [
-        `=ranges=${ipRange}`,
-        `=comment=${poolComment}`,
-      ];
-
-      const updateCommand = [idParam, ...updateParams];
-      const updateResult = await conn.write("/ip/pool/set", updateCommand);
-
-      if (
-        updateResult &&
-        Array.isArray(updateResult) &&
-        updateResult.length > 0
-      ) {
-        const firstResult = updateResult[0];
-        if (firstResult && firstResult["!trap"]) {
-          const errorMsg = firstResult["message"] || "Terjadi kesalahan";
-          return { success: false, error: `MikroTik error: ${errorMsg}` };
-        }
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const verifyPools = await conn.write("/ip/pool/print", [
-        "?name=" + poolName,
-      ]);
-
-      if (!verifyPools || verifyPools.length === 0) {
-        return {
-          success: false,
-          error: "IP Pool diupdate tapi tidak ditemukan saat verifikasi",
-        };
-      }
-
-      return { success: true };
-    }
-
-    const poolParams: string[] = [
-      `=name=${poolName}`,
-      `=ranges=${ipRange}`,
-      `=comment=${poolComment}`,
-    ];
-
-    const result = await conn.write("/ip/pool/add", poolParams);
-
-    if (result && Array.isArray(result) && result.length > 0) {
-      const firstResult = result[0];
-      if (firstResult && firstResult["!trap"]) {
-        const errorMsg = firstResult["message"] || "Terjadi kesalahan";
-        return { success: false, error: `MikroTik error: ${errorMsg}` };
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const verifyPools = await conn.write("/ip/pool/print", [
-      "?name=" + poolName,
-    ]);
-
-    if (!verifyPools || verifyPools.length === 0) {
-      return {
-        success: false,
-        error: "IP Pool dibuat tapi tidak ditemukan saat verifikasi",
-      };
-    }
-
-    return { success: true };
-  } catch (error) {
-    logger.error("[MikroTik IP Pool] Error creating/updating pool:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: errorMessage || "Gagal membuat/update IP Pool di MikroTik",
-    };
-  }
+): Promise<{ success: boolean; ranges?: string; error?: string }> {
+  return getMikroTikIPPoolRanges(routerId, poolName);
 }
 
 export async function createPPPProfileInMikroTik(

@@ -1,326 +1,206 @@
-import { HolidayRepository } from "../repositories/HolidayRepository";
-import { LeaveRepository } from "../repositories/LeaveRepository";
-import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { UserLookupService } from "@/modules/users";
 import { randomUUID } from "crypto";
-import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
-import { AttendanceEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
+import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { AttendanceEventDispatcher } from "@/modules/events";
+import { UserLookupService } from "@/modules/users";
+import {
+  createAttendanceRepository,
+  createHolidayRepository,
+  createLeaveRepository,
+} from "../factories/AttendanceRepositoryFactory";
+import { AbsenceDayOffSyncService } from "./AbsenceDayOffSyncService";
+import { AttendanceWorkdayService } from "./AttendanceWorkdayService";
 
 export class AbsenceService {
-  private holidayRepo: HolidayRepository;
-  private leaveRepo: LeaveRepository;
-  private attendanceRepo: AttendanceRepository;
-  private userRepo: UserLookupService;
+  private readonly attendanceRepo = createAttendanceRepository();
+  private readonly holidayRepo = createHolidayRepository();
+  private readonly leaveRepo = createLeaveRepository();
+  private readonly userRepo = new UserLookupService();
+  private readonly workdayService = new AttendanceWorkdayService();
+  private readonly dayOffSyncService = new AbsenceDayOffSyncService(
+    this.holidayRepo,
+    this.leaveRepo,
+    this.attendanceRepo,
+    this.userRepo,
+    this.workdayService,
+  );
 
-  constructor() {
-    this.holidayRepo = new HolidayRepository();
-    this.leaveRepo = new LeaveRepository();
-    this.attendanceRepo = new AttendanceRepository();
-    this.userRepo = new UserLookupService();
-  }
-
-  /**
-   * Process absence for a specific date.
-   * Ideally run for YESTERDAY (H-1) to ensure full day has passed.
-   *
-   * @param targetDate The date to check for absences
-   * @param tenantId The tenant ID to scope the operation
-   */
+  /** Process absence untuk tanggal tertentu dalam tenant. */
   async processDailyAbsence(targetDate: Date, tenantId: string) {
-    // Normalize date to start of day
-    const startOfDay = new Date(targetDate);
-    startOfDay.setTime(toStartOfDay(startOfDay).getTime());
+    const startOfDay = new Date(toStartOfDay(targetDate));
+    const endOfDay = new Date(toEndOfDay(targetDate));
+    const [isHoliday, users] = await Promise.all([
+      this.isHoliday(tenantId, startOfDay, endOfDay),
+      this.userRepo.findActiveForAttendance(tenantId, undefined, startOfDay),
+    ]);
+    let absent = 0;
+    let dayOff = 0;
 
-    const endOfDay = new Date(targetDate);
-    endOfDay.setTime(toEndOfDay(endOfDay).getTime());
-
-    // 1. Check if targetDate is a Holiday
-    const holidays = await this.holidayRepo.findMany(tenantId, {
-      where: {
-        date: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-    });
-
-    const isHoliday = holidays.length > 0;
-
-    // 2. Get All Active Users (EXCLUDE FLEXIBLE mode - they don't have daily attendance requirements)
-    // FLEXIBLE users accumulate working hours monthly, not daily check-in/out
-    const users = await this.userRepo.findActiveForAttendance(
-      tenantId,
-      undefined,
-      startOfDay,
-    );
-
-    let absentCount = 0;
-    let dayOffCount = 0;
-
-    // 3. Iterate and Check
     for (const user of users) {
-      // 3.1 Check Work Days
-      const dayOfWeek = targetDate.getDay(); // 0-6
-      let isWorkDay = false;
-
-      if (user.workDays) {
-        const rawDays = user.workDays.split(",").map((d) => d.trim());
-        const dayMap: Record<string, number> = {
-          Sun: 0,
-          Mon: 1,
-          Tue: 2,
-          Wed: 3,
-          Thu: 4,
-          Fri: 5,
-          Sat: 6,
-          Minggu: 0,
-          Senin: 1,
-          Selasa: 2,
-          Rabu: 3,
-          Kamis: 4,
-          Jumat: 5,
-          Sabtu: 6,
-          "0": 0,
-          "1": 1,
-          "2": 2,
-          "3": 3,
-          "4": 4,
-          "5": 5,
-          "6": 6,
-        };
-
-        const days = rawDays
-          .map((d) => {
-            const parsed = parseInt(d);
-            if (!isNaN(parsed)) return parsed;
-            return dayMap[d];
-          })
-          .filter((d) => d !== undefined);
-
-        if (days.includes(dayOfWeek)) {
-          isWorkDay = true;
-        }
-      } else {
-        isWorkDay = false;
-      }
-
-      // 3.2 Check Existing Attendance
-      const attendance = await this.attendanceRepo.findFirstByUserAndDateRange(
-        user.id,
-        tenantId,
+      const result = await this.processUserAbsence({
+        user,
+        targetDate,
         startOfDay,
         endOfDay,
-      );
-
-      if (attendance) {
-        continue; // Present
-      }
-
-      // 3.3 Check Approved Leave
-      const leave = await this.leaveRepo.findActiveLeaveForUserOnDate(
-        user.id,
-        startOfDay,
-        endOfDay,
+        isHoliday,
         tenantId,
-      );
-
-      if (leave) {
-        continue; // On Leave
-      }
-
-      if (isHoliday || !isWorkDay) {
-        try {
-          const dayOffTime = new Date(startOfDay);
-          dayOffTime.setTime(toStartOfDay(dayOffTime).getTime());
-
-          await this.attendanceRepo.create({
-            id: randomUUID(),
-            userId: user.id,
-            tenantId,
-            checkIn: dayOffTime,
-            status: "DAY_OFF",
-            notes: isHoliday
-              ? "Hari Libur (Day Off) - Auto Generated"
-              : "Hari Off (Day Off) - Auto Generated",
-            location: "System",
-            updatedAt: new Date(),
-          });
-          dayOffCount++;
-        } catch (error) {
-          logger.error(
-            `[AbsenceService] Error creating Day Off for ${user.name}:`,
-            error,
-          );
-        }
-
-        continue;
-      }
-
-      try {
-        // Set checkIn time to 00:00:00 (midnight) of that day
-        // UI should hide the time display for records with this midnight timestamp
-        const alphaTime = new Date(startOfDay);
-        alphaTime.setTime(toStartOfDay(alphaTime).getTime());
-        const attendanceId = randomUUID();
-
-        await this.attendanceRepo.create({
-          id: attendanceId,
-          userId: user.id,
-          tenantId,
-          checkIn: alphaTime,
-          status: "ABSENT",
-          notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
-          location: "System",
-          updatedAt: new Date(),
-        });
-
-        // Publish domain event
-        AttendanceEventDispatcher.onAbsent({
-          userId: user.id,
-          userName: user.name || undefined,
-          attendanceId,
-          timestamp: alphaTime.toISOString(),
-          tenantId,
-        }).catch((err) =>
-          logger.error(
-            "Failed to publish ATTENDANCE_ABSENT event",
-            err instanceof Error ? err : undefined,
-          ),
-        );
-
-        absentCount++;
-      } catch (error) {
-        logger.error(
-          `[AbsenceService] Error creating Absent for ${user.name}:`,
-          error,
-        );
-      }
+      });
+      if (result === "absent") absent++;
+      if (result === "dayOff") dayOff++;
     }
 
     return {
       processed: users.length,
-      absent: absentCount,
-      dayOff: dayOffCount,
+      absent,
+      dayOff,
       ...(isHoliday ? { message: "Holiday" } : {}),
     };
   }
 
+  /** Sinkronkan attendance DAY_OFF untuk rentang tanggal. */
   async syncDayOffAttendanceRange(
     startDate: Date,
     endDate: Date,
     tenantId: string,
     userId?: string,
   ) {
-    const current = new Date(startDate);
-    current.setTime(toStartOfDay(current).getTime());
+    return this.dayOffSyncService.syncDayOffAttendanceRange(
+      startDate,
+      endDate,
+      tenantId,
+      userId,
+    );
+  }
 
-    const last = new Date(endDate);
-    last.setTime(toStartOfDay(last).getTime());
-
-    while (current <= last) {
-      const startOfDay = new Date(current);
-      startOfDay.setTime(toStartOfDay(startOfDay).getTime());
-      const endOfDay = new Date(current);
-      endOfDay.setTime(toEndOfDay(endOfDay).getTime());
-
-      const holidays = await this.holidayRepo.findMany(tenantId, {
-        where: {
-          date: {
-            gte: startOfDay,
-            lte: endOfDay,
-          },
-        },
-      });
-
-      const isHoliday = holidays.length > 0;
-
-      const users = await this.userRepo.findActiveForAttendance(
-        tenantId,
-        userId,
-        startOfDay,
-      );
-
-      const dayOfWeek = current.getDay();
-      for (const user of users) {
-        const rawDays = user.workDays
-          ? user.workDays.split(",").map((d) => d.trim())
-          : [];
-        const dayMap: Record<string, number> = {
-          Sun: 0,
-          Mon: 1,
-          Tue: 2,
-          Wed: 3,
-          Thu: 4,
-          Fri: 5,
-          Sat: 6,
-          Minggu: 0,
-          Senin: 1,
-          Selasa: 2,
-          Rabu: 3,
-          Kamis: 4,
-          Jumat: 5,
-          Sabtu: 6,
-          "0": 0,
-          "1": 1,
-          "2": 2,
-          "3": 3,
-          "4": 4,
-          "5": 5,
-          "6": 6,
-        };
-        const workDays = rawDays
-          .map((d) => {
-            const parsed = parseInt(d);
-            if (!isNaN(parsed)) return parsed;
-            return dayMap[d];
-          })
-          .filter((d) => d !== undefined);
-        const isWorkDay = workDays.includes(dayOfWeek);
-
-        if (!isHoliday && isWorkDay) {
-          continue;
-        }
-
-        const attendance =
-          await this.attendanceRepo.findFirstByUserAndDateRange(
-            user.id,
-            tenantId,
-            startOfDay,
-            endOfDay,
-          );
-
-        if (attendance) {
-          continue;
-        }
-
-        const leave = await this.leaveRepo.findActiveLeaveForUserOnDate(
-          user.id,
-          startOfDay,
-          endOfDay,
-          tenantId,
-        );
-
-        if (leave) {
-          continue;
-        }
-
-        const checkInTime = new Date(startOfDay);
-        await this.attendanceRepo.create({
-          id: randomUUID(),
-          userId: user.id,
-          tenantId,
-          checkIn: checkInTime,
-          status: "DAY_OFF",
-          notes: isHoliday
-            ? "Hari Libur (Day Off) - Auto Generated"
-            : "Hari Off (Day Off) - Auto Generated",
-          location: "System",
-          updatedAt: new Date(),
-        });
-      }
-
-      current.setDate(current.getDate() + 1);
+  private async processUserAbsence(input: {
+    user: { id: string; name: string | null; workDays: string | null };
+    targetDate: Date;
+    startOfDay: Date;
+    endOfDay: Date;
+    isHoliday: boolean;
+    tenantId: string;
+  }) {
+    if (await this.hasAttendanceOrLeave(input)) return "present";
+    const isWorkDay = this.workdayService.isWorkDay(
+      input.user.workDays,
+      input.targetDate,
+    );
+    if (input.isHoliday || !isWorkDay) {
+      return this.createDayOffAttendance(input);
     }
+    return this.createAbsentAttendance(input);
+  }
+
+  private async hasAttendanceOrLeave(input: {
+    user: { id: string };
+    startOfDay: Date;
+    endOfDay: Date;
+    tenantId: string;
+  }) {
+    const attendance = await this.attendanceRepo.findFirstByUserAndDateRange(
+      input.user.id,
+      input.tenantId,
+      input.startOfDay,
+      input.endOfDay,
+    );
+    if (attendance) return true;
+
+    const leave = await this.leaveRepo.findActiveLeaveForUserOnDate(
+      input.user.id,
+      input.startOfDay,
+      input.endOfDay,
+      input.tenantId,
+    );
+    return Boolean(leave);
+  }
+
+  private async createDayOffAttendance(input: {
+    user: { id: string; name: string | null };
+    startOfDay: Date;
+    isHoliday: boolean;
+    tenantId: string;
+  }) {
+    try {
+      await this.attendanceRepo.create({
+        id: randomUUID(),
+        userId: input.user.id,
+        tenantId: input.tenantId,
+        checkIn: new Date(toStartOfDay(input.startOfDay)),
+        status: "DAY_OFF",
+        notes: input.isHoliday
+          ? "Hari Libur (Day Off) - Auto Generated"
+          : "Hari Off (Day Off) - Auto Generated",
+        location: "System",
+        updatedAt: new Date(),
+      });
+      return "dayOff";
+    } catch (error) {
+      logger.error(
+        `[AbsenceService] Error creating Day Off for ${input.user.name}:`,
+        error,
+      );
+      return "present";
+    }
+  }
+
+  private async createAbsentAttendance(input: {
+    user: { id: string; name: string | null };
+    startOfDay: Date;
+    tenantId: string;
+  }) {
+    try {
+      const attendanceId = randomUUID();
+      const alphaTime = new Date(toStartOfDay(input.startOfDay));
+      await this.attendanceRepo.create({
+        id: attendanceId,
+        userId: input.user.id,
+        tenantId: input.tenantId,
+        checkIn: alphaTime,
+        status: "ABSENT",
+        notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
+        location: "System",
+        updatedAt: new Date(),
+      });
+      this.publishAbsentEvent(
+        input.user,
+        attendanceId,
+        alphaTime,
+        input.tenantId,
+      );
+      return "absent";
+    } catch (error) {
+      logger.error(
+        `[AbsenceService] Error creating Absent for ${input.user.name}:`,
+        error,
+      );
+      return "present";
+    }
+  }
+
+  private publishAbsentEvent(
+    user: { id: string; name: string | null },
+    attendanceId: string,
+    timestamp: Date,
+    tenantId: string,
+  ) {
+    AttendanceEventDispatcher.onAbsent({
+      userId: user.id,
+      userName: user.name || undefined,
+      attendanceId,
+      timestamp: timestamp.toISOString(),
+      tenantId,
+    }).catch((error) =>
+      logger.error(
+        "Failed to publish ATTENDANCE_ABSENT event",
+        error instanceof Error ? error : undefined,
+      ),
+    );
+  }
+
+  private async isHoliday(tenantId: string, startOfDay: Date, endOfDay: Date) {
+    const holidays = await this.holidayRepo.findMany(tenantId, {
+      where: { date: { gte: startOfDay, lte: endOfDay } },
+    });
+    return holidays.length > 0;
   }
 }

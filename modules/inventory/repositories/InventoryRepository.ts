@@ -1,7 +1,6 @@
 import { PrismaClient, Prisma, AlertType } from "@prisma/client";
 import type { Barang, BarangMasuk, BarangKeluar, Gudang } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { prismaMitra } from "@/lib/prisma-mitra";
 import { USEFUL_LIFE_MONTHS, DEFAULT_KONDISI } from "@/lib/constants/inventory";
 import type {
   UpdateBarangInput,
@@ -34,12 +33,9 @@ import {
   getConditionStockAmount,
   getStockFieldByCondition,
 } from "./inventory-stock-helpers";
-import {
-  buildMobileBarangSelect,
-  buildMobileGudangWhere,
-  buildMobileHistoryInclude,
-  buildSiteFilter,
-} from "./inventory-mobile-query-helpers";
+import { InventoryGudangRepository } from "./InventoryGudangRepository";
+import { InventoryMobileRepository } from "./InventoryMobileRepository";
+import { InventoryOpnameRepository } from "./InventoryOpnameRepository";
 import type { RestockSettingRecord } from "./inventory-repository.contracts";
 import {
   getHistoryKeluar,
@@ -91,8 +87,14 @@ function resolveInventoryActor(input: {
 }
 export class InventoryRepository implements IInventoryDomainRepository {
   private db: PrismaClient;
+  private gudangRepository: InventoryGudangRepository;
+  private mobileRepository: InventoryMobileRepository;
+  private opnameRepository: InventoryOpnameRepository;
   constructor() {
     this.db = prisma;
+    this.gudangRepository = new InventoryGudangRepository(this.db);
+    this.mobileRepository = new InventoryMobileRepository(this.db);
+    this.opnameRepository = new InventoryOpnameRepository(this.db);
   }
   /** Get active restock settings with item and warehouse info. */
   async findActiveRestockSettings(): Promise<RestockSettingRecord[]> {
@@ -624,141 +626,66 @@ export class InventoryRepository implements IInventoryDomainRepository {
     return this.db.gudang.findMany({ where, orderBy: { nama: "asc" } });
   }
   async findMobileActorUser(input: { actorId: string; tenantId: string }) {
-    return this.db.user.findFirst({
-      where: { id: input.actorId, tenantId: input.tenantId },
-      include: {
-        role: { include: { permission: true } },
-        sites: true,
-        userSites: { select: { siteId: true } },
-      },
-    });
+    return this.mobileRepository.findMobileActorUser(input);
   }
   async findMobileActorMitra(actorId: string) {
-    return prismaMitra.mitra.findUnique({
-      where: { id: actorId },
-      select: { id: true, siteId: true },
-    });
+    return this.mobileRepository.findMobileActorMitra(actorId);
   }
   async findMobileGudangs(input: { tenantId: string; siteIds?: string[] }) {
-    return this.db.gudang.findMany({
-      where: buildMobileGudangWhere(input),
-      select: { id: true, kode: true, nama: true, lokasi: true },
-      orderBy: { nama: "asc" },
-    });
+    return this.mobileRepository.findMobileGudangs(input);
   }
   async findMobileBarangForMasuk(input: {
     tenantId: string;
     siteIds?: string[];
   }) {
-    const where: Prisma.BarangWhereInput = { tenantId: input.tenantId };
-    if (input.siteIds) {
-      where.barangGudang = {
-        some: { gudang: buildSiteFilter(input.siteIds) },
-      };
-    }
-    return this.db.barang.findMany({
-      where,
-      select: buildMobileBarangSelect(),
-      orderBy: { nama: "asc" },
-    });
+    return this.mobileRepository.findMobileBarangForMasuk(input);
   }
   async findMobileBarangForKeluar(input: {
     tenantId: string;
     gudangId: string;
     siteIds?: string[];
   }) {
-    const where: Prisma.BarangGudangWhereInput = {
-      gudangId: input.gudangId,
-      tenantId: input.tenantId,
-    };
-    if (input.siteIds) {
-      where.gudang = buildSiteFilter(input.siteIds);
-    }
-    return this.db.barangGudang.findMany({
-      where,
-      include: { barang: { select: buildMobileBarangSelect() } },
-      orderBy: { barang: { nama: "asc" } },
-    });
+    return this.mobileRepository.findMobileBarangForKeluar(input);
   }
   async findMobileGudangSites(input: { gudangId: string; tenantId: string }) {
-    return this.db.gudang.findFirst({
-      where: { id: input.gudangId, tenantId: input.tenantId },
-      select: { id: true, sites: { select: { id: true } } },
-    });
+    return this.mobileRepository.findMobileGudangSites(input);
   }
   async findMobileBarangGudangStock(input: {
     barangId: string;
     gudangId: string;
     tenantId: string;
   }) {
-    return this.db.barangGudang.findFirst({
-      where: {
-        barangId: input.barangId,
-        gudangId: input.gudangId,
-        tenantId: input.tenantId,
-      },
-      include: { barang: { select: { nama: true } } },
-    });
+    return this.mobileRepository.findMobileBarangGudangStock(input);
   }
   async findMobileHistoryMasuk(input: {
     where: Record<string, unknown>;
     take: number;
   }) {
-    return this.db.barangMasuk.findMany({
-      where: input.where,
-      include: buildMobileHistoryInclude(),
-      orderBy: { tanggal: "desc" },
-      take: input.take,
-    });
+    return this.mobileRepository.findMobileHistoryMasuk(input);
   }
   async findMobileHistoryKeluar(input: {
     where: Record<string, unknown>;
     take: number;
   }) {
-    return this.db.barangKeluar.findMany({
-      where: input.where,
-      include: buildMobileHistoryInclude(),
-      orderBy: { tanggal: "desc" },
-      take: input.take,
-    });
+    return this.mobileRepository.findMobileHistoryKeluar(input);
   }
   async findGudangById(id: string): Promise<Gudang | null> {
-    return this.db.gudang.findUnique({
-      where: { id },
-      include: { barangGudang: { include: { barang: true } } },
-    }) as unknown as Promise<Gudang | null>;
+    return this.gudangRepository.findGudangById(id);
   }
   async findGudangByKode(kode: string): Promise<Gudang | null> {
-    return this.db.gudang.findFirst({ where: { kode } });
+    return this.gudangRepository.findGudangByKode(kode);
   }
   async createGudang(data: CreateGudangInput): Promise<Gudang> {
-    const { siteIds, ...gudangData } = data;
-    const createData: Prisma.GudangCreateInput = {
-      id: crypto.randomUUID(),
-      ...gudangData,
-      updatedAt: new Date(),
-    };
-    if (siteIds && siteIds.length > 0)
-      createData.sites = { connect: siteIds.map((id) => ({ id })) };
-    return this.db.gudang.create({
-      data: createData,
-      include: { sites: { select: { id: true, name: true, code: true } } },
-    }) as unknown as Promise<Gudang>;
+    return this.gudangRepository.createGudang(data);
   }
   async updateGudang(id: string, data: UpdateGudangInput): Promise<Gudang> {
-    return this.db.gudang.update({
-      where: { id },
-      data: { ...data, updatedAt: new Date() },
-    });
+    return this.gudangRepository.updateGudang(id, data);
   }
   async deleteGudang(id: string): Promise<void> {
-    await this.db.gudang.delete({ where: { id } });
+    await this.gudangRepository.deleteGudang(id);
   }
   async hasStockInGudang(id: string): Promise<boolean> {
-    const count = await this.db.barangGudang.count({
-      where: { gudangId: id, stok: { gt: 0 } },
-    });
-    return count > 0;
+    return this.gudangRepository.hasStockInGudang(id);
   }
   async findAllTransfers(params?: {
     skip?: number;
@@ -840,128 +767,14 @@ export class InventoryRepository implements IInventoryDomainRepository {
     await deleteMasuk(this.db, id);
   }
   async getOpnameRecord(id: string): Promise<InventoryOpnameRecord | null> {
-    return this.db.stockOpname.findUnique({
-      where: { id },
-      include: {
-        barang: { select: { id: true, kode: true, nama: true, satuan: true } },
-        gudang: { select: { id: true, kode: true, nama: true, lokasi: true } },
-      },
-    }) as unknown as Promise<InventoryOpnameRecord | null>;
+    return this.opnameRepository.getOpnameRecord(id);
   }
   async updateOpname(
     input: UpdateStockOpnameInput,
   ): Promise<UpdatedStockOpnameResult> {
-    return this.db.$transaction(async (tx) => {
-      const existingRecord = await tx.stockOpname.findUnique({
-        where: { id: input.id },
-        include: { barang: true, gudang: true },
-      });
-      if (!existingRecord)
-        throw new Error("Record stock opname tidak ditemukan");
-      const currentStock = await tx.barangGudang.findUnique({
-        where: {
-          barangId_gudangId: {
-            barangId: existingRecord.barangId,
-            gudangId: existingRecord.gudangId,
-          },
-        },
-      });
-      const stokSistem = currentStock?.stok || 0;
-      const selisihFisik = input.stokFisik - existingRecord.stokFisik;
-      const selisihBaru = input.stokFisik - existingRecord.stokSistem;
-      const updatedRecord = await tx.stockOpname.update({
-        where: { id: input.id },
-        data: {
-          stokFisik: input.stokFisik,
-          selisih: selisihBaru,
-          keterangan: input.keterangan,
-          kondisiBaik: input.kondisiBaik ?? existingRecord.kondisiBaik,
-          kondisiRusak: input.kondisiRusak ?? existingRecord.kondisiRusak,
-          kondisiExpire: input.kondisiExpire ?? existingRecord.kondisiExpire,
-          lokasiPenyimpanan: input.lokasiPenyimpanan,
-          nomorRak: input.nomorRak,
-          nomorBox: input.nomorBox,
-          pic: input.pic,
-          suhuPenyimpanan:
-            input.suhuPenyimpanan !== undefined &&
-            input.suhuPenyimpanan !== null
-              ? Number(input.suhuPenyimpanan)
-              : null,
-          kelembaban:
-            input.kelembaban !== undefined && input.kelembaban !== null
-              ? Number(input.kelembaban)
-              : null,
-          tanggalExpire: input.tanggalExpire
-            ? new Date(input.tanggalExpire)
-            : existingRecord.tanggalExpire,
-          nomorBatch: input.nomorBatch,
-          catatanDetail: input.catatanDetail,
-        },
-      });
-      if (currentStock) {
-        await tx.barangGudang.update({
-          where: {
-            barangId_gudangId: {
-              barangId: existingRecord.barangId,
-              gudangId: existingRecord.gudangId,
-            },
-          },
-          data: {
-            stok: Math.max(0, currentStock.stok + selisihFisik),
-            stokBaru: Math.max(0, currentStock.stokBaru + selisihFisik),
-          },
-        });
-      } else if (input.stokFisik > 0) {
-        await tx.barangGudang.create({
-          data: {
-            id: crypto.randomUUID(),
-            barangId: existingRecord.barangId,
-            gudangId: existingRecord.gudangId,
-            stok: input.stokFisik,
-            updatedAt: new Date(),
-          },
-        });
-      }
-      return {
-        record: updatedRecord as unknown as Record<string, unknown>,
-        stokSistem,
-        selisih: selisihBaru,
-      };
-    });
+    return this.opnameRepository.updateOpname(input);
   }
   async deleteOpname(id: string): Promise<void> {
-    await this.db.$transaction(async (tx) => {
-      const existingRecord = await tx.stockOpname.findUnique({
-        where: { id: id.trim() },
-      });
-      if (!existingRecord)
-        throw new Error("Record stock opname tidak ditemukan");
-      const currentStock = await tx.barangGudang.findUnique({
-        where: {
-          barangId_gudangId: {
-            barangId: existingRecord.barangId,
-            gudangId: existingRecord.gudangId,
-          },
-        },
-      });
-      if (currentStock) {
-        await tx.barangGudang.update({
-          where: {
-            barangId_gudangId: {
-              barangId: existingRecord.barangId,
-              gudangId: existingRecord.gudangId,
-            },
-          },
-          data: {
-            stok: Math.max(0, currentStock.stok - existingRecord.selisih),
-            stokBaru: Math.max(
-              0,
-              currentStock.stokBaru - existingRecord.selisih,
-            ),
-          },
-        });
-      }
-      await tx.stockOpname.delete({ where: { id: id.trim() } });
-    });
+    await this.opnameRepository.deleteOpname(id);
   }
 }

@@ -15,26 +15,20 @@ import type {
 } from "../domain/entities/RadiusEntity";
 import type { IRadiusRepository } from "../domain/ports/IRadiusRepository";
 import {
-  buildMikrotikRateLimit,
   parseRadiusRateLimitMbps,
   toRadiusRateLimitMbps,
 } from "../utils/radius-rate-limit";
 import {
   CLEAR_TEXT_PASSWORD_ATTRIBUTE,
   DEFAULT_GROUP_PRIORITY,
-  EXPIRED_USERS_PROFILE,
-  FRAMED_POOL_ATTRIBUTE,
   GROUP_CHECK_MATCH_OP,
   GROUP_REPLY_ASSIGN_OP,
-  ISOLIR_GROUP_PRIORITY,
-  MIKROTIK_GROUP_ATTRIBUTE,
   MIKROTIK_RATE_LIMIT_ATTRIBUTE,
-  PACKAGE_GROUP_PRIORITY,
-  POOL_NAME_ATTRIBUTE,
 } from "./radiusRepository.constants";
 import { RadiusIpPoolRepository } from "./RadiusIpPoolRepository";
 import { RadiusNasRepository } from "./RadiusNasRepository";
 import { RadiusSessionRepository } from "./RadiusSessionRepository";
+import { RadiusSyncRepository } from "./RadiusSyncRepository";
 
 type PrismaInstance = typeof defaultPrisma;
 
@@ -43,6 +37,7 @@ export class RadiusRepository implements IRadiusRepository {
   private readonly ipPoolRepository: RadiusIpPoolRepository;
   private readonly nasRepository: RadiusNasRepository;
   private readonly sessionRepository: RadiusSessionRepository;
+  private readonly syncRepository: RadiusSyncRepository;
 
   constructor(
     private prisma: PrismaInstance = defaultPrisma,
@@ -52,6 +47,11 @@ export class RadiusRepository implements IRadiusRepository {
     this.ipPoolRepository = new RadiusIpPoolRepository(this.radiusClient);
     this.nasRepository = new RadiusNasRepository(this.radiusClient);
     this.sessionRepository = new RadiusSessionRepository(this.radiusClient);
+    this.syncRepository = new RadiusSyncRepository(
+      this.prisma,
+      this.radiusClient,
+      this,
+    );
   }
 
   /**
@@ -422,317 +422,36 @@ export class RadiusRepository implements IRadiusRepository {
     );
   }
 
-  private async syncUserGroups(
-    username: string,
-    tenantId: string,
-    desiredGroups: string[],
-  ): Promise<void> {
-    const existingGroups = await this.getUserGroups(username, tenantId);
-    const desiredGroupSet = new Set(desiredGroups);
-
-    for (const groupname of existingGroups) {
-      if (!desiredGroupSet.has(groupname)) {
-        await this.removeUserFromGroup(username, groupname, tenantId);
-      }
-    }
-  }
-
-  /**
-   * Sync single pelanggan to RADIUS
-   */
+  /** Sync single pelanggan to RADIUS. */
   async syncPelangganToRadius(pelangganId: string): Promise<void> {
-    const pelanggan = await this.prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      include: {
-        hargaPaket: {
-          include: {
-            bandwidth: true,
-          },
-        },
-      },
-    });
-
-    if (!pelanggan) {
-      throw new Error(`Pelanggan ${pelangganId} not found`);
-    }
-
-    const { username, password, status, hargaPaket, tenantId } = pelanggan;
-
-    if (!tenantId) {
-      throw new Error(`Pelanggan ${pelangganId} does not have a tenantId`);
-    }
-
-    // 1. Handle NONAKTIF / DISMANTLE: Remove from RADIUS
-    if (status === "NONAKTIF" || status === "DISMANTLE") {
-      await this.deleteRadiusUser(username, tenantId);
-      return;
-    }
-
-    // 2. Ensure User exists and password is correct
-    const exists = await this.userExists(username, tenantId);
-    if (!exists) {
-      await this.createRadiusUser({ username, password }, tenantId);
-    } else {
-      await this.updateRadiusPassword(username, password, tenantId);
-    }
-
-    // 2.5. Remove individual bandwidth from radreply to ensure Group Bandwidth takes priority
-    await this.radiusClient.radreply.deleteMany({
-      where: {
-        username,
-        attribute: MIKROTIK_RATE_LIMIT_ATTRIBUTE,
-        tenantId,
-      },
-    });
-
-    // 3. Handle status-based Group Assignment
-    if (status === "AKTIF" || status === "ISOLIR") {
-      const desiredGroups: string[] = [];
-
-      if (hargaPaket) {
-        // Ensure package group exists and sync bandwidth
-        await this.syncPackageToRadius(hargaPaket.id);
-
-        // Ensure user is assigned to their package group (priority 10 - lower)
-        await this.assignUserToGroup(
-          username,
-          hargaPaket.id,
-          tenantId,
-          PACKAGE_GROUP_PRIORITY,
-        );
-        desiredGroups.push(hargaPaket.id);
-      }
-
-      if (status === "ISOLIR") {
-        // Ensure ISOLIR group tells MikroTik to use the 'expired users' profile
-        await this.setGroupAttribute(
-          "ISOLIR",
-          MIKROTIK_GROUP_ATTRIBUTE,
-          EXPIRED_USERS_PROFILE,
-          tenantId,
-        );
-
-        // Also remove explicit bandwidth limit from ISOLIR group if it exists
-        // so it doesn't override the package bandwidth
-        await this.removeGroupAttribute(
-          "ISOLIR",
-          MIKROTIK_RATE_LIMIT_ATTRIBUTE,
-          tenantId,
-        );
-
-        // Add to ISOLIR group with HIGHER priority (priority 1 - higher)
-        // This ensures the profile switch happens while keeping the package bandwidth
-        await this.assignUserToGroup(
-          username,
-          "ISOLIR",
-          tenantId,
-          ISOLIR_GROUP_PRIORITY,
-        );
-        desiredGroups.push("ISOLIR");
-      }
-
-      await this.syncUserGroups(username, tenantId, desiredGroups);
-    }
+    return this.syncRepository.syncPelangganToRadius(pelangganId);
   }
 
-  /**
-   * Sync Package settings to RADIUS (radgroupreply)
-   */
+  /** Sync Package settings to RADIUS. */
   async syncPackageToRadius(packageId: string): Promise<void> {
-    const pkg = await this.prisma.hargaPaket.findUnique({
-      where: { id: packageId },
-      include: {
-        bandwidth: true,
-        profilePPP: true,
-      },
-    });
-
-    if (!pkg || !pkg.tenantId) return;
-    const tenantId = pkg.tenantId;
-
-    // 1. Sync Bandwidth
-    if (pkg.bandwidth) {
-      // Ambil helper format dari service MikroTik (menghindari duplikasi logika)
-      // rx-rate/tx-rate [burst-rate] [burst-threshold] [burst-time] [priority] [min-limit]
-      // rx = upload, tx = download
-
-      const rateLimit = buildMikrotikRateLimit({
-        maxLimitUpload: pkg.bandwidth.maxLimitUpload,
-        maxLimitDownload: pkg.bandwidth.maxLimitDownload,
-        burstLimitUpload: pkg.bandwidth.burstLimitUpload,
-        burstLimitDownload: pkg.bandwidth.burstLimitDownload,
-        burstThresholdUpload: pkg.bandwidth.burstThresholdUpload,
-        burstThresholdDownload: pkg.bandwidth.burstThresholdDownload,
-        burstTimeUpload: pkg.bandwidth.burstTimeUpload,
-        burstTimeDownload: pkg.bandwidth.burstTimeDownload,
-        priority: pkg.bandwidth.priority,
-        minLimitUpload: pkg.bandwidth.minLimitUpload,
-        minLimitDownload: pkg.bandwidth.minLimitDownload,
-      });
-
-      // Using pkg.id as group name for stability
-      await this.setGroupBandwidth(pkg.id, rateLimit, tenantId);
-    } else {
-      await this.removeGroupAttribute(
-        pkg.id,
-        MIKROTIK_RATE_LIMIT_ATTRIBUTE,
-        tenantId,
-      );
-    }
-
-    // 2. Sync IP Pool Mode & Profile Settings
-    if (pkg.profilePPP) {
-      const profile = pkg.profilePPP;
-      const poolName = profile.remoteAddress;
-
-      // 2.1 Sync Profile Name
-      if (profile.name) {
-        await this.setGroupAttribute(
-          pkg.id,
-          MIKROTIK_GROUP_ATTRIBUTE,
-          profile.name,
-          tenantId,
-        );
-      } else {
-        await this.removeGroupAttribute(
-          pkg.id,
-          MIKROTIK_GROUP_ATTRIBUTE,
-          tenantId,
-        );
-      }
-
-      if (profile.poolMode === "RADIUS") {
-        // Mode RADIUS: Gunakan radgroupcheck.Pool-Name sebagai CONTROL attribute
-        // Operator ':=' berarti assign ke control list (bukan '==' yang berarti match/compare)
-        // Sesuai dokumentasi resmi FreeRADIUS: Pool-Name is a CONTROL attribute
-        await this.setGroupCheckAttribute(
-          pkg.id,
-          POOL_NAME_ATTRIBUTE,
-          poolName,
-          tenantId,
-          GROUP_REPLY_ASSIGN_OP,
-        );
-
-        // Pastikan tidak ada Framed-Pool di reply agar tidak konflik
-        await this.removeGroupAttribute(
-          pkg.id,
-          FRAMED_POOL_ATTRIBUTE,
-          tenantId,
-        );
-      } else {
-        // Mode MIKROTIK (Default): Gunakan radgroupreply.Framed-Pool
-        // MikroTik akan mencari pool lokal dengan nama tersebut
-        await this.setGroupAttribute(
-          pkg.id,
-          FRAMED_POOL_ATTRIBUTE,
-          poolName,
-          tenantId,
-        );
-
-        // Pastikan tidak ada Pool-Name di check agar tidak konflik
-        await this.removeGroupCheckAttribute(
-          pkg.id,
-          POOL_NAME_ATTRIBUTE,
-          tenantId,
-        );
-      }
-    } else {
-      await this.removeGroupAttribute(
-        pkg.id,
-        MIKROTIK_GROUP_ATTRIBUTE,
-        tenantId,
-      );
-      await this.removeGroupAttribute(pkg.id, FRAMED_POOL_ATTRIBUTE, tenantId);
-      await this.removeGroupCheckAttribute(
-        pkg.id,
-        POOL_NAME_ATTRIBUTE,
-        tenantId,
-      );
-    }
+    return this.syncRepository.syncPackageToRadius(packageId);
   }
 
-  /**
-   * Sync all packages using a specific bandwidth to RADIUS
-   */
+  /** Sync all packages using a specific bandwidth to RADIUS. */
   async syncBandwidthToRadius(bandwidthId: string): Promise<void> {
-    const packages = await this.prisma.hargaPaket.findMany({
-      where: { bandwidthId },
-    });
-    for (const pkg of packages) {
-      await this.syncPackageToRadius(pkg.id);
-    }
+    return this.syncRepository.syncBandwidthToRadius(bandwidthId);
   }
 
-  /**
-   * Sync all packages using a specific profile to RADIUS
-   */
+  /** Sync all packages using a specific profile to RADIUS. */
   async syncProfileToRadius(profileId: string): Promise<void> {
-    const packages = await this.prisma.hargaPaket.findMany({
-      where: { profilePPPId: profileId },
-    });
-    for (const pkg of packages) {
-      await this.syncPackageToRadius(pkg.id);
-    }
+    return this.syncRepository.syncProfileToRadius(profileId);
   }
 
-  /**
-   * Sync all packages to RADIUS
-   */
+  /** Sync all packages to RADIUS. */
   async syncAllPackagesToRadius(tenantId?: string): Promise<void> {
-    const packages = await this.prisma.hargaPaket.findMany({
-      ...(tenantId && { where: { tenantId } }),
-    });
-    for (const pkg of packages) {
-      await this.syncPackageToRadius(pkg.id);
-    }
+    return this.syncRepository.syncAllPackagesToRadius(tenantId);
   }
 
-  /**
-   * Sync all active customers to RADIUS
-   */
+  /** Sync all active customers to RADIUS. */
   async syncAllActiveCustomers(
     tenantId?: string,
   ): Promise<{ created: number; updated: number; deleted: number }> {
-    // First sync all packages to ensure groups are ready
-    await this.syncAllPackagesToRadius(tenantId);
-
-    const pelanggans = await this.prisma.pelanggan.findMany({
-      include: {
-        hargaPaket: {
-          include: {
-            bandwidth: true,
-          },
-        },
-      },
-      ...(tenantId && { where: { tenantId } }),
-    });
-
-    let created = 0;
-    let updated = 0;
-    let deleted = 0;
-
-    for (const pelanggan of pelanggans) {
-      const currentTenantId = pelanggan.tenantId;
-      if (!currentTenantId) continue;
-
-      const exists = await this.userExists(pelanggan.username, currentTenantId);
-
-      if (pelanggan.status === "AKTIF" || pelanggan.status === "ISOLIR") {
-        if (exists) {
-          updated++;
-        } else {
-          created++;
-        }
-        await this.syncPelangganToRadius(pelanggan.id);
-      } else {
-        if (exists) {
-          deleted++;
-          await this.deleteRadiusUser(pelanggan.username, currentTenantId);
-        }
-      }
-    }
-
-    return { created, updated, deleted };
+    return this.syncRepository.syncAllActiveCustomers(tenantId);
   }
 
   async createNas(nas: NasEntity, tenantId: string): Promise<NasEntity> {

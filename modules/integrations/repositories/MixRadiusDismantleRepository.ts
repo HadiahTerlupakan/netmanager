@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/modules/database";
+import type { IMixRadiusDismantleRepository } from "../domain/ports/IMixRadiusDismantleRepository";
 
 export const DISMANTLE_TASKS = [
   "Konfirmasi jadwal kedatangan dengan pelanggan",
@@ -11,7 +12,7 @@ export const DISMANTLE_TASKS = [
   "Konfirmasi ke Admin untuk update data pelanggan",
 ] as const;
 
-export class MixRadiusDismantleRepository {
+export class MixRadiusDismantleRepository implements IMixRadiusDismantleRepository {
   /** Find local context needed to create dismantle work order. */
   async findRequestContext(input: {
     userId: string;
