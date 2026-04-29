@@ -1,9 +1,9 @@
 // Public API for Marketing Module
 
 import { prisma } from "@/lib/prisma";
-import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
 import { getMitraLookupService } from "@/modules/mitra";
 import { SiteService } from "@/modules/roles";
+import { WorkOrderQueryService } from "@/modules/work-order";
 import { CanvasingRepository } from "./repositories/CanvasingRepository";
 import { PointClaimRepository } from "./repositories/PointClaimRepository";
 import { CanvasingService } from "./services/CanvasingService";
@@ -28,7 +28,7 @@ export function createCanvasingService(): CanvasingService {
       findMitraSummary: (id) => mitraLookupService.findCanvasingSummary(id),
       findSiteSummary: (id) => siteService.getSiteById(id),
     }),
-    new WorkOrderRepository(),
+    new WorkOrderQueryService(),
   );
 }
 

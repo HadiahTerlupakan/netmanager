@@ -4,4 +4,4 @@ export {
   getPermitDisplayLabel,
   hasAutoCheckoutNote,
   isHistoricalAutoCheckoutAbsence,
-} from "@/modules/attendance/utils/displayLabels";
+} from "@/modules/attendance";

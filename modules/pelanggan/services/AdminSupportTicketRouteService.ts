@@ -1,7 +1,7 @@
 import { TicketPriority, TicketStatus } from "@prisma/client";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { buildMultiSiteWhereClause } from "@/modules/roles";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { UserLookupService } from "@/modules/users";
 import { getAdminSupportTicketService } from "./AdminSupportTicketService";
 
 const SUPPORT_READ_PERMISSION = "support:read";
@@ -31,7 +31,7 @@ interface RouteUserContext {
 
 export class AdminSupportTicketRouteService {
   private readonly ticketService = getAdminSupportTicketService();
-  private readonly userRepository = new UserRepository();
+  private readonly userRepository = new UserLookupService();
 
   /** Bangun scope akses support ticket berdasarkan permission user. */
   async resolveScope(

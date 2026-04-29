@@ -3,7 +3,7 @@ import type { OvertimeStatusValue } from "../domain/entities/OvertimeEntity";
 
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { UserLookupService } from "@/modules/users";
 
 import { OvertimeMapper } from "../mappers/OvertimeMapper";
 import { OvertimeService } from "./OvertimeService";
@@ -45,11 +45,11 @@ const NOT_FOUND_MESSAGE = "Data lembur tidak ditemukan";
 /** Service untuk thin controller route overtime. */
 export class OvertimeRouteService {
   private readonly overtimeService: OvertimeService;
-  private readonly userRepository: UserRepository;
+  private readonly userRepository: UserLookupService;
 
   constructor(
     overtimeService: OvertimeService = new OvertimeService(),
-    userRepository: UserRepository = new UserRepository(),
+    userRepository: UserLookupService = new UserLookupService(),
   ) {
     this.overtimeService = overtimeService;
     this.userRepository = userRepository;

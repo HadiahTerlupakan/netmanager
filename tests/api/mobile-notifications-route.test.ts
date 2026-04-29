@@ -3,11 +3,10 @@ import { NextRequest } from "next/server";
 
 const mockFns = vi.hoisted(() => ({
   getMobileAuthPayload: vi.fn(),
-  getNotificationsForUser: vi.fn(),
-  getUnreadCount: vi.fn(),
-  getReadableNotificationForUser: vi.fn(),
-  markAsRead: vi.fn(),
-  markAllAsRead: vi.fn(),
+  getMobileNotifications: vi.fn(),
+  handleMobileNotificationAction: vi.fn(),
+  parseMobileNotificationPagination: vi.fn(),
+  resolveMobileNotificationSiteId: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile-api-auth", () => ({
@@ -15,11 +14,10 @@ vi.mock("@/lib/mobile-api-auth", () => ({
 }));
 
 vi.mock("@/modules/notification", () => ({
-  getNotificationsForUser: mockFns.getNotificationsForUser,
-  getUnreadCount: mockFns.getUnreadCount,
-  getReadableNotificationForUser: mockFns.getReadableNotificationForUser,
-  markAsRead: mockFns.markAsRead,
-  markAllAsRead: mockFns.markAllAsRead,
+  getMobileNotifications: mockFns.getMobileNotifications,
+  handleMobileNotificationAction: mockFns.handleMobileNotificationAction,
+  parseMobileNotificationPagination: mockFns.parseMobileNotificationPagination,
+  resolveMobileNotificationSiteId: mockFns.resolveMobileNotificationSiteId,
 }));
 
 import { GET, POST } from "@/app/api/mobile/notifications/route";
@@ -31,180 +29,72 @@ describe("mobile notifications route", () => {
       userId: "user-1",
       permissions: [],
     });
+    mockFns.parseMobileNotificationPagination.mockReturnValue({
+      limit: 2,
+      cursor: 0,
+    });
+    mockFns.resolveMobileNotificationSiteId.mockReturnValue(undefined);
   });
 
-  it("returns nextCursor for paginated notification responses", async () => {
-    mockFns.getNotificationsForUser.mockResolvedValueOnce({
-      notifications: [
-        {
-          id: "notif-1",
-          type: "SYSTEM",
-          title: "One",
-          message: "First",
-          link: "/foo",
-          isRead: false,
-          sourceType: "WORK_ORDER",
-          sourceId: "wo-1",
-          createdAt: new Date("2026-03-08T10:00:00.000Z"),
-        },
-        {
-          id: "notif-2",
-          type: "SYSTEM",
-          title: "Two",
-          message: "Second",
-          link: "/bar",
-          isRead: true,
-          sourceType: "LEAVE",
-          sourceId: "leave-1",
-          createdAt: new Date("2026-03-08T09:00:00.000Z"),
-        },
-      ],
-      total: 3,
+  it("returns mobile notification data from the route service", async () => {
+    mockFns.getMobileNotifications.mockResolvedValueOnce({
+      notifications: [{ id: "notif-1" }],
+      unreadCount: 4,
+      nextCursor: "2",
     });
-    mockFns.getUnreadCount.mockResolvedValueOnce(4);
 
     const response = await GET(
       new NextRequest("http://localhost/api/mobile/notifications?limit=2"),
     );
     const json = await response.json();
 
-    expect(mockFns.getNotificationsForUser).toHaveBeenCalledWith("user-1", {
+    expect(mockFns.getMobileNotifications).toHaveBeenCalledWith({
+      userId: "user-1",
       limit: 2,
-      offset: 0,
+      cursor: 0,
+      siteId: undefined,
     });
     expect(json.data.unreadCount).toBe(4);
     expect(json.data.nextCursor).toBe("2");
-    expect(json.data.notifications).toHaveLength(2);
-    expect(json.data.notifications[0].link).toBe(
-      "/(app)/work-order-detail/wo-1",
-    );
   });
 
-  it("maps attendance notifications to the mobile absensi screen", async () => {
-    mockFns.getNotificationsForUser.mockResolvedValueOnce({
-      notifications: [
-        {
-          id: "notif-att-1",
-          type: "ALERT",
-          title: "Absensi Belum Lengkap",
-          message: "Segera lengkapi absensi Anda",
-          link: "/attendance",
-          isRead: false,
-          sourceType: "ATTENDANCE",
-          sourceId: "att-1",
-          createdAt: new Date("2026-03-08T08:00:00.000Z"),
-        },
-      ],
-      total: 1,
+  it("passes site-only restriction to list route service", async () => {
+    mockFns.getMobileAuthPayload.mockResolvedValueOnce({
+      userId: "user-1",
+      permissions: ["site_only"],
+      siteId: "site-9",
     });
-    mockFns.getUnreadCount.mockResolvedValueOnce(1);
+    mockFns.resolveMobileNotificationSiteId.mockReturnValueOnce("site-9");
+    mockFns.getMobileNotifications.mockResolvedValueOnce({
+      notifications: [],
+      unreadCount: 0,
+      nextCursor: null,
+    });
 
     const response = await GET(
-      new NextRequest("http://localhost/api/mobile/notifications?limit=1"),
+      new NextRequest("http://localhost/api/mobile/notifications?limit=10"),
     );
-    const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.data.notifications[0].link).toBe("/(app)/absensi");
-  });
-
-  it("maps canvasing notifications to the mobile marketing canvasing detail screen", async () => {
-    mockFns.getNotificationsForUser.mockResolvedValueOnce({
-      notifications: [
-        {
-          id: "notif-canv-1",
-          type: "ANNOUNCEMENT",
-          title: "Canvasing Disetujui",
-          message: "WO baru sudah dibuat",
-          link: "/admin/marketing/canvasing/canv-1",
-          isRead: false,
-          sourceType: "CANVASING",
-          sourceId: "canv-1",
-          createdAt: new Date("2026-03-08T08:30:00.000Z"),
-        },
-      ],
-      total: 1,
+    expect(mockFns.resolveMobileNotificationSiteId).toHaveBeenCalledWith({
+      userId: "user-1",
+      permissions: ["site_only"],
+      siteId: "site-9",
     });
-    mockFns.getUnreadCount.mockResolvedValueOnce(1);
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/notifications?limit=1"),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.data.notifications[0].link).toBe(
-      "/(app)/marketing/canvasing/canv-1",
-    );
-  });
-
-  it("maps point claim notifications to the related mobile canvasing detail screen", async () => {
-    mockFns.getNotificationsForUser.mockResolvedValueOnce({
-      notifications: [
-        {
-          id: "notif-claim-1",
-          type: "ANNOUNCEMENT",
-          title: "Claim Poin Disetujui",
-          message: "Claim Anda disetujui",
-          link: "/marketing/canvasing/canv-99",
-          isRead: false,
-          sourceType: "POINT_CLAIM",
-          sourceId: "claim-1",
-          createdAt: new Date("2026-03-08T09:00:00.000Z"),
-        },
-      ],
-      total: 1,
+    expect(mockFns.getMobileNotifications).toHaveBeenCalledWith({
+      userId: "user-1",
+      limit: 2,
+      cursor: 0,
+      siteId: "site-9",
     });
-    mockFns.getUnreadCount.mockResolvedValueOnce(1);
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/notifications?limit=1"),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.data.notifications[0].link).toBe(
-      "/(app)/marketing/canvasing/canv-99",
-    );
   });
 
-  it("normalizes work order notification copy for the mobile inbox", async () => {
-    mockFns.getNotificationsForUser.mockResolvedValueOnce({
-      notifications: [
-        {
-          id: "notif-wo-mobile-1",
-          type: "WORK_ORDER",
-          title: "📝 WO Request Baru",
-          message:
-            "Teknisi Mobile mengajukan: Request Dismantle: Integration Not Configured",
-          link: "/admin/workorders/list?status=REQUESTED",
-          isRead: false,
-          sourceType: "WORK_ORDER",
-          sourceId: "wo-mobile-1",
-          createdAt: new Date("2026-04-15T10:00:00.000Z"),
-        },
-      ],
-      total: 1,
+  it("returns validation error from notification action service", async () => {
+    mockFns.handleMobileNotificationAction.mockResolvedValueOnce({
+      success: false,
+      status: 404,
+      error: "Notifikasi tidak ditemukan",
     });
-    mockFns.getUnreadCount.mockResolvedValueOnce(1);
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/notifications?limit=1"),
-    );
-    const json = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(json.data.notifications[0].title).toBe("Work Order Baru");
-    expect(json.data.notifications[0].message).toBe(
-      "Request Dismantle: Integration Not Configured",
-    );
-    expect(json.data.notifications[0].link).toBe(
-      "/(app)/work-order-detail/wo-mobile-1",
-    );
-  });
-
-  it("rejects markRead when the notification is not readable by the user", async () => {
-    mockFns.getReadableNotificationForUser.mockResolvedValueOnce(null);
 
     const response = await POST(
       new NextRequest("http://localhost/api/mobile/notifications", {
@@ -220,69 +110,18 @@ describe("mobile notifications route", () => {
 
     expect(response.status).toBe(404);
     expect(json.error).toBe("Notifikasi tidak ditemukan");
-    expect(mockFns.markAsRead).not.toHaveBeenCalled();
   });
 
-  it("passes site-only restriction to list and unread count queries", async () => {
+  it("passes site-only restriction to mutation route service", async () => {
     mockFns.getMobileAuthPayload.mockResolvedValueOnce({
       userId: "user-1",
       permissions: ["site_only"],
       siteId: "site-9",
     });
-    mockFns.getNotificationsForUser.mockResolvedValueOnce({
-      notifications: [],
-      total: 0,
-    });
-    mockFns.getUnreadCount.mockResolvedValueOnce(0);
-
-    const response = await GET(
-      new NextRequest("http://localhost/api/mobile/notifications?limit=10"),
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockFns.getNotificationsForUser).toHaveBeenCalledWith("user-1", {
-      limit: 10,
-      offset: 0,
-      siteId: "site-9",
-    });
-    expect(mockFns.getUnreadCount).toHaveBeenCalledWith(
-      "user-1",
-      undefined,
-      "site-9",
-    );
-  });
-
-  it("passes site-only restriction to mark all notifications as read", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValueOnce({
-      userId: "user-1",
-      permissions: ["site_only"],
-      siteId: "site-9",
-    });
-
-    const response = await POST(
-      new NextRequest("http://localhost/api/mobile/notifications", {
-        method: "POST",
-        body: JSON.stringify({ action: "markAllRead" }),
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockFns.markAllAsRead).toHaveBeenCalledWith(
-      "user-1",
-      undefined,
-      "site-9",
-    );
-  });
-
-  it("passes site-only restriction to the single notification guard", async () => {
-    mockFns.getMobileAuthPayload.mockResolvedValueOnce({
-      userId: "user-1",
-      permissions: ["site_only"],
-      siteId: "site-9",
-    });
-    mockFns.getReadableNotificationForUser.mockResolvedValueOnce({
-      id: "notif-9",
+    mockFns.resolveMobileNotificationSiteId.mockReturnValueOnce("site-9");
+    mockFns.handleMobileNotificationAction.mockResolvedValueOnce({
+      success: true,
+      message: "Notifikasi ditandai sudah dibaca",
     });
 
     const response = await POST(
@@ -294,13 +133,11 @@ describe("mobile notifications route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockFns.getReadableNotificationForUser).toHaveBeenCalledWith(
-      "notif-9",
-      "user-1",
-      {
-        siteId: "site-9",
-      },
-    );
-    expect(mockFns.markAsRead).toHaveBeenCalledWith("notif-9");
+    expect(mockFns.handleMobileNotificationAction).toHaveBeenCalledWith({
+      action: "markRead",
+      notificationId: "notif-9",
+      userId: "user-1",
+      siteId: "site-9",
+    });
   });
 });

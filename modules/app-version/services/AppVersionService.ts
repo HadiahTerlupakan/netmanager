@@ -1,43 +1,26 @@
 import { logger } from "@/lib/logger";
-import { randomUUID } from "crypto";
-import {
-  AppVersionRepository,
-  type AppVersion,
-  type CreateAppVersionDTO,
-  type UpdateAppVersionDTO,
-  type AppVersionWithUser,
-  type AppVersionRolloutStats,
-} from "../repositories/AppVersionRepository";
+import type {
+  AppVersion,
+  CreateAppVersionDTO,
+  UpdateAppVersionDTO,
+  AppVersionWithUser,
+  AppVersionRolloutStats,
+} from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
-import {
-  isR2Enabled,
-  uploadToR2,
-  generateR2Key,
-  deleteFromR2,
-  getR2ObjectBuffer,
-  getR2ObjectMetadata,
-  getR2Settings,
-  getPresignedUrl,
-} from "@/lib/utils/r2-client";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { prisma, prismaMitra } from "@/modules/database";
 import fs from "fs/promises";
-import path from "path";
-import os from "os";
 
-// APK parsing types
-interface ApkManifest {
-  versionCode: number;
-  versionName: string;
-  package: string;
-}
-
-export interface ParsedApkInfo {
-  versionName: string;
-  versionCode: number;
-  packageName: string;
-  buildNumber: number;
-}
+import {
+  cleanupStoredApk,
+  createDirectUploadUrl as createDirectUploadApkUrl,
+  deleteUploadedApkObject,
+  loadUploadedApkDetails,
+  parseApkInfo as parseUploadedApkInfo,
+  persistApkFileToTemp,
+  type ParsedApkInfo,
+  uploadApkFile,
+} from "./app-version-upload-helpers";
 
 export interface UploadVersionInput {
   version?: string; // Optional jika auto-extract dari APK
@@ -97,25 +80,22 @@ export interface MobileVersionReportInput {
   versionName?: string | null;
 }
 
-// Singleton instance
-let serviceInstance: AppVersionService | null = null;
-
-export function getAppVersionService(): AppVersionService {
-  if (!serviceInstance) {
-    serviceInstance = new AppVersionService();
-  }
-  return serviceInstance;
-}
+export { getAppVersionService } from "../factories/app-version-service-factory";
 
 export class AppVersionService {
-  constructor(
-    private readonly repository: IAppVersionRepository = new AppVersionRepository(),
-  ) {}
+  constructor(private readonly repository: IAppVersionRepository) {}
 
-  private validateUploadedKey(key: string) {
-    if (!key.startsWith("uploads/apk/")) {
-      throw new Error("Lokasi file direct upload tidak valid");
-    }
+  /** Parse APK metadata from a file path or buffer. */
+  async parseApkInfo(input: {
+    buffer?: Buffer;
+    path?: string;
+  }): Promise<ParsedApkInfo | null> {
+    return parseUploadedApkInfo(input);
+  }
+
+  /** Remove a stored APK file from configured storage. */
+  async cleanupStoredApk(apkUrl?: string | null): Promise<void> {
+    await cleanupStoredApk(apkUrl);
   }
 
   /** Memvalidasi versionCode mobile agar selalu berupa integer positif. */
@@ -133,157 +113,6 @@ export class AppVersionService {
     return Number.isInteger(parsedValue) && parsedValue > 0
       ? parsedValue
       : null;
-  }
-
-  private async cleanupStoredApk(apkUrl?: string | null): Promise<void> {
-    if (!apkUrl) {
-      return;
-    }
-
-    if (apkUrl.startsWith("/uploads/apk/") || apkUrl.startsWith("/apk/")) {
-      const relativePath = apkUrl.replace(/^\//, "");
-      const localPath = path.join(process.cwd(), "public", relativePath);
-      await fs.unlink(localPath);
-      return;
-    }
-
-    if (
-      (apkUrl.startsWith("http://") || apkUrl.startsWith("https://")) &&
-      apkUrl.includes("uploads/apk/")
-    ) {
-      const keyIndex = apkUrl.indexOf("uploads/apk/");
-      if (keyIndex !== -1) {
-        const key = apkUrl.substring(keyIndex);
-        await deleteFromR2(key);
-      }
-    }
-  }
-
-  private async loadUploadedApkDetails(input: UploadVersionInput): Promise<{
-    apkBuffer?: Buffer;
-    apkSize?: number;
-    apkUrl?: string;
-  }> {
-    if (!input.uploadedKey) {
-      return {};
-    }
-
-    this.validateUploadedKey(input.uploadedKey);
-
-    const metadata = await getR2ObjectMetadata(input.uploadedKey);
-
-    if (
-      input.uploadedSize &&
-      metadata.contentLength !== null &&
-      input.uploadedSize !== metadata.contentLength
-    ) {
-      throw new Error("Ukuran file APK yang diupload tidak sesuai");
-    }
-
-    const settings = await getR2Settings();
-    const apkUrl = settings?.publicUrl
-      ? `${settings.publicUrl.replace(/\/$/, "")}/${input.uploadedKey}`
-      : settings
-        ? `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${input.uploadedKey}`
-        : input.uploadedKey;
-
-    const resolvedSize = metadata.contentLength ?? input.uploadedSize;
-    const apkBuffer = await getR2ObjectBuffer(input.uploadedKey);
-
-    return {
-      apkBuffer,
-      ...(resolvedSize ? { apkSize: resolvedSize } : {}),
-      apkUrl,
-    };
-  }
-
-  private async persistApkFileToTemp(
-    apkFile: File,
-  ): Promise<{ path: string; filename: string; size: number }> {
-    const fileExtension = path.extname(apkFile.name);
-    const tempPath = path.join(
-      os.tmpdir(),
-      `apk_upload_${randomUUID()}${fileExtension}`,
-    );
-    const arrayBuffer = await apkFile.arrayBuffer();
-    await fs.writeFile(tempPath, Buffer.from(arrayBuffer));
-    return {
-      path: tempPath,
-      filename: apkFile.name,
-      size: apkFile.size,
-    };
-  }
-
-  /**
-   * Parse APK file to extract version info
-   */
-  /**
-   * Parse APK file to extract version info
-   */
-  async parseApkInfo(input: {
-    buffer?: Buffer;
-    path?: string;
-  }): Promise<ParsedApkInfo | null> {
-    let tempFilePath: string | null = null;
-
-    try {
-      // Dynamic import for adbkit-apkreader (CommonJS module)
-      const apkReaderModule = await import("adbkit-apkreader");
-      const ApkReader = apkReaderModule.default || apkReaderModule;
-      // Use provided path or write buffer to temp file
-      if (input.path) {
-        tempFilePath = input.path;
-      } else if (input.buffer) {
-        tempFilePath = path.join(os.tmpdir(), `apk_${Date.now()}.apk`);
-        await fs.writeFile(tempFilePath, input.buffer);
-      } else {
-        logger.warn("[AppVersionService] No APK buffer or path provided");
-        return null;
-      }
-
-      // Open and read APK
-      const reader = await ApkReader.open(tempFilePath);
-      const manifest = (await reader.readManifest()) as ApkManifest;
-      // Extract version info
-      const versionName = manifest.versionName || "";
-      const versionCode = manifest.versionCode || 0;
-
-      // Parse build number from version (e.g., "1.0.54" -> 54)
-      const versionParts = versionName.split(".");
-      const buildNumber =
-        versionParts.length >= 3
-          ? parseInt(versionParts[2] ?? "0", 10) || versionCode
-          : versionCode;
-
-      const result = {
-        versionName,
-        versionCode,
-        packageName: manifest.package || "",
-        buildNumber,
-      };
-      return result;
-    } catch (error: unknown) {
-      logger.error("[AppVersionService] Error parsing APK:", error);
-      const err = error as { message?: string; stack?: string; code?: string };
-      logger.error("[AppVersionService] Error details:", {
-        message: err?.message,
-        stack: err?.stack,
-        code: err?.code,
-      });
-      return null;
-    } finally {
-      // Only cleanup if we created the temp file from buffer
-      if (tempFilePath && !input.path) {
-        try {
-          await fs.unlink(tempFilePath);
-        } catch (e: unknown) {
-          const err = e as { message?: string };
-          logger.warn(
-            `[AppVersionService] Failed to cleanup temp file: ${err?.message}`,
-          );
-        }
-      }
-    }
   }
 
   /**
@@ -382,7 +211,7 @@ export class AppVersionService {
     let resolvedApkSize = input.apkSize;
 
     if (input.apkFile) {
-      const persisted = await this.persistApkFileToTemp(input.apkFile);
+      const persisted = await persistApkFileToTemp(input.apkFile);
       resolvedApkPath = persisted.path;
       resolvedApkFilename = resolvedApkFilename || persisted.filename;
       resolvedApkSize = resolvedApkSize ?? persisted.size;
@@ -397,7 +226,7 @@ export class AppVersionService {
     }
 
     try {
-      const uploadedApk = await this.loadUploadedApkDetails(input);
+      const uploadedApk = await loadUploadedApkDetails(input);
 
       if (uploadedApk.apkUrl) {
         apkUrl = uploadedApk.apkUrl;
@@ -482,7 +311,7 @@ export class AppVersionService {
     } catch (error: unknown) {
       if (input.uploadedKey) {
         try {
-          await deleteFromR2(input.uploadedKey);
+          await deleteUploadedApkObject(input.uploadedKey);
         } catch (cleanupError) {
           logger.warn(
             "Gagal membersihkan APK direct upload setelah create versi gagal:",
@@ -493,7 +322,7 @@ export class AppVersionService {
 
       if (uploadedByService && apkUrl) {
         try {
-          await this.cleanupStoredApk(apkUrl);
+          await cleanupStoredApk(apkUrl);
         } catch (cleanupError) {
           logger.warn(
             "Gagal membersihkan APK setelah create versi gagal:",
@@ -525,36 +354,11 @@ export class AppVersionService {
     filename: string;
     contentType: string;
     expiresIn?: number;
-  }): Promise<{
-    uploadUrl: string;
-    publicUrl: string;
-    key: string;
-    filename: string;
-  }> {
-    const sanitizedFilename = params.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const key = generateR2Key("app-version", sanitizedFilename);
-    const contentDisposition = `attachment; filename="${sanitizedFilename}"`;
-    const { uploadUrl, publicUrl } = await getPresignedUrl(
-      key,
-      params.contentType,
-      params.expiresIn ?? 3600,
-      contentDisposition,
-    );
-
-    return {
-      uploadUrl,
-      publicUrl,
-      key,
-      filename: params.filename,
-    };
+  }) {
+    return createDirectUploadApkUrl(params);
   }
 
-  /**
-   * Upload APK file to storage (R2 or local)
-   */
-  /**
-   * Upload APK file to storage (R2 or local)
-   */
+  /** Upload APK file to storage (R2 or local). */
   private async uploadApkFile(input: {
     buffer?: Buffer;
     path?: string;
@@ -562,63 +366,7 @@ export class AppVersionService {
     version: string;
     forceLocal?: boolean;
   }): Promise<string> {
-    const { buffer, path: filePath, version, forceLocal } = input;
-    const sanitizedFilename = `netmanager_v${version}.apk`;
-
-    try {
-      // Check if R2 is enabled
-      const r2Enabled = await isR2Enabled();
-      if (r2Enabled && !forceLocal) {
-        // Upload to R2
-        const key = generateR2Key("app-version", sanitizedFilename);
-        // Note: uploadToR2 currently expects buffer, assuming it can handle it or we might need to update it too.
-        // For now, if we have path, read it to buffer (R2 Might limit this, but let's assume R2 client handles small chunks or we optimize later)
-        // Ideally R2 client should support stream.
-        let uploadBuffer = buffer;
-        if (!uploadBuffer && filePath) {
-          // Warning: Reading full file for R2 upload if R2 client doesn't support stream
-          uploadBuffer = await fs.readFile(filePath);
-        }
-
-        if (!uploadBuffer) {
-          throw new Error("Konten APK tidak disediakan");
-        }
-        const contentDisposition = `attachment; filename="${sanitizedFilename}"`;
-        const url = await uploadToR2(
-          uploadBuffer,
-          key,
-          "application/vnd.android.package-archive",
-          contentDisposition,
-        );
-        return url;
-      } else {
-        // Save to local storage
-        // Use 'public/uploads/apk' to ensure persistence (mounted volume)
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "apk");
-        await fs.mkdir(uploadDir, { recursive: true });
-
-        const destPath = path.join(uploadDir, sanitizedFilename);
-        if (filePath) {
-          // Efficient copy/move
-          await fs.copyFile(filePath, destPath);
-        } else if (buffer) {
-          await fs.writeFile(destPath, buffer);
-        } else {
-          throw new Error(
-            "Konten APK tidak disediakan (tidak ada buffer atau path)",
-          );
-        }
-
-        const url = `/uploads/apk/${sanitizedFilename}`;
-        return url;
-      }
-    } catch (error: unknown) {
-      logger.error("[AppVersionService] Error uploading APK file:", error);
-      const err = error as { message?: string };
-      throw new Error(
-        `Gagal mengunggah file APK: ${err?.message || "Terjadi kesalahan"}`,
-      );
-    }
+    return uploadApkFile(input);
   }
 
   /**

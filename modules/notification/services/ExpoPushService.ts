@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { UserLookupService } from "@/modules/users";
 import {
   getMitraLookupService,
   type MitraLookupService,
@@ -7,13 +7,13 @@ import {
 import { enqueuePushRetry } from "./PushRetryQueue";
 import { PelangganPushTokenService } from "@/modules/pelanggan";
 
-let userRepo: UserRepository | null = null;
+let userRepo: UserLookupService | null = null;
 let mitraLookupService: MitraLookupService | null = null;
 let pelangganPushTokenService: PelangganPushTokenService | null = null;
 
-function getUserRepo(): UserRepository {
+function getUserRepo(): UserLookupService {
   if (!userRepo) {
-    userRepo = new UserRepository();
+    userRepo = new UserLookupService();
   }
   return userRepo;
 }

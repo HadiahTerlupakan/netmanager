@@ -1,19 +1,5 @@
-/**
- * WorkOrderService
- *
- * Centralized business logic for Work Order operations.
- * This service encapsulates validation, notifications, socket events, and logging.
- * Routes should call this service instead of directly using repositories.
- */
-
 import { randomUUID } from "crypto";
-
-import type {
-  WorkOrderStatus,
-  WorkOrderPriority,
-  WorkOrderType,
-  PrismaClient,
-} from "@prisma/client";
+import type { PrismaClient, WorkOrderStatus } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import {
@@ -29,14 +15,21 @@ import {
   logWorkOrderServiceError,
   resolveTenantIdFromContext,
 } from "./work-order-service-helpers";
-import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
+import { InventoryStockService } from "@/modules/inventory";
 import { UserLookupService } from "@/modules/users";
-
 import type {
-  WorkOrderFilters,
   WorkOrderListSummary,
   WorkOrderWithRelations,
 } from "../repositories/IWorkOrderRepository";
+import type {
+  CreateWorkOrderInput,
+  MobileWorkOrderMaterialReturnInput,
+  MobileWorkOrderMaterialReturnResult,
+  ServiceResult,
+  UpdateWorkOrderInput,
+  UserContext,
+  WorkOrderListOptions,
+} from "./work-order-service.contracts";
 import {
   WorkOrderMaterialRepository,
   type MobileWorkOrderMaterialInput,
@@ -69,79 +62,15 @@ import {
 } from "./work-order-side-effects";
 import { WorkOrderEventDispatcher } from "@/modules/events";
 import { syncWoStatusToTicket } from "./WorkOrderSyncService";
-
-// Types
-export interface UserContext {
-  id: string;
-  name?: string;
-  role?: string;
-  permissions?: string[];
-  siteId?: string;
-  departmentId?: string;
-  tenantId?: string;
-  isSuperAdmin?: boolean;
-}
-
-export interface CreateWorkOrderInput {
-  type: WorkOrderType;
-  title: string;
-  description: string;
-  priority?: WorkOrderPriority;
-  pelangganId?: string;
-  departmentId?: string;
-  siteId?: string;
-  scheduledDate?: Date | string;
-  ticketId?: string;
-  isInternal?: boolean;
-}
-
-export interface UpdateWorkOrderInput {
-  title?: string;
-  description?: string;
-  priority?: WorkOrderPriority;
-  status?: WorkOrderStatus;
-  scheduledDate?: Date | string;
-  departmentId?: string;
-  siteId?: string;
-  assignedToId?: string;
-  resolutionNotes?: string;
-}
-
-export interface WorkOrderListOptions {
-  page?: number;
-  limit?: number;
-  filters?: WorkOrderFilters;
-  userId?: string;
-  userPermissions?: string[];
-  userDepartmentId?: string;
-  userSiteId?: string;
-  userRole?: string;
-}
-
-export interface ServiceResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: string;
-}
-
-export interface MobileWorkOrderMaterialReturnInput {
-  barangId: string;
-  gudangId: string;
-  jumlah: number;
-  kondisi?: "BARU" | "BEKAS" | "RUSAK";
-}
-
-export interface MobileWorkOrderMaterialReturnResult {
-  id: string;
-  nama: string;
-  jumlah: number;
-  satuan: string;
-  kondisi: string;
-  barangId: string;
-  gudangId: string;
-}
-
+export type {
+  CreateWorkOrderInput,
+  MobileWorkOrderMaterialReturnInput,
+  MobileWorkOrderMaterialReturnResult,
+  ServiceResult,
+  UpdateWorkOrderInput,
+  UserContext,
+  WorkOrderListOptions,
+} from "./work-order-service.contracts";
 /**
  * WorkOrderService - Business logic layer for Work Orders
  */
@@ -152,9 +81,8 @@ export class WorkOrderService {
   private templateRepo: WorkOrderTemplateRepository;
   private warrantyRepo: WarrantyCheckRepository;
   private materialRepo: WorkOrderMaterialRepository;
-  private inventoryRepo: InventoryRepository;
+  private inventoryRepo: InventoryStockService;
   private prismaClient: PrismaClient;
-
   constructor(prismaClient?: PrismaClient) {
     this.prismaClient = prismaClient ?? defaultPrisma;
     this.repository = new WorkOrderRepository(this.prismaClient);
@@ -163,11 +91,8 @@ export class WorkOrderService {
     this.templateRepo = new WorkOrderTemplateRepository();
     this.warrantyRepo = new WarrantyCheckRepository();
     this.materialRepo = new WorkOrderMaterialRepository(this.prismaClient);
-    this.inventoryRepo = new InventoryRepository();
+    this.inventoryRepo = new InventoryStockService();
   }
-
-  // ==================== LIST OPERATIONS ====================
-
   /**
    * Get paginated list of work orders with site/department restrictions
    */
@@ -190,7 +115,6 @@ export class WorkOrderService {
         userSiteId,
         userRole,
       } = options;
-
       const appliedFilters = applyWorkOrderListRestrictions({
         filters,
         userPermissions,
@@ -198,18 +122,14 @@ export class WorkOrderService {
         userSiteId,
         userRole,
       });
-
       if (!appliedFilters) {
         return createEmptyWorkOrderListResult(page);
       }
-
-      // Use optimized query for list views
       const result = await this.repository.findAllForList(
         appliedFilters,
         page,
         limit,
       );
-
       return { success: true, data: result };
     } catch (error) {
       logWorkOrderServiceError("WorkOrderService.getWorkOrders failed", error);
@@ -220,7 +140,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Get work order requests (status = REQUESTED)
    */
@@ -255,7 +174,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Get work order statistics
    */
@@ -279,7 +197,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Get recent work orders
    */
@@ -305,7 +222,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Get single work order by ID
    */
@@ -317,7 +233,6 @@ export class WorkOrderService {
       const workOrder = userContext
         ? await this.validateWorkOrderAccess(id, userContext)
         : await this.repository.findById(id);
-
       if (!workOrder) {
         return {
           success: false,
@@ -325,7 +240,6 @@ export class WorkOrderService {
           code: "NOT_FOUND",
         };
       }
-
       return { success: true, data: workOrder };
     } catch (error) {
       logger.error(
@@ -343,9 +257,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== CREATE OPERATIONS ====================
-
   /**
    * Create new work order with validation, notifications, and logging
    */
@@ -360,16 +272,13 @@ export class WorkOrderService {
         userContext,
         warrantyRepo: this.warrantyRepo,
       });
-
       const workOrder = await this.repository.create(createData);
-
       await notifyWorkOrderCreatedSafely(workOrder, userContext.id);
       await publishWorkOrderCreatedEvent({
         workOrder,
         triggeredBy: createdById,
       });
       broadcastWorkOrderCreatedSafely(workOrder);
-
       if (input.ticketId) {
         await linkWorkOrderToTicketSafely({
           ticketRepo: this.ticketRepo,
@@ -378,15 +287,12 @@ export class WorkOrderService {
           userId: createdById,
         });
       }
-
       logWorkOrderActivity("CREATE", "Work Order", createdById, {
         id: workOrder.id,
         number: workOrder.workOrderNumber,
         title: workOrder.title,
       });
-
       await invalidateWorkOrderCaches();
-
       return { success: true, data: workOrder as WorkOrderWithRelations };
     } catch (error) {
       logger.error(
@@ -401,7 +307,6 @@ export class WorkOrderService {
             code: "VALIDATION_ERROR",
           };
         }
-
         if (error.message.includes("Akses ditolak")) {
           return { success: false, error: error.message, code: "FORBIDDEN" };
         }
@@ -413,9 +318,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== UPDATE OPERATIONS ====================
-
   /**
    * Update work order
    */
@@ -425,32 +328,25 @@ export class WorkOrderService {
     userContext: UserContext,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(id, userContext);
-
       // Check exists
       const existing = await this.repository.findById(id);
       if (!existing) {
         return createWorkOrderNotFoundResult();
       }
-
       // Update - ensure scheduledDate is Date or undefined
       const { scheduledDate: rawScheduledDate, ...restInput } = input;
       const updateData = {
         ...restInput,
         ...(rawScheduledDate && { scheduledDate: new Date(rawScheduledDate) }),
       };
-
       const updated = await this.repository.update(id, updateData);
-
       logWorkOrderActivity("UPDATE", "Work Order", userContext.id, {
         id: updated.id,
         number: updated.workOrderNumber,
         changes: input,
       });
-
       await invalidateWorkOrderCaches();
-
       // Refetch with relations
       const result = await this.repository.findById(id);
       return { success: true, data: result as WorkOrderWithRelations };
@@ -469,7 +365,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Update work order status with notifications
    */
@@ -480,26 +375,20 @@ export class WorkOrderService {
     resolutionNotes?: string,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(id, userContext);
-
       const existing = await this.repository.findById(id);
       if (!existing) {
         return createWorkOrderNotFoundResult();
       }
-
       const previousStatus = existing.status;
       const userId = userContext.id;
-
       // Update status
       if (status === "COMPLETED" && resolutionNotes) {
         await this.repository.complete(id, resolutionNotes, userId);
       } else {
         await this.repository.updateStatus(id, status, userId);
       }
-
       const fullWorkOrder = await this.repository.findById(id);
-
       if (fullWorkOrder) {
         await publishWorkOrderStatusSideEffects({
           workOrder: fullWorkOrder,
@@ -508,17 +397,13 @@ export class WorkOrderService {
           userId,
         });
       }
-
       await syncWoStatusToTicket(id, status);
-
       logWorkOrderActivity("STATUS_CHANGE", "Work Order", userId, {
         id,
         from: previousStatus,
         to: status,
       });
-
       await invalidateWorkOrderCaches();
-
       const result = await this.repository.findById(id);
       return { success: true, data: result as WorkOrderWithRelations };
     } catch (error) {
@@ -534,9 +419,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== ASSIGNMENT OPERATIONS ====================
-
   /**
    * Assign work order to employee
    */
@@ -547,17 +430,13 @@ export class WorkOrderService {
     role?: string,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(id, userContext);
-
       const existing = await this.repository.findById(id);
       if (!existing) {
         return createWorkOrderNotFoundResult();
       }
-
       // Validate employee status
       const employee = await this.userRepo.findById(employeeId);
-
       if (!employee) {
         return {
           success: false,
@@ -565,7 +444,6 @@ export class WorkOrderService {
           code: "EMPLOYEE_NOT_FOUND",
         };
       }
-
       if (!hasActiveEmployeeStatus(employee as { isActive: boolean })) {
         return {
           success: false,
@@ -575,12 +453,9 @@ export class WorkOrderService {
           code: "EMPLOYEE_INACTIVE",
         };
       }
-
       const assignedById = userContext.id;
-
       // Assign
       await this.repository.assign(id, employeeId, role, assignedById);
-
       const fullWorkOrder = await this.repository.findById(id);
       if (fullWorkOrder) {
         await publishWorkOrderAssignmentSideEffects({
@@ -590,15 +465,12 @@ export class WorkOrderService {
           assignedById,
         });
       }
-
       logWorkOrderActivity("ASSIGN", "Work Order", assignedById, {
         id,
         employeeId,
         role,
       });
-
       await invalidateWorkOrderCaches();
-
       const result = await this.repository.findById(id);
       return { success: true, data: result as WorkOrderWithRelations };
     } catch (error) {
@@ -619,9 +491,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== APPROVAL OPERATIONS ====================
-
   /**
    * Approve work order request
    */
@@ -630,14 +500,11 @@ export class WorkOrderService {
     userContext: UserContext,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(id, userContext);
-
       const existing = await this.repository.findById(id);
       if (!existing) {
         return createWorkOrderNotFoundResult();
       }
-
       if (existing.status !== "REQUESTED") {
         return {
           success: false,
@@ -646,17 +513,13 @@ export class WorkOrderService {
           code: "INVALID_STATUS",
         };
       }
-
       const approvedById = userContext.id;
       await this.repository.approveRequest(id, approvedById);
-
       logWorkOrderActivity("APPROVE", "Work Order", approvedById, {
         id,
         number: existing.workOrderNumber,
       });
-
       await invalidateWorkOrderCaches();
-
       const result = await this.repository.findById(id);
       return { success: true, data: result as WorkOrderWithRelations };
     } catch (error) {
@@ -677,7 +540,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Reject work order request
    */
@@ -687,9 +549,7 @@ export class WorkOrderService {
     reason: string,
   ): Promise<ServiceResult<WorkOrderWithRelations>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(id, userContext);
-
       if (!reason) {
         return {
           success: false,
@@ -697,12 +557,10 @@ export class WorkOrderService {
           code: "VALIDATION_ERROR",
         };
       }
-
       const existing = await this.repository.findById(id);
       if (!existing) {
         return createWorkOrderNotFoundResult();
       }
-
       if (existing.status !== "REQUESTED") {
         return {
           success: false,
@@ -710,18 +568,14 @@ export class WorkOrderService {
           code: "INVALID_STATUS",
         };
       }
-
       const rejectedById = userContext.id;
       await this.repository.rejectRequest(id, rejectedById, reason);
-
       logWorkOrderActivity("REJECT", "Work Order", rejectedById, {
         id,
         number: existing.workOrderNumber,
         reason,
       });
-
       await invalidateWorkOrderCaches();
-
       const result = await this.repository.findById(id);
       return { success: true, data: result as WorkOrderWithRelations };
     } catch (error) {
@@ -740,9 +594,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== DELETE OPERATIONS ====================
-
   /**
    * Delete work order
    */
@@ -751,24 +603,18 @@ export class WorkOrderService {
     userContext: UserContext,
   ): Promise<ServiceResult<void>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(id, userContext);
-
       const existing = await this.repository.findById(id);
       if (!existing) {
         return createWorkOrderNotFoundResult();
       }
-
       const deletedById = userContext.id;
       await this.repository.delete(id);
-
       logWorkOrderActivity("DELETE", "Work Order", deletedById, {
         id,
         number: existing.workOrderNumber,
       });
-
       await invalidateWorkOrderCaches();
-
       return { success: true };
     } catch (error) {
       logWorkOrderServiceError(
@@ -789,9 +635,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== MATERIAL & TEMPLATE OPERATIONS ====================
-
   /**
    * Add material usage to work order
    */
@@ -804,9 +648,7 @@ export class WorkOrderService {
     preferredGudangId?: string,
   ): Promise<ServiceResult<unknown>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(workOrderId, userContext);
-
       const actorId = userContext.id;
       const material = await this.materialRepo.addMaterialWithStockDeduction(
         workOrderId,
@@ -816,7 +658,6 @@ export class WorkOrderService {
         notes ?? null,
         preferredGudangId,
       );
-
       return { success: true, data: material };
     } catch (error) {
       logger.error(
@@ -830,7 +671,6 @@ export class WorkOrderService {
       };
     }
   }
-
   async addMobileMaterials(
     workOrderId: string,
     items: MobileWorkOrderMaterialInput[],
@@ -843,7 +683,6 @@ export class WorkOrderService {
         workOrderId,
         userContext,
       });
-
       const results =
         await this.materialRepo.addMobileMaterialsWithStockDeduction({
           workOrder: {
@@ -856,7 +695,6 @@ export class WorkOrderService {
           items,
           actorId: userContext.id,
         });
-
       const materialList = results
         .map((m) => `${m.nama} (${m.jumlah})`)
         .join(", ");
@@ -871,7 +709,6 @@ export class WorkOrderService {
         ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
         ...(workOrder.siteId && { siteId: workOrder.siteId }),
       });
-
       return { success: true, data: { items: results } };
     } catch (error) {
       logger.error(
@@ -892,7 +729,6 @@ export class WorkOrderService {
       };
     }
   }
-
   async returnMobileMaterials(
     workOrderId: string,
     items: MobileWorkOrderMaterialReturnInput[],
@@ -905,14 +741,12 @@ export class WorkOrderService {
         workOrderId,
         userContext,
       });
-
       const tenantId = resolveTenantIdFromContext({
         workOrderTenantId: workOrder.tenantId,
         userContext,
       });
       const results = await this.prismaClient.$transaction(async (tx) => {
         const createdItems: MobileWorkOrderMaterialReturnResult[] = [];
-
         for (const item of items) {
           const kondisi = item.kondisi || "BEKAS";
           const masuk = await this.inventoryRepo.addStockInTransaction(tx, {
@@ -924,11 +758,9 @@ export class WorkOrderService {
             keterangan: `Pengembalian dari Work Order ${workOrder.workOrderNumber} - ${workOrder.title}`,
             tenantId: tenantId || undefined,
           });
-
           const masukWithBarang = masuk as typeof masuk & {
             barang: { nama: string; satuan: string };
           };
-
           createdItems.push({
             id: masuk.id,
             nama: masukWithBarang.barang.nama,
@@ -939,18 +771,15 @@ export class WorkOrderService {
             gudangId: item.gudangId,
           });
         }
-
         await tx.$executeRaw`
           UPDATE "work_orders"
           SET "returnedMaterials" = COALESCE("returnedMaterials", '[]'::jsonb) || ${JSON.stringify(createdItems)}::jsonb,
               "updatedAt" = NOW()
           WHERE "id" = ${workOrder.id}
         `;
-
         const materialList = createdItems
           .map((m) => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`)
           .join(", ");
-
         await tx.workOrderUpdates.create({
           data: {
             id: randomUUID(),
@@ -963,10 +792,8 @@ export class WorkOrderService {
             ...(tenantId ? { tenantId } : {}),
           },
         });
-
         return createdItems;
       });
-
       const materialList = results
         .map((m) => `${m.nama} (${m.jumlah})`)
         .join(", ");
@@ -981,7 +808,6 @@ export class WorkOrderService {
         ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
         ...(workOrder.siteId && { siteId: workOrder.siteId }),
       });
-
       logMobileMaterialReturnActivity({
         userId: userContext.id,
         tenantId: tenantId || undefined,
@@ -989,9 +815,7 @@ export class WorkOrderService {
         workOrderNumber: workOrder.workOrderNumber,
         items: results,
       });
-
       await invalidateWorkOrderCaches();
-
       return { success: true, data: { items: results } };
     } catch (error) {
       logger.error(
@@ -1012,9 +836,7 @@ export class WorkOrderService {
       };
     }
   }
-
   // ==================== PRIVATE HELPERS ====================
-
   /**
    * Validate user access to a specific work order based on RBAC and restrictions
    */
@@ -1028,9 +850,7 @@ export class WorkOrderService {
       userContext,
     });
   }
-
   // ==================== COMMENT & TASK OPERATIONS ====================
-
   /**
    * Add a comment to a work order
    */
@@ -1041,13 +861,11 @@ export class WorkOrderService {
   ): Promise<ServiceResult<unknown>> {
     try {
       await this.validateWorkOrderAccess(workOrderId, userContext);
-
       const comment = await this.repository.addComment(
         workOrderId,
         message,
         userContext.id,
       );
-
       await WorkOrderEventDispatcher.onActivity({
         workOrderId,
         activityId: (comment as { id: string }).id,
@@ -1060,7 +878,6 @@ export class WorkOrderService {
           err instanceof Error ? err : undefined,
         ),
       );
-
       return { success: true, data: comment };
     } catch (error) {
       logger.error(
@@ -1078,7 +895,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Add a task to a work order
    */
@@ -1093,7 +909,6 @@ export class WorkOrderService {
   ): Promise<ServiceResult<unknown>> {
     try {
       await this.validateWorkOrderAccess(workOrderId, userContext);
-
       const task = await this.repository.addTask({
         workOrderId,
         title: taskData.title,
@@ -1133,7 +948,6 @@ export class WorkOrderService {
   ): Promise<ServiceResult<unknown>> {
     try {
       await this.validateWorkOrderAccess(workOrderId, userContext);
-
       const attachment = await this.repository.addAttachment(
         workOrderId,
         data.fileName,
@@ -1143,9 +957,7 @@ export class WorkOrderService {
         data.caption,
         userContext.id,
       );
-
       await invalidateWorkOrderCaches();
-
       return { success: true, data: attachment };
     } catch (error) {
       logger.error(
@@ -1163,7 +975,6 @@ export class WorkOrderService {
       };
     }
   }
-
   /**
    * Delete attachment from work order
    */
@@ -1173,10 +984,7 @@ export class WorkOrderService {
     userContext: UserContext,
   ): Promise<ServiceResult<void>> {
     try {
-      // Validate access
       await this.validateWorkOrderAccess(workOrderId, userContext);
-
-      // Check if attachment exists and belongs to work order
       const workOrder = await this.repository.findById(workOrderId);
       if (!workOrder) {
         return {
@@ -1185,7 +993,6 @@ export class WorkOrderService {
           code: "NOT_FOUND",
         };
       }
-
       const attachment = workOrder.attachments?.find(
         (a) => a.id === attachmentId,
       );
@@ -1196,11 +1003,8 @@ export class WorkOrderService {
           code: "NOT_FOUND",
         };
       }
-
       await this.repository.deleteAttachment(attachmentId, userContext.id);
-
       await invalidateWorkOrderCaches();
-
       return { success: true };
     } catch (error) {
       logger.error(
@@ -1219,10 +1023,8 @@ export class WorkOrderService {
     }
   }
 }
-
 // Singleton instance
 let workOrderServiceInstance: WorkOrderService | null = null;
-
 export function getWorkOrderService(): WorkOrderService {
   if (!workOrderServiceInstance) {
     workOrderServiceInstance = new WorkOrderService();

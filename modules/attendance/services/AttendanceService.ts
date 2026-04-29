@@ -15,188 +15,49 @@ import {
   getCachedUserAttendanceSettings,
   getScheduleEndTimeForPolicy,
   mergeAttendanceNotes,
-  normalizeReasonCodes,
-  normalizeSourceRefs,
   resolveCheckInStatus,
   resolveCheckInTimeContext,
   type CachedUserAttendanceSettings,
-  formatCurrentAttendanceTime,
   formatCurrentAttendanceWarningDate,
   isSameAttendanceDay,
 } from "./attendance-service-helpers";
+import { getAttendanceAnalytics } from "./attendance-analytics-helpers";
+import {
+  buildAttendanceScoreResult,
+  createUserScoreState,
+  getStandardMinutesPerDay,
+  toRoundedHours,
+} from "./attendance-report-helpers";
+import {
+  buildIdleCurrentAttendanceStatus,
+  getCurrentAttendanceWarningMessage,
+  mapCurrentAttendanceStatusResult,
+  mapPersistedAttendanceEvaluation,
+  type ActiveAttendanceSessionRow,
+  type CurrentAttendanceEvaluationRow,
+  type CurrentAttendanceRow,
+  type CurrentAttendanceStatusResult,
+} from "./attendance-current-status-helpers";
+export type { CurrentAttendanceStatusResult } from "./attendance-current-status-helpers";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { OvertimeRepository } from "@/modules/overtime/repositories/OvertimeRepository";
+import {
+  OvertimePayrollQueryService,
+  OvertimeQueryService,
+} from "@/modules/overtime";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { UserLookupService } from "@/modules/users";
 import { AttendanceEventDispatcher } from "@/modules/events";
 import { logger } from "@/lib/logger";
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
-
-interface CheckInParams {
-  userId: string;
-  photoUrl: string | null;
-  location: string;
-  notes: string;
-  latitude?: number;
-  longitude?: number;
-  offlineTime?: Date; // For mobile offline sync
-  timezone?: string;
-  tenantId?: string;
-}
-
-type CurrentAttendanceUiStatus = "idle" | "checked-in" | "checked-out";
-
-type CurrentAttendanceRow = {
-  id: string;
-  checkIn: Date;
-  checkOut: Date | null;
-  status: AttendanceStatus;
-  user: {
-    workingHourMode: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
-    flexibleTargetHour: number | null;
-    shift: {
-      startTime: string | null;
-      endTime: string | null;
-    } | null;
-  } | null;
-};
-
-type ActiveAttendanceSessionRow = {
-  id: string;
-  checkIn: Date;
-  checkOut: Date | null;
-  status: AttendanceStatus;
-  user: {
-    workingHourMode: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
-    flexibleTargetHour: number | null;
-    shift: {
-      startTime: string | null;
-      endTime: string | null;
-    } | null;
-  } | null;
-};
-
-type PersistedAttendanceEvaluationRow = Awaited<
-  ReturnType<AttendanceRepository["findLatestEvaluationForUser"]>
->;
-
-type CurrentAttendanceEvaluationRow = Pick<
-  AttendanceEvaluationResult,
-  "finalStatus" | "reviewState" | "reasonCodes" | "anomalyCodes"
-> | null;
-
-export type HistoricalAttendanceRecomputeResult = {
-  processedCount: number;
-  evaluations: AttendanceEvaluationResult[];
-};
-
-export type CurrentAttendanceStatusResult = {
-  status: CurrentAttendanceUiStatus;
-  checkInTime: string | null;
-  checkOutTime: string | null;
-  warningMessage: string | null;
-  sourceAttendanceId: string | null;
-  checkInAt: string | null;
-  checkOutAt: string | null;
-  attendanceStatus: AttendanceStatus | null;
-  workingHourMode: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
-  flexibleTargetHour: number | null;
-  shift: {
-    startTime: string | null;
-    endTime: string | null;
-  } | null;
-};
-
-function mapPersistedAttendanceEvaluation(
-  evaluation: PersistedAttendanceEvaluationRow,
-): AttendanceEvaluationResult | null {
-  if (!evaluation) {
-    return null;
-  }
-
-  return {
-    tenantId: evaluation.tenantId,
-    userId: evaluation.userId,
-    workDate: evaluation.workDate,
-    finalStatus: evaluation.finalStatus,
-    reviewState:
-      evaluation.reviewState as AttendanceEvaluationResult["reviewState"],
-    rawPresenceState: evaluation.rawPresenceState,
-    workMinutes: evaluation.workMinutes,
-    lateMinutes: evaluation.lateMinutes,
-    overtimeMinutesApproved: evaluation.overtimeMinutesApproved,
-    overtimeMinutesHeld: evaluation.overtimeMinutesHeld,
-    payrollHoldState:
-      evaluation.payrollHoldState as AttendanceEvaluationResult["payrollHoldState"],
-    holidayState: evaluation.holidayState,
-    leaveState: evaluation.leaveState,
-    scheduleState: evaluation.scheduleState,
-    evidenceQuality: evaluation.evidenceQuality,
-    reasonCodes: normalizeReasonCodes(evaluation.reasonCodes),
-    anomalyCodes: normalizeReasonCodes(evaluation.anomalyCodes),
-    sourceRefs: normalizeSourceRefs(evaluation.sourceRefs),
-    evaluationVersion: evaluation.evaluationVersion,
-    evaluatedAt: evaluation.evaluatedAt,
-  };
-}
-
-function getCurrentAttendanceWarningMessage(
-  evaluation: CurrentAttendanceEvaluationRow,
-  fallbackWarningMessage: string | null,
-): string | null {
-  if (!evaluation) {
-    return fallbackWarningMessage;
-  }
-
-  const [firstReason] = normalizeReasonCodes(evaluation.reasonCodes);
-  return firstReason ?? fallbackWarningMessage;
-}
-
-function mapCurrentAttendanceStatusResult(params: {
-  attendance: CurrentAttendanceRow;
-  evaluation: CurrentAttendanceEvaluationRow;
-  timezone: string;
-  status: CurrentAttendanceUiStatus;
-  warningMessage: string | null;
-}): CurrentAttendanceStatusResult {
-  const { attendance, evaluation, timezone, status, warningMessage } = params;
-
-  return {
-    status,
-    checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
-    checkOutTime: formatCurrentAttendanceTime(attendance.checkOut, timezone),
-    warningMessage,
-    sourceAttendanceId: attendance.id,
-    checkInAt: attendance.checkIn.toISOString(),
-    checkOutAt: attendance.checkOut?.toISOString() ?? null,
-    attendanceStatus: evaluation?.finalStatus ?? attendance.status,
-    workingHourMode: attendance.user?.workingHourMode ?? null,
-    flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
-    shift: attendance.user?.shift ?? null,
-  };
-}
-
-function buildIdleCurrentAttendanceStatus(
-  attendance?: CurrentAttendanceRow | null,
-  warningMessage: string | null = null,
-  evaluation?: CurrentAttendanceEvaluationRow,
-): CurrentAttendanceStatusResult {
-  return {
-    status: "idle",
-    checkInTime: null,
-    checkOutTime: null,
-    warningMessage,
-    sourceAttendanceId: attendance?.id ?? null,
-    checkInAt: attendance?.checkIn?.toISOString() ?? null,
-    checkOutAt: attendance?.checkOut?.toISOString() ?? null,
-    attendanceStatus: evaluation?.finalStatus ?? attendance?.status ?? null,
-    workingHourMode: attendance?.user?.workingHourMode ?? null,
-    flexibleTargetHour: attendance?.user?.flexibleTargetHour ?? null,
-    shift: attendance?.user?.shift ?? null,
-  };
-}
-
+import type {
+  CheckInParams,
+  HistoricalAttendanceRecomputeResult,
+} from "./attendance-service.contracts";
+export type {
+  CheckInParams,
+  HistoricalAttendanceRecomputeResult,
+} from "./attendance-service.contracts";
 export class AttendanceService {
   private geofenceService: GeofenceService;
   private validationService: AttendanceValidationService;
@@ -207,8 +68,7 @@ export class AttendanceService {
   private evaluationAuditService: AttendanceEvaluationAuditService;
   private leaveRepo: LeaveRepository;
   private holidayRepo: HolidayRepository;
-  private overtimeRepo: OvertimeRepository;
-
+  private overtimeRepo: OvertimeQueryService;
   constructor() {
     this.geofenceService = new GeofenceService();
     this.validationService = new AttendanceValidationService();
@@ -219,19 +79,16 @@ export class AttendanceService {
     this.evaluationAuditService = new AttendanceEvaluationAuditService();
     this.leaveRepo = new LeaveRepository();
     this.holidayRepo = new HolidayRepository();
-    this.overtimeRepo = new OvertimeRepository();
+    this.overtimeRepo = new OvertimeQueryService();
   }
-
   private getEvaluationWindow(referenceTime: Date, timezone: string) {
     const workDate = toStartOfDay(referenceTime, timezone);
-
     return {
       workDate,
       startOfDay: workDate,
       endOfDay: toEndOfDay(referenceTime, timezone),
     };
   }
-
   private async buildAttendanceEvaluationInput(params: {
     attendance: {
       tenantId: string;
@@ -253,7 +110,6 @@ export class AttendanceService {
       attendance.checkOut ?? attendance.checkIn,
       timezone,
     );
-
     const [persistedAttendance, leave, holiday, overtime] = await Promise.all([
       this.attendanceRepo.findFirstByUserAndDateRange(
         attendance.userId,
@@ -279,9 +135,7 @@ export class AttendanceService {
         endOfDay,
       ),
     ]);
-
     const effectiveAttendance = persistedAttendance ?? attendance;
-
     return {
       tenantId: attendance.tenantId,
       userId: attendance.userId,
@@ -324,7 +178,6 @@ export class AttendanceService {
           : null,
     };
   }
-
   private async recomputeAttendanceEvaluation(params: {
     attendance: {
       tenantId: string;
@@ -351,7 +204,6 @@ export class AttendanceService {
       attendance.checkOut ?? attendance.checkIn,
       timezone,
     );
-
     const [evaluationInput, previousEvaluationRow] = await Promise.all([
       this.buildAttendanceEvaluationInput({
         attendance,
@@ -364,10 +216,8 @@ export class AttendanceService {
         workDate,
       }),
     ]);
-
     const nextEvaluation =
       await this.attendanceEvaluator.evaluate(evaluationInput);
-
     await this.evaluationAuditService.recordEvaluationChange({
       previous: mapPersistedAttendanceEvaluation(previousEvaluationRow),
       next: nextEvaluation,
@@ -375,10 +225,8 @@ export class AttendanceService {
       actorType: audit.actorType,
       actorId,
     });
-
     return nextEvaluation;
   }
-
   private async assertNoActiveSessionConflict(
     userId: string,
     userDetails: CachedUserAttendanceSettings | null,
@@ -391,11 +239,9 @@ export class AttendanceService {
         userId,
         tenantId,
       })) as ActiveAttendanceSessionRow | null;
-
     if (!latestOpenAttendance) {
       return;
     }
-
     const workingHourMode =
       latestOpenAttendance.user?.workingHourMode ??
       (userDetails?.workingHourMode as "FIXED" | "SHIFT" | "FLEXIBLE" | null) ??
@@ -424,12 +270,10 @@ export class AttendanceService {
       ),
       timezone,
     });
-
     if (decision.isStaleFlexibleSession || !decision.shouldAutoCheckout) {
       throw new Error("DUPLICATE_ENTRY");
     }
   }
-
   async checkIn(params: CheckInParams) {
     const {
       userId,
@@ -442,9 +286,6 @@ export class AttendanceService {
       timezone,
       tenantId,
     } = params;
-
-    // 1. Timezone & Date Context
-    // Use offlineTime if provided (trusted for sync), else server time
     const {
       timezone: tz,
       checkInTime,
@@ -455,8 +296,6 @@ export class AttendanceService {
       tenantId,
       timezoneService: this.timezoneService,
     });
-    // 2. Cross-Module Validation (Leave & Holiday)
-    // Check using the User's Timezone Date
     const eligibility = await this.validationService.validateCheckInEligibility(
       userId,
       tz,
@@ -466,14 +305,10 @@ export class AttendanceService {
     if (!eligibility.isValid) {
       throw new Error(`CHECKIN_REJECTED:${eligibility.reason}`); // Format error for controller to parse
     }
-
-    // 3. User Settings & Schedule (with Redis caching for cross-pod consistency)
     const userDetails = await getCachedUserAttendanceSettings({
       userId,
       userRepo: this.userRepo,
     });
-
-    // 4. Auto-Checkout Stale Sessions
     await this.processAutoCheckout(
       userId,
       userDetails,
@@ -482,7 +317,6 @@ export class AttendanceService {
       tenantId,
       tz,
     );
-
     await this.assertNoActiveSessionConflict(
       userId,
       userDetails,
@@ -490,14 +324,11 @@ export class AttendanceService {
       tz,
       tenantId,
     );
-
-    // 5. Geofence Validation (before transaction to minimize lock time)
     let geofenceResult = {
       status: "UNKNOWN",
       distance: null as number | null,
       siteName: null as string | null,
     };
-
     if (latitude !== undefined && longitude !== undefined) {
       const geoCheck = await this.geofenceService.validateGeofence(
         userId,
@@ -505,28 +336,21 @@ export class AttendanceService {
         longitude,
       );
       const geofencePolicy = userDetails?.attendanceGeofencePolicy ?? "WARN";
-
       if (!geoCheck.isInside && geofencePolicy === "STRICT") {
         throw new Error("OUTSIDE_GEOFENCE");
       }
-
       geofenceResult = {
         status: geoCheck.isInside ? "INSIDE" : "OUTSIDE",
         distance: geoCheck.nearestDistance,
         siteName: geoCheck.nearestSiteName,
       };
     }
-
-    // 6. Status Calculation (LATE vs ON_TIME)
     const status = await resolveCheckInStatus({
       checkInTime,
       timezone: tz,
       userDetails,
       timezoneService: this.timezoneService,
     });
-    // 7. Create Record with transaction to prevent race condition
-    // checkInDate is the date-only portion in the user's timezone,
-    // used for the unique constraint to prevent duplicate check-ins per day
     const createData: Prisma.AttendanceUncheckedCreateInput = {
       id: randomUUID(),
       userId,
@@ -542,22 +366,18 @@ export class AttendanceService {
       geofenceSiteName: geofenceResult.siteName,
       updatedAt: new Date(),
     };
-
     if (offlineTime) {
       createData.geofenceMeta = {
         offline: true,
         capturedAt: offlineTime.toISOString(),
       };
     }
-
     try {
       const result = await this.attendanceRepo.create(createData);
       const normalizedTenantId = result.tenantId ?? tenantId;
-
       if (!normalizedTenantId) {
         throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
       }
-
       const evaluation = await this.recomputeAttendanceEvaluation({
         attendance: {
           tenantId: normalizedTenantId,
@@ -574,8 +394,6 @@ export class AttendanceService {
           actorType: "user",
         },
       });
-
-      // Publish domain event
       AttendanceEventDispatcher.onCheckIn({
         userId,
         attendanceId: result.id,
@@ -591,13 +409,11 @@ export class AttendanceService {
           err instanceof Error ? err : undefined,
         ),
       );
-
       return {
         attendance: result,
         evaluation,
       };
     } catch (error) {
-      // P2002 = Unique constraint violation → duplicate check-in caught by DB
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
@@ -607,7 +423,6 @@ export class AttendanceService {
       throw error;
     }
   }
-
   private async processAutoCheckout(
     userId: string,
     userDetails: {
@@ -621,15 +436,12 @@ export class AttendanceService {
     timezone: string,
   ) {
     const sessionPolicyService = new AttendanceSessionPolicyService();
-
     const staleSessions = await this.attendanceRepo.findManyStaleSessions({
       userId,
       effectiveToday,
       tenantId,
     });
-
     if (staleSessions.length === 0) return;
-
     await Promise.all(
       staleSessions.map(
         async (session: {
@@ -669,22 +481,18 @@ export class AttendanceService {
             ),
             timezone,
           });
-
           const updateData = sessionPolicyService.buildAutoCheckoutUpdate({
             decision,
             existingNotes: session.notes,
           });
-
           if (!updateData) {
             return;
           }
-
           await this.attendanceRepo.update(session.id, updateData);
         },
       ),
     );
   }
-
   /**
    * Centralized Check-Out Logic
    * Used by both web and mobile routes for consistency
@@ -713,20 +521,14 @@ export class AttendanceService {
       offlineTime,
       tenantId,
     } = params;
-
-    // 1. Find active attendance
     const attendance = await this.attendanceRepo.findFirstActiveForCheckout({
       userId,
       tenantId,
     });
-
     if (!attendance) {
       throw new Error("NO_ACTIVE_SESSION");
     }
-
     const checkOutTime = offlineTime || new Date();
-
-    // 2. Calculate warning for FLEXIBLE users
     const warning =
       attendance.user.workingHourMode === "FLEXIBLE"
         ? buildFlexibleCheckoutWarning({
@@ -735,11 +537,8 @@ export class AttendanceService {
             targetHours: attendance.user.flexibleTargetHour || 8,
           })
         : undefined;
-
-    // 3. Geofence validation
     let checkOutGeofenceStatus = "UNKNOWN";
     let checkOutGeofenceDistance: number | null = null;
-
     if (latitude !== undefined && longitude !== undefined) {
       const geoCheck = await this.geofenceService.validateGeofence(
         userId,
@@ -747,21 +546,17 @@ export class AttendanceService {
         longitude,
       );
       const geofencePolicy = attendance.user.attendanceGeofencePolicy ?? "WARN";
-
       if (!geoCheck.isInside && geofencePolicy === "STRICT") {
         throw new Error("OUTSIDE_GEOFENCE");
       }
-
       checkOutGeofenceStatus = geoCheck.isInside ? "INSIDE" : "OUTSIDE";
       checkOutGeofenceDistance = geoCheck.nearestDistance;
     }
-
     // 4. Prepare notes
     const finalNotes = mergeAttendanceNotes({
       existingNotes: attendance.notes,
       checkoutNotes: notes,
     });
-
     // 5. Update record
     const updateData: Prisma.AttendanceUncheckedUpdateInput = {
       checkOut: checkOutTime,
@@ -773,17 +568,14 @@ export class AttendanceService {
       status: attendance.status,
       updatedAt: new Date(),
     };
-
     const updatedAttendance = await this.attendanceRepo.update(
       attendance.id,
       updateData,
     );
     const normalizedTenantId = updatedAttendance.tenantId ?? tenantId;
-
     if (!normalizedTenantId) {
       throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
     }
-
     const evaluation = await this.recomputeAttendanceEvaluation({
       attendance: {
         tenantId: normalizedTenantId,
@@ -800,7 +592,6 @@ export class AttendanceService {
         actorType: "user",
       },
     });
-
     // Publish domain event
     AttendanceEventDispatcher.onCheckOut({
       userId,
@@ -818,7 +609,6 @@ export class AttendanceService {
         err instanceof Error ? err : undefined,
       ),
     );
-
     const result: {
       attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>;
       evaluation: AttendanceEvaluationResult;
@@ -830,10 +620,8 @@ export class AttendanceService {
       evaluation,
     };
     if (warning) result.warning = warning;
-
     return result;
   }
-
   async getReportData(
     startDate: Date,
     endDate: Date,
@@ -841,9 +629,8 @@ export class AttendanceService {
     departmentId?: string,
   ) {
     const repository = new AttendanceRepository();
-    const overtimeRepository = new OvertimeRepository();
+    const overtimeRepository = new OvertimePayrollQueryService();
     const leaveRepository = new LeaveRepository();
-
     const [
       stats,
       evaluationStats,
@@ -893,176 +680,238 @@ export class AttendanceService {
         departmentId,
       ),
     ]);
-
     // Calculate Combined Top Employees (Star Employees)
-    const userMap = new Map<
-      string,
-      {
-        days: number;
-        officialOtMinutes: number;
-        excessMinutes: number;
-        totalMinutes: number;
-        alphaCount: number;
-      }
-    >();
+    const userMap = new Map<string, ReturnType<typeof createUserScoreState>>();
+    const getOrCreateUserScore = (userId: string) => {
+      if (!userMap.has(userId)) userMap.set(userId, createUserScoreState());
+      return userMap.get(userId)!;
+    };
 
-    // 1. Base Attendance Days (ONLY users with actual ON_TIME/LATE attendance)
-    userAttStats.forEach((item) => {
-      if (!userMap.has(item.userId))
-        userMap.set(item.userId, {
-          days: 0,
-          officialOtMinutes: 0,
-          excessMinutes: 0,
-          totalMinutes: 0,
-          alphaCount: 0,
-        });
-      const current = userMap.get(item.userId)!;
-      current.days = item._count._all;
+    /** Set jumlah hari hadir user pada periode laporan. */
+    const applyAttendanceDays = (userId: string, count: number) => {
+      getOrCreateUserScore(userId).days = count;
+    };
+
+    /** Tambahkan lembur resmi user pada periode laporan. */
+    const applyOfficialOvertime = (userId: string, totalDuration: number) => {
+      if (!userMap.has(userId)) return;
+      getOrCreateUserScore(userId).officialOtMinutes += totalDuration;
+    };
+
+    /** Simpan jumlah alpha user pada periode laporan. */
+    const applyAbsencePenalty = (userId: string, count: number) => {
+      if (!userMap.has(userId)) return;
+      getOrCreateUserScore(userId).alphaCount = count;
+    };
+
+    /** Simpan total menit kerja user pada periode laporan. */
+    const applyTotalMinutes = (userId: string, totalMinutes: number) => {
+      if (!userMap.has(userId)) return;
+      getOrCreateUserScore(userId).totalMinutes = totalMinutes;
+    };
+
+    /** Cek apakah user punya hari hadir untuk scoring. */
+    const hasAttendanceDays = (
+      stats: ReturnType<typeof createUserScoreState>,
+    ) => stats.days > 0;
+
+    /** Format menit menjadi jam 1 desimal. */
+    const formatHours = (totalMinutes: number) => toRoundedHours(totalMinutes);
+
+    /** Ambil semua user dari statistik gabungan. */
+    const allUserIds = new Set<string>([
+      ...userAttStats.map((u) => u.userId),
+      ...userAbsenceStats.map((u) => u.userId),
+      ...userLeaveStats.map((u) => u.userId),
+    ]);
+
+    /** Hitung persen aman dari pembagi nol. */
+    const calculateRate = (count: number, total: number) =>
+      total > 0 ? (count / total) * 100 : 0;
+
+    /** Bangun item summary karyawan. */
+    const buildEmployeeSummaryItem = (
+      userId: string,
+      user:
+        | Awaited<
+            ReturnType<UserLookupService["findManyWithFullDetails"]>
+          >[number]
+        | undefined,
+      hadir: number,
+      terlambat: number,
+      izin: number,
+      alpha: number,
+      lemburMinutes: number,
+      totalMinutes: number,
+    ) => ({
+      userId,
+      user: user
+        ? {
+            id: user.id,
+            name: user.name,
+            image: user.image,
+            site: user.sites,
+            department: user.departments,
+          }
+        : null,
+      hadir,
+      terlambat,
+      izin,
+      alpha,
+      lemburJam: formatHours(lemburMinutes),
+      totalJamKerja: formatHours(totalMinutes),
     });
 
+    /** Bangun top employee gabungan dengan detail user. */
+    const buildCombinedTopEmployee = (
+      scorer: ReturnType<typeof buildAttendanceScoreResult>,
+      user:
+        | Awaited<
+            ReturnType<UserLookupService["findManyWithBasicInfo"]>
+          >[number]
+        | undefined,
+    ) => ({ user, score: scorer.score, details: scorer.details });
+
+    /** Ambil top scorer berdasar map score user. */
+    const buildTopScorers = () =>
+      Array.from(userMap.entries())
+        .filter(([_, score]) => hasAttendanceDays(score))
+        .map(([userId, score]) => buildAttendanceScoreResult(userId, score))
+        .sort((left, right) => right.score - left.score)
+        .slice(0, 5);
+
+    /** Cari user basic info untuk top scorer. */
+    const findTopScorerUser = (
+      users: Awaited<ReturnType<UserLookupService["findManyWithBasicInfo"]>>,
+      scorerUserId: string,
+    ) => users.find((user) => user.id === scorerUserId);
+
+    /** Ambil nilai map dengan default nol. */
+    const getMapValue = (map: Map<string, number>, userId: string) =>
+      map.get(userId) || 0;
+
+    /** Bangun map statistik numerik user. */
+    const createStatsMap = <T>(
+      items: T[],
+      getKey: (item: T) => string,
+      getValue: (item: T) => number,
+    ) => new Map(items.map((item) => [getKey(item), getValue(item)]));
+
+    /** Bangun map detail user untuk summary. */
+    const createUserDetailsMap = (
+      users: Awaited<ReturnType<UserLookupService["findManyWithFullDetails"]>>,
+    ) => new Map(users.map((user) => [user.id, user]));
+
+    /** Bangun map konfigurasi jam kerja user. */
+    const createUserConfigMap = (
+      users: Awaited<ReturnType<UserLookupService["findManyWithWorkConfig"]>>,
+    ) => new Map(users.map((user) => [user.id, user]));
+
+    /** Terapkan kelebihan menit kerja di atas standar user. */
+    const applyExcessMinutes = (
+      userId: string,
+      totalMinutes: number,
+      userConfigMap: Map<
+        string,
+        Awaited<ReturnType<UserLookupService["findManyWithWorkConfig"]>>[number]
+      >,
+    ) => {
+      if (!userMap.has(userId)) return;
+      const current = getOrCreateUserScore(userId);
+      if (!hasAttendanceDays(current)) return;
+      const standardMinutes =
+        current.days * getStandardMinutesPerDay(userId, userConfigMap as never);
+      if (totalMinutes > standardMinutes)
+        current.excessMinutes += totalMinutes - standardMinutes;
+    };
+
+    /** Hitung jumlah terlambat laporan. */
+    const getLateCount = () => stats.statusCounts["LATE"] || 0;
+
+    /** Hitung jumlah alpha laporan. */
+    const getAlphaCount = () => evaluationStats.statusCounts["ABSENT"] || 0;
+
+    /** Selesai menyiapkan helper lokal laporan attendance. */
+    // 1. Base Attendance Days (ONLY users with actual ON_TIME/LATE attendance)
+    userAttStats.forEach((item) => {
+      applyAttendanceDays(item.userId, item._count._all);
+    });
     // 2. Formal Overtime (Approved/Completed) - ONLY add to existing users with attendance
     userOtStats.forEach((item) => {
       // Skip if user has no attendance record (shouldn't appear in Star Employees)
-      if (!userMap.has(item.userId)) return;
-      const current = userMap.get(item.userId)!;
-      current.officialOtMinutes += item.totalDuration || 0;
+      applyOfficialOvertime(item.userId, item.totalDuration || 0);
     });
-
     // 3. Absence Stats (Penalties) - ONLY for existing users
     userAbsenceStats.forEach((item) => {
-      if (!userMap.has(item.userId)) return;
-      const current = userMap.get(item.userId)!;
-      current.alphaCount = item._count._all;
+      applyAbsencePenalty(item.userId, item._count._all);
     });
-
     // 4. Fetch User Work Hour Configuration for accurate standard hours calculation
     const userIds = Array.from(userMap.keys());
     const userConfigs =
       userIds.length > 0
         ? await this.userRepo.findManyWithWorkConfig(userIds)
         : [];
-
     // Create user config map for quick lookup
-    const userConfigMap = new Map(userConfigs.map((u) => [u.id, u]));
+    const userConfigMap = createUserConfigMap(userConfigs);
 
-    // Helper function to calculate standard work minutes per day for a user
-    const getStandardMinutesPerDay = (userId: string): number => {
-      const config = userConfigMap.get(userId);
-      if (!config) return 480; // Default 8 hours if no config found
+    /** Konversi menit ke jam desimal untuk summary. */
+    const buildSummaryHours = (minutes: number) => formatHours(minutes);
 
-      switch (config.workingHourMode) {
-        case "FIXED":
-          // Calculate from startWorkTime and endWorkTime (format: "HH:mm")
-          if (config.startWorkTime && config.endWorkTime) {
-            const startParts = config.startWorkTime.split(":").map(Number);
-            const endParts = config.endWorkTime.split(":").map(Number);
-
-            const startH = startParts[0] ?? 0;
-            const startM = startParts[1] ?? 0;
-            const endH = endParts[0] ?? 0;
-            const endM = endParts[1] ?? 0;
-
-            const startMinutes = startH * 60 + startM;
-            const endMinutes = endH * 60 + endM;
-            // Handle overnight (end < start)
-            return endMinutes >= startMinutes
-              ? endMinutes - startMinutes
-              : 24 * 60 - startMinutes + endMinutes;
-          }
-          return 480; // Default 8 hours
-
-        case "SHIFT":
-          // Calculate from shift times
-          if (config.shift?.startTime && config.shift?.endTime) {
-            const startParts = config.shift.startTime.split(":").map(Number);
-            const endParts = config.shift.endTime.split(":").map(Number);
-
-            const startH = startParts[0] ?? 0;
-            const startM = startParts[1] ?? 0;
-            const endH = endParts[0] ?? 0;
-            const endM = endParts[1] ?? 0;
-
-            const startMinutes = startH * 60 + startM;
-            const endMinutes = endH * 60 + endM;
-            // Handle overnight shift
-            return endMinutes >= startMinutes
-              ? endMinutes - startMinutes
-              : 24 * 60 - startMinutes + endMinutes;
-          }
-          return 480; // Default 8 hours
-
-        case "FLEXIBLE":
-          // Use flexibleTargetHour (in hours)
-          return (config.flexibleTargetHour || 8) * 60;
-
-        default:
-          return 480; // Default 8 hours
-      }
+    /** Bangun item summary employee dari map statistik. */
+    const createEmployeeSummary = (userId: string) => {
+      const user = userDetailsMap.get(userId);
+      const hadir = getMapValue(userAttMap, userId);
+      const terlambat = getMapValue(userLateMap, userId);
+      const izin = getMapValue(userLeaveMap, userId);
+      const alpha = getMapValue(userAbsenceMap, userId);
+      const lemburMinutes = getMapValue(userOtMap, userId);
+      const totalMinutes = userTotalDuration.get(userId) || 0;
+      return buildEmployeeSummaryItem(
+        userId,
+        user,
+        hadir,
+        terlambat,
+        izin,
+        alpha,
+        lemburMinutes,
+        totalMinutes,
+      );
     };
 
+    /** Tandai summary employee valid. */
+    const isValidEmployeeSummary = (item: { user: unknown | null }) =>
+      item.user !== null;
+
+    /** Tandai top employee gabungan valid. */
+    const isValidCombinedTopEmployee = (item: { user: unknown }) =>
+      Boolean(item.user);
+
+    /** Buat detail top employee gabungan. */
+    const createCombinedTopEmployee = (
+      scorer: ReturnType<typeof buildAttendanceScoreResult>,
+      users: Awaited<ReturnType<UserLookupService["findManyWithBasicInfo"]>>,
+    ) => {
+      return buildCombinedTopEmployee(
+        scorer,
+        findTopScorerUser(users, scorer.userId),
+      );
+    };
+
+    /** Selesaikan helper report setelah user detail tersedia. */
+    void buildSummaryHours;
+    void isValidCombinedTopEmployee;
+    void isValidEmployeeSummary;
+    void createCombinedTopEmployee;
+    void createEmployeeSummary;
     // 5. Implicit Overtime & Total Duration - ONLY for existing users
     userTotalDuration.forEach((totalMinutes, userId) => {
       // Skip if user has no attendance record
       if (!userMap.has(userId)) return;
-      const current = userMap.get(userId)!;
-
-      // Set absolute total working minutes
-      current.totalMinutes = totalMinutes;
-
-      // Calculate Standard Work Minutes based on user's ACTUAL work hour configuration
-      // Only calculate excess if user has actual attendance days
-      if (current.days > 0) {
-        const standardMinutesPerDay = getStandardMinutesPerDay(userId);
-        const standardMinutes = current.days * standardMinutesPerDay;
-
-        if (totalMinutes > standardMinutes) {
-          const excess = totalMinutes - standardMinutes;
-          // Add excess minutes to record
-          current.excessMinutes += excess;
-        }
-      }
+      applyTotalMinutes(userId, totalMinutes);
+      applyExcessMinutes(userId, totalMinutes, userConfigMap);
     });
-
     // FILTER: Only include users with at least 1 day of attendance
-    const scoredUsers = Array.from(userMap.entries())
-      .filter(([_, stats]) => stats.days > 0) // Must have attendance
-      .map(([userId, stats]) => {
-        // Scoring System:
-        // 1 Day Present = 10 pts
-        // 1 Day Alpha = -20 pts (Penalty)
-        // Official Overtime = 2 pts/hour (1 pt per 30 mins)
-        // Extra/Excess Overtime = 4 pts/hour (1 pt per 15 mins)
-
-        const officialScore = Math.floor(stats.officialOtMinutes / 30);
-        const excessScore = Math.floor(stats.excessMinutes / 15);
-        const alphaPenalty = stats.alphaCount * 20;
-
-        const totalOtMinutes = stats.officialOtMinutes + stats.excessMinutes;
-        const score =
-          stats.days * 10 + officialScore + excessScore - alphaPenalty;
-
-        return {
-          userId,
-          score,
-          details: {
-            days: stats.days,
-            alphaCount: stats.alphaCount,
-            otHours: parseFloat((totalOtMinutes / 60).toFixed(1)), // Total OT
-            officialOtHours: parseFloat(
-              (stats.officialOtMinutes / 60).toFixed(1),
-            ), // Resmi
-            excessHours: parseFloat((stats.excessMinutes / 60).toFixed(1)), // Ekstra
-            totalHours: parseFloat((stats.totalMinutes / 60).toFixed(1)), // Total Jam Kerja
-          },
-        };
-      });
-
-    // Sort by Score DESC
-    scoredUsers.sort((a, b) => b.score - a.score);
-
-    // Take Top 5
-    const topScorers = scoredUsers.slice(0, 5);
-
+    const topScorers = buildTopScorers();
     // Fetch User Details
     let combinedTopEmployees: Array<{
       user:
@@ -1077,97 +926,53 @@ export class AttendanceService {
       score: number;
       details: Record<string, unknown>;
     }> = [];
-
     if (topScorers.length > 0) {
       const topScorerDetails = await this.userRepo.findManyWithBasicInfo(
-        topScorers.map((u) => u.userId),
+        topScorers.map((scorer) => scorer.userId),
       );
-
       combinedTopEmployees = topScorers
-        .map((scorer) => {
-          const user = topScorerDetails.find((u) => u.id === scorer.userId);
-          return {
-            user,
-            score: scorer.score,
-            details: scorer.details,
-          };
-        })
-        .filter((u) => u.user);
+        .map((scorer) => createCombinedTopEmployee(scorer, topScorerDetails))
+        .filter(isValidCombinedTopEmployee);
     }
-
     // Calculate derived stats
-    const lateCount = stats.statusCounts["LATE"] || 0;
-    const lateRate = stats.total > 0 ? (lateCount / stats.total) * 100 : 0;
-
-    const alphaCount = evaluationStats.statusCounts["ABSENT"] || 0;
-    const alphaRate =
-      evaluationStats.total > 0
-        ? (alphaCount / evaluationStats.total) * 100
-        : 0;
-
+    const lateCount = getLateCount();
+    const lateRate = calculateRate(lateCount, stats.total);
+    const alphaCount = getAlphaCount();
+    const alphaRate = calculateRate(alphaCount, evaluationStats.total);
     // Build Employee Summary for "Rekap Karyawan" tab
     // Create maps for quick lookup
-    const userLateMap = new Map(
-      userLateStats.map((u) => [u.userId, u._count._all]),
+    const userLateMap = createStatsMap(
+      userLateStats,
+      (item) => item.userId,
+      (item) => item._count._all,
     );
-    const userLeaveMap = new Map(
-      userLeaveStats.map((u) => [u.userId, u._count._all]),
+    const userLeaveMap = createStatsMap(
+      userLeaveStats,
+      (item) => item.userId,
+      (item) => item._count._all,
     );
-    const userAbsenceMap = new Map(
-      userAbsenceStats.map((u) => [u.userId, u._count._all]),
+    const userAbsenceMap = createStatsMap(
+      userAbsenceStats,
+      (item) => item.userId,
+      (item) => item._count._all,
     );
-    const userOtMap = new Map(
-      userOtStats.map((u) => [u.userId, u.totalDuration || 0]),
+    const userOtMap = createStatsMap(
+      userOtStats,
+      (item) => item.userId,
+      (item) => item.totalDuration || 0,
     );
-    const userAttMap = new Map(
-      userAttStats.map((u) => [u.userId, u._count._all]),
+    const userAttMap = createStatsMap(
+      userAttStats,
+      (item) => item.userId,
+      (item) => item._count._all,
     );
-
-    // Get all unique user IDs from all stats
-    const allUserIds = new Set<string>([
-      ...userAttStats.map((u) => u.userId),
-      ...userAbsenceStats.map((u) => u.userId),
-      ...userLeaveStats.map((u) => u.userId),
-    ]);
-
-    // Fetch all user details in one query
     const allUsers = await this.userRepo.findManyWithFullDetails(
       Array.from(allUserIds),
     );
-
-    const userDetailsMap = new Map(allUsers.map((u) => [u.id, u]));
-
+    const userDetailsMap = createUserDetailsMap(allUsers);
     const employeeSummary = Array.from(allUserIds)
-      .map((userId) => {
-        const user = userDetailsMap.get(userId);
-        const hadir = userAttMap.get(userId) || 0;
-        const terlambat = userLateMap.get(userId) || 0;
-        const izin = userLeaveMap.get(userId) || 0;
-        const alpha = userAbsenceMap.get(userId) || 0;
-        const lemburMinutes = userOtMap.get(userId) || 0;
-        const totalMinutes = userTotalDuration.get(userId) || 0;
-
-        return {
-          userId,
-          user: user
-            ? {
-                id: user.id,
-                name: user.name,
-                image: user.image,
-                site: user.sites,
-                department: user.departments,
-              }
-            : null,
-          hadir,
-          terlambat,
-          izin,
-          alpha,
-          lemburJam: parseFloat((lemburMinutes / 60).toFixed(1)),
-          totalJamKerja: parseFloat((totalMinutes / 60).toFixed(1)),
-        };
-      })
-      .filter((e) => e.user !== null);
-
+      .map((userId) => createEmployeeSummary(userId))
+      .filter(isValidEmployeeSummary);
     return {
       summary: {
         totalAttendance: stats.total,
@@ -1187,7 +992,6 @@ export class AttendanceService {
       employeeSummary,
     };
   }
-
   async getAttendanceHistory(
     userId: string,
     params: { page: number; limit: number },
@@ -1196,7 +1000,6 @@ export class AttendanceService {
     const skip = (page - 1) * limit;
     const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
     const joinDate = userDetails?.joinDate ?? undefined;
-
     const [attendances, total] = await Promise.all([
       this.attendanceRepo.findManyForHistory({
         userId,
@@ -1210,7 +1013,6 @@ export class AttendanceService {
       (attendance) => !joinDate || attendance.checkIn >= joinDate,
     );
     const filteredTotal = joinDate ? filteredAttendances.length + skip : total;
-
     return {
       attendances: filteredAttendances,
       pagination: {
@@ -1221,7 +1023,6 @@ export class AttendanceService {
       },
     };
   }
-
   async recomputeHistoricalAttendanceEvaluations(params: {
     userId: string;
     tenantId: string;
@@ -1243,12 +1044,10 @@ export class AttendanceService {
       },
       orderBy: { checkIn: "asc" },
     });
-
     const evaluations: AttendanceEvaluationResult[] = [];
     const joinDate = userDetails?.joinDate
       ? toStartOfDay(userDetails.joinDate, timezone)
       : null;
-
     for (const attendance of attendances) {
       if (joinDate && attendance.checkIn < joinDate) {
         continue;
@@ -1269,22 +1068,18 @@ export class AttendanceService {
           actorType: "admin",
         },
       });
-
       evaluations.push(evaluation);
     }
-
     return {
       processedCount: evaluations.length,
       evaluations,
     };
   }
-
   async getCurrentAttendanceStatus(
     userId: string,
     options?: { tenantId?: string },
   ): Promise<CurrentAttendanceStatusResult> {
     const sessionPolicyService = new AttendanceSessionPolicyService();
-
     const timezone = await this.timezoneService.getTimezone(options?.tenantId);
     const effectiveDate = this.timezoneService.getEffectiveDate(timezone);
     const [attendance, evaluation] = await Promise.all([
@@ -1298,7 +1093,6 @@ export class AttendanceService {
         workDate: effectiveDate.startOfDay,
       }) as Promise<CurrentAttendanceEvaluationRow>,
     ]);
-
     const decision = attendance
       ? sessionPolicyService.resolve({
           attendance,
@@ -1306,16 +1100,13 @@ export class AttendanceService {
           scheduleEndTime: null,
         })
       : null;
-
     if (!attendance) {
       return buildIdleCurrentAttendanceStatus(undefined, null, evaluation);
     }
-
     const evaluationWarningMessage = getCurrentAttendanceWarningMessage(
       evaluation,
       null,
     );
-
     if (decision?.isStaleFlexibleSession) {
       return buildIdleCurrentAttendanceStatus(
         attendance,
@@ -1326,7 +1117,6 @@ export class AttendanceService {
         evaluation,
       );
     }
-
     const sameDay = isSameAttendanceDay(
       attendance.checkIn,
       new Date(),
@@ -1336,7 +1126,6 @@ export class AttendanceService {
       decision?.isOvernightShiftActive ||
       attendance.user?.workingHourMode === "FLEXIBLE" ||
       sameDay;
-
     if (!attendance.checkOut && shouldAppearActive) {
       return mapCurrentAttendanceStatusResult({
         attendance,
@@ -1346,7 +1135,6 @@ export class AttendanceService {
         warningMessage: evaluationWarningMessage,
       });
     }
-
     if (attendance.checkOut && sameDay) {
       return mapCurrentAttendanceStatusResult({
         attendance,
@@ -1356,100 +1144,27 @@ export class AttendanceService {
         warningMessage: evaluationWarningMessage,
       });
     }
-
     return buildIdleCurrentAttendanceStatus(
       attendance,
       evaluationWarningMessage,
       evaluation,
     );
   }
-
   async getAttendanceConfig(userId: string) {
     const user = await this.userRepo.findWithSitesById(userId);
-
     if (!user) {
       throw new Error("USER_NOT_FOUND");
     }
-
     return {
       site: user.sites,
     };
   }
-
   async getAttendanceAnalytics(userId: string, days: number = 30) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    const endDate = new Date();
-    const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
-
-    const userAttendances = (
-      await this.attendanceRepo.findManyForAnalytics({
-        userId,
-        startDate,
-        endDate,
-      })
-    ).filter(
-      (attendance) =>
-        !userDetails?.joinDate || attendance.checkIn >= userDetails.joinDate,
-    );
-
-    const totalDays = userAttendances.length;
-    const onTimeDays = userAttendances.filter(
-      (a) => a.status === "ON_TIME",
-    ).length;
-    const lateDays = userAttendances.filter((a) => a.status === "LATE").length;
-
-    let totalMinutes = 0;
-    userAttendances.forEach((att) => {
-      if (att.checkOut) {
-        const diff =
-          new Date(att.checkOut).getTime() - new Date(att.checkIn).getTime();
-        totalMinutes += diff / (1000 * 60);
-      }
+    return getAttendanceAnalytics({
+      userId,
+      days,
+      attendanceRepo: this.attendanceRepo,
+      userRepo: this.userRepo,
     });
-
-    const stats = {
-      totalDays,
-      onTimeDays,
-      lateDays,
-      totalWorkHours: totalMinutes / 60,
-      avgWorkHours: totalDays > 0 ? totalMinutes / 60 / totalDays : 0,
-      onTimeRate: totalDays > 0 ? (onTimeDays / totalDays) * 100 : 0,
-      lateRate: totalDays > 0 ? (lateDays / totalDays) * 100 : 0,
-    };
-
-    const weeklyBreakdown = [];
-    for (let i = 0; i < 4; i++) {
-      const weekStart = new Date(startDate);
-      weekStart.setDate(weekStart.getDate() + i * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-
-      const weekAttendances = userAttendances.filter((a) => {
-        const checkIn = new Date(a.checkIn);
-        return checkIn >= weekStart && checkIn < weekEnd;
-      });
-
-      weeklyBreakdown.push({
-        week: i + 1,
-        startDate: weekStart,
-        endDate: weekEnd,
-        totalDays: weekAttendances.length,
-        onTimeDays: weekAttendances.filter((a) => a.status === "ON_TIME")
-          .length,
-        lateDays: weekAttendances.filter((a) => a.status === "LATE").length,
-      });
-    }
-
-    return {
-      stats,
-      weeklyBreakdown,
-      recentAttendance: userAttendances.slice(0, 10),
-      period: {
-        startDate,
-        endDate,
-        days,
-      },
-    };
   }
 }

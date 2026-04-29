@@ -1,1 +1,1 @@
-export { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
+export { IntegrationFactory } from "@/modules/integrations";

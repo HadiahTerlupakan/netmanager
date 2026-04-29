@@ -1,1 +1,4 @@
-export * from "@/modules/finance/validators/rabProjectSchemas";
+export {
+  rabProjectCreateSchema,
+  rabProjectUpdateSchema,
+} from "@/modules/finance";

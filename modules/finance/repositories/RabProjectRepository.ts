@@ -20,7 +20,6 @@ import type {
   RabStatus,
 } from "@prisma/client";
 import type { IRabProjectRepository } from "../domain/ports/IRabProjectRepository";
-
 export interface RabProjectWithDetails extends RabProject {
   items?: (RabItem & { disbursements?: RabDisbursement[] })[];
   wbsGroups?: RabWbs[];
@@ -31,7 +30,6 @@ export interface RabProjectWithDetails extends RabProject {
   revisions?: { id: string; revisionNumber: number; status: string }[];
   _count?: { revisions: number };
 }
-
 export interface RabDisbursementUpdateInput {
   id?: string;
   name?: string;
@@ -40,7 +38,6 @@ export interface RabDisbursementUpdateInput {
   estimatedDate?: Date;
   isPaid?: boolean;
 }
-
 export interface RabItemUpdateInput {
   name?: string;
   description?: string;
@@ -52,13 +49,11 @@ export interface RabItemUpdateInput {
   wbsGroupId?: string;
   disbursements?: RabDisbursementUpdateInput[];
 }
-
 export interface RabWbsUpdateInput {
   id?: string;
   name: string;
   order: number;
 }
-
 interface RabInvestmentProjectInput {
   projectedOpex: bigint;
   targetBasis?: RabTargetBasis | string;
@@ -76,13 +71,11 @@ interface RabInvestmentProjectInput {
   opexBufferInvestorFixedAmount: bigint;
   opexBufferSafetyPercent: number;
 }
-
 interface RabInvestmentItemInput {
   quantity?: number;
   unitPrice?: bigint;
   expenseType?: RabExpenseType | string;
 }
-
 export interface RabProjectStatusCandidate {
   id: string;
   name: string;
@@ -95,7 +88,6 @@ export interface RabProjectStatusCandidate {
     createdAt: Date;
   }>;
 }
-
 export interface RabProjectUpdateInput {
   name?: string;
   description?: string;
@@ -134,7 +126,6 @@ export interface RabProjectUpdateInput {
   investorIds?: string[];
   items?: RabItemUpdateInput[];
 }
-
 function getCapexTotal(items: RabInvestmentItemInput[]): number {
   return items
     .filter((item) => item.expenseType === "CAPEX")
@@ -144,25 +135,21 @@ function getCapexTotal(items: RabInvestmentItemInput[]): number {
       0,
     );
 }
-
 function getEffectiveTargetSubscribers(
   project: RabInvestmentProjectInput,
 ): number {
   if (project.targetBasis !== "HOMEPASS") {
     return Number(project.targetSubscribers || 0);
   }
-
   return Math.round(
     Number(project.targetHomepass || 0) *
       (Number(project.targetTakeUpRatePercent || 0) / 100),
   );
 }
-
 function getMonthlySubscribers(project: RabInvestmentProjectInput): number[] {
   const duration = project.investmentDurationMonths;
   const targetSubscribers = getEffectiveTargetSubscribers(project);
   const settings = project.growthSettings as Record<string, unknown> | null;
-
   if (project.growthType === "PERCENTAGE") {
     const initialPercent = Number(settings?.initialPercent || 0);
     const monthlyGrowthPercent = Number(settings?.monthlyGrowthPercent || 0);
@@ -173,14 +160,12 @@ function getMonthlySubscribers(project: RabInvestmentProjectInput): number[] {
       );
     });
   }
-
   if (project.growthType === "CUSTOM") {
     const milestones = Array.isArray(settings?.milestones)
       ? (settings.milestones as { month: number; percent: number }[]).sort(
           (a, b) => a.month - b.month,
         )
       : [];
-
     return Array.from({ length: duration }).map((_, index) => {
       const month = index + 1;
       let previous = { month: 0, percent: 0 };
@@ -188,17 +173,14 @@ function getMonthlySubscribers(project: RabInvestmentProjectInput): number[] {
         month: 1,
         percent: 100,
       };
-
       for (const milestone of milestones) {
         if (milestone.month <= month) previous = milestone;
         if (milestone.month >= month && milestone.month < next.month)
           next = milestone;
       }
-
       if (previous.month === month)
         return targetSubscribers * (previous.percent / 100);
       if (next.month === month) return targetSubscribers * (next.percent / 100);
-
       const range = next.month - previous.month;
       const progress = range > 0 ? (month - previous.month) / range : 0;
       const percent =
@@ -206,13 +188,11 @@ function getMonthlySubscribers(project: RabInvestmentProjectInput): number[] {
       return Math.round(targetSubscribers * (percent / 100));
     });
   }
-
   const subscribersPerMonth = Number(settings?.subscribersPerMonth || 0);
   return Array.from({ length: duration }).map((_, index) =>
     Math.min(targetSubscribers, subscribersPerMonth * (index + 1)),
   );
 }
-
 function getOpexBufferInvestorShare(
   project: RabInvestmentProjectInput,
 ): number {
@@ -229,7 +209,6 @@ function getOpexBufferInvestorShare(
     return total + Math.max(0, monthlyOpex - revenue);
   }, 0);
   const total = gapBase * (1 + project.opexBufferSafetyPercent / 100);
-
   if (project.opexBufferFundingMode === "COMPANY") return 0;
   if (project.opexBufferFundingMode === "FIXED") {
     return Math.min(
@@ -245,14 +224,12 @@ function getOpexBufferInvestorShare(
   }
   return total;
 }
-
 function getInvestorFundingBase(
   project: RabInvestmentProjectInput,
   items: RabInvestmentItemInput[],
 ): number {
   return getCapexTotal(items) + getOpexBufferInvestorShare(project);
 }
-
 function splitInvestmentBase(
   investmentBase: number,
   investorIds: string[],
@@ -260,12 +237,10 @@ function splitInvestmentBase(
   const total = Math.round(investmentBase);
   const baseAmount = Math.floor(total / investorIds.length);
   const remainder = total % investorIds.length;
-
   return investorIds.map(
     (_, index) => baseAmount + (index < remainder ? 1 : 0),
   );
 }
-
 function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
   return [
     input.items,
@@ -287,10 +262,8 @@ function hasInvestorFundingBaseChange(input: RabProjectUpdateInput): boolean {
     input.opexBufferSafetyPercent,
   ].some((value) => value !== undefined);
 }
-
 export class RabProjectRepository implements IRabProjectRepository {
   constructor(private client: PrismaClient = prisma) {}
-
   /** Get active projects that need status evaluation. */
   async findProjectsForStatusEvaluation(): Promise<
     RabProjectStatusCandidate[]
@@ -311,7 +284,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     }) as Promise<RabProjectStatusCandidate[]>;
   }
-
   /**
    * Update a single RAB project status.
    */
@@ -329,7 +301,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       return false;
     }
   }
-
   /** Get many RAB projects with nested detail relations. */
   async findManyWithDetails(
     where: Prisma.RabProjectWhereInput,
@@ -373,12 +344,10 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     }) as Promise<RabProjectWithDetails[]>;
   }
-
   /** Create a basic RAB project. */
   async createProject(data: Prisma.RabProjectCreateInput): Promise<RabProject> {
     return this.client.rabProject.create({ data });
   }
-
   /** Find a RAB project with items and WBS groups. */
   async findByIdWithItems(id: string): Promise<
     | (RabProject & {
@@ -395,7 +364,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     });
   }
-
   /** Find a detailed RAB project for route responses. */
   async findDetailById(id: string) {
     return this.client.rabProject.findUnique({
@@ -428,7 +396,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     });
   }
-
   /** Find a RAB project for revision profit-loss analysis. */
   async findRevisionProfitLossProject(id: string) {
     return this.client.rabProject.findUnique({
@@ -443,14 +410,12 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     });
   }
-
   /** Find a lightweight RAB project by id. */
   async findById(id: string) {
     return this.client.rabProject.findUnique({
       where: { id },
     });
   }
-
   /** Delete a draft RAB project and detach dependent expenses. */
   async deleteDraftProject(id: string) {
     return this.client.$transaction([
@@ -466,18 +431,15 @@ export class RabProjectRepository implements IRabProjectRepository {
       }),
     ]);
   }
-
   /** Duplicate a RAB project with all items as a new draft. */
   async duplicateProject(id: string, userId: string) {
     const sourceProject = await this.client.rabProject.findUnique({
       where: { id },
       include: { items: true },
     });
-
     if (!sourceProject) {
       return null;
     }
-
     return this.client.rabProject.create({
       data: {
         name: `(Copy) ${sourceProject.name}`,
@@ -521,7 +483,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     });
   }
-
   /** Upsert actual achievement for a RAB project period. */
   async upsertActualAchievement(input: {
     rabProjectId: string;
@@ -558,7 +519,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       },
     });
   }
-
   /** Update a RAB project and nested relations in one transaction. */
   async updateProjectWithRelations(
     id: string,
@@ -572,7 +532,6 @@ export class RabProjectRepository implements IRabProjectRepository {
   > {
     return this.client.$transaction(async (tx) => {
       const updateData: Prisma.RabProjectUpdateInput = {};
-
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined)
         updateData.description = input.description;
@@ -645,16 +604,13 @@ export class RabProjectRepository implements IRabProjectRepository {
         updateData.opexBufferSafetyPercent = input.opexBufferSafetyPercent;
       if (input.hasDisbursementPlan !== undefined)
         updateData.hasDisbursementPlan = input.hasDisbursementPlan;
-
       await tx.rabProject.update({
         where: { id },
         data: updateData,
       });
-
       if (input.items !== undefined) {
         await tx.rabItem.deleteMany({ where: { rabProjectId: id } });
         await tx.rabWbs.deleteMany({ where: { rabProjectId: id } });
-
         const wbsMap = new Map<string, string>();
         if (input.wbsGroups && input.wbsGroups.length > 0) {
           for (const wbs of input.wbsGroups) {
@@ -670,7 +626,6 @@ export class RabProjectRepository implements IRabProjectRepository {
             }
           }
         }
-
         if (input.items.length > 0) {
           for (const item of input.items) {
             if (
@@ -684,7 +639,6 @@ export class RabProjectRepository implements IRabProjectRepository {
                 "Invalid RAB item payload: name, quantity, unitPrice, category, and expenseType are required",
               );
             }
-
             const createdItem = await tx.rabItem.create({
               data: {
                 rabProjectId: id,
@@ -701,11 +655,9 @@ export class RabProjectRepository implements IRabProjectRepository {
                   : undefined,
               },
             });
-
             if (item.disbursements && item.disbursements.length > 0) {
               const disbursementData: Prisma.RabDisbursementCreateManyInput[] =
                 [];
-
               for (const disbursement of item.disbursements) {
                 if (
                   disbursement.name === undefined ||
@@ -714,7 +666,6 @@ export class RabProjectRepository implements IRabProjectRepository {
                 ) {
                   continue;
                 }
-
                 disbursementData.push({
                   rabItemId: createdItem.id,
                   name: disbursement.name,
@@ -724,11 +675,9 @@ export class RabProjectRepository implements IRabProjectRepository {
                   isPaid: disbursement.isPaid ?? false,
                 });
               }
-
               if (disbursementData.length === 0) {
                 continue;
               }
-
               await tx.rabDisbursement.createMany({
                 data: disbursementData,
               });
@@ -736,10 +685,8 @@ export class RabProjectRepository implements IRabProjectRepository {
           }
         }
       }
-
       if (input.investorIds !== undefined) {
         await tx.rabInvestor.deleteMany({ where: { rabProjectId: id } });
-
         if (input.investorIds.length > 0) {
           const existingProject = await tx.rabProject.findUnique({
             where: { id },
@@ -757,7 +704,6 @@ export class RabProjectRepository implements IRabProjectRepository {
             investmentBase,
             input.investorIds,
           );
-
           await tx.rabInvestor.createMany({
             data: input.investorIds.map((investorId, index) => ({
               rabProjectId: id,
@@ -771,7 +717,6 @@ export class RabProjectRepository implements IRabProjectRepository {
         const existingInvestors = await tx.rabInvestor.findMany({
           where: { rabProjectId: id },
         });
-
         if (existingInvestors.length > 0) {
           const existingProject = await tx.rabProject.findUnique({
             where: { id },
@@ -789,7 +734,6 @@ export class RabProjectRepository implements IRabProjectRepository {
             (investor) => investor.investorId,
           );
           const amounts = splitInvestmentBase(investmentBase, investorIds);
-
           for (const [index, investorId] of investorIds.entries()) {
             await tx.rabInvestor.updateMany({
               where: { rabProjectId: id, investorId },
@@ -801,7 +745,6 @@ export class RabProjectRepository implements IRabProjectRepository {
           }
         }
       }
-
       return tx.rabProject.findUnique({
         where: { id },
         include: {
@@ -811,7 +754,6 @@ export class RabProjectRepository implements IRabProjectRepository {
       });
     });
   }
-
   /** Create a complete RAB project with nested items and investors. */
   async createFullProject(data: {
     project: {
@@ -913,7 +855,6 @@ export class RabProjectRepository implements IRabProjectRepository {
           createdBy: data.project.createdBy,
         },
       });
-
       const wbsMap = new Map<string, string>();
       for (const wbs of data.wbsGroups) {
         const createdWbs = await tx.rabWbs.create({
@@ -927,7 +868,6 @@ export class RabProjectRepository implements IRabProjectRepository {
           wbsMap.set(wbs.id, createdWbs.id);
         }
       }
-
       if (data.items.length > 0) {
         for (const item of data.items) {
           const createdItem = await tx.rabItem.create({
@@ -944,7 +884,6 @@ export class RabProjectRepository implements IRabProjectRepository {
               wbsId: item.wbsGroupId ? wbsMap.get(item.wbsGroupId) : undefined,
             },
           });
-
           if (item.disbursements && item.disbursements.length > 0) {
             const disbData = item.disbursements.map((d) => ({
               rabItemId: createdItem.id,
@@ -958,11 +897,9 @@ export class RabProjectRepository implements IRabProjectRepository {
           }
         }
       }
-
       if (data.investorIds && data.investorIds.length > 0) {
         const investmentBase = getInvestorFundingBase(data.project, data.items);
         const amounts = splitInvestmentBase(investmentBase, data.investorIds);
-
         await tx.rabInvestor.createMany({
           data: data.investorIds.map((id: string, index: number) => ({
             rabProjectId: p.id,
@@ -972,7 +909,6 @@ export class RabProjectRepository implements IRabProjectRepository {
           })),
         });
       }
-
       return tx.rabProject.findUnique({
         where: { id: p.id },
         include: {

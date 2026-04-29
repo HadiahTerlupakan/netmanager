@@ -161,7 +161,7 @@ app.prepare().then(() => {
           return;
         }
 
-        const service = getAppVersionService();
+        const service = await getAppVersionService();
         const appVersion = await service.uploadVersion({
           version,
           buildNumber,

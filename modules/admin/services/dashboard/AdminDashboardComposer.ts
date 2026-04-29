@@ -1,4 +1,4 @@
-import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
+import { MikroTikStatisticsService } from "@/modules/network";
 import type { IMikroTikStatisticsRepository } from "../../domain/ports/IAdminDashboardDependencies";
 import {
   getDashboardService,
@@ -37,7 +37,7 @@ export class AdminDashboardComposer {
     input: AdminDashboardComposerInput,
   ): Promise<AdminDashboardViewModel> {
     const routerRepository =
-      this.dependencies.routerRepository ?? new MikroTikRouterRepository();
+      this.dependencies.routerRepository ?? new MikroTikStatisticsService();
     const dashboardService =
       this.dependencies.dashboardService ?? getDashboardService();
 

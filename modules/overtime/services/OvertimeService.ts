@@ -2,9 +2,11 @@ import { logger } from "@/lib/logger";
 import { OvertimeStatus } from "@prisma/client";
 
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
-import { HolidayRepository } from "@/modules/attendance/repositories/HolidayRepository";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import {
+  AttendanceQueryService,
+  HolidayLookupService,
+} from "@/modules/attendance";
+import { UserLookupService } from "@/modules/users";
 
 import { createNotification } from "../../notification/services/NotificationService";
 import type {
@@ -57,9 +59,9 @@ type HolidayResolution = {
 
 export class OvertimeService {
   private repository: IOvertimeRepository;
-  private holidayRepository: HolidayRepository;
-  private userRepository: UserRepository;
-  private attendanceRepository: AttendanceRepository;
+  private holidayRepository: HolidayLookupService;
+  private userRepository: UserLookupService;
+  private attendanceRepository: AttendanceQueryService;
   private autoCheckoutScheduler: OvertimeAutoCheckoutSchedulerService;
 
   constructor(
@@ -67,9 +69,9 @@ export class OvertimeService {
     scheduler?: OvertimeAutoCheckoutSchedulerService,
   ) {
     this.repository = repository;
-    this.holidayRepository = new HolidayRepository();
-    this.userRepository = new UserRepository();
-    this.attendanceRepository = new AttendanceRepository();
+    this.holidayRepository = new HolidayLookupService();
+    this.userRepository = new UserLookupService();
+    this.attendanceRepository = new AttendanceQueryService();
     this.autoCheckoutScheduler =
       scheduler ?? new OvertimeAutoCheckoutSchedulerService(repository);
   }
@@ -483,7 +485,9 @@ export class OvertimeService {
   /** Log warning when no normal attendance exists. */
   private logMissingRegularAttendance(
     userId: string,
-    attendance: Awaited<ReturnType<AttendanceRepository["findFirstWithUser"]>>,
+    attendance: Awaited<
+      ReturnType<AttendanceQueryService["findFirstWithUser"]>
+    >,
     isHolidayOvertime: boolean,
   ): void {
     if (isHolidayOvertime || attendance) {
@@ -498,7 +502,9 @@ export class OvertimeService {
   /** Log warning when flexible shift is under target. */
   private logFlexibleShiftShortfall(
     userId: string,
-    attendance: Awaited<ReturnType<AttendanceRepository["findFirstWithUser"]>>,
+    attendance: Awaited<
+      ReturnType<AttendanceQueryService["findFirstWithUser"]>
+    >,
     isHolidayOvertime: boolean,
   ): void {
     if (!attendance || attendance.user.workingHourMode !== "FLEXIBLE") {

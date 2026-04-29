@@ -504,13 +504,6 @@ async function processOutboxJob(job: Job<OutboxJobData>): Promise<void> {
   }
 }
 
-function createOvertimeAutoCheckoutJobId(
-  scheduleId: string,
-  version: number,
-): string {
-  return `overtime:auto-checkout:${scheduleId}:v${version}`;
-}
-
 async function processOvertimeAutoCheckoutJob(
   job: Job<OvertimeAutoCheckoutJobData>,
 ): Promise<void> {
@@ -526,17 +519,10 @@ async function processAttendanceAutoCheckoutJob(
 }
 
 export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
-  const { OvertimeRepository } =
-    await import("@/modules/overtime/repositories/OvertimeRepository");
-  const { addOvertimeAutoCheckoutJob, getOvertimeAutoCheckoutJob } =
-    await import("./queues");
-
-  const repository = new OvertimeRepository();
-  const startupTime = new Date();
-
-  let schedules;
   try {
-    schedules = await repository.findSchedulesForRehydration(startupTime);
+    const { rehydrateOvertimeAutoCheckoutJobs: rehydrateJobs } =
+      await import("@/modules/overtime");
+    await rehydrateJobs();
   } catch (error) {
     if (isMissingOvertimeAutoCheckoutScheduleTable(error)) {
       logger.warn(
@@ -546,45 +532,6 @@ export async function rehydrateOvertimeAutoCheckoutJobs(): Promise<void> {
     }
 
     throw error;
-  }
-
-  for (const schedule of schedules) {
-    const jobId = createOvertimeAutoCheckoutJobId(
-      schedule.id,
-      schedule.version,
-    );
-    const candidateJobIds = [
-      ...new Set([schedule.jobId, jobId].filter(Boolean)),
-    ];
-
-    let hasActiveJob = false;
-    for (const candidateJobId of candidateJobIds) {
-      const existingJob = await getOvertimeAutoCheckoutJob(candidateJobId);
-      if (existingJob) {
-        hasActiveJob = true;
-        break;
-      }
-    }
-
-    if (hasActiveJob) {
-      continue;
-    }
-
-    const delay = Math.max(
-      schedule.scheduledFor.getTime() - startupTime.getTime(),
-      0,
-    );
-
-    await addOvertimeAutoCheckoutJob(
-      {
-        overtimeId: schedule.overtimeId,
-        scheduleId: schedule.id,
-        version: schedule.version,
-      },
-      { jobId, delay },
-    );
-
-    await repository.attachAutoCheckoutJobId(schedule.overtimeId, jobId);
   }
 }
 

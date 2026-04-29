@@ -1,8 +1,8 @@
 import { createPointClaimService } from "@/modules/marketing";
+import { AttendanceQueryService } from "@/modules/attendance";
+import { InventoryQueryService } from "@/modules/inventory";
 import { UserLookupService } from "@/modules/users";
-import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
-import { InventoryRepository } from "@/modules/inventory/repositories/InventoryRepository";
-import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
+import { WorkOrderQueryService } from "@/modules/work-order";
 import type {
   DashboardLimitInput,
   DashboardTenantInput,
@@ -11,8 +11,8 @@ import type {
   IInventoryDashboardRepository,
   IPointClaimDashboardService,
   IUserDashboardRepository,
-  SiteStat,
   IWorkOrderDashboardRepository,
+  SiteStat,
 } from "../domain/ports/IAdminDashboardDependencies";
 import {
   buildRecentRange,
@@ -28,6 +28,12 @@ const RECENT_PERIOD_DAYS = 30;
 const LOW_STOCK_PLACEHOLDER = 0;
 const INITIAL_RANK = 1;
 const UNKNOWN_USER_NAME = "Unknown";
+
+type TopEmployeeScore = {
+  attendance: number;
+  workOrder: number;
+  total: number;
+};
 
 export type TopEmployee = {
   userId: string;
@@ -72,12 +78,6 @@ type DashboardServiceDependencies = {
   pointClaimService: IPointClaimDashboardService;
   inventoryRepository: IInventoryDashboardRepository;
   userRepository: IUserDashboardRepository;
-};
-
-type TopEmployeeScore = {
-  attendance: number;
-  workOrder: number;
-  total: number;
 };
 
 export class DashboardService {
@@ -173,6 +173,7 @@ export class DashboardService {
     return this.getSiteStatsByType(input, ["INSTALLATION"]);
   }
 
+  /** Map inventory aggregate into dashboard summary shape. */
   private mapInventorySummary(totalItems: number) {
     return {
       totalItems,
@@ -180,6 +181,7 @@ export class DashboardService {
     };
   }
 
+  /** Map ranked score into top employee DTO shape. */
   private mapTopEmployee(
     users: DashboardUserDetails[],
     userId: string,
@@ -187,7 +189,6 @@ export class DashboardService {
     index: number,
   ): TopEmployee | null {
     const user = users.find((candidate) => candidate.id === userId);
-
     if (!user?.name || user.name === UNKNOWN_USER_NAME) {
       return null;
     }
@@ -208,6 +209,7 @@ export class DashboardService {
     };
   }
 
+  /** Load site statistics filtered by work-order types. */
   private async getSiteStatsByType(
     input: DashboardLimitInput,
     workOrderTypes: string[],
@@ -231,13 +233,13 @@ export function createDashboardService(
 ): DashboardService {
   return new DashboardService({
     attendanceRepository:
-      dependencies?.attendanceRepository ?? new AttendanceRepository(),
+      dependencies?.attendanceRepository ?? new AttendanceQueryService(),
     workOrderRepository:
-      dependencies?.workOrderRepository ?? new WorkOrderRepository(),
+      dependencies?.workOrderRepository ?? new WorkOrderQueryService(),
     pointClaimService:
       dependencies?.pointClaimService ?? createPointClaimService(),
     inventoryRepository:
-      dependencies?.inventoryRepository ?? new InventoryRepository(),
+      dependencies?.inventoryRepository ?? new InventoryQueryService(),
     userRepository: dependencies?.userRepository ?? new UserLookupService(),
   });
 }

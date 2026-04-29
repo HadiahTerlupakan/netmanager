@@ -113,6 +113,26 @@ export class UserLookupService {
     return this.repository.findManyWithDetailedRelations(where);
   }
 
+  /** Find users by push token values. */
+  findManyWithPushToken(tokens: string[]) {
+    return this.repository.findManyWithPushToken(tokens);
+  }
+
+  /** Remove invalid push tokens from users. */
+  clearPushTokens(tokens: string[]) {
+    return this.repository.clearPushTokens(tokens);
+  }
+
+  /** Find users with push token among selected ids. */
+  findManyWithPushTokenAndFilter(userIds: string[]) {
+    return this.repository.findManyWithPushTokenAndFilter(userIds);
+  }
+
+  /** Find users by department with push token. */
+  findManyByDepartmentWithPushToken(departmentId: string) {
+    return this.repository.findManyByDepartmentWithPushToken(departmentId);
+  }
+
   /** Find active users with push tokens by site. */
   findManyActiveWithPushTokenAndSite(
     departmentId?: string,

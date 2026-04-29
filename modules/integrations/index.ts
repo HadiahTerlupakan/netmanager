@@ -10,3 +10,5 @@ export * from "./services/MixRadiusProfitLossService";
 export * from "./services/MixRadiusDismantleService";
 export * from "./constants/DuitkuDefaults";
 export * from "./services/ReceiptOcrService";
+export { IntegrationFactory } from "./factories/IntegrationFactory";
+export type { CreateIntegrationConfigInput } from "./factories/IntegrationFactory";

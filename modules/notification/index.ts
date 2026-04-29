@@ -1,4 +1,5 @@
 export * from "./services/NotificationService";
+export * from "./services/MobileNotificationRouteService";
 export * from "./services/AdminNotificationMonitoringRouteService";
 export * from "./services/AnnouncementService";
 export * from "./services/MobileFcmTokenService";

@@ -1,7 +1,7 @@
 import { AutomaticBillingService } from "./AutomaticBillingService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
+import { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { createRouteServiceError } from "./RouteServiceError";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
@@ -46,7 +46,7 @@ export class ManualPaymentAdminRouteService {
   constructor(
     private readonly paymentRepository = new PaymentRepository(),
     private readonly invoiceRepository = new InvoiceRepository(),
-    private readonly pelangganRepository = new PelangganRepository(),
+    private readonly pelangganRepository = new PelangganBillingBridgeService(),
   ) {}
 
   /** Get pending manual payments with optional date and site filters. */
@@ -279,7 +279,7 @@ export class ManualPaymentAdminRouteService {
   ) {
     if (isSiteOnly && !siteId) return EMPTY_SCOPE;
     if (!siteId) return null;
-    const pelanggans = await this.pelangganRepository.findAll({ siteId });
+    const pelanggans = await this.pelangganRepository.findBySiteId(siteId);
     return pelanggans.map((pelanggan) => pelanggan.id);
   }
 

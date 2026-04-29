@@ -2,8 +2,10 @@ import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/modules/database";
-import { onWorkOrderCreated } from "@/modules/work-order";
-import { WorkOrderRepository } from "@/modules/work-order/repositories/WorkOrderRepository";
+import {
+  onWorkOrderCreated,
+  WorkOrderQueryService,
+} from "@/modules/work-order";
 
 import { MixRadiusConfigError, MixRadiusService } from "./MixRadiusService";
 import { createRouteServiceError } from "@/modules/finance";
@@ -22,7 +24,7 @@ const DISMANTLE_TASKS = [
 export class MixRadiusDismantleService {
   constructor(
     private readonly mixRadiusService = new MixRadiusService(),
-    private readonly workOrderRepository = new WorkOrderRepository(),
+    private readonly workOrderRepository = new WorkOrderQueryService(),
   ) {}
 
   /** Create dismantle work order from MixRadius customer data. */

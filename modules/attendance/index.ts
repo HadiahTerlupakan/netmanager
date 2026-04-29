@@ -7,7 +7,33 @@ export * from "./services/AttendanceAlertService";
 export * from "./services/AttendanceIdempotencyService";
 export * from "./services/GeofenceService";
 export * from "./services/AutoCheckoutService";
+export {
+  attendanceBulkDeleteSchema,
+  attendanceFilterSchema,
+  attendanceMissedCheckInCorrectionSchema,
+  attendanceUpdateSchema,
+  AttendanceStatus,
+  checkInSchema,
+  checkOutSchema,
+} from "./validators/attendance";
+export type {
+  AttendanceBulkDelete,
+  AttendanceFilter,
+  AttendanceMissedCheckInCorrection,
+  AttendanceStatusType,
+  AttendanceUpdate,
+  CheckInRequest,
+  CheckOutRequest,
+} from "./validators/attendance";
+export {
+  getCanonicalAttendanceLabel,
+  getDayOffDisplayLabel,
+  getPermitDisplayLabel,
+  hasAutoCheckoutNote,
+  isHistoricalAutoCheckoutAbsence,
+} from "./utils/displayLabels";
 export * from "./services/AttendanceSettingsService";
+export * from "./services/AttendanceQueryService";
 export * from "./services/AttendanceTimezoneService";
 export * from "./services/AttendanceValidationService";
 export * from "./services/EmployeeLeaveQueryService";

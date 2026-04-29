@@ -19,41 +19,6 @@ function isInventoryGudangRouteFailure(
   return !result.success;
 }
 
-/**
- * @swagger
- * /api/inventory/gudang:
- *   get:
- *     summary: Get all warehouses
- *     description: Retrieve a list of all active warehouses in the inventory system
- *     tags: [Inventory]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     responses:
- *       200:
- *         description: List of warehouses retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 gudangs:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Gudang'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
   const user = ctx.session!.user;
@@ -99,67 +64,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 });
 
-/**
- * @swagger
- * /api/inventory/gudang:
- *   post:
- *     summary: Create new warehouse
- *     description: Add a new warehouse to the inventory system
- *     tags: [Inventory]
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - nama
- *             properties:
- *               nama:
- *                 type: string
- *                 description: Warehouse name
- *                 example: "Gudang Utama"
- *               lokasi:
- *                 type: string
- *                 description: Warehouse location
- *                 example: "Jakarta Pusat"
- *                 nullable: true
- *               isActive:
- *                 type: boolean
- *                 description: Whether the warehouse is active
- *                 default: true
- *     responses:
- *       201:
- *         description: Warehouse created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 gudang:
- *                   $ref: '#/components/schemas/Gudang'
- *       400:
- *         description: Bad request - validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
   const user = ctx.session!.user;

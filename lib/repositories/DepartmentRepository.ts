@@ -1,1 +1,1 @@
-export { DepartmentRepository } from "@/modules/users/repositories/DepartmentRepository";
+export type { IDepartmentRepository } from "@/modules/users";

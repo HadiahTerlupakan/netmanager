@@ -28,6 +28,7 @@ vi.mock("@/lib/customer-auth", () => ({
 vi.mock("@/lib/utils/image-upload", () => ({
   convertAndSaveImage: mockFns.convertAndSaveImage,
   uploadInventoryPhotos: vi.fn(),
+  validateInventoryPhotos: vi.fn(),
 }));
 
 vi.mock("@/modules/integrations", async () => {

@@ -35,6 +35,7 @@ import {
   calculateRealisticBEP,
 } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
+import { RABFormStepper } from "./RABFormStepper";
 import type {
   CustomGrowthSettings,
   CustomMilestone,
@@ -954,45 +955,11 @@ export default function RABForm({
       size="4xl"
     >
       <form onSubmit={handleSubmit} className="animate-in fade-in duration-300">
-        {/* Wizard Stepper Headers */}
-        <div className="flex items-center justify-between mb-8 px-4 relative">
-          {/* Background Line */}
-          <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 z-0 hidden sm:block"></div>
-
-          {mainTabs.map((tab, idx) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setMainTab(tab.id)}
-              className="relative z-10 flex flex-col items-center group"
-            >
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                  mainTab === tab.id
-                    ? "bg-blue-600 border-blue-600 text-white shadow-lg scale-110"
-                    : mainTabs.findIndex((t) => t.id === mainTab) > idx
-                      ? "bg-green-500 border-green-500 text-white"
-                      : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 group-hover:border-blue-400"
-                }`}
-              >
-                {mainTabs.findIndex((t) => t.id === mainTab) > idx ? (
-                  <HiOutlineCheck className="w-6 h-6" />
-                ) : (
-                  <tab.icon className="w-5 h-5" />
-                )}
-              </div>
-              <span
-                className={`mt-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
-                  mainTab === tab.id
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-400"
-                }`}
-              >
-                {tab.label.split(" ")[0]}
-              </span>
-            </button>
-          ))}
-        </div>
+        <RABFormStepper
+          activeTab={mainTab}
+          tabs={mainTabs}
+          onTabChange={setMainTab}
+        />
 
         {/* Tab Content Wrapper */}
         <div className="bg-white dark:bg-gray-900/50 rounded-2xl border border-gray-200 dark:border-gray-800 p-1 sm:p-2 min-h-[450px]">

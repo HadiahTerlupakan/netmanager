@@ -13,7 +13,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const service = getAppVersionService();
+    const service = await getAppVersionService();
     const apkInfo = await service.getApkForDownload(id);
 
     if (!apkInfo) {

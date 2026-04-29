@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { Prisma as PrismaBilling } from "@prisma/client-billing";
 import { logActivitySafe } from "@/lib/logger";
-import { PelangganRepository } from "@/modules/pelanggan/repositories/PelangganRepository";
-import { UserRepository } from "@/modules/users/repositories/UserRepository";
+import { PelangganAdminQueryService } from "@/modules/pelanggan";
+import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 
 type RouteUser = {
@@ -58,11 +58,23 @@ type SerializedCreatedInvoice = {
   }>;
 };
 
-const invoiceRepository = new InvoiceRepository();
-const userRepository = new UserRepository();
+let invoiceRepository: InvoiceRepository | null = null;
+let userLookupService: UserLookupService | null = null;
+let pelangganAdminQueryService: PelangganAdminQueryService | null = null;
 
-function getPelangganRepository() {
-  return new PelangganRepository();
+function getInvoiceRepository() {
+  invoiceRepository ??= new InvoiceRepository();
+  return invoiceRepository;
+}
+
+function getUserLookupService() {
+  userLookupService ??= new UserLookupService();
+  return userLookupService;
+}
+
+function getPelangganAdminQueryService() {
+  pelangganAdminQueryService ??= new PelangganAdminQueryService();
+  return pelangganAdminQueryService;
 }
 
 /** Lists invoices for route responses with pagination and site restrictions. */
@@ -76,11 +88,13 @@ export async function listInvoicesForRoute(options: {
     return buildEmptyInvoiceList(options.filters);
   }
 
-  const result = await invoiceRepository.findPaginatedWithItemsAndPayments({
-    where,
-    page: options.filters.page,
-    limit: options.filters.limit,
-  });
+  const result = await getInvoiceRepository().findPaginatedWithItemsAndPayments(
+    {
+      where,
+      page: options.filters.page,
+      limit: options.filters.limit,
+    },
+  );
   const totalPages = Math.ceil(result.total / options.filters.limit);
 
   return {
@@ -114,7 +128,7 @@ export async function createInvoiceForRoute(options: {
   isRestricted: boolean;
   now?: Date;
 }): Promise<InvoiceCreateResult> {
-  const pelanggan = await getPelangganRepository().findById(
+  const pelanggan = await getPelangganAdminQueryService().getPppMutationContext(
     options.input.pelangganId,
   );
   if (!pelanggan) {
@@ -132,7 +146,7 @@ export async function createInvoiceForRoute(options: {
   const taxAmount = toStoredAmount(options.input.taxAmount);
   const discountAmount = toStoredAmount(options.input.discountAmount);
   const totalAmount = amountResult.subtotal + taxAmount - discountAmount;
-  const invoice = await invoiceRepository.createWithItems({
+  const invoice = await getInvoiceRepository().createWithItems({
     id: randomUUID(),
     invoiceNumber,
     pelangganId: options.input.pelangganId,
@@ -243,14 +257,14 @@ async function resolveCreateSiteId(
 }
 
 async function getRestrictedSiteId(userId: string) {
-  const user = await userRepository.findByIdWithSite(userId);
+  const user = await getUserLookupService().findByIdWithSite(userId);
   return user?.siteId || undefined;
 }
 
 async function buildInvoiceNumber(now: Date) {
   const currentYear = now.getFullYear();
   const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
-  const invoiceCount = await invoiceRepository.countByMonth(now);
+  const invoiceCount = await getInvoiceRepository().countByMonth(now);
 
   return `INV/${currentYear}/${currentMonth}/${String(invoiceCount + 1).padStart(4, "0")}`;
 }

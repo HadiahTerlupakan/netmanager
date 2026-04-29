@@ -1,5 +1,5 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
+import { AttendanceSettingsService } from "@/modules/attendance";
 import { logger } from "@/lib/logger";
 import { Status } from "@prisma/client";
 import { toStartOfDay } from "@/lib/utils/server-datetime";

@@ -1,10 +1,8 @@
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { AcsDeviceService } from "@/modules/network";
+import { getAcsDeviceService } from "@/modules/network";
 
 export const dynamic = "force-dynamic";
-
-const service = new AcsDeviceService();
 
 export const POST = createHandler(
   { auth: true, permissions: ["acs:update"] },
@@ -14,6 +12,7 @@ export const POST = createHandler(
 
     try {
       const body = await req.json();
+      const service = await getAcsDeviceService();
       const result = await service.configureWan({
         deviceId,
         username: body.username,

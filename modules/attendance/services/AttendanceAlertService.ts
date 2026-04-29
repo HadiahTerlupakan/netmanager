@@ -12,10 +12,30 @@ import { LeaveRepository } from "../repositories/LeaveRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { UserLookupService } from "@/modules/users";
 
-const attendanceRepo = new AttendanceRepository();
-const leaveRepo = new LeaveRepository();
-const holidayRepo = new HolidayRepository();
-const userRepository = new UserLookupService();
+let attendanceRepository: AttendanceRepository | null = null;
+let leaveRepository: LeaveRepository | null = null;
+let holidayRepository: HolidayRepository | null = null;
+let userLookupService: UserLookupService | null = null;
+
+function getAttendanceRepository() {
+  attendanceRepository ??= new AttendanceRepository();
+  return attendanceRepository;
+}
+
+function getLeaveRepository() {
+  leaveRepository ??= new LeaveRepository();
+  return leaveRepository;
+}
+
+function getHolidayRepository() {
+  holidayRepository ??= new HolidayRepository();
+  return holidayRepository;
+}
+
+function getUserLookupService() {
+  userLookupService ??= new UserLookupService();
+  return userLookupService;
+}
 
 /**
  * Attendance Alert Service
@@ -168,9 +188,10 @@ export async function getUsersNeedingCheckInReminder(
   const endOfDay = new Date(now);
   endOfDay.setTime(toEndOfDay(endOfDay).getTime());
 
-  const users = await userRepository.findActiveWithPushTokenAndSchedule();
+  const users =
+    await getUserLookupService().findActiveWithPushTokenAndSchedule();
 
-  const checkedInResults = await attendanceRepo.findCheckedInUserIds(
+  const checkedInResults = await getAttendanceRepository().findCheckedInUserIds(
     startOfDay,
     endOfDay,
   );
@@ -211,7 +232,10 @@ export async function getUsersNeedingCheckOutReminder(
   endOfDay.setTime(toEndOfDay(endOfDay).getTime());
 
   const incompleteAttendance =
-    await attendanceRepo.findIncompleteCheckOutWithUser(startOfDay, endOfDay);
+    await getAttendanceRepository().findIncompleteCheckOutWithUser(
+      startOfDay,
+      endOfDay,
+    );
 
   return incompleteAttendance
     .filter((att) => {
@@ -392,10 +416,11 @@ export async function processIncompleteAttendance(): Promise<{
   const endOfDay = new Date(now);
   endOfDay.setTime(toEndOfDay(endOfDay).getTime());
 
-  const incomplete = await attendanceRepo.findIncompleteCheckOutSelect(
-    startOfDay,
-    endOfDay,
-  );
+  const incomplete =
+    await getAttendanceRepository().findIncompleteCheckOutSelect(
+      startOfDay,
+      endOfDay,
+    );
 
   const usersNotified: string[] = [];
 
@@ -432,7 +457,7 @@ export async function processFixedHourAutoAlpha(): Promise<{
       firstTimezone,
     );
     const users =
-      await userRepository.findFixedHourUsersForAutoAlpha(todayStart);
+      await getUserLookupService().findFixedHourUsersForAutoAlpha(todayStart);
 
     if (users.length === 0) {
       return { usersMarkedAlpha: 0, details: [] };
@@ -463,16 +488,17 @@ export async function processFixedHourAutoAlpha(): Promise<{
       );
       if (now < shiftEndTime) continue;
 
-      const holiday = await holidayRepo.findFirstByTenantAndDateRange(
-        user.tenantId,
-        startOfDay,
-        endOfDay,
-      );
+      const holiday =
+        await getHolidayRepository().findFirstByTenantAndDateRange(
+          user.tenantId,
+          startOfDay,
+          endOfDay,
+        );
 
       if (holiday) continue;
 
       const existingAttendance =
-        await attendanceRepo.findFirstByUserAndDateRange(
+        await getAttendanceRepository().findFirstByUserAndDateRange(
           user.id,
           user.tenantId,
           startOfDay,
@@ -481,12 +507,13 @@ export async function processFixedHourAutoAlpha(): Promise<{
 
       if (existingAttendance) continue;
 
-      const approvedLeave = await leaveRepo.findActiveLeaveForUserOnDate(
-        user.id,
-        startOfDay,
-        endOfDay,
-        user.tenantId,
-      );
+      const approvedLeave =
+        await getLeaveRepository().findActiveLeaveForUserOnDate(
+          user.id,
+          startOfDay,
+          endOfDay,
+          user.tenantId,
+        );
 
       if (approvedLeave) continue;
 
@@ -496,7 +523,7 @@ export async function processFixedHourAutoAlpha(): Promise<{
 
       const alphaTime = new Date(startOfDay);
 
-      await attendanceRepo.createWithId({
+      await getAttendanceRepository().createWithId({
         id: randomUUID(),
         userId: user.id,
         tenantId: user.tenantId,
@@ -639,7 +666,7 @@ export async function processFlexibleReminders(): Promise<{
     const now = new Date();
 
     const activeFlexibleSessions =
-      await attendanceRepo.findActiveFlexibleSessionsWithUser();
+      await getAttendanceRepository().findActiveFlexibleSessionsWithUser();
 
     if (activeFlexibleSessions.length === 0) {
       return { usersNotified: 0, details: [] };

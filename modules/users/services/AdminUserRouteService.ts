@@ -15,7 +15,7 @@ import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
 import { prisma, prismaAuth } from "@/modules/database";
 import { getTenantAdminRoleId } from "@/modules/mitra";
-import { AdminLeaveBalanceRouteService } from "@/modules/attendance/services/AdminLeaveBalanceRouteService";
+import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
 import type { LeaveType } from "@prisma/client";
 import type { UserEntity } from "../domain/entities/UserEntity";
 import type { IUserRepository } from "../domain/ports/IUserRepository";

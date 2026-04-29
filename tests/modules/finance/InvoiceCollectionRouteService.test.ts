@@ -17,6 +17,7 @@ vi.mock("@/modules/users/repositories/UserRepository", () => ({
 
 vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
   PelangganRepository: class MockPelangganRepository {
+    findAdminMutationContext = mockFns.findPelangganById;
     findById = mockFns.findPelangganById;
   },
 }));

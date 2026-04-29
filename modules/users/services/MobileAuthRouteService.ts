@@ -443,8 +443,9 @@ function buildVersionMetadata(input: MobileLoginPayload) {
 }
 
 async function buildUnsupportedVersionResponse(versionCode: number) {
-  const versionAccess =
-    await getAppVersionService().evaluateVersionAccess(versionCode);
+  const versionAccess = await (
+    await getAppVersionService()
+  ).evaluateVersionAccess(versionCode);
   if (versionAccess.isSupported) return null;
   return apiError(
     "Aplikasi harus diperbarui untuk melanjutkan.",

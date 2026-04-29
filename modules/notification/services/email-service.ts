@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 // Email Service using Nodemailer
 import nodemailer from "nodemailer";
-import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
+import { AttendanceSettingsService } from "@/modules/attendance";
 import { decryptApiKey } from "@/lib/utils/encryption";
 
 export interface EmailConfig {

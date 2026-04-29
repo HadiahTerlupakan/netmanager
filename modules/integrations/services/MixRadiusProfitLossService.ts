@@ -1,6 +1,6 @@
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 
-import { ExpenseRepository } from "@/modules/finance/repositories/ExpenseRepository";
+import { FinanceExpenseQueryService } from "@/modules/finance";
 import { getMixRadiusService, MixRadiusConfigError } from "./MixRadiusService";
 
 const TOP_EXPENSE_LIMIT = 5;
@@ -8,7 +8,9 @@ const EMPTY_TRANSACTION_COUNT = "0";
 const DEFAULT_NUMBER = 0;
 
 export class MixRadiusProfitLossService {
-  constructor(private readonly expenseRepository = new ExpenseRepository()) {}
+  constructor(
+    private readonly expenseRepository = new FinanceExpenseQueryService(),
+  ) {}
 
   /** Build MixRadius profit-loss report from remote income and local expenses. */
   async getReport(input: {

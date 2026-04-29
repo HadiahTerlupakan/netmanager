@@ -1,43 +1,23 @@
 import { randomUUID } from "crypto";
-
 import { Prisma, PurchaseRequestStatus } from "@prisma/client";
-
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
-import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { prisma } from "@/modules/database";
-
+import {
+  adjustStockCalculation,
+  buildAlertDecision,
+  calculateNextRestockDate,
+  calculatePredictionUrgency,
+  calculateRiskLevel,
+  calculateStockByCondition,
+  calculateUsageTrend,
+  DEFAULT_STOCKOUT_DAYS,
+  findMonthlyUsageNumbers,
+  findMonthlyUsageWithLabels,
+  type RestockPredictionItem,
+} from "./inventory-api-repository-helpers";
 const DEFAULT_RESTOCK_LEAD_DAYS = 7;
 const THIRTY_DAYS = 30;
-const LOW_STOCK_RATIO = 0.5;
-const DEFAULT_STOCKOUT_DAYS = 999;
-const USAGE_TREND_THRESHOLD_RATIO = 0.1;
 const MONTHLY_USAGE_WINDOW = 6;
-
-export type RestockPredictionItem = {
-  barangId: string;
-  gudangId: string;
-  barangKode: string;
-  barangNama: string;
-  satuan: string;
-  gudangKode: string;
-  gudangNama: string;
-  currentStok: number;
-  minStok: number;
-  maxStok: number;
-  avgDailyUsage: number;
-  leadTimeDays: number;
-  safetyStok: number;
-  daysUntilStockout: number;
-  reorderPoint: number;
-  recommendedOrderQty: number;
-  urgency: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  lastRestockDate?: string;
-  usageTrend: "INCREASING" | "DECREASING" | "STABLE";
-  monthlyUsage: number[];
-  nextRestockDate: string;
-  riskLevel: "LOW" | "MEDIUM" | "HIGH";
-};
-
 export class InventoryApiRepository {
   /** Ambil site user untuk pembatasan akses route inventory. */
   async findUserSiteId(userId: string) {
@@ -45,10 +25,8 @@ export class InventoryApiRepository {
       where: { id: userId },
       select: { siteId: true },
     });
-
     return user?.siteId || undefined;
   }
-
   /** Ambil statistik inventory berbasis filter site. */
   async findInventoryStats(input: { siteId?: string; startOfDay: Date }) {
     const gudangFilter: Prisma.GudangWhereInput = { isActive: true };
@@ -58,14 +36,12 @@ export class InventoryApiRepository {
     const keluarFilter: Prisma.BarangKeluarWhereInput = {
       createdAt: { gte: input.startOfDay },
     };
-
     if (input.siteId) {
       const siteFilter = { sites: { some: { id: input.siteId } } };
       gudangFilter.sites = { some: { id: input.siteId } };
       masukFilter.gudang = siteFilter;
       keluarFilter.gudang = siteFilter;
     }
-
     const [totalBarang, barangMasukToday, barangKeluarToday, totalGudang] =
       await Promise.all([
         prisma.barang.count(),
@@ -73,10 +49,8 @@ export class InventoryApiRepository {
         prisma.barangKeluar.count({ where: keluarFilter }),
         prisma.gudang.count({ where: gudangFilter }),
       ]);
-
     return { totalBarang, barangMasukToday, barangKeluarToday, totalGudang };
   }
-
   /** Ambil analitik penggunaan barang per gudang. */
   async findUsageAnalytics(input: {
     barangId: string;
@@ -85,7 +59,6 @@ export class InventoryApiRepository {
   }) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - input.days);
-
     const [usageData, monthlyUsage, currentStock] = await Promise.all([
       prisma.barangKeluar.aggregate({
         where: {
@@ -96,7 +69,7 @@ export class InventoryApiRepository {
         _sum: { jumlah: true },
         _count: { id: true },
       }),
-      this.findMonthlyUsageWithLabels(input.barangId, input.gudangId),
+      findMonthlyUsageWithLabels(input.barangId, input.gudangId),
       prisma.barangGudang.findUnique({
         where: {
           barangId_gudangId: {
@@ -106,10 +79,8 @@ export class InventoryApiRepository {
         },
       }),
     ]);
-
     return { usageData, monthlyUsage, currentStock };
   }
-
   /** Ambil daftar alert restock beserta jumlah unread. */
   async findRestockAlerts(input: {
     barangId?: string;
@@ -122,13 +93,11 @@ export class InventoryApiRepository {
   }) {
     const where: Prisma.RestockAlertsWhereInput = {};
     const offset = (input.page - 1) * input.limit;
-
     if (input.barangId) where.barangId = input.barangId;
     if (input.gudangId) where.gudangId = input.gudangId;
     if (input.isRead !== undefined) where.isRead = input.isRead;
     if (input.isResolved !== undefined) where.isResolved = input.isResolved;
     if (input.urgency) where.urgency = input.urgency as never;
-
     const [alerts, total, unreadCount] = await Promise.all([
       prisma.restockAlerts.findMany({
         where,
@@ -147,10 +116,8 @@ export class InventoryApiRepository {
         where: { ...where, isRead: false, isResolved: false },
       }),
     ]);
-
     return { alerts, total, unreadCount };
   }
-
   /** Jalankan auto check dan buat alert restock baru bila perlu. */
   async autoCheckRestockAlerts() {
     const settings = await prisma.restockSettings.findMany({
@@ -160,9 +127,7 @@ export class InventoryApiRepository {
         gudang: { select: { id: true, kode: true, nama: true } },
       },
     });
-
     const newAlerts = [];
-
     for (const setting of settings) {
       const stock = await prisma.barangGudang.findUnique({
         where: {
@@ -172,11 +137,9 @@ export class InventoryApiRepository {
           },
         },
       });
-
       if (!stock) continue;
-      const decision = this.buildAlertDecision(setting, stock.stok);
+      const decision = buildAlertDecision(setting, stock.stok);
       if (!decision) continue;
-
       const existing = await prisma.restockAlerts.findFirst({
         where: {
           barangId: setting.barangId,
@@ -185,7 +148,6 @@ export class InventoryApiRepository {
           isResolved: false,
         },
       });
-
       if (existing) continue;
       const recommendedOrder = Math.max(0, setting.maxStok - stock.stok);
       const created = await prisma.restockAlerts.create({
@@ -207,13 +169,10 @@ export class InventoryApiRepository {
           gudang: { select: { id: true, kode: true, nama: true } },
         },
       });
-
       newAlerts.push(created);
     }
-
     return newAlerts;
   }
-
   /** Ambil daftar pengaturan restock. */
   async findRestockSettings(input: {
     barangId?: string;
@@ -223,10 +182,8 @@ export class InventoryApiRepository {
   }) {
     const where: Prisma.RestockSettingsWhereInput = {};
     const offset = (input.page - 1) * input.limit;
-
     if (input.barangId) where.barangId = input.barangId;
     if (input.gudangId) where.gudangId = input.gudangId;
-
     const [settings, total] = await Promise.all([
       prisma.restockSettings.findMany({
         where,
@@ -242,10 +199,8 @@ export class InventoryApiRepository {
       }),
       prisma.restockSettings.count({ where }),
     ]);
-
     return { settings, total };
   }
-
   /** Simpan pengaturan restock dan buat alert jika stok rendah. */
   async saveRestockSettings(input: {
     barangId: string;
@@ -262,13 +217,10 @@ export class InventoryApiRepository {
           where: { id: input.gudangId, isActive: true },
         }),
       ]);
-
       if (!barang) throw new Error("Barang tidak ditemukan");
       if (!gudang) throw new Error("Gudang tidak ditemukan atau tidak aktif");
-
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - THIRTY_DAYS);
-
       const usageData = await tx.barangKeluar.aggregate({
         where: {
           barangId: input.barangId,
@@ -277,7 +229,6 @@ export class InventoryApiRepository {
         },
         _sum: { jumlah: true },
       });
-
       const avgDailyUsage = (usageData._sum.jumlah || 0) / THIRTY_DAYS;
       const settings = await tx.restockSettings.upsert({
         where: {
@@ -313,7 +264,6 @@ export class InventoryApiRepository {
           gudang: { select: { id: true, kode: true, nama: true } },
         },
       });
-
       await this.createThresholdAlertIfNeeded(tx, {
         barangId: input.barangId,
         gudangId: input.gudangId,
@@ -323,16 +273,13 @@ export class InventoryApiRepository {
         gudangNama: gudang.nama,
         satuan: barang.satuan,
       });
-
       return settings;
     });
   }
-
   /** Bangun prediksi restock dari setting aktif. */
   async findRestockPredictions(input: { gudangId?: string; days: number }) {
     const where: Prisma.RestockSettingsWhereInput = { isActive: true };
     if (input.gudangId) where.gudangId = input.gudangId;
-
     const settings = await prisma.restockSettings.findMany({
       where,
       include: {
@@ -340,26 +287,20 @@ export class InventoryApiRepository {
         gudang: { select: { id: true, kode: true, nama: true } },
       },
     });
-
     const predictions: RestockPredictionItem[] = [];
-
     for (const setting of settings) {
       const prediction = await this.buildRestockPrediction(setting, input.days);
       predictions.push(prediction);
     }
-
     predictions.sort((firstItem, secondItem) => {
       const urgencyOrder = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
       const urgencyDiff =
         urgencyOrder[secondItem.urgency] - urgencyOrder[firstItem.urgency];
-
       if (urgencyDiff !== 0) return urgencyDiff;
       return firstItem.daysUntilStockout - secondItem.daysUntilStockout;
     });
-
     return predictions;
   }
-
   /** Ambil daftar purchase request restock. */
   async findPurchaseRequests(input: {
     tenantId: string;
@@ -381,7 +322,6 @@ export class InventoryApiRepository {
       },
       orderBy: { createdAt: "desc" },
     });
-
     return requests.map((request) => ({
       ...request,
       items: request.items.map((item) => ({
@@ -393,14 +333,12 @@ export class InventoryApiRepository {
       })),
     }));
   }
-
   /** Ambil purchase request milik tenant tertentu. */
   async findPurchaseRequestById(input: { id: string; tenantId: string }) {
     return prisma.purchaseRequest.findUnique({
       where: { id: input.id, tenantId: input.tenantId },
     });
   }
-
   /** Perbarui item purchase request draft/submitted. */
   async updatePurchaseRequest(input: {
     id: string;
@@ -417,7 +355,6 @@ export class InventoryApiRepository {
       await tx.purchaseRequestItem.deleteMany({
         where: { purchaseRequestId: input.id },
       });
-
       return tx.purchaseRequest.update({
         where: { id: input.id },
         data: {
@@ -439,12 +376,10 @@ export class InventoryApiRepository {
       });
     });
   }
-
   /** Hapus purchase request. */
   async deletePurchaseRequest(id: string) {
     await prisma.purchaseRequest.delete({ where: { id } });
   }
-
   /** Setujui purchase request sederhana untuk route approve. */
   async approvePurchaseRequest(input: { id: string; approverId: string }) {
     return prisma.purchaseRequest.update({
@@ -457,7 +392,6 @@ export class InventoryApiRepository {
       },
     });
   }
-
   /** Ambil ringkasan purchase request untuk proses receive/start shopping. */
   async findPurchaseRequestProcessInfo(id: string) {
     return prisma.purchaseRequest.findUnique({
@@ -465,7 +399,6 @@ export class InventoryApiRepository {
       select: { purchaseOrderId: true, status: true },
     });
   }
-
   /** Ambil summary opname berbasis stok dan opname terakhir. */
   async findOpnameSummary(gudangId?: string) {
     const whereClause = gudangId ? { gudangId } : {};
@@ -485,7 +418,6 @@ export class InventoryApiRepository {
         _max: { tanggal: true },
       }),
     ]);
-
     return barangGudangs.map((barangGudang) => ({
       id: barangGudang.id,
       barang: barangGudang.barang,
@@ -498,7 +430,6 @@ export class InventoryApiRepository {
       )?._max.tanggal,
     }));
   }
-
   /** Ambil laporan opname per gudang. */
   async findOpnameReport(gudangId?: string) {
     const gudangs = await prisma.gudang.findMany({
@@ -514,12 +445,9 @@ export class InventoryApiRepository {
       },
       orderBy: { nama: "asc" },
     });
-
     const gudangList = [];
-
     for (const gudang of gudangs) {
       const items = [];
-
       for (const stockItem of gudang.barangGudang) {
         const [masukData, keluarData] = await Promise.all([
           prisma.barangMasuk.findMany({
@@ -529,15 +457,13 @@ export class InventoryApiRepository {
             where: { barangId: stockItem.barangId, gudangId: gudang.id },
           }),
         ]);
-
-        const stockByCondition = this.calculateStockByCondition(
+        const stockByCondition = calculateStockByCondition(
           masukData,
           keluarData,
         );
         const totalHilang = keluarData
           .filter((item) => item.isHilang)
           .reduce((sum, item) => sum + item.jumlah, 0);
-
         items.push({
           barangId: stockItem.barangId,
           barangKode: stockItem.barang.kode,
@@ -550,7 +476,6 @@ export class InventoryApiRepository {
           totalHilang,
         });
       }
-
       gudangList.push({
         gudangId: gudang.id,
         gudangKode: gudang.kode,
@@ -562,10 +487,8 @@ export class InventoryApiRepository {
         items,
       });
     }
-
     return gudangList;
   }
-
   /** Hitung data awal opname untuk satu gudang. */
   async calculateOpname(gudangId: string) {
     const barangGudangs = await prisma.barangGudang.findMany({
@@ -584,7 +507,6 @@ export class InventoryApiRepository {
       },
       orderBy: { barang: { kode: "asc" } },
     });
-
     if (barangGudangs.length === 0) return [];
     const barangIds = barangGudangs.map((item) => item.barang.id);
     const [allMasuk, allKeluar] = await Promise.all([
@@ -595,7 +517,6 @@ export class InventoryApiRepository {
         where: { gudangId, barangId: { in: barangIds } },
       }),
     ]);
-
     return barangGudangs.map((barangGudang) => {
       const masukItems = allMasuk.filter(
         (item) => item.barangId === barangGudang.barang.id,
@@ -603,15 +524,14 @@ export class InventoryApiRepository {
       const keluarItems = allKeluar.filter(
         (item) => item.barangId === barangGudang.barang.id,
       );
-      const stockByCondition = this.calculateStockByCondition(
+      const stockByCondition = calculateStockByCondition(
         masukItems,
         keluarItems,
       );
-      const adjusted = this.adjustStockCalculation(
+      const adjusted = adjustStockCalculation(
         barangGudang.stok,
         stockByCondition,
       );
-
       return {
         barangId: barangGudang.barang.id,
         barangKode: barangGudang.barang.kode,
@@ -636,7 +556,6 @@ export class InventoryApiRepository {
       };
     });
   }
-
   /** Ambil stok barang dan relasinya. */
   async findStockInfo(barangId: string, gudangId: string) {
     return prisma.barangGudang.findUnique({
@@ -647,7 +566,6 @@ export class InventoryApiRepository {
       },
     });
   }
-
   /** Ambil breakdown stok per kondisi. */
   async findStockBreakdown(barangId: string, gudangId: string) {
     const [stockSnapshot, barangInfo, gudangInfo] = await Promise.all([
@@ -669,10 +587,8 @@ export class InventoryApiRepository {
         select: { id: true, kode: true, nama: true },
       }),
     ]);
-
     return { stockSnapshot, barangInfo, gudangInfo };
   }
-
   /** Ambil keluar record beserta site gudang untuk validasi akses. */
   async findKeluarRecordWithSite(id: string) {
     return prisma.barangKeluar.findUnique({
@@ -690,7 +606,6 @@ export class InventoryApiRepository {
       },
     });
   }
-
   /** Perbarui keluar record dan sinkronkan stok. */
   async updateKeluarRecord(input: {
     id: string;
@@ -702,7 +617,6 @@ export class InventoryApiRepository {
         where: { id: input.id },
         include: { barang: true, gudang: true },
       });
-
       if (!currentRecord)
         throw new Error("Record barang keluar tidak ditemukan");
       const stockDifference = currentRecord.jumlah - input.jumlah;
@@ -714,11 +628,9 @@ export class InventoryApiRepository {
           },
         },
       });
-
       if (!currentStock) {
         throw new Error("Stok tidak ditemukan untuk barang dan gudang ini");
       }
-
       const stockField =
         STOCK_FIELD_MAP[
           currentRecord.kondisi as keyof typeof STOCK_FIELD_MAP
@@ -727,11 +639,9 @@ export class InventoryApiRepository {
       const newConditionStock =
         Number((currentStock as Record<string, unknown>)[stockField] || 0) +
         stockDifference;
-
       if (newStock < 0 || newConditionStock < 0) {
         throw new Error("Stok tidak mencukupi untuk perubahan ini");
       }
-
       await tx.barangKeluar.update({
         where: { id: input.id },
         data: { jumlah: input.jumlah, keterangan: input.keterangan },
@@ -745,14 +655,12 @@ export class InventoryApiRepository {
         },
         data: { stok: newStock, [stockField]: newConditionStock },
       });
-
       return {
         barangNama: currentRecord.barang.nama,
         jumlahLama: currentRecord.jumlah,
       };
     });
   }
-
   /** Hapus keluar record dan kembalikan stok. */
   async deleteKeluarRecord(id: string) {
     return prisma.$transaction(async (tx) => {
@@ -760,7 +668,6 @@ export class InventoryApiRepository {
         where: { id },
         include: { barang: true, gudang: true },
       });
-
       if (!keluarRecord)
         throw new Error("Record barang keluar tidak ditemukan");
       const stockField =
@@ -774,7 +681,6 @@ export class InventoryApiRepository {
           },
         },
       });
-
       if (currentStock) {
         await tx.barangGudang.update({
           where: {
@@ -803,7 +709,6 @@ export class InventoryApiRepository {
           },
         });
       }
-
       await tx.barangKeluar.delete({ where: { id } });
       return {
         barangNama: keluarRecord.barang.nama,
@@ -811,7 +716,6 @@ export class InventoryApiRepository {
       };
     });
   }
-
   /** Verifikasi transaksi upload foto inventory. */
   async verifyInventoryTransaction(input: {
     transactionId: string;
@@ -823,24 +727,20 @@ export class InventoryApiRepository {
         select: { id: true, barangId: true, gudangId: true },
       });
     }
-
     if (input.transactionType === "inventory-keluar") {
       return prisma.barangKeluar.findUnique({
         where: { id: input.transactionId },
         select: { id: true, barangId: true, gudangId: true },
       });
     }
-
     if (input.transactionType === "inventory-transfer") {
       return prisma.transferAntarGudang.findUnique({
         where: { id: input.transactionId },
         select: { id: true, barangId: true },
       });
     }
-
     return { id: input.transactionId };
   }
-
   private async createThresholdAlertIfNeeded(
     tx: Prisma.TransactionClient,
     input: {
@@ -861,7 +761,6 @@ export class InventoryApiRepository {
         },
       },
     });
-
     if (!currentStock || currentStock.stok > input.minStok) return;
     const existingAlert = await tx.restockAlerts.findFirst({
       where: {
@@ -871,16 +770,14 @@ export class InventoryApiRepository {
         alertType: "RESTOCK_NEEDED",
       },
     });
-
     if (existingAlert) return;
     const recommendedOrder = input.maxStok - currentStock.stok;
     const urgency =
       currentStock.stok === 0
         ? "CRITICAL"
-        : currentStock.stok <= input.minStok * LOW_STOCK_RATIO
+        : currentStock.stok <= input.minStok * 0.5
           ? "HIGH"
           : "MEDIUM";
-
     await tx.restockAlerts.create({
       data: {
         id: randomUUID(),
@@ -895,7 +792,6 @@ export class InventoryApiRepository {
       },
     });
   }
-
   private async buildRestockPrediction(
     setting: {
       id: string;
@@ -913,7 +809,6 @@ export class InventoryApiRepository {
   ): Promise<RestockPredictionItem> {
     const analysisStartDate = new Date();
     analysisStartDate.setDate(analysisStartDate.getDate() - days);
-
     const [currentStock, monthlyUsage, lastRestock, recentUsage] =
       await Promise.all([
         prisma.barangGudang.findUnique({
@@ -924,7 +819,7 @@ export class InventoryApiRepository {
             },
           },
         }),
-        this.findMonthlyUsageNumbers(
+        findMonthlyUsageNumbers(
           setting.barangId,
           setting.gudangId,
           MONTHLY_USAGE_WINDOW,
@@ -946,16 +841,13 @@ export class InventoryApiRepository {
           _sum: { jumlah: true },
         }),
       ]);
-
     const avgDailyUsage = (recentUsage._sum.jumlah || 0) / days;
-
     if (avgDailyUsage !== setting.avgDailyUsage) {
       await prisma.restockSettings.update({
         where: { id: setting.id },
         data: { avgDailyUsage, lastUsageCalculation: new Date() },
       });
     }
-
     const currentStok = currentStock?.stok || 0;
     const daysUntilStockout =
       avgDailyUsage > 0
@@ -965,24 +857,23 @@ export class InventoryApiRepository {
     const reorderPoint =
       setting.minStok + setting.safetyStok + usageDuringLeadTime;
     const recommendedOrderQty = Math.max(0, setting.maxStok - currentStok);
-    const urgency = this.calculatePredictionUrgency(
+    const urgency = calculatePredictionUrgency(
       currentStok,
       setting.minStok,
       setting.leadTimeDays,
       daysUntilStockout,
     );
-    const riskLevel = this.calculateRiskLevel(
+    const riskLevel = calculateRiskLevel(
       setting.leadTimeDays,
       daysUntilStockout,
     );
-    const usageTrend = this.calculateUsageTrend(monthlyUsage);
-    const nextRestockDate = this.calculateNextRestockDate(
+    const usageTrend = calculateUsageTrend(monthlyUsage);
+    const nextRestockDate = calculateNextRestockDate(
       avgDailyUsage,
       currentStok,
       daysUntilStockout,
       setting.leadTimeDays,
     );
-
     return {
       barangId: setting.barangId,
       gudangId: setting.gudangId,
@@ -1008,215 +899,6 @@ export class InventoryApiRepository {
       monthlyUsage,
       nextRestockDate,
       riskLevel,
-    };
-  }
-
-  private calculatePredictionUrgency(
-    currentStok: number,
-    minStok: number,
-    leadTimeDays: number,
-    daysUntilStockout: number,
-  ) {
-    if (currentStok === 0) return "CRITICAL" as const;
-    if (currentStok <= minStok) return "HIGH" as const;
-    if (daysUntilStockout <= leadTimeDays) return "HIGH" as const;
-    if (daysUntilStockout <= leadTimeDays * 2) return "MEDIUM" as const;
-    return "LOW" as const;
-  }
-
-  private calculateRiskLevel(leadTimeDays: number, daysUntilStockout: number) {
-    if (daysUntilStockout <= leadTimeDays) return "HIGH" as const;
-    if (daysUntilStockout <= leadTimeDays * 2) return "MEDIUM" as const;
-    return "LOW" as const;
-  }
-
-  private calculateNextRestockDate(
-    avgDailyUsage: number,
-    currentStok: number,
-    daysUntilStockout: number,
-    leadTimeDays: number,
-  ) {
-    const nextRestockDate = new Date();
-
-    if (avgDailyUsage > 0 && currentStok > 0) {
-      nextRestockDate.setDate(
-        nextRestockDate.getDate() +
-          Math.max(0, daysUntilStockout - leadTimeDays),
-      );
-      return nextRestockDate.toISOString();
-    }
-
-    nextRestockDate.setDate(nextRestockDate.getDate() + leadTimeDays);
-    return nextRestockDate.toISOString();
-  }
-
-  private calculateUsageTrend(monthlyUsage: number[]) {
-    if (monthlyUsage.length < 3) return "STABLE" as const;
-    const count = monthlyUsage.length;
-    const points = Array.from({ length: count }, (_, index) => index);
-    const sumX = points.reduce((sum, value) => sum + value, 0);
-    const sumY = monthlyUsage.reduce((sum, value) => sum + value, 0);
-    const sumXY = points.reduce(
-      (sum, point, index) => sum + point * (monthlyUsage[index] || 0),
-      0,
-    );
-    const sumX2 = points.reduce((sum, point) => sum + point * point, 0);
-    const slope = (count * sumXY - sumX * sumY) / (count * sumX2 - sumX * sumX);
-    const threshold = (sumY / count) * USAGE_TREND_THRESHOLD_RATIO;
-
-    if (slope > threshold) return "INCREASING" as const;
-    if (slope < -threshold) return "DECREASING" as const;
-    return "STABLE" as const;
-  }
-
-  private async findMonthlyUsageWithLabels(barangId: string, gudangId: string) {
-    const monthlyUsage = [];
-
-    for (let offset = MONTHLY_USAGE_WINDOW - 1; offset >= 0; offset -= 1) {
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - offset, 1);
-      startDate.setTime(toStartOfDay(startDate).getTime());
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + 1);
-      endDate.setDate(0);
-      endDate.setTime(toEndOfDay(endDate).getTime());
-      const usage = await prisma.barangKeluar.aggregate({
-        where: {
-          barangId,
-          gudangId,
-          tanggal: { gte: startDate, lte: endDate },
-        },
-        _sum: { jumlah: true },
-      });
-
-      monthlyUsage.push({
-        month: startDate.toLocaleString("id-ID", {
-          month: "short",
-          year: "numeric",
-        }),
-        usage: usage._sum.jumlah || 0,
-      });
-    }
-
-    return monthlyUsage;
-  }
-
-  private async findMonthlyUsageNumbers(
-    barangId: string,
-    gudangId: string,
-    months: number,
-  ) {
-    const values: number[] = [];
-
-    for (let offset = months - 1; offset >= 0; offset -= 1) {
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - offset, 1);
-      startDate.setTime(toStartOfDay(startDate).getTime());
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + 1);
-      endDate.setDate(0);
-      endDate.setTime(toEndOfDay(endDate).getTime());
-      const usage = await prisma.barangKeluar.aggregate({
-        where: {
-          barangId,
-          gudangId,
-          tanggal: { gte: startDate, lte: endDate },
-        },
-        _sum: { jumlah: true },
-      });
-
-      values.push(usage._sum.jumlah || 0);
-    }
-
-    return values;
-  }
-
-  private buildAlertDecision(
-    setting: {
-      barang: { nama: string; satuan: string };
-      gudang: { nama: string };
-      minStok: number;
-      maxStok: number;
-    },
-    currentStock: number,
-  ) {
-    if (currentStock === 0) {
-      return {
-        alertType: "STOCK_OUT" as const,
-        urgency: "CRITICAL" as const,
-        message: `STOK HABIS! ${setting.barang.nama} di ${setting.gudang.nama} kosong`,
-      };
-    }
-
-    if (currentStock <= setting.minStok) {
-      return {
-        alertType: "LOW_STOCK" as const,
-        urgency:
-          currentStock <= setting.minStok * LOW_STOCK_RATIO
-            ? ("HIGH" as const)
-            : ("MEDIUM" as const),
-        message: `Stok rendah! ${setting.barang.nama} di ${setting.gudang.nama} tersisa ${currentStock} ${setting.barang.satuan} (min: ${setting.minStok})`,
-      };
-    }
-
-    if (currentStock > setting.maxStok) {
-      return {
-        alertType: "OVERSTOCK" as const,
-        urgency: "LOW" as const,
-        message: `Stok berlebih! ${setting.barang.nama} di ${setting.gudang.nama} sebanyak ${currentStock} ${setting.barang.satuan} (max: ${setting.maxStok})`,
-      };
-    }
-
-    return null;
-  }
-
-  private calculateStockByCondition(
-    masukItems: Array<{ kondisi: string; jumlah: number }>,
-    keluarItems: Array<{ kondisi: string; jumlah: number }>,
-  ) {
-    let stokBaru = 0;
-    let stokBekas = 0;
-    let stokRusak = 0;
-
-    masukItems.forEach((item) => {
-      if (item.kondisi === "BEKAS") stokBekas += item.jumlah;
-      else if (item.kondisi === "RUSAK") stokRusak += item.jumlah;
-      else stokBaru += item.jumlah;
-    });
-
-    keluarItems.forEach((item) => {
-      if (item.kondisi === "BEKAS")
-        stokBekas = Math.max(0, stokBekas - item.jumlah);
-      else if (item.kondisi === "RUSAK")
-        stokRusak = Math.max(0, stokRusak - item.jumlah);
-      else stokBaru = Math.max(0, stokBaru - item.jumlah);
-    });
-
-    return { stokBaru, stokBekas, stokRusak };
-  }
-
-  private adjustStockCalculation(
-    stokSistem: number,
-    stockByCondition: {
-      stokBaru: number;
-      stokBekas: number;
-      stokRusak: number;
-    },
-  ) {
-    const calculatedTotal =
-      stockByCondition.stokBaru +
-      stockByCondition.stokBekas +
-      stockByCondition.stokRusak;
-    const difference = stokSistem - calculatedTotal;
-    const kondisiBaik =
-      calculatedTotal !== stokSistem && calculatedTotal > 0
-        ? Math.max(0, stockByCondition.stokBaru + difference)
-        : stockByCondition.stokBaru;
-
-    return {
-      kondisiBaik,
-      kondisiRusak: stockByCondition.stokRusak,
-      kondisiExpire: stockByCondition.stokBekas,
     };
   }
 }

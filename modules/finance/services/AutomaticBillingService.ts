@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import { BillingEventDispatcher } from "@/modules/events";
-import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
+import { AttendanceSettingsService } from "@/modules/attendance";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import {

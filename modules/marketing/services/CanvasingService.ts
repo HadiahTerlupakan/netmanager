@@ -15,7 +15,7 @@ import type {
   CanvasingDetailDTO,
   CanvasingListItemDTO,
 } from "../dto/MarketingDTO";
-import type { IWorkOrderRepository } from "@/modules/work-order/repositories/IWorkOrderRepository";
+import type { WorkOrderQueryService } from "@/modules/work-order";
 import { MarketingMapper } from "../mappers/MarketingMapper";
 import { createNotification, notifyNewCanvasing } from "@/modules/notification";
 
@@ -25,10 +25,15 @@ const PENDING_STATUS = "PENDING" as const;
 const APPROVED_STATUS = "APPROVED" as const;
 const REJECTED_STATUS = "REJECTED" as const;
 
+type CanvasingWorkOrderPort = Pick<
+  WorkOrderQueryService,
+  "generateWorkOrderNumber" | "create" | "addTask"
+>;
+
 export class CanvasingService {
   constructor(
     private readonly repository: ICanvasingRepository,
-    private readonly woRepository: IWorkOrderRepository,
+    private readonly woRepository: CanvasingWorkOrderPort,
   ) {}
 
   /** Create a canvasing request and return a response DTO. */

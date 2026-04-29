@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 // WhatsApp Service - Main service for sending WhatsApp messages
 
-import { AttendanceSettingsService } from "@/modules/attendance/services/AttendanceSettingsService";
+import { AttendanceSettingsService } from "@/modules/attendance";
 import { decryptApiKey } from "@/lib/utils/encryption";
 import { WhatsAppFactory } from "./whatsapp-factory";
 import type {

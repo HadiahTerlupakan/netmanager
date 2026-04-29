@@ -21,6 +21,7 @@ export * from "./services/ManualPaymentAdminRouteService";
 export * from "./services/CustomerPaymentFinanceService";
 export * from "./services/CustomerPaymentMethodService";
 export * from "./services/FinanceExpenseBridgeService";
+export * from "./services/FinanceExpenseQueryService";
 export * from "./services/InvestorAdminService";
 export * from "./services/InvestorPortalAuthService";
 export * from "./services/InvestorPortalDashboardService";
@@ -37,6 +38,7 @@ export * from "./services/RabProjectRouteService";
 export * from "./services/ReceivablesPageService";
 export * from "./dto/ReceivableDTO";
 export * from "./services/RouteServiceError";
+export * from "./utils/prisma-search-filters";
 export * from "./utils/rabTarget";
 
 // Payment Gateway
@@ -45,3 +47,7 @@ export * from "./services/payment-gateway/gateway-manager";
 export * from "./services/payment-gateway/payment-method-catalog";
 export * from "./services/payment-gateway/providers/midtrans-provider";
 export * from "./services/payment-gateway/providers/moota-provider";
+export {
+  rabProjectCreateSchema,
+  rabProjectUpdateSchema,
+} from "./validators/rabProjectSchemas";

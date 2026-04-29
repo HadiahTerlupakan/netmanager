@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const service = getAppVersionService();
+    const service = await getAppVersionService();
     const result = await service.checkForUpdate(currentVersionCode, platform);
 
     return NextResponse.json({

@@ -11,10 +11,13 @@ export * from "./services/InventoryStockMovementService";
 export * from "./services/InventoryRestockCheckService";
 export * from "./services/InventoryOpnameService";
 export * from "./services/InventoryDashboardService";
+export * from "./services/InventoryQueryService";
 export * from "./services/InventoryRouteService";
 export * from "./services/InventoryPhotoUploadService";
+export * from "./services/InventoryStockEffectService";
 export * from "./services/RestockRequestService";
 export * from "./services/MobileInventoryService";
+export * from "./services/InventoryStockService";
 export * from "./utils/session";
 export * from "./utils/validation";
 

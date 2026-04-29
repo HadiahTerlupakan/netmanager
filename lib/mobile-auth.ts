@@ -191,8 +191,9 @@ export async function getMobileTokenDetails(
     const { payload } = await jwtVerify(token, getSecret());
     const mobilePayload = payload as MobileTokenPayload;
     const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
-    const versionAccess =
-      await getAppVersionService().evaluateVersionAccess(versionCode);
+    const versionAccess = await (
+      await getAppVersionService()
+    ).evaluateVersionAccess(versionCode);
 
     return {
       payload: mobilePayload,

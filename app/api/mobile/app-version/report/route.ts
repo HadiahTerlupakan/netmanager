@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const appVersionService = getAppVersionService();
+    const appVersionService = await getAppVersionService();
 
     if (!body.versionCode) {
       return apiError("versionCode wajib diisi", ErrorCodes.VALIDATION_ERROR, {

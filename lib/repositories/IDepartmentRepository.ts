@@ -4,4 +4,4 @@ export type {
   DepartmentUpdateData,
   DepartmentWithUserCount,
   IDepartmentRepository,
-} from "@/modules/users/repositories/IDepartmentRepository";
+} from "@/modules/users";

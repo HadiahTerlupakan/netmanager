@@ -57,6 +57,7 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/utils/image-upload", () => ({
   convertAndSaveImage: mockFns.convertAndSaveImage,
   uploadInventoryPhotos: vi.fn(),
+  validateInventoryPhotos: vi.fn(),
 }));
 
 vi.mock("@/lib/upload/upload-policy", () => ({

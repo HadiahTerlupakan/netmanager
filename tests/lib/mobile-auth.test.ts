@@ -24,8 +24,8 @@ vi.mock("jose", () => ({
   },
 }));
 
-vi.mock("@/modules/app-version/services/AppVersionService", () => ({
-  getAppVersionService: () => ({
+vi.mock("@/modules/app-version", () => ({
+  getAppVersionService: async () => ({
     evaluateVersionAccess: mockEvaluateVersionAccess,
   }),
 }));

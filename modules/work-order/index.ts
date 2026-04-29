@@ -12,4 +12,6 @@ export * from "./services/MobileAvailableWorkOrderService";
 export * from "./services/MobileWorkOrderPartnerService";
 export * from "./services/MobileWorkOrderActionService";
 export * from "./services/AdminWorkOrderDashboardService";
+export * from "./services/WorkOrderQueryService";
 export * from "./services/partner-invite-availability";
+export type { IWorkOrderRepository } from "./services/work-order.contracts";

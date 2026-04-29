@@ -2,9 +2,9 @@ export {
   supportTicketCreateSchema,
   supportTicketFilterSchema,
   supportTicketUpdateSchema,
-} from "@/modules/pelanggan/validators/support-ticket";
+} from "@/modules/pelanggan";
 export type {
   SupportTicketCreate,
   SupportTicketFilter,
   SupportTicketUpdate,
-} from "@/modules/pelanggan/validators/support-ticket";
+} from "@/modules/pelanggan";

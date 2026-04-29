@@ -23,9 +23,11 @@ import type { ISalaryComponentRepository } from "../domain/ports/ISalaryComponen
 import type { ISalaryRepository } from "../domain/ports/ISalaryRepository";
 import { SalaryComponentRepository } from "../repositories/SalaryComponentRepository";
 import { SalaryRepository } from "../repositories/SalaryRepository";
-import { AttendanceRepository } from "@/modules/attendance/repositories/AttendanceRepository";
-import { LeaveBalanceRepository } from "@/modules/attendance/repositories/LeaveBalanceRepository";
-import { OvertimeRepository } from "@/modules/overtime/repositories/OvertimeRepository";
+import {
+  AttendancePayrollQueryService,
+  LeaveBalanceQueryService,
+} from "@/modules/attendance";
+import { OvertimePayrollQueryService } from "@/modules/overtime";
 import {
   UserRepository,
   EmployeeLoanRepository,
@@ -64,9 +66,9 @@ interface SalaryCalculationResult {
 export class SalaryCalculatorService {
   private salaryRepo: ISalaryRepository;
   private componentRepo: ISalaryComponentRepository;
-  private attendanceRepo: AttendanceRepository;
-  private overtimeRepo: OvertimeRepository;
-  private leaveBalanceRepo: LeaveBalanceRepository;
+  private attendanceRepo: AttendancePayrollQueryService;
+  private overtimeRepo: OvertimePayrollQueryService;
+  private leaveBalanceRepo: LeaveBalanceQueryService;
   private userRepository: UserRepository;
   private employeeLoanRepository: EmployeeLoanRepository;
   private attendanceRepoForSalary: AttendanceRepositoryForSalary;
@@ -80,9 +82,9 @@ export class SalaryCalculatorService {
   ) {
     this.salaryRepo = salaryRepo;
     this.componentRepo = componentRepo;
-    this.attendanceRepo = new AttendanceRepository();
-    this.overtimeRepo = new OvertimeRepository();
-    this.leaveBalanceRepo = new LeaveBalanceRepository();
+    this.attendanceRepo = new AttendancePayrollQueryService();
+    this.overtimeRepo = new OvertimePayrollQueryService();
+    this.leaveBalanceRepo = new LeaveBalanceQueryService();
     this.userRepository = new UserRepository();
     this.employeeLoanRepository = new EmployeeLoanRepository();
     this.attendanceRepoForSalary = new AttendanceRepositoryForSalary();
