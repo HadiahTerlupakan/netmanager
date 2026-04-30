@@ -1,10 +1,27 @@
 import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
-import type { Prisma, WorkOrderPriority, WorkOrderType } from "@prisma/client";
-
-const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 20;
+import type { Prisma } from "@prisma/client";
+import {
+  buildDepartmentUpdate,
+  buildEscalationCreateData,
+  buildEscalationUpdateData,
+  buildEscalationWhere,
+  buildPagination,
+  buildSlaCreateData,
+  buildSlaUpdateData,
+  buildSlaWhere,
+  buildTemplateWhere,
+  removeUndefinedFields,
+  type EscalationListQuery,
+  type SlaListQuery,
+  type TemplateListQuery,
+} from "./admin-work-order-config.helpers";
+export type {
+  EscalationListQuery,
+  SlaListQuery,
+  TemplateListQuery,
+} from "./admin-work-order-config.helpers";
 const SLA_MODEL = prisma.sla;
 
 const templateInclude = {
@@ -56,76 +73,12 @@ const slaDetailInclude = {
   },
 } satisfies Prisma.SlaInclude;
 
-export interface PaginationQuery {
-  page?: number;
-  limit?: number;
-}
-
-export interface TemplateListQuery extends PaginationQuery {
-  search?: string;
-  type?: WorkOrderType;
-  priority?: WorkOrderPriority;
-  departmentId?: string;
-  isActive?: boolean;
-  sortBy: "name" | "type" | "priority" | "createdAt" | "updatedAt";
-  sortOrder: Prisma.SortOrder;
-}
-
-export interface EscalationListQuery extends PaginationQuery {
-  search?: string;
-  slaId?: string;
-  workOrderType?: WorkOrderType;
-  priority?: WorkOrderPriority;
-  departmentId?: string;
-  escalationLevel?: number;
-  isActive?: boolean;
-  sortBy:
-    | "name"
-    | "slaId"
-    | "workOrderType"
-    | "priority"
-    | "escalationLevel"
-    | "createdAt"
-    | "updatedAt";
-  sortOrder: Prisma.SortOrder;
-}
-
-export interface SlaListQuery extends PaginationQuery {
-  search?: string;
-  workOrderType?: WorkOrderType;
-  priority?: WorkOrderPriority;
-  departmentId?: string;
-  isActive?: boolean;
-  sortBy:
-    | "name"
-    | "workOrderType"
-    | "priority"
-    | "responseTime"
-    | "resolutionTime"
-    | "createdAt"
-    | "updatedAt";
-  sortOrder: Prisma.SortOrder;
-}
-
-interface PaginationOptions {
-  page?: number;
-  limit?: number;
-}
-
 /** Repository konfigurasi admin work order berbasis Prisma. */
 export class AdminWorkOrderConfigRepository {
-  /** Hapus field undefined dari payload Prisma. */
-  private removeUndefinedFields<T extends Record<string, unknown>>(
-    input: T,
-  ): T {
-    return Object.fromEntries(
-      Object.entries(input).filter(([, value]) => value !== undefined),
-    ) as T;
-  }
   /** Ambil daftar template work order dengan pagination. */
   async findTemplates(query: TemplateListQuery) {
-    const where = this.buildTemplateWhere(query);
-    const pagination = this.buildPagination(query);
+    const where = buildTemplateWhere(query);
+    const pagination = buildPagination(query);
 
     const [data, total] = await Promise.all([
       prisma.workOrderTemplates.findMany({
@@ -144,9 +97,7 @@ export class AdminWorkOrderConfigRepository {
   /** Buat template work order baru. */
   async createTemplate(input: Record<string, unknown>, userId: string) {
     const { departmentId, ...rest } = input as { departmentId?: string };
-    const createInput = this.removeUndefinedFields(
-      rest as Record<string, unknown>,
-    );
+    const createInput = removeUndefinedFields(rest as Record<string, unknown>);
     const data = {
       ...(createInput as Prisma.WorkOrderTemplatesCreateInput),
       id: randomUUID(),
@@ -171,14 +122,12 @@ export class AdminWorkOrderConfigRepository {
   /** Perbarui template work order. */
   async updateTemplate(id: string, input: Record<string, unknown>) {
     const { departmentId, ...rest } = input as { departmentId?: string };
-    const updateInput = this.removeUndefinedFields(
-      rest as Record<string, unknown>,
-    );
+    const updateInput = removeUndefinedFields(rest as Record<string, unknown>);
     const data = {
       ...(updateInput as Prisma.WorkOrderTemplatesUpdateInput),
       updatedAt: new Date(),
       ...(departmentId !== undefined
-        ? { departments: this.buildDepartmentUpdate(departmentId) }
+        ? { departments: buildDepartmentUpdate(departmentId) }
         : {}),
     } satisfies Prisma.WorkOrderTemplatesUpdateInput;
 
@@ -201,8 +150,8 @@ export class AdminWorkOrderConfigRepository {
 
   /** Ambil daftar escalation rule dengan pagination. */
   async findEscalations(query: EscalationListQuery) {
-    const where = this.buildEscalationWhere(query);
-    const pagination = this.buildPagination(query);
+    const where = buildEscalationWhere(query);
+    const pagination = buildPagination(query);
 
     const [data, total] = await Promise.all([
       prisma.workOrderEscalations.findMany({
@@ -220,23 +169,12 @@ export class AdminWorkOrderConfigRepository {
 
   /** Buat escalation rule baru. */
   async createEscalation(input: Record<string, unknown>, userId: string) {
-    const { departmentId, slaId, ...rest } = input as {
-      departmentId?: string;
-      slaId?: string;
-    };
-    const createInput = this.removeUndefinedFields(
-      rest as Record<string, unknown>,
-    );
-    const data = {
-      ...(createInput as Prisma.WorkOrderEscalationsCreateInput),
+    const data = buildEscalationCreateData({
+      payload: input,
+      userId,
       id: randomUUID(),
       updatedAt: new Date(),
-      ...(departmentId
-        ? { departments: { connect: { id: departmentId } } }
-        : {}),
-      ...(slaId ? { sla: { connect: { id: slaId } } } : {}),
-      user: { connect: { id: userId } },
-    } satisfies Prisma.WorkOrderEscalationsCreateInput;
+    });
 
     return prisma.workOrderEscalations.create({
       data,
@@ -254,25 +192,9 @@ export class AdminWorkOrderConfigRepository {
 
   /** Perbarui escalation rule. */
   async updateEscalation(id: string, input: Record<string, unknown>) {
-    const { departmentId, slaId, ...rest } = input as {
-      departmentId?: string;
-      slaId?: string;
-    };
-    const updateInput = this.removeUndefinedFields(
-      rest as Record<string, unknown>,
-    );
-    const data = {
-      ...(updateInput as Prisma.WorkOrderEscalationsUpdateInput),
-      updatedAt: new Date(),
-      ...(departmentId !== undefined
-        ? { departments: this.buildDepartmentUpdate(departmentId) }
-        : {}),
-      ...(slaId !== undefined ? { sla: this.buildSlaUpdate(slaId) } : {}),
-    } satisfies Prisma.WorkOrderEscalationsUpdateInput;
-
     return prisma.workOrderEscalations.update({
       where: { id },
-      data,
+      data: buildEscalationUpdateData(input),
       include: escalationInclude,
     });
   }
@@ -284,8 +206,8 @@ export class AdminWorkOrderConfigRepository {
 
   /** Ambil daftar SLA dengan pagination. */
   async findSlas(query: SlaListQuery) {
-    const where = this.buildSlaWhere(query);
-    const pagination = this.buildPagination(query);
+    const where = buildSlaWhere(query);
+    const pagination = buildPagination(query);
 
     const [data, total] = await Promise.all([
       SLA_MODEL.findMany({
@@ -303,20 +225,8 @@ export class AdminWorkOrderConfigRepository {
 
   /** Buat aturan SLA baru. */
   async createSla(input: Record<string, unknown>, userId: string) {
-    const { departmentId, ...rest } = input as { departmentId?: string };
-    const createInput = this.removeUndefinedFields(
-      rest as Record<string, unknown>,
-    );
-    const data = {
-      ...(createInput as Prisma.SlaCreateInput),
-      user: { connect: { id: userId } },
-      ...(departmentId
-        ? { departments: { connect: { id: departmentId } } }
-        : {}),
-    } satisfies Prisma.SlaCreateInput;
-
     return SLA_MODEL.create({
-      data,
+      data: buildSlaCreateData({ payload: input, userId }),
       include: {
         departments: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
@@ -343,21 +253,9 @@ export class AdminWorkOrderConfigRepository {
 
   /** Perbarui aturan SLA. */
   async updateSla(id: string, input: Record<string, unknown>) {
-    const { departmentId, ...rest } = input as { departmentId?: string };
-    const updateInput = this.removeUndefinedFields(
-      rest as Record<string, unknown>,
-    );
-    const data = {
-      ...(updateInput as Prisma.SlaUpdateInput),
-      updatedAt: new Date(),
-      ...(departmentId !== undefined
-        ? { departments: this.buildDepartmentUpdate(departmentId) }
-        : {}),
-    } satisfies Prisma.SlaUpdateInput;
-
     return SLA_MODEL.update({
       where: { id },
-      data,
+      data: buildSlaUpdateData(input),
       include: {
         departments: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
@@ -376,97 +274,5 @@ export class AdminWorkOrderConfigRepository {
   /** Hapus aturan SLA. */
   async deleteSla(id: string) {
     await SLA_MODEL.delete({ where: { id } });
-  }
-
-  private buildPagination(options: PaginationOptions) {
-    const page = options.page ?? DEFAULT_PAGE;
-    const limit = options.limit ?? DEFAULT_LIMIT;
-    return { skip: (page - 1) * limit, take: limit };
-  }
-
-  private buildTemplateWhere(
-    query: TemplateListQuery,
-  ): Prisma.WorkOrderTemplatesWhereInput {
-    const where: Prisma.WorkOrderTemplatesWhereInput = {};
-    this.assignSearch(where, query.search);
-    this.assignIfValue(where, "type", query.type);
-    this.assignIfValue(where, "priority", query.priority);
-    this.assignIfValue(where, "departmentId", query.departmentId);
-    this.assignIfValue(where, "isActive", query.isActive);
-    return where;
-  }
-
-  private buildEscalationWhere(
-    query: EscalationListQuery,
-  ): Prisma.WorkOrderEscalationsWhereInput {
-    const where: Prisma.WorkOrderEscalationsWhereInput = {};
-    this.assignSearch(where, query.search);
-    this.assignIfValue(where, "slaId", query.slaId);
-    this.assignIfValue(where, "workOrderType", query.workOrderType);
-    this.assignIfValue(where, "priority", query.priority);
-    this.assignIfValue(where, "departmentId", query.departmentId);
-    this.assignIfValue(where, "escalationLevel", query.escalationLevel);
-    this.assignIfValue(where, "isActive", query.isActive);
-    return where;
-  }
-
-  private buildSlaWhere(query: SlaListQuery): Prisma.SlaWhereInput {
-    const where: Prisma.SlaWhereInput = {};
-    this.assignSearch(where, query.search);
-    this.assignIfValue(where, "workOrderType", query.workOrderType);
-    this.assignIfValue(where, "priority", query.priority);
-    this.assignIfValue(where, "departmentId", query.departmentId);
-    this.assignIfValue(where, "isActive", query.isActive);
-    return where;
-  }
-
-  private assignSearch(
-    where: { OR?: Prisma.Enumerable<Prisma.StringFilter | object> },
-    search?: string,
-  ) {
-    if (!search) {
-      return;
-    }
-
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { description: { contains: search, mode: "insensitive" } },
-    ];
-  }
-
-  private assignIfValue<T extends object, K extends keyof T>(
-    target: T,
-    key: K,
-    value: T[K] | undefined,
-  ) {
-    if (value === undefined || value === "") {
-      return;
-    }
-
-    target[key] = value;
-  }
-
-  private buildDepartmentUpdate(departmentId?: string) {
-    if (departmentId === undefined) {
-      return undefined;
-    }
-
-    if (!departmentId) {
-      return { disconnect: true };
-    }
-
-    return { connect: { id: departmentId } };
-  }
-
-  private buildSlaUpdate(slaId?: string) {
-    if (slaId === undefined) {
-      return undefined;
-    }
-
-    if (!slaId) {
-      return { disconnect: true };
-    }
-
-    return { connect: { id: slaId } };
   }
 }

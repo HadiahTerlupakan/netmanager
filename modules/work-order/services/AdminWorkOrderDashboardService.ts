@@ -1,9 +1,31 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { ApiErrors, apiSuccess } from "@/lib/api";
-import { isSuperAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { AdminWorkOrderRouteRepository } from "../repositories/AdminWorkOrderRouteRepository";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
+import {
+  buildAnalyticsDateRange,
+  buildDashboardDateRange,
+  buildWorkOrderDashboardAccessFilters,
+  getEmptyWorkOrderDashboardData,
+} from "./admin-work-order-dashboard.helpers";
 import { workOrderCacheService } from "./WorkOrderCacheService";
+
+const RECENT_WORK_ORDER_LIMIT = 5;
+const ANALYTICS_LIMIT = 5;
+const FALLBACK_RESPONSE_DAYS = 30;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+type DashboardAccess = {
+  departmentId?: string;
+  siteId?: string;
+  emptyResponse: boolean;
+};
+
+type DashboardCacheOptions = {
+  departmentId?: string;
+  siteId?: string;
+};
 
 export interface AdminWorkOrderUserContext {
   id: string;
@@ -18,226 +40,105 @@ export interface AdminWorkOrderDashboardOptions {
 }
 
 export class AdminWorkOrderDashboardService {
-  private readonly workOrderRepo: WorkOrderRepository;
+  private readonly routeRepository: AdminWorkOrderRouteRepository;
 
-  constructor(workOrderRepo?: WorkOrderRepository) {
-    this.workOrderRepo = workOrderRepo ?? new WorkOrderRepository(prisma);
+  constructor(
+    private readonly workOrderRepo: WorkOrderRepository = new WorkOrderRepository(
+      prisma,
+    ),
+    routeRepository: AdminWorkOrderRouteRepository = new AdminWorkOrderRouteRepository(),
+  ) {
+    this.routeRepository = routeRepository;
   }
 
+  /** Ambil ringkasan dashboard work order admin. */
   async getDashboardData(
     options: AdminWorkOrderDashboardOptions,
   ): Promise<NextResponse> {
-    const { user, permissions = [], period = "all_time" } = options;
+    const profile = await this.routeRepository.findUserProfile(options.user.id);
+    if (!profile) return ApiErrors.unauthorized();
 
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { id: true, role: true, departmentId: true, siteId: true },
-    });
-
-    if (!dbUser) return ApiErrors.unauthorized();
-
-    const { departmentId, siteId, emptyResponse } = this.buildAccessFilters({
-      role: user.role,
-      isSuperAdmin: user.isSuperAdmin,
-      permissions,
-      departmentId: dbUser.departmentId,
-      siteId: dbUser.siteId,
-    });
-
-    if (emptyResponse) {
+    const access = this.resolveAccess(options, profile);
+    if (access.emptyResponse) {
       return apiSuccess({
-        ...this.getEmptyDashboardData(),
+        ...getEmptyWorkOrderDashboardData(),
         message: "Restricted access: No department/site assigned.",
       });
     }
 
-    const cacheOptions = {
-      ...(departmentId ? { departmentId } : {}),
-      ...(siteId ? { siteId } : {}),
-    };
-
-    const cachedData = await workOrderCacheService.getCachedDashboardData(
-      user.id,
+    const period = options.period ?? "all_time";
+    const cacheOptions = this.createCacheOptions(access);
+    const cached = await workOrderCacheService.getCachedDashboardData(
+      options.user.id,
       period,
       cacheOptions,
     );
-    if (cachedData) {
+    if (cached) {
       return apiSuccess({
-        ...(cachedData as Record<string, unknown>),
+        ...(cached as Record<string, unknown>),
         cached: true,
       });
     }
 
-    const { dateFrom, dateTo } = this.buildDashboardDateRange(period);
-
-    const [
-      stats,
-      recentWorkOrders,
-      departmentWorkload,
-      topPerformers,
-      topAssists,
-      issueStats,
-      siteStats,
-      disconnectionStats,
-      responseStats,
-      adminKPI,
-    ] = await Promise.all([
-      this.workOrderRepo.getStatistics({
-        ...(departmentId ? { departmentId } : {}),
-        ...(siteId ? { siteId } : {}),
-      }),
-      this.workOrderRepo.getRecentWorkOrders(5, {
-        ...(departmentId ? { departmentId } : {}),
-        ...(siteId ? { siteId } : {}),
-      }),
-      this.workOrderRepo.getDepartmentWorkload(departmentId),
-      this.workOrderRepo.getTopPerformers(5, dateFrom, dateTo, departmentId),
-      this.workOrderRepo.getTopAssists(5, dateFrom, dateTo, departmentId),
-      this.workOrderRepo.getIssueStatistics(
-        5,
-        dateFrom,
-        dateTo,
-        departmentId,
-        siteId,
-      ),
-      this.workOrderRepo.getSiteStatistics(
-        5,
-        dateFrom,
-        dateTo,
-        departmentId,
-        siteId,
-      ),
-      this.workOrderRepo.getDisconnectionStatistics(
-        dateFrom,
-        dateTo,
-        departmentId,
-        siteId,
-      ),
-      this.workOrderRepo.getAdminResponseStats(
-        dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        dateTo || new Date(),
-        departmentId,
-      ),
-      this.workOrderRepo.getAdminKPIStats(departmentId, siteId),
-    ]);
-
-    const baseWhere = {
-      ...(departmentId ? { departmentId } : {}),
-      ...(siteId ? { siteId } : {}),
-    };
-
-    const [customerCount, internalCount] = await Promise.all([
-      prisma.workOrders.count({
-        where: {
-          ...baseWhere,
-          isInternal: false,
-        },
-      }),
-      prisma.workOrders.count({
-        where: {
-          ...baseWhere,
-          isInternal: true,
-        },
-      }),
-    ]);
-
+    const dateRange = buildDashboardDateRange(period);
+    const statistics = await this.loadDashboardStatistics(access, dateRange);
+    const typeStats =
+      await this.routeRepository.countWorkOrderTypes(cacheOptions);
     const dashboardData = {
-      stats,
-      recentWorkOrders,
-      departmentWorkload,
-      topPerformers,
-      topAssists,
-      issueStats,
-      siteStats,
-      disconnectionStats,
-      responseStats,
-      adminKPI,
-      woTypeStats: {
-        customer: customerCount,
-        internal: internalCount,
-      },
+      ...statistics,
+      woTypeStats: typeStats,
     };
 
     await workOrderCacheService.cacheDashboardData(
-      user.id,
+      options.user.id,
       period,
       dashboardData,
       cacheOptions,
     );
 
-    return apiSuccess({
-      ...dashboardData,
-      cached: false,
-    });
+    return apiSuccess({ ...dashboardData, cached: false });
   }
 
+  /** Ambil data analitik dashboard work order admin. */
   async getAnalyticsData(
     options: AdminWorkOrderDashboardOptions,
   ): Promise<NextResponse> {
-    const { user, permissions = [], period = "all_time" } = options;
+    const profile = await this.routeRepository.findUserProfile(options.user.id);
+    if (!profile) return ApiErrors.unauthorized();
 
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { id: true, role: true, departmentId: true, siteId: true },
-    });
+    const access = this.resolveAccess(options, profile);
+    if (access.emptyResponse) {
+      return apiSuccess({
+        issues: [],
+        sites: [],
+        disconnections: [],
+        message: "Restricted access: No department/site assigned.",
+      });
+    }
 
-    if (!dbUser) return ApiErrors.unauthorized();
-
-    const { dateFrom, dateTo } = this.buildAnalyticsDateRange(period);
-    const isSuper = isSuperAdmin({
-      role: user.role,
-      isSuperAdmin: user.isSuperAdmin,
-    });
-
-    const hasDepartmentRestriction = permissions.includes(
-      "workorders:department_only",
+    const { dateFrom, dateTo } = buildAnalyticsDateRange(
+      options.period ?? "all_time",
     );
-    if (hasDepartmentRestriction && !isSuper && !dbUser.departmentId) {
-      return apiSuccess({
-        issues: [],
-        sites: [],
-        disconnections: [],
-        message: "Restricted access: No department assigned.",
-      });
-    }
-
-    const hasSiteRestriction = permissions.includes("workorders:site_only");
-    if (hasSiteRestriction && !isSuper && !dbUser.siteId) {
-      return apiSuccess({
-        issues: [],
-        sites: [],
-        disconnections: [],
-        message: "Restricted access: No site assigned.",
-      });
-    }
-
-    const departmentIdFilter =
-      hasDepartmentRestriction && !isSuper
-        ? dbUser.departmentId || undefined
-        : undefined;
-    const siteIdFilter =
-      hasSiteRestriction && !isSuper ? dbUser.siteId || undefined : undefined;
-
     const [issueStats, siteStats, disconnectionStats] = await Promise.all([
       this.workOrderRepo.getIssueStatistics(
-        5,
+        ANALYTICS_LIMIT,
         dateFrom,
         dateTo,
-        departmentIdFilter,
-        siteIdFilter,
+        access.departmentId,
+        access.siteId,
       ),
       this.workOrderRepo.getSiteStatistics(
-        5,
+        ANALYTICS_LIMIT,
         dateFrom,
         dateTo,
-        departmentIdFilter,
-        siteIdFilter,
+        access.departmentId,
+        access.siteId,
       ),
       this.workOrderRepo.getDisconnectionStatistics(
         dateFrom,
         dateTo,
-        departmentIdFilter,
-        siteIdFilter,
+        access.departmentId,
+        access.siteId,
       ),
     ]);
 
@@ -248,176 +149,113 @@ export class AdminWorkOrderDashboardService {
     });
   }
 
-  private buildDashboardDateRange(period: string): {
-    dateFrom?: Date;
-    dateTo?: Date;
-  } {
-    const now = new Date();
-    let dateFrom: Date | undefined;
-    let dateTo: Date | undefined = new Date();
-
-    switch (period) {
-      case "daily":
-        dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case "weekly": {
-        const firstDay = now.getDate() - now.getDay();
-        dateFrom = new Date(now.getFullYear(), now.getMonth(), firstDay);
-        break;
-      }
-      case "monthly":
-        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "yearly":
-        dateFrom = new Date(now.getFullYear(), 0, 1);
-        break;
-      case "last_30_days":
-        dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case "all_time":
-      default:
-        dateFrom = undefined;
-        dateTo = undefined;
-        break;
-    }
-
-    return {
-      ...(dateFrom ? { dateFrom } : {}),
-      ...(dateTo ? { dateTo } : {}),
-    };
-  }
-
-  private buildAnalyticsDateRange(period: string): {
-    dateFrom?: Date;
-    dateTo?: Date;
-  } {
-    const now = new Date();
-    let dateFrom: Date | undefined;
-    let dateTo: Date | undefined;
-
-    if (period === "daily") {
-      dateFrom = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        0,
-        0,
-        0,
-        0,
-      );
-      dateTo = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        23,
-        59,
-        59,
-        999,
-      );
-    } else if (period === "weekly") {
-      const firstDay = now.getDate() - now.getDay();
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), firstDay);
-      dateTo = new Date();
-    } else if (period === "monthly") {
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-      dateTo = new Date();
-    } else if (period === "yearly") {
-      dateFrom = new Date(now.getFullYear(), 0, 1);
-      dateTo = new Date();
-    }
-
-    return {
-      ...(dateFrom ? { dateFrom } : {}),
-      ...(dateTo ? { dateTo } : {}),
-    };
-  }
-
-  private buildAccessFilters(options: {
-    role?: string;
-    isSuperAdmin?: boolean;
-    permissions?: string[];
-    departmentId?: string | null;
-    siteId?: string | null;
-  }): {
-    departmentId?: string;
-    siteId?: string;
-    emptyResponse: boolean;
-  } {
-    const hasDepartmentRestriction = options.permissions?.includes(
-      "workorders:department_only",
-    );
-    const hasSiteRestriction = options.permissions?.includes(
-      "workorders:site_only",
-    );
-    const isSuper = isSuperAdmin({
-      role: options.role,
-      isSuperAdmin: options.isSuperAdmin,
+  private resolveAccess(
+    options: AdminWorkOrderDashboardOptions,
+    profile: NonNullable<
+      Awaited<ReturnType<AdminWorkOrderRouteRepository["findUserProfile"]>>
+    >,
+  ): DashboardAccess {
+    return buildWorkOrderDashboardAccessFilters({
+      role: options.user.role,
+      isSuperAdmin: options.user.isSuperAdmin,
+      permissions: options.permissions ?? [],
+      departmentId: profile.departmentId,
+      siteId: profile.siteId,
     });
+  }
 
-    let departmentId: string | undefined;
-    let siteId: string | undefined;
-    let emptyResponse = false;
-
-    if (hasDepartmentRestriction && !isSuper) {
-      if (!options.departmentId) {
-        emptyResponse = true;
-      } else {
-        departmentId = options.departmentId;
-      }
-    }
-
-    if (hasSiteRestriction && !isSuper) {
-      if (!options.siteId) {
-        emptyResponse = true;
-      } else {
-        siteId = options.siteId;
-      }
-    }
-
+  private createCacheOptions(access: DashboardAccess): DashboardCacheOptions {
     return {
-      ...(departmentId ? { departmentId } : {}),
-      ...(siteId ? { siteId } : {}),
-      emptyResponse,
+      ...(access.departmentId ? { departmentId: access.departmentId } : {}),
+      ...(access.siteId ? { siteId: access.siteId } : {}),
     };
   }
 
-  private getEmptyDashboardData() {
+  private async loadDashboardStatistics(
+    access: DashboardAccess,
+    dateRange: ReturnType<typeof buildDashboardDateRange>,
+  ) {
+    const responseRange = this.createResponseRange(dateRange);
+    return Promise.all([
+      this.workOrderRepo.getStatistics(this.createCacheOptions(access)),
+      this.workOrderRepo.getRecentWorkOrders(
+        RECENT_WORK_ORDER_LIMIT,
+        this.createCacheOptions(access),
+      ),
+      this.workOrderRepo.getDepartmentWorkload(access.departmentId),
+      this.workOrderRepo.getTopPerformers(
+        ANALYTICS_LIMIT,
+        dateRange.dateFrom,
+        dateRange.dateTo,
+        access.departmentId,
+      ),
+      this.workOrderRepo.getTopAssists(
+        ANALYTICS_LIMIT,
+        dateRange.dateFrom,
+        dateRange.dateTo,
+        access.departmentId,
+      ),
+      this.workOrderRepo.getIssueStatistics(
+        ANALYTICS_LIMIT,
+        dateRange.dateFrom,
+        dateRange.dateTo,
+        access.departmentId,
+        access.siteId,
+      ),
+      this.workOrderRepo.getSiteStatistics(
+        ANALYTICS_LIMIT,
+        dateRange.dateFrom,
+        dateRange.dateTo,
+        access.departmentId,
+        access.siteId,
+      ),
+      this.workOrderRepo.getDisconnectionStatistics(
+        dateRange.dateFrom,
+        dateRange.dateTo,
+        access.departmentId,
+        access.siteId,
+      ),
+      this.workOrderRepo.getAdminResponseStats(
+        responseRange.dateFrom,
+        responseRange.dateTo,
+        access.departmentId,
+      ),
+      this.workOrderRepo.getAdminKPIStats(access.departmentId, access.siteId),
+    ]).then(
+      ([
+        stats,
+        recentWorkOrders,
+        departmentWorkload,
+        topPerformers,
+        topAssists,
+        issueStats,
+        siteStats,
+        disconnectionStats,
+        responseStats,
+        adminKPI,
+      ]) => ({
+        stats,
+        recentWorkOrders,
+        departmentWorkload,
+        topPerformers,
+        topAssists,
+        issueStats,
+        siteStats,
+        disconnectionStats,
+        responseStats,
+        adminKPI,
+      }),
+    );
+  }
+
+  private createResponseRange(
+    dateRange: ReturnType<typeof buildDashboardDateRange>,
+  ) {
     return {
-      stats: {
-        total: 0,
-        pending: 0,
-        assigned: 0,
-        inProgress: 0,
-        onHold: 0,
-        completed: 0,
-        verified: 0,
-        closed: 0,
-        cancelled: 0,
-        urgentOpen: 0,
-        avgCompletionTimeHours: 0,
-        totalCost: 0,
-        avgRating: null as number | null,
-        totalWithRating: 0,
-      },
-      recentWorkOrders: [] as unknown[],
-      departmentWorkload: [] as unknown[],
-      topPerformers: [] as unknown[],
-      topAssists: [] as unknown[],
-      issueStats: [] as unknown[],
-      siteStats: [] as unknown[],
-      disconnectionStats: [] as unknown[],
-      responseStats: [] as unknown[],
-      adminKPI: {
-        pendingVerification: 0,
-        avgVerificationTimeMinutes: 0,
-        avgOnHoldResponseMinutes: 0,
-        verifiedToday: 0,
-        verifiedThisWeek: 0,
-      },
-      woTypeStats: {
-        customer: 0,
-        internal: 0,
-      },
+      dateFrom:
+        dateRange.dateFrom ??
+        new Date(Date.now() - FALLBACK_RESPONSE_DAYS * DAY_IN_MS),
+      dateTo: dateRange.dateTo ?? new Date(),
     };
   }
 }

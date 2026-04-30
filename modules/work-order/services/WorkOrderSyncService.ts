@@ -1,11 +1,11 @@
 import { logger } from "@/lib/logger";
-import type { WorkOrderAttachments } from "@prisma/client";
-import { WorkOrderStatus, TicketStatus } from "@prisma/client";
-import { format } from "date-fns";
-import { id } from "date-fns/locale";
-import { randomUUID } from "crypto";
+import { WorkOrderStatus } from "@prisma/client";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { TicketRepository } from "../repositories/TicketRepository";
+import {
+  syncCompletedTicket,
+  syncInProgressTicket,
+} from "./work-order-sync.helpers";
 
 let workOrderRepository: WorkOrderRepository | null = null;
 let ticketRepository: TicketRepository | null = null;
@@ -40,47 +40,13 @@ export async function syncWoStatusToTicket(
       return;
     }
 
+    const ticketRepository = getTicketRepository();
     if (status === "IN_PROGRESS") {
-      await getTicketRepository().updateStatus(
-        workOrder.ticketId,
-        TicketStatus.IN_PROGRESS,
-      );
-    } else if (status === "COMPLETED") {
-      await getTicketRepository().updateStatus(
-        workOrder.ticketId,
-        TicketStatus.RESOLVED,
-      );
-
-      const completionPhotos = (
-        workOrder.attachments as WorkOrderAttachments[]
-      ).filter((a: WorkOrderAttachments) =>
-        a.caption?.startsWith("[COMPLETION]"),
-      );
-
-      let message =
-        `**Laporan Pekerjaan Selesai**\n\n` +
-        `Work Order #${workOrder.workOrderNumber} telah diselesaikan.\n` +
-        `Judul: ${workOrder.title}\n` +
-        `Waktu Selesai: ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: id })}\n\n` +
-        `**Keterangan:**\n${workOrder.resolutionNotes || workOrder.description || "-"}\n`;
-
-      if (completionPhotos.length > 0) {
-        message += `\n**Bukti Foto:**\n`;
-      }
-
-      const attachUrls = completionPhotos.map(
-        (p: WorkOrderAttachments) => p.filePath,
-      );
-
-      await getTicketRepository().createReply({
-        id: randomUUID(),
-        ticketId: workOrder.ticketId,
-        message: message,
-        isFromAdmin: true,
-        senderId: workOrder.assignedToId,
-        attachments:
-          attachUrls.length > 0 ? JSON.stringify(attachUrls) : undefined,
-      });
+      await syncInProgressTicket(ticketRepository, workOrder.ticketId);
+      return;
+    }
+    if (status === "COMPLETED") {
+      await syncCompletedTicket(ticketRepository, workOrder);
     }
   } catch (error) {
     logger.error("Error syncing WO to Ticket:", error);

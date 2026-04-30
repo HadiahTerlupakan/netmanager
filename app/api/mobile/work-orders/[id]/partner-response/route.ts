@@ -35,7 +35,7 @@ export async function POST(
       response: body.response,
     });
 
-    if (result.isAlreadyResponded) {
+    if (result.isAlreadyResponded === true) {
       return NextResponse.json(
         {
           error: `Undangan sudah ${result.currentStatus === "APPROVED" ? "diterima" : "ditolak"} sebelumnya`,
@@ -45,18 +45,20 @@ export async function POST(
       );
     }
 
+    const assignment = result.assignment;
+
     return NextResponse.json({
       success: true,
       assignment: {
-        id: result.assignment?.id,
-        workOrderId: result.assignment?.workOrderId,
-        userId: result.assignment?.userId,
-        role: result.assignment?.role,
-        status: result.assignment?.status,
-        assignedAt: result.assignment?.assignedAt,
-        respondedAt: result.assignment?.respondedAt,
-        assignedById: result.assignment?.assignedById,
-        user: result.assignment?.user,
+        id: assignment.id,
+        workOrderId: assignment.workOrderId,
+        userId: assignment.userId,
+        role: assignment.role,
+        status: assignment.status,
+        assignedAt: assignment.assignedAt,
+        respondedAt: assignment.respondedAt,
+        assignedById: assignment.assignedById,
+        user: assignment.user,
       },
       message: `Undangan berhasil ${body.response === "APPROVED" ? "diterima" : "ditolak"}`,
     });

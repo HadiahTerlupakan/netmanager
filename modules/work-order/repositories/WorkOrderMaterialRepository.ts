@@ -1,6 +1,11 @@
 import { randomUUID } from "crypto";
-import { Prisma, type WorkOrderStatus } from "@prisma/client";
+import type { WorkOrderStatus } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
+import {
+  appendUsedMaterialsToWorkOrder,
+  createMaterialPickupMessage,
+  createMobileMaterialUsage,
+} from "./work-order-material.helpers";
 
 type PrismaInstance = typeof defaultPrisma;
 
@@ -136,123 +141,21 @@ export class WorkOrderMaterialRepository {
       const createdItems: MobileWorkOrderMaterialResult[] = [];
 
       for (const item of items) {
-        const { barangId, gudangId, jumlah } = item;
-        const kondisi = item.kondisi || "BARU";
-        const jumlahInt = Math.floor(jumlah);
-
-        if (jumlahInt <= 0) {
-          throw new Error("Jumlah harus angka bulat positif");
-        }
-
-        if (jumlahInt !== jumlah) {
-          throw new Error(
-            "Jumlah material harus angka bulat (tidak boleh desimal)",
-          );
-        }
-
-        const barangGudang = await tx.barangGudang.findFirst({
-          where: {
-            barangId,
-            gudangId,
-            tenantId: workOrder.tenantId,
-          },
-          include: { barang: true },
-        });
-
-        if (!barangGudang) {
-          throw new Error("Data stok tidak ditemukan di gudang ini");
-        }
-
-        const stockField =
-          kondisi === "BARU"
-            ? "stokBaru"
-            : kondisi === "BEKAS"
-              ? "stokBekas"
-              : kondisi === "RUSAK"
-                ? "stokRusak"
-                : "stok";
-        const availableStock = barangGudang[stockField];
-
-        if (availableStock < jumlahInt) {
-          throw new Error(
-            `Stok ${kondisi} tidak mencukupi untuk barang ${barangGudang.barang.nama}. Tersedia: ${availableStock}`,
-          );
-        }
-
-        const updateData: Prisma.BarangGudangUpdateInput = {
-          stok: { decrement: jumlahInt },
-        };
-
-        if (kondisi === "BARU") updateData.stokBaru = { decrement: jumlahInt };
-        else if (kondisi === "BEKAS")
-          updateData.stokBekas = { decrement: jumlahInt };
-        else if (kondisi === "RUSAK")
-          updateData.stokRusak = { decrement: jumlahInt };
-
-        const updatedStock = await tx.barangGudang.updateMany({
-          where: {
-            id: barangGudang.id,
-            [stockField]: { gte: jumlahInt },
-          },
-          data: updateData,
-        });
-
-        if (updatedStock.count === 0) {
-          throw new Error(
-            `Stok ${kondisi} tidak mencukupi untuk barang ${barangGudang.barang.nama}. Tersedia: ${availableStock}`,
-          );
-        }
-
-        const keluar = await tx.barangKeluar.create({
-          data: {
-            id: randomUUID(),
-            barangId,
-            gudangId,
-            jumlah: jumlahInt,
-            kondisi,
-            userId: actorId,
-            purpose: `Work Order: ${workOrder.workOrderNumber}`,
-            keterangan: `Digunakan untuk work order ${workOrder.workOrderNumber} - ${workOrder.title}`,
-            tenantId: workOrder.tenantId,
-          },
-          include: { barang: true },
-        });
-
-        createdItems.push({
-          id: keluar.id,
-          nama: keluar.barang.nama,
-          jumlah: jumlahInt,
-          satuan: keluar.barang.satuan,
-          kondisi,
-          barangId,
-          gudangId,
-        });
+        createdItems.push(
+          await createMobileMaterialUsage({ tx, workOrder, item, actorId }),
+        );
       }
 
-      await tx.$executeRaw`
-                UPDATE "work_orders"
-                SET "usedMaterials" = COALESCE("usedMaterials", '[]'::jsonb) || ${JSON.stringify(createdItems)}::jsonb,
-                    "updatedAt" = NOW()
-                WHERE "id" = ${workOrder.id}
-            `;
-      const updatedWorkOrder = await tx.workOrders.findUnique({
-        where: { id: workOrder.id },
-        select: { usedMaterials: true },
-      });
-      if (!updatedWorkOrder) {
-        throw new Error("Work order tidak ditemukan");
-      }
+      await appendUsedMaterialsToWorkOrder(tx, workOrder.id, createdItems);
+      await assertWorkOrderStillExists(tx, workOrder.id);
 
-      const materialList = createdItems
-        .map((m) => `${m.nama} - ${m.kondisi} (${m.jumlah} ${m.satuan})`)
-        .join(", ");
       await tx.workOrderUpdates.create({
         data: {
           id: randomUUID(),
           workOrderId: workOrder.id,
           createdById: actorId,
           updateType: "MATERIAL_PICKUP",
-          message: `Mengambil barang: ${materialList}`,
+          message: `Mengambil barang: ${createMaterialPickupMessage(createdItems)}`,
           oldStatus: workOrder.status,
           newStatus: workOrder.status,
         },
@@ -261,4 +164,16 @@ export class WorkOrderMaterialRepository {
       return createdItems;
     });
   }
+}
+
+async function assertWorkOrderStillExists(
+  tx: Parameters<Parameters<PrismaInstance["$transaction"]>[0]>[0],
+  workOrderId: string,
+) {
+  const updatedWorkOrder = await tx.workOrders.findUnique({
+    where: { id: workOrderId },
+    select: { usedMaterials: true },
+  });
+
+  if (!updatedWorkOrder) throw new Error("Work order tidak ditemukan");
 }

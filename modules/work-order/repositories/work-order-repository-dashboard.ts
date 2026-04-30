@@ -3,7 +3,15 @@ import type {
   WorkOrderFilters,
   WorkOrderWithRelations,
 } from "./IWorkOrderRepository";
+import {
+  buildEmployeeDepartmentPagination,
+  buildEmployeeDepartmentStatsWhere,
+  buildEmployeeDepartmentWhere,
+  createDepartmentWorkloadSummary,
+  getInProgressStatuses,
+} from "./work-order-repository-dashboard-helpers";
 
+/** Get recent work orders for dashboard widgets. */
 export async function getRecentWorkOrders(
   prisma: PrismaClient,
   limit: number = 5,
@@ -18,6 +26,7 @@ export async function getRecentWorkOrders(
       ? { in: filters.status }
       : filters.status;
   }
+
   return prisma.workOrders.findMany({
     where,
     include: {
@@ -91,9 +100,8 @@ export async function getRecentWorkOrders(
     take: limit,
   }) as Promise<WorkOrderWithRelations[]>;
 }
-/**
- * Get department workload statistics
- */
+
+/** Get department workload statistics. */
 export async function getDepartmentWorkload(
   prisma: PrismaClient,
   departmentId?: string,
@@ -107,55 +115,50 @@ export async function getDepartmentWorkload(
     completed: number;
   }>
 > {
-  const where: Record<string, unknown> = {};
-  if (departmentId) {
-    where.id = departmentId;
-  }
   const departments = await prisma.departments.findMany({
-    where,
+    where: departmentId ? { id: departmentId } : {},
     select: {
       id: true,
       name: true,
     },
   });
+
   const workload = await Promise.all(
-    departments.map(async (dept) => {
+    departments.map(async (department) => {
       const [total, pending, inProgress, completed] = await Promise.all([
+        prisma.workOrders.count({ where: { departmentId: department.id } }),
         prisma.workOrders.count({
-          where: { departmentId: dept.id },
-        }),
-        prisma.workOrders.count({
-          where: { departmentId: dept.id, status: "PENDING" },
+          where: { departmentId: department.id, status: "PENDING" },
         }),
         prisma.workOrders.count({
           where: {
-            departmentId: dept.id,
-            status: { in: ["ASSIGNED", "IN_PROGRESS"] },
+            departmentId: department.id,
+            status: { in: getInProgressStatuses() },
           },
         }),
         prisma.workOrders.count({
           where: {
-            departmentId: dept.id,
+            departmentId: department.id,
             status: { in: ["COMPLETED", "VERIFIED"] },
           },
         }),
       ]);
-      return {
-        departmentId: dept.id,
-        departmentName: dept.name,
+
+      return createDepartmentWorkloadSummary({
+        departmentId: department.id,
+        departmentName: department.name,
         total,
         pending,
         inProgress,
         completed,
-      };
+      });
     }),
   );
-  // Filter out departments with no work orders
-  return workload.filter((dept) => dept.total > 0);
+
+  return workload.filter((department) => department.total > 0);
 }
-/**
- * Get work orders for employee's department
- */
+
+/** Get work orders visible from employee department dashboard. */
 export async function getEmployeeDepartmentWorkOrders(
   prisma: PrismaClient,
   departmentId: string,
@@ -174,40 +177,14 @@ export async function getEmployeeDepartmentWorkOrders(
     completed: number;
   };
 }> {
-  const where: Record<string, unknown> = {
-    OR: [
-      { departmentId },
-      { assignedToId: employeeId },
-      {
-        assignments: {
-          some: {
-            employeeId,
-          },
-        },
-      },
-    ],
-  };
-  if (filters?.status) {
-    where.status = Array.isArray(filters.status)
-      ? { in: filters.status }
-      : filters.status;
-  }
-  if (filters?.search) {
-    where.AND = [
-      {
-        OR: [
-          {
-            workOrderNumber: {
-              contains: filters.search,
-              mode: "insensitive",
-            },
-          },
-          { title: { contains: filters.search, mode: "insensitive" } },
-          { description: { contains: filters.search, mode: "insensitive" } },
-        ],
-      },
-    ];
-  }
+  const where = buildEmployeeDepartmentWhere({
+    departmentId,
+    employeeId,
+    filters,
+  });
+  const pagination = buildEmployeeDepartmentPagination(page, limit);
+  const statsWhere = buildEmployeeDepartmentStatsWhere(where);
+
   const [workOrders, total, assigned, inProgress, completed] =
     await Promise.all([
       prisma.workOrders.findMany({
@@ -250,34 +227,20 @@ export async function getEmployeeDepartmentWorkOrders(
         orderBy: {
           createdAt: "desc",
         },
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: pagination.skip,
+        take: pagination.limit,
       }),
       prisma.workOrders.count({ where }),
-      prisma.workOrders.count({
-        where: {
-          ...where,
-          status: "ASSIGNED",
-        },
-      }),
-      prisma.workOrders.count({
-        where: {
-          ...where,
-          status: "IN_PROGRESS",
-        },
-      }),
-      prisma.workOrders.count({
-        where: {
-          ...where,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-        },
-      }),
+      prisma.workOrders.count({ where: statsWhere.assigned }),
+      prisma.workOrders.count({ where: statsWhere.inProgress }),
+      prisma.workOrders.count({ where: statsWhere.completed }),
     ]);
+
   return {
     workOrders: workOrders as WorkOrderWithRelations[],
     total,
-    page,
-    totalPages: Math.ceil(total / limit),
+    page: pagination.page,
+    totalPages: Math.ceil(total / pagination.limit),
     stats: {
       assigned,
       inProgress,

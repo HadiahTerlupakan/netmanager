@@ -1,19 +1,31 @@
-import { format } from "date-fns";
-
-import { logger } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
-import { convertAndSaveImage } from "@/lib/utils/image-upload";
-import { notifyAdminsAboutMobileAction } from "@/modules/notification";
-import { prisma, prismaMitra } from "@/modules/database";
+import { prisma } from "@/modules/database";
 
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
+import { processMitraCommission } from "./mobile-work-order-mitra-commission.helpers";
+import {
+  notifyMobileTaskUpdate,
+  notifyMobileWorkOrderAction,
+} from "./mobile-work-order-notification.helpers";
 import { syncWoStatusToTicket } from "./WorkOrderSyncService";
 import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";
+import {
+  buildActionContext,
+  ensureNotePayload,
+  ensureWorkOrderStatus,
+  getDefaultNoteMessage,
+  storeCompletionAttachments,
+  storeSingleAttachment,
+} from "./work-order-mobile-action.helpers";
+import type {
+  HandleMobileActionInput,
+  HandleTaskUpdateInput,
+  MobileUserContext,
+  WorkOrderActionExecutionInput,
+  WorkOrderUpdateType,
+} from "./work-order-mobile-action.types";
 
 const UNKNOWN_USER_NAME = "Unknown";
-const MAX_COORDINATE_LENGTH = 8;
-const DEFAULT_IMAGE_TYPE = "image/jpeg";
-const DEFAULT_PENALTY_AMOUNT = 50000;
 const MOBILE_ALLOWED_WORK_ORDER_STATUSES = [
   "ASSIGNED",
   "IN_PROGRESS",
@@ -29,79 +41,8 @@ const CLAIM_ALLOWED_WORK_ORDER_STATUS = "PENDING";
 const START_ALLOWED_WORK_ORDER_STATUSES = ["ASSIGNED", "ON_HOLD"];
 const COMPLETE_ALLOWED_WORK_ORDER_STATUS = "IN_PROGRESS";
 const PAUSE_ALLOWED_WORK_ORDER_STATUS = "IN_PROGRESS";
-const WORK_ORDER_UPLOAD_DIRECTORY = "public/uploads/workorders";
-const WORK_ORDER_IMAGE_PURPOSE = "workorder-completion";
 
-type MobileWorkOrderAction =
-  | "START"
-  | "CLAIM"
-  | "COMPLETE"
-  | "PAUSE"
-  | "COMMENT"
-  | "NOTE";
-type WorkOrderUpdateType =
-  | "COMMENT"
-  | "NOTE"
-  | "STATUS_CHANGE"
-  | "PROGRESS_UPDATE"
-  | "PHOTO";
-type MitraWalletServiceContract = {
-  addEarning: (
-    userId: string,
-    amount: number,
-    description: string,
-    referenceId?: string,
-    referenceType?: "WORK_ORDER",
-  ) => Promise<unknown>;
-  deductBalance: (
-    userId: string,
-    amount: number,
-    description: string,
-    referenceId?: string,
-    referenceType?: "WORK_ORDER",
-  ) => Promise<unknown>;
-};
-
-type MobileActionPayload = {
-  action: MobileWorkOrderAction;
-  notes?: string;
-  photo?: File;
-  photos?: File[];
-  photoUrl?: string;
-  photoUrls?: string[];
-  latitude?: string | number;
-  longitude?: string | number;
-  locationName?: string;
-  timestamp?: string;
-};
-
-interface MobileUserContext {
-  id: string;
-  name?: string;
-  role?: string;
-  siteId?: string;
-  tenantId?: string;
-  isSuperAdmin?: boolean;
-}
-
-interface HandleTaskUpdateInput {
-  workOrderId: string;
-  taskId: string;
-  isCompleted: boolean;
-  tenantId: string;
-  actor: MobileUserContext;
-}
-
-interface HandleMobileActionInput {
-  workOrderId: string;
-  tenantId: string;
-  actor: MobileUserContext;
-  payload: MobileActionPayload;
-}
-
-/**
- * Mobile work order action service.
- */
+/** Menangani aksi work order dari aplikasi mobile. */
 export class MobileWorkOrderActionService {
   private readonly repository: WorkOrderRepository;
 
@@ -109,9 +50,7 @@ export class MobileWorkOrderActionService {
     this.repository = repository ?? new WorkOrderRepository(prisma);
   }
 
-  /**
-   * Update task status from mobile route.
-   */
+  /** Perbarui status task work order dari mobile route. */
   async updateTaskStatus(input: HandleTaskUpdateInput) {
     await this.ensureMobileAccess(
       input.workOrderId,
@@ -119,11 +58,14 @@ export class MobileWorkOrderActionService {
       MOBILE_ALLOWED_WORK_ORDER_STATUSES,
     );
 
-    const task = await this.findTaskSummary(
-      input.taskId,
-      input.workOrderId,
-      input.tenantId,
-    );
+    const task = await prisma.workOrderTasks.findFirst({
+      where: {
+        id: input.taskId,
+        tenantId: input.tenantId,
+        workOrderId: input.workOrderId,
+      },
+      select: { title: true },
+    });
     if (!task) {
       throw new Error("TASK_NOT_FOUND");
     }
@@ -133,29 +75,27 @@ export class MobileWorkOrderActionService {
       completedById: input.isCompleted ? input.actor.id : undefined,
     });
 
-    const updatedWorkOrder = await this.repository.findById(input.workOrderId);
-    if (!updatedWorkOrder) {
-      throw new Error("WORK_ORDER_NOT_FOUND");
-    }
-
+    const updatedWorkOrder = await this.getWorkOrderOrThrow(input.workOrderId);
     socketEmitter.updateWorkOrder(updatedWorkOrder);
-    await this.notifyTaskUpdate(updatedWorkOrder, task.title, input);
+    await notifyMobileTaskUpdate({
+      updatedWorkOrder,
+      taskTitle: task.title,
+      taskInput: input,
+    });
     return { success: true };
   }
 
-  /**
-   * Handle mobile work order action update.
-   */
+  /** Eksekusi aksi work order mobile. */
   async handleAction(input: HandleMobileActionInput) {
-    const actorProfile = await this.findActorProfile(
-      input.actor.id,
-      input.tenantId,
-    );
+    const actorProfile = await prisma.user.findFirst({
+      where: { id: input.actor.id, tenantId: input.tenantId },
+      select: { name: true },
+    });
     const userIdForDb = actorProfile ? input.actor.id : undefined;
     const workOrder = await this.getWorkOrderOrThrow(input.workOrderId);
     await this.ensureActionAccess(input, workOrder.status);
 
-    const actionContext = this.buildActionContext({
+    const actionContext = buildActionContext({
       actorName: actorProfile?.name || input.actor.name || UNKNOWN_USER_NAME,
       payload: input.payload,
       ticketNumber:
@@ -165,62 +105,45 @@ export class MobileWorkOrderActionService {
       workOrderId: input.workOrderId,
     });
 
-    await this.runAction({
+    const actionInput: WorkOrderActionExecutionInput = {
       input,
       workOrder,
       actionContext,
       userIdForDb,
-    });
+    };
 
-    await this.notifyAdmins(workOrder, input, actionContext.actorName);
+    await this.runAction(actionInput);
+    await notifyMobileWorkOrderAction({
+      workOrder,
+      actionInput: input,
+      actorName: actionContext.actorName,
+    });
     return {
       success: true,
       message: `Work Order ${input.payload.action} success`,
     };
   }
 
-  private async runAction(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    const action = input.input.payload.action;
-
-    if (action === "START") {
-      return this.startWorkOrder(input);
+  private async runAction(input: WorkOrderActionExecutionInput) {
+    switch (input.input.payload.action) {
+      case "START":
+        return this.startWorkOrder(input);
+      case "CLAIM":
+        return this.claimWorkOrder(input);
+      case "COMPLETE":
+        return this.completeWorkOrder(input);
+      case "PAUSE":
+        return this.pauseWorkOrder(input);
+      case "COMMENT":
+      case "NOTE":
+        return this.addWorkOrderNote(input);
+      default:
+        throw new Error("INVALID_ACTION");
     }
-
-    if (action === "CLAIM") {
-      return this.claimWorkOrder(input);
-    }
-
-    if (action === "COMPLETE") {
-      return this.completeWorkOrder(input);
-    }
-
-    if (action === "PAUSE") {
-      return this.pauseWorkOrder(input);
-    }
-
-    if (action === "COMMENT" || action === "NOTE") {
-      return this.addWorkOrderNote(input);
-    }
-
-    throw new Error("INVALID_ACTION");
   }
 
-  private async startWorkOrder(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    this.ensureWorkOrderStatus(
+  private async startWorkOrder(input: WorkOrderActionExecutionInput) {
+    ensureWorkOrderStatus(
       input.workOrder?.status,
       START_ALLOWED_WORK_ORDER_STATUSES,
       "Tidak dapat memulai WO dengan status",
@@ -238,10 +161,7 @@ export class MobileWorkOrderActionService {
     );
   }
 
-  private async claimWorkOrder(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-  }) {
+  private async claimWorkOrder(input: WorkOrderActionExecutionInput) {
     if (input.workOrder?.status !== CLAIM_ALLOWED_WORK_ORDER_STATUS) {
       throw new Error("Hanya WO berstatus PENDING yang dapat diklaim");
     }
@@ -254,20 +174,16 @@ export class MobileWorkOrderActionService {
     );
   }
 
-  private async completeWorkOrder(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    this.ensureWorkOrderStatus(
+  private async completeWorkOrder(input: WorkOrderActionExecutionInput) {
+    ensureWorkOrderStatus(
       input.workOrder?.status,
       [COMPLETE_ALLOWED_WORK_ORDER_STATUS],
       "Hanya WO berstatus IN_PROGRESS yang dapat diselesaikan",
     );
-    await this.storeCompletionAttachments(input);
+    await storeCompletionAttachments({
+      actionInput: input,
+      repository: this.repository,
+    });
     await this.repository.complete(
       input.input.workOrderId,
       input.input.payload.notes,
@@ -275,18 +191,11 @@ export class MobileWorkOrderActionService {
       input.actionContext.timestamp,
     );
     await syncWoStatusToTicket(input.input.workOrderId, "COMPLETED");
-    await this.processMitraCommission(input);
+    await processMitraCommission(input);
   }
 
-  private async pauseWorkOrder(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    this.ensureWorkOrderStatus(
+  private async pauseWorkOrder(input: WorkOrderActionExecutionInput) {
+    ensureWorkOrderStatus(
       input.workOrder?.status,
       [PAUSE_ALLOWED_WORK_ORDER_STATUS],
       "Hanya WO berstatus IN_PROGRESS yang dapat ditunda",
@@ -305,21 +214,17 @@ export class MobileWorkOrderActionService {
     );
   }
 
-  private async addWorkOrderNote(input: {
-    input: HandleMobileActionInput;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    this.ensureNotePayload(input.input.payload);
-    await this.storeSingleAttachment(input);
+  private async addWorkOrderNote(input: WorkOrderActionExecutionInput) {
+    ensureNotePayload(input.input.payload);
+    await storeSingleAttachment({
+      actionInput: input,
+      repository: this.repository,
+    });
     await this.repository.addUpdate({
       workOrderId: input.input.workOrderId,
       updateType: input.input.payload.action as WorkOrderUpdateType,
       message:
-        input.input.payload.notes ||
-        this.getDefaultNoteMessage(input.input.payload),
+        input.input.payload.notes || getDefaultNoteMessage(input.input.payload),
       createdById: input.userIdForDb,
     });
   }
@@ -332,7 +237,6 @@ export class MobileWorkOrderActionService {
       input.payload.action === "CLAIM"
         ? [CLAIM_ALLOWED_WORK_ORDER_STATUS]
         : MOBILE_COMPLETION_ALLOWED_WORK_ORDER_STATUSES;
-
     const invalidStatusMessage =
       input.payload.action === "CLAIM"
         ? "Hanya WO berstatus PENDING yang dapat diklaim"
@@ -377,88 +281,7 @@ export class MobileWorkOrderActionService {
     if (!workOrder) {
       throw new Error("WORK_ORDER_NOT_FOUND");
     }
-
     return workOrder;
-  }
-
-  private async findActorProfile(userId: string, tenantId: string) {
-    return prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: { name: true },
-    });
-  }
-
-  private async findTaskSummary(
-    taskId: string,
-    workOrderId: string,
-    tenantId: string,
-  ) {
-    return prisma.workOrderTasks.findFirst({
-      where: { id: taskId, tenantId, workOrderId },
-      select: { title: true },
-    });
-  }
-
-  private buildActionContext(input: {
-    actorName: string;
-    payload: MobileActionPayload;
-    ticketNumber: string;
-    workOrderId: string;
-  }) {
-    return {
-      actorName: input.actorName,
-      timestamp: input.payload.timestamp
-        ? new Date(input.payload.timestamp)
-        : undefined,
-      locationLabel: this.buildLocationLabel(input.payload),
-      ticketNumber: input.ticketNumber,
-      workOrderId: input.workOrderId,
-    };
-  }
-
-  private buildLocationLabel(payload: MobileActionPayload) {
-    const coords = this.buildCoordinateLabel(
-      payload.latitude,
-      payload.longitude,
-    );
-    if (payload.locationName && coords) {
-      return `${payload.locationName} ${coords}`;
-    }
-
-    if (payload.locationName) {
-      return payload.locationName;
-    }
-
-    return coords ? `Loc: ${coords}` : "Loc: Unknown";
-  }
-
-  private buildCoordinateLabel(
-    latitude?: string | number,
-    longitude?: string | number,
-  ) {
-    if (!latitude || !longitude) {
-      return "";
-    }
-
-    const lat = String(latitude).slice(0, MAX_COORDINATE_LENGTH);
-    const lng = String(longitude).slice(0, MAX_COORDINATE_LENGTH);
-    return `(${lat}, ${lng})`;
-  }
-
-  private ensureWorkOrderStatus(
-    status: string | undefined,
-    allowed: string[],
-    message: string,
-  ) {
-    if (status && allowed.includes(status)) {
-      return;
-    }
-
-    if (message === "Hanya WO berstatus IN_PROGRESS yang dapat diselesaikan") {
-      throw new Error(message);
-    }
-
-    throw new Error(`${message}: ${status}`);
   }
 
   private async addOptionalNote(
@@ -492,349 +315,6 @@ export class MobileWorkOrderActionService {
       updateType: "NOTE",
       message: `Work Order Paused: ${notes}`,
       createdById: userIdForDb,
-    });
-  }
-
-  private ensureNotePayload(payload: MobileActionPayload) {
-    if (payload.notes || payload.photo || payload.photoUrl) {
-      return;
-    }
-
-    throw new Error("Catatan atau foto wajib diisi");
-  }
-
-  private getDefaultNoteMessage(payload: MobileActionPayload) {
-    return payload.photo || payload.photoUrl ? "Mengunggah foto" : "";
-  }
-
-  private async storeCompletionAttachments(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    const remoteUrls = input.input.payload.photoUrls || [];
-    if (remoteUrls.length > 0) {
-      await this.storeRemoteCompletionAttachments(
-        input.input.workOrderId,
-        remoteUrls,
-        input.userIdForDb,
-      );
-      return;
-    }
-
-    const files = input.input.payload.photos || [];
-    if (files.length === 0) {
-      return;
-    }
-
-    await this.storeLocalCompletionAttachments(input, files);
-  }
-
-  private async storeRemoteCompletionAttachments(
-    workOrderId: string,
-    photoUrls: string[],
-    userIdForDb?: string,
-  ) {
-    await Promise.all(
-      photoUrls
-        .filter(Boolean)
-        .map((photoUrl, index) =>
-          this.repository.addAttachment(
-            workOrderId,
-            `photo_${index}.jpg`,
-            photoUrl,
-            0,
-            DEFAULT_IMAGE_TYPE,
-            `[COMPLETION] Bukti Penyelesaian ${index + 1}`,
-            userIdForDb,
-          ),
-        ),
-    );
-  }
-
-  private async storeLocalCompletionAttachments(
-    input: {
-      input: HandleMobileActionInput;
-      workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-      actionContext: ReturnType<
-        MobileWorkOrderActionService["buildActionContext"]
-      >;
-      userIdForDb?: string;
-    },
-    files: File[],
-  ) {
-    for (const [index, file] of files.entries()) {
-      const filePath = await this.saveWorkOrderImage({
-        file,
-        fileName: `${input.input.workOrderId}_complete_${Date.now()}_${index}`,
-        workOrderId: input.input.workOrderId,
-        watermarkLines: this.buildCompletionWatermark(
-          input,
-          index,
-          files.length,
-        ),
-      });
-
-      await this.repository.addAttachment(
-        input.input.workOrderId,
-        file.name,
-        filePath,
-        file.size,
-        file.type,
-        `[COMPLETION] Bukti Penyelesaian ${index + 1}`,
-        input.userIdForDb,
-      );
-    }
-  }
-
-  private buildCompletionWatermark(
-    input: {
-      actionContext: ReturnType<
-        MobileWorkOrderActionService["buildActionContext"]
-      >;
-    },
-    index: number,
-    totalFiles: number,
-  ) {
-    return [
-      format(new Date(), "dd MMM yyyy HH:mm"),
-      `#${input.actionContext.ticketNumber}`,
-      `Tech: ${input.actionContext.actorName}`,
-      input.actionContext.locationLabel,
-      `[COMPLETED] ${index + 1}/${totalFiles}`,
-    ];
-  }
-
-  private async saveWorkOrderImage(input: {
-    file: File;
-    fileName: string;
-    workOrderId: string;
-    watermarkLines: string[];
-  }) {
-    const dateFolder = format(new Date(), "yyyy-MM-dd");
-    return convertAndSaveImage(
-      input.file,
-      `${WORK_ORDER_UPLOAD_DIRECTORY}/${dateFolder}`,
-      input.fileName,
-      WORK_ORDER_IMAGE_PURPOSE,
-      input.workOrderId,
-      input.watermarkLines,
-    );
-  }
-
-  private async storeSingleAttachment(input: {
-    input: HandleMobileActionInput;
-    actionContext: ReturnType<
-      MobileWorkOrderActionService["buildActionContext"]
-    >;
-    userIdForDb?: string;
-  }) {
-    if (input.input.payload.photoUrl) {
-      await this.repository.addAttachment(
-        input.input.workOrderId,
-        `photo_${input.input.payload.action}.jpg`,
-        input.input.payload.photoUrl,
-        0,
-        DEFAULT_IMAGE_TYPE,
-        input.input.payload.notes || "Update Foto",
-        input.userIdForDb,
-      );
-      return;
-    }
-
-    if (!(input.input.payload.photo instanceof File)) {
-      return;
-    }
-
-    const filePath = await this.saveWorkOrderImage({
-      file: input.input.payload.photo,
-      fileName: `${input.input.workOrderId}_${input.input.payload.action.toLowerCase()}_${Date.now()}`,
-      workOrderId: input.input.workOrderId,
-      watermarkLines: [
-        format(new Date(), "dd MMM yyyy HH:mm"),
-        `#${input.actionContext.ticketNumber}`,
-        `Tech: ${input.actionContext.actorName}`,
-        input.actionContext.locationLabel,
-      ],
-    });
-
-    await this.repository.addAttachment(
-      input.input.workOrderId,
-      input.input.payload.photo.name,
-      filePath,
-      input.input.payload.photo.size,
-      input.input.payload.photo.type,
-      input.input.payload.notes || "Update Foto",
-      input.userIdForDb,
-    );
-  }
-
-  private async processMitraCommission(input: {
-    input: HandleMobileActionInput;
-    workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-  }) {
-    try {
-      const mitra = await prismaMitra.mitra.findUnique({
-        where: { id: input.input.actor.id },
-        select: {
-          mitraType: true,
-          mitraRateWoPsb: true,
-          mitraRateWoMaintenance: true,
-        },
-      });
-
-      if (mitra?.mitraType !== "MITRA_TEKNISI") {
-        return;
-      }
-
-      const { getMitraWalletService } = await import("@/modules/mitra");
-      const walletService = getMitraWalletService();
-      await this.applyWarrantyCommission(input, mitra, walletService);
-    } catch (error) {
-      logger.error("[MitraCommission] Error:", error as Error);
-    }
-  }
-
-  private async applyWarrantyCommission(
-    input: {
-      input: HandleMobileActionInput;
-      workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    },
-    mitra: {
-      mitraRateWoPsb: number | null;
-      mitraRateWoMaintenance: number | null;
-    },
-    walletService: MitraWalletServiceContract,
-  ) {
-    const ticketNumber =
-      input.workOrder?.ticket?.ticketNumber ||
-      input.workOrder?.workOrderNumber ||
-      input.input.workOrderId;
-    const rate = this.resolveMitraRate(input.workOrder?.type, mitra);
-
-    if (input.workOrder?.isWarranty && input.workOrder.warrantyOwnerId) {
-      await this.handleWarrantyCommission(
-        input,
-        walletService,
-        rate,
-        ticketNumber,
-      );
-      return;
-    }
-
-    if (rate <= 0) {
-      return;
-    }
-
-    await walletService.addEarning(
-      input.input.actor.id,
-      rate,
-      `Komisi WO #${ticketNumber} (${input.workOrder?.type})`,
-      input.input.workOrderId,
-      "WORK_ORDER",
-    );
-  }
-
-  private async handleWarrantyCommission(
-    input: {
-      input: HandleMobileActionInput;
-      workOrder: Awaited<ReturnType<WorkOrderRepository["findById"]>>;
-    },
-    walletService: MitraWalletServiceContract,
-    rate: number,
-    ticketNumber: string,
-  ) {
-    if (input.workOrder?.warrantyOwnerId === input.input.actor.id) {
-      await walletService.addEarning(
-        input.input.actor.id,
-        0,
-        `Pengerjaan Garansi Mandiri #${ticketNumber}`,
-        input.input.workOrderId,
-        "WORK_ORDER",
-      );
-      return;
-    }
-
-    if (rate > 0) {
-      await walletService.addEarning(
-        input.input.actor.id,
-        rate,
-        `Komisi WO #${ticketNumber} (${input.workOrder?.type}) - Lelang Garansi`,
-        input.input.workOrderId,
-        "WORK_ORDER",
-      );
-    }
-
-    const originalOwner = await prismaMitra.mitra.findUnique({
-      where: { id: input.workOrder?.warrantyOwnerId || "" },
-      select: { penaltyPsb: true },
-    });
-
-    await walletService.deductBalance(
-      input.workOrder?.warrantyOwnerId || "",
-      originalOwner?.penaltyPsb || DEFAULT_PENALTY_AMOUNT,
-      `Denda Garansi SLA #${ticketNumber}`,
-      input.input.workOrderId,
-      "WORK_ORDER",
-    );
-  }
-
-  private resolveMitraRate(
-    workOrderType: string | undefined,
-    mitra: {
-      mitraRateWoPsb: number | null;
-      mitraRateWoMaintenance: number | null;
-    },
-  ) {
-    return workOrderType === "INSTALLATION"
-      ? mitra.mitraRateWoPsb || 0
-      : mitra.mitraRateWoMaintenance || 0;
-  }
-
-  private async notifyTaskUpdate(
-    updatedWorkOrder: NonNullable<
-      Awaited<ReturnType<WorkOrderRepository["findById"]>>
-    >,
-    taskTitle: string | null,
-    input: HandleTaskUpdateInput,
-  ) {
-    await notifyAdminsAboutMobileAction({
-      workOrderId: input.workOrderId,
-      workOrderNumber: updatedWorkOrder.workOrderNumber,
-      title: updatedWorkOrder.title,
-      actionType: "NOTE",
-      actionMessage: input.isCompleted
-        ? `Menyelesaikan task: ${taskTitle || UNKNOWN_USER_NAME}`
-        : `Membatalkan task: ${taskTitle || UNKNOWN_USER_NAME}`,
-      triggeredByUserId: input.actor.id,
-      triggeredByName: input.actor.name || UNKNOWN_USER_NAME,
-      ...(updatedWorkOrder.departmentId && {
-        departmentId: updatedWorkOrder.departmentId,
-      }),
-      ...(updatedWorkOrder.siteId && { siteId: updatedWorkOrder.siteId }),
-    }).catch((error) => logger.error("[TaskNotify] Error:", error));
-  }
-
-  private async notifyAdmins(
-    workOrder: NonNullable<
-      Awaited<ReturnType<WorkOrderRepository["findById"]>>
-    >,
-    input: HandleMobileActionInput,
-    actorName: string,
-  ) {
-    await notifyAdminsAboutMobileAction({
-      workOrderId: input.workOrderId,
-      workOrderNumber: workOrder.workOrderNumber,
-      title: workOrder.title,
-      actionType: input.payload.action,
-      actionMessage: `${input.payload.action} Work Order: ${input.payload.notes || ""}`,
-      triggeredByUserId: input.actor.id,
-      triggeredByName: actorName,
-      ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
-      ...(workOrder.siteId && { siteId: workOrder.siteId }),
     });
   }
 }

@@ -3,47 +3,26 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 /**
  * Helper to classify work order based on title
  */
+const ISSUE_CLASSIFIERS = [
+  {
+    issue: "Internet Mati / FOCUT",
+    keywords: ["mati", "focut", "los", "merah"],
+  },
+  { issue: "Koneksi Lambat", keywords: ["lambat", "lemot", "slow", "lag"] },
+  {
+    issue: "Penarikan Perangkat",
+    keywords: ["tarik", "ambil", "dismantle", "cabut"],
+  },
+  { issue: "Pasang Baru", keywords: ["pasang baru", "psb", "install"] },
+  { issue: "Relokasi Perangkat", keywords: ["relokasi", "pindah", "geser"] },
+] as const;
+
 function classifyIssue(title: string): string {
   const lowerTitle = title.toLowerCase();
-  if (
-    lowerTitle.includes("mati") ||
-    lowerTitle.includes("focut") ||
-    lowerTitle.includes("los") ||
-    lowerTitle.includes("merah")
-  ) {
-    return "Internet Mati / FOCUT";
-  }
-  if (
-    lowerTitle.includes("lambat") ||
-    lowerTitle.includes("lemot") ||
-    lowerTitle.includes("slow") ||
-    lowerTitle.includes("lag")
-  ) {
-    return "Koneksi Lambat";
-  }
-  if (
-    lowerTitle.includes("tarik") ||
-    lowerTitle.includes("ambil") ||
-    lowerTitle.includes("dismantle") ||
-    lowerTitle.includes("cabut")
-  ) {
-    return "Penarikan Perangkat";
-  }
-  if (
-    lowerTitle.includes("pasang baru") ||
-    lowerTitle.includes("psb") ||
-    lowerTitle.includes("install")
-  ) {
-    return "Pasang Baru";
-  }
-  if (
-    lowerTitle.includes("relokasi") ||
-    lowerTitle.includes("pindah") ||
-    lowerTitle.includes("geser")
-  ) {
-    return "Relokasi Perangkat";
-  }
-  return "Other";
+  const match = ISSUE_CLASSIFIERS.find((classifier) =>
+    classifier.keywords.some((keyword) => lowerTitle.includes(keyword)),
+  );
+  return match?.issue || "Other";
 }
 /**
  * Get statistics on most common issues (based on Title keywords)

@@ -48,29 +48,7 @@ export async function getWorkOrderStatisticsCore(input: {
     input.tenantId,
   );
   const [total, statusCounts, completionStats, ratingData, urgentOpen] =
-    await Promise.all([
-      input.prisma.workOrders.count({ where: queryContext.where }),
-      input.prisma.workOrders.groupBy({
-        by: ["status"],
-        where: queryContext.where,
-        _count: true,
-      }),
-      input.prisma.$queryRaw<StatisticsAggregateRow[]>(
-        queryContext.completionQuery,
-      ),
-      input.prisma.workOrders.aggregate({
-        where: { ...queryContext.where, rating: { not: null } },
-        _avg: { rating: true },
-        _count: { rating: true },
-      }),
-      input.prisma.workOrders.count({
-        where: {
-          ...queryContext.where,
-          priority: { in: HIGH_PRIORITY_LEVELS },
-          status: { notIn: CLOSED_STATUSES },
-        },
-      }),
-    ]);
+    await Promise.all(createStatisticsQueries(input.prisma, queryContext));
   return mapStatisticsResult({
     total,
     statusCounts,
@@ -78,6 +56,37 @@ export async function getWorkOrderStatisticsCore(input: {
     ratingData,
     urgentOpen,
   });
+}
+
+function createStatisticsQueries(
+  prisma: StatisticsRepositoryClient,
+  queryContext: StatisticsQueryContext,
+) {
+  return [
+    prisma.workOrders.count({ where: queryContext.where }),
+    prisma.workOrders.groupBy({
+      by: ["status"],
+      where: queryContext.where,
+      _count: true,
+    }),
+    prisma.$queryRaw<StatisticsAggregateRow[]>(queryContext.completionQuery),
+    prisma.workOrders.aggregate({
+      where: { ...queryContext.where, rating: { not: null } },
+      _avg: { rating: true },
+      _count: { rating: true },
+    }),
+    prisma.workOrders.count({
+      where: buildUrgentOpenWhere(queryContext.where),
+    }),
+  ] as const;
+}
+
+function buildUrgentOpenWhere(where: Prisma.WorkOrdersWhereInput) {
+  return {
+    ...where,
+    priority: { in: HIGH_PRIORITY_LEVELS },
+    status: { notIn: CLOSED_STATUSES },
+  };
 }
 
 async function buildStatisticsQueryContext(

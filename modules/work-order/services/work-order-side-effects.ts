@@ -30,6 +30,8 @@ import {
   onWorkOrderStatusChanged,
 } from "./WorkOrderNotifications";
 
+const COMPLETED_STATUS = "COMPLETED";
+
 type WorkOrderNotificationPayload = {
   id: string;
   workOrderNumber: string;
@@ -53,22 +55,14 @@ type WorkOrderTicketPayload = {
   scheduledDate?: Date | string | null;
 };
 
+/** Notify listeners about created work order without breaking the request flow. */
 export async function notifyWorkOrderCreatedSafely(
   workOrder: WorkOrderNotificationPayload,
   triggeredByUserId?: string,
 ): Promise<void> {
   try {
     await onWorkOrderCreated(
-      {
-        id: workOrder.id,
-        workOrderNumber: workOrder.workOrderNumber,
-        title: workOrder.title,
-        type: workOrder.type,
-        priority: workOrder.priority,
-        departmentId: workOrder.departmentId,
-        siteId: workOrder.siteId,
-        assignedToId: workOrder.assignedToId,
-      },
+      buildNotificationPayload(workOrder),
       triggeredByUserId,
     );
   } catch (err) {
@@ -79,6 +73,7 @@ export async function notifyWorkOrderCreatedSafely(
   }
 }
 
+/** Publish work order created domain event. */
 export async function publishWorkOrderCreatedEvent(params: {
   workOrder: WorkOrderNotificationPayload;
   triggeredBy: string;
@@ -103,6 +98,7 @@ export async function publishWorkOrderCreatedEvent(params: {
   );
 }
 
+/** Broadcast created work order to websocket clients. */
 export function broadcastWorkOrderCreatedSafely(
   workOrder: WorkOrderCreatedPayload,
 ): void {
@@ -129,6 +125,7 @@ export function broadcastWorkOrderCreatedSafely(
   }
 }
 
+/** Link created work order back to source ticket safely. */
 export async function linkWorkOrderToTicketSafely(params: {
   ticketRepo: TicketRepository;
   workOrder: WorkOrderTicketPayload;
@@ -138,22 +135,10 @@ export async function linkWorkOrderToTicketSafely(params: {
   const { ticketRepo, workOrder, ticketId, userId } = params;
 
   try {
-    const scheduledTime = workOrder.scheduledDate
-      ? format(new Date(workOrder.scheduledDate), "dd MMMM yyyy HH:mm", {
-          locale: localeId,
-        })
-      : "Belum Dijadwalkan";
-
-    const replyMessage =
-      `Work Order #${workOrder.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
-      `Judul: ${workOrder.title}\n` +
-      `Tipe: ${workOrder.type}\n` +
-      `Jadwal: ${scheduledTime}`;
-
     await ticketRepo.createReply({
       id: randomUUID(),
       ticketId,
-      message: replyMessage,
+      message: buildTicketReplyMessage(workOrder),
       isFromAdmin: true,
       senderId: userId,
     });
@@ -167,6 +152,7 @@ export async function linkWorkOrderToTicketSafely(params: {
   }
 }
 
+/** Publish notification and event side effects for status updates. */
 export async function publishWorkOrderStatusSideEffects(params: {
   workOrder: WorkOrderNotificationPayload;
   previousStatus: WorkOrderStatus;
@@ -176,57 +162,21 @@ export async function publishWorkOrderStatusSideEffects(params: {
   const { workOrder, previousStatus, status, userId } = params;
 
   await onWorkOrderStatusChanged(
-    {
-      id: workOrder.id,
-      workOrderNumber: workOrder.workOrderNumber,
-      title: workOrder.title,
-      type: workOrder.type,
-      priority: workOrder.priority,
-      departmentId: workOrder.departmentId,
-      siteId: workOrder.siteId,
-      assignedToId: workOrder.assignedToId,
-    },
+    buildNotificationPayload(workOrder),
     previousStatus,
     status,
     userId,
   );
 
-  if (status === "COMPLETED") {
-    await WorkOrderEventDispatcher.onCompleted({
-      workOrderId: workOrder.id,
-      workOrderNumber: workOrder.workOrderNumber,
-      title: workOrder.title,
-      departmentId: workOrder.departmentId,
-      siteId: workOrder.siteId,
-      assignedToId: workOrder.assignedToId,
-      triggeredBy: userId,
-    }).catch((err) =>
-      logger.error(
-        "Failed to publish WORK_ORDER_COMPLETED event",
-        err instanceof Error ? err : undefined,
-      ),
-    );
-
+  if (status === COMPLETED_STATUS) {
+    await publishCompletedStatusEvent(workOrder, userId);
     return;
   }
 
-  await WorkOrderEventDispatcher.onUpdated({
-    workOrderId: workOrder.id,
-    workOrderNumber: workOrder.workOrderNumber,
-    title: workOrder.title,
-    updateMessage: `Status changed from ${previousStatus} to ${status}`,
-    departmentId: workOrder.departmentId,
-    siteId: workOrder.siteId,
-    assignedToId: workOrder.assignedToId,
-    triggeredBy: userId,
-  }).catch((err) =>
-    logger.error(
-      "Failed to publish WORK_ORDER_UPDATED event",
-      err instanceof Error ? err : undefined,
-    ),
-  );
+  await publishUpdatedStatusEvent(workOrder, previousStatus, status, userId);
 }
 
+/** Publish notification and event side effects for assignments. */
 export async function publishWorkOrderAssignmentSideEffects(params: {
   workOrder: WorkOrderNotificationPayload;
   employeeId: string;
@@ -236,16 +186,7 @@ export async function publishWorkOrderAssignmentSideEffects(params: {
   const { workOrder, employeeId, employeeName, assignedById } = params;
 
   await onWorkOrderAssigned(
-    {
-      id: workOrder.id,
-      workOrderNumber: workOrder.workOrderNumber,
-      title: workOrder.title,
-      type: workOrder.type,
-      priority: workOrder.priority,
-      departmentId: workOrder.departmentId,
-      siteId: workOrder.siteId,
-      assignedToId: workOrder.assignedToId,
-    },
+    buildNotificationPayload(workOrder),
     undefined,
     assignedById,
   );
@@ -267,6 +208,7 @@ export async function publishWorkOrderAssignmentSideEffects(params: {
   );
 }
 
+/** Write work order activity log safely. */
 export function logWorkOrderActivity(
   action: string,
   subject: string,
@@ -276,10 +218,12 @@ export function logWorkOrderActivity(
   logActivitySafe({ action, subject, userId, details });
 }
 
+/** Invalidate all cached work-order views. */
 export async function invalidateWorkOrderCaches(): Promise<void> {
   await workOrderCacheService.invalidateAllCaches();
 }
 
+/** Notify admins about mobile material actions without failing workflow. */
 export async function notifyMobileWorkOrderMaterialActionSafely(
   input: MobileWorkOrderMaterialNotificationInput,
 ): Promise<void> {
@@ -293,6 +237,7 @@ export async function notifyMobileWorkOrderMaterialActionSafely(
   }
 }
 
+/** Log mobile material return activity. */
 export function logMobileMaterialReturnActivity(input: {
   userId: string;
   tenantId?: string;
@@ -323,8 +268,80 @@ export function logMobileMaterialReturnActivity(input: {
   });
 }
 
+/** Reuse mobile material action notifier for return flow. */
 export async function notifyMobileWorkOrderMaterialReturnSafely(
   input: MobileWorkOrderMaterialNotificationInput,
 ): Promise<void> {
   await notifyMobileWorkOrderMaterialActionSafely(input);
+}
+
+function buildNotificationPayload(workOrder: WorkOrderNotificationPayload) {
+  return {
+    id: workOrder.id,
+    workOrderNumber: workOrder.workOrderNumber,
+    title: workOrder.title,
+    type: workOrder.type,
+    priority: workOrder.priority,
+    departmentId: workOrder.departmentId,
+    siteId: workOrder.siteId,
+    assignedToId: workOrder.assignedToId,
+  };
+}
+
+function buildTicketReplyMessage(workOrder: WorkOrderTicketPayload) {
+  const scheduledTime = workOrder.scheduledDate
+    ? format(new Date(workOrder.scheduledDate), "dd MMMM yyyy HH:mm", {
+        locale: localeId,
+      })
+    : "Belum Dijadwalkan";
+
+  return (
+    `Work Order #${workOrder.workOrderNumber} telah dibuat untuk tiket ini.\n\n` +
+    `Judul: ${workOrder.title}\n` +
+    `Tipe: ${workOrder.type}\n` +
+    `Jadwal: ${scheduledTime}`
+  );
+}
+
+async function publishCompletedStatusEvent(
+  workOrder: WorkOrderNotificationPayload,
+  userId: string,
+) {
+  await WorkOrderEventDispatcher.onCompleted({
+    workOrderId: workOrder.id,
+    workOrderNumber: workOrder.workOrderNumber,
+    title: workOrder.title,
+    departmentId: workOrder.departmentId,
+    siteId: workOrder.siteId,
+    assignedToId: workOrder.assignedToId,
+    triggeredBy: userId,
+  }).catch((err) =>
+    logger.error(
+      "Failed to publish WORK_ORDER_COMPLETED event",
+      err instanceof Error ? err : undefined,
+    ),
+  );
+}
+
+async function publishUpdatedStatusEvent(
+  workOrder: WorkOrderNotificationPayload,
+  previousStatus: WorkOrderStatus,
+  status: WorkOrderStatus,
+  userId: string,
+) {
+  await WorkOrderEventDispatcher.onUpdated({
+    workOrderId: workOrder.id,
+    workOrderNumber: workOrder.workOrderNumber,
+    title: workOrder.title,
+    updateMessage: `Status changed from ${previousStatus} to ${status}`,
+    departmentId: workOrder.departmentId,
+    siteId: workOrder.siteId,
+    assignedToId: workOrder.assignedToId,
+    triggeredBy: userId,
+  }).catch((err) =>
+    logger.error(
+      "Failed to publish WORK_ORDER_UPDATED event",
+      err instanceof Error ? err : undefined,
+    ),
+  );
 }

@@ -1,5 +1,5 @@
 import { prisma, prismaMitra } from "@/modules/database";
-import { Prisma } from "@prisma/client";
+import { Prisma, WorkOrderStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import type { IWorkOrderAvailabilityRepository } from "../domain/ports/IWorkOrderAvailabilityRepository";
 import type {
@@ -122,7 +122,7 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
       where: {
         id: input.workOrderId,
         tenantId: input.tenantId,
-        status: AVAILABLE_WORK_ORDER_STATUS,
+        status: AVAILABLE_WORK_ORDER_STATUS as WorkOrderStatus,
         assignedToId: null,
         assignedMitraId: null,
       },

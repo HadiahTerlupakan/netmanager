@@ -1,9 +1,8 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
+import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { sendWorkOrderReminder } from "./WorkOrderNotifications";
 
-const STALE_WORK_ORDER_LIMIT = 100;
-const STALE_WORK_ORDER_AGE_MS = 24 * 60 * 60 * 1000;
+const workOrderRepository = new WorkOrderRepository();
 
 export interface WorkOrderReminderResult {
   workOrderId: string;
@@ -42,26 +41,7 @@ export async function runWorkOrderReminderCron(
 }
 
 function findStaleWorkOrders(now: Date) {
-  return prisma.workOrders.findMany({
-    where: {
-      status: { in: ["PENDING", "ASSIGNED", "IN_PROGRESS"] },
-      createdAt: { lte: new Date(now.getTime() - STALE_WORK_ORDER_AGE_MS) },
-    },
-    select: {
-      id: true,
-      workOrderNumber: true,
-      title: true,
-      type: true,
-      priority: true,
-      status: true,
-      departmentId: true,
-      siteId: true,
-      assignedToId: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "asc" },
-    take: STALE_WORK_ORDER_LIMIT,
-  });
+  return workOrderRepository.findStaleReminderWorkOrders(now);
 }
 
 async function sendReminderBatch(workOrders: StaleWorkOrder[], now: Date) {
@@ -83,26 +63,11 @@ async function sendReminder(workOrder: StaleWorkOrder, now: Date) {
 
   try {
     const sentCount = await sendWorkOrderReminder(
-      {
-        id: workOrder.id,
-        workOrderNumber: workOrder.workOrderNumber,
-        title: workOrder.title,
-        type: workOrder.type,
-        priority: workOrder.priority,
-        departmentId: workOrder.departmentId,
-        siteId: workOrder.siteId,
-        assignedToId: workOrder.assignedToId,
-      },
+      toReminderWorkOrderPayload(workOrder),
       buildReminderMessage(workOrder, ageHours),
     );
 
-    return {
-      workOrderId: workOrder.id,
-      workOrderNumber: workOrder.workOrderNumber,
-      status: workOrder.status,
-      ageHours,
-      sentCount,
-    };
+    return buildReminderResult(workOrder, ageHours, sentCount);
   } catch (error) {
     logger.error(
       `[Cron WO Reminder] Error sending reminder for ${workOrder.workOrderNumber}:`,
@@ -110,6 +75,35 @@ async function sendReminder(workOrder: StaleWorkOrder, now: Date) {
     );
     return null;
   }
+}
+
+/** Bentuk payload reminder dari entity work order stale. */
+function toReminderWorkOrderPayload(workOrder: StaleWorkOrder) {
+  return {
+    id: workOrder.id,
+    workOrderNumber: workOrder.workOrderNumber,
+    title: workOrder.title,
+    type: workOrder.type,
+    priority: workOrder.priority,
+    departmentId: workOrder.departmentId,
+    siteId: workOrder.siteId,
+    assignedToId: workOrder.assignedToId,
+  };
+}
+
+/** Bentuk hasil reminder untuk laporan cron. */
+function buildReminderResult(
+  workOrder: StaleWorkOrder,
+  ageHours: number,
+  sentCount: number,
+): WorkOrderReminderResult {
+  return {
+    workOrderId: workOrder.id,
+    workOrderNumber: workOrder.workOrderNumber,
+    status: workOrder.status,
+    ageHours,
+    sentCount,
+  };
 }
 
 function calculateAgeHours(createdAt: Date, now: Date) {

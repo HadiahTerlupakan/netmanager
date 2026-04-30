@@ -42,13 +42,7 @@ interface RespondPartnerInvitationInput {
   response: PartnerAssignmentStatus;
 }
 
-/**
- * Mobile work order partner service.
- */
 export class MobileWorkOrderPartnerService {
-  /**
-   * Add partner invitation to a work order.
-   */
   async addPartner(input: AddPartnerInput) {
     const workOrder = await this.findWorkOrder(
       input.workOrderId,
@@ -80,28 +74,9 @@ export class MobileWorkOrderPartnerService {
     );
     await this.ensurePartnerAvailableToday(input.partnerUserId, input.tenantId);
 
-    return prisma.workOrderAssignments.create({
-      data: {
-        id: randomUUID(),
-        workOrderId: input.workOrderId,
-        userId: input.partnerUserId,
-        role: PARTNER_ROLE,
-        status: PENDING_ASSIGNMENT_STATUS,
-        assignedAt: new Date(),
-        assignedById: input.actorId,
-        tenantId: input.tenantId,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-    });
+    return this.createPartnerAssignment(input);
   }
 
-  /**
-   * Remove partner assignment from a work order.
-   */
   async removePartner(input: RemovePartnerInput) {
     const assignment = await this.findAssignmentForRemoval(
       input.assignmentId,
@@ -129,9 +104,6 @@ export class MobileWorkOrderPartnerService {
     });
   }
 
-  /**
-   * Respond to a partner invitation.
-   */
   async respondToInvitation(input: RespondPartnerInvitationInput) {
     const workOrder = await this.findWorkOrder(
       input.workOrderId,
@@ -153,48 +125,80 @@ export class MobileWorkOrderPartnerService {
 
     if (assignment.status !== PENDING_ASSIGNMENT_STATUS) {
       return {
-        isAlreadyResponded: true,
+        isAlreadyResponded: true as const,
         currentStatus: assignment.status,
       };
     }
 
-    const updatedAssignment = await prisma.workOrderAssignments.update({
-      where: { id: assignment.id, tenantId: input.tenantId },
-      data: { status: input.response, respondedAt: new Date() },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
+    const updatedAssignment = await this.updatePartnerInvitationResponse({
+      assignmentId: assignment.id,
+      tenantId: input.tenantId,
+      response: input.response,
     });
 
-    return {
-      isAlreadyResponded: false,
-      currentStatus: updatedAssignment.status,
-      assignment: updatedAssignment,
-      workOrder,
-    };
+    return this.createInvitationResponse(updatedAssignment, workOrder);
   }
 
-  /**
-   * Get duplicate assignment error message.
-   */
   getDuplicateAssignmentErrorMessage() {
     return DUPLICATE_PARTNER_ASSIGNMENT_ERROR_MESSAGE;
   }
 
-  /**
-   * Get partner on leave error message.
-   */
   getPartnerOnLeaveErrorMessage() {
     return PARTNER_ON_LEAVE_ERROR_MESSAGE;
   }
 
-  /**
-   * Check if assignment is duplicated.
-   */
   isDuplicateAssignmentError(error: unknown) {
     return this.getErrorCode(error) === "P2002";
+  }
+
+  private createPartnerAssignment(input: AddPartnerInput) {
+    return prisma.workOrderAssignments.create({
+      data: {
+        id: randomUUID(),
+        workOrderId: input.workOrderId,
+        userId: input.partnerUserId,
+        role: PARTNER_ROLE,
+        status: PENDING_ASSIGNMENT_STATUS,
+        assignedAt: new Date(),
+        assignedById: input.actorId,
+        tenantId: input.tenantId,
+      },
+      include: this.getAssignmentUserInclude(),
+    });
+  }
+
+  private updatePartnerInvitationResponse(input: {
+    assignmentId: string;
+    tenantId: string;
+    response: PartnerAssignmentStatus;
+  }) {
+    return prisma.workOrderAssignments.update({
+      where: { id: input.assignmentId, tenantId: input.tenantId },
+      data: { status: input.response, respondedAt: new Date() },
+      include: this.getAssignmentUserInclude(),
+    });
+  }
+
+  private createInvitationResponse(
+    assignment: Awaited<
+      ReturnType<typeof this.updatePartnerInvitationResponse>
+    >,
+    workOrder: Awaited<ReturnType<typeof this.findWorkOrder>>,
+  ) {
+    return {
+      isAlreadyResponded: false as const,
+      currentStatus: assignment.status,
+      assignment,
+      workOrder,
+    };
+  }
+
+  private getAssignmentUserInclude() {
+    return {
+      user: {
+        select: { id: true, name: true, email: true, image: true },
+      },
+    };
   }
 
   private async ensurePartnerAccess(input: {
