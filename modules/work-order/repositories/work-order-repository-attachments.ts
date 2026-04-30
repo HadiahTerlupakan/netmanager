@@ -6,7 +6,7 @@ import type {
 } from "@prisma/client";
 
 import type { WorkOrderActivityRepository } from "./WorkOrderActivityRepository";
-import type { AddUpdateData } from "./IWorkOrderRepository";
+import type { AddUpdateData } from "../domain/ports/IWorkOrderRepository";
 
 type PrismaInstance = typeof import("@/lib/prisma").prisma;
 

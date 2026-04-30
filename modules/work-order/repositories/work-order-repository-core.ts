@@ -8,7 +8,7 @@ import type {
   UpdateWorkOrderData,
   WorkOrderFilters,
   WorkOrderWithRelations,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import { buildWorkOrderWhere } from "./work-order-query-builders";
 import {
   WORK_ORDER_ASSIGNMENTS_INCLUDE,
@@ -109,7 +109,7 @@ export async function findAllWorkOrdersForList(input: {
 
   return {
     workOrders:
-      workOrders as import("./IWorkOrderRepository").WorkOrderListItem[],
+      workOrders as import("../domain/ports/IWorkOrderRepository").WorkOrderListItem[],
     total,
     page: input.page,
     totalPages: Math.ceil(total / input.limit),

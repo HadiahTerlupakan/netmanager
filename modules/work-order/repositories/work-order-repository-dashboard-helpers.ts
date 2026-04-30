@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import type { WorkOrderFilters } from "./IWorkOrderRepository";
+import type { WorkOrderFilters } from "../domain/ports/IWorkOrderRepository";
 
 const DEFAULT_EMPLOYEE_WORK_ORDER_PAGE = 1;
 const DEFAULT_EMPLOYEE_WORK_ORDER_LIMIT = 20;

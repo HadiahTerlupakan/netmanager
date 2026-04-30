@@ -1,6 +1,6 @@
 import { type PrismaClient, type WorkOrderType } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import type { TopPerformer } from "./IWorkOrderRepository";
+import type { TopPerformer } from "../domain/ports/IWorkOrderRepository";
 import {
   accumulatePerformerStats,
   buildCompletedWorkOrderWhere,

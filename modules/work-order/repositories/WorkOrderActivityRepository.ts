@@ -9,7 +9,7 @@ import type {
   AddUpdateData,
   CreateTaskData,
   UpdateTaskData,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import type { Prisma } from "@prisma/client";
 import type { prisma as defaultPrisma } from "@/lib/prisma";
 import {

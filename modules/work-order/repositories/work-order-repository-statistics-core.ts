@@ -7,7 +7,7 @@ import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type {
   WorkOrderFilters,
   WorkOrderStatistics,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 
 const CLOSED_STATUSES: WorkOrderStatus[] = [
   "COMPLETED",

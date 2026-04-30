@@ -1,6 +1,6 @@
 import { Prisma, type WorkOrderType } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import type { TopPerformer } from "./IWorkOrderRepository";
+import type { TopPerformer } from "../domain/ports/IWorkOrderRepository";
 
 const COMPLETED_WORK_ORDER_STATUSES = [
   "COMPLETED",

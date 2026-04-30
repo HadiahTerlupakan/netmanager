@@ -7,7 +7,7 @@ import type {
   WorkOrderFilters,
   WorkOrderStatistics,
   WorkOrderWithRelations,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import { getWorkOrderStatisticsCore } from "./work-order-repository-statistics-core";
 import {
   getAdminKPIStats,

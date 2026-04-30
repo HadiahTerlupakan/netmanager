@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import type {
   WorkOrderFilters,
   WorkOrderWithRelations,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import {
   buildEmployeeDepartmentPagination,
   buildEmployeeDepartmentStatsWhere,

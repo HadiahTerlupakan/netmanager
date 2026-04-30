@@ -1,5 +1,5 @@
 import type { PrismaClient, WorkOrders } from "@prisma/client";
-import type { WorkOrderWithRelations } from "./IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 
 interface RequestFilterInput {
   departmentId?: string;

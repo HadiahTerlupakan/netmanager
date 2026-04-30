@@ -10,7 +10,7 @@ import type {
   WorkOrderStatistics,
   TopPerformer,
   WorkOrderWithRelations,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import {
   findWorkOrdersByTicketId,
   findWorkOrderWithTicketAndAttachments,

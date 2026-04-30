@@ -1,5 +1,5 @@
 import { Prisma, type WorkOrderStatus } from "@prisma/client";
-import type { WorkOrderFilters } from "./IWorkOrderRepository";
+import type { WorkOrderFilters } from "../domain/ports/IWorkOrderRepository";
 
 const FINALIZED_UNASSIGNED_STATUSES: WorkOrderStatus[] = [
   "CANCELLED",

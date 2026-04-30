@@ -6,7 +6,7 @@ import type {
   CanvasingListFilters,
   CanvasingListSummary,
 } from "@/modules/marketing/repositories/ICanvasingRepository";
-import type { IWorkOrderRepository } from "@/modules/work-order/repositories/IWorkOrderRepository";
+import type { IWorkOrderRepository } from "@/modules/work-order/domain/ports/IWorkOrderRepository";
 
 function createSummary(): CanvasingListSummary {
   return {

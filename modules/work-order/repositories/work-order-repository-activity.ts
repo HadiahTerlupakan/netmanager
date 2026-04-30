@@ -12,7 +12,7 @@ import type {
   AddUpdateData,
   CreateTaskData,
   UpdateTaskData,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 
 export async function addAssignment(
   prisma: PrismaClient,

@@ -4,7 +4,7 @@ import type {
   AddUpdateData,
   CreateWorkOrderData,
   WorkOrderWithRelations,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import {
   approveRequestedWorkOrder,
   findRequestedWorkOrders,

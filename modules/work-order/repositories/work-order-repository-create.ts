@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import type { CreateWorkOrderData } from "./IWorkOrderRepository";
+import type { CreateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
 
 const MAX_CREATE_RETRIES = 3;
 const RETRY_DELAY_MS = 50;

@@ -17,7 +17,7 @@ import type {
   AddUpdateData,
   WorkOrderFilters,
   StaleReminderWorkOrder,
-} from "./IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import {
@@ -111,11 +111,11 @@ export class WorkOrderRepository
     page: number = 1,
     limit: number = 20,
   ): Promise<{
-    workOrders: import("./IWorkOrderRepository").WorkOrderListItem[];
+    workOrders: import("../domain/ports/IWorkOrderRepository").WorkOrderListItem[];
     total: number;
     page: number;
     totalPages: number;
-    summary: import("./IWorkOrderRepository").WorkOrderListSummary;
+    summary: import("../domain/ports/IWorkOrderRepository").WorkOrderListSummary;
   }> {
     const tenantWhere = await this.getTenantWhere();
     return findAllWorkOrdersForList({
