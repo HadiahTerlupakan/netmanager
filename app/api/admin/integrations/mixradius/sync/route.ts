@@ -1,7 +1,9 @@
 import { logger } from "@/lib/logger";
-import { getMixRadiusSyncService } from "@/modules/integrations";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusSyncService,
+} from "@/modules/integrations";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { getUserPermissions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +11,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const { startDate, endDate } = await req.json();
 
-  // RBAC check
-  const permissions = await getUserPermissions(user.id);
-  const hasAccess =
-    user.role === "SUPER_ADMIN" ||
-    permissions.includes("*") ||
-    permissions.includes("mixradius:calculate") ||
-    permissions.includes("mixradius_income:calculate");
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: user.role === "SUPER_ADMIN",
+    requiredPermissions: ["mixradius:calculate", "mixradius_income:calculate"],
+  });
 
   if (!hasAccess) {
     return ApiErrors.forbidden(

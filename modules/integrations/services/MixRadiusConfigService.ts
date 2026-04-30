@@ -1,6 +1,6 @@
-import { IntegrationFactory } from "@/modules/integrations/factories/IntegrationFactory";
-import type { IMixRadiusConfigRepository } from "@/modules/integrations/domain/ports/IMixRadiusConfigRepository";
-import { mixRadiusConfigRepo } from "@/modules/integrations/repositories/MixRadiusConfigRepository";
+import type { IMixRadiusConfigRepository } from "../domain/ports/IMixRadiusConfigRepository";
+import { IntegrationFactory } from "../factories/IntegrationFactory";
+import { mixRadiusConfigRepo } from "../repositories/MixRadiusConfigRepository";
 
 export type MixRadiusConfigPayload = {
   name?: string;

@@ -7,6 +7,31 @@ const TOP_EXPENSE_LIMIT = 5;
 const EMPTY_TRANSACTION_COUNT = "0";
 const DEFAULT_NUMBER = 0;
 
+type MixRadiusProfitLossErrorResponse = {
+  error: string;
+  isConfigError: boolean;
+  summary: {
+    totalIncome: number;
+    totalExpense: number;
+    netProfit: number;
+    totalTransactions: number;
+    totalFees: number;
+    totalTax: number;
+  };
+  trend: Array<{ date: string; income: number; expense: number }>;
+  monthlyBreakdown: Array<{
+    month: string;
+    income: number;
+    expense: number;
+    transactions: number;
+    fees: number;
+    sellerFees: number;
+    tax: number;
+    net: number;
+  }>;
+  topExpenses: Array<{ name: string; amount: number }>;
+};
+
 export class MixRadiusProfitLossService {
   constructor(
     private readonly expenseRepository = new FinanceExpenseQueryService(),
@@ -82,41 +107,13 @@ export class MixRadiusProfitLossService {
   }
 
   /** Build empty fallback payload for MixRadius config errors. */
-  getConfigErrorResponse(error: MixRadiusConfigError): {
-    error: string;
-    isConfigError: boolean;
-    summary: {
-      totalIncome: number;
-      totalExpense: number;
-      netProfit: number;
-      totalTransactions: number;
-      totalFees: number;
-      totalTax: number;
-    };
-    trend: Array<{ date: string; income: number; expense: number }>;
-    monthlyBreakdown: Array<{
-      month: string;
-      income: number;
-      expense: number;
-      transactions: number;
-      fees: number;
-      sellerFees: number;
-      tax: number;
-      net: number;
-    }>;
-    topExpenses: Array<{ name: string; amount: number }>;
-  } {
+  getConfigErrorResponse(
+    error: MixRadiusConfigError,
+  ): MixRadiusProfitLossErrorResponse {
     return {
       error: error.message,
       isConfigError: true,
-      summary: {
-        totalIncome: DEFAULT_NUMBER,
-        totalExpense: DEFAULT_NUMBER,
-        netProfit: DEFAULT_NUMBER,
-        totalTransactions: DEFAULT_NUMBER,
-        totalFees: DEFAULT_NUMBER,
-        totalTax: DEFAULT_NUMBER,
-      },
+      summary: this.createEmptySummary(),
       trend: [],
       monthlyBreakdown: [],
       topExpenses: [],
@@ -255,6 +252,17 @@ export class MixRadiusProfitLossService {
     return {
       income: DEFAULT_NUMBER,
       expense: DEFAULT_NUMBER,
+    };
+  }
+
+  private createEmptySummary() {
+    return {
+      totalIncome: DEFAULT_NUMBER,
+      totalExpense: DEFAULT_NUMBER,
+      netProfit: DEFAULT_NUMBER,
+      totalTransactions: DEFAULT_NUMBER,
+      totalFees: DEFAULT_NUMBER,
+      totalTax: DEFAULT_NUMBER,
     };
   }
 }

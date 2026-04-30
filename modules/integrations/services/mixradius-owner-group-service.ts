@@ -1,5 +1,9 @@
-import { mixRadiusOwnerGroupRepository } from "@/modules/integrations/repositories/MixRadiusOwnerGroupRepository";
 import type { IMixRadiusOwnerGroupRepository } from "../domain/ports/IMixRadiusOwnerGroupRepository";
+import { getMixRadiusOwnerGroupRepository } from "./mixradius-owner-group-repository";
+
+const mixRadiusOwnerGroupRepository = getMixRadiusOwnerGroupRepository();
+
+/** Input untuk membuat grup owner MixRadius. */
 
 export type MixRadiusOwnerGroupPayload = {
   name: string;

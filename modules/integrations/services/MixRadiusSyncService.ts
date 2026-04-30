@@ -1,239 +1,38 @@
 import type { IMixRadiusDataRepository } from "../domain/ports/IMixRadiusDataRepository";
 import { createMixRadiusDataRepository } from "../factories/MixRadiusRepositoryFactory";
+import { getMixRadiusService } from "./MixRadiusService";
 import {
-  getCurrentMonthDateRange,
-  getYesterdayDateString,
-  parseMixRadiusDate,
-} from "./mixradius-date-utils";
+  assignNplBucket,
+  buildCustomerPayload,
+  buildCustomerPayloadFromInvoice,
+  buildOwnerFilter,
+  buildPlanAverageMap,
+  calculateExpiredDays,
+  createNplStats,
+  getDefaultGlobalAverage,
+  getMixRadiusSyncErrorMessage,
+  getYesterdaySettlementDate,
+  isCustomerIncludedByOwner,
+  isMixRadiusConfigError,
+  isNplCustomer,
+  normalizeInvoiceStatus,
+  parseAmount,
+  resolveEstimatedAmount,
+  resolveSyncDateRange,
+  resolveTenantId,
+} from "./mixradius-sync-helpers";
+import { parseMixRadiusDate } from "./mixradius-date-utils";
 import type {
-  MixRadiusCustomer,
   MixRadiusCustomerDetail,
   MixRadiusIncomePeriodRecord,
-} from "./MixRadiusService";
-import { getMixRadiusService } from "./MixRadiusService";
-
-const DEFAULT_TENANT_ID = "DEFAULT";
-const DEFAULT_GLOBAL_AVERAGE = 150000;
-const ONE_DAY_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
-
-type SyncCustomerPayload = {
-  mixRadiusId: string;
-  tenantId: string;
-  username: string;
-  fullName: string;
-  address?: string;
-  phoneNumber?: string;
-  planName?: string;
-  ownerName?: string;
-  status?: string;
-  expiredOn?: Date | null;
-  lastSyncedAt: Date;
-};
-
-type NplStats = {
-  under30: { count: number; sum: number };
-  between30And60: { count: number; sum: number };
-  between60And90: { count: number; sum: number };
-  over90: { count: number; sum: number };
-};
-
-function resolveTenantId(tenantId?: string) {
-  return tenantId || DEFAULT_TENANT_ID;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Terjadi kesalahan";
-}
-
-function isMixRadiusConfigError(error: unknown) {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    "name" in error &&
-    error.name === "MixRadiusConfigError"
-  );
-}
-
-function buildCustomerPayload(
-  customer: Pick<
-    MixRadiusCustomerDetail,
-    | "id"
-    | "username"
-    | "fullname"
-    | "address"
-    | "phonenumber"
-    | "plan_name"
-    | "owner_name"
-    | "auth_status"
-    | "expired_on"
-  >,
-  tenantId?: string,
-): SyncCustomerPayload {
-  return {
-    mixRadiusId: customer.id,
-    tenantId: resolveTenantId(tenantId),
-    username: customer.username,
-    fullName: customer.fullname || customer.username,
-    address: customer.address,
-    phoneNumber: customer.phonenumber,
-    planName: customer.plan_name,
-    ownerName: customer.owner_name,
-    status: customer.auth_status,
-    expiredOn: parseMixRadiusDate(customer.expired_on),
-    lastSyncedAt: new Date(),
-  };
-}
-
-function buildCustomerPayloadFromInvoice(
-  record: MixRadiusIncomePeriodRecord,
-  tenantId?: string,
-): SyncCustomerPayload {
-  return {
-    mixRadiusId: record.customer_id || record.username,
-    tenantId: resolveTenantId(tenantId),
-    username: record.username,
-    fullName: record.fullname,
-    address: record.address,
-    phoneNumber: record.phonenumber,
-    planName: record.plan_name,
-    ownerName: record.owner_name,
-    expiredOn: parseMixRadiusDate(record.expired_on),
-    lastSyncedAt: new Date(),
-  };
-}
-
-function parseAmount(amount: string | number | undefined) {
-  if (!amount) {
-    return 0;
-  }
-
-  return typeof amount === "number"
-    ? amount
-    : parseFloat(amount.replace(/[^0-9.-]+/g, "")) || 0;
-}
-
-function normalizeInvoiceStatus(status: string) {
-  const upperCasedStatus = status.toUpperCase();
-  return upperCasedStatus === "SUCCESS" ? "PAID" : upperCasedStatus;
-}
-
-function createNplStats(): NplStats {
-  return {
-    under30: { count: 0, sum: 0 },
-    between30And60: { count: 0, sum: 0 },
-    between60And90: { count: 0, sum: 0 },
-    over90: { count: 0, sum: 0 },
-  };
-}
-
-function buildOwnerFilter(owners: string[]) {
-  return owners.map((owner) => owner.split(/[—–-]/)[0].trim().toLowerCase());
-}
-
-function isCustomerIncludedByOwner(
-  ownerName: string | undefined,
-  owners: string[] | null,
-) {
-  if (!owners) {
-    return true;
-  }
-
-  return !!ownerName && owners.includes(ownerName.toLowerCase().trim());
-}
-
-function isNplCustomer(params: {
-  authStatus: string;
-  expiredDate: Date | null;
-  now: Date;
-}) {
-  const isExpired = !!params.expiredDate && params.expiredDate < params.now;
-  return (
-    params.authStatus === "Disabled-Users" ||
-    params.authStatus === "Isolir" ||
-    (params.authStatus === "Enabled-Users" && isExpired)
-  );
-}
-
-function calculateExpiredDays(now: Date, expiredDate: Date) {
-  const timeDifference = now.getTime() - expiredDate.getTime();
-  return Math.max(0, Math.floor(timeDifference / ONE_DAY_IN_MILLISECONDS));
-}
-
-function buildPlanAverageMap(
-  planAverages: Array<{ planName: string | null; averageAmount: number }>,
-) {
-  const planAverageMap = new Map<string, number>();
-
-  planAverages.forEach((planAverage) => {
-    if (planAverage.planName && planAverage.averageAmount > 0) {
-      planAverageMap.set(planAverage.planName, planAverage.averageAmount);
-    }
-  });
-
-  return planAverageMap;
-}
-
-function resolveAmountFromPlanName(planName: string | undefined) {
-  if (!planName) {
-    return 0;
-  }
-
-  const planPriceMatch = planName.match(/(\d+)[kK]/);
-  return planPriceMatch ? parseInt(planPriceMatch[1], 10) * 1000 : 0;
-}
-
-function resolveEstimatedAmount(params: {
-  customer: Pick<MixRadiusCustomer, "total" | "plan_name">;
-  planAverageMap: Map<string, number>;
-  globalAverage: number;
-}) {
-  const directAmount = parseAmount(params.customer.total);
-  if (directAmount > 0) {
-    return directAmount;
-  }
-
-  if (params.customer.plan_name) {
-    const planAverage = params.planAverageMap.get(params.customer.plan_name);
-    if (planAverage !== undefined) {
-      return planAverage;
-    }
-  }
-
-  const inferredAmount = resolveAmountFromPlanName(params.customer.plan_name);
-  return inferredAmount || params.globalAverage;
-}
-
-function assignNplBucket(stats: NplStats, diffDays: number, amount: number) {
-  if (diffDays < 30) {
-    stats.under30.count += 1;
-    stats.under30.sum += amount;
-    return;
-  }
-
-  if (diffDays < 60) {
-    stats.between30And60.count += 1;
-    stats.between30And60.sum += amount;
-    return;
-  }
-
-  if (diffDays < 90) {
-    stats.between60And90.count += 1;
-    stats.between60And90.sum += amount;
-    return;
-  }
-
-  stats.over90.count += 1;
-  stats.over90.sum += amount;
-}
+} from "./mixradius-types";
 
 export class MixRadiusSyncService {
   constructor(
     private readonly repo: IMixRadiusDataRepository = createMixRadiusDataRepository(),
   ) {}
 
-  /**
-   * Sync a single customer into local storage.
-   */
+  /** Sync a single customer into local storage. */
   async syncCustomer(data: MixRadiusCustomerDetail, tenantId?: string) {
     if (!data.username) {
       throw new Error("Username diperlukan untuk sinkronisasi");
@@ -247,9 +46,7 @@ export class MixRadiusSyncService {
     return { action: "synced", customer, linked };
   }
 
-  /**
-   * Sync all MixRadius customers into local storage.
-   */
+  /** Sync all MixRadius customers into local storage. */
   async syncAllCustomers() {
     try {
       const service = getMixRadiusService();
@@ -263,15 +60,7 @@ export class MixRadiusSyncService {
       let count = 0;
       for (const customer of customers) {
         await this.repo.upsertMixRadiusCustomer(
-          buildCustomerPayload(
-            {
-              ...customer,
-              id: customer.id,
-              auth_status: customer.auth_status,
-              expired_on: customer.expired_on,
-            },
-            undefined,
-          ),
+          buildCustomerPayload(customer, undefined),
         );
         count += 1;
       }
@@ -279,32 +68,28 @@ export class MixRadiusSyncService {
       return { success: true, count };
     } catch (error: unknown) {
       if (isMixRadiusConfigError(error)) {
-        return { success: false, count: 0, reason: getErrorMessage(error) };
+        return {
+          success: false,
+          count: 0,
+          reason: getMixRadiusSyncErrorMessage(error),
+        };
       }
 
       throw error;
     }
   }
 
-  /**
-   * Sync settlement data for yesterday.
-   */
+  /** Sync settlement data for yesterday. */
   async syncYesterdaySettlement() {
-    const settlementDate = getYesterdayDateString();
+    const settlementDate = getYesterdaySettlementDate();
     return this.syncInvoices(settlementDate, settlementDate);
   }
 
-  /**
-   * Sync invoice records into local storage.
-   */
+  /** Sync invoice records into local storage. */
   async syncInvoices(startDate?: string, endDate?: string) {
     try {
       const service = getMixRadiusService();
-      const dateRange =
-        startDate && endDate
-          ? { startDate, endDate }
-          : getCurrentMonthDateRange();
-
+      const dateRange = resolveSyncDateRange(startDate, endDate);
       const response = await service.fetchIncomeByPeriod({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
@@ -325,16 +110,18 @@ export class MixRadiusSyncService {
       return { success: true, count: syncCount };
     } catch (error: unknown) {
       if (isMixRadiusConfigError(error)) {
-        return { success: false, count: 0, reason: getErrorMessage(error) };
+        return {
+          success: false,
+          count: 0,
+          reason: getMixRadiusSyncErrorMessage(error),
+        };
       }
 
       throw error;
     }
   }
 
-  /**
-   * Get NPL statistics grouped by aging bucket.
-   */
+  /** Get NPL statistics grouped by aging bucket. */
   async getNPLStatistics(groupId?: string) {
     const now = new Date();
     const service = getMixRadiusService();
@@ -349,7 +136,7 @@ export class MixRadiusSyncService {
     );
     const globalAverage =
       (await this.repo.getInvoiceGlobalAverage()).averageAmount ||
-      DEFAULT_GLOBAL_AVERAGE;
+      getDefaultGlobalAverage();
 
     customers.forEach((customer) => {
       const expiredDate = parseMixRadiusDate(customer.expired_on);
@@ -365,7 +152,6 @@ export class MixRadiusSyncService {
       }
 
       totalCustomers += 1;
-
       if (!expiredDate) {
         return;
       }
@@ -384,12 +170,7 @@ export class MixRadiusSyncService {
 
   private async linkCustomerToPelanggan(data: MixRadiusCustomerDetail) {
     try {
-      let pelanggan = await this.repo.findPelangganByMixRadiusId(data.id);
-
-      if (!pelanggan) {
-        pelanggan = await this.repo.findPelangganByUsername(data.username);
-      }
-
+      const pelanggan = await this.findLinkedPelanggan(data);
       if (!pelanggan) {
         return false;
       }
@@ -404,6 +185,17 @@ export class MixRadiusSyncService {
     } catch {
       return false;
     }
+  }
+
+  private async findLinkedPelanggan(data: MixRadiusCustomerDetail) {
+    const pelangganByMixRadiusId = await this.repo.findPelangganByMixRadiusId(
+      data.id,
+    );
+    if (pelangganByMixRadiusId) {
+      return pelangganByMixRadiusId;
+    }
+
+    return this.repo.findPelangganByUsername(data.username);
   }
 
   private async upsertInvoice(
