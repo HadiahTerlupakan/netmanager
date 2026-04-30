@@ -2,10 +2,9 @@ import { logger } from "@/lib/logger";
 import type { IInventoryRepository } from "../domain/ports/IInventoryRepository";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import {
-  INVENTORY_CODE_MAX_ATTEMPTS,
-  INVENTORY_CODE_PREFIX,
-  INVENTORY_CODE_RANDOM_RANGE,
-} from "../validators/inventoryValidators";
+  mapBarangListItem,
+  resolveUniqueBarangCode,
+} from "./inventory-barang.service-helpers";
 
 interface ListBarangInput {
   userId: string;
@@ -48,55 +47,9 @@ export class InventoryBarangService {
         ...(input.siteId ? { siteId: input.siteId } : {}),
       });
 
-    const barangsWithStock = barangs.map((barang) => {
-      let totalStock = 0;
-      let stockPerGudang: {
-        gudangId: string;
-        gudangKode: string;
-        gudangNama: string;
-        stok: number;
-        stokBaru: number;
-        stokBekas: number;
-        stokRusak: number;
-      }[] = [];
-
-      if (barang.barangGudang) {
-        const filteredStocks = input.gudangId
-          ? barang.barangGudang.filter(
-              (stock) => stock.gudangId === input.gudangId,
-            )
-          : barang.barangGudang;
-
-        totalStock = filteredStocks.reduce((sum, stock) => sum + stock.stok, 0);
-
-        stockPerGudang = filteredStocks.map((stock) => ({
-          gudangId: stock.gudangId,
-          gudangKode: stock.gudang.kode,
-          gudangNama: stock.gudang.nama,
-          stok: stock.stok,
-          stokBaru: (stock as unknown as Record<string, number>).stokBaru || 0,
-          stokBekas:
-            (stock as unknown as Record<string, number>).stokBekas || 0,
-          stokRusak:
-            (stock as unknown as Record<string, number>).stokRusak || 0,
-        }));
-      }
-
-      return {
-        id: barang.id,
-        kode: barang.kode,
-        nama: barang.nama,
-        satuan: barang.satuan,
-        isWorkOrderMaterial: barang.isWorkOrderMaterial,
-        jenis: barang.jenis,
-        kategoriAset: barang.kategoriAset,
-        minStokDefault: barang.minStokDefault || 0,
-        createdAt: barang.createdAt,
-        updatedAt: barang.updatedAt,
-        totalStock,
-        stockPerGudang,
-      };
-    });
+    const barangsWithStock = barangs.map((barang) =>
+      mapBarangListItem({ barang, gudangId: input.gudangId }),
+    );
 
     return {
       barangs: barangsWithStock,
@@ -111,31 +64,10 @@ export class InventoryBarangService {
 
   /** Create a barang with unique code generation and activity log. */
   async createBarang(input: CreateBarangInput) {
-    let kode = input.kode?.trim();
-
-    if (kode) {
-      const isExists = await this.inventoryRepository.existsBarangByKode(kode);
-      if (isExists) {
-        throw new Error(
-          `Kode barang "${kode}" sudah digunakan. Silakan gunakan kode lain atau kosongkan field kode.`,
-        );
-      }
-    } else {
-      let attempts = 0;
-
-      do {
-        kode = this.generateBarangCode();
-        const isExists =
-          await this.inventoryRepository.existsBarangByKode(kode);
-
-        if (!isExists) break;
-        attempts++;
-      } while (attempts < INVENTORY_CODE_MAX_ATTEMPTS);
-
-      if (attempts >= INVENTORY_CODE_MAX_ATTEMPTS) {
-        throw new Error("Gagal generate kode unik");
-      }
-    }
+    const kode = await resolveUniqueBarangCode(
+      this.inventoryRepository,
+      input.kode,
+    );
 
     const barang = await this.inventoryRepository.createBarang({
       kode,
@@ -155,13 +87,6 @@ export class InventoryBarangService {
     });
 
     return { barang };
-  }
-
-  /** Generate a candidate barang code. */
-  private generateBarangCode(): string {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * INVENTORY_CODE_RANDOM_RANGE);
-    return `${INVENTORY_CODE_PREFIX}${timestamp.toString().slice(-6)}${random.toString().padStart(3, "0")}`;
   }
 }
 

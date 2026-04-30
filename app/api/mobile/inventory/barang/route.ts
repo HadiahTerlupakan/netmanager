@@ -1,19 +1,20 @@
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { hasAnyMobilePermission } from "@/lib/mobile-auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { getMobileInventoryService } from "@/modules/inventory";
 import {
-  getMobileInventoryService,
-  MobileInventoryError,
-} from "@/modules/inventory";
+  createMobileInventoryErrorResponse,
+  requireMobileInventoryAuth,
+} from "../route-utils";
 
 const service = getMobileInventoryService();
 
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getMobileAuthPayload(req);
-    if (authResult instanceof NextResponse) return authResult;
+    const authState = await requireMobileInventoryAuth(req);
+    if ("response" in authState) return authState.response;
+    const authResult = authState.auth;
 
     const { searchParams } = new URL(req.url);
     const gudangId = searchParams.get("gudangId");
@@ -43,15 +44,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ barangList });
   } catch (error) {
-    if (error instanceof MobileInventoryError) {
-      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
-        status: error.status,
-      });
-    }
-
-    logger.error("Error fetching barangs (mobile):", error);
-    return apiError("Terjadi kesalahan server", ErrorCodes.INTERNAL_ERROR, {
-      status: 500,
-    });
+    logger.error("Error fetching barangs (mobile):", error as Error);
+    return createMobileInventoryErrorResponse(error);
   }
 }

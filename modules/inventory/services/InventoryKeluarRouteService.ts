@@ -1,3 +1,4 @@
+import { validateInventoryMutationCreateBody } from "./inventory-route-validation.helpers";
 import type { KondisiBarang } from "@prisma/client";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
@@ -280,50 +281,7 @@ export class InventoryKeluarRouteService {
   }
 
   private validateCreateBody(body: Record<string, unknown>) {
-    const parsedJumlah = Number(body.jumlah);
-
-    if (
-      !body.barangId ||
-      !body.gudangId ||
-      !Number.isFinite(parsedJumlah) ||
-      parsedJumlah <= 0
-    ) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "Barang, gudang, dan jumlah harus diisi dengan benar",
-      };
-    }
-
-    if (body.kondisi && !this.isValidKondisi(body.kondisi)) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
-      };
-    }
-
-    if (body.fotoBukti && !Array.isArray(body.fotoBukti)) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "fotoBukti harus berupa array URL foto",
-      };
-    }
-
-    if (body.fotoMetadata && typeof body.fotoMetadata !== "object") {
-      return {
-        success: false as const,
-        status: 400,
-        error: "fotoMetadata harus berupa object JSON",
-      };
-    }
-
-    return null;
-  }
-
-  private isValidKondisi(kondisi: unknown): kondisi is KondisiBarang {
-    return kondisi === "BARU" || kondisi === "BEKAS" || kondisi === "RUSAK";
+    return validateInventoryMutationCreateBody(body);
   }
 }
 

@@ -1,9 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
-import {
-  adjustStockCalculation,
-  calculateStockByCondition,
-} from "./inventory-api-repository-helpers";
+import { calculateStockByCondition } from "./inventory-api-repository-helpers";
+import { calculateInitialOpnameItems } from "./inventory-opname-api-calculation.helpers";
 
 type PrismaClientLike = Prisma.TransactionClient;
 
@@ -79,65 +77,7 @@ export class InventoryOpnameApiRepository {
 
   /** Hitung data awal opname untuk satu gudang. */
   async calculateOpname(gudangId: string) {
-    const barangGudangs = await this.db.barangGudang.findMany({
-      where: { gudangId },
-      include: {
-        barang: {
-          select: {
-            id: true,
-            kode: true,
-            nama: true,
-            satuan: true,
-            createdAt: true,
-          },
-        },
-        gudang: { select: { id: true, kode: true, nama: true } },
-      },
-      orderBy: { barang: { kode: "asc" } },
-    });
-    if (barangGudangs.length === 0) return [];
-    const { allMasuk, allKeluar } = await this.findOpnameMovements(
-      gudangId,
-      barangGudangs.map((item) => item.barang.id),
-    );
-    return barangGudangs.map((barangGudang) => {
-      const masukItems = allMasuk.filter(
-        (item) => item.barangId === barangGudang.barang.id,
-      );
-      const keluarItems = allKeluar.filter(
-        (item) => item.barangId === barangGudang.barang.id,
-      );
-      const stockByCondition = calculateStockByCondition(
-        masukItems,
-        keluarItems,
-      );
-      const adjusted = adjustStockCalculation(
-        barangGudang.stok,
-        stockByCondition,
-      );
-      return {
-        barangId: barangGudang.barang.id,
-        barangKode: barangGudang.barang.kode,
-        barangNama: barangGudang.barang.nama,
-        barangSatuan: barangGudang.barang.satuan,
-        gudangId: barangGudang.gudang.id,
-        gudangNama: barangGudang.gudang.nama,
-        stokSistem: barangGudang.stok,
-        stokFisik: barangGudang.stok,
-        kondisiBaik: adjusted.kondisiBaik,
-        kondisiRusak: adjusted.kondisiRusak,
-        kondisiExpire: adjusted.kondisiExpire,
-        lokasiPenyimpanan: barangGudang.gudang.nama,
-        nomorRak: "",
-        nomorBox: "",
-        pic: "Gudang",
-        suhuPenyimpanan: null as number | null,
-        kelembaban: null as number | null,
-        tanggalExpire: null as Date | null,
-        nomorBatch: "",
-        catatanDetail: `Stok sistem: ${barangGudang.stok} (Baru: ${stockByCondition.stokBaru}, Bekas: ${stockByCondition.stokBekas}, Rusak: ${stockByCondition.stokRusak}). Input stok fisik dan breakdown kondisi aktual.`,
-      };
-    });
+    return calculateInitialOpnameItems({ db: this.db, gudangId });
   }
 
   /** Ambil stok barang dan relasinya. */
@@ -288,18 +228,6 @@ export class InventoryOpnameApiRepository {
       });
     }
     return items;
-  }
-
-  private async findOpnameMovements(gudangId: string, barangIds: string[]) {
-    const [allMasuk, allKeluar] = await Promise.all([
-      this.db.barangMasuk.findMany({
-        where: { gudangId, barangId: { in: barangIds } },
-      }),
-      this.db.barangKeluar.findMany({
-        where: { gudangId, barangId: { in: barangIds } },
-      }),
-    ]);
-    return { allMasuk, allKeluar };
   }
 
   private async requireCurrentStock(

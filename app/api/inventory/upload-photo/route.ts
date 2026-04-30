@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { inventoryPhotoUploadService } from "@/modules/inventory";
+import {
+  inventoryPhotoQueryService,
+  inventoryPhotoUploadService,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-import type { InventoryPhotoUploadResult } from "@/modules/inventory";
+import type {
+  InventoryPhotoQueryResult,
+  InventoryPhotoUploadResult,
+} from "@/modules/inventory";
 
+type InventoryPhotoQueryError = Extract<
+  InventoryPhotoQueryResult,
+  { ok: false }
+>;
 type InventoryPhotoUploadError = Extract<
   InventoryPhotoUploadResult,
   { ok: false }
@@ -13,6 +23,16 @@ function isUploadError(
   result: InventoryPhotoUploadResult,
 ): result is InventoryPhotoUploadError {
   return !result.ok;
+}
+
+function isPhotoQueryError(
+  result: InventoryPhotoQueryResult,
+): result is InventoryPhotoQueryError {
+  return !result.ok;
+}
+
+function createPhotoQueryErrorResponse(error: InventoryPhotoQueryError) {
+  return NextResponse.json(error.body, { status: error.status });
 }
 
 /**
@@ -88,31 +108,16 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const transactionId = searchParams.get("transactionId");
-    const transactionType = searchParams.get("transactionType") as
-      | "inventory-masuk"
-      | "inventory-keluar";
+    const queryResult = inventoryPhotoQueryService.getTransactionPhotoInfo({
+      transactionId: searchParams.get("transactionId"),
+      transactionType: searchParams.get("transactionType"),
+    });
 
-    if (!transactionId) {
-      return NextResponse.json(
-        { error: "ID Transaksi wajib disertakan" },
-        { status: 400 },
-      );
+    if (isPhotoQueryError(queryResult)) {
+      return createPhotoQueryErrorResponse(queryResult);
     }
 
-    if (
-      !transactionType ||
-      !["inventory-masuk", "inventory-keluar"].includes(transactionType)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Tipe transaksi harus "inventory-masuk" atau "inventory-keluar"',
-        },
-        { status: 400 },
-      );
-    }
-
+    const successBody = queryResult.body;
     logger.apiRequest(
       "GET",
       "/api/inventory/upload-photo",
@@ -120,22 +125,12 @@ export async function GET(request: NextRequest) {
       Date.now() - startTime,
       {
         userId: session.user.id,
-        transactionId,
-        transactionType,
+        transactionId: successBody.transactionId,
+        transactionType: successBody.transactionType,
       },
     );
 
-    return NextResponse.json({
-      transactionId,
-      transactionType,
-      message:
-        "Transaction found. Photo URLs would be returned here if stored in database.",
-      note: "This endpoint can be extended to return uploaded photo URLs from a database table.",
-      expectedPhotoPattern: {
-        inventoryMasuk: `/uploads/inventory-masuk/[year]/[month]/${transactionId}_photo_[index].webp`,
-        inventoryKeluar: `/uploads/inventory-keluar/[year]/[month]/${transactionId}_photo_[index].webp`,
-      },
-    });
+    return NextResponse.json(successBody);
   } catch (error) {
     const err = error as Error;
     logger.error("Error in inventory photo GET endpoint", err, {

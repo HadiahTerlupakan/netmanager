@@ -2,6 +2,13 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { parseOptionalDate } from "@/lib/utils/server-datetime";
 import { prisma } from "@/modules/database";
+import {
+  accumulateMonthlyData,
+  buildSlowMovingItems,
+  initializeMonthMap,
+  processRecentActivities,
+  sortStockAlerts,
+} from "./inventory-dashboard.service-helpers";
 
 const DEFAULT_LOW_STOCK_THRESHOLD = 10;
 const DEFAULT_TREND_MONTH_OFFSET = 5;
@@ -25,23 +32,6 @@ interface MonthlyData {
   _sum: { jumlah: number | null };
 }
 
-interface ActivityItem {
-  barang?: { nama?: string; kode?: string };
-  gudang?: { nama?: string };
-  jumlah: number;
-  user?: { name?: string };
-  tanggal: Date;
-}
-
-interface TransferItem {
-  barang?: { nama?: string; kode?: string };
-  gudangDari?: { nama?: string };
-  gudangKe?: { nama?: string };
-  jumlah: number;
-  createdBy?: { name?: string };
-  tanggal: Date;
-}
-
 export class InventoryDashboardService {
   /** Get inventory dashboard data using access-aware warehouse filters. */
   async getDashboardData(input: {
@@ -61,15 +51,14 @@ export class InventoryDashboardService {
       const fastMoving = await this.buildFastMovingItems(
         dashboardData.fastMovingData,
       );
-      const slowMoving = this.buildSlowMovingItems(
-        dashboardData.slowMovingData,
-      );
+      const slowMoving = buildSlowMovingItems(dashboardData.slowMovingData);
       const alerts = await this.getStockAlerts(siteId);
-      const recentActivities = this.processRecentActivities(
-        dashboardData.recentMasuk,
-        dashboardData.recentKeluar,
-        dashboardData.recentTransfer,
-      );
+      const recentActivities = processRecentActivities({
+        masuk: dashboardData.recentMasuk,
+        keluar: dashboardData.recentKeluar,
+        transfer: dashboardData.recentTransfer,
+        limit: RECENT_ACTIVITY_LIMIT,
+      });
 
       return {
         success: true,
@@ -350,32 +339,6 @@ export class InventoryDashboardService {
     });
   }
 
-  /** Transform slow-moving rows into dashboard response items. */
-  private buildSlowMovingItems(
-    slowMovingData: Array<{
-      id: string;
-      kode: string;
-      nama: string;
-      barang_keluar: Array<{ tanggal: Date }>;
-    }>,
-  ) {
-    return slowMovingData.map((barang) => {
-      const lastMovement = barang.barang_keluar[0]?.tanggal || null;
-      return {
-        id: barang.id,
-        kode: barang.kode,
-        nama: barang.nama,
-        lastMovement,
-        daysSinceLastMove: lastMovement
-          ? Math.floor(
-              (Date.now() - new Date(lastMovement).getTime()) /
-                (1000 * 60 * 60 * 24),
-            )
-          : null,
-      };
-    });
-  }
-
   /** Build stock alerts from active restock settings. */
   private async getStockAlerts(siteId?: string) {
     const settings = await prisma.restockSettings.findMany({
@@ -418,26 +381,11 @@ export class InventoryDashboardService {
       }),
     );
 
-    return alerts
-      .filter((alert): alert is NonNullable<typeof alert> => alert !== null)
-      .sort((firstAlert, secondAlert) => {
-        if (
-          firstAlert.status === CRITICAL_STATUS &&
-          secondAlert.status !== CRITICAL_STATUS
-        ) {
-          return -1;
-        }
-
-        if (
-          firstAlert.status !== CRITICAL_STATUS &&
-          secondAlert.status === CRITICAL_STATUS
-        ) {
-          return 1;
-        }
-
-        return firstAlert.currentStock - secondAlert.currentStock;
-      })
-      .slice(0, TOP_ITEMS_LIMIT);
+    return sortStockAlerts(
+      alerts.filter(
+        (alert): alert is NonNullable<typeof alert> => alert !== null,
+      ),
+    );
   }
 
   /** Aggregate trend rows into month buckets. */
@@ -447,9 +395,13 @@ export class InventoryDashboardService {
     startDate: Date,
     endDate: Date,
   ) {
-    const monthMap = this.initializeMonthMap(startDate, endDate);
-    this.accumulateMonthlyData(monthMap, masukData, "masuk");
-    this.accumulateMonthlyData(monthMap, keluarData, "keluar");
+    const monthMap = initializeMonthMap({
+      startDate,
+      endDate,
+      maxTrendMonths: MAX_TREND_MONTHS,
+    });
+    accumulateMonthlyData(monthMap, masukData, "masuk");
+    accumulateMonthlyData(monthMap, keluarData, "keluar");
 
     return Object.entries(monthMap).map(([key, value]) => {
       const [yearText, monthText] = key.split("-");
@@ -463,95 +415,6 @@ export class InventoryDashboardService {
         keluar: value.keluar,
       };
     });
-  }
-
-  /** Initialize the month buckets for the trend response. */
-  private initializeMonthMap(startDate: Date, endDate: Date) {
-    const monthMap: Record<string, { masuk: number; keluar: number }> = {};
-    const monthDiff =
-      (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-      (endDate.getMonth() - startDate.getMonth()) +
-      1;
-    const totalMonths = Math.max(1, Math.min(monthDiff, MAX_TREND_MONTHS));
-
-    for (let index = 0; index < totalMonths; index += 1) {
-      const currentDate = new Date(
-        startDate.getFullYear(),
-        startDate.getMonth() + index,
-        1,
-      );
-      const key = this.formatMonthKey(currentDate);
-      monthMap[key] = { masuk: 0, keluar: 0 };
-    }
-
-    return monthMap;
-  }
-
-  /** Accumulate grouped transaction rows into month buckets. */
-  private accumulateMonthlyData(
-    monthMap: Record<string, { masuk: number; keluar: number }>,
-    items: MonthlyData[],
-    field: "masuk" | "keluar",
-  ) {
-    items.forEach((item) => {
-      const key = this.formatMonthKey(new Date(item.tanggal));
-      if (!monthMap[key]) {
-        return;
-      }
-
-      monthMap[key][field] += item._sum.jumlah || 0;
-    });
-  }
-
-  /** Build a month key with year-month precision. */
-  private formatMonthKey(date: Date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-  }
-
-  /** Merge and sort recent activity items across inventory movement types. */
-  private processRecentActivities(
-    masuk: ActivityItem[],
-    keluar: ActivityItem[],
-    transfer: TransferItem[],
-  ) {
-    const activities = [
-      ...masuk.map((item) => this.mapActivity(item, "MASUK")),
-      ...keluar.map((item) => this.mapActivity(item, "KELUAR")),
-      ...transfer.map((item) => this.mapTransferActivity(item)),
-    ];
-
-    return activities
-      .sort(
-        (firstItem, secondItem) =>
-          secondItem.timestamp.getTime() - firstItem.timestamp.getTime(),
-      )
-      .slice(0, RECENT_ACTIVITY_LIMIT);
-  }
-
-  /** Map regular stock movement to recent activity shape. */
-  private mapActivity(item: ActivityItem, type: string) {
-    return {
-      type,
-      barang: item.barang?.nama || "-",
-      kode: item.barang?.kode || "-",
-      gudang: item.gudang?.nama || "-",
-      jumlah: item.jumlah,
-      user: item.user?.name || "-",
-      timestamp: item.tanggal,
-    };
-  }
-
-  /** Map transfer movement to recent activity shape. */
-  private mapTransferActivity(item: TransferItem) {
-    return {
-      type: "TRANSFER",
-      barang: item.barang?.nama || "-",
-      kode: item.barang?.kode || "-",
-      gudang: `${item.gudangDari?.nama} → ${item.gudangKe?.nama}`,
-      jumlah: item.jumlah,
-      user: item.createdBy?.name || "-",
-      timestamp: item.tanggal,
-    };
   }
 }
 

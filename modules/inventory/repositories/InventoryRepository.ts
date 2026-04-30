@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma, AlertType } from "@prisma/client";
 import type { Barang, BarangMasuk, BarangKeluar, Gudang } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { USEFUL_LIFE_MONTHS, DEFAULT_KONDISI } from "@/lib/constants/inventory";
+import { USEFUL_LIFE_MONTHS } from "@/lib/constants/inventory";
 import type {
   UpdateBarangInput,
   CreateBarangMasukInput,
@@ -13,7 +13,6 @@ import type {
   UpdateGudangInput,
   CreateTransferInput,
   BarangDetail,
-  InventoryActorInput,
   UpdateBarangMasukInput,
   UpdateStockOpnameInput,
   InventoryMasukRecord,
@@ -25,14 +24,17 @@ import type {
   FindInventoryBarangParams,
   CreateInventoryBarangData,
 } from "../domain/ports/IInventoryRepository";
-import { InventoryBarangMapper } from "../mappers/InventoryBarangMapper";
 import {
-  assertPositiveIntegerQuantity,
-  buildDecrementBarangGudangPayload,
-  buildIncrementBarangGudangPayload,
-  getConditionStockAmount,
-  getStockFieldByCondition,
-} from "./inventory-stock-helpers";
+  createInventoryBarang,
+  deleteInventoryBarang,
+  findAllInventoryBarang,
+  findBarangWithStockById,
+  findBarangWithStockByKode,
+  findInventoryBarangDetail,
+  resolveInventoryActor,
+  updateInventoryBarang,
+} from "./inventory-repository-core-helpers";
+import { buildIncrementBarangGudangPayload } from "./inventory-stock-helpers";
 import { InventoryGudangRepository } from "./InventoryGudangRepository";
 import { InventoryMobileRepository } from "./InventoryMobileRepository";
 import { InventoryOpnameRepository } from "./InventoryOpnameRepository";
@@ -53,38 +55,7 @@ import {
   findTransferById,
   updateTransfer,
 } from "./inventory-repository-transfer-helpers";
-type InventoryActorRecord = {
-  actorType: string | null;
-  actorId: string | null;
-  userId: string | null;
-};
-function resolveInventoryActor(input: {
-  actor?: InventoryActorInput;
-  userId?: string;
-}): InventoryActorRecord {
-  if (input.actor) {
-    return {
-      actorType: input.actor.type,
-      actorId: input.actor.id,
-      userId:
-        input.actor.type === "user"
-          ? input.actor.userId || input.actor.id
-          : null,
-    };
-  }
-  if (!input.userId) {
-    return {
-      actorType: null,
-      actorId: null,
-      userId: null,
-    };
-  }
-  return {
-    actorType: "user",
-    actorId: input.userId,
-    userId: input.userId,
-  };
-}
+import { removeInventoryStock } from "./inventory-stock-out-helpers";
 export class InventoryRepository implements IInventoryDomainRepository {
   private db: PrismaClient;
   private gudangRepository: InventoryGudangRepository;
@@ -175,104 +146,17 @@ export class InventoryRepository implements IInventoryDomainRepository {
     items: import("../domain/entities/InventoryEntity").InventoryBarangEntity[];
     total: number;
   }> {
-    const { skip, take, search, gudangId, siteId, tenantId } = params || {};
-    const where: Prisma.BarangWhereInput = {
-      ...(tenantId ? { tenantId } : {}),
-    };
-    if (search) {
-      where.OR = [
-        { nama: { contains: search, mode: "insensitive" } },
-        { kode: { contains: search, mode: "insensitive" } },
-      ];
-    }
-    // Count total matches
-    const total = await this.db.barang.count({ where });
-    const queryOptions: Prisma.BarangFindManyArgs = {
-      where,
-      select: {
-        id: true,
-        kode: true,
-        nama: true,
-        satuan: true,
-        isWorkOrderMaterial: true,
-        jenis: true,
-        kategoriAset: true,
-        minStokDefault: true,
-        createdAt: true,
-        tenantId: true,
-        updatedAt: true,
-        supplierId: true,
-        barangGudang: {
-          where: {
-            AND: [
-              gudangId ? { gudangId } : {},
-              siteId ? { gudang: { sites: { some: { id: siteId } } } } : {},
-            ],
-          },
-          select: {
-            id: true,
-            gudangId: true,
-            stok: true,
-            stokBaru: true,
-            stokBekas: true,
-            stokRusak: true,
-            gudang: {
-              select: {
-                id: true,
-                nama: true,
-                kode: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { nama: "asc" },
-    };
-    if (skip !== undefined) queryOptions.skip = skip;
-    if (take !== undefined) queryOptions.take = take;
-    const items = (await this.db.barang.findMany(
-      queryOptions,
-    )) as unknown as BarangWithStock[];
-    return {
-      items: items.map((item) => InventoryBarangMapper.toDomain(item)),
-      total,
-    };
+    return findAllInventoryBarang(this.db, params);
   }
+
+  /** Find barang by id with stock relations. */
   async findBarangById(id: string): Promise<BarangWithStock | null> {
-    return this.db.barang.findUnique({
-      where: { id },
-      include: {
-        barangGudang: {
-          include: {
-            gudang: {
-              select: {
-                id: true,
-                nama: true,
-                kode: true,
-              },
-            },
-          },
-        },
-      },
-    }) as unknown as Promise<BarangWithStock | null>;
+    return findBarangWithStockById(this.db, id);
   }
+
+  /** Find barang by kode with stock relations. */
   async findBarangByKode(kode: string): Promise<BarangWithStock | null> {
-    return this.db.barang.findFirst({
-      where: { kode },
-      include: {
-        barangGudang: {
-          include: {
-            gudang: {
-              select: {
-                id: true,
-                nama: true,
-                kode: true,
-              },
-            },
-          },
-        },
-      },
-    }) as unknown as Promise<BarangWithStock | null>;
+    return findBarangWithStockByKode(this.db, kode);
   }
   async existsBarangByKode(kode: string): Promise<boolean> {
     const count = await this.db.barang.count({
@@ -282,125 +166,22 @@ export class InventoryRepository implements IInventoryDomainRepository {
   }
   /** Create barang and map it to domain entity. */
   async createBarang(data: CreateInventoryBarangData) {
-    const created = await this.db.barang.create({
-      data: {
-        id: crypto.randomUUID(),
-        kode: data.kode,
-        nama: data.nama,
-        satuan: data.satuan,
-        isWorkOrderMaterial: data.isWorkOrderMaterial,
-        jenis: data.jenis as never,
-        kategoriAset: data.kategoriAset as never,
-        minStokDefault: data.minStokDefault || 0,
-        updatedAt: new Date(),
-      },
-      include: {
-        barangGudang: {
-          include: {
-            gudang: {
-              select: {
-                id: true,
-                nama: true,
-                kode: true,
-              },
-            },
-          },
-        },
-      },
-    });
-    return InventoryBarangMapper.toDomain(
-      created as unknown as BarangWithStock,
-    );
+    return createInventoryBarang(this.db, data);
   }
+
+  /** Update barang master inventory. */
   async updateBarang(id: string, data: UpdateBarangInput): Promise<Barang> {
-    const existingBarang = await this.db.barang.findUnique({
-      where: { id },
-      select: { satuan: true },
-    });
-    if (!existingBarang) {
-      throw new Error("Barang tidak ditemukan");
-    }
-    const isUnitChanged =
-      typeof data.satuan === "string" && data.satuan !== existingBarang.satuan;
-    if (isUnitChanged) {
-      const stockCount = await this.db.barangGudang.count({
-        where: {
-          barangId: id,
-          stok: { gt: 0 },
-        },
-      });
-      if (stockCount > 0) {
-        throw new Error(
-          "Satuan barang tidak boleh diubah saat stok masih tersedia",
-        );
-      }
-    }
-    return this.db.barang.update({
-      where: { id },
-      data: {
-        ...data,
-        updatedAt: new Date(),
-      },
-    });
+    return updateInventoryBarang(this.db, id, data);
   }
+
+  /** Find detailed barang inventory record. */
   async findBarangDetail(id: string): Promise<BarangDetail | null> {
-    const result = await this.db.barang.findUnique({
-      where: { id },
-      include: {
-        barangGudang: {
-          include: { gudang: true },
-        },
-        barang_masuk: {
-          include: {
-            gudang: { select: { id: true, nama: true } },
-            user: { select: { id: true, name: true } },
-          },
-          orderBy: { tanggal: "desc" },
-          take: 10,
-        },
-        barang_keluar: {
-          include: {
-            gudang: { select: { id: true, nama: true } },
-            user: { select: { id: true, name: true } },
-          },
-          orderBy: { tanggal: "desc" },
-          take: 10,
-        },
-        stockOpname: {
-          include: {
-            gudang: { select: { id: true, nama: true } },
-          },
-          orderBy: { tanggal: "desc" },
-          take: 10,
-        },
-      },
-    });
-    if (!result) return null;
-    return {
-      ...result,
-      masuk: result.barang_masuk as unknown as BarangMasukWithRelations[],
-      keluar: result.barang_keluar as unknown as BarangKeluarWithRelations[],
-      opname: result.stockOpname as unknown as Record<string, unknown>[],
-    } as unknown as BarangDetail;
+    return findInventoryBarangDetail(this.db, id);
   }
+
+  /** Delete barang and dependent inventory records. */
   async deleteBarang(id: string): Promise<void> {
-    await this.db.$transaction(async (tx) => {
-      await tx.barangMasuk.deleteMany({ where: { barangId: id } });
-      await tx.barangKeluar.deleteMany({ where: { barangId: id } });
-      await (
-        tx as unknown as {
-          stockOpname: {
-            deleteMany: (args: {
-              where: { barangId: string };
-            }) => Promise<unknown>;
-          };
-        }
-      ).stockOpname.deleteMany({
-        where: { barangId: id },
-      });
-      await tx.barangGudang.deleteMany({ where: { barangId: id } });
-      await tx.barang.delete({ where: { id } });
-    });
+    await deleteInventoryBarang(this.db, id);
   }
   async addStock(data: CreateBarangMasukInput): Promise<BarangMasuk> {
     return this.db.$transaction(async (tx) =>
@@ -510,104 +291,7 @@ export class InventoryRepository implements IInventoryDomainRepository {
     return masuk as unknown as BarangMasuk;
   }
   async removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar> {
-    return this.db.$transaction(async (tx) => {
-      const actor = resolveInventoryActor(data);
-      assertPositiveIntegerQuantity(data.jumlah);
-      const jumlahInt = data.jumlah;
-      const currentStock = await tx.barangGudang.findUnique({
-        where: {
-          barangId_gudangId: {
-            barangId: data.barangId,
-            gudangId: data.gudangId,
-          },
-        },
-      });
-      if (!currentStock) throw new Error("Stok tidak ditemukan di gudang ini");
-      if (currentStock.stok < jumlahInt)
-        throw new Error(
-          `Total stok tidak mencukupi (Tersedia: ${currentStock.stok})`,
-        );
-      const kondisi = data.kondisi || DEFAULT_KONDISI;
-      const stockField = getStockFieldByCondition(kondisi);
-      const stokByKondisi = getConditionStockAmount(
-        currentStock as unknown as Record<string, unknown>,
-        stockField,
-      );
-      if (typeof stokByKondisi !== "number" || isNaN(stokByKondisi))
-        throw new Error(`Data stok tidak valid untuk kondisi ${kondisi}`);
-      if (stokByKondisi < jumlahInt)
-        throw new Error(
-          `Stok ${kondisi} tidak mencukupi (Tersedia: ${stokByKondisi})`,
-        );
-      const updateData = buildDecrementBarangGudangPayload({
-        stockField,
-        quantity: jumlahInt,
-      });
-      const updated = await tx.barangGudang.updateMany({
-        where: {
-          id: currentStock.id,
-          stok: { gte: jumlahInt },
-          [stockField]: { gte: jumlahInt },
-        },
-        data: updateData,
-      });
-      if (updated.count === 0)
-        throw new Error(
-          `Stok ${kondisi} tidak mencukupi atau telah berubah (Tersedia: ${stokByKondisi})`,
-        );
-      const keluar = await tx.barangKeluar.create({
-        data: {
-          id: crypto.randomUUID(),
-          barangId: data.barangId,
-          gudangId: data.gudangId,
-          jumlah: jumlahInt,
-          kondisi: data.kondisi || "BARU",
-          keterangan: data.keterangan || null,
-          tujuanPenggunaan: data.tujuanPenggunaan || null,
-          isHilang: data.isHilang || false,
-          userId: actor.userId,
-          actorType: actor.actorType,
-          actorId: actor.actorId,
-          tanggal: data.tanggal || new Date(),
-          fotoBukti: data.fotoBukti || [],
-          fotoMetadata:
-            (data.fotoMetadata as unknown as Prisma.InputJsonValue) ||
-            Prisma.JsonNull,
-          tenantId: data.tenantId || null,
-        },
-        include: { barang: true, gudang: true },
-      });
-      const keluarWithRelations = keluar as unknown as {
-        barang: { jenis: string };
-        gudang: { nama: string };
-        keterangan: string | null;
-      };
-      if (keluarWithRelations.barang?.jenis === "ASET" && !data.isHilang) {
-        const assetsToAllocate = await tx.asset.findMany({
-          where: {
-            barangId: data.barangId,
-            status: "ACTIVE",
-            location: keluarWithRelations.gudang?.nama,
-          },
-          orderBy: [{ purchaseDate: "asc" }, { createdAt: "asc" }],
-          take: jumlahInt,
-        });
-        if (assetsToAllocate.length > 0) {
-          const assetIds = assetsToAllocate.map((a) => a.id);
-          await tx.asset.updateMany({
-            where: { id: { in: assetIds } },
-            data: {
-              status: "INSTALLED",
-              location: `Deployed (Ref: ${keluarWithRelations.keterangan || "Barang Keluar"})`,
-              assignedTo: actor.userId,
-              assignedActorType: actor.actorType,
-              assignedActorId: actor.actorId,
-            },
-          });
-        }
-      }
-      return keluar as unknown as BarangKeluar;
-    });
+    return this.db.$transaction((tx) => removeInventoryStock({ tx, data }));
   }
   async getStockLevel(barangId: string, gudangId: string): Promise<number> {
     const record = await this.db.barangGudang.findUnique({
