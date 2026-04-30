@@ -1,8 +1,12 @@
-import { logger } from "@/lib/logger";
 import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
-import { logActivitySafe } from "@/lib/logger";
-import { socketEmitter } from "@/lib/websocket/emitter";
-import { TicketEventDispatcher } from "@/modules/events";
+import {
+  buildClosingMessage,
+  buildCreateTicketResponse,
+  buildReplyResponse,
+  dispatchTicketCreated,
+  emitCustomerReply,
+  logTicketCreation,
+} from "./support-ticket-customer.helpers";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import { SupportTicketMapper } from "../mappers/SupportTicketMapper";
 import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
@@ -16,10 +20,6 @@ const EMPTY_REPLY_MESSAGE = "Pesan atau lampiran tidak boleh kosong";
 const CLOSED_REPLY_MESSAGE = "Tiket sudah ditutup dan tidak dapat dibalas";
 const CLOSE_SUCCESS_MESSAGE =
   "Tiket berhasil ditutup. Terima kasih telah menghubungi kami!";
-const REPLY_SUCCESS_MESSAGE = "Balasan berhasil dikirim";
-const DEFAULT_CUSTOMER_NAME = "Pengguna";
-const MIN_RATING = 1;
-const MAX_RATING = 5;
 
 export class SupportTicketService {
   private repository: ICustomerTicketRepository;
@@ -73,9 +73,9 @@ export class SupportTicketService {
       description: data.description,
     });
 
-    this.logTicketCreation(customerId, ticket);
-    await this.dispatchTicketCreated(customerId, ticket);
-    return this.buildCreateTicketResponse(ticket);
+    logTicketCreation(customerId, ticket);
+    await dispatchTicketCreated(customerId, ticket);
+    return buildCreateTicketResponse(ticket);
   }
 
   /** Get one customer ticket detail with replies. */
@@ -109,8 +109,8 @@ export class SupportTicketService {
     });
 
     await this.reopenWaitingCustomerTicket(customerId, ticketId, ticket.status);
-    this.emitCustomerReply(ticketId, customerId, ticket, reply as never);
-    return this.buildReplyResponse(reply as never);
+    emitCustomerReply({ ticketId, customerId, ticket, reply: reply as never });
+    return buildReplyResponse(reply as never);
   }
 
   /** Close a customer ticket and append feedback message. */
@@ -132,7 +132,7 @@ export class SupportTicketService {
       ticketId,
       pelangganId: customerId,
       isFromAdmin: false,
-      message: this.buildClosingMessage(input),
+      message: buildClosingMessage(input),
     });
     return { message: CLOSE_SUCCESS_MESSAGE };
   }
@@ -166,68 +166,6 @@ export class SupportTicketService {
     }
 
     throw new Error("Kategori tidak valid");
-  }
-
-  /** Log customer ticket creation. */
-  private logTicketCreation(
-    customerId: string,
-    ticket: { id: string; ticketNumber: string; subject: string },
-  ) {
-    logActivitySafe({
-      action: "CREATE",
-      subject: "Support Ticket",
-      details: {
-        customerId,
-        id: ticket.id,
-        ticketNumber: ticket.ticketNumber,
-        subject: ticket.subject,
-      },
-    });
-  }
-
-  /** Dispatch ticket created event. */
-  private async dispatchTicketCreated(
-    customerId: string,
-    ticket: {
-      id: string;
-      ticketNumber: string;
-      subject: string;
-      priority: string;
-    },
-  ) {
-    await TicketEventDispatcher.onCreated({
-      ticketId: ticket.id,
-      ticketNumber: ticket.ticketNumber,
-      subject: ticket.subject,
-      priority: ticket.priority,
-      triggeredBy: customerId,
-    }).catch((error) =>
-      logger.error(
-        "Failed to publish TICKET_CREATED event",
-        error instanceof Error ? error : undefined,
-      ),
-    );
-  }
-
-  /** Build create ticket response payload. */
-  private buildCreateTicketResponse(ticket: {
-    id: string;
-    ticketNumber: string;
-    category: string;
-    priority: string;
-    subject: string;
-    status: string;
-    createdAt: Date;
-  }) {
-    return {
-      id: ticket.id,
-      ticketNumber: ticket.ticketNumber,
-      category: ticket.category,
-      priority: ticket.priority,
-      subject: ticket.subject,
-      status: ticket.status,
-      createdAt: ticket.createdAt,
-    };
   }
 
   /** Validate reply payload. */
@@ -312,82 +250,5 @@ export class SupportTicketService {
       customerId,
       TicketStatus.IN_PROGRESS,
     );
-  }
-
-  /** Emit websocket payload for customer reply. */
-  private emitCustomerReply(
-    ticketId: string,
-    customerId: string,
-    ticket: { pelanggan?: { nama: string } | null },
-    reply: {
-      id: string;
-      message: string;
-      createdAt: Date;
-      isFromAdmin: boolean;
-      attachments?: unknown;
-    },
-  ) {
-    socketEmitter.ticketMessage(ticketId, {
-      id: reply.id,
-      message: reply.message,
-      isFromAdmin: false,
-      createdAt: reply.createdAt.toISOString(),
-      sender: {
-        id: customerId,
-        name: ticket.pelanggan?.nama || DEFAULT_CUSTOMER_NAME,
-      },
-      attachments: (reply.attachments as string[] | null) ?? null,
-    });
-  }
-
-  /** Build API response for customer reply. */
-  private buildReplyResponse(reply: {
-    id: string;
-    message: string;
-    createdAt: Date;
-    isFromAdmin: boolean;
-    attachments?: unknown;
-  }) {
-    return {
-      message: REPLY_SUCCESS_MESSAGE,
-      reply: {
-        id: reply.id,
-        message: reply.message,
-        createdAt: reply.createdAt,
-        isFromAdmin: reply.isFromAdmin,
-        attachments: reply.attachments,
-      },
-    };
-  }
-
-  /** Build ticket closing message from optional rating and feedback. */
-  private buildClosingMessage(input: { feedback?: string; rating?: number }) {
-    const parts = ["✅ Tiket ditutup oleh pelanggan."];
-    const ratingLabel = this.getRatingLabel(input.rating);
-    if (ratingLabel) {
-      parts.push(`\n\n📊 Rating: ${ratingLabel}`);
-    }
-
-    if (input.feedback?.trim()) {
-      parts.push(`\n\n💬 Feedback:\n${input.feedback.trim()}`);
-    }
-
-    return parts.join("");
-  }
-
-  /** Convert rating number into user-facing label. */
-  private getRatingLabel(rating?: number) {
-    if (!rating || rating < MIN_RATING || rating > MAX_RATING) {
-      return "";
-    }
-
-    const labels = {
-      1: "⭐ Tidak Puas",
-      2: "⭐⭐ Kurang Puas",
-      3: "⭐⭐⭐ Cukup Puas",
-      4: "⭐⭐⭐⭐ Puas",
-      5: "⭐⭐⭐⭐⭐ Sangat Puas",
-    } as const;
-    return labels[rating as keyof typeof labels] || "";
   }
 }

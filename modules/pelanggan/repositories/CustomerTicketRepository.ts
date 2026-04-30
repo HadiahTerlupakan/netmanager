@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import {
   Prisma,
@@ -7,19 +6,26 @@ import {
   TicketPriority,
   TicketStatus,
 } from "@prisma/client";
+import {
+  ACTIVE_UNREAD_TICKET_STATUSES,
+  buildCustomerTicketPagination as buildCustomerTicketPaginationMeta,
+  buildCustomerTicketWhere,
+} from "./customer-ticket.repository.helpers";
 import { randomUUID } from "crypto";
+import { getCustomerNotificationSummary } from "./customer-ticket-notification.repository-helpers";
+import {
+  findByIdAdmin,
+  findByIdBasic,
+  findByIdForCustomer,
+} from "./customer-ticket-detail.repository-helpers";
 
 import type {
+  CustomerNotificationQuery,
   CustomerTicketQuery,
   CustomerTicketUpdateData,
   ICustomerTicketRepository,
 } from "../domain/ports/ICustomerTicketRepository";
 import { SupportTicketMapper } from "../mappers/SupportTicketMapper";
-
-const ACTIVE_UNREAD_TICKET_STATUSES: TicketStatus[] = [
-  TicketStatus.WAITING_CUSTOMER,
-  TicketStatus.IN_PROGRESS,
-];
 
 /**
  * Repository for customer support ticket operations.
@@ -32,10 +38,7 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   ) {
     const { page, limit, status } = options;
     const skip = (page - 1) * limit;
-    const where: Prisma.SupportTicketsWhereInput = {
-      pelangganId,
-      ...(status && { status: status as TicketStatus }),
-    };
+    const where = buildCustomerTicketWhere(pelangganId, status);
 
     const [tickets, total] = await Promise.all([
       prisma.supportTickets.findMany({
@@ -92,6 +95,11 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     return tickets.filter((ticket) => ticket.replies[0]?.isFromAdmin).length;
   }
 
+  /** Get unread ticket and announcement summary for customer portal. */
+  async getCustomerNotificationSummary(query: CustomerNotificationQuery) {
+    return getCustomerNotificationSummary(query);
+  }
+
   /** Create a new support ticket. */
   async create(data: {
     pelangganId: string;
@@ -137,7 +145,7 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
 
   /** Build customer ticket pagination metadata. */
   buildCustomerTicketPagination(page: number, limit: number, total: number) {
-    return buildPaginationMeta({ page, limit, total });
+    return buildCustomerTicketPaginationMeta(page, limit, total);
   }
 
   /** Get admin ticket list. */
@@ -221,52 +229,12 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
 
   /** Get admin ticket detail by id. */
   async findByIdAdmin(id: string) {
-    const ticket = await prisma.supportTickets.findUnique({
-      where: { id },
-      include: {
-        pelanggan: {
-          select: {
-            id: true,
-            idPelanggan: true,
-            nama: true,
-            username: true,
-            email: true,
-            noTelp: true,
-            alamat: true,
-            status: true,
-            siteId: true,
-            hargaPaket: {
-              select: { name: true },
-            },
-          },
-        },
-        user: {
-          select: { id: true, name: true, email: true },
-        },
-        replies: {
-          orderBy: { createdAt: "asc" },
-          include: {
-            user: {
-              select: { id: true, name: true, image: true },
-            },
-          },
-        },
-      },
-    });
-
-    return ticket ? SupportTicketMapper.toDomain(ticket) : null;
+    return findByIdAdmin(id);
   }
 
   /** Get basic ticket detail by id. */
   async findByIdBasic(id: string) {
-    const ticket = await prisma.supportTickets.findUnique({
-      where: { id },
-      include: {
-        pelanggan: { select: { siteId: true, nama: true } },
-      },
-    });
-
-    return ticket ? SupportTicketMapper.toDomain(ticket) : null;
+    return findByIdBasic(id);
   }
 
   /** Update admin ticket. */
@@ -340,27 +308,7 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
 
   /** Get customer-owned ticket detail by id. */
   async findByIdForCustomer(id: string, pelangganId: string) {
-    const ticket = await prisma.supportTickets.findFirst({
-      where: { id, pelangganId },
-      include: {
-        replies: {
-          orderBy: { createdAt: "asc" },
-          include: { user: { select: { id: true, name: true, image: true } } },
-        },
-        user: { select: { id: true, name: true, image: true } },
-        pelanggan: {
-          select: {
-            id: true,
-            idPelanggan: true,
-            nama: true,
-            email: true,
-            noTelp: true,
-          },
-        },
-      },
-    });
-
-    return ticket ? SupportTicketMapper.toDomain(ticket) : null;
+    return findByIdForCustomer(id, pelangganId);
   }
 
   /** Update ticket status for customer-owned ticket. */

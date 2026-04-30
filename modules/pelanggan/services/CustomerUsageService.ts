@@ -1,6 +1,12 @@
-import { toStartOfDay } from "@/lib/utils/server-datetime";
 import type { ICustomerUsageRepository } from "../domain/ports/ICustomerUsageRepository";
 import { CustomerUsageRepository } from "../repositories/CustomerUsageRepository";
+import {
+  calculateSessionDuration,
+  formatBytesValue,
+  formatDurationValue,
+  getStartOfCurrentMonth,
+  sumUsageOctets,
+} from "./customer-usage.helpers";
 
 /**
  * Service for customer usage/connection status
@@ -14,6 +20,7 @@ export class CustomerUsageService {
     this.repository = repository;
   }
 
+  /** Get technical connection metadata for admin PPP detail view. */
   async getTechnicalInfo(input: {
     username: string;
     tenantId?: string | null;
@@ -73,109 +80,101 @@ export class CustomerUsageService {
   }
 
   /**
-   * Get customer connection status and usage data
+   * Get customer connection status and usage data.
    */
   async getUsageData(customerId: string) {
-    // Get customer username
-    const customer = await this.repository.getCustomerUsername(customerId);
-    if (!customer) {
-      throw new Error("Data pelanggan tidak ditemukan");
-    }
-
-    // Get latest session
+    const customer = await this.getRequiredCustomer(customerId);
     const latestSession = await this.repository.getLatestSession(
       customer.username,
     );
-
-    // Check if online
-    const isOnline = latestSession && !latestSession.acctstoptime;
-
-    // Calculate session duration if online
-    let sessionDuration = 0;
-    if (isOnline && latestSession.acctstarttime) {
-      sessionDuration = Math.floor(
-        (Date.now() - new Date(latestSession.acctstarttime).getTime()) / 1000,
-      );
-    }
-
-    // Get monthly usage
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setTime(toStartOfDay(startOfMonth).getTime());
-
+    const isOnline = Boolean(latestSession && !latestSession.acctstoptime);
+    const sessionDuration = isOnline
+      ? calculateSessionDuration(latestSession?.acctstarttime)
+      : 0;
+    const startOfMonth = getStartOfCurrentMonth();
     const [monthlyUsage, totalUsage] = await Promise.all([
       this.repository.getMonthlyUsage(customer.username, startOfMonth),
       this.repository.getTotalUsage(customer.username),
     ]);
 
     return {
-      connection: {
+      connection: this.buildConnectionData({
+        latestSession,
         isOnline,
-        ipAddress: isOnline ? latestSession.framedipaddress : null,
-        nasipaddress: isOnline ? latestSession.nasipaddress : null,
-        sessionId: isOnline ? latestSession.acctsessionid : null,
-        sessionStart: isOnline ? latestSession.acctstarttime : null,
-        sessionDuration: isOnline ? sessionDuration : 0,
-        sessionDurationFormatted: isOnline
-          ? this.formatDuration(sessionDuration)
-          : null,
-        lastSeen:
-          latestSession?.acctstoptime || latestSession?.acctupdatetime || null,
-      },
-      usage: {
-        monthly: {
-          download: this.formatBytes(monthlyUsage._sum.acctinputoctets),
-          upload: this.formatBytes(monthlyUsage._sum.acctoutputoctets),
-          total: this.formatBytes(
-            (monthlyUsage._sum.acctinputoctets || BigInt(0)) +
-              (monthlyUsage._sum.acctoutputoctets || BigInt(0)),
-          ),
-          period: {
-            start: startOfMonth,
-            end: new Date(),
-          },
-        },
-        allTime: {
-          download: this.formatBytes(totalUsage._sum.acctinputoctets),
-          upload: this.formatBytes(totalUsage._sum.acctoutputoctets),
-          total: this.formatBytes(
-            (totalUsage._sum.acctinputoctets || BigInt(0)) +
-              (totalUsage._sum.acctoutputoctets || BigInt(0)),
-          ),
-        },
-      },
+        sessionDuration,
+      }),
+      usage: this.buildUsageData({
+        monthlyUsage,
+        totalUsage,
+        startOfMonth,
+      }),
     };
   }
 
-  /**
-   * Format bytes to human readable
-   */
-  private formatBytes(bytes: bigint | null) {
-    if (!bytes) return { bytes: 0, formatted: "0 B" };
-    const numBytes = Number(bytes);
-    if (numBytes === 0) return { bytes: 0, formatted: "0 B" };
-
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(numBytes) / Math.log(1024));
-    const formatted =
-      parseFloat((numBytes / Math.pow(1024, i)).toFixed(2)) + " " + sizes[i];
-
-    return { bytes: numBytes, formatted };
+  /** Get required customer username for usage lookup. */
+  private async getRequiredCustomer(customerId: string) {
+    const customer = await this.repository.getCustomerUsername(customerId);
+    if (!customer) {
+      throw new Error("Data pelanggan tidak ditemukan");
+    }
+    return customer;
   }
 
-  /**
-   * Format duration to human readable
-   */
-  private formatDuration(seconds: number) {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+  /** Build connection payload for customer usage response. */
+  private buildConnectionData(input: {
+    latestSession: Awaited<
+      ReturnType<ICustomerUsageRepository["getLatestSession"]>
+    >;
+    isOnline: boolean;
+    sessionDuration: number;
+  }) {
+    return {
+      isOnline: input.isOnline,
+      ipAddress: input.isOnline ? input.latestSession?.framedipaddress : null,
+      nasipaddress: input.isOnline ? input.latestSession?.nasipaddress : null,
+      sessionId: input.isOnline ? input.latestSession?.acctsessionid : null,
+      sessionStart: input.isOnline ? input.latestSession?.acctstarttime : null,
+      sessionDuration: input.isOnline ? input.sessionDuration : 0,
+      sessionDurationFormatted: input.isOnline
+        ? formatDurationValue(input.sessionDuration)
+        : null,
+      lastSeen:
+        input.latestSession?.acctstoptime ||
+        input.latestSession?.acctupdatetime ||
+        null,
+    };
+  }
 
-    if (hours > 0) {
-      return `${hours}j ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}d`;
-    }
-    return `${secs}d`;
+  /** Build usage totals for customer usage response. */
+  private buildUsageData(input: {
+    monthlyUsage: Awaited<
+      ReturnType<ICustomerUsageRepository["getMonthlyUsage"]>
+    >;
+    totalUsage: Awaited<ReturnType<ICustomerUsageRepository["getTotalUsage"]>>;
+    startOfMonth: Date;
+  }) {
+    return {
+      monthly: {
+        download: formatBytesValue(input.monthlyUsage._sum.acctinputoctets),
+        upload: formatBytesValue(input.monthlyUsage._sum.acctoutputoctets),
+        total: formatBytesValue(
+          sumUsageOctets(
+            input.monthlyUsage._sum.acctinputoctets,
+            input.monthlyUsage._sum.acctoutputoctets,
+          ),
+        ),
+        period: { start: input.startOfMonth, end: new Date() },
+      },
+      allTime: {
+        download: formatBytesValue(input.totalUsage._sum.acctinputoctets),
+        upload: formatBytesValue(input.totalUsage._sum.acctoutputoctets),
+        total: formatBytesValue(
+          sumUsageOctets(
+            input.totalUsage._sum.acctinputoctets,
+            input.totalUsage._sum.acctoutputoctets,
+          ),
+        ),
+      },
+    };
   }
 }

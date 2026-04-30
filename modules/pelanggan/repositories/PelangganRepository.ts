@@ -1,7 +1,4 @@
-import { InvoiceStatus, Prisma as PrismaBilling } from "@prisma/client-billing";
-import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { prismaBilling } from "@/lib/prisma-billing";
 import { Prisma } from "@prisma/client";
 import type {
   Status,
@@ -11,36 +8,37 @@ import type {
 } from "@prisma/client";
 
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
+import {
+  findByIdentifierForAuth as findCustomerByIdentifierForAuth,
+  findUpgradePackageOptions as findCustomerUpgradePackageOptions,
+  getPasswordHash as getCustomerPasswordHash,
+  updateProfile as updateCustomerProfile,
+  updateSyncStatus as updateCustomerSyncStatus,
+} from "./pelanggan-repository-account.helpers";
 import { PelangganMapper } from "../mappers/PelangganMapper";
-
-const ACTIVE_PACKAGE_STATUS = "AKTIF";
-
-const adminMutationSelect = {
-  id: true,
-  username: true,
-  password: true,
-  passwordHash: true,
-  hargaPaketId: true,
-  tipe: true,
-  status: true,
-  autoIsolir: true,
-  siteId: true,
-} satisfies Prisma.PelangganSelect;
-
-const adminDeleteSelect = {
-  id: true,
-  nama: true,
-  username: true,
-  siteId: true,
-} satisfies Prisma.PelangganSelect;
-
-const adminMutationContextSelect = {
-  id: true,
-  username: true,
-  status: true,
-  siteId: true,
-  nama: true,
-} satisfies Prisma.PelangganSelect;
+import { pelangganWithPackageInclude } from "./pelanggan-repository.constants";
+import {
+  buildCreatePelangganArgs,
+  buildPelangganWhereClause,
+} from "./pelanggan-repository.helpers";
+import {
+  findAdminMutationContext as findAdminPppMutationContext,
+  findAdminPppDetail as findAdminPppDetailRecord,
+  findForAdminDelete as findAdminDeleteRecord,
+  findForAdminMutation as findAdminMutationRecord,
+  updateAdminPppById as updateAdminPppRecordById,
+} from "./pelanggan-repository-admin-ppp.helpers";
+import { findEligibleForBilling as findEligibleBillingCustomers } from "./pelanggan-repository-automation.helpers";
+import {
+  getInvoices as getBillingInvoices,
+  getInvoicesByIds as getBillingInvoicesByIds,
+  getPaymentHistory as getBillingPaymentHistory,
+} from "./pelanggan-repository-billing.helpers";
+import {
+  clearPushTokens as clearCustomerPushTokens,
+  findByIdWithPushToken as findCustomerByIdWithPushToken,
+  findManyWithPushToken as findCustomersWithPushToken,
+} from "./pelanggan-repository-push-token.helpers";
 
 export interface CreatePelangganDTO {
   idPelanggan: string;
@@ -91,15 +89,7 @@ export interface CreatePelangganDTO {
 }
 
 const _pelangganWithPackage = Prisma.validator<Prisma.PelangganDefaultArgs>()({
-  include: {
-    site: true,
-    hargaPaket: {
-      include: {
-        profilePPP: true,
-        bandwidth: true,
-      },
-    },
-  },
+  include: pelangganWithPackageInclude,
 });
 
 export type PelangganWithPackage = Prisma.PelangganGetPayload<
@@ -132,18 +122,10 @@ export class PelangganRepository implements IPelangganRepository {
 
   /** Get all customers using optional filters. */
   async findAll(filter?: FilterOptions) {
-    const where = this.buildWhereClause(filter);
+    const where = buildPelangganWhereClause(filter);
     const pelanggan = await prisma.pelanggan.findMany({
       where,
-      include: {
-        site: true,
-        hargaPaket: {
-          include: {
-            profilePPP: true,
-            bandwidth: true,
-          },
-        },
-      },
+      include: pelangganWithPackageInclude,
       orderBy: {
         createdAt: "desc",
       },
@@ -158,19 +140,11 @@ export class PelangganRepository implements IPelangganRepository {
     page: number = 1,
     limit: number = 10,
   ) {
-    const where = this.buildWhereClause(filter);
+    const where = buildPelangganWhereClause(filter);
     const [data, total] = await Promise.all([
       prisma.pelanggan.findMany({
         where,
-        include: {
-          site: true,
-          hargaPaket: {
-            include: {
-              profilePPP: true,
-              bandwidth: true,
-            },
-          },
-        },
+        include: pelangganWithPackageInclude,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
@@ -182,29 +156,6 @@ export class PelangganRepository implements IPelangganRepository {
       data: data.map((item) => PelangganMapper.toDomainWithPackage(item)),
       total,
     };
-  }
-
-  /** Build pelanggan where clause. */
-  private buildWhereClause(filter?: FilterOptions): Prisma.PelangganWhereInput {
-    const where: Prisma.PelangganWhereInput = {};
-
-    if (filter?.status) {
-      where.status = filter.status;
-    }
-
-    if (filter?.siteId) {
-      where.siteId = filter.siteId;
-    }
-
-    if (filter?.search) {
-      where.OR = [
-        { nama: { contains: filter.search, mode: "insensitive" } },
-        { idPelanggan: { contains: filter.search, mode: "insensitive" } },
-        { username: { contains: filter.search, mode: "insensitive" } },
-      ];
-    }
-
-    return where;
   }
 
   /** Get customer by internal id. */
@@ -229,68 +180,9 @@ export class PelangganRepository implements IPelangganRepository {
 
   /** Create customer and return package relation when available. */
   async create(data: CreatePelangganDTO) {
-    const pelanggan = await prisma.pelanggan.create({
-      data: {
-        id: randomUUID(),
-        updatedAt: new Date(),
-        idPelanggan: data.idPelanggan,
-        nama: data.nama,
-        username: data.username,
-        password: data.password,
-        passwordHash: data.passwordHash,
-        hargaPaketId: data.hargaPaketId,
-        tipe: data.tipe,
-        tanggalAktif: data.tanggalAktif,
-        jatuhTempo: data.jatuhTempo,
-        status: data.status,
-        autoIsolir: data.autoIsolir ?? true,
-        alamat: data.alamat,
-        provinsi: data.provinsi,
-        kabupatenKota: data.kabupatenKota,
-        kelurahanDesa: data.kelurahanDesa,
-        kecamatan: data.kecamatan,
-        noTelp: data.noTelp,
-        email: data.email,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        jenisDokumen: data.jenisDokumen,
-        noDokumen: data.noDokumen,
-        fileKTP: data.fileKTP,
-        fileRumahSekitar: data.fileRumahSekitar,
-        fileBAST: data.fileBAST,
-        catatan: data.catatan,
-        usePPN: data.usePPN ?? true,
-        useDiscount: data.useDiscount ?? false,
-        useProrate: data.useProrate ?? false,
-        discountType: data.discountType,
-        discountValue: data.discountValue,
-        discountDuration: data.discountDuration,
-        discountDurationUnit: data.discountDurationUnit,
-        biayaInstalasi: data.biayaInstalasi,
-        biayaInstalasiIsRecurring: data.biayaInstalasiIsRecurring ?? false,
-        biayaInstalasiDiskon: data.biayaInstalasiDiskon,
-        biayaSewaPerangkat: data.biayaSewaPerangkat,
-        biayaSewaPerangkatIsRecurring:
-          data.biayaSewaPerangkatIsRecurring ?? true,
-        biayaSewaPerangkatDiskon: data.biayaSewaPerangkatDiskon,
-        biayaLainnya: data.biayaLainnya,
-        biayaLainnyaIsRecurring: data.biayaLainnyaIsRecurring ?? false,
-        biayaLainnyaDiskon: data.biayaLainnyaDiskon,
-        keteranganBiayaLainnya: data.keteranganBiayaLainnya,
-        odpId: data.odpId,
-        siteId: data.siteId,
-      },
-      include: {
-        site: true,
-        hargaPaket: {
-          include: {
-            profilePPP: true,
-            bandwidth: true,
-          },
-        },
-      },
-    });
-
+    const pelanggan = await prisma.pelanggan.create(
+      buildCreatePelangganArgs(data),
+    );
     return PelangganMapper.toDomainWithPackage(pelanggan);
   }
 
@@ -306,10 +198,7 @@ export class PelangganRepository implements IPelangganRepository {
 
   /** Get customer data needed for admin PPP mutation flow. */
   async findForAdminMutation(id: string, tenantId?: string | null) {
-    return prisma.pelanggan.findFirst({
-      where: tenantId ? { id, tenantId } : { id },
-      select: adminMutationSelect,
-    });
+    return findAdminMutationRecord(id, tenantId);
   }
 
   /** Update customer PPP fields from admin mutation flow. */
@@ -317,55 +206,22 @@ export class PelangganRepository implements IPelangganRepository {
     id: string,
     data: Prisma.PelangganUncheckedUpdateInput,
   ) {
-    const pelanggan = await prisma.pelanggan.update({
-      where: { id },
-      data,
-    });
-
-    return PelangganMapper.toDomain(pelanggan);
+    return updateAdminPppRecordById(id, data);
   }
 
   /** Get customer data needed for admin delete flow. */
   async findForAdminDelete(id: string, tenantId?: string | null) {
-    return prisma.pelanggan.findFirst({
-      where: tenantId ? { id, tenantId } : { id },
-      select: adminDeleteSelect,
-    });
+    return findAdminDeleteRecord(id, tenantId);
   }
 
   /** Get customer detail with package and ODP for admin query flow. */
   async findAdminPppDetail(id: string, tenantId?: string | null) {
-    const pelanggan = await prisma.pelanggan.findFirst({
-      where: tenantId ? { id, tenantId } : { id },
-      include: {
-        hargaPaket: {
-          include: {
-            profilePPP: {
-              include: {
-                mikroTikRouter: true,
-              },
-            },
-            bandwidth: true,
-          },
-        },
-        odp: {
-          select: {
-            name: true,
-            location: true,
-          },
-        },
-      },
-    });
-
-    return pelanggan ? PelangganMapper.toDomainWithPackage(pelanggan) : null;
+    return findAdminPppDetailRecord(id, tenantId);
   }
 
   /** Get minimal customer context for admin PPP mutation. */
   async findAdminMutationContext(id: string, tenantId?: string | null) {
-    return prisma.pelanggan.findFirst({
-      where: tenantId ? { id, tenantId } : { id },
-      select: adminMutationContextSelect,
-    });
+    return findAdminPppMutationContext(id, tenantId);
   }
 
   /** Delete customer by id. */
@@ -408,31 +264,12 @@ export class PelangganRepository implements IPelangganRepository {
       isPromoEnabled?: boolean;
     },
   ) {
-    return prisma.pelanggan.update({
-      where: { id },
-      data: {
-        ...data,
-        updatedAt: new Date(),
-      },
-      select: {
-        id: true,
-        noTelp: true,
-        is2FAEnabled: true,
-        isBillNotifEnabled: true,
-        isPromoEnabled: true,
-        updatedAt: true,
-      },
-    });
+    return updateCustomerProfile(id, data);
   }
 
   /** Get password hash for verification. */
   async getPasswordHash(id: string): Promise<string | null> {
-    const customer = await prisma.pelanggan.findUnique({
-      where: { id },
-      select: { passwordHash: true },
-    });
-
-    return customer?.passwordHash || null;
+    return getCustomerPasswordHash(id);
   }
 
   /** Get payment history with pagination. */
@@ -440,28 +277,7 @@ export class PelangganRepository implements IPelangganRepository {
     pelangganId: string,
     options: { page: number; limit: number },
   ) {
-    const { page, limit } = options;
-    const skip = (page - 1) * limit;
-
-    const [payments, total] = await Promise.all([
-      prismaBilling.payment.findMany({
-        where: { pelangganId },
-        orderBy: { paymentDate: "desc" },
-        skip,
-        take: limit,
-        include: {
-          invoice: {
-            select: {
-              invoiceNumber: true,
-              status: true,
-            },
-          },
-        },
-      }),
-      prismaBilling.payment.count({ where: { pelangganId } }),
-    ]);
-
-    return { payments, total };
+    return getBillingPaymentHistory(pelangganId, options);
   }
 
   /** Get invoices with pagination. */
@@ -469,25 +285,7 @@ export class PelangganRepository implements IPelangganRepository {
     pelangganId: string,
     options: { page: number; limit: number; status?: string[] },
   ) {
-    const { page, limit, status } = options;
-    const skip = (page - 1) * limit;
-    const where: PrismaBilling.InvoiceWhereInput = { pelangganId };
-
-    if (status && status.length > 0) {
-      where.status = { in: status as InvoiceStatus[] };
-    }
-
-    const [invoices, total] = await Promise.all([
-      prismaBilling.invoice.findMany({
-        where,
-        orderBy: { dueDate: "desc" },
-        skip,
-        take: limit,
-      }),
-      prismaBilling.invoice.count({ where }),
-    ]);
-
-    return { invoices, total };
+    return getBillingInvoices(pelangganId, options);
   }
 
   /** Get invoices by IDs for payment validation. */
@@ -496,58 +294,17 @@ export class PelangganRepository implements IPelangganRepository {
     pelangganId: string,
     validStatuses: string[],
   ) {
-    return prismaBilling.invoice.findMany({
-      where: {
-        id: { in: ids },
-        pelangganId,
-        status: { in: validStatuses as InvoiceStatus[] },
-      },
-    });
+    return getBillingInvoicesByIds(ids, pelangganId, validStatuses);
   }
 
   /** Update sync status after RADIUS operation. */
   async updateSyncStatus(id: string, status: string, error?: string | null) {
-    const data: Prisma.PelangganUpdateInput = {
-      syncStatus: status,
-      syncError: error,
-      updatedAt: new Date(),
-    };
-
-    if (status === "FAILED") {
-      data.syncRetryCount = { increment: 1 };
-    } else if (status === "SYNCED") {
-      data.syncRetryCount = 0;
-      data.lastSyncedAt = new Date();
-    }
-
-    const pelanggan = await prisma.pelanggan.update({
-      where: { id },
-      data,
-    });
-
-    return PelangganMapper.toDomain(pelanggan);
+    return updateCustomerSyncStatus(id, status, error);
   }
 
   /** Get auth payload by identifier. */
   async findByIdentifierForAuth(identifier: string) {
-    return prisma.pelanggan.findFirst({
-      where: {
-        OR: [
-          { idPelanggan: identifier.toUpperCase() },
-          { email: identifier.toLowerCase() },
-        ],
-      },
-      select: {
-        id: true,
-        idPelanggan: true,
-        nama: true,
-        username: true,
-        email: true,
-        status: true,
-        passwordHash: true,
-        tenantId: true,
-      },
-    });
+    return findCustomerByIdentifierForAuth(identifier);
   }
 
   /** Get customer with package relation. */
@@ -562,17 +319,7 @@ export class PelangganRepository implements IPelangganRepository {
 
   /** Get upgrade package options above current package price. */
   async findUpgradePackageOptions(currentPrice: number, limit: number = 5) {
-    return prisma.hargaPaket.findMany({
-      where: {
-        status: ACTIVE_PACKAGE_STATUS as Status,
-        harga: { gt: currentPrice },
-      },
-      include: {
-        bandwidth: true,
-      },
-      orderBy: { harga: "asc" },
-      take: limit,
-    });
+    return findCustomerUpgradePackageOptions(currentPrice, limit);
   }
 
   /** Get customers eligible for automatic billing. */
@@ -581,59 +328,21 @@ export class PelangganRepository implements IPelangganRepository {
     batchSize: number,
     offset: number,
   ) {
-    return prisma.$queryRaw<EligibleBillingCustomer[]>(
-      Prisma.sql`
-        SELECT
-          p.id, p.nama, p."jatuhTempo", p."userId", p."usePPN", p."hargaPaketId", p.tipe, p.status,
-          h.name AS "paketName", h.harga AS "paketHarga",
-          h."usePPN" AS "paketUsePPN", h."ppnPercentage" AS "paketPpnPercentage"
-        FROM "Pelanggan" p
-        INNER JOIN "HargaPaket" h ON p."hargaPaketId" = h.id
-        WHERE (p.status = 'AKTIF' OR (p.status = 'ISOLIR' AND p.tipe = 'REGULER'))
-          AND p."hargaPaketId" != ''
-          AND EXTRACT(DAY FROM p."jatuhTempo") = ${targetDay}
-        ORDER BY p.id ASC
-        LIMIT ${batchSize} OFFSET ${offset}
-      `,
-    );
+    return findEligibleBillingCustomers({ targetDay, batchSize, offset });
   }
 
   /** Get customer push token by id. */
   async findByIdWithPushToken(pelangganId: string) {
-    return prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      select: { id: true, pushToken: true },
-    });
+    return findCustomerByIdWithPushToken(pelangganId);
   }
 
   /** Get customers by push token list. */
   async findManyWithPushToken(tokens: string[]) {
-    return prisma.pelanggan.findMany({
-      where: { pushToken: { in: tokens } },
-      select: { id: true, pushToken: true },
-    });
+    return findCustomersWithPushToken(tokens);
   }
 
   /** Clear customer push tokens. */
   async clearPushTokens(tokens: string[]) {
-    return prisma.pelanggan.updateMany({
-      where: { pushToken: { in: tokens } },
-      data: { pushToken: null },
-    });
+    return clearCustomerPushTokens(tokens);
   }
-}
-
-interface EligibleBillingCustomer {
-  id: string;
-  nama: string;
-  jatuhTempo: Date;
-  userId: string | null;
-  usePPN: boolean;
-  tipe: string;
-  status: string;
-  hargaPaketId: string;
-  paketName: string;
-  paketHarga: number;
-  paketUsePPN: boolean;
-  paketPpnPercentage: number | null;
 }

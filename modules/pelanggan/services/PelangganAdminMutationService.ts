@@ -1,4 +1,3 @@
-import { compare, hash } from "bcryptjs";
 import { Status, TipePelanggan } from "@prisma/client";
 
 import {
@@ -6,9 +5,17 @@ import {
   beforeCustomerDelete,
 } from "@/lib/hooks/radius-sync-hooks";
 import { prisma } from "@/modules/database";
-import { canAccessSite } from "@/modules/roles";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
+import {
+  canAccessPelangganBySite,
+  getTenantScopedWhereById,
+  hashPasswordLogin,
+  hasPasswordLoginChanged,
+  normalizeText,
+  normalizeUpdatePayload,
+  sanitizePelangganResponse,
+} from "./pelanggan-admin-mutation.helpers";
 
 export class PelangganAdminMutationError extends Error {
   constructor(
@@ -20,7 +27,7 @@ export class PelangganAdminMutationError extends Error {
   }
 }
 
-type AdminMutationSession = {
+export type AdminMutationSession = {
   user: {
     tenantId?: string | null;
     isSuperAdmin?: boolean | null;
@@ -55,139 +62,6 @@ export type DeletePppByIdInput = {
   session: AdminMutationSession;
 };
 
-const getTenantScopedWhereById = (
-  session: AdminMutationSession,
-  id: string,
-) => {
-  const tenantId = session.user.tenantId ?? null;
-  const isSuperAdmin = Boolean(
-    session.user.isSuperAdmin || session.user.role === "SUPER_ADMIN",
-  );
-
-  if (!tenantId && !isSuperAdmin) {
-    throw new PelangganAdminMutationError(
-      "Akses ditolak: tenant tidak teridentifikasi",
-      "FORBIDDEN",
-    );
-  }
-
-  return tenantId ? { id, tenantId } : { id };
-};
-
-const canAccessPelangganBySite = (
-  session: AdminMutationSession,
-  siteId: string | null | undefined,
-) => {
-  if (!session.user.role || session.user.role === "SUPER_ADMIN") return true;
-  return canAccessSite(
-    session as Parameters<typeof canAccessSite>[0],
-    "pelanggan",
-    siteId,
-  );
-};
-
-const sanitizePelangganResponse = <
-  T extends { password?: string | null; passwordHash?: string | null },
->(
-  pelanggan: T,
-): Omit<T, "password" | "passwordHash"> => {
-  const {
-    password: _password,
-    passwordHash: _passwordHash,
-    ...safePelanggan
-  } = pelanggan;
-  return safePelanggan;
-};
-
-const normalizeText = (value: string | null | undefined) => value?.trim() ?? "";
-
-const parseEnumValue = <T extends string>(
-  value: string | null,
-  enumObject: Record<string, T>,
-): T | null => {
-  if (!value) return null;
-  const normalized = value.toUpperCase();
-  return (
-    ((Object.values(enumObject) as string[]).find(
-      (v) => v.toUpperCase() === normalized,
-    ) as T) ?? null
-  );
-};
-
-const toDate = (value: Date | string) =>
-  value instanceof Date ? value : new Date(value);
-
-const assertRequiredPppFields = (data: UpdatePppByIdInput["data"]) => {
-  if (
-    !data.idPelanggan ||
-    !data.nama ||
-    !data.username ||
-    !data.password ||
-    !data.hargaPaketId ||
-    !data.tanggalAktif ||
-    !data.jatuhTempo
-  ) {
-    throw new PelangganAdminMutationError(
-      "Semua field wajib harus diisi",
-      "BAD_REQUEST",
-    );
-  }
-};
-
-const assertValidDate = (value: Date | string, errorMessage: string) => {
-  const parsedDate = toDate(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new PelangganAdminMutationError(errorMessage, "BAD_REQUEST");
-  }
-
-  return parsedDate;
-};
-
-const normalizeUpdatePayload = (data: UpdatePppByIdInput["data"]) => {
-  assertRequiredPppFields(data);
-
-  return {
-    idPelanggan: data.idPelanggan,
-    nama: data.nama,
-    username: data.username,
-    password: data.password,
-    hargaPaketId: data.hargaPaketId,
-    tipe: parseEnumValue(data.tipe, TipePelanggan),
-    tanggalAktif: assertValidDate(
-      data.tanggalAktif,
-      "Tanggal aktif tidak valid",
-    ),
-    jatuhTempo: assertValidDate(
-      data.jatuhTempo,
-      "Tanggal jatuh tempo tidak valid",
-    ),
-    status: parseEnumValue(data.status, Status),
-    autoIsolir: data.autoIsolir,
-    email: data.email,
-    siteId: data.siteId === "" ? null : data.siteId,
-    invoiceAction: data.invoiceAction,
-    passwordLogin: data.passwordLogin,
-  };
-};
-
-const hasPasswordLoginChanged = async (
-  existingPasswordHash: string | null,
-  nextPasswordLogin: string | null,
-) => {
-  if (!nextPasswordLogin) return false;
-  if (!existingPasswordHash) return true;
-
-  try {
-    return !(await compare(
-      normalizeText(nextPasswordLogin),
-      existingPasswordHash,
-    ));
-  } catch {
-    return true;
-  }
-};
-
 export class PelangganAdminMutationService {
   private readonly pelangganRepository: IPelangganRepository;
 
@@ -199,13 +73,42 @@ export class PelangganAdminMutationService {
 
   /** Update PPP customer data from admin flow. */
   async updatePppById(input: UpdatePppByIdInput) {
-    const { id, existingStatus, session, data } = input;
-    const normalizedData = normalizeUpdatePayload(data);
+    try {
+      const normalizedData = normalizeUpdatePayload(input.data);
+      const existingPelanggan = await this.getExistingPelanggan(input);
+      this.assertSiteAccess(input.session, existingPelanggan.siteId);
+      this.assertSiteAccess(input.session, normalizedData.siteId);
+      const updatePayload = await this.buildUpdatePayload(
+        existingPelanggan,
+        normalizedData,
+      );
+      const pelanggan = await this.pelangganRepository.updateAdminPppById(
+        input.id,
+        updatePayload.data,
+      );
 
-    const scope = getTenantScopedWhereById(session, id);
+      await this.syncUpdatedCustomer(
+        input,
+        existingPelanggan,
+        pelanggan,
+        updatePayload,
+      );
+      await this.handleInvoiceAction(
+        normalizedData.invoiceAction,
+        pelanggan.id,
+      );
+      return sanitizePelangganResponse(pelanggan);
+    } catch (error) {
+      throw this.mapMutationError(error);
+    }
+  }
+
+  /** Get existing pelanggan within admin mutation scope. */
+  private async getExistingPelanggan(input: UpdatePppByIdInput) {
+    const scope = getTenantScopedWhereById(input.session, input.id);
     const existingPelanggan =
       await this.pelangganRepository.findForAdminMutation(
-        id,
+        input.id,
         "tenantId" in scope ? scope.tenantId : undefined,
       );
 
@@ -216,72 +119,111 @@ export class PelangganAdminMutationService {
       );
     }
 
-    if (!canAccessPelangganBySite(session, existingPelanggan.siteId)) {
-      throw new PelangganAdminMutationError("Akses ditolak", "FORBIDDEN");
+    return existingPelanggan;
+  }
+
+  /** Ensure session can access requested pelanggan site. */
+  private assertSiteAccess(
+    session: AdminMutationSession,
+    siteId: string | null | undefined,
+  ) {
+    if (canAccessPelangganBySite(session, siteId)) {
+      return;
     }
 
-    if (!canAccessPelangganBySite(session, normalizedData.siteId)) {
-      throw new PelangganAdminMutationError("Akses ditolak", "FORBIDDEN");
-    }
+    throw new PelangganAdminMutationError("Akses ditolak", "FORBIDDEN");
+  }
 
+  /** Build normalized repository payload and sync metadata. */
+  private async buildUpdatePayload(
+    existingPelanggan: Awaited<
+      ReturnType<IPelangganRepository["findForAdminMutation"]>
+    >,
+    normalizedData: ReturnType<typeof normalizeUpdatePayload>,
+  ) {
     const nextIdPelanggan = normalizeText(normalizedData.idPelanggan);
     const nextNama = normalizeText(normalizedData.nama);
     const nextUsername = normalizeText(normalizedData.username);
     const nextPassword = normalizeText(normalizedData.password);
-    const nextHargaPaketId = normalizedData.hargaPaketId;
+    const nextPasswordLogin = normalizeText(normalizedData.passwordLogin);
     const nextTipe = normalizedData.tipe ?? TipePelanggan.REGULER;
     const nextStatus = normalizedData.status ?? Status.AKTIF;
     const nextEmail = normalizeText(normalizedData.email) || null;
-    const nextSiteId = normalizedData.siteId;
-    const nextPasswordLogin = normalizeText(normalizedData.passwordLogin);
-    const nextPasswordHash = nextPasswordLogin
-      ? await hash(nextPasswordLogin, 12)
-      : null;
     const passwordLoginChanged = await hasPasswordLoginChanged(
-      existingPelanggan.passwordHash ?? null,
+      existingPelanggan?.passwordHash ?? null,
       nextPasswordLogin || null,
     );
+    const nextPasswordHash = await hashPasswordLogin(nextPasswordLogin);
 
-    const pelanggan = await this.pelangganRepository.updateAdminPppById(id, {
-      idPelanggan: nextIdPelanggan,
-      nama: nextNama,
-      username: nextUsername,
-      password: nextPassword,
-      hargaPaketId: nextHargaPaketId,
-      tipe: nextTipe,
-      tanggalAktif: normalizedData.tanggalAktif,
-      jatuhTempo: normalizedData.jatuhTempo,
-      status: nextStatus,
-      autoIsolir: normalizedData.autoIsolir,
-      email: nextEmail,
-      siteId: nextSiteId,
-      ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
-    });
+    return {
+      data: {
+        idPelanggan: nextIdPelanggan,
+        nama: nextNama,
+        username: nextUsername,
+        password: nextPassword,
+        hargaPaketId: normalizedData.hargaPaketId,
+        tipe: nextTipe,
+        tanggalAktif: normalizedData.tanggalAktif,
+        jatuhTempo: normalizedData.jatuhTempo,
+        status: nextStatus,
+        autoIsolir: normalizedData.autoIsolir,
+        email: nextEmail,
+        siteId: normalizedData.siteId,
+        ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
+      },
+      packageChanged:
+        existingPelanggan?.hargaPaketId !== normalizedData.hargaPaketId ||
+        existingPelanggan?.tipe !== nextTipe,
+      passwordChanged:
+        existingPelanggan?.password !== nextPassword || passwordLoginChanged,
+    };
+  }
 
-    await afterCustomerUpdate(prisma, id, {
+  /** Sync side effects after admin PPP customer update. */
+  private async syncUpdatedCustomer(
+    input: UpdatePppByIdInput,
+    existingPelanggan: NonNullable<
+      Awaited<ReturnType<IPelangganRepository["findForAdminMutation"]>>
+    >,
+    pelanggan: Awaited<ReturnType<IPelangganRepository["updateAdminPppById"]>>,
+    updatePayload: { packageChanged: boolean; passwordChanged: boolean },
+  ) {
+    await afterCustomerUpdate(prisma, input.id, {
       statusChanged: existingPelanggan.status !== pelanggan.status,
-      oldStatus: (existingStatus ?? existingPelanggan.status) as Status,
+      oldStatus: (input.existingStatus ?? existingPelanggan.status) as Status,
       newStatus: pelanggan.status as Status,
       oldUsername: existingPelanggan.username,
       newUsername: pelanggan.username,
-      packageChanged:
-        existingPelanggan.hargaPaketId !== nextHargaPaketId ||
-        existingPelanggan.tipe !== nextTipe,
-      passwordChanged:
-        existingPelanggan.password !== nextPassword || passwordLoginChanged,
+      packageChanged: updatePayload.packageChanged,
+      passwordChanged: updatePayload.passwordChanged,
     });
-
-    if (normalizedData.invoiceAction === "VOID_AND_CREATE_NEW") {
-      const { AutomaticBillingService } = await import("@/modules/finance");
-      await AutomaticBillingService.generateImmediateInvoice(
-        pelanggan.id,
-        false,
-      );
-    }
-
-    return sanitizePelangganResponse(pelanggan);
   }
 
+  /** Run optional invoice action after customer update. */
+  private async handleInvoiceAction(
+    invoiceAction: string | null,
+    pelangganId: string,
+  ) {
+    if (invoiceAction !== "VOID_AND_CREATE_NEW") {
+      return;
+    }
+
+    const { AutomaticBillingService } = await import("@/modules/finance");
+    await AutomaticBillingService.generateImmediateInvoice(pelangganId, false);
+  }
+
+  /** Map generic helper errors into route-safe mutation errors. */
+  private mapMutationError(error: unknown) {
+    if (error instanceof PelangganAdminMutationError) {
+      return error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : "Permintaan tidak valid";
+    return new PelangganAdminMutationError(message, "BAD_REQUEST");
+  }
+
+  /** Delete PPP customer from admin flow after access and sync checks. */
   async deletePppById(input: DeletePppByIdInput) {
     const { id, session } = input;
 

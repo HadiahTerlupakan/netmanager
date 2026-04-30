@@ -28,6 +28,62 @@ export type CustomerDashboardBillingSummary = {
  * Repository for customer invoice operations
  * Handles invoice queries with items, payment history, and dashboard summaries
  */
+function formatInvoiceResponse(invoice: InvoiceWithRelations) {
+  return {
+    ...formatInvoiceIdentity(invoice),
+    ...formatInvoiceAmounts(invoice),
+    items: invoice.invoiceItem.map(formatInvoiceItem),
+    lastPayment: formatLastPayment(invoice),
+  };
+}
+
+function formatInvoiceIdentity(invoice: InvoiceWithRelations) {
+  return {
+    id: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    status: invoice.status,
+    issueDate: invoice.issueDate,
+    dueDate: invoice.dueDate,
+  };
+}
+
+function formatInvoiceAmounts(invoice: InvoiceWithRelations) {
+  const totalAmount = Number(invoice.totalAmount);
+  const paidAmount = Number(invoice.paidAmount);
+  return {
+    subtotal: Number(invoice.subtotal),
+    taxAmount: Number(invoice.taxAmount),
+    discountAmount: Number(invoice.discountAmount),
+    totalAmount,
+    paidAmount,
+    remainingAmount: totalAmount - paidAmount,
+  };
+}
+
+function formatInvoiceItem(item: InvoiceWithRelations["invoiceItem"][number]) {
+  return {
+    description: item.description,
+    quantity: item.quantity,
+    unitPrice: Number(item.unitPrice),
+    totalPrice: Number(item.totalPrice),
+  };
+}
+
+function formatLastPayment(invoice: InvoiceWithRelations) {
+  const payment = invoice.payment[0];
+  if (!payment) return null;
+  return {
+    amount: Number(payment.amount),
+    date: payment.paymentDate,
+    method: payment.paymentMethod,
+    accountId: payment.accountId,
+    gatewayStatus: payment.gatewayStatus,
+    expiresAt: payment.expiresAt,
+    paymentUrl: payment.paymentUrl,
+    receiptUrl: payment.receiptUrl,
+  };
+}
+
 export class CustomerInvoiceRepository {
   /** Get invoice records for legacy customer billing response. */
   async findLegacyTagihanByPelanggan(input: {
@@ -136,36 +192,6 @@ export class CustomerInvoiceRepository {
    * Format invoices for API response
    */
   formatInvoicesForResponse(invoices: InvoiceWithRelations[]) {
-    return invoices.map((inv) => ({
-      id: inv.id,
-      invoiceNumber: inv.invoiceNumber,
-      status: inv.status,
-      issueDate: inv.issueDate,
-      dueDate: inv.dueDate,
-      subtotal: Number(inv.subtotal),
-      taxAmount: Number(inv.taxAmount),
-      discountAmount: Number(inv.discountAmount),
-      totalAmount: Number(inv.totalAmount),
-      paidAmount: Number(inv.paidAmount),
-      remainingAmount: Number(inv.totalAmount) - Number(inv.paidAmount),
-      items: inv.invoiceItem.map((item) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        totalPrice: Number(item.totalPrice),
-      })),
-      lastPayment: inv.payment[0]
-        ? {
-            amount: Number(inv.payment[0].amount),
-            date: inv.payment[0].paymentDate,
-            method: inv.payment[0].paymentMethod,
-            accountId: inv.payment[0].accountId,
-            gatewayStatus: inv.payment[0].gatewayStatus,
-            expiresAt: inv.payment[0].expiresAt,
-            paymentUrl: inv.payment[0].paymentUrl,
-            receiptUrl: inv.payment[0].receiptUrl,
-          }
-        : null,
-    }));
+    return invoices.map(formatInvoiceResponse);
   }
 }

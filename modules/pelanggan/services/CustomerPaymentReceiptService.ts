@@ -9,6 +9,13 @@ import {
 } from "@/modules/finance";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 
+type ReceiptUploadOptions = {
+  invoiceId: string;
+  file: File;
+  customerId: string;
+  customerCode?: string | null;
+};
+
 type ReceiptUploadResult =
   | { status: "not-found" }
   | { status: "uploaded"; receiptUrl: string };
@@ -20,54 +27,78 @@ const RECEIPT_NOTIFICATION_URL = "/admin/payments/approval";
 const pelangganRepository = new PelangganRepository();
 
 /** Stores customer payment receipt and publishes admin realtime notification. */
-export async function uploadCustomerPaymentReceipt(options: {
-  invoiceId: string;
-  file: File;
-  customerId: string;
-  customerCode?: string | null;
-}): Promise<ReceiptUploadResult> {
-  const payment = await findPendingManualCustomerTransfer({
-    invoiceId: options.invoiceId,
-    customerId: options.customerId,
-  });
+export async function uploadCustomerPaymentReceipt(
+  options: ReceiptUploadOptions,
+): Promise<ReceiptUploadResult> {
+  const payment = await findReceiptPayment(options);
+  if (!payment) return handleMissingReceiptPayment(options);
 
-  if (!payment) {
-    logger.error(
-      `[upload-receipt] FAIL: No pending BANK_TRANSFER found. invoiceId: ${options.invoiceId}, pelangganId: ${options.customerCode}`,
-    );
-    return { status: "not-found" };
-  }
-
-  const notes = await buildReceiptNotes(
-    payment.notes,
-    Number(payment.amount),
-    options.file,
-    Reflect.get(payment, "tenantId") as string | null | undefined,
-  );
-  const receiptUrl = await convertAndSaveImage(
-    options.file,
-    "public/receipts",
-    `receipt_${payment.id}_${Date.now()}`,
-    "payment-proofs",
-    `pelanggan_${options.customerId}`,
-  );
+  const receiptUrl = await saveReceiptImage(options, payment.id);
   const updatedPayment = await updateCustomerPaymentReceipt({
     paymentId: payment.id,
     receiptUrl,
-    notes,
+    notes: await buildPaymentReceiptNotes(options.file, payment),
   });
 
-  await publishPaymentUploadNotification({
-    customerId: options.customerId,
-    paymentId: updatedPayment.id,
-    amount: Number(payment.amount),
-  });
-  await notifyAdminsAboutReceiptUpload();
-
+  await publishReceiptUploadSideEffects(
+    options.customerId,
+    updatedPayment.id,
+    Number(payment.amount),
+  );
   return {
     status: "uploaded",
     receiptUrl: updatedPayment.receiptUrl ?? receiptUrl,
   };
+}
+
+function findReceiptPayment(options: ReceiptUploadOptions) {
+  return findPendingManualCustomerTransfer({
+    invoiceId: options.invoiceId,
+    customerId: options.customerId,
+  });
+}
+
+function handleMissingReceiptPayment(
+  options: ReceiptUploadOptions,
+): ReceiptUploadResult {
+  logger.error(
+    `[upload-receipt] FAIL: No pending BANK_TRANSFER found. invoiceId: ${options.invoiceId}, pelangganId: ${options.customerCode}`,
+  );
+  return { status: "not-found" };
+}
+
+async function saveReceiptImage(
+  options: ReceiptUploadOptions,
+  paymentId: string,
+) {
+  return convertAndSaveImage(
+    options.file,
+    "public/receipts",
+    `receipt_${paymentId}_${Date.now()}`,
+    "payment-proofs",
+    `pelanggan_${options.customerId}`,
+  );
+}
+
+async function buildPaymentReceiptNotes(
+  file: File,
+  payment: NonNullable<Awaited<ReturnType<typeof findReceiptPayment>>>,
+) {
+  return buildReceiptNotes(
+    payment.notes,
+    Number(payment.amount),
+    file,
+    Reflect.get(payment, "tenantId") as string | null | undefined,
+  );
+}
+
+async function publishReceiptUploadSideEffects(
+  customerId: string,
+  paymentId: string,
+  amount: number,
+) {
+  await publishPaymentUploadNotification({ customerId, paymentId, amount });
+  await notifyAdminsAboutReceiptUpload();
 }
 
 async function buildReceiptNotes(
@@ -115,24 +146,42 @@ function buildAmountWarnings(nominal: number | null, expectedAmount: number) {
   return [];
 }
 
-/** Mempublikasikan event realtime admin setelah bukti pembayaran masuk. */
-async function publishPaymentUploadNotification(options: {
+type PaymentUploadNotification = {
   customerId: string;
   paymentId: string;
   amount: number;
-}) {
-  const pelanggan = await pelangganRepository.findById(options.customerId);
-  const scopeIds = pelanggan?.siteId
+};
+
+/** Mempublikasikan event realtime admin setelah bukti pembayaran masuk. */
+async function publishPaymentUploadNotification(
+  options: PaymentUploadNotification,
+) {
+  const scopeIds = await getReceiptNotificationScopes(options.customerId);
+  const payload = buildReceiptNotificationPayload(options);
+  void publishReceiptNotificationScopes(scopeIds, payload);
+}
+
+async function getReceiptNotificationScopes(customerId: string) {
+  const pelanggan = await pelangganRepository.findById(customerId);
+  return pelanggan?.siteId
     ? [`notifications.site.${pelanggan.siteId}`, "notifications"]
     : ["notifications"];
-  const payload = {
+}
+
+function buildReceiptNotificationPayload(options: PaymentUploadNotification) {
+  return {
     id: options.paymentId,
     amount: options.amount,
     pelangganId: options.customerId,
     message: "Struk pembayaran baru diunggah",
   };
+}
 
-  void Promise.all(
+async function publishReceiptNotificationScopes(
+  scopeIds: string[],
+  payload: ReturnType<typeof buildReceiptNotificationPayload>,
+) {
+  await Promise.all(
     scopeIds.map((notificationScopeId) =>
       firebaseRealtimeService.publish({
         type: "payment.pending.new",

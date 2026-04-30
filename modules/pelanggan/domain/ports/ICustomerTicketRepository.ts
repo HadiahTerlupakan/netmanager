@@ -13,6 +13,37 @@ export type CustomerTicketCategory = string;
 export type CustomerTicketPriority = string;
 export type CustomerTicketStatus = string;
 
+export interface CustomerUnreadTicketNotification {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  replies: Array<{
+    id: string;
+    message: string;
+    createdAt: Date;
+    user: { name: string } | null;
+  }>;
+}
+
+export interface CustomerNotificationSummary {
+  unreadTicketCount: number;
+  ticketsWithNewReplies: CustomerUnreadTicketNotification[];
+  unreadAnnouncementCount: number;
+  announcements: Array<{
+    id: string;
+    title: string;
+    content: string;
+    isPinned: boolean;
+    createdAt: Date;
+  }>;
+}
+
+export interface CustomerNotificationQuery {
+  pelangganId: string;
+  limit: number;
+  now: Date;
+}
+
 export interface CustomerTicketPaginationMeta {
   page: number;
   limit: number;
@@ -49,6 +80,11 @@ export interface ICustomerTicketRepository {
 
   /** Count unread customer notifications. */
   countUnreadCustomerNotifications(pelangganId: string): Promise<number>;
+
+  /** Get unread ticket and announcement summary for customer portal. */
+  getCustomerNotificationSummary(
+    query: CustomerNotificationQuery,
+  ): Promise<CustomerNotificationSummary>;
 
   /** Create support ticket. */
   create(data: {

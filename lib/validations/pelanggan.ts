@@ -1,2 +1,4 @@
-export { createPelangganSchema } from "@/modules/pelanggan";
-export type { CreatePelangganSchema } from "@/modules/pelanggan";
+export {
+  createPelangganSchema,
+  type CreatePelangganSchema,
+} from "@/modules/pelanggan/validators/pelanggan";

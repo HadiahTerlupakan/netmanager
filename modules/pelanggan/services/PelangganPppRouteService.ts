@@ -1,36 +1,17 @@
-import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { RadiusSyncService } from "@/modules/network";
 import { getPelangganService } from "./PelangganService";
-import { Prisma, Status } from "@prisma/client";
-import * as z from "zod";
 import {
   DEFAULT_PAGE,
   MAX_LIMIT,
-  appendActivationNote,
-  appendActivationNotes,
-  appendLifecycleNote,
   buildSuspensionHistoryResponse,
   buildSuspensionWhere,
   buildUsageHistoryResponse,
   buildUsageSummaryResponse,
   createCandidateId,
-  createDatabaseUsageAccumulator,
   createFallbackId,
-  ensureTenantId,
-  formatActivateResponse,
-  formatSuspendResponse,
-  mapDatabaseHistoryItem,
   mapRadiusHistoryItem,
   mapSuspensionSortBy,
-  mapUsageSortBy,
-  normalizePagination,
-  parseDateRange,
-  parseUsagePeriod,
-  publishActivationEvent,
-  publishActivationLog,
-  publishSuspensionEvent,
-  publishSuspensionLog,
   sortUsageHistory,
   type ParsedDateRange,
   type SuspensionHistoryInput,
@@ -38,33 +19,34 @@ import {
   type UsageHistoryInput,
   type UsageSummaryInput,
   type UsageSource,
-  type UsageSortBy,
-  type SortOrder,
 } from "./pelanggan-ppp-route-helpers";
+import {
+  BASIC_CUSTOMER_SELECT,
+  findPelangganForLifecycle,
+  findUsageCustomer,
+  getDatabaseHistory,
+  getDatabaseUsageStats,
+  type UpdateCustomerStatusInput,
+} from "./pelanggan-ppp-route-queries";
+import {
+  finalizeActivation,
+  finalizeSuspension,
+  persistCustomerActivation,
+  persistCustomerSuspension,
+  syncActivationRadius,
+  syncSuspensionRadius,
+} from "./pelanggan-ppp-lifecycle.helpers";
+import {
+  RouteServiceError,
+  activateRequestSchema,
+  ensureRouteTenantId,
+  normalizeRoutePagination,
+  parseRouteDateRange,
+  parseRouteUsagePeriod,
+  suspendRequestSchema,
+} from "./pelanggan-ppp-route-validation";
+export { RouteServiceError } from "./pelanggan-ppp-route-validation";
 const DEFAULT_CREATE_LIMIT = 10;
-const BASIC_CUSTOMER_SELECT = {
-  id: true,
-  idPelanggan: true,
-  nama: true,
-  username: true,
-  status: true,
-  tenantId: true,
-  catatan: true,
-} as const;
-const suspendRequestSchema = z.object({
-  suspensionType: z.enum(["PAYMENT", "VIOLATION", "MAINTENANCE", "REQUEST"]),
-  reason: z.string().min(1, "Reason is required").max(500, "Reason too long"),
-  notes: z.string().max(1000, "Notes too long").optional(),
-  expectedResumeAt: z.iso.datetime().optional(),
-  terminateActiveSessions: z.boolean().default(true),
-});
-const activateRequestSchema = z.object({
-  notes: z.string().max(1000, "Notes too long").optional(),
-  activationMethod: z
-    .enum(["MANUAL", "AUTOMATIC", "PAYMENT_CONFIRMED"])
-    .optional(),
-  syncToRadius: z.boolean().default(true),
-});
 export class PelangganPppRouteService {
   private readonly radiusService = new RadiusSyncService();
   /** Check whether a pelanggan code already exists. */
@@ -93,7 +75,7 @@ export class PelangganPppRouteService {
   }
   /** Get one customer usage summary for admin route. */
   async getUsageSummary(input: UsageSummaryInput) {
-    const pelanggan = await this.findUsageCustomer(input);
+    const pelanggan = await findUsageCustomer(input);
     if (!pelanggan) return null;
     const tenantId = ensureRouteTenantId(pelanggan.tenantId);
     const periodRange = parseRouteUsagePeriod(input);
@@ -104,7 +86,7 @@ export class PelangganPppRouteService {
       periodRange.endDate,
     );
     const activeSession = await this.getFirstActiveSession(pelanggan);
-    const dbStats = await this.getDatabaseUsageStats({
+    const dbStats = await getDatabaseUsageStats({
       pelangganId: pelanggan.id,
       startDate: periodRange.startDate,
       endDate: periodRange.endDate,
@@ -120,7 +102,7 @@ export class PelangganPppRouteService {
   }
   /** Get combined customer usage history for admin route. */
   async getUsageHistory(input: UsageHistoryInput) {
-    const pelanggan = await this.findUsageCustomer(input);
+    const pelanggan = await findUsageCustomer(input);
     if (!pelanggan) return null;
     const tenantId = ensureRouteTenantId(pelanggan.tenantId);
     const pagination = normalizeRoutePagination(input.page, input.limit);
@@ -130,7 +112,7 @@ export class PelangganPppRouteService {
       input.source,
       dateRange,
     );
-    const databaseData = await this.getDatabaseHistory({
+    const databaseData = await getDatabaseHistory({
       pelangganId: pelanggan.id,
       source: input.source,
       sortBy: input.sortBy,
@@ -188,51 +170,25 @@ export class PelangganPppRouteService {
   /** Suspend one customer service and sync radius state. */
   async suspendCustomer(input: SuspendCustomerInput) {
     const payload = suspendRequestSchema.parse(input.body);
-    const pelanggan = await this.findPelangganForLifecycle(input.id);
-    if (!pelanggan) throw new RouteServiceError("Customer not found", 404);
-    if (pelanggan.status === "NONAKTIF") {
-      throw new RouteServiceError("Customer is already suspended", 400);
-    }
-    const result = await prisma.$transaction(async (tx) => {
-      const suspensionData =
-        Prisma.validator<Prisma.ServiceSuspensionUncheckedCreateInput>()({
-          id: crypto.randomUUID(),
-          pelangganId: input.id,
-          suspension_type: payload.suspensionType,
-          reason: payload.reason,
-          notes: payload.notes,
-          expected_resume_at: payload.expectedResumeAt
-            ? new Date(payload.expectedResumeAt)
-            : null,
-          suspended_by: input.userId,
-          is_active: true,
-          tenantId: pelanggan.tenantId,
-          updated_at: new Date(),
-        });
-      const suspension = await tx.serviceSuspension.create({
-        data: suspensionData,
-      });
-      await tx.pelanggan.update({
-        where: { id: input.id },
-        data: { status: "NONAKTIF", updatedAt: new Date() },
-      });
-      await tx.pelanggan.update({
-        where: { id: input.id },
-        data: {
-          catatan: appendLifecycleNote(
-            pelanggan.catatan,
-            payload.reason,
-            payload.suspensionType,
-          ),
-        },
-      });
-      return suspension;
+    const pelanggan = await this.requireLifecycleCustomer(input.id, "suspend");
+    const result = await persistCustomerSuspension(pelanggan, {
+      pelangganId: input.id,
+      userId: input.userId,
+      payload,
     });
-    await this.syncSuspensionRadius(pelanggan, payload.terminateActiveSessions);
-    const updatedPelanggan = await this.getLifecycleCustomerResponse(input.id);
-    publishSuspensionLog(input.userId, input.id, result.id, payload);
-    publishSuspensionEvent(input.id, updatedPelanggan?.nama || "");
-    return formatSuspendResponse(result, updatedPelanggan);
+
+    await syncSuspensionRadius(
+      this.radiusService,
+      pelanggan,
+      payload.terminateActiveSessions,
+    );
+
+    return finalizeSuspension({
+      pelangganId: input.id,
+      userId: input.userId,
+      payload,
+      suspensionId: result.id,
+    });
   }
   /** Update one customer status and return audit context. */
   async updateCustomerStatus(input: UpdateCustomerStatusInput) {
@@ -253,64 +209,58 @@ export class PelangganPppRouteService {
   /** Activate one suspended customer service and sync radius state. */
   async activateCustomer(input: ActivateCustomerInput) {
     const payload = activateRequestSchema.parse(input.body);
-    const pelanggan = await this.findPelangganForLifecycle(input.id);
-    if (!pelanggan) throw new RouteServiceError("Customer not found", 404);
-    if (pelanggan.status !== "NONAKTIF") {
+    const pelanggan = await this.requireLifecycleCustomer(input.id, "activate");
+
+    try {
+      const result = await persistCustomerActivation(pelanggan, {
+        pelangganId: input.id,
+        userId: input.userId,
+        payload,
+      });
+
+      await syncActivationRadius(
+        this.radiusService,
+        input.id,
+        payload.syncToRadius,
+      );
+      return finalizeActivation({
+        pelangganId: input.id,
+        userId: input.userId,
+        payload,
+        suspensionId: result.id,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "No active suspension found for this customer"
+      ) {
+        throw new RouteServiceError(error.message, 400);
+      }
+      throw error;
+    }
+  }
+
+  /** Require customer record for PPP lifecycle action. */
+  private async requireLifecycleCustomer(
+    id: string,
+    action: "activate" | "suspend",
+  ) {
+    const pelanggan = await findPelangganForLifecycle(id);
+    if (!pelanggan) {
+      throw new RouteServiceError("Customer not found", 404);
+    }
+
+    if (action === "suspend" && pelanggan.status === "NONAKTIF") {
+      throw new RouteServiceError("Customer is already suspended", 400);
+    }
+
+    if (action === "activate" && pelanggan.status !== "NONAKTIF") {
       throw new RouteServiceError("Customer is not currently suspended", 400);
     }
-    const result = await prisma.$transaction(async (tx) => {
-      const activeSuspension = await tx.serviceSuspension.findFirst({
-        where: { pelangganId: input.id, is_active: true },
-        orderBy: { suspended_at: "desc" },
-      });
-      if (!activeSuspension) {
-        throw new RouteServiceError(
-          "No active suspension found for this customer",
-          400,
-        );
-      }
-      const updatedSuspension = await tx.serviceSuspension.update({
-        where: { id: activeSuspension.id },
-        data: {
-          actual_resume_at: new Date(),
-          resumed_by: input.userId,
-          is_active: false,
-          notes: appendActivationNotes(activeSuspension.notes, payload.notes),
-        },
-      });
-      await tx.pelanggan.update({
-        where: { id: input.id },
-        data: { status: "AKTIF", updatedAt: new Date() },
-      });
-      await tx.pelanggan.update({
-        where: { id: input.id },
-        data: { catatan: appendActivationNote(pelanggan.catatan, payload) },
-      });
-      return updatedSuspension;
-    });
-    await this.syncActivationRadius(input.id, payload.syncToRadius);
-    const updatedPelanggan = await this.getLifecycleCustomerResponse(input.id);
-    publishActivationLog(
-      input.userId,
-      input.id,
-      result.id,
-      payload.activationMethod,
-    );
-    publishActivationEvent(input.id, updatedPelanggan?.nama || "");
-    return formatActivateResponse(result, updatedPelanggan);
+
+    return pelanggan;
   }
-  private async findUsageCustomer(input: {
-    id: string;
-    tenantId?: string | null;
-  }) {
-    return prisma.pelanggan.findFirst({
-      where: {
-        id: input.id,
-        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
-      },
-      select: BASIC_CUSTOMER_SELECT,
-    });
-  }
+
   private async getFirstActiveSession(pelanggan: UsageCustomerRecord) {
     const activeSessions = await this.radiusService.getCustomerActiveSessions(
       pelanggan.username,
@@ -318,32 +268,7 @@ export class PelangganPppRouteService {
     );
     return activeSessions[0] ?? null;
   }
-  private async getDatabaseUsageStats(input: DatabaseUsageStatsInput) {
-    const customerUsage = await prisma.customerUsage.findMany({
-      where: {
-        pelangganId: input.pelangganId,
-        session_start_time: {
-          gte: input.startDate,
-          lte: input.endDate,
-        },
-      },
-      orderBy: { session_start_time: "desc" },
-      take: MAX_LIMIT,
-    });
-    return customerUsage.reduce(
-      (acc, usage) => ({
-        totalSessionTime:
-          acc.totalSessionTime + BigInt(usage.session_duration ?? 0),
-        totalUploadBytes:
-          acc.totalUploadBytes + BigInt(usage.upload_bytes ?? 0),
-        totalDownloadBytes:
-          acc.totalDownloadBytes + BigInt(usage.download_bytes ?? 0),
-        totalBytes: acc.totalBytes + BigInt(usage.total_bytes ?? 0),
-        sessionCount: acc.sessionCount + 1,
-      }),
-      createDatabaseUsageAccumulator(),
-    );
-  }
+
   private async getRadiusHistory(
     pelanggan: UsageCustomerRecord,
     source: UsageSource,
@@ -362,135 +287,8 @@ export class PelangganPppRouteService {
     );
     return radiusSessions.sessions.map(mapRadiusHistoryItem);
   }
-  private async getDatabaseHistory(input: DatabaseHistoryInput) {
-    if (input.source === "radius") return [];
-    const usageRecords = await prisma.customerUsage.findMany({
-      where: {
-        pelangganId: input.pelangganId,
-        ...(input.dateRange.startDate
-          ? { session_start_time: { gte: input.dateRange.startDate } }
-          : {}),
-        ...(input.dateRange.endDate
-          ? {
-              session_start_time: {
-                ...(input.dateRange.startDate
-                  ? { gte: input.dateRange.startDate }
-                  : {}),
-                lte: input.dateRange.endDate,
-              },
-            }
-          : {}),
-      },
-      orderBy: { [mapUsageSortBy(input.sortBy)]: input.sortOrder },
-    });
-    return usageRecords.map(mapDatabaseHistoryItem);
-  }
-  private async findPelangganForLifecycle(id: string) {
-    return prisma.pelanggan.findUnique({
-      where: { id },
-      include: {
-        hargaPaket: { include: { bandwidth: true } },
-      },
-    });
-  }
-  private async getLifecycleCustomerResponse(id: string) {
-    return prisma.pelanggan.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        idPelanggan: true,
-        nama: true,
-        username: true,
-        status: true,
-      },
-    });
-  }
-  private async syncSuspensionRadius(
-    pelanggan: { id: string; username: string; tenantId: string | null },
-    terminateActiveSessions: boolean,
-  ) {
-    try {
-      await this.radiusService.handleStatusChange(
-        pelanggan.id,
-        Status.NONAKTIF,
-      );
-      if (!terminateActiveSessions || !pelanggan.tenantId) return;
-      await this.radiusService.getCustomerActiveSessions(
-        pelanggan.username,
-        pelanggan.tenantId,
-      );
-    } catch (error) {
-      logger.error(
-        "Error handling RADIUS operations during suspension:",
-        error,
-      );
-    }
-  }
-  private async syncActivationRadius(id: string, syncToRadius: boolean) {
-    if (!syncToRadius) return;
-    try {
-      await this.radiusService.handleStatusChange(id, Status.AKTIF);
-    } catch (error) {
-      logger.error(
-        "Error handling RADIUS operations during activation:",
-        error,
-      );
-    }
-  }
 }
-function normalizeRoutePagination(page: number, limit: number) {
-  try {
-    return normalizePagination(page, limit);
-  } catch (error) {
-    throw new RouteServiceError(
-      error instanceof Error ? error.message : "Parameter paginasi tidak valid",
-      400,
-    );
-  }
-}
-function parseRouteUsagePeriod(input: UsageSummaryInput) {
-  try {
-    return parseUsagePeriod(input);
-  } catch (error) {
-    throw new RouteServiceError(
-      error instanceof Error ? error.message : "Parameter periode tidak valid",
-      400,
-    );
-  }
-}
-function parseRouteDateRange(
-  startDate?: string | null,
-  endDate?: string | null,
-) {
-  try {
-    return parseDateRange(startDate, endDate);
-  } catch (error) {
-    throw new RouteServiceError(
-      error instanceof Error ? error.message : "Format tanggal tidak valid",
-      400,
-    );
-  }
-}
-function ensureRouteTenantId(tenantId: string | null) {
-  try {
-    return ensureTenantId(tenantId);
-  } catch (error) {
-    throw new RouteServiceError(
-      error instanceof Error ? error.message : "Customer tenant not found",
-      400,
-    );
-  }
-}
-export class RouteServiceError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "RouteServiceError";
-  }
-}
+
 type SuspendCustomerInput = {
   id: string;
   userId: string;
@@ -500,20 +298,4 @@ type ActivateCustomerInput = {
   id: string;
   userId: string;
   body: unknown;
-};
-type UpdateCustomerStatusInput = {
-  id: string;
-  status: Status;
-};
-type DatabaseUsageStatsInput = {
-  pelangganId: string;
-  startDate: Date;
-  endDate: Date;
-};
-type DatabaseHistoryInput = {
-  pelangganId: string;
-  source: UsageSource;
-  sortBy: UsageSortBy;
-  sortOrder: SortOrder;
-  dateRange: ParsedDateRange;
 };

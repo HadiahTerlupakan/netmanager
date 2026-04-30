@@ -1,13 +1,33 @@
-import { logger, logActivitySafe } from "@/lib/logger";
 import { toEndOfDay } from "@/lib/utils/server-datetime";
-import { CustomerEventDispatcher } from "@/modules/events";
 import { RadiusSyncService } from "@/modules/network";
+export {
+  buildUsageHistoryResponse,
+  mapDatabaseHistoryItem,
+  mapRadiusHistoryItem,
+  sortUsageHistory,
+  type CombinedUsageItem,
+} from "./pelanggan-ppp-usage-history-mapper";
+export {
+  buildSuspensionHistoryResponse,
+  buildSuspensionWhere,
+  mapSuspensionSortBy,
+} from "./pelanggan-ppp-suspension-history-mapper";
+export {
+  appendActivationNote,
+  appendActivationNotes,
+  appendLifecycleNote,
+  formatActivateResponse,
+  formatSuspendResponse,
+  publishActivationEvent,
+  publishActivationLog,
+  publishSuspensionEvent,
+  publishSuspensionLog,
+} from "./pelanggan-ppp-lifecycle-route-formatters";
 
 const DEFAULT_PAGE = 1;
 const MAX_LIMIT = 100;
 const BYTES_PER_GB = 1073741824;
 const SECONDS_PER_HOUR = 3600;
-const MILLISECONDS_PER_HOUR = 1000 * 60 * 60;
 const LAST_SEVEN_DAYS = 7;
 const LAST_THIRTY_DAYS = 30;
 const DATE_END_HOUR = 23;
@@ -136,7 +156,7 @@ export function createDatabaseUsageAccumulator() {
 }
 
 /** Bangun response ringkasan pemakaian pelanggan. */
-export function buildUsageSummaryResponse(input: {
+type UsageSummaryResponseInput = {
   pelanggan: UsageCustomerRecord;
   periodType: PeriodType;
   periodRange: { startDate: Date; endDate: Date };
@@ -149,448 +169,77 @@ export function buildUsageSummaryResponse(input: {
       >[number]
     | null;
   dbStats: ReturnType<typeof createDatabaseUsageAccumulator>;
-}) {
+};
+
+export function buildUsageSummaryResponse(input: UsageSummaryResponseInput) {
+  return {
+    success: true,
+    customer: buildUsageCustomer(input.pelanggan),
+    period: buildUsagePeriod(input),
+    usage: buildUsageSummaryStats(input),
+    activeSession: buildActiveSessionSummary(input.activeSession),
+  };
+}
+
+function buildUsagePeriod(input: UsageSummaryResponseInput) {
+  return {
+    type: input.periodType,
+    startDate: input.periodRange.startDate.toISOString(),
+    endDate: input.periodRange.endDate.toISOString(),
+  };
+}
+
+function buildUsageSummaryStats(input: UsageSummaryResponseInput) {
   const totalInput = Number(input.radiusStats.totalInputOctets);
   const totalOutput = Number(input.radiusStats.totalOutputOctets);
   return {
-    success: true,
-    customer: buildUsageCustomer(input.pelanggan),
-    period: {
-      type: input.periodType,
-      startDate: input.periodRange.startDate.toISOString(),
-      endDate: input.periodRange.endDate.toISOString(),
-    },
-    usage: {
-      totalSessions: input.radiusStats.totalSessions,
-      totalSessionTime: input.radiusStats.totalSessionTime.toString(),
-      totalInputOctets: input.radiusStats.totalInputOctets.toString(),
-      totalOutputOctets: input.radiusStats.totalOutputOctets.toString(),
-      activeSessions: input.radiusStats.activeSessions,
-      dbSessionCount: input.dbStats.sessionCount,
-      dbTotalSessionTime: input.dbStats.totalSessionTime.toString(),
-      dbTotalUploadBytes: input.dbStats.totalUploadBytes.toString(),
-      dbTotalDownloadBytes: input.dbStats.totalDownloadBytes.toString(),
-      dbTotalBytes: input.dbStats.totalBytes.toString(),
-      totalSessionTimeHours: toHours(input.radiusStats.totalSessionTime),
-      totalInputGB: totalInput / BYTES_PER_GB,
-      totalOutputGB: totalOutput / BYTES_PER_GB,
-      totalGB: (totalInput + totalOutput) / BYTES_PER_GB,
-      dbTotalSessionTimeHours: toHours(input.dbStats.totalSessionTime),
-      dbTotalUploadGB: Number(input.dbStats.totalUploadBytes) / BYTES_PER_GB,
-      dbTotalDownloadGB:
-        Number(input.dbStats.totalDownloadBytes) / BYTES_PER_GB,
-      dbTotalGB: Number(input.dbStats.totalBytes) / BYTES_PER_GB,
-    },
-    activeSession: input.activeSession
-      ? {
-          sessionId: input.activeSession.acctSessionId,
-          startTime: input.activeSession.acctStartTime?.toISOString(),
-          nasIpAddress: input.activeSession.nasIpAddress,
-        }
-      : null,
+    ...buildRadiusUsageStats(input, totalInput, totalOutput),
+    ...buildDatabaseUsageStats(input),
   };
 }
 
-/** Map item histori radius ke response. */
-export function mapRadiusHistoryItem(item: {
-  radAcctId: string;
-  acctSessionId?: string | null;
-  acctStartTime: string | null;
-  acctStopTime: string | null;
-  acctSessionTime: string;
-  acctInputOctets: string;
-  acctOutputOctets: string;
-  totalOctets: string;
-  nasIpAddress?: string | null;
-  framedIpAddress?: string | null;
-}): {
-  id: string;
-  sessionId: string | null;
-  sessionStartTime: string | null;
-  sessionEndTime: string | null;
-  sessionDuration: string;
-  sessionDurationMinutes: number;
-  uploadBytes: string;
-  downloadBytes: string;
-  totalBytes: string;
-  uploadGB: number;
-  downloadGB: number;
-  totalGB: number;
-  nasIpAddress: string | null;
-  callingStationId: string | null;
-  calledStationId: string | null;
-  terminateCause: string | null;
-  source: "radius";
-} {
-  return {
-    id: `radius-${item.radAcctId}`,
-    sessionId: item.acctSessionId ?? null,
-    sessionStartTime: item.acctStartTime,
-    sessionEndTime: item.acctStopTime,
-    sessionDuration: item.acctSessionTime,
-    sessionDurationMinutes: Number(item.acctSessionTime) / 60,
-    uploadBytes: item.acctInputOctets,
-    downloadBytes: item.acctOutputOctets,
-    totalBytes: item.totalOctets,
-    uploadGB: Number(item.acctInputOctets) / BYTES_PER_GB,
-    downloadGB: Number(item.acctOutputOctets) / BYTES_PER_GB,
-    totalGB: Number(item.totalOctets) / BYTES_PER_GB,
-    nasIpAddress: item.nasIpAddress ?? null,
-    callingStationId: null,
-    calledStationId: null,
-    terminateCause: null,
-    source: "radius" as const,
-  };
-}
-
-/** Map item histori database ke response. */
-export function mapDatabaseHistoryItem(usage: {
-  id: string;
-  session_id: string | null;
-  session_start_time: Date;
-  session_end_time: Date | null;
-  session_duration: bigint | null;
-  upload_bytes: bigint | null;
-  download_bytes: bigint | null;
-  total_bytes: bigint | null;
-  nas_ip_address: string | null;
-  calling_station_id: string | null;
-  called_station_id: string | null;
-  terminate_cause: string | null;
-}) {
-  const totalBytes = BigInt(usage.total_bytes ?? 0);
-  return {
-    id: usage.id,
-    sessionId: usage.session_id,
-    sessionStartTime: usage.session_start_time,
-    sessionEndTime: usage.session_end_time,
-    sessionDuration: String(usage.session_duration ?? 0),
-    sessionDurationMinutes: Number(usage.session_duration ?? 0) / 60,
-    uploadBytes: String(usage.upload_bytes ?? 0),
-    downloadBytes: String(usage.download_bytes ?? 0),
-    totalBytes: String(usage.total_bytes ?? 0),
-    uploadGB: Number(usage.upload_bytes ?? 0) / BYTES_PER_GB,
-    downloadGB: Number(usage.download_bytes ?? 0) / BYTES_PER_GB,
-    totalGB: Number(totalBytes) / BYTES_PER_GB,
-    nasIpAddress: usage.nas_ip_address,
-    callingStationId: usage.calling_station_id,
-    calledStationId: usage.called_station_id,
-    terminateCause: usage.terminate_cause,
-    source: "database" as const,
-  };
-}
-
-/** Urutkan histori usage gabungan. */
-export function sortUsageHistory(
-  combinedData: CombinedUsageItem[],
-  sortBy: UsageSortBy,
-  sortOrder: SortOrder,
-) {
-  return combinedData.sort((left, right) => {
-    const leftValue = normalizeSortValue(left[sortBy]);
-    const rightValue = normalizeSortValue(right[sortBy]);
-    if (sortOrder === "asc") return leftValue > rightValue ? 1 : -1;
-    return leftValue < rightValue ? 1 : -1;
-  });
-}
-
-/** Bangun response histori pemakaian pelanggan. */
-export function buildUsageHistoryResponse(input: {
-  pelanggan: UsageCustomerRecord;
-  pagination: { page: number; limit: number };
-  source: UsageSource;
-  dateRange: ParsedDateRange;
-  combinedData: CombinedUsageItem[];
-}) {
-  const total = input.combinedData.length;
-  const totalPages = Math.ceil(total / input.pagination.limit);
-  const startIndex = (input.pagination.page - 1) * input.pagination.limit;
-  return {
-    success: true,
-    customer: buildUsageCustomer(input.pelanggan),
-    pagination: {
-      page: input.pagination.page,
-      limit: input.pagination.limit,
-      total,
-      totalPages,
-    },
-    filters: {
-      startDate: input.dateRange.startDate?.toISOString() || null,
-      endDate: input.dateRange.endDate?.toISOString() || null,
-      source: input.source,
-    },
-    data: input.combinedData.slice(
-      startIndex,
-      startIndex + input.pagination.limit,
-    ),
-  };
-}
-
-/** Bangun where histori suspend pelanggan. */
-export function buildSuspensionWhere(input: {
-  id: string;
-  suspensionType?: string | null;
-  status: "active" | "inactive" | "all";
-  dateRange: ParsedDateRange;
-}) {
-  return {
-    pelangganId: input.id,
-    ...(input.suspensionType ? { suspension_type: input.suspensionType } : {}),
-    ...(input.dateRange.startDate
-      ? { suspended_at: { gte: input.dateRange.startDate } }
-      : {}),
-    ...(input.dateRange.endDate
-      ? {
-          suspended_at: {
-            ...(input.dateRange.startDate
-              ? { gte: input.dateRange.startDate }
-              : {}),
-            lte: input.dateRange.endDate,
-          },
-        }
-      : {}),
-    ...(input.status === "active"
-      ? { is_active: true }
-      : input.status === "inactive"
-        ? { is_active: false }
-        : {}),
-  };
-}
-
-/** Map sort histori suspend. */
-export function mapSuspensionSortBy(sortBy: SuspensionSortBy) {
-  if (sortBy === "actualResumeAt") return "actual_resume_at";
-  if (sortBy === "suspendedBy") return "suspended_at";
-  return "suspended_at";
-}
-
-/** Bangun response histori suspend pelanggan. */
-export function buildSuspensionHistoryResponse(input: {
-  pelanggan: UsageCustomerRecord;
-  pagination: { page: number; limit: number };
-  total: number;
-  suspensions: Array<{
-    id: string;
-    suspension_type: string;
-    reason: string;
-    suspended_at: Date;
-    suspended_by: string | null;
-    expected_resume_at: Date | null;
-    actual_resume_at: Date | null;
-    resumed_by: string | null;
-    notes: string | null;
-    is_active: boolean;
-  }>;
-  allSuspensions: Array<{
-    reason: string;
-    suspended_at: Date;
-    actual_resume_at: Date | null;
-  }>;
-  activeSuspensions: number;
-  request: SuspensionHistoryInput;
-  dateRange: ParsedDateRange;
-}) {
-  const statistics = calculateSuspensionStatistics(
-    input.allSuspensions,
-    input.activeSuspensions,
-  );
-  return {
-    success: true,
-    customer: buildUsageCustomer(input.pelanggan),
-    pagination: {
-      page: input.pagination.page,
-      limit: input.pagination.limit,
-      total: input.total,
-      totalPages: Math.ceil(input.total / input.pagination.limit),
-    },
-    filters: {
-      suspensionType: input.request.suspensionType || null,
-      status: input.request.status,
-      startDate: input.dateRange.startDate?.toISOString() || null,
-      endDate: input.dateRange.endDate?.toISOString() || null,
-      sortBy: input.request.sortBy,
-      sortOrder: input.request.sortOrder,
-    },
-    statistics,
-    data: input.suspensions.map(formatSuspensionItem),
-  };
-}
-
-/** Tambahkan catatan suspend ke pelanggan. */
-export function appendLifecycleNote(
-  existingNote: string | null,
-  reason: string,
-  suspensionType: string,
-) {
-  const suspensionNote = `Service suspended: ${reason} (${suspensionType})`;
-  return existingNote ? `${existingNote}\n\n${suspensionNote}` : suspensionNote;
-}
-
-/** Tambahkan catatan aktivasi ke pelanggan. */
-export function appendActivationNote(
-  existingNote: string | null,
-  payload: { activationMethod?: string; notes?: string },
-) {
-  const activationMethod = payload.activationMethod || "MANUAL";
-  const activationNote = `Service reactivated: ${activationMethod}${payload.notes ? ` - ${payload.notes}` : ""}`;
-  return existingNote ? `${existingNote}\n\n${activationNote}` : activationNote;
-}
-
-/** Tambahkan notes aktivasi ke record suspend. */
-export function appendActivationNotes(
-  existingNote: string | null,
-  notes?: string,
-) {
-  if (!notes) return existingNote;
-  return `${existingNote || ""}\n\nActivation: ${notes}`.trim();
-}
-
-/** Publikasikan log suspend pelanggan. */
-export function publishSuspensionLog(
-  userId: string,
-  pelangganId: string,
-  suspensionId: string,
-  payload: { suspensionType: string; reason: string },
-) {
-  logActivitySafe({
-    action: "SUSPEND",
-    subject: "Pelanggan",
-    userId,
-    details: {
-      id: pelangganId,
-      type: payload.suspensionType,
-      reason: payload.reason,
-      suspensionId,
-    },
-  });
-}
-
-/** Publikasikan log aktivasi pelanggan. */
-export function publishActivationLog(
-  userId: string,
-  pelangganId: string,
-  suspensionId: string,
-  activationMethod?: string,
-) {
-  logActivitySafe({
-    action: "ACTIVATE",
-    subject: "Pelanggan",
-    userId,
-    details: {
-      id: pelangganId,
-      method: activationMethod || "MANUAL",
-      suspensionId,
-    },
-  });
-}
-
-/** Publikasikan event suspend pelanggan. */
-export function publishSuspensionEvent(
-  customerId: string,
-  customerName: string,
-) {
-  CustomerEventDispatcher.onSuspended({
-    customerId,
-    customerName,
-    oldStatus: "AKTIF",
-    newStatus: "NONAKTIF",
-  }).catch((error) =>
-    logger.error("Failed to publish CUSTOMER_SUSPENDED event:", error),
-  );
-}
-
-/** Publikasikan event aktivasi pelanggan. */
-export function publishActivationEvent(
-  customerId: string,
-  customerName: string,
-) {
-  CustomerEventDispatcher.onActivated({
-    customerId,
-    customerName,
-    oldStatus: "NONAKTIF",
-    newStatus: "AKTIF",
-  }).catch((error) =>
-    logger.error("Failed to publish CUSTOMER_ACTIVATED event:", error),
-  );
-}
-
-/** Format response suspend pelanggan. */
-export function formatSuspendResponse(
-  suspension: {
-    id: string;
-    suspension_type: string;
-    reason: string;
-    notes: string | null;
-    suspended_at: Date;
-    expected_resume_at: Date | null;
-    suspended_by: string;
-    is_active: boolean;
-  },
-  customer: {
-    id: string;
-    idPelanggan: string;
-    nama: string;
-    username: string;
-    status: string;
-  } | null,
+function buildRadiusUsageStats(
+  input: UsageSummaryResponseInput,
+  totalInput: number,
+  totalOutput: number,
 ) {
   return {
-    success: true,
-    message: "Customer service suspended successfully",
-    suspension: {
-      id: suspension.id,
-      suspensionType: suspension.suspension_type,
-      reason: suspension.reason,
-      notes: suspension.notes,
-      suspendedAt: suspension.suspended_at.toISOString(),
-      expectedResumeAt: suspension.expected_resume_at?.toISOString() || null,
-      suspendedBy: suspension.suspended_by,
-      isActive: suspension.is_active,
-    },
-    customer,
+    totalSessions: input.radiusStats.totalSessions,
+    totalSessionTime: input.radiusStats.totalSessionTime.toString(),
+    totalInputOctets: input.radiusStats.totalInputOctets.toString(),
+    totalOutputOctets: input.radiusStats.totalOutputOctets.toString(),
+    activeSessions: input.radiusStats.activeSessions,
+    totalSessionTimeHours: toHours(input.radiusStats.totalSessionTime),
+    totalInputGB: totalInput / BYTES_PER_GB,
+    totalOutputGB: totalOutput / BYTES_PER_GB,
+    totalGB: (totalInput + totalOutput) / BYTES_PER_GB,
   };
 }
 
-/** Format response aktivasi pelanggan. */
-export function formatActivateResponse(
-  suspension: {
-    id: string;
-    suspension_type: string;
-    reason: string;
-    suspended_at: Date;
-    actual_resume_at: Date;
-    resumed_by: string;
-    is_active: boolean;
-    notes: string | null;
-  },
-  customer: {
-    id: string;
-    idPelanggan: string;
-    nama: string;
-    username: string;
-    status: string;
-  } | null,
-) {
+function buildDatabaseUsageStats(input: UsageSummaryResponseInput) {
   return {
-    success: true,
-    message: "Customer service activated successfully",
-    suspension: {
-      id: suspension.id,
-      suspensionType: suspension.suspension_type,
-      reason: suspension.reason,
-      suspendedAt: suspension.suspended_at.toISOString(),
-      actualResumeAt: suspension.actual_resume_at.toISOString(),
-      resumedBy: suspension.resumed_by,
-      isActive: suspension.is_active,
-      notes: suspension.notes,
-    },
-    customer,
+    dbSessionCount: input.dbStats.sessionCount,
+    dbTotalSessionTime: input.dbStats.totalSessionTime.toString(),
+    dbTotalUploadBytes: input.dbStats.totalUploadBytes.toString(),
+    dbTotalDownloadBytes: input.dbStats.totalDownloadBytes.toString(),
+    dbTotalBytes: input.dbStats.totalBytes.toString(),
+    dbTotalSessionTimeHours: toHours(input.dbStats.totalSessionTime),
+    dbTotalUploadGB: Number(input.dbStats.totalUploadBytes) / BYTES_PER_GB,
+    dbTotalDownloadGB: Number(input.dbStats.totalDownloadBytes) / BYTES_PER_GB,
+    dbTotalGB: Number(input.dbStats.totalBytes) / BYTES_PER_GB,
   };
 }
 
-export type CombinedUsageItem =
-  | ReturnType<typeof mapRadiusHistoryItem>
-  | ReturnType<typeof mapDatabaseHistoryItem>;
+function buildActiveSessionSummary(
+  activeSession: UsageSummaryResponseInput["activeSession"],
+) {
+  if (!activeSession) return null;
+  return {
+    sessionId: activeSession.acctSessionId,
+    startTime: activeSession.acctStartTime?.toISOString(),
+    nasIpAddress: activeSession.nasIpAddress,
+  };
+}
 
 function createMonthRange(year: number, month: number) {
   return {
@@ -657,83 +306,4 @@ export function mapUsageSortBy(sortBy: UsageSortBy) {
   if (sortBy === "sessionDuration") return "session_duration";
   if (sortBy === "totalBytes") return "total_bytes";
   return "session_start_time";
-}
-
-function normalizeSortValue(value: unknown) {
-  if (typeof value === "string" && !Number.isNaN(Date.parse(value)))
-    return new Date(value).getTime();
-  if (value instanceof Date) return value.getTime();
-  return value ?? 0;
-}
-
-function calculateSuspensionStatistics(
-  suspensions: Array<{
-    reason: string;
-    suspended_at: Date;
-    actual_resume_at: Date | null;
-  }>,
-  activeSuspensions: number,
-) {
-  const completed = suspensions.filter((item) => item.actual_resume_at);
-  const totalHours = completed.reduce(
-    (total, item) =>
-      total +
-      (item.actual_resume_at!.getTime() - item.suspended_at.getTime()) /
-        MILLISECONDS_PER_HOUR,
-    0,
-  );
-  const averageHours = completed.length > 0 ? totalHours / completed.length : 0;
-  return {
-    totalSuspensions: suspensions.length,
-    activeSuspensions,
-    averageSuspensionDuration: Math.round(averageHours * 100) / 100,
-    mostCommonReason: calculateMostCommonReason(suspensions),
-  };
-}
-
-function calculateMostCommonReason(
-  suspensions: Array<{ reason: string }>,
-): string | null {
-  const counts = suspensions.reduce<Record<string, number>>(
-    (acc, item) => ({
-      ...acc,
-      [item.reason || "Unknown"]: (acc[item.reason || "Unknown"] || 0) + 1,
-    }),
-    {},
-  );
-  const reasons = Object.keys(counts);
-  if (reasons.length === 0) return null;
-  return reasons.reduce((left, right) =>
-    counts[left] > counts[right] ? left : right,
-  );
-}
-
-function formatSuspensionItem(item: {
-  id: string;
-  suspension_type: string;
-  reason: string;
-  suspended_at: Date;
-  suspended_by: string | null;
-  expected_resume_at: Date | null;
-  actual_resume_at: Date | null;
-  resumed_by: string | null;
-  notes: string | null;
-  is_active: boolean;
-}) {
-  return {
-    id: item.id,
-    suspensionType: item.suspension_type,
-    reason: item.reason,
-    suspendedAt: item.suspended_at.toISOString(),
-    suspendedBy: item.suspended_by,
-    expectedResumeAt: item.expected_resume_at?.toISOString() || null,
-    actualResumeAt: item.actual_resume_at?.toISOString() || null,
-    resumedBy: item.resumed_by,
-    notes: item.notes,
-    isActive: item.is_active,
-    durationHours: item.actual_resume_at
-      ? (item.actual_resume_at.getTime() - item.suspended_at.getTime()) /
-        MILLISECONDS_PER_HOUR
-      : null,
-  };
 }
