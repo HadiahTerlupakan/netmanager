@@ -83,6 +83,12 @@ export default function ManualPaymentClient() {
       const res = await fetch(
         `/api/admin/payments/pending-manual?${query.toString()}`,
       );
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(
+          `Gagal mengambil pembayaran manual: ${res.status} ${body}`,
+        );
+      }
       const json = await res.json();
       if (json.success) {
         setPayments(json.data);

@@ -39,6 +39,12 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
     try {
       setLoading(true);
       const res = await fetch("/api/admin/payments/pending-manual");
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(
+          `Gagal mengambil pembayaran manual: ${res.status} ${body}`,
+        );
+      }
       const json = await res.json();
       if (json.success) {
         setPayments(json.data);

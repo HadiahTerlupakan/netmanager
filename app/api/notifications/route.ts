@@ -9,12 +9,28 @@ import {
 import { requireAuth } from "@/lib/auth-helpers";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { socketEmitter } from "@/lib/websocket/emitter";
+import { runWithRequestTenantContext } from "@/lib/tenant-context";
 
 interface ExtendedUser {
   id: string;
   role: string;
   siteId?: string;
   departmentId?: string;
+  tenantId?: string | null;
+  isSuperAdmin?: boolean;
+}
+
+function runNotificationRouteWithTenant<T>(
+  user: ExtendedUser,
+  callback: () => Promise<T>,
+) {
+  return runWithRequestTenantContext(
+    {
+      tenantId: user.tenantId ?? null,
+      isSuperAdmin: isSuperAdmin(user),
+    },
+    callback,
+  );
 }
 
 // GET /api/notifications - Get notifications for current user
@@ -26,45 +42,47 @@ export async function GET(request: NextRequest) {
       return session;
     }
 
-    const { searchParams } = new URL(request.url);
-    const unreadOnly = searchParams.get("unread") === "true";
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const offset = parseInt(searchParams.get("offset") || "0");
-    const type = searchParams.get("type") as NotificationType | undefined;
-    const excludeTypes = searchParams.get("excludeTypes")?.split(",") as
-      | NotificationType[]
-      | undefined;
+    const user = session.user as ExtendedUser;
 
-    // Enforce Site Restriction
-    const permissions = await getUserPermissions(session.user.id);
-    const user = session.user as ExtendedUser & { isSuperAdmin?: boolean };
-    const isSuper = isSuperAdmin(user);
-    const siteId =
-      !isSuper && permissions.includes("site_only") ? user.siteId : undefined;
-    const departmentId = user.departmentId || undefined;
+    return runNotificationRouteWithTenant(user, async () => {
+      const { searchParams } = new URL(request.url);
+      const unreadOnly = searchParams.get("unread") === "true";
+      const limit = parseInt(searchParams.get("limit") || "50");
+      const offset = parseInt(searchParams.get("offset") || "0");
+      const type = searchParams.get("type") as NotificationType | undefined;
+      const excludeTypes = searchParams.get("excludeTypes")?.split(",") as
+        | NotificationType[]
+        | undefined;
 
-    const options: Parameters<typeof getNotificationsForUser>[1] = {
-      unreadOnly,
-      limit,
-      offset,
-    };
+      const permissions = await getUserPermissions(user.id);
+      const siteId =
+        !isSuperAdmin(user) && permissions.includes("site_only")
+          ? user.siteId
+          : undefined;
+      const departmentId = user.departmentId || undefined;
 
-    if (type) options.type = type;
-    if (excludeTypes) options.excludeTypes = excludeTypes;
-    if (siteId) options.siteId = siteId;
-    if (departmentId) options.departmentId = departmentId;
+      const options: Parameters<typeof getNotificationsForUser>[1] = {
+        unreadOnly,
+        limit,
+        offset,
+      };
 
-    // Optimized: Run queries in parallel
-    const [notificationData, unreadCount] = await Promise.all([
-      getNotificationsForUser(session.user.id, options),
-      getUnreadCount(session.user.id, excludeTypes, siteId),
-    ]);
+      if (type) options.type = type;
+      if (excludeTypes) options.excludeTypes = excludeTypes;
+      if (siteId) options.siteId = siteId;
+      if (departmentId) options.departmentId = departmentId;
 
-    return NextResponse.json({
-      success: true,
-      notifications: notificationData.notifications,
-      total: notificationData.total,
-      unreadCount,
+      const [notificationData, unreadCount] = await Promise.all([
+        getNotificationsForUser(user.id, options),
+        getUnreadCount(user.id, excludeTypes, siteId),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        notifications: notificationData.notifications,
+        total: notificationData.total,
+        unreadCount,
+      });
     });
   } catch (error) {
     logger.error("Error fetching notifications:", error);
@@ -84,27 +102,26 @@ export async function PATCH(request: NextRequest) {
       return session;
     }
 
-    const body = await request.json().catch(() => ({}));
-    const type = body.type as NotificationType | undefined;
+    const user = session.user as ExtendedUser;
 
-    // Enforce Site Restriction
-    const permissions = await getUserPermissions(session.user.id);
-    const user = session.user as ExtendedUser & { isSuperAdmin?: boolean };
-    const isSuper = isSuperAdmin(user);
-    const siteId =
-      !isSuper && permissions.includes("site_only") ? user.siteId : undefined;
+    return runNotificationRouteWithTenant(user, async () => {
+      const body = await request.json().catch(() => ({}));
+      const type = body.type as NotificationType | undefined;
 
-    await markAllAsRead(session.user.id, type, siteId);
-    const unreadCount = await getUnreadCount(
-      session.user.id,
-      undefined,
-      siteId,
-    );
-    socketEmitter.updateNotificationCount(session.user.id, unreadCount);
+      const permissions = await getUserPermissions(user.id);
+      const siteId =
+        !isSuperAdmin(user) && permissions.includes("site_only")
+          ? user.siteId
+          : undefined;
 
-    return NextResponse.json({
-      success: true,
-      message: "Semua notifikasi telah ditandai dibaca",
+      await markAllAsRead(user.id, type, siteId);
+      const unreadCount = await getUnreadCount(user.id, undefined, siteId);
+      socketEmitter.updateNotificationCount(user.id, unreadCount);
+
+      return NextResponse.json({
+        success: true,
+        message: "Semua notifikasi telah ditandai dibaca",
+      });
     });
   } catch (error) {
     logger.error("Error marking notifications as read:", error);

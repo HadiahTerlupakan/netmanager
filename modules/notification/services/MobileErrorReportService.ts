@@ -59,23 +59,10 @@ export async function submitMobileErrorReport(
 }
 
 function buildValidatedReport(body: MobileErrorReportPayload) {
-  const message = requireValue(
-    sanitizeString(body.message, DEFAULT_MESSAGE_MAX),
-    "message",
-  );
-  const kind = requireValue(
-    sanitizeString(body.kind, DEFAULT_KIND_MAX),
-    "kind",
-  );
-  const source = requireValue(
-    sanitizeString(body.source, DEFAULT_SOURCE_MAX),
-    "source",
-  );
+  const requiredFields = buildRequiredReportFields(body);
 
   return {
-    message,
-    kind,
-    source,
+    ...requiredFields,
     severity: sanitizeString(body.severity, 50) || DEFAULT_SEVERITY,
     route: sanitizeString(body.route, 255),
     screen: sanitizeString(body.screen, 255),
@@ -83,14 +70,31 @@ function buildValidatedReport(body: MobileErrorReportPayload) {
     platform: sanitizeString(body.platform, 50),
     occurredAt: sanitizeString(body.occurredAt, 100),
     stack: sanitizeString(body.stack, DEFAULT_STACK_MAX),
-    breadcrumbs: Array.isArray(body.breadcrumbs)
-      ? body.breadcrumbs.slice(-MAX_BREADCRUMBS)
-      : [],
-    context:
-      typeof body.context === "object" && body.context !== null
-        ? body.context
-        : {},
+    breadcrumbs: normalizeBreadcrumbs(body.breadcrumbs),
+    context: normalizeErrorContext(body.context),
   };
+}
+
+function buildRequiredReportFields(body: MobileErrorReportPayload) {
+  return {
+    message: requireValue(
+      sanitizeString(body.message, DEFAULT_MESSAGE_MAX),
+      "message",
+    ),
+    kind: requireValue(sanitizeString(body.kind, DEFAULT_KIND_MAX), "kind"),
+    source: requireValue(
+      sanitizeString(body.source, DEFAULT_SOURCE_MAX),
+      "source",
+    ),
+  };
+}
+
+function normalizeBreadcrumbs(value: unknown) {
+  return Array.isArray(value) ? value.slice(-MAX_BREADCRUMBS) : [];
+}
+
+function normalizeErrorContext(value: unknown) {
+  return typeof value === "object" && value !== null ? value : {};
 }
 
 async function resolveOptionalAuthPayload(request: NextRequest) {

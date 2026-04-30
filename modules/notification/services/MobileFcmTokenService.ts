@@ -26,18 +26,11 @@ export async function updateMobileFcmToken(options: {
     remove: string;
   };
 }) {
-  const userId = getSessionUserId(options.session);
-  if (!userId) {
-    throw new MobileFcmTokenError("Token tidak valid", 401);
-  }
-
+  const userId = requireSessionUserId(options.session);
   const repository = options.repository ?? defaultRepository;
-  const owner = await repository.findOwnerTokens(options.session, userId);
-  if (!owner) {
-    throw new MobileFcmTokenError("Pengguna mobile tidak ditemukan", 404);
-  }
-
+  const owner = await findMobileTokenOwner(repository, options.session, userId);
   const normalizedAction = options.action === "remove" ? "remove" : "add";
+
   await persistTokenChange({
     repository,
     session: options.session,
@@ -50,6 +43,26 @@ export async function updateMobileFcmToken(options: {
   return {
     message: buildSuccessMessage(normalizedAction, options.successMessages),
   };
+}
+
+function requireSessionUserId(session: IMobileFcmSession): string {
+  const userId = getSessionUserId(session);
+  if (!userId) {
+    throw new MobileFcmTokenError("Token tidak valid", 401);
+  }
+  return userId;
+}
+
+async function findMobileTokenOwner(
+  repository: IPushTokenRepository,
+  session: IMobileFcmSession,
+  userId: string,
+) {
+  const owner = await repository.findOwnerTokens(session, userId);
+  if (!owner) {
+    throw new MobileFcmTokenError("Pengguna mobile tidak ditemukan", 404);
+  }
+  return owner;
 }
 
 function getSessionUserId(session: IMobileFcmSession) {
@@ -76,17 +89,34 @@ function persistTokenChange(options: {
   action: "add" | "remove";
 }) {
   if (options.action === "remove") {
-    return options.repository.replaceOwnerTokens(
-      options.session,
-      options.userId,
-      options.tokens.filter((token) => token !== options.fcmToken),
-    );
+    return removeMobileFcmToken(options);
   }
-
   if (options.tokens.includes(options.fcmToken)) {
     return Promise.resolve();
   }
+  return appendMobileFcmToken(options);
+}
 
+function removeMobileFcmToken(options: {
+  repository: IPushTokenRepository;
+  session: IMobileFcmSession;
+  userId: string;
+  tokens: string[];
+  fcmToken: string;
+}) {
+  return options.repository.replaceOwnerTokens(
+    options.session,
+    options.userId,
+    options.tokens.filter((token) => token !== options.fcmToken),
+  );
+}
+
+function appendMobileFcmToken(options: {
+  repository: IPushTokenRepository;
+  session: IMobileFcmSession;
+  userId: string;
+  fcmToken: string;
+}) {
   return options.repository.appendOwnerToken(
     options.session,
     options.userId,

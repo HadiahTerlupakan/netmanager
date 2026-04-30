@@ -1,38 +1,25 @@
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
 
-const RETRY_QUEUE_KEY = "push:retry:queue";
-const RETRY_PROCESSING_KEY = "push:retry:processing";
-const MAX_RETRIES = 3;
-const RETRY_INTERVAL_MS = 30_000; // 30 seconds between retry cycles
-const REDIS_NOT_WRITABLE_MESSAGE =
-  "Stream isn't writeable and enableOfflineQueue options is false";
-
-function isRedisReady(): boolean {
-  return (redis as { status?: string }).status === "ready";
-}
-
-function isRedisUnavailableError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes(REDIS_NOT_WRITABLE_MESSAGE);
-}
-
-function shouldSkipProcessing(): boolean {
-  return !isRedisReady();
-}
-
-interface PushRetryItem {
-  id: string;
-  type: "expo";
-  userId: string;
-  title: string;
-  body: string;
-  data?: Record<string, unknown>;
-  retryCount: number;
-  createdAt: number;
-  lastAttemptAt?: number;
-  pushToken?: string;
-}
+import {
+  createEmptyRetryStats,
+  createRetryItem,
+  isRedisUnavailableError,
+  logDroppedRetryItem,
+  MAX_RETRIES,
+  markRetryAttempt,
+  parseRetryItem,
+  removeProcessingItem,
+  RETRY_INTERVAL_MS,
+  RETRY_PROCESSING_KEY,
+  RETRY_QUEUE_KEY,
+  requeueRetryItem,
+  sendRetryExpoPush,
+  shouldDropRetryItem,
+  shouldSkipRetryProcessing,
+  type PushRetryItem,
+  type RetryQueueStats,
+} from "./PushRetryQueue.helpers";
 
 /**
  * Enqueue a failed push notification for retry
@@ -41,13 +28,7 @@ export async function enqueuePushRetry(
   item: Omit<PushRetryItem, "id" | "retryCount" | "createdAt">,
 ): Promise<void> {
   try {
-    const retryItem: PushRetryItem = {
-      ...item,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      retryCount: 0,
-      createdAt: Date.now(),
-    };
-    await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(retryItem));
+    await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(createRetryItem(item)));
   } catch (error) {
     logger.error("[PushRetry] Failed to enqueue:", error);
   }
@@ -56,89 +37,29 @@ export async function enqueuePushRetry(
 /**
  * Process the retry queue - called periodically
  */
-export async function processRetryQueue(): Promise<{
-  processed: number;
-  succeeded: number;
-  dropped: number;
-}> {
-  const stats = { processed: 0, succeeded: 0, dropped: 0 };
-
-  if (shouldSkipProcessing()) {
+export async function processRetryQueue(): Promise<RetryQueueStats> {
+  const stats = createEmptyRetryStats();
+  if (shouldSkipRetryProcessing()) {
     return stats;
   }
 
   try {
-    // Move items from queue to processing (atomic)
-    const queueLength = await redis.llen(RETRY_QUEUE_KEY);
-    if (queueLength === 0) return stats;
-
-    // Process up to 50 items per cycle
-    const batchSize = Math.min(queueLength, 50);
-
-    for (let i = 0; i < batchSize; i++) {
-      const raw = await redis.rpoplpush(RETRY_QUEUE_KEY, RETRY_PROCESSING_KEY);
-      if (!raw) break;
-
-      let item: PushRetryItem;
-      try {
-        item = JSON.parse(raw);
-      } catch {
-        await redis.lrem(RETRY_PROCESSING_KEY, 1, raw);
-        continue;
+    const batchSize = await resolveRetryBatchSize();
+    for (let index = 0; index < batchSize; index++) {
+      const rawItem = await redis.rpoplpush(
+        RETRY_QUEUE_KEY,
+        RETRY_PROCESSING_KEY,
+      );
+      if (!rawItem) {
+        break;
       }
 
-      stats.processed++;
-      item.retryCount++;
-      item.lastAttemptAt = Date.now();
-
-      // Drop if max retries exceeded or too old (> 1 hour)
-      if (
-        item.retryCount > MAX_RETRIES ||
-        Date.now() - item.createdAt > 3_600_000
-      ) {
-        logger.warn(
-          `[PushRetry] Dropping push for user ${item.userId} after ${item.retryCount} retries`,
-        );
-        await redis.lrem(RETRY_PROCESSING_KEY, 1, raw);
-        stats.dropped++;
-        continue;
-      }
-
-      let success = false;
-
-      try {
-        if (item.type === "expo" && item.pushToken) {
-          success = await retryExpoPush(item);
-        } else {
-          // Invalid item, drop it
-          stats.dropped++;
-          await redis.lrem(RETRY_PROCESSING_KEY, 1, raw);
-          continue;
-        }
-      } catch (error) {
-        logger.error(
-          `[PushRetry] Retry attempt ${item.retryCount} failed for ${item.userId}:`,
-          error,
-        );
-      }
-
-      // Remove from processing
-      await redis.lrem(RETRY_PROCESSING_KEY, 1, raw);
-
-      if (success) {
-        stats.succeeded++;
-      } else {
-        // Re-enqueue for next retry cycle
-        await redis.lpush(RETRY_QUEUE_KEY, JSON.stringify(item));
-      }
+      await processRetryQueueItem(rawItem, stats);
     }
   } catch (error) {
     if (!isRedisUnavailableError(error)) {
       logger.error("[PushRetry] Queue processing error:", error);
     }
-  }
-
-  if (stats.processed > 0) {
   }
 
   return stats;
@@ -148,50 +69,91 @@ export async function processRetryQueue(): Promise<{
  * Retry an Expo push notification
  */
 async function retryExpoPush(item: PushRetryItem): Promise<boolean> {
-  const response = await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Accept-Encoding": "gzip, deflate",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify([
-      {
-        to: item.pushToken,
-        title: item.title,
-        body: item.body,
-        data: item.data || {},
-        sound: "default",
-      },
-    ]),
-  });
-
-  if (!response.ok) return false;
-
-  const result = await response.json();
-  const ticket = result.data?.[0];
-  return ticket?.status === "ok";
+  return sendRetryExpoPush(item);
 }
 
 // Retry queue processor - starts a periodic check
 let retryIntervalId: ReturnType<typeof setInterval> | null = null;
 
 export function startPushRetryProcessor(): void {
-  if (retryIntervalId) return; // Already running
+  if (retryIntervalId) return;
 
-  retryIntervalId = setInterval(async () => {
-    try {
-      await processRetryQueue();
-    } catch (error) {
-      logger.error("[PushRetry] Processor error:", error);
-    }
-  }, RETRY_INTERVAL_MS);
+  retryIntervalId = setInterval(runRetryProcessorSafely, RETRY_INTERVAL_MS);
 }
 
 export function stopPushRetryProcessor(): void {
   if (retryIntervalId) {
     clearInterval(retryIntervalId);
     retryIntervalId = null;
+  }
+}
+
+async function resolveRetryBatchSize(): Promise<number> {
+  const queueLength = await redis.llen(RETRY_QUEUE_KEY);
+  return Math.min(queueLength, MAX_RETRIES * 16 + 2);
+}
+
+async function processRetryQueueItem(
+  rawItem: string,
+  stats: RetryQueueStats,
+): Promise<void> {
+  const parsedItem = parseRetryItem(rawItem);
+  if (!parsedItem) {
+    await removeProcessingItem(rawItem);
+    return;
+  }
+
+  stats.processed++;
+  const retryItem = markRetryAttempt(parsedItem);
+  if (shouldDropRetryItem(retryItem)) {
+    logDroppedRetryItem(retryItem);
+    stats.dropped++;
+    await removeProcessingItem(rawItem);
+    return;
+  }
+
+  const isSuccess = await retryQueueItem(rawItem, retryItem, stats);
+  if (isSuccess) {
+    stats.succeeded++;
+  }
+}
+
+async function retryQueueItem(
+  rawItem: string,
+  retryItem: PushRetryItem,
+  stats: RetryQueueStats,
+): Promise<boolean> {
+  const canRetryExpoPush =
+    retryItem.type === "expo" && Boolean(retryItem.pushToken);
+  if (!canRetryExpoPush) {
+    stats.dropped++;
+    await removeProcessingItem(rawItem);
+    return false;
+  }
+
+  try {
+    const isSuccess = await retryExpoPush(retryItem);
+    await removeProcessingItem(rawItem);
+    if (!isSuccess) {
+      await requeueRetryItem(retryItem);
+    }
+    return isSuccess;
+  } catch (error) {
+    logger.error(
+      `[PushRetry] Retry attempt ${retryItem.retryCount} failed for ${retryItem.userId}:`,
+      error,
+    );
+    await removeProcessingItem(rawItem);
+    await requeueRetryItem(retryItem);
+    return false;
+  }
+}
+
+async function runRetryProcessorSafely(): Promise<void> {
+  try {
+    await processRetryQueue();
+  } catch (error) {
+    logger.error("[PushRetry] Processor error:", error);
   }
 }
 

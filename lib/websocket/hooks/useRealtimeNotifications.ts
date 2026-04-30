@@ -18,6 +18,18 @@ export interface Notification {
   createdAt: string;
 }
 
+async function buildNotificationFetchError(
+  countRes: Response,
+  listRes: Response,
+) {
+  const failedResponse = !countRes.ok ? countRes : listRes;
+  const responseBody = await failedResponse.text().catch(() => "");
+
+  return new Error(
+    `Gagal mengambil notifikasi: ${failedResponse.url} ${failedResponse.status} ${responseBody}`,
+  );
+}
+
 interface UseRealtimeNotificationsOptions {
   limit?: number;
   autoFetch?: boolean;
@@ -77,7 +89,7 @@ export function useRealtimeNotifications(
       ]);
 
       if (!countRes.ok || !listRes.ok) {
-        throw new Error("Gagal mengambil notifikasi");
+        throw await buildNotificationFetchError(countRes, listRes);
       }
 
       const [countData, listData] = await Promise.all([

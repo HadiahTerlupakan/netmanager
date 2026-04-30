@@ -138,11 +138,24 @@ function formatMobileNotification(notification: {
 }) {
   const normalizedCopy = normalizeMobileNotificationCopy(notification);
   return {
-    id: notification.id,
-    type: notification.type,
+    ...buildMobileNotificationBase(notification),
     title: normalizedCopy.title,
     message: normalizedCopy.message,
     link: resolveMobileNotificationLink(notification),
+  };
+}
+
+function buildMobileNotificationBase(notification: {
+  id: string;
+  type: string;
+  isRead: boolean;
+  sourceType: string | null;
+  sourceId: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: notification.id,
+    type: notification.type,
     isRead: notification.isRead,
     sourceType: notification.sourceType,
     sourceId: notification.sourceId,

@@ -21,7 +21,6 @@ export class WhatsAppFactory {
         return new MpwaProvider(config);
 
       case "OFFICIAL":
-        // TODO: Implement Official WhatsApp Business API provider
         throw new Error("API resmi WhatsApp belum diimplementasikan");
 
       default:

@@ -6,6 +6,19 @@ import {
 } from "@/modules/mitra";
 import { enqueuePushRetry } from "./PushRetryQueue";
 import { PelangganPushTokenService } from "@/modules/pelanggan";
+import {
+  chunkExpoPushMessages,
+  collectChunkFailedTokens,
+  buildChunkFailureTokens,
+  createExpoPushMessage,
+  postExpoPushChunk,
+  delayBetweenExpoChunks,
+  processFailedExpoTokens,
+  type ExpoPushMessage,
+  type FailedToken,
+  type PushFailureDependencies,
+  type ExpoPushTicket,
+} from "./ExpoPushService.helpers";
 
 let userRepo: UserLookupService | null = null;
 let mitraLookupService: MitraLookupService | null = null;
@@ -32,174 +45,96 @@ function getPelangganPushTokenService(): PelangganPushTokenService {
   return pelangganPushTokenService;
 }
 
-interface ExpoPushMessage {
-  to: string;
-  title: string;
-  body: string;
-  data?: Record<string, unknown>;
-  sound?: "default" | null;
-  badge?: number;
-  channelId?: string;
-}
-
-interface ExpoPushTicket {
-  status: "ok" | "error";
-  id?: string;
-  message?: string;
-  details?: unknown;
-}
-
-interface FailedToken {
-  token: string;
-  error: string;
-  details?: unknown;
-}
-
-interface PushTokenRecord {
-  id: string;
-  pushToken: string | null;
-}
-
-async function clearPushTokensInMitra(tokens: string[]) {
-  await getMitraRepo().clearPushTokens(tokens);
-}
-
-async function findUsersByPushTokens(
-  tokens: string[],
-): Promise<PushTokenRecord[]> {
-  return getUserRepo().findManyWithPushToken(tokens);
-}
-
-async function findMitrasByPushTokens(
-  tokens: string[],
-): Promise<PushTokenRecord[]> {
-  return getMitraRepo().findManyWithPushToken(tokens);
-}
-
-async function findPelangganByPushTokens(
-  tokens: string[],
-): Promise<PushTokenRecord[]> {
-  return getPelangganPushTokenService().findManyWithPushToken(tokens);
+function getPushFailureDependencies(): PushFailureDependencies {
+  return {
+    clearUserTokens: async (tokens) => {
+      await getUserRepo().clearPushTokens(tokens);
+    },
+    clearMitraTokens: async (tokens) => {
+      await getMitraRepo().clearPushTokens(tokens);
+    },
+    clearPelangganTokens: async (tokens) => {
+      await getPelangganPushTokenService().clearPushTokens(tokens);
+    },
+    findUsers: (tokens) => getUserRepo().findManyWithPushToken(tokens),
+    findMitras: (tokens) => getMitraRepo().findManyWithPushToken(tokens),
+    findPelanggans: (tokens) =>
+      getPelangganPushTokenService().findManyWithPushToken(tokens),
+    enqueueRetry: enqueuePushRetry,
+  };
 }
 
 async function handleFailedTokens(
   failedTokens: FailedToken[],
   originalMessages: ExpoPushMessage[],
 ) {
-  const tokensToRemove = failedTokens
-    .filter((f) => f.error === "DeviceNotRegistered")
-    .map((f) => f.token);
-  if (tokensToRemove.length > 0) {
-    logger.info(
-      `[Push] Removing ${tokensToRemove.length} unregistered Expo push tokens`,
-    );
-    await Promise.all([
-      getUserRepo().clearPushTokens(tokensToRemove),
-      clearPushTokensInMitra(tokensToRemove),
-      getPelangganPushTokenService().clearPushTokens(tokensToRemove),
-    ]);
-  }
+  await processFailedExpoTokens(
+    failedTokens,
+    originalMessages,
+    getPushFailureDependencies(),
+  );
+}
 
-  const tokensToRetry = failedTokens
-    .filter((f) => f.error !== "DeviceNotRegistered")
-    .map((f) => f.token);
-  if (tokensToRetry.length === 0) return;
-  const [users, mitras, pelanggans] = await Promise.all([
-    findUsersByPushTokens(tokensToRetry),
-    findMitrasByPushTokens(tokensToRetry),
-    findPelangganByPushTokens(tokensToRetry),
-  ]);
-  const tokenToUserId: Record<string, string> = {};
-  for (const user of users)
-    if (user.pushToken) tokenToUserId[user.pushToken] = user.id;
-  for (const mitra of mitras)
-    if (mitra.pushToken) tokenToUserId[mitra.pushToken] = mitra.id;
-  for (const pelanggan of pelanggans)
-    if (pelanggan.pushToken) tokenToUserId[pelanggan.pushToken] = pelanggan.id;
-  for (const token of tokensToRetry) {
-    const message = originalMessages.find((item) => item.to === token);
-    if (!message) continue;
-    enqueuePushRetry({
-      type: "expo",
-      userId: tokenToUserId[token] || "unknown",
-      title: message.title,
-      body: message.body,
-      data: message.data as Record<string, unknown>,
-      pushToken: token,
-    });
+async function sendExpoPushChunk(
+  chunk: ExpoPushMessage[],
+  chunkIndex: number,
+  totalChunks: number,
+): Promise<FailedToken[]> {
+  await delayBetweenExpoChunks(chunkIndex);
+
+  try {
+    const response = await postExpoPushChunk(chunk);
+    if (!response.ok) {
+      logger.error(
+        `[Push] Expo API HTTP error ${response.status} for chunk ${chunkIndex + 1}/${totalChunks}`,
+      );
+      return buildChunkFailureTokens(chunk, "HTTP_ERROR");
+    }
+
+    const result = await response.json();
+    return result.data
+      ? collectChunkFailedTokens(chunk, result.data as ExpoPushTicket[])
+      : [];
+  } catch (error) {
+    logger.error(
+      `[Push] Failed to send chunk ${chunkIndex + 1}/${totalChunks}:`,
+      error,
+    );
+    return buildChunkFailureTokens(chunk, "NETWORK_ERROR");
   }
 }
 
 async function sendExpoPush(
   messages: ExpoPushMessage[],
 ): Promise<{ success: boolean; failedTokens: FailedToken[] }> {
-  if (messages.length === 0) return { success: true, failedTokens: [] };
-  const chunks: ExpoPushMessage[][] = [];
-  for (let index = 0; index < messages.length; index += 100) {
-    chunks.push(messages.slice(index, index + 100));
+  if (messages.length === 0) {
+    return { success: true, failedTokens: [] };
   }
 
-  let allSucceeded = true;
   const failedTokens: FailedToken[] = [];
+  let allSucceeded = true;
+
   try {
+    const chunks = chunkExpoPushMessages(messages);
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
       const chunk = chunks[chunkIndex];
-      if (chunkIndex > 0)
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      try {
-        const response = await fetch("https://exp.host/--/api/v2/push/send", {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Accept-Encoding": "gzip, deflate",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(chunk),
-        });
-        if (!response.ok) {
-          logger.error(
-            `[Push] Expo API HTTP error ${response.status} for chunk ${chunkIndex + 1}/${chunks.length}`,
-          );
-          allSucceeded = false;
-          for (const message of chunk)
-            failedTokens.push({ token: message.to, error: "HTTP_ERROR" });
-          continue;
-        }
-        const result = await response.json();
-        if (!result.data) continue;
-        const tickets = result.data as ExpoPushTicket[];
-        for (let ticketIndex = 0; ticketIndex < tickets.length; ticketIndex++) {
-          const ticket = tickets[ticketIndex];
-          if (ticket.status !== "error") continue;
-          const errorType =
-            ((ticket.details as Record<string, unknown>)?.error as string) ||
-            ticket.message ||
-            "Unknown";
-          failedTokens.push({
-            token: chunk[ticketIndex].to,
-            error: errorType,
-            details: ticket.details,
-          });
-        }
-      } catch (chunkError) {
-        logger.error(
-          `[Push] Failed to send chunk ${chunkIndex + 1}/${chunks.length}:`,
-          chunkError,
-        );
+      const chunkFailures = await sendExpoPushChunk(
+        chunk,
+        chunkIndex,
+        chunks.length,
+      );
+      if (chunkFailures.length > 0) {
         allSucceeded = false;
-        for (const message of chunk)
-          failedTokens.push({ token: message.to, error: "NETWORK_ERROR" });
+        failedTokens.push(...chunkFailures);
       }
     }
+
     return { success: allSucceeded, failedTokens };
   } catch (error) {
     logger.error("[Push] Expo API error:", error);
     return {
       success: false,
-      failedTokens: messages.map((message) => ({
-        token: message.to,
-        error: "CRITICAL_ERROR",
-      })),
+      failedTokens: buildChunkFailureTokens(messages, "CRITICAL_ERROR"),
     };
   }
 }
@@ -220,7 +155,7 @@ export async function sendPushNotification(
     }
     if (!pushToken) return false;
     const messages: ExpoPushMessage[] = [
-      { to: pushToken, title, body, data: data || {}, sound: "default" },
+      createExpoPushMessage({ token: pushToken, title, body, data }),
     ];
     const { success, failedTokens } = await sendExpoPush(messages);
     if (!success && failedTokens.length > 0)
@@ -243,13 +178,7 @@ export async function sendCustomerPushNotification(
       await getPelangganPushTokenService().findByIdWithPushToken(pelangganId);
     if (!pelanggan?.pushToken) return false;
     const messages: ExpoPushMessage[] = [
-      {
-        to: pelanggan.pushToken,
-        title,
-        body,
-        data: data || {},
-        sound: "default",
-      },
+      createExpoPushMessage({ token: pelanggan.pushToken, title, body, data }),
     ];
     const { success, failedTokens } = await sendExpoPush(messages);
     if (!success && failedTokens.length > 0)
@@ -281,13 +210,9 @@ export async function sendPushToUsers(
     for (const mitra of mitras)
       if (mitra.pushToken) allTokens.push(mitra.pushToken);
     if (allTokens.length === 0) return 0;
-    const messages: ExpoPushMessage[] = allTokens.map((token) => ({
-      to: token,
-      title,
-      body,
-      data: data || {},
-      sound: "default",
-    }));
+    const messages: ExpoPushMessage[] = allTokens.map((token) =>
+      createExpoPushMessage({ token, title, body, data }),
+    );
     const { success, failedTokens } = await sendExpoPush(messages);
     if (!success && failedTokens.length > 0)
       await handleFailedTokens(failedTokens, messages);
@@ -324,13 +249,8 @@ export async function sendPushToDepartment(
       await getUserRepo().findManyByDepartmentWithPushToken(departmentId);
     if (users.length === 0) return 0;
     const messages: ExpoPushMessage[] = users.map(
-      (user: { id: string; pushToken: string | null }) => ({
-        to: user.pushToken!,
-        title,
-        body,
-        data: data || {},
-        sound: "default",
-      }),
+      (user: { id: string; pushToken: string | null }) =>
+        createExpoPushMessage({ token: user.pushToken!, title, body, data }),
     );
     const { success, failedTokens } = await sendExpoPush(messages);
     if (!success && failedTokens.length > 0)
