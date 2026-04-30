@@ -9,25 +9,68 @@ export class RegistrationMapper {
   /** Map Prisma registration model to domain entity. */
   static toDomain(model: Registrations): Registration {
     return {
+      ...this.toDomainIdentity(model),
+      ...this.toDomainLocation(model),
+      ...this.toDomainAudit(model),
+    };
+  }
+
+  /** Map base identity fields to domain shape. */
+  private static toDomainIdentity(
+    model: Registrations,
+  ): Pick<
+    Registration,
+    | "id"
+    | "name"
+    | "email"
+    | "phone"
+    | "address"
+    | "packageName"
+    | "ipAddress"
+    | "status"
+    | "notes"
+    | "phoneNumber"
+    | "tenantId"
+  > {
+    return {
       id: model.id,
       name: model.name,
       email: model.email,
       phone: model.phone,
       address: model.address,
       packageName: model.packageName ?? null,
-      location: model.location ?? null,
-      latitude: model.latitude ?? null,
-      longitude: model.longitude ?? null,
       ipAddress: model.ipAddress ?? null,
       status: model.status,
       notes: model.notes ?? null,
+      phoneNumber: model.phoneNumber ?? null,
+      tenantId: model.tenantId ?? null,
+    };
+  }
+
+  /** Map location fields to domain shape. */
+  private static toDomainLocation(
+    model: Registrations,
+  ): Pick<Registration, "location" | "latitude" | "longitude"> {
+    return {
+      location: model.location ?? null,
+      latitude: model.latitude ?? null,
+      longitude: model.longitude ?? null,
+    };
+  }
+
+  /** Map audit fields to domain shape. */
+  private static toDomainAudit(
+    model: Registrations,
+  ): Pick<
+    Registration,
+    "rejectionReason" | "verifiedAt" | "verifiedBy" | "createdAt" | "updatedAt"
+  > {
+    return {
       rejectionReason: model.rejectionReason ?? null,
       verifiedAt: model.verifiedAt ?? null,
       verifiedBy: model.verifiedBy ?? null,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
-      phoneNumber: model.phoneNumber ?? null,
-      tenantId: model.tenantId ?? null,
     };
   }
 
