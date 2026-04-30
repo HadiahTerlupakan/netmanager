@@ -1,1 +1,1 @@
-export type { IWorkOrderRepository } from "../repositories/IWorkOrderRepository";
+export type { IWorkOrderRepository } from "../domain/ports/IWorkOrderRepository";

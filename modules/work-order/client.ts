@@ -1,4 +1,4 @@
-export type { WorkOrderListItem } from "./repositories/IWorkOrderRepository";
+export type { WorkOrderListItem } from "./domain/ports/IWorkOrderRepository";
 export { buildWorkOrderListSummary } from "./utils/work-order-list-summary";
 export type {
   TopWorkOrderCustomer,

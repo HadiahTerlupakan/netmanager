@@ -7,6 +7,9 @@ import type {
   SalaryComponentType,
   RateType,
 } from "../types/salary.enums";
+import type { SalaryRevisionEntity } from "../domain/entities/SalaryEntity";
+
+export type SalaryRevisionDTO = SalaryRevisionEntity;
 
 // ==================== Response DTOs ====================
 

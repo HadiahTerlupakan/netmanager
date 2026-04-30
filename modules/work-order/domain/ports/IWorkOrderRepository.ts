@@ -1,13 +1,15 @@
 import type {
-  WorkOrderAssignments,
-  WorkOrderAttachments,
-  WorkOrders,
+  WorkOrderAssignmentEntity,
+  WorkOrderAttachmentEntity,
+  WorkOrderEntity,
   WorkOrderStatus,
-  WorkOrderTasks,
+  WorkOrderTaskEntity,
   WorkOrderType,
-  WorkOrderUpdates,
-} from "@prisma/client";
+  WorkOrderUpdateEntity,
+  WorkOrderWithRelations,
+} from "../entities/WorkOrderEntity";
 import type {
+  AddUpdateData,
   CreateTaskData,
   CreateWorkOrderData,
   IssueStatistic,
@@ -20,9 +22,7 @@ import type {
   WorkOrderListItem,
   WorkOrderListSummary,
   WorkOrderStatistics,
-  WorkOrderWithRelations,
-  AddUpdateData,
-} from "../../repositories/work-order.repository.types";
+} from "../entities/WorkOrderRepositoryTypes";
 
 export type {
   AddUpdateData,
@@ -38,12 +38,11 @@ export type {
   WorkOrderListItem,
   WorkOrderListSummary,
   WorkOrderStatistics,
-  WorkOrderWithRelations,
-} from "../../repositories/work-order.repository.types";
+} from "../entities/WorkOrderRepositoryTypes";
+export type { WorkOrderWithRelations } from "../entities/WorkOrderEntity";
 
 export interface IWorkOrderRepository {
-  // CRUD Operations
-  create(data: CreateWorkOrderData): Promise<WorkOrders>;
+  create(data: CreateWorkOrderData): Promise<WorkOrderEntity>;
   findById(id: string): Promise<WorkOrderWithRelations | null>;
   findByWorkOrderNumber(
     workOrderNumber: string,
@@ -58,10 +57,6 @@ export interface IWorkOrderRepository {
     page: number;
     totalPages: number;
   }>;
-  /**
-   * Optimized query for list views - fetches only essential fields
-   * ~90% smaller response compared to findAll()
-   */
   findAllForList(
     filters?: WorkOrderFilters,
     page?: number,
@@ -74,46 +69,39 @@ export interface IWorkOrderRepository {
     summary: WorkOrderListSummary;
   }>;
   findStaleReminderWorkOrders(now: Date): Promise<StaleReminderWorkOrder[]>;
-  update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders>;
+  update(id: string, data: UpdateWorkOrderData): Promise<WorkOrderEntity>;
   delete(id: string): Promise<void>;
-
-  // Status Management
   updateStatus(
     id: string,
     status: WorkOrderStatus,
     userId?: string,
-  ): Promise<WorkOrders>;
-  start(id: string, userId?: string): Promise<WorkOrders>;
+  ): Promise<WorkOrderEntity>;
+  start(id: string, userId?: string): Promise<WorkOrderEntity>;
   complete(
     id: string,
     resolutionNotes?: string,
     userId?: string,
-  ): Promise<WorkOrders>;
-  verify(id: string, userId?: string): Promise<WorkOrders>;
-  close(id: string, userId?: string): Promise<WorkOrders>;
-  cancel(id: string, reason: string, userId?: string): Promise<WorkOrders>;
-
-  // Assignment
-  assign(id: string, userId: string, role?: string): Promise<WorkOrders>;
-  unassign(id: string): Promise<WorkOrders>;
+  ): Promise<WorkOrderEntity>;
+  verify(id: string, userId?: string): Promise<WorkOrderEntity>;
+  close(id: string, userId?: string): Promise<WorkOrderEntity>;
+  cancel(id: string, reason: string, userId?: string): Promise<WorkOrderEntity>;
+  assign(id: string, userId: string, role?: string): Promise<WorkOrderEntity>;
+  unassign(id: string): Promise<WorkOrderEntity>;
   addAssignment(
     workOrderId: string,
     userId: string,
     role?: string,
-  ): Promise<WorkOrderAssignments>;
+  ): Promise<WorkOrderAssignmentEntity>;
   removeAssignment(assignmentId: string): Promise<void>;
-
-  // Tasks
-  addTask(data: CreateTaskData): Promise<WorkOrderTasks>;
-  updateTask(taskId: string, data: UpdateTaskData): Promise<WorkOrderTasks>;
+  addTask(data: CreateTaskData): Promise<WorkOrderTaskEntity>;
+  updateTask(
+    taskId: string,
+    data: UpdateTaskData,
+  ): Promise<WorkOrderTaskEntity>;
   deleteTask(taskId: string): Promise<void>;
-  completeTask(taskId: string, userId: string): Promise<WorkOrderTasks>;
-
-  // Updates/Timeline
-  addUpdate(data: AddUpdateData): Promise<WorkOrderUpdates>;
-  getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]>;
-
-  // Attachments
+  completeTask(taskId: string, userId: string): Promise<WorkOrderTaskEntity>;
+  addUpdate(data: AddUpdateData): Promise<WorkOrderUpdateEntity>;
+  getUpdates(workOrderId: string): Promise<WorkOrderUpdateEntity[]>;
   addAttachment(
     workOrderId: string,
     fileName: string,
@@ -122,10 +110,8 @@ export interface IWorkOrderRepository {
     fileType: string,
     caption?: string,
     uploadedById?: string,
-  ): Promise<WorkOrderAttachments>;
+  ): Promise<WorkOrderAttachmentEntity>;
   deleteAttachment(attachmentId: string, deletedById?: string): Promise<void>;
-
-  // Statistics
   getStatistics(
     filters?: Omit<WorkOrderFilters, "search">,
     tenantId?: string,
@@ -180,14 +166,10 @@ export interface IWorkOrderRepository {
       avgResponseTimeMinutes: number;
     }>
   >;
-
-  // Comments
   addComment(
     workOrderId: string,
     message: string,
     userId: string,
   ): Promise<unknown>;
-
-  // Utilities
   generateWorkOrderNumber(): Promise<string>;
 }

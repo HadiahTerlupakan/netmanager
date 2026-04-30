@@ -1,7 +1,7 @@
 import type { WorkOrderStatus } from "../types/work-order.enums";
 import { logger } from "@/lib/logger";
 import type { UserLookupService } from "@/modules/users";
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import {
   ensureRequestedStatus,
   ensureWorkOrderExists,

@@ -5,7 +5,7 @@
  * Ensures consistent data shape and hides internal fields.
  */
 
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import type {
   WorkOrderListItemDTO,
   WorkOrderDetailDTO,
@@ -182,15 +182,17 @@ export class WorkOrderMapper {
       satuan: string | null;
       notes: string | null;
       barang?: {
-        name: string;
-        kodeBarang: string | null;
+        name?: string;
+        nama?: string;
+        kodeBarang?: string | null;
+        kode?: string | null;
       } | null;
     }>,
   ): WorkOrderMaterialDTO[] {
     return materials.map((mat) => ({
       id: mat.id,
-      barangName: mat.barang?.name ?? "Unknown",
-      barangCode: mat.barang?.kodeBarang ?? null,
+      barangName: mat.barang?.name ?? mat.barang?.nama ?? "Unknown",
+      barangCode: mat.barang?.kodeBarang ?? mat.barang?.kode ?? null,
       quantity: mat.quantity,
       satuan: mat.satuan,
       notes: mat.notes,

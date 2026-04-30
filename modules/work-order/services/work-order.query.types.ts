@@ -1,4 +1,4 @@
-import type { WorkOrderFilters } from "../repositories/work-order.repository.types";
+import type { WorkOrderFilters } from "../domain/entities/WorkOrderRepositoryTypes";
 
 export interface WorkOrderListOptions {
   page?: number;

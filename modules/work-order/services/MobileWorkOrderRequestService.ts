@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import { createNotification, sendPushToUsers } from "@/modules/notification";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
-import type { CreateWorkOrderData } from "../repositories/IWorkOrderRepository";
+import type { CreateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
 
 export interface MobileWorkOrderRequestBody {
   type: CreateWorkOrderData["type"];

@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { WorkOrderEventDispatcher } from "@/modules/events";
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { validateWorkOrderAccess as validateWorkOrderAccessHelper } from "./work-order-access";
 import { invalidateWorkOrderCaches } from "./work-order-side-effects";

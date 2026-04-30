@@ -1,5 +1,5 @@
 import type { WorkOrderStatus } from "../types/work-order.enums";
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";
 

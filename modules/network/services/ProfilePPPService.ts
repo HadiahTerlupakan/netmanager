@@ -1,156 +1,45 @@
 import { logger } from "@/lib/logger";
-import { randomUUID } from "crypto";
-import type { Session } from "next-auth";
-import { Prisma } from "@prisma/client";
-import {
-  profilePPPSchema,
-  type ProfilePPPSchema,
-} from "@/lib/validations/profileppp";
-import { sanitizeInput } from "@/lib/utils/sanitize";
+import type { ProfilePPPSchema } from "@/lib/validations/profileppp";
 import { isSuperAdmin } from "@/lib/auth";
-import { canAccessSite, checkSiteRestriction } from "@/modules/roles";
+import { canAccessSite } from "@/modules/roles";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import { HargaPaketRepository } from "../repositories/HargaPaketRepository";
 import { RadiusSyncService } from "./radius-sync-service";
 import * as z from "zod";
+import { getIPPoolRanges } from "./mikrotik-ppp-profile";
 import {
-  createPPPProfileInMikroTik,
-  deletePPPProfileInMikroTik,
-  getIPPoolRanges,
-  getRateLimitFromBandwidth,
-  updatePPPProfileInMikroTik,
-} from "./mikrotik-ppp-profile";
-
-interface SessionContext {
-  user: {
-    id: string;
-    tenantId?: string;
-  };
-}
-
-interface CreateProfilePPPInput {
-  session: Session | null;
-  sessionContext: SessionContext;
-  body: Record<string, unknown>;
-}
-
-interface UpdateProfilePPPInput {
-  session: Session | null;
-  sessionContext: SessionContext;
-  id: string;
-  body: Record<string, unknown>;
-}
-
-interface DeleteProfilePPPInput {
-  session: Session | null;
-  id: string;
-}
-
-interface ProfilePPPRepository {
-  findProfilePpps(input: ProfilePPPListRepositoryInput): Promise<unknown[]>;
-  findProfilePppDetail(id: string): Promise<ProfilePPPDetailRecord | null>;
-  findProfilePppForUpdate(id: string): Promise<ProfilePPPRecord | null>;
-  findProfilePppForDelete(id: string): Promise<DeleteProfilePPPRecord | null>;
-  createProfilePpp(data: Record<string, unknown>): Promise<ProfilePPPRecord>;
-  updateProfilePpp(
-    id: string,
-    data: Record<string, unknown>,
-  ): Promise<ProfilePPPRecord>;
-  deleteProfilePpp(id: string): Promise<void>;
-  findRoutersForProfileBroadcast(input: {
-    tenantId?: string | null;
-    siteId?: string | null;
-  }): Promise<Array<{ id: string; name: string }>>;
-}
-
-interface ProfilePPPListRepositoryInput {
-  status?: string;
-  siteIds?: string[];
-  siteId?: string;
-}
-
-interface ProfilePPPDetailRecord {
-  id: string;
-  remoteAddress: string;
-  mikroTikRouterId: string | null;
-  mikroTikRouter?: {
-    id: string;
-    name: string;
-  } | null;
-}
-
-interface ProfilePPPRecord {
-  id: string;
-  name: string;
-  localAddress: string;
-  remoteAddress: string;
-  dnsServer: string | null;
-  sessionTimeout: number | null;
-  idleTimeout: number | null;
-  poolMode: string | null;
-  description: string | null;
-  status: string;
-  siteId: string | null;
-  mikroTikRouterId: string | null;
-  tenantId?: string | null;
-  mikroTikRouter?: {
-    id: string;
-    name: string;
-  } | null;
-}
-
-interface DeleteProfilePPPRecord {
-  id: string;
-  name: string;
-  remoteAddress: string;
-  siteId: string | null;
-  mikroTikRouterId: string | null;
-  mikroTikRouter: {
-    id: string;
-    name: string;
-  } | null;
-  hargaPaket: Array<{
-    id: string;
-    name: string;
-  }>;
-}
-
-type DeleteProfilePPPResult =
-  | {
-      success: true;
-      message: string;
-    }
-  | {
-      success: false;
-      status: number;
-      error: string;
-    };
-
-export function mapProfilePPPRouteError(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return null;
-  }
-
-  if (error.code === "P2025") {
-    return { status: 404, body: { error: "Profile PPP tidak ditemukan" } };
-  }
-
-  if (error.code === "P2002") {
-    return { status: 400, body: { error: "Nama profile PPP sudah digunakan" } };
-  }
-
-  if (error.code === "P2003") {
-    return {
-      status: 400,
-      body: {
-        error:
-          "Profile PPP tidak dapat dihapus karena masih digunakan oleh paket",
-      },
-    };
-  }
-
-  return null;
-}
+  applyRestrictedProfilePPPSite,
+  validateProfilePPPBody,
+} from "./profile-ppp-validation";
+import {
+  buildCreateProfilePPPData,
+  buildUpdateProfilePPPData,
+} from "./profile-ppp-prisma-data";
+import {
+  syncMikroTikProfileOnCreate,
+  syncMikroTikProfileOnUpdate,
+} from "./profile-ppp-mikrotik-sync";
+import {
+  syncRadiusProfileOnCreate,
+  syncRadiusProfileOnUpdate,
+} from "./profile-ppp-radius-sync";
+import {
+  buildDeleteBlockedMessage,
+  cleanupProfileInMikroTik,
+} from "./profile-ppp-delete";
+import { mapProfilePPPRouteError } from "./profile-ppp-route-error";
+export { mapProfilePPPRouteError } from "./profile-ppp-route-error";
+import type {
+  CreateProfilePPPInput,
+  DeleteProfilePPPInput,
+  DeleteProfilePPPRecord,
+  DeleteProfilePPPResult,
+  ProfilePPPDetailRecord,
+  ProfilePPPRecord,
+  ProfilePPPRepository,
+  SessionContext,
+  UpdateProfilePPPInput,
+} from "./profile-ppp.types";
 
 export class ProfilePPPService {
   constructor(
@@ -160,87 +49,6 @@ export class ProfilePPPService {
 
   private async getRadiusSyncService(): Promise<RadiusSyncService> {
     return new RadiusSyncService();
-  }
-
-  private sanitizeProfilePPPBody(body: Record<string, unknown>) {
-    return {
-      name:
-        typeof body.name === "string" ? sanitizeInput(body.name) : undefined,
-      localAddress:
-        typeof body.localAddress === "string"
-          ? sanitizeInput(body.localAddress)
-          : undefined,
-      remoteAddress:
-        typeof body.remoteAddress === "string"
-          ? sanitizeInput(body.remoteAddress)
-          : undefined,
-      ipRange:
-        typeof body.ipRange === "string" && body.ipRange.trim()
-          ? sanitizeInput(body.ipRange)
-          : undefined,
-      dnsServer:
-        typeof body.dnsServer === "string" && body.dnsServer.trim()
-          ? sanitizeInput(body.dnsServer)
-          : undefined,
-      sessionTimeout:
-        body.sessionTimeout !== undefined &&
-        body.sessionTimeout !== null &&
-        body.sessionTimeout !== ""
-          ? Number(body.sessionTimeout)
-          : undefined,
-      idleTimeout:
-        body.idleTimeout !== undefined &&
-        body.idleTimeout !== null &&
-        body.idleTimeout !== ""
-          ? Number(body.idleTimeout)
-          : undefined,
-      poolMode:
-        typeof body.poolMode === "string" && body.poolMode
-          ? body.poolMode
-          : "MIKROTIK",
-      mikroTikRouterId:
-        typeof body.mikroTikRouterId === "string" &&
-        body.mikroTikRouterId.trim()
-          ? body.mikroTikRouterId
-          : undefined,
-      bandwidthId:
-        typeof body.bandwidthId === "string" && body.bandwidthId.trim()
-          ? body.bandwidthId
-          : undefined,
-      description:
-        typeof body.description === "string" && body.description.trim()
-          ? sanitizeInput(body.description)
-          : undefined,
-      status:
-        typeof body.status === "string" && body.status ? body.status : "AKTIF",
-      siteId:
-        typeof body.siteId === "string" && body.siteId.trim()
-          ? body.siteId
-          : undefined,
-    };
-  }
-
-  private validateProfilePPPBody(body: Record<string, unknown>) {
-    return profilePPPSchema.safeParse(this.sanitizeProfilePPPBody(body));
-  }
-
-  private applyRestrictedSite(
-    session: Session | null,
-    data: ProfilePPPSchema,
-  ): ProfilePPPSchema {
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
-      session,
-      "profileppp",
-    );
-
-    if (!isRestricted || !primarySiteId) {
-      return data;
-    }
-
-    return {
-      ...data,
-      siteId: primarySiteId,
-    };
   }
 
   private async findProfileForUpdate(
@@ -253,247 +61,6 @@ export class ProfilePPPService {
     id: string,
   ): Promise<DeleteProfilePPPRecord | null> {
     return this.hargaPaketRepository.findProfilePppForDelete(id);
-  }
-
-  private buildDeleteBlockedMessage(profile: DeleteProfilePPPRecord): string {
-    const paketNames = profile.hargaPaket
-      .slice(0, 3)
-      .map((paket) => paket.name)
-      .join(", ");
-    const moreCount =
-      profile.hargaPaket.length > 3
-        ? ` dan ${profile.hargaPaket.length - 3} lainnya`
-        : "";
-
-    return `Profile PPP "${profile.name}" tidak dapat dihapus karena masih digunakan oleh ${profile.hargaPaket.length} paket (${paketNames}${moreCount}). Hapus atau ubah profile pada paket tersebut terlebih dahulu.`;
-  }
-
-  private async cleanupProfileInMikroTik(
-    profile: DeleteProfilePPPRecord,
-  ): Promise<DeleteProfilePPPResult | null> {
-    if (!profile.mikroTikRouterId) {
-      return null;
-    }
-
-    try {
-      const result = await deletePPPProfileInMikroTik(
-        profile.mikroTikRouterId,
-        profile.name,
-        profile.remoteAddress,
-      );
-
-      if (result.success) {
-        return null;
-      }
-
-      return {
-        success: false,
-        status: 502,
-        error: result.error || "Gagal menghapus profile PPP di MikroTik",
-      };
-    } catch (error: unknown) {
-      return {
-        success: false,
-        status: 502,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Gagal menghapus profile PPP di MikroTik",
-      };
-    }
-  }
-
-  private buildCreatePrismaData(data: ProfilePPPSchema) {
-    return {
-      id: randomUUID(),
-      name: data.name,
-      localAddress: data.localAddress,
-      remoteAddress: data.remoteAddress,
-      dnsServer: data.dnsServer || null,
-      sessionTimeout: data.sessionTimeout || null,
-      idleTimeout: data.idleTimeout || null,
-      poolMode: data.poolMode,
-      description: data.description || null,
-      status: data.status,
-      siteId: data.siteId || null,
-      mikroTikRouterId: data.mikroTikRouterId || null,
-      updatedAt: new Date(),
-    };
-  }
-
-  private buildUpdatePrismaData(data: ProfilePPPSchema) {
-    return {
-      name: data.name,
-      localAddress: data.localAddress,
-      remoteAddress: data.remoteAddress,
-      dnsServer: data.dnsServer !== undefined ? data.dnsServer : null,
-      sessionTimeout:
-        data.sessionTimeout !== undefined ? data.sessionTimeout : null,
-      idleTimeout: data.idleTimeout !== undefined ? data.idleTimeout : null,
-      poolMode: data.poolMode,
-      description: data.description !== undefined ? data.description : null,
-      status: data.status,
-      mikroTikRouterId:
-        data.mikroTikRouterId !== undefined ? data.mikroTikRouterId : null,
-      updatedAt: new Date(),
-    };
-  }
-
-  private async syncRadiusOnCreate(
-    session: SessionContext,
-    profilePPP: ProfilePPPRecord,
-    data: ProfilePPPSchema,
-  ): Promise<void> {
-    try {
-      const radiusSync = await this.getRadiusSyncService();
-      const mode = await radiusSync.getConnectionMode();
-      if (mode !== "RADIUS") {
-        return;
-      }
-
-      await this.radiusRepository.syncProfileToRadius(profilePPP.id);
-
-      if (profilePPP.poolMode === "RADIUS" && data.ipRange) {
-        const tenantId = profilePPP.tenantId || session.user.tenantId;
-        if (tenantId) {
-          await this.radiusRepository.syncIpPoolToRadius(
-            profilePPP.remoteAddress,
-            data.ipRange,
-            tenantId,
-          );
-        }
-      }
-    } catch (error) {
-      logger.error(
-        "[API ProfilePPP] RADIUS sync error during creation:",
-        error,
-      );
-    }
-  }
-
-  private async syncRadiusOnUpdate(
-    session: SessionContext,
-    oldProfile: ProfilePPPRecord,
-    profilePPP: ProfilePPPRecord,
-    data: ProfilePPPSchema,
-  ): Promise<void> {
-    try {
-      const radiusSync = await this.getRadiusSyncService();
-      const mode = await radiusSync.getConnectionMode();
-      if (mode !== "RADIUS") {
-        return;
-      }
-
-      await this.radiusRepository.syncProfileToRadius(profilePPP.id);
-
-      if (oldProfile.poolMode === "RADIUS" && oldProfile.remoteAddress) {
-        if (
-          profilePPP.poolMode !== "RADIUS" ||
-          oldProfile.remoteAddress !== profilePPP.remoteAddress
-        ) {
-          const tenantId = oldProfile.tenantId || session.user.tenantId;
-          if (tenantId) {
-            await this.radiusRepository.syncIpPoolToRadius(
-              oldProfile.remoteAddress,
-              "",
-              tenantId,
-            );
-          }
-        }
-      }
-
-      if (profilePPP.poolMode === "RADIUS" && data.ipRange) {
-        const tenantId = profilePPP.tenantId || session.user.tenantId;
-        if (tenantId) {
-          await this.radiusRepository.syncIpPoolToRadius(
-            profilePPP.remoteAddress,
-            data.ipRange,
-            tenantId,
-          );
-        }
-      }
-    } catch (error) {
-      logger.error("[API ProfilePPP] RADIUS sync error during update:", error);
-    }
-  }
-
-  private async syncMikroTikOnCreate(
-    profilePPP: ProfilePPPRecord,
-    data: ProfilePPPSchema,
-    bandwidthId?: string | null,
-  ): Promise<void> {
-    try {
-      const radiusSync = await this.getRadiusSyncService();
-      const connectionMode = await radiusSync.getConnectionMode();
-      const isRadiusMode = connectionMode === "RADIUS";
-
-      if (isRadiusMode) {
-        const activeRouters =
-          await this.hargaPaketRepository.findRoutersForProfileBroadcast({
-            tenantId: profilePPP.tenantId,
-            siteId: profilePPP.siteId,
-          });
-
-        for (const router of activeRouters) {
-          try {
-            const isRadiusPool = data.poolMode === "RADIUS";
-            const profilePPPDataForMikrotik = {
-              name: data.name,
-              localAddress: data.localAddress,
-              remoteAddress: data.remoteAddress,
-              ...(!isRadiusPool && data.ipRange && { ipRange: data.ipRange }),
-              ...(data.dnsServer && { dnsServer: data.dnsServer }),
-              ...(data.sessionTimeout && {
-                sessionTimeout: data.sessionTimeout,
-              }),
-              ...(data.idleTimeout && { idleTimeout: data.idleTimeout }),
-              skipPoolCheck: isRadiusPool,
-              skipRateLimit: true,
-            };
-
-            await createPPPProfileInMikroTik(
-              router.id,
-              profilePPPDataForMikrotik,
-            );
-          } catch (routerErr) {
-            logger.error(
-              `[API ProfilePPP] Failed to create profile in router ${router.name}:`,
-              routerErr,
-            );
-          }
-        }
-
-        return;
-      }
-
-      if (data.mikroTikRouterId && profilePPP.mikroTikRouter) {
-        const rateLimit = await getRateLimitFromBandwidth(
-          profilePPP.id,
-          bandwidthId,
-        );
-        const profilePPPDataForMikrotik = {
-          name: data.name,
-          localAddress: data.localAddress,
-          remoteAddress: data.remoteAddress,
-          ...(data.ipRange && { ipRange: data.ipRange }),
-          ...(data.dnsServer && { dnsServer: data.dnsServer }),
-          ...(data.sessionTimeout && { sessionTimeout: data.sessionTimeout }),
-          ...(data.idleTimeout && { idleTimeout: data.idleTimeout }),
-          ...(rateLimit && { rateLimit }),
-          skipPoolCheck: false,
-        };
-
-        await createPPPProfileInMikroTik(
-          data.mikroTikRouterId,
-          profilePPPDataForMikrotik,
-        );
-      }
-    } catch (syncError) {
-      logger.error(
-        "[API ProfilePPP] Error during MikroTik profile broadcast (POST):",
-        syncError,
-      );
-    }
   }
 
   toProfilePPPRouteError(error: unknown) {
@@ -545,90 +112,8 @@ export class ProfilePPPService {
     }
   }
 
-  private async syncMikroTikOnUpdate(
-    oldProfile: ProfilePPPRecord,
-    profilePPP: ProfilePPPRecord,
-    data: ProfilePPPSchema,
-    bandwidthId?: string | null,
-  ): Promise<void> {
-    try {
-      const radiusSync = await this.getRadiusSyncService();
-      const connectionMode = await radiusSync.getConnectionMode();
-      const isRadiusMode = connectionMode === "RADIUS";
-
-      if (isRadiusMode) {
-        const activeRouters =
-          await this.hargaPaketRepository.findRoutersForProfileBroadcast({
-            tenantId: profilePPP.tenantId,
-            siteId: profilePPP.siteId,
-          });
-
-        for (const router of activeRouters) {
-          try {
-            const isRadiusPool = data.poolMode === "RADIUS";
-            const profilePPPDataForMikrotik = {
-              name: data.name,
-              localAddress: data.localAddress,
-              remoteAddress: data.remoteAddress,
-              ...(!isRadiusPool && data.ipRange && { ipRange: data.ipRange }),
-              ...(data.dnsServer && { dnsServer: data.dnsServer }),
-              ...(data.sessionTimeout && {
-                sessionTimeout: data.sessionTimeout,
-              }),
-              ...(data.idleTimeout && { idleTimeout: data.idleTimeout }),
-              skipPoolCheck: isRadiusPool,
-              skipRateLimit: true,
-            };
-
-            await updatePPPProfileInMikroTik(
-              router.id,
-              oldProfile.name,
-              profilePPPDataForMikrotik,
-            );
-          } catch (routerErr) {
-            logger.error(
-              `[API ProfilePPP] Failed to update profile in router ${router.name}:`,
-              routerErr,
-            );
-          }
-        }
-
-        return;
-      }
-
-      if (data.mikroTikRouterId && profilePPP.mikroTikRouter) {
-        const rateLimit = await getRateLimitFromBandwidth(
-          profilePPP.id,
-          bandwidthId,
-        );
-        const profilePPPDataForMikrotik = {
-          name: data.name,
-          localAddress: data.localAddress,
-          remoteAddress: data.remoteAddress,
-          ...(data.ipRange && { ipRange: data.ipRange }),
-          ...(data.dnsServer && { dnsServer: data.dnsServer }),
-          ...(data.sessionTimeout && { sessionTimeout: data.sessionTimeout }),
-          ...(data.idleTimeout && { idleTimeout: data.idleTimeout }),
-          ...(rateLimit && { rateLimit }),
-          skipPoolCheck: false,
-        };
-
-        await updatePPPProfileInMikroTik(
-          data.mikroTikRouterId,
-          oldProfile.name,
-          profilePPPDataForMikrotik,
-        );
-      }
-    } catch (syncError) {
-      logger.error(
-        "[API ProfilePPP] Error during MikroTik profile broadcast:",
-        syncError,
-      );
-    }
-  }
-
   async createProfilePPPFromRequest(input: CreateProfilePPPInput) {
-    const validation = this.validateProfilePPPBody(input.body);
+    const validation = validateProfilePPPBody(input.body);
     if (!validation.success) {
       return {
         success: false as const,
@@ -638,7 +123,7 @@ export class ProfilePPPService {
       };
     }
 
-    const data = this.applyRestrictedSite(input.session, validation.data);
+    const data = applyRestrictedProfilePPPSite(input.session, validation.data);
 
     return {
       success: true as const,
@@ -656,11 +141,23 @@ export class ProfilePPPService {
     });
 
     const profilePPP = await this.hargaPaketRepository.createProfilePpp(
-      this.buildCreatePrismaData(data),
+      buildCreateProfilePPPData(data),
     );
 
-    await this.syncRadiusOnCreate(session, profilePPP, data);
-    await this.syncMikroTikOnCreate(profilePPP, data, data.bandwidthId);
+    await syncRadiusProfileOnCreate({
+      radiusRepository: this.radiusRepository,
+      getRadiusSyncService: () => this.getRadiusSyncService(),
+      session,
+      profilePPP,
+      data,
+    });
+    await syncMikroTikProfileOnCreate({
+      repository: this.hargaPaketRepository,
+      getRadiusSyncService: () => this.getRadiusSyncService(),
+      profilePPP,
+      data,
+      bandwidthId: data.bandwidthId,
+    });
 
     return profilePPP;
   }
@@ -675,7 +172,7 @@ export class ProfilePPPService {
       };
     }
 
-    const validation = this.validateProfilePPPBody(input.body);
+    const validation = validateProfilePPPBody(input.body);
     if (!validation.success) {
       return {
         success: false as const,
@@ -685,7 +182,7 @@ export class ProfilePPPService {
       };
     }
 
-    const data = this.applyRestrictedSite(input.session, validation.data);
+    const data = applyRestrictedProfilePPPSite(input.session, validation.data);
 
     return {
       success: true as const,
@@ -706,16 +203,25 @@ export class ProfilePPPService {
   ) {
     const profilePPP = await this.hargaPaketRepository.updateProfilePpp(
       id,
-      this.buildUpdatePrismaData(data),
+      buildUpdateProfilePPPData(data),
     );
 
-    await this.syncRadiusOnUpdate(session, oldProfile, profilePPP, data);
-    await this.syncMikroTikOnUpdate(
+    await syncRadiusProfileOnUpdate({
+      radiusRepository: this.radiusRepository,
+      getRadiusSyncService: () => this.getRadiusSyncService(),
+      session,
       oldProfile,
       profilePPP,
       data,
-      data.bandwidthId,
-    );
+    });
+    await syncMikroTikProfileOnUpdate({
+      repository: this.hargaPaketRepository,
+      getRadiusSyncService: () => this.getRadiusSyncService(),
+      oldProfile,
+      profilePPP,
+      data,
+      bandwidthId: data.bandwidthId,
+    });
 
     return profilePPP;
   }
@@ -764,11 +270,11 @@ export class ProfilePPPService {
       return {
         success: false,
         status: 400,
-        error: this.buildDeleteBlockedMessage(profile),
+        error: buildDeleteBlockedMessage(profile),
       };
     }
 
-    const cleanupError = await this.cleanupProfileInMikroTik(profile);
+    const cleanupError = await cleanupProfileInMikroTik(profile);
     if (cleanupError) {
       return cleanupError;
     }

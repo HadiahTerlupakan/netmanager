@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import type { WorkOrderListSummary } from "../repositories/work-order.repository.types";
+import type { WorkOrderListSummary } from "../domain/entities/WorkOrderRepositoryTypes";
 import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import {
   applyWorkOrderListRestrictions,
@@ -7,7 +7,7 @@ import {
 } from "./work-order-service-helpers";
 import type { WorkOrderListOptions } from "./work-order.query.types";
 import type { ServiceResult, UserContext } from "./work-order.shared.types";
-import type { WorkOrderWithRelations } from "../repositories/work-order.repository.types";
+import type { WorkOrderWithRelations } from "../domain/entities/WorkOrderRepositoryTypes";
 import { validateWorkOrderAccess as validateWorkOrderAccessHelper } from "./work-order-access";
 
 /** Menangani query baca work order. */

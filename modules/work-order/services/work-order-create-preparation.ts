@@ -1,4 +1,4 @@
-import type { CreateWorkOrderData } from "../repositories/IWorkOrderRepository";
+import type { CreateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
 
 type WorkOrderCreateDataWithWarranty = CreateWorkOrderData & {
   isWarranty?: boolean;

@@ -4,7 +4,7 @@ import { prisma as defaultPrisma } from "@/lib/prisma";
 import { UserLookupService } from "@/modules/users";
 import { InventoryStockService } from "@/modules/inventory";
 
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import {
   WorkOrderMaterialRepository,
   type MobileWorkOrderMaterialInput,

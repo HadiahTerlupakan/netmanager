@@ -3,7 +3,7 @@ import type {
   ServiceResult,
   UpdateWorkOrderInput,
 } from "./work-order-service.contracts";
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import { createWorkOrderNotFoundResult } from "./work-order-service-helpers";
 
 /** Pastikan work order tersedia sebelum operasi dilanjutkan. */

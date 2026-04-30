@@ -1,4 +1,4 @@
-import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
+import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { UserContext } from "./WorkOrderService";
 

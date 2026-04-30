@@ -4,7 +4,7 @@ import type { ServiceResult, UserContext } from "./WorkOrderService";
 import type {
   WorkOrderFilters,
   WorkOrderListSummary,
-} from "../repositories/IWorkOrderRepository";
+} from "../domain/ports/IWorkOrderRepository";
 
 export const EMPTY_WORK_ORDER_LIST_SUMMARY: WorkOrderListSummary = {
   completed: 0,
