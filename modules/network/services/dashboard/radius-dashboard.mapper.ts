@@ -5,9 +5,9 @@ import type {
   RadiusUsageByUsername,
 } from "./radius-dashboard.contracts";
 import type {
-  IDashboardStats,
-  IRadiusSessionView,
-} from "../../repositories/IRadiusRepository";
+  DashboardStatsEntity,
+  RadiusSessionViewEntity,
+} from "../../domain/entities/RadiusEntity";
 
 function toRoundedTwoDecimals(value: number): number {
   return Math.round(value * 100) / 100;
@@ -22,7 +22,7 @@ function toUsageGB(totalUsage: {
 }
 
 export function mapDashboardStats(
-  stats: IDashboardStats,
+  stats: DashboardStatsEntity,
 ): RadiusDashboardStatsViewModel {
   return {
     totalUsers: stats.totalUsers,
@@ -44,7 +44,7 @@ export function mapDashboardStats(
 }
 
 export function mapRecentSession(
-  session: IRadiusSessionView,
+  session: RadiusSessionViewEntity,
   totalUsageByUsername: RadiusUsageByUsername,
 ): RadiusRecentSessionViewModel {
   const usernameKey = session.username?.trim() ?? "";
@@ -70,7 +70,7 @@ export function mapRecentSession(
 }
 
 export function mapRecentSessions(
-  sessions: IRadiusSessionView[],
+  sessions: RadiusSessionViewEntity[],
   totalUsageByUsername: RadiusUsageByUsername,
   pagination: RadiusRecentSessionsViewModel["pagination"],
 ): RadiusRecentSessionsViewModel {
@@ -82,7 +82,9 @@ export function mapRecentSessions(
   };
 }
 
-export function extractUsernames(sessions: IRadiusSessionView[]): string[] {
+export function extractUsernames(
+  sessions: RadiusSessionViewEntity[],
+): string[] {
   return sessions
     .map((session) => session.username)
     .filter((username): username is string => Boolean(username?.trim()));

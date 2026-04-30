@@ -1,5 +1,4 @@
 import type { IRadiusRepository } from "../../domain/ports/IRadiusRepository";
-import { RadiusRepository } from "../../repositories/RadiusRepository";
 import type {
   RadiusDashboardStatsInput,
   RadiusDashboardStatsViewModel,
@@ -14,9 +13,7 @@ import {
 } from "./radius-dashboard.mapper";
 
 export class RadiusDashboardService {
-  constructor(
-    private readonly repository: IRadiusRepository = new RadiusRepository(),
-  ) {}
+  constructor(private readonly repository: IRadiusRepository) {}
 
   /**
    * Get stable stats view model for dashboard consumers.
