@@ -16,7 +16,12 @@ import {
 } from "@/lib/utils/r2-client";
 
 import type { UploadVersionInput } from "./AppVersionService";
-
+import {
+  buildUploadedApkUrl,
+  deleteLocalApk,
+  extractUploadedKeyFromUrl,
+  isLocalApkUrl,
+} from "./app-version-storage-helpers";
 interface ApkManifest {
   versionCode: number;
   versionName: string;
@@ -33,7 +38,6 @@ export interface ParsedApkInfo {
 const DIRECT_UPLOAD_PREFIX = "uploads/apk/";
 const APK_CONTENT_TYPE = "application/vnd.android.package-archive";
 const PRESIGNED_EXPIRES_IN = 3600;
-
 /** Validate direct-upload key before reading object details. */
 export function validateUploadedKey(key: string) {
   if (!key.startsWith(DIRECT_UPLOAD_PREFIX)) {
@@ -51,20 +55,14 @@ export async function cleanupStoredApk(apkUrl?: string | null): Promise<void> {
     return;
   }
 
-  if (apkUrl.startsWith("/uploads/apk/") || apkUrl.startsWith("/apk/")) {
-    const relativePath = apkUrl.replace(/^\//, "");
-    const localPath = path.join(process.cwd(), "public", relativePath);
-    await fs.unlink(localPath);
+  if (isLocalApkUrl(apkUrl)) {
+    await deleteLocalApk(apkUrl);
     return;
   }
 
-  if (!/^https?:\/\//.test(apkUrl) || !apkUrl.includes(DIRECT_UPLOAD_PREFIX)) {
-    return;
-  }
-
-  const keyIndex = apkUrl.indexOf(DIRECT_UPLOAD_PREFIX);
-  if (keyIndex !== -1) {
-    await deleteR2Object(apkUrl.substring(keyIndex));
+  const uploadedKey = extractUploadedKeyFromUrl(apkUrl);
+  if (uploadedKey) {
+    await deleteR2Object(uploadedKey);
   }
 }
 
@@ -123,20 +121,14 @@ export async function parseApkInfo(input: {
   buffer?: Buffer;
   path?: string;
 }): Promise<ParsedApkInfo | null> {
-  let tempFilePath: string | null = null;
+  const tempFilePath = await resolveApkTempPath(input);
+  if (!tempFilePath) {
+    logger.warn("[AppVersionService] No APK buffer or path provided");
+    return null;
+  }
 
   try {
-    const apkReaderModule = await import("adbkit-apkreader");
-    const ApkReader = apkReaderModule.default || apkReaderModule;
-    tempFilePath = await resolveApkTempPath(input);
-
-    if (!tempFilePath) {
-      logger.warn("[AppVersionService] No APK buffer or path provided");
-      return null;
-    }
-
-    const reader = await ApkReader.open(tempFilePath);
-    const manifest = (await reader.readManifest()) as ApkManifest;
+    const manifest = await readApkManifest(tempFilePath);
     return buildParsedApkInfo(manifest);
   } catch (error: unknown) {
     logApkParseError(error);
@@ -157,11 +149,8 @@ export async function uploadApkFile(input: {
   const sanitizedFilename = `netmanager_v${input.version}.apk`;
 
   try {
-    if ((await isR2Enabled()) && !input.forceLocal) {
-      return uploadApkToR2(input, sanitizedFilename);
-    }
-
-    return uploadApkToLocal(input, sanitizedFilename);
+    const uploader = await resolveApkUploader(input.forceLocal);
+    return uploader(input, sanitizedFilename);
   } catch (error: unknown) {
     logger.error("[AppVersionService] Error uploading APK file:", error);
     const err = error as { message?: string };
@@ -190,19 +179,11 @@ export async function createDirectUploadUrl(params: {
   return { uploadUrl, publicUrl, key, filename: params.filename };
 }
 
-function buildUploadedApkUrl(
-  uploadedKey: string,
-  settings: Awaited<ReturnType<typeof getR2Settings>>,
-) {
-  if (!settings) {
-    return uploadedKey;
-  }
-
-  if (settings.publicUrl) {
-    return `${settings.publicUrl.replace(/\/$/, "")}/${uploadedKey}`;
-  }
-
-  return `https://${settings.bucketName}.${settings.accountId}.r2.cloudflarestorage.com/${uploadedKey}`;
+async function readApkManifest(tempFilePath: string): Promise<ApkManifest> {
+  const apkReaderModule = await import("adbkit-apkreader");
+  const ApkReader = apkReaderModule.default || apkReaderModule;
+  const reader = await ApkReader.open(tempFilePath);
+  return (await reader.readManifest()) as ApkManifest;
 }
 
 async function resolveApkTempPath(input: { buffer?: Buffer; path?: string }) {
@@ -264,6 +245,14 @@ async function cleanupTempApkFile(
   }
 }
 
+async function resolveApkUploader(forceLocal?: boolean) {
+  if ((await isR2Enabled()) && !forceLocal) {
+    return uploadApkToR2;
+  }
+
+  return uploadApkToLocal;
+}
+
 async function uploadApkToR2(
   input: { buffer?: Buffer; path?: string },
   sanitizedFilename: string,
@@ -287,13 +276,23 @@ async function uploadApkToLocal(
   await fs.mkdir(uploadDir, { recursive: true });
 
   const destinationPath = path.join(uploadDir, sanitizedFilename);
+  await writeLocalApk(input, destinationPath);
+  return `/uploads/apk/${sanitizedFilename}`;
+}
+
+async function writeLocalApk(
+  input: { buffer?: Buffer; path?: string },
+  destinationPath: string,
+) {
   if (input.path) {
     await fs.copyFile(input.path, destinationPath);
-  } else if (input.buffer) {
-    await fs.writeFile(destinationPath, input.buffer);
-  } else {
-    throw new Error("Konten APK tidak disediakan (tidak ada buffer atau path)");
+    return;
   }
 
-  return `/uploads/apk/${sanitizedFilename}`;
+  if (input.buffer) {
+    await fs.writeFile(destinationPath, input.buffer);
+    return;
+  }
+
+  throw new Error("Konten APK tidak disediakan (tidak ada buffer atau path)");
 }

@@ -188,7 +188,16 @@ export class AppVersionRepository implements IAppVersionRepository {
    * Create new app version
    */
   async create(data: CreateAppVersionDTO): Promise<AppVersion> {
-    const createData: Prisma.AppVersionUncheckedCreateInput = {
+    return prisma.appVersion.create({
+      data: this.toCreateInput(data),
+    });
+  }
+
+  /** Build Prisma create payload from module DTO. */
+  private toCreateInput(
+    data: CreateAppVersionDTO,
+  ): Prisma.AppVersionUncheckedCreateInput {
+    return {
       version: data.version,
       buildNumber: data.buildNumber,
       versionCode: data.versionCode,
@@ -200,15 +209,8 @@ export class AppVersionRepository implements IAppVersionRepository {
       minVersion: data.minVersion ?? null,
       isActive: data.isActive ?? true,
       publishedAt: data.publishedAt || new Date(),
+      ...(data.createdBy ? { createdBy: data.createdBy } : {}),
     };
-
-    if (data.createdBy) {
-      createData.createdBy = data.createdBy;
-    }
-
-    return prisma.appVersion.create({
-      data: createData,
-    });
   }
 
   /**

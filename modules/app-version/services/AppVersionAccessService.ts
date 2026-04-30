@@ -3,7 +3,9 @@ import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepositor
 import type {
   CheckVersionResult,
   VersionAccessResult,
-} from "./AppVersionService";
+} from "./AppVersionService.types";
+
+import { DEFAULT_PLATFORM, EMPTY_VERSION_LABEL } from "./app-version.constants";
 
 const VERSION_PART_MULTIPLIERS = [10000, 100, 1] as const;
 
@@ -13,7 +15,7 @@ export class AppVersionAccessService {
   /** Evaluasi apakah versi mobile saat ini masih didukung. */
   async evaluateVersionAccess(
     currentVersionCode: number,
-    platform: string = "android",
+    platform: string = DEFAULT_PLATFORM,
   ): Promise<VersionAccessResult> {
     const latestVersion = await this.repository.getLatestVersion(platform);
     if (!latestVersion)
@@ -41,7 +43,7 @@ export class AppVersionAccessService {
   /** Check update tersedia untuk response mobile lama. */
   async checkForUpdate(
     currentVersionCode: number,
-    platform: string = "android",
+    platform: string = DEFAULT_PLATFORM,
   ): Promise<CheckVersionResult> {
     const result = await this.evaluateVersionAccess(
       currentVersionCode,
@@ -62,7 +64,7 @@ export class AppVersionAccessService {
       isSupported: true,
       updateAvailable: false,
       isForceUpdate: false,
-      currentVersion: "",
+      currentVersion: EMPTY_VERSION_LABEL,
       currentVersionCode,
       minimumVersion: null,
       latestVersion: null,

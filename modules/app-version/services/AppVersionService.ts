@@ -1,72 +1,47 @@
 import { logger } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+
 import type {
   AppVersion,
-  AppVersionRolloutStats,
   AppVersionWithUser,
   UpdateAppVersionDTO,
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
-import {
-  cleanupStoredApk,
-  createDirectUploadUrl as createDirectUploadApkUrl,
-  parseApkInfo as parseUploadedApkInfo,
-  type ParsedApkInfo,
-} from "./app-version-upload-helpers";
 import { AppVersionAccessService } from "./AppVersionAccessService";
 import {
   AppVersionReportService,
   type MobileVersionReportInput,
 } from "./AppVersionReportService";
+import type {
+  AppVersionStatsResult,
+  CheckVersionResult,
+  UploadVersionInput,
+  VersionAccessResult,
+} from "./AppVersionService.types";
 import { AppVersionUploadService } from "./AppVersionUploadService";
-
-export interface UploadVersionInput {
-  version?: string;
-  buildNumber?: number;
-  versionCode?: number;
-  platform?: string;
-  releaseNotes?: string;
-  isForceUpdate?: boolean;
-  minVersion?: string;
-  apkBuffer?: Buffer;
-  apkPath?: string;
-  apkFilename?: string;
-  apkSize?: number;
-  apkFile?: File;
-  cleanupApkPath?: boolean;
-  createdBy?: string;
-  uploadedKey?: string;
-  uploadedFilename?: string;
-  uploadedSize?: number;
-  forceLocal?: boolean;
-}
-
-export interface CheckVersionResult {
-  updateAvailable: boolean;
-  isForceUpdate: boolean;
-  currentVersion: string;
-  latestVersion: {
-    id: string;
-    version: string;
-    buildNumber: number;
-    versionCode: number;
-    releaseNotes: string | null;
-    downloadUrl: string | null;
-    apkSize: number | null;
-  } | null;
-}
-
-export interface VersionAccessResult extends CheckVersionResult {
-  isSupported: boolean;
-  currentVersionCode: number;
-  minimumVersion: string | null;
-}
-
-export interface AppVersionStatsResult extends AppVersionRolloutStats {
-  latestVersion: { version: string; versionCode: number } | null;
-}
+import {
+  buildVersionPaginationResult,
+  buildEmptyVersionStats,
+  buildVersionStatsResult,
+  requireExistingVersion,
+  buildUpdatePayload,
+  assertVersionUpdateHasNoConflict,
+  buildDownloadApkPayload,
+} from "./app-version-update.helpers";
+import {
+  cleanupStoredApk,
+  createDirectUploadUrl as createDirectUploadApkUrl,
+} from "./app-version-storage.helpers";
+import { parseApkInfo, type ParsedApkInfo } from "./app-version-parse.helpers";
+import { DEFAULT_PLATFORM } from "./app-version.constants";
 
 export type { MobileVersionReportInput };
+export type {
+  AppVersionStatsResult,
+  CheckVersionResult,
+  UploadVersionInput,
+  VersionAccessResult,
+};
 export { getAppVersionService } from "../factories/app-version-service-factory";
 
 export class AppVersionService {
@@ -82,20 +57,20 @@ export class AppVersionService {
     );
   }
 
-  /** Parse APK metadata from a file path or buffer. */
+  /** Parse metadata APK dari file path atau buffer. */
   async parseApkInfo(input: {
     buffer?: Buffer;
     path?: string;
   }): Promise<ParsedApkInfo | null> {
-    return parseUploadedApkInfo(input);
+    return parseApkInfo(input);
   }
 
-  /** Remove a stored APK file from configured storage. */
+  /** Hapus file APK yang tersimpan dari storage aktif. */
   async cleanupStoredApk(apkUrl?: string | null): Promise<void> {
     await cleanupStoredApk(apkUrl);
   }
 
-  /** Get all versions with pagination metadata. */
+  /** Ambil daftar versi dengan metadata pagination. */
   async getAllVersions(options?: {
     page?: number;
     limit?: number;
@@ -107,46 +82,46 @@ export class AppVersionService {
     page: number;
     limit: number;
   }> {
-    const page = options?.page || 1;
-    const limit = options?.limit || 10;
     const result = await this.repository.findAll(options);
-    return { ...result, page, limit };
+    return buildVersionPaginationResult(result, options);
   }
 
-  /** Get version by ID. */
+  /** Ambil detail versi berdasarkan ID. */
   async getVersionById(id: string): Promise<AppVersionWithUser | null> {
     return this.repository.findById(id);
   }
 
   /** Ambil statistik rollout versi terbaru per platform. */
-  async getStats(platform: string = "android"): Promise<AppVersionStatsResult> {
+  async getStats(
+    platform: string = DEFAULT_PLATFORM,
+  ): Promise<AppVersionStatsResult> {
     const latestVersion = await this.repository.getLatestVersion(platform);
-    if (!latestVersion) return this.getEmptyStats();
+    if (!latestVersion) {
+      return buildEmptyVersionStats();
+    }
+
     const rolloutStats = await this.repository.getRolloutStatsByVersionCode(
       latestVersion.versionCode,
     );
-    return {
+    return buildVersionStatsResult(latestVersion, {
       ...rolloutStats,
-      latestVersion: {
-        version: latestVersion.version,
-        versionCode: latestVersion.versionCode,
-      },
-    };
+      latestVersion: null,
+    });
   }
 
-  /** Menyimpan laporan versi aplikasi dari mobile user sesuai tipe aktor. */
+  /** Simpan laporan versi aplikasi mobile dari aktor yang login. */
   async reportMobileVersion(
     input: MobileVersionReportInput,
   ): Promise<{ success: true }> {
     return this.reportService.reportMobileVersion(input);
   }
 
-  /** Upload new app version with APK metadata extraction. */
+  /** Upload versi aplikasi baru beserta APK dan metadata. */
   async uploadVersion(input: UploadVersionInput): Promise<AppVersion> {
     return this.uploadService.uploadVersion(input);
   }
 
-  /** Buat direct upload URL untuk APK. */
+  /** Buat direct upload URL untuk APK baru. */
   async createDirectUploadUrl(params: {
     filename: string;
     contentType: string;
@@ -155,26 +130,32 @@ export class AppVersionService {
     return createDirectUploadApkUrl(params);
   }
 
-  /** Update version info and validate conflicts. */
+  /** Update versi aplikasi setelah validasi konflik. */
   async updateVersion(
     id: string,
     data: UpdateAppVersionDTO,
   ): Promise<AppVersion> {
-    const existing = await this.getExistingVersion(id);
-    const updateData = this.buildUpdateData(data, existing);
-    await this.assertUpdateHasNoConflict(updateData, existing);
+    const existing = await requireExistingVersion(this.repository, id);
+    const updateData = buildUpdatePayload(data, existing);
+    await assertVersionUpdateHasNoConflict(
+      this.repository,
+      updateData,
+      existing,
+    );
     return this.repository.update(id, updateData);
   }
 
-  /** Delete version and cleanup APK file when available. */
+  /** Hapus versi aplikasi dan bersihkan APK fisiknya. */
   async deleteVersion(id: string): Promise<void> {
-    const existing = await this.getExistingVersion(id);
+    const existing = await requireExistingVersion(this.repository, id);
     await this.cleanupExistingApk(existing);
+
     try {
       await this.repository.delete(id);
     } catch (error) {
-      if (isPrismaRecordNotFoundError(error))
+      if (isPrismaRecordNotFoundError(error)) {
         throw new Error("Versi tidak ditemukan");
+      }
       throw error;
     }
   }
@@ -182,7 +163,7 @@ export class AppVersionService {
   /** Evaluasi apakah versi mobile saat ini masih didukung. */
   async evaluateVersionAccess(
     currentVersionCode: number,
-    platform: string = "android",
+    platform: string = DEFAULT_PLATFORM,
   ): Promise<VersionAccessResult> {
     return this.accessService.evaluateVersionAccess(
       currentVersionCode,
@@ -190,79 +171,33 @@ export class AppVersionService {
     );
   }
 
-  /** Check for available mobile update. */
+  /** Cek ketersediaan update untuk aplikasi mobile. */
   async checkForUpdate(
     currentVersionCode: number,
-    platform: string = "android",
+    platform: string = DEFAULT_PLATFORM,
   ): Promise<CheckVersionResult> {
     return this.accessService.checkForUpdate(currentVersionCode, platform);
   }
 
-  /** Get APK file path for download. */
+  /** Ambil informasi file APK untuk endpoint download. */
   async getApkForDownload(
     id: string,
   ): Promise<{ url: string; filename: string; size: number } | null> {
     const version = await this.repository.findById(id);
-    if (!version?.apkUrl) return null;
-    return {
-      url: version.apkUrl,
-      filename: `netmanager_v${version.version}.apk`,
-      size: version.apkSize ? Number(version.apkSize) : 0,
-    };
-  }
-
-  private getEmptyStats(): AppVersionStatsResult {
-    return {
-      updatedCount: 0,
-      outdatedCount: 0,
-      unknownCount: 0,
-      latestVersion: null,
-    };
-  }
-
-  private async getExistingVersion(id: string) {
-    const existing = await this.repository.findById(id);
-    if (!existing) throw new Error("Versi tidak ditemukan");
-    return existing;
-  }
-
-  private buildUpdateData(
-    data: UpdateAppVersionDTO,
-    existing: AppVersionWithUser,
-  ) {
-    return {
-      ...data,
-      ...(data.minVersion === undefined
-        ? { minVersion: existing.minVersion }
-        : {}),
-    };
-  }
-
-  private async assertUpdateHasNoConflict(
-    updateData: UpdateAppVersionDTO,
-    existing: AppVersionWithUser,
-  ) {
-    if (updateData.version && updateData.version !== existing.version) {
-      const versionExists = await this.repository.findByVersion(
-        updateData.version,
-      );
-      if (versionExists)
-        throw new Error(`Version ${updateData.version} sudah ada`);
+    if (!version?.apkUrl) {
+      return null;
     }
-    if (
-      updateData.versionCode &&
-      updateData.versionCode !== existing.versionCode
-    ) {
-      const codeExists = await this.repository.findByVersionCode(
-        updateData.versionCode,
-      );
-      if (codeExists)
-        throw new Error(`Version code ${updateData.versionCode} sudah ada`);
-    }
+
+    return buildDownloadApkPayload(version);
   }
 
-  private async cleanupExistingApk(existing: AppVersionWithUser) {
-    if (!existing.apkUrl) return;
+  private async cleanupExistingApk(
+    existing: AppVersionWithUser,
+  ): Promise<void> {
+    if (!existing.apkUrl) {
+      return;
+    }
+
     try {
       await this.cleanupStoredApk(existing.apkUrl);
     } catch (error) {

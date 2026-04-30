@@ -7,14 +7,14 @@ import type {
 } from "../domain/entities/AppVersionEntity";
 import type { IAppVersionRepository } from "../domain/ports/IAppVersionRepository";
 import {
-  cleanupStoredApk,
   deleteUploadedApkObject,
   loadUploadedApkDetails,
-  parseApkInfo,
   persistApkFileToTemp,
   uploadApkFile,
-} from "./app-version-upload-helpers";
-import type { UploadVersionInput } from "./AppVersionService";
+  cleanupStoredApk,
+} from "./app-version-storage.helpers";
+import { parseApkInfo } from "./app-version-parse.helpers";
+import type { UploadVersionInput } from "./AppVersionService.types";
 
 interface ResolvedUploadInput {
   input: UploadVersionInput;
@@ -30,6 +30,11 @@ interface AppVersionMetadata {
   versionCode: number;
 }
 
+interface UploadApkResolution {
+  url?: string;
+  uploadedByService: boolean;
+}
+
 export class AppVersionUploadService {
   constructor(
     private readonly repository: IAppVersionRepository,
@@ -39,45 +44,63 @@ export class AppVersionUploadService {
   /** Upload versi aplikasi baru beserta APK dan metadata hasil parsing. */
   async uploadVersion(input: UploadVersionInput): Promise<AppVersion> {
     const uploadInput = await this.resolveUploadInput(input);
-    let uploadedApkUrl: string | undefined;
-    let uploadedByService = false;
+    let apkResolution: UploadApkResolution = { uploadedByService: false };
 
     try {
-      const uploadedApk = await loadUploadedApkDetails(input);
-      const metadata = await this.resolveMetadata(
+      const createdVersion = await this.createUploadedVersion(
         uploadInput,
-        uploadedApk.apkBuffer,
+        input,
       );
-      await this.assertVersionIsUnique(metadata);
-      const apkUrl = await this.resolveApkUrl(
-        uploadInput,
-        metadata,
-        uploadedApk.apkUrl,
-      );
-      uploadedApkUrl = apkUrl.url;
-      uploadedByService = apkUrl.uploadedByService;
-      return await this.repository.create(
-        this.buildCreateData(
-          input,
-          metadata,
-          uploadedApkUrl,
-          this.resolveApkSize(
-            input,
-            uploadedApk.apkSize,
-            uploadInput.resolvedApkSize,
-          ),
-        ),
-      );
+      apkResolution = createdVersion.apkResolution;
+      return createdVersion.version;
     } catch (error) {
-      await this.cleanupFailedUpload(input, uploadedByService, uploadedApkUrl);
-      logger.error("[AppVersionService] Error in uploadVersion:", error);
-      const err = error as { message?: string };
-      throw new Error(
-        `Gagal mengunggah versi aplikasi: ${err?.message || "Terjadi kesalahan"}`,
-      );
+      await this.handleUploadFailure(input, apkResolution, error);
     } finally {
       await this.cleanupTempFiles(uploadInput.cleanupPaths);
     }
+  }
+
+  private async createUploadedVersion(
+    uploadInput: ResolvedUploadInput,
+    input: UploadVersionInput,
+  ) {
+    const uploadedApk = await loadUploadedApkDetails(input);
+    const metadata = await this.resolveMetadata(
+      uploadInput,
+      uploadedApk.apkBuffer,
+    );
+    await this.assertVersionIsUnique(metadata);
+    const apkResolution = await this.resolveApkUrl(
+      uploadInput,
+      metadata,
+      uploadedApk.apkUrl,
+    );
+    const apkSize = this.resolveApkSize(
+      input,
+      uploadedApk.apkSize,
+      uploadInput.resolvedApkSize,
+    );
+    const createData = this.buildCreateData(
+      input,
+      metadata,
+      apkResolution.url,
+      apkSize,
+    );
+    const version = await this.repository.create(createData);
+    return { version, apkResolution };
+  }
+
+  private async handleUploadFailure(
+    input: UploadVersionInput,
+    apkResolution: UploadApkResolution,
+    error: unknown,
+  ): Promise<never> {
+    await this.cleanupFailedUpload(input, apkResolution);
+    logger.error("[AppVersionService] Error in uploadVersion:", error);
+    const err = error as { message?: string };
+    throw new Error(
+      `Gagal mengunggah versi aplikasi: ${err?.message || "Terjadi kesalahan"}`,
+    );
   }
 
   private async resolveUploadInput(
@@ -229,11 +252,12 @@ export class AppVersionUploadService {
 
   private async cleanupFailedUpload(
     input: UploadVersionInput,
-    uploadedByService: boolean,
-    apkUrl?: string,
+    apkResolution: UploadApkResolution,
   ) {
     if (input.uploadedKey) await this.cleanupUploadedObject(input.uploadedKey);
-    if (uploadedByService && apkUrl) await this.cleanupStoredApk(apkUrl);
+    if (apkResolution.uploadedByService && apkResolution.url) {
+      await this.cleanupStoredApk(apkResolution.url);
+    }
   }
 
   private async cleanupUploadedObject(uploadedKey: string) {
