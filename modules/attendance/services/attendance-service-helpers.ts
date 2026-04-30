@@ -118,11 +118,25 @@ export async function resolveCheckInTimeContext(input: {
   checkInTime: Date;
   effectiveToday: Date;
 }> {
-  const timezone =
-    input.timezone || (await input.timezoneService.getTimezone(input.tenantId));
+  const timezone = await resolveAttendanceTimezone(input);
   const { now: currentTime } = input.timezoneService.getEffectiveDate(timezone);
   const checkInTime = input.offlineTime || currentTime;
+  return buildCheckInTimeContext(timezone, currentTime, checkInTime);
+}
 
+function resolveAttendanceTimezone(input: {
+  timezone?: string;
+  tenantId?: string;
+  timezoneService: AttendanceTimezoneService;
+}) {
+  return input.timezone || input.timezoneService.getTimezone(input.tenantId);
+}
+
+function buildCheckInTimeContext(
+  timezone: string,
+  currentTime: Date,
+  checkInTime: Date,
+) {
   return {
     timezone,
     currentTime,
@@ -137,20 +151,19 @@ export async function getCachedUserAttendanceSettings(input: {
   userRepo: UserLookupService;
 }): Promise<CachedUserAttendanceSettings | null> {
   const cacheKey = `user:schedule:${input.userId}`;
-
   const cachedSchedule = await readScheduleCache(cacheKey);
-  if (cachedSchedule) {
-    return cachedSchedule;
-  }
+  if (cachedSchedule) return cachedSchedule;
+  return findAndCacheUserAttendanceSettings(input, cacheKey);
+}
 
+async function findAndCacheUserAttendanceSettings(
+  input: { userId: string; userRepo: UserLookupService },
+  cacheKey: string,
+) {
   const userDetails = await input.userRepo.findAttendanceSettingsById(
     input.userId,
   );
-
-  if (userDetails) {
-    await writeScheduleCache(cacheKey, userDetails);
-  }
-
+  if (userDetails) await writeScheduleCache(cacheKey, userDetails);
   return userDetails;
 }
 
@@ -199,24 +212,22 @@ export async function resolveCheckInStatus(input: {
   userDetails: CachedUserAttendanceSettings | null;
   timezoneService: AttendanceTimezoneService;
 }): Promise<AttendanceStatus> {
-  if (input.userDetails?.workingHourMode === "FLEXIBLE") {
-    return "ON_TIME";
-  }
-
-  const scheduleTime =
-    input.userDetails?.workingHourMode === "SHIFT"
-      ? input.userDetails.shift?.startTime
-      : input.userDetails?.startWorkTime;
-
-  if (!scheduleTime) {
-    return "ON_TIME";
-  }
-
+  if (input.userDetails?.workingHourMode === "FLEXIBLE") return "ON_TIME";
+  const scheduleTime = getCheckInScheduleTime(input.userDetails);
+  if (!scheduleTime) return "ON_TIME";
   return input.timezoneService.calculateStatus(
     input.checkInTime,
     scheduleTime,
     input.timezone,
   );
+}
+
+function getCheckInScheduleTime(
+  userDetails: CachedUserAttendanceSettings | null,
+) {
+  return userDetails?.workingHourMode === "SHIFT"
+    ? userDetails.shift?.startTime
+    : userDetails?.startWorkTime;
 }
 
 async function readScheduleCache(

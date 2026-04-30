@@ -15,28 +15,42 @@ export async function getAttendanceAnalytics(input: {
   attendanceRepo: AttendanceRepository;
   userRepo: UserLookupService;
 }) {
+  const period = buildAnalyticsPeriod(input.days);
+  const userAttendances = await findAnalyticsAttendances(input, period);
+  return {
+    stats: buildAnalyticsStats(userAttendances),
+    weeklyBreakdown: buildWeeklyBreakdown(period.startDate, userAttendances),
+    recentAttendance: userAttendances.slice(0, 10),
+    period,
+  };
+}
+
+function buildAnalyticsPeriod(days: number) {
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - input.days);
-  const endDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  return { startDate, endDate: new Date(), days };
+}
+
+async function findAnalyticsAttendances(
+  input: {
+    userId: string;
+    attendanceRepo: AttendanceRepository;
+    userRepo: UserLookupService;
+  },
+  period: { startDate: Date; endDate: Date },
+) {
   const userDetails = await input.userRepo.findAttendanceSettingsById(
     input.userId,
   );
-  const userAttendances = (
-    await input.attendanceRepo.findManyForAnalytics({
-      userId: input.userId,
-      startDate,
-      endDate,
-    })
-  ).filter(
+  const attendances = await input.attendanceRepo.findManyForAnalytics({
+    userId: input.userId,
+    startDate: period.startDate,
+    endDate: period.endDate,
+  });
+  return attendances.filter(
     (attendance) =>
       !userDetails?.joinDate || attendance.checkIn >= userDetails.joinDate,
   );
-  return {
-    stats: buildAnalyticsStats(userAttendances),
-    weeklyBreakdown: buildWeeklyBreakdown(startDate, userAttendances),
-    recentAttendance: userAttendances.slice(0, 10),
-    period: { startDate, endDate, days: input.days },
-  };
 }
 
 function buildAnalyticsStats(userAttendances: AnalyticsAttendance[]) {

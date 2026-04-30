@@ -20,6 +20,8 @@ import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 
 const TIMEZONE_CACHE_TTL_SECONDS = 3600;
+const GENERAL_TIMEZONE_KEY = "GENERAL_TIMEZONE";
+const GENERAL_ATTENDANCE_TOLERANCE_KEY = "GENERAL_ATTENDANCE_TOLERANCE";
 
 export class AttendanceTimezoneService {
   private settingsRepo: ISettingsRepository;
@@ -34,34 +36,16 @@ export class AttendanceTimezoneService {
    * @returns Timezone string (e.g., 'Asia/Jakarta')
    */
   async getTimezone(tenantId?: string): Promise<string> {
-    const cacheKey = `settings:timezone${tenantId ? `:${tenantId}` : ""}`;
-
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) return cached;
-    } catch (error) {
-      logger.error(
-        `[AttendanceTimezoneService] Failed to read timezone cache for ${cacheKey}:`,
-        error,
-      );
-    }
+    const cacheKey = this.buildCacheKey("timezone", tenantId);
+    const cachedTimezone = await this.readCachedValue(cacheKey);
+    if (cachedTimezone) return cachedTimezone;
 
     const setting = await this.settingsRepo.findByKey(
-      "GENERAL_TIMEZONE",
+      GENERAL_TIMEZONE_KEY,
       tenantId,
     );
-
     const timezone = setting?.value || DEFAULT_TIMEZONE;
-
-    try {
-      await redis.setex(cacheKey, TIMEZONE_CACHE_TTL_SECONDS, timezone);
-    } catch (error) {
-      logger.error(
-        `[AttendanceTimezoneService] Failed to write timezone cache for ${cacheKey}:`,
-        error,
-      );
-    }
-
+    await this.writeCachedValue(cacheKey, timezone);
     return timezone;
   }
 
@@ -71,39 +55,59 @@ export class AttendanceTimezoneService {
    * @returns Tolerance in minutes
    */
   async getTolerance(tenantId?: string): Promise<number> {
-    const cacheKey = `settings:tolerance${tenantId ? `:${tenantId}` : ""}`;
-
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) return parseInt(cached);
-    } catch (error) {
-      logger.error(
-        `[AttendanceTimezoneService] Failed to read tolerance cache for ${cacheKey}:`,
-        error,
-      );
-    }
+    const cacheKey = this.buildCacheKey("tolerance", tenantId);
+    const cachedTolerance = await this.readCachedValue(cacheKey);
+    if (cachedTolerance) return parseInt(cachedTolerance, 10);
 
     const setting = await this.settingsRepo.findByKey(
-      "GENERAL_ATTENDANCE_TOLERANCE",
+      GENERAL_ATTENDANCE_TOLERANCE_KEY,
       tenantId,
     );
-
-    const tolerance = setting?.value ? parseInt(setting.value) : 0;
-
-    try {
-      await redis.setex(
-        cacheKey,
-        TIMEZONE_CACHE_TTL_SECONDS,
-        tolerance.toString(),
-      );
-    } catch (error) {
-      logger.error(
-        `[AttendanceTimezoneService] Failed to write tolerance cache for ${cacheKey}:`,
-        error,
-      );
-    }
-
+    const tolerance = setting?.value ? parseInt(setting.value, 10) : 0;
+    await this.writeCachedValue(cacheKey, tolerance.toString());
     return tolerance;
+  }
+
+  /** Bangun key cache setting attendance per tenant. */
+  private buildCacheKey(
+    settingName: "timezone" | "tolerance",
+    tenantId?: string,
+  ): string {
+    return `settings:${settingName}${tenantId ? `:${tenantId}` : ""}`;
+  }
+
+  /** Baca nilai cache Redis tanpa melempar error akses cache. */
+  private async readCachedValue(cacheKey: string): Promise<string | null> {
+    try {
+      return await redis.get(cacheKey);
+    } catch (error) {
+      this.logCacheError("read", cacheKey, error);
+      return null;
+    }
+  }
+
+  /** Tulis nilai cache Redis tanpa memutus alur utama. */
+  private async writeCachedValue(
+    cacheKey: string,
+    value: string,
+  ): Promise<void> {
+    try {
+      await redis.setex(cacheKey, TIMEZONE_CACHE_TTL_SECONDS, value);
+    } catch (error) {
+      this.logCacheError("write", cacheKey, error);
+    }
+  }
+
+  /** Catat kegagalan operasi cache timezone attendance. */
+  private logCacheError(
+    operation: "read" | "write",
+    cacheKey: string,
+    error: unknown,
+  ): void {
+    logger.error(
+      `[AttendanceTimezoneService] Failed to ${operation} cache for ${cacheKey}:`,
+      error,
+    );
   }
 
   /**

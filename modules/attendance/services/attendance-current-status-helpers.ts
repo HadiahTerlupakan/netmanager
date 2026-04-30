@@ -92,14 +92,29 @@ export function mapCurrentAttendanceStatusResult(params: {
 }): CurrentAttendanceStatusResult {
   const { attendance, evaluation, timezone, status, warningMessage } = params;
   return {
+    ...buildCurrentAttendanceTimes(attendance, timezone),
     status,
+    warningMessage,
+    attendanceStatus: evaluation?.finalStatus ?? attendance.status,
+    ...buildCurrentAttendanceUserInfo(attendance),
+  };
+}
+
+function buildCurrentAttendanceTimes(
+  attendance: CurrentAttendanceRow,
+  timezone: string,
+) {
+  return {
     checkInTime: formatCurrentAttendanceTime(attendance.checkIn, timezone),
     checkOutTime: formatCurrentAttendanceTime(attendance.checkOut, timezone),
-    warningMessage,
     sourceAttendanceId: attendance.id,
     checkInAt: attendance.checkIn.toISOString(),
     checkOutAt: attendance.checkOut?.toISOString() ?? null,
-    attendanceStatus: evaluation?.finalStatus ?? attendance.status,
+  };
+}
+
+function buildCurrentAttendanceUserInfo(attendance: CurrentAttendanceRow) {
+  return {
     workingHourMode: attendance.user?.workingHourMode ?? null,
     flexibleTargetHour: attendance.user?.flexibleTargetHour ?? null,
     shift: attendance.user?.shift ?? null,

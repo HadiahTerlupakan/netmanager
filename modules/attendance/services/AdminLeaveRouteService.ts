@@ -1,7 +1,3 @@
-import type { Session } from "next-auth";
-type LeaveStatusValue = string;
-type LeaveTypeValue = string;
-
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { UserLookupService } from "@/modules/users";
 
@@ -11,42 +7,15 @@ import {
   type LeaveFilters,
   type ServiceResult,
 } from "./LeaveService";
-
-interface AdminLeaveSession {
-  user: Session["user"] & {
-    id: string;
-    tenantId?: string | null;
-  };
-}
-
-interface AdminLeaveListInput {
-  status?: LeaveStatusValue;
-  tenantId: string;
-  session: AdminLeaveSession;
-}
-
-interface AdminLeaveCreateInput {
-  userId: string;
-  type: LeaveTypeValue;
-  startDate: Date;
-  endDate: Date;
-  reason: string;
-  replacementDate?: Date;
-  attachmentUrl?: string;
-  session: AdminLeaveSession;
-}
-
-interface AdminLeaveUpdateStatusInput {
-  id: string;
-  status: "APPROVED" | "REJECTED";
-  rejectionReason?: string;
-  session: AdminLeaveSession;
-}
-
-interface AdminLeaveDeleteInput {
-  id: string;
-  session: AdminLeaveSession;
-}
+import type {
+  AccessContext,
+  AdminLeaveCreateInput,
+  AdminLeaveDeleteInput,
+  AdminLeaveListInput,
+  AdminLeaveSession,
+  AdminLeaveUpdateStatusInput,
+  LeaveScopeTarget,
+} from "./admin-leave-route.types";
 
 const SITE_ONLY_PERMISSION = "izin:site_only";
 const DEPARTMENT_ONLY_PERMISSION = "izin:department_only";
@@ -65,30 +34,14 @@ export class AdminLeaveRouteService {
   /** Ambil daftar leave admin sesuai scope permission. */
   async getLeaves(input: AdminLeaveListInput) {
     const scope = await this.resolveScope(input.session);
-    const filters = {
-      ...(input.status ? { status: input.status } : {}),
-      ...(scope.siteId ? { siteId: scope.siteId } : {}),
-      ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
-      tenantId: input.tenantId,
-    } as LeaveFilters;
-
+    const filters = this.buildLeaveFilters(input, scope);
     return this.leaveService.getLeaves(filters);
   }
 
   /** Buat leave manual oleh admin dengan auto approve. */
   async createLeave(input: AdminLeaveCreateInput) {
     return this.leaveService.createLeave(
-      {
-        userId: input.userId,
-        type: input.type,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        reason: input.reason,
-        ...(input.replacementDate
-          ? { replacementDate: input.replacementDate }
-          : {}),
-        ...(input.attachmentUrl ? { attachmentUrl: input.attachmentUrl } : {}),
-      } as CreateLeaveData,
+      this.buildCreateLeaveData(input),
       input.session.user.id,
       input.session.user.tenantId as string,
       true,
@@ -103,24 +56,20 @@ export class AdminLeaveRouteService {
       tenantId,
       input.session,
     );
-    if (!access.success) {
-      return access;
-    }
+    if (!access.success) return access;
 
-    if (input.status === "APPROVED") {
-      return this.leaveService.approveLeave(
-        input.id,
-        input.session.user.id,
-        tenantId,
-      );
-    }
-
-    return this.leaveService.rejectLeave(
-      input.id,
-      input.session.user.id,
-      tenantId,
-      input.rejectionReason || "",
-    );
+    return input.status === "APPROVED"
+      ? this.leaveService.approveLeave(
+          input.id,
+          input.session.user.id,
+          tenantId,
+        )
+      : this.leaveService.rejectLeave(
+          input.id,
+          input.session.user.id,
+          tenantId,
+          input.rejectionReason || "",
+        );
   }
 
   /** Hapus leave setelah validasi akses admin. */
@@ -131,9 +80,7 @@ export class AdminLeaveRouteService {
       tenantId,
       input.session,
     );
-    if (!access.success) {
-      return access;
-    }
+    if (!access.success) return access;
 
     return this.leaveService.deleteLeave(
       input.id,
@@ -163,25 +110,16 @@ export class AdminLeaveRouteService {
       >;
     }
 
-    const accessError = await this.validateAccess(session, {
+    const accessContext = await this.getAccessContext(session);
+    const basicAccessError = this.validateScopedAccess(accessContext, {
       siteId: null,
       departmentId: null,
     });
-    if (accessError) {
-      return accessError;
-    }
+    if (basicAccessError) return basicAccessError;
 
-    const scopedError = await this.validateAccess(session, {
-      siteId:
-        (leave.data as { user?: { siteId?: string | null } }).user?.siteId ??
-        null,
-      departmentId:
-        (leave.data as { user?: { departmentId?: string | null } }).user
-          ?.departmentId ?? null,
-    });
-    if (scopedError) {
-      return scopedError;
-    }
+    const leaveTarget = this.extractLeaveScopeTarget(leave.data);
+    const scopedError = this.validateScopedAccess(accessContext, leaveTarget);
+    if (scopedError) return scopedError;
 
     return leave as ServiceResult<
       NonNullable<
@@ -192,73 +130,143 @@ export class AdminLeaveRouteService {
 
   /** Resolve scope filter untuk list admin. */
   private async resolveScope(session: AdminLeaveSession) {
-    const accessError = await this.validateAccess(session, {
+    const accessContext = await this.getAccessContext(session);
+    const accessError = this.validateScopedAccess(accessContext, {
       siteId: null,
       departmentId: null,
     });
-    if (accessError) {
-      return {};
-    }
-
-    if (isSuperAdmin(session.user)) {
-      return {};
-    }
-
-    const permissions = await getUserPermissions(session.user.id);
-    const currentUser = await this.userRepository.findById(session.user.id);
-
-    return {
-      ...(permissions.includes(SITE_ONLY_PERMISSION) && currentUser?.siteId
-        ? { siteId: currentUser.siteId }
-        : {}),
-      ...(permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      currentUser?.departmentId
-        ? { departmentId: currentUser.departmentId }
-        : {}),
-    };
+    if (accessError || isSuperAdmin(session.user)) return {};
+    return this.buildResolvedScope(accessContext);
   }
 
   /** Validasi akses admin terhadap scope site dan department. */
   private async validateAccess(
     session: AdminLeaveSession,
-    target: { siteId: string | null; departmentId: string | null },
+    target: LeaveScopeTarget,
   ): Promise<ServiceResult<never> | null> {
-    if (isSuperAdmin(session.user)) {
-      return null;
-    }
+    const accessContext = await this.getAccessContext(session);
+    return this.validateScopedAccess(accessContext, target);
+  }
 
-    const permissions = await getUserPermissions(session.user.id);
-    const currentUser = await this.userRepository.findById(session.user.id);
-    if (!currentUser) {
-      return { success: false, error: "Unauthorized", code: "UNAUTHORIZED" };
-    }
+  private buildLeaveFilters(
+    input: AdminLeaveListInput,
+    scope: Partial<LeaveScopeTarget>,
+  ) {
+    return {
+      ...(input.status ? { status: input.status } : {}),
+      ...(scope.siteId ? { siteId: scope.siteId } : {}),
+      ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
+      tenantId: input.tenantId,
+    } as LeaveFilters;
+  }
 
-    if (
-      permissions.includes(SITE_ONLY_PERMISSION) &&
-      currentUser.siteId &&
-      target.siteId &&
-      currentUser.siteId !== target.siteId
-    ) {
+  private buildCreateLeaveData(input: AdminLeaveCreateInput) {
+    return {
+      userId: input.userId,
+      type: input.type,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      reason: input.reason,
+      ...(input.replacementDate
+        ? { replacementDate: input.replacementDate }
+        : {}),
+      ...(input.attachmentUrl ? { attachmentUrl: input.attachmentUrl } : {}),
+    } as CreateLeaveData;
+  }
+
+  private async getAccessContext(
+    session: AdminLeaveSession,
+  ): Promise<AccessContext> {
+    if (isSuperAdmin(session.user)) return this.createSuperAdminAccessContext();
+
+    const [permissions, currentUser] = await Promise.all([
+      getUserPermissions(session.user.id),
+      this.userRepository.findById(session.user.id),
+    ]);
+
+    return {
+      permissions,
+      currentUser: {
+        siteId: currentUser?.siteId,
+        departmentId: currentUser?.departmentId,
+      },
+    };
+  }
+
+  private buildResolvedScope(accessContext: AccessContext) {
+    return {
+      ...(accessContext.permissions.includes(SITE_ONLY_PERMISSION) &&
+      accessContext.currentUser.siteId
+        ? { siteId: accessContext.currentUser.siteId }
+        : {}),
+      ...(accessContext.permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
+      accessContext.currentUser.departmentId
+        ? { departmentId: accessContext.currentUser.departmentId }
+        : {}),
+    };
+  }
+
+  private createSuperAdminAccessContext(): AccessContext {
+    return {
+      permissions: [],
+      currentUser: { siteId: null, departmentId: null },
+    };
+  }
+
+  private extractLeaveScopeTarget(leaveData: unknown): LeaveScopeTarget {
+    const user = (
+      leaveData as {
+        user?: { siteId?: string | null; departmentId?: string | null };
+      }
+    ).user;
+    return {
+      siteId: user?.siteId ?? null,
+      departmentId: user?.departmentId ?? null,
+    };
+  }
+
+  private validateScopedAccess(
+    accessContext: AccessContext,
+    target: LeaveScopeTarget,
+  ): ServiceResult<never> | null {
+    if (this.isOutsideSiteScope(accessContext, target)) {
       return {
         success: false,
         error: SITE_FORBIDDEN_MESSAGE,
         code: "FORBIDDEN",
       };
     }
-
-    if (
-      permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      currentUser.departmentId &&
-      target.departmentId &&
-      currentUser.departmentId !== target.departmentId
-    ) {
+    if (this.isOutsideDepartmentScope(accessContext, target)) {
       return {
         success: false,
         error: DEPARTMENT_FORBIDDEN_MESSAGE,
         code: "FORBIDDEN",
       };
     }
-
     return null;
+  }
+
+  private isOutsideSiteScope(
+    accessContext: AccessContext,
+    target: LeaveScopeTarget,
+  ) {
+    return Boolean(
+      accessContext.permissions.includes(SITE_ONLY_PERMISSION) &&
+      accessContext.currentUser.siteId &&
+      target.siteId &&
+      accessContext.currentUser.siteId !== target.siteId,
+    );
+  }
+
+  private isOutsideDepartmentScope(
+    accessContext: AccessContext,
+    target: LeaveScopeTarget,
+  ) {
+    return Boolean(
+      accessContext.permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
+      accessContext.currentUser.departmentId &&
+      target.departmentId &&
+      accessContext.currentUser.departmentId !== target.departmentId,
+    );
   }
 }

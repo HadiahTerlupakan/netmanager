@@ -44,28 +44,33 @@ type ProcessAbsenceUnavailablePayload = {
 export async function runProcessAbsenceCron(options: {
   targetDate: Date;
 }): Promise<ProcessAbsenceCronResult> {
-  const lockResult = await acquireCronLock(
-    `processAbsence:${getDateLockKey(options.targetDate)}`,
-    PROCESS_ABSENCE_LOCK_SECONDS,
-  );
-
-  if (lockResult === "unavailable") {
-    return {
-      status: "unavailable",
-      payload: { success: false, error: CRON_LOCK_UNAVAILABLE_MESSAGE },
-    };
-  }
-
-  if (lockResult === "locked") {
-    return {
-      status: "locked",
-      payload: { success: true, skipped: true, reason: "Lock already held" },
-    };
-  }
-
+  const lockResult = await acquireProcessAbsenceLock(options.targetDate);
+  if (lockResult === "unavailable") return buildUnavailableResult();
+  if (lockResult === "locked") return buildLockedResult();
   return {
     status: "processed",
     payload: await processAbsenceForActiveTenants(options.targetDate),
+  };
+}
+
+function acquireProcessAbsenceLock(targetDate: Date) {
+  return acquireCronLock(
+    `processAbsence:${getDateLockKey(targetDate)}`,
+    PROCESS_ABSENCE_LOCK_SECONDS,
+  );
+}
+
+function buildUnavailableResult(): ProcessAbsenceCronResult {
+  return {
+    status: "unavailable",
+    payload: { success: false, error: CRON_LOCK_UNAVAILABLE_MESSAGE },
+  };
+}
+
+function buildLockedResult(): ProcessAbsenceCronResult {
+  return {
+    status: "locked",
+    payload: { success: true, skipped: true, reason: "Lock already held" },
   };
 }
 
@@ -80,25 +85,52 @@ function getDateLockKey(date: Date) {
 }
 
 async function processAbsenceForActiveTenants(targetDate: Date) {
-  const absenceService = new AbsenceService();
-  const tenants = await prisma.tenant.findMany({
+  const tenants = await findActiveTenantIds();
+  const results = await processAbsenceTenants(tenants, targetDate);
+  return buildProcessAbsencePayload(targetDate, results);
+}
+
+function findActiveTenantIds() {
+  return prisma.tenant.findMany({
     where: { isActive: true },
     select: { id: true },
   });
-  const results: ProcessAbsenceSuccessPayload["results"] = [];
+}
 
-  for (const tenant of tenants) {
-    try {
-      const result = await absenceService.processDailyAbsence(
-        targetDate,
-        tenant.id,
-      );
-      results.push({ tenantId: tenant.id, ...result });
-    } catch (error) {
-      logger.error(`[Cron] Error for tenant ${tenant.id}:`, error);
-    }
+async function processAbsenceTenants(
+  tenants: Array<{ id: string }>,
+  targetDate: Date,
+) {
+  const absenceService = new AbsenceService();
+  const processed = await Promise.all(
+    tenants.map((tenant) =>
+      processTenantAbsence(absenceService, tenant.id, targetDate),
+    ),
+  );
+  return processed.filter(Boolean) as ProcessAbsenceSuccessPayload["results"];
+}
+
+async function processTenantAbsence(
+  absenceService: AbsenceService,
+  tenantId: string,
+  targetDate: Date,
+) {
+  try {
+    const result = await absenceService.processDailyAbsence(
+      targetDate,
+      tenantId,
+    );
+    return { tenantId, ...result };
+  } catch (error) {
+    logger.error(`[Cron] Error for tenant ${tenantId}:`, error);
+    return null;
   }
+}
 
+function buildProcessAbsencePayload(
+  targetDate: Date,
+  results: ProcessAbsenceSuccessPayload["results"],
+) {
   return {
     success: true as const,
     date: targetDate.toISOString().split("T")[0],

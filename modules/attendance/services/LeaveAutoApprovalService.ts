@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
+import { LeaveRequestRepository } from "../repositories/LeaveRequestRepository";
 import { getLeaveService } from "./LeaveService";
 
 export type LeaveAutoApprovalResult = {
@@ -12,6 +12,8 @@ type PendingLeaveRequest = {
   id: string;
   tenantId: string | null;
 };
+
+const leaveRequestRepository = new LeaveRequestRepository();
 
 /** Auto-approves pending TUKAR_LIBUR requests scheduled for tomorrow. */
 export async function autoApproveTukarLibur(
@@ -50,21 +52,10 @@ function getDayEnd(date: Date) {
 }
 
 async function findPendingTukarLibur(startDate: Date, endDate: Date) {
-  return prisma.leaveRequest.findMany({
-    where: {
-      type: "TUKAR_LIBUR",
-      status: "PENDING",
-      startDate: {
-        gte: startDate,
-        lte: endDate,
-      },
-    },
-    include: {
-      user: {
-        select: { id: true, name: true },
-      },
-    },
-  });
+  return leaveRequestRepository.findPendingTukarLiburInRange(
+    startDate,
+    endDate,
+  );
 }
 
 async function approvePendingRequests(

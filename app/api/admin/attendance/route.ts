@@ -73,7 +73,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     user,
     parseResult.data.ids,
   );
-  if (!result.ok) {
+  if (result.ok === false) {
     return toAttendanceError(result.code, result.message);
   }
 

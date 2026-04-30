@@ -3,8 +3,10 @@ import * as z from "zod";
 
 import { ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
-import type { OvertimeStatusValue } from "@/modules/overtime";
-import { OvertimeRouteService } from "@/modules/overtime";
+import {
+  OvertimeRouteService,
+  type OvertimeStatusValue,
+} from "@/modules/overtime";
 import { lemburFilterSchema } from "@/lib/validations/lembur";
 
 const overtimeRouteService = new OvertimeRouteService();

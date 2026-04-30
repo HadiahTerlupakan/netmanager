@@ -79,6 +79,24 @@ export class LeaveRequestRepository {
     return prisma.leaveRequest.count({ where: this.buildFilterWhere(filters) });
   }
 
+  /** Find pending tukar libur requests scheduled within a date range. */
+  async findPendingTukarLiburInRange(startDate: Date, endDate: Date) {
+    return prisma.leaveRequest.findMany({
+      where: {
+        type: "TUKAR_LIBUR",
+        status: "PENDING",
+        startDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+      },
+    });
+  }
+
   private buildFilterWhere(filters?: {
     userId?: string;
     status?: LeaveStatus;

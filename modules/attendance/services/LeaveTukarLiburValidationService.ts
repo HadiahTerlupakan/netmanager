@@ -1,3 +1,5 @@
+import type { CreateLeaveData } from "./LeaveService";
+
 interface TukarLiburValidationInput {
   userId: string;
   tenantId: string;
@@ -24,6 +26,25 @@ const parseWorkDays = (workDays: string | null) =>
         .map((day) => day.trim())
         .filter(Boolean)
     : [];
+
+export async function validateTukarLiburCreateRequest(input: {
+  data: CreateLeaveData;
+  tenantId: string;
+  user: { workDays: string | null } | null;
+  dependencies: TukarLiburValidationDependencies;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  if (input.data.type !== "TUKAR_LIBUR") return { success: true };
+  return validateTukarLiburRules(
+    {
+      userId: input.data.userId,
+      tenantId: input.tenantId,
+      startDate: input.data.startDate,
+      replacementDate: input.data.replacementDate,
+      workDays: input.user?.workDays ?? null,
+    },
+    input.dependencies,
+  );
+}
 
 export async function validateTukarLiburRules(
   input: TukarLiburValidationInput,

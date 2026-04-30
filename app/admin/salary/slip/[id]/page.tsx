@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-// Force rebuild
-import { getSalaryService } from "@/modules/salary";
+import { getSalaryService, type SalaryRevisionDTO } from "@/modules/salary";
 import SlipPrintClient from "./SlipPrintClient";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -38,9 +37,9 @@ export default async function SlipPrintPage({ params }: PageProps) {
     paidAt: salary.paidAt?.toISOString() || null,
     details: salary.details, // No date fields in details
     revisions:
-      salary.revisions?.map((r) => ({
-        ...r,
-        createdAt: r.createdAt.toISOString(),
+      salary.revisions?.map((revision: SalaryRevisionDTO) => ({
+        ...revision,
+        createdAt: revision.createdAt.toISOString(),
       })) || [],
   };
 

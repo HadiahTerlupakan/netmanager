@@ -13,47 +13,76 @@ export type AttendanceCronJobName =
   | "auto-checkout";
 
 export function getDueAttendanceCronJobs(now: Date): AttendanceCronJobName[] {
-  const jobs: AttendanceCronJobName[] = [];
-  const minute = now.getMinutes();
-  const hour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentHour = now.getHours();
+  const jobs: AttendanceCronJobName[] = ["auto-checkout"];
 
-  if (minute % 15 === 0) {
-    jobs.push("attendance-alert:auto");
+  if (shouldRunAutoAlert(currentMinute)) {
+    jobs.unshift("attendance-alert:auto");
   }
 
-  if (minute === 0 && hour === 22) {
-    jobs.push("attendance-alert:process");
+  if (isHourlyJobTime(currentMinute, currentHour, 22)) {
+    jobs.unshift("attendance-alert:process");
   }
 
-  if (minute === 0 && hour === 1) {
-    jobs.push("process-absence");
+  if (isHourlyJobTime(currentMinute, currentHour, 1)) {
+    jobs.unshift("process-absence");
   }
-
-  jobs.push("auto-checkout");
 
   return jobs;
 }
 
+/** Tentukan apakah reminder auto attendance perlu dijalankan. */
+function shouldRunAutoAlert(minute: number): boolean {
+  return minute % 15 === 0;
+}
+
+/** Tentukan apakah job terjadwal berjalan pada jam tertentu. */
+function isHourlyJobTime(
+  minute: number,
+  hour: number,
+  scheduledHour: number,
+): boolean {
+  return minute === 0 && hour === scheduledHour;
+}
+
 async function runProcessAbsence(now: Date) {
+  const targetDate = getPreviousDate(now);
+  const tenants = await findActiveTenants();
+  const results = await processTenantAbsences(tenants, targetDate);
+  return buildProcessAbsenceResult(targetDate, results);
+}
+
+function getPreviousDate(now: Date) {
   const targetDate = new Date(now);
   targetDate.setDate(targetDate.getDate() - 1);
+  return targetDate;
+}
 
-  const tenants = await prisma.tenant.findMany({
+async function findActiveTenants() {
+  return prisma.tenant.findMany({
     where: { isActive: true },
     select: { id: true },
   });
+}
 
+async function processTenantAbsences(
+  tenants: Array<{ id: string }>,
+  targetDate: Date,
+) {
   const absenceService = new AbsenceService();
-  const results = [];
+  return Promise.all(
+    tenants.map(async (tenant) => ({
+      tenantId: tenant.id,
+      ...(await absenceService.processDailyAbsence(targetDate, tenant.id)),
+    })),
+  );
+}
 
-  for (const tenant of tenants) {
-    const result = await absenceService.processDailyAbsence(
-      targetDate,
-      tenant.id,
-    );
-    results.push({ tenantId: tenant.id, ...result });
-  }
-
+function buildProcessAbsenceResult(
+  targetDate: Date,
+  results: Array<Record<string, unknown>>,
+) {
   return {
     date: targetDate.toISOString().split("T")[0],
     tenantsProcessed: results.length,
@@ -61,35 +90,22 @@ async function runProcessAbsence(now: Date) {
   };
 }
 
+async function runAttendanceCronJob(jobName: AttendanceCronJobName, now: Date) {
+  if (jobName === "attendance-alert:auto") return runScheduledAttendanceCheck();
+  if (jobName === "attendance-alert:process")
+    return processIncompleteAttendance();
+  if (jobName === "process-absence") return runProcessAbsence(now);
+  return AutoCheckoutService.runAutoCheckout();
+}
+
 export async function runAttendanceCronOrchestrator(options?: { now?: Date }) {
   const now = options?.now ?? new Date();
-  const dueJobs = getDueAttendanceCronJobs(now);
-  const jobs = [];
+  const jobs = await Promise.all(
+    getDueAttendanceCronJobs(now).map(async (name) => ({
+      name,
+      result: await runAttendanceCronJob(name, now),
+    })),
+  );
 
-  for (const jobName of dueJobs) {
-    if (jobName === "attendance-alert:auto") {
-      jobs.push({ name: jobName, result: await runScheduledAttendanceCheck() });
-      continue;
-    }
-
-    if (jobName === "attendance-alert:process") {
-      jobs.push({ name: jobName, result: await processIncompleteAttendance() });
-      continue;
-    }
-
-    if (jobName === "process-absence") {
-      jobs.push({ name: jobName, result: await runProcessAbsence(now) });
-      continue;
-    }
-
-    jobs.push({
-      name: jobName,
-      result: await AutoCheckoutService.runAutoCheckout(),
-    });
-  }
-
-  return {
-    now: now.toISOString(),
-    jobs,
-  };
+  return { now: now.toISOString(), jobs };
 }

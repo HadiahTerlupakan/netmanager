@@ -1,23 +1,48 @@
 import { logger } from "@/lib/logger";
-import { NextResponse } from "next/server";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
+import { MobileLeaveNotificationHelper } from "./mobile-leave-notification.helpers";
 import { LeaveStatus, LeaveType, Prisma } from "@prisma/client";
+import { NextResponse } from "next/server";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
-import { LeaveRepository } from "../repositories/LeaveRepository";
-import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
+import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
+import { LeaveRepository } from "../repositories/LeaveRepository";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
 import { validateTukarLiburRules } from "./LeaveService";
-import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
-import {
-  createNotification,
-  WhatsAppApprovalButtonService,
-} from "@/modules/notification";
-import { apiError, ErrorCodes } from "@/lib/api-response";
 
-const LEAVE_APPROVAL_LINK = "/admin/kehadiran/izin";
-const LEAVE_APPROVAL_TITLE = "Pengajuan Izin Baru (Mobile)";
+const LEAVE_UPLOAD_DIR = "public/uploads/employee-leave";
+const BAD_REQUEST_STATUS = 400;
+const INTERNAL_SERVER_ERROR_STATUS = 500;
+
+type MobileLeaveRequester = Awaited<
+  ReturnType<ILeaveRepository["findRequesterContext"]>
+>;
+type MobileLeaveResult = NextResponse | { id: string };
+type LeaveDateRange = { startDate: Date; endDate: Date };
+type LeaveQuotaContext = {
+  userId: string;
+  tenantId: string;
+  currentYear: number;
+  leaveType: LeaveType;
+  leaveDays: number;
+};
+type LeaveCreationContext = {
+  input: MobileLeaveRequestInput;
+  leaveType: LeaveType;
+  dateRange: LeaveDateRange;
+  attachments: string[];
+};
+
+type MobileLeaveProcessContext = {
+  input: MobileLeaveRequestInput;
+  requester: MobileLeaveRequester;
+  leaveType: LeaveType;
+  dateRange: LeaveDateRange;
+  leaveDays: number;
+};
 
 export interface MobileLeaveRequestInput {
   userId: string;
@@ -31,198 +56,254 @@ export interface MobileLeaveRequestInput {
 }
 
 export class MobileLeaveRequestService {
-  private readonly leaveRepository: ILeaveRepository;
-  private readonly leaveBalanceRepository: ILeaveBalanceRepository;
-  private readonly holidayRepository: IHolidayRepository;
-  private readonly whatsAppApprovalButtonService: WhatsAppApprovalButtonService;
+  private readonly notificationHelper: MobileLeaveNotificationHelper;
 
   constructor(
-    leaveRepository: ILeaveRepository = new LeaveRepository(),
-    leaveBalanceRepository: ILeaveBalanceRepository = new LeaveBalanceRepository(),
-    holidayRepository: IHolidayRepository = new HolidayRepository(),
+    private readonly leaveRepository: ILeaveRepository = new LeaveRepository(),
+    private readonly leaveBalanceRepository: ILeaveBalanceRepository = new LeaveBalanceRepository(),
+    private readonly holidayRepository: IHolidayRepository = new HolidayRepository(),
   ) {
-    this.leaveRepository = leaveRepository;
-    this.leaveBalanceRepository = leaveBalanceRepository;
-    this.holidayRepository = holidayRepository;
-    this.whatsAppApprovalButtonService = new WhatsAppApprovalButtonService();
+    this.notificationHelper = new MobileLeaveNotificationHelper(
+      leaveRepository,
+    );
   }
 
   /** Create leave request from mobile payload. */
   async createLeaveRequest(
     input: MobileLeaveRequestInput,
-  ): Promise<NextResponse | { id: string }> {
+  ): Promise<MobileLeaveResult> {
     try {
-      const {
-        userId,
-        tenantId,
-        type,
-        startDate,
-        endDate,
-        reason,
-        photos,
-        replacementDate,
-      } = input;
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const currentYear = start.getFullYear();
-
-      const userData = await this.leaveRepository.findRequesterContext(
-        userId,
-        tenantId,
+      return await this.createLeaveRequestUnsafe(input);
+    } catch (error) {
+      logger.error(
+        "Leave request error:",
+        error instanceof Error ? error : undefined,
       );
+      return this.createInternalErrorResponse(error);
+    }
+  }
 
-      const leaveDays = await calculateWorkingDays(
-        start,
-        end,
-        userData?.workDays || null,
-        undefined,
-        tenantId,
-      );
+  private async createLeaveRequestUnsafe(
+    input: MobileLeaveRequestInput,
+  ): Promise<MobileLeaveResult> {
+    const requester = await this.leaveRepository.findRequesterContext(
+      input.userId,
+      input.tenantId,
+    );
+    const leaveType = input.type as LeaveType;
+    const dateRange = this.createDateRange(input);
+    const leaveDays = await this.calculateLeaveDays(
+      dateRange,
+      requester,
+      input.tenantId,
+    );
+    const context = { input, requester, leaveType, dateRange, leaveDays };
 
-      if (type === "TUKAR_LIBUR") {
-        const validation = await validateTukarLiburRules(
-          {
-            userId,
-            tenantId,
-            startDate: start,
-            replacementDate: replacementDate
-              ? new Date(replacementDate)
-              : undefined,
-            workDays: userData?.workDays || null,
-          },
-          {
-            isHoliday: async (date, currentTenantId) => {
-              return this.holidayRepository.isHoliday(date, currentTenantId);
-            },
-          },
-        );
+    const validationError = await this.validateRequest(context);
+    if (validationError) return validationError;
 
-        if ("error" in validation) {
-          return apiError(validation.error, ErrorCodes.VALIDATION_ERROR, {
-            status: 400,
-          });
-        }
-      }
+    const attachments = await this.uploadAttachments(
+      input.userId,
+      input.photos,
+    );
+    const requestData = await this.leaveRepository.create(
+      this.createLeaveCreateInput({ input, leaveType, dateRange, attachments }),
+    );
 
-      if (userData?.workingHourMode !== "FLEXIBLE" && type !== "TUKAR_LIBUR") {
-        const hasEnough = await this.leaveBalanceRepository.hasEnoughDays(
-          userId,
-          currentYear,
-          type as LeaveType,
-          leaveDays,
-          tenantId,
-        );
+    await this.notificationHelper.notifyApprovers({
+      tenantId: input.tenantId,
+      requestId: requestData.id,
+      siteId: requester?.siteId,
+      requesterName: requester?.name,
+      leaveType: input.type,
+      reason: input.reason,
+    });
 
-        if (!hasEnough) {
-          const remaining = await this.leaveBalanceRepository.getRemainingDays(
-            userId,
-            currentYear,
-            type as LeaveType,
-            tenantId,
-          );
+    return { id: requestData.id };
+  }
 
-          return NextResponse.json(
-            {
-              error: `Kuota ${type} tidak cukup. Sisa: ${remaining} hari, Dibutuhkan: ${leaveDays} hari.`,
-            },
-            { status: 400 },
-          );
-        }
-      }
+  private createDateRange(input: MobileLeaveRequestInput): LeaveDateRange {
+    return {
+      startDate: new Date(input.startDate),
+      endDate: new Date(input.endDate),
+    };
+  }
 
-      if (
-        type !== "CUTI" &&
-        type !== "TUKAR_LIBUR" &&
-        (!photos || photos.length === 0)
-      ) {
-        return apiError(
-          "Foto bukti wajib diupload",
-          ErrorCodes.VALIDATION_ERROR,
-          { status: 400 },
-        );
-      }
+  private async calculateLeaveDays(
+    dateRange: LeaveDateRange,
+    requester: MobileLeaveRequester,
+    tenantId: string,
+  ): Promise<number> {
+    return calculateWorkingDays(
+      dateRange.startDate,
+      dateRange.endDate,
+      requester?.workDays ?? null,
+      undefined,
+      tenantId,
+    );
+  }
 
-      const attachments: string[] = [];
-      if (photos && photos.length > 0) {
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
+  private async validateRequest(
+    context: MobileLeaveProcessContext,
+  ): Promise<NextResponse | null> {
+    const tukarLiburError = await this.validateTukarLibur(context);
+    if (tukarLiburError) return tukarLiburError;
 
-          if (photo.startsWith("http") || photo.startsWith("/uploads")) {
-            attachments.push(photo);
-            continue;
-          }
+    const quotaError = await this.validateQuota(context);
+    if (quotaError) return quotaError;
 
-          const timestamp = Date.now();
-          const fileName = `leave_${userId}_${timestamp}_${i}`;
-          const uploadDir = "public/uploads/employee-leave";
-          const url = await convertAndSaveBase64(
-            photo,
-            uploadDir,
-            fileName,
-            "employee-leave",
-          );
-          if (url) attachments.push(url);
-        }
-      }
-
-      const createData: Record<string, unknown> = {
-        userId,
-        type: type as LeaveType,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        replacementDate: replacementDate ? new Date(replacementDate) : null,
-        reason,
-        attachments,
-        status: LeaveStatus.PENDING,
-        tenantId,
-      };
-
-      if (attachments.length > 0) {
-        createData.attachmentUrl = attachments[0];
-      }
-
-      const requestData = await this.leaveRepository.create(
-        createData as unknown as Prisma.LeaveRequestUncheckedCreateInput,
-      );
-
-      try {
-        const admins =
-          await this.leaveRepository.findApproverIdsForMobileLeaveNotification({
-            tenantId,
-            siteId: userData?.siteId,
-          });
-
-        for (const admin of admins) {
-          const message = `${userData?.name} mengajukan ${type}: ${reason}`;
-          await createNotification({
-            type: "SYSTEM",
-            priority: "NORMAL",
-            title: LEAVE_APPROVAL_TITLE,
-            message,
-            link: LEAVE_APPROVAL_LINK,
-            userId: admin.id,
-            sourceType: "LEAVE",
-            sourceId: requestData.id,
-            tenantId,
-          });
-          await this.whatsAppApprovalButtonService.sendApprovalButton({
-            phone: admin.phone,
-            title: LEAVE_APPROVAL_TITLE,
-            message,
-            approvalUrl: LEAVE_APPROVAL_LINK,
-          });
-        }
-      } catch (error) {
-        logger.error("Failed to notify admins", error);
-      }
-
-      return requestData;
-    } catch (error: unknown) {
-      logger.error("Leave request error:", error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Terjadi kesalahan" },
-        { status: 500 },
+    if (
+      this.requiresPhotoEvidence(context.input.type) &&
+      !context.input.photos?.length
+    ) {
+      return apiError(
+        "Foto bukti wajib diupload",
+        ErrorCodes.VALIDATION_ERROR,
+        {
+          status: BAD_REQUEST_STATUS,
+        },
       );
     }
+
+    return null;
+  }
+
+  private async validateTukarLibur(
+    context: MobileLeaveProcessContext,
+  ): Promise<NextResponse | null> {
+    if (context.input.type !== "TUKAR_LIBUR") return null;
+
+    const validation = await validateTukarLiburRules(
+      {
+        userId: context.input.userId,
+        tenantId: context.input.tenantId,
+        startDate: context.dateRange.startDate,
+        replacementDate: context.input.replacementDate
+          ? new Date(context.input.replacementDate)
+          : undefined,
+        workDays: context.requester?.workDays ?? null,
+      },
+      {
+        isHoliday: (date, tenantId) =>
+          this.holidayRepository.isHoliday(date, tenantId),
+      },
+    );
+
+    if (!("error" in validation)) return null;
+    return apiError(validation.error, ErrorCodes.VALIDATION_ERROR, {
+      status: BAD_REQUEST_STATUS,
+    });
+  }
+
+  private async validateQuota(
+    context: MobileLeaveProcessContext,
+  ): Promise<NextResponse | null> {
+    if (this.canSkipQuotaValidation(context)) return null;
+
+    const quota = await this.getQuotaState({
+      userId: context.input.userId,
+      tenantId: context.input.tenantId,
+      currentYear: context.dateRange.startDate.getFullYear(),
+      leaveType: context.leaveType,
+      leaveDays: context.leaveDays,
+    });
+
+    if (quota.hasEnough) return null;
+    return NextResponse.json(
+      {
+        error: `Kuota ${context.input.type} tidak cukup. Sisa: ${quota.remaining} hari, Dibutuhkan: ${context.leaveDays} hari.`,
+      },
+      { status: BAD_REQUEST_STATUS },
+    );
+  }
+
+  private canSkipQuotaValidation(context: MobileLeaveProcessContext): boolean {
+    return (
+      context.requester?.workingHourMode === "FLEXIBLE" ||
+      context.input.type === "TUKAR_LIBUR"
+    );
+  }
+
+  private async getQuotaState(context: LeaveQuotaContext) {
+    const hasEnough = await this.leaveBalanceRepository.hasEnoughDays(
+      context.userId,
+      context.currentYear,
+      context.leaveType,
+      context.leaveDays,
+      context.tenantId,
+    );
+    const remaining = hasEnough
+      ? 0
+      : await this.leaveBalanceRepository.getRemainingDays(
+          context.userId,
+          context.currentYear,
+          context.leaveType,
+          context.tenantId,
+        );
+
+    return { hasEnough, remaining };
+  }
+
+  private requiresPhotoEvidence(type: string): boolean {
+    return type !== "CUTI" && type !== "TUKAR_LIBUR";
+  }
+
+  private async uploadAttachments(
+    userId: string,
+    photos?: string[],
+  ): Promise<string[]> {
+    if (!photos?.length) return [];
+
+    const attachments: string[] = [];
+    for (const [index, photo] of photos.entries()) {
+      const attachment = await this.resolveAttachment(userId, photo, index);
+      if (attachment) attachments.push(attachment);
+    }
+    return attachments;
+  }
+
+  private async resolveAttachment(
+    userId: string,
+    photo: string,
+    index: number,
+  ): Promise<string | null> {
+    if (photo.startsWith("http") || photo.startsWith("/uploads")) {
+      return photo;
+    }
+
+    return convertAndSaveBase64(
+      photo,
+      LEAVE_UPLOAD_DIR,
+      `leave_${userId}_${Date.now()}_${index}`,
+      "employee-leave",
+    );
+  }
+
+  private createLeaveCreateInput(
+    context: LeaveCreationContext,
+  ): Prisma.LeaveRequestUncheckedCreateInput {
+    return {
+      userId: context.input.userId,
+      type: context.leaveType,
+      startDate: context.dateRange.startDate,
+      endDate: context.dateRange.endDate,
+      replacementDate: context.input.replacementDate
+        ? new Date(context.input.replacementDate)
+        : null,
+      reason: context.input.reason,
+      attachments: context.attachments,
+      attachmentUrl: context.attachments[0] ?? null,
+      status: LeaveStatus.PENDING,
+      tenantId: context.input.tenantId,
+    } as Prisma.LeaveRequestUncheckedCreateInput;
+  }
+
+  private createInternalErrorResponse(error: unknown): NextResponse {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Terjadi kesalahan",
+      },
+      { status: INTERNAL_SERVER_ERROR_STATUS },
+    );
   }
 }

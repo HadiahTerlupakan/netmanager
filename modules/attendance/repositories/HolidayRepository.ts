@@ -1,15 +1,20 @@
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { redis } from "@/lib/redis";
-import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
+import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { Prisma } from "@prisma/client";
 
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import { toHolidayEntity } from "../mappers/AttendanceDomainMapper";
 
 const HOLIDAY_CACHE_TTL_SECONDS = 86400;
+const DEFAULT_CACHE_VERSION = "0";
 
 type Holiday = Prisma.HolidayGetPayload<object>;
+type CachedHolidayCheck = {
+  isHoliday: boolean;
+  holiday?: Holiday | null;
+};
 
 export class HolidayRepository implements IHolidayRepository {
   async create(
@@ -19,7 +24,6 @@ export class HolidayRepository implements IHolidayRepository {
     const holiday = await prisma.holiday.create({
       data: { ...data, tenantId },
     });
-    // Invalidate holiday cache after creating new holiday
     await this.invalidateCache(tenantId);
     return holiday;
   }
@@ -33,7 +37,6 @@ export class HolidayRepository implements IHolidayRepository {
       where: { id, tenantId },
       data,
     });
-    // Invalidate holiday cache after updating
     await this.invalidateCache(tenantId);
     return holiday;
   }
@@ -42,7 +45,6 @@ export class HolidayRepository implements IHolidayRepository {
     const holiday = await prisma.holiday.delete({
       where: { id, tenantId },
     });
-    // Invalidate holiday cache after deleting
     await this.invalidateCache(tenantId);
     return holiday;
   }
@@ -71,139 +73,42 @@ export class HolidayRepository implements IHolidayRepository {
     isHoliday: boolean;
     holiday?: ReturnType<typeof toHolidayEntity> | null;
   }> {
-    const startOfDay = new Date(date);
-    startOfDay.setTime(toStartOfDay(startOfDay).getTime());
-
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setTime(toEndOfDay(endOfDay).getTime());
-
-    let cacheVersion = "0";
-    try {
-      const version = await redis.get(`holiday:${tenantId}:version`);
-      if (version) cacheVersion = version;
-    } catch (error) {
-      logger.error(
-        `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
-        error,
-      );
-    }
-
-    const cacheKey = `holiday:${tenantId}:v${cacheVersion}:${startOfDay.getTime()}`;
-
-    try {
-      const cachedRaw = await redis.get(cacheKey);
-      if (cachedRaw) {
-        const cached = JSON.parse(cachedRaw) as {
-          isHoliday: boolean;
-          holiday?: Holiday | null;
-        };
-
-        return {
-          isHoliday: cached.isHoliday,
-          holiday: cached.holiday ? toHolidayEntity(cached.holiday) : null,
-        };
-      }
-    } catch (error) {
-      logger.error(
-        `[HolidayRepository] Failed to read holiday cache for ${cacheKey}:`,
-        error,
-      );
-    }
+    const { startOfDay, endOfDay } = this.createDayRange(date);
+    const cacheKey = await this.buildDailyCacheKey(tenantId, startOfDay);
+    const cached = await this.readCachedHolidayCheck(cacheKey);
+    if (cached) return this.mapHolidayCheck(cached);
 
     const holiday = await prisma.holiday.findFirst({
       where: {
-        date: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+        date: { gte: startOfDay, lte: endOfDay },
         tenantId,
       },
     });
+    const result = { isHoliday: Boolean(holiday), holiday };
 
-    const result = {
-      isHoliday: !!holiday,
-      holiday,
-    };
-
-    try {
-      await redis.setex(
-        cacheKey,
-        HOLIDAY_CACHE_TTL_SECONDS,
-        JSON.stringify(result),
-      );
-    } catch (error) {
-      logger.error(
-        `[HolidayRepository] Failed to write holiday cache for ${cacheKey}:`,
-        error,
-      );
-    }
-
-    return {
-      isHoliday: result.isHoliday,
-      holiday: result.holiday ? toHolidayEntity(result.holiday) : null,
-    };
+    await this.writeCacheSafely(cacheKey, result, "holiday cache");
+    return this.mapHolidayCheck(result);
   }
 
+  /** Get all holidays in a year with tenant cache support. */
   async getHolidaysByYear(year: number, tenantId: string): Promise<Holiday[]> {
-    let cacheVersion = "0";
-    try {
-      const version = await redis.get(`holiday:${tenantId}:version`);
-      if (version) cacheVersion = version;
-    } catch (error) {
-      logger.error(
-        `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
-        error,
-      );
-    }
-
-    const cacheKey = `holidays:${tenantId}:v${cacheVersion}:year:${year}`;
-
-    try {
-      const cachedRaw = await redis.get(cacheKey);
-      if (cachedRaw) return JSON.parse(cachedRaw) as Holiday[];
-    } catch (error) {
-      logger.error(
-        `[HolidayRepository] Failed to read holidays-by-year cache for ${cacheKey}:`,
-        error,
-      );
-    }
-
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31, 23, 59, 59);
+    const cacheKey = await this.buildYearlyCacheKey(tenantId, year);
+    const cached = await this.readCachedYearlyHolidays(cacheKey);
+    if (cached) return cached;
 
     const holidays = await prisma.holiday.findMany({
       where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
+        date: this.createYearDateRange(year),
         tenantId,
       },
-      orderBy: {
-        date: "asc",
-      },
+      orderBy: { date: "asc" },
     });
 
-    try {
-      await redis.setex(
-        cacheKey,
-        HOLIDAY_CACHE_TTL_SECONDS,
-        JSON.stringify(holidays),
-      );
-    } catch (error) {
-      logger.error(
-        `[HolidayRepository] Failed to write holidays-by-year cache for ${cacheKey}:`,
-        error,
-      );
-    }
-
+    await this.writeCacheSafely(cacheKey, holidays, "holidays-by-year cache");
     return holidays;
   }
 
-  /**
-   * Invalidate all holiday-related cache entries
-   * Call this after creating, updating, or deleting holidays
-   */
+  /** Invalidate all holiday-related cache entries. */
   async invalidateCache(tenantId: string): Promise<void> {
     try {
       await redis.incr(`holiday:${tenantId}:version`);
@@ -216,10 +121,6 @@ export class HolidayRepository implements IHolidayRepository {
     }
   }
 
-  /**
-   * Find holiday for a tenant on a specific date range.
-   * Used by AttendanceAlertService for auto-alpha processing.
-   */
   /** Find holiday for a tenant within a day range. */
   async findFirstByTenantAndDateRange(
     tenantId: string,
@@ -237,5 +138,94 @@ export class HolidayRepository implements IHolidayRepository {
     });
 
     return holiday ? toHolidayEntity(holiday) : null;
+  }
+
+  private createDayRange(date: Date) {
+    const startOfDay = new Date(date);
+    startOfDay.setTime(toStartOfDay(startOfDay).getTime());
+
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setTime(toEndOfDay(endOfDay).getTime());
+
+    return { startOfDay, endOfDay };
+  }
+
+  private createYearDateRange(year: number) {
+    return {
+      gte: new Date(year, 0, 1),
+      lte: new Date(year, 11, 31, 23, 59, 59),
+    };
+  }
+
+  private async buildDailyCacheKey(tenantId: string, startOfDay: Date) {
+    const cacheVersion = await this.getCacheVersion(tenantId);
+    return `holiday:${tenantId}:v${cacheVersion}:${startOfDay.getTime()}`;
+  }
+
+  private async buildYearlyCacheKey(tenantId: string, year: number) {
+    const cacheVersion = await this.getCacheVersion(tenantId);
+    return `holidays:${tenantId}:v${cacheVersion}:year:${year}`;
+  }
+
+  private async getCacheVersion(tenantId: string) {
+    try {
+      return (
+        (await redis.get(`holiday:${tenantId}:version`)) ??
+        DEFAULT_CACHE_VERSION
+      );
+    } catch (error) {
+      logger.error(
+        `[HolidayRepository] Failed to read holiday cache version for tenant ${tenantId}:`,
+        error,
+      );
+      return DEFAULT_CACHE_VERSION;
+    }
+  }
+
+  private async readCachedHolidayCheck(cacheKey: string) {
+    return this.readCacheSafely<CachedHolidayCheck>(cacheKey, "holiday cache");
+  }
+
+  private async readCachedYearlyHolidays(cacheKey: string) {
+    return this.readCacheSafely<Holiday[]>(cacheKey, "holidays-by-year cache");
+  }
+
+  private async readCacheSafely<T>(cacheKey: string, label: string) {
+    try {
+      const cachedRaw = await redis.get(cacheKey);
+      return cachedRaw ? (JSON.parse(cachedRaw) as T) : null;
+    } catch (error) {
+      logger.error(
+        `[HolidayRepository] Failed to read ${label} for ${cacheKey}:`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  private async writeCacheSafely(
+    cacheKey: string,
+    value: unknown,
+    label: string,
+  ) {
+    try {
+      await redis.setex(
+        cacheKey,
+        HOLIDAY_CACHE_TTL_SECONDS,
+        JSON.stringify(value),
+      );
+    } catch (error) {
+      logger.error(
+        `[HolidayRepository] Failed to write ${label} for ${cacheKey}:`,
+        error,
+      );
+    }
+  }
+
+  private mapHolidayCheck(result: CachedHolidayCheck) {
+    return {
+      isHoliday: result.isHoliday,
+      holiday: result.holiday ? toHolidayEntity(result.holiday) : null,
+    };
   }
 }

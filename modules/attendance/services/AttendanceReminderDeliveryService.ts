@@ -60,25 +60,17 @@ export async function processCheckOutReminders(
   }
 }
 
+const LATE_CHECK_OUT_REMINDER_MINUTES = 180;
+const LATE_CHECK_OUT_WINDOW_MINUTES = 60;
+
 /** Kirim reminder check-out terlambat beberapa jam setelah shift selesai. */
 export async function processLateCheckOutReminders(): Promise<ReminderResult> {
-  const reminderMinutes = 180;
-  const windowMinutes = 60;
-
   try {
     const users = await getUsersNeedingCheckOutReminder(
-      reminderMinutes,
-      windowMinutes,
+      LATE_CHECK_OUT_REMINDER_MINUTES,
+      LATE_CHECK_OUT_WINDOW_MINUTES,
     );
-    if (users.length === 0) return { usersNotified: 0, details: [] };
-    const result = await sendScheduledReminders(
-      users,
-      buildLateCheckOutReminder,
-    );
-    logger.info(
-      `[AttendanceAlert] Sent LATE check-out reminder to ${result.usersNotified} users`,
-    );
-    return result;
+    return await sendLateCheckOutReminders(users);
   } catch (error) {
     logger.error(
       "[AttendanceAlert] Error sending late check-out reminders:",
@@ -88,39 +80,57 @@ export async function processLateCheckOutReminders(): Promise<ReminderResult> {
   }
 }
 
+async function sendLateCheckOutReminders(users: UserSchedule[]) {
+  if (users.length === 0) return { usersNotified: 0, details: [] };
+  const result = await sendScheduledReminders(users, buildLateCheckOutReminder);
+  logger.info(
+    `[AttendanceAlert] Sent LATE check-out reminder to ${result.usersNotified} users`,
+  );
+  return result;
+}
+
 /** Kirim reminder check-out untuk user flexible yang melewati target jam. */
 export async function processFlexibleReminders(): Promise<ReminderResult> {
   try {
-    const now = new Date();
-    const activeSessions =
-      await getAttendanceRepository().findActiveFlexibleSessionsWithUser();
-    if (activeSessions.length === 0) return { usersNotified: 0, details: [] };
-
-    const details: string[] = [];
-    let notified = 0;
-
-    for (const session of activeSessions) {
-      const reminder = await buildFlexibleReminder(session, now);
-      if (!reminder) continue;
-      await sendPushNotification(
-        session.user.id,
-        reminder.title,
-        reminder.message,
-        reminder.payload,
-      );
-      notified++;
-      details.push(reminder.detail);
-    }
-
-    if (notified > 0)
-      logger.info(
-        `[AttendanceAlert] Sent FLEXIBLE reminder to ${notified} users`,
-      );
-    return { usersNotified: notified, details };
+    const result = await sendFlexibleReminders(new Date());
+    logFlexibleReminderResult(result.usersNotified);
+    return result;
   } catch (error) {
     logger.error("[AttendanceAlert] Error sending flexible reminders:", error);
     return { usersNotified: 0, details: [] };
   }
+}
+
+async function sendFlexibleReminders(now: Date): Promise<ReminderResult> {
+  const activeSessions =
+    await getAttendanceRepository().findActiveFlexibleSessionsWithUser();
+  const reminders = await Promise.all(
+    activeSessions.map((session) => buildFlexibleReminder(session, now)),
+  );
+  return notifyFlexibleReminders(activeSessions, reminders);
+}
+
+async function notifyFlexibleReminders(
+  sessions: Array<{ user: { id: string } }>,
+  reminders: Array<Awaited<ReturnType<typeof buildFlexibleReminder>>>,
+) {
+  const details: string[] = [];
+  for (const [index, reminder] of reminders.entries()) {
+    if (!reminder) continue;
+    await sendPushNotification(
+      sessions[index].user.id,
+      reminder.title,
+      reminder.message,
+      reminder.payload,
+    );
+    details.push(reminder.detail);
+  }
+  return { usersNotified: details.length, details };
+}
+
+function logFlexibleReminderResult(notified: number) {
+  if (notified === 0) return;
+  logger.info(`[AttendanceAlert] Sent FLEXIBLE reminder to ${notified} users`);
 }
 
 async function sendScheduledReminders(

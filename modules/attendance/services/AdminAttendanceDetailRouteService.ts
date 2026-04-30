@@ -1,29 +1,19 @@
-import { Prisma } from "@prisma/client";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logActivitySafe } from "@/lib/logger";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
-import type { AttendanceUpdate } from "../validators/attendance";
-import { calculateAttendanceStatus } from "../utils/attendanceStatus";
-import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import { AttendanceSettingsService } from "./AttendanceSettingsService";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
-
-type AdminAttendanceUser = {
-  id: string;
-  workingHourMode?: string | null;
-  startWorkTime?: string | null;
-  shift?: { startTime?: string | null } | null;
-};
-
-type SessionUser = {
-  id: string;
-  isSuperAdmin?: boolean;
-};
-
-type DetailResult<T> =
-  | { type: "success"; data: T; message?: string }
-  | { type: "notFound"; message: string }
-  | { type: "badRequest"; message: string };
+import { AttendanceRepository } from "../repositories/AttendanceRepository";
+import { calculateAttendanceStatus } from "../utils/attendanceStatus";
+import type { AttendanceUpdate } from "../validators/attendance";
+import { AttendanceSettingsService } from "./AttendanceSettingsService";
+import type {
+  AdminAttendanceUser,
+  AttendanceUpdateInput,
+  DetailResult,
+  RestrictedScope,
+  SessionUser,
+} from "./admin-attendance-detail-route.types";
 
 function isBeforeJoinDate(attendance: {
   checkIn: Date;
@@ -42,7 +32,7 @@ function getScheduledStartTime(user: AdminAttendanceUser) {
   return user.startWorkTime ?? null;
 }
 
-async function getRestrictedScope(user: SessionUser) {
+async function getRestrictedScope(user: SessionUser): Promise<RestrictedScope> {
   const permissions = await getUserPermissions(user.id);
   if (isSuperAdmin(user)) return null;
 
@@ -77,47 +67,78 @@ async function buildAttendanceUpdateData(input: {
   payload: AttendanceUpdate;
   attendanceUser: AdminAttendanceUser;
   settingsService: AttendanceSettingsService;
-}): Promise<Prisma.AttendanceUpdateInput> {
-  const updateData: Prisma.AttendanceUpdateInput = {};
-  if (input.payload.checkIn)
-    updateData.checkIn = new Date(input.payload.checkIn);
-  if (input.payload.checkOut !== undefined) {
-    updateData.checkOut = input.payload.checkOut
-      ? new Date(input.payload.checkOut)
-      : null;
-  }
-  if (input.payload.notes !== undefined) updateData.notes = input.payload.notes;
-
-  const scheduledStartTime = getScheduledStartTime(input.attendanceUser);
-  const shouldRecalculateStatus = Boolean(
-    input.payload.checkIn &&
-    scheduledStartTime &&
-    input.attendanceUser.workingHourMode !== "FLEXIBLE",
-  );
-
-  if (shouldRecalculateStatus && input.payload.checkIn && scheduledStartTime) {
-    const settings = await input.settingsService.findManyByKeys([
-      "GENERAL_ATTENDANCE_TOLERANCE",
-      "GENERAL_TIMEZONE",
-    ]);
-    const settingsMap = new Map(
-      settings.map((setting) => [setting.key, setting.value]),
-    );
-    updateData.status = calculateAttendanceStatus({
-      checkInTime: new Date(input.payload.checkIn),
-      scheduleTime: scheduledStartTime,
-      timezone: settingsMap.get("GENERAL_TIMEZONE") || "Asia/Jakarta",
-      toleranceMinutes:
-        Number.parseInt(
-          settingsMap.get("GENERAL_ATTENDANCE_TOLERANCE") || "0",
-          10,
-        ) || 0,
-    });
+}): Promise<AttendanceUpdateInput> {
+  const updateData = buildBaseAttendanceUpdateData(input.payload);
+  const recalculatedStatus = await resolveRecalculatedStatus(input);
+  if (recalculatedStatus) {
+    updateData.status = recalculatedStatus;
     return updateData;
   }
-
   if (input.payload.status) updateData.status = input.payload.status;
   return updateData;
+}
+
+function buildBaseAttendanceUpdateData(payload: AttendanceUpdate) {
+  const updateData: AttendanceUpdateInput = {};
+  if (payload.checkIn) updateData.checkIn = new Date(payload.checkIn);
+  if (payload.checkOut !== undefined) {
+    updateData.checkOut = payload.checkOut ? new Date(payload.checkOut) : null;
+  }
+  if (payload.notes !== undefined) updateData.notes = payload.notes;
+  return updateData;
+}
+
+async function resolveRecalculatedStatus(input: {
+  payload: AttendanceUpdate;
+  attendanceUser: AdminAttendanceUser;
+  settingsService: AttendanceSettingsService;
+}) {
+  const scheduledStartTime = getScheduledStartTime(input.attendanceUser);
+  if (
+    !shouldRecalculateStatus(
+      input.payload.checkIn,
+      scheduledStartTime,
+      input.attendanceUser,
+    )
+  ) {
+    return null;
+  }
+
+  const settingsMap = await getAttendanceSettingsMap(input.settingsService);
+  return calculateAttendanceStatus({
+    checkInTime: new Date(input.payload.checkIn as string),
+    scheduleTime: scheduledStartTime as string,
+    timezone: settingsMap.get("GENERAL_TIMEZONE") || "Asia/Jakarta",
+    toleranceMinutes: parseToleranceMinutes(
+      settingsMap.get("GENERAL_ATTENDANCE_TOLERANCE"),
+    ),
+  });
+}
+
+function shouldRecalculateStatus(
+  checkIn: string | Date | undefined,
+  scheduledStartTime: string | null,
+  attendanceUser: AdminAttendanceUser,
+) {
+  return Boolean(
+    checkIn &&
+    scheduledStartTime &&
+    attendanceUser.workingHourMode !== "FLEXIBLE",
+  );
+}
+
+async function getAttendanceSettingsMap(
+  settingsService: AttendanceSettingsService,
+) {
+  const settings = await settingsService.findManyByKeys([
+    "GENERAL_ATTENDANCE_TOLERANCE",
+    "GENERAL_TIMEZONE",
+  ]);
+  return new Map(settings.map((setting) => [setting.key, setting.value]));
+}
+
+function parseToleranceMinutes(value: string | undefined) {
+  return Number.parseInt(value || "0", 10) || 0;
 }
 
 export class AdminAttendanceDetailRouteService {
@@ -128,7 +149,64 @@ export class AdminAttendanceDetailRouteService {
 
   /** Gets one admin attendance record with scope enforcement. */
   async getAttendance(id: string, user: SessionUser) {
-    const attendance = await this.attendanceRepository.findUnique({
+    const attendance = await this.findAttendanceDetail(id);
+    if (!attendance || isBeforeJoinDate(attendance)) {
+      return this.createNotFoundResult();
+    }
+    if (await isOutsideScope(attendance.user, user)) {
+      return this.createNotFoundResult();
+    }
+    return { type: "success", data: attendance } as const;
+  }
+
+  /** Updates one admin attendance record with scope enforcement. */
+  async updateAttendance(
+    id: string,
+    user: SessionUser,
+    payload: AttendanceUpdate,
+  ) {
+    const attendance = await this.findAttendanceForUpdate(id);
+    const validationResult = await this.validateMutableAttendance(
+      attendance,
+      user,
+    );
+    if (validationResult) return validationResult;
+
+    const updateData = await buildAttendanceUpdateData({
+      payload,
+      attendanceUser: attendance.user,
+      settingsService: this.settingsService,
+    });
+    const updated = await this.updateAttendanceRecord(id, updateData);
+    this.logAttendanceActivity("UPDATE", user.id, { id, updates: updateData });
+
+    return {
+      type: "success",
+      data: updated,
+      message: "Absensi berhasil diperbarui",
+    } as const;
+  }
+
+  /** Deletes one admin attendance record with scope enforcement. */
+  async deleteAttendance(id: string, user: SessionUser) {
+    const attendance = await this.findAttendanceForDelete(id);
+    if (!attendance) return this.createNotFoundResult();
+    if (await isOutsideScope(attendance.user, user)) {
+      return this.createNotFoundResult();
+    }
+
+    await this.attendanceRepository.delete({ where: { id } });
+    this.logAttendanceActivity("DELETE", user.id, { id });
+
+    return {
+      type: "success",
+      data: { id },
+      message: "Absensi berhasil dihapus",
+    } as const;
+  }
+
+  private async findAttendanceDetail(id: string) {
+    return this.attendanceRepository.findUnique({
       where: { id },
       include: {
         user: {
@@ -146,40 +224,27 @@ export class AdminAttendanceDetailRouteService {
         },
       },
     });
-
-    if (!attendance || isBeforeJoinDate(attendance)) {
-      return {
-        type: "notFound",
-        message: "Data absensi tidak ditemukan",
-      } as const;
-    }
-    if (await isOutsideScope(attendance.user, user)) {
-      return {
-        type: "notFound",
-        message: "Data absensi tidak ditemukan",
-      } as const;
-    }
-
-    return { type: "success", data: attendance } as const;
   }
 
-  /** Updates one admin attendance record with scope enforcement. */
-  async updateAttendance(
-    id: string,
-    user: SessionUser,
-    payload: AttendanceUpdate,
-  ) {
-    const attendance = await this.attendanceRepository.findUnique({
+  private async findAttendanceForUpdate(id: string) {
+    return this.attendanceRepository.findUnique({
       where: { id },
       include: { user: { include: { shift: true } } },
     });
+  }
 
-    if (!attendance) {
-      return {
-        type: "notFound",
-        message: "Data absensi tidak ditemukan",
-      } as const;
-    }
+  private async findAttendanceForDelete(id: string) {
+    return this.attendanceRepository.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+  }
+
+  private async validateMutableAttendance(
+    attendance: Awaited<ReturnType<typeof this.findAttendanceForUpdate>>,
+    user: SessionUser,
+  ) {
+    if (!attendance) return this.createNotFoundResult();
     if (isBeforeJoinDate(attendance)) {
       return {
         type: "badRequest",
@@ -187,20 +252,18 @@ export class AdminAttendanceDetailRouteService {
       } as const;
     }
     if (await isOutsideScope(attendance.user, user)) {
-      return {
-        type: "notFound",
-        message: "Data absensi tidak ditemukan",
-      } as const;
+      return this.createNotFoundResult();
     }
+    return null;
+  }
 
-    const updateData = await buildAttendanceUpdateData({
-      payload,
-      attendanceUser: attendance.user,
-      settingsService: this.settingsService,
-    });
-    const updated = await this.attendanceRepository.updateByArgs({
+  private updateAttendanceRecord(
+    id: string,
+    data: Prisma.AttendanceUpdateInput,
+  ) {
+    return this.attendanceRepository.updateByArgs({
       where: { id },
-      data: updateData,
+      data,
       include: {
         user: {
           select: {
@@ -213,53 +276,25 @@ export class AdminAttendanceDetailRouteService {
         },
       },
     });
-
-    logActivitySafe({
-      action: "UPDATE",
-      subject: "Attendance",
-      userId: user.id,
-      details: { id, updates: updateData },
-    });
-
-    return {
-      type: "success",
-      data: updated,
-      message: "Absensi berhasil diperbarui",
-    } as const;
   }
 
-  /** Deletes one admin attendance record with scope enforcement. */
-  async deleteAttendance(id: string, user: SessionUser) {
-    const attendance = await this.attendanceRepository.findUnique({
-      where: { id },
-      include: { user: true },
-    });
-
-    if (!attendance) {
-      return {
-        type: "notFound",
-        message: "Data absensi tidak ditemukan",
-      } as const;
-    }
-    if (await isOutsideScope(attendance.user, user)) {
-      return {
-        type: "notFound",
-        message: "Data absensi tidak ditemukan",
-      } as const;
-    }
-
-    await this.attendanceRepository.delete({ where: { id } });
+  private logAttendanceActivity(
+    action: "UPDATE" | "DELETE",
+    userId: string,
+    details: Record<string, unknown>,
+  ) {
     logActivitySafe({
-      action: "DELETE",
+      action,
       subject: "Attendance",
-      userId: user.id,
-      details: { id },
+      userId,
+      details,
     });
+  }
 
+  private createNotFoundResult() {
     return {
-      type: "success",
-      data: { id },
-      message: "Absensi berhasil dihapus",
+      type: "notFound",
+      message: "Data absensi tidak ditemukan",
     } as const;
   }
 }

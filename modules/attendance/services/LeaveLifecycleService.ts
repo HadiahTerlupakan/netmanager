@@ -1,25 +1,43 @@
-import { logger } from "@/lib/logger";
-import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { UserLookupService } from "@/modules/users";
-import type { Prisma } from "@prisma/client";
-import type { CreateLeaveData, ServiceResult } from "./LeaveService";
-import type { LeaveWithUser } from "./LeaveLifecycleTypes";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
+import type { CreateLeaveData, ServiceResult } from "./LeaveService";
 import { LeaveAttendanceSyncService } from "./LeaveAttendanceSyncService";
 import { LeaveBalanceUsageService } from "./LeaveBalanceUsageService";
 import { LeaveNotificationService } from "./LeaveNotificationService";
-import { validateTukarLiburRules } from "./LeaveTukarLiburValidationService";
+import type {
+  CreateLeaveContext,
+  CreateValidationResult,
+  ExistingLeaveResult,
+  LeaveResult,
+  LeaveWithUser,
+} from "./LeaveLifecycleTypes";
+import { validateTukarLiburCreateRequest } from "./LeaveTukarLiburValidationService";
+import {
+  buildCreateBalanceInput,
+  buildExistingBalanceInput,
+  emptyBalanceInput,
+  insufficientBalanceResult,
+  createDecisionDetails,
+  logLeaveMutation,
+  notifyLeaveDecision,
+  revertApprovedLeave,
+  syncApprovedLeave,
+  syncAutoApprovedLeave,
+} from "./leave-lifecycle.helpers";
+import {
+  createLeaveFailureResult,
+  handleDeleteLeaveError,
+  handleLeaveError,
+} from "./leave-lifecycle-error.helpers";
 
-type LeaveResult = ServiceResult<Prisma.LeaveRequestGetPayload<object>>;
-type BalanceUsageInput = Parameters<
-  LeaveBalanceUsageService["incrementUsed"]
->[0];
-type CreateValidationResult =
-  | { success: true; leaveDays: number; balanceInput: BalanceUsageInput }
-  | { success: false; error: string; code: string };
+const NOT_FOUND_RESULT: ExistingLeaveResult = {
+  success: false,
+  error: "Cuti tidak ditemukan",
+  code: "NOT_FOUND",
+};
 
 export class LeaveLifecycleService {
   constructor(
@@ -39,52 +57,18 @@ export class LeaveLifecycleService {
     autoApprove: boolean,
   ): Promise<LeaveResult> {
     try {
-      const user = await this.userRepository.findWorkScheduleByIdWithTenant(
-        data.userId,
+      return await this.createLeaveUnsafe(data, {
+        actorId: createdById,
         tenantId,
-      );
-      const validation = await this.validateCreateRequest(data, tenantId, user);
-      if (!validation.success) return validation;
-
-      const leave = await this.repository.create({
-        userId: data.userId,
-        type: data.type,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        reason: data.reason,
-        replacementDate: data.replacementDate ?? null,
-        attachmentUrl: data.attachmentUrl ?? null,
-        status: autoApprove ? "APPROVED" : "PENDING",
-        approvedBy: autoApprove ? createdById : null,
-        tenantId,
+        autoApprove,
       });
-
-      if (autoApprove && user) {
-        await this.balanceUsageService.incrementUsed(
-          validation.balanceInput,
-          validation.leaveDays,
-        );
-        await this.syncCreatedLeave(leave.id, tenantId);
-      }
-
-      this.logActivity("CREATE", "LeaveRequest", createdById, {
-        id: leave.id,
-        userId: data.userId,
-        type: data.type,
-        autoApproved: autoApprove,
-      });
-
-      return { success: true, data: leave };
     } catch (error) {
-      logger.error(
+      return handleLeaveError(
         "LeaveService.createLeave failed",
-        error instanceof Error ? error : undefined,
+        error,
+        "Gagal membuat cuti",
+        "CREATE_ERROR",
       );
-      return {
-        success: false,
-        error: "Gagal membuat cuti",
-        code: "CREATE_ERROR",
-      };
     }
   }
 
@@ -96,56 +80,59 @@ export class LeaveLifecycleService {
   ): Promise<LeaveResult> {
     try {
       const existing = await this.getExistingLeave(id, tenantId);
-      if (!existing.success) return existing;
-      if (existing.data.status === "APPROVED") {
-        return {
-          success: false,
-          error: "Cuti sudah disetujui",
-          code: "ALREADY_APPROVED",
+      if (!existing.success) {
+        const failure = existing as {
+          success: false;
+          error: string;
+          code: string;
         };
+        return { success: false, error: failure.error, code: failure.code };
+      }
+      if (existing.data.status === "APPROVED") {
+        return createLeaveFailureResult(
+          "Cuti sudah disetujui",
+          "ALREADY_APPROVED",
+        );
       }
 
-      const balanceInput = this.buildExistingBalanceInput(
+      const balance = await this.getApprovedLeaveBalance(
         existing.data,
         tenantId,
       );
-      const leaveDays =
-        await this.balanceUsageService.calculateLeaveDays(balanceInput);
-      const hasEnough = await this.balanceUsageService.hasEnoughDays(
-        balanceInput,
-        leaveDays,
-      );
-      if (!hasEnough) return this.insufficientBalanceResult();
+      if (!balance.hasEnough) return insufficientBalanceResult();
 
       const leave = await this.repository.update(id, {
         status: "APPROVED",
         approvedBy: approverId,
       });
-      await this.balanceUsageService.incrementUsed(balanceInput, leaveDays);
-      await this.syncApprovedLeave(existing.data);
-      this.logActivity("UPDATE", "LeaveRequest", approverId, {
-        id,
-        status: "APPROVED",
-        userId: existing.data.userId,
-        employeeName: existing.data.user.name,
-      });
-      await this.sendNotification(
-        existing.data.userId,
-        "✅ Izin Disetujui",
-        "Pengajuan izin Anda telah disetujui.",
-        leave.id,
+      await this.balanceUsageService.incrementUsed(
+        balance.balanceInput,
+        balance.leaveDays,
       );
+      await syncApprovedLeave(this.attendanceSyncService, existing.data);
+      logLeaveMutation(this.notificationService, {
+        action: "UPDATE",
+        userId: approverId,
+        details: createDecisionDetails({
+          id,
+          status: "APPROVED",
+          leave: existing.data,
+        }),
+      });
+      await notifyLeaveDecision(this.notificationService, {
+        userId: existing.data.userId,
+        title: "Izin Disetujui",
+        message: "Pengajuan izin Anda telah disetujui.",
+        sourceId: leave.id,
+      });
       return { success: true, data: leave };
     } catch (error) {
-      logger.error(
+      return handleLeaveError(
         "LeaveService.approveLeave failed",
-        error instanceof Error ? error : undefined,
+        error,
+        "Gagal menyetujui cuti",
+        "APPROVE_ERROR",
       );
-      return {
-        success: false,
-        error: "Gagal menyetujui cuti",
-        code: "APPROVE_ERROR",
-      };
     }
   }
 
@@ -158,36 +145,49 @@ export class LeaveLifecycleService {
   ): Promise<LeaveResult> {
     try {
       const existing = await this.getExistingLeave(id, tenantId);
-      if (!existing.success) return existing;
-      await this.revertApprovedLeave(existing.data, tenantId, "reject");
+      if (!existing.success) {
+        const failure = existing as {
+          success: false;
+          error: string;
+          code: string;
+        };
+        return { success: false, error: failure.error, code: failure.code };
+      }
+      await revertApprovedLeave({
+        leave: existing.data,
+        tenantId,
+        action: "reject",
+        balanceUsageService: this.balanceUsageService,
+        attendanceSyncService: this.attendanceSyncService,
+      });
       const leave = await this.repository.update(id, {
         status: "REJECTED",
         rejectionReason,
       });
-      this.logActivity("UPDATE", "LeaveRequest", approverId, {
-        id,
-        status: "REJECTED",
-        rejectionReason,
-        userId: existing.data.userId,
-        employeeName: existing.data.user.name,
+      logLeaveMutation(this.notificationService, {
+        action: "UPDATE",
+        userId: approverId,
+        details: createDecisionDetails({
+          id,
+          status: "REJECTED",
+          leave: existing.data,
+          extra: { rejectionReason },
+        }),
       });
-      await this.sendNotification(
-        existing.data.userId,
-        "❌ Izin Ditolak",
-        `Pengajuan izin Anda ditolak. Alasan: ${rejectionReason}`,
-        leave.id,
-      );
+      await notifyLeaveDecision(this.notificationService, {
+        userId: existing.data.userId,
+        title: "Izin Ditolak",
+        message: `Pengajuan izin Anda ditolak. Alasan: ${rejectionReason}`,
+        sourceId: leave.id,
+      });
       return { success: true, data: leave };
     } catch (error) {
-      logger.error(
+      return handleLeaveError(
         "LeaveService.rejectLeave failed",
-        error instanceof Error ? error : undefined,
+        error,
+        "Gagal menolak cuti",
+        "REJECT_ERROR",
       );
-      return {
-        success: false,
-        error: "Gagal menolak cuti",
-        code: "REJECT_ERROR",
-      };
     }
   }
 
@@ -199,32 +199,82 @@ export class LeaveLifecycleService {
   ): Promise<ServiceResult<void>> {
     try {
       const existing = await this.getExistingLeave(id, tenantId);
-      if (!existing.success) return existing;
-      await this.revertApprovedLeave(existing.data, tenantId, "deletion");
+      if (!existing.success) {
+        const failure = existing as {
+          success: false;
+          error: string;
+          code: string;
+        };
+        return { success: false, error: failure.error, code: failure.code };
+      }
+      await revertApprovedLeave({
+        leave: existing.data,
+        tenantId,
+        action: "deletion",
+        balanceUsageService: this.balanceUsageService,
+        attendanceSyncService: this.attendanceSyncService,
+      });
       await this.repository.delete(id);
-      this.logActivity("DELETE", "LeaveRequest", deletedById, {
-        id,
-        employeeName: existing.data.user?.name,
+      logLeaveMutation(this.notificationService, {
+        action: "DELETE",
+        userId: deletedById,
+        details: { id, employeeName: existing.data.user?.name },
       });
       return { success: true };
     } catch (error) {
-      logger.error(
-        "LeaveService.deleteLeave failed",
-        error instanceof Error ? error : undefined,
-      );
-      if (isPrismaRecordNotFoundError(error)) {
-        return {
-          success: false,
-          error: "Cuti tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-      return {
-        success: false,
-        error: "Gagal menghapus cuti",
-        code: "DELETE_ERROR",
-      };
+      return handleDeleteLeaveError(error);
     }
+  }
+
+  private async createLeaveUnsafe(
+    data: CreateLeaveData,
+    context: CreateLeaveContext,
+  ): Promise<LeaveResult> {
+    const user = await this.userRepository.findWorkScheduleByIdWithTenant(
+      data.userId,
+      context.tenantId,
+    );
+    const validation = await this.validateCreateRequest(
+      data,
+      context.tenantId,
+      user,
+    );
+    if (!validation.success) return validation;
+
+    const leave = await this.repository.create({
+      userId: data.userId,
+      type: data.type,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      reason: data.reason,
+      replacementDate: data.replacementDate ?? null,
+      attachmentUrl: data.attachmentUrl ?? null,
+      status: context.autoApprove ? "APPROVED" : "PENDING",
+      approvedBy: context.autoApprove ? context.actorId : null,
+      tenantId: context.tenantId,
+    });
+
+    await syncAutoApprovedLeave({
+      repository: this.repository,
+      attendanceSyncService: this.attendanceSyncService,
+      balanceUsageService: this.balanceUsageService,
+      leaveId: leave.id,
+      user,
+      tenantId: context.tenantId,
+      autoApprove: context.autoApprove,
+      validation,
+    });
+    logLeaveMutation(this.notificationService, {
+      action: "CREATE",
+      userId: context.actorId,
+      details: {
+        id: leave.id,
+        userId: data.userId,
+        type: data.type,
+        autoApproved: context.autoApprove,
+      },
+    });
+    return { success: true, data: leave };
   }
 
   private async validateCreateRequest(
@@ -232,180 +282,65 @@ export class LeaveLifecycleService {
     tenantId: string,
     user: { workDays: string | null; workingHourMode?: string | null } | null,
   ): Promise<CreateValidationResult> {
-    const tukarLiburError = await this.validateTukarLibur(data, tenantId, user);
-    if (tukarLiburError) return tukarLiburError;
-    if (!user)
-      return {
-        success: true as const,
-        leaveDays: 0,
-        balanceInput: this.emptyBalanceInput(data, tenantId),
+    const tukarLiburValidation = await validateTukarLiburCreateRequest({
+      data,
+      tenantId,
+      user,
+      dependencies: {
+        isHoliday: this.holidayRepository.isHoliday.bind(
+          this.holidayRepository,
+        ),
+      },
+    });
+    if (!tukarLiburValidation.success) {
+      const validationFailure = tukarLiburValidation as {
+        success: false;
+        error: string;
       };
-    const balanceInput = this.buildCreateBalanceInput(data, tenantId, user);
+      return {
+        success: false,
+        error: validationFailure.error,
+        code: "VALIDATION_ERROR",
+      };
+    }
+    if (!user) {
+      return {
+        success: true,
+        leaveDays: 0,
+        balanceInput: emptyBalanceInput(data, tenantId),
+      };
+    }
+
+    const balanceInput = buildCreateBalanceInput(data, tenantId, user);
     const leaveDays =
       await this.balanceUsageService.calculateLeaveDays(balanceInput);
     const hasEnough = await this.balanceUsageService.hasEnoughDays(
       balanceInput,
       leaveDays,
     );
-    if (!hasEnough) return this.insufficientBalanceResult();
-    return { success: true as const, leaveDays, balanceInput };
+    if (!hasEnough) return insufficientBalanceResult();
+    return { success: true, leaveDays, balanceInput };
   }
 
-  private async validateTukarLibur(
-    data: CreateLeaveData,
+  private async getExistingLeave(
+    id: string,
     tenantId: string,
-    user: { workDays: string | null } | null,
-  ): Promise<CreateValidationResult | null> {
-    if (data.type !== "TUKAR_LIBUR") return null;
-    const validation = await validateTukarLiburRules(
-      {
-        userId: data.userId,
-        tenantId,
-        startDate: data.startDate,
-        replacementDate: data.replacementDate,
-        workDays: user?.workDays ?? null,
-      },
-      {
-        isHoliday: this.holidayRepository.isHoliday.bind(
-          this.holidayRepository,
-        ),
-      },
-    );
-    if ("error" in validation) {
-      return {
-        success: false,
-        error: validation.error,
-        code: "VALIDATION_ERROR",
-      };
-    }
-    return null;
-  }
-
-  private async getExistingLeave(id: string, tenantId: string) {
+  ): Promise<ExistingLeaveResult> {
     const leave = await this.repository.findByIdWithUser(id, tenantId);
-    if (!leave)
-      return {
-        success: false as const,
-        error: "Cuti tidak ditemukan",
-        code: "NOT_FOUND",
-      };
-    return { success: true as const, data: leave };
+    return leave ? { success: true, data: leave } : NOT_FOUND_RESULT;
   }
 
-  private async syncCreatedLeave(leaveId: string, tenantId: string) {
-    try {
-      const leave = await this.repository.findByIdWithUser(leaveId, tenantId);
-      if (leave) await this.attendanceSyncService.syncLeaveToAttendance(leave);
-    } catch (error) {
-      logger.error(
-        "Failed to sync leave to attendance",
-        error instanceof Error ? error : undefined,
-      );
-    }
-  }
-
-  private async syncApprovedLeave(leave: LeaveWithUser) {
-    try {
-      await this.attendanceSyncService.syncLeaveToAttendance(leave);
-    } catch (error) {
-      logger.error(
-        "Failed to sync leave to attendance in approve",
-        error instanceof Error ? error : undefined,
-      );
-    }
-  }
-
-  private async revertApprovedLeave(
+  private async getApprovedLeaveBalance(
     leave: LeaveWithUser,
     tenantId: string,
-    action: "reject" | "deletion",
   ) {
-    if (leave.status !== "APPROVED") return;
-    await this.balanceUsageService.refundUsed(
-      this.buildExistingBalanceInput(leave, tenantId),
+    const balanceInput = buildExistingBalanceInput(leave, tenantId);
+    const leaveDays =
+      await this.balanceUsageService.calculateLeaveDays(balanceInput);
+    const hasEnough = await this.balanceUsageService.hasEnoughDays(
+      balanceInput,
+      leaveDays,
     );
-    try {
-      await this.attendanceSyncService.revertLeaveFromAttendance(leave);
-    } catch (error) {
-      const context = action === "reject" ? "reject" : "deletion";
-      logger.error(
-        `Failed to revert attendance in ${context}`,
-        error instanceof Error ? error : undefined,
-      );
-    }
-  }
-
-  private logActivity(
-    action: string,
-    subject: string,
-    userId: string,
-    details: Record<string, unknown>,
-  ) {
-    this.notificationService.logActivity({ action, subject, userId, details });
-  }
-
-  private async sendNotification(
-    userId: string,
-    title: string,
-    message: string,
-    sourceId: string,
-  ) {
-    await this.notificationService.sendNotification({
-      userId,
-      title,
-      message,
-      sourceId,
-    });
-  }
-
-  private buildCreateBalanceInput(
-    data: CreateLeaveData,
-    tenantId: string,
-    user: { workDays: string | null; workingHourMode?: string | null },
-  ) {
-    return {
-      userId: data.userId,
-      tenantId,
-      type: data.type,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      workDays: user.workDays,
-      workingHourMode: user.workingHourMode,
-    };
-  }
-
-  private buildExistingBalanceInput(leave: LeaveWithUser, tenantId: string) {
-    return {
-      userId: leave.userId,
-      tenantId,
-      type: leave.type,
-      startDate: leave.startDate,
-      endDate: leave.endDate,
-      workDays: leave.user.workDays,
-      workingHourMode: leave.user.workingHourMode,
-    };
-  }
-
-  private emptyBalanceInput(
-    data: CreateLeaveData,
-    tenantId: string,
-  ): BalanceUsageInput {
-    return {
-      userId: data.userId,
-      tenantId,
-      type: data.type,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      workDays: null,
-      workingHourMode: null,
-    };
-  }
-
-  private insufficientBalanceResult() {
-    return {
-      success: false as const,
-      error: "Sisa cuti tidak mencukupi",
-      code: "INSUFFICIENT_BALANCE",
-    };
+    return { balanceInput, leaveDays, hasEnough };
   }
 }

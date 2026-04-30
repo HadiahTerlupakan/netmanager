@@ -11,6 +11,26 @@ import {
 import { AbsenceDayOffSyncService } from "./AbsenceDayOffSyncService";
 import { AttendanceWorkdayService } from "./AttendanceWorkdayService";
 
+const DAY_OFF_HOLIDAY_NOTE = "Hari Libur (Day Off) - Auto Generated";
+const DAY_OFF_REGULAR_NOTE = "Hari Off (Day Off) - Auto Generated";
+const ABSENT_NOTE = "Tidak Masuk Kerja (Absent) - Auto Generated";
+const SYSTEM_LOCATION = "System";
+
+type AttendanceCandidateUser = {
+  id: string;
+  name: string | null;
+  workDays: string | null;
+};
+
+type UserAbsenceInput = {
+  user: AttendanceCandidateUser;
+  targetDate: Date;
+  startOfDay: Date;
+  endOfDay: Date;
+  isHoliday: boolean;
+  tenantId: string;
+};
+
 export class AbsenceService {
   private readonly attendanceRepo = createAttendanceRepository();
   private readonly holidayRepo = createHolidayRepository();
@@ -27,33 +47,20 @@ export class AbsenceService {
 
   /** Process absence untuk tanggal tertentu dalam tenant. */
   async processDailyAbsence(targetDate: Date, tenantId: string) {
-    const startOfDay = new Date(toStartOfDay(targetDate));
-    const endOfDay = new Date(toEndOfDay(targetDate));
-    const [isHoliday, users] = await Promise.all([
-      this.isHoliday(tenantId, startOfDay, endOfDay),
-      this.userRepo.findActiveForAttendance(tenantId, undefined, startOfDay),
-    ]);
-    let absent = 0;
-    let dayOff = 0;
-
-    for (const user of users) {
-      const result = await this.processUserAbsence({
-        user,
-        targetDate,
-        startOfDay,
-        endOfDay,
-        isHoliday,
-        tenantId,
-      });
-      if (result === "absent") absent++;
-      if (result === "dayOff") dayOff++;
-    }
+    const { startOfDay, endOfDay } = this.createDayRange(targetDate);
+    const context = await this.getDailyAbsenceContext(
+      targetDate,
+      tenantId,
+      startOfDay,
+      endOfDay,
+    );
+    const summary = await this.processUsersAbsence(context);
 
     return {
-      processed: users.length,
-      absent,
-      dayOff,
-      ...(isHoliday ? { message: "Holiday" } : {}),
+      processed: context.users.length,
+      absent: summary.absent,
+      dayOff: summary.dayOff,
+      ...(context.isHoliday ? { message: "Holiday" } : {}),
     };
   }
 
@@ -72,23 +79,73 @@ export class AbsenceService {
     );
   }
 
-  private async processUserAbsence(input: {
-    user: { id: string; name: string | null; workDays: string | null };
+  private createDayRange(targetDate: Date) {
+    return {
+      startOfDay: new Date(toStartOfDay(targetDate)),
+      endOfDay: new Date(toEndOfDay(targetDate)),
+    };
+  }
+
+  private async getDailyAbsenceContext(
+    targetDate: Date,
+    tenantId: string,
+    startOfDay: Date,
+    endOfDay: Date,
+  ) {
+    const [isHoliday, users] = await Promise.all([
+      this.isHoliday(tenantId, startOfDay, endOfDay),
+      this.userRepo.findActiveForAttendance(tenantId, undefined, startOfDay),
+    ]);
+
+    return { targetDate, tenantId, startOfDay, endOfDay, isHoliday, users };
+  }
+
+  private async processUsersAbsence(context: {
     targetDate: Date;
+    tenantId: string;
     startOfDay: Date;
     endOfDay: Date;
     isHoliday: boolean;
-    tenantId: string;
+    users: AttendanceCandidateUser[];
   }) {
+    const summary = { absent: 0, dayOff: 0 };
+
+    for (const user of context.users) {
+      const result = await this.processUserAbsence({
+        user,
+        targetDate: context.targetDate,
+        startOfDay: context.startOfDay,
+        endOfDay: context.endOfDay,
+        isHoliday: context.isHoliday,
+        tenantId: context.tenantId,
+      });
+      this.incrementSummary(summary, result);
+    }
+
+    return summary;
+  }
+
+  private incrementSummary(
+    summary: { absent: number; dayOff: number },
+    result: "absent" | "dayOff" | "present",
+  ) {
+    if (result === "absent") summary.absent += 1;
+    if (result === "dayOff") summary.dayOff += 1;
+  }
+
+  private async processUserAbsence(input: UserAbsenceInput) {
     if (await this.hasAttendanceOrLeave(input)) return "present";
-    const isWorkDay = this.workdayService.isWorkDay(
+    if (this.shouldCreateDayOff(input))
+      return this.createDayOffAttendance(input);
+    return this.createAbsentAttendance(input);
+  }
+
+  private shouldCreateDayOff(input: UserAbsenceInput) {
+    if (input.isHoliday) return true;
+    return !this.workdayService.isWorkDay(
       input.user.workDays,
       input.targetDate,
     );
-    if (input.isHoliday || !isWorkDay) {
-      return this.createDayOffAttendance(input);
-    }
-    return this.createAbsentAttendance(input);
   }
 
   private async hasAttendanceOrLeave(input: {
@@ -127,10 +184,8 @@ export class AbsenceService {
         tenantId: input.tenantId,
         checkIn: new Date(toStartOfDay(input.startOfDay)),
         status: "DAY_OFF",
-        notes: input.isHoliday
-          ? "Hari Libur (Day Off) - Auto Generated"
-          : "Hari Off (Day Off) - Auto Generated",
-        location: "System",
+        notes: input.isHoliday ? DAY_OFF_HOLIDAY_NOTE : DAY_OFF_REGULAR_NOTE,
+        location: SYSTEM_LOCATION,
         updatedAt: new Date(),
       });
       return "dayOff";
@@ -157,8 +212,8 @@ export class AbsenceService {
         tenantId: input.tenantId,
         checkIn: alphaTime,
         status: "ABSENT",
-        notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
-        location: "System",
+        notes: ABSENT_NOTE,
+        location: SYSTEM_LOCATION,
         updatedAt: new Date(),
       });
       this.publishAbsentEvent(

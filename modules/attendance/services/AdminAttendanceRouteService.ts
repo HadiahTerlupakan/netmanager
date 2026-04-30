@@ -2,8 +2,8 @@ import type { Prisma } from "@prisma/client";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { prisma } from "@/modules/database";
-import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
+import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AdminAttendanceListService } from "./AdminAttendanceListService";
 import { syncAttendanceDependencies } from "./AdminAttendanceSyncService";
 import type {
@@ -12,6 +12,11 @@ import type {
 } from "./AdminAttendanceTypes";
 
 const NO_SCOPE_MATCH = "__NO_SCOPE_MATCH__";
+
+type ScopedAdminUser = {
+  siteId: string | null | undefined;
+  departmentId: string | null | undefined;
+};
 
 export class AdminAttendanceRouteService {
   private readonly attendanceRepository: IAttendanceRepository;
@@ -40,7 +45,6 @@ export class AdminAttendanceRouteService {
 
     const timezone = await getTimezone(tenantId);
     await syncAttendanceDependencies(input, timezone, tenantId);
-
     return this.listService.getAdminAttendances(user, input, timezone);
   }
 
@@ -48,42 +52,11 @@ export class AdminAttendanceRouteService {
   async deleteAdminAttendances(user: AdminAttendanceUser, ids: string[]) {
     const tenantId = user.tenantId;
     if (!tenantId) {
-      return {
-        ok: false as const,
-        code: 400,
-        message: "Tenant ID tidak ditemukan",
-      };
+      return this.createTenantError();
     }
 
-    const attendanceWhere: Prisma.AttendanceWhereInput = {
-      tenantId,
-      id: { in: ids },
-    };
-    const permissions = await getUserPermissions(user.id);
-    const superAdmin = isSuperAdmin(user);
-
-    if (!superAdmin) {
-      const currentUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { siteId: true, departmentId: true },
-      });
-      const userScope = this.buildDeletionUserScope(
-        permissions,
-        currentUser?.siteId,
-        currentUser?.departmentId,
-      );
-      if (userScope.id === NO_SCOPE_MATCH) {
-        attendanceWhere.user = { id: NO_SCOPE_MATCH };
-      } else if (Object.keys(userScope).length > 0) {
-        attendanceWhere.user = userScope;
-      }
-    }
-
-    const deletableAttendances = await this.attendanceRepository.findMany({
-      where: attendanceWhere,
-      select: { id: true },
-    });
-    const deletedIds = deletableAttendances.map((attendance) => attendance.id);
+    const attendanceWhere = await this.buildDeletionWhere(user, ids, tenantId);
+    const deletedIds = await this.findDeletableAttendanceIds(attendanceWhere);
 
     if (deletedIds.length > 0) {
       await this.attendanceRepository.deleteMany({
@@ -92,22 +65,13 @@ export class AdminAttendanceRouteService {
       });
     }
 
-    return {
-      ok: true as const,
-      data: {
-        requestedCount: ids.length,
-        deletedCount: deletedIds.length,
-        deletedIds,
-        skippedCount: ids.length - deletedIds.length,
-      },
-    };
+    return this.createDeletionResult(ids, deletedIds);
   }
 
   /** Build user scope for attendance deletion. */
   private buildDeletionUserScope(
     permissions: string[],
-    siteId: string | null | undefined,
-    departmentId: string | null | undefined,
+    currentUser: ScopedAdminUser,
   ) {
     const userScope: Prisma.UserWhereInput = {};
     const hasSiteOnlyScope = permissions.includes("attendance:site_only");
@@ -115,10 +79,80 @@ export class AdminAttendanceRouteService {
       "attendance:department_only",
     );
 
-    if (hasSiteOnlyScope && !siteId) return { id: NO_SCOPE_MATCH };
-    if (hasDepartmentOnlyScope && !departmentId) return { id: NO_SCOPE_MATCH };
-    if (hasSiteOnlyScope) userScope.siteId = siteId;
-    if (hasDepartmentOnlyScope) userScope.departmentId = departmentId;
+    if (hasSiteOnlyScope && !currentUser.siteId) return { id: NO_SCOPE_MATCH };
+    if (hasDepartmentOnlyScope && !currentUser.departmentId) {
+      return { id: NO_SCOPE_MATCH };
+    }
+    if (hasSiteOnlyScope) userScope.siteId = currentUser.siteId;
+    if (hasDepartmentOnlyScope)
+      userScope.departmentId = currentUser.departmentId;
     return userScope;
+  }
+
+  private createTenantError() {
+    return {
+      ok: false as const,
+      code: 400,
+      message: "Tenant ID tidak ditemukan",
+    };
+  }
+
+  private async buildDeletionWhere(
+    user: AdminAttendanceUser,
+    ids: string[],
+    tenantId: string,
+  ) {
+    const attendanceWhere: Prisma.AttendanceWhereInput = {
+      tenantId,
+      id: { in: ids },
+    };
+    if (isSuperAdmin(user)) return attendanceWhere;
+
+    const [permissions, currentUser] = await Promise.all([
+      getUserPermissions(user.id),
+      this.findCurrentUserScope(user.id),
+    ]);
+    const userScope = this.buildDeletionUserScope(permissions, currentUser);
+
+    if (userScope.id === NO_SCOPE_MATCH) {
+      attendanceWhere.user = { id: NO_SCOPE_MATCH };
+      return attendanceWhere;
+    }
+    if (Object.keys(userScope).length > 0) {
+      attendanceWhere.user = userScope;
+    }
+    return attendanceWhere;
+  }
+
+  private async findCurrentUserScope(userId: string): Promise<ScopedAdminUser> {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { siteId: true, departmentId: true },
+    });
+
+    return {
+      siteId: currentUser?.siteId,
+      departmentId: currentUser?.departmentId,
+    };
+  }
+
+  private async findDeletableAttendanceIds(where: Prisma.AttendanceWhereInput) {
+    const attendances = await this.attendanceRepository.findMany({
+      where,
+      select: { id: true },
+    });
+    return attendances.map((attendance) => attendance.id);
+  }
+
+  private createDeletionResult(requestedIds: string[], deletedIds: string[]) {
+    return {
+      ok: true as const,
+      data: {
+        requestedCount: requestedIds.length,
+        deletedCount: deletedIds.length,
+        deletedIds,
+        skippedCount: requestedIds.length - deletedIds.length,
+      },
+    };
   }
 }

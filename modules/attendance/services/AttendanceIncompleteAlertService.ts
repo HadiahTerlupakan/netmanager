@@ -37,31 +37,51 @@ export async function sendAttendanceAlertToUser(
   return true;
 }
 
+type IncompleteAttendance = Awaited<
+  ReturnType<
+    ReturnType<typeof getAttendanceRepository>["findIncompleteCheckOutSelect"]
+  >
+>[number];
+
 /** Proses attendance belum checkout untuk alert akhir hari. */
 export async function processIncompleteAttendance(): Promise<{
   missingCheckOut: number;
   usersNotified: string[];
 }> {
+  const incomplete = await findTodayIncompleteAttendances();
+  const usersNotified = await notifyIncompleteAttendanceUsers(incomplete);
+  return { missingCheckOut: incomplete.length, usersNotified };
+}
+
+async function findTodayIncompleteAttendances() {
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setTime(toStartOfDay(startOfDay).getTime());
-  const endOfDay = new Date(now);
-  endOfDay.setTime(toEndOfDay(endOfDay).getTime());
+  const startOfDay = new Date(toStartOfDay(now));
+  const endOfDay = new Date(toEndOfDay(now));
+  return getAttendanceRepository().findIncompleteCheckOutSelect(
+    startOfDay,
+    endOfDay,
+  );
+}
 
-  const incomplete =
-    await getAttendanceRepository().findIncompleteCheckOutSelect(
-      startOfDay,
-      endOfDay,
-    );
+async function notifyIncompleteAttendanceUsers(
+  incompleteAttendances: IncompleteAttendance[],
+) {
   const usersNotified: string[] = [];
-
-  for (const attendance of incomplete) {
-    const reminderKey = `attendance:alert:missing_checkout:${attendance.userId}:${getDateKey()}`;
-    const shouldSend = await acquireReminderLock(reminderKey, 12 * 60 * 60);
-    if (!shouldSend) continue;
+  for (const attendance of incompleteAttendances) {
+    if (!(await canSendMissingCheckoutAlert(attendance.userId))) continue;
     await sendAttendanceAlertToUser(attendance.userId, "missing_checkout");
     usersNotified.push(attendance.user.name || attendance.userId);
   }
+  return usersNotified;
+}
 
-  return { missingCheckOut: incomplete.length, usersNotified };
+function buildMissingCheckoutReminderKey(userId: string) {
+  return `attendance:alert:missing_checkout:${userId}:${getDateKey()}`;
+}
+
+async function canSendMissingCheckoutAlert(userId: string) {
+  return acquireReminderLock(
+    buildMissingCheckoutReminderKey(userId),
+    12 * 60 * 60,
+  );
 }

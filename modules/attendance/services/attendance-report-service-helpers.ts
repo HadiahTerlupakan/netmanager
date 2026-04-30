@@ -162,26 +162,40 @@ function buildEmployeeSummaryItem(params: {
   userOtMap: Map<string, number>;
   userTotalDuration: Map<string, number>;
 }) {
-  const user = params.userDetailsMap.get(params.userId);
   const lemburMinutes = params.userOtMap.get(params.userId) || DEFAULT_ZERO;
   const totalMinutes =
     params.userTotalDuration.get(params.userId) || DEFAULT_ZERO;
   return {
     userId: params.userId,
-    user: user
-      ? {
-          id: user.id,
-          name: user.name,
-          image: user.image,
-          site: user.sites,
-          department: user.departments,
-        }
-      : null,
+    user: mapSummaryUser(params.userDetailsMap.get(params.userId)),
+    ...buildAttendanceSummaryCounts(params),
+    lemburJam: toRoundedHours(lemburMinutes),
+    totalJamKerja: toRoundedHours(totalMinutes),
+  };
+}
+
+function mapSummaryUser(user?: UserFullDetails) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    name: user.name,
+    image: user.image,
+    site: user.sites,
+    department: user.departments,
+  };
+}
+
+function buildAttendanceSummaryCounts(params: {
+  userId: string;
+  userAttMap: Map<string, number>;
+  userLateMap: Map<string, number>;
+  userLeaveMap: Map<string, number>;
+  userAbsenceMap: Map<string, number>;
+}) {
+  return {
     hadir: params.userAttMap.get(params.userId) || DEFAULT_ZERO,
     terlambat: params.userLateMap.get(params.userId) || DEFAULT_ZERO,
     izin: params.userLeaveMap.get(params.userId) || DEFAULT_ZERO,
     alpha: params.userAbsenceMap.get(params.userId) || DEFAULT_ZERO,
-    lemburJam: toRoundedHours(lemburMinutes),
-    totalJamKerja: toRoundedHours(totalMinutes),
   };
 }

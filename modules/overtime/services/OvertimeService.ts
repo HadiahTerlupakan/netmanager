@@ -20,21 +20,24 @@ import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
 import { OvertimeMapper } from "../mappers/OvertimeMapper";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
 import { OvertimeAutoCheckoutSchedulerService } from "./OvertimeAutoCheckoutSchedulerService";
+import {
+  assertApprovedRequest,
+  assertInProgressRequest,
+  assertPendingRequest,
+  buildReportSummary,
+  calculateCompletion,
+  ensureStartTimeExists,
+  type HolidayResolution,
+  isUserOffDay,
+  logFlexibleShiftShortfall,
+  logMissingRegularAttendance,
+  resolveHolidayDescription,
+} from "./OvertimeService.helpers";
 
-const DEFAULT_TARGET_HOURS = 8;
-const MAX_OVERTIME_DURATION_MS = 8 * 60 * 60 * 1000;
-const MIN_DURATION_MINUTES = 0;
 const OVERTIME_APPROVAL_LINK = "/admin/lembur";
 const OVERTIME_APPROVAL_TITLE = "Pengajuan Lembur Baru";
-const DAY_MAP: Record<number, string> = {
-  0: "SUN",
-  1: "MON",
-  2: "TUE",
-  3: "WED",
-  4: "THU",
-  5: "FRI",
-  6: "SAT",
-};
+const MAX_OVERTIME_DURATION_MS = 8 * 60 * 60 * 1000;
+const MIN_DURATION_MINUTES = 1;
 
 type CreateOvertimeRequestInput = {
   date: Date;
@@ -53,13 +56,6 @@ type StopOvertimeInput = {
   photo: string;
   location?: string;
   timestamp?: Date;
-};
-
-type HolidayResolution = {
-  isHolidayOvertime: boolean;
-  isNationalHoliday: boolean;
-  isOffDay: boolean;
-  holidayDescription: string | null;
 };
 
 export class OvertimeService {
@@ -111,7 +107,7 @@ export class OvertimeService {
     data: StartOvertimeInput,
   ) {
     const overtime = await this.requireOwnedOvertime(overtimeId, userId);
-    this.assertApprovedRequest(overtime);
+    assertApprovedRequest(overtime);
 
     const attendance = await this.findTodayAttendance(userId, data.tenantId);
     const holidayState = await this.resolveHolidayState(
@@ -120,12 +116,12 @@ export class OvertimeService {
       attendance?.user?.workingHourMode,
     );
 
-    this.logMissingRegularAttendance(
+    logMissingRegularAttendance(
       userId,
       attendance,
       holidayState.isHolidayOvertime,
     );
-    this.logFlexibleShiftShortfall(
+    logFlexibleShiftShortfall(
       userId,
       attendance,
       holidayState.isHolidayOvertime,
@@ -140,7 +136,7 @@ export class OvertimeService {
       ...holidayState,
     });
 
-    await this.ensureStartTimeExists(updatedOvertime);
+    ensureStartTimeExists(updatedOvertime);
     await this.scheduleAutoCheckout(updatedOvertime);
     return updatedOvertime;
   }
@@ -152,12 +148,9 @@ export class OvertimeService {
     data: StopOvertimeInput,
   ) {
     const overtime = await this.requireOwnedOvertime(overtimeId, userId);
-    this.assertInProgressRequest(overtime);
+    assertInProgressRequest(overtime);
 
-    const completion = this.calculateCompletion(
-      overtime.startTime!,
-      data.timestamp,
-    );
+    const completion = calculateCompletion(overtime.startTime!, data.timestamp);
     const completedOvertime = await this.repository.update(overtimeId, {
       status: OvertimeStatus.COMPLETED,
       endTime: completion.endTime,
@@ -197,7 +190,7 @@ export class OvertimeService {
   /** Approve pending overtime request. */
   async approveRequest(id: string, approverId: string) {
     const existing = await this.requireOvertime(id);
-    this.assertPendingRequest(existing, "approved");
+    assertPendingRequest(existing, "approved");
 
     const result = await this.repository.update(id, {
       status: OvertimeStatus.APPROVED,
@@ -211,7 +204,7 @@ export class OvertimeService {
   /** Reject pending overtime request. */
   async rejectRequest(id: string, reason: string) {
     const existing = await this.requireOvertime(id);
-    this.assertPendingRequest(existing, "rejected");
+    assertPendingRequest(existing, "rejected");
 
     const result = await this.repository.update(id, {
       status: OvertimeStatus.REJECTED,
@@ -290,10 +283,7 @@ export class OvertimeService {
       ]);
 
     return {
-      summary: this.buildReportSummary(
-        stats.totalRequests,
-        stats.totalDuration,
-      ),
+      summary: buildReportSummary(stats.totalRequests, stats.totalDuration),
       trends: dailyStats,
       bySite: groupedBySite,
       byDepartment: groupedByDept,
@@ -396,41 +386,6 @@ export class OvertimeService {
     return overtime;
   }
 
-  /** Ensure overtime is pending. */
-  private assertPendingRequest(
-    overtime: OvertimeEntity,
-    nextAction: "approved" | "rejected",
-  ): void {
-    if (overtime.status === OvertimeStatus.PENDING) {
-      return;
-    }
-
-    throw new Error(`Only pending overtime requests can be ${nextAction}`);
-  }
-
-  /** Ensure overtime is approved. */
-  private assertApprovedRequest(overtime: OvertimeEntity): void {
-    if (overtime.status === OvertimeStatus.APPROVED) {
-      return;
-    }
-
-    throw new Error(
-      "Pengajuan lembur belum disetujui atau status tidak valid.",
-    );
-  }
-
-  /** Ensure overtime is in progress. */
-  private assertInProgressRequest(overtime: OvertimeEntity): void {
-    if (overtime.status !== OvertimeStatus.IN_PROGRESS) {
-      throw new Error("Lembur belum dimulai.");
-    }
-    if (overtime.startTime) {
-      return;
-    }
-
-    throw new Error("Data Start Time corrupt.");
-  }
-
   /** Resolve holiday and off-day flags for today. */
   private async resolveHolidayState(
     tenantId?: string,
@@ -442,14 +397,14 @@ export class OvertimeService {
       today,
       tenantId,
     );
-    const isOffDay = this.isUserOffDay(workDays, workingHourMode, today);
+    const isOffDay = isUserOffDay(workDays, workingHourMode, today);
 
     return {
       isHolidayOvertime: holidayResult.isHoliday || isOffDay,
       isNationalHoliday:
         holidayResult.isHoliday && holidayResult.holiday?.isNational === true,
       isOffDay: isOffDay && !holidayResult.isHoliday,
-      holidayDescription: this.resolveHolidayDescription(
+      holidayDescription: resolveHolidayDescription(
         holidayResult.holiday?.description,
         isOffDay,
       ),
@@ -476,102 +431,6 @@ export class OvertimeService {
         workDays: true,
       },
     });
-  }
-
-  /** Check whether date is off-day for user. */
-  private isUserOffDay(
-    workDays: string | null | undefined,
-    mode: string | null | undefined,
-    date: Date,
-  ): boolean {
-    if (!workDays || mode === "FLEXIBLE") {
-      return false;
-    }
-
-    const dayName = DAY_MAP[date.getDay()];
-    const workDayList = workDays
-      .toUpperCase()
-      .split(",")
-      .map((item) => item.trim());
-    return !workDayList.includes(dayName);
-  }
-
-  /** Log warning when no normal attendance exists. */
-  private logMissingRegularAttendance(
-    userId: string,
-    attendance: Awaited<
-      ReturnType<AttendanceQueryService["findFirstWithUser"]>
-    >,
-    isHolidayOvertime: boolean,
-  ): void {
-    if (isHolidayOvertime || attendance) {
-      return;
-    }
-
-    logger.warn(
-      `[Overtime] User ${userId} starting overtime without regular attendance`,
-    );
-  }
-
-  /** Log warning when flexible shift is under target. */
-  private logFlexibleShiftShortfall(
-    userId: string,
-    attendance: Awaited<
-      ReturnType<AttendanceQueryService["findFirstWithUser"]>
-    >,
-    isHolidayOvertime: boolean,
-  ): void {
-    if (!attendance || attendance.user.workingHourMode !== "FLEXIBLE") {
-      return;
-    }
-    if (isHolidayOvertime || !attendance.checkOut) {
-      return;
-    }
-
-    const durationHours = this.calculateWorkedHours(
-      attendance.checkIn,
-      attendance.checkOut,
-    );
-    const targetHours =
-      attendance.user.flexibleTargetHour || DEFAULT_TARGET_HOURS;
-    if (durationHours >= targetHours) {
-      return;
-    }
-
-    const shortfall = (targetHours - durationHours).toFixed(1);
-    logger.warn(
-      `[Overtime] User ${userId} starting overtime with incomplete regular shift: ${durationHours.toFixed(1)}h worked vs ${targetHours}h target (shortfall: ${shortfall}h)`,
-    );
-  }
-
-  /** Convert attendance span to worked hours. */
-  private calculateWorkedHours(checkIn: Date, checkOut: Date): number {
-    const workedMs = new Date(checkOut).getTime() - new Date(checkIn).getTime();
-    return workedMs / (1000 * 60 * 60);
-  }
-
-  /** Resolve holiday description text. */
-  private resolveHolidayDescription(
-    holidayDescription?: string | null,
-    isOffDay?: boolean,
-  ): string | null {
-    if (holidayDescription) {
-      return holidayDescription;
-    }
-    if (isOffDay) {
-      return "Hari Libur Karyawan";
-    }
-
-    return null;
-  }
-
-  /** Ensure updated overtime contains start time. */
-  private async ensureStartTimeExists(overtime: OvertimeEntity): Promise<void> {
-    if (overtime.startTime) {
-      return;
-    }
-
-    throw new Error("Data Start Time corrupt.");
   }
 
   /** Schedule overtime auto checkout with safe error handling. */
@@ -644,7 +503,7 @@ export class OvertimeService {
           item.createdAt,
           tenantId,
         );
-        const isOffDay = this.isUserOffDay(
+        const isOffDay = isUserOffDay(
           item.user?.workDays,
           item.user?.workingHourMode,
           item.createdAt,
@@ -656,23 +515,13 @@ export class OvertimeService {
           isNationalHoliday:
             holiday.isHoliday && holiday.holiday?.isNational === true,
           isOffDay: isOffDay && !holiday.isHoliday,
-          holidayDescription: this.resolveHolidayDescription(
+          holidayDescription: resolveHolidayDescription(
             holiday.holiday?.description,
             isOffDay,
           ),
         };
       }),
     );
-  }
-
-  /** Build report summary object. */
-  private buildReportSummary(totalRequests: number, totalDuration: number) {
-    return {
-      totalRequests,
-      totalDuration,
-      avgDuration:
-        totalRequests > 0 ? Math.round(totalDuration / totalRequests) : 0,
-    };
   }
 
   /** Notify employee that overtime was approved. */

@@ -20,24 +20,9 @@ import type { FixedAlphaResult } from "./AttendanceAlertTypes";
 export async function processFixedHourAutoAlpha(): Promise<FixedAlphaResult> {
   try {
     const context = await loadAutoAlphaContext();
-    if (context.users.length === 0) return { usersMarkedAlpha: 0, details: [] };
-
-    for (const user of context.users) {
-      if (!(await canCreateAutoAlpha(user, context))) continue;
-      await createAutoAlphaAttendance(user, context);
-      context.usersMarkedAlpha++;
-      context.details.push(`${user.name || user.id} (${user.endWorkTime})`);
-    }
-
-    if (context.usersMarkedAlpha > 0) {
-      logger.info(
-        `[AttendanceAlert] Auto-marked ABSENT for ${context.usersMarkedAlpha} fixed-hour users`,
-      );
-    }
-    return {
-      usersMarkedAlpha: context.usersMarkedAlpha,
-      details: context.details,
-    };
+    await processAutoAlphaUsers(context);
+    logAutoAlphaResult(context.usersMarkedAlpha);
+    return buildAutoAlphaResult(context);
   } catch (error) {
     logger.error(
       "[AttendanceAlert] Error auto-marking fixed-hour ABSENT:",
@@ -45,6 +30,29 @@ export async function processFixedHourAutoAlpha(): Promise<FixedAlphaResult> {
     );
     return { usersMarkedAlpha: 0, details: [] };
   }
+}
+
+async function processAutoAlphaUsers(context: AutoAlphaContext) {
+  for (const user of context.users) {
+    if (!(await canCreateAutoAlpha(user, context))) continue;
+    await createAutoAlphaAttendance(user, context);
+    context.usersMarkedAlpha++;
+    context.details.push(`${user.name || user.id} (${user.endWorkTime})`);
+  }
+}
+
+function logAutoAlphaResult(usersMarkedAlpha: number) {
+  if (usersMarkedAlpha === 0) return;
+  logger.info(
+    `[AttendanceAlert] Auto-marked ABSENT for ${usersMarkedAlpha} fixed-hour users`,
+  );
+}
+
+function buildAutoAlphaResult(context: AutoAlphaContext): FixedAlphaResult {
+  return {
+    usersMarkedAlpha: context.usersMarkedAlpha,
+    details: context.details,
+  };
 }
 
 type AutoAlphaUser = Awaited<

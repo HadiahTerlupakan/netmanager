@@ -13,7 +13,7 @@ import type { LeaveStatus, LeaveType } from "@prisma/client";
 import { LeaveAttendanceSyncService } from "./LeaveAttendanceSyncService";
 import { LeaveBalanceUsageService } from "./LeaveBalanceUsageService";
 import { LeaveLifecycleService } from "./LeaveLifecycleService";
-import type { LeaveWithUser } from "./LeaveLifecycleTypes";
+import type { LeaveResult, LeaveWithUser } from "./LeaveLifecycleTypes";
 export { validateTukarLiburRules } from "./LeaveTukarLiburValidationService";
 
 export interface ServiceResult<T> {
@@ -173,7 +173,7 @@ export class LeaveService {
     createdById: string,
     tenantId: string,
     autoApprove: boolean = true,
-  ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
+  ): Promise<LeaveResult> {
     return this.lifecycleService.createLeave(
       data,
       createdById,
@@ -204,7 +204,7 @@ export class LeaveService {
     id: string,
     approverId: string,
     tenantId: string,
-  ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
+  ): Promise<LeaveResult> {
     return this.lifecycleService.approveLeave(id, approverId, tenantId);
   }
 
@@ -213,7 +213,7 @@ export class LeaveService {
     approverId: string,
     tenantId: string,
     rejectionReason: string,
-  ): Promise<ServiceResult<Prisma.LeaveRequestGetPayload<object>>> {
+  ): Promise<LeaveResult> {
     return this.lifecycleService.rejectLeave(
       id,
       approverId,

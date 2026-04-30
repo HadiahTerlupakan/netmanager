@@ -7,6 +7,8 @@
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { ATTENDANCE_CONSTANTS } from "../utils/constants";
 
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+
 export class AttendancePhotoService {
   /**
    * Process and upload attendance photo
@@ -23,49 +25,58 @@ export class AttendancePhotoService {
     userId: string,
     type: "checkin" | "checkout",
   ): Promise<string | null> {
-    // Return null if no photo provided
-    if (!photo) {
-      return null;
-    }
-
-    // Handle File object
-    if (photo instanceof File) {
-      // Validate file type
-      if (!photo.type.startsWith("image/")) {
-        throw new Error("File harus berupa gambar");
-      }
-
-      // Validate file size
-      if (photo.size > ATTENDANCE_CONSTANTS.MAX_PHOTO_SIZE) {
-        const maxSizeMB = ATTENDANCE_CONSTANTS.MAX_PHOTO_SIZE / (1024 * 1024);
-        throw new Error(`Ukuran foto maksimal ${maxSizeMB}MB`);
-      }
-
-      // Generate upload path and filename
-      const dateStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-      const uploadDir = `${ATTENDANCE_CONSTANTS.PHOTO_UPLOAD_DIR}/${dateStr}`;
-      const fileName = `${userId}_${type}_${Date.now()}`;
-
-      // Convert and save image
-      return await convertAndSaveImage(
-        photo,
-        uploadDir,
-        fileName,
-        "employee-attendance",
-        userId,
-      );
-    }
-
-    // Handle base64 string
-    if (typeof photo === "string") {
-      // Convert base64 to file
-      const response = await fetch(photo);
-      const blob = await response.blob();
-      const file = new File([blob], `${type}.jpg`, { type: "image/jpeg" });
-      return this.processPhoto(file, userId, type);
-    }
-
-    // Invalid photo type
+    if (!photo) return null;
+    if (photo instanceof File) return this.uploadPhotoFile(photo, userId, type);
+    if (typeof photo === "string")
+      return this.processBase64Photo(photo, userId, type);
     throw new Error("Format foto tidak valid");
+  }
+
+  /** Validate dan upload file foto absensi. */
+  private async uploadPhotoFile(
+    photoFile: File,
+    userId: string,
+    type: "checkin" | "checkout",
+  ): Promise<string> {
+    this.validatePhotoFile(photoFile);
+    const uploadDir = this.buildUploadDirectory();
+    const fileName = `${userId}_${type}_${Date.now()}`;
+
+    return convertAndSaveImage(
+      photoFile,
+      uploadDir,
+      fileName,
+      "employee-attendance",
+      userId,
+    );
+  }
+
+  /** Convert foto string menjadi file lalu proses seperti upload biasa. */
+  private async processBase64Photo(
+    photoUrl: string,
+    userId: string,
+    type: "checkin" | "checkout",
+  ): Promise<string | null> {
+    const response = await fetch(photoUrl);
+    const blob = await response.blob();
+    const photoFile = new File([blob], `${type}.jpg`, { type: "image/jpeg" });
+    return this.processPhoto(photoFile, userId, type);
+  }
+
+  /** Validasi tipe dan ukuran file foto absensi. */
+  private validatePhotoFile(photoFile: File): void {
+    if (!photoFile.type.startsWith("image/")) {
+      throw new Error("File harus berupa gambar");
+    }
+
+    if (photoFile.size <= ATTENDANCE_CONSTANTS.MAX_PHOTO_SIZE) return;
+    const maxSizeMB = ATTENDANCE_CONSTANTS.MAX_PHOTO_SIZE / BYTES_PER_MEGABYTE;
+    throw new Error(`Ukuran foto maksimal ${maxSizeMB}MB`);
+  }
+
+  /** Bangun direktori upload harian untuk foto absensi. */
+  private buildUploadDirectory(): string {
+    const dateString = new Date().toISOString().split("T")[0];
+    return `${ATTENDANCE_CONSTANTS.PHOTO_UPLOAD_DIR}/${dateString}`;
   }
 }

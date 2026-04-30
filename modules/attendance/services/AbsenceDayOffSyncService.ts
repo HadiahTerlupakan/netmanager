@@ -1,10 +1,18 @@
 import { randomUUID } from "crypto";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { UserLookupService } from "@/modules/users";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
-import { UserLookupService } from "@/modules/users";
 import { AttendanceWorkdayService } from "./AttendanceWorkdayService";
+
+const DAY_OFF_HOLIDAY_NOTE = "Hari Libur (Day Off) - Auto Generated";
+const DAY_OFF_REGULAR_NOTE = "Hari Off (Day Off) - Auto Generated";
+
+type SyncableUser = {
+  id: string;
+  workDays: string | null;
+};
 
 export class AbsenceDayOffSyncService {
   constructor(
@@ -32,8 +40,7 @@ export class AbsenceDayOffSyncService {
   }
 
   private async syncDay(targetDate: Date, tenantId: string, userId?: string) {
-    const startOfDay = new Date(toStartOfDay(targetDate));
-    const endOfDay = new Date(toEndOfDay(targetDate));
+    const { startOfDay, endOfDay } = this.createDayRange(targetDate);
     const isHoliday = await this.isHoliday(tenantId, startOfDay, endOfDay);
     const users = await this.userRepo.findActiveForAttendance(
       tenantId,
@@ -42,17 +49,30 @@ export class AbsenceDayOffSyncService {
     );
 
     for (const user of users) {
-      const isWorkDay = this.workdayService.isWorkDay(
-        user.workDays,
-        targetDate,
-      );
-      if (!isHoliday && isWorkDay) continue;
+      if (!this.shouldCreateDayOff(user, targetDate, isHoliday)) continue;
       if (
         await this.hasAttendanceOrLeave(user.id, tenantId, startOfDay, endOfDay)
-      )
+      ) {
         continue;
+      }
       await this.createDayOff(user.id, tenantId, startOfDay, isHoliday);
     }
+  }
+
+  private createDayRange(targetDate: Date) {
+    return {
+      startOfDay: new Date(toStartOfDay(targetDate)),
+      endOfDay: new Date(toEndOfDay(targetDate)),
+    };
+  }
+
+  private shouldCreateDayOff(
+    user: SyncableUser,
+    targetDate: Date,
+    isHoliday: boolean,
+  ) {
+    if (isHoliday) return true;
+    return !this.workdayService.isWorkDay(user.workDays, targetDate);
   }
 
   private async isHoliday(tenantId: string, startOfDay: Date, endOfDay: Date) {
@@ -97,11 +117,13 @@ export class AbsenceDayOffSyncService {
       tenantId,
       checkIn,
       status: "DAY_OFF",
-      notes: isHoliday
-        ? "Hari Libur (Day Off) - Auto Generated"
-        : "Hari Off (Day Off) - Auto Generated",
+      notes: this.getDayOffNote(isHoliday),
       location: "System",
       updatedAt: new Date(),
     });
+  }
+
+  private getDayOffNote(isHoliday: boolean) {
+    return isHoliday ? DAY_OFF_HOLIDAY_NOTE : DAY_OFF_REGULAR_NOTE;
   }
 }

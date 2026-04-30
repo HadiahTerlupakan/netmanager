@@ -1,28 +1,9 @@
-import { GeofenceService } from "./GeofenceService";
-import { AttendanceValidationService } from "./AttendanceValidationService";
-import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
-import { AttendanceDailyEvaluator } from "./AttendanceDailyEvaluator";
-import { AttendanceEvaluationAuditService } from "./AttendanceEvaluationAuditService";
-import { AttendanceReadService } from "./AttendanceReadService";
-import { AttendanceReportService } from "./AttendanceReportService";
-import { AttendanceMutationService } from "./AttendanceMutationService";
-import { AttendanceEvaluationRecomputeService } from "./AttendanceEvaluationRecomputeService";
-import { AttendanceMutationGeofenceService } from "./AttendanceMutationGeofenceService";
-import { AttendanceMutationEventService } from "./AttendanceMutationEventService";
-import { AttendanceSessionGuardService } from "./AttendanceSessionGuardService";
 import type { CachedUserAttendanceSettings } from "./attendance-service-helpers";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { type CurrentAttendanceStatusResult } from "./attendance-current-status-helpers";
 export type { CurrentAttendanceStatusResult } from "./attendance-current-status-helpers";
-import { AttendanceRepository } from "../repositories/AttendanceRepository";
-import {
-  OvertimePayrollQueryService,
-  OvertimeQueryService,
-} from "@/modules/overtime";
-import { LeaveRepository } from "../repositories/LeaveRepository";
-import { HolidayRepository } from "../repositories/HolidayRepository";
-import { UserLookupService } from "@/modules/users";
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
+import { createAttendanceServiceDependencies } from "./attendance-service-dependencies";
 import type {
   CheckInParams,
   HistoricalAttendanceRecomputeResult,
@@ -32,61 +13,15 @@ export type {
   HistoricalAttendanceRecomputeResult,
 } from "./attendance-service.contracts";
 export class AttendanceService {
-  private geofenceService: GeofenceService;
-  private validationService: AttendanceValidationService;
-  private timezoneService: AttendanceTimezoneService;
-  private attendanceRepo: AttendanceRepository;
-  private userRepo: UserLookupService;
-  private attendanceEvaluator: AttendanceDailyEvaluator;
-  private evaluationAuditService: AttendanceEvaluationAuditService;
-  private leaveRepo: LeaveRepository;
-  private holidayRepo: HolidayRepository;
-  private overtimeRepo: OvertimeQueryService;
-  private readService: AttendanceReadService;
-  private reportService: AttendanceReportService;
-  private mutationService: AttendanceMutationService;
-  private recomputeService: AttendanceEvaluationRecomputeService;
-  constructor() {
-    this.geofenceService = new GeofenceService();
-    this.validationService = new AttendanceValidationService();
-    this.timezoneService = new AttendanceTimezoneService();
-    this.attendanceRepo = new AttendanceRepository();
-    this.userRepo = new UserLookupService();
-    this.attendanceEvaluator = new AttendanceDailyEvaluator();
-    this.evaluationAuditService = new AttendanceEvaluationAuditService();
-    this.leaveRepo = new LeaveRepository();
-    this.holidayRepo = new HolidayRepository();
-    this.overtimeRepo = new OvertimeQueryService();
-    this.readService = new AttendanceReadService({
-      attendanceRepo: this.attendanceRepo,
-      userRepo: this.userRepo,
-      timezoneService: this.timezoneService,
-    });
-    this.reportService = new AttendanceReportService(
-      this.attendanceRepo,
-      new OvertimePayrollQueryService(),
-      this.leaveRepo,
-      this.userRepo,
-    );
-    this.recomputeService = new AttendanceEvaluationRecomputeService(
-      this.attendanceRepo,
-      this.attendanceEvaluator,
-      this.evaluationAuditService,
-      this.leaveRepo,
-      this.holidayRepo,
-      this.overtimeRepo,
-    );
-    this.mutationService = new AttendanceMutationService(
-      new AttendanceMutationGeofenceService(this.geofenceService),
-      new AttendanceMutationEventService(),
-      new AttendanceSessionGuardService(this.attendanceRepo),
-      this.validationService,
-      this.timezoneService,
-      this.attendanceRepo,
-      this.userRepo,
-      this.recomputeService,
-    );
-  }
+  private readonly dependencies = createAttendanceServiceDependencies();
+  private readonly attendanceRepo = this.dependencies.attendanceRepo;
+  private readonly timezoneService = this.dependencies.timezoneService;
+  private readonly userRepo = this.dependencies.userRepo;
+  private readonly readService = this.dependencies.readService;
+  private readonly reportService = this.dependencies.reportService;
+  private readonly mutationService = this.dependencies.mutationService;
+  private readonly recomputeService = this.dependencies.recomputeService;
+  private readonly sessionGuardService = this.dependencies.sessionGuardService;
 
   async checkIn(params: CheckInParams) {
     return this.mutationService.checkIn(params);
@@ -137,10 +72,7 @@ export class AttendanceService {
             timezone: timezone ?? "UTC",
           }
         : inputOrUserId;
-    const sessionGuardService = new AttendanceSessionGuardService(
-      this.attendanceRepo,
-    );
-    return sessionGuardService.processAutoCheckout(input);
+    return this.sessionGuardService.processAutoCheckout(input);
   }
 
   /** Centralized Check-Out Logic for web and mobile routes. */
@@ -187,48 +119,110 @@ export class AttendanceService {
     const { userId, tenantId, startDate, endDate, actorId } = params;
     const timezone = await this.timezoneService.getTimezone(tenantId);
     const userDetails = await this.userRepo.findAttendanceSettingsById(userId);
-    const attendances = await this.attendanceRepo.findMany({
-      where: {
-        userId,
-        tenantId,
-        checkIn: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      orderBy: { checkIn: "asc" },
+    const attendances = await this.findAttendancesForRecompute({
+      userId,
+      tenantId,
+      startDate,
+      endDate,
     });
-    const evaluations: AttendanceEvaluationResult[] = [];
-    const joinDate = userDetails?.joinDate
-      ? toStartOfDay(userDetails.joinDate, timezone)
-      : null;
-    for (const attendance of attendances) {
-      if (joinDate && attendance.checkIn < joinDate) {
-        continue;
-      }
-      const evaluation =
-        await this.mutationService.recomputeAttendanceEvaluation({
-          attendance: {
-            tenantId: attendance.tenantId ?? tenantId,
-            userId: attendance.userId,
-            checkIn: attendance.checkIn,
-            checkOut: attendance.checkOut,
-            status: attendance.status,
-          },
-          timezone,
-          workingHourMode: userDetails?.workingHourMode,
-          actorId,
-          audit: {
-            reason: "historical attendance recompute",
-            actorType: "admin",
-          },
-        });
-      evaluations.push(evaluation);
-    }
+    const evaluations = await this.collectHistoricalEvaluations({
+      attendances,
+      tenantId,
+      actorId,
+      timezone,
+      userDetails,
+    });
+
     return {
       processedCount: evaluations.length,
       evaluations,
     };
+  }
+
+  /** Ambil attendance historis yang perlu direcompute. */
+  private findAttendancesForRecompute(params: {
+    userId: string;
+    tenantId: string;
+    startDate: Date;
+    endDate: Date;
+  }) {
+    const { userId, tenantId, startDate, endDate } = params;
+    return this.attendanceRepo.findMany({
+      where: {
+        userId,
+        tenantId,
+        checkIn: { gte: startDate, lte: endDate },
+      },
+      orderBy: { checkIn: "asc" },
+    });
+  }
+
+  /** Kumpulkan hasil evaluasi historis setelah filter tanggal join. */
+  private async collectHistoricalEvaluations(params: {
+    attendances: Awaited<
+      ReturnType<AttendanceService["findAttendancesForRecompute"]>
+    >;
+    tenantId: string;
+    actorId: string;
+    timezone: string;
+    userDetails: Awaited<
+      ReturnType<AttendanceService["userRepo"]["findAttendanceSettingsById"]>
+    >;
+  }): Promise<AttendanceEvaluationResult[]> {
+    const { attendances, tenantId, actorId, timezone, userDetails } = params;
+    const joinDate = this.getUserJoinDate(userDetails?.joinDate, timezone);
+    const evaluations: AttendanceEvaluationResult[] = [];
+
+    for (const attendance of attendances) {
+      if (joinDate && attendance.checkIn < joinDate) continue;
+      const evaluation = await this.recomputeSingleEvaluation({
+        attendance,
+        tenantId,
+        actorId,
+        timezone,
+        workingHourMode: userDetails?.workingHourMode,
+      });
+      evaluations.push(evaluation);
+    }
+
+    return evaluations;
+  }
+
+  /** Hitung tanggal join efektif pada timezone tenant. */
+  private getUserJoinDate(
+    joinDate: Date | null | undefined,
+    timezone: string,
+  ): Date | null {
+    return joinDate ? toStartOfDay(joinDate, timezone) : null;
+  }
+
+  /** Jalankan recompute untuk satu attendance historis. */
+  private recomputeSingleEvaluation(params: {
+    attendance: Awaited<
+      ReturnType<AttendanceService["findAttendancesForRecompute"]>
+    >[number];
+    tenantId: string;
+    actorId: string;
+    timezone: string;
+    workingHourMode?: string | null;
+  }) {
+    const { attendance, tenantId, actorId, timezone, workingHourMode } = params;
+    return this.mutationService.recomputeAttendanceEvaluation({
+      attendance: {
+        tenantId: attendance.tenantId ?? tenantId,
+        userId: attendance.userId,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+      },
+      timezone,
+      workingHourMode,
+      actorId,
+      audit: {
+        reason: "historical attendance recompute",
+        actorType: "admin",
+      },
+    });
   }
   async getCurrentAttendanceStatus(
     userId: string,

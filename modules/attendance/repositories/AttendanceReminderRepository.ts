@@ -23,16 +23,7 @@ export class AttendanceReminderRepository {
     return prisma.attendance.findMany({
       where: this.buildIncompleteCheckOutWhere(startOfDay, endOfDay, true),
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            startWorkTime: true,
-            endWorkTime: true,
-            workDays: true,
-            pushToken: true,
-          },
-        },
+        user: { select: this.buildIncompleteCheckOutUserSelect(true) },
       },
       distinct: ["userId"],
     });
@@ -49,25 +40,40 @@ export class AttendanceReminderRepository {
   /** Cari sesi flexible aktif yang perlu reminder checkout. */
   async findActiveFlexibleSessionsWithUser() {
     return prisma.attendance.findMany({
-      where: {
-        checkOut: null,
-        user: {
-          isActive: true,
-          pushToken: { not: null },
-          workingHourMode: "FLEXIBLE",
-        },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            flexibleTargetHour: true,
-            pushToken: true,
-          },
-        },
-      },
+      where: this.buildFlexibleSessionWhere(),
+      include: { user: { select: this.buildFlexibleSessionUserSelect() } },
     });
+  }
+
+  private buildFlexibleSessionWhere(): Prisma.AttendanceWhereInput {
+    return {
+      checkOut: null,
+      user: {
+        isActive: true,
+        pushToken: { not: null },
+        workingHourMode: "FLEXIBLE",
+      },
+    };
+  }
+
+  private buildFlexibleSessionUserSelect() {
+    return {
+      id: true,
+      name: true,
+      flexibleTargetHour: true,
+      pushToken: true,
+    } as const;
+  }
+
+  private buildIncompleteCheckOutUserSelect(includePushRecipient: boolean) {
+    return {
+      id: true,
+      name: true,
+      startWorkTime: true,
+      endWorkTime: true,
+      workDays: true,
+      ...(includePushRecipient ? { pushToken: true } : {}),
+    } as const;
   }
 
   private buildIncompleteCheckOutWhere(

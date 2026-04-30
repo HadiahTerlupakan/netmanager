@@ -10,10 +10,19 @@ import {
   mergeAttendanceNotes,
   resolveCheckInStatus,
   resolveCheckInTimeContext,
-  type CachedUserAttendanceSettings,
 } from "./attendance-service-helpers";
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
 import type { CheckInParams } from "./attendance-service.contracts";
+import type {
+  CheckInContext,
+  CheckInEvaluationContext,
+  CheckoutParams,
+  CheckoutResult,
+  CheckoutSourceAttendance,
+  CheckoutWarningAttendance,
+  EvaluationAttendance,
+  MutationGeofence,
+} from "./attendance-mutation.types";
 import { AttendanceEvaluationRecomputeService } from "./AttendanceEvaluationRecomputeService";
 import { AttendanceMutationGeofenceService } from "./AttendanceMutationGeofenceService";
 import { AttendanceMutationEventService } from "./AttendanceMutationEventService";
@@ -66,20 +75,7 @@ export class AttendanceMutationService {
     };
   }
 
-  async checkOut(params: {
-    userId: string;
-    photoUrl: string | null;
-    location: string | null;
-    notes?: string;
-    latitude?: number;
-    longitude?: number;
-    offlineTime?: Date;
-    tenantId?: string;
-  }): Promise<{
-    attendance: Prisma.AttendanceGetPayload<{ include: { user: true } }>;
-    evaluation: AttendanceEvaluationResult;
-    warning?: string;
-  }> {
+  async checkOut(params: CheckoutParams): Promise<CheckoutResult> {
     const attendance = await this.attendanceRepo.findFirstActiveForCheckout({
       userId: params.userId,
       tenantId: params.tenantId,
@@ -134,12 +130,8 @@ export class AttendanceMutationService {
 
   private async createCheckInAttendance(
     params: CheckInParams,
-    context: { checkInTime: Date; effectiveToday: Date; tenantId?: string },
-    geofence: {
-      status: string;
-      distance: number | null;
-      siteName: string | null;
-    },
+    context: CheckInContext,
+    geofence: MutationGeofence,
     status: AttendanceStatus,
   ) {
     const createData = this.buildCheckInCreateData(
@@ -163,12 +155,8 @@ export class AttendanceMutationService {
 
   private buildCheckInCreateData(
     params: CheckInParams,
-    context: { checkInTime: Date; effectiveToday: Date },
-    geofence: {
-      status: string;
-      distance: number | null;
-      siteName: string | null;
-    },
+    context: CheckInContext,
+    geofence: MutationGeofence,
     status: AttendanceStatus,
   ): Prisma.AttendanceUncheckedCreateInput {
     const createData: Prisma.AttendanceUncheckedCreateInput = {
@@ -196,18 +184,9 @@ export class AttendanceMutationService {
   }
 
   private async evaluateCreatedAttendance(
-    attendance: {
-      tenantId: string | null;
-      userId: string;
-      checkIn: Date;
-      checkOut: Date | null;
-      status: AttendanceStatus;
-    },
+    attendance: EvaluationAttendance,
     params: CheckInParams,
-    context: {
-      timezone: string;
-      userDetails: CachedUserAttendanceSettings | null;
-    },
+    context: CheckInEvaluationContext,
   ) {
     const tenantId = attendance.tenantId ?? params.tenantId;
     if (!tenantId) throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
@@ -227,14 +206,10 @@ export class AttendanceMutationService {
   }
 
   private updateCheckoutAttendance(
-    params: {
-      photoUrl: string | null;
-      location: string | null;
-      notes?: string;
-    },
-    attendance: { id: string; notes: string | null; status: AttendanceStatus },
+    params: Pick<CheckoutParams, "photoUrl" | "location" | "notes">,
+    attendance: CheckoutSourceAttendance,
     checkOutTime: Date,
-    geofence: { status: string; distance: number | null },
+    geofence: MutationGeofence,
   ) {
     return this.attendanceRepo.update(attendance.id, {
       checkOut: checkOutTime,
@@ -252,21 +227,9 @@ export class AttendanceMutationService {
   }
 
   private async evaluateCheckoutAttendance(
-    params: { userId: string; tenantId?: string },
-    attendance: {
-      user: {
-        workingHourMode?:
-          | CachedUserAttendanceSettings["workingHourMode"]
-          | null;
-      };
-    },
-    updatedAttendance: {
-      tenantId: string | null;
-      userId: string;
-      checkIn: Date;
-      checkOut: Date | null;
-      status: AttendanceStatus;
-    },
+    params: Pick<CheckoutParams, "userId" | "tenantId">,
+    attendance: { user: { workingHourMode?: string | null } },
+    updatedAttendance: EvaluationAttendance,
   ) {
     const tenantId = updatedAttendance.tenantId ?? params.tenantId;
     if (!tenantId) throw new Error("TENANT_REQUIRED_FOR_EVALUATION");
@@ -286,17 +249,11 @@ export class AttendanceMutationService {
   }
 
   private buildCheckoutResult(
-    attendance: {
-      checkIn: Date;
-      user: {
-        workingHourMode?: string | null;
-        flexibleTargetHour?: number | null;
-      };
-    },
+    attendance: CheckoutWarningAttendance,
     updatedAttendance: unknown,
     evaluation: AttendanceEvaluationResult,
     checkOutTime: Date,
-  ) {
+  ): CheckoutResult {
     const warning =
       attendance.user.workingHourMode === "FLEXIBLE"
         ? buildFlexibleCheckoutWarning({

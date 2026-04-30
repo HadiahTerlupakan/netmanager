@@ -37,26 +37,50 @@ function normalizeNullableJsonValue(
 
 function toEvaluationPersistence(input: AttendanceEvaluationResult) {
   return {
+    ...buildEvaluationIdentity(input),
+    ...buildEvaluationStates(input),
+    ...buildEvaluationMetrics(input),
+    ...buildEvaluationJsonRefs(input),
+    evaluationVersion: input.evaluationVersion,
+    evaluatedAt: input.evaluatedAt ?? new Date(),
+  };
+}
+
+function buildEvaluationIdentity(input: AttendanceEvaluationResult) {
+  return {
     tenantId: input.tenantId,
     userId: input.userId,
     workDate: input.workDate,
+  };
+}
+
+function buildEvaluationStates(input: AttendanceEvaluationResult) {
+  return {
     finalStatus: input.finalStatus,
     reviewState: input.reviewState,
     rawPresenceState: input.rawPresenceState,
-    workMinutes: input.workMinutes,
-    lateMinutes: input.lateMinutes,
-    overtimeMinutesApproved: input.overtimeMinutesApproved,
-    overtimeMinutesHeld: input.overtimeMinutesHeld,
     payrollHoldState: input.payrollHoldState,
     holidayState: input.holidayState,
     leaveState: input.leaveState,
     scheduleState: input.scheduleState,
     evidenceQuality: input.evidenceQuality,
+  };
+}
+
+function buildEvaluationMetrics(input: AttendanceEvaluationResult) {
+  return {
+    workMinutes: input.workMinutes,
+    lateMinutes: input.lateMinutes,
+    overtimeMinutesApproved: input.overtimeMinutesApproved,
+    overtimeMinutesHeld: input.overtimeMinutesHeld,
+  };
+}
+
+function buildEvaluationJsonRefs(input: AttendanceEvaluationResult) {
+  return {
     reasonCodes: normalizeRequiredJsonValue(input.reasonCodes),
     anomalyCodes: normalizeRequiredJsonValue(input.anomalyCodes),
     sourceRefs: normalizeRequiredJsonValue(input.sourceRefs),
-    evaluationVersion: input.evaluationVersion,
-    evaluatedAt: input.evaluatedAt ?? new Date(),
   };
 }
 
