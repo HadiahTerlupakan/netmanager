@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger";
-import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type {
   EmployeeType,
@@ -9,37 +8,20 @@ import type {
 import type {
   ISalaryRepository,
   SalaryFilters,
-  UpdateSalaryInput,
 } from "../domain/ports/ISalaryRepository";
 import { SalaryRepository } from "../repositories/SalaryRepository";
 import { SalaryAuditService } from "./SalaryAuditService";
 import { SalaryCalculatorService } from "./SalaryCalculatorService";
 
+import {
+  logActivitySafe,
+  type SalaryListResult,
+  type ServiceResult,
+  type UpdateSalaryInput,
+} from "./SalaryService.helpers";
+
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 50;
-
-export interface ServiceResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: string;
-}
-
-export interface SalaryListResult {
-  salaries: SalaryWithDetailsEntity[];
-  total: number;
-  page: number;
-  totalPages: number;
-  stats?: {
-    total: number;
-    draft: number;
-    calculated: number;
-    audited: number;
-    approved: number;
-    paid: number;
-    totalNetSalary: number;
-  };
-}
 
 export class SalaryService {
   private readonly repository: ISalaryRepository;

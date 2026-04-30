@@ -7,6 +7,7 @@ export type {
   GenerateSalaryDTO,
   UpdateSalaryDTO,
 } from "./dto/SalaryDTO";
+export type { SalaryRevisionEntity as SalaryRevisionDTO } from "./domain/entities/SalaryEntity";
 
 export { SalaryCalculatorService } from "./services/SalaryCalculatorService";
 export { SalaryAuditService } from "./services/SalaryAuditService";

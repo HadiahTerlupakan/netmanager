@@ -38,6 +38,18 @@ export class CouponMapper {
    */
   static toDomain(model: CouponWithRelations): CouponEntity {
     return {
+      ...this.toCouponCoreDomain(model),
+      usageHistory: this.toUsageDomainList(model.couponUsage),
+    };
+  }
+
+  /**
+   * Map Prisma coupon core fields to domain entity.
+   */
+  private static toCouponCoreDomain(
+    model: CouponWithRelations,
+  ): Omit<CouponEntity, "usageHistory"> {
+    return {
       id: model.id,
       code: model.code,
       description: model.description,
@@ -52,10 +64,16 @@ export class CouponMapper {
       endDate: model.endDate,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
-      usageHistory: (model.couponUsage ?? []).map((usage) =>
-        this.toUsageDomain(usage),
-      ),
     };
+  }
+
+  /**
+   * Map Prisma coupon usages to domain entities.
+   */
+  private static toUsageDomainList(
+    usages?: CouponUsageWithPelanggan[],
+  ): CouponUsageEntity[] {
+    return (usages ?? []).map((usage) => this.toUsageDomain(usage));
   }
 
   /**

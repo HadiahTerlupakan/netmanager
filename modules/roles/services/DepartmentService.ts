@@ -1,6 +1,5 @@
-import { logger } from "@/lib/logger";
+import { logger, logActivitySafe } from "@/lib/logger";
 import { randomUUID } from "crypto";
-import { logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type {
   DepartmentDetailDTO,
@@ -9,37 +8,17 @@ import type {
 import type { DepartmentEntity } from "../domain/entities/DepartmentEntity";
 import type {
   CreateDepartmentRepositoryInput,
-  DepartmentFilterOptions,
   IDepartmentRepository,
   UpdateDepartmentRepositoryInput,
 } from "../domain/ports/IDepartmentRepository";
 import { createDepartmentRepository } from "../factories/RepositoryFactory";
 import { DepartmentMapper } from "../mappers/DepartmentMapper";
-
-export type DepartmentFilters = DepartmentFilterOptions;
-
-export interface CreateDepartmentData {
-  name: string;
-  description?: string;
-  jobDescription?: string;
-  isReminderTarget?: boolean;
-  showInMobileWO?: boolean;
-}
-
-export interface UpdateDepartmentData {
-  name?: string;
-  description?: string | null;
-  jobDescription?: string | null;
-  isReminderTarget?: boolean;
-  showInMobileWO?: boolean;
-}
-
-export interface ServiceResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: string;
-}
+import type {
+  CreateDepartmentData,
+  DepartmentFilters,
+  ServiceResult,
+  UpdateDepartmentData,
+} from "./department-service.types";
 
 export class DepartmentService {
   private readonly departmentRepo: IDepartmentRepository;

@@ -123,16 +123,28 @@ function buildPaymentLines(salary: SalaryReceiptData) {
 }
 
 export function formatSalarySlipReceipt(salary: SalaryReceiptData) {
-  const earnings = salary.details.filter((detail) => detail.type === "EARNING");
-  const deductions = salary.details.filter(
-    (detail) => detail.type === "DEDUCTION",
-  );
   const lines = [
+    ...buildReceiptHeader(salary),
+    ...buildEmployeeLines(salary),
+    ...buildEarningLines(salary),
+    ...buildDeductionLines(salary),
+    ...buildReceiptFooter(salary),
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+function buildReceiptHeader(salary: SalaryReceiptData) {
+  return [
     separator,
     centerText("SLIP GAJI"),
     centerText(`${MONTH_NAMES[salary.month - 1]} ${salary.year}`),
     separator,
-    ...buildEmployeeLines(salary),
+  ];
+}
+
+function buildEarningLines(salary: SalaryReceiptData) {
+  const earnings = salary.details.filter((detail) => detail.type === "EARNING");
+  return [
     dotLine,
     "PENDAPATAN:",
     formatDetails(earnings),
@@ -140,18 +152,24 @@ export function formatSalarySlipReceipt(salary: SalaryReceiptData) {
     formatLine("Total Pendapatan", formatCurrency(salary.totalEarnings)),
     dotLine,
   ];
+}
 
-  if (deductions.length > 0) {
-    lines.push(
-      "POTONGAN:",
-      formatDetails(deductions),
-      dotLine,
-      formatLine("Total Potongan", formatCurrency(salary.totalDeductions)),
-      dotLine,
-    );
-  }
+function buildDeductionLines(salary: SalaryReceiptData) {
+  const deductions = salary.details.filter(
+    (detail) => detail.type === "DEDUCTION",
+  );
+  if (deductions.length === 0) return [];
+  return [
+    "POTONGAN:",
+    formatDetails(deductions),
+    dotLine,
+    formatLine("Total Potongan", formatCurrency(salary.totalDeductions)),
+    dotLine,
+  ];
+}
 
-  lines.push(
+function buildReceiptFooter(salary: SalaryReceiptData) {
+  return [
     separator,
     formatLine("GAJI BERSIH", formatCurrency(salary.netSalary)),
     separator,
@@ -161,7 +179,5 @@ export function formatSalarySlipReceipt(salary: SalaryReceiptData) {
     "",
     centerText("Terima kasih"),
     separator,
-  );
-
-  return `${lines.join("\n")}\n`;
+  ];
 }

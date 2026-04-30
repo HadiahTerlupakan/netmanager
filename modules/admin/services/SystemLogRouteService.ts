@@ -37,26 +37,39 @@ export class SystemLogRouteService {
 
   /** Get paginated system logs with search and site restriction. */
   async getLogs(input: SystemLogInput) {
-    const page = input.page || DEFAULT_PAGE;
-    const limit = input.limit || DEFAULT_LIMIT;
-    const skip = (page - 1) * limit;
+    const pagination = this.resolvePagination(input);
     const result = await this.repository.findAll({
       type: resolveType(input.typeKey),
       action: input.action ?? undefined,
       search: input.search ?? undefined,
-      skip,
-      take: limit,
+      skip: pagination.skip,
+      take: pagination.limit,
       userSiteIds: resolveUserSiteIds(input),
     });
 
     return {
       logs: SystemLogMapper.toListItems(result.data),
-      pagination: {
-        total: result.total,
-        page,
-        limit,
-        totalPages: Math.ceil(result.total / limit),
-      },
+      pagination: this.buildPagination(result.total, pagination),
+    };
+  }
+
+  /** Resolve pagination defaults for system log listing. */
+  private resolvePagination(input: SystemLogInput) {
+    const page = input.page || DEFAULT_PAGE;
+    const limit = input.limit || DEFAULT_LIMIT;
+    return { page, limit, skip: (page - 1) * limit };
+  }
+
+  /** Build pagination response metadata for listed logs. */
+  private buildPagination(
+    total: number,
+    pagination: { page: number; limit: number },
+  ) {
+    return {
+      total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.ceil(total / pagination.limit),
     };
   }
 }

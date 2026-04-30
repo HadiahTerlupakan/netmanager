@@ -13,6 +13,16 @@ export interface AttendanceStats {
   workDays: number;
 }
 
+export type OvertimePayInput = {
+  stats: OvertimeStats;
+  rateType: RateType | null;
+  rateNormal: number;
+  rateHoliday: number;
+  rateNational: number;
+  basicSalary: number;
+  workDays: number;
+};
+
 export interface OvertimeStats {
   totalMinutes: number;
   normalMinutes: number;
@@ -59,26 +69,13 @@ export type UserCalculationData = {
   bpjsKetenagakerjaan: boolean;
 };
 
-const DEFAULT_WORK_DAYS = 22;
-const DEFAULT_WORK_DAYS_STRING = "Senin,Selasa,Rabu,Kamis,Jumat,Sabtu";
-const DEFAULT_STANDARD_WORK_MINUTES = 8 * 60;
-
-const DAY_NAME_TO_INDEX: Record<string, number> = {
-  Sun: 0,
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-  Minggu: 0,
-  Senin: 1,
-  Selasa: 2,
-  Rabu: 3,
-  Kamis: 4,
-  Jumat: 5,
-  Sabtu: 6,
-};
+export { getPeriodDateRange } from "./salary-calculation-date.helpers";
+export {
+  calculateProratedBasicSalary,
+  calculateWorkDays,
+  getDefaultWorkDaysString,
+} from "./salary-calculation-workday.helpers";
+export { getStandardMinutesPerDay } from "./salary-calculation-time.helpers";
 
 /** Buat statistik kehadiran awal. */
 export function createAttendanceStats(workDays: number): AttendanceStats {
@@ -176,172 +173,119 @@ export function isNationalHolidayState(holidayState: string | null): boolean {
   return holidayState === "LIBUR_NASIONAL";
 }
 
-/** Hitung rentang periode payroll berdasarkan pay period day. */
-export function getPeriodDateRange(input: {
-  month: number;
-  year: number;
-  payPeriodDay: number;
-}): { startDate: Date; endDate: Date } {
-  let startMonth = input.month - 1;
-  let startYear = input.year;
-
-  if (startMonth === 0) {
-    startMonth = 12;
-    startYear = input.year - 1;
-  }
-
-  return {
-    startDate: new Date(startYear, startMonth - 1, input.payPeriodDay + 1),
-    endDate: new Date(
-      input.year,
-      input.month - 1,
-      input.payPeriodDay,
-      23,
-      59,
-      59,
-    ),
-  };
-}
-
-/** Hitung jumlah hari kerja aktif dalam rentang tanggal. */
-export function calculateWorkDays(
-  startDate: Date,
-  endDate: Date,
-  workDaysStr: string,
-): number {
-  const activeDays = workDaysStr
-    .split(",")
-    .map((dayName) => mapDayNameToIndex(dayName.trim()))
-    .filter((dayIndex): dayIndex is number => dayIndex !== undefined);
-
-  let totalWorkDays = 0;
-  const cursor = new Date(startDate);
-
-  while (cursor <= endDate) {
-    if (activeDays.includes(cursor.getDay())) {
-      totalWorkDays++;
-    }
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return totalWorkDays || DEFAULT_WORK_DAYS;
-}
-
-/** Ambil string hari kerja default payroll. */
-export function getDefaultWorkDaysString(): string {
-  return DEFAULT_WORK_DAYS_STRING;
-}
-
-/** Hitung saldo gaji prorata untuk karyawan baru. */
-export function calculateProratedBasicSalary(input: {
-  user: Pick<UserCalculationData, "joinDate" | "workDays">;
-  startDate: Date;
-  endDate: Date;
-  basicSalary: number;
-  attendanceWorkDays: number;
-}): { effectiveBasicSalary: number; isProrated: boolean } {
-  const { user, startDate, endDate, basicSalary, attendanceWorkDays } = input;
-
-  if (user.joinDate && user.joinDate > startDate && user.joinDate <= endDate) {
-    const workDaysSinceJoin = calculateWorkDays(
-      user.joinDate,
-      endDate,
-      user.workDays || DEFAULT_WORK_DAYS_STRING,
-    );
-
-    return {
-      effectiveBasicSalary: Math.round(
-        (basicSalary / attendanceWorkDays) * workDaysSinceJoin,
-      ),
-      isProrated: true,
-    };
-  }
-
-  if (user.joinDate && user.joinDate > endDate) {
-    return {
-      effectiveBasicSalary: 0,
-      isProrated: true,
-    };
-  }
-
-  return {
-    effectiveBasicSalary: basicSalary,
-    isProrated: false,
-  };
-}
-
 /** Hitung upah lembur berdasarkan mode tarif pengguna. */
-export function calculateOvertimePay(input: {
-  stats: OvertimeStats;
-  rateType: RateType;
-  rateNormal: number;
-  rateHoliday: number;
-  rateNational: number;
-  basicSalary: number;
-  workDays: number;
-}): { amount: number; hours: number; rate: number } {
-  const totalHours = input.stats.totalMinutes / 60;
+export function calculateOvertimePay(input: OvertimePayInput): {
+  amount: number;
+  hours: number;
+  rate: number;
+} {
+  if (input.rateType === "FIXED") return calculateFixedOvertimePay(input);
+  if (input.rateType === "PERCENTAGE")
+    return calculatePercentageOvertimePay(input);
+  if (input.rateType === "DAILY_SALARY")
+    return calculateDailySalaryOvertimePay(input);
+  return calculateHourlyOvertimePay(input);
+}
 
-  if (input.rateType === "FIXED") {
-    return {
-      amount:
-        input.stats.normalCount * input.rateNormal +
-        input.stats.holidayCount * input.rateHoliday +
-        input.stats.nationalCount * input.rateNational,
-      hours: totalHours,
-      rate: input.rateNormal,
-    };
-  }
+function calculateFixedOvertimePay(input: OvertimePayInput) {
+  return buildOvertimePayResult(
+    input,
+    input.stats.normalCount * input.rateNormal +
+      input.stats.holidayCount * input.rateHoliday +
+      input.stats.nationalCount * input.rateNational,
+    input.rateNormal,
+  );
+}
 
-  if (input.rateType === "PERCENTAGE") {
-    const dailySalary = input.basicSalary / input.workDays;
-    const hourlyRate = (dailySalary * input.rateNormal) / 100;
-    const holidayMultiplier =
-      input.rateHoliday > 0 ? input.rateHoliday / 100 : 2;
-    const nationalMultiplier =
-      input.rateNational > 0 ? input.rateNational / 100 : 3;
+function calculatePercentageOvertimePay(input: OvertimePayInput) {
+  const hourlyRate =
+    ((input.basicSalary / input.workDays) * input.rateNormal) / 100;
+  return buildOvertimePayResult(
+    input,
+    calculateWeightedMinutePay(
+      input,
+      hourlyRate,
+      getPercentageMultipliers(input),
+    ),
+    hourlyRate,
+  );
+}
 
-    return {
-      amount:
-        (input.stats.normalMinutes / 60) * hourlyRate +
-        (input.stats.holidayMinutes / 60) * hourlyRate * holidayMultiplier +
-        (input.stats.nationalHolidayMinutes / 60) *
-          hourlyRate *
-          nationalMultiplier,
-      hours: totalHours,
-      rate: hourlyRate,
-    };
-  }
+function calculateDailySalaryOvertimePay(input: OvertimePayInput) {
+  const dailySalary = input.basicSalary / input.workDays;
+  return buildOvertimePayResult(
+    input,
+    calculateWeightedDayPay(
+      input,
+      dailySalary,
+      getDailySalaryMultipliers(input),
+    ),
+    dailySalary,
+  );
+}
 
-  if (input.rateType === "DAILY_SALARY") {
-    const dailySalary = input.basicSalary / input.workDays;
-    const holidayMultiplier =
-      input.rateHoliday > 0 ? input.rateHoliday / 100 : 1;
-    const nationalMultiplier =
-      input.rateNational > 0 ? input.rateNational / 100 : 1;
+function calculateHourlyOvertimePay(input: OvertimePayInput) {
+  return buildOvertimePayResult(
+    input,
+    calculateHourlyOvertimeAmount(input),
+    input.rateNormal,
+  );
+}
 
-    return {
-      amount:
-        (input.stats.normalMinutes / 60 / 8) * dailySalary +
-        (input.stats.holidayMinutes / 60 / 8) *
-          dailySalary *
-          holidayMultiplier +
-        (input.stats.nationalHolidayMinutes / 60 / 8) *
-          dailySalary *
-          nationalMultiplier,
-      hours: totalHours,
-      rate: dailySalary,
-    };
-  }
+function calculateHourlyOvertimeAmount(input: OvertimePayInput) {
+  return (
+    (input.stats.normalMinutes / 60) * input.rateNormal +
+    (input.stats.holidayMinutes / 60) * input.rateHoliday +
+    (input.stats.nationalHolidayMinutes / 60) * input.rateNational
+  );
+}
 
+function calculateWeightedMinutePay(
+  input: OvertimePayInput,
+  baseRate: number,
+  multipliers: { holiday: number; national: number },
+) {
+  return (
+    (input.stats.normalMinutes / 60) * baseRate +
+    (input.stats.holidayMinutes / 60) * baseRate * multipliers.holiday +
+    (input.stats.nationalHolidayMinutes / 60) * baseRate * multipliers.national
+  );
+}
+
+function calculateWeightedDayPay(
+  input: OvertimePayInput,
+  dailySalary: number,
+  multipliers: { holiday: number; national: number },
+) {
+  return (
+    (input.stats.normalMinutes / 60 / 8) * dailySalary +
+    (input.stats.holidayMinutes / 60 / 8) * dailySalary * multipliers.holiday +
+    (input.stats.nationalHolidayMinutes / 60 / 8) *
+      dailySalary *
+      multipliers.national
+  );
+}
+
+function getPercentageMultipliers(input: OvertimePayInput) {
   return {
-    amount:
-      (input.stats.normalMinutes / 60) * input.rateNormal +
-      (input.stats.holidayMinutes / 60) * input.rateHoliday +
-      (input.stats.nationalHolidayMinutes / 60) * input.rateNational,
-    hours: totalHours,
-    rate: input.rateNormal,
+    holiday: input.rateHoliday > 0 ? input.rateHoliday / 100 : 2,
+    national: input.rateNational > 0 ? input.rateNational / 100 : 3,
   };
+}
+
+function getDailySalaryMultipliers(input: OvertimePayInput) {
+  return {
+    holiday: input.rateHoliday > 0 ? input.rateHoliday / 100 : 1,
+    national: input.rateNational > 0 ? input.rateNational / 100 : 1,
+  };
+}
+
+function buildOvertimePayResult(
+  input: OvertimePayInput,
+  amount: number,
+  rate: number,
+) {
+  return { amount, hours: input.stats.totalMinutes / 60, rate };
 }
 
 /** Hitung potongan PPh21 TER berdasarkan status PTKP. */
@@ -382,71 +326,4 @@ export function calculatePph21Ter(
   }
 
   return Math.floor(grossIncome * rate);
-}
-
-/** Hitung durasi kerja standar per hari berdasarkan konfigurasi user. */
-export function getStandardMinutesPerDay(config?: {
-  workingHourMode?: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
-  flexibleTargetHour?: number | null;
-  startWorkTime?: string | null;
-  endWorkTime?: string | null;
-  shift?: { startTime?: string | null; endTime?: string | null } | null;
-}): number {
-  if (!config) {
-    return DEFAULT_STANDARD_WORK_MINUTES;
-  }
-
-  if (config.workingHourMode === "FLEXIBLE") {
-    return (config.flexibleTargetHour || 8) * 60;
-  }
-
-  if (config.workingHourMode === "SHIFT") {
-    return calculateClockRangeMinutes(
-      config.shift?.startTime,
-      config.shift?.endTime,
-    );
-  }
-
-  if (config.workingHourMode === "FIXED") {
-    return calculateClockRangeMinutes(config.startWorkTime, config.endWorkTime);
-  }
-
-  return DEFAULT_STANDARD_WORK_MINUTES;
-}
-
-function mapDayNameToIndex(dayName: string): number | undefined {
-  const parsedDay = parseInt(dayName, 10);
-  return Number.isNaN(parsedDay) ? DAY_NAME_TO_INDEX[dayName] : parsedDay;
-}
-
-function calculateClockRangeMinutes(
-  startTime?: string | null,
-  endTime?: string | null,
-): number {
-  if (!startTime || !endTime) {
-    return DEFAULT_STANDARD_WORK_MINUTES;
-  }
-
-  const startMinutes = toClockMinutes(startTime);
-  const endMinutes = toClockMinutes(endTime);
-
-  if (startMinutes === null || endMinutes === null) {
-    return DEFAULT_STANDARD_WORK_MINUTES;
-  }
-
-  return endMinutes >= startMinutes
-    ? endMinutes - startMinutes
-    : 24 * 60 - startMinutes + endMinutes;
-}
-
-function toClockMinutes(clock: string): number | null {
-  const [hourRaw, minuteRaw] = clock.split(":").map(Number);
-  const hour = hourRaw ?? 0;
-  const minute = minuteRaw ?? 0;
-
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return null;
-  }
-
-  return hour * 60 + minute;
 }

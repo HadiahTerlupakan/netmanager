@@ -1,14 +1,12 @@
-import { logger } from "@/lib/logger";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { exec, execSync } from "node:child_process";
 import { promisify } from "node:util";
 
-import {
-  ensurePrismaMigrationHistory,
-  getBackupPrismaConfig,
-} from "../lib/prismaMigrationHistory";
+import { createBackupArchiveFromDatabases } from "./backupService.archive";
+import { runTenantBackfillJob } from "./backupService.backfill";
+import { importBackupArchiveIntoDatabases } from "./backupService.import";
+import { resetConfiguredDatabases } from "./backupService.reset";
 
 const execAsync = promisify(exec);
 
@@ -99,7 +97,7 @@ export function summarizeBackupResults(
   };
 }
 
-function parseDatabaseUrl(url: string): ParsedDbConfig | null {
+export function parseDatabaseUrl(url: string): ParsedDbConfig | null {
   try {
     const cleanUrl = url.split("?")[0];
     const parsed = new URL(cleanUrl);
@@ -116,7 +114,7 @@ function parseDatabaseUrl(url: string): ParsedDbConfig | null {
   }
 }
 
-function shellQuote(value: string) {
+export function shellQuote(value: string) {
   return `'${value.replace(/'/g, `"'"'`)}'`;
 }
 
@@ -238,7 +236,7 @@ export function buildPgDumpCommand(
   );
 }
 
-function findPrismaBin(): string {
+export function findPrismaBin(): string {
   const local = path.join(process.cwd(), "node_modules", ".bin", "prisma");
   if (fs.existsSync(local)) {
     return local;
@@ -247,7 +245,7 @@ function findPrismaBin(): string {
   return "npx prisma";
 }
 
-function findTsxCommand(): string {
+export function findTsxCommand(): string {
   const local = path.join(process.cwd(), "node_modules", ".bin", "tsx");
   if (fs.existsSync(local)) {
     return `"${local}"`;
@@ -256,94 +254,11 @@ function findTsxCommand(): string {
   return "npx tsx";
 }
 
-function shouldRunSeedAfterReset(results: BackupResultItem[]): boolean {
-  if (results.length === 0) {
-    return false;
-  }
-
-  return results.every((result) => result.status === "success");
-}
-
 export async function createBackupArchive(): Promise<BackupExportResult> {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "netmgr-backup-"));
-  const now = new Date();
-  const timestamp = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-    "_",
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-    String(now.getSeconds()).padStart(2, "0"),
-  ].join("");
-  const tarFileName = `netmanager_backup_${timestamp}.tar.gz`;
-  const tarFilePath = path.join(tmpDir, tarFileName);
-
-  const dumpFiles: string[] = [];
-  const errors: string[] = [];
-
-  try {
-    for (const [name, envVar] of Object.entries(DB_ENV_MAP)) {
-      const rawUrl = process.env[envVar];
-
-      if (!rawUrl) {
-        errors.push(`${name}: env var ${envVar} tidak ditemukan`);
-        continue;
-      }
-
-      const dbConfig = parseDatabaseUrl(rawUrl);
-      if (!dbConfig) {
-        errors.push(`${name}: gagal parse DATABASE_URL`);
-        continue;
-      }
-
-      const dumpFilePath = path.join(tmpDir, `${name}.sql.gz`);
-      const postgresClient = getPostgresClient(name);
-      const pgDumpCmd = [
-        "set -e;",
-        buildPgDumpCommand(postgresClient, dbConfig),
-        "--no-owner",
-        "--no-acl",
-        "--format=plain",
-        "--inserts",
-        "--column-inserts",
-        `| gzip > ${shellQuote(dumpFilePath)}`,
-      ].join(" ");
-
-      try {
-        await execAsync(pgDumpCmd, { shell: "/bin/sh" });
-        dumpFiles.push(dumpFilePath);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        errors.push(`${name}: ${message}`);
-      }
-    }
-
-    if (dumpFiles.length === 0) {
-      throw new Error(`Semua database gagal di-backup: ${errors.join("; ")}`);
-    }
-
-    const fileNames = dumpFiles
-      .map((filePath) => path.basename(filePath))
-      .join(" ");
-    await execAsync(`tar -czf "${tarFilePath}" -C "${tmpDir}" ${fileNames}`, {
-      shell: "/bin/sh",
-    });
-    const fileBuffer = fs.readFileSync(tarFilePath);
-
-    return {
-      fileName: tarFileName,
-      fileBuffer,
-      databases: dumpFiles.map((filePath) =>
-        path.basename(filePath, ".sql.gz"),
-      ),
-      warnings: errors,
-    };
-  } finally {
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
-  }
+  return createBackupArchiveFromDatabases({
+    dbEnvMap: DB_ENV_MAP,
+    execAsync,
+  });
 }
 
 export async function importBackupArchive({
@@ -355,303 +270,22 @@ export async function importBackupArchive({
   fileName: string;
   tenantId?: string | null;
 }): Promise<BackupImportResult> {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "netmgr-import-"));
-
-  try {
-    if (!fileName.endsWith(".tar.gz") && !fileName.endsWith(".tgz")) {
-      throw new Error(
-        "Format file tidak valid. Gunakan file .tar.gz hasil export backup.",
-      );
-    }
-
-    const uploadedFilePath = path.join(tmpDir, "backup.tar.gz");
-    fs.writeFileSync(uploadedFilePath, fileBuffer);
-
-    const extractDir = path.join(tmpDir, "extracted");
-    fs.mkdirSync(extractDir);
-    await execAsync(`tar -xzf "${uploadedFilePath}" -C "${extractDir}"`, {
-      shell: "/bin/sh",
-    });
-
-    const extractedFiles = fs
-      .readdirSync(extractDir)
-      .filter((entry) => entry.endsWith(".sql.gz"));
-    if (extractedFiles.length === 0) {
-      throw new Error("File backup tidak berisi data database yang valid.");
-    }
-
-    const results: BackupResultItem[] = [];
-    const prismaBin = findPrismaBin();
-
-    for (const sqlGzFile of extractedFiles) {
-      const dbName = sqlGzFile.replace(".sql.gz", "");
-      const envVar = DB_ENV_MAP[dbName];
-
-      if (!envVar) {
-        results.push({
-          database: dbName,
-          status: "skipped",
-          message: `Database "${dbName}" tidak dikenal, dilewati.`,
-        });
-        continue;
-      }
-
-      const rawUrl = process.env[envVar];
-      if (!rawUrl) {
-        results.push({
-          database: dbName,
-          status: "skipped",
-          message: `Env var ${envVar} tidak ditemukan.`,
-        });
-        continue;
-      }
-
-      const dbConfig = parseDatabaseUrl(rawUrl);
-      if (!dbConfig) {
-        results.push({
-          database: dbName,
-          status: "error",
-          message: `Gagal parse DATABASE_URL untuk ${dbName}.`,
-        });
-        continue;
-      }
-
-      const sqlGzPath = path.join(extractDir, sqlGzFile);
-      const postgresClient = getPostgresClient(dbName);
-      const psqlCommand = buildPsqlCommand(postgresClient, dbConfig);
-      const pgPrefix = "";
-
-      try {
-        await execAsync(
-          `${psqlCommand} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" -q`,
-          { shell: "/bin/sh", maxBuffer: 1024 * 1024 * 10 },
-        );
-
-        await execAsync(`gunzip -c ${shellQuote(sqlGzPath)} | ${psqlCommand}`, {
-          shell: "/bin/sh",
-          maxBuffer: 1024 * 1024 * 10,
-        });
-
-        const prismaConfig = getBackupPrismaConfig(dbName);
-        if (prismaConfig) {
-          const configFlag = prismaConfig.config
-            ? ` --config=${prismaConfig.config}`
-            : "";
-
-          try {
-            await execAsync(
-              `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss${configFlag}`,
-              {
-                shell: "/bin/sh",
-                maxBuffer: 1024 * 1024 * 30,
-                env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: "1" },
-              },
-            );
-
-            await ensurePrismaMigrationHistory({
-              dbName,
-              database: dbConfig.database,
-              pgPrefix,
-              psqlBin: psqlCommand,
-              psqlCommand,
-              prismaBin,
-              projectRoot: process.cwd(),
-              env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: "1" },
-              runCommand: async (command, options) =>
-                execAsync(command, {
-                  ...options,
-                  shell: "/bin/sh",
-                  maxBuffer: 1024 * 1024 * 30,
-                }),
-            });
-          } catch (pushError) {
-            logger.warn(
-              `[backup:import] prisma db push warning for ${dbName}:`,
-              String(pushError).substring(0, 300),
-            );
-          }
-        }
-
-        results.push({
-          database: dbName,
-          status: "success",
-          message: "Berhasil di-restore. Data diganti dengan isi backup.",
-        });
-
-        if (tenantId) {
-          try {
-            const getTablesCommand = `${psqlCommand} -t -A -c "SELECT table_name FROM information_schema.columns WHERE column_name = 'tenantId' AND table_schema = 'public'"`;
-            const tablesResult = await execAsync(getTablesCommand, {
-              shell: "/bin/sh",
-            });
-            const tables = tablesResult.stdout
-              .trim()
-              .split("\n")
-              .filter(Boolean);
-
-            for (const table of tables) {
-              const backfillCommand = `${psqlCommand} -c "UPDATE \\\"${table}\\\" SET \\\"tenantId\\\" = ${shellQuote(tenantId)} WHERE \\\"tenantId\\\" IS NULL;"`;
-              await execAsync(backfillCommand, { shell: "/bin/sh" });
-            }
-          } catch (backfillError) {
-            logger.warn(
-              `[backup:import] Auto-backfill warning for ${dbName}:`,
-              String(backfillError).substring(0, 300),
-            );
-          }
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        results.push({
-          database: dbName,
-          status: "error",
-          message: `Gagal restore: ${message.substring(0, 200)}`,
-        });
-      }
-    }
-
-    return {
-      ...summarizeBackupResults("Import", results),
-      results,
-    };
-  } finally {
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
-  }
+  return importBackupArchiveIntoDatabases({
+    fileBuffer,
+    fileName,
+    tenantId,
+    dbEnvMap: DB_ENV_MAP,
+    execAsync,
+  });
 }
 
 export async function resetDatabasesAndSchema(): Promise<BackupResetResult> {
-  const prismaBin = findPrismaBin();
-  const tsxCommand = findTsxCommand();
-  const results: BackupResultItem[] = [];
-
-  for (const [dbName, envVar] of Object.entries(DB_ENV_MAP)) {
-    const rawUrl = process.env[envVar];
-
-    if (!rawUrl) {
-      results.push({
-        database: dbName,
-        status: "skipped",
-        message: `Env var ${envVar} tidak ditemukan.`,
-      });
-      continue;
-    }
-
-    const dbConfig = parseDatabaseUrl(rawUrl);
-    if (!dbConfig) {
-      results.push({
-        database: dbName,
-        status: "error",
-        message: "Gagal parse DATABASE_URL.",
-      });
-      continue;
-    }
-
-    const postgresClient = getPostgresClient(dbName);
-    const psqlCommand = buildPsqlCommand(postgresClient, dbConfig);
-    const pgPrefix = "";
-    const prismaConfig = getBackupPrismaConfig(dbName);
-    const configFlag = prismaConfig?.config
-      ? ` --config=${prismaConfig.config}`
-      : "";
-
-    try {
-      await execAsync(
-        `${psqlCommand} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" -q`,
-        { shell: "/bin/sh", maxBuffer: 1024 * 1024 * 10 },
-      );
-
-      await execAsync(
-        `cd "${process.cwd()}" && "${prismaBin}" db push --accept-data-loss${configFlag}`,
-        {
-          shell: "/bin/sh",
-          maxBuffer: 1024 * 1024 * 30,
-          env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: "1" },
-        },
-      );
-
-      await ensurePrismaMigrationHistory({
-        dbName,
-        database: dbConfig.database,
-        pgPrefix,
-        psqlBin: psqlCommand,
-        psqlCommand,
-        prismaBin,
-        projectRoot: process.cwd(),
-        env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: "1" },
-        runCommand: async (command, options) =>
-          execAsync(command, {
-            ...options,
-            shell: "/bin/sh",
-            maxBuffer: 1024 * 1024 * 30,
-          }),
-      });
-
-      results.push({
-        database: dbName,
-        status: "success",
-        message: "Database berhasil di-reset dan schema sudah dibuat ulang.",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      results.push({
-        database: dbName,
-        status: "error",
-        message: `Gagal reset: ${message.substring(0, 200)}`,
-      });
-    }
-  }
-
-  if (shouldRunSeedAfterReset(results)) {
-    try {
-      await execAsync(`cd "${process.cwd()}" && ${tsxCommand} prisma/seed.ts`, {
-        shell: "/bin/sh",
-        maxBuffer: 1024 * 1024 * 30,
-        env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: "1" },
-      });
-
-      results.push({
-        database: "seed",
-        status: "success",
-        message:
-          "Seed berhasil dijalankan ulang. Login default tersedia kembali.",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      results.push({
-        database: "seed",
-        status: "error",
-        message: `Reset selesai, tetapi seed gagal: ${message.substring(0, 200)}`,
-      });
-    }
-  }
-
-  return {
-    ...summarizeBackupResults("Reset", results),
-    results,
-  };
+  return resetConfiguredDatabases({
+    dbEnvMap: DB_ENV_MAP,
+    execAsync,
+  });
 }
 
 export async function runBackupBackfillJob(): Promise<BackupBackfillResult> {
-  const tsxCommand = findTsxCommand();
-  const scriptPath = path.join(process.cwd(), "scripts", "backfill-tenant.ts");
-
-  if (!fs.existsSync(scriptPath)) {
-    throw new Error("Script backfill-tenant.ts tidak ditemukan");
-  }
-
-  const command = `cd ${process.cwd()} && ${tsxCommand} ${scriptPath}`;
-  const { stdout, stderr } = await execAsync(command);
-
-  if (stderr && stderr.toLowerCase().includes("error")) {
-    logger.error("[backup:backfill] Script Error details:", stderr);
-  }
-
-  return {
-    success: true,
-    message:
-      "Sinkronisasi berhasil dijalankan. Data telah dihubungkan dengan Tenant yang benar.",
-    log: stdout,
-  };
+  return runTenantBackfillJob(execAsync);
 }

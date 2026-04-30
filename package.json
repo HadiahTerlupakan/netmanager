@@ -12,6 +12,7 @@
     "worker": "tsx worker.ts",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit -p tsconfig.typecheck.json",
+    "audit:claude": "tsx scripts/audit-claude-compliance.ts",
     "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "test": "vitest",
     "test:run": "vitest run --maxWorkers=50%",

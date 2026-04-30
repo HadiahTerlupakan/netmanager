@@ -81,54 +81,40 @@ function validatePasswordInput(input: MobilePasswordInput) {
 }
 
 async function findCurrentPasswordHash(auth: MobilePasswordAuth) {
-  if (auth.role === "MITRA") {
-    const mitra = await prismaMitra.mitra.findUnique({
-      where: { id: auth.id },
-      select: { passwordHash: true },
-    });
+  if (auth.role === "MITRA") return findMitraPasswordHash(auth.id);
+  if (auth.role === "CUSTOMER") return findCustomerPasswordHash(auth);
+  return findUserPasswordHash(auth);
+}
 
-    if (!mitra) {
-      throw new MobilePasswordChangeError(
-        "User Mitra tidak ditemukan",
-        ErrorCodes.NOT_FOUND,
-        404,
-      );
-    }
+async function findMitraPasswordHash(id: string) {
+  const mitra = await prismaMitra.mitra.findUnique({
+    where: { id },
+    select: { passwordHash: true },
+  });
+  if (!mitra) throwNotFound("User Mitra tidak ditemukan");
+  return mitra.passwordHash;
+}
 
-    return mitra.passwordHash;
-  }
+async function findCustomerPasswordHash(auth: MobilePasswordAuth) {
+  const customer = await prisma.pelanggan.findFirst({
+    where: { id: auth.id, tenantId: auth.tenantId },
+    select: { passwordHash: true },
+  });
+  if (!customer) throwNotFound("User Pelanggan tidak ditemukan");
+  return customer.passwordHash;
+}
 
-  if (auth.role === "CUSTOMER") {
-    const customer = await prisma.pelanggan.findFirst({
-      where: { id: auth.id, tenantId: auth.tenantId },
-      select: { passwordHash: true },
-    });
-
-    if (!customer) {
-      throw new MobilePasswordChangeError(
-        "User Pelanggan tidak ditemukan",
-        ErrorCodes.NOT_FOUND,
-        404,
-      );
-    }
-
-    return customer.passwordHash;
-  }
-
+async function findUserPasswordHash(auth: MobilePasswordAuth) {
   const user = await prisma.user.findFirst({
     where: { id: auth.id, tenantId: auth.tenantId },
     select: { passwordHash: true },
   });
-
-  if (!user) {
-    throw new MobilePasswordChangeError(
-      "User tidak ditemukan",
-      ErrorCodes.NOT_FOUND,
-      404,
-    );
-  }
-
+  if (!user) throwNotFound("User tidak ditemukan");
   return user.passwordHash;
+}
+
+function throwNotFound(message: string): never {
+  throw new MobilePasswordChangeError(message, ErrorCodes.NOT_FOUND, 404);
 }
 
 async function assertCurrentPassword(

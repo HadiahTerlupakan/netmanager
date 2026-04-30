@@ -1,17 +1,13 @@
 import { prisma } from "@/modules/database";
-
-const DEFAULT_LIMIT = 5;
+import { TestCanvasingRepository } from "../repositories/TestCanvasingRepository";
 
 export class TestCanvasingRouteService {
+  constructor(
+    private readonly repository = new TestCanvasingRepository(prisma),
+  ) {}
+
   /** Get latest canvasing records for test route responses. */
-  async getLatestCanvasing(limit: number = DEFAULT_LIMIT) {
-    return prisma.canvasing.findMany({
-      take: limit,
-      include: {
-        user: {
-          select: { name: true, email: true },
-        },
-      },
-    });
+  async getLatestCanvasing(limit?: number) {
+    return this.repository.findLatest(limit);
   }
 }

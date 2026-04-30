@@ -85,8 +85,51 @@ export class DashboardService {
 
   /** Get integrated system summary for the admin dashboard. */
   async getSystemSummary(input: DashboardTenantInput): Promise<SystemSummary> {
+    const summaryData = await this.loadSystemSummaryData(input);
+
+    return {
+      inventory: this.mapInventorySummary(summaryData.inventory.total),
+      marketing: summaryData.marketing,
+      workOrder: summarizeWorkOrders(summaryData.workOrderStats),
+      attendance: summarizeAttendance(summaryData.dailyAttendance[0]),
+    };
+  }
+
+  /** Get top employees based on attendance and work order score. */
+  async getTopEmployees(input: DashboardLimitInput): Promise<TopEmployee[]> {
+    const rankedScores = await this.loadRankedEmployeeScores(input);
+    if (rankedScores.length === 0) {
+      return [];
+    }
+
+    const users = await this.loadTopEmployeeUsers(rankedScores, input.tenantId);
+    return this.mapTopEmployees(users, rankedScores);
+  }
+
+  /** Get sites with highest troubleshoot activity. */
+  async getTopProblematicSites(
+    input: DashboardLimitInput,
+  ): Promise<SiteStat[]> {
+    return this.getSiteStatsByType(input, ["TROUBLESHOOT"]);
+  }
+
+  /** Get sites with highest disconnection activity. */
+  async getTopDismantleSites(input: DashboardLimitInput): Promise<SiteStat[]> {
+    return this.getSiteStatsByType(input, ["DISCONNECTION"]);
+  }
+
+  /** Get sites with highest installation activity. */
+  async getTopInstallationSites(
+    input: DashboardLimitInput,
+  ): Promise<SiteStat[]> {
+    return this.getSiteStatsByType(input, ["INSTALLATION"]);
+  }
+
+  /** Load summary source data from dependent modules. */
+  private async loadSystemSummaryData(input: DashboardTenantInput) {
     const { startOfDay, endOfDay } = buildTodayRange();
     const recentRange = buildRecentRange(RECENT_PERIOD_DAYS);
+
     const [inventory, marketing, workOrderStats, dailyAttendance] =
       await Promise.all([
         this.dependencies.inventoryRepository.findAllBarang({
@@ -107,16 +150,11 @@ export class DashboardService {
         ),
       ]);
 
-    return {
-      inventory: this.mapInventorySummary(inventory.total),
-      marketing,
-      workOrder: summarizeWorkOrders(workOrderStats),
-      attendance: summarizeAttendance(dailyAttendance[0]),
-    };
+    return { inventory, marketing, workOrderStats, dailyAttendance };
   }
 
-  /** Get top employees based on attendance and work order score. */
-  async getTopEmployees(input: DashboardLimitInput): Promise<TopEmployee[]> {
+  /** Load ranked employee scores from attendance and work-order statistics. */
+  private async loadRankedEmployeeScores(input: DashboardLimitInput) {
     const limit = input.limit ?? DEFAULT_LEADERBOARD_LIMIT;
     const recentRange = buildRecentRange(RECENT_PERIOD_DAYS);
     const [attendanceStats, workOrderStats] = await Promise.all([
@@ -133,44 +171,34 @@ export class DashboardService {
         input.tenantId,
       ),
     ]);
-    const userScores = buildTopEmployeeScores(attendanceStats, workOrderStats);
-    const sortedIds = sortTopEmployeeScores(userScores, limit);
 
-    if (sortedIds.length === 0) {
-      return [];
-    }
+    return sortTopEmployeeScores(
+      buildTopEmployeeScores(attendanceStats, workOrderStats),
+      limit,
+    );
+  }
 
-    const userIds = sortedIds.map(([userId]) => userId);
-    const users =
-      await this.dependencies.userRepository.findManyWithFullDetails(
-        userIds,
-        input.tenantId,
-      );
+  /** Load user details for ranked employee identifiers. */
+  private loadTopEmployeeUsers(
+    rankedScores: Array<[string, TopEmployeeScore]>,
+    tenantId?: string,
+  ) {
+    return this.dependencies.userRepository.findManyWithFullDetails(
+      rankedScores.map(([userId]) => userId),
+      tenantId,
+    );
+  }
 
-    return sortedIds
+  /** Map ranked employee scores into dashboard DTO items. */
+  private mapTopEmployees(
+    users: DashboardUserDetails[],
+    rankedScores: Array<[string, TopEmployeeScore]>,
+  ): TopEmployee[] {
+    return rankedScores
       .map(([userId, score], index) =>
         this.mapTopEmployee(users, userId, score, index),
       )
       .filter((employee): employee is TopEmployee => employee !== null);
-  }
-
-  /** Get sites with highest troubleshoot activity. */
-  async getTopProblematicSites(
-    input: DashboardLimitInput,
-  ): Promise<SiteStat[]> {
-    return this.getSiteStatsByType(input, ["TROUBLESHOOT"]);
-  }
-
-  /** Get sites with highest disconnection activity. */
-  async getTopDismantleSites(input: DashboardLimitInput): Promise<SiteStat[]> {
-    return this.getSiteStatsByType(input, ["DISCONNECTION"]);
-  }
-
-  /** Get sites with highest installation activity. */
-  async getTopInstallationSites(
-    input: DashboardLimitInput,
-  ): Promise<SiteStat[]> {
-    return this.getSiteStatsByType(input, ["INSTALLATION"]);
   }
 
   /** Map inventory aggregate into dashboard summary shape. */

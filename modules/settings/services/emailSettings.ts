@@ -59,6 +59,17 @@ export type EmailTestServiceResult =
   | EmailTestServiceValidation
   | EmailTestServiceFailure;
 
+type ResolvedEmailTestSettings = {
+  smtpHost: string;
+  smtpPort: number;
+  smtpPortValue: string;
+  smtpUser: string;
+  smtpPass: string;
+  fromName: string;
+  fromEmail: string;
+  testEmail: string;
+};
+
 const sanitizeString = (value?: unknown): string => {
   if (typeof value !== "string") {
     return "";
@@ -182,110 +193,114 @@ export async function testEmailSettings(options: {
   userId: string;
   payload?: EmailTestPayload;
 }): Promise<EmailTestServiceResult> {
-  const { tenantId, userId, payload } = options;
+  const settings = await resolveEmailTestSettings(
+    options.tenantId,
+    options.payload,
+  );
+  const validation = validateEmailTestSettings(settings);
+  if (validation) return validation;
+  return sendTestEmail(options, settings);
+}
+
+async function resolveEmailTestSettings(
+  tenantId: string,
+  payload?: EmailTestPayload,
+): Promise<ResolvedEmailTestSettings> {
   const settingsMap = await getTenantSettingsMap(
     tenantId,
     EMAIL_SETTINGS_FIELDS,
   );
-
-  const smtpHost =
-    sanitizeString(payload?.smtpHost) || settingsMap["SMTP_HOST"];
   const smtpPortValue =
     sanitizeString(payload?.smtpPort) || settingsMap["SMTP_PORT"];
-  const smtpPort = Number.parseInt(smtpPortValue, 10);
   const smtpUser =
     sanitizeString(payload?.smtpUser) || settingsMap["SMTP_USER"];
-  const smtpPass =
-    sanitizePassword(payload?.smtpPass) || settingsMap["SMTP_PASS"];
-  const fromName =
-    sanitizeString(payload?.fromName) ||
-    settingsMap["FROM_NAME"] ||
-    "NetManager ISP";
   const fromEmail =
     sanitizeString(payload?.fromEmail) || settingsMap["FROM_EMAIL"] || smtpUser;
-  const resolvedTestEmail =
-    sanitizeString(payload?.testEmail) || fromEmail || smtpUser;
+  return {
+    smtpHost: sanitizeString(payload?.smtpHost) || settingsMap["SMTP_HOST"],
+    smtpPort: Number.parseInt(smtpPortValue, 10),
+    smtpPortValue,
+    smtpUser,
+    smtpPass: sanitizePassword(payload?.smtpPass) || settingsMap["SMTP_PASS"],
+    fromName:
+      sanitizeString(payload?.fromName) ||
+      settingsMap["FROM_NAME"] ||
+      "NetManager ISP",
+    fromEmail,
+    testEmail: sanitizeString(payload?.testEmail) || fromEmail || smtpUser,
+  };
+}
 
-  if (!smtpHost) {
-    return {
-      type: "validation_error",
-      message: "SMTP host belum dikonfigurasi",
-    };
-  }
+function validateEmailTestSettings(
+  settings: ResolvedEmailTestSettings,
+): EmailTestServiceValidation | null {
+  if (!settings.smtpHost)
+    return emailValidationError("SMTP host belum dikonfigurasi");
+  if (!settings.smtpPortValue || Number.isNaN(settings.smtpPort))
+    return emailValidationError("Port SMTP tidak valid");
+  if (!settings.smtpUser)
+    return emailValidationError("SMTP user belum dikonfigurasi");
+  if (!settings.smtpPass)
+    return emailValidationError("SMTP password belum dikonfigurasi");
+  if (!settings.fromEmail)
+    return emailValidationError("Email pengirim belum dikonfigurasi");
+  if (!settings.testEmail)
+    return emailValidationError("Alamat email percobaan belum ditentukan");
+  return null;
+}
 
-  if (!smtpPortValue || Number.isNaN(smtpPort)) {
-    return {
-      type: "validation_error",
-      message: "Port SMTP tidak valid",
-    };
-  }
+function emailValidationError(message: string): EmailTestServiceValidation {
+  return { type: "validation_error", message };
+}
 
-  if (!smtpUser) {
-    return {
-      type: "validation_error",
-      message: "SMTP user belum dikonfigurasi",
-    };
-  }
-
-  if (!smtpPass) {
-    return {
-      type: "validation_error",
-      message: "SMTP password belum dikonfigurasi",
-    };
-  }
-
-  if (!fromEmail) {
-    return {
-      type: "validation_error",
-      message: "Email pengirim belum dikonfigurasi",
-    };
-  }
-
-  if (!resolvedTestEmail) {
-    return {
-      type: "validation_error",
-      message: "Alamat email percobaan belum ditentukan",
-    };
-  }
-
+async function sendTestEmail(
+  options: { tenantId: string; userId: string },
+  settings: ResolvedEmailTestSettings,
+): Promise<EmailTestServiceResult> {
   try {
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    });
-
-    const mailInfo = await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: resolvedTestEmail,
+    const mailInfo = await createEmailTransporter(settings).sendMail({
+      from: `"${settings.fromName}" <${settings.fromEmail}>`,
+      to: settings.testEmail,
       subject: "Email Percobaan dari NetManager",
-      html: buildTestEmailHtml(resolvedTestEmail),
+      html: buildTestEmailHtml(settings.testEmail),
     });
-
-    return {
-      type: "success",
-      message: `Email percobaan berhasil dikirim ke ${resolvedTestEmail}`,
-      data: {
-        testEmail: resolvedTestEmail,
-        messageId: mailInfo.messageId,
-      },
-    };
+    return buildEmailTestSuccess(settings.testEmail, mailInfo.messageId);
   } catch (error) {
-    logger.error("Gagal mengirim email percobaan", error as Error, {
-      tenantId,
-      userId,
-      testEmail: resolvedTestEmail,
-      smtpHost,
-      smtpUser,
-    });
-
-    return {
-      type: "failure",
-      message: "Gagal mengirim email percobaan",
-    };
+    logEmailTestFailure(options, settings, error);
+    return { type: "failure", message: "Gagal mengirim email percobaan" };
   }
+}
+
+function createEmailTransporter(settings: ResolvedEmailTestSettings) {
+  return nodemailer.createTransport({
+    host: settings.smtpHost,
+    port: settings.smtpPort,
+    secure: settings.smtpPort === 465,
+    auth: { user: settings.smtpUser, pass: settings.smtpPass },
+  });
+}
+
+function buildEmailTestSuccess(
+  testEmail: string,
+  messageId: string,
+): EmailTestServiceSuccess {
+  return {
+    type: "success",
+    message: `Email percobaan berhasil dikirim ke ${testEmail}`,
+    data: { testEmail, messageId },
+  };
+}
+
+function logEmailTestFailure(
+  options: { tenantId: string; userId: string },
+  settings: ResolvedEmailTestSettings,
+  error: unknown,
+) {
+  logger.error("Gagal mengirim email percobaan", error as Error, {
+    tenantId: options.tenantId,
+    userId: options.userId,
+    testEmail: settings.testEmail,
+    smtpHost: settings.smtpHost,
+    smtpUser: settings.smtpUser,
+  });
 }

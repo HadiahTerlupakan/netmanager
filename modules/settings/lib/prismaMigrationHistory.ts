@@ -14,6 +14,23 @@ type CommandRunner = (
   options: { env: NodeJS.ProcessEnv },
 ) => Promise<unknown>;
 
+type EnsurePrismaMigrationHistoryInput = {
+  dbName: string;
+  database: string;
+  pgPrefix: string;
+  psqlBin: string;
+  psqlCommand?: string;
+  prismaBin: string;
+  projectRoot: string;
+  env: NodeJS.ProcessEnv;
+  runCommand: CommandRunner;
+  listMigrationNames?: (projectRoot: string, dbName: string) => string[];
+};
+
+type MigrationCommandContext = EnsurePrismaMigrationHistoryInput & {
+  prismaConfig: BackupPrismaConfig;
+};
+
 const BACKUP_PRISMA_CONFIG_MAP: Record<BackupDatabaseName, BackupPrismaConfig> =
   {
     netmanager: {
@@ -81,46 +98,35 @@ function listMigrationNames(projectRoot: string, dbName: string) {
     .sort((left, right) => left.localeCompare(right));
 }
 
-export async function ensurePrismaMigrationHistory({
-  dbName,
-  database,
-  pgPrefix,
-  psqlBin,
-  psqlCommand,
-  prismaBin,
-  projectRoot,
-  env,
-  runCommand,
-  listMigrationNames: listMigrationNamesOverride = (
-    inputProjectRoot,
-    inputDbName,
-  ) => listMigrationNames(inputProjectRoot, inputDbName),
-}: {
-  dbName: string;
-  database: string;
-  pgPrefix: string;
-  psqlBin: string;
-  psqlCommand?: string;
-  prismaBin: string;
-  projectRoot: string;
-  env: NodeJS.ProcessEnv;
-  runCommand: CommandRunner;
-  listMigrationNames?: (projectRoot: string, dbName: string) => string[];
-}) {
-  const prismaConfig = getBackupPrismaConfig(dbName);
+export async function ensurePrismaMigrationHistory(
+  input: EnsurePrismaMigrationHistoryInput,
+) {
+  const prismaConfig = getBackupPrismaConfig(input.dbName);
+  if (!prismaConfig) return;
 
-  if (!prismaConfig) {
-    return;
-  }
+  const context = { ...input, prismaConfig };
+  const appliedCount = await readAppliedMigrationCount(context);
+  if (appliedCount > 0) return;
 
-  const configArg = getConfigArg(prismaConfig.config);
-  const basePsqlCommand =
-    psqlCommand ??
-    `${pgPrefix} ${shellQuote(psqlBin)} -d ${shellQuote(database)}`;
+  await input.runCommand(buildMigrationDiffCommand(context), {
+    env: input.env,
+  });
+  await resolveAppliedMigrations(context);
+}
+
+async function readAppliedMigrationCount(input: MigrationCommandContext) {
+  const appliedCountResult = (await input.runCommand(
+    buildAppliedCountCommand(input),
+    { env: input.env },
+  )) as { stdout?: string };
+  return parseAppliedCount(appliedCountResult.stdout ?? "");
+}
+
+function buildAppliedCountCommand(input: MigrationCommandContext) {
+  const basePsqlCommand = buildBasePsqlCommand(input);
   const checkTableCommand = `${basePsqlCommand} -t -A -c "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='_prisma_migrations'"`;
   const getCountCommand = `${basePsqlCommand} -t -A -c "SELECT count(*) FROM \"_prisma_migrations\""`;
-
-  const appliedCountCommand = `
+  return `
     EXISTS=$(${checkTableCommand})
     if [ "$EXISTS" = "1" ]; then
       ${getCountCommand}
@@ -128,23 +134,37 @@ export async function ensurePrismaMigrationHistory({
       echo "-1"
     fi
   `;
+}
 
-  const appliedCountResult = (await runCommand(appliedCountCommand, {
-    env,
-  })) as { stdout?: string };
-  const appliedCount = parseAppliedCount(appliedCountResult.stdout ?? "");
+function buildBasePsqlCommand(input: MigrationCommandContext) {
+  return (
+    input.psqlCommand ??
+    `${input.pgPrefix} ${shellQuote(input.psqlBin)} -d ${shellQuote(input.database)}`
+  );
+}
 
-  if (appliedCount > 0) {
-    return;
-  }
+function buildMigrationDiffCommand(input: MigrationCommandContext) {
+  return `cd ${shellQuote(input.projectRoot)} && ${shellQuote(input.prismaBin)} migrate diff${getConfigArg(input.prismaConfig.config)} --from-config-datasource --to-schema ${input.prismaConfig.schemaPath} --exit-code`;
+}
 
-  const diffCommand = `cd ${shellQuote(projectRoot)} && ${shellQuote(prismaBin)} migrate diff${configArg} --from-config-datasource --to-schema ${prismaConfig.schemaPath} --exit-code`;
-  await runCommand(diffCommand, { env });
-
-  const migrationNames = listMigrationNamesOverride(projectRoot, dbName);
-
+async function resolveAppliedMigrations(input: MigrationCommandContext) {
+  const migrationNames = getMigrationNames(input);
   for (const migrationName of migrationNames) {
-    const resolveCommand = `cd ${shellQuote(projectRoot)} && ${shellQuote(prismaBin)} migrate resolve${configArg} --applied ${migrationName}`;
-    await runCommand(resolveCommand, { env });
+    await input.runCommand(buildMigrationResolveCommand(input, migrationName), {
+      env: input.env,
+    });
   }
+}
+
+function getMigrationNames(input: MigrationCommandContext) {
+  const listMigrationNamesOverride =
+    input.listMigrationNames ?? listMigrationNames;
+  return listMigrationNamesOverride(input.projectRoot, input.dbName);
+}
+
+function buildMigrationResolveCommand(
+  input: MigrationCommandContext,
+  migrationName: string,
+) {
+  return `cd ${shellQuote(input.projectRoot)} && ${shellQuote(input.prismaBin)} migrate resolve${getConfigArg(input.prismaConfig.config)} --applied ${migrationName}`;
 }

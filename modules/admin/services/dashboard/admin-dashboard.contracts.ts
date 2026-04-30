@@ -1,5 +1,5 @@
 import type { DashboardSection } from "@/lib/dashboard/contracts";
-import type { MikroTikRouterStatistics } from "@/modules/network";
+import type { MikroTikRouterStatistics } from "@/modules/network/services/mikrotikStatistics.types";
 import type { SystemSummary, TopEmployee } from "../DashboardService";
 
 export type AdminDashboardHeroViewModel = {

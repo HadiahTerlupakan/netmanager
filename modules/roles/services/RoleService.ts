@@ -16,6 +16,10 @@ import {
 import { RoleMapper } from "../mappers/RoleMapper";
 import { PermissionRepository } from "../repositories/PermissionRepository";
 import { resolvePermissionIds } from "./role-permission-helpers";
+import type {
+  RoleMutationContext,
+  RoleMutationInput,
+} from "./role-service.types";
 
 const RESTRICTED_SENSITIVE_RESOURCES = new Set([
   "backup_database",
@@ -39,23 +43,6 @@ export class RolePolicyError extends Error {
     Object.setPrototypeOf(this, RolePolicyError.prototype);
   }
 }
-
-type RoleMutationInput = {
-  name: string;
-  description?: string;
-  permissions: string[];
-  accessAdminPanel?: boolean;
-  accessEmployeePanel?: boolean;
-  isRestricted?: boolean;
-  isTechnical?: boolean;
-  isSuperAdmin?: boolean;
-  canApproveRab?: boolean;
-  canReceiveWhatsappApproval?: boolean;
-};
-
-type RoleMutationContext = {
-  tenantId?: string | null;
-};
 
 export class RoleService {
   private readonly roleRepository: IRoleRepository;

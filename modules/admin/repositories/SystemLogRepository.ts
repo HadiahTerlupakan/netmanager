@@ -13,27 +13,22 @@ import type {
 } from "../domain/ports/ISystemLogRepository";
 
 const DEFAULT_ACTIVITY_LIMIT = 10;
+const SYSTEM_LOG_USER_INCLUDE = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} satisfies Prisma.SystemLogInclude;
 
 export class SystemLogRepository implements ISystemLogRepository {
   /** Find all logs with filters. */
   async findAll(filters: SystemLogFilters = {}) {
     const where = this.buildWhereClause(filters);
     const [rows, total] = await Promise.all([
-      prisma.systemLog.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: filters.skip,
-        take: filters.take,
-      }),
+      this.findManyWithUser(where, filters),
       prisma.systemLog.count({ where }),
     ]);
 
@@ -47,15 +42,7 @@ export class SystemLogRepository implements ISystemLogRepository {
   async findById(id: string) {
     const row = await prisma.systemLog.findUnique({
       where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      include: SYSTEM_LOG_USER_INCLUDE,
     });
 
     return row ? SystemLogMapper.toDomain(row) : null;
@@ -64,15 +51,7 @@ export class SystemLogRepository implements ISystemLogRepository {
   /** Get recent log activity for timeline widgets. */
   async getRecentActivity(limit: number = DEFAULT_ACTIVITY_LIMIT) {
     const rows = await prisma.systemLog.findMany({
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
+      include: SYSTEM_LOG_USER_INCLUDE,
       orderBy: { createdAt: "desc" },
       take: limit,
     });
@@ -105,6 +84,19 @@ export class SystemLogRepository implements ISystemLogRepository {
   /** Count total logs using optional filters. */
   async count(filters: SystemLogFilters = {}) {
     return prisma.systemLog.count({ where: this.buildWhereClause(filters) });
+  }
+
+  private findManyWithUser(
+    where: Prisma.SystemLogWhereInput,
+    filters: SystemLogFilters,
+  ) {
+    return prisma.systemLog.findMany({
+      where,
+      include: SYSTEM_LOG_USER_INCLUDE,
+      orderBy: { createdAt: "desc" },
+      skip: filters.skip,
+      take: filters.take,
+    });
   }
 
   private buildWhereClause(

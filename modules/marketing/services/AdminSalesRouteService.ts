@@ -1,84 +1,13 @@
 import { prisma } from "@/modules/database";
-import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { toStartOfDay } from "@/lib/utils/server-datetime";
+import {
+  buildDashboardRange,
+  type DashboardPeriod,
+} from "./admin-sales-dashboard-range";
 
 const DEFAULT_CANVASING_TARGET = 50;
 const TOP_LIMIT = 3;
 const WEEKLY_TREND_DAYS = 7;
-
-type DashboardPeriod = "day" | "week" | "month" | "custom" | "all";
-
-type DashboardRangeInput = {
-  period: DashboardPeriod;
-  customStart?: string | null;
-  customEnd?: string | null;
-};
-
-function buildDashboardRange(input: DashboardRangeInput) {
-  const now = new Date();
-  if (input.period === "day") {
-    return {
-      startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
-      endDate: new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        23,
-        59,
-        59,
-      ),
-    };
-  }
-  if (input.period === "week") {
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - startDate.getDay() + 1);
-    startDate.setTime(toStartOfDay(startDate).getTime());
-    return {
-      startDate,
-      endDate: new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        23,
-        59,
-        59,
-      ),
-    };
-  }
-  if (input.period === "month") {
-    return {
-      startDate: new Date(now.getFullYear(), now.getMonth(), 1),
-      endDate: new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        23,
-        59,
-        59,
-      ),
-    };
-  }
-  if (input.period === "custom" && input.customStart && input.customEnd) {
-    const startDate = new Date(input.customStart);
-    startDate.setTime(toStartOfDay(startDate).getTime());
-    const endDate = new Date(input.customEnd);
-    endDate.setTime(toEndOfDay(endDate).getTime());
-    return { startDate, endDate };
-  }
-  return {
-    startDate:
-      input.period === "all"
-        ? new Date(0)
-        : new Date(now.getFullYear(), now.getMonth(), 1),
-    endDate: new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-    ),
-  };
-}
 
 function getDateFilter(
   period: DashboardPeriod,

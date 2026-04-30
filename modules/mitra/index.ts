@@ -3,7 +3,10 @@ export {
   MitraLookupService,
   getMitraLookupService,
 } from "./services/MitraLookupService";
-export * from "./services/MitraIdCardService";
+export {
+  MitraIdCardService,
+  mitraIdCardService,
+} from "./services/MitraIdCardService";
 export {
   MitraWalletService,
   getMitraWalletService,
@@ -24,10 +27,23 @@ export {
   MobileMitraRouteService,
   getMobileMitraRouteService,
 } from "./services/MobileMitraRouteService";
-export * from "./services/MobileMitraAuthService";
+export {
+  getMobileMitraMe,
+  tryMobileMitraLogin,
+  type MobileLoginPayload,
+} from "./services/MobileMitraAuthService";
 export type { MobileDashboardUserPayload } from "./services/MobileDashboardService";
-export * from "./services/TenantProvisioningService";
-export * from "./services/tenant-constants";
+export {
+  TenantProvisioningService,
+  provisionTenantData,
+  getTenantAdminRoleId,
+  type TenantProvisioningResult,
+} from "./services/TenantProvisioningService";
+export {
+  MAIN_TENANT_ID,
+  MAIN_TENANT_NAME,
+  isMainTenant,
+} from "./services/tenant-constants";
 
 export type {
   CreateMitraDTO,

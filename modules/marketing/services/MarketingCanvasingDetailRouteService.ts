@@ -8,7 +8,7 @@ import {
   hasGenericStatusUpdate,
   parseUpdateCanvasingInput,
 } from "../validators/canvasingValidation";
-import { createCanvasingService } from "..";
+import { createCanvasingService } from "./marketing-service-factories";
 
 const CANVASING_NOT_FOUND = "Data canvasing";
 const FORBIDDEN_VIEW_MESSAGE =
