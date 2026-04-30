@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { UserLookupService } from "@/modules/users";
-import type { WorkOrderStatus } from "@prisma/client";
+import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
 import {
   TicketRepository,

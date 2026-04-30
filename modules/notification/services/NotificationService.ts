@@ -29,15 +29,20 @@ import {
   notifyUpdatedWorkOrderRecipients,
 } from "./NotificationService.workorders";
 
-const notificationRepo = new NotificationRepository();
-const userRepo = new UserLookupService();
+function getNotificationRepository() {
+  return new NotificationRepository();
+}
+
+function getUserLookupService() {
+  return new UserLookupService();
+}
 
 async function resolveNotificationAccessScope(
   input: NotificationAccessScopeInput,
 ): Promise<NotificationAccessScope> {
   const user = input.departmentId
     ? null
-    : await userRepo.findByIdWithDepartment(input.userId);
+    : await getUserLookupService().findByIdWithDepartment(input.userId);
   const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
   const effectiveTenantId =
     !isSuperAdmin && !tenantId ? getMissingTenantId() : tenantId;
@@ -86,14 +91,14 @@ export interface WorkOrderNotificationData {
 export async function createNotification(data: CreateNotificationData) {
   const tenantContext = data.tenantId ? null : await getTenantIdFromContext();
   const tenantId = data.tenantId ?? tenantContext?.tenantId ?? null;
-  const notification = await notificationRepo.createFull(
+  const notification = await getNotificationRepository().createFull(
     buildNotificationCreateData(data, tenantId),
   );
 
   await deliverNotification({
     notification,
     data,
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
   });
 
   return notification;
@@ -103,7 +108,7 @@ export async function notifyNewWorkOrder(
   data: WorkOrderNotificationData & { triggeredByUserId?: string },
 ) {
   const recipients = await findEligibleRecipients({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     departmentId: data.departmentId,
     siteId: data.siteId,
     excludeUserId: data.triggeredByUserId,
@@ -123,7 +128,7 @@ export async function notifyWorkOrderAssigned(
   },
 ) {
   const observers = await findEligibleRecipients({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     departmentId: data.departmentId,
     siteId: data.siteId,
     excludeUserId: data.assignedToId,
@@ -144,7 +149,7 @@ export async function notifyWorkOrderStatusChange(
   },
 ) {
   const recipients = await findEligibleRecipients({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     departmentId: data.departmentId,
     siteId: data.siteId,
     excludeUserId: data.triggeredByUserId,
@@ -166,7 +171,7 @@ export async function notifyWorkOrderUpdate(
   },
 ) {
   const recipients = await findEligibleRecipients({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     departmentId: data.departmentId,
     siteId: data.siteId,
     excludeUserId: data.triggeredByUserId,
@@ -191,7 +196,7 @@ export async function notifyAdminsAboutMobileAction(data: {
   siteId?: string;
 }) {
   const recipients = await findEligibleRecipients({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     departmentId: data.departmentId,
     siteId: data.siteId,
     excludeUserId: data.triggeredByUserId,
@@ -237,11 +242,11 @@ export async function getNotificationsForUser(
   }
 
   const [notifications, total] = await Promise.all([
-    notificationRepo.findManyForUser(
+    getNotificationRepository().findManyForUser(
       where,
       resolveNotificationQueryOptions(options),
     ),
-    notificationRepo.countWhere(where),
+    getNotificationRepository().countWhere(where),
   ]);
 
   return { notifications, total };
@@ -258,7 +263,7 @@ export async function getReadableNotificationForUser(
     siteId: options?.siteId,
   });
 
-  return notificationRepo.findFirst({
+  return getNotificationRepository().findFirst({
     id: notificationId,
     ...buildNotificationAccessWhere(
       {
@@ -278,7 +283,7 @@ export async function getUnreadCount(
 ): Promise<number> {
   const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
 
-  return notificationRepo.getUnreadCountRaw(
+  return getNotificationRepository().getUnreadCountRaw(
     userId,
     buildExcludedTypesSqlCondition(excludeTypes),
     buildSiteSqlCondition(siteId),
@@ -287,7 +292,7 @@ export async function getUnreadCount(
 }
 
 export async function markAsRead(notificationId: string) {
-  return notificationRepo.markAsRead(notificationId);
+  return getNotificationRepository().markAsRead(notificationId);
 }
 
 export async function markAllAsRead(
@@ -305,7 +310,10 @@ export async function markAllAsRead(
     where.type = type;
   }
 
-  return notificationRepo.updateMany(where, buildNotificationMutationPayload());
+  return getNotificationRepository().updateMany(
+    where,
+    buildNotificationMutationPayload(),
+  );
 }
 
 export interface CanvasingNotificationData {
@@ -328,7 +336,7 @@ export interface PointClaimNotificationData {
 
 export async function notifyNewCanvasing(data: CanvasingNotificationData) {
   const recipients = await findCanvasingVerifiers({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     siteId: data.siteId,
   });
 
@@ -342,7 +350,7 @@ export async function notifyNewCanvasing(data: CanvasingNotificationData) {
 
 export async function notifyNewPointClaim(data: PointClaimNotificationData) {
   const recipients = await findCanvasingVerifiers({
-    userLookupService: userRepo,
+    userLookupService: getUserLookupService(),
     siteId: data.siteId,
   });
 

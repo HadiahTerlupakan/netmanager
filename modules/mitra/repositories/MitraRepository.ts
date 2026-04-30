@@ -1,7 +1,7 @@
 import { prisma, prismaBilling } from "@/modules/database";
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { MitraType, type Prisma } from "@prisma/client-mitra";
-import { createInsensitiveContainsFilter } from "@/modules/finance/repositories/shared/prismaSearchFilters";
+import { createInsensitiveContainsFilter } from "@/lib/prisma-search-filters";
 import type {
   CreateMitraDTO,
   MitraFilters,

@@ -1,18 +1,12 @@
 import crypto from "crypto";
-import type { Prisma, TargetAudience } from "@prisma/client";
 import type { AnnouncementTargetAudience } from "../domain/entities/AnnouncementEntity";
 import type { IAnnouncementRepository } from "../domain/ports/IAnnouncementRepository";
 import { requireAnnouncementRepositoryMethod } from "../domain/ports/IAnnouncementRepository";
-import { firebaseRealtimeService } from "@/lib/realtime";
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
 
-const ANNOUNCEMENT_PREVIEW_LIMIT = 100;
-const EMPLOYEE_ROLE_NAMES = ["EMPLOYEE", "TEKNISI"];
-const ADMIN_ROLE_NAMES = ["ADMIN", "SUPER_ADMIN"];
-const ACTIVE_CUSTOMER_STATUS = "AKTIF";
-const REALTIME_EVENT_TYPE = "announcement.new";
-const ANNOUNCEMENT_LINK = "/announcement";
+export { sendEmployeeAnnouncementNotifications } from "./AnnouncementNotification.helpers";
+export { publishRealtimeSafely } from "./AnnouncementRealtime.helpers";
+
 export const RECENT_READER_LIMIT = 10;
 export const UNKNOWN_USER_NAME = "Unknown User";
 export const UNKNOWN_CUSTOMER_NAME = "Unknown Customer";
@@ -346,213 +340,6 @@ export function logAnnouncementCreation(
   });
 }
 
-/** Publish realtime announcement in a fire-and-forget flow with error logging. */
-export function publishRealtimeSafely(announcement: AnnouncementRecord) {
-  void publishAnnouncementRealtime(announcement).catch((realtimeError) => {
-    logger.error(
-      "[Announcements] Failed to publish realtime update",
-      realtimeError as Error,
-      { announcementId: announcement.id },
-    );
-  });
-}
-
-async function publishAnnouncementRealtime(announcement: AnnouncementRecord) {
-  const payload = buildRealtimePayload(announcement);
-  if (announcement.target === "ADMIN") {
-    await publishToAdminScope(payload);
-    return;
-  }
-  if (announcement.target === "EMPLOYEE") {
-    await publishToUserScopes(await findEmployeeIds(), payload);
-    return;
-  }
-  if (announcement.target === "CUSTOMER") {
-    await publishToUserScopes(await findActiveCustomerIds(), payload);
-    return;
-  }
-
-  const [employeeIds, customerIds] = await Promise.all([
-    findEmployeeIds(),
-    findActiveCustomerIds(),
-  ]);
-  await publishToAdminScope(payload);
-  await publishToUserScopes([...employeeIds, ...customerIds], payload);
-}
-
-function buildRealtimePayload(announcement: AnnouncementRecord) {
-  return {
-    id: announcement.id,
-    title: announcement.title,
-    content: announcement.content,
-    target: announcement.target,
-    isPinned: announcement.isPinned,
-    createdAt: announcement.createdAt.toISOString(),
-  };
-}
-
-async function publishToAdminScope(
-  payload: ReturnType<typeof buildRealtimePayload>,
-) {
-  await firebaseRealtimeService.publish({
-    type: REALTIME_EVENT_TYPE,
-    scope: { kind: "admin", id: "announcements" },
-    payload,
-  });
-}
-
-async function publishToUserScopes(
-  userIds: string[],
-  payload: ReturnType<typeof buildRealtimePayload>,
-) {
-  await Promise.all(
-    userIds.map((id) =>
-      firebaseRealtimeService.publish({
-        type: REALTIME_EVENT_TYPE,
-        scope: { kind: "user", id },
-        payload,
-      }),
-    ),
-  );
-}
-
-/** Send push notifications and persistent notifications for employees/admins. */
-export async function sendEmployeeAnnouncementNotifications(
-  announcement: AnnouncementRecord,
-): Promise<void> {
-  try {
-    const targetAudience = announcement.target as TargetAudience;
-    const users = await prisma.user.findMany({
-      where: buildNotificationUserFilter(targetAudience),
-      select: { id: true, pushToken: true },
-    });
-    const usersOnLeave = await findUsersOnLeave(users.map((user) => user.id));
-    const tokens = users
-      .filter((user) => !usersOnLeave.has(user.id))
-      .map((user) => user.pushToken)
-      .filter((token): token is string => !!token);
-
-    if (tokens.length > 0) {
-      const { sendExpoPushNotifications } = await import("@/lib/expo");
-      await sendExpoPushNotifications(
-        tokens,
-        announcement.title,
-        buildAnnouncementPreview(announcement.content),
-        { announcementId: announcement.id, url: ANNOUNCEMENT_LINK },
-      );
-    }
-
-    await createPersistentAnnouncementNotifications(
-      announcement,
-      buildNotificationDbUserFilter(targetAudience),
-    );
-  } catch (pushError) {
-    logger.error(
-      "[Announcements] Failed to send push notifications",
-      pushError as Error,
-    );
-  }
-}
-
-async function createPersistentAnnouncementNotifications(
-  announcement: AnnouncementRecord,
-  where: Prisma.UserWhereInput,
-) {
-  const targetedUsers = await prisma.user.findMany({
-    where,
-    select: { id: true },
-  });
-  if (targetedUsers.length === 0) {
-    return;
-  }
-
-  await prisma.notifications.createMany({
-    data: targetedUsers.map((user) => ({
-      id: crypto.randomUUID(),
-      type: "ANNOUNCEMENT",
-      title: announcement.title,
-      message: buildAnnouncementPreview(announcement.content),
-      userId: user.id,
-      sourceType: "ANNOUNCEMENT",
-      sourceId: announcement.id,
-      isRead: false,
-      priority: "NORMAL",
-      createdAt: new Date(),
-    })),
-  });
-}
-
-function buildNotificationUserFilter(
-  target: TargetAudience,
-): Prisma.UserWhereInput {
-  return {
-    pushToken: { not: null },
-    isActive: true,
-    ...buildRoleFilter(target),
-  };
-}
-
-function buildNotificationDbUserFilter(
-  target: TargetAudience,
-): Prisma.UserWhereInput {
-  return {
-    isActive: true,
-    ...buildRoleFilter(target),
-  };
-}
-
-function buildRoleFilter(target: TargetAudience): Prisma.UserWhereInput {
-  if (target === "EMPLOYEE") {
-    return { role: { name: { in: EMPLOYEE_ROLE_NAMES } } };
-  }
-  if (target === "ADMIN") {
-    return { role: { name: { in: ADMIN_ROLE_NAMES } } };
-  }
-  return {};
-}
-
-async function findEmployeeIds() {
-  const employees = await prisma.user.findMany({
-    where: {
-      isActive: true,
-      role: { name: { in: EMPLOYEE_ROLE_NAMES } },
-    },
-    select: { id: true },
-  });
-  return employees.map((employee) => employee.id);
-}
-
-async function findActiveCustomerIds() {
-  const customers = await prisma.pelanggan.findMany({
-    where: { status: ACTIVE_CUSTOMER_STATUS },
-    select: { id: true },
-  });
-  return customers.map((customer) => customer.id);
-}
-
-async function findUsersOnLeave(userIds: string[]) {
-  if (userIds.length === 0) {
-    return new Set<string>();
-  }
-
-  const now = new Date();
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  const usersOnLeave = await prisma.leaveRequest.findMany({
-    where: {
-      status: "APPROVED",
-      startDate: { lte: now },
-      endDate: { gte: startOfToday },
-      userId: { in: userIds },
-    },
-    select: { userId: true },
-  });
-  return new Set(usersOnLeave.map((user) => user.userId));
-}
-
 function buildPortalAnnouncementWhere(
   targets: AnnouncementTargetAudience[],
   now: Date,
@@ -563,11 +350,4 @@ function buildPortalAnnouncementWhere(
     startDate: { lte: now },
     OR: [{ endDate: null }, { endDate: { gte: now } }],
   };
-}
-
-function buildAnnouncementPreview(content: string) {
-  const preview = content.substring(0, ANNOUNCEMENT_PREVIEW_LIMIT);
-  return content.length > ANNOUNCEMENT_PREVIEW_LIMIT
-    ? `${preview}...`
-    : preview;
 }

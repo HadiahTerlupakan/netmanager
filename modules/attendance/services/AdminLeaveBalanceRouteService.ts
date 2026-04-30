@@ -1,4 +1,4 @@
-import { LeaveType } from "@prisma/client";
+import { LeaveType } from "../types/attendance.enums";
 import { UserLookupService } from "@/modules/users";
 import {
   DEFAULT_LEAVE_QUOTAS,

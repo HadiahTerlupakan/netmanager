@@ -38,6 +38,7 @@ export * from "./services/NetworkAlertService";
 export * from "./services/MobileTopologyService";
 export * from "./services/DeviceBackupService";
 export * from "./services/MikroTikStatisticsService";
+export type { MikroTikRouterStatistics } from "./domain/entities/MikroTikRouterEntity";
 export { RadiusDashboardService } from "./services/dashboard/RadiusDashboardService";
 export type {
   RadiusDashboardStatsInput,

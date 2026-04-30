@@ -2,7 +2,10 @@
  * Marketing DTOs (Data Transfer Objects)
  */
 
-import type { CanvasingStatus, PointClaimStatus } from "@prisma/client";
+import type {
+  CanvasingStatus,
+  PointClaimStatus,
+} from "../types/marketing.enums";
 
 // ==================== Canvasing DTOs ====================
 

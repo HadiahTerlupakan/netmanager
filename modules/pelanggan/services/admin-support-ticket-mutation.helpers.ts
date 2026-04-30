@@ -2,7 +2,8 @@ import { logger, logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { TicketEventDispatcher } from "@/modules/events";
 import { closeWoOnTicketClose } from "@/modules/work-order";
-import { Prisma, TicketStatus, type TicketPriority } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { TicketStatus, type TicketPriority } from "../types/pelanggan.enums";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import type { ServiceResult, UserContext } from "./AdminSupportTicketService";
 

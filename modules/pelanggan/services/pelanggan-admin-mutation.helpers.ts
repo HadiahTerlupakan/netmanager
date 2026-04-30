@@ -1,5 +1,5 @@
 import { compare, hash } from "bcryptjs";
-import { Status, TipePelanggan } from "@prisma/client";
+import { Status, TipePelanggan } from "../types/pelanggan.enums";
 import { canAccessSite } from "@/modules/roles";
 import type {
   AdminMutationSession,

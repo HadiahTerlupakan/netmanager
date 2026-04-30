@@ -9,6 +9,11 @@ import type {
   WebhookResult,
   TestResult,
 } from "../provider-interface";
+import {
+  normalizeDanaStatus,
+  parseDanaAmount,
+  resolveDanaPaidAt,
+} from "./dana-provider-utils";
 
 interface DanaTransactionData {
   status?: string;
@@ -188,47 +193,15 @@ export class DANAProvider implements PaymentProvider {
       }
 
       const data = (result.resultInfo || result.data) as DanaTransactionData;
-      let status: TransactionStatus["status"] = "PENDING";
-
-      switch (data.status) {
-        case "SUCCESS":
-        case "PAID":
-        case "COMPLETED":
-          status = "PAID";
-          break;
-        case "PENDING":
-        case "PROCESSING":
-          status = "PENDING";
-          break;
-        case "EXPIRED":
-        case "TIMEOUT":
-          status = "EXPIRED";
-          break;
-        case "CANCELLED":
-        case "CANCELED":
-          status = "CANCELLED";
-          break;
-        case "FAILED":
-        case "ERROR":
-          status = "FAILED";
-          break;
-      }
-
-      const amountValue =
-        typeof data.amount === "object" && data.amount !== null
-          ? data.amount.value
-          : typeof data.amount === "string"
-            ? data.amount
-            : "0";
+      const status = normalizeDanaStatus(data.status);
+      const paidAt = resolveDanaPaidAt(status, data.paidTime);
 
       return {
         orderId: data.merchantOrderId || orderId,
         status,
-        ...(data.paidTime
-          ? { paidAt: new Date(data.paidTime as string | number) }
-          : {}),
+        ...(paidAt ? { paidAt } : {}),
         paymentMethod: "DANA",
-        amount: parseFloat(amountValue),
+        amount: parseDanaAmount(data.amount),
         transactionId: data.orderId || data.transactionId || "",
       };
     } catch (error: unknown) {
@@ -281,56 +254,19 @@ export class DANAProvider implements PaymentProvider {
   async processWebhook(
     payload: Record<string, unknown>,
   ): Promise<WebhookResult> {
-    // Payload is the parsed JSON body from DANA webhook
     const typedPayload = payload as WebhookPayload;
-
-    let status: WebhookResult["status"] = "PENDING";
-
-    const orderStatus = typedPayload.status || typedPayload.orderStatus;
-
-    switch (orderStatus) {
-      case "SUCCESS":
-      case "PAID":
-      case "COMPLETED":
-        status = "PAID";
-        break;
-      case "PENDING":
-      case "PROCESSING":
-        status = "PENDING";
-        break;
-      case "EXPIRED":
-      case "TIMEOUT":
-        status = "EXPIRED";
-        break;
-      case "CANCELLED":
-      case "CANCELED":
-        status = "CANCELLED";
-        break;
-      case "FAILED":
-      case "ERROR":
-        status = "FAILED";
-        break;
-    }
-
-    const amountObj = typedPayload.amount;
-    const amountValue =
-      typeof amountObj === "object" && amountObj !== null
-        ? (amountObj as { value: string }).value
-        : typeof amountObj === "string" || typeof amountObj === "number"
-          ? String(amountObj)
-          : "0";
+    const status = normalizeDanaStatus(
+      typedPayload.status || typedPayload.orderStatus,
+    );
+    const paidAt = resolveDanaPaidAt(status, typedPayload.paidTime);
 
     return {
       orderId: typedPayload.merchantOrderId || typedPayload.orderId || "",
       status,
-      ...(typedPayload.paidTime
-        ? { paidAt: new Date(typedPayload.paidTime) }
-        : status === "PAID"
-          ? { paidAt: new Date() }
-          : {}),
+      ...(paidAt ? { paidAt } : {}),
       paymentMethod: "DANA",
       transactionId: typedPayload.orderId || typedPayload.transactionId || "",
-      amount: parseFloat(amountValue),
+      amount: parseDanaAmount(typedPayload.amount),
       raw: payload,
     };
   }

@@ -1,4 +1,8 @@
-import type { AttendanceStatus, LeaveStatus, LeaveType } from "@prisma/client";
+import type {
+  AttendanceStatus,
+  LeaveStatus,
+  LeaveType,
+} from "../types/attendance.enums";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";

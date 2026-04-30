@@ -1,4 +1,4 @@
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 import { ATTENDANCE_CONSTANTS } from "../utils/constants";

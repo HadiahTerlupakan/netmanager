@@ -8,6 +8,7 @@ export * from "./services/MixRadiusFeeSettingsService";
 export * from "./services/MixRadiusGroupRouteService";
 export * from "./services/MixRadiusInvestorSiteService";
 export * from "./services/MixRadiusOwnerMatchingService";
+export * from "./services/MixRadiusOwnerGroupFacadeService";
 export * from "./services/MixRadiusPageService";
 export * from "./services/MixRadiusProfitLossService";
 export * from "./services/MixRadiusService";

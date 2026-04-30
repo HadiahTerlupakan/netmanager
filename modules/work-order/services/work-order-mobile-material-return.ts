@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
-import type { PrismaClient, WorkOrderStatus } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { InventoryStockService } from "@/modules/inventory";
 import type {
   MobileWorkOrderMaterialReturnInput,

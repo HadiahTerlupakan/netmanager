@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";

@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
-import type { PrismaClient, WorkOrderStatus } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import type { WorkOrderStatus } from "../types/work-order.enums";
 import { InventoryStockService } from "@/modules/inventory";
 import type {
   MobileWorkOrderMaterialInput,

@@ -1,5 +1,9 @@
 import { logger } from "@/lib/logger";
-import { TicketStatus, TicketCategory, TicketPriority } from "@prisma/client";
+import {
+  TicketStatus,
+  TicketCategory,
+  TicketPriority,
+} from "../types/pelanggan.enums";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import { CustomerTicketRepository } from "../repositories/CustomerTicketRepository";
 import {

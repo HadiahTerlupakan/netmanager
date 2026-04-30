@@ -1,4 +1,4 @@
-import type { RabStatus } from "@prisma/client";
+import type { RabStatus } from "../types/invoice.enums";
 import {
   RabProjectRepository,
   type RabProjectStatusCandidate,

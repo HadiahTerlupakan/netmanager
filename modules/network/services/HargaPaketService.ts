@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { RadiusRepository } from "../repositories/RadiusRepository";
 import { HargaPaketRepository } from "../repositories/HargaPaketRepository";
 import type {
   HargaPaketCreateInput,
@@ -14,11 +15,10 @@ import * as z from "zod";
  * Service for HargaPaket business logic
  */
 export class HargaPaketService {
-  private repository: HargaPaketRepository;
-
-  constructor() {
-    this.repository = new HargaPaketRepository();
-  }
+  constructor(
+    private readonly repository: HargaPaketRepository = new HargaPaketRepository(),
+    private readonly radiusRepository: RadiusRepository = new RadiusRepository(),
+  ) {}
 
   /**
    * Get all harga pakets with site restriction
@@ -108,20 +108,10 @@ export class HargaPaketService {
     // Sync MikroTik rate limit if needed
     await this.syncMikroTikRateLimit(hargaPaket);
 
-    // Sync RADIUS if in RADIUS mode
-    try {
-      const { RadiusSyncService } = await import("./radius-sync-service");
-      const radiusSync = new RadiusSyncService();
-      const mode = await radiusSync.getConnectionMode();
-      if (mode === "RADIUS") {
-        const { RadiusRepository } =
-          await import("../repositories/RadiusRepository");
-        const radiusRepo = new RadiusRepository();
-        await radiusRepo.syncPackageToRadius(hargaPaket.id);
-      }
-    } catch (error) {
-      logger.error("[HargaPaketService] RADIUS sync error:", error);
-    }
+    await this.syncRadiusPackage(
+      hargaPaket.id,
+      "[HargaPaketService] RADIUS sync error:",
+    );
 
     // Log activity
     if (userId) {
@@ -189,23 +179,10 @@ export class HargaPaketService {
     if (data.bandwidthId !== undefined) {
       await this.syncMikroTikRateLimit(updated);
 
-      // Sync RADIUS if in RADIUS mode
-      try {
-        const { RadiusSyncService } = await import("./radius-sync-service");
-        const radiusSync = new RadiusSyncService();
-        const mode = await radiusSync.getConnectionMode();
-        if (mode === "RADIUS") {
-          const { RadiusRepository } =
-            await import("../repositories/RadiusRepository");
-          const radiusRepo = new RadiusRepository();
-          await radiusRepo.syncPackageToRadius(updated.id);
-        }
-      } catch (error) {
-        logger.error(
-          "[HargaPaketService] RADIUS sync error during update:",
-          error,
-        );
-      }
+      await this.syncRadiusPackage(
+        updated.id,
+        "[HargaPaketService] RADIUS sync error during update:",
+      );
     }
 
     // Log activity
@@ -252,6 +229,20 @@ export class HargaPaketService {
     }
 
     return { success: true };
+  }
+
+  /** Sinkronkan paket ke RADIUS saat mode aktif. */
+  private async syncRadiusPackage(packageId: string, errorMessage: string) {
+    try {
+      const { RadiusSyncService } = await import("./radius-sync-service");
+      const radiusSync = new RadiusSyncService();
+      const mode = await radiusSync.getConnectionMode();
+      if (mode === "RADIUS") {
+        await this.radiusRepository.syncPackageToRadius(packageId);
+      }
+    } catch (error) {
+      logger.error(errorMessage, error);
+    }
   }
 
   /**

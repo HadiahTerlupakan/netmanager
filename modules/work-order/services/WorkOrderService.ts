@@ -1,4 +1,5 @@
-import type { PrismaClient, WorkOrderStatus } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import type { WorkOrderStatus } from "../types/work-order.enums";
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { UserLookupService } from "@/modules/users";
 import { InventoryStockService } from "@/modules/inventory";

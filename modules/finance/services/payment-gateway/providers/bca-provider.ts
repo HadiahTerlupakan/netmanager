@@ -14,6 +14,11 @@ import type {
 import crypto from "crypto";
 
 import {
+  generateBcaSignature,
+  normalizeBcaStatus,
+  verifyBcaWebhookSignature,
+} from "./bca-provider-utils";
+import {
   buildVirtualAccountPaymentResult,
   buildVirtualAccountStatusResult,
   buildVirtualAccountWebhookResult,
@@ -64,36 +69,6 @@ export class BCAProvider implements PaymentProvider {
     }
   }
 
-  /**
-   * Generate BCA API signature
-   * BCA requires HMAC SHA256 signature
-   */
-  private generateSignature(
-    method: string,
-    relativeUrl: string,
-    accessToken: string,
-    body: string,
-    timestamp: string,
-  ): string {
-    if (!this.config) {
-      throw new Error("BCA provider not initialized");
-    }
-
-    // Format: HTTPMethod + ":" + RelativeUrl + ":" + AccessToken + ":" + lowercase(hexencode(sha256(minify(RequestBody)))) + ":" + Timestamp
-    const hashedBody = body
-      ? crypto.createHash("sha256").update(body).digest("hex").toLowerCase()
-      : "";
-    const stringToSign = `${method}:${relativeUrl}:${accessToken}:${hashedBody}:${timestamp}`;
-
-    // Create HMAC SHA256 signature
-    const signature = crypto
-      .createHmac("sha256", this.config.apiSecret || "")
-      .update(stringToSign)
-      .digest("hex");
-
-    return signature;
-  }
-
   async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
     try {
       if (!this.config || !this.baseUrl) {
@@ -130,14 +105,14 @@ export class BCAProvider implements PaymentProvider {
       const timestamp = new Date().toISOString();
       const url = "/va/payments"; // Adjust based on actual BCA endpoint
 
-      // Generate signature
-      const signature = this.generateSignature(
-        "POST",
-        url,
+      const signature = generateBcaSignature({
+        method: "POST",
+        relativeUrl: url,
         accessToken,
-        bodyString,
+        body: bodyString,
         timestamp,
-      );
+        apiSecret: this.config.apiSecret || "",
+      });
 
       // Make API request
       const response = await fetch(`${this.baseUrl}${url}`, {
@@ -189,14 +164,14 @@ export class BCAProvider implements PaymentProvider {
       const timestamp = new Date().toISOString();
       const url = `/va/payments/${this.config.merchantId}/${orderId}`; // Adjust based on actual endpoint
 
-      // Generate signature for GET request
-      const signature = this.generateSignature(
-        "GET",
-        url,
+      const signature = generateBcaSignature({
+        method: "GET",
+        relativeUrl: url,
         accessToken,
-        "",
+        body: "",
         timestamp,
-      );
+        apiSecret: this.config.apiSecret || "",
+      });
 
       const response = await fetch(`${this.baseUrl}${url}`, {
         method: "GET",
@@ -221,19 +196,10 @@ export class BCAProvider implements PaymentProvider {
         TransactionID?: string;
       };
 
-      // Map BCA status to our standard status
-      let status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "FAILED";
-
-      // TODO: Customize based on actual BCA status codes
-      if (data.TransactionStatus === "PAID" || data.PaidStatus === "Y") {
-        status = "PAID";
-      } else if (data.TransactionStatus === "EXPIRED") {
-        status = "EXPIRED";
-      } else if (data.TransactionStatus === "PENDING") {
-        status = "PENDING";
-      } else {
-        status = "PENDING";
-      }
+      const status = normalizeBcaStatus({
+        transactionStatus: data.TransactionStatus,
+        paidStatus: data.PaidStatus,
+      });
 
       return buildVirtualAccountStatusResult({
         orderId,
@@ -259,24 +225,11 @@ export class BCAProvider implements PaymentProvider {
         return false;
       }
 
-      // BCA Webhook Signature Verification
-      // Assuming HMAC-SHA256 of the JSON body using apiSecret
-      const bodyString = JSON.stringify(payload);
-
-      const expectedSignature = crypto
-        .createHmac("sha256", this.config.apiSecret || "")
-        .update(bodyString)
-        .digest("hex");
-
-      // Use timingSafeEqual to prevent timing attacks
-      const source = Buffer.from(signature);
-      const target = Buffer.from(expectedSignature);
-
-      if (source.length !== target.length) {
-        return false;
-      }
-
-      return crypto.timingSafeEqual(source, target);
+      return verifyBcaWebhookSignature({
+        payload,
+        signature,
+        apiSecret: this.config.apiSecret || "",
+      });
     } catch (error) {
       logger.error("BCA webhook verification error:", error);
       return false;
@@ -287,19 +240,12 @@ export class BCAProvider implements PaymentProvider {
     payload: Record<string, unknown>,
   ): Promise<WebhookResult> {
     try {
-      // TODO: Customize based on actual BCA webhook payload structure
       const orderId =
         (payload.CustomerID as string) || (payload.TransactionID as string);
-
-      let status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "FAILED";
-
-      if (payload.TransactionStatus === "PAID" || payload.PaidStatus === "Y") {
-        status = "PAID";
-      } else if (payload.TransactionStatus === "EXPIRED") {
-        status = "EXPIRED";
-      } else {
-        status = "PENDING";
-      }
+      const status = normalizeBcaStatus({
+        transactionStatus: payload.TransactionStatus,
+        paidStatus: payload.PaidStatus,
+      });
 
       return buildVirtualAccountWebhookResult({
         orderId,

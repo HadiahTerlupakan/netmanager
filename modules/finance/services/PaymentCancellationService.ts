@@ -1,4 +1,4 @@
-import { InvoiceStatus } from "@prisma/client-billing";
+import { InvoiceStatus } from "../types/invoice.enums";
 import { prisma, prismaBilling } from "@/modules/database";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { getPelangganService } from "@/modules/pelanggan";

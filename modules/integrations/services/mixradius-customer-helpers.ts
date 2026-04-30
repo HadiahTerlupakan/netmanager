@@ -1,4 +1,4 @@
-import { mixRadiusOwnerGroupRepository } from "@/modules/integrations/repositories/MixRadiusOwnerGroupRepository";
+import { MixRadiusOwnerGroupFacadeService } from "./MixRadiusOwnerGroupFacadeService";
 import {
   buildMixRadiusOwnerLookup,
   isMixRadiusOwnerAllowed,
@@ -35,6 +35,7 @@ const DEFAULT_FETCH_LIMIT = "10000";
 const DEFAULT_ORDER_COLUMN = "8";
 const DEFAULT_ORDER_DIRECTION = "desc";
 const DEFAULT_SESSION_IP: undefined = undefined;
+const ownerGroupService = new MixRadiusOwnerGroupFacadeService();
 
 /** Build upstream form payload for MixRadius customer fetch. */
 export function buildCustomerFetchFormData(): URLSearchParams {
@@ -272,8 +273,7 @@ async function filterBySite(customers: MixRadiusCustomer[], siteId?: string) {
     return customers;
   }
 
-  const siteOwners =
-    await mixRadiusOwnerGroupRepository.findOwnersBySiteId(siteId);
+  const siteOwners = await ownerGroupService.getOwnersBySiteId(siteId);
   const allowedOwners = buildMixRadiusOwnerLookup(siteOwners);
   return customers.filter((customer) =>
     isMixRadiusOwnerAllowed(customer.owner_name, allowedOwners),
@@ -285,8 +285,7 @@ async function filterByGroup(customers: MixRadiusCustomer[], groupId?: string) {
     return customers;
   }
 
-  const groupOwners =
-    await mixRadiusOwnerGroupRepository.findOwnersByGroupId(groupId);
+  const groupOwners = await ownerGroupService.getOwnersByGroupId(groupId);
   if (!groupOwners) {
     return [];
   }

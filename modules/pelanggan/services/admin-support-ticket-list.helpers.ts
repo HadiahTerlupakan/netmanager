@@ -1,4 +1,5 @@
-import { Prisma, TicketStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { TicketStatus } from "../types/pelanggan.enums";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 
 const OPEN_TICKET_STATUS = TicketStatus.OPEN;

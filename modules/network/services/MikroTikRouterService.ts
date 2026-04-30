@@ -1,6 +1,5 @@
 import { logger } from "@/lib/logger";
 import { logActivitySafe } from "@/lib/logger";
-import { RouterOSAPI } from "node-routeros-v2";
 import type { IRouterAccessRepository } from "../domain/ports/IRouterAccessRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import type {
@@ -12,181 +11,20 @@ import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterR
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import { checkSingleMikroTikRouterStatus } from "./mikrotik-ping-check";
-
-interface RouterInfo {
-  identity: string;
-  version: string;
-  boardName: string;
-  uptime: string;
-  userOnline: number;
-}
-
-interface TestConnectionResult {
-  success: boolean;
-  message: string;
-  routerInfo?: RouterInfo;
-}
+import {
+  testMikroTikAPI,
+  type RouterInfo,
+  type TestConnectionResult,
+} from "./mikrotik/router-api-test";
 
 export class RouterAccessDeniedError extends Error {}
 export class RouterNotFoundError extends Error {}
-
-async function testMikroTikAPI(
-  ipAddress: string,
-  port: number,
-  username: string,
-  password: string,
-  timeout: number = 10000,
-): Promise<TestConnectionResult> {
-  return new Promise((resolve) => {
-    const conn = new RouterOSAPI({
-      host: ipAddress,
-      user: username,
-      password,
-      port,
-      timeout,
-    });
-
-    let resolved = false;
-
-    const cleanup = () => {
-      if (!resolved) {
-        resolved = true;
-        try {
-          conn.close();
-        } catch (_error) {
-          // Ignore cleanup errors
-        }
-      }
-    };
-
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve({
-        success: false,
-        message: `Koneksi API timeout setelah ${timeout}ms - kemungkinan kredensial salah atau router tidak dapat dijangkau`,
-      });
-    }, timeout + 1000);
-
-    conn
-      .connect()
-      .then(async () => {
-        try {
-          let identity: unknown = null;
-          let resource: unknown = null;
-          let pppActive: unknown = null;
-
-          try {
-            identity = await conn.write("/system/identity/print");
-          } catch (_error) {
-            // Ignore identity read errors
-          }
-
-          try {
-            resource = await conn.write("/system/resource/print");
-          } catch (_error) {
-            // Ignore resource read errors
-          }
-
-          try {
-            pppActive = await conn.write("/ppp/active/print");
-          } catch (_error) {
-            // Ignore PPP active read errors
-          }
-
-          cleanup();
-          clearTimeout(timer);
-
-          const identityData = Array.isArray(identity)
-            ? (identity[0] as Record<string, unknown>)
-            : (identity as Record<string, unknown>);
-          const resourceData = Array.isArray(resource)
-            ? (resource[0] as Record<string, unknown>)
-            : (resource as Record<string, unknown>);
-          const userOnline = Array.isArray(pppActive) ? pppActive.length : 0;
-
-          const routerInfo: RouterInfo = {
-            identity: "Unknown",
-            version: "Unknown",
-            boardName: "Unknown",
-            uptime: "Unknown",
-            userOnline,
-          };
-
-          if (identityData) {
-            routerInfo.identity = (identityData.name ||
-              identityData[".name"] ||
-              "Unknown") as string;
-          }
-
-          if (resourceData) {
-            routerInfo.version = (resourceData.version ||
-              resourceData[".version"] ||
-              "Unknown") as string;
-            routerInfo.boardName = (resourceData["board-name"] ||
-              resourceData.boardName ||
-              "Unknown") as string;
-            routerInfo.uptime = (resourceData.uptime ||
-              resourceData[".uptime"] ||
-              "Unknown") as string;
-          }
-
-          resolve({
-            success: true,
-            message: `Koneksi API berhasil! Router: ${routerInfo.identity}, Version: ${routerInfo.version}, User Online: ${userOnline}`,
-            routerInfo,
-          });
-        } catch (error: unknown) {
-          cleanup();
-          clearTimeout(timer);
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          logger.error("Error getting router info:", error);
-          resolve({
-            success: true,
-            message: `Koneksi API berhasil, tetapi gagal mengambil informasi router: ${errorMessage}`,
-          });
-        }
-      })
-      .catch((error: { message?: string; code?: string }) => {
-        cleanup();
-        clearTimeout(timer);
-
-        let errorMessage = "Koneksi API gagal";
-
-        if (error.message?.includes("timeout") || error.code === "ETIMEDOUT") {
-          errorMessage =
-            "Koneksi timeout - kemungkinan IP Address salah atau router tidak dapat dijangkau";
-        } else if (
-          error.message?.includes("ECONNREFUSED") ||
-          error.code === "ECONNREFUSED"
-        ) {
-          errorMessage = `Port ${port} ditolak - kemungkinan API MikroTik tidak aktif atau firewall memblokir`;
-        } else if (
-          error.message?.includes("ENOTFOUND") ||
-          error.code === "ENOTFOUND"
-        ) {
-          errorMessage = `Host ${ipAddress} tidak dapat dijangkau`;
-        } else if (
-          error.message?.includes("invalid user name or password") ||
-          error.message?.includes("authentication")
-        ) {
-          errorMessage = "Autentikasi gagal - Username atau Password salah";
-        } else {
-          errorMessage = `Koneksi API gagal: ${error.message || error.code || "Terjadi kesalahan"}`;
-        }
-
-        resolve({
-          success: false,
-          message: errorMessage,
-        });
-      });
-  });
-}
 
 export class MikroTikRouterService {
   constructor(
     private readonly routerRepository: IMikroTikRouterRepository = new MikroTikRouterRepository(),
     private readonly networkRepository: IRouterAccessRepository = new NetworkRepository(),
+    private readonly provisioningService = new MikroTikProvisioningService(),
   ) {}
 
   private async resolveRestrictedSiteId(
@@ -315,21 +153,20 @@ export class MikroTikRouterService {
 
     if (params.autoConfigure) {
       try {
-        const provisioningService = new MikroTikProvisioningService();
-
-        const provisioningResult = await provisioningService.provisionRadius(
-          {
-            ip: createData.ipAddress,
-            port: createData.apiPort ?? 8728,
-            username: createData.apiUsername,
-            password: createData.apiPassword,
-          },
-          null,
-          forcedSecretRadius,
-          createData.isolirUrl,
-          forcedAuthPort,
-          forcedAccountingPort,
-        );
+        const provisioningResult =
+          await this.provisioningService.provisionRadius(
+            {
+              ip: createData.ipAddress,
+              port: createData.apiPort ?? 8728,
+              username: createData.apiUsername,
+              password: createData.apiPassword,
+            },
+            null,
+            forcedSecretRadius,
+            createData.isolirUrl,
+            forcedAuthPort,
+            forcedAccountingPort,
+          );
 
         if (!provisioningResult.success) {
           logger.warn(
@@ -337,7 +174,7 @@ export class MikroTikRouterService {
           );
         }
 
-        const apiUserResult = await provisioningService.createApiUser({
+        const apiUserResult = await this.provisioningService.createApiUser({
           ip: createData.ipAddress,
           port: createData.apiPort ?? 8728,
           username: createData.apiUsername,
@@ -466,9 +303,7 @@ export class MikroTikRouterService {
 
     if (router) {
       try {
-        const provisioningService = new MikroTikProvisioningService();
-
-        const result = await provisioningService.deprovisionRadius(
+        const result = await this.provisioningService.deprovisionRadius(
           {
             ip: router.ipAddress,
             port: router.apiPort,
@@ -510,8 +345,7 @@ export class MikroTikRouterService {
       restrictedToOwnSite: params.restrictedToOwnSite,
     });
 
-    const provisioningService = new MikroTikProvisioningService();
-    const result = await provisioningService.createApiUser({
+    const result = await this.provisioningService.createApiUser({
       ip: router.ipAddress,
       port: router.apiPort,
       username: router.apiUsername,
@@ -590,13 +424,12 @@ export class MikroTikRouterService {
 
     let apiResult: TestConnectionResult;
     if (ipAddress && finalApiUsername && finalApiPassword) {
-      apiResult = await testMikroTikAPI(
+      apiResult = await testMikroTikAPI({
         ipAddress,
-        numericPort,
-        finalApiUsername,
-        finalApiPassword,
-        10000,
-      );
+        port: numericPort,
+        username: finalApiUsername,
+        password: finalApiPassword,
+      });
     } else if (!ipAddress) {
       apiResult = {
         success: false,

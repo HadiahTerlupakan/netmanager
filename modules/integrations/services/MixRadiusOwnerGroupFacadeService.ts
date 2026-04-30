@@ -13,6 +13,16 @@ export class MixRadiusOwnerGroupFacadeService {
     return getMixRadiusOwnerGroupService().getOwnerGroups(tenantId);
   }
 
+  /** Get owner names by site id. */
+  async getOwnersBySiteId(siteId: string) {
+    return getMixRadiusOwnerGroupService().getOwnersBySiteId(siteId);
+  }
+
+  /** Get owner names by group id. */
+  async getOwnersByGroupId(groupId: string) {
+    return getMixRadiusOwnerGroupService().getOwnersByGroupId(groupId);
+  }
+
   /** Get owner group by id. */
   async getOwnerGroup(id: string, tenantId?: string) {
     return getMixRadiusOwnerGroupService().getOwnerGroup(id, tenantId);

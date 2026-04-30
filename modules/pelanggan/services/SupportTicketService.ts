@@ -1,4 +1,8 @@
-import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
+import {
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+} from "../types/pelanggan.enums";
 import {
   buildClosingMessage,
   buildCreateTicketResponse,

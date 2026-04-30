@@ -10,7 +10,7 @@ import { logger } from "@/lib/logger";
  * - MIKROTIK_API: Pelanggan auth via PPP Secret di MikroTik langsung
  */
 
-import { Status } from "@prisma/client";
+import { Status } from "../types/network.enums";
 import { RadiusRepository } from "../repositories/RadiusRepository";
 import {
   createMikroTikPPPSecretService,

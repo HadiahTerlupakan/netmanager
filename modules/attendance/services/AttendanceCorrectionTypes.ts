@@ -1,4 +1,5 @@
-import type { Prisma, AttendanceStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 import type {
   AttendanceRepository,
   AttendanceCorrectionSource,

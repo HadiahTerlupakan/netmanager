@@ -1,4 +1,4 @@
-import { TicketPriority, TicketStatus } from "@prisma/client";
+import { TicketPriority, TicketStatus } from "../types/pelanggan.enums";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { buildMultiSiteWhereClause } from "@/modules/roles";
 import { UserLookupService } from "@/modules/users";

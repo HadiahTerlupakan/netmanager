@@ -11,10 +11,18 @@ import {
 } from "./auto-checkout.helpers";
 
 export class AutoCheckoutService {
+  private static createAttendanceRepository() {
+    return new AttendanceRepository();
+  }
+
+  private static createSessionPolicyService() {
+    return new AttendanceSessionPolicyService();
+  }
+
   /** Jalankan enqueue auto-checkout untuk satu tenant. */
   private static async runTenantAutoCheckout(tenantId: string) {
-    const sessionPolicyService = new AttendanceSessionPolicyService();
-    const attendanceRepo = new AttendanceRepository();
+    const sessionPolicyService = this.createSessionPolicyService();
+    const attendanceRepo = this.createAttendanceRepository();
     const timezone = await getTimezone(tenantId);
     const openAttendances = await this.findOpenAttendances(
       attendanceRepo,
@@ -32,8 +40,8 @@ export class AutoCheckoutService {
 
   /** Jalankan job auto-checkout untuk satu attendance yang sudah diantrikan. */
   static async runAutoCheckoutJob(data: AttendanceAutoCheckoutJobData) {
-    const attendanceRepo = new AttendanceRepository();
-    const sessionPolicyService = new AttendanceSessionPolicyService();
+    const attendanceRepo = this.createAttendanceRepository();
+    const sessionPolicyService = this.createSessionPolicyService();
     const timezone = await getTimezone(data.tenantId);
     const attendance = await attendanceRepo.findOpenSessionForAutoCheckout({
       attendanceId: data.attendanceId,

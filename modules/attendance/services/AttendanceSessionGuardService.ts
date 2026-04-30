@@ -1,4 +1,7 @@
-import { AttendanceStatus, type WorkingHourMode } from "@prisma/client";
+import {
+  AttendanceStatus,
+  type WorkingHourMode,
+} from "../types/attendance.enums";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AttendanceSessionPolicyService } from "./AttendanceSessionPolicyService";
 import {

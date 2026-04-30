@@ -3,7 +3,6 @@ import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type {
   EmployeeType,
   SalaryEntity,
-  SalaryWithDetailsEntity,
 } from "../domain/entities/SalaryEntity";
 import type {
   ISalaryRepository,
@@ -11,58 +10,46 @@ import type {
 } from "../domain/ports/ISalaryRepository";
 import { SalaryRepository } from "../repositories/SalaryRepository";
 import { SalaryAuditService } from "./SalaryAuditService";
+import { SalaryCalculationCommandService } from "./SalaryCalculationCommandService";
 import { SalaryCalculatorService } from "./SalaryCalculatorService";
+import { SalaryQueryService } from "./SalaryQueryService";
+import { SalaryWorkflowService } from "./SalaryWorkflowService";
 
-import {
-  logActivitySafe,
-  type SalaryListResult,
-  type ServiceResult,
-  type UpdateSalaryInput,
-} from "./SalaryService.helpers";
-
-const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 50;
+import { logActivitySafe, type ServiceResult } from "./SalaryService.helpers";
 
 export class SalaryService {
   private readonly repository: ISalaryRepository;
   private readonly calculatorService: SalaryCalculatorService;
+  private readonly calculationCommandService: SalaryCalculationCommandService;
   private readonly auditService: SalaryAuditService;
+  private readonly queryService: SalaryQueryService;
+  private readonly workflowService: SalaryWorkflowService;
 
   constructor(
     repository: ISalaryRepository = new SalaryRepository(),
     calculatorService: SalaryCalculatorService = new SalaryCalculatorService(),
     auditService: SalaryAuditService = new SalaryAuditService(repository),
+    workflowService: SalaryWorkflowService = new SalaryWorkflowService(
+      repository,
+    ),
+    queryService: SalaryQueryService = new SalaryQueryService(repository),
+    calculationCommandService: SalaryCalculationCommandService = new SalaryCalculationCommandService(
+      calculatorService,
+      workflowService,
+    ),
   ) {
     this.repository = repository;
     this.calculatorService = calculatorService;
+    this.calculationCommandService = calculationCommandService;
     this.auditService = auditService;
+    this.queryService = queryService;
+    this.workflowService = workflowService;
   }
 
   /** Get all salaries with filters and pagination. */
-  async getSalaries(
-    filters: SalaryFilters,
-    page: number = DEFAULT_PAGE,
-    limit: number = DEFAULT_LIMIT,
-  ): Promise<ServiceResult<SalaryListResult>> {
+  async getSalaries(filters: SalaryFilters, page?: number, limit?: number) {
     try {
-      const skip = (page - 1) * limit;
-      const result = await this.repository.findAll({
-        ...filters,
-        skip,
-        take: limit,
-      });
-      const stats = await this.getPeriodStats(filters);
-
-      return {
-        success: true,
-        data: {
-          salaries: result.salaries,
-          total: result.total,
-          page,
-          totalPages: Math.ceil(result.total / limit),
-          stats,
-        },
-      };
+      return await this.queryService.getSalaries(filters, page, limit);
     } catch (error) {
       logger.error("SalaryService.getSalaries failed", this.asError(error));
       return {
@@ -74,21 +61,9 @@ export class SalaryService {
   }
 
   /** Get single salary by ID. */
-  async getSalaryById(
-    id: string,
-  ): Promise<ServiceResult<SalaryWithDetailsEntity>> {
+  async getSalaryById(id: string) {
     try {
-      const salary = await this.repository.findById(id);
-
-      if (!salary) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      return { success: true, data: salary };
+      return await this.queryService.getSalaryById(id);
     } catch (error) {
       logger.error("SalaryService.getSalaryById failed", this.asError(error));
       return {
@@ -107,10 +82,12 @@ export class SalaryService {
     calculatedById: string,
   ): Promise<ServiceResult<{ salaryId: string }>> {
     try {
-      const salaryId = await this.calculatorService.calculateAndSave(
-        userId,
-        month,
-        year,
+      const { salaryId } = await this.calculationCommandService.calculateSingle(
+        {
+          userId,
+          month,
+          year,
+        },
       );
       this.logActivity("CREATE", calculatedById, {
         salaryId,
@@ -147,11 +124,11 @@ export class SalaryService {
     }>
   > {
     try {
-      const result = await this.calculatorService.calculateBulk(
+      const result = await this.calculationCommandService.calculateBulk({
         month,
         year,
         filters,
-      );
+      });
       this.logActivity("CREATE", calculatedById, {
         month,
         year,
@@ -181,36 +158,19 @@ export class SalaryService {
     notes?: string,
   ): Promise<ServiceResult<SalaryEntity>> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      if (existing.status !== "AUDITED") {
-        return {
-          success: false,
-          error: "Gaji harus diaudit sebelum disetujui",
-          code: "INVALID_STATUS",
-        };
-      }
-
-      const salary = await this.repository.updateStatus(
+      const result = await this.workflowService.approveSalary({
         id,
-        "APPROVED",
-        approvedById,
+        actorId: approvedById,
         notes,
-      );
+      });
+      if (!result.success) return result;
+
       this.logActivity("UPDATE", approvedById, {
         id,
         status: "APPROVED",
-        previousStatus: existing.status,
         notes,
       });
-      return { success: true, data: salary };
+      return result;
     } catch (error) {
       logger.error("SalaryService.approveSalary failed", this.asError(error));
       return {
@@ -228,36 +188,15 @@ export class SalaryService {
     notes?: string,
   ): Promise<ServiceResult<SalaryEntity>> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      if (existing.status !== "APPROVED") {
-        return {
-          success: false,
-          error: "Gaji harus disetujui sebelum ditandai dibayar",
-          code: "INVALID_STATUS",
-        };
-      }
-
-      const salary = await this.repository.updateStatus(
+      const result = await this.workflowService.markAsPaid({
         id,
-        "PAID",
-        paidById,
-        notes,
-      );
-      this.logActivity("UPDATE", paidById, {
-        id,
-        status: "PAID",
-        previousStatus: existing.status,
+        actorId: paidById,
         notes,
       });
-      return { success: true, data: salary };
+      if (!result.success) return result;
+
+      this.logActivity("UPDATE", paidById, { id, status: "PAID", notes });
+      return result;
     } catch (error) {
       logger.error("SalaryService.markAsPaid failed", this.asError(error));
       return {
@@ -275,36 +214,15 @@ export class SalaryService {
     notes?: string,
   ): Promise<ServiceResult<SalaryEntity>> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      if (existing.status !== "CALCULATED") {
-        return {
-          success: false,
-          error: "Gaji harus dihitung sebelum diaudit",
-          code: "INVALID_STATUS",
-        };
-      }
-
-      const salary = await this.repository.updateStatus(
+      const result = await this.workflowService.auditSalary({
         id,
-        "AUDITED",
-        auditedById,
-        notes,
-      );
-      this.logActivity("UPDATE", auditedById, {
-        id,
-        status: "AUDITED",
-        previousStatus: existing.status,
+        actorId: auditedById,
         notes,
       });
-      return { success: true, data: salary };
+      if (!result.success) return result;
+
+      this.logActivity("UPDATE", auditedById, { id, status: "AUDITED", notes });
+      return result;
     } catch (error) {
       logger.error("SalaryService.auditSalary failed", this.asError(error));
       return {
@@ -321,37 +239,16 @@ export class SalaryService {
     recalculatedById: string,
   ): Promise<ServiceResult<{ salaryId: string }>> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
+      const result = await this.calculationCommandService.recalculateSalary(id);
+      if (!result.success) return result;
 
-      if (!["DRAFT", "CALCULATED"].includes(existing.status)) {
-        return {
-          success: false,
-          error:
-            "Hanya gaji draft atau yang sudah dihitung yang dapat dihitung ulang",
-          code: "INVALID_STATUS",
-        };
-      }
-
-      await this.repository.clearDetails(id);
-      const salaryId = await this.calculatorService.calculateAndSave(
-        existing.userId,
-        existing.month,
-        existing.year,
-      );
       this.logActivity("UPDATE", recalculatedById, {
         id,
-        salaryId,
+        salaryId: result.data.salaryId,
         action: "recalculate",
-        previousStatus: existing.status,
+        previousStatus: result.data.previousStatus,
       });
-      return { success: true, data: { salaryId } };
+      return { success: true, data: { salaryId: result.data.salaryId } };
     } catch (error) {
       logger.error(
         "SalaryService.recalculateSalary failed",
@@ -371,29 +268,14 @@ export class SalaryService {
     deletedById: string,
   ): Promise<ServiceResult<void>> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
+      const result = await this.workflowService.deleteDraft(id);
+      if (!result.success) return this.withoutData(result);
 
-      if (existing.status !== "DRAFT") {
-        return {
-          success: false,
-          error: "Hanya gaji draft yang dapat dihapus",
-          code: "INVALID_STATUS",
-        };
-      }
-
-      await this.repository.delete(id);
       this.logActivity("DELETE", deletedById, {
         id,
-        userId: existing.userId,
-        month: existing.month,
-        year: existing.year,
+        userId: result.data.userId,
+        month: result.data.month,
+        year: result.data.year,
       });
       return { success: true };
     } catch (error) {
@@ -421,35 +303,17 @@ export class SalaryService {
     updatedById: string,
   ): Promise<ServiceResult<SalaryEntity>> {
     try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
+      const result = await this.workflowService.updateCalculatedSalary({
+        id,
+        data,
+      });
+      if (!result.success) return result;
 
-      if (!["CALCULATED", "REVISED"].includes(existing.status)) {
-        return {
-          success: false,
-          error: `Tidak dapat mengubah gaji dengan status: ${existing.status}`,
-          code: "INVALID_STATUS",
-        };
-      }
-
-      const updateData: UpdateSalaryInput = {};
-      if (data.auditNotes !== undefined) {
-        updateData.auditNotes = data.auditNotes;
-      }
-
-      const salary = await this.repository.update(id, updateData);
       this.logActivity("UPDATE", updatedById, {
         id,
-        updatedFields: Object.keys(updateData),
-        previousStatus: existing.status,
+        updatedFields: Object.keys(data),
       });
-      return { success: true, data: salary };
+      return result;
     } catch (error) {
       logger.error("SalaryService.updateSalary failed", this.asError(error));
       return {
@@ -538,15 +402,6 @@ export class SalaryService {
     }
   }
 
-  /** Load period stats when filter has month and year. */
-  private async getPeriodStats(filters: SalaryFilters) {
-    if (!filters.month || !filters.year) {
-      return undefined;
-    }
-
-    return this.repository.getPeriodStats(filters.month, filters.year);
-  }
-
   /** Log salary activity safely. */
   private logActivity(
     action: string,
@@ -554,6 +409,15 @@ export class SalaryService {
     details: Record<string, unknown>,
   ): void {
     logActivitySafe({ action, subject: "Salary", userId, details });
+  }
+
+  /** Convert failed service result to another generic payload. */
+  private withoutData<T>(result: ServiceResult<T>): ServiceResult<never> {
+    return {
+      success: false,
+      error: result.success ? "Terjadi kesalahan" : result.error,
+      code: result.success ? "UNKNOWN_ERROR" : result.code,
+    };
   }
 
   /** Convert unknown error into Error when possible. */

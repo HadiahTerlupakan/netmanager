@@ -1,4 +1,4 @@
-import type { Status } from "@prisma/client";
+import type { Status } from "../types/pelanggan.enums";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 import { PelangganFinanceRepository } from "../repositories/PelangganFinanceRepository";
 

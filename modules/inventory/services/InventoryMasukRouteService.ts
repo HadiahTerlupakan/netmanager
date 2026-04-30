@@ -1,4 +1,4 @@
-import type { KondisiBarang } from "@prisma/client";
+import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { validateInventoryMutationCreateBody } from "./inventory-route-validation.helpers";
 import { InventoryRepository } from "../repositories/InventoryRepository";

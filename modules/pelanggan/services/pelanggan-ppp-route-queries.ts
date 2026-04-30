@@ -1,4 +1,4 @@
-import type { Status } from "@prisma/client";
+import type { Status } from "../types/pelanggan.enums";
 import { prisma } from "@/modules/database";
 import {
   createDatabaseUsageAccumulator,

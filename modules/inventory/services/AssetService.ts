@@ -5,7 +5,7 @@ import type {
   UpdateAssetInput,
   AssetWithRelations,
 } from "../repositories/AssetRepository";
-import { AssetStatus } from "@prisma/client";
+import { AssetStatus } from "../types/asset.enums";
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 

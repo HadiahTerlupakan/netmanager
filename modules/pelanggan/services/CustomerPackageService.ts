@@ -1,4 +1,4 @@
-import { DiscountType } from "@prisma/client";
+import { DiscountType } from "../types/pelanggan.enums";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 

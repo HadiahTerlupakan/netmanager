@@ -1,4 +1,4 @@
-import type { WorkOrderStatus } from "@prisma/client";
+import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { WorkOrderWithRelations } from "../repositories/IWorkOrderRepository";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";

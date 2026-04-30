@@ -13,7 +13,9 @@ type PendingLeaveRequest = {
   tenantId: string | null;
 };
 
-const leaveRequestRepository = new LeaveRequestRepository();
+function getLeaveRequestRepository() {
+  return new LeaveRequestRepository();
+}
 
 /** Auto-approves pending TUKAR_LIBUR requests scheduled for tomorrow. */
 export async function autoApproveTukarLibur(
@@ -52,7 +54,7 @@ function getDayEnd(date: Date) {
 }
 
 async function findPendingTukarLibur(startDate: Date, endDate: Date) {
-  return leaveRequestRepository.findPendingTukarLiburInRange(
+  return getLeaveRequestRepository().findPendingTukarLiburInRange(
     startDate,
     endDate,
   );

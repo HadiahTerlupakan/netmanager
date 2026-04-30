@@ -1,4 +1,5 @@
-import { AttendanceStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { AttendanceStatus } from "../types/attendance.enums";
 import { randomUUID } from "crypto";
 import { UserLookupService } from "@/modules/users";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";

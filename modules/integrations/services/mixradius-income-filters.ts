@@ -1,4 +1,4 @@
-import { mixRadiusOwnerGroupRepository } from "@/modules/integrations/repositories/MixRadiusOwnerGroupRepository";
+import { MixRadiusOwnerGroupFacadeService } from "./MixRadiusOwnerGroupFacadeService";
 import {
   buildMixRadiusOwnerLookup,
   isMixRadiusOwnerAllowed,
@@ -22,6 +22,7 @@ const ONLINE_PAYMENT_KEYWORDS = [
   "winpay",
   "auto",
 ] as const;
+const ownerGroupService = new MixRadiusOwnerGroupFacadeService();
 
 /** Apply supported income filters after upstream fetch. */
 export async function applyIncomeFilters(
@@ -93,8 +94,7 @@ async function filterBySite(
     return records;
   }
 
-  const siteOwners =
-    await mixRadiusOwnerGroupRepository.findOwnersBySiteId(siteId);
+  const siteOwners = await ownerGroupService.getOwnersBySiteId(siteId);
   const allowedOwners = buildMixRadiusOwnerLookup(siteOwners);
   return records.filter((record) =>
     isMixRadiusOwnerAllowed(record.owner_name, allowedOwners),
@@ -109,8 +109,7 @@ async function filterByGroup(
     return records;
   }
 
-  const groupOwners =
-    await mixRadiusOwnerGroupRepository.findOwnersByGroupId(groupId);
+  const groupOwners = await ownerGroupService.getOwnersByGroupId(groupId);
   if (!groupOwners) {
     return [];
   }

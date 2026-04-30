@@ -1,4 +1,4 @@
-import { RabRevisionStatus } from "@prisma/client";
+import { RabRevisionStatus } from "../types/invoice.enums";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -10,6 +10,7 @@ import {
   serializeRabRevision,
   type RevisionSnapshotSourceItem,
 } from "../utils/rab-revisions";
+import { rejectRabRevision } from "./RabRevisionApprovalService";
 import { createRouteServiceError } from "./RouteServiceError";
 
 interface RevisionAccessUser {
@@ -333,78 +334,11 @@ export class RabRevisionRouteService {
     userId: string;
     notes?: string;
   }) {
-    const user = await prisma.user.findUnique({
-      where: { id: input.userId },
-      include: { role: true },
+    return rejectRabRevision({
+      rabProjectId: input.projectId,
+      revisionId: input.revisionId,
+      userId: input.userId,
+      notes: input.notes,
     });
-    const isSuperAdmin =
-      user?.role?.isSuperAdmin ||
-      user?.role?.name === "SUPER_ADMIN" ||
-      user?.role?.name === "Super Admin";
-
-    if (!user?.role?.canApproveRab && !isSuperAdmin) {
-      throw createRouteServiceError(
-        "Dilarang: Akun Anda tidak memiliki hak akses (role: canApproveRab) untuk menolak dokumen ini.",
-        403,
-      );
-    }
-
-    const revision = await prisma.rabRevision.findUnique({
-      where: { id: input.revisionId },
-      include: { approvals: true },
-    });
-
-    if (!revision || revision.rabProjectId !== input.projectId) {
-      throw createRouteServiceError("Revisi RAB tidak ditemukan", 404);
-    }
-
-    if (revision.status === RabRevisionStatus.APPROVED) {
-      throw createRouteServiceError("Revisi RAB sudah disetujui.", 400);
-    }
-
-    if (revision.status === RabRevisionStatus.REJECTED) {
-      throw createRouteServiceError("Revisi RAB sudah ditolak.", 400);
-    }
-
-    if (revision.status !== RabRevisionStatus.PENDING_APPROVAL) {
-      throw createRouteServiceError(
-        "Revisi harus diajukan terlebih dahulu sebelum bisa ditolak.",
-        400,
-      );
-    }
-
-    const updatedRevision = await prisma.$transaction(async (tx) => {
-      await tx.rabRevisionApproval.upsert({
-        where: {
-          rabRevisionId_userId: {
-            rabRevisionId: revision.id,
-            userId: input.userId,
-          },
-        },
-        create: {
-          rabRevisionId: revision.id,
-          userId: input.userId,
-          status: "REJECTED",
-          notes: input.notes,
-        },
-        update: {
-          status: "REJECTED",
-          notes: input.notes,
-        },
-      });
-
-      return tx.rabRevision.update({
-        where: { id: revision.id },
-        data: {
-          status: RabRevisionStatus.REJECTED,
-          notes: input.notes ?? revision.notes,
-          rejectedById: input.userId,
-          rejectedAt: new Date(),
-        },
-        include: { approvals: true },
-      });
-    });
-
-    return updatedRevision;
   }
 }

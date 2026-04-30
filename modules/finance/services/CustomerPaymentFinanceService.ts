@@ -10,8 +10,13 @@ type CustomerPaymentCouponService = {
   incrementUsage(couponId: string, tx: unknown): Promise<unknown>;
 };
 
-const paymentRepository = new PaymentRepository();
-const invoiceRepository = new InvoiceRepository();
+function getPaymentRepository() {
+  return new PaymentRepository();
+}
+
+function getInvoiceRepository() {
+  return new InvoiceRepository();
+}
 
 /** Creates pending customer payments for selected invoices. */
 export function createCustomerPaymentsForInvoices(options: {
@@ -24,7 +29,7 @@ export function createCustomerPaymentsForInvoices(options: {
   couponId?: string | null;
   couponService?: CustomerPaymentCouponService;
 }) {
-  return paymentRepository.createCustomerPaymentsForInvoices(options);
+  return getPaymentRepository().createCustomerPaymentsForInvoices(options);
 }
 
 /** Stores payment gateway metadata on customer payments. */
@@ -36,7 +41,7 @@ export function updateCustomerPaymentGatewayMetadata(options: {
   expiresAt?: Date | null;
   gatewayProvider?: string | null;
 }) {
-  return paymentRepository.updateGatewayMetadata(options);
+  return getPaymentRepository().updateGatewayMetadata(options);
 }
 
 /** Finds pending manual transfer payment for customer receipt upload. */
@@ -44,7 +49,7 @@ export function findPendingManualCustomerTransfer(options: {
   invoiceId: string;
   customerId: string;
 }) {
-  return paymentRepository.findPendingManualTransfer({
+  return getPaymentRepository().findPendingManualTransfer({
     invoiceId: options.invoiceId,
     pelangganId: options.customerId,
   });
@@ -56,7 +61,7 @@ export function updateCustomerPaymentReceipt(options: {
   receiptUrl: string;
   notes: string;
 }) {
-  return paymentRepository.updateReceipt(options);
+  return getPaymentRepository().updateReceipt(options);
 }
 
 /** Returns customer invoice status used by customer payment polling. */
@@ -64,7 +69,7 @@ export async function getCustomerInvoicePaymentStatus(options: {
   invoiceId: string;
   customerId: string;
 }) {
-  const invoice = await invoiceRepository.findCustomerPaymentStatus({
+  const invoice = await getInvoiceRepository().findCustomerPaymentStatus({
     invoiceId: options.invoiceId,
     pelangganId: options.customerId,
   });

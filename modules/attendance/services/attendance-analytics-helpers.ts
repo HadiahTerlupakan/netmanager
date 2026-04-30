@@ -1,4 +1,4 @@
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus } from "../types/attendance.enums";
 import type { AttendanceRepository } from "../repositories/AttendanceRepository";
 import type { UserLookupService } from "@/modules/users";
 

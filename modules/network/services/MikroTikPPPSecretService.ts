@@ -6,15 +6,21 @@ import { logger } from "@/lib/logger";
  * Digunakan dalam mode API MikroTik (bukan RADIUS).
  */
 
-import { RouterOSAPI } from "node-routeros-v2";
-import {
-  NetworkRepository,
-  type PelangganWithRouter,
-  type RouterTenantId,
+import type {
+  PelangganWithRouter,
+  RouterTenantId,
 } from "../repositories/NetworkRepository";
-import { MikroTikRouterRepository } from "@/modules/network/repositories/MikroTikRouterRepository";
 import type { MikroTikRouterEntity } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
+import {
+  MikroTikConnectionFactory,
+  type RouterConfig,
+} from "./mikrotik/MikroTikConnectionFactory";
+import type {
+  PPPActiveSessionRecord,
+  SessionUsageData,
+} from "./mikrotik/ppp-session-usage";
+import { MikroTikSessionService } from "./mikrotik/MikroTikSessionService";
 
 interface PPPSecretData {
   name: string;
@@ -23,76 +29,6 @@ interface PPPSecretData {
   service?: string;
   comment?: string;
   disabled?: boolean;
-}
-
-interface SessionUsageData {
-  downloadBytes: number;
-  uploadBytes: number;
-}
-
-interface PPPActiveSessionRecord extends Record<string, string> {
-  ".id"?: string;
-  name?: string;
-  interface?: string;
-  "bytes-in"?: string;
-  "bytes-out"?: string;
-  "rx-byte"?: string;
-  "tx-byte"?: string;
-  rx?: string;
-  tx?: string;
-}
-function pickCounter(
-  session: PPPActiveSessionRecord,
-  primary: keyof PPPActiveSessionRecord,
-  fallback: keyof PPPActiveSessionRecord,
-): number {
-  const primaryValue = parseCounter(session[primary]);
-  if (primaryValue > 0) return primaryValue;
-  return parseCounter(session[fallback]);
-}
-
-function parseCounter(value?: string): number {
-  if (!value) return 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-function normalizeInterfaceName(name?: string): string {
-  if (!name) return "";
-  const trimmed = name.trim();
-  if (!trimmed) return "";
-
-  if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
-    return trimmed.slice(1, -1).trim();
-  }
-
-  return trimmed;
-}
-
-function extractSessionUsage(
-  session?: PPPActiveSessionRecord,
-): SessionUsageData {
-  if (!session) {
-    return { downloadBytes: 0, uploadBytes: 0 };
-  }
-
-  const downloadFromPrimary = pickCounter(session, "bytes-out", "tx-byte");
-  const uploadFromPrimary = pickCounter(session, "bytes-in", "rx-byte");
-
-  return {
-    // Prefer cumulative counters from active session or interface stats
-    downloadBytes:
-      downloadFromPrimary > 0 ? downloadFromPrimary : parseCounter(session.tx),
-    uploadBytes:
-      uploadFromPrimary > 0 ? uploadFromPrimary : parseCounter(session.rx),
-  };
-}
-
-interface RouterConfig {
-  ipAddress: string;
-  apiPort: number;
-  apiUsername: string;
-  apiPassword: string;
 }
 
 interface MikroTikPPPSecretNetworkRepository {
@@ -105,14 +41,17 @@ interface MikroTikPPPSecretNetworkRepository {
 type MikroTikPPPSecretDependencies = {
   networkRepository: MikroTikPPPSecretNetworkRepository;
   routerRepository: IMikroTikRouterRepository;
+  connectionFactory?: MikroTikConnectionFactory;
+  sessionService?: MikroTikSessionService;
 };
 
 const EXPIRED_PROFILE = "expired users";
-const CONNECTION_TIMEOUT = 10000;
 
 export class MikroTikPPPSecretService {
   private readonly networkRepository: MikroTikPPPSecretNetworkRepository;
   private readonly routerRepository: IMikroTikRouterRepository;
+  private readonly connectionFactory: MikroTikConnectionFactory;
+  private readonly sessionService: MikroTikSessionService;
 
   constructor(deps?: MikroTikPPPSecretDependencies) {
     if (!deps) {
@@ -121,21 +60,13 @@ export class MikroTikPPPSecretService {
 
     this.networkRepository = deps.networkRepository;
     this.routerRepository = deps.routerRepository;
+    this.connectionFactory =
+      deps.connectionFactory ?? new MikroTikConnectionFactory();
+    this.sessionService = deps.sessionService ?? new MikroTikSessionService();
   }
 
-  /**
-   * Helper: Connect ke MikroTik Router
-   */
-  private async connectToRouter(config: RouterConfig): Promise<RouterOSAPI> {
-    const conn = new RouterOSAPI({
-      host: config.ipAddress,
-      port: config.apiPort,
-      user: config.apiUsername,
-      password: config.apiPassword,
-      timeout: CONNECTION_TIMEOUT,
-    });
-    await conn.connect();
-    return conn;
+  private async connectToRouter(config: RouterConfig) {
+    return this.connectionFactory.connect(config);
   }
 
   private async findRouter(
@@ -326,18 +257,10 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const sessions = (await conn.write("/ppp/active/print", [
-          `?name=${username}`,
-        ])) as Array<Record<string, string>>;
-
-        let disconnected = 0;
-        for (const session of sessions || []) {
-          if (session[".id"]) {
-            await conn.write("/ppp/active/remove", [`=.id=${session[".id"]}`]);
-            disconnected++;
-          }
-        }
-
+        const disconnected = await this.sessionService.disconnectSession(
+          conn,
+          username,
+        );
         conn.close();
         return { success: true, disconnected };
       } catch (error: unknown) {
@@ -404,100 +327,13 @@ export class MikroTikPPPSecretService {
       });
 
       try {
-        const sessions = (await conn.write("/ppp/active/print", [
-          `?name=${username}`,
-        ])) as PPPActiveSessionRecord[];
-
-        const activeSession = sessions?.[0] || null;
-        const parsedFromActive = extractSessionUsage(
-          activeSession || undefined,
+        const result = await this.sessionService.debugActiveSessionUsage(
+          conn,
+          username,
+          router.ipAddress,
         );
-
-        const candidateInterfaceNames = [
-          normalizeInterfaceName(activeSession?.interface),
-          normalizeInterfaceName(activeSession?.name),
-        ].filter(Boolean);
-
-        const interfaceName = candidateInterfaceNames[0] || null;
-        let interfacePrint: PPPActiveSessionRecord | null = null;
-        let parsedFromInterface: SessionUsageData | undefined;
-
-        for (const candidate of candidateInterfaceNames) {
-          try {
-            const interfaceStats = (await conn.write("/interface/print", [
-              `?name=${candidate}`,
-            ])) as PPPActiveSessionRecord[];
-            if (interfaceStats?.[0]) {
-              interfacePrint = interfaceStats[0];
-              parsedFromInterface = extractSessionUsage(interfacePrint);
-              break;
-            }
-          } catch {
-            // ignore and try next candidate
-          }
-        }
-
-        let monitorTraffic: PPPActiveSessionRecord | null = null;
-        let parsedFromMonitor: SessionUsageData | undefined;
-
-        for (const candidate of candidateInterfaceNames) {
-          try {
-            const traffic = (await conn.write("/interface/monitor-traffic", [
-              `=interface=${candidate}`,
-              "=once=",
-            ])) as PPPActiveSessionRecord[];
-            if (traffic?.[0]) {
-              monitorTraffic = traffic[0];
-              parsedFromMonitor = extractSessionUsage(monitorTraffic);
-              break;
-            }
-          } catch {
-            // ignore and try next candidate
-          }
-        }
-
-        const monitorError =
-          !monitorTraffic && candidateInterfaceNames.length > 0
-            ? "monitor-traffic lookup failed for all interface candidates"
-            : undefined;
-
-        const interfaceDebug = {
-          rawInterfaceField: activeSession?.interface || null,
-          rawNameField: activeSession?.name || null,
-          candidatesTried: candidateInterfaceNames,
-        };
-
-        let finalUsage = parsedFromActive;
-        if (
-          finalUsage.downloadBytes <= 0 &&
-          finalUsage.uploadBytes <= 0 &&
-          parsedFromInterface
-        ) {
-          finalUsage = parsedFromInterface;
-        }
-        if (
-          finalUsage.downloadBytes <= 0 &&
-          finalUsage.uploadBytes <= 0 &&
-          parsedFromMonitor
-        ) {
-          finalUsage = parsedFromMonitor;
-        }
-
         conn.close();
-        return {
-          success: true,
-          routerIpAddress: router.ipAddress,
-          activeSession,
-          interfaceName,
-          interfacePrint,
-          monitorTraffic,
-          parsedFromActive,
-          parsedFromInterface,
-          parsedFromMonitor,
-          finalUsage,
-          interfaceDebug,
-          ...(monitorError ? { monitorError } : {}),
-        };
+        return result;
       } catch (error: unknown) {
         conn.close();
         throw error;
@@ -763,11 +599,6 @@ export class MikroTikPPPSecretService {
   }
 }
 
-export function createMikroTikPPPSecretService() {
-  return new MikroTikPPPSecretService({
-    networkRepository: new NetworkRepository(),
-    routerRepository: new MikroTikRouterRepository(),
-  });
-}
+export { createMikroTikPPPSecretService } from "../factories/MikroTikPPPSecretServiceFactory";
 
 export default MikroTikPPPSecretService;

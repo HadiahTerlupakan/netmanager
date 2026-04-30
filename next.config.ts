@@ -172,33 +172,14 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "1gb",
   },
 
-  // Webpack configuration to suppress React warnings and remove console.log in production
-  webpack: (config, { isServer, dev }) => {
-    // Suppress known non-critical warnings
+  // Webpack configuration to suppress known non-critical warnings.
+  webpack: (config) => {
     config.ignoreWarnings = [
       /UNSAFE_componentWillReceiveProps/,
       /componentWillReceiveProps/,
       /ModelCollapse/,
-      // swagger-jsdoc uses dynamic require() which triggers webpack warning
       /Critical dependency: the request of a dependency is an expression/,
     ];
-
-    // Remove console.log in production (keep console.error and console.warn)
-    if (!dev && !isServer) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const TerserPlugin = require("terser-webpack-plugin");
-      config.optimization.minimizer = config.optimization.minimizer || [];
-      config.optimization.minimizer.push(
-        new TerserPlugin({
-          terserOptions: {
-            compress: {
-              drop_console: false, // Don't drop all console
-              pure_funcs: ["console.log", "console.debug", "console.info"], // Only drop these
-            },
-          },
-        }),
-      );
-    }
 
     return config;
   },

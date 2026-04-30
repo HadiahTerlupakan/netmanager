@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { WhatsAppService } from "@/modules/notification";
-import type { TicketStatus } from "@prisma/client";
+import type { TicketStatus } from "../types/pelanggan.enums";
 
 interface AdminTicketReplyInput {
   ticketId: string;

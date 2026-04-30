@@ -1,4 +1,7 @@
-import { AttendanceStatus, type WorkingHourMode } from "@prisma/client";
+import {
+  AttendanceStatus,
+  type WorkingHourMode,
+} from "../types/attendance.enums";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { OvertimeQueryService } from "@/modules/overtime";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";

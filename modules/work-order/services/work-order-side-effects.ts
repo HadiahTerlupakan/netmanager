@@ -1,7 +1,10 @@
 import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
 
-import type { WorkOrderPriority, WorkOrderStatus } from "@prisma/client";
+import type {
+  WorkOrderPriority,
+  WorkOrderStatus,
+} from "../types/work-order.enums";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 

@@ -1,7 +1,7 @@
 import { redis } from "@/lib/redis";
 import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 import type { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import type { UserLookupService } from "@/modules/users";
 

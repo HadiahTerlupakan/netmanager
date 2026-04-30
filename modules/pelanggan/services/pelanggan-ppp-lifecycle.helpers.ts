@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
-import { Status } from "@prisma/client";
+import { Status } from "../types/pelanggan.enums";
 import {
   appendActivationNote,
   appendActivationNotes,

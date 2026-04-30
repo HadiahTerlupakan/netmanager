@@ -2,7 +2,7 @@
  * Asset DTOs (Data Transfer Objects)
  */
 
-import type { AssetStatus } from "@prisma/client";
+import type { AssetStatus } from "../types/asset.enums";
 
 export interface AssetActorDTO {
   type: string;

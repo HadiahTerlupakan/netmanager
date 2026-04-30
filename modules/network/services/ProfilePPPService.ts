@@ -155,6 +155,7 @@ export function mapProfilePPPRouteError(error: unknown) {
 export class ProfilePPPService {
   constructor(
     private readonly hargaPaketRepository: ProfilePPPRepository = new HargaPaketRepository(),
+    private readonly radiusRepository: RadiusRepository = new RadiusRepository(),
   ) {}
 
   private async getRadiusSyncService(): Promise<RadiusSyncService> {
@@ -350,13 +351,12 @@ export class ProfilePPPService {
         return;
       }
 
-      const radiusRepo = new RadiusRepository();
-      await radiusRepo.syncProfileToRadius(profilePPP.id);
+      await this.radiusRepository.syncProfileToRadius(profilePPP.id);
 
       if (profilePPP.poolMode === "RADIUS" && data.ipRange) {
         const tenantId = profilePPP.tenantId || session.user.tenantId;
         if (tenantId) {
-          await radiusRepo.syncIpPoolToRadius(
+          await this.radiusRepository.syncIpPoolToRadius(
             profilePPP.remoteAddress,
             data.ipRange,
             tenantId,
@@ -384,8 +384,7 @@ export class ProfilePPPService {
         return;
       }
 
-      const radiusRepo = new RadiusRepository();
-      await radiusRepo.syncProfileToRadius(profilePPP.id);
+      await this.radiusRepository.syncProfileToRadius(profilePPP.id);
 
       if (oldProfile.poolMode === "RADIUS" && oldProfile.remoteAddress) {
         if (
@@ -394,7 +393,7 @@ export class ProfilePPPService {
         ) {
           const tenantId = oldProfile.tenantId || session.user.tenantId;
           if (tenantId) {
-            await radiusRepo.syncIpPoolToRadius(
+            await this.radiusRepository.syncIpPoolToRadius(
               oldProfile.remoteAddress,
               "",
               tenantId,
@@ -406,7 +405,7 @@ export class ProfilePPPService {
       if (profilePPP.poolMode === "RADIUS" && data.ipRange) {
         const tenantId = profilePPP.tenantId || session.user.tenantId;
         if (tenantId) {
-          await radiusRepo.syncIpPoolToRadius(
+          await this.radiusRepository.syncIpPoolToRadius(
             profilePPP.remoteAddress,
             data.ipRange,
             tenantId,

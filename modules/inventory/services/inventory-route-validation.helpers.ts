@@ -1,4 +1,4 @@
-import type { KondisiBarang } from "@prisma/client";
+import type { KondisiBarang } from "../types/asset.enums";
 
 export function validateInventoryMutationCreateBody(
   body: Record<string, unknown>,

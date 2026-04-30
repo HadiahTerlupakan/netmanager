@@ -1,4 +1,4 @@
-import type { LeaveType } from "@prisma/client";
+import type { LeaveType } from "../types/attendance.enums";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";

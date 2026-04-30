@@ -1,4 +1,4 @@
-import type { KondisiBarang } from "@prisma/client";
+import type { KondisiBarang } from "../types/asset.enums";
 import { isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";

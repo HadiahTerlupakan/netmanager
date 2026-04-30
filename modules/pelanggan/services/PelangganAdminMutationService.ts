@@ -1,4 +1,4 @@
-import { Status, TipePelanggan } from "@prisma/client";
+import { Status, TipePelanggan } from "../types/pelanggan.enums";
 
 import {
   afterCustomerUpdate,

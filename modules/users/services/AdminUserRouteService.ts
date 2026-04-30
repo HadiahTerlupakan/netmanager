@@ -3,7 +3,7 @@ import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
 import { prisma, prismaAuth } from "@/modules/database";
 import { getTenantAdminRoleId } from "@/modules/mitra";
 import { AdminLeaveBalanceRouteService } from "@/modules/attendance";
-import type { LeaveType } from "@prisma/client";
+import type { LeaveType } from "../types/user.enums";
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { createUserRepository } from "../factories/RepositoryFactory";
 import { UserMapper } from "../mappers/UserMapper";
@@ -21,6 +21,7 @@ import {
 } from "./AdminUserRouteService.helpers";
 import type {
   AdminSession,
+  AdminUserListQuery,
   CreateAdminUserInput,
   NewUserSiteAssignment,
   UpdateUserPayload,
@@ -35,6 +36,38 @@ export class AdminUserRouteService {
 
   constructor(userRepository: IUserRepository = createUserRepository()) {
     this.userRepository = userRepository;
+  }
+
+  /** Get paginated users for admin route with tenant and site scoping. */
+  async getAdminUsers(
+    session: AdminSession,
+    query: AdminUserListQuery,
+    permissions: string[],
+  ) {
+    const { isRestricted, primarySiteId } = checkSiteRestriction(
+      { ...session, user: { ...session.user, permissions } },
+      "users",
+    );
+    const result = await new UserService(this.userRepository).getAllUsers({
+      siteId: isRestricted ? primarySiteId || undefined : undefined,
+      tenantId: this.resolveListTenantId(session, query.tenantId || undefined),
+      roleName: query.roleName || undefined,
+      page: query.page ? parseInt(query.page) : undefined,
+      limit: query.limit ? parseInt(query.limit) : undefined,
+      search: query.search || undefined,
+      isActive: this.resolveStatusFilter(query.status || undefined),
+    });
+
+    return {
+      users: result.data,
+      meta: {
+        total: result.total,
+        active: result.active,
+        inactive: result.inactive,
+        page: query.page ? parseInt(query.page) : 1,
+        limit: query.limit ? parseInt(query.limit) : result.data.length,
+      },
+    };
   }
 
   /** Get user detail for admin route with site access enforcement. */
@@ -89,21 +122,22 @@ export class AdminUserRouteService {
 
   /** Buat user admin lengkap dengan role tenant, sites, dan kuota cuti. */
   async createAdminUser(session: AdminSession, payload: CreateAdminUserInput) {
+    const scopedPayload = this.applyCreateSiteRestriction(session, payload);
     const creationContext = await this.buildAdminUserCreationContext(
       session,
-      payload,
+      scopedPayload,
     );
     const user = await this.createUserEntity(
-      payload,
+      scopedPayload,
       creationContext.effectiveRoleId,
       creationContext.targetTenantId,
       creationContext.flexibleTargetHour,
     );
 
-    await this.syncNewUserSites(user.id, payload.userSites);
+    await this.syncNewUserSites(user.id, scopedPayload.userSites);
     await this.initializeLeaveQuotas(
       user.id,
-      payload.leaveQuotas,
+      scopedPayload.leaveQuotas,
       creationContext.targetTenantId,
     );
     return user;
@@ -209,6 +243,25 @@ export class AdminUserRouteService {
     }
   }
 
+  /** Terapkan pembatasan site saat admin membuat user. */
+  private applyCreateSiteRestriction(
+    session: AdminSession,
+    payload: CreateAdminUserInput,
+  ): CreateAdminUserInput {
+    const { isRestricted, primarySiteId } = checkSiteRestriction(
+      session,
+      "users",
+    );
+    if (!isRestricted) return payload;
+    if (!primarySiteId) {
+      throw new Error("User restricted to site but has no site assigned.");
+    }
+    if (payload.siteId && payload.siteId !== primarySiteId) {
+      throw new Error("Anda hanya dapat membuat user untuk site Anda");
+    }
+    return { ...payload, siteId: primarySiteId };
+  }
+
   /** Membangun konteks pembuatan user admin. */
   private async buildAdminUserCreationContext(
     session: AdminSession,
@@ -225,6 +278,19 @@ export class AdminUserRouteService {
         ? Number(payload.flexibleTargetHour)
         : 8,
     };
+  }
+
+  /** Tentukan tenant filter daftar user admin. */
+  private resolveListTenantId(session: AdminSession, tenantId?: string) {
+    if (!session.user.isSuperAdmin) return session.user.tenantId || undefined;
+    return tenantId || session.user.tenantId || undefined;
+  }
+
+  /** Tentukan status aktif dari query route admin. */
+  private resolveStatusFilter(status?: string) {
+    if (status === "active") return true;
+    if (status === "inactive") return false;
+    return undefined;
   }
 
   /** Tentukan tenant tujuan pembuatan user admin. */

@@ -1,7 +1,17 @@
 import { logger } from "@/lib/logger";
 import { RadiusConnectionError } from "../utils/errors";
-import { RouterOSAPI } from "node-routeros-v2";
 import { NetworkRepository } from "../repositories/NetworkRepository";
+import { MikroTikRouterResolver } from "./mikrotik/MikroTikRouterResolver";
+import {
+  buildCreateProfileParams,
+  buildUpdateProfileParams,
+} from "./mikrotik/ppp-profile-params";
+import {
+  deleteManagedIPPool,
+  removePPPProfileByName,
+} from "./mikrotik/ppp-profile-delete";
+import { formatRateLimitFromBandwidth } from "./mikrotik/ppp-rate-limit";
+import type { PPPProfileData } from "./mikrotik/ppp-profile.types";
 import {
   checkIPPoolExists,
   connectToMikroTik,
@@ -9,67 +19,7 @@ import {
   getIPPoolRanges as getMikroTikIPPoolRanges,
 } from "./mikrotik-ip-pool-client";
 
-interface PPPProfileData {
-  name: string;
-  localAddress: string;
-  remoteAddress: string;
-  ipRange?: string | null;
-  dnsServer?: string | null;
-  sessionTimeout?: number | null;
-  idleTimeout?: number | null;
-  rateLimit?: string;
-  skipPoolCheck?: boolean;
-  skipRateLimit?: boolean;
-}
-
-function formatRateLimitFromBandwidth(bandwidth: {
-  maxLimitDownload: string;
-  maxLimitUpload: string;
-  burstLimitDownload?: string | null;
-  burstLimitUpload?: string | null;
-  burstThresholdDownload?: string | null;
-  burstThresholdUpload?: string | null;
-  burstTimeDownload?: number | null;
-  burstTimeUpload?: number | null;
-  priority?: number | null;
-  minLimitDownload?: string | null;
-  minLimitUpload?: string | null;
-}): string {
-  let rateLimit = `${bandwidth.maxLimitDownload}/${bandwidth.maxLimitUpload}`;
-
-  if (bandwidth.burstLimitDownload || bandwidth.burstLimitUpload) {
-    const burstRx = bandwidth.burstLimitDownload || bandwidth.maxLimitDownload;
-    const burstTx = bandwidth.burstLimitUpload || bandwidth.maxLimitUpload;
-    rateLimit += ` ${burstRx}/${burstTx}`;
-  }
-
-  if (bandwidth.burstThresholdDownload || bandwidth.burstThresholdUpload) {
-    const thresholdRx =
-      bandwidth.burstThresholdDownload || bandwidth.maxLimitDownload;
-    const thresholdTx =
-      bandwidth.burstThresholdUpload || bandwidth.maxLimitUpload;
-    rateLimit += ` ${thresholdRx}/${thresholdTx}`;
-  }
-
-  if (bandwidth.burstTimeDownload || bandwidth.burstTimeUpload) {
-    const timeRx = bandwidth.burstTimeDownload || 1;
-    const timeTx =
-      bandwidth.burstTimeUpload || bandwidth.burstTimeDownload || 1;
-    rateLimit += ` ${timeRx}/${timeTx}`;
-  }
-
-  if (bandwidth.priority) {
-    rateLimit += ` ${bandwidth.priority}`;
-  }
-
-  if (bandwidth.minLimitDownload || bandwidth.minLimitUpload) {
-    const minRx = bandwidth.minLimitDownload || bandwidth.maxLimitDownload;
-    const minTx = bandwidth.minLimitUpload || bandwidth.maxLimitUpload;
-    rateLimit += ` ${minRx}/${minTx}`;
-  }
-
-  return rateLimit;
-}
+const routerResolver = new MikroTikRouterResolver();
 
 export async function getRateLimitFromBandwidth(
   profilePPPId: string,
@@ -136,14 +86,7 @@ export async function createPPPProfileInMikroTik(
   profileData: PPPProfileData,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const networkRepo = new NetworkRepository();
-    const routerTenant = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } =
-      await import("@/modules/network/repositories/MikroTikRouterRepository");
-    const routerRepo = new MikroTikRouterRepository();
-    const router = routerTenant
-      ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-      : null;
+    const router = await routerResolver.findRouter(routerId);
 
     if (!router) {
       return { success: false, error: "Router tidak ditemukan" };
@@ -186,59 +129,13 @@ export async function createPPPProfileInMikroTik(
         }
       }
 
-      const profileParams: string[] = [];
-
-      if (!profileData.name || profileData.name.trim() === "") {
+      const paramsResult = buildCreateProfileParams(profileData);
+      if (paramsResult.ok === false) {
         conn.close();
-        return { success: false, error: "Nama profile tidak boleh kosong" };
-      }
-      profileParams.push(`=name=${profileData.name}`);
-
-      if (!profileData.localAddress || profileData.localAddress.trim() === "") {
-        conn.close();
-        return { success: false, error: "Local address tidak boleh kosong" };
-      }
-      profileParams.push(`=local-address=${profileData.localAddress}`);
-
-      if (!profileData.skipPoolCheck) {
-        if (
-          !profileData.remoteAddress ||
-          profileData.remoteAddress.trim() === ""
-        ) {
-          conn.close();
-          return {
-            success: false,
-            error: "Remote address (nama IP Pool) tidak boleh kosong",
-          };
-        }
-        profileParams.push(`=remote-address=${profileData.remoteAddress}`);
+        return { success: false, error: paramsResult.error };
       }
 
-      const profileComment = `add by netmanager - ${profileData.name}`;
-      profileParams.push(`=comment=${profileComment}`);
-
-      if (profileData.dnsServer && profileData.dnsServer.trim() !== "") {
-        profileParams.push(`=dns-server=${profileData.dnsServer}`);
-      }
-
-      if (profileData.sessionTimeout) {
-        profileParams.push(`=session-timeout=${profileData.sessionTimeout}`);
-      }
-
-      if (profileData.idleTimeout) {
-        profileParams.push(`=idle-timeout=${profileData.idleTimeout}`);
-      }
-
-      if (
-        !profileData.skipRateLimit &&
-        !profileData.skipPoolCheck &&
-        profileData.rateLimit &&
-        profileData.rateLimit.trim() !== ""
-      ) {
-        profileParams.push(`=rate-limit=${profileData.rateLimit}`);
-      }
-
-      const result = await conn.write("/ppp/profile/add", profileParams);
+      const result = await conn.write("/ppp/profile/add", paramsResult.params);
 
       if (result && Array.isArray(result) && result.length > 0) {
         const firstResult = result[0];
@@ -311,14 +208,7 @@ export async function updatePPPProfileInMikroTik(
   profileData: Partial<PPPProfileData>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const networkRepo = new NetworkRepository();
-    const routerTenant = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } =
-      await import("@/modules/network/repositories/MikroTikRouterRepository");
-    const routerRepo = new MikroTikRouterRepository();
-    const router = routerTenant
-      ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-      : null;
+    const router = await routerResolver.findRouter(routerId);
 
     if (!router) {
       return { success: false, error: "Router tidak ditemukan" };
@@ -386,62 +276,7 @@ export async function updatePPPProfileInMikroTik(
         }
       }
 
-      const updateParams: string[] = [];
-
-      if (profileData.name !== undefined && profileData.name !== profileName) {
-        updateParams.push(`=name=${profileData.name}`);
-      }
-
-      if (profileData.localAddress !== undefined) {
-        updateParams.push(`=local-address=${profileData.localAddress}`);
-      }
-
-      if (profileData.skipPoolCheck) {
-        updateParams.push("=remote-address=");
-      } else if (profileData.remoteAddress !== undefined) {
-        updateParams.push(`=remote-address=${profileData.remoteAddress}`);
-      }
-
-      const profileNameForComment =
-        profileData.name && profileData.name !== profileName
-          ? profileData.name
-          : profileName;
-      const profileComment = `add by netmanager - ${profileNameForComment}`;
-      updateParams.push(`=comment=${profileComment}`);
-
-      if (profileData.dnsServer !== undefined) {
-        if (profileData.dnsServer && profileData.dnsServer.trim() !== "") {
-          updateParams.push(`=dns-server=${profileData.dnsServer}`);
-        } else {
-          updateParams.push("=dns-server=");
-        }
-      }
-
-      if (profileData.sessionTimeout !== undefined) {
-        if (profileData.sessionTimeout) {
-          updateParams.push(`=session-timeout=${profileData.sessionTimeout}`);
-        } else {
-          updateParams.push("=session-timeout=");
-        }
-      }
-
-      if (profileData.idleTimeout !== undefined) {
-        if (profileData.idleTimeout) {
-          updateParams.push(`=idle-timeout=${profileData.idleTimeout}`);
-        } else {
-          updateParams.push("=idle-timeout=");
-        }
-      }
-
-      if (profileData.skipRateLimit || profileData.skipPoolCheck) {
-        updateParams.push("=rate-limit=");
-      } else if (profileData.rateLimit !== undefined) {
-        if (profileData.rateLimit && profileData.rateLimit.trim() !== "") {
-          updateParams.push(`=rate-limit=${profileData.rateLimit}`);
-        } else {
-          updateParams.push("=rate-limit=");
-        }
-      }
+      const updateParams = buildUpdateProfileParams(profileName, profileData);
 
       if (updateParams.length > 0) {
         const idParam = `=.id=${profileId}`;
@@ -524,87 +359,13 @@ export async function updatePPPProfileInMikroTik(
   }
 }
 
-async function deleteIPPool(
-  conn: RouterOSAPI,
-  poolName: string,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const pools = await conn.write("/ip/pool/print", ["?name=" + poolName]);
-
-    if (!pools || pools.length === 0 || !pools[0]) {
-      return { success: true };
-    }
-
-    const pool = pools[0];
-    const poolId = pool[".id"];
-    const poolComment = pool["comment"] || "";
-
-    const expectedComment = `add by netmanager - ${poolName}`;
-
-    if (poolComment !== expectedComment) {
-      return { success: true };
-    }
-
-    const _result = await conn.write("/ip/pool/remove", ["=.id=" + poolId]);
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const verifyPools = await conn.write("/ip/pool/print", [
-      "?name=" + poolName,
-    ]);
-
-    const firstPool = verifyPools?.[0];
-    if (firstPool) {
-      logger.warn(
-        "[MikroTik IP Pool] WARNING: Pool masih ada setelah dihapus!",
-      );
-      const retryPoolId = firstPool[".id"];
-      const retryPoolComment = firstPool["comment"] || "";
-      const expectedComment = `add by netmanager - ${poolName}`;
-      if (retryPoolComment === expectedComment) {
-        await conn.write("/ip/pool/remove", ["=.id=" + retryPoolId]);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const verifyPools2 = await conn.write("/ip/pool/print", [
-          "?name=" + poolName,
-        ]);
-        if (verifyPools2 && verifyPools2.length > 0) {
-          logger.error(
-            "[MikroTik IP Pool] ERROR: Pool masih ada setelah retry delete!",
-          );
-          return {
-            success: false,
-            error:
-              "IP Pool tidak dapat dihapus dari MikroTik. Pastikan pool tidak sedang digunakan.",
-          };
-        }
-      }
-    }
-
-    return { success: true };
-  } catch (error) {
-    logger.error("[MikroTik IP Pool] Error deleting pool:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: errorMessage || "Gagal menghapus IP Pool di MikroTik",
-    };
-  }
-}
-
 export async function deletePPPProfileInMikroTik(
   routerId: string,
   profileName: string,
   remoteAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const networkRepo = new NetworkRepository();
-    const routerTenant = await networkRepo.findRouterTenantId(routerId);
-    const { MikroTikRouterRepository } =
-      await import("@/modules/network/repositories/MikroTikRouterRepository");
-    const routerRepo = new MikroTikRouterRepository();
-    const router = routerTenant
-      ? await routerRepo.findById(routerId, routerTenant.tenantId!)
-      : null;
+    const router = await routerResolver.findRouter(routerId);
 
     if (!router) {
       return { success: false, error: "Router tidak ditemukan" };
@@ -632,7 +393,10 @@ export async function deletePPPProfileInMikroTik(
 
       if (!profiles || profiles.length === 0) {
         if (profileRemoteAddress) {
-          const poolResult = await deleteIPPool(conn, profileRemoteAddress);
+          const poolResult = await deleteManagedIPPool(
+            conn,
+            profileRemoteAddress,
+          );
           if (!poolResult.success) {
             logger.error(
               "[MikroTik PPP] Failed to delete IP Pool:",
@@ -644,53 +408,17 @@ export async function deletePPPProfileInMikroTik(
         return { success: true };
       }
 
-      const profileToDelete = profiles[0];
-      if (!profileToDelete) {
+      const deleteResult = await removePPPProfileByName(conn, profileName);
+      if (!deleteResult.success) {
         conn.close();
-        return { success: true };
-      }
-      const profileId = profileToDelete[".id"];
-
-      const _result = await conn.write("/ppp/profile/remove", [
-        "=.id=" + profileId,
-      ]);
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const verifyProfiles = await conn.write("/ppp/profile/print", [
-        "?name=" + profileName,
-      ]);
-      if (verifyProfiles && verifyProfiles.length > 0) {
-        logger.warn(
-          "[MikroTik PPP] WARNING: Profile masih ada setelah dihapus!",
-        );
-        const retryProfile = verifyProfiles[0];
-        if (!retryProfile) {
-          logger.error("[MikroTik PPP] Error accessing retry profile");
-          conn.close();
-          return { success: false, error: "Error accessing profile for retry" };
-        }
-        const retryProfileId = retryProfile[".id"];
-        await conn.write("/ppp/profile/remove", ["=.id=" + retryProfileId]);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const verifyProfiles2 = await conn.write("/ppp/profile/print", [
-          "?name=" + profileName,
-        ]);
-        if (verifyProfiles2 && verifyProfiles2.length > 0) {
-          logger.error(
-            "[MikroTik PPP] ERROR: Profile masih ada setelah retry delete!",
-          );
-          conn.close();
-          return {
-            success: false,
-            error:
-              "Profile tidak dapat dihapus dari MikroTik. Pastikan profile tidak sedang digunakan oleh PPPoE client.",
-          };
-        }
+        return deleteResult;
       }
 
       if (profileRemoteAddress) {
-        const poolResult = await deleteIPPool(conn, profileRemoteAddress);
+        const poolResult = await deleteManagedIPPool(
+          conn,
+          profileRemoteAddress,
+        );
         if (!poolResult.success) {
           logger.error(
             "[MikroTik PPP] Failed to delete IP Pool:",

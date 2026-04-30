@@ -9,7 +9,7 @@ import { HolidayRepository } from "../repositories/HolidayRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { UserLookupService } from "@/modules/users";
 import { LeaveNotificationService } from "./LeaveNotificationService";
-import type { LeaveStatus, LeaveType } from "@prisma/client";
+import type { LeaveStatus, LeaveType } from "../types/attendance.enums";
 import { LeaveAttendanceSyncService } from "./LeaveAttendanceSyncService";
 import { LeaveBalanceUsageService } from "./LeaveBalanceUsageService";
 import { LeaveLifecycleService } from "./LeaveLifecycleService";

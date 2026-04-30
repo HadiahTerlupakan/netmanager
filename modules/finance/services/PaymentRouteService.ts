@@ -50,8 +50,13 @@ export type PaymentRouteError =
   | { status: "foreign-key-error" }
   | { status: "unknown"; message: string };
 
-const invoiceRepository = new InvoiceRepository();
-const paymentRepository = new PaymentRepository();
+function getInvoiceRepository() {
+  return new InvoiceRepository();
+}
+
+function getPaymentRepository() {
+  return new PaymentRepository();
+}
 
 function getPelangganLookupService() {
   return getPelangganService();
@@ -61,7 +66,7 @@ function getPelangganLookupService() {
 export async function listPaymentsForRoute(options: {
   filters: PaymentListFilters;
 }) {
-  const result = await paymentRepository.findPaginatedWithInvoice({
+  const result = await getPaymentRepository().findPaginatedWithInvoice({
     where: buildPaymentWhere(options.filters),
     page: options.filters.page,
     limit: options.filters.limit,
@@ -86,7 +91,7 @@ export async function getPaymentForRoute(options: {
   paymentId: string;
   user?: PaymentAccessUser;
 }) {
-  const payment = await paymentRepository.findByIdWithInvoice(
+  const payment = await getPaymentRepository().findByIdWithInvoice(
     options.paymentId,
   );
   if (!payment) {
@@ -158,7 +163,7 @@ async function validateLinkedInvoice(invoiceId?: string | null) {
     return { status: "ok" as const };
   }
 
-  const invoice = await invoiceRepository.findRawById(invoiceId);
+  const invoice = await getInvoiceRepository().findRawById(invoiceId);
   return invoice
     ? { status: "ok" as const }
     : { status: "invoice-not-found" as const };
@@ -171,7 +176,7 @@ async function createPaymentRecord(options: {
 }) {
   const amount = BigInt(Math.round(options.input.amount));
 
-  return paymentRepository.createWithInvoice({
+  return getPaymentRepository().createWithInvoice({
     id: randomUUID(),
     paymentDate: options.input.paymentDate
       ? new Date(options.input.paymentDate)
@@ -247,7 +252,7 @@ function buildPaymentDateFilter(filters: PaymentListFilters) {
 }
 
 async function updateLinkedInvoicePaymentStatus(invoiceId: string) {
-  const invoice = await invoiceRepository.findWithPayment(invoiceId);
+  const invoice = await getInvoiceRepository().findWithPayment(invoiceId);
   if (!invoice) {
     return;
   }
@@ -256,7 +261,7 @@ async function updateLinkedInvoicePaymentStatus(invoiceId: string) {
     (sum, payment) => sum + payment.amount,
     0n,
   );
-  await invoiceRepository.updatePaymentStatus(invoiceId, {
+  await getInvoiceRepository().updatePaymentStatus(invoiceId, {
     paidAmount: totalPaid,
     status: calculateInvoiceStatus(
       totalPaid,

@@ -1,4 +1,4 @@
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 
 export type AttendanceEvaluationLookupRow = Awaited<

@@ -1,4 +1,4 @@
-import { RabRevisionStatus } from "@prisma/client";
+import { RabRevisionStatus } from "../types/invoice.enums";
 import { prisma } from "@/modules/database";
 import {
   DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD,
@@ -18,6 +18,50 @@ export type RabRevisionApprovalResult = {
   message: string;
   data: unknown;
 };
+
+/** Rejects a pending RAB revision as an authorized approver. */
+export async function rejectRabRevision(options: {
+  rabProjectId: string;
+  revisionId: string;
+  userId: string;
+  notes?: string;
+}) {
+  await assertUserCanApproveRab(options.userId);
+  const revision = await findRevision(options.revisionId, options.rabProjectId);
+  assertRevisionCanBeRejected(revision);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.rabRevisionApproval.upsert({
+      where: {
+        rabRevisionId_userId: {
+          rabRevisionId: revision.id,
+          userId: options.userId,
+        },
+      },
+      create: {
+        rabRevisionId: revision.id,
+        userId: options.userId,
+        status: "REJECTED",
+        notes: options.notes,
+      },
+      update: {
+        status: "REJECTED",
+        notes: options.notes,
+      },
+    });
+
+    return tx.rabRevision.update({
+      where: { id: revision.id },
+      data: {
+        status: RabRevisionStatus.REJECTED,
+        notes: options.notes ?? revision.notes,
+        rejectedById: options.userId,
+        rejectedAt: new Date(),
+      },
+      include: { approvals: true },
+    });
+  });
+}
 
 /** Approves a RAB revision and promotes it when approval threshold is met. */
 export async function approveRabRevision(options: {
@@ -135,6 +179,25 @@ async function findRevision(revisionId: string, rabProjectId: string) {
 function assertRevisionCanBeApproved(
   revision: Awaited<ReturnType<typeof findRevision>>,
 ) {
+  assertPendingRevision(
+    revision,
+    "Revisi harus diajukan terlebih dahulu sebelum bisa disetujui.",
+  );
+}
+
+function assertRevisionCanBeRejected(
+  revision: Awaited<ReturnType<typeof findRevision>>,
+) {
+  assertPendingRevision(
+    revision,
+    "Revisi harus diajukan terlebih dahulu sebelum bisa ditolak.",
+  );
+}
+
+function assertPendingRevision(
+  revision: Awaited<ReturnType<typeof findRevision>>,
+  invalidStatusMessage: string,
+) {
   if (revision.status === RabRevisionStatus.APPROVED) {
     throw new RabRevisionApprovalError("Revisi RAB sudah disetujui.", 400);
   }
@@ -144,10 +207,7 @@ function assertRevisionCanBeApproved(
   }
 
   if (revision.status !== RabRevisionStatus.PENDING_APPROVAL) {
-    throw new RabRevisionApprovalError(
-      "Revisi harus diajukan terlebih dahulu sebelum bisa disetujui.",
-      400,
-    );
+    throw new RabRevisionApprovalError(invalidStatusMessage, 400);
   }
 }
 

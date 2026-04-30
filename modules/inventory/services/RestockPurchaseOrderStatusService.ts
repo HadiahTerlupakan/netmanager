@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { PurchaseOrderStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { PurchaseOrderStatus } from "../types/asset.enums";
 import { prisma } from "@/modules/database";
 import { RestockStockReceiptService } from "./RestockStockReceiptService";
 

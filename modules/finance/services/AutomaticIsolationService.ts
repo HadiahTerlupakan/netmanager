@@ -1,7 +1,7 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { AttendanceSettingsService } from "@/modules/attendance";
 import { logger } from "@/lib/logger";
-import { Status } from "@prisma/client";
+import { Status } from "../types/invoice.enums";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { notifyCustomerFinanceNotification } from "../utils/customerFinanceNotifications";
 import {

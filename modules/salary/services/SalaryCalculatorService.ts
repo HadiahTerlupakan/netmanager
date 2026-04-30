@@ -1,21 +1,7 @@
 import type { EmployeeType } from "../domain/entities/SalaryEntity";
 import {
-  applyAttendanceStatus,
-  applyOvertimeMinutes,
-  calculateOvertimePay,
-  calculatePph21Ter,
   calculateProratedBasicSalary,
-  calculateWorkDays,
-  createAttendanceStats,
-  createOvertimeStats,
-  createPayrollEvaluationMap,
-  getDateKey,
-  getDefaultWorkDaysString,
   getPeriodDateRange,
-  isNationalHolidayState,
-  type AttendanceStats,
-  type OvertimeStats,
-  type PayrollEvaluationSummary,
   type UserCalculationData,
 } from "../utils/salary-calculation-helpers";
 export type { UserCalculationData } from "../utils/salary-calculation-helpers";
@@ -31,12 +17,23 @@ import { OvertimePayrollQueryService } from "@/modules/overtime";
 import {
   UserRepository,
   EmployeeLoanRepository,
-  AttendanceRepositoryForSalary,
-  OvertimeRepositoryForSalary,
-  WorkOrderRepositoryForSalary,
-  SalaryDetailRepository,
-  runTransaction,
 } from "../repositories/SalaryCalculationRepositories";
+import { SalaryComponentCalculationService } from "./SalaryComponentCalculationService";
+import { SalaryLoanDeductionService } from "./SalaryLoanDeductionService";
+import { SalaryPayrollLineService } from "./SalaryPayrollLineService";
+import { SalaryStatsQueryService } from "./SalaryStatsQueryService";
+
+type SalaryCalculatorDependencies = {
+  attendanceRepo?: AttendancePayrollQueryService;
+  overtimeRepo?: OvertimePayrollQueryService;
+  leaveBalanceRepo?: LeaveBalanceQueryService;
+  userRepository?: UserRepository;
+  employeeLoanRepository?: EmployeeLoanRepository;
+  statsQueryService?: SalaryStatsQueryService;
+  componentCalculationService?: SalaryComponentCalculationService;
+  payrollLineService?: SalaryPayrollLineService;
+  loanDeductionService?: SalaryLoanDeductionService;
+};
 
 interface SalaryCalculationResult {
   userId: string;
@@ -71,26 +68,36 @@ export class SalaryCalculatorService {
   private leaveBalanceRepo: LeaveBalanceQueryService;
   private userRepository: UserRepository;
   private employeeLoanRepository: EmployeeLoanRepository;
-  private attendanceRepoForSalary: AttendanceRepositoryForSalary;
-  private overtimeRepoForSalary: OvertimeRepositoryForSalary;
-  private workOrderRepoForSalary: WorkOrderRepositoryForSalary;
-  private salaryDetailRepository: SalaryDetailRepository;
+  private statsQueryService: SalaryStatsQueryService;
+  private componentCalculationService: SalaryComponentCalculationService;
+  private payrollLineService: SalaryPayrollLineService;
+  private loanDeductionService: SalaryLoanDeductionService;
 
   constructor(
     salaryRepo: ISalaryRepository = new SalaryRepository(),
     componentRepo: ISalaryComponentRepository = new SalaryComponentRepository(),
+    dependencies: SalaryCalculatorDependencies = {},
   ) {
     this.salaryRepo = salaryRepo;
     this.componentRepo = componentRepo;
-    this.attendanceRepo = new AttendancePayrollQueryService();
-    this.overtimeRepo = new OvertimePayrollQueryService();
-    this.leaveBalanceRepo = new LeaveBalanceQueryService();
-    this.userRepository = new UserRepository();
-    this.employeeLoanRepository = new EmployeeLoanRepository();
-    this.attendanceRepoForSalary = new AttendanceRepositoryForSalary();
-    this.overtimeRepoForSalary = new OvertimeRepositoryForSalary();
-    this.workOrderRepoForSalary = new WorkOrderRepositoryForSalary();
-    this.salaryDetailRepository = new SalaryDetailRepository();
+    this.attendanceRepo =
+      dependencies.attendanceRepo ?? new AttendancePayrollQueryService();
+    this.overtimeRepo =
+      dependencies.overtimeRepo ?? new OvertimePayrollQueryService();
+    this.leaveBalanceRepo =
+      dependencies.leaveBalanceRepo ?? new LeaveBalanceQueryService();
+    this.userRepository = dependencies.userRepository ?? new UserRepository();
+    this.employeeLoanRepository =
+      dependencies.employeeLoanRepository ?? new EmployeeLoanRepository();
+    this.statsQueryService =
+      dependencies.statsQueryService ?? new SalaryStatsQueryService();
+    this.componentCalculationService =
+      dependencies.componentCalculationService ??
+      new SalaryComponentCalculationService();
+    this.payrollLineService =
+      dependencies.payrollLineService ?? new SalaryPayrollLineService();
+    this.loanDeductionService =
+      dependencies.loanDeductionService ?? new SalaryLoanDeductionService();
   }
 
   async calculateSalary(
@@ -128,10 +135,11 @@ export class SalaryCalculatorService {
         endDate,
       });
 
+    const statsInput = { userId, startDate, endDate, payrollEvaluations };
     const [attendanceStats, overtimeStats, woStats] = await Promise.all([
-      this.getAttendanceStats(userId, startDate, endDate, payrollEvaluations),
-      this.getOvertimeStats(userId, startDate, endDate, payrollEvaluations),
-      this.getWorkOrderStats(userId, startDate, endDate),
+      this.statsQueryService.getAttendanceStats(statsInput),
+      this.statsQueryService.getOvertimeStats(statsInput),
+      this.statsQueryService.getWorkOrderStats({ userId, startDate, endDate }),
     ]);
 
     const earnings: SalaryCalculationResult["earnings"] = [];
@@ -145,182 +153,35 @@ export class SalaryCalculatorService {
       attendanceWorkDays: attendanceStats.workDays,
     });
 
-    earnings.push({
-      name: "Gaji Pokok",
-      amount: effectiveBasicSalary,
-      notes:
-        isProrated && effectiveBasicSalary > 0
-          ? "Prorate (karyawan baru)"
-          : undefined,
-    });
+    const payrollInput = {
+      user,
+      basicSalary,
+      effectiveBasicSalary,
+      attendanceStats,
+      overtimeStats,
+      workOrderStats: woStats,
+    };
+    earnings.push(...this.payrollLineService.buildEarningLines(payrollInput));
 
-    for (const uc of userComponents) {
-      let amount = uc.amount;
-      let rate: number | undefined = undefined;
+    const componentLines = this.componentCalculationService.buildComponentLines(
+      {
+        components: userComponents,
+        user,
+        effectiveBasicSalary,
+        attendanceWorkDays: attendanceStats.workDays,
+        isProrated,
+        periodEndDate: endDate,
+      },
+    );
+    earnings.push(...componentLines.earnings);
+    deductions.push(...componentLines.deductions);
 
-      if (uc.component.rateType === "PERCENTAGE") {
-        amount = Math.round((effectiveBasicSalary * uc.amount) / 100);
-        rate = uc.amount;
-      } else if (
-        isProrated &&
-        effectiveBasicSalary > 0 &&
-        uc.component.type === "EARNING"
-      ) {
-        const workDaysSinceJoin = calculateWorkDays(
-          user.joinDate!,
-          endDate,
-          user.workDays || getDefaultWorkDaysString(),
-        );
-        amount = Math.round(
-          (uc.amount / attendanceStats.workDays) * workDaysSinceJoin,
-        );
-      } else if (isProrated && effectiveBasicSalary === 0) {
-        amount = 0;
-      }
-
-      if (uc.component.type === "EARNING") {
-        earnings.push({
-          name: uc.component.name,
-          amount: Math.round(amount),
-          rate: rate,
-          notes: uc.notes || undefined,
-        });
-      } else {
-        deductions.push({
-          name: uc.component.name,
-          amount: Math.round(amount),
-          rate: rate,
-          notes: uc.notes || undefined,
-        });
-      }
-    }
-
-    if (overtimeStats.totalMinutes > 0) {
-      const effectiveOtRateType = user.overtimeCalcTypeNormal;
-      const effectiveOtRateNormal = user.overtimeRateNormal || 0;
-      const effectiveOtRateHoliday = user.overtimeRateHoliday || 0;
-      const effectiveOtRateNational = user.overtimeRateNational || 0;
-
-      const overtimePay = calculateOvertimePay({
-        stats: overtimeStats,
-        rateType: effectiveOtRateType,
-        rateNormal: effectiveOtRateNormal,
-        rateHoliday: effectiveOtRateHoliday,
-        rateNational: effectiveOtRateNational,
-        basicSalary,
-        workDays: attendanceStats.workDays,
-      });
-      if (overtimePay.amount > 0) {
-        earnings.push({
-          name: "Lembur",
-          amount: Math.round(overtimePay.amount),
-          quantity: Number(overtimePay.hours.toFixed(1)),
-          rate: Math.round(overtimePay.rate),
-          notes: `Total ${overtimePay.hours.toFixed(1)} jam`,
-        });
-      }
-    }
-
-    if (user.woIncentiveEnabled && woStats.completed > 0) {
-      const effectiveWoRate = user.woIncentiveRate || 0;
-      const woIncentive = Math.round(woStats.completed * effectiveWoRate);
-      earnings.push({
-        name: "Insentif WO",
-        amount: woIncentive,
-        quantity: woStats.completed,
-        rate: effectiveWoRate,
-        notes: `${woStats.completed} WO selesai`,
-      });
-    }
-
-    if (attendanceStats.late > 0) {
-      const effectiveLateRate = user.lateDeductionRate || 0;
-      const lateDeduction = Math.round(
-        attendanceStats.late * effectiveLateRate,
-      );
-      deductions.push({
-        name: "Potongan Telat",
-        amount: lateDeduction,
-        quantity: attendanceStats.late,
-        rate: effectiveLateRate,
-        notes: `${attendanceStats.late} hari telat`,
-      });
-    }
-
-    if (
-      attendanceStats.absent > 0 ||
-      attendanceStats.sick > 0 ||
-      attendanceStats.permit > 0
-    ) {
-      const deductionPerDay = Math.round(
-        effectiveBasicSalary / attendanceStats.workDays,
-      );
-      let absentDeduction = deductionPerDay * attendanceStats.absent;
-
-      if (
-        user.absentDeductionRate &&
-        user.absentDeductionRate > deductionPerDay
-      ) {
-        absentDeduction = user.absentDeductionRate * attendanceStats.absent;
-      }
-
-      if (absentDeduction > 0) {
-        deductions.push({
-          name: "Potongan Alpha / Unpaid",
-          amount: absentDeduction,
-          quantity: attendanceStats.absent,
-          rate: Math.max(deductionPerDay, user.absentDeductionRate || 0),
-          notes: `${attendanceStats.absent} hari absen/unpaid`,
-        });
-      }
-    }
-
-    if (attendanceStats.sick > 0) {
-      earnings.push({
-        name: "Sakit",
-        amount: 0,
-        quantity: attendanceStats.sick,
-        notes: `${attendanceStats.sick} hari (Informasi)`,
-      });
-    }
-    if (attendanceStats.permit > 0) {
-      earnings.push({
-        name: "Izin",
-        amount: 0,
-        quantity: attendanceStats.permit,
-        notes: `${attendanceStats.permit} hari (Informasi)`,
-      });
-    }
-
-    const bpjsBaseSalary = earnings
-      .filter((e) => e.name === "Gaji Pokok" || e.rate !== undefined)
-      .reduce((sum, e) => sum + e.amount, 0);
-
-    if (user.bpjsKesehatan) {
-      const baseKes = Math.min(12000000, bpjsBaseSalary);
-      const bpjsKesAmount = Math.round(baseKes * 0.01);
-      deductions.push({
-        name: "BPJS Kesehatan (1%)",
-        amount: bpjsKesAmount,
-        notes: `Batas max Rp12jt`,
-      });
-    }
-
-    if (user.bpjsKetenagakerjaan) {
-      const bpjsJhtAmount = Math.round(bpjsBaseSalary * 0.02);
-      const baseJp = Math.min(10042300, bpjsBaseSalary);
-      const bpjsJpAmount = Math.round(baseJp * 0.01);
-
-      deductions.push({
-        name: "BPJS JHT (2%)",
-        amount: bpjsJhtAmount,
-      });
-      deductions.push({
-        name: "BPJS Pensiun (1%)",
-        amount: bpjsJpAmount,
-        notes: `Batas max Rp10jt`,
-      });
-    }
+    deductions.push(
+      ...this.payrollLineService.buildDeductionLines({
+        ...payrollInput,
+        earnings,
+      }),
+    );
 
     const activeLoans =
       await this.employeeLoanRepository.findActiveByUserId(userId);
@@ -337,18 +198,6 @@ export class SalaryCalculatorService {
           amount: deductionAmount,
           loanId: loan.id,
           notes: `Sisa sebelum dipotong: Rp${loan.remainingAmount.toLocaleString()}`,
-        });
-      }
-    }
-
-    const grossIncome = earnings.reduce((sum, e) => sum + e.amount, 0);
-    if (user.ptkpStatus && grossIncome > 0) {
-      const pph21Amount = calculatePph21Ter(grossIncome, user.ptkpStatus);
-      if (pph21Amount > 0) {
-        deductions.push({
-          name: "Pajak PPh 21 (TER)",
-          amount: pph21Amount,
-          notes: `Status PTKP: ${user.ptkpStatus.replace("_", "/")}`,
         });
       }
     }
@@ -392,31 +241,7 @@ export class SalaryCalculatorService {
       calculatedAt: new Date(),
     });
 
-    const existingDetailsWithLoans =
-      await this.salaryDetailRepository.findManyWithLoanPayment(salary.id);
-
-    for (const detail of existingDetailsWithLoans) {
-      if (detail.loanPayment) {
-        await runTransaction(async (tx) => {
-          const loan = await this.employeeLoanRepository.findUnique(
-            detail.loanPayment!.loanId,
-          );
-          if (loan) {
-            const newRemaining =
-              loan.remainingAmount + detail.loanPayment!.amount;
-            await this.employeeLoanRepository.updateInTransaction(tx, loan.id, {
-              remainingAmount: newRemaining,
-              status: "ACTIVE",
-            });
-          }
-          await this.employeeLoanRepository.deleteLoanPaymentInTransaction(
-            tx,
-            detail.loanPaymentId!,
-          );
-        });
-      }
-    }
-
+    await this.loanDeductionService.resetExistingLoanPayments(salary.id);
     await this.salaryRepo.clearDetails(salary.id);
 
     for (const earning of result.earnings) {
@@ -431,51 +256,14 @@ export class SalaryCalculatorService {
     }
 
     for (const deduction of result.deductions) {
-      let loanPaymentId: string | undefined = undefined;
-
-      if (deduction.loanId) {
-        loanPaymentId = await runTransaction(async (tx) => {
-          const loan = await this.employeeLoanRepository.findUnique(
-            deduction.loanId!,
-          );
-          if (!loan) return undefined;
-
-          const newRemaining = Math.max(
-            0,
-            loan.remainingAmount - deduction.amount,
-          );
-          const newStatus = newRemaining <= 0 ? "PAID_OFF" : "ACTIVE";
-
-          await this.employeeLoanRepository.updateInTransaction(tx, loan.id, {
-            remainingAmount: newRemaining,
-            status: newStatus,
-          });
-
-          const payment =
-            await this.employeeLoanRepository.createLoanPaymentInTransaction(
-              tx,
-              {
-                loan: { connect: { id: loan.id } },
-                amount: deduction.amount,
-                notes: `Potongan gaji otomatis bulan ${month}/${year}`,
-              },
-            );
-          return payment.id;
-        });
-      }
-
-      await this.salaryDetailRepository.createWithLoanPayment({
-        salary: { connect: { id: salary.id } },
-        name: deduction.name,
-        type: "DEDUCTION",
-        amount: deduction.amount,
-        quantity: deduction.quantity,
-        rate: deduction.rate,
-        notes: deduction.notes,
-        ...(loanPaymentId && {
-          loanPayment: { connect: { id: loanPaymentId } },
-        }),
-      });
+      await this.loanDeductionService.createDeductionDetail(
+        salary.id,
+        deduction,
+        {
+          month,
+          year,
+        },
+      );
     }
 
     return salary.id;
@@ -512,121 +300,5 @@ export class SalaryCalculatorService {
     }
 
     return { success, failed };
-  }
-
-  private async getAttendanceStats(
-    userId: string,
-    startDate: Date,
-    endDate: Date,
-    payrollEvaluations: PayrollEvaluationSummary[],
-  ): Promise<AttendanceStats> {
-    const [attendances, userWorkDays] = await Promise.all([
-      this.attendanceRepoForSalary.findByUserAndDateRange(
-        userId,
-        startDate,
-        endDate,
-      ),
-      this.userRepository.findWorkDays(userId),
-    ]);
-
-    const workDays = calculateWorkDays(
-      startDate,
-      endDate,
-      userWorkDays?.workDays || getDefaultWorkDaysString(),
-    );
-
-    const stats = createAttendanceStats(workDays);
-    const evaluationMap = createPayrollEvaluationMap(payrollEvaluations);
-    const processedDateKeys = new Set<string>();
-
-    for (const attendance of attendances) {
-      const dateKey = getDateKey(attendance.checkIn);
-      const evaluation = dateKey ? evaluationMap.get(dateKey) : undefined;
-      const status = evaluation?.finalStatus ?? attendance.status;
-
-      applyAttendanceStatus(stats, status);
-
-      if (dateKey) {
-        processedDateKeys.add(dateKey);
-      }
-    }
-
-    for (const evaluation of payrollEvaluations) {
-      const dateKey = getDateKey(evaluation.workDate);
-      if (!dateKey || processedDateKeys.has(dateKey)) {
-        continue;
-      }
-
-      applyAttendanceStatus(stats, evaluation.finalStatus);
-    }
-
-    return stats;
-  }
-
-  private async getOvertimeStats(
-    userId: string,
-    startDate: Date,
-    endDate: Date,
-    payrollEvaluations: PayrollEvaluationSummary[],
-  ): Promise<OvertimeStats> {
-    const overtimes =
-      await this.overtimeRepoForSalary.findApprovedByUserAndDateRange(
-        userId,
-        startDate,
-        endDate,
-      );
-
-    const stats = createOvertimeStats();
-    const evaluationMap = createPayrollEvaluationMap(payrollEvaluations);
-    const processedEvaluationDateKeys = new Set<string>();
-
-    for (const overtime of overtimes) {
-      const overtimeDate = overtime.startTime ?? overtime.createdAt;
-      const dateKey = getDateKey(overtimeDate);
-      const evaluation = dateKey ? evaluationMap.get(dateKey) : undefined;
-
-      if (!evaluation) {
-        applyOvertimeMinutes(
-          stats,
-          overtime.duration || 0,
-          Boolean(overtime.isNationalHoliday),
-          Boolean(overtime.isHolidayOvertime),
-        );
-        continue;
-      }
-
-      if (!dateKey || processedEvaluationDateKeys.has(dateKey)) {
-        continue;
-      }
-
-      const isNationalHoliday = isNationalHolidayState(evaluation.holidayState);
-      const isHolidayOvertime =
-        evaluation.finalStatus === "DAY_OFF" ? !isNationalHoliday : false;
-
-      applyOvertimeMinutes(
-        stats,
-        evaluation.overtimeMinutesApproved,
-        isNationalHoliday,
-        isHolidayOvertime,
-      );
-
-      processedEvaluationDateKeys.add(dateKey);
-    }
-
-    return stats;
-  }
-
-  private async getWorkOrderStats(
-    userId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<{ completed: number }> {
-    const count = await this.workOrderRepoForSalary.countCompletedForUser(
-      userId,
-      startDate,
-      endDate,
-    );
-
-    return { completed: count };
   }
 }

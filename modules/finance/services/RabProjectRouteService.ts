@@ -1,4 +1,4 @@
-import { RabExpenseType } from "@prisma/client";
+import { RabExpenseType } from "../types/invoice.enums";
 
 import { buildRabBottleneckMetrics } from "../utils/rab-bottleneck-metrics";
 import {

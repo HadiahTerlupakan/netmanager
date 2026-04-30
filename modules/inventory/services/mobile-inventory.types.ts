@@ -1,4 +1,4 @@
-import type { KondisiBarang } from "@prisma/client";
+import type { KondisiBarang } from "../types/asset.enums";
 import type { InventoryActorInput } from "../repositories/IInventoryRepository";
 
 export class MobileInventoryError extends Error {

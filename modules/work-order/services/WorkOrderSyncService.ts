@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { WorkOrderStatus } from "@prisma/client";
+import { WorkOrderStatus } from "../types/work-order.enums";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { TicketRepository } from "../repositories/TicketRepository";
 import {

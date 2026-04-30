@@ -2,7 +2,7 @@ import type {
   WorkOrderPriority,
   WorkOrderStatus,
   WorkOrderType,
-} from "@prisma/client";
+} from "../types/work-order.enums";
 
 export interface CreateWorkOrderInput {
   type: WorkOrderType;

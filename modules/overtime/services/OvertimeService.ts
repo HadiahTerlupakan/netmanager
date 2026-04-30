@@ -1,41 +1,27 @@
 import { logger } from "@/lib/logger";
-import { OvertimeStatus } from "@prisma/client";
+import { OvertimeStatus } from "../types/overtime.enums";
 
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import {
-  AttendanceQueryService,
-  HolidayLookupService,
-} from "@/modules/attendance";
-import { UserLookupService } from "@/modules/users";
-
-import {
-  createNotification,
-  WhatsAppApprovalButtonService,
-} from "@/modules/notification";
 import type {
   IOvertimeRepository,
   OvertimeQueryFilters,
 } from "../domain/ports/IOvertimeRepository";
 import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
-import { OvertimeMapper } from "../mappers/OvertimeMapper";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
+import { OvertimeAttendanceStateService } from "./OvertimeAttendanceStateService";
 import { OvertimeAutoCheckoutSchedulerService } from "./OvertimeAutoCheckoutSchedulerService";
+import { OvertimeNotificationService } from "./OvertimeNotificationService";
+import { OvertimeQueryReportService } from "./OvertimeQueryReportService";
 import {
   assertApprovedRequest,
   assertInProgressRequest,
   assertPendingRequest,
-  buildReportSummary,
   calculateCompletion,
   ensureStartTimeExists,
-  type HolidayResolution,
-  isUserOffDay,
   logFlexibleShiftShortfall,
   logMissingRegularAttendance,
-  resolveHolidayDescription,
 } from "./OvertimeService.helpers";
 
-const OVERTIME_APPROVAL_LINK = "/admin/lembur";
-const OVERTIME_APPROVAL_TITLE = "Pengajuan Lembur Baru";
 const MAX_OVERTIME_DURATION_MS = 8 * 60 * 60 * 1000;
 const MIN_DURATION_MINUTES = 1;
 
@@ -60,23 +46,27 @@ type StopOvertimeInput = {
 
 export class OvertimeService {
   private repository: IOvertimeRepository;
-  private holidayRepository: HolidayLookupService;
-  private userRepository: UserLookupService;
-  private attendanceRepository: AttendanceQueryService;
+  private attendanceStateService: OvertimeAttendanceStateService;
   private autoCheckoutScheduler: OvertimeAutoCheckoutSchedulerService;
-  private whatsAppApprovalButtonService: WhatsAppApprovalButtonService;
+  private notificationService: OvertimeNotificationService;
+  private queryReportService: OvertimeQueryReportService;
 
   constructor(
     repository: IOvertimeRepository = new OvertimeRepository(),
     scheduler?: OvertimeAutoCheckoutSchedulerService,
+    notificationService: OvertimeNotificationService = new OvertimeNotificationService(),
+    attendanceStateService: OvertimeAttendanceStateService = new OvertimeAttendanceStateService(),
+    queryReportService: OvertimeQueryReportService = new OvertimeQueryReportService(
+      repository,
+      attendanceStateService,
+    ),
   ) {
     this.repository = repository;
-    this.holidayRepository = new HolidayLookupService();
-    this.userRepository = new UserLookupService();
-    this.attendanceRepository = new AttendanceQueryService();
+    this.attendanceStateService = attendanceStateService;
     this.autoCheckoutScheduler =
       scheduler ?? new OvertimeAutoCheckoutSchedulerService(repository);
-    this.whatsAppApprovalButtonService = new WhatsAppApprovalButtonService();
+    this.notificationService = notificationService;
+    this.queryReportService = queryReportService;
   }
 
   /** Create new overtime request for a day. */
@@ -91,12 +81,12 @@ export class OvertimeService {
       tenantId: data.tenantId,
     });
 
-    await this.notifyAdminsForNewRequest(
+    await this.notificationService.notifyAdminsForNewRequest({
       userId,
-      data.reason,
+      reason: data.reason,
       request,
-      data.tenantId,
-    );
+      tenantId: data.tenantId,
+    });
     return request;
   }
 
@@ -109,12 +99,15 @@ export class OvertimeService {
     const overtime = await this.requireOwnedOvertime(overtimeId, userId);
     assertApprovedRequest(overtime);
 
-    const attendance = await this.findTodayAttendance(userId, data.tenantId);
-    const holidayState = await this.resolveHolidayState(
+    const attendance = await this.attendanceStateService.findTodayAttendance(
+      userId,
       data.tenantId,
-      attendance?.user?.workDays,
-      attendance?.user?.workingHourMode,
     );
+    const holidayState = await this.attendanceStateService.resolveHolidayState({
+      tenantId: data.tenantId,
+      workDays: attendance?.user?.workDays,
+      workingHourMode: attendance?.user?.workingHourMode,
+    });
 
     logMissingRegularAttendance(
       userId,
@@ -165,26 +158,12 @@ export class OvertimeService {
 
   /** Get overtime history for one user. */
   async getHistory(userId: string, tenantId?: string) {
-    return this.repository.findAll({ userId, tenantId });
+    return this.queryReportService.getHistory(userId, tenantId);
   }
 
   /** Get overtime requests for admin listing. */
   async getAllRequests(filters?: OvertimeQueryFilters) {
-    const [data, total, summary] = await Promise.all([
-      this.repository.findAll(filters),
-      this.repository.count(filters),
-      this.repository.countByStatus(filters),
-    ]);
-    const enrichedData = await this.enrichOvertimeFlags(
-      data,
-      filters?.tenantId,
-    );
-
-    return {
-      data: OvertimeMapper.toListItemDTOs(enrichedData),
-      total,
-      summary,
-    };
+    return this.queryReportService.getAllRequests(filters);
   }
 
   /** Approve pending overtime request. */
@@ -197,7 +176,7 @@ export class OvertimeService {
       approvedBy: approverId,
     });
 
-    await this.notifyUserApproved(result);
+    await this.notificationService.notifyUserApproved(result);
     return result;
   }
 
@@ -211,7 +190,7 @@ export class OvertimeService {
       rejectionReason: reason,
     });
 
-    await this.notifyUserRejected(result, reason);
+    await this.notificationService.notifyUserRejected(result, reason);
     return result;
   }
 
@@ -222,7 +201,7 @@ export class OvertimeService {
 
   /** Get one overtime by id for route orchestration. */
   async getOvertimeById(id: string, tenantId?: string) {
-    return this.repository.findById(id, tenantId);
+    return this.queryReportService.getOvertimeById(id, tenantId);
   }
 
   /** Update overtime fields from admin route. */
@@ -230,29 +209,20 @@ export class OvertimeService {
     id: string,
     data: { reason?: string; startTime?: Date; endTime?: Date },
   ) {
-    return this.repository.update(id, data);
+    return this.queryReportService.updateOvertime(id, data);
   }
 
   /** Get today attendance checkout state for mobile overtime. */
   async getTodayAttendanceState(userId: string, tenantId: string) {
-    const attendance = await this.findTodayAttendance(userId, tenantId);
-    return { hasCheckedOut: attendance?.checkOut !== null };
+    return this.attendanceStateService.getTodayAttendanceState(
+      userId,
+      tenantId,
+    );
   }
 
   /** Get today holiday info for mobile overtime. */
   async getTodayHolidayInfo(tenantId: string) {
-    const holiday = await this.holidayRepository.isHoliday(
-      new Date(),
-      tenantId,
-    );
-    if (!holiday.holiday) {
-      return null;
-    }
-
-    return {
-      description: holiday.holiday.description,
-      isNational: holiday.holiday.isNational,
-    };
+    return this.attendanceStateService.getTodayHolidayInfo(tenantId);
   }
 
   /** Get aggregated overtime report data. */
@@ -262,33 +232,12 @@ export class OvertimeService {
     siteId?: string,
     departmentId?: string,
   ) {
-    const [stats, dailyStats, groupedBySite, groupedByDept, topEmployees] =
-      await Promise.all([
-        this.repository.getStatsByDateRange(
-          startDate,
-          endDate,
-          siteId,
-          departmentId,
-        ),
-        this.repository.getDailyStats(startDate, endDate, siteId, departmentId),
-        this.repository.getGroupedStats(startDate, endDate, "site"),
-        this.repository.getGroupedStats(startDate, endDate, "department"),
-        this.repository.getTopEmployees(
-          startDate,
-          endDate,
-          5,
-          siteId,
-          departmentId,
-        ),
-      ]);
-
-    return {
-      summary: buildReportSummary(stats.totalRequests, stats.totalDuration),
-      trends: dailyStats,
-      bySite: groupedBySite,
-      byDepartment: groupedByDept,
-      topEmployees,
-    };
+    return this.queryReportService.getReportData({
+      startDate,
+      endDate,
+      siteId,
+      departmentId,
+    });
   }
 
   /** Create start and end timestamps for one day. */
@@ -321,45 +270,6 @@ export class OvertimeService {
     );
   }
 
-  /** Send notification to admins when request is created. */
-  private async notifyAdminsForNewRequest(
-    userId: string,
-    reason: string,
-    request: OvertimeEntity,
-    tenantId?: string,
-  ): Promise<void> {
-    try {
-      const user = await this.userRepository.findByIdWithSite(userId, tenantId);
-      const admins = await this.userRepository.findAdminsForNotification(
-        tenantId,
-        user?.siteId ?? null,
-      );
-
-      for (const admin of admins) {
-        const message = `${user?.name || "Karyawan"} mengajukan lembur: ${reason}`;
-        await createNotification({
-          type: "SYSTEM",
-          priority: "NORMAL",
-          title: OVERTIME_APPROVAL_TITLE,
-          message,
-          link: OVERTIME_APPROVAL_LINK,
-          userId: admin.id,
-          sourceType: "OVERTIME",
-          sourceId: request.id,
-          tenantId,
-        });
-        await this.whatsAppApprovalButtonService.sendApprovalButton({
-          phone: admin.phone,
-          title: OVERTIME_APPROVAL_TITLE,
-          message,
-          approvalUrl: OVERTIME_APPROVAL_LINK,
-        });
-      }
-    } catch (error) {
-      logger.error("Failed to send notification:", error);
-    }
-  }
-
   /** Load overtime or throw when missing. */
   private async requireOvertime(id: string): Promise<OvertimeEntity> {
     const overtime = await this.repository.findById(id);
@@ -384,53 +294,6 @@ export class OvertimeService {
     }
 
     return overtime;
-  }
-
-  /** Resolve holiday and off-day flags for today. */
-  private async resolveHolidayState(
-    tenantId?: string,
-    workDays?: string | null,
-    workingHourMode?: string | null,
-  ): Promise<HolidayResolution> {
-    const today = new Date();
-    const holidayResult = await this.holidayRepository.isHoliday(
-      today,
-      tenantId,
-    );
-    const isOffDay = isUserOffDay(workDays, workingHourMode, today);
-
-    return {
-      isHolidayOvertime: holidayResult.isHoliday || isOffDay,
-      isNationalHoliday:
-        holidayResult.isHoliday && holidayResult.holiday?.isNational === true,
-      isOffDay: isOffDay && !holidayResult.isHoliday,
-      holidayDescription: resolveHolidayDescription(
-        holidayResult.holiday?.description,
-        isOffDay,
-      ),
-    };
-  }
-
-  /** Find today's attendance with user info. */
-  private async findTodayAttendance(userId: string, tenantId?: string) {
-    const dateRange = this.createDayRange(new Date());
-
-    return this.attendanceRepository.findFirstWithUser({
-      where: {
-        userId,
-        tenantId,
-        checkIn: {
-          gte: dateRange.startOfDay,
-          lte: dateRange.endOfDay,
-        },
-      },
-      orderBy: { checkIn: "desc" },
-      userSelect: {
-        workingHourMode: true,
-        flexibleTargetHour: true,
-        workDays: true,
-      },
-    });
   }
 
   /** Schedule overtime auto checkout with safe error handling. */
@@ -486,83 +349,5 @@ export class OvertimeService {
           ? durationMinutes
           : MIN_DURATION_MINUTES,
     };
-  }
-
-  /** Enrich legacy overtime records with computed holiday flags. */
-  private async enrichOvertimeFlags(
-    data: OvertimeEntity[],
-    tenantId?: string,
-  ): Promise<OvertimeEntity[]> {
-    return Promise.all(
-      data.map(async (item) => {
-        if (item.isHolidayOvertime) {
-          return item;
-        }
-
-        const holiday = await this.holidayRepository.isHoliday(
-          item.createdAt,
-          tenantId,
-        );
-        const isOffDay = isUserOffDay(
-          item.user?.workDays,
-          item.user?.workingHourMode,
-          item.createdAt,
-        );
-
-        return {
-          ...item,
-          isHolidayOvertime: holiday.isHoliday || isOffDay,
-          isNationalHoliday:
-            holiday.isHoliday && holiday.holiday?.isNational === true,
-          isOffDay: isOffDay && !holiday.isHoliday,
-          holidayDescription: resolveHolidayDescription(
-            holiday.holiday?.description,
-            isOffDay,
-          ),
-        };
-      }),
-    );
-  }
-
-  /** Notify employee that overtime was approved. */
-  private async notifyUserApproved(result: OvertimeEntity): Promise<void> {
-    try {
-      await createNotification({
-        type: "SYSTEM",
-        priority: "HIGH",
-        title: "Pengajuan Lembur Disetujui",
-        message:
-          "Pengajuan lembur Anda telah disetujui. Silakan mulai lembur setelah checkout.",
-        link: "/karyawan/lembur",
-        userId: result.userId,
-        sourceType: "OVERTIME",
-        sourceId: result.id,
-        tenantId: result.tenantId || undefined,
-      });
-    } catch (error) {
-      logger.error("Failed to send notification:", error);
-    }
-  }
-
-  /** Notify employee that overtime was rejected. */
-  private async notifyUserRejected(
-    result: OvertimeEntity,
-    reason: string,
-  ): Promise<void> {
-    try {
-      await createNotification({
-        type: "SYSTEM",
-        priority: "HIGH",
-        title: "Pengajuan Lembur Ditolak",
-        message: `Alasan: ${reason}`,
-        link: "/karyawan/lembur",
-        userId: result.userId,
-        sourceType: "OVERTIME",
-        sourceId: result.id,
-        tenantId: result.tenantId || undefined,
-      });
-    } catch (error) {
-      logger.error("Failed to send notification:", error);
-    }
   }
 }

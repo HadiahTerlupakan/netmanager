@@ -5,7 +5,7 @@
  * Sensitive fields like passwordHash are never exposed.
  */
 
-import type { WorkingHourMode } from "@prisma/client";
+import type { WorkingHourMode } from "../types/user.enums";
 
 // ==================== Response DTOs ====================
 

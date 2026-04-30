@@ -1,8 +1,7 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { AdminUserRouteService, getUserService } from "@/modules/users";
+import { AdminUserRouteService } from "@/modules/users";
 import { createUserSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
-import { checkSiteRestriction } from "@/modules/roles";
 import type { Session } from "next-auth";
 
 /**
@@ -24,73 +23,29 @@ export const GET = createHandler(
 
     if (!session) return ApiErrors.unauthorized();
 
-    // Augmented session for site restriction helper
-    const sessionWithPermissions = {
-      ...session,
-      user: {
-        ...session.user,
-        permissions,
+    const routeService = new AdminUserRouteService();
+    const result = await routeService.getAdminUsers(
+      session as Session & {
+        user: Session["user"] & { id: string; isSuperAdmin?: boolean };
       },
-    };
-
-    // Get site and tenant filters
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
-      sessionWithPermissions as Session,
-      "users",
+      {
+        tenantId: req.nextUrl.searchParams.get("tenantId"),
+        roleName: req.nextUrl.searchParams.get("roleName"),
+        page: req.nextUrl.searchParams.get("page"),
+        limit: req.nextUrl.searchParams.get("limit"),
+        search: req.nextUrl.searchParams.get("search"),
+        status: req.nextUrl.searchParams.get("status"),
+      },
+      permissions,
     );
-    const siteIdFilter = isRestricted ? primarySiteId || undefined : undefined;
-    let tenantIdFilter = req.nextUrl.searchParams.get("tenantId") || undefined;
-    const roleNameFilter =
-      req.nextUrl.searchParams.get("roleName") || undefined;
-
-    const pageParam = req.nextUrl.searchParams.get("page");
-    const limitParam = req.nextUrl.searchParams.get("limit");
-    const page = pageParam ? parseInt(pageParam) : undefined;
-    const limit = limitParam ? parseInt(limitParam) : undefined;
-    const search = req.nextUrl.searchParams.get("search") || undefined;
-
-    const statusParam = req.nextUrl.searchParams.get("status");
-    let isActive: boolean | undefined = undefined;
-    if (statusParam === "active") isActive = true;
-    if (statusParam === "inactive") isActive = false;
-
-    // If session user is NOT super admin, they can ONLY see their own tenant
-    // If session user IS super admin but no tenantId provided, default to their current tenant
-    if (!session.user.isSuperAdmin) {
-      tenantIdFilter = session.user.tenantId || undefined;
-    } else if (!tenantIdFilter) {
-      tenantIdFilter = session.user.tenantId || undefined;
-    }
-
-    const userService = getUserService();
-    const result = await userService.getAllUsers({
-      siteId: siteIdFilter,
-      tenantId: tenantIdFilter,
-      roleName: roleNameFilter,
-      page,
-      limit,
-      search,
-      isActive,
-    });
 
     logger.apiRequest("GET", "/api/admin/users", 200, Date.now() - startTime, {
       userId: session.user.id,
-      count: result.data.length,
-      total: result.total,
+      count: result.users.length,
+      total: result.meta.total,
     });
 
-    return apiSuccess({
-      users: result.data,
-      meta: {
-        total: result.total,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        active: (result as any).active,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        inactive: (result as any).inactive,
-        page: page || 1,
-        limit: limit || result.data.length,
-      },
-    });
+    return apiSuccess(result);
   },
 );
 
@@ -114,26 +69,6 @@ export const POST = createHandler(
 
     if (!session) return ApiErrors.unauthorized();
 
-    // Site restriction check using centralized helper
-    const { isRestricted, primarySiteId: userSiteId } = checkSiteRestriction(
-      session as Session,
-      "users",
-    );
-
-    if (isRestricted) {
-      if (!userSiteId) {
-        return ApiErrors.forbidden(
-          "User restricted to site but has no site assigned.",
-        );
-      }
-      if (body.siteId && body.siteId !== userSiteId) {
-        return ApiErrors.forbidden(
-          "Anda hanya dapat membuat user untuk site Anda",
-        );
-      }
-      body.siteId = userSiteId;
-    }
-
     logger.info("Creating new user", {
       email: body.email,
       createdBy: session.user.id,
@@ -144,7 +79,11 @@ export const POST = createHandler(
       const adminUserRouteService = new AdminUserRouteService();
       const user = await adminUserRouteService.createAdminUser(
         session as Session & {
-          user: Session["user"] & { id: string; isSuperAdmin?: boolean };
+          user: Session["user"] & {
+            id: string;
+            isSuperAdmin?: boolean;
+            permissions?: string[];
+          };
         },
         body,
       );
@@ -188,6 +127,9 @@ export const POST = createHandler(
     } catch (e: unknown) {
       if (e instanceof Error && e.message.startsWith("Email sudah terdaftar")) {
         return ApiErrors.conflict(e.message);
+      }
+      if (e instanceof Error && e.message.includes("site")) {
+        return ApiErrors.forbidden(e.message);
       }
       throw e; // Let createHandler deal with general errors
     }

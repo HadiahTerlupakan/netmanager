@@ -1,5 +1,7 @@
-import type { WorkOrderAttachments } from "@prisma/client";
-import { TicketStatus } from "@prisma/client";
+import {
+  TicketStatus,
+  type WorkOrderAttachments,
+} from "../types/work-order.enums";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { randomUUID } from "crypto";

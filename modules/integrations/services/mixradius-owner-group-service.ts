@@ -33,6 +33,16 @@ export class MixRadiusOwnerGroupService {
     return this.repository.findMany(tenantId);
   }
 
+  /** Get owner names by site id. */
+  async getOwnersBySiteId(siteId: string) {
+    return this.repository.findOwnersBySiteId(siteId);
+  }
+
+  /** Get owner names by group id. */
+  async getOwnersByGroupId(groupId: string) {
+    return this.repository.findOwnersByGroupId(groupId);
+  }
+
   /**
    * Get owner group by id.
    */

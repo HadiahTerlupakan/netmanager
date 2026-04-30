@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { OvertimeStatus } from "@prisma/client";
+import { OvertimeStatus } from "../types/overtime.enums";
 
 import type { AttendanceQueryService } from "@/modules/attendance";
 import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";

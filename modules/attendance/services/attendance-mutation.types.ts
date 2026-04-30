@@ -1,4 +1,5 @@
-import type { AttendanceStatus, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
 import type { CachedUserAttendanceSettings } from "./attendance-service-helpers";
 

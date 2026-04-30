@@ -1,5 +1,5 @@
 import { ValidationError } from "@/lib/errors";
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus } from "../types/attendance.enums";
 import {
   addDays,
   differenceInMinutes,

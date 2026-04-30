@@ -1,4 +1,4 @@
-import { LogType } from "@prisma/client";
+import { LogType } from "../types/admin.enums";
 import { SystemLogMapper } from "../mappers/SystemLogMapper";
 import { SystemLogRepository } from "../repositories/SystemLogRepository";
 import type { ISystemLogRepository } from "../domain/ports/ISystemLogRepository";

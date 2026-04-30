@@ -1,4 +1,4 @@
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus } from "../types/attendance.enums";
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
 import {
   formatCurrentAttendanceTime,

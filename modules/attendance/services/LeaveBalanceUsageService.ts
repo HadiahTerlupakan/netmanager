@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import type { LeaveType } from "@prisma/client";
+import type { LeaveType } from "../types/attendance.enums";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
 import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";

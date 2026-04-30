@@ -84,7 +84,17 @@ export type AdminSession = Session & {
   user: Session["user"] & {
     id: string;
     isSuperAdmin?: boolean;
+    permissions?: string[];
   };
+};
+
+export type AdminUserListQuery = {
+  tenantId?: string | null;
+  roleName?: string | null;
+  page?: string | null;
+  limit?: string | null;
+  search?: string | null;
+  status?: string | null;
 };
 
 export type UserRouteResult<T> =

@@ -1,4 +1,5 @@
-import { Prisma, TicketStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { TicketStatus } from "../types/pelanggan.enums";
 
 const DEFAULT_NOTIFICATION_SENDER = "Tim Dukungan";
 const MAX_NOTIFICATION_PREVIEW_LENGTH = 100;
