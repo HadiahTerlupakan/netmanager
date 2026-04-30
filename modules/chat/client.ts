@@ -1,1 +1,1 @@
-export { shouldNotifyForChatMessage } from "./utils/shouldNotifyForChatMessage";
+export { shouldNotifyForChatMessage } from "./services/shouldNotifyForChatMessage";

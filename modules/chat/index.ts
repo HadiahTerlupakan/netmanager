@@ -1,3 +1,9 @@
 // Chat Module Public API
-export * from "./services/ChatService";
-export { shouldNotifyForChatMessage } from "./client";
+export { ChatService } from "./services/ChatService";
+export type {
+  BroadcastMessageInput,
+  ChatMessagesQuery,
+  CreateChatInput,
+  SendMessageInput,
+} from "./services/ChatService";
+export { shouldNotifyForChatMessage } from "./services/shouldNotifyForChatMessage";
