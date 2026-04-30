@@ -11,9 +11,15 @@ import {
 } from "../repositories/RabProjectRepository";
 import { ExpenseRepository } from "../repositories/ExpenseRepository";
 import { createRouteServiceError } from "./RouteServiceError";
+import {
+  buildItemActualTotals,
+  getItemActualTotal,
+  serializeAchievement,
+  serializeDuplicatedProject,
+  serializeProjectDetail,
+  serializeUpdatedProject,
+} from "./rabProjectRouteSerializers";
 
-const DEFAULT_CONTINGENCY = "0";
-const EMPTY_ITEM_ID = "";
 const APPROVAL_ONLY_STATUSES = new Set(["APPROVED", "REJECTED"]);
 type ActualAchievementInput = {
   rabProjectId: string;
@@ -55,7 +61,7 @@ export class RabProjectRouteService {
       throw createRouteServiceError("Proyek RAB", 404);
     }
 
-    return this.serializeProjectDetail(project);
+    return serializeProjectDetail(project);
   }
 
   /** Update a RAB project and return route-ready serialized data. */
@@ -76,7 +82,7 @@ export class RabProjectRouteService {
       throw createRouteServiceError("Proyek RAB", 404);
     }
 
-    return this.serializeUpdatedProject(project);
+    return serializeUpdatedProject(project);
   }
 
   /** Delete a draft RAB project safely. */
@@ -108,7 +114,7 @@ export class RabProjectRouteService {
       throw createRouteServiceError("RAB Proyek tidak ditemukan", 404);
     }
 
-    return this.serializeDuplicatedProject(project);
+    return serializeDuplicatedProject(project);
   }
 
   /** Upsert actual achievement for a RAB project. */
@@ -123,7 +129,7 @@ export class RabProjectRouteService {
 
     const achievement =
       await this.rabProjectRepository.upsertActualAchievement(input);
-    return this.serializeAchievement(achievement);
+    return serializeAchievement(achievement);
   }
 
   /** Build RAB bottleneck dashboard metrics. */
@@ -179,17 +185,92 @@ export class RabProjectRouteService {
     const expenses = await this.expenseRepository.findProjectExpenses(
       project.id,
     );
-    const originalCapex = project.items.reduce((sum, item) => {
+    const originalCapex = this.calculateOriginalCapex(project.items);
+    const originalOpex = project.projectedOpex;
+    const finalRevision = project.finalApprovedRevision;
+    const finalCapex = finalRevision?.totalCapex ?? originalCapex;
+    const finalOpex = finalRevision?.totalOpex ?? originalOpex;
+    const actualTotals = this.calculateActualTotals(expenses);
+    const varianceSummary = buildRabRevisionVarianceSummary({
+      originalCapex,
+      originalOpex,
+      finalCapex,
+      finalOpex,
+      actualCapex: actualTotals.actualCapex,
+      actualOpex: actualTotals.actualOpex,
+    });
+    const itemActualTotals = buildItemActualTotals(expenses);
+
+    return {
+      originalSummary: {
+        capex: originalCapex.toString(),
+        opex: originalOpex.toString(),
+        total: varianceSummary.originalTotal.toString(),
+      },
+      finalRevisionSummary: finalRevision
+        ? {
+            id: finalRevision.id,
+            capex: finalCapex.toString(),
+            opex: finalOpex.toString(),
+            total: varianceSummary.finalTotal.toString(),
+          }
+        : null,
+      actualSummary: {
+        capex: actualTotals.actualCapex.toString(),
+        opex: actualTotals.actualOpex.toString(),
+        total: varianceSummary.actualTotal.toString(),
+      },
+      varianceSummary: {
+        capexVariance: varianceSummary.capexVariance.toString(),
+        opexVariance: varianceSummary.opexVariance.toString(),
+        netVariance: varianceSummary.netVariance.toString(),
+        capexLabel: varianceSummary.capexLabel,
+        opexLabel: varianceSummary.opexLabel,
+        netLabel: varianceSummary.netLabel,
+      },
+      itemVariances: (finalRevision?.items ?? []).map((item) => {
+        const actualTotal = getItemActualTotal(
+          itemActualTotals,
+          item.rabItemId,
+        );
+        const variance = item.totalPrice - actualTotal;
+
+        return {
+          rabItemId: item.rabItemId,
+          revisionItemId: item.id,
+          name: item.name,
+          finalTotal: item.totalPrice.toString(),
+          actualTotal: actualTotal.toString(),
+          variance: variance.toString(),
+          varianceLabel: getVarianceLabel(variance),
+        };
+      }),
+      unmappedRealization: actualTotals.unmappedRealization.toString(),
+    };
+  }
+
+  /** Calculates original CAPEX from non-OPEX project items. */
+  private calculateOriginalCapex(
+    items: Array<{ expenseType: RabExpenseType; totalPrice: bigint }>,
+  ) {
+    return items.reduce((sum, item) => {
       if (item.expenseType === RabExpenseType.OPEX) {
         return sum;
       }
 
       return sum + item.totalPrice;
     }, 0n);
-    const originalOpex = project.projectedOpex;
-    const finalRevision = project.finalApprovedRevision;
-    const finalCapex = finalRevision?.totalCapex ?? originalCapex;
-    const finalOpex = finalRevision?.totalOpex ?? originalOpex;
+  }
+
+  /** Calculates actual CAPEX, OPEX, and unmapped realization totals. */
+  private calculateActualTotals(
+    expenses: Array<{
+      amount: bigint;
+      category: string;
+      rabItemId?: string | null;
+      rabItem?: { expenseType?: RabExpenseType | null } | null;
+    }>,
+  ) {
     let actualCapex = 0n;
     let actualOpex = 0n;
     let unmappedRealization = 0n;
@@ -211,77 +292,10 @@ export class RabProjectRouteService {
       }
     }
 
-    const varianceSummary = buildRabRevisionVarianceSummary({
-      originalCapex,
-      originalOpex,
-      finalCapex,
-      finalOpex,
-      actualCapex,
-      actualOpex,
-    });
-    const itemActualTotals = new Map<string, bigint>();
-
-    for (const expense of expenses) {
-      if (!expense.rabItemId) {
-        continue;
-      }
-
-      itemActualTotals.set(
-        expense.rabItemId,
-        (itemActualTotals.get(expense.rabItemId) ?? 0n) + expense.amount,
-      );
-    }
-
-    return {
-      originalSummary: {
-        capex: originalCapex.toString(),
-        opex: originalOpex.toString(),
-        total: varianceSummary.originalTotal.toString(),
-      },
-      finalRevisionSummary: finalRevision
-        ? {
-            id: finalRevision.id,
-            capex: finalCapex.toString(),
-            opex: finalOpex.toString(),
-            total: varianceSummary.finalTotal.toString(),
-          }
-        : null,
-      actualSummary: {
-        capex: actualCapex.toString(),
-        opex: actualOpex.toString(),
-        total: varianceSummary.actualTotal.toString(),
-      },
-      varianceSummary: {
-        capexVariance: varianceSummary.capexVariance.toString(),
-        opexVariance: varianceSummary.opexVariance.toString(),
-        netVariance: varianceSummary.netVariance.toString(),
-        capexLabel: varianceSummary.capexLabel,
-        opexLabel: varianceSummary.opexLabel,
-        netLabel: varianceSummary.netLabel,
-      },
-      itemVariances: (finalRevision?.items ?? []).map((item) => {
-        const actualTotal =
-          itemActualTotals.get(item.rabItemId ?? EMPTY_ITEM_ID) ?? 0n;
-        const variance = item.totalPrice - actualTotal;
-
-        return {
-          rabItemId: item.rabItemId,
-          revisionItemId: item.id,
-          name: item.name,
-          finalTotal: item.totalPrice.toString(),
-          actualTotal: actualTotal.toString(),
-          variance: variance.toString(),
-          varianceLabel: getVarianceLabel(variance),
-        };
-      }),
-      unmappedRealization: unmappedRealization.toString(),
-    };
+    return { actualCapex, actualOpex, unmappedRealization };
   }
 
-  private isApprovalOnlyStatus(status: string | undefined) {
-    return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
-  }
-
+  /** Creates a compact project summary for dashboard metric aggregation. */
   private pickProjectSummary(project: {
     id: string;
     name: string;
@@ -296,145 +310,8 @@ export class RabProjectRouteService {
     };
   }
 
-  private serializeProjectDetail(
-    project: {
-      projectedRevenue: bigint;
-      projectedOpex: bigint;
-      arpu: bigint | null;
-      contingencyAmount: bigint | null;
-      opexBufferInvestorFixedAmount: bigint | null;
-      revisions?: unknown[];
-      _count?: { revisions: number };
-      items: Array<{
-        unitPrice: bigint;
-        totalPrice: bigint;
-        disbursements?: Array<{ amount: bigint }>;
-      }>;
-      actualAchievements?: Array<{
-        actualRevenue: bigint;
-        actualOpex: bigint;
-        manualRecoveryInstallment: bigint | null;
-        manualInvestorShare: bigint | null;
-        manualCompanyShare: bigint | null;
-      }>;
-    } & Record<string, unknown>,
-  ) {
-    const { revisions, _count, ...projectData } = project;
-
-    return {
-      ...projectData,
-      projectedRevenue: project.projectedRevenue.toString(),
-      projectedOpex: project.projectedOpex.toString(),
-      arpu: project.arpu?.toString() || null,
-      contingencyAmount:
-        project.contingencyAmount?.toString() || DEFAULT_CONTINGENCY,
-      opexBufferInvestorFixedAmount:
-        project.opexBufferInvestorFixedAmount?.toString() ||
-        DEFAULT_CONTINGENCY,
-      revisionCount: _count?.revisions || 0,
-      latestRevision: revisions?.[0] || null,
-      items: project.items.map((item) => ({
-        ...item,
-        unitPrice: item.unitPrice.toString(),
-        totalPrice: item.totalPrice.toString(),
-        disbursements: (item.disbursements || []).map((disbursement) => ({
-          ...disbursement,
-          amount: disbursement.amount.toString(),
-        })),
-      })),
-      actualAchievements: (project.actualAchievements || []).map(
-        (achievement) => ({
-          ...achievement,
-          actualRevenue: achievement.actualRevenue.toString(),
-          actualOpex: achievement.actualOpex.toString(),
-          manualRecoveryInstallment:
-            achievement.manualRecoveryInstallment?.toString() || null,
-          manualInvestorShare:
-            achievement.manualInvestorShare?.toString() || null,
-          manualCompanyShare:
-            achievement.manualCompanyShare?.toString() || null,
-        }),
-      ),
-    };
-  }
-
-  private serializeUpdatedProject(
-    project: {
-      projectedRevenue: bigint;
-      projectedOpex: bigint;
-      arpu: bigint | null;
-      contingencyAmount: bigint | null;
-      opexBufferInvestorFixedAmount: bigint | null;
-      items: Array<{
-        unitPrice: bigint;
-        totalPrice: bigint;
-        disbursements?: Array<{ amount: bigint }>;
-      }>;
-    } & Record<string, unknown>,
-  ) {
-    return {
-      ...project,
-      projectedRevenue: project.projectedRevenue.toString(),
-      projectedOpex: project.projectedOpex.toString(),
-      arpu: project.arpu?.toString() || null,
-      contingencyAmount:
-        project.contingencyAmount?.toString() || DEFAULT_CONTINGENCY,
-      opexBufferInvestorFixedAmount:
-        project.opexBufferInvestorFixedAmount?.toString() ||
-        DEFAULT_CONTINGENCY,
-      items: project.items.map((item) => ({
-        ...item,
-        unitPrice: item.unitPrice.toString(),
-        totalPrice: item.totalPrice.toString(),
-        disbursements: (item.disbursements || []).map((disbursement) => ({
-          ...disbursement,
-          amount: disbursement.amount.toString(),
-        })),
-      })),
-    };
-  }
-
-  private serializeDuplicatedProject(
-    project: {
-      projectedRevenue: bigint;
-      projectedOpex: bigint;
-      arpu: bigint | null;
-      items: Array<{ unitPrice: bigint; totalPrice: bigint }>;
-    } & Record<string, unknown>,
-  ) {
-    return {
-      ...project,
-      projectedRevenue: project.projectedRevenue.toString(),
-      projectedOpex: project.projectedOpex.toString(),
-      arpu: project.arpu?.toString() || null,
-      items: project.items.map((item) => ({
-        ...item,
-        unitPrice: item.unitPrice.toString(),
-        totalPrice: item.totalPrice.toString(),
-      })),
-    };
-  }
-
-  private serializeAchievement(
-    achievement: {
-      actualRevenue: bigint;
-      actualOpex: bigint;
-      manualRecoveryInstallment: bigint | null;
-      manualInvestorShare: bigint | null;
-      manualCompanyShare: bigint | null;
-      manualInvestorProfitSharePercent: number | null;
-    } & Record<string, unknown>,
-  ) {
-    return {
-      ...achievement,
-      actualRevenue: achievement.actualRevenue.toString(),
-      actualOpex: achievement.actualOpex.toString(),
-      manualRecoveryInstallment:
-        achievement.manualRecoveryInstallment?.toString() || null,
-      manualInvestorShare: achievement.manualInvestorShare?.toString() || null,
-      manualCompanyShare: achievement.manualCompanyShare?.toString() || null,
-      manualInvestorProfitSharePercent:
-        achievement.manualInvestorProfitSharePercent,
-    };
+  /** Checks whether a status is reserved for approval endpoints only. */
+  private isApprovalOnlyStatus(status: string | undefined) {
+    return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
   }
 }

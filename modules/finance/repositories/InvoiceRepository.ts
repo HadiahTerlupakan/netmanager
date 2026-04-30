@@ -1,12 +1,23 @@
-import { randomUUID } from "crypto";
 import { prismaBilling, prismaBillingAuth } from "@/lib/prisma-billing";
 import type { Prisma } from "@prisma/client-billing";
-import { InvoiceMapper } from "../mappers/InvoiceMapper";
 import type {
   IInvoiceRepository,
   InvoiceWithPayment,
 } from "../domain/ports/IInvoiceRepository";
 import type { InvoiceEntity } from "../domain/entities/InvoiceEntity";
+import {
+  createInvoice,
+  createInvoicePayment,
+  createInvoiceWithItems,
+  updateInvoiceWithItemsTransaction,
+  voidInvoiceTransaction,
+} from "./invoiceRepository.write";
+import {
+  mapInvoiceEntity,
+  mapInvoiceWithItems,
+  mapInvoiceWithItemsAndPayments,
+  mapInvoiceWithPayment,
+} from "./shared/invoiceRepositoryMappers";
 
 export class InvoiceRepository implements IInvoiceRepository {
   /** Mengambil invoice beserta pembayaran sebagai entity domain. */
@@ -189,34 +200,7 @@ export class InvoiceRepository implements IInvoiceRepository {
       totalPrice: number;
     }>;
   }): Promise<InvoiceEntity> {
-    const invoice = await prismaBilling.$transaction(async (tx) => {
-      if (options.invoiceItem && options.invoiceItem.length > 0) {
-        await tx.invoiceItem.deleteMany({
-          where: { invoiceId: options.invoiceId },
-        });
-
-        await tx.invoiceItem.createMany({
-          data: options.invoiceItem.map((item) => ({
-            id: item.id || randomUUID(),
-            invoiceId: options.invoiceId,
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: BigInt(item.unitPrice),
-            totalPrice: BigInt(item.totalPrice),
-          })),
-        });
-      }
-
-      return tx.invoice.update({
-        where: { id: options.invoiceId },
-        data: options.updateData,
-        include: {
-          invoiceItem: true,
-          payment: true,
-        },
-      });
-    });
-    return mapInvoiceWithItemsAndPayments(invoice) as InvoiceEntity;
+    return updateInvoiceWithItemsTransaction(options);
   }
 
   /** Menghapus invoice dan mengembalikan entity domain. */
@@ -227,26 +211,19 @@ export class InvoiceRepository implements IInvoiceRepository {
 
   /** Membuat invoice baru. */
   async create(data: Prisma.InvoiceCreateInput): Promise<InvoiceEntity> {
-    const invoice = await prismaBilling.invoice.create({ data });
-    return mapInvoiceEntity(invoice) as InvoiceEntity;
+    return createInvoice(data);
   }
 
   /** Membuat invoice baru beserta item dan pembayaran. */
   async createWithItems(
     data: Prisma.InvoiceCreateInput,
   ): Promise<InvoiceEntity> {
-    const invoice = await prismaBilling.invoice.create({
-      data,
-      include: {
-        invoiceItem: true,
-        payment: true,
-      },
-    });
-    return mapInvoiceWithItemsAndPayments(invoice) as InvoiceEntity;
+    return createInvoiceWithItems(data);
   }
 
+  /** Membuat payment terkait invoice. */
   async createPayment(data: Prisma.PaymentCreateInput) {
-    return prismaBilling.payment.create({ data });
+    return createInvoicePayment(data);
   }
 
   async findManyForDateRange(
@@ -320,27 +297,13 @@ export class InvoiceRepository implements IInvoiceRepository {
     );
   }
 
+  /** Menjalankan void invoice dan sinkronisasi status payment. */
   async voidInvoiceTransaction(
     invoiceId: string,
     reason: string,
     invoiceNotes: string | null,
   ) {
-    return prismaBilling.$transaction(async (tx) => {
-      await tx.payment.updateMany({
-        where: { invoiceId, gatewayStatus: "PAID" },
-        data: { gatewayStatus: "REFUNDED" },
-      });
-      await tx.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          status: "CANCELLED",
-          paidAmount: 0,
-          notes: invoiceNotes
-            ? `${invoiceNotes}\n[VOID] Reason: ${reason}`
-            : `[VOID] Reason: ${reason}`,
-        },
-      });
-    });
+    return voidInvoiceTransaction(invoiceId, reason, invoiceNotes);
   }
 
   async countUnpaidByPelangganId(pelangganId: string) {
@@ -370,51 +333,4 @@ export class InvoiceRepository implements IInvoiceRepository {
     });
     return mapInvoiceEntity(invoice);
   }
-}
-
-function mapInvoiceEntity(invoice: unknown) {
-  if (!invoice) {
-    return null;
-  }
-
-  return InvoiceMapper.toDomain(invoice as never);
-}
-
-function mapInvoiceWithItems(invoice: unknown) {
-  if (!invoice) {
-    return null;
-  }
-
-  const source = invoice as Record<string, unknown>;
-  return InvoiceMapper.toDomain({
-    ...source,
-    items: source.invoiceItem,
-    payments: [],
-  } as never);
-}
-
-function mapInvoiceWithPayment(invoice: unknown) {
-  if (!invoice) {
-    return null;
-  }
-
-  const source = invoice as Record<string, unknown>;
-  return InvoiceMapper.toDomain({
-    ...source,
-    items: [],
-    payments: source.payment,
-  } as never) as InvoiceWithPayment;
-}
-
-function mapInvoiceWithItemsAndPayments(invoice: unknown) {
-  if (!invoice) {
-    return null;
-  }
-
-  const source = invoice as Record<string, unknown>;
-  return InvoiceMapper.toDomain({
-    ...source,
-    items: source.invoiceItem,
-    payments: source.payment,
-  } as never);
 }

@@ -138,17 +138,40 @@ export async function createPaymentForRoute(options: {
     return { status: "pelanggan-not-found" };
   }
 
-  if (options.input.invoiceId) {
-    const invoice = await invoiceRepository.findRawById(
-      options.input.invoiceId,
-    );
-    if (!invoice) {
-      return { status: "invoice-not-found" };
-    }
+  const invoiceValidation = await validateLinkedInvoice(
+    options.input.invoiceId,
+  );
+  if (invoiceValidation.status !== "ok") {
+    return invoiceValidation;
   }
 
+  const payment = await createPaymentRecord(options);
+  await syncLinkedInvoicePaymentStatus(options.input.invoiceId);
+  logCreatedPaymentActivity(payment, options);
+
+  return { status: "created", data: payment };
+}
+
+/** Validates the linked invoice before creating a manual payment. */
+async function validateLinkedInvoice(invoiceId?: string | null) {
+  if (!invoiceId) {
+    return { status: "ok" as const };
+  }
+
+  const invoice = await invoiceRepository.findRawById(invoiceId);
+  return invoice
+    ? { status: "ok" as const }
+    : { status: "invoice-not-found" as const };
+}
+
+/** Creates a payment record using route input defaults. */
+async function createPaymentRecord(options: {
+  input: PaymentCreateInput;
+  user: RouteUser;
+}) {
   const amount = BigInt(Math.round(options.input.amount));
-  const payment = await paymentRepository.createWithInvoice({
+
+  return paymentRepository.createWithInvoice({
     id: randomUUID(),
     paymentDate: options.input.paymentDate
       ? new Date(options.input.paymentDate)
@@ -163,23 +186,32 @@ export async function createPaymentForRoute(options: {
     verifiedBy: options.user.id,
     updatedAt: new Date(),
   });
+}
 
-  if (options.input.invoiceId) {
-    await updateLinkedInvoicePaymentStatus(options.input.invoiceId);
+/** Updates invoice payment status only when a linked invoice exists. */
+async function syncLinkedInvoicePaymentStatus(invoiceId?: string | null) {
+  if (!invoiceId) {
+    return;
   }
 
+  await updateLinkedInvoicePaymentStatus(invoiceId);
+}
+
+/** Logs payment creation using route-compatible activity payload. */
+function logCreatedPaymentActivity(
+  payment: { id: string; amount: bigint },
+  options: { input: PaymentCreateInput; user: RouteUser },
+) {
   logActivitySafe({
     action: "CREATE",
     subject: "Payment",
     userId: options.user.id,
     details: {
       id: payment.id,
-      amount: Number(amount),
+      amount: Number(payment.amount),
       method: options.input.paymentMethod,
     },
   });
-
-  return { status: "created", data: payment };
 }
 
 function buildPaymentWhere(filters: PaymentListFilters) {

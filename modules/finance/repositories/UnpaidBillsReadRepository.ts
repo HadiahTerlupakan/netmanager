@@ -1,54 +1,59 @@
 import { prisma } from "@/modules/database";
 import type { Account } from "@/types";
 import type { IUnpaidBillsReadRepository } from "../domain/ports/IUnpaidBillsReadRepository";
+import {
+  groupExpensesByInvoiceNumber,
+  mapUnpaidBillsWithTransactions,
+} from "./shared/unpaidBillsMapper";
 
 export class UnpaidBillsReadRepository implements IUnpaidBillsReadRepository {
+  /** Mengambil data halaman tagihan vendor yang belum lunas. */
   async findUnpaidBillsPageData() {
-    const [unpaidPos, accounts] = await Promise.all([
-      prisma.purchaseOrder.findMany({
-        where: {
-          status: { in: ["ORDERED", "RECEIVED", "PARTIAL"] },
-          paymentStatus: { not: "PAID" },
-        },
-        include: {
-          supplier: true,
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.financialAccount.findMany({
-        where: { isActive: true },
-        orderBy: { type: "asc" },
-      }),
+    const [unpaidPurchaseOrders, accounts] = await Promise.all([
+      this.findUnpaidPurchaseOrders(),
+      this.findActiveAccounts(),
     ]);
-
-    const invoiceNumbers = unpaidPos.map(
-      (purchaseOrder) => purchaseOrder.poNumber,
+    const expenses = await this.findExpensesByInvoiceNumbers(
+      unpaidPurchaseOrders.map((purchaseOrder) => purchaseOrder.poNumber),
     );
-    const expenses = invoiceNumbers.length
-      ? await prisma.expense.findMany({
-          where: {
-            invoiceNumber: { in: invoiceNumbers },
-          },
-          select: {
-            amount: true,
-            invoiceNumber: true,
-          },
-        })
-      : [];
-
-    const expensesByInvoiceNumber = new Map<string, { amount: number }[]>();
-    for (const expense of expenses) {
-      const key = expense.invoiceNumber ?? "";
-      const current = expensesByInvoiceNumber.get(key) ?? [];
-      current.push({ amount: Number(expense.amount) });
-      expensesByInvoiceNumber.set(key, current);
-    }
-
-    const unpaidBills = unpaidPos.map((purchaseOrder) => ({
-      ...purchaseOrder,
-      transactions: expensesByInvoiceNumber.get(purchaseOrder.poNumber) ?? [],
-    }));
+    const expensesByInvoiceNumber = groupExpensesByInvoiceNumber(expenses);
+    const unpaidBills = mapUnpaidBillsWithTransactions(
+      unpaidPurchaseOrders,
+      expensesByInvoiceNumber,
+    );
 
     return { unpaidPos: unpaidBills, accounts: accounts as Account[] };
+  }
+
+  /** Mengambil purchase order unpaid beserta supplier. */
+  private findUnpaidPurchaseOrders() {
+    return prisma.purchaseOrder.findMany({
+      where: {
+        status: { in: ["ORDERED", "RECEIVED", "PARTIAL"] },
+        paymentStatus: { not: "PAID" },
+      },
+      include: { supplier: true },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /** Mengambil akun keuangan aktif untuk dropdown pembayaran. */
+  private findActiveAccounts() {
+    return prisma.financialAccount.findMany({
+      where: { isActive: true },
+      orderBy: { type: "asc" },
+    });
+  }
+
+  /** Mengambil expense yang terkait dengan nomor invoice PO. */
+  private findExpensesByInvoiceNumbers(invoiceNumbers: string[]) {
+    if (invoiceNumbers.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return prisma.expense.findMany({
+      where: { invoiceNumber: { in: invoiceNumbers } },
+      select: { amount: true, invoiceNumber: true },
+    });
   }
 }

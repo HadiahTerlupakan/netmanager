@@ -4,6 +4,16 @@ import { logActivitySafe } from "@/lib/logger";
 import { PelangganAdminQueryService } from "@/modules/pelanggan";
 import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import {
+  applyInvoiceCustomerFilter,
+  applyInvoiceSearchFilter,
+  applyInvoiceStatusFilter,
+  buildEmptyInvoiceList,
+  buildInvoiceAmounts,
+  formatInvoiceNumber,
+  serializeCreatedInvoice,
+  toStoredAmount,
+} from "./invoice-collection-route.helpers";
 
 type RouteUser = {
   id: string;
@@ -140,13 +150,29 @@ export async function createInvoiceForRoute(options: {
     return { status: siteResult.status };
   }
 
+  const invoice = await createInvoiceRecord(options, siteResult.siteId);
+  logCreatedInvoiceActivity(invoice, options.user.id);
+  return { status: "created", data: serializeCreatedInvoice(invoice) };
+}
+
+/** Creates the persisted invoice record with calculated totals. */
+async function createInvoiceRecord(
+  options: {
+    input: InvoiceCreateInput;
+    user: RouteUser;
+    isRestricted: boolean;
+    now?: Date;
+  },
+  siteId?: string,
+) {
   const now = options.now ?? new Date();
   const invoiceNumber = await buildInvoiceNumber(now);
   const amountResult = buildInvoiceAmounts(options.input.items);
   const taxAmount = toStoredAmount(options.input.taxAmount);
   const discountAmount = toStoredAmount(options.input.discountAmount);
   const totalAmount = amountResult.subtotal + taxAmount - discountAmount;
-  const invoice = await getInvoiceRepository().createWithItems({
+
+  return getInvoiceRepository().createWithItems({
     id: randomUUID(),
     invoiceNumber,
     pelangganId: options.input.pelangganId,
@@ -161,22 +187,26 @@ export async function createInvoiceForRoute(options: {
     updatedAt: new Date(),
     ...(options.input.notes ? { notes: options.input.notes } : {}),
     ...(options.input.terms ? { terms: options.input.terms } : {}),
-    ...(siteResult.siteId ? { siteId: siteResult.siteId } : {}),
+    ...(siteId ? { siteId } : {}),
     invoiceItem: { create: amountResult.items },
   } as PrismaBilling.InvoiceCreateInput);
+}
 
+/** Logs the create-invoice route activity using legacy amount formatting. */
+function logCreatedInvoiceActivity(
+  invoice: { id: string; invoiceNumber?: string | null; totalAmount: bigint },
+  userId: string,
+) {
   logActivitySafe({
     action: "CREATE",
     subject: "Invoice",
-    userId: options.user.id,
+    userId,
     details: {
       id: invoice.id,
-      number: invoice.invoiceNumber,
-      total: Number(totalAmount) / 100,
+      number: invoice.invoiceNumber ?? invoice.id,
+      total: Number(invoice.totalAmount) / 100,
     },
   });
-
-  return { status: "created", data: serializeCreatedInvoice(invoice) };
 }
 
 async function buildInvoiceListWhere(options: {
@@ -194,39 +224,10 @@ async function buildInvoiceListWhere(options: {
     where.siteId = siteId;
   }
 
-  if (options.filters.status) {
-    where.status = options.filters
-      .status as PrismaBilling.InvoiceWhereInput["status"];
-  }
-  if (options.filters.pelangganId) {
-    where.pelangganId = options.filters.pelangganId;
-  }
-  if (options.filters.search) {
-    where.OR = [
-      {
-        invoiceNumber: {
-          contains: options.filters.search,
-          mode: "insensitive",
-        },
-      },
-    ];
-  }
-
+  applyInvoiceStatusFilter(where, options.filters.status);
+  applyInvoiceCustomerFilter(where, options.filters.pelangganId);
+  applyInvoiceSearchFilter(where, options.filters.search);
   return where;
-}
-
-function buildEmptyInvoiceList(filters: InvoiceListFilters) {
-  return {
-    data: [] as unknown[],
-    pagination: {
-      page: filters.page,
-      limit: filters.limit,
-      total: 0,
-      totalPages: 0,
-      hasNext: false,
-      hasPrev: false,
-    },
-  };
 }
 
 async function resolveCreateSiteId(
@@ -262,63 +263,6 @@ async function getRestrictedSiteId(userId: string) {
 }
 
 async function buildInvoiceNumber(now: Date) {
-  const currentYear = now.getFullYear();
-  const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
   const invoiceCount = await getInvoiceRepository().countByMonth(now);
-
-  return `INV/${currentYear}/${currentMonth}/${String(invoiceCount + 1).padStart(4, "0")}`;
-}
-
-function buildInvoiceAmounts(items: InvoiceCreateInput["items"]) {
-  let subtotal = 0n;
-  const processedItems = items.map((item) => {
-    const unitPrice = toStoredAmount(item.unitPrice);
-    const totalPrice = BigInt(item.quantity) * unitPrice;
-    subtotal += totalPrice;
-
-    return {
-      id: randomUUID(),
-      description: item.description,
-      quantity: item.quantity,
-      unitPrice,
-      totalPrice,
-      itemType: item.itemType,
-    };
-  });
-
-  return { subtotal, items: processedItems };
-}
-
-function toStoredAmount(amount: number) {
-  return BigInt(Math.round(amount * 100)) / 100n;
-}
-
-function serializeCreatedInvoice(invoice: {
-  subtotal: bigint;
-  taxAmount: bigint;
-  discountAmount: bigint;
-  totalAmount: bigint;
-  invoiceItem?: Array<{
-    unitPrice: bigint;
-    totalPrice: bigint;
-  }>;
-  items?: Array<{
-    unitPrice: bigint;
-    totalPrice: bigint;
-  }>;
-}): SerializedCreatedInvoice {
-  const items = invoice.invoiceItem ?? invoice.items ?? [];
-
-  return {
-    ...invoice,
-    subtotal: invoice.subtotal.toString(),
-    taxAmount: invoice.taxAmount.toString(),
-    discountAmount: invoice.discountAmount.toString(),
-    totalAmount: invoice.totalAmount.toString(),
-    invoiceItem: items.map((item) => ({
-      ...item,
-      unitPrice: item.unitPrice.toString(),
-      totalPrice: item.totalPrice.toString(),
-    })),
-  };
+  return formatInvoiceNumber(now, invoiceCount);
 }

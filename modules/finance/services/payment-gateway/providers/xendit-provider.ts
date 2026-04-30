@@ -35,9 +35,7 @@ export class XenditProvider implements PaymentProvider {
 
       const { Invoice } = this.xendit as {
         Invoice: {
-          createInvoice: (
-            params: unknown,
-          ) => Promise<{
+          createInvoice: (params: unknown) => Promise<{
             invoice_url: string;
             id: string;
             expiry_date: string;
@@ -92,9 +90,7 @@ export class XenditProvider implements PaymentProvider {
 
       const { Invoice } = this.xendit as {
         Invoice: {
-          getInvoices: (
-            params: unknown,
-          ) => Promise<
+          getInvoices: (params: unknown) => Promise<
             Array<{
               status: string;
               paid_at?: string;
@@ -181,44 +177,57 @@ export class XenditProvider implements PaymentProvider {
 
   verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
     try {
-      if (!this.config) {
+      const callbackToken = this.resolveCallbackToken(payload, signature);
+      const storedToken = this.resolveStoredCallbackToken();
+
+      if (!callbackToken || !storedToken) {
         return false;
       }
 
-      // Xendit uses callback token for verification
-      // The token comes from request header 'x-callback-token' (passed as signature)
-      // or from payload itself
-      const callbackToken =
-        signature || (payload["x-callback-token"] as string);
-
-      if (!callbackToken) {
-        return false;
-      }
-
-      // Compare against stored callback verification token from settings
-      const storedToken =
-        (this.config.settings?.callbackToken as string) ||
-        this.config.apiSecret ||
-        this.config.apiKey;
-
-      if (!storedToken) {
-        logger.warn("Xendit: No callback token configured for verification");
-        return false;
-      }
-
-      // Use timing-safe comparison to prevent timing attacks
-      const tokenBuffer = Buffer.from(callbackToken);
-      const storedBuffer = Buffer.from(storedToken);
-
-      if (tokenBuffer.length !== storedBuffer.length) {
-        return false;
-      }
-
-      return crypto.timingSafeEqual(tokenBuffer, storedBuffer);
+      return this.hasMatchingToken(callbackToken, storedToken);
     } catch (error) {
       logger.error("Xendit webhook verification error:", error);
       return false;
     }
+  }
+
+  /** Resolves the callback token sent by Xendit from header or payload. */
+  private resolveCallbackToken(
+    payload: Record<string, unknown>,
+    signature?: string,
+  ) {
+    if (!this.config) {
+      return undefined;
+    }
+
+    return signature || (payload["x-callback-token"] as string | undefined);
+  }
+
+  /** Resolves the configured callback token used to verify webhooks. */
+  private resolveStoredCallbackToken() {
+    const storedToken =
+      (this.config?.settings?.callbackToken as string | undefined) ||
+      this.config?.apiSecret ||
+      this.config?.apiKey;
+
+    if (!storedToken) {
+      logger.warn("Xendit: No callback token configured for verification");
+      return undefined;
+    }
+
+    return storedToken;
+  }
+
+  /** Compares webhook tokens using timing-safe equality checks. */
+  private hasMatchingToken(callbackToken: string, storedToken: string) {
+    const tokenBuffer = Buffer.from(callbackToken);
+    const storedBuffer = Buffer.from(storedToken);
+
+    if (tokenBuffer.length !== storedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(tokenBuffer, storedBuffer);
   }
 
   async processWebhook(

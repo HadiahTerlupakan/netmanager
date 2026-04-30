@@ -1,22 +1,17 @@
-import { randomUUID } from "crypto";
-import { prisma, prismaBilling, prismaBillingAuth } from "@/modules/database";
-import {
-  GatewayPaymentStatus,
-  PaymentMethod,
-  type Prisma,
-  type Payment,
-} from "@prisma/client-billing";
+import { prismaBilling } from "@/modules/database";
+import { type Prisma } from "@prisma/client-billing";
 import type { IPaymentRepository } from "../domain/ports/IPaymentRepository";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
-
-type CustomerPaymentCouponService = {
-  recordUsage(
-    couponId: string,
-    customerId: string,
-    tx: unknown,
-  ): Promise<unknown>;
-  incrementUsage(couponId: string, tx: unknown): Promise<unknown>;
-};
+import {
+  countInvestorPayouts,
+  createCustomerPaymentsForInvoices,
+  createInvestorPayout,
+  findFirstAuthPayment,
+  findInvestorById,
+  findInvestorDetail,
+  findManyInvestorPayouts,
+  mapPaymentEntity,
+} from "./paymentRepository.customer-payments";
 
 export class PaymentRepository implements IPaymentRepository {
   /** Mengambil pembayaran dalam rentang tanggal pembayaran. */
@@ -150,60 +145,16 @@ export class PaymentRepository implements IPaymentRepository {
     paymentMethod: string;
     notes?: string | null;
     couponId?: string | null;
-    couponService?: CustomerPaymentCouponService;
+    couponService?: {
+      recordUsage(
+        couponId: string,
+        customerId: string,
+        tx: unknown,
+      ): Promise<unknown>;
+      incrementUsage(couponId: string, tx: unknown): Promise<unknown>;
+    };
   }) {
-    return prismaBilling.$transaction(async (tx) => {
-      const discountPerInvoice =
-        options.discountAmount > 0
-          ? Math.floor(options.discountAmount / options.invoiceIds.length)
-          : 0;
-      const payments = [];
-
-      for (let index = 0; index < options.invoiceIds.length; index++) {
-        const invoiceId = options.invoiceIds[index];
-        const invoice = await tx.invoice.findUnique({
-          where: { id: invoiceId },
-        });
-        if (!invoice) {
-          continue;
-        }
-
-        const currentDiscount =
-          index === options.invoiceIds.length - 1 && options.discountAmount > 0
-            ? options.discountAmount -
-              discountPerInvoice * (options.invoiceIds.length - 1)
-            : discountPerInvoice;
-        const payment = await tx.payment.create({
-          data: {
-            id: randomUUID(),
-            updatedAt: new Date(),
-            amount: Number(invoice.totalAmount) - currentDiscount,
-            paymentDate: new Date(),
-            paymentMethod: resolveCustomerPaymentMethod(options.paymentMethod),
-            gatewayStatus: GatewayPaymentStatus.PENDING,
-            accountId: resolveManualAccountId(options.paymentMethod),
-            reference: `PAY-${randomUUID()}`,
-            notes: options.notes,
-            pelangganId: options.customerId,
-            invoiceId,
-            tenantId: options.tenantId || undefined,
-          },
-        });
-
-        payments.push(payment);
-      }
-
-      if (options.couponId && options.couponService) {
-        await options.couponService.recordUsage(
-          options.couponId,
-          options.customerId,
-          tx,
-        );
-        await options.couponService.incrementUsage(options.couponId, tx);
-      }
-
-      return payments.map(mapPaymentEntity);
-    });
+    return createCustomerPaymentsForInvoices(options);
   }
 
   /** Memperbarui metadata gateway untuk pembayaran customer. */
@@ -230,10 +181,8 @@ export class PaymentRepository implements IPaymentRepository {
   }
 
   /** Mengambil pembayaran pertama dengan client auth untuk webhook. */
-  async findFirstAuth(
-    where: Prisma.PaymentWhereInput,
-  ): Promise<Payment | null> {
-    return prismaBillingAuth.payment.findFirst({ where });
+  async findFirstAuth(where: Prisma.PaymentWhereInput) {
+    return findFirstAuthPayment(where);
   }
 
   /** Memperbarui pembayaran berdasarkan id. */
@@ -247,22 +196,17 @@ export class PaymentRepository implements IPaymentRepository {
     skip: number;
     take: number;
   }) {
-    return prisma.investorPayout.findMany({
-      where: { investorId: options.investorId },
-      orderBy: { date: "desc" },
-      skip: options.skip,
-      take: options.take,
-    });
+    return findManyInvestorPayouts(options);
   }
 
   /** Menghitung total payout investor. */
   async countInvestorPayouts(investorId: string) {
-    return prisma.investorPayout.count({ where: { investorId } });
+    return countInvestorPayouts(investorId);
   }
 
   /** Mengambil investor sederhana berdasarkan id. */
   async findInvestorById(investorId: string) {
-    return prisma.investor.findUnique({ where: { id: investorId } });
+    return findInvestorById(investorId);
   }
 
   /** Membuat payout investor baru. */
@@ -277,65 +221,11 @@ export class PaymentRepository implements IPaymentRepository {
     notes?: string;
     status: string;
   }) {
-    return prisma.investorPayout.create({
-      data: {
-        investorId: data.investorId,
-        amount: data.amount,
-        date: data.date,
-        bankName: data.bankName,
-        accountNumber: data.accountNumber,
-        accountName: data.accountName,
-        reference: data.reference,
-        notes: data.notes,
-        status: data.status as never,
-      },
-    });
+    return createInvestorPayout(data);
   }
 
   /** Mengambil detail investor lengkap untuk admin route. */
   async findInvestorDetail(investorId: string) {
-    return prisma.investor.findUnique({
-      where: { id: investorId },
-      include: {
-        rabProjects: {
-          include: {
-            rabProject: {
-              include: {
-                site: { select: { id: true, name: true } },
-              },
-            },
-          },
-        },
-        payouts: {
-          orderBy: { date: "desc" },
-          take: 5,
-        },
-      },
-    });
+    return findInvestorDetail(investorId);
   }
-}
-
-function mapPaymentEntity(payment: Record<string, unknown>) {
-  return payment as unknown as PaymentEntity;
-}
-
-function resolveCustomerPaymentMethod(paymentMethod: string) {
-  if (
-    paymentMethod.startsWith("MANUAL_") ||
-    paymentMethod === "MANUAL" ||
-    paymentMethod === "MOOTA_MANUAL"
-  ) {
-    return PaymentMethod.BANK_TRANSFER;
-  }
-
-  return (
-    PaymentMethod[paymentMethod as keyof typeof PaymentMethod] ??
-    PaymentMethod.OTHER
-  );
-}
-
-function resolveManualAccountId(paymentMethod: string) {
-  return paymentMethod.startsWith("MANUAL_")
-    ? paymentMethod.replace("MANUAL_", "")
-    : null;
 }

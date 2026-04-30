@@ -28,33 +28,52 @@ export async function approveRabRevision(options: {
   await assertUserCanApproveRab(options.userId);
   const revision = await findRevision(options.revisionId, options.rabProjectId);
   assertRevisionCanBeApproved(revision);
+  assertUserHasNotApprovedYet(revision.approvals, options.userId);
 
-  if (
-    getApprovedCount(revision.approvals) >=
-    DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD
-  ) {
+  if (hasReachedApprovalThreshold(revision.approvals)) {
     return promoteApprovedRevision(revision);
   }
 
-  if (
-    revision.approvals.some(
-      (approval: { userId: string }) => approval.userId === options.userId,
-    )
-  ) {
-    throw new RabRevisionApprovalError(
-      "Anda sudah menyetujui revisi ini sebelumnya.",
-      400,
-    );
+  await createApprovalRecord(revision.id, options.userId);
+  return finalizeApprovalProgress(revision, options.userId);
+}
+
+/** Throws when the current user has already approved the revision. */
+function assertUserHasNotApprovedYet(
+  approvals: Array<{ userId: string }>,
+  userId: string,
+) {
+  if (!approvals.some((approval) => approval.userId === userId)) {
+    return;
   }
 
+  throw new RabRevisionApprovalError(
+    "Anda sudah menyetujui revisi ini sebelumnya.",
+    400,
+  );
+}
+
+/** Checks whether existing approvals already satisfy the approval threshold. */
+function hasReachedApprovalThreshold(approvals: Array<{ status: string }>) {
+  return getApprovedCount(approvals) >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD;
+}
+
+/** Persists a single approval record for the given revision and user. */
+async function createApprovalRecord(revisionId: string, userId: string) {
   await prisma.rabRevisionApproval.create({
     data: {
-      rabRevisionId: revision.id,
-      userId: options.userId,
+      rabRevisionId: revisionId,
+      userId,
       status: "APPROVED",
     },
   });
+}
 
+/** Completes approval progress and returns the route response payload. */
+async function finalizeApprovalProgress(
+  revision: Awaited<ReturnType<typeof findRevision>>,
+  userId: string,
+): Promise<RabRevisionApprovalResult> {
   const approvalCount = await prisma.rabRevisionApproval.count({
     where: { rabRevisionId: revision.id, status: "APPROVED" },
   });
@@ -63,16 +82,20 @@ export async function approveRabRevision(options: {
     revision,
     nextStatus,
     approvalCount,
-    options.userId,
+    userId,
   );
 
   return {
-    message:
-      approvalCount >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD
-        ? "Revisi RAB berhasil disetujui seutuhnya."
-        : "Persetujuan revisi dicatat.",
+    message: getApprovalMessage(approvalCount),
     data: updatedRevision,
   };
+}
+
+/** Builds the approval result message based on current approval count. */
+function getApprovalMessage(approvalCount: number) {
+  return approvalCount >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD
+    ? "Revisi RAB berhasil disetujui seutuhnya."
+    : "Persetujuan revisi dicatat.";
 }
 
 async function assertUserCanApproveRab(userId: string) {
