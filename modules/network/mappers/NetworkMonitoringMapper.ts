@@ -6,6 +6,8 @@ import type { NetworkAlertDTO, NetworkPerformanceDTO } from "../dto/NetworkDTO";
 
 /** Ubah entity alert ke DTO API. */
 export function toNetworkAlertDTO(entity: NetworkAlertEntity): NetworkAlertDTO {
+  const resolutionMetadata = mapResolutionMetadata(entity);
+
   return {
     id: entity.id,
     deviceId: entity.deviceId,
@@ -19,16 +21,25 @@ export function toNetworkAlertDTO(entity: NetworkAlertEntity): NetworkAlertDTO {
     currentValue: entity.currentValue ?? null,
     metricName: entity.metricName ?? null,
     acknowledged: entity.acknowledged,
-    acknowledgedBy: entity.acknowledgedBy ?? null,
-    acknowledgedAt: entity.acknowledgedAt?.toISOString() ?? null,
+    acknowledgedBy: resolutionMetadata.acknowledgedBy,
+    acknowledgedAt: resolutionMetadata.acknowledgedAt,
     resolved: entity.resolved,
-    resolvedBy: entity.resolvedBy ?? null,
-    resolvedAt: entity.resolvedAt?.toISOString() ?? null,
+    resolvedBy: resolutionMetadata.resolvedBy,
+    resolvedAt: resolutionMetadata.resolvedAt,
     autoResolve: entity.autoResolve,
     autoResolveTime: entity.autoResolveTime ?? null,
     isActive: entity.isActive,
     createdAt: entity.createdAt.toISOString(),
     updatedAt: entity.updatedAt.toISOString(),
+  };
+}
+
+function mapResolutionMetadata(entity: NetworkAlertEntity) {
+  return {
+    acknowledgedBy: entity.acknowledgedBy ?? null,
+    acknowledgedAt: entity.acknowledgedAt?.toISOString() ?? null,
+    resolvedBy: entity.resolvedBy ?? null,
+    resolvedAt: entity.resolvedAt?.toISOString() ?? null,
   };
 }
 

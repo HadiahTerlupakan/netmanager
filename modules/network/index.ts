@@ -1,49 +1,22 @@
-import {
-  NetworkAlertRepository,
-  NetworkPerformanceRepository,
-} from "./repositories";
-import { NetworkAlertService } from "./services/NetworkAlertService";
-import { NetworkPerformanceService } from "./services/NetworkPerformanceService";
+// Public API for Network Module
 
-let networkAlertServiceInstance: NetworkAlertService | null = null;
-let networkPerformanceServiceInstance: NetworkPerformanceService | null = null;
-let acsDeviceServiceInstance:
-  | import("./services/AcsDeviceService").AcsDeviceService
-  | null = null;
+export type {
+  CreateHargaPaketDTO,
+  CreateRouterDTO,
+  HargaPaketDetailDTO,
+  HargaPaketListItemDTO,
+  HargaPaketOptionDTO,
+  NetworkAlertDTO,
+  NetworkPerformanceDTO,
+  OdpDetailDTO,
+  OdpListItemDTO,
+  OdpOptionDTO,
+  OdpOutputDTO,
+  RouterDetailDTO,
+  RouterListItemDTO,
+  RouterOptionDTO,
+} from "./dto/NetworkDTO";
 
-/** Ambil singleton service alert jaringan. */
-export function getNetworkAlertService(): NetworkAlertService {
-  if (!networkAlertServiceInstance) {
-    networkAlertServiceInstance = new NetworkAlertService(
-      new NetworkAlertRepository(),
-    );
-  }
-
-  return networkAlertServiceInstance;
-}
-
-/** Ambil singleton service performa jaringan. */
-export function getNetworkPerformanceService(): NetworkPerformanceService {
-  if (!networkPerformanceServiceInstance) {
-    networkPerformanceServiceInstance = new NetworkPerformanceService(
-      new NetworkPerformanceRepository(),
-    );
-  }
-
-  return networkPerformanceServiceInstance;
-}
-
-/** Ambil singleton ACS device service tanpa eager import saat build. */
-export async function getAcsDeviceService() {
-  if (!acsDeviceServiceInstance) {
-    const { AcsDeviceService } = await import("./services/AcsDeviceService");
-    acsDeviceServiceInstance = new AcsDeviceService();
-  }
-
-  return acsDeviceServiceInstance;
-}
-
-// Services
 export * from "./services/RadiusAdminService";
 export * from "./services/RadiusMonitor";
 export * from "./services/radius-sync-service";
@@ -52,6 +25,7 @@ export * from "./services/snmp-optimized";
 export * from "./services/HargaPaketService";
 export * from "./services/MikroTikProvisioningService";
 export * from "./services/MikroTikRouterService";
+export * from "./services/AcsDeviceService";
 export * from "./services/ProfilePPPService";
 export * from "./services/BandwidthRouteService";
 export * from "./services/HealthCheckRouteService";
@@ -64,15 +38,14 @@ export * from "./services/NetworkAlertService";
 export * from "./services/MobileTopologyService";
 export * from "./services/DeviceBackupService";
 export * from "./services/MikroTikStatisticsService";
-export type { MikroTikRouterStatistics } from "./domain/entities/MikroTikRouterEntity";
 export { RadiusDashboardService } from "./services/dashboard/RadiusDashboardService";
 export type {
+  RadiusDashboardStatsInput,
   RadiusDashboardStatsViewModel,
   RadiusRecentSessionViewModel,
+  RadiusRecentSessionsInput,
   RadiusRecentSessionsViewModel,
 } from "./services/dashboard/radius-dashboard.contracts";
-export type { NetworkPerformanceFilters } from "./domain/entities/NetworkPerformanceEntity";
-export * from "./utils/snmp";
 export {
   configurationRestoreCreateSchema,
   configurationRestoreQuerySchema,

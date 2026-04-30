@@ -1,6 +1,23 @@
 import axios from "axios";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getAcsSettings } from "@/modules/settings";
+import {
+  formatDeviceDetailPayload,
+  formatDeviceSummary,
+} from "./AcsDeviceService.formatters";
+import {
+  buildDetailProjection,
+  buildListProjection,
+} from "./AcsDeviceService.projections";
+import {
+  type AcsTaskInput,
+  buildDeviceQuery,
+  buildTaskPayload,
+  buildWanTaskPayload,
+  normalizeAcsRootUrl,
+  normalizeDevicesUrl,
+  normalizeTasksUrl,
+} from "./AcsDeviceService.tasks";
 
 const DEVICE_REQUEST_TIMEOUT_MS = 15_000;
 const TASK_REQUEST_TIMEOUT_MS = 10_000;
@@ -17,282 +34,6 @@ type GenieAcsDevice = Record<string, unknown> & {
   _tags?: unknown;
   _lastInform?: unknown;
 };
-
-export type AcsTaskInput = {
-  taskName?: string;
-  parameter?: string;
-  value?: unknown;
-  type?: string;
-  connectionRequest?: boolean;
-};
-
-function normalizeDevicesUrl(url: string) {
-  return url.trim().replace(/\/$/, "");
-}
-
-function normalizeTasksUrl(url: string) {
-  const baseUrl = url.trim();
-  if (baseUrl.endsWith("/devices") || baseUrl.endsWith("/devices/")) {
-    return baseUrl.replace(/\/devices\/?$/, "/tasks");
-  }
-  return baseUrl.endsWith("/") ? `${baseUrl}tasks` : `${baseUrl}/tasks`;
-}
-
-function normalizeAcsRootUrl(url: string) {
-  return url.trim().replace(/\/devices\/?$/, "");
-}
-
-function getNestedValue(obj: unknown, path: string) {
-  return path.split(".").reduce<unknown>((current, part) => {
-    if (!current || typeof current !== "object") return null;
-    return (current as Record<string, unknown>)[part];
-  }, obj) as { _value?: unknown } | null;
-}
-
-function getParameterValue(device: GenieAcsDevice, path: string) {
-  return getNestedValue(device, path)?._value ?? null;
-}
-
-function buildListProjection(
-  settings: Awaited<ReturnType<typeof getAcsSettings>>,
-) {
-  return [
-    "_id",
-    "_deviceId._ProductClass",
-    "_deviceId._SerialNumber",
-    "_deviceId._Manufacturer",
-    "_deviceId._OUI",
-    "_tags",
-    settings.vpPppoeUsername,
-    settings.vpWanBridge,
-    settings.vpRxPower,
-    settings.vpTemperature,
-    settings.vpActiveDevices,
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
-    "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress",
-    "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress",
-    "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.2.ExternalIPAddress",
-    "_lastInform",
-  ];
-}
-
-function buildDetailProjection(
-  settings: Awaited<ReturnType<typeof getAcsSettings>>,
-) {
-  return [
-    "_id",
-    "_tags",
-    "_deviceId._ProductClass",
-    "_deviceId._SerialNumber",
-    "_deviceId._Manufacturer",
-    "_deviceId._OUI",
-    settings.vpPppoeUsername,
-    settings.vpWanBridge,
-    settings.vpRxPower,
-    settings.vpTemperature,
-    settings.vpActiveDevices,
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey.1.KeyPassphrase",
-    "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.KeyPassphrase",
-    "InternetGatewayDevice.DeviceInfo.HardwareVersion",
-    "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
-    "InternetGatewayDevice.DeviceInfo.UpTime",
-    "InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress",
-    "InternetGatewayDevice.WANDevice.1.WANEthernetInterfaceConfig.MACAddress",
-    "InternetGatewayDevice.WANDevice",
-    "_lastInform",
-    "_lastBoot",
-    "_registered",
-    "InternetGatewayDevice.LANDevice.1.Hosts.Host",
-  ];
-}
-
-function buildDeviceQuery(
-  tenantId: string | null,
-  isSuperAdmin: boolean,
-  deviceId?: string,
-) {
-  const query: Record<string, string> = deviceId ? { _id: deviceId } : {};
-  if (!isSuperAdmin && tenantId) query._tags = `tenant:${tenantId}`;
-  return query;
-}
-
-function formatDevice(
-  device: GenieAcsDevice,
-  settings: Awaited<ReturnType<typeof getAcsSettings>>,
-) {
-  const ip1 = getParameterValue(
-    device,
-    "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress",
-  );
-  const ip2 = getParameterValue(
-    device,
-    "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress",
-  );
-  const ip3 = getParameterValue(
-    device,
-    "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.2.ExternalIPAddress",
-  );
-
-  return {
-    id: device._id || null,
-    serialNumber: device._deviceId?._SerialNumber || null,
-    productClass: device._deviceId?._ProductClass || null,
-    manufacturer: device._deviceId?._Manufacturer || null,
-    tags: Array.isArray(device._tags) ? device._tags : [],
-    pppoe: getParameterValue(device, settings.vpPppoeUsername),
-    wanbridge: getParameterValue(device, settings.vpWanBridge),
-    rxpower: getParameterValue(device, settings.vpRxPower),
-    temperature: getParameterValue(device, settings.vpTemperature),
-    activeDevices: getParameterValue(device, settings.vpActiveDevices),
-    ssid: getParameterValue(
-      device,
-      "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
-    ),
-    ipAddress: ip1 || ip2 || ip3 || "-",
-    lastInform: device._lastInform || null,
-  };
-}
-
-function formatDeviceDetail(
-  deviceId: string,
-  device: GenieAcsDevice,
-  settings: Awaited<ReturnType<typeof getAcsSettings>>,
-) {
-  return {
-    _id: deviceId,
-    tags: Array.isArray(device._tags) ? device._tags : [],
-    deviceInfo: {
-      productClass: device._deviceId?._ProductClass || null,
-      serialNumber: device._deviceId?._SerialNumber || null,
-      manufacturer: device._deviceId?._Manufacturer || null,
-      oui: device._deviceId?._OUI || null,
-      hardwareVersion: getParameterValue(
-        device,
-        "InternetGatewayDevice.DeviceInfo.HardwareVersion",
-      ),
-      softwareVersion: getParameterValue(
-        device,
-        "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
-      ),
-      upTime: getParameterValue(
-        device,
-        "InternetGatewayDevice.DeviceInfo.UpTime",
-      ),
-      macAddress:
-        getParameterValue(
-          device,
-          "InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress",
-        ) ||
-        getParameterValue(
-          device,
-          "InternetGatewayDevice.WANDevice.1.WANEthernetInterfaceConfig.MACAddress",
-        ),
-    },
-    connectionInfo: {
-      lastInform: device._lastInform || null,
-      lastBoot: (device as { _lastBoot?: unknown })._lastBoot || null,
-      registered: (device as { _registered?: unknown })._registered || null,
-    },
-    virtualParameters: {
-      rxPower: getParameterValue(device, settings.vpRxPower),
-      temperature: getParameterValue(device, settings.vpTemperature),
-      pppoeUsername: getParameterValue(device, settings.vpPppoeUsername),
-      activeDevices: getParameterValue(device, settings.vpActiveDevices),
-    },
-    wifiInfo: {
-      wlan1: {
-        enabled: getParameterValue(
-          device,
-          "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable",
-        ),
-        ssid: getParameterValue(
-          device,
-          "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
-        ),
-        password:
-          getParameterValue(
-            device,
-            "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase",
-          ) ||
-          getParameterValue(
-            device,
-            "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase",
-          ),
-      },
-      wlan5: {
-        enabled: getParameterValue(
-          device,
-          "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable",
-        ),
-        ssid: getParameterValue(
-          device,
-          "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID",
-        ),
-        password:
-          getParameterValue(
-            device,
-            "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.KeyPassphrase",
-          ) ||
-          getParameterValue(
-            device,
-            "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey.1.KeyPassphrase",
-          ),
-      },
-    },
-  };
-}
-
-function buildWanTaskPayload(input: {
-  deviceId: string;
-  username: string;
-  password?: string;
-}) {
-  const finalParamPath = "VirtualParameters.pppoeUsername2";
-  const parameterValues = [[finalParamPath, input.username, "xsd:string"]];
-  if (input.password) {
-    parameterValues.push([
-      "VirtualParameters.pppoePassword2",
-      input.password,
-      "xsd:string",
-    ]);
-  }
-  return {
-    name: "setParameterValues",
-    device: input.deviceId,
-    parameterValues,
-  };
-}
-
-function buildTaskPayload(
-  input: Required<Omit<AcsTaskInput, "connectionRequest">>,
-  deviceId: string,
-) {
-  const payload: Record<string, unknown> = {
-    name: input.taskName,
-    device: deviceId,
-  };
-
-  if (input.taskName === "setParameterValues") {
-    if (!input.parameter || input.value === undefined) {
-      return { error: "Parameter dan value harus diisi" } as const;
-    }
-    payload.parameterValues = [[input.parameter, input.value, input.type]];
-    return { payload } as const;
-  }
-
-  if (input.taskName === "addObject" || input.taskName === "deleteObject") {
-    if (!input.parameter) return { error: "ObjectName harus diisi" } as const;
-    payload.objectName = input.parameter;
-  }
-
-  return { payload } as const;
-}
 
 export class AcsDeviceService {
   /** Lists ACS devices with tenant isolation and configured virtual parameter mapping. */
@@ -330,7 +71,7 @@ export class AcsDeviceService {
     }
 
     const devices = response.data
-      .map((device: GenieAcsDevice) => formatDevice(device, settings))
+      .map((device: GenieAcsDevice) => formatDeviceSummary(device, settings))
       .reverse();
     return { ok: true as const, data: { devices } };
   }
@@ -367,7 +108,7 @@ export class AcsDeviceService {
 
     return {
       ok: true as const,
-      data: formatDeviceDetail(deviceId, response.data[0], settings),
+      data: formatDeviceDetailPayload(deviceId, response.data[0], settings),
     };
   }
 

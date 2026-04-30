@@ -1,4 +1,25 @@
+import {
+  buildBurstLimitSegment,
+  buildBurstThresholdSegment,
+  buildBurstTimeSegment,
+  buildMinLimitSegment,
+} from "./radius-rate-limit.helpers";
+
 const BITS_PER_MEGABIT = 1_000_000;
+
+type MikroTikRateLimitInput = {
+  maxLimitUpload: string;
+  maxLimitDownload: string;
+  burstLimitUpload: string | null;
+  burstLimitDownload: string | null;
+  burstThresholdUpload: string | null;
+  burstThresholdDownload: string | null;
+  burstTimeUpload: number | null;
+  burstTimeDownload: number | null;
+  priority: number | null;
+  minLimitUpload: string | null;
+  minLimitDownload: string | null;
+};
 
 /** Ubah bandwidth Mbps menjadi format rate-limit RADIUS. */
 export function toRadiusRateLimitMbps(input: {
@@ -24,48 +45,22 @@ export function parseRadiusRateLimitMbps(value: string): {
 }
 
 /** Bangun format rate-limit paket MikroTik dari konfigurasi bandwidth. */
-export function buildMikrotikRateLimit(input: {
-  maxLimitUpload: string;
-  maxLimitDownload: string;
-  burstLimitUpload: string | null;
-  burstLimitDownload: string | null;
-  burstThresholdUpload: string | null;
-  burstThresholdDownload: string | null;
-  burstTimeUpload: number | null;
-  burstTimeDownload: number | null;
-  priority: number | null;
-  minLimitUpload: string | null;
-  minLimitDownload: string | null;
-}): string {
-  let rateLimit = `${input.maxLimitUpload}/${input.maxLimitDownload}`;
+export function buildMikrotikRateLimit(input: MikroTikRateLimitInput): string {
+  return buildRateLimitSegments(input).join(" ");
+}
 
-  if (input.burstLimitUpload || input.burstLimitDownload) {
-    const burstRx = input.burstLimitUpload || input.maxLimitUpload;
-    const burstTx = input.burstLimitDownload || input.maxLimitDownload;
-    rateLimit += ` ${burstRx}/${burstTx}`;
+function buildRateLimitSegments(input: MikroTikRateLimitInput): string[] {
+  const segments = [`${input.maxLimitUpload}/${input.maxLimitDownload}`];
+  appendSegment(segments, buildBurstLimitSegment(input));
+  appendSegment(segments, buildBurstThresholdSegment(input));
+  appendSegment(segments, buildBurstTimeSegment(input));
+  appendSegment(segments, input.priority ? String(input.priority) : null);
+  appendSegment(segments, buildMinLimitSegment(input));
+  return segments;
+}
+
+function appendSegment(segments: string[], segment: string | null): void {
+  if (segment) {
+    segments.push(segment);
   }
-
-  if (input.burstThresholdUpload || input.burstThresholdDownload) {
-    const thresholdRx = input.burstThresholdUpload || input.maxLimitUpload;
-    const thresholdTx = input.burstThresholdDownload || input.maxLimitDownload;
-    rateLimit += ` ${thresholdRx}/${thresholdTx}`;
-  }
-
-  if (input.burstTimeUpload || input.burstTimeDownload) {
-    const timeRx = input.burstTimeUpload || 1;
-    const timeTx = input.burstTimeDownload || input.burstTimeUpload || 1;
-    rateLimit += ` ${timeRx}/${timeTx}`;
-  }
-
-  if (input.priority) {
-    rateLimit += ` ${input.priority}`;
-  }
-
-  if (input.minLimitUpload || input.minLimitDownload) {
-    const minRx = input.minLimitUpload || input.maxLimitUpload;
-    const minTx = input.minLimitDownload || input.maxLimitDownload;
-    rateLimit += ` ${minRx}/${minTx}`;
-  }
-
-  return rateLimit;
 }

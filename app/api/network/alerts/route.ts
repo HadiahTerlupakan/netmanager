@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import { getNetworkAlertService } from "@/modules/network";
+import { NetworkAlertService } from "@/modules/network";
 import {
   networkAlertCreateSchema,
   networkAlertQuerySchema,
@@ -19,7 +19,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     });
   }
 
-  const networkAlertService = getNetworkAlertService();
+  const networkAlertService = new NetworkAlertService();
   const result = await networkAlertService.getAlertList(parsed.data);
 
   return apiSuccess(result);
@@ -32,7 +32,7 @@ export const POST = createHandler(
   },
   async (_req, ctx) => {
     const data = ctx.validated as NetworkAlertCreateData;
-    const networkAlertService = getNetworkAlertService();
+    const networkAlertService = new NetworkAlertService();
 
     try {
       const result = await networkAlertService.createAlert(data);

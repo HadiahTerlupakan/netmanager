@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, Status, DurasiUnit } from "@prisma/client";
+import {
+  createProfilePpp,
+  deleteProfilePpp,
+  findProfilePppDetail,
+  findProfilePppForDelete,
+  findProfilePppForUpdate,
+  findProfilePpps,
+  findRoutersForProfileBroadcast,
+  type ProfilePppDeleteRecord,
+  type ProfilePppListInput,
+  updateProfilePpp,
+} from "./HargaPaketRepository.profile-ppp";
 
 export interface HargaPaketCreateInput {
   name: string;
@@ -39,39 +51,6 @@ export interface HargaPaketFilterOptions {
 /**
  * Repository for HargaPaket (pricing package) operations
  */
-type ProfilePppMutationRecord = {
-  id: string;
-  name: string;
-  localAddress: string;
-  remoteAddress: string;
-  dnsServer: string | null;
-  sessionTimeout: number | null;
-  idleTimeout: number | null;
-  poolMode: string | null;
-  description: string | null;
-  status: string;
-  siteId: string | null;
-  mikroTikRouterId: string | null;
-  tenantId: string | null;
-  mikroTikRouter: {
-    id: string;
-    name: string;
-  } | null;
-};
-
-type ProfilePppDeleteRecord = ProfilePppMutationRecord & {
-  hargaPaket: Array<{
-    id: string;
-    name: string;
-  }>;
-};
-
-interface ProfilePppListInput {
-  status?: string;
-  siteIds?: string[];
-  siteId?: string;
-}
-
 export class HargaPaketRepository {
   /**
    * Get all harga pakets with filters
@@ -246,75 +225,29 @@ export class HargaPaketRepository {
 
   /** Get profile PPP records for list flow. */
   async findProfilePpps(input: ProfilePppListInput) {
-    const where: Prisma.ProfilePPPWhereInput = {};
-
-    if (input.status) {
-      where.status = input.status as Status;
-    }
-
-    if (input.siteIds) {
-      where.OR = [{ siteId: { in: input.siteIds } }, { siteId: null }];
-    } else if (input.siteId) {
-      where.OR = [{ siteId: input.siteId }, { siteId: null }];
-    }
-
-    return prisma.profilePPP.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        site: { select: { id: true, name: true } },
-        mikroTikRouter: { select: { id: true, name: true, ipAddress: true } },
-        _count: { select: { hargaPaket: true } },
-      },
-    });
+    return findProfilePpps(input);
   }
 
   /** Get profile PPP detail record. */
   async findProfilePppDetail(id: string) {
-    return prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        hargaPaket: { include: { bandwidth: true } },
-        mikroTikRouter: true,
-      },
-    });
+    return findProfilePppDetail(id);
   }
 
   /** Get profile PPP record for update flow. */
-  async findProfilePppForUpdate(
-    id: string,
-  ): Promise<ProfilePppMutationRecord | null> {
-    return prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        mikroTikRouter: true,
-      },
-    }) as Promise<ProfilePppMutationRecord | null>;
+  async findProfilePppForUpdate(id: string) {
+    return findProfilePppForUpdate(id);
   }
 
   /** Get profile PPP record for delete flow. */
   async findProfilePppForDelete(
     id: string,
   ): Promise<ProfilePppDeleteRecord | null> {
-    return prisma.profilePPP.findUnique({
-      where: { id },
-      include: {
-        mikroTikRouter: true,
-        hargaPaket: {
-          select: { id: true, name: true },
-        },
-      },
-    }) as Promise<ProfilePppDeleteRecord | null>;
+    return findProfilePppForDelete(id);
   }
 
   /** Create profile PPP and include router relation. */
   async createProfilePpp(data: Prisma.ProfilePPPUncheckedCreateInput) {
-    return prisma.profilePPP.create({
-      data,
-      include: {
-        mikroTikRouter: true,
-      },
-    });
+    return createProfilePpp(data);
   }
 
   /** Update profile PPP and include router relation. */
@@ -322,20 +255,12 @@ export class HargaPaketRepository {
     id: string,
     data: Prisma.ProfilePPPUncheckedUpdateInput,
   ) {
-    return prisma.profilePPP.update({
-      where: { id },
-      data,
-      include: {
-        mikroTikRouter: true,
-      },
-    });
+    return updateProfilePpp(id, data);
   }
 
   /** Delete profile PPP by ID. */
   async deleteProfilePpp(id: string): Promise<void> {
-    await prisma.profilePPP.delete({
-      where: { id },
-    });
+    await deleteProfilePpp(id);
   }
 
   /** Get routers in scope for profile broadcast. */
@@ -343,13 +268,6 @@ export class HargaPaketRepository {
     tenantId?: string | null;
     siteId?: string | null;
   }) {
-    return prisma.mikroTikRouter.findMany({
-      where: {
-        OR: [
-          { tenantId: input.tenantId ?? undefined },
-          { siteId: input.siteId ?? undefined },
-        ],
-      },
-    });
+    return findRoutersForProfileBroadcast(input);
   }
 }

@@ -1,6 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import { getNetworkAlertService } from "@/modules/network";
+import { NetworkAlertService } from "@/modules/network";
 import { networkAlertUpdateSchema } from "@/lib/validations/network-performance";
 
 /**
@@ -35,7 +35,7 @@ import { networkAlertUpdateSchema } from "@/lib/validations/network-performance"
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const networkAlertService = getNetworkAlertService();
+  const networkAlertService = new NetworkAlertService();
   const alert = await networkAlertService.getAlertById(ctx.params.id);
 
   if (!alert) {
@@ -114,7 +114,7 @@ export const PUT = createHandler(
     schema: networkAlertUpdateSchema,
   },
   async (_req, ctx) => {
-    const networkAlertService = getNetworkAlertService();
+    const networkAlertService = new NetworkAlertService();
     const isUpdated = await networkAlertService.updateAlert({
       id: ctx.params.id,
       data: ctx.validated,
@@ -164,7 +164,7 @@ export const PUT = createHandler(
  *         description: Server error
  */
 export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
-  const networkAlertService = getNetworkAlertService();
+  const networkAlertService = new NetworkAlertService();
   const deletedAlert = await networkAlertService.deleteAlert(ctx.params.id);
 
   if (!deletedAlert) {

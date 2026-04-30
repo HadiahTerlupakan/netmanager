@@ -5,9 +5,52 @@ import {
   STABILITY_CHECK_INTERVAL_MS,
   SUBTREE_MAX_REPETITIONS,
 } from "./constants";
-import { isOidInSubtree, normalizeOid } from "./oid-utils";
+import { normalizeOid } from "./oid-utils";
 import { closeSnmpSession, createSnmpSession } from "./session";
+import {
+  flushSubtreeBatch,
+  type SubtreeWalkState,
+  updateStability,
+} from "./subtree-walk.helpers";
 import type { SnmpWalkResult } from "./types";
+
+const BATCH_SIZE = SUBTREE_MAX_REPETITIONS;
+const STABLE_ROUND_LIMIT = 2;
+
+function createWalkState(
+  maxResults?: number,
+  expectedCount?: number,
+): SubtreeWalkState {
+  return {
+    isResolved: false,
+    results: [],
+    pendingVarbinds: [],
+    isProcessing: false,
+    lastCount: 0,
+    stableRounds: 0,
+    maxResults,
+    expectedCount,
+  };
+}
+
+function shouldStopForStability(state: SubtreeWalkState): boolean {
+  return updateStability(state) || state.stableRounds >= STABLE_ROUND_LIMIT;
+}
+
+function queueVarbinds(
+  state: SubtreeWalkState,
+  varbinds: snmp.Varbind[],
+): void {
+  state.pendingVarbinds.push(...varbinds);
+}
+
+function hasPendingBatches(state: SubtreeWalkState): boolean {
+  return state.pendingVarbinds.length > 0;
+}
+
+function takeBatch(state: SubtreeWalkState): snmp.Varbind[] {
+  return state.pendingVarbinds.splice(0, BATCH_SIZE);
+}
 
 /** Walk an SNMP subtree using subtree batching. */
 export async function snmpWalkWithSubtree(params: {
@@ -32,55 +75,31 @@ export async function snmpWalkWithSubtree(params: {
   } = params;
 
   return new Promise((resolve, reject) => {
-    let isResolved = false;
+    const state = createWalkState(maxResults, expectedCount);
     let session: snmp.Session | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let stabilityTimeout: ReturnType<typeof setTimeout> | null = null;
-    const results: SnmpWalkResult[] = [];
-    const pendingVarbinds: snmp.Varbind[] = [];
-    let isProcessing = false;
-    let lastCount = 0;
-    let stableRounds = 0;
 
     const finish = (error?: Error | string | null) => {
-      if (isResolved) return;
-      isResolved = true;
+      if (state.isResolved) return;
+      state.isResolved = true;
       if (timeoutId) clearTimeout(timeoutId);
       if (stabilityTimeout) clearTimeout(stabilityTimeout);
       closeSnmpSession(session);
       session = null;
 
-      if (error && results.length === 0) {
+      if (error && state.results.length === 0) {
         reject(error);
         return;
       }
 
-      resolve(results);
-    };
-
-    const hasReachedLimit = () => {
-      if (maxResults !== undefined && results.length >= maxResults) {
-        return true;
-      }
-
-      if (expectedCount !== undefined && results.length >= expectedCount) {
-        return true;
-      }
-
-      return false;
+      resolve(state.results);
     };
 
     const scheduleStabilityCheck = () => {
-      if (isResolved) return;
+      if (state.isResolved) return;
       stabilityTimeout = setTimeout(() => {
-        if (results.length === lastCount || hasReachedLimit()) {
-          stableRounds += 1;
-        } else {
-          stableRounds = 0;
-          lastCount = results.length;
-        }
-
-        if (stableRounds >= 2) {
+        if (shouldStopForStability(state)) {
           finish();
           return;
         }
@@ -90,39 +109,18 @@ export async function snmpWalkWithSubtree(params: {
     };
 
     const flushBatch = () => {
-      if (isProcessing || pendingVarbinds.length === 0 || isResolved) {
+      if (state.isProcessing || !hasPendingBatches(state) || state.isResolved) {
         return;
       }
 
-      isProcessing = true;
-      const batch = pendingVarbinds.splice(0, SUBTREE_MAX_REPETITIONS);
-
-      for (const varbind of batch) {
-        if (snmp.isVarbindError(varbind)) {
-          continue;
-        }
-
-        const varbindOid = String(varbind.oid);
-        if (!isOidInSubtree(varbindOid, oid)) {
-          finish();
-          isProcessing = false;
-          return;
-        }
-
-        results.push({
-          oid: varbindOid,
-          value: varbind.value,
-          type: varbind.type,
-        });
-        if (hasReachedLimit()) {
-          finish();
-          isProcessing = false;
-          return;
-        }
+      state.pendingVarbinds.unshift(...takeBatch(state));
+      const batchResult = flushSubtreeBatch(state, oid);
+      if (batchResult.shouldFinish) {
+        finish();
+        return;
       }
 
-      isProcessing = false;
-      if (pendingVarbinds.length > 0) {
+      if (hasPendingBatches(state)) {
         setTimeout(flushBatch, BATCH_DELAY_MS);
       }
     };
@@ -137,7 +135,8 @@ export async function snmpWalkWithSubtree(params: {
         retries: 3,
       });
       timeoutId = setTimeout(
-        () => finish(results.length ? null : new Error("SNMP walk timeout")),
+        () =>
+          finish(state.results.length ? null : new Error("SNMP walk timeout")),
         timeout,
       );
       scheduleStabilityCheck();
@@ -155,8 +154,8 @@ export async function snmpWalkWithSubtree(params: {
         normalizeOid(oid),
         SUBTREE_MAX_REPETITIONS,
         (varbinds: snmp.Varbind[]): void => {
-          if (isResolved) return;
-          pendingVarbinds.push(...varbinds);
+          if (state.isResolved) return;
+          queueVarbinds(state, varbinds);
           flushBatch();
         },
         (error?: Error): void => finish(error ?? null),

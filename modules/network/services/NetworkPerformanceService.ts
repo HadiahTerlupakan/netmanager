@@ -8,6 +8,7 @@ import {
   toNetworkPerformanceDTO,
   toNetworkPerformanceDTOList,
 } from "../mappers/NetworkMonitoringMapper";
+import { NetworkPerformanceRepository } from "../repositories/NetworkPerformanceRepository";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -44,7 +45,7 @@ function normalizeFilters(
 
 export class NetworkPerformanceService {
   constructor(
-    private readonly networkPerformanceRepository: INetworkPerformanceRepository,
+    private readonly networkPerformanceRepository: INetworkPerformanceRepository = new NetworkPerformanceRepository(),
   ) {}
 
   /** Ambil daftar performa jaringan untuk response API. */

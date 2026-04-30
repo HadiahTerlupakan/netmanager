@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getAcsDeviceService } from "@/modules/network";
+import { AcsDeviceService } from "@/modules/network";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export const POST = createHandler(
 
     try {
       const body = await req.json();
-      const service = await getAcsDeviceService();
+      const service = new AcsDeviceService();
       const result = await service.configureWan({
         deviceId,
         username: body.username,

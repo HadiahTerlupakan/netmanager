@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getNetworkPerformanceService } from "@/modules/network";
+import { NetworkPerformanceService } from "@/modules/network";
 import {
   networkPerformanceCreateSchema,
   networkPerformanceQuerySchema,
@@ -71,7 +71,7 @@ export const GET = createHandler({ auth: true }, async (req, _ctx) => {
     });
   }
 
-  const networkPerformanceService = getNetworkPerformanceService();
+  const networkPerformanceService = new NetworkPerformanceService();
   const result = await networkPerformanceService.getPerformanceList(
     parsed.data,
   );
@@ -105,7 +105,7 @@ export const POST = createHandler(
     schema: networkPerformanceCreateSchema,
   },
   async (_req, ctx) => {
-    const networkPerformanceService = getNetworkPerformanceService();
+    const networkPerformanceService = new NetworkPerformanceService();
     const result = await networkPerformanceService.createPerformance(
       ctx.validated,
     );

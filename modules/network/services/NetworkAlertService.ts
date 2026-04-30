@@ -8,6 +8,7 @@ import {
   toNetworkAlertDTO,
   toNetworkAlertDTOList,
 } from "../mappers/NetworkMonitoringMapper";
+import { NetworkAlertRepository } from "../repositories/NetworkAlertRepository";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -32,7 +33,7 @@ type AlertQueryInput = {
 /** Kelola use case alert jaringan untuk API. */
 export class NetworkAlertService {
   constructor(
-    private readonly networkAlertRepository: INetworkAlertRepository,
+    private readonly networkAlertRepository: INetworkAlertRepository = new NetworkAlertRepository(),
   ) {}
 
   /** Ambil daftar alert jaringan untuk response API. */

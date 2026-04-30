@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getAcsDeviceService } from "@/modules/network";
+import { AcsDeviceService } from "@/modules/network";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export const GET = createHandler(
     if (!deviceId) return ApiErrors.badRequest("Device ID tidak ditemukan");
 
     try {
-      const service = await getAcsDeviceService();
+      const service = new AcsDeviceService();
       const result = await service.getDeviceDetail(deviceId);
       if (result.ok) return apiSuccess(result.data);
       if (result.status === "notFound")

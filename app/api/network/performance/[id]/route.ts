@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getNetworkPerformanceService } from "@/modules/network";
+import { NetworkPerformanceService } from "@/modules/network";
 
 /**
  * @swagger
@@ -33,7 +33,7 @@ import { getNetworkPerformanceService } from "@/modules/network";
  *         description: Server error
  */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
-  const networkPerformanceService = getNetworkPerformanceService();
+  const networkPerformanceService = new NetworkPerformanceService();
 
   try {
     const performanceData = await networkPerformanceService.getPerformanceById(

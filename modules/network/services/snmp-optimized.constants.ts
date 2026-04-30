@@ -1,0 +1,11 @@
+export const CACHE_TTL_MS = 5 * 60 * 1000;
+export const MAX_CHUNK_SIZE = 50;
+export const SNMP_TIMEOUT_MS = 180000;
+export const STATUS_DATASET_THRESHOLD = 500;
+export const SMALL_DATA_TIMEOUT_MS = 60_000;
+export const MAX_CONCURRENT_SESSIONS = 3;
+export const SESSION_REUSE_WINDOW_MS = 30_000;
+export const SESSION_WAIT_MS = 100;
+export const CACHE_CLEANUP_INTERVAL_MS = 60_000;
+export const SUBTREE_MAX_REPETITIONS = 20;
+export const POST_TIMEOUT_GRACE_MS = 1_000;

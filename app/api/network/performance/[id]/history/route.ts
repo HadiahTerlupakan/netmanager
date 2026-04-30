@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getNetworkPerformanceService } from "@/modules/network";
+import { NetworkPerformanceService } from "@/modules/network";
 
 const historyQuerySchema = z.object({
   startDate: z.iso.datetime().optional(),
@@ -96,7 +96,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const networkPerformanceService = getNetworkPerformanceService();
+  const networkPerformanceService = new NetworkPerformanceService();
   const result = await networkPerformanceService.getPerformanceHistory(
     id,
     parsed.data,

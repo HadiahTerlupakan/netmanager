@@ -1,16 +1,15 @@
-import snmp from "net-snmp";
 import {
   DEFAULT_MAX_REPETITIONS,
   DEFAULT_SNMP_TIMEOUT,
   LARGE_MAX_REPETITIONS,
 } from "./constants";
-import {
-  compareOids,
-  isOidInSubtree,
-  normalizeOid,
-  stringifySnmpValue,
-} from "./oid-utils";
+import { normalizeOid } from "./oid-utils";
 import { closeSnmpSession, createSnmpSession } from "./session";
+import {
+  hasReachedBulkLimit,
+  processBulkBatch,
+  type BulkState,
+} from "./get-bulk.helpers";
 
 /** Read a subtree with SNMP GETBULK. */
 export async function snmpGetBulkSimple(
@@ -58,76 +57,48 @@ export async function snmpGetBulk(params: {
   } = params;
 
   return new Promise((resolve, reject) => {
-    let isResolved = false;
-    let session: snmp.Session | null = null;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let currentOid = oid;
-    const results: Record<string, string> = {};
-    const normalizedBaseOid = normalizeOid(oid);
+    const state: BulkState = {
+      isResolved: false,
+      session: null,
+      timeoutId: null,
+      currentOid: oid,
+      results: {},
+      normalizedBaseOid: normalizeOid(oid),
+      maxResults,
+      expectedCount,
+    };
     const maxRepetitions =
       expectedCount && expectedCount > 100
         ? LARGE_MAX_REPETITIONS
         : DEFAULT_MAX_REPETITIONS;
 
     const finish = (error?: Error | string | null) => {
-      if (isResolved) return;
-      isResolved = true;
-      if (timeoutId) clearTimeout(timeoutId);
-      closeSnmpSession(session);
-      session = null;
+      if (state.isResolved) return;
+      state.isResolved = true;
+      if (state.timeoutId) clearTimeout(state.timeoutId);
+      closeSnmpSession(state.session);
+      state.session = null;
 
-      if (error && Object.keys(results).length === 0) {
+      if (error && Object.keys(state.results).length === 0) {
         reject(error);
         return;
       }
 
-      resolve(results);
-    };
-
-    const shouldStop = () => {
-      if (
-        maxResults !== undefined &&
-        Object.keys(results).length >= maxResults
-      ) {
-        return true;
-      }
-
-      if (
-        expectedCount !== undefined &&
-        Object.keys(results).length >= expectedCount
-      ) {
-        return true;
-      }
-
-      return false;
-    };
-
-    const collectVarbinds = (
-      varbinds: Array<snmp.Varbind | snmp.Varbind[]>,
-    ): snmp.Varbind[] => {
-      return varbinds.reduce<snmp.Varbind[]>((collection, item) => {
-        if (Array.isArray(item)) {
-          collection.push(...item);
-          return collection;
-        }
-
-        collection.push(item);
-        return collection;
-      }, []);
+      resolve(state.results);
     };
 
     const requestNextBatch = () => {
-      if (isResolved || shouldStop() || !session) {
+      if (state.isResolved || hasReachedBulkLimit(state) || !state.session) {
         finish();
         return;
       }
 
-      session.getBulk(
-        [normalizeOid(currentOid)],
+      state.session.getBulk(
+        [normalizeOid(state.currentOid)],
         0,
         maxRepetitions,
         (error, varbinds) => {
-          if (isResolved) return;
+          if (state.isResolved) return;
           if (error) {
             finish(error);
             return;
@@ -137,56 +108,29 @@ export async function snmpGetBulk(params: {
             return;
           }
 
-          let nextOid: string | null = null;
-          let hasValidVarbind = false;
-
-          for (const varbind of collectVarbinds(varbinds)) {
-            if (!varbind?.oid) continue;
-            if (snmp.isVarbindError(varbind)) continue;
-
-            const varbindOid = String(varbind.oid);
-            if (!isOidInSubtree(varbindOid, normalizedBaseOid)) {
-              finish();
-              return;
-            }
-
-            hasValidVarbind = true;
-            const oidParts = normalizeOid(varbindOid).split(".");
-            const baseParts = normalizedBaseOid.split(".");
-            const index = oidParts.slice(baseParts.length).join(".");
-
-            if (index) {
-              results[index] = stringifySnmpValue(varbind.value);
-            }
-
-            if (!nextOid || compareOids(varbindOid, nextOid) > 0) {
-              nextOid = varbindOid;
-            }
-          }
-
-          if (!hasValidVarbind || !nextOid || nextOid === currentOid) {
+          const batchResult = processBulkBatch(state, varbinds);
+          if (batchResult.shouldFinish) {
             finish();
             return;
           }
 
-          currentOid = nextOid;
           requestNextBatch();
         },
       );
     };
 
     try {
-      session = createSnmpSession({
+      state.session = createSnmpSession({
         ipAddress,
         port,
         community,
         version,
         timeout: DEFAULT_SNMP_TIMEOUT,
       });
-      timeoutId = setTimeout(
+      state.timeoutId = setTimeout(
         () =>
           finish(
-            Object.keys(results).length
+            Object.keys(state.results).length
               ? null
               : new Error("SNMP GETBULK timeout"),
           ),

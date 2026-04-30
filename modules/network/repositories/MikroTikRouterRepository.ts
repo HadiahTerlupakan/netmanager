@@ -1,4 +1,3 @@
-import { logger } from "@/lib/logger";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
@@ -13,6 +12,13 @@ import type {
 } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import { RadiusRepository } from "./RadiusRepository";
+import {
+  shouldSyncNasOnUpdate,
+  syncNasOnRouterCreate,
+  syncNasOnRouterDelete,
+  syncNasOnRouterUpdate,
+  validateRouterDeletion,
+} from "./MikroTikRouterRepository.sync";
 
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   private radiusRepo: RadiusRepository;
@@ -146,26 +152,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       },
     });
 
-    // Sync to RADIUS NAS (Repository sudah menggunakan upsert di internalnya)
-    try {
-      if (router.tenantId) {
-        await this.radiusRepo.createNas(
-          {
-            nasname: router.ipAddress,
-            shortname: router.name,
-            type: "other",
-            ports: data.apiPort ?? 8728,
-            secret: router.secretRadius,
-            description:
-              router.description || `Auto-sync: MikroTik ${router.name}`,
-            community: "public",
-          },
-          router.tenantId,
-        );
-      }
-    } catch (error) {
-      logger.error(`Failed to sync NAS for router ${router.name}:`, error);
-    }
+    await syncNasOnRouterCreate(this.radiusRepo, router, data.apiPort ?? 8728);
 
     return { id: router.id };
   }
@@ -227,61 +214,8 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       },
     });
 
-    // Sync NAS if critical fields changed
-    if (existingRouter) {
-      const ipChanged =
-        data.ipAddress && data.ipAddress !== existingRouter.ipAddress;
-      const secretChanged =
-        data.secretRadius && data.secretRadius !== existingRouter.secretRadius;
-      const nameChanged = data.name && data.name !== existingRouter.name;
-      const descChanged = data.description !== undefined;
-      const portChanged = data.apiPort !== undefined;
-
-      if (
-        ipChanged ||
-        secretChanged ||
-        nameChanged ||
-        descChanged ||
-        portChanged
-      ) {
-        try {
-          const targetIp = existingRouter.ipAddress; // Look up by OLD IP
-          const existingNas = await this.radiusRepo.getNasByIp(
-            targetIp,
-            existingRouter.tenantId!,
-          );
-
-          const newNasData = {
-            nasname: data.ipAddress ?? existingRouter.ipAddress,
-            secret: data.secretRadius ?? existingRouter.secretRadius,
-            shortname: data.name ?? existingRouter.name,
-            ...(data.description !== undefined
-              ? { description: data.description ?? "" }
-              : {}),
-          };
-
-          if (existingNas && existingNas.id) {
-            await this.radiusRepo.updateNas(
-              existingNas.id,
-              newNasData,
-              existingRouter.tenantId!,
-            );
-          } else {
-            // Self-healing: Create if it didn't exist
-            await this.radiusRepo.createNas(
-              {
-                ...newNasData,
-                type: "other",
-                ports: data.apiPort ?? 8728,
-                community: "public",
-              },
-              existingRouter.tenantId!,
-            );
-          }
-        } catch (error) {
-          logger.error(`Failed to sync NAS update for router ${id}:`, error);
-        }
-      }
+    if (existingRouter && shouldSyncNasOnUpdate(existingRouter, data)) {
+      await syncNasOnRouterUpdate(this.radiusRepo, existingRouter, data);
     }
   }
 
@@ -309,42 +243,13 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       throw new Error("Router tidak ditemukan");
     }
 
-    // Check for related ProfilePPP - prevent deletion if has relations
-    if (existingRouter.profilePPP && existingRouter.profilePPP.length > 0) {
-      const profileNames = existingRouter.profilePPP
-        .map((p) => p.name)
-        .join(", ");
-      const hasActivePackages = existingRouter.profilePPP.some(
-        (p) => p.hargaPaket.length > 0,
-      );
-
-      if (hasActivePackages) {
-        throw new Error(
-          `Router "${existingRouter.name}" tidak dapat dihapus karena masih memiliki ${existingRouter.profilePPP.length} Profile PPP yang terhubung (${profileNames}) dan beberapa memiliki paket harga aktif. Hapus atau pindahkan Profile PPP terlebih dahulu.`,
-        );
-      } else {
-        throw new Error(
-          `Router "${existingRouter.name}" tidak dapat dihapus karena masih memiliki ${existingRouter.profilePPP.length} Profile PPP yang terhubung (${profileNames}). Hapus atau pindahkan Profile PPP terlebih dahulu.`,
-        );
-      }
-    }
+    validateRouterDeletion(existingRouter);
 
     await this.client.mikroTikRouter.deleteMany({
       where: { id, tenantId },
     });
 
-    // Delete NAS
-    try {
-      const nas = await this.radiusRepo.getNasByIp(
-        existingRouter.ipAddress,
-        existingRouter.tenantId!,
-      );
-      if (nas && nas.id) {
-        await this.radiusRepo.deleteNas(nas.id, existingRouter.tenantId!);
-      }
-    } catch (error) {
-      logger.error(`Failed to delete NAS for router ${id}:`, error);
-    }
+    await syncNasOnRouterDelete(this.radiusRepo, existingRouter, id);
   }
 
   async count(tenantId: string, siteId?: string): Promise<number> {
