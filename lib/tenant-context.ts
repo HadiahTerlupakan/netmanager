@@ -3,12 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
 import { MAIN_TENANT_ID } from "@/modules/mitra";
-
-// Local tenant context lookup - avoids circular dependency with @/modules/admin
-interface TenantHostMapping {
-  domain: string;
-  tenantId: string;
-}
+import { prisma } from "@/modules/database";
 
 async function resolveTenantContextFromHost(
   requestHeaders: Headers | null,
@@ -25,9 +20,24 @@ async function resolveTenantContextFromHost(
     return resolvePrimaryTenantContext();
   }
 
-  // Default fallback - in production, this would query the database
-  // For now, return null to let the system use default tenant
-  return null;
+  const tenant = await prisma.tenant.findFirst({
+    where: {
+      domain: normalizedHost,
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!tenant) {
+    return null;
+  }
+
+  return {
+    tenantId: tenant.id,
+    isSuperAdmin: false,
+  };
 }
 
 export interface TenantContextResult {
