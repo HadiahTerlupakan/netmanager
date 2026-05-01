@@ -176,6 +176,23 @@ const dependencyInversionBaseline = new Set([
   "modules/users/services/UserLookupService.ts",
   "modules/work-order/services/AdminWorkOrderRouteService.ts",
   "modules/work-order/services/AdminWorkOrderConfigService.ts",
+  "modules/work-order/services/AdminWorkOrderDashboardService.ts",
+  "modules/work-order/services/WorkOrderReminderService.ts",
+  "modules/network/services/HargaPaketService.ts",
+  "modules/network/services/NetworkPerformanceService.ts",
+  "modules/network/services/NetworkAlertService.ts",
+  "modules/chat/services/ChatService.ts",
+  "modules/mitra/services/MitraIdCardService.ts",
+  "modules/notification/services/AnnouncementService.ts",
+  "modules/overtime/services/OvertimeService.ts",
+  "modules/overtime/services/EmployeeOvertimeQueryService.ts",
+  "modules/overtime/services/OvertimeAutoCheckoutSchedulerService.ts",
+  "modules/overtime/services/OvertimeQueryService.ts",
+  "modules/pelanggan/services/CustomerLegacyBillingService.ts",
+  "modules/pelanggan/services/AdminSupportTicketService.ts",
+  "modules/pelanggan/services/AdminCustomerInvoiceRouteService.ts",
+  "modules/pelanggan/services/PelangganAdminQueryService.ts",
+  "modules/pelanggan/services/PelangganAdminMutationService.ts",
 ]);
 
 describe("module public api boundaries", () => {
@@ -299,7 +316,7 @@ describe("module public api boundaries", () => {
         ?.replace(".ts", "");
 
       expect(source, servicePath).not.toMatch(
-        /(constructor\([^)]*=\s*new\s+|private\s+(?:readonly\s+)?\w+\s*=\s*new\s+|^export\s+const\s+\w+\s*=\s*new\s+|^const\s+\w+\s*=\s*new\s+)(WorkOrderRepository|TicketRepository)\(/m,
+        /(constructor\([^)]*=\s*new\s+(?:WorkOrderRepository|TicketRepository|AdminWorkOrderRouteRepository)\(|private\s+(?:readonly\s+)?\w+\s*=\s*new\s+(?:WorkOrderRepository|TicketRepository|AdminWorkOrderRouteRepository)\(|^export\s+const\s+\w+\s*=\s*new\s+(?:WorkOrderRepository|TicketRepository|AdminWorkOrderRouteRepository)\(|^const\s+\w+\s*=\s*new\s+(?:WorkOrderRepository|TicketRepository|AdminWorkOrderRouteRepository)\()/m,
       );
 
       if (

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
   checkSiteRestriction: vi.fn(),
-  getUserService: vi.fn(),
+  getAdminUsers: vi.fn(),
   apiRequest: vi.fn(),
 }));
 
@@ -23,8 +23,9 @@ vi.mock("@/modules/roles", () => ({
 }));
 
 vi.mock("@/modules/users", () => ({
-  createUserSchema: {},
-  getUserService: mockFns.getUserService,
+  AdminUserRouteService: class {
+    getAdminUsers = mockFns.getAdminUsers;
+  },
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -54,20 +55,12 @@ vi.mock("@/modules/mitra", () => ({
 import { GET } from "@/app/api/admin/users/route";
 
 describe("admin users route", () => {
-  const getAllUsers = vi.fn();
-
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockFns.getUserService.mockReturnValue({
-      getAllUsers,
-    });
-
-    getAllUsers.mockResolvedValue({
-      data: [],
-      total: 0,
-      active: 0,
-      inactive: 0,
+    mockFns.getAdminUsers.mockResolvedValue({
+      users: [],
+      meta: { total: 0, active: 0, inactive: 0 },
     });
   });
 
@@ -94,14 +87,23 @@ describe("admin users route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(getAllUsers).toHaveBeenCalledWith({
-      siteId: undefined,
-      tenantId: "tenant-1",
-      roleName: undefined,
-      page: undefined,
-      limit: undefined,
-      search: undefined,
-      isActive: undefined,
-    });
+    expect(mockFns.getAdminUsers).toHaveBeenCalledWith(
+      {
+        user: {
+          id: "admin-1",
+          isSuperAdmin: false,
+          tenantId: "tenant-1",
+        },
+      },
+      {
+        limit: null,
+        page: null,
+        roleName: null,
+        search: null,
+        status: null,
+        tenantId: null,
+      },
+      ["users:read"],
+    );
   });
 });

@@ -57,6 +57,19 @@ export {
 } from "./services/CustomerNotificationService";
 
 export {
+  createPelangganSchema,
+  type CreatePelangganSchema,
+} from "./validators/pelanggan";
+export {
+  supportTicketCreateSchema,
+  supportTicketFilterSchema,
+  supportTicketUpdateSchema,
+  type SupportTicketCreate,
+  type SupportTicketFilter,
+  type SupportTicketUpdate,
+} from "./validators/support-ticket";
+
+export {
   AdminSupportTicketService,
   getAdminSupportTicketService,
 } from "./services/AdminSupportTicketService";

@@ -6,9 +6,9 @@ const mockFns = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/network", () => ({
-  RadiusDashboardService: class MockRadiusDashboardService {
-    getRecentSessions = mockFns.getRecentSessions;
-  },
+  createRadiusDashboardService: () => ({
+    getRecentSessions: mockFns.getRecentSessions,
+  }),
 }));
 
 vi.mock("@/lib/api", () => ({

@@ -2,8 +2,6 @@ import { logger } from "@/lib/logger";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { sendWorkOrderReminder } from "./WorkOrderNotifications";
 
-const workOrderRepository = new WorkOrderRepository();
-
 export interface WorkOrderReminderResult {
   workOrderId: string;
   workOrderNumber: string;
@@ -21,13 +19,16 @@ export type WorkOrderReminderCronResult = {
   details: WorkOrderReminderResult[];
 };
 
-type StaleWorkOrder = Awaited<ReturnType<typeof findStaleWorkOrders>>[number];
+type StaleWorkOrder = Awaited<
+  ReturnType<WorkOrderRepository["findStaleReminderWorkOrders"]>
+>[number];
 
 /** Sends reminder notifications for stale active work orders. */
 export async function runWorkOrderReminderCron(
   now = new Date(),
+  repo: WorkOrderRepositoryReader = new WorkOrderRepository(),
 ): Promise<WorkOrderReminderCronResult> {
-  const staleWorkOrders = await findStaleWorkOrders(now);
+  const staleWorkOrders = await repo.findStaleReminderWorkOrders(now);
   const details = await sendReminderBatch(staleWorkOrders, now);
 
   return {
@@ -40,11 +41,10 @@ export async function runWorkOrderReminderCron(
   };
 }
 
-function findStaleWorkOrders(now: Date) {
-  return workOrderRepository.findStaleReminderWorkOrders(now);
-}
-
-async function sendReminderBatch(workOrders: StaleWorkOrder[], now: Date) {
+async function sendReminderBatch(
+  workOrders: StaleWorkOrder[],
+  now: Date,
+): Promise<WorkOrderReminderResult[]> {
   const results: WorkOrderReminderResult[] = [];
 
   for (const workOrder of workOrders) {

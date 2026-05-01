@@ -7,4 +7,4 @@ export {
   snmpWalk,
   snmpWalkSimple,
   snmpWalkWithGetNext,
-} from "@/modules/network/services/snmpService";
+} from "@/modules/network";

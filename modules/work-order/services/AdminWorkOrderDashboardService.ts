@@ -41,14 +41,15 @@ export interface AdminWorkOrderDashboardOptions {
 
 export class AdminWorkOrderDashboardService {
   private readonly routeRepository: AdminWorkOrderRouteRepository;
+  private readonly workOrderRepo: WorkOrderRepository;
 
   constructor(
-    private readonly workOrderRepo: WorkOrderRepository = new WorkOrderRepository(
-      prisma,
-    ),
-    routeRepository: AdminWorkOrderRouteRepository = new AdminWorkOrderRouteRepository(),
+    workOrderRepo?: WorkOrderRepository,
+    routeRepository?: AdminWorkOrderRouteRepository,
   ) {
-    this.routeRepository = routeRepository;
+    this.workOrderRepo = workOrderRepo || new WorkOrderRepository(prisma);
+    this.routeRepository =
+      routeRepository || new AdminWorkOrderRouteRepository();
   }
 
   /** Ambil ringkasan dashboard work order admin. */

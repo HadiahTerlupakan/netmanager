@@ -18,16 +18,36 @@ interface WorkOrderApprovalInput {
 
 /** Service route admin untuk orkestrasi work order tanpa akses database di route. */
 export class AdminWorkOrderRouteService {
-  private readonly repository = new AdminWorkOrderRouteRepository();
-  private readonly filterBuilder = new AdminWorkOrderFilterBuilder();
-  private readonly actionService = new AdminWorkOrderActionRouteService(
-    this.repository,
-    this.getUserContext.bind(this),
-  );
-  private readonly analyticsService = new AdminWorkOrderAnalyticsRouteService(
-    this.repository,
-    this.buildAccessFilters.bind(this),
-  );
+  private _repository: AdminWorkOrderRouteRepository | null = null;
+  private _filterBuilder: AdminWorkOrderFilterBuilder | null = null;
+  private _actionService: AdminWorkOrderActionRouteService | null = null;
+  private _analyticsService: AdminWorkOrderAnalyticsRouteService | null = null;
+
+  private get repository(): AdminWorkOrderRouteRepository {
+    this._repository ??= new AdminWorkOrderRouteRepository();
+    return this._repository;
+  }
+
+  private get filterBuilder(): AdminWorkOrderFilterBuilder {
+    this._filterBuilder ??= new AdminWorkOrderFilterBuilder();
+    return this._filterBuilder;
+  }
+
+  private get actionService(): AdminWorkOrderActionRouteService {
+    this._actionService ??= new AdminWorkOrderActionRouteService(
+      this.repository,
+      this.getUserContext.bind(this),
+    );
+    return this._actionService;
+  }
+
+  private get analyticsService(): AdminWorkOrderAnalyticsRouteService {
+    this._analyticsService ??= new AdminWorkOrderAnalyticsRouteService(
+      this.repository,
+      this.buildAccessFilters.bind(this),
+    );
+    return this._analyticsService;
+  }
 
   /** Ambil user context lengkap untuk route admin. */
   async getUserContext(

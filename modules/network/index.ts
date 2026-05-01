@@ -40,6 +40,7 @@ export * from "./services/DeviceBackupService";
 export * from "./services/MikroTikStatisticsService";
 export type { MikroTikRouterStatistics } from "./services/mikrotikStatistics.types";
 export { createRadiusDashboardService } from "./factories/RadiusDashboardServiceFactory";
+export * from "./services/snmpService";
 export { RadiusDashboardService } from "./services/dashboard/RadiusDashboardService";
 export type {
   RadiusDashboardStatsInput,

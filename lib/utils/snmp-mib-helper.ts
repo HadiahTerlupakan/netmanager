@@ -4,10 +4,7 @@
  * Menggunakan definisi OID yang terstruktur untuk mempermudah parsing dan akses data
  */
 
-import {
-  snmpGetMultiple,
-  snmpTable,
-} from "@/modules/network/services/snmpService";
+import { snmpGetMultiple, snmpTable } from "@/modules/network";
 
 /**
  * Interface untuk hasil data ONU
