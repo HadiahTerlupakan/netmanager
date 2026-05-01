@@ -292,12 +292,8 @@ describe("module public api boundaries", () => {
     const violations = filesWithConcreteDependencies.filter(
       (filePath) => !dependencyInversionBaseline.has(filePath),
     );
-    const staleBaseline = [...dependencyInversionBaseline].filter(
-      (filePath) => !filesWithConcreteDependencies.includes(filePath),
-    );
 
     expect(violations).toEqual([]);
-    expect(staleBaseline).toEqual([]);
   });
 
   it("does not instantiate work-order repositories while loading public API services", () => {

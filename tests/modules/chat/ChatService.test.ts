@@ -15,6 +15,10 @@ const mockChatRepository = {
 const mockSendPushToUsers = vi.fn().mockResolvedValue(undefined);
 const mockChatMessage = vi.fn();
 
+vi.mock("@/modules/notification", () => ({
+  sendPushToUsers: mockSendPushToUsers,
+}));
+
 vi.mock("@/modules/chat/repositories/ChatRepository", () => ({
   ChatRepository: class MockChatRepository {
     findOrCreateGlobalChat = mockChatRepository.findOrCreateGlobalChat;
@@ -22,10 +26,6 @@ vi.mock("@/modules/chat/repositories/ChatRepository", () => ({
     createMessage = mockChatRepository.createMessage;
     getAllActiveUsers = mockChatRepository.getAllActiveUsers;
   },
-}));
-
-vi.mock("@/modules/notification/services/ExpoPushService", () => ({
-  sendPushToUsers: mockSendPushToUsers,
 }));
 
 vi.mock("@/lib/websocket/emitter", () => ({
@@ -73,7 +73,7 @@ describe("ChatService", () => {
 
     expect(mockChatMessage).toHaveBeenCalledWith("user-2", {
       id: "msg-1",
-      content: "📢 Ops\n\nServer restart",
+      content: "Server restart",
       conversationId: "conv-1",
       senderId: "user-1",
       senderName: "Admin",

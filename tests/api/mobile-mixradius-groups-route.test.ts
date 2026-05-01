@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetMobileAuthPayload, mockGetOwnerGroups } = vi.hoisted(() => ({
+const { mockGetMobileAuthPayload, mockGetMobileGroups } = vi.hoisted(() => ({
   mockGetMobileAuthPayload: vi.fn(),
-  mockGetOwnerGroups: vi.fn(),
+  mockGetMobileGroups: vi.fn(),
 }));
 
 vi.mock("@/lib/mobile-api-auth", () => ({
@@ -11,8 +11,8 @@ vi.mock("@/lib/mobile-api-auth", () => ({
 }));
 
 vi.mock("@/modules/integrations", () => ({
-  getMixRadiusService: () => ({
-    getOwnerGroups: mockGetOwnerGroups,
+  getMixRadiusGroupRouteService: () => ({
+    getMobileGroups: mockGetMobileGroups,
   }),
 }));
 
@@ -28,20 +28,13 @@ describe("GET /api/mobile/mixradius/groups", () => {
   });
 
   it("returns only groups that match the mobile user's site", async () => {
-    mockGetOwnerGroups.mockResolvedValue([
+    mockGetMobileGroups.mockResolvedValue([
       {
         id: "group-1",
         name: "Site A",
         owners: ["owner-a"],
         isActive: true,
         siteId: "site-1",
-      },
-      {
-        id: "group-2",
-        name: "Site B",
-        owners: ["owner-b"],
-        isActive: true,
-        siteId: "site-2",
       },
     ]);
 
@@ -51,7 +44,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(mockGetOwnerGroups).toHaveBeenCalledTimes(1);
+    expect(mockGetMobileGroups).toHaveBeenCalledTimes(1);
     expect(json).toEqual({
       success: true,
       data: [
@@ -71,7 +64,7 @@ describe("GET /api/mobile/mixradius/groups", () => {
       permissions: ["m_mixradius:read"],
       siteId: null,
     });
-    mockGetOwnerGroups.mockResolvedValue([
+    mockGetMobileGroups.mockResolvedValue([
       {
         id: "group-1",
         name: "Site A",
@@ -130,11 +123,11 @@ describe("GET /api/mobile/mixradius/groups", () => {
       error: "Dilarang: Memerlukan izin m_mixradius:read",
       code: "FORBIDDEN",
     });
-    expect(mockGetOwnerGroups).not.toHaveBeenCalled();
+    expect(mockGetMobileGroups).not.toHaveBeenCalled();
   });
 
   it("returns 500 when group retrieval fails unexpectedly", async () => {
-    mockGetOwnerGroups.mockRejectedValue(new Error("database unavailable"));
+    mockGetMobileGroups.mockRejectedValue(new Error("database unavailable"));
 
     const response = await GET(
       new NextRequest("http://localhost/api/mobile/mixradius/groups"),

@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
-  findMany: vi.fn(),
+  findStaleReminderWorkOrders: vi.fn(),
   sendWorkOrderReminder: vi.fn(),
 }));
 
-vi.mock("@/modules/database", () => ({
-  prisma: {
-    workOrders: {
-      findMany: mockFns.findMany,
-    },
+vi.mock("@/modules/work-order/repositories/WorkOrderRepository", () => ({
+  WorkOrderRepository: class MockWorkOrderRepository {
+    findStaleReminderWorkOrders = mockFns.findStaleReminderWorkOrders;
   },
 }));
 
@@ -26,7 +24,7 @@ describe("runWorkOrderReminderCron", () => {
 
   it("sends reminders for stale work orders with status-specific messages", async () => {
     const now = new Date("2026-03-10T10:00:00.000Z");
-    mockFns.findMany.mockResolvedValue([
+    mockFns.findStaleReminderWorkOrders.mockResolvedValue([
       {
         id: "wo-1",
         workOrderNumber: "WO-001",
@@ -44,26 +42,7 @@ describe("runWorkOrderReminderCron", () => {
 
     const result = await runWorkOrderReminderCron(now);
 
-    expect(mockFns.findMany).toHaveBeenCalledWith({
-      where: {
-        status: { in: ["PENDING", "ASSIGNED", "IN_PROGRESS"] },
-        createdAt: { lte: new Date("2026-03-09T10:00:00.000Z") },
-      },
-      select: {
-        id: true,
-        workOrderNumber: true,
-        title: true,
-        type: true,
-        priority: true,
-        status: true,
-        departmentId: true,
-        siteId: true,
-        assignedToId: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "asc" },
-      take: 100,
-    });
+    expect(mockFns.findStaleReminderWorkOrders).toHaveBeenCalledWith(now);
     expect(mockFns.sendWorkOrderReminder).toHaveBeenCalledWith(
       {
         id: "wo-1",

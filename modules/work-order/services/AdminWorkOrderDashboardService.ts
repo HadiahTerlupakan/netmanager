@@ -63,7 +63,7 @@ export class AdminWorkOrderDashboardService {
     if (access.emptyResponse) {
       return apiSuccess({
         ...getEmptyWorkOrderDashboardData(),
-        message: "Restricted access: No department/site assigned.",
+        message: "Restricted access: No site assigned.",
       });
     }
 
@@ -113,7 +113,7 @@ export class AdminWorkOrderDashboardService {
         issues: [],
         sites: [],
         disconnections: [],
-        message: "Restricted access: No department/site assigned.",
+        message: "Restricted access: No site assigned.",
       });
     }
 

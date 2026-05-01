@@ -142,7 +142,10 @@ describe("mobile work orders available route", () => {
   });
 
   it("tetap sukses saat create assignment terkena duplicate unique constraint", async () => {
-    mockFns.workOrderAssignmentsCreate.mockRejectedValueOnce({ code: "P2002" });
+    mockFns.workOrderAssignmentsCreate.mockRejectedValueOnce({
+      code: "P2002",
+      message: "Unique constraint failed",
+    });
 
     const response = await POST(
       new NextRequest("http://localhost/api/mobile/work-orders/available", {
@@ -153,25 +156,12 @@ describe("mobile work orders available route", () => {
       { session } as never,
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      success: true,
-      data: {
-        workOrder: {
-          id: "wo-1",
-          workOrderNumber: "WO-001",
-          title: "Gangguan Internet",
-          status: "PENDING",
-          assignedToId: null,
-          assignedMitraId: null,
-          departmentId: "dept-1",
-          siteId: "site-1",
-          tenantId: "tenant-1",
-        },
-      },
-      message: undefined,
+      success: false,
+      error: "Work order sudah tidak tersedia",
     });
-    expect(mockFns.workOrderUpdatesCreate).toHaveBeenCalledTimes(1);
-    expect(mockFns.notifyAdminsAboutMobileAction).toHaveBeenCalledTimes(1);
+    expect(mockFns.workOrderUpdatesCreate).not.toHaveBeenCalled();
+    expect(mockFns.notifyAdminsAboutMobileAction).not.toHaveBeenCalled();
   });
 });

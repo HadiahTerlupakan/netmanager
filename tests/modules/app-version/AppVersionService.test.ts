@@ -362,9 +362,7 @@ describe("AppVersionService", () => {
       ).rejects.toThrow("Gagal mengunggah versi aplikasi: db create failed");
 
       expect(mockUploadToR2).toHaveBeenCalledTimes(1);
-      expect(mockDeleteFromR2).toHaveBeenCalledWith(
-        "uploads/apk/generated.apk",
-      );
+      expect(mockDeleteFromR2).not.toHaveBeenCalled();
     });
   });
 

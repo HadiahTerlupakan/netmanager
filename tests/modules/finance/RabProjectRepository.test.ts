@@ -274,11 +274,11 @@ describe("RabProjectRepository", () => {
 
     expect(prismaMock.rabInvestor.updateMany).toHaveBeenCalledWith({
       where: { rabProjectId: "rab-1", investorId: "investor-1" },
-      data: { investmentAmount: 533_000, profitSharePercent: 50 },
+      data: { investmentAmount: 533_000n, profitSharePercent: 50 },
     });
     expect(prismaMock.rabInvestor.updateMany).toHaveBeenCalledWith({
       where: { rabProjectId: "rab-1", investorId: "investor-2" },
-      data: { investmentAmount: 533_000, profitSharePercent: 50 },
+      data: { investmentAmount: 533_000n, profitSharePercent: 50 },
     });
   });
 });

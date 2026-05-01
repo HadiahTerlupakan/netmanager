@@ -113,9 +113,7 @@ describe("AdminWorkOrderDashboardService", () => {
     };
 
     expect(body.success).toBe(true);
-    expect(body.data.message).toBe(
-      "Restricted access: No department/site assigned.",
-    );
+    expect(body.data.message).toBe("Restricted access: No site assigned.");
     expect(body.data.cached).toBeUndefined();
     expect(body.data.recentWorkOrders).toEqual([]);
     expect(mockFns.getCachedDashboardData).not.toHaveBeenCalled();

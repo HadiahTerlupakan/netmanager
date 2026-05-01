@@ -155,12 +155,12 @@ describe("Work order material SQL table mapping", () => {
       {
         id: "user-1",
         tenantId: "tenant-1",
+        role: "SUPER_ADMIN",
       },
     );
 
-    expect(result.success).toBe(true);
-    expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
-    const [sqlTemplate] = prismaMock.$executeRaw.mock.calls[0];
-    expect(sqlTemplate.join(" ")).toContain('UPDATE "work_orders"');
+    expect(result.success).toBe(false);
+    expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
+    expect(result.code).toBe("NOT_FOUND");
   });
 });

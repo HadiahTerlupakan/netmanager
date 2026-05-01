@@ -34,7 +34,7 @@ describe("fcm delivery contract", () => {
     expect(queueSource).not.toContain("web_push");
     expect(workerSource).not.toContain('case "web_push"');
     expect(workerSource).not.toContain("PushNotificationService");
-    expect(retryQueueSource).toContain('type: "expo"');
+    expect(retryQueueSource).toContain('retryItem.type === "expo"');
     expect(retryQueueSource).not.toContain('type: "expo" | "web"');
     expect(retryQueueSource).not.toContain("retryWebPush");
   });

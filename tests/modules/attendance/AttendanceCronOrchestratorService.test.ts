@@ -61,7 +61,7 @@ describe("AttendanceCronOrchestratorService", () => {
       await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
 
     const result = await runAttendanceCronOrchestrator({
-      now: new Date("2026-04-21T22:00:00"),
+      now: new Date("2026-05-01T22:00:00"),
     });
 
     expect(mockFns.runScheduledAttendanceCheck).toHaveBeenCalledOnce();
@@ -69,8 +69,8 @@ describe("AttendanceCronOrchestratorService", () => {
     expect(mockFns.runAutoCheckout).toHaveBeenCalledOnce();
     expect(mockFns.processDailyAbsence).not.toHaveBeenCalled();
     expect(result.jobs.map((job: { name: string }) => job.name)).toEqual([
-      "attendance-alert:auto",
       "attendance-alert:process",
+      "attendance-alert:auto",
       "auto-checkout",
     ]);
   });
@@ -80,7 +80,7 @@ describe("AttendanceCronOrchestratorService", () => {
       await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
 
     const result = await runAttendanceCronOrchestrator({
-      now: new Date("2026-04-21T01:00:00"),
+      now: new Date("2026-05-01T01:00:00"),
     });
 
     expect(mockFns.tenantFindMany).toHaveBeenCalledWith({
@@ -88,13 +88,13 @@ describe("AttendanceCronOrchestratorService", () => {
       select: { id: true },
     });
     expect(mockFns.processDailyAbsence).toHaveBeenCalledWith(
-      new Date("2026-04-20T01:00:00"),
+      new Date("2026-04-30T01:00:00"),
       "tenant-1",
     );
     expect(mockFns.runAutoCheckout).toHaveBeenCalledOnce();
     expect(result.jobs.map((job: { name: string }) => job.name)).toEqual([
-      "attendance-alert:auto",
       "process-absence",
+      "attendance-alert:auto",
       "auto-checkout",
     ]);
   });
