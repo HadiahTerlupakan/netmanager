@@ -2,7 +2,7 @@ import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { validateInventoryMutationCreateBody } from "./inventory-route-validation.helpers";
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import type { InventoryMasukRecord } from "../repositories/IInventoryRepository";
+import type { InventoryMasukRecord } from "../domain/ports/IInventoryOperationRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import {
   getInventoryStockMovementService,

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client-billing";
+import type { Prisma } from "../repositories/billing-prisma-boundary";
 import type { InvoiceStatus } from "../types/invoice.enums";
 import { getPelangganService } from "@/modules/pelanggan";
 import { UserLookupService } from "@/modules/users";

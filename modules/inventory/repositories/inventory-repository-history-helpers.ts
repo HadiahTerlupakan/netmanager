@@ -2,7 +2,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import type {
   BarangKeluarWithRelations,
   BarangMasukWithRelations,
-} from "./IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
 
 type HistoryParams = {
   skip?: number;

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 
 const DEFAULT_ASSET_USEFUL_LIFE = 48;
 const VEHICLE_ASSET_USEFUL_LIFE = 96;

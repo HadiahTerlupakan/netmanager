@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 
 const DEFAULT_CANVASING_TARGET = 50;

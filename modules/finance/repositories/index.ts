@@ -1,6 +1,6 @@
-export * from "./IPemasukanRepository";
+export type * from "../domain/ports/IPemasukanRepository";
 export * from "./PemasukanRepository";
-export * from "./IPengeluaranRepository";
+export type * from "../domain/ports/IPengeluaranRepository";
 export * from "./PengeluaranRepository";
 export * from "./FinancialAccountRepository";
 export * from "./CompanyBankAccountRepository";

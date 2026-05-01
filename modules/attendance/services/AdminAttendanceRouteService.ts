@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { prisma } from "@/modules/database";

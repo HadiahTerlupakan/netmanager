@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client-billing";
+import type { Prisma } from "../../repositories/billing-prisma-boundary";
 import { PaymentRepository } from "../../repositories/PaymentRepository";
 import { UnmatchedMutationRepository } from "../../repositories/UnmatchedMutationRepository";
 import type { WebhookResult } from "./provider-interface";

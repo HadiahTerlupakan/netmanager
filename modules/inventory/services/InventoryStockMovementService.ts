@@ -4,7 +4,7 @@ import type {
   UpdatedStockOpnameResult,
   UpdateBarangMasukInput,
   UpdateStockOpnameInput,
-} from "../repositories/IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 
 interface InventoryStockMovementRepository {

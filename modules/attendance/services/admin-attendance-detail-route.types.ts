@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 
 export type AdminAttendanceUser = {
   id: string;

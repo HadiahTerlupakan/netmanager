@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/modules/database";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 
 import { validateGudangSiteAccess } from "../utils/validation";
 import { buildInventoryAccessSession } from "../utils/session";

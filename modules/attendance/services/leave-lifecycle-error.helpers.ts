@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 import type { ServiceResult } from "./LeaveService";
 
 type LeaveResult = ServiceResult<Prisma.LeaveRequestGetPayload<object>>;

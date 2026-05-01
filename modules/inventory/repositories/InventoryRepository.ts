@@ -18,7 +18,8 @@ import type {
   InventoryMasukRecord,
   InventoryOpnameRecord,
   UpdatedStockOpnameResult,
-} from "./IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
+import type { IInventoryOperationRepository } from "../domain/ports/IInventoryOperationRepository";
 import type {
   IInventoryRepository as IInventoryDomainRepository,
   FindInventoryBarangParams,
@@ -56,7 +57,11 @@ import {
   updateTransfer,
 } from "./inventory-repository-transfer-helpers";
 import { removeInventoryStock } from "./inventory-stock-out-helpers";
-export class InventoryRepository implements IInventoryDomainRepository {
+export class InventoryRepository
+  implements
+    IInventoryDomainRepository,
+    Omit<IInventoryOperationRepository, "findAllBarang" | "createBarang">
+{
   private db: PrismaClient;
   private gudangRepository: InventoryGudangRepository;
   private mobileRepository: InventoryMobileRepository;

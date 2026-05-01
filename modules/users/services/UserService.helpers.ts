@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 import { WorkingHourMode } from "../types/user.enums";
 import type { UserScheduleEntity } from "../domain/entities/UserEntity";
 import type { CreateUserRepositoryInput } from "../domain/ports/IUserRepository";

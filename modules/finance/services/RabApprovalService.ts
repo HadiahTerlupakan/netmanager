@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 import { prisma } from "@/modules/database";
 
 const RAB_APPROVAL_THRESHOLD = 2;

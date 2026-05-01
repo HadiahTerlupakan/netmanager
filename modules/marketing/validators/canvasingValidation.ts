@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CanvasingStatus } from "@prisma/client";
+import type { CanvasingStatus } from "../domain/entities/CanvasingEntity";
 import type {
   CreateCanvasingInput,
   UpdateCanvasingInput,

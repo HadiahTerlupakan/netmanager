@@ -1,5 +1,5 @@
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import type { UpdateBarangInput } from "../repositories/IInventoryRepository";
+import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import { getInventoryBarangService } from "./InventoryBarangService";
 

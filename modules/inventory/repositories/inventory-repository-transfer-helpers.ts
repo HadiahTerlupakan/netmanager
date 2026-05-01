@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
-import type { CreateTransferInput } from "./IInventoryRepository";
+import type { CreateTransferInput } from "../domain/ports/IInventoryOperationRepository";
 
 export type TransferRepositoryDb = PrismaClient;
 

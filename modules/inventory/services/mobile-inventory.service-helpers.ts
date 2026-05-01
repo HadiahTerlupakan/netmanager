@@ -7,7 +7,7 @@ import {
   resolveInventoryActorScope,
   validateInventoryGudangAccess,
 } from "../utils/validation";
-import type { InventoryActorInput } from "../repositories/IInventoryRepository";
+import type { InventoryActorInput } from "../domain/ports/IInventoryOperationRepository";
 import type {
   MobileActorLookupInput,
   MobileBarangGudangStock,

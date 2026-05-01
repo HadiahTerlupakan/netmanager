@@ -2,7 +2,7 @@ import { Prisma, type Gudang, type PrismaClient } from "@prisma/client";
 import type {
   CreateGudangInput,
   UpdateGudangInput,
-} from "./IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
 
 export class InventoryGudangRepository {
   constructor(private readonly db: PrismaClient) {}

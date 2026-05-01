@@ -7,7 +7,7 @@ import {
   RabOpexBufferFundingMode,
   RabPaymentType,
   RabTargetBasis,
-} from "@prisma/client";
+} from "../repositories/prisma-boundary";
 import { RabProjectRepository } from "../repositories";
 
 type RabProjectRepo = Pick<

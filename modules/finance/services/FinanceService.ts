@@ -6,7 +6,7 @@ import {
   RabOpexBufferFundingMode,
   RabPaymentType,
   RabTargetBasis,
-} from "@prisma/client";
+} from "../repositories/prisma-boundary";
 import { FinanceAccountFacadeService } from "./FinanceAccountFacadeService";
 import { FinanceExpenseFacadeService } from "./FinanceExpenseFacadeService";
 import { FinancePurchaseOrderPaymentService } from "./FinancePurchaseOrderPaymentService";

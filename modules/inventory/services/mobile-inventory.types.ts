@@ -1,5 +1,5 @@
 import type { KondisiBarang } from "../types/asset.enums";
-import type { InventoryActorInput } from "../repositories/IInventoryRepository";
+import type { InventoryActorInput } from "../domain/ports/IInventoryOperationRepository";
 
 export class MobileInventoryError extends Error {
   constructor(

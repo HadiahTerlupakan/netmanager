@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 import { RestockAssetCreationService } from "./RestockAssetCreationService";
 
 const DEFAULT_RECEIVED_QUANTITY = 0;

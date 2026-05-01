@@ -4,7 +4,7 @@ import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
 import type {
   InventoryMasukRecord,
   UpdateBarangMasukInput,
-} from "./IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
 
 /** Ambil detail record barang masuk. */
 export async function getMasukRecord(

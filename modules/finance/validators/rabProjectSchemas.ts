@@ -1,10 +1,28 @@
 import * as z from "zod";
-import {
-  RabExpenseType,
-  RabGrowthType,
-  RabItemCategory,
-  RabPaymentType,
-} from "@prisma/client";
+import { RabExpenseType } from "../types/invoice.enums";
+
+const RabGrowthType = {
+  LINEAR: "LINEAR",
+  PERCENTAGE: "PERCENTAGE",
+  CUSTOM: "CUSTOM",
+} as const;
+
+const RabItemCategory = {
+  HARDWARE: "HARDWARE",
+  LICENSE: "LICENSE",
+  INSTALLATION: "INSTALLATION",
+  OTHER: "OTHER",
+  DEVICE: "DEVICE",
+  CABLE: "CABLE",
+  ACCESSORIES: "ACCESSORIES",
+  SERVICE: "SERVICE",
+  OPERATIONAL: "OPERATIONAL",
+} as const;
+
+const RabPaymentType = {
+  PREPAID: "PREPAID",
+  POSTPAID: "POSTPAID",
+} as const;
 
 const DEFAULT_OPEX_BUFFER_FUNDING_MODE = "INVESTOR";
 const SHARED_OPEX_BUFFER_FUNDING_MODE = "SHARED_PERCENTAGE";

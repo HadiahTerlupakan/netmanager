@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 import type { AttendanceStatus } from "../types/attendance.enums";
 import type { AttendanceCorrectionSource } from "../repositories/AttendanceRepository";
 import { AttendanceCorrectionScheduleService } from "./AttendanceCorrectionScheduleService";

@@ -3,7 +3,7 @@ import type {
   InventoryOpnameRecord,
   UpdateStockOpnameInput,
   UpdatedStockOpnameResult,
-} from "./IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
 
 export class InventoryOpnameRepository {
   constructor(private readonly db: PrismaClient) {}

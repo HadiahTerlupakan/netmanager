@@ -6,8 +6,8 @@ import type {
   BarangMasukWithRelations,
   BarangKeluarWithRelations,
   UpdateBarangInput,
-} from "./IInventoryRepository";
-import type { CreateInventoryBarangData } from "../domain/ports/IInventoryRepository";
+} from "../domain/ports/IInventoryOperationRepository";
+import type { CreateInventoryBarangData } from "../domain/ports/IInventoryOperationRepository";
 import { InventoryBarangMapper } from "../mappers/InventoryBarangMapper";
 
 /** Resolve transaksi actor inventory dari actor mobile/web atau userId langsung. */

@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
 import type { ILeaveBalanceRepository } from "../domain/ports/ILeaveBalanceRepository";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";

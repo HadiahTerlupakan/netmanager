@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger";
-import type { GatewayPaymentStatus, Prisma } from "@prisma/client-billing";
+import type {
+  GatewayPaymentStatus,
+  Prisma,
+} from "../../repositories/billing-prisma-boundary";
 
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { InvoiceRepository } from "../../repositories/InvoiceRepository";

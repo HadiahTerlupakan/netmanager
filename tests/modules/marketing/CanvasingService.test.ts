@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { CanvasingService } from "@/modules/marketing/services/CanvasingService";
 import type { Canvasing } from "@prisma/client";
+import type { CanvasingListSummaryEntity } from "@/modules/marketing/domain/entities/CanvasingEntity";
 import type {
   ICanvasingRepository,
   CanvasingListFilters,
-  CanvasingListSummary,
-} from "@/modules/marketing/repositories/ICanvasingRepository";
+} from "@/modules/marketing/domain/ports/ICanvasingRepository";
 import type { IWorkOrderRepository } from "@/modules/work-order/domain/ports/IWorkOrderRepository";
 
-function createSummary(): CanvasingListSummary {
+function createSummary(): CanvasingListSummaryEntity {
   return {
     total: 5,
     pending: 2,
@@ -73,7 +73,7 @@ describe("CanvasingService", () => {
     const expectedResult: {
       data: Canvasing[];
       total: number;
-      summary: CanvasingListSummary;
+      summary: CanvasingListSummaryEntity;
     } = {
       data: [],
       total: 0,

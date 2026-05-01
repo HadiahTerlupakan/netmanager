@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 
 import type { AttendanceEvaluationResult } from "../types/AttendanceEvaluation";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";

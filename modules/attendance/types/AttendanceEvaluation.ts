@@ -1,4 +1,4 @@
-import type { AttendanceStatus } from "@prisma/client";
+import type { AttendanceStatus } from "./attendance.enums";
 
 export type AttendanceReviewState = "FINAL" | "PENDING_REVIEW";
 

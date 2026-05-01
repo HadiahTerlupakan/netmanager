@@ -21,8 +21,6 @@ export * from "./services/MobileProfilePhotoRouteService";
 export * from "./services/MobilePartnerRouteService";
 export type {
   DepartmentCreateData,
-  DepartmentPublic,
   DepartmentUpdateData,
-  DepartmentWithUserCount,
   IDepartmentRepository,
-} from "./repositories/IDepartmentRepository";
+} from "./domain/ports/IDepartmentRepository";

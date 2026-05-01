@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { convertAndSaveBase64 } from "@/lib/utils/image-upload";
 import { MobileLeaveNotificationHelper } from "./mobile-leave-notification.helpers";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 import { LeaveStatus, LeaveType } from "../types/attendance.enums";
 import { NextResponse } from "next/server";
 import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";

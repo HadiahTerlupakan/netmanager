@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "../repositories/prisma-boundary";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 
 export class InventoryStockService {

@@ -1,6 +1,6 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logActivitySafe } from "@/lib/logger";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 import { prisma } from "@/modules/database";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";

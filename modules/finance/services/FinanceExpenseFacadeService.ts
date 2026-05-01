@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "../repositories/prisma-boundary";
 import { ExpenseCategoryRepository, ExpenseRepository } from "../repositories";
 
 type ExpenseRepo = Pick<

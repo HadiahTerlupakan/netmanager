@@ -1,7 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { prisma } from "@/modules/database";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../repositories/prisma-boundary";
 
 import type { ListInventoryOpnameInput } from "./InventoryOpnameService";
 

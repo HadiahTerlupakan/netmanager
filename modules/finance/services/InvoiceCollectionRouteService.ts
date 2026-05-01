@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { Prisma as PrismaBilling } from "@prisma/client-billing";
+import { Prisma as PrismaBilling } from "../repositories/billing-prisma-boundary";
 import { logActivitySafe } from "@/lib/logger";
 import { PelangganAdminQueryService } from "@/modules/pelanggan";
 import { UserLookupService } from "@/modules/users";

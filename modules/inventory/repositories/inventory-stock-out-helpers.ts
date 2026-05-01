@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import type { BarangKeluar } from "@prisma/client";
 
 import { DEFAULT_KONDISI } from "@/lib/constants/inventory";
-import type { CreateBarangKeluarInput } from "./IInventoryRepository";
+import type { CreateBarangKeluarInput } from "../domain/ports/IInventoryOperationRepository";
 import { resolveInventoryActor } from "./inventory-repository-core-helpers";
 import {
   assertPositiveIntegerQuantity,

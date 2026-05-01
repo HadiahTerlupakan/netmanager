@@ -6,7 +6,7 @@ import {
   RateType,
   TargetSchema,
   WorkingHourMode,
-} from "@prisma/client";
+} from "../repositories/prisma-boundary";
 import { invalidatePermissionCache } from "@/lib/auth";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { redis } from "@/lib/redis";

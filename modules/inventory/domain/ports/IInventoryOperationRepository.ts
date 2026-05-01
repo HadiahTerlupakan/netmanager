@@ -1,8 +1,8 @@
 import type {
   Barang,
-  BarangMasuk,
-  BarangKeluar,
   BarangGudang,
+  BarangKeluar,
+  BarangMasuk,
   Gudang,
   KondisiBarang,
   JenisBarang,
@@ -10,11 +10,8 @@ import type {
   Prisma,
 } from "@prisma/client";
 
-// Extended types including relations
 export type BarangWithStock = Barang & {
-  barangGudang: (BarangGudang & {
-    gudang: Gudang;
-  })[];
+  barangGudang: (BarangGudang & { gudang: Gudang })[];
 };
 
 export type BarangMasukWithRelations = BarangMasuk & {
@@ -29,11 +26,29 @@ export type BarangKeluarWithRelations = BarangKeluar & {
   user?: { id: string; name: string | null } | null;
 };
 
-// Input types
 export interface InventoryActorInput {
   type: "user" | "mitra";
   id: string;
   userId?: string;
+}
+
+export interface FindInventoryBarangParams {
+  skip?: number;
+  take?: number;
+  search?: string;
+  gudangId?: string;
+  siteId?: string;
+  tenantId?: string;
+}
+
+export interface CreateInventoryBarangData {
+  kode: string;
+  nama: string;
+  satuan: string;
+  isWorkOrderMaterial?: boolean;
+  jenis?: string;
+  kategoriAset?: string;
+  minStokDefault?: number;
 }
 
 export interface CreateBarangInput {
@@ -90,21 +105,18 @@ export interface CreateBarangKeluarInput {
   tenantId?: string;
 }
 
-// Extended detailed type
 export type BarangDetail = BarangWithStock & {
   masuk: BarangMasukWithRelations[];
   keluar: BarangKeluarWithRelations[];
-  // opname usually has similar structure
   opname: Record<string, unknown>[];
 };
 
-// Gudang Types
 export interface CreateGudangInput {
   kode: string;
   nama: string;
   lokasi?: string | null;
   isActive?: boolean;
-  siteIds?: string[]; // Array of site IDs to connect
+  siteIds?: string[];
   tenantId?: string;
 }
 
@@ -116,9 +128,6 @@ export interface UpdateGudangInput {
   tenantId?: string;
 }
 
-// ... existing inputs ...
-
-// Transfer Types
 export interface CreateTransferInput {
   barangId: string;
   dariGudangId: string;
@@ -173,28 +182,13 @@ export interface InventoryMasukRecord {
     nama: string;
     sites?: InventoryRecordSite[];
   };
-  barang: {
-    id: string;
-    kode: string;
-    nama: string;
-    satuan: string;
-  };
+  barang: { id: string; kode: string; nama: string; satuan: string };
 }
 
 export interface InventoryOpnameRecord {
   id: string;
-  gudang: {
-    id: string;
-    kode: string;
-    nama: string;
-    lokasi: string | null;
-  };
-  barang: {
-    id: string;
-    kode: string;
-    nama: string;
-    satuan: string;
-  };
+  gudang: { id: string; kode: string; nama: string; lokasi: string | null };
+  barang: { id: string; kode: string; nama: string; satuan: string };
 }
 
 export interface UpdatedStockOpnameResult {
@@ -225,10 +219,7 @@ export interface MobileActorMitraRecord {
   siteId?: string | null;
 }
 
-export interface IInventoryRepository {
-  // ... existing Barang methods ...
-
-  // Transfer CRUD
+export interface IInventoryOperationRepository {
   findAllTransfers(params?: {
     skip?: number;
     take?: number;
@@ -237,30 +228,19 @@ export interface IInventoryRepository {
     keGudangId?: string;
     siteId?: string;
   }): Promise<{ items: Record<string, unknown>[]; total: number }>;
-
   findTransferById(id: string): Promise<Record<string, unknown> | null>;
-
   createTransfer(data: CreateTransferInput): Promise<Record<string, unknown>>;
-
   updateTransfer(
     id: string,
     data: UpdateTransferInput,
   ): Promise<Record<string, unknown>>;
-
-  deleteTransfer(id: string): Promise<void>; // Revert transfer
-
-  // ... existing Gudang methods ...
-
-  // Gudang CRUD
-  // Note: getAllGudang already exists, equivalent to findAllGudang
+  deleteTransfer(id: string): Promise<void>;
   findGudangById(id: string): Promise<Gudang | null>;
   findGudangByKode(kode: string): Promise<Gudang | null>;
   createGudang(data: CreateGudangInput): Promise<Gudang>;
   updateGudang(id: string, data: UpdateGudangInput): Promise<Gudang>;
-  deleteGudang(id: string): Promise<void>; // Hard or soft delete implementation detail
+  deleteGudang(id: string): Promise<void>;
   hasStockInGudang(id: string): Promise<boolean>;
-
-  // ... existing Stock methods ...
   findAllBarang(params?: {
     skip?: number;
     take?: number;
@@ -269,7 +249,6 @@ export interface IInventoryRepository {
     isWorkOrderMaterial?: boolean;
     siteId?: string;
   }): Promise<{ items: BarangWithStock[]; total: number }>;
-
   findBarangById(id: string): Promise<BarangWithStock | null>;
   findBarangDetail(id: string): Promise<BarangDetail | null>;
   findBarangByKode(kode: string): Promise<BarangWithStock | null>;
@@ -277,16 +256,12 @@ export interface IInventoryRepository {
   createBarang(data: CreateBarangInput): Promise<Barang>;
   updateBarang(id: string, data: UpdateBarangInput): Promise<Barang>;
   deleteBarang(id: string): Promise<void>;
-
-  // Stock Operations
   addStock(data: CreateBarangMasukInput): Promise<BarangMasuk>;
   addStockInTransaction(
     tx: Prisma.TransactionClient,
     data: CreateBarangMasukInput,
   ): Promise<BarangMasuk>;
   removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar>;
-
-  // Stock Queries
   getStockLevel(barangId: string, gudangId: string): Promise<number>;
   getAllGudang(params?: { siteId?: string }): Promise<Gudang[]>;
   findMobileActorUser(input: {
@@ -302,8 +277,6 @@ export interface IInventoryRepository {
     barangId: string,
     gudangId: string,
   ): Promise<{ baru: number; bekas: number; rusak: number; total: number }>;
-
-  // History Queries
   getHistoryMasuk(params?: {
     skip?: number;
     take?: number;
@@ -314,7 +287,6 @@ export interface IInventoryRepository {
     search?: string;
     siteId?: string;
   }): Promise<{ items: BarangMasukWithRelations[]; total: number }>;
-
   getHistoryKeluar(params?: {
     skip?: number;
     take?: number;
@@ -325,7 +297,6 @@ export interface IInventoryRepository {
     search?: string;
     siteId?: string;
   }): Promise<{ items: BarangKeluarWithRelations[]; total: number }>;
-
   getMasukRecord(id: string): Promise<InventoryMasukRecord | null>;
   updateMasuk(input: UpdateBarangMasukInput): Promise<void>;
   deleteMasuk(id: string): Promise<void>;
