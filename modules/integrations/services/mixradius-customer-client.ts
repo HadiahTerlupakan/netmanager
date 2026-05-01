@@ -12,10 +12,7 @@ import {
   type MixRadiusCustomerResponse,
 } from "./mixradius-types";
 import { fetchMixRadiusActiveSessionsPPP } from "./mixradius-active-sessions-client";
-import {
-  getCustomerConfigError,
-  isMixRadiusConfigError,
-} from "./mixradius-customer-errors";
+import { isMixRadiusConfigError } from "./mixradius-customer-errors";
 import type {
   MixRadiusCustomerCacheState,
   MixRadiusCustomerClientParams,

@@ -19,8 +19,13 @@ export type WorkOrderReminderCronResult = {
   details: WorkOrderReminderResult[];
 };
 
+type WorkOrderRepositoryReader = Pick<
+  WorkOrderRepository,
+  "findStaleReminderWorkOrders"
+>;
+
 type StaleWorkOrder = Awaited<
-  ReturnType<WorkOrderRepository["findStaleReminderWorkOrders"]>
+  ReturnType<WorkOrderRepositoryReader["findStaleReminderWorkOrders"]>
 >[number];
 
 /** Sends reminder notifications for stale active work orders. */
