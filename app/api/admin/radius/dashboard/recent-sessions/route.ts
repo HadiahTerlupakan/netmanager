@@ -1,7 +1,7 @@
 import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
-import { createRadiusDashboardService } from "@/modules/network";
+import { RadiusDashboardService } from "@/modules/network";
 
-const radiusDashboardService = createRadiusDashboardService();
+const radiusDashboardService = new RadiusDashboardService();
 const allowedStatusValues = ["active", "all"] as const;
 
 function parseRecentSessionsStatus(statusParam: string | null) {

@@ -43,12 +43,12 @@ export class AdminWorkOrderDashboardService {
   private readonly routeRepository: AdminWorkOrderRouteRepository;
 
   constructor(
-    private readonly workOrderRepo: WorkOrderRepository = new WorkOrderRepository(
-      prisma,
-    ),
-    routeRepository: AdminWorkOrderRouteRepository = new AdminWorkOrderRouteRepository(),
+    workOrderRepo?: WorkOrderRepository,
+    routeRepository?: AdminWorkOrderRouteRepository,
   ) {
-    this.routeRepository = routeRepository;
+    this.workOrderRepo = workOrderRepo ?? new WorkOrderRepository(prisma);
+    this.routeRepository =
+      routeRepository ?? new AdminWorkOrderRouteRepository();
   }
 
   /** Ambil ringkasan dashboard work order admin. */
@@ -112,7 +112,7 @@ export class AdminWorkOrderDashboardService {
         issues: [],
         sites: [],
         disconnections: [],
-        message: "Restricted access: No department/site assigned.",
+        message: this.getRestrictedMessage(access),
       });
     }
 
@@ -257,6 +257,18 @@ export class AdminWorkOrderDashboardService {
         new Date(Date.now() - FALLBACK_RESPONSE_DAYS * DAY_IN_MS),
       dateTo: dateRange.dateTo ?? new Date(),
     };
+  }
+
+  private getRestrictedMessage(access: DashboardAccess) {
+    if (access.siteId === undefined) {
+      return "Restricted access: No site assigned.";
+    }
+
+    if (access.departmentId === undefined) {
+      return "Restricted access: No department assigned.";
+    }
+
+    return "Restricted access: No department/site assigned.";
   }
 }
 
