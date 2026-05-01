@@ -10,4 +10,4 @@ export {
   userIdParamSchema,
   userUpdateSchema,
   workingHourModeEnum,
-} from "@/modules/users";
+} from "@/modules/users/validators/user";

@@ -1,6 +1,8 @@
 import { logger } from "@/lib/logger";
-import { prisma } from "@/modules/database";
+import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { sendWorkOrderReminder } from "./WorkOrderNotifications";
+
+const workOrderRepository = new WorkOrderRepository();
 
 export interface WorkOrderReminderResult {
   workOrderId: string;
@@ -39,28 +41,7 @@ export async function runWorkOrderReminderCron(
 }
 
 function findStaleWorkOrders(now: Date) {
-  const staleThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  return prisma.workOrders.findMany({
-    where: {
-      status: { in: ["PENDING", "ASSIGNED", "IN_PROGRESS"] },
-      createdAt: { lte: staleThreshold },
-    },
-    select: {
-      id: true,
-      workOrderNumber: true,
-      title: true,
-      type: true,
-      priority: true,
-      status: true,
-      departmentId: true,
-      siteId: true,
-      assignedToId: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "asc" },
-    take: 100,
-  });
+  return workOrderRepository.findStaleReminderWorkOrders(now);
 }
 
 async function sendReminderBatch(workOrders: StaleWorkOrder[], now: Date) {

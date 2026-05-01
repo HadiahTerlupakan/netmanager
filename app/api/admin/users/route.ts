@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getUserService } from "@/modules/users";
+import { AdminUserRouteService } from "@/modules/users";
 import { createUserSchema } from "@/lib/validations/user";
 import { logger } from "@/lib/logger";
 import type { Session } from "next-auth";
@@ -23,24 +23,26 @@ export const GET = createHandler(
 
     if (!session) return ApiErrors.unauthorized();
 
-    const routeService = getUserService();
-    const result = await routeService.getAllUsers({
-      siteId: undefined,
-      tenantId: "tenant-1",
-      roleName: undefined,
-      page: undefined,
-      limit: undefined,
-      search: undefined,
-      isActive: undefined,
-    });
-
-    const users = "users" in result ? result.users : result.data;
-    const total = "meta" in result ? result.meta.total : result.total;
+    const routeService = new AdminUserRouteService();
+    const result = await routeService.getAdminUsers(
+      session as Session & {
+        user: Session["user"] & { id: string; isSuperAdmin?: boolean };
+      },
+      {
+        tenantId: req.nextUrl.searchParams.get("tenantId"),
+        roleName: req.nextUrl.searchParams.get("roleName"),
+        page: req.nextUrl.searchParams.get("page"),
+        limit: req.nextUrl.searchParams.get("limit"),
+        search: req.nextUrl.searchParams.get("search"),
+        status: req.nextUrl.searchParams.get("status"),
+      },
+      permissions,
+    );
 
     logger.apiRequest("GET", "/api/admin/users", 200, Date.now() - startTime, {
       userId: session.user.id,
-      count: Array.isArray(users) ? users.length : 0,
-      total: typeof total === "number" ? total : 0,
+      count: result.users.length,
+      total: result.meta.total,
     });
 
     return apiSuccess(result);

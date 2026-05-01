@@ -1,4 +1,4 @@
 export {
   createPelangganSchema,
   type CreatePelangganSchema,
-} from "@/modules/pelanggan";
+} from "@/modules/pelanggan/validators/pelanggan";
