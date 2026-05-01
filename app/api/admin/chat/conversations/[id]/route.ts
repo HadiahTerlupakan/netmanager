@@ -3,10 +3,19 @@ import { ChatService } from "@/modules/chat";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import * as z from "zod";
 
+const imageUrlSchema = z.string().refine((value) => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, "URL gambar tidak valid");
+
 const sendMessageSchema = z
   .object({
     content: z.string().max(5000).optional(),
-    imageUrl: z.string().url().optional(),
+    imageUrl: imageUrlSchema.optional(),
   })
   .refine((data) => data.content?.trim() || data.imageUrl, {
     message: "Pesan atau gambar wajib diisi",
