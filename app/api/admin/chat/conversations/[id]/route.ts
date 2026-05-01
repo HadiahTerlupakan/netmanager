@@ -6,7 +6,7 @@ import * as z from "zod";
 const sendMessageSchema = z
   .object({
     content: z.string().max(5000).optional(),
-    imageUrl: z.url().optional(),
+    imageUrl: z.string().url().optional(),
   })
   .refine((data) => data.content?.trim() || data.imageUrl, {
     message: "Pesan atau gambar wajib diisi",
