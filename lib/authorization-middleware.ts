@@ -23,8 +23,77 @@ import {
   getUserPermissions,
   isSuperAdmin as isSuperAdminHelper,
 } from "@/lib/auth";
-import { checkSiteRestriction } from "@/modules/roles";
 import { prisma } from "@/lib/prisma";
+
+// =============================================================================
+// Site Restriction Helper (moved from @/modules/roles to avoid circular dependency)
+// =============================================================================
+
+interface SiteRestrictionResult {
+  isRestricted: boolean;
+  siteId: string | undefined;
+  siteIds: string[];
+  userSiteId: string | null;
+  primarySiteId: string | null;
+}
+
+/**
+ * Check site restriction status for a user and resource
+ */
+function checkSiteRestriction(
+  session: Session | null,
+  resource: string,
+): SiteRestrictionResult {
+  if (!session?.user) {
+    return {
+      isRestricted: false,
+      siteId: undefined,
+      siteIds: [],
+      userSiteId: null,
+      primarySiteId: null,
+    };
+  }
+
+  const user = session.user as SessionUser;
+  const permissions = user.permissions || [];
+
+  const siteIds = user.siteIds || (user.siteId ? [user.siteId] : []);
+  const primarySiteId = user.primarySiteId || user.siteId || null;
+  const legacySiteId = user.siteId || null;
+
+  // SUPER_ADMIN bypass - always can see all
+  if (isSuperAdminHelper(user)) {
+    return {
+      isRestricted: false,
+      siteId: undefined,
+      siteIds: [],
+      userSiteId: legacySiteId,
+      primarySiteId,
+    };
+  }
+
+  // Check for site_only permission
+  const siteOnlyPermission = `${resource}:site_only`;
+  const isRestricted = permissions.includes(siteOnlyPermission);
+
+  if (isRestricted) {
+    return {
+      isRestricted: true,
+      siteId: primarySiteId || undefined,
+      siteIds,
+      userSiteId: legacySiteId,
+      primarySiteId,
+    };
+  }
+
+  return {
+    isRestricted: false,
+    siteId: undefined,
+    siteIds: [],
+    userSiteId: legacySiteId,
+    primarySiteId,
+  };
+}
 
 // =============================================================================
 // Types
@@ -78,12 +147,13 @@ interface SessionUser {
   email?: string;
   name?: string;
   role?: string;
+  isSuperAdmin?: boolean;
+  permissions?: string[];
   siteId?: string | null;
   siteIds?: string[];
   primarySiteId?: string | null;
   departmentId?: string | null;
   isSales?: boolean;
-  isSuperAdmin?: boolean;
   tenantId?: string | null;
 }
 

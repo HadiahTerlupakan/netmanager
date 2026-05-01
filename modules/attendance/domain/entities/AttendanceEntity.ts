@@ -18,6 +18,11 @@ export interface AttendanceUserEntity {
   name: string | null;
   email: string;
   departmentName: string | null;
+  joinDate?: Date | null;
+  siteId?: string | null;
+  departmentId?: string | null;
+  sites?: { name: string }[] | null;
+  departments?: { name: string }[] | null;
 }
 
 export interface AttendanceEntity {

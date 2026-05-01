@@ -2,8 +2,8 @@ import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
 import { prismaAuth } from "@/modules/database";
 import { provisionTenantData } from "@/modules/mitra";
-import { TenantRepository } from "../repositories/TenantRepository";
 import type { ITenantRepository } from "../domain/ports/ITenantRepository";
+import { TenantRepository } from "../repositories/TenantRepository";
 
 const DEFAULT_TENANT_ACTIVE = true;
 const DUPLICATE_DOMAIN_CODE = "DUPLICATE_DOMAIN";

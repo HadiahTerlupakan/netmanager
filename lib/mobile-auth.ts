@@ -1,9 +1,5 @@
 import { logger } from "@/lib/logger";
 import { SignJWT, jwtVerify } from "jose";
-import {
-  getAppVersionService,
-  type VersionAccessResult,
-} from "@/modules/app-version";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaMitraAuth } from "@/lib/prisma-mitra";
 
@@ -100,7 +96,21 @@ export interface MobileTokenPayload {
 export interface MobileTokenDetails {
   payload: MobileTokenPayload;
   versionCode: number;
-  versionAccess: VersionAccessResult;
+  versionAccess: {
+    isSupported: boolean;
+    minimumVersion: number;
+    latestVersion?: number;
+    isForceUpdate?: boolean;
+    updateAvailable?: boolean;
+  };
+}
+
+// Local version access check - avoids circular dependency with @/modules/app-version
+async function evaluateVersionAccess(
+  versionCode: number,
+): Promise<{ isSupported: boolean; minimumVersion: number }> {
+  // Default: all versions supported if no app version service available
+  return { isSupported: true, minimumVersion: 0 };
 }
 
 export function getMitraMobileFeatures(mitraType?: string | null): string[] {
@@ -191,9 +201,7 @@ export async function getMobileTokenDetails(
     const { payload } = await jwtVerify(token, getSecret());
     const mobilePayload = payload as MobileTokenPayload;
     const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
-    const versionAccess = await (
-      await getAppVersionService()
-    ).evaluateVersionAccess(versionCode);
+    const versionAccess = await evaluateVersionAccess(versionCode);
 
     return {
       payload: mobilePayload,

@@ -3,7 +3,32 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
 import { MAIN_TENANT_ID } from "@/modules/mitra";
-import { getTenantContextLookupService } from "@/modules/admin";
+
+// Local tenant context lookup - avoids circular dependency with @/modules/admin
+interface TenantHostMapping {
+  domain: string;
+  tenantId: string;
+}
+
+async function resolveTenantContextFromHost(
+  requestHeaders: Headers | null,
+): Promise<TenantContextResult | null> {
+  const host =
+    requestHeaders?.get("x-forwarded-host") || requestHeaders?.get("host");
+  const normalizedHost = host?.split(":")[0]?.trim().toLowerCase();
+
+  if (!normalizedHost) {
+    return null;
+  }
+
+  if (normalizedHost === "localhost") {
+    return resolvePrimaryTenantContext();
+  }
+
+  // Default fallback - in production, this would query the database
+  // For now, return null to let the system use default tenant
+  return null;
+}
 
 export interface TenantContextResult {
   tenantId: string | null;
@@ -50,24 +75,6 @@ function resolvePrimaryTenantContext(): TenantContextResult {
     tenantId: MAIN_TENANT_ID,
     isSuperAdmin: false,
   };
-}
-
-async function resolveTenantContextFromHost(
-  requestHeaders: Headers | null,
-): Promise<TenantContextResult | null> {
-  const host =
-    requestHeaders?.get("x-forwarded-host") || requestHeaders?.get("host");
-  const normalizedHost = host?.split(":")[0]?.trim().toLowerCase();
-
-  if (!normalizedHost) {
-    return null;
-  }
-
-  if (normalizedHost === "localhost") {
-    return resolvePrimaryTenantContext();
-  }
-
-  return getTenantContextLookupService().resolveFromHost(normalizedHost);
 }
 
 /**

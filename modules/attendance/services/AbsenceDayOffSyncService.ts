@@ -1,6 +1,9 @@
 import { randomUUID } from "crypto";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { UserLookupService } from "@/modules/users";
+import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
+import type { IHolidayRepository } from "../domain/ports/IHolidayRepository";
+import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { HolidayRepository } from "../repositories/HolidayRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
@@ -16,9 +19,9 @@ type SyncableUser = {
 
 export class AbsenceDayOffSyncService {
   constructor(
-    private readonly holidayRepo: HolidayRepository,
-    private readonly leaveRepo: LeaveRepository,
-    private readonly attendanceRepo: AttendanceRepository,
+    private readonly holidayRepo: IHolidayRepository = new HolidayRepository(),
+    private readonly leaveRepo: ILeaveRepository = new LeaveRepository(),
+    private readonly attendanceRepo: IAttendanceRepository = new AttendanceRepository(),
     private readonly userRepo: UserLookupService,
     private readonly workdayService = new AttendanceWorkdayService(),
   ) {}
@@ -76,10 +79,12 @@ export class AbsenceDayOffSyncService {
   }
 
   private async isHoliday(tenantId: string, startOfDay: Date, endOfDay: Date) {
-    const holidays = await this.holidayRepo.findMany(tenantId, {
-      where: { date: { gte: startOfDay, lte: endOfDay } },
-    });
-    return holidays.length > 0;
+    const holiday = await this.holidayRepo.findFirstByTenantAndDateRange(
+      tenantId,
+      startOfDay,
+      endOfDay,
+    );
+    return holiday !== null;
   }
 
   private async hasAttendanceOrLeave(
