@@ -599,6 +599,4 @@ export class MikroTikPPPSecretService {
   }
 }
 
-export { createMikroTikPPPSecretService } from "../factories/MikroTikPPPSecretServiceFactory";
-
 export default MikroTikPPPSecretService;

@@ -173,13 +173,38 @@ const nextConfig: NextConfig = {
   },
 
   // Webpack configuration to suppress known non-critical warnings.
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.ignoreWarnings = [
       /UNSAFE_componentWillReceiveProps/,
       /componentWillReceiveProps/,
       /ModelCollapse/,
       /Critical dependency: the request of a dependency is an expression/,
     ];
+
+    // Optimize memory usage during build
+    if (!isServer) {
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: "deterministic",
+        splitChunks: {
+          ...config.optimization.splitChunks,
+          cacheGroups: {
+            ...config.optimization.splitChunks?.cacheGroups,
+            // Split large modules into smaller chunks
+            commons: {
+              test: /[\\/]node_modules[\\/]/,
+              name: "vendors",
+              chunks: "all",
+              priority: 10,
+              maxSize: 244000, // ~244KB per chunk
+            },
+          },
+        },
+      };
+    }
+
+    // Reduce memory pressure by limiting parallel processing
+    config.parallelism = 1;
 
     return config;
   },

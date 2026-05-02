@@ -21,6 +21,7 @@ export * from "./services/RadiusAdminService";
 export * from "./services/RadiusMonitor";
 export * from "./services/radius-sync-service";
 export * from "./services/MikroTikPPPSecretService";
+export { createMikroTikPPPSecretService } from "./factories/MikroTikPPPSecretServiceFactory";
 export * from "./services/snmp-optimized";
 export * from "./services/HargaPaketService";
 export * from "./services/MikroTikProvisioningService";

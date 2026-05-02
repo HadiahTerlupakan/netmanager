@@ -42,7 +42,6 @@ export type {
   UploadVersionInput,
   VersionAccessResult,
 };
-export { getAppVersionService } from "../factories/app-version-service-factory";
 
 export class AppVersionService {
   private readonly accessService: AppVersionAccessService;
