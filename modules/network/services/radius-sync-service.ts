@@ -12,10 +12,8 @@ import { logger } from "@/lib/logger";
 
 import { Status } from "../types/network.enums";
 import { RadiusRepository } from "../repositories/RadiusRepository";
-import {
-  createMikroTikPPPSecretService,
-  MikroTikPPPSecretService,
-} from "./MikroTikPPPSecretService";
+import { MikroTikPPPSecretService } from "./MikroTikPPPSecretService";
+import { createMikroTikPPPSecretService } from "../factories/MikroTikPPPSecretServiceFactory";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { prismaRadius } from "@/lib/prisma-radius";
 

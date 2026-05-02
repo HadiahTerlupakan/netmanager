@@ -5,8 +5,6 @@ export type {
   VersionAccessResult,
   MobileVersionReportInput,
 } from "./services/AppVersionService";
-export {
-  AppVersionService,
-  getAppVersionService,
-} from "./services/AppVersionService";
+export { AppVersionService } from "./services/AppVersionService";
+export { getAppVersionService } from "./factories/app-version-service-factory";
 export { parseAppVersionUploadForm } from "./services/parseUploadVersionForm";
