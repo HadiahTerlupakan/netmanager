@@ -1,41 +1,76 @@
 import { hasPermission } from "@/lib/rbac";
 import { ChatService } from "@/modules/chat";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import * as z from "zod";
+import {
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  apiError,
+  ErrorCodes,
+} from "@/lib/api";
 
-const broadcastSchema = z.object({
-  content: z.string().min(1, "Konten pesan wajib diisi").max(5000),
-  title: z.string().max(200).optional(),
-});
+function parseBroadcastPayload(
+  payload: unknown,
+): { content: string; title?: string } | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const raw = payload as { content?: unknown; title?: unknown };
+  if (typeof raw.content !== "string") {
+    return null;
+  }
+
+  const content = raw.content.trim();
+  if (content.length === 0 || content.length > 5000) {
+    return null;
+  }
+
+  if (raw.title !== undefined && typeof raw.title !== "string") {
+    return null;
+  }
+
+  if (typeof raw.title === "string" && raw.title.length > 200) {
+    return null;
+  }
+
+  return {
+    content,
+    ...(typeof raw.title === "string" && raw.title.trim().length > 0
+      ? { title: raw.title.trim() }
+      : {}),
+  };
+}
 
 // POST - Send broadcast message to all users
-export const POST = createHandler(
-  {
-    auth: true,
-    schema: broadcastSchema,
-  },
-  async (req, ctx) => {
-    const user = ctx.session!.user;
+export const POST = createHandler({ auth: true }, async (req, ctx) => {
+  const user = ctx.session!.user;
 
-    // Check broadcast permission
-    if (!(await hasPermission("broadcast:create"))) {
-      return ApiErrors.forbidden("Anda tidak memiliki akses untuk broadcast");
-    }
+  if (!(await hasPermission("broadcast:create"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk broadcast");
+  }
 
-    const { content, title } = ctx.validated;
+  const payload = parseBroadcastPayload(await req.json());
+  if (!payload) {
+    return apiError(
+      "Payload broadcast tidak valid",
+      ErrorCodes.VALIDATION_ERROR,
+      {
+        status: 400,
+      },
+    );
+  }
 
-    const chatService = new ChatService();
-    const result = await chatService.broadcastMessage({
-      senderId: user.id,
-      senderName: user.name || "Admin",
-      tenantId: user.tenantId as string,
-      content: content.trim(),
-      ...(title ? { title } : {}),
-    });
+  const chatService = new ChatService();
+  const result = await chatService.broadcastMessage({
+    senderId: user.id,
+    senderName: user.name || "Admin",
+    tenantId: user.tenantId as string,
+    content: payload.content,
+    ...(payload.title ? { title: payload.title } : {}),
+  });
 
-    return apiSuccess(result, {
-      status: 201,
-      message: "Broadcast berhasil dikirim",
-    });
-  },
-);
+  return apiSuccess(result, {
+    status: 201,
+    message: "Broadcast berhasil dikirim",
+  });
+});
