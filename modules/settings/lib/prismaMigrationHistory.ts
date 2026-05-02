@@ -89,7 +89,10 @@ function listMigrationNames(projectRoot: string, dbName: string) {
     return [];
   }
 
-  const migrationsRoot = path.join(projectRoot, prismaConfig.migrationsDir);
+  const migrationsRoot = path.join(
+    /*turbopackIgnore: true*/ projectRoot,
+    prismaConfig.migrationsDir,
+  );
 
   return fs
     .readdirSync(migrationsRoot, { withFileTypes: true })

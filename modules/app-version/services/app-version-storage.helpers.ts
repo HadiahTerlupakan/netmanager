@@ -142,7 +142,11 @@ function isLocalApkUrl(apkUrl: string): boolean {
 
 async function deleteLocalApk(apkUrl: string): Promise<void> {
   const relativePath = apkUrl.replace(/^\//, "");
-  const localPath = path.join(process.cwd(), "public", relativePath);
+  const localPath = path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "public",
+    relativePath,
+  );
   await fs.unlink(localPath);
 }
 
@@ -197,7 +201,10 @@ async function uploadApkToLocal(
   input: { buffer?: Buffer; path?: string },
   sanitizedFilename: string,
 ): Promise<string> {
-  const uploadDir = path.join(process.cwd(), ...LOCAL_APK_DIRECTORY);
+  const uploadDir = path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    ...LOCAL_APK_DIRECTORY,
+  );
   await fs.mkdir(uploadDir, { recursive: true });
 
   const destinationPath = path.join(uploadDir, sanitizedFilename);

@@ -319,7 +319,10 @@ export class MobileMitraRouteService {
 
   /** Menyimpan file foto verifikasi ke public uploads mitra. */
   private async savePhotoFile(mitraId: string, photo: FaceVerificationFile) {
-    const uploadDirectory = path.join(process.cwd(), ...UPLOAD_ROOT_SEGMENTS);
+    const uploadDirectory = path.join(
+      /*turbopackIgnore: true*/ process.cwd(),
+      ...UPLOAD_ROOT_SEGMENTS,
+    );
     if (!fs.existsSync(uploadDirectory))
       fs.mkdirSync(uploadDirectory, { recursive: true });
     const fileBuffer = Buffer.from(await photo.arrayBuffer());

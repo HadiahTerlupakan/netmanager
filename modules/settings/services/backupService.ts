@@ -237,7 +237,12 @@ export function buildPgDumpCommand(
 }
 
 export function findPrismaBin(): string {
-  const local = path.join(process.cwd(), "node_modules", ".bin", "prisma");
+  const local = path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "node_modules",
+    ".bin",
+    "prisma",
+  );
   if (fs.existsSync(local)) {
     return local;
   }
@@ -246,7 +251,12 @@ export function findPrismaBin(): string {
 }
 
 export function findTsxCommand(): string {
-  const local = path.join(process.cwd(), "node_modules", ".bin", "tsx");
+  const local = path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "node_modules",
+    ".bin",
+    "tsx",
+  );
   if (fs.existsSync(local)) {
     return `"${local}"`;
   }

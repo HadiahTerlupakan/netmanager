@@ -191,13 +191,19 @@ async function processAndSaveBuffer(
   }
 
   // Fallback to local storage
-  const absoluteUploadDir = path.resolve(process.cwd(), uploadDir);
+  const absoluteUploadDir = path.resolve(
+    /*turbopackIgnore: true*/ process.cwd(),
+    uploadDir,
+  );
   await mkdir(absoluteUploadDir, { recursive: true });
   const outputPath = path.join(absoluteUploadDir, `${fileName}.webp`);
   await writeFile(outputPath, webpBuffer);
 
   // Return path relatif untuk URL
-  const publicPath = path.join(process.cwd(), "public");
+  const publicPath = path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "public",
+  );
   let relativePath = outputPath.replace(publicPath, "");
   relativePath = relativePath.replace(/\\/g, "/"); // Normalize path separator untuk URL
 
@@ -416,7 +422,7 @@ export async function deleteUploadedFile(url: string): Promise<boolean> {
   }
 
   const filePath = path.join(
-    process.cwd(),
+    /*turbopackIgnore: true*/ process.cwd(),
     "public",
     objectPath.replace(/^\/uploads\//, "uploads/"),
   );

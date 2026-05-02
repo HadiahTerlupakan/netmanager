@@ -84,7 +84,7 @@ const nextConfig: NextConfig = {
   // Force include prisma CLI and its config package in standalone output
   // This fixes "Cannot find module 'prisma/config'" in Docker
   outputFileTracingIncludes: {
-    "/**": [
+    "/api/:path*": [
       "prisma.config.ts",
       "prisma.radius.config.ts",
       "prisma.billing.config.ts",

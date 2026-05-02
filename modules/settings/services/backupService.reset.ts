@@ -121,7 +121,7 @@ async function pushPrismaSchema(
 ) {
   const configFlag = getPrismaConfigFlag(dbName);
   await context.execAsync(
-    `cd "${process.cwd()}" && "${context.prismaBin}" db push --accept-data-loss${configFlag}`,
+    `cd "${/*turbopackIgnore: true*/ process.cwd()}" && "${context.prismaBin}" db push --accept-data-loss${configFlag}`,
     buildPrismaExecOptions(),
   );
   await resolveMigrationHistory(context, dbName, database, psqlCommand);
@@ -145,7 +145,7 @@ async function resolveMigrationHistory(
     psqlBin: psqlCommand,
     psqlCommand,
     prismaBin: context.prismaBin,
-    projectRoot: process.cwd(),
+    projectRoot: /*turbopackIgnore: true*/ process.cwd(),
     env: buildPrismaEnv(),
     runCommand: async (command, options) =>
       context.execAsync(command, {
@@ -175,7 +175,7 @@ function shouldRunSeedAfterReset(results: BackupResultItem[]): boolean {
 
 async function runSeed(context: ResetContext) {
   await context.execAsync(
-    `cd "${process.cwd()}" && ${findTsxCommand()} prisma/seed.ts`,
+    `cd "${/*turbopackIgnore: true*/ process.cwd()}" && ${findTsxCommand()} prisma/seed.ts`,
     buildPrismaExecOptions(),
   );
 }
