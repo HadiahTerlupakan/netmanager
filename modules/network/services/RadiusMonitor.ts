@@ -4,7 +4,10 @@ import { RadiusRepository } from "../repositories/RadiusRepository";
 import { BaseMonitor } from "./BaseMonitor";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 
-const POLL_INTERVAL = 30 * 1000;
+// Reduced from 30s to 5min to avoid Firestore quota exhaustion
+// At 30s: 2880 writes/day per tenant (2 writes × 2880 polls)
+// At 5min: 576 writes/day per tenant (2 writes × 288 polls)
+const POLL_INTERVAL = 5 * 60 * 1000;
 
 export class RadiusMonitor extends BaseMonitor {
   private repository: RadiusRepository;
@@ -30,6 +33,16 @@ export class RadiusMonitor extends BaseMonitor {
     for (const tenant of tenants) {
       try {
         const scope = { kind: "admin", id: `radius:${tenant.id}` } as const;
+
+        // Check if there are active consumers before publishing
+        // This prevents unnecessary Firestore writes when no one is listening
+        const hasConsumers =
+          await firebaseRealtimeService.hasActiveScopeConsumers(scope);
+
+        if (!hasConsumers) {
+          continue; // Skip this tenant if no active consumers
+        }
+
         const [stats, recentSessions] = await Promise.all([
           this.repository.getDashboardStats(tenant.id),
           this.repository.getRecentSessions(tenant.id, {

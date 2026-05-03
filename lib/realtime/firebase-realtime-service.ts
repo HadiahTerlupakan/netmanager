@@ -35,6 +35,9 @@ function assertValidCollectionPath(path: string): void {
 }
 
 class FirebaseRealtimeService {
+  private publishCache = new Map<string, number>();
+  private readonly PUBLISH_THROTTLE_MS = 10000; // 10 seconds minimum between same-scope publishes
+
   async publish<TPayload>(input: PublishInput<TPayload>) {
     const envelope = {
       id: randomUUID(),
@@ -49,6 +52,18 @@ class FirebaseRealtimeService {
     const channel = buildScopeChannel(input.scope);
 
     if (db) {
+      // Throttle writes to prevent quota exhaustion
+      const cacheKey = `${channel}:${input.type}`;
+      const lastPublish = this.publishCache.get(cacheKey) || 0;
+      const now = Date.now();
+
+      if (now - lastPublish < this.PUBLISH_THROTTLE_MS) {
+        // Skip this publish to avoid quota exhaustion
+        return envelope;
+      }
+
+      this.publishCache.set(cacheKey, now);
+
       assertValidCollectionPath(channel);
       await db.collection(channel).add(envelope);
     }
