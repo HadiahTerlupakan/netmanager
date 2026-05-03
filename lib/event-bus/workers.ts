@@ -46,16 +46,34 @@ function publishWebsocketNotification(data: NotificationJobData) {
 // REDIS CONNECTION FACTORY
 // ============================================
 
-const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6380";
+const DEFAULT_LOCAL_REDIS_URL = "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
 
 function createWorkerRedis(): Redis {
-  const conn = new Redis(REDIS_URL, {
+  // Parse URL and clean up malformed query params (e.g., ?family=undefined from Next.js env)
+  let url = REDIS_URL;
+  try {
+    const parsed = new URL(REDIS_URL);
+    if (parsed.searchParams.has("family")) {
+      parsed.searchParams.delete("family");
+    }
+    // If password is empty string, remove auth part to avoid NOAUTH errors
+    if (!parsed.password) {
+      parsed.username = "";
+    }
+    url = parsed.toString().replace(/\?$/, ""); // Remove trailing ? if no params
+  } catch {
+    // Use URL as-is if parsing fails
+  }
+
+  const conn = new Redis(url, {
     maxRetriesPerRequest: null,
     enableOfflineQueue: false,
     retryStrategy: (times) => {
       if (times > 10) return null;
       return Math.min(times * 1000, 10000);
     },
+    lazyConnect: true,
   });
   conn.on("error", () => {});
   return conn;
