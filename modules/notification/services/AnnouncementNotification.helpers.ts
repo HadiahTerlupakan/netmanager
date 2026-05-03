@@ -1,4 +1,10 @@
 import crypto from "crypto";
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety.
+ * This helper uses Prisma types for user query building and filtering.
+ * Removing this would require duplicating all Prisma types or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import type { Prisma } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";

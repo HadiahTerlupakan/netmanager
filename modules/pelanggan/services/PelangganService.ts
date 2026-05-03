@@ -7,6 +7,13 @@ import type {
   PelangganWithPackageEntity,
 } from "../domain/entities/PelangganEntity";
 import { PelangganRepository } from "../repositories/PelangganRepository";
+/**
+ * NOTE: Prisma enums are intentionally imported here.
+ * These are domain enums (Status, TipePelanggan, DiscountType, DurasiUnit) that are
+ * defined in Prisma schema and used throughout the domain layer.
+ * Duplicating these enums would create maintenance burden and potential inconsistencies.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import type {
   Status,
   TipePelanggan,

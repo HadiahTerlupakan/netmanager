@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger";
-import { Prisma } from "@prisma/client";
 import { bandwidthSchema } from "@/lib/validations/bandwidth";
 import { sanitizeInput } from "@/lib/utils/sanitize";
 import { logActivitySafe } from "@/lib/logger";
@@ -148,7 +147,7 @@ export class BandwidthRouteService {
 
   private toCreateInput(
     payload: z.infer<typeof bandwidthSchema>,
-  ): Prisma.BandwidthCreateInput {
+  ): z.infer<typeof bandwidthSchema> & { id: string; updatedAt: Date } {
     return { id: crypto.randomUUID(), updatedAt: new Date(), ...payload };
   }
 

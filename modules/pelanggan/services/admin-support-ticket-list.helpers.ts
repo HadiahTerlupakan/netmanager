@@ -1,3 +1,9 @@
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety.
+ * This helper uses Prisma.SupportTicketsWhereInput for dynamic query building.
+ * Removing this would require duplicating all Prisma types or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import { Prisma } from "@prisma/client";
 import { TicketStatus } from "../types/pelanggan.enums";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";

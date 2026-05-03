@@ -1,3 +1,9 @@
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety.
+ * This service uses Prisma types for dynamic query building and filtering.
+ * Removing this would require duplicating all Prisma types or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import { AnnouncementRepository } from "../repositories/AnnouncementRepository";

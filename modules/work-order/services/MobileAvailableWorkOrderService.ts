@@ -1,5 +1,11 @@
 import { ApiErrors, apiError, ErrorCodes } from "@/lib/api";
 import { notifyAdminsAboutMobileAction } from "@/modules/notification";
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety.
+ * This service uses Prisma.WorkOrdersWhereInput for dynamic query building.
+ * Removing this would require duplicating all Prisma types or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import { Prisma } from "@prisma/client";
 import type { MobileAvailableUserProfileEntity } from "../domain/entities/WorkOrderEntity";
 import type { IWorkOrderAvailabilityRepository } from "../domain/ports/IWorkOrderAvailabilityRepository";

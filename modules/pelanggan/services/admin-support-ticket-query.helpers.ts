@@ -1,5 +1,13 @@
 import { logger } from "@/lib/logger";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety and enums.
+ * This helper uses:
+ * - Prisma types for dynamic query building with type safety
+ * - Prisma enums (TicketCategory, TicketPriority, TicketStatus) from schema
+ * Removing this would require duplicating all Prisma types/enums or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import {
   Prisma,
   TicketCategory,

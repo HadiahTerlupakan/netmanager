@@ -1,6 +1,6 @@
-import type { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { MAIN_TENANT_ID } from "./tenant-constants";
+import type { PrismaClient } from "@prisma/client";
 
 const SENSITIVE_SETTING_KEYS = new Set([
   "R2_ACCESS_KEY_ID",

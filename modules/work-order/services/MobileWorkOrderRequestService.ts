@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import { createNotification, sendPushToUsers } from "@/modules/notification";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";

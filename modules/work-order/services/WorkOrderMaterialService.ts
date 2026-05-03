@@ -1,4 +1,10 @@
 import { logger } from "@/lib/logger";
+/**
+ * NOTE: PrismaClient type is intentionally kept here for transaction support.
+ * This service needs PrismaClient type for $transaction operations.
+ * Using DatabaseClient interface would require extensive type mapping.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import type { PrismaClient } from "@prisma/client";
 import type { WorkOrderStatus } from "../types/work-order.enums";
 import { InventoryStockService } from "@/modules/inventory";

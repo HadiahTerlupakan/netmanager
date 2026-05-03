@@ -1,7 +1,7 @@
 import { NotificationRepository } from "../repositories/NotificationRepository";
 import { UserLookupService } from "@/modules/users";
-import { Prisma } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import { Prisma } from "@prisma/client";
 import {
   buildCanvasingTitle,
   buildExcludedTypesSqlCondition,

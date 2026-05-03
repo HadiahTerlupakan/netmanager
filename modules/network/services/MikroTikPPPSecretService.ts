@@ -10,7 +10,6 @@ import type {
   PelangganWithRouter,
   RouterTenantId,
 } from "../repositories/NetworkRepository";
-import type { MikroTikRouterEntity } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import {
   MikroTikConnectionFactory,
@@ -21,15 +20,8 @@ import type {
   SessionUsageData,
 } from "./mikrotik/ppp-session-usage";
 import { MikroTikSessionService } from "./mikrotik/MikroTikSessionService";
-
-interface PPPSecretData {
-  name: string;
-  password: string;
-  profile: string;
-  service?: string;
-  comment?: string;
-  disabled?: boolean;
-}
+import { MikroTikRouterContextService } from "./mikrotik/MikroTikRouterContextService";
+import type { PPPSecretData } from "./mikrotik/ppp-secret.types";
 
 interface MikroTikPPPSecretNetworkRepository {
   findRouterTenantId(routerId: string): Promise<RouterTenantId | null>;
@@ -43,6 +35,7 @@ type MikroTikPPPSecretDependencies = {
   routerRepository: IMikroTikRouterRepository;
   connectionFactory?: MikroTikConnectionFactory;
   sessionService?: MikroTikSessionService;
+  routerContextService?: MikroTikRouterContextService;
 };
 
 const EXPIRED_PROFILE = "expired users";
@@ -52,6 +45,7 @@ export class MikroTikPPPSecretService {
   private readonly routerRepository: IMikroTikRouterRepository;
   private readonly connectionFactory: MikroTikConnectionFactory;
   private readonly sessionService: MikroTikSessionService;
+  private readonly routerContextService: MikroTikRouterContextService;
 
   constructor(deps?: MikroTikPPPSecretDependencies) {
     if (!deps) {
@@ -63,61 +57,16 @@ export class MikroTikPPPSecretService {
     this.connectionFactory =
       deps.connectionFactory ?? new MikroTikConnectionFactory();
     this.sessionService = deps.sessionService ?? new MikroTikSessionService();
+    this.routerContextService =
+      deps.routerContextService ??
+      new MikroTikRouterContextService({
+        networkRepository: deps.networkRepository,
+        routerRepository: deps.routerRepository,
+      });
   }
 
   private async connectToRouter(config: RouterConfig) {
     return this.connectionFactory.connect(config);
-  }
-
-  private async findRouter(
-    routerId: string,
-  ): Promise<MikroTikRouterEntity | null> {
-    const routerTenant =
-      await this.networkRepository.findRouterTenantId(routerId);
-    if (!routerTenant?.tenantId) {
-      return null;
-    }
-
-    return this.routerRepository.findById(routerId, routerTenant.tenantId);
-  }
-
-  /**
-   * Helper: Get router config dari pelanggan
-   * Menggunakan generated API user jika tersedia, fallback ke master user
-   */
-  private async getRouterFromPelanggan(pelangganId: string): Promise<{
-    router: RouterConfig;
-    routerId: string;
-    pelanggan: {
-      username: string;
-      password: string;
-      nama: string;
-    };
-    profileName: string;
-  } | null> {
-    const pelanggan =
-      await this.networkRepository.findPelangganWithRouter(pelangganId);
-
-    if (!pelanggan?.hargaPaket?.profilePPP?.mikroTikRouter) {
-      return null;
-    }
-
-    const router = pelanggan.hargaPaket.profilePPP.mikroTikRouter;
-
-    const apiUsername = router.apiUsernameGenerated || router.apiUsername;
-    const apiPassword = router.apiPasswordGenerated || router.apiPassword;
-
-    return {
-      router: {
-        ipAddress: router.ipAddress,
-        apiPort: router.apiPort,
-        apiUsername: apiUsername,
-        apiPassword: apiPassword,
-      },
-      routerId: router.id,
-      pelanggan,
-      profileName: pelanggan.hargaPaket.profilePPP.name,
-    };
   }
 
   /**
@@ -128,7 +77,7 @@ export class MikroTikPPPSecretService {
     data: PPPSecretData,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const router = await this.findRouter(routerId);
+      const router = await this.routerContextService.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -189,7 +138,7 @@ export class MikroTikPPPSecretService {
     profileName: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const router = await this.findRouter(routerId);
+      const router = await this.routerContextService.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -239,7 +188,7 @@ export class MikroTikPPPSecretService {
     username: string,
   ): Promise<{ success: boolean; disconnected: number; error?: string }> {
     try {
-      const router = await this.findRouter(routerId);
+      const router = await this.routerContextService.findRouter(routerId);
 
       if (!router) {
         return {
@@ -313,7 +262,7 @@ export class MikroTikPPPSecretService {
     error?: string;
   }> {
     try {
-      const router = await this.findRouter(routerId);
+      const router = await this.routerContextService.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -354,7 +303,7 @@ export class MikroTikPPPSecretService {
     username: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const router = await this.findRouter(routerId);
+      const router = await this.routerContextService.findRouter(routerId);
 
       if (!router) {
         return { success: false, error: "Router tidak ditemukan" };
@@ -411,7 +360,8 @@ export class MikroTikPPPSecretService {
     const logs: string[] = [];
 
     try {
-      const data = await this.getRouterFromPelanggan(pelangganId);
+      const data =
+        await this.routerContextService.getRouterFromPelanggan(pelangganId);
       if (!data) {
         return {
           success: false,
@@ -469,7 +419,8 @@ export class MikroTikPPPSecretService {
     const logs: string[] = [];
 
     try {
-      const data = await this.getRouterFromPelanggan(pelangganId);
+      const data =
+        await this.routerContextService.getRouterFromPelanggan(pelangganId);
       if (!data) {
         return {
           success: false,
@@ -527,7 +478,8 @@ export class MikroTikPPPSecretService {
     const logs: string[] = [];
 
     try {
-      const data = await this.getRouterFromPelanggan(pelangganId);
+      const data =
+        await this.routerContextService.getRouterFromPelanggan(pelangganId);
       if (!data) {
         return {
           success: false,
@@ -564,7 +516,8 @@ export class MikroTikPPPSecretService {
     const logs: string[] = [];
 
     try {
-      const data = await this.getRouterFromPelanggan(pelangganId);
+      const data =
+        await this.routerContextService.getRouterFromPelanggan(pelangganId);
       if (!data) {
         return {
           success: false,

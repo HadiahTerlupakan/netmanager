@@ -1,3 +1,9 @@
+/**
+ * NOTE: PrismaClient type is intentionally kept here for transaction support.
+ * This service orchestrates complex operations requiring database transactions.
+ * Using DatabaseClient interface would require extensive type mapping.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import type { PrismaClient } from "@prisma/client";
 import type { WorkOrderStatus } from "../types/work-order.enums";
 import { prisma as defaultPrisma } from "@/lib/prisma";

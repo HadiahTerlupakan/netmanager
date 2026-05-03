@@ -1,19 +1,19 @@
-import { Prisma } from "@prisma/client";
+import {
+  isPrismaRecordNotFoundError,
+  isPrismaUniqueConstraintError,
+  isPrismaForeignKeyError,
+} from "@/lib/prisma-errors";
 
 export function mapProfilePPPRouteError(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return null;
-  }
-
-  if (error.code === "P2025") {
+  if (isPrismaRecordNotFoundError(error)) {
     return { status: 404, body: { error: "Profile PPP tidak ditemukan" } };
   }
 
-  if (error.code === "P2002") {
+  if (isPrismaUniqueConstraintError(error)) {
     return { status: 400, body: { error: "Nama profile PPP sudah digunakan" } };
   }
 
-  if (error.code === "P2003") {
+  if (isPrismaForeignKeyError(error)) {
     return {
       status: 400,
       body: {

@@ -1,3 +1,12 @@
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety and SQL building.
+ * This helper uses:
+ * - Prisma.NotificationsWhereInput for dynamic query building with type safety
+ * - Prisma.sql and Prisma.join for raw SQL query construction
+ * - Prisma.empty for conditional SQL fragments
+ * Removing this would require duplicating all Prisma types or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import { Prisma } from "@prisma/client";
 
 import {

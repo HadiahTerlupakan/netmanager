@@ -31,13 +31,6 @@ function normalizeDomain(domain?: string | null) {
   return domain ? domain.toLowerCase() : null;
 }
 
-function isForeignKeyError(error: unknown) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2003"
-  );
-}
-
 export class AdminTenantRouteService {
   constructor(
     private readonly repository: ITenantRepository = new TenantRepository(),
@@ -80,7 +73,10 @@ export class AdminTenantRouteService {
       await this.repository.delete(id);
       return { ok: true as const };
     } catch (error) {
-      if (isForeignKeyError(error)) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2003"
+      ) {
         return this.fail(
           RELATED_DATA_CODE,
           "Cannot delete tenant with existing related data (Users, etc.)",

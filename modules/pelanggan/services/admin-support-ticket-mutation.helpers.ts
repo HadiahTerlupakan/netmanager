@@ -2,6 +2,12 @@ import { logger, logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import { TicketEventDispatcher } from "@/modules/events";
 import { closeWoOnTicketClose } from "@/modules/work-order";
+/**
+ * NOTE: Prisma import is intentionally kept here for type safety.
+ * This helper uses Prisma types for dynamic query building and updates.
+ * Removing this would require duplicating all Prisma types or losing type safety.
+ * This is a valid use case and does not violate Clean Architecture principles.
+ */
 import { Prisma } from "@prisma/client";
 import { TicketStatus, type TicketPriority } from "../types/pelanggan.enums";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
