@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { shutdownManager } from "@/lib/shutdown-manager";
 import { Worker, type Job } from "bullmq";
 import Redis from "ioredis";
 import { firebaseRealtimeService } from "@/lib/realtime";
@@ -767,16 +768,13 @@ export function startWorkers(): void {
       });
     }
 
-    // Graceful shutdown
-    const shutdown = async () => {
+    // Register graceful shutdown
+    shutdownManager.register(async () => {
       logger.info("[BullMQ] Shutting down workers gracefully...");
       await Promise.all(workers.map((w) => w.close()));
       await connection.quit();
       logger.info("[BullMQ] All workers shut down");
-    };
-
-    process.once("SIGTERM", shutdown);
-    process.once("SIGINT", shutdown);
+    });
 
     logger.info("[BullMQ] All workers started");
   });

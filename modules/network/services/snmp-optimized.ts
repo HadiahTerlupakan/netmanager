@@ -9,6 +9,7 @@
  * - snmp-pagination (pagination + item building)
  */
 
+import { shutdownManager } from "@/lib/shutdown-manager";
 import { buildOnuItem } from "./snmp-optimized.helpers";
 import { SnmpCacheService } from "./snmp-cache.service";
 import { SNMPConnectionPoolService } from "./snmp-connection-pool.service";
@@ -123,8 +124,10 @@ export function cleanupSNMPConnections(): void {
   cache.clear();
 }
 
+// Register cleanup on graceful shutdown
 if (typeof process !== "undefined") {
-  process.on("SIGINT", cleanupSNMPConnections);
-  process.on("SIGTERM", cleanupSNMPConnections);
+  shutdownManager.register(() => {
+    cleanupSNMPConnections();
+  });
   process.on("beforeExit", cleanupSNMPConnections);
 }

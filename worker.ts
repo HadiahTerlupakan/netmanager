@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { cronRegistry } from "./lib/cron-registry";
+import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import { logger } from "./lib/logger";
@@ -20,9 +21,9 @@ initializeEventBus().catch((err) =>
   logger.error("[Worker] Failed to initialize Event Bus:", err),
 );
 
-// Graceful shutdown
-const gracefulShutdown = async (signal: string) => {
-  logger.info(`[Worker] ${signal} received, shutting down gracefully`);
+// Register graceful shutdown handler
+shutdownManager.register(async () => {
+  logger.info("[Worker] Shutting down gracefully");
 
   // 1. Stop Event Bus
   try {
@@ -36,10 +37,5 @@ const gracefulShutdown = async (signal: string) => {
   cronRegistry.stopAll();
 
   // Give some time for tasks to stop if needed
-  setTimeout(() => {
-    process.exit(0);
-  }, 2000);
-};
-
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+});

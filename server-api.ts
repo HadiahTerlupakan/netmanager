@@ -16,6 +16,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { AppError } from "./lib/errors";
+import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
 import { stopRadiusMonitoring } from "./modules/network/services/RadiusMonitor";
 import {
@@ -94,10 +95,11 @@ if (startInternalCronIfEnabled({ startAll: () => {} })) {
     );
 }
 
-const gracefulShutdown = (signal: string) => {
-  logger.info(`[Server] ${signal} received, shutting down gracefully`);
+// Register graceful shutdown handler
+shutdownManager.register(async () => {
+  logger.info("[API Server] Shutting down gracefully");
 
-  import("./lib/cron-registry")
+  await import("./lib/cron-registry")
     .then(({ cronRegistry }) => {
       cronRegistry.stopAll();
     })
@@ -114,16 +116,15 @@ const gracefulShutdown = (signal: string) => {
     logger.error("[Server] Error stopping services:", e);
   }
 
-  server.close(() => {
-    logger.info("[Server] HTTP server closed");
-    process.exit(0);
+  await new Promise<void>((resolve) => {
+    server.close(() => {
+      logger.info("[Server] HTTP server closed");
+      resolve();
+    });
+
+    setTimeout(() => {
+      logger.error("[Server] Forced close after timeout");
+      resolve();
+    }, 5000);
   });
-
-  setTimeout(() => {
-    logger.error("[Server] Forced exit after timeout");
-    process.exit(1);
-  }, 5000);
-};
-
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+});

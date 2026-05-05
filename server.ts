@@ -19,6 +19,7 @@ import { createServer } from "http";
 import next from "next";
 import { getToken } from "next-auth/jwt";
 import { cronRegistry } from "./lib/cron-registry";
+import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
 import { stopRadiusMonitoring } from "./modules/network/services/RadiusMonitor";
 import {
@@ -344,8 +345,9 @@ app.prepare().then(() => {
     logger.info("");
   });
 
-  const gracefulShutdown = async (signal: string) => {
-    logger.info(`[Server] ${signal} received, shutting down gracefully`);
+  // Register graceful shutdown handler
+  shutdownManager.register(async () => {
+    logger.info("[Server] Shutting down gracefully");
 
     try {
       await shutdownEventBus();
@@ -365,17 +367,27 @@ app.prepare().then(() => {
       logger.error("[Server] Error stopping services:", e);
     }
 
-    server.close(() => {
-      logger.info("[Server] HTTP server closed");
-      process.exit(0);
+    // Flush pending Firestore batches
+    try {
+      const { firebaseRealtimeService } =
+        await import("@/lib/realtime/firebase-realtime-service");
+      await firebaseRealtimeService.cleanup();
+      logger.info("[Server] Firestore batches flushed");
+    } catch (e) {
+      logger.error("[Server] Error flushing Firestore batches:", e);
+    }
+
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        logger.info("[Server] HTTP server closed");
+        resolve();
+      });
+
+      // Force close after timeout
+      setTimeout(() => {
+        logger.error("[Server] Forced close after timeout");
+        resolve();
+      }, 5000);
     });
-
-    setTimeout(() => {
-      logger.error("[Server] Forced exit after timeout");
-      process.exit(1);
-    }, 5000);
-  };
-
-  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  });
 });
