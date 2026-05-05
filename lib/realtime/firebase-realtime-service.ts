@@ -39,11 +39,14 @@ class FirebaseRealtimeService {
   private readonly PUBLISH_THROTTLE_MS = 10000; // 10 seconds minimum between same-scope publishes
 
   async publish<TPayload>(input: PublishInput<TPayload>) {
+    // Remove undefined values from payload to prevent Firestore errors
+    const cleanPayload = this.removeUndefinedFields(input.payload);
+
     const envelope = {
       id: randomUUID(),
       type: input.type,
       scope: input.scope,
-      payload: input.payload,
+      payload: cleanPayload,
       createdAt: new Date().toISOString(),
       version: 1,
       ...(input.triggeredBy ? { triggeredBy: input.triggeredBy } : {}),
@@ -69,6 +72,32 @@ class FirebaseRealtimeService {
     }
 
     return envelope;
+  }
+
+  /**
+   * Recursively remove undefined fields from an object.
+   * Firestore does not accept undefined values.
+   */
+  private removeUndefinedFields<T>(obj: T): T {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.removeUndefinedFields(item)) as T;
+    }
+
+    if (typeof obj === "object") {
+      const cleaned: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          cleaned[key] = this.removeUndefinedFields(value);
+        }
+      }
+      return cleaned as T;
+    }
+
+    return obj;
   }
 
   async setPresence(input: SetPresenceInput): Promise<PresenceSnapshot> {

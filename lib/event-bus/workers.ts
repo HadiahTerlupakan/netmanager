@@ -68,14 +68,52 @@ function createWorkerRedis(): Redis {
 
   const conn = new Redis(url, {
     maxRetriesPerRequest: null,
-    enableOfflineQueue: false,
+    enableOfflineQueue: true, // Enable offline queue to buffer commands during reconnection
     retryStrategy: (times) => {
-      if (times > 10) return null;
-      return Math.min(times * 1000, 10000);
+      const delay = Math.min(times * 1000, 10000);
+      logger.warn(
+        `[Redis] Reconnection attempt ${times}, retrying in ${delay}ms`,
+      );
+      if (times > 20) {
+        logger.error("[Redis] Max reconnection attempts reached, giving up");
+        return null;
+      }
+      return delay;
     },
-    lazyConnect: true,
+    reconnectOnError: (err) => {
+      const targetErrors = ["READONLY", "ECONNRESET", "ETIMEDOUT"];
+      if (targetErrors.some((e) => err.message.includes(e))) {
+        logger.warn(`[Redis] Reconnecting due to error: ${err.message}`);
+        return true;
+      }
+      return false;
+    },
+    lazyConnect: false, // Connect immediately to detect issues early
+    keepAlive: 30000, // Keep connection alive
+    connectTimeout: 10000, // 10s connection timeout
+    commandTimeout: 5000, // 5s command timeout
   });
-  conn.on("error", () => {});
+
+  conn.on("error", (err) => {
+    logger.error("[Redis] Connection error:", err.message);
+  });
+
+  conn.on("connect", () => {
+    logger.info("[Redis] Connected successfully");
+  });
+
+  conn.on("ready", () => {
+    logger.info("[Redis] Ready to accept commands");
+  });
+
+  conn.on("close", () => {
+    logger.warn("[Redis] Connection closed");
+  });
+
+  conn.on("reconnecting", () => {
+    logger.info("[Redis] Attempting to reconnect...");
+  });
+
   return conn;
 }
 
@@ -203,8 +241,8 @@ function registerDefaultHandlers(): void {
           type: payload.type,
           status: "OPEN",
           priority: payload.priority,
-          assignedToId: payload.assignedToId,
-          departmentId: payload.departmentId,
+          assignedToId: payload.assignedToId ?? null,
+          departmentId: payload.departmentId ?? null,
         },
         payload.departmentId,
         payload.siteId,
@@ -244,7 +282,7 @@ function registerDefaultHandlers(): void {
           type: "WORK_ORDER",
           status: "ASSIGNED",
           priority: "NORMAL",
-          assignedToId: payload.assignedToId,
+          assignedToId: payload.assignedToId ?? null,
         },
         payload.assignedToId,
       );
@@ -276,11 +314,11 @@ function registerDefaultHandlers(): void {
       socketEmitter.inventoryUpdate({
         type: "masuk",
         userId: payload.userId,
-        barangId: payload.barangId,
-        jumlah: payload.jumlah,
-        totalStok: payload.totalStok,
-        gudangId: payload.gudangId,
-        siteId: payload.siteId,
+        barangId: payload.barangId ?? undefined,
+        jumlah: payload.jumlah ?? undefined,
+        totalStok: payload.totalStok ?? undefined,
+        gudangId: payload.gudangId ?? undefined,
+        siteId: payload.siteId ?? undefined,
       });
     } catch (error) {
       logger.error("[Worker] Inventory stock-in handler error:", error);
@@ -294,11 +332,11 @@ function registerDefaultHandlers(): void {
       socketEmitter.inventoryUpdate({
         type: "keluar",
         userId: payload.userId,
-        barangId: payload.barangId,
-        jumlah: payload.jumlah,
-        totalStok: payload.totalStok,
-        gudangId: payload.gudangId,
-        siteId: payload.siteId,
+        barangId: payload.barangId ?? undefined,
+        jumlah: payload.jumlah ?? undefined,
+        totalStok: payload.totalStok ?? undefined,
+        gudangId: payload.gudangId ?? undefined,
+        siteId: payload.siteId ?? undefined,
       });
     } catch (error) {
       logger.error("[Worker] Inventory stock-out handler error:", error);
@@ -318,7 +356,7 @@ function registerDefaultHandlers(): void {
           subject: payload.subject,
           status: "OPEN",
           priority: payload.priority,
-          pelangganNama: payload.pelangganNama,
+          pelangganNama: payload.pelangganNama ?? undefined,
         },
         payload.siteId,
       );
@@ -607,96 +645,148 @@ export function startWorkers(): void {
 
   const connection = createWorkerRedis();
 
-  // Event Worker
-  const eventWorker = new Worker<EventJobData>(
-    QUEUE_NAMES.EVENTS,
-    processEventJob,
-    {
-      connection: connection.duplicate(),
-      concurrency: 10,
-      limiter: { max: 100, duration: 1000 }, // 100 jobs/sec
-    },
-  );
+  // Wait for Redis connection to be ready before creating workers
+  connection.once("ready", () => {
+    logger.info("[Redis] Connection ready, starting workers...");
 
-  // Notification Worker
-  const notificationWorker = new Worker<NotificationJobData>(
-    QUEUE_NAMES.NOTIFICATIONS,
-    processNotificationJob,
-    {
-      connection: connection.duplicate(),
-      concurrency: 20,
-      limiter: { max: 50, duration: 1000 }, // 50 notifications/sec
-    },
-  );
-
-  // Webhook Worker
-  const webhookWorker = new Worker<WebhookJobData>(
-    QUEUE_NAMES.WEBHOOKS,
-    processWebhookJob,
-    {
-      connection: connection.duplicate(),
-      concurrency: 5,
-    },
-  );
-
-  // Outbox Worker
-  const outboxWorker = new Worker<OutboxJobData>(
-    QUEUE_NAMES.OUTBOX,
-    processOutboxJob,
-    {
-      connection: connection.duplicate(),
-      concurrency: 5,
-    },
-  );
-
-  // Overtime Auto Checkout Worker
-  const overtimeAutoCheckoutWorker = new Worker<OvertimeAutoCheckoutJobData>(
-    QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
-    processOvertimeAutoCheckoutJob,
-    {
-      connection: connection.duplicate(),
-      concurrency: 5,
-    },
-  );
-
-  const attendanceAutoCheckoutWorker =
-    new Worker<AttendanceAutoCheckoutJobData>(
-      QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
-      processAttendanceAutoCheckoutJob,
+    // Event Worker
+    const eventWorker = new Worker<EventJobData>(
+      QUEUE_NAMES.EVENTS,
+      processEventJob,
       {
         connection: connection.duplicate(),
-        concurrency: 5,
+        concurrency: 10,
+        limiter: { max: 100, duration: 1000 }, // 100 jobs/sec
+        autorun: true,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
       },
     );
 
-  workers = [
-    eventWorker,
-    notificationWorker,
-    webhookWorker,
-    outboxWorker,
-    overtimeAutoCheckoutWorker,
-    attendanceAutoCheckoutWorker,
-  ];
+    // Notification Worker
+    const notificationWorker = new Worker<NotificationJobData>(
+      QUEUE_NAMES.NOTIFICATIONS,
+      processNotificationJob,
+      {
+        connection: connection.duplicate(),
+        concurrency: 20,
+        limiter: { max: 50, duration: 1000 }, // 50 notifications/sec
+        autorun: true,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
+      },
+    );
 
-  // Event listeners for monitoring
-  for (const worker of workers) {
-    worker.on("completed", (job) => {
-      logger.info(`[BullMQ] ${worker.name}: Job ${job.id} completed`);
-    });
+    // Webhook Worker
+    const webhookWorker = new Worker<WebhookJobData>(
+      QUEUE_NAMES.WEBHOOKS,
+      processWebhookJob,
+      {
+        connection: connection.duplicate(),
+        concurrency: 5,
+        autorun: true,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
+      },
+    );
 
-    worker.on("failed", (job, err) => {
-      logger.error(
-        `[BullMQ] ${worker.name}: Job ${job?.id} failed:`,
-        err.message,
+    // Outbox Worker
+    const outboxWorker = new Worker<OutboxJobData>(
+      QUEUE_NAMES.OUTBOX,
+      processOutboxJob,
+      {
+        connection: connection.duplicate(),
+        concurrency: 5,
+        autorun: true,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
+      },
+    );
+
+    // Overtime Auto Checkout Worker
+    const overtimeAutoCheckoutWorker = new Worker<OvertimeAutoCheckoutJobData>(
+      QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
+      processOvertimeAutoCheckoutJob,
+      {
+        connection: connection.duplicate(),
+        concurrency: 5,
+        autorun: true,
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
+      },
+    );
+
+    const attendanceAutoCheckoutWorker =
+      new Worker<AttendanceAutoCheckoutJobData>(
+        QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
+        processAttendanceAutoCheckoutJob,
+        {
+          connection: connection.duplicate(),
+          concurrency: 5,
+          autorun: true,
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 500 },
+        },
       );
-    });
 
-    worker.on("error", (err) => {
-      logger.error(`[BullMQ] ${worker.name}: Worker error:`, err.message);
-    });
-  }
+    workers = [
+      eventWorker,
+      notificationWorker,
+      webhookWorker,
+      outboxWorker,
+      overtimeAutoCheckoutWorker,
+      attendanceAutoCheckoutWorker,
+    ];
 
-  logger.info("[BullMQ] All workers started");
+    // Event listeners for monitoring
+    for (const worker of workers) {
+      worker.on("completed", (job) => {
+        logger.info(`[BullMQ] ${worker.name}: Job ${job.id} completed`);
+      });
+
+      worker.on("failed", (job, err) => {
+        logger.error(
+          `[BullMQ] ${worker.name}: Job ${job?.id} failed:`,
+          err.message,
+        );
+      });
+
+      worker.on("error", (err) => {
+        // Only log non-Redis connection errors to reduce noise
+        if (!err.message.includes("Stream isn't writeable")) {
+          logger.error(`[BullMQ] ${worker.name}: Worker error:`, err.message);
+        }
+      });
+
+      worker.on("stalled", (jobId) => {
+        logger.warn(`[BullMQ] ${worker.name}: Job ${jobId} stalled`);
+      });
+
+      worker.on("active", (job) => {
+        logger.debug(`[BullMQ] ${worker.name}: Job ${job.id} started`);
+      });
+    }
+
+    // Graceful shutdown
+    const shutdown = async () => {
+      logger.info("[BullMQ] Shutting down workers gracefully...");
+      await Promise.all(workers.map((w) => w.close()));
+      await connection.quit();
+      logger.info("[BullMQ] All workers shut down");
+    };
+
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
+
+    logger.info("[BullMQ] All workers started");
+  });
+
+  connection.once("error", (err) => {
+    logger.error(
+      "[Redis] Failed to connect, workers not started:",
+      err.message,
+    );
+  });
 }
 
 /**

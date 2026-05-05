@@ -329,6 +329,21 @@ class Logger {
       const actor = this.resolveActor(data);
       const { prisma } = await import("@/lib/prisma");
 
+      // Skip DB logging if userId is provided but doesn't exist
+      if (actor.userId) {
+        const userExists = await prisma.user.findUnique({
+          where: { id: actor.userId },
+          select: { id: true },
+        });
+
+        if (!userExists) {
+          this.warn(
+            `[ACTIVITY] Skipping DB log - userId not found: ${actor.userId}`,
+          );
+          return;
+        }
+      }
+
       const originalIsSeeding = process.env.IS_SEEDING;
       process.env.IS_SEEDING = "true";
 
@@ -361,6 +376,21 @@ class Logger {
     try {
       const actor = this.resolveActor(data);
       const { prisma } = await import("@/lib/prisma");
+
+      // Skip DB logging if userId is provided but doesn't exist
+      if (actor.userId) {
+        const userExists = await prisma.user.findUnique({
+          where: { id: actor.userId },
+          select: { id: true },
+        });
+
+        if (!userExists) {
+          this.warn(
+            `[AUTH] Skipping DB log - userId not found: ${actor.userId}`,
+          );
+          return;
+        }
+      }
 
       const originalIsSeeding = process.env.IS_SEEDING;
       process.env.IS_SEEDING = "true";
