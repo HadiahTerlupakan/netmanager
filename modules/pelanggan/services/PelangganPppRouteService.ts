@@ -1,31 +1,30 @@
-import { prisma } from "@/modules/database";
 import { RadiusSyncService } from "@/modules/network";
+
 import { getPelangganService } from "./PelangganService";
 import {
-  DEFAULT_PAGE,
-  MAX_LIMIT,
+  buildFallbackPelangganIdResponse,
+  buildPelangganIdCandidates,
+} from "./pelanggan-ppp-route-id.helpers";
+import {
   buildSuspensionHistoryResponse,
-  buildSuspensionWhere,
   buildUsageHistoryResponse,
   buildUsageSummaryResponse,
-  createCandidateId,
-  createFallbackId,
-  mapRadiusHistoryItem,
-  mapSuspensionSortBy,
   sortUsageHistory,
-  type ParsedDateRange,
   type SuspensionHistoryInput,
-  type UsageCustomerRecord,
   type UsageHistoryInput,
   type UsageSummaryInput,
-  type UsageSource,
 } from "./pelanggan-ppp-route-helpers";
 import {
-  BASIC_CUSTOMER_SELECT,
-  findPelangganForLifecycle,
+  getFirstActiveSession,
+  getRadiusHistory,
+  requireLifecycleCustomer,
+} from "./pelanggan-ppp-route-service.helpers";
+import {
+  checkPelangganCodeExists,
   findUsageCustomer,
   getDatabaseHistory,
   getDatabaseUsageStats,
+  getSuspensionHistoryData,
   type UpdateCustomerStatusInput,
 } from "./pelanggan-ppp-route-queries";
 import {
@@ -46,37 +45,34 @@ import {
   suspendRequestSchema,
 } from "./pelanggan-ppp-route-validation";
 export { RouteServiceError } from "./pelanggan-ppp-route-validation";
-const DEFAULT_CREATE_LIMIT = 10;
+
 export class PelangganPppRouteService {
   private readonly radiusService = new RadiusSyncService();
+
   /** Check whether a pelanggan code already exists. */
   async checkIdExists(idPelanggan: string) {
-    try {
-      const pelanggan = await prisma.pelanggan.findFirst({
-        where: { idPelanggan },
-        select: { id: true },
-      });
-      return { exists: pelanggan !== null };
-    } catch {
-      return { exists: false };
-    }
+    return checkPelangganCodeExists({ idPelanggan });
   }
+
   /** Generate a unique pelanggan code. */
   async generateUniqueId() {
-    let idPelanggan = createCandidateId();
-    let attempts = 0;
-    while (attempts < DEFAULT_CREATE_LIMIT) {
+    const candidates = buildPelangganIdCandidates();
+
+    for (const idPelanggan of candidates) {
       const { exists } = await this.checkIdExists(idPelanggan);
-      if (!exists) return { idPelanggan };
-      idPelanggan = createCandidateId();
-      attempts += 1;
+      if (!exists) {
+        return { idPelanggan };
+      }
     }
-    return { idPelanggan: createFallbackId() };
+
+    return buildFallbackPelangganIdResponse();
   }
+
   /** Get one customer usage summary for admin route. */
   async getUsageSummary(input: UsageSummaryInput) {
     const pelanggan = await findUsageCustomer(input);
     if (!pelanggan) return null;
+
     const tenantId = ensureRouteTenantId(pelanggan.tenantId);
     const periodRange = parseRouteUsagePeriod(input);
     const radiusStats = await this.radiusService.getCustomerAccountingStats(
@@ -85,12 +81,16 @@ export class PelangganPppRouteService {
       periodRange.startDate,
       periodRange.endDate,
     );
-    const activeSession = await this.getFirstActiveSession(pelanggan);
+    const activeSession = await getFirstActiveSession(
+      this.radiusService,
+      pelanggan,
+    );
     const dbStats = await getDatabaseUsageStats({
       pelangganId: pelanggan.id,
       startDate: periodRange.startDate,
       endDate: periodRange.endDate,
     });
+
     return buildUsageSummaryResponse({
       pelanggan,
       periodType: input.period,
@@ -100,14 +100,17 @@ export class PelangganPppRouteService {
       dbStats,
     });
   }
+
   /** Get combined customer usage history for admin route. */
   async getUsageHistory(input: UsageHistoryInput) {
     const pelanggan = await findUsageCustomer(input);
     if (!pelanggan) return null;
+
     const tenantId = ensureRouteTenantId(pelanggan.tenantId);
     const pagination = normalizeRoutePagination(input.page, input.limit);
     const dateRange = parseRouteDateRange(input.startDate, input.endDate);
-    const radiusData = await this.getRadiusHistory(
+    const radiusData = await getRadiusHistory(
+      this.radiusService,
       { ...pelanggan, tenantId },
       input.source,
       dateRange,
@@ -124,6 +127,7 @@ export class PelangganPppRouteService {
       input.sortBy,
       input.sortOrder,
     );
+
     return buildUsageHistoryResponse({
       pelanggan,
       pagination,
@@ -132,45 +136,40 @@ export class PelangganPppRouteService {
       combinedData,
     });
   }
+
   /** Get customer suspension history and summary. */
   async getSuspensionHistory(input: SuspensionHistoryInput) {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: input.id },
-      select: BASIC_CUSTOMER_SELECT,
-    });
-    if (!pelanggan) return null;
     const pagination = normalizeRoutePagination(input.page, input.limit);
     const dateRange = parseRouteDateRange(input.startDate, input.endDate);
-    const where = buildSuspensionWhere({ ...input, dateRange });
-    const [total, suspensions, allSuspensions, activeSuspensions] =
-      await Promise.all([
-        prisma.serviceSuspension.count({ where }),
-        prisma.serviceSuspension.findMany({
-          where,
-          orderBy: { [mapSuspensionSortBy(input.sortBy)]: input.sortOrder },
-          skip: (pagination.page - 1) * pagination.limit,
-          take: pagination.limit,
-        }),
-        prisma.serviceSuspension.findMany({ where: { pelangganId: input.id } }),
-        prisma.serviceSuspension.count({
-          where: { pelangganId: input.id, is_active: true },
-        }),
-      ]);
+    const history = await getSuspensionHistoryData({
+      id: input.id,
+      suspensionType: input.suspensionType,
+      status: input.status,
+      sortBy: input.sortBy,
+      sortOrder: input.sortOrder,
+      page: pagination.page,
+      limit: pagination.limit,
+      dateRange,
+    });
+
+    if (!history.pelanggan) return null;
+
     return buildSuspensionHistoryResponse({
-      pelanggan,
+      pelanggan: history.pelanggan,
       pagination,
-      total,
-      suspensions,
-      allSuspensions,
-      activeSuspensions,
+      total: history.total,
+      suspensions: history.suspensions,
+      allSuspensions: history.allSuspensions,
+      activeSuspensions: history.activeSuspensions,
       request: input,
       dateRange,
     });
   }
+
   /** Suspend one customer service and sync radius state. */
   async suspendCustomer(input: SuspendCustomerInput) {
     const payload = suspendRequestSchema.parse(input.body);
-    const pelanggan = await this.requireLifecycleCustomer(input.id, "suspend");
+    const pelanggan = await requireLifecycleCustomer(input.id, "suspend");
     const result = await persistCustomerSuspension(pelanggan, {
       pelangganId: input.id,
       userId: input.userId,
@@ -190,26 +189,28 @@ export class PelangganPppRouteService {
       suspensionId: result.id,
     });
   }
+
   /** Update one customer status and return audit context. */
   async updateCustomerStatus(input: UpdateCustomerStatusInput) {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: input.id },
-    });
+    const pelanggan = await findUsageCustomer({ id: input.id });
     if (!pelanggan) throw new RouteServiceError("Pelanggan not found", 404);
+
     const updatedPelanggan = await getPelangganService().updateStatusPelanggan(
       input.id,
       input.status,
     );
+
     return {
       pelanggan,
       updatedPelanggan,
       message: `Status updated to ${input.status}`,
     };
   }
+
   /** Activate one suspended customer service and sync radius state. */
   async activateCustomer(input: ActivateCustomerInput) {
     const payload = activateRequestSchema.parse(input.body);
-    const pelanggan = await this.requireLifecycleCustomer(input.id, "activate");
+    const pelanggan = await requireLifecycleCustomer(input.id, "activate");
 
     try {
       const result = await persistCustomerActivation(pelanggan, {
@@ -239,54 +240,6 @@ export class PelangganPppRouteService {
       throw error;
     }
   }
-
-  /** Require customer record for PPP lifecycle action. */
-  private async requireLifecycleCustomer(
-    id: string,
-    action: "activate" | "suspend",
-  ) {
-    const pelanggan = await findPelangganForLifecycle(id);
-    if (!pelanggan) {
-      throw new RouteServiceError("Customer not found", 404);
-    }
-
-    if (action === "suspend" && pelanggan.status === "NONAKTIF") {
-      throw new RouteServiceError("Customer is already suspended", 400);
-    }
-
-    if (action === "activate" && pelanggan.status !== "NONAKTIF") {
-      throw new RouteServiceError("Customer is not currently suspended", 400);
-    }
-
-    return pelanggan;
-  }
-
-  private async getFirstActiveSession(pelanggan: UsageCustomerRecord) {
-    const activeSessions = await this.radiusService.getCustomerActiveSessions(
-      pelanggan.username,
-      pelanggan.tenantId,
-    );
-    return activeSessions[0] ?? null;
-  }
-
-  private async getRadiusHistory(
-    pelanggan: UsageCustomerRecord,
-    source: UsageSource,
-    dateRange: ParsedDateRange,
-  ) {
-    if (source === "database") return [];
-    const radiusSessions = await this.radiusService.getCustomerSessionHistory(
-      pelanggan.username,
-      pelanggan.tenantId,
-      {
-        page: DEFAULT_PAGE,
-        limit: MAX_LIMIT,
-        ...(dateRange.startDate ? { startDate: dateRange.startDate } : {}),
-        ...(dateRange.endDate ? { endDate: dateRange.endDate } : {}),
-      },
-    );
-    return radiusSessions.sessions.map(mapRadiusHistoryItem);
-  }
 }
 
 type SuspendCustomerInput = {
@@ -294,6 +247,7 @@ type SuspendCustomerInput = {
   userId: string;
   body: unknown;
 };
+
 type ActivateCustomerInput = {
   id: string;
   userId: string;

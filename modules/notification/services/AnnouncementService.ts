@@ -6,10 +6,9 @@
  */
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
-import { AnnouncementRepository } from "../repositories/AnnouncementRepository";
 import type { IAnnouncementRepository } from "../domain/ports/IAnnouncementRepository";
+import { AnnouncementRepository } from "../repositories/AnnouncementRepository";
 import {
-  attachReaderNames,
   buildAnnouncementCreateData,
   buildAnnouncementUpdateData,
   buildAnnouncementWhere,
@@ -18,14 +17,18 @@ import {
   DEFAULT_PORTAL,
   ensureAnnouncementExists,
   ensureAnnouncementExistsForTenant,
-  findAnnouncementSummary,
-  findRecentReaders,
   getAnnouncementRepositoryMethod,
   logAnnouncementCreation,
   publishRealtimeSafely,
+  RECENT_READER_LIMIT,
   resolveMobilePortal,
   sendEmployeeAnnouncementNotifications,
 } from "./AnnouncementService.helpers";
+import {
+  attachReaderNames,
+  findAnnouncementSummary,
+  findRecentReaders,
+} from "./AnnouncementService.readers";
 import type {
   AnnouncementCreateInput,
   AnnouncementFilters,
@@ -232,7 +235,7 @@ export class AnnouncementService {
         this.announcementRepository.countReads,
         "countReads",
       )(id),
-      findRecentReaders(this.announcementRepository, id),
+      findRecentReaders(this.announcementRepository, id, RECENT_READER_LIMIT),
     ]);
 
     if (!announcement) {

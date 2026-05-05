@@ -1,16 +1,15 @@
 import { ApiErrors, apiError, ErrorCodes } from "@/lib/api";
 import { notifyAdminsAboutMobileAction } from "@/modules/notification";
-/**
- * NOTE: Prisma import is intentionally kept here for type safety.
- * This service uses Prisma.WorkOrdersWhereInput for dynamic query building.
- * Removing this would require duplicating all Prisma types or losing type safety.
- * This is a valid use case and does not violate Clean Architecture principles.
- */
-import { Prisma } from "@prisma/client";
-import type { MobileAvailableUserProfileEntity } from "../domain/entities/WorkOrderEntity";
 import type { IWorkOrderAvailabilityRepository } from "../domain/ports/IWorkOrderAvailabilityRepository";
 import { mobileAvailableWorkOrderRepository } from "../repositories/MobileAvailableWorkOrderRepository";
-import { AVAILABLE_WORK_ORDER_STATUS } from "../validators/workOrderValidators";
+import {
+  buildEmployeeWhereClause,
+  buildMitraWhereClause,
+  extractUserSiteIds,
+  getScheduledTimeStart,
+  validateClaimState,
+  validateEmployeeClaimAccess,
+} from "./mobile-available-work-order.helpers";
 
 export interface MobileAvailableSessionUser {
   id: string;
@@ -35,13 +34,13 @@ export class MobileAvailableWorkOrderService {
 
     if (user.role === "MITRA") {
       const mitra = await this.repository.findMitraProfile(userId);
-      const where = this.buildMitraWhereClause(tenantId, userId, mitra?.siteId);
+      const where = buildMitraWhereClause(tenantId, userId, mitra?.siteId);
       return this.repository.findAvailableWorkOrders(where);
     }
 
     const dbUser = await this.repository.findUserProfile(userId, tenantId);
-    const userSiteIds = this.extractUserSiteIds(dbUser);
-    const where = this.buildEmployeeWhereClause(
+    const userSiteIds = extractUserSiteIds(dbUser);
+    const where = buildEmployeeWhereClause(
       tenantId,
       userId,
       dbUser,
@@ -67,12 +66,12 @@ export class MobileAvailableWorkOrderService {
       return ApiErrors.notFound("Work order tidak ditemukan");
     }
 
-    const invalidStateError = this.validateClaimState(workOrder);
+    const invalidStateError = validateClaimState(workOrder);
     if (invalidStateError) {
       return invalidStateError;
     }
 
-    const userSiteIds = this.extractUserSiteIds(dbUser);
+    const userSiteIds = extractUserSiteIds(dbUser);
     const accessError = await this.validateClaimAccess({
       user,
       dbUser,
@@ -89,7 +88,7 @@ export class MobileAvailableWorkOrderService {
       user,
       dbUser?.name,
     );
-    const scheduledTimeStart = this.getScheduledTimeStart(claimTime);
+    const scheduledTimeStart = getScheduledTimeStart(claimTime);
 
     const hasClaimed = await this.repository.claimWorkOrder({
       workOrderId,
@@ -142,108 +141,12 @@ export class MobileAvailableWorkOrderService {
     return { workOrder: updatedWorkOrder };
   }
 
-  /** Build employee-specific availability filter. */
-  private buildEmployeeWhereClause(
-    tenantId: string,
-    userId: string,
-    dbUser: MobileAvailableUserProfileEntity | null,
-    userSiteIds: string[],
-  ): Prisma.WorkOrdersWhereInput {
-    return {
-      ...this.getBaseAvailableWhere(tenantId, userId),
-      AND: [
-        dbUser?.departmentId
-          ? {
-              OR: [
-                { departmentId: null },
-                { departmentId: dbUser.departmentId },
-              ],
-            }
-          : { departmentId: null },
-        userSiteIds.length > 0
-          ? { OR: [{ siteId: null }, { siteId: { in: userSiteIds } }] }
-          : { siteId: null },
-      ],
-    };
-  }
-
-  /** Build mitra-specific availability filter. */
-  private buildMitraWhereClause(
-    tenantId: string,
-    userId: string,
-    mitraSiteId: string | null | undefined,
-  ): Prisma.WorkOrdersWhereInput {
-    return {
-      ...this.getBaseAvailableWhere(tenantId, userId),
-      AND: [
-        mitraSiteId
-          ? { OR: [{ siteId: null }, { siteId: mitraSiteId }] }
-          : { siteId: null },
-      ],
-    };
-  }
-
-  /** Build the shared base filter for available work orders. */
-  private getBaseAvailableWhere(
-    tenantId: string,
-    userId: string,
-  ): Prisma.WorkOrdersWhereInput {
-    return {
-      status: AVAILABLE_WORK_ORDER_STATUS as never,
-      assignedToId: null as string | null,
-      assignedMitraId: null as string | null,
-      tenantId,
-      OR: [
-        { isWarranty: false },
-        {
-          isWarranty: true,
-          OR: [
-            { warrantySla: { lt: new Date() } },
-            { warrantyOwnerId: userId },
-          ],
-        },
-      ],
-    };
-  }
-
-  /** Extract effective site ids for a regular employee. */
-  private extractUserSiteIds(dbUser: MobileAvailableUserProfileEntity | null) {
-    if (dbUser?.userSites?.length) {
-      return dbUser.userSites.map((userSite) => userSite.siteId);
-    }
-
-    return dbUser?.siteId ? [dbUser.siteId] : [];
-  }
-
-  /** Validate whether the current work order can still be claimed. */
-  private validateClaimState(workOrder: {
-    status: string;
-    assignedToId: string | null;
-    assignedMitraId: string | null;
-  }) {
-    if (workOrder.status !== AVAILABLE_WORK_ORDER_STATUS) {
-      return apiError(
-        "Work order sudah tidak tersedia",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    if (workOrder.assignedToId || workOrder.assignedMitraId) {
-      return apiError(
-        "Work order sudah diambil orang lain",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    return null;
-  }
-
   /** Validate access before claiming a work order. */
   private async validateClaimAccess(input: {
     user: MobileAvailableSessionUser;
-    dbUser: MobileAvailableUserProfileEntity | null;
+    dbUser: Awaited<
+      ReturnType<IWorkOrderAvailabilityRepository["findUserProfile"]>
+    >;
     userSiteIds: string[];
     workOrder: {
       siteId: string | null;
@@ -265,21 +168,11 @@ export class MobileAvailableWorkOrderService {
       return null;
     }
 
-    const isDeptValid =
-      !input.workOrder.departmentId ||
-      (input.dbUser?.departmentId &&
-        input.workOrder.departmentId === input.dbUser.departmentId);
-    const isSiteValid =
-      !input.workOrder.siteId ||
-      input.userSiteIds.includes(input.workOrder.siteId);
-
-    if (isDeptValid && isSiteValid) {
-      return null;
-    }
-
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses ke Work Order ini (Beda Department/Site)",
-    );
+    return validateEmployeeClaimAccess({
+      dbUser: input.dbUser,
+      userSiteIds: input.userSiteIds,
+      workOrder: input.workOrder,
+    });
   }
 
   /** Resolve actor display name for timeline and notifications. */
@@ -293,15 +186,6 @@ export class MobileAvailableWorkOrderService {
 
     const mitra = await this.repository.findMitraProfile(user.id);
     return mitra?.name || user.name || "Unknown Mitra";
-  }
-
-  /** Format claim time as HH:mm in local Indonesian locale. */
-  private getScheduledTimeStart(date: Date) {
-    return date.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
   }
 }
 

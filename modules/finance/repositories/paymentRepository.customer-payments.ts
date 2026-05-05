@@ -132,16 +132,27 @@ function buildInvestorPayoutCreateData(data: {
   notes?: string;
   status: string;
 }) {
+  const {
+    investorId,
+    amount,
+    date,
+    bankName,
+    accountNumber,
+    accountName,
+    reference,
+    notes,
+    status,
+  } = data;
   return {
-    investorId: data.investorId,
-    amount: data.amount,
-    date: data.date,
-    bankName: data.bankName,
-    accountNumber: data.accountNumber,
-    accountName: data.accountName,
-    reference: data.reference,
-    notes: data.notes,
-    status: data.status as never,
+    investorId,
+    amount,
+    date,
+    bankName,
+    accountNumber,
+    accountName,
+    reference,
+    notes,
+    status: status as never,
   };
 }
 

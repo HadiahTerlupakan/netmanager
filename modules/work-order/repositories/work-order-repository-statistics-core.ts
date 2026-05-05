@@ -176,27 +176,44 @@ function mapStatisticsResult(input: {
   ratingData: { _avg: { rating: number | null }; _count: { rating: number } };
   urgentOpen: number;
 }): WorkOrderStatistics {
-  const statusMap = input.statusCounts.reduce<Record<string, number>>(
-    (accumulator, item) => {
-      accumulator[item.status] = item._count;
-      return accumulator;
-    },
-    {},
-  );
+  const statusMap = buildStatusCountMap(input.statusCounts);
+
   return {
-    total: input.total,
-    pending: statusMap.PENDING || 0,
-    assigned: statusMap.ASSIGNED || 0,
-    inProgress: statusMap.IN_PROGRESS || 0,
-    onHold: statusMap.ON_HOLD || 0,
-    completed: statusMap.COMPLETED || 0,
-    verified: statusMap.VERIFIED || 0,
-    closed: statusMap.CLOSED || 0,
-    cancelled: statusMap.CANCELLED || 0,
+    ...buildWorkOrderStatusStatistics(input.total, statusMap),
     urgentOpen: input.urgentOpen,
     avgCompletionTimeHours: input.completionStats.avgHours || 0,
     totalCost: input.completionStats.totalCost || 0,
     avgRating: input.ratingData._avg.rating || null,
     totalWithRating: input.ratingData._count.rating || 0,
   };
+}
+
+function buildWorkOrderStatusStatistics(
+  total: number,
+  statusMap: Record<string, number>,
+) {
+  return {
+    total,
+    pending: getStatusCount(statusMap, "PENDING"),
+    assigned: getStatusCount(statusMap, "ASSIGNED"),
+    inProgress: getStatusCount(statusMap, "IN_PROGRESS"),
+    onHold: getStatusCount(statusMap, "ON_HOLD"),
+    completed: getStatusCount(statusMap, "COMPLETED"),
+    verified: getStatusCount(statusMap, "VERIFIED"),
+    closed: getStatusCount(statusMap, "CLOSED"),
+    cancelled: getStatusCount(statusMap, "CANCELLED"),
+  };
+}
+
+function buildStatusCountMap(
+  statusCounts: Array<{ status: string; _count: number }>,
+) {
+  return statusCounts.reduce<Record<string, number>>((accumulator, item) => {
+    accumulator[item.status] = item._count;
+    return accumulator;
+  }, {});
+}
+
+function getStatusCount(statusMap: Record<string, number>, status: string) {
+  return statusMap[status] || 0;
 }

@@ -1,4 +1,4 @@
 export {
   rabProjectCreateSchema,
   rabProjectUpdateSchema,
-} from "@/modules/finance";
+} from "@/modules/finance/validation";

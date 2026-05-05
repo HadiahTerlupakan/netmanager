@@ -15,7 +15,7 @@ export {
   AttendanceStatus,
   checkInSchema,
   checkOutSchema,
-} from "./validators/attendance";
+} from "./validation";
 export type {
   AttendanceBulkDelete,
   AttendanceFilter,
@@ -24,14 +24,8 @@ export type {
   AttendanceUpdate,
   CheckInRequest,
   CheckOutRequest,
-} from "./validators/attendance";
-export {
-  getCanonicalAttendanceLabel,
-  getDayOffDisplayLabel,
-  getPermitDisplayLabel,
-  hasAutoCheckoutNote,
-  isHistoricalAutoCheckoutAbsence,
-} from "./utils/displayLabels";
+} from "./validation";
+export * from "./client";
 export * from "./services/AttendanceSettingsService";
 export * from "./services/AttendanceQueryService";
 export * from "./services/AttendanceTimezoneService";

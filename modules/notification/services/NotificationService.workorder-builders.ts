@@ -11,7 +11,7 @@ import type {
   CreateNotificationData,
   NotificationPriority,
   WorkOrderNotificationData,
-} from "./NotificationService";
+} from "./NotificationService.types";
 
 /** Bangun payload notification untuk work-order baru. */
 export function buildNewWorkOrderNotification(

@@ -94,17 +94,28 @@ export async function syncCreatedLeave(input: {
   tenantId: string;
 }) {
   try {
-    const leave = await input.repository.findByIdWithUser(
-      input.leaveId,
-      input.tenantId,
-    );
+    const leave = await fetchLeaveForSync(input);
     if (leave) await input.attendanceSyncService.syncLeaveToAttendance(leave);
   } catch (error) {
-    logger.error(
-      "Failed to sync leave to attendance",
-      error instanceof Error ? error : undefined,
-    );
+    logSyncError("Failed to sync leave to attendance", error);
   }
+}
+
+async function fetchLeaveForSync(input: {
+  repository: {
+    findByIdWithUser: (
+      id: string,
+      tenantId: string,
+    ) => Promise<LeaveWithUser | null>;
+  };
+  leaveId: string;
+  tenantId: string;
+}) {
+  return input.repository.findByIdWithUser(input.leaveId, input.tenantId);
+}
+
+function logSyncError(message: string, error: unknown) {
+  logger.error(message, error instanceof Error ? error : undefined);
 }
 
 export async function syncApprovedLeave(
@@ -129,17 +140,30 @@ export async function revertApprovedLeave(input: {
   attendanceSyncService: LeaveAttendanceSyncService;
 }) {
   if (input.leave.status !== "APPROVED") return;
+  await refundLeaveBalance(input);
+  await revertAttendanceSync(input);
+}
+
+async function refundLeaveBalance(input: {
+  leave: LeaveWithUser;
+  tenantId: string;
+  balanceUsageService: LeaveBalanceUsageService;
+}) {
   await input.balanceUsageService.refundUsed(
     buildExistingBalanceInput(input.leave, input.tenantId),
   );
+}
+
+async function revertAttendanceSync(input: {
+  leave: LeaveWithUser;
+  action: "reject" | "deletion";
+  attendanceSyncService: LeaveAttendanceSyncService;
+}) {
   try {
     await input.attendanceSyncService.revertLeaveFromAttendance(input.leave);
   } catch (error) {
     const context = input.action === "reject" ? "reject" : "deletion";
-    logger.error(
-      `Failed to revert attendance in ${context}`,
-      error instanceof Error ? error : undefined,
-    );
+    logSyncError(`Failed to revert attendance in ${context}`, error);
   }
 }
 

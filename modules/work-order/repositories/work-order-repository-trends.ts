@@ -12,6 +12,15 @@ import {
   calculateMinutesBetween,
 } from "./work-order-repository-analytics-helpers";
 
+const ISSUE_CLASSIFICATIONS = [
+  { label: "LOS/Redaman", keywords: ["los", "redaman", "signal"] },
+  { label: "Internet Lambat", keywords: ["lambat", "slow", "speed"] },
+  { label: "Koneksi Putus", keywords: ["putus", "disconnect", "dc"] },
+  { label: "Perangkat", keywords: ["router", "modem", "onu"] },
+  { label: "Billing", keywords: ["tagihan", "billing", "payment"] },
+  { label: "Instalasi", keywords: ["install", "pasang"] },
+] as const;
+
 /** Get volume trend for created, completed, and requested work orders. */
 export async function getVolumeTrend(
   prisma: PrismaClient,
@@ -161,39 +170,21 @@ export async function getTypeTrend(
 
 function classifyIssue(title: string): string {
   const lowerTitle = title.toLowerCase();
-  if (
-    lowerTitle.includes("los") ||
-    lowerTitle.includes("redaman") ||
-    lowerTitle.includes("signal")
-  )
-    return "LOS/Redaman";
-  if (
-    lowerTitle.includes("lambat") ||
-    lowerTitle.includes("slow") ||
-    lowerTitle.includes("speed")
-  )
-    return "Internet Lambat";
-  if (
-    lowerTitle.includes("putus") ||
-    lowerTitle.includes("disconnect") ||
-    lowerTitle.includes("dc")
-  )
-    return "Koneksi Putus";
-  if (
-    lowerTitle.includes("router") ||
-    lowerTitle.includes("modem") ||
-    lowerTitle.includes("onu")
-  )
-    return "Perangkat";
-  if (
-    lowerTitle.includes("tagihan") ||
-    lowerTitle.includes("billing") ||
-    lowerTitle.includes("payment")
-  )
-    return "Billing";
-  if (lowerTitle.includes("install") || lowerTitle.includes("pasang"))
-    return "Instalasi";
-  return "Lainnya";
+
+  return findIssueLabel(lowerTitle) || "Lainnya";
+}
+
+function findIssueLabel(title: string): string | undefined {
+  return ISSUE_CLASSIFICATIONS.find(({ keywords }) =>
+    matchesIssueKeywords(title, keywords),
+  )?.label;
+}
+
+function matchesIssueKeywords(
+  title: string,
+  keywords: readonly string[],
+): boolean {
+  return keywords.some((keyword) => title.includes(keyword));
 }
 
 function addIssueTrendItem(

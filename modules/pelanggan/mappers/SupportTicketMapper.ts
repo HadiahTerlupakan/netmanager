@@ -4,18 +4,18 @@
  * Transforms Prisma entities to domain entities and DTOs.
  */
 
-import type { Status, SupportTickets, TicketReplies } from "@prisma/client";
+import type { Status, SupportTickets } from "@prisma/client";
+import type { SupportTicketEntity } from "../domain/entities/SupportTicketEntity";
 import type {
-  SupportTicketEntity,
-  SupportTicketReplyEntity,
-} from "../domain/entities/SupportTicketEntity";
-import type {
-  TicketAttachmentDTO,
   TicketDetailDTO,
   TicketListItemDTO,
-  TicketMessageDTO,
   TicketPortalDTO,
 } from "../dto/SupportTicketDTO";
+import {
+  mapAttachments,
+  mapMessages,
+  mapReplyEntities,
+} from "./support-ticket-mapper.helpers";
 
 type CustomerTicketReplySummary = {
   createdAt: Date;
@@ -60,25 +60,7 @@ type TicketWithRelations = SupportTickets & {
     email?: string;
     image?: string | null;
   } | null;
-  replies?: Array<
-    Partial<TicketReplies> & {
-      createdAt: Date;
-      message: string;
-      isFromAdmin: boolean;
-      sender?: {
-        id: string;
-        name: string | null;
-        image?: string | null;
-        email?: string;
-      } | null;
-      user?: {
-        id: string;
-        name: string | null;
-        image?: string | null;
-        email?: string;
-      } | null;
-    }
-  >;
+  replies?: Parameters<typeof mapReplyEntities>[0];
   _count?: {
     replies: number;
   };
@@ -136,14 +118,8 @@ export class SupportTicketMapper {
             email: entity.assignedTo.email,
           }
         : null,
-      replies: this.mapReplyEntities(entity.replies ?? []),
-      attachments: (entity.attachments ?? []).map((attachment) => ({
-        id: attachment.id,
-        fileName: attachment.fileName,
-        fileUrl: attachment.fileUrl,
-        fileType: attachment.fileType,
-        fileSize: attachment.fileSize,
-      })),
+      replies: mapReplyEntities(entity.replies),
+      attachments: mapAttachments(entity.attachments ?? []),
       replyCount: entity._count?.replies ?? 0,
     };
   }
@@ -207,8 +183,8 @@ export class SupportTicketMapper {
             email: entity.assignedTo.email ?? "",
           }
         : null,
-      messages: this.mapMessages(entity.replies ?? []),
-      attachments: this.mapAttachments(entity.attachments ?? []),
+      messages: mapMessages(entity.replies ?? []),
+      attachments: mapAttachments(entity.attachments ?? []),
     };
   }
 
@@ -258,49 +234,6 @@ export class SupportTicketMapper {
           }
         : null,
       replyCount: entity.replyCount ?? 0,
-    }));
-  }
-
-  private static mapReplyEntities(
-    replies: TicketWithRelations["replies"],
-  ): SupportTicketReplyEntity[] {
-    return (replies ?? []).map((reply) => ({
-      id: reply.id,
-      createdAt: reply.createdAt,
-      message: reply.message,
-      isFromAdmin: reply.isFromAdmin,
-      user: reply.sender ?? reply.user ?? null,
-    }));
-  }
-
-  private static mapMessages(
-    replies: SupportTicketReplyEntity[],
-  ): TicketMessageDTO[] {
-    return replies.map((reply) => ({
-      id: reply.id ?? "",
-      message: reply.message,
-      isFromAdmin: reply.isFromAdmin,
-      createdAt: reply.createdAt.toISOString(),
-      sender: reply.user
-        ? {
-            id: reply.user.id ?? "",
-            name: reply.user.name ?? null,
-            type: reply.isFromAdmin ? "admin" : "customer",
-          }
-        : null,
-      attachments: [] as TicketAttachmentDTO[],
-    }));
-  }
-
-  private static mapAttachments(
-    attachments: SupportTicketEntity["attachments"] = [],
-  ): TicketAttachmentDTO[] {
-    return attachments.map((attachment) => ({
-      id: attachment.id,
-      fileName: attachment.fileName,
-      fileUrl: attachment.fileUrl,
-      fileType: attachment.fileType,
-      fileSize: attachment.fileSize,
     }));
   }
 }

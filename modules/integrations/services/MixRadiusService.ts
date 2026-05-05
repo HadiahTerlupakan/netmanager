@@ -1,47 +1,43 @@
-import type { AxiosInstance } from "axios";
-import { CookieJar } from "tough-cookie";
-
-import {
-  fetchMixRadiusActiveSessionsPPP,
-  fetchMixRadiusCustomerDetail,
-  fetchMixRadiusCustomersPPP,
-  fetchMixRadiusInvoiceCounts,
-  type MixRadiusCustomerCacheState,
-} from "./mixradius-customer-client";
-import {
-  loadMixRadiusCredentials,
-  loginMixRadius,
-  type MixRadiusSessionState,
-} from "./mixradius-auth-client";
-import {
-  deleteMixRadiusIncomeRecord,
-  fetchMixRadiusIncomeByPeriod,
-  fetchMixRadiusIncomeSummary,
-  fetchMixRadiusOwnersWithIds,
-  fetchMixRadiusProfitReport,
-  fetchMixRadiusUniqueOwners,
-  getMixRadiusPrintInvoiceHtml,
-} from "./mixradius-income-client";
 import { MixRadiusOwnerGroupFacadeService } from "./MixRadiusOwnerGroupFacadeService";
 import {
   createCustomersCacheState,
   createInvoiceCountCache,
-  createMixRadiusHttpClient,
-  createMixRadiusResetClient,
   createTopologyCacheState,
   MIXRADIUS_CUSTOMERS_CACHE_TTL,
-  MIXRADIUS_TOPOLOGY_CACHE_TTL,
-  type MixRadiusTopologyCacheState,
 } from "./mixradius-service.config";
 import {
-  fetchMixRadiusODPCustomers,
-  fetchMixRadiusODPList,
-  fetchMixRadiusTopologyData,
-} from "./mixradius-topology-client";
-import type {
-  MixRadiusOwnerGroupPayload,
-  MixRadiusOwnerGroupUpdatePayload,
-} from "./mixradius-owner-group-service";
+  buildMixRadiusBaseClientParams,
+  type MixRadiusBaseClientParams,
+} from "./mixradius-service.client";
+import {
+  applySessionState,
+  buildSessionState,
+  createMixRadiusSessionSnapshot,
+  expireSession,
+  resetCookieSession,
+  resetHttpSession,
+  type MixRadiusSessionSnapshot,
+} from "./mixradius-service.session";
+import {
+  deleteIncomeRecordOperation,
+  fetchActiveSessionsPPPOperation,
+  fetchCustomersPPPOperation,
+  fetchCustomerDetailOperation,
+  fetchIncomeByPeriodOperation,
+  fetchIncomeSummaryOperation,
+  fetchInvoiceCountsOperation,
+  fetchODPCustomersOperation,
+  fetchODPListOperation,
+  fetchProfitReportOperation,
+  fetchTopologyDataOperation,
+  getOwnersWithIdsOperation,
+  getPrintInvoiceHtmlOperation,
+  getUniqueOwnersOperation,
+} from "./mixradius-service.operations";
+import {
+  loadMixRadiusCredentials,
+  loginMixRadius,
+} from "./mixradius-auth-client";
 import type {
   FetchCustomersParams,
   MixRadiusCredentials,
@@ -80,23 +76,10 @@ export class MixRadiusService {
     password: process.env.MIXRADIUS_PASSWORD || "",
     baseUrl: process.env.MIXRADIUS_URL || "",
   };
-  private client: AxiosInstance;
-  private jar: CookieJar;
-  private isLoggedIn = false;
-  private loginExpiresAt = 0;
-  private loggedInCredentials: { username: string; baseUrl: string } | null =
-    null;
+  private session: MixRadiusSessionSnapshot = createMixRadiusSessionSnapshot();
   private readonly invoiceCountCache = createInvoiceCountCache();
-  private readonly ownerGroupService = new MixRadiusOwnerGroupFacadeService();
-  private customersCache: MixRadiusCustomerCacheState =
-    createCustomersCacheState();
-  private topologyCache: MixRadiusTopologyCacheState =
-    createTopologyCacheState();
-
-  constructor() {
-    this.jar = new CookieJar();
-    this.client = createMixRadiusHttpClient(this.jar);
-  }
+  private customersCache = createCustomersCacheState();
+  private topologyCache = createTopologyCacheState();
 
   /** Delay requests slightly to reduce upstream throttling. */
   private async randomDelay(
@@ -115,13 +98,13 @@ export class MixRadiusService {
   /** Authenticate to MixRadius and refresh session state when needed. */
   async login(): Promise<void> {
     await this.loadCredentials();
-    const session = await loginMixRadius({
-      client: this.client,
+    const nextSession = await loginMixRadius({
+      client: this.session.client,
       credentials: this.credentials,
-      session: this.getSessionState(),
+      session: buildSessionState(this.session),
       randomDelay: this.randomDelay.bind(this),
     });
-    this.applySessionState(session);
+    this.session = applySessionState(this.session, nextSession);
   }
 
   /** Fetch PPP customers from MixRadius. */
@@ -129,19 +112,12 @@ export class MixRadiusService {
     params: FetchCustomersParams = {},
   ): Promise<MixRadiusCustomerResponse> {
     await this.loadCredentials();
-
-    const { result, cache } = await fetchMixRadiusCustomersPPP({
-      client: this.client,
-      baseUrl: this.credentials.baseUrl,
-      login: this.login.bind(this),
-      onSessionExpired: this.handleSessionExpired.bind(this),
-      randomDelay: this.randomDelay.bind(this),
-      filters: params,
+    const { result, cache } = await fetchCustomersPPPOperation({
+      ...this.buildBaseClientParams(params),
       cache: this.customersCache,
       customersCacheTtl: MIXRADIUS_CUSTOMERS_CACHE_TTL,
       onResetClient: this.resetHttpClient.bind(this),
     });
-
     this.customersCache = cache;
     return result;
   }
@@ -151,7 +127,7 @@ export class MixRadiusService {
     params: FetchCustomersParams = {},
   ): Promise<MixRadiusIncomePeriodResponse> {
     await this.loadCredentials();
-    return fetchMixRadiusIncomeByPeriod(this.buildBaseClientParams(params));
+    return fetchIncomeByPeriodOperation(this.buildBaseClientParams(params));
   }
 
   /** Fetch summarized income metrics from MixRadius. */
@@ -159,18 +135,18 @@ export class MixRadiusService {
     params: FetchCustomersParams = {},
   ): Promise<MixRadiusIncomeSummary> {
     await this.loadCredentials();
-    return fetchMixRadiusIncomeSummary(this.buildBaseClientParams(params));
+    return fetchIncomeSummaryOperation(this.buildBaseClientParams(params));
   }
 
   /** Fetch MixRadius owners with numeric identifiers. */
   async getOwnersWithIds(): Promise<MixRadiusOwner[]> {
     await this.loadCredentials();
-    return fetchMixRadiusOwnersWithIds(this.buildBaseClientParams());
+    return getOwnersWithIdsOperation(this.buildBaseClientParams());
   }
 
   /** Fetch unique owner names from PPP customers. */
   async getUniqueOwners(): Promise<string[]> {
-    return fetchMixRadiusUniqueOwners({
+    return getUniqueOwnersOperation({
       fetchCustomersPPP: async (filters) => this.fetchCustomersPPP(filters),
     });
   }
@@ -178,10 +154,7 @@ export class MixRadiusService {
   /** Delete an income record in MixRadius. */
   async deleteIncomeRecord(id: string): Promise<boolean> {
     await this.loadCredentials();
-    return deleteMixRadiusIncomeRecord({
-      ...this.buildBaseClientParams(),
-      id,
-    });
+    return deleteIncomeRecordOperation({ ...this.buildBaseClientParams(), id });
   }
 
   /** Retrieve invoice print HTML from MixRadius. */
@@ -190,36 +163,11 @@ export class MixRadiusService {
     type: "standard" | "thermal" = "standard",
   ): Promise<string> {
     await this.loadCredentials();
-    return getMixRadiusPrintInvoiceHtml({
+    return getPrintInvoiceHtmlOperation({
       ...this.buildBaseClientParams(),
       id,
       type,
     });
-  }
-
-  /** List owner groups for MixRadius mapping. */
-  async getOwnerGroups(tenantId?: string) {
-    return this.ownerGroupService.getOwnerGroups(tenantId);
-  }
-
-  /** Get one owner group for MixRadius mapping. */
-  async getOwnerGroup(id: string, tenantId?: string) {
-    return this.ownerGroupService.getOwnerGroup(id, tenantId);
-  }
-
-  /** Create an owner group for MixRadius mapping. */
-  async createOwnerGroup(data: MixRadiusOwnerGroupPayload) {
-    return this.ownerGroupService.createOwnerGroup(data);
-  }
-
-  /** Update an owner group for MixRadius mapping. */
-  async updateOwnerGroup(id: string, data: MixRadiusOwnerGroupUpdatePayload) {
-    return this.ownerGroupService.updateOwnerGroup(id, data);
-  }
-
-  /** Delete an owner group for MixRadius mapping. */
-  async deleteOwnerGroup(id: string, tenantId?: string) {
-    return this.ownerGroupService.deleteOwnerGroup(id, tenantId);
   }
 
   /** Fetch active PPP sessions keyed by username. */
@@ -227,7 +175,7 @@ export class MixRadiusService {
     search: string = "",
   ): Promise<Map<string, { ip: string; uptime: string }>> {
     await this.loadCredentials();
-    return fetchMixRadiusActiveSessionsPPP({
+    return fetchActiveSessionsPPPOperation({
       ...this.buildBaseClientParams(),
       search,
     });
@@ -239,7 +187,7 @@ export class MixRadiusService {
     bypassCache: boolean = false,
     validationData: Record<string, string> = {},
   ): Promise<Map<string, { paidCount: number; totalCount: number }>> {
-    return fetchMixRadiusInvoiceCounts({
+    return fetchInvoiceCountsOperation({
       customerIds,
       bypassCache,
       validationData,
@@ -255,7 +203,7 @@ export class MixRadiusService {
     customerId: string,
   ): Promise<MixRadiusCustomerDetail> {
     await this.loadCredentials();
-    return fetchMixRadiusCustomerDetail({
+    return fetchCustomerDetailOperation({
       ...this.buildBaseClientParams(),
       customerId,
       fetchCustomersPPP: this.fetchCustomersPPP.bind(this),
@@ -266,18 +214,18 @@ export class MixRadiusService {
   async clearSession(): Promise<void> {
     this.handleSessionExpired();
     this.customersCache = createCustomersCacheState();
-    this.resetCookieJar();
+    this.session = resetCookieSession(this.session);
   }
 
   /** Check whether the current MixRadius session is still valid. */
   isSessionValid(): boolean {
-    return this.isLoggedIn && this.loginExpiresAt > Date.now();
+    return this.session.isLoggedIn && this.session.loginExpiresAt > Date.now();
   }
 
   /** Fetch MixRadius ODP list. */
   async fetchODPList(): Promise<MixRadiusODP[]> {
     await this.loadCredentials();
-    return fetchMixRadiusODPList({
+    return fetchODPListOperation({
       ...this.buildBaseClientParams(),
       onRetry: () => this.fetchODPList(),
     });
@@ -286,7 +234,7 @@ export class MixRadiusService {
   /** Fetch customers attached to an ODP. */
   async fetchODPCustomers(odpId: string): Promise<MixRadiusODPCustomer[]> {
     await this.loadCredentials();
-    return fetchMixRadiusODPCustomers({
+    return fetchODPCustomersOperation({
       ...this.buildBaseClientParams(),
       odpId,
       onRetry: () => this.fetchODPCustomers(odpId),
@@ -303,16 +251,14 @@ export class MixRadiusService {
     ownerName?: string;
     forceRefresh?: boolean;
   }): Promise<MixRadiusTopologyData> {
-    const { result, cache } = await fetchMixRadiusTopologyData({
+    const { result, cache } = await fetchTopologyDataOperation({
       ownerName: options?.ownerName,
       forceRefresh: options?.forceRefresh,
       cache: this.topologyCache,
-      topologyCacheTtl: MIXRADIUS_TOPOLOGY_CACHE_TTL,
       fetchODPList: this.fetchODPList.bind(this),
       fetchODPCustomers: this.fetchODPCustomers.bind(this),
       randomDelay: this.randomDelay.bind(this),
     });
-
     this.topologyCache = cache;
     return result;
   }
@@ -325,48 +271,28 @@ export class MixRadiusService {
     taxes: number[];
   }> {
     await this.loadCredentials();
-    return fetchMixRadiusProfitReport(this.buildBaseClientParams());
+    return fetchProfitReportOperation(this.buildBaseClientParams());
   }
 
-  private buildBaseClientParams(filters?: FetchCustomersParams) {
-    return {
-      client: this.client,
+  private buildBaseClientParams(
+    filters?: FetchCustomersParams,
+  ): MixRadiusBaseClientParams {
+    return buildMixRadiusBaseClientParams({
+      client: this.session.client,
       baseUrl: this.credentials.baseUrl,
       login: this.login.bind(this),
       onSessionExpired: this.handleSessionExpired.bind(this),
       randomDelay: this.randomDelay.bind(this),
       filters,
-    };
-  }
-
-  private getSessionState(): MixRadiusSessionState {
-    return {
-      isLoggedIn: this.isLoggedIn,
-      loginExpiresAt: this.loginExpiresAt,
-      loggedInCredentials: this.loggedInCredentials,
-    };
-  }
-
-  private applySessionState(session: MixRadiusSessionState) {
-    this.isLoggedIn = session.isLoggedIn;
-    this.loginExpiresAt = session.loginExpiresAt;
-    this.loggedInCredentials = session.loggedInCredentials;
+    });
   }
 
   private handleSessionExpired() {
-    this.isLoggedIn = false;
-    this.loginExpiresAt = 0;
-    this.loggedInCredentials = null;
-  }
-
-  private resetCookieJar() {
-    this.jar = new CookieJar();
-    this.client = createMixRadiusHttpClient(this.jar);
+    this.session = expireSession(this.session);
   }
 
   private resetHttpClient() {
-    this.jar = new CookieJar();
-    this.client = createMixRadiusResetClient(this.jar);
+    this.session = resetHttpSession(this.session);
   }
 }
 
@@ -377,8 +303,10 @@ export function getMixRadiusService(): MixRadiusService {
   if (!mixRadiusServiceInstance) {
     mixRadiusServiceInstance = new MixRadiusService();
   }
-
   return mixRadiusServiceInstance;
 }
+
+export const getMixRadiusOwnerGroupFacadeService = () =>
+  new MixRadiusOwnerGroupFacadeService();
 
 export { MixRadiusConfigError } from "./mixradius-types";

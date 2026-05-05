@@ -19,6 +19,7 @@ import {
   EmployeeLoanRepository,
 } from "../repositories/SalaryCalculationRepositories";
 import { SalaryComponentCalculationService } from "./SalaryComponentCalculationService";
+import { buildActiveLoanDeductionLines } from "./SalaryCalculatorService.helpers";
 import { SalaryLoanDeductionService } from "./SalaryLoanDeductionService";
 import { SalaryPayrollLineService } from "./SalaryPayrollLineService";
 import { SalaryStatsQueryService } from "./SalaryStatsQueryService";
@@ -64,8 +65,6 @@ export class SalaryCalculatorService {
   private salaryRepo: ISalaryRepository;
   private componentRepo: ISalaryComponentRepository;
   private attendanceRepo: AttendancePayrollQueryService;
-  private overtimeRepo: OvertimePayrollQueryService;
-  private leaveBalanceRepo: LeaveBalanceQueryService;
   private userRepository: UserRepository;
   private employeeLoanRepository: EmployeeLoanRepository;
   private statsQueryService: SalaryStatsQueryService;
@@ -82,10 +81,6 @@ export class SalaryCalculatorService {
     this.componentRepo = componentRepo;
     this.attendanceRepo =
       dependencies.attendanceRepo ?? new AttendancePayrollQueryService();
-    this.overtimeRepo =
-      dependencies.overtimeRepo ?? new OvertimePayrollQueryService();
-    this.leaveBalanceRepo =
-      dependencies.leaveBalanceRepo ?? new LeaveBalanceQueryService();
     this.userRepository = dependencies.userRepository ?? new UserRepository();
     this.employeeLoanRepository =
       dependencies.employeeLoanRepository ?? new EmployeeLoanRepository();
@@ -186,21 +181,7 @@ export class SalaryCalculatorService {
     const activeLoans =
       await this.employeeLoanRepository.findActiveByUserId(userId);
 
-    for (const loan of activeLoans) {
-      if (loan.remainingAmount > 0) {
-        const deductionAmount = Math.min(
-          loan.installment,
-          loan.remainingAmount,
-        );
-
-        deductions.push({
-          name: "Cicilan Pinjaman",
-          amount: deductionAmount,
-          loanId: loan.id,
-          notes: `Sisa sebelum dipotong: Rp${loan.remainingAmount.toLocaleString()}`,
-        });
-      }
-    }
+    deductions.push(...buildActiveLoanDeductionLines(activeLoans));
 
     const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
     const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);

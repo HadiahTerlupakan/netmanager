@@ -11,7 +11,7 @@ import {
   buildWebsocketPayload,
   shouldNotifyAdmins,
 } from "./NotificationService.helpers";
-import type { CreateNotificationData } from "./NotificationService";
+import type { CreateNotificationData } from "./NotificationService.types";
 import type { UserLookupService } from "@/modules/users";
 
 /** Dispatch websocket, FCM, and Expo deliveries for one notification. */
@@ -28,25 +28,54 @@ export async function deliverNotification(input: {
   data: CreateNotificationData;
   userLookupService: UserLookupService;
 }): Promise<void> {
-  const wsPayload = buildWebsocketPayload(input.notification);
-  const pushMetadata = buildNotificationPushMetadata(
-    input.notification.id,
+  const deliveryPayload = buildDeliveryPayload(input.notification, input.data);
+  await notifyNotificationChannels(
     input.data,
-  );
-
-  await notifyDirectUser(
-    input.data,
-    wsPayload,
-    pushMetadata,
+    deliveryPayload,
     input.userLookupService,
+  );
+}
+
+async function notifyNotificationChannels(
+  data: CreateNotificationData,
+  deliveryPayload: ReturnType<typeof buildDeliveryPayload>,
+  userLookupService: UserLookupService,
+) {
+  await notifyDirectUser(
+    data,
+    deliveryPayload.wsPayload,
+    deliveryPayload.pushMetadata,
+    userLookupService,
   );
   await notifyDepartment(
-    input.data,
-    wsPayload,
-    pushMetadata,
-    input.userLookupService,
+    data,
+    deliveryPayload.wsPayload,
+    deliveryPayload.pushMetadata,
+    userLookupService,
   );
-  await notifyAdmins(input.data, wsPayload, pushMetadata);
+  await notifyAdmins(
+    data,
+    deliveryPayload.wsPayload,
+    deliveryPayload.pushMetadata,
+  );
+}
+
+function buildDeliveryPayload(
+  notification: {
+    id: string;
+    type: string;
+    priority: string;
+    title: string;
+    message: string;
+    link: string | null;
+    createdAt: Date;
+  },
+  data: CreateNotificationData,
+) {
+  return {
+    wsPayload: buildWebsocketPayload(notification),
+    pushMetadata: buildNotificationPushMetadata(notification.id, data),
+  };
 }
 
 /** Notify one direct user through all supported channels. */

@@ -64,20 +64,37 @@ export async function loginMixRadius(params: {
   const normalizedBaseUrl = validateBaseUrl(credentials.baseUrl);
   ensureCredentialsExist(credentials);
 
+  return await performLogin({
+    client,
+    normalizedBaseUrl,
+    credentials,
+    randomDelay,
+  });
+}
+
+async function performLogin(params: {
+  client: AxiosInstance;
+  normalizedBaseUrl: string;
+  credentials: MixRadiusCredentials;
+  randomDelay: (min?: number, max?: number) => Promise<void>;
+}) {
   try {
-    await client.get(`${normalizedBaseUrl}/rad-admin`);
-    await randomDelay(LOGIN_DELAY_MIN_IN_MS, LOGIN_DELAY_MAX_IN_MS);
+    await params.client.get(`${params.normalizedBaseUrl}/rad-admin`);
+    await params.randomDelay(LOGIN_DELAY_MIN_IN_MS, LOGIN_DELAY_MAX_IN_MS);
     const loginResponse = await submitLoginRequest({
-      client,
-      normalizedBaseUrl,
-      credentials,
+      client: params.client,
+      normalizedBaseUrl: params.normalizedBaseUrl,
+      credentials: params.credentials,
     });
 
-    if (!isSuccessfulLogin(loginResponse, credentials.username)) {
+    if (!isSuccessfulLogin(loginResponse, params.credentials.username)) {
       throw new Error("Login may have failed - unexpected response");
     }
 
-    return buildLoggedInSession(credentials.username, normalizedBaseUrl);
+    return buildLoggedInSession(
+      params.credentials.username,
+      params.normalizedBaseUrl,
+    );
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
@@ -148,15 +165,19 @@ async function submitLoginRequest(params: {
   return client.post(
     `${normalizedBaseUrl}/rad-admin/post`,
     formData.toString(),
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Referer: `${normalizedBaseUrl}/rad-admin`,
-        Origin: normalizedBaseUrl,
-      },
-      maxRedirects: 5,
-    },
+    buildLoginRequestConfig(normalizedBaseUrl),
   );
+}
+
+function buildLoginRequestConfig(normalizedBaseUrl: string) {
+  return {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Referer: `${normalizedBaseUrl}/rad-admin`,
+      Origin: normalizedBaseUrl,
+    },
+    maxRedirects: 5,
+  };
 }
 
 function isSuccessfulLogin(

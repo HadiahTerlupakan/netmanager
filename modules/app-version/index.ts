@@ -6,5 +6,5 @@ export type {
   MobileVersionReportInput,
 } from "./services/AppVersionService";
 export { AppVersionService } from "./services/AppVersionService";
-export { getAppVersionService } from "./factories/app-version-service-factory";
+export { getAppVersionService } from "./services/getAppVersionService";
 export { parseAppVersionUploadForm } from "./services/parseUploadVersionForm";

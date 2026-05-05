@@ -33,26 +33,28 @@ export async function fetchMixRadiusODPList(params: {
   await login();
   await randomDelay(300, 800);
 
-  const response = await client.get(
-    `${baseUrl}/rad-autoload/mapping-odps/ALL`,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "*/*",
-        Referer: `${baseUrl}/rad-odp/mapping`,
-      },
-    },
-  );
+  const response = await fetchODPListResponse(client, baseUrl);
 
-  if (
-    typeof response.data === "string" &&
-    response.data.includes("<!DOCTYPE")
-  ) {
+  if (isSessionExpiredResponse(response.data)) {
     onSessionExpired();
     return onRetry();
   }
 
-  const parsedData = parseJsonResponse(response.data);
+  return parseAndMapODPList(response.data);
+}
+
+async function fetchODPListResponse(client: AxiosInstance, baseUrl: string) {
+  return client.get(`${baseUrl}/rad-autoload/mapping-odps/ALL`, {
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "*/*",
+      Referer: `${baseUrl}/rad-odp/mapping`,
+    },
+  });
+}
+
+function parseAndMapODPList(data: unknown): MixRadiusODP[] {
+  const parsedData = parseJsonResponse(data);
   if (!Array.isArray(parsedData)) {
     return [];
   }
@@ -60,6 +62,10 @@ export async function fetchMixRadiusODPList(params: {
   return parsedData
     .map((item) => mapMixRadiusOdpItem(item))
     .filter((odp): odp is MixRadiusODP => Boolean(odp));
+}
+
+function isSessionExpiredResponse(data: unknown): boolean {
+  return typeof data === "string" && data.includes("<!DOCTYPE");
 }
 
 /** Fetch customers that belong to a specific ODP. */
@@ -113,24 +119,57 @@ export async function fetchMixRadiusTopologyData(params: {
   result: MixRadiusTopologyData;
   cache: MixRadiusTopologyCacheState;
 }> {
-  const {
-    ownerName,
-    forceRefresh,
-    cache,
-    topologyCacheTtl,
-    fetchODPList,
-    fetchODPCustomers,
-    randomDelay,
-  } = params;
-  const ownerFilter = ownerName || null;
+  const ownerFilter = params.ownerName || null;
+
+  const cachedResult = getCachedTopologyIfValid(
+    params.cache,
+    ownerFilter,
+    params.forceRefresh,
+  );
+  if (cachedResult) {
+    return { result: cachedResult, cache: params.cache };
+  }
+
+  const result = await fetchFreshTopologyData({
+    ownerName: params.ownerName,
+    fetchODPList: params.fetchODPList,
+    fetchODPCustomers: params.fetchODPCustomers,
+    randomDelay: params.randomDelay,
+  });
+
+  return {
+    result,
+    cache: {
+      data: result,
+      expiresAt: Date.now() + params.topologyCacheTtl,
+      ownerFilter,
+    },
+  };
+}
+
+function getCachedTopologyIfValid(
+  cache: MixRadiusTopologyCacheState,
+  ownerFilter: string | null,
+  forceRefresh?: boolean,
+): MixRadiusTopologyData | null {
   if (
     !forceRefresh &&
     cache.data &&
     cache.expiresAt > Date.now() &&
     cache.ownerFilter === ownerFilter
   ) {
-    return { result: cache.data, cache };
+    return cache.data;
   }
+  return null;
+}
+
+async function fetchFreshTopologyData(params: {
+  ownerName?: string;
+  fetchODPList: () => Promise<MixRadiusODP[]>;
+  fetchODPCustomers: (odpId: string) => Promise<MixRadiusODPCustomer[]>;
+  randomDelay: (min?: number, max?: number) => Promise<void>;
+}): Promise<MixRadiusTopologyData> {
+  const { ownerName, fetchODPList, fetchODPCustomers, randomDelay } = params;
 
   let odps = await fetchODPList();
   if (ownerName) {
@@ -142,15 +181,8 @@ export async function fetchMixRadiusTopologyData(params: {
     fetchODPCustomers,
     randomDelay,
   );
-  const result: MixRadiusTopologyData = { odps, customers };
-  return {
-    result,
-    cache: {
-      data: result,
-      expiresAt: Date.now() + topologyCacheTtl,
-      ownerFilter,
-    },
-  };
+
+  return { odps, customers };
 }
 
 async function fetchTopologyCustomers(

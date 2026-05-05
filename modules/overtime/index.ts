@@ -22,12 +22,12 @@ export {
   lemburFilterSchema,
   lemburUpdateSchema,
   OvertimeStatus,
-} from "./validators/lembur";
+} from "./validation";
 export type {
   LemburAction,
   LemburCreate,
   LemburFilter,
   LemburUpdate,
   OvertimeStatusType,
-} from "./validators/lembur";
+} from "./validation";
 export { rehydrateOvertimeAutoCheckoutJobs } from "./services/OvertimeAutoCheckoutRehydrationService";

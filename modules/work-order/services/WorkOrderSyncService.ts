@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import type { UpdateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
 import { WorkOrderStatus } from "../types/work-order.enums";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { TicketRepository } from "../repositories/TicketRepository";
@@ -58,28 +59,50 @@ export async function closeWoOnTicketClose(ticketId: string) {
     const workOrderRepo = getWorkOrderRepository();
     const wos = await workOrderRepo.findManyByTicketId(ticketId);
 
-    for (const wo of wos) {
-      if (wo.status === "PENDING") {
-        await workOrderRepo.update(wo.id, {
-          status: "CANCELLED",
-          resolutionNotes: "Tiket ditutup sebelum WO diambil",
-        });
-      } else if (
-        wo.status === "ASSIGNED" ||
-        wo.status === "IN_PROGRESS" ||
-        wo.status === "ON_HOLD"
-      ) {
-        await workOrderRepo.update(wo.id, {
-          status: "CLOSED",
-          resolutionNotes: "Tiket ditutup manual oleh Admin",
-        });
-      } else if (wo.status === "COMPLETED" || wo.status === "VERIFIED") {
-        await workOrderRepo.update(wo.id, {
-          status: "CLOSED",
-        });
-      }
+    for (const workOrder of wos) {
+      await closeWorkOrderForClosedTicket(workOrderRepo, workOrder);
     }
   } catch (error) {
     logger.error("Error closing WOs for ticket:", error);
   }
+}
+
+async function closeWorkOrderForClosedTicket(
+  repository: WorkOrderRepository,
+  workOrder: Awaited<
+    ReturnType<WorkOrderRepository["findManyByTicketId"]>
+  >[number],
+) {
+  const updateData = buildClosedTicketWorkOrderUpdate(workOrder.status);
+  if (!updateData) {
+    return;
+  }
+
+  await repository.update(workOrder.id, updateData);
+}
+
+function buildClosedTicketWorkOrderUpdate(
+  status: WorkOrderStatus,
+): UpdateWorkOrderData | null {
+  if (status === "PENDING") {
+    return {
+      status: "CANCELLED",
+      resolutionNotes: "Tiket ditutup sebelum WO diambil",
+    };
+  }
+  if (
+    status === "ASSIGNED" ||
+    status === "IN_PROGRESS" ||
+    status === "ON_HOLD"
+  ) {
+    return {
+      status: "CLOSED",
+      resolutionNotes: "Tiket ditutup manual oleh Admin",
+    };
+  }
+  if (status === "COMPLETED" || status === "VERIFIED") {
+    return { status: "CLOSED" };
+  }
+
+  return null;
 }

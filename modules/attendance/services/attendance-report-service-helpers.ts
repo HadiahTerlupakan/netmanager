@@ -162,13 +162,23 @@ function buildEmployeeSummaryItem(params: {
   userOtMap: Map<string, number>;
   userTotalDuration: Map<string, number>;
 }) {
-  const lemburMinutes = params.userOtMap.get(params.userId) || DEFAULT_ZERO;
-  const totalMinutes =
-    params.userTotalDuration.get(params.userId) || DEFAULT_ZERO;
   return {
     userId: params.userId,
     user: mapSummaryUser(params.userDetailsMap.get(params.userId)),
     ...buildAttendanceSummaryCounts(params),
+    ...buildWorkDurationSummary(params),
+  };
+}
+
+function buildWorkDurationSummary(params: {
+  userId: string;
+  userOtMap: Map<string, number>;
+  userTotalDuration: Map<string, number>;
+}) {
+  const lemburMinutes = params.userOtMap.get(params.userId) || DEFAULT_ZERO;
+  const totalMinutes =
+    params.userTotalDuration.get(params.userId) || DEFAULT_ZERO;
+  return {
     lemburJam: toRoundedHours(lemburMinutes),
     totalJamKerja: toRoundedHours(totalMinutes),
   };

@@ -178,20 +178,37 @@ export async function enqueueRetryableTokens(input: {
   enqueueRetry: PushFailureDependencies["enqueueRetry"];
 }): Promise<void> {
   for (const token of input.tokens) {
-    const message = input.originalMessages.find((item) => item.to === token);
-    if (!message) {
+    const payload = buildRetryableTokenPayload(
+      token,
+      input.originalMessages,
+      input.tokenOwnerMap,
+    );
+    if (!payload) {
       continue;
     }
 
-    await input.enqueueRetry({
-      type: "expo",
-      userId: input.tokenOwnerMap[token] || UNKNOWN_USER_ID,
-      title: message.title,
-      body: message.body,
-      data: message.data as Record<string, unknown>,
-      pushToken: token,
-    });
+    await input.enqueueRetry(payload);
   }
+}
+
+function buildRetryableTokenPayload(
+  token: string,
+  originalMessages: ExpoPushMessage[],
+  tokenOwnerMap: Record<string, string>,
+) {
+  const message = originalMessages.find((item) => item.to === token);
+  if (!message) {
+    return null;
+  }
+
+  return {
+    type: "expo" as const,
+    userId: tokenOwnerMap[token] || UNKNOWN_USER_ID,
+    title: message.title,
+    body: message.body,
+    data: message.data as Record<string, unknown>,
+    pushToken: token,
+  };
 }
 
 /** Handle failed Expo tokens using the existing cleanup and retry semantics. */

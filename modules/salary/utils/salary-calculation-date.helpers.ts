@@ -9,22 +9,36 @@ export function getPeriodDateRange(input: {
   payPeriodDay: number;
 }): { startDate: Date; endDate: Date } {
   const previousPeriod = resolvePreviousPayrollPeriod(input.month, input.year);
-
   return {
-    startDate: new Date(
-      previousPeriod.year,
-      previousPeriod.monthIndex,
-      input.payPeriodDay + 1,
-    ),
-    endDate: new Date(
-      input.year,
-      input.month - 1,
-      input.payPeriodDay,
-      PAYROLL_END_HOUR,
-      PAYROLL_END_MINUTE,
-      PAYROLL_END_SECOND,
-    ),
+    startDate: buildPayrollStartDate(previousPeriod, input.payPeriodDay),
+    endDate: buildPayrollEndDate(input),
   };
+}
+
+function buildPayrollStartDate(
+  previousPeriod: { monthIndex: number; year: number },
+  payPeriodDay: number,
+) {
+  return new Date(
+    previousPeriod.year,
+    previousPeriod.monthIndex,
+    payPeriodDay + 1,
+  );
+}
+
+function buildPayrollEndDate(input: {
+  month: number;
+  year: number;
+  payPeriodDay: number;
+}) {
+  return new Date(
+    input.year,
+    input.month - 1,
+    input.payPeriodDay,
+    PAYROLL_END_HOUR,
+    PAYROLL_END_MINUTE,
+    PAYROLL_END_SECOND,
+  );
 }
 
 function resolvePreviousPayrollPeriod(month: number, year: number) {

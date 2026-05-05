@@ -205,30 +205,32 @@ async function attachActiveSessions(params: {
   onSessionExpired: () => void;
   randomDelay: (min?: number, max?: number) => Promise<void>;
 }) {
-  const {
-    customers,
-    search,
-    client,
-    baseUrl,
-    login,
-    onSessionExpired,
-    randomDelay,
-  } = params;
   try {
-    await randomDelay(
+    await params.randomDelay(
       SESSION_LOOKUP_DELAY_MIN_IN_MS,
       SESSION_LOOKUP_DELAY_MAX_IN_MS,
     );
-    const activeSessions = await fetchMixRadiusActiveSessionsPPP({
-      client,
-      baseUrl,
-      login,
-      onSessionExpired,
-      randomDelay,
-      search,
-    });
-    return mergeCustomerSessions(customers, activeSessions);
+    const activeSessions = await fetchActiveSessions(params);
+    return mergeCustomerSessions(params.customers, activeSessions);
   } catch {
-    return mergeCustomerSessions(customers, new Map());
+    return mergeCustomerSessions(params.customers, new Map());
   }
+}
+
+async function fetchActiveSessions(params: {
+  client: MixRadiusCustomerClientParams["client"];
+  baseUrl: string;
+  login: () => Promise<void>;
+  onSessionExpired: () => void;
+  randomDelay: (min?: number, max?: number) => Promise<void>;
+  search: string;
+}) {
+  return fetchMixRadiusActiveSessionsPPP({
+    client: params.client,
+    baseUrl: params.baseUrl,
+    login: params.login,
+    onSessionExpired: params.onSessionExpired,
+    randomDelay: params.randomDelay,
+    search: params.search,
+  });
 }

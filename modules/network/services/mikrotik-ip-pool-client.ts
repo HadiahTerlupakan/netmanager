@@ -107,25 +107,40 @@ async function connectToRouter(routerId: string) {
   });
 }
 
+function createMissingPoolRangesResult() {
+  return { success: false as const, error: "IP Pool tidak memiliki ranges" };
+}
+
+function createPoolNotFoundResult() {
+  return { success: false as const, error: "IP Pool tidak ditemukan" };
+}
+
+function createPoolRangesErrorResult(error: unknown) {
+  logger.error("[MikroTik IP Pool] Error getting pool ranges:", error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return {
+    success: false as const,
+    error: errorMessage || "Gagal mengambil IP Pool ranges dari MikroTik",
+  };
+}
+
+function getPoolRangesRecord(pools: Array<Record<string, string>> | undefined) {
+  return pools?.[0];
+}
+
 async function readPoolRanges(conn: RouterOSAPI, poolName: string) {
   try {
     const pools = await conn.write("/ip/pool/print", ["?name=" + poolName]);
-    const ranges = pools?.[0]?.["ranges"] || null;
+    const pool = getPoolRangesRecord(
+      pools as Array<Record<string, string>> | undefined,
+    );
     conn.close();
-    if (!pools?.[0])
-      return { success: false, error: "IP Pool tidak ditemukan" };
-    if (!ranges?.trim()) {
-      return { success: false, error: "IP Pool tidak memiliki ranges" };
-    }
-    return { success: true, ranges };
+    if (!pool) return createPoolNotFoundResult();
+    if (!pool.ranges?.trim()) return createMissingPoolRangesResult();
+    return { success: true as const, ranges: pool.ranges };
   } catch (error) {
     conn.close();
-    logger.error("[MikroTik IP Pool] Error getting pool ranges:", error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      error: errorMessage || "Gagal mengambil IP Pool ranges dari MikroTik",
-    };
+    return createPoolRangesErrorResult(error);
   }
 }
 

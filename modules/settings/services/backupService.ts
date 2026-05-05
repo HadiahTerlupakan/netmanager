@@ -7,15 +7,9 @@ import { createBackupArchiveFromDatabases } from "./backupService.archive";
 import { runTenantBackfillJob } from "./backupService.backfill";
 import { importBackupArchiveIntoDatabases } from "./backupService.import";
 import { resetConfiguredDatabases } from "./backupService.reset";
+import { DB_ENV_MAP } from "./backupService.shared";
 
 const execAsync = promisify(exec);
-
-const DB_ENV_MAP: Record<string, string> = {
-  netmanager: "DATABASE_URL",
-  radius: "RADIUS_DATABASE_URL",
-  billing: "DATABASE_URL_BILLING",
-  mitra: "DATABASE_URL_MITRA",
-};
 
 const DB_DOCKER_CONTAINER_MAP: Record<string, string> = {
   netmanager: "netmanager-postgres-app",

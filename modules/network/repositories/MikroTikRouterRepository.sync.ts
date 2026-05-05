@@ -107,6 +107,33 @@ export async function syncNasOnRouterUpdate(
   }
 }
 
+function getRouterDeletionProfileNames(profiles: Array<{ name: string }>) {
+  return profiles.map((profile) => profile.name).join(", ");
+}
+
+function hasRouterDeletionActivePackages(
+  profiles: Array<{ hargaPaket: Array<{ id: string }> }>,
+) {
+  return profiles.some((profile) => profile.hargaPaket.length > 0);
+}
+
+function buildRouterDeletionMessage(input: {
+  routerName: string;
+  profileCount: number;
+  profileNames: string;
+  hasActivePackages: boolean;
+}) {
+  const packageMessage = input.hasActivePackages
+    ? " dan beberapa memiliki paket harga aktif"
+    : "";
+
+  return (
+    `Router "${input.routerName}" tidak dapat dihapus karena masih memiliki ` +
+    `${input.profileCount} Profile PPP yang terhubung (${input.profileNames})` +
+    `${packageMessage}. Hapus atau pindahkan Profile PPP terlebih dahulu.`
+  );
+}
+
 /** Validate router deletion relation constraints. */
 export function validateRouterDeletion(router: {
   name: string;
@@ -119,21 +146,13 @@ export function validateRouterDeletion(router: {
     return;
   }
 
-  const profileNames = router.profilePPP
-    .map((profile) => profile.name)
-    .join(", ");
-  const hasActivePackages = router.profilePPP.some(
-    (profile) => profile.hargaPaket.length > 0,
-  );
-
-  if (hasActivePackages) {
-    throw new Error(
-      `Router "${router.name}" tidak dapat dihapus karena masih memiliki ${router.profilePPP.length} Profile PPP yang terhubung (${profileNames}) dan beberapa memiliki paket harga aktif. Hapus atau pindahkan Profile PPP terlebih dahulu.`,
-    );
-  }
-
   throw new Error(
-    `Router "${router.name}" tidak dapat dihapus karena masih memiliki ${router.profilePPP.length} Profile PPP yang terhubung (${profileNames}). Hapus atau pindahkan Profile PPP terlebih dahulu.`,
+    buildRouterDeletionMessage({
+      routerName: router.name,
+      profileCount: router.profilePPP.length,
+      profileNames: getRouterDeletionProfileNames(router.profilePPP),
+      hasActivePackages: hasRouterDeletionActivePackages(router.profilePPP),
+    }),
   );
 }
 

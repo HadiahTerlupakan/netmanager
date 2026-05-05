@@ -141,38 +141,46 @@ export async function updateInventoryBarang(
 export async function findInventoryBarangDetail(db: PrismaClient, id: string) {
   const result = await db.barang.findUnique({
     where: { id },
-    include: {
-      barangGudang: { include: { gudang: true } },
-      barang_masuk: {
-        include: {
-          gudang: { select: { id: true, nama: true } },
-          user: { select: { id: true, name: true } },
-        },
-        orderBy: { tanggal: "desc" },
-        take: 10,
-      },
-      barang_keluar: {
-        include: {
-          gudang: { select: { id: true, nama: true } },
-          user: { select: { id: true, name: true } },
-        },
-        orderBy: { tanggal: "desc" },
-        take: 10,
-      },
-      stockOpname: {
-        include: {
-          gudang: { select: { id: true, nama: true } },
-        },
-        orderBy: { tanggal: "desc" },
-        take: 10,
-      },
-    },
+    include: buildBarangDetailInclude(),
   });
 
   if (!result) {
     return null;
   }
 
+  return mapToBarangDetail(result);
+}
+
+function buildBarangDetailInclude() {
+  return {
+    barangGudang: { include: { gudang: true } },
+    barang_masuk: {
+      include: {
+        gudang: { select: { id: true, nama: true } },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { tanggal: "desc" as const },
+      take: 10,
+    },
+    barang_keluar: {
+      include: {
+        gudang: { select: { id: true, nama: true } },
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { tanggal: "desc" as const },
+      take: 10,
+    },
+    stockOpname: {
+      include: {
+        gudang: { select: { id: true, nama: true } },
+      },
+      orderBy: { tanggal: "desc" as const },
+      take: 10,
+    },
+  };
+}
+
+function mapToBarangDetail(result: Record<string, unknown>) {
   return {
     ...result,
     masuk: result.barang_masuk as unknown as BarangMasukWithRelations[],

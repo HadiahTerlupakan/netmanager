@@ -50,33 +50,66 @@ export async function fetchAllIncomePeriodData(params: {
   while (
     shouldContinueFetching(allRecords.length, recordsFiltered, currentStart)
   ) {
-    const responseData = await postIncomeBatch({
+    const batch = await fetchIncomeBatch({
       client,
       baseUrl,
       filters,
       start: currentStart,
+      onSessionExpired,
     });
-    if (isSessionExpiredResponse(responseData)) {
-      onSessionExpired();
-      throw new Error("Session expired, please refresh");
-    }
+    if (!batch) break;
 
-    const typedResponse = responseData as MixRadiusIncomePeriodResponse;
-    const pageData = typedResponse.data || [];
-    if (currentStart === FIRST_BATCH_START) {
-      recordsTotal = typedResponse.recordsTotal;
-      recordsFiltered = typedResponse.recordsFiltered;
-    }
+    const batchResult = processBatchResult(
+      batch,
+      currentStart,
+      recordsTotal,
+      recordsFiltered,
+    );
+    recordsTotal = batchResult.recordsTotal;
+    recordsFiltered = batchResult.recordsFiltered;
 
-    if (pageData.length === 0) {
-      break;
-    }
+    if (batch.data.length === 0) break;
 
-    allRecords = allRecords.concat(pageData);
+    allRecords = allRecords.concat(batch.data);
     currentStart += INCOME_BATCH_SIZE;
   }
 
   return { records: allRecords, recordsTotal };
+}
+
+function processBatchResult(
+  batch: { recordsTotal: number; recordsFiltered: number },
+  currentStart: number,
+  recordsTotal: number,
+  recordsFiltered: number,
+) {
+  if (currentStart === FIRST_BATCH_START) {
+    return {
+      recordsTotal: batch.recordsTotal,
+      recordsFiltered: batch.recordsFiltered,
+    };
+  }
+  return { recordsTotal, recordsFiltered };
+}
+
+async function fetchIncomeBatch(params: {
+  client: AxiosInstance;
+  baseUrl: string;
+  filters: FetchCustomersParams;
+  start: number;
+  onSessionExpired: () => void;
+}) {
+  const responseData = await postIncomeBatch({
+    client: params.client,
+    baseUrl: params.baseUrl,
+    filters: params.filters,
+    start: params.start,
+  });
+  if (isSessionExpiredResponse(responseData)) {
+    params.onSessionExpired();
+    throw new Error("Session expired, please refresh");
+  }
+  return responseData as MixRadiusIncomePeriodResponse;
 }
 
 function shouldContinueFetching(
@@ -103,17 +136,21 @@ async function postIncomeBatch(params: {
   const response = await client.post(
     `${baseUrl}/rad-get-data/reports-period`,
     buildIncomeFetchFormData(filters, start).toString(),
-    {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "application/json, text/javascript, */*; q=0.01",
-        Referer: `${baseUrl}/rad-reports/income-by-period`,
-        Origin: baseUrl,
-      },
-    },
+    buildIncomeRequestConfig(baseUrl),
   );
   return response.data;
+}
+
+function buildIncomeRequestConfig(baseUrl: string) {
+  return {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest",
+      Accept: "application/json, text/javascript, */*; q=0.01",
+      Referer: `${baseUrl}/rad-reports/income-by-period`,
+      Origin: baseUrl,
+    },
+  };
 }
 
 function buildIncomeFetchFormData(

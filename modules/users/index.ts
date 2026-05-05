@@ -31,9 +31,9 @@ export {
   userIdParamSchema,
   userUpdateSchema,
   workingHourModeEnum,
-} from "./validators/user";
+} from "./validation";
 export type {
   DepartmentCreateData,
   DepartmentUpdateData,
   IDepartmentRepository,
-} from "./domain/ports/IDepartmentRepository";
+} from "./contracts";

@@ -73,20 +73,21 @@ export async function getCustomerInvoicePaymentStatus(options: {
     invoiceId: options.invoiceId,
     pelangganId: options.customerId,
   });
-
   if (!invoice) {
     return null;
   }
+  return resolveEffectivePaymentStatus(invoice);
+}
 
-  if (invoice.status !== "PAID" && invoice.payment.length > 0) {
-    const latestPayment = invoice.payment[0];
-    if (
-      latestPayment.gatewayStatus === "FAILED" ||
-      latestPayment.gatewayStatus === "CANCELLED"
-    ) {
-      return "FAILED";
-    }
+function resolveEffectivePaymentStatus(invoice: {
+  status: string;
+  payment: Array<{ gatewayStatus: string }>;
+}) {
+  if (invoice.status === "PAID" || invoice.payment.length === 0) {
+    return invoice.status;
   }
-
-  return invoice.status;
+  const latest = invoice.payment[0];
+  const isFailedStatus =
+    latest.gatewayStatus === "FAILED" || latest.gatewayStatus === "CANCELLED";
+  return isFailedStatus ? "FAILED" : invoice.status;
 }

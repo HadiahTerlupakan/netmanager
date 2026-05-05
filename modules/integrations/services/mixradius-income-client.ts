@@ -4,13 +4,17 @@ import {
   calculateEstimatedSummary,
   calculateInlineSummary,
   isMixRadiusConfigErrorMessage,
-  parseProfitArray,
 } from "./mixradius-income-helpers";
 import {
   applyIncomeFilters,
   paginateIncomeRecords,
 } from "./mixradius-income-filters";
 import { fetchAllIncomePeriodData } from "./mixradius-income-fetcher";
+import {
+  parseOwnerOptions,
+  parseProfitReport,
+  type MixRadiusProfitReport,
+} from "./mixradius-income-client.parsers";
 import {
   MixRadiusConfigError,
   type FetchCustomersParams,
@@ -27,19 +31,9 @@ type MixRadiusIncomeClientParams = {
   randomDelay: (min?: number, max?: number) => Promise<void>;
 };
 
-type MixRadiusProfitReport = {
-  income: number[];
-  transactions: number[];
-  sellerFees: number[];
-  taxes: number[];
-};
-
 const INCOME_REQUEST_DELAY_MIN_IN_MS = 300;
 const INCOME_REQUEST_DELAY_MAX_IN_MS = 800;
 const SUMMARY_FETCH_LIMIT = 10000;
-const UNIQUE_OWNER_FETCH_LIMIT = 10000;
-const EMPTY_OWNER_ID = "0";
-const EMPTY_STATE_ARRAY = Array(12).fill(0);
 
 /** Fetch income rows by period from MixRadius. */
 export async function fetchMixRadiusIncomeByPeriod(
@@ -182,28 +176,7 @@ export async function fetchMixRadiusOwnersWithIds(
   }
 }
 
-/** Fetch unique owner names from customer dataset. */
-export async function fetchMixRadiusUniqueOwners(params: {
-  fetchCustomersPPP: (
-    filters: FetchCustomersParams,
-  ) => Promise<{ data: Array<{ owner_name: string }> }>;
-}): Promise<string[]> {
-  try {
-    const result = await params.fetchCustomersPPP({
-      start: 0,
-      length: UNIQUE_OWNER_FETCH_LIMIT,
-    });
-    const ownerNames =
-      result.data?.map((item) => item.owner_name).filter(Boolean) || [];
-    return Array.from(new Set(ownerNames)).sort();
-  } catch (error) {
-    console.error(
-      "[MixRadius] Get owners error:",
-      error instanceof Error ? error.message : error,
-    );
-    return [];
-  }
-}
+export { fetchMixRadiusUniqueOwners } from "./mixradius-income-client.unique-owners";
 
 /** Delete an income record in MixRadius. */
 export async function deleteMixRadiusIncomeRecord(
@@ -297,57 +270,10 @@ export async function fetchMixRadiusProfitReport(
 
     console.error("[MixRadius] Error fetching profit report:", error);
     return {
-      income: [...EMPTY_STATE_ARRAY],
-      transactions: [...EMPTY_STATE_ARRAY],
-      sellerFees: [...EMPTY_STATE_ARRAY],
-      taxes: [...EMPTY_STATE_ARRAY],
+      income: Array(12).fill(0),
+      transactions: Array(12).fill(0),
+      sellerFees: Array(12).fill(0),
+      taxes: Array(12).fill(0),
     };
   }
-}
-
-function parseOwnerOptions(html: string): MixRadiusOwner[] {
-  const owners: MixRadiusOwner[] = [];
-  const optionsHtml =
-    html.match(/<select[^>]*name="owner_id"[^>]*>([\s\S]*?)<\/select>/i)?.[1] ||
-    "";
-  const optionRegex = /<option[^>]*value="([^"]+)"[^>]*>([^<]+)<\/option>/gi;
-  let currentOption: RegExpExecArray | null;
-
-  while ((currentOption = optionRegex.exec(optionsHtml)) !== null) {
-    const ownerId = currentOption[1];
-    const ownerName = currentOption[2]?.trim() || "";
-    if (ownerId && ownerId !== EMPTY_OWNER_ID && ownerName) {
-      owners.push({ id: ownerId, name: ownerName });
-    }
-  }
-
-  return owners.sort((left, right) => left.name.localeCompare(right.name));
-}
-
-function parseProfitReport(html: string): MixRadiusProfitReport {
-  const income = parseProfitArray(html, /var\s+income\s*=\s*\[(.*?)\];/);
-  const transactions = parseTransactionArray(html);
-  return {
-    income,
-    transactions,
-    sellerFees: parseProfitArray(html, /var\s+sellerfee\s*=\s*\[(.*?)\];/),
-    taxes: parseProfitArray(html, /var\s+tax\s*=\s*\[(.*?)\];/),
-  };
-}
-
-function parseTransactionArray(html: string) {
-  const transactionPatterns = [
-    /var\s+trx\s*=\s*\[(.*?)\];/,
-    /var\s+transaction\s*=\s*\[(.*?)\];/,
-    /var\s+count\s*=\s*\[(.*?)\];/,
-  ];
-
-  for (const pattern of transactionPatterns) {
-    const transactionValues = parseProfitArray(html, pattern);
-    if (transactionValues.some((value) => value !== 0)) {
-      return transactionValues;
-    }
-  }
-
-  return [...EMPTY_STATE_ARRAY];
 }

@@ -6,7 +6,7 @@ import {
   networkAlertUpdateSchema,
   networkPerformanceCreateSchema,
   networkPerformanceQuerySchema,
-} from "@/modules/network";
+} from "@/modules/network/validation";
 
 export {
   networkAlertCreateSchema,

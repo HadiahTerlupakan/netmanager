@@ -54,24 +54,22 @@ function buildFullProjectBaseData(data: FullProjectCreateInput) {
 }
 
 function buildFullProjectInvestmentData(data: FullProjectCreateInput) {
+  const p = data.project;
+  const d = FULL_PROJECT_DEFAULTS;
   return {
-    targetBasis: data.project.targetBasis ?? FULL_PROJECT_DEFAULTS.targetBasis,
-    targetHomepass:
-      data.project.targetHomepass ?? FULL_PROJECT_DEFAULTS.targetHomepass,
+    targetBasis: p.targetBasis ?? d.targetBasis,
+    targetHomepass: p.targetHomepass ?? d.targetHomepass,
     targetTakeUpRatePercent:
-      data.project.targetTakeUpRatePercent ??
-      FULL_PROJECT_DEFAULTS.targetTakeUpRatePercent,
-    targetSubscribers:
-      data.project.targetSubscribers ?? FULL_PROJECT_DEFAULTS.targetSubscribers,
-    arpu: data.project.arpu ?? FULL_PROJECT_DEFAULTS.arpu,
-    growthSettings: (data.project.growthSettings ||
-      FULL_PROJECT_DEFAULTS.growthSettings) as
+      p.targetTakeUpRatePercent ?? d.targetTakeUpRatePercent,
+    targetSubscribers: p.targetSubscribers ?? d.targetSubscribers,
+    arpu: p.arpu ?? d.arpu,
+    growthSettings: (p.growthSettings || d.growthSettings) as
       | Prisma.InputJsonValue
       | undefined,
-    startDate: data.project.startDate ?? FULL_PROJECT_DEFAULTS.startDate,
-    investmentDurationMonths: data.project.investmentDurationMonths,
-    investmentRecoveryType: data.project.investmentRecoveryType as never,
-    investmentRecoveryValue: data.project.investmentRecoveryValue,
+    startDate: p.startDate ?? d.startDate,
+    investmentDurationMonths: p.investmentDurationMonths,
+    investmentRecoveryType: p.investmentRecoveryType as never,
+    investmentRecoveryValue: p.investmentRecoveryValue,
   };
 }
 

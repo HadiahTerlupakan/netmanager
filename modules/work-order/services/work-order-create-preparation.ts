@@ -8,6 +8,10 @@ type WorkOrderCreateDataWithWarranty = CreateWorkOrderData & {
 import type { WarrantyCheckRepository } from "../repositories/WorkOrderSupportRepositories";
 import type { CreateWorkOrderInput, UserContext } from "./WorkOrderService";
 import { isSuperAdminContext } from "./work-order-access";
+import {
+  enforceDepartmentRestriction,
+  enforceSiteRestriction,
+} from "./work-order-create-scope";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
@@ -62,53 +66,6 @@ function applyUserScopeRestrictions(
   return normalizedInput;
 }
 
-function enforceSiteRestriction(params: {
-  normalizedInput: CreateWorkOrderInput;
-  userContext: UserContext;
-  isSuperAdmin: boolean;
-}): void {
-  const { normalizedInput, userContext, isSuperAdmin } = params;
-  if (
-    !userContext.permissions?.includes("workorders:site_only") ||
-    isSuperAdmin
-  ) {
-    return;
-  }
-
-  if (normalizedInput.siteId && normalizedInput.siteId !== userContext.siteId) {
-    throw new Error(
-      "Akses ditolak: Anda hanya dapat membuat work order untuk site Anda",
-    );
-  }
-
-  normalizedInput.siteId = userContext.siteId;
-}
-
-function enforceDepartmentRestriction(params: {
-  normalizedInput: CreateWorkOrderInput;
-  userContext: UserContext;
-  isSuperAdmin: boolean;
-}): void {
-  const { normalizedInput, userContext, isSuperAdmin } = params;
-  if (
-    !userContext.permissions?.includes("workorders:department_only") ||
-    isSuperAdmin
-  ) {
-    return;
-  }
-
-  if (
-    normalizedInput.departmentId &&
-    normalizedInput.departmentId !== userContext.departmentId
-  ) {
-    throw new Error(
-      "Akses ditolak: Anda hanya dapat membuat work order untuk departemen Anda",
-    );
-  }
-
-  normalizedInput.departmentId = userContext.departmentId;
-}
-
 function buildBaseCreateData(
   input: CreateWorkOrderInput,
   createdById: string,
@@ -132,14 +89,28 @@ async function enrichWarrantyCreateData(params: {
     return createData;
   }
 
-  const lastCompletedWorkOrder = await warrantyRepo.findLastCompletedWoByMitra(
+  const warrantyOwner = await findActiveWarrantyOwner(
     input.pelangganId,
+    warrantyRepo,
   );
+  if (!warrantyOwner) {
+    return createData;
+  }
+
+  return buildWarrantyCreateData(createData, warrantyOwner);
+}
+
+async function findActiveWarrantyOwner(
+  pelangganId: string,
+  warrantyRepo: WorkOrderWarrantyRepository,
+) {
+  const lastCompletedWorkOrder =
+    await warrantyRepo.findLastCompletedWoByMitra(pelangganId);
   if (
     !lastCompletedWorkOrder?.assignedMitraId ||
     !lastCompletedWorkOrder.completedAt
   ) {
-    return createData;
+    return null;
   }
 
   const mitra = await warrantyRepo.findMitraById(
@@ -152,9 +123,16 @@ async function enrichWarrantyCreateData(params: {
       lastCompletedWorkOrder.completedAt,
     )
   ) {
-    return createData;
+    return null;
   }
 
+  return mitra;
+}
+
+function buildWarrantyCreateData(
+  createData: WorkOrderCreateDataWithWarranty,
+  mitra: { id: string; slaGaransiJam?: number | null },
+): CreateWorkOrderData {
   return {
     ...createData,
     isWarranty: true,

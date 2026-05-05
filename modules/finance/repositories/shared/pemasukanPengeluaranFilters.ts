@@ -13,23 +13,49 @@ export interface MutationQueryFilterOptions {
 export function buildMutationWhereFilter(options: MutationQueryFilterOptions) {
   const where: Record<string, unknown> = { ...options.tenantWhere };
 
-  if (options.startDate && options.endDate) {
-    where.tanggal = { gte: options.startDate, lte: options.endDate };
-  }
-
-  if (options.category) {
-    where.kategori = options.category;
-  }
-
-  if (options.paymentMethod) {
-    where.metodeBayar = options.paymentMethod;
-  }
-
-  if (options.searchDescription) {
-    where.deskripsi = createInsensitiveContainsFilter(
-      options.searchDescription,
-    );
-  }
+  applyDateRangeFilter(where, {
+    startDate: options.startDate,
+    endDate: options.endDate,
+  });
+  applyCategoryFilter(where, options.category);
+  applyPaymentMethodFilter(where, options.paymentMethod);
+  applyDescriptionSearchFilter(where, options.searchDescription);
 
   return where;
+}
+
+function applyDateRangeFilter(
+  where: Record<string, unknown>,
+  dateRange: { startDate?: Date; endDate?: Date },
+) {
+  if (dateRange.startDate && dateRange.endDate) {
+    where.tanggal = { gte: dateRange.startDate, lte: dateRange.endDate };
+  }
+}
+
+function applyCategoryFilter(
+  where: Record<string, unknown>,
+  category?: string,
+) {
+  if (category) {
+    where.kategori = category;
+  }
+}
+
+function applyPaymentMethodFilter(
+  where: Record<string, unknown>,
+  paymentMethod?: string,
+) {
+  if (paymentMethod) {
+    where.metodeBayar = paymentMethod;
+  }
+}
+
+function applyDescriptionSearchFilter(
+  where: Record<string, unknown>,
+  searchDescription?: string,
+) {
+  if (searchDescription) {
+    where.deskripsi = createInsensitiveContainsFilter(searchDescription);
+  }
 }

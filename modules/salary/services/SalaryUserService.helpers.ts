@@ -36,8 +36,7 @@ export interface AssignSalaryComponentInput {
   notes?: string;
 }
 
-/** Membuat payload update config gaji untuk user baru di payroll. */
-export function buildCreateUserConfig(input: {
+type CreateSalaryUserConfigInput = {
   basicSalary: number;
   employeeType: EmployeeType;
   overtimeRateNormal?: number;
@@ -53,13 +52,43 @@ export function buildCreateUserConfig(input: {
   ptkpStatus?: PtkpStatus | null;
   bpjsKesehatan?: boolean;
   bpjsKetenagakerjaan?: boolean;
-}): UpdateSalaryUserConfigInput {
+};
+
+/** Membuat payload update config gaji untuk user baru di payroll. */
+export function buildCreateUserConfig(
+  input: CreateSalaryUserConfigInput,
+): UpdateSalaryUserConfigInput {
+  return {
+    ...buildRequiredUserConfig(input),
+    ...buildOptionalUserConfig(input),
+  };
+}
+
+function buildRequiredUserConfig(input: {
+  basicSalary: number;
+  employeeType: EmployeeType;
+  overtimeCalcTypeNormal: RateType;
+  overtimeCalcTypeHoliday: RateType;
+  overtimeCalcTypeNational: RateType;
+}) {
   return {
     basicSalary: input.basicSalary,
     employeeType: input.employeeType,
     overtimeCalcTypeNormal: input.overtimeCalcTypeNormal,
     overtimeCalcTypeHoliday: input.overtimeCalcTypeHoliday,
     overtimeCalcTypeNational: input.overtimeCalcTypeNational,
+  };
+}
+
+function buildOptionalUserConfig(input: CreateSalaryUserConfigInput) {
+  return {
+    ...buildOptionalRateConfig(input),
+    ...buildOptionalPayrollMetaConfig(input),
+  };
+}
+
+function buildOptionalRateConfig(input: CreateSalaryUserConfigInput) {
+  return {
     ...buildOptionalNumberField("overtimeRateNormal", input.overtimeRateNormal),
     ...buildOptionalNumberField(
       "overtimeRateHoliday",
@@ -75,6 +104,11 @@ export function buildCreateUserConfig(input: {
       "absentDeductionRate",
       input.absentDeductionRate,
     ),
+  };
+}
+
+function buildOptionalPayrollMetaConfig(input: CreateSalaryUserConfigInput) {
+  return {
     ...buildOptionalDateField(input.joinDate),
     ...buildOptionalPlainField("ptkpStatus", input.ptkpStatus),
     ...buildOptionalPlainField("bpjsKesehatan", input.bpjsKesehatan),

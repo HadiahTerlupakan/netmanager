@@ -12,8 +12,16 @@ export const buildCustomerTicketWhere = (
   status?: string,
 ): Prisma.SupportTicketsWhereInput => ({
   pelangganId,
-  ...(status ? { status: status as TicketStatus } : {}),
+  ...(status ? { status: parseTicketStatus(status) } : {}),
 });
+
+function parseTicketStatus(status: string): TicketStatus {
+  if (Object.values(TicketStatus).includes(status as TicketStatus)) {
+    return status as TicketStatus;
+  }
+
+  throw new Error(`Invalid ticket status: ${status}`);
+}
 
 /** Build pagination metadata for customer ticket list. */
 export const buildCustomerTicketPagination = (

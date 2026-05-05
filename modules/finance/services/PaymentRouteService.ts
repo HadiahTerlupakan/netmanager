@@ -71,22 +71,29 @@ export async function listPaymentsForRoute(options: {
     page: options.filters.page,
     limit: options.filters.limit,
   });
-  const totalPages = Math.ceil(result.total / options.filters.limit);
 
+  return buildPaginatedResponse(result, options.filters);
+}
+
+function buildPaginatedResponse(
+  result: { data: unknown[]; total: number },
+  filters: { page: number; limit: number },
+) {
+  const totalPages = Math.ceil(result.total / filters.limit);
   return {
     data: result.data,
     pagination: {
-      page: options.filters.page,
-      limit: options.filters.limit,
+      page: filters.page,
+      limit: filters.limit,
       total: result.total,
       totalPages,
-      hasNext: options.filters.page < totalPages,
-      hasPrev: options.filters.page > 1,
+      hasNext: filters.page < totalPages,
+      hasPrev: filters.page > 1,
     },
   };
 }
 
-/** Creates a payment and updates linked invoice totals when needed. */
+/** Returns a single payment with access checks. */
 export async function getPaymentForRoute(options: {
   paymentId: string;
   user?: PaymentAccessUser;
@@ -97,26 +104,26 @@ export async function getPaymentForRoute(options: {
   if (!payment) {
     return { status: "not-found" as const };
   }
-
   if (!options.user || options.user.isSuperAdmin) {
     return { status: "ok" as const, data: payment };
   }
+  return assertPaymentAccess(payment, options.user);
+}
 
-  const paymentSiteId = payment.invoice?.siteId;
-  const paymentTenantId = payment.tenantId;
-
-  if (paymentSiteId && paymentSiteId !== options.user.siteId) {
+function assertPaymentAccess(
+  payment: {
+    invoice?: { siteId?: string | null } | null;
+    tenantId?: string | null;
+  },
+  user: PaymentAccessUser,
+) {
+  const siteId = payment.invoice?.siteId;
+  if (siteId && siteId !== user.siteId) {
     return { status: "forbidden-site" as const };
   }
-
-  if (
-    !paymentSiteId &&
-    paymentTenantId &&
-    paymentTenantId !== options.user.tenantId
-  ) {
+  if (!siteId && payment.tenantId && payment.tenantId !== user.tenantId) {
     return { status: "forbidden-tenant" as const };
   }
-
   return { status: "ok" as const, data: payment };
 }
 
@@ -150,11 +157,17 @@ export async function createPaymentForRoute(options: {
     return invoiceValidation;
   }
 
+  return await executePaymentCreation(options);
+}
+
+async function executePaymentCreation(options: {
+  input: PaymentCreateInput;
+  user: RouteUser;
+}) {
   const payment = await createPaymentRecord(options);
   await syncLinkedInvoicePaymentStatus(options.input.invoiceId);
   logCreatedPaymentActivity(payment, options);
-
-  return { status: "created", data: payment };
+  return { status: "created" as const, data: payment };
 }
 
 /** Validates the linked invoice before creating a manual payment. */
@@ -174,9 +187,16 @@ async function createPaymentRecord(options: {
   input: PaymentCreateInput;
   user: RouteUser;
 }) {
-  const amount = BigInt(Math.round(options.input.amount));
+  return getPaymentRepository().createWithInvoice(
+    buildPaymentCreateData(options),
+  );
+}
 
-  return getPaymentRepository().createWithInvoice({
+function buildPaymentCreateData(options: {
+  input: PaymentCreateInput;
+  user: RouteUser;
+}) {
+  return {
     id: randomUUID(),
     paymentDate: options.input.paymentDate
       ? new Date(options.input.paymentDate)
@@ -187,10 +207,10 @@ async function createPaymentRecord(options: {
     notes: options.input.notes ?? null,
     invoiceId: options.input.invoiceId || null,
     pelangganId: options.input.pelangganId,
-    amount,
+    amount: BigInt(Math.round(options.input.amount)),
     verifiedBy: options.user.id,
     updatedAt: new Date(),
-  });
+  };
 }
 
 /** Updates invoice payment status only when a linked invoice exists. */

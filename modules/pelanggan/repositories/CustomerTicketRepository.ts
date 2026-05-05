@@ -1,17 +1,20 @@
-import { prisma } from "@/lib/prisma";
-import { toStartOfDay } from "@/lib/utils/server-datetime";
+import { TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
+import { buildCustomerTicketPagination as buildCustomerTicketPaginationMeta } from "./customer-ticket.repository.helpers";
 import {
-  Prisma,
-  TicketCategory,
-  TicketPriority,
-  TicketStatus,
-} from "@prisma/client";
-import {
-  ACTIVE_UNREAD_TICKET_STATUSES,
-  buildCustomerTicketPagination as buildCustomerTicketPaginationMeta,
-  buildCustomerTicketWhere,
-} from "./customer-ticket.repository.helpers";
-import { randomUUID } from "crypto";
+  countAdminTickets,
+  countAdminTicketsNeedingReply,
+  countUnreadCustomerTicketNotifications,
+  createCustomerTicket,
+  createTicketReply,
+  deleteTicket,
+  findAllAdminTickets,
+  findAllTicketsForCustomer,
+  findClosedTicketsWithReplies,
+  getAdminTicketStatusCounts,
+  getTodayTicketCount,
+  updateAdminTicket,
+  updateCustomerOwnedTicketStatus,
+} from "./customer-ticket.repository.prisma-helpers";
 import { getCustomerNotificationSummary } from "./customer-ticket-notification.repository-helpers";
 import {
   findByIdAdmin,
@@ -36,63 +39,17 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     pelangganId: string,
     options: { page: number; limit: number; status?: string },
   ) {
-    const { page, limit, status } = options;
-    const skip = (page - 1) * limit;
-    const where = buildCustomerTicketWhere(pelangganId, status);
-
-    const [tickets, total] = await Promise.all([
-      prisma.supportTickets.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: {
-          replies: {
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-          _count: {
-            select: { replies: true },
-          },
-        },
-      }),
-      prisma.supportTickets.count({ where }),
-    ]);
-
-    return {
-      tickets: SupportTicketMapper.toDomainList(tickets),
-      total,
-    };
+    return findAllTicketsForCustomer(pelangganId, options);
   }
 
   /** Get count of tickets created today for number generation. */
   async getCountForToday(): Promise<number> {
-    return prisma.supportTickets.count({
-      where: {
-        createdAt: {
-          gte: toStartOfDay(new Date()),
-        },
-      },
-    });
+    return getTodayTicketCount();
   }
 
   /** Count unread ticket notifications that require customer attention. */
   async countUnreadCustomerNotifications(pelangganId: string): Promise<number> {
-    const tickets = await prisma.supportTickets.findMany({
-      where: {
-        pelangganId,
-        status: { in: ACTIVE_UNREAD_TICKET_STATUSES },
-      },
-      select: {
-        replies: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { isFromAdmin: true },
-        },
-      },
-    });
-
-    return tickets.filter((ticket) => ticket.replies[0]?.isFromAdmin).length;
+    return countUnreadCustomerTicketNotifications(pelangganId);
   }
 
   /** Get unread ticket and announcement summary for customer portal. */
@@ -109,31 +66,7 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     subject: string;
     description: string;
   }) {
-    const ticket = await prisma.supportTickets.create({
-      data: {
-        id: randomUUID(),
-        ticketNumber: data.ticketNumber,
-        pelangganId: data.pelangganId,
-        category: data.category,
-        priority: data.priority,
-        subject: data.subject,
-        description: data.description,
-        updatedAt: new Date(),
-      },
-      include: {
-        pelanggan: {
-          select: {
-            id: true,
-            nama: true,
-            idPelanggan: true,
-            email: true,
-            noTelp: true,
-          },
-        },
-      },
-    });
-
-    return SupportTicketMapper.toDomain(ticket);
+    return createCustomerTicket(data);
   }
 
   /** Map customer ticket list into response DTOs. */
@@ -150,81 +83,22 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
 
   /** Get admin ticket list. */
   async findAllAdmin(where: CustomerTicketQuery, skip: number, take: number) {
-    const tickets = await prisma.supportTickets.findMany({
-      where: where as Prisma.SupportTicketsWhereInput,
-      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
-      skip,
-      take,
-      include: {
-        pelanggan: {
-          select: {
-            id: true,
-            idPelanggan: true,
-            nama: true,
-            noTelp: true,
-            email: true,
-          },
-        },
-        user: {
-          select: { id: true, name: true },
-        },
-        replies: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            createdAt: true,
-            isFromAdmin: true,
-            message: true,
-          },
-        },
-        _count: {
-          select: { replies: true },
-        },
-      },
-    });
-
-    return SupportTicketMapper.toDomainList(tickets);
+    return findAllAdminTickets(where, skip, take);
   }
 
   /** Count admin tickets. */
   async countAdmin(where: CustomerTicketQuery) {
-    return prisma.supportTickets.count({
-      where: where as Prisma.SupportTicketsWhereInput,
-    });
+    return countAdminTickets(where);
   }
 
   /** Get grouped ticket status counts. */
   async getStatusCounts(where: CustomerTicketQuery) {
-    const counts = await prisma.supportTickets.groupBy({
-      by: ["status"],
-      where: where as Prisma.SupportTicketsWhereInput,
-      _count: {
-        status: true,
-      },
-    });
-
-    return counts.map((count) => ({
-      status: count.status,
-      _count: { status: count._count.status },
-    }));
+    return getAdminTicketStatusCounts(where);
   }
 
   /** Get closed tickets with rating replies. */
   async getClosedTicketsWithReplies(where: CustomerTicketQuery) {
-    return prisma.supportTickets.findMany({
-      where: {
-        ...(where as Prisma.SupportTicketsWhereInput),
-        status: TicketStatus.CLOSED,
-      },
-      select: {
-        replies: {
-          where: { isFromAdmin: false, message: { contains: "⭐" } },
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          select: { message: true },
-        },
-      },
-    });
+    return findClosedTicketsWithReplies(where);
   }
 
   /** Get admin ticket detail by id. */
@@ -239,20 +113,7 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
 
   /** Update admin ticket. */
   async updateAdmin(id: string, updateData: CustomerTicketUpdateData) {
-    const ticket = await prisma.supportTickets.update({
-      where: { id },
-      data: updateData as Prisma.SupportTicketsUpdateInput,
-      include: {
-        pelanggan: {
-          select: { nama: true, idPelanggan: true },
-        },
-        user: {
-          select: { name: true },
-        },
-      },
-    });
-
-    return SupportTicketMapper.toDomain(ticket);
+    return updateAdminTicket(id, updateData);
   }
 
   /** Create reply for ticket. */
@@ -264,46 +125,12 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     pelangganId?: string;
     attachments?: string[];
   }) {
-    return prisma.ticketReplies.create({
-      data: {
-        id: randomUUID(),
-        ticketId: data.ticketId,
-        message: data.message,
-        isFromAdmin: data.isFromAdmin,
-        senderId: data.senderId,
-        pelangganId: data.pelangganId,
-        attachments: data.attachments ?? undefined,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    return createTicketReply(data);
   }
 
   /** Count active tickets whose latest reply is from customer. */
   async countNeedsReplyAdmin(status: TicketStatus, siteId?: string) {
-    const tickets = await prisma.supportTickets.findMany({
-      where: {
-        status,
-        ...(siteId ? { pelanggan: { siteId } } : {}),
-      },
-      select: {
-        replies: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { isFromAdmin: true },
-        },
-      },
-    });
-
-    return tickets.filter(
-      (ticket) => ticket.replies[0] && !ticket.replies[0].isFromAdmin,
-    ).length;
+    return countAdminTicketsNeedingReply(status, siteId);
   }
 
   /** Get customer-owned ticket detail by id. */
@@ -318,21 +145,22 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
     status: string,
     closedAt?: Date,
   ) {
-    const ticket = await prisma.supportTickets.updateMany({
-      where: { id, pelangganId },
-      data: { status: status as never, ...(closedAt ? { closedAt } : {}) },
-    });
+    const updatedCount = await updateCustomerOwnedTicketStatus(
+      id,
+      pelangganId,
+      status,
+      closedAt,
+    );
 
-    if (ticket.count === 0) {
+    if (updatedCount === 0) {
       return null;
     }
 
-    return this.findByIdForCustomer(id, pelangganId);
+    return findByIdForCustomer(id, pelangganId);
   }
 
   /** Delete ticket by id. */
   async delete(id: string) {
-    const ticket = await prisma.supportTickets.delete({ where: { id } });
-    return SupportTicketMapper.toDomain(ticket);
+    return deleteTicket(id);
   }
 }

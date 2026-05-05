@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "../../setup";
+import { UserLookupRepository } from "@/modules/users/repositories/UserLookupRepository";
 import { UserRepository } from "@/modules/users/repositories/UserRepository";
 
 describe("UserRepository", () => {
@@ -56,7 +57,7 @@ describe("UserRepository", () => {
   });
 
   it("targets overtime WhatsApp approval to the dedicated role type only", async () => {
-    const repository = new UserRepository();
+    const repository = new UserLookupRepository();
     await repository.findAdminsForNotification("tenant-1", "site-1");
 
     expect(prismaMock.user.findMany).toHaveBeenCalledWith({

@@ -1,7 +1,15 @@
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import { getInventoryBarangService } from "./InventoryBarangService";
+import {
+  canAccessBarang,
+  toUpdateBarangData,
+  validateBarangCreateBody,
+  validateBarangUpdateBody,
+  withStockSummary,
+} from "./inventory-barang-route.helpers";
+
+import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
 
 const SITE_RESTRICTION_PERMISSIONS = [
   "barang:site_only",
@@ -10,26 +18,11 @@ const SITE_RESTRICTION_PERMISSIONS = [
 ];
 
 interface InventoryBarangRouteRepository {
-  findBarangDetail(id: string): Promise<InventoryBarangRecord | null>;
-  findBarangById(id: string): Promise<InventoryBarangRecord | null>;
+  findBarangDetail(id: string): Promise<Record<string, unknown> | null>;
+  findBarangById(id: string): Promise<Record<string, unknown> | null>;
   findBarangByKode(kode: string): Promise<{ id: string } | null>;
   updateBarang(id: string, data: UpdateBarangInput): Promise<unknown>;
   deleteBarang(id: string): Promise<void>;
-}
-
-interface InventoryBarangRecord {
-  id: string;
-  barangGudang?: InventoryBarangStockRecord[];
-  [key: string]: unknown;
-}
-
-interface InventoryBarangStockRecord {
-  stok: number;
-  gudang?: {
-    sites?: Array<{ id: string }>;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
 }
 
 interface InventoryBarangListResult {
@@ -120,7 +113,7 @@ export class InventoryBarangRouteService {
   async createBarang(
     input: CreateBarangRouteInput,
   ): Promise<InventoryBarangRouteResult<InventoryBarangCreateResult>> {
-    const invalidBody = this.validateCreateBody(input.body);
+    const invalidBody = validateBarangCreateBody(input.body);
     if (invalidBody) return invalidBody;
 
     const barang = await this.barangService.createBarang({
@@ -152,7 +145,7 @@ export class InventoryBarangRouteService {
 
     return {
       found: true as const,
-      barang: this.withStockSummary(barang, input.siteId),
+      barang: withStockSummary(barang, input.siteId),
     };
   }
 
@@ -160,7 +153,7 @@ export class InventoryBarangRouteService {
   async updateBarang(
     input: UpdateBarangRouteInput,
   ): Promise<InventoryBarangRouteResult<unknown>> {
-    const invalidBody = this.validateUpdateBody(input.body);
+    const invalidBody = validateBarangUpdateBody(input.body);
     if (invalidBody) return invalidBody;
 
     const existingBarang = await this.repository.findBarangById(input.id);
@@ -168,7 +161,7 @@ export class InventoryBarangRouteService {
       return { success: false, status: 404, error: "Barang tidak ditemukan" };
     }
 
-    if (!this.canAccessBarang(existingBarang, input.siteId)) {
+    if (!canAccessBarang(existingBarang, input.siteId)) {
       return {
         success: false,
         status: 403,
@@ -188,7 +181,7 @@ export class InventoryBarangRouteService {
 
     const updatedBarang = await this.repository.updateBarang(
       input.id,
-      this.toUpdateData(input.body),
+      toUpdateBarangData(input.body),
     );
     return {
       success: true,
@@ -211,7 +204,7 @@ export class InventoryBarangRouteService {
       };
     }
 
-    if (!this.canAccessBarang(barang, input.siteId)) {
+    if (!canAccessBarang(barang, input.siteId)) {
       return {
         success: false as const,
         status: 403,
@@ -238,78 +231,6 @@ export class InventoryBarangRouteService {
     return permissions.some((permission) =>
       SITE_RESTRICTION_PERMISSIONS.includes(permission),
     );
-  }
-
-  private validateCreateBody(body: Record<string, unknown>) {
-    if (!body.nama || !body.satuan) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "Nama dan satuan barang harus diisi",
-      };
-    }
-
-    return null;
-  }
-
-  private validateUpdateBody(body: Record<string, unknown>) {
-    if (!body.kode || !body.nama || !body.satuan) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "Kode, nama, dan satuan barang harus diisi",
-      };
-    }
-
-    return null;
-  }
-
-  private toUpdateData(body: Record<string, unknown>): UpdateBarangInput {
-    return {
-      kode: String(body.kode),
-      nama: String(body.nama),
-      satuan: String(body.satuan),
-      isWorkOrderMaterial: Boolean(body.isWorkOrderMaterial),
-      jenis: body.jenis as UpdateBarangInput["jenis"],
-      kategoriAset: body.kategoriAset as UpdateBarangInput["kategoriAset"],
-      minStokDefault: body.minStokDefault as number | undefined,
-    };
-  }
-
-  private withStockSummary(barang: InventoryBarangRecord, siteId?: string) {
-    const barangGudang = this.filterBarangGudang(
-      barang.barangGudang || [],
-      siteId,
-    );
-    return {
-      ...barang,
-      barangGudang,
-      totalStock: barangGudang.reduce((sum, stock) => sum + stock.stok, 0),
-    };
-  }
-
-  private filterBarangGudang(
-    barangGudang: InventoryBarangStockRecord[],
-    siteId?: string,
-  ) {
-    if (!siteId) return barangGudang;
-    return barangGudang.filter((stock) =>
-      this.stockBelongsToSite(stock, siteId),
-    );
-  }
-
-  private canAccessBarang(barang: InventoryBarangRecord, siteId?: string) {
-    if (!siteId) return true;
-    return (barang.barangGudang || []).some((stock) =>
-      this.stockBelongsToSite(stock, siteId),
-    );
-  }
-
-  private stockBelongsToSite(
-    stock: InventoryBarangStockRecord,
-    siteId: string,
-  ) {
-    return stock.gudang?.sites?.some((site) => site.id === siteId) ?? false;
   }
 }
 

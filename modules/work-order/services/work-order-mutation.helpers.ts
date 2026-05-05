@@ -51,16 +51,37 @@ export async function publishStatusMutationSideEffects(params: {
   status: WorkOrderStatus;
   userId: string;
 }) {
-  const fullWorkOrder = await params.repository.findById(params.id);
-  if (fullWorkOrder) {
-    await publishWorkOrderStatusSideEffects({
-      workOrder: fullWorkOrder,
-      previousStatus: params.previousStatus,
-      status: params.status,
-      userId: params.userId,
-    });
-  }
+  await publishUpdatedWorkOrderStatusSideEffects(params);
   await syncWoStatusToTicket(params.id, params.status);
+  logStatusMutationActivity(params);
+}
+
+async function publishUpdatedWorkOrderStatusSideEffects(params: {
+  repository: WorkOrderRepository;
+  id: string;
+  previousStatus: WorkOrderStatus;
+  status: WorkOrderStatus;
+  userId: string;
+}) {
+  const fullWorkOrder = await params.repository.findById(params.id);
+  if (!fullWorkOrder) {
+    return;
+  }
+
+  await publishWorkOrderStatusSideEffects({
+    workOrder: fullWorkOrder,
+    previousStatus: params.previousStatus,
+    status: params.status,
+    userId: params.userId,
+  });
+}
+
+function logStatusMutationActivity(params: {
+  id: string;
+  previousStatus: WorkOrderStatus;
+  status: WorkOrderStatus;
+  userId: string;
+}) {
   logWorkOrderActivity("STATUS_CHANGE", "Work Order", params.userId, {
     id: params.id,
     from: params.previousStatus,
@@ -107,36 +128,74 @@ export async function assignEmployeeToWorkOrder(params: {
     params.role,
     params.assignedById,
   );
+  await publishAssignedWorkOrderSideEffects(params);
+  logAssignedWorkOrderActivity(params);
+  await invalidateWorkOrderCaches();
+}
+
+async function publishAssignedWorkOrderSideEffects(params: {
+  repository: WorkOrderRepository;
+  id: string;
+  employeeId: string;
+  assignedById: string;
+  employee: { name?: string | null };
+}) {
   const fullWorkOrder = await params.repository.findById(params.id);
-  if (fullWorkOrder) {
-    await publishWorkOrderAssignmentSideEffects({
-      workOrder: fullWorkOrder,
-      employeeId: params.employeeId,
-      employeeName: params.employee.name || undefined,
-      assignedById: params.assignedById,
-    });
+  if (!fullWorkOrder) {
+    return;
   }
+
+  await publishWorkOrderAssignmentSideEffects({
+    workOrder: fullWorkOrder,
+    employeeId: params.employeeId,
+    employeeName: params.employee.name || undefined,
+    assignedById: params.assignedById,
+  });
+}
+
+function logAssignedWorkOrderActivity(params: {
+  id: string;
+  employeeId: string;
+  assignedById: string;
+  role?: string;
+}) {
   logWorkOrderActivity("ASSIGN", "Work Order", params.assignedById, {
     id: params.id,
     employeeId: params.employeeId,
     role: params.role,
   });
-  await invalidateWorkOrderCaches();
 }
 
 export async function persistRequestDecision(params: {
-  repository: WorkOrderRepository;
+  repository: Pick<WorkOrderRepository, "approveRequest" | "rejectRequest">;
   id: string;
   userId: string;
   action: "approve" | "reject";
   reason?: string;
 }) {
   if (params.action === "approve") {
-    await params.repository.approveRequest(params.id, params.userId);
+    await approveWorkOrderRequestDecision(params);
     return;
   }
 
-  await params.repository.rejectRequest(
+  await rejectWorkOrderRequestDecision(params);
+}
+
+function approveWorkOrderRequestDecision(params: {
+  repository: Pick<WorkOrderRepository, "approveRequest">;
+  id: string;
+  userId: string;
+}) {
+  return params.repository.approveRequest(params.id, params.userId);
+}
+
+function rejectWorkOrderRequestDecision(params: {
+  repository: Pick<WorkOrderRepository, "rejectRequest">;
+  id: string;
+  userId: string;
+  reason?: string;
+}) {
+  return params.repository.rejectRequest(
     params.id,
     params.userId,
     params.reason!,

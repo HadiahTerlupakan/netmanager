@@ -52,6 +52,37 @@ async function isRadiusMode(getRadiusSyncService: RadiusModeResolver) {
   return (await radiusSync.getConnectionMode()) === "RADIUS";
 }
 
+function resolveRadiusTenantId(
+  profileTenantId: string | null,
+  session: SessionContext,
+) {
+  return profileTenantId || session.user.tenantId;
+}
+
+function getRadiusPoolTenantId(
+  profileTenantId: string | null,
+  session: SessionContext,
+) {
+  return resolveRadiusTenantId(profileTenantId, session);
+}
+
+async function syncRadiusIpPool(input: {
+  radiusRepository: RadiusRepository;
+  remoteAddress: string;
+  ipRange: string;
+  tenantId: string | null;
+}) {
+  if (!input.tenantId) {
+    return;
+  }
+
+  await input.radiusRepository.syncIpPoolToRadius(
+    input.remoteAddress,
+    input.ipRange,
+    input.tenantId,
+  );
+}
+
 async function syncNewRadiusIpPool(input: {
   radiusRepository: RadiusRepository;
   session: SessionContext;
@@ -62,15 +93,23 @@ async function syncNewRadiusIpPool(input: {
     return;
   }
 
-  const tenantId = input.profilePPP.tenantId || input.session.user.tenantId;
-  if (!tenantId) {
-    return;
-  }
+  await syncRadiusIpPool({
+    radiusRepository: input.radiusRepository,
+    remoteAddress: input.profilePPP.remoteAddress,
+    ipRange: input.data.ipRange,
+    tenantId: getRadiusPoolTenantId(input.profilePPP.tenantId, input.session),
+  });
+}
 
-  await input.radiusRepository.syncIpPoolToRadius(
-    input.profilePPP.remoteAddress,
-    input.data.ipRange,
-    tenantId,
+function shouldClearOldRadiusPool(
+  oldProfile: ProfilePPPRecord,
+  profilePPP: ProfilePPPRecord,
+) {
+  return (
+    oldProfile.poolMode === "RADIUS" &&
+    Boolean(oldProfile.remoteAddress) &&
+    (profilePPP.poolMode !== "RADIUS" ||
+      oldProfile.remoteAddress !== profilePPP.remoteAddress)
   );
 }
 
@@ -80,28 +119,14 @@ async function clearOldRadiusIpPool(input: {
   oldProfile: ProfilePPPRecord;
   profilePPP: ProfilePPPRecord;
 }) {
-  if (
-    input.oldProfile.poolMode !== "RADIUS" ||
-    !input.oldProfile.remoteAddress
-  ) {
+  if (!shouldClearOldRadiusPool(input.oldProfile, input.profilePPP)) {
     return;
   }
 
-  const mustClearOldPool =
-    input.profilePPP.poolMode !== "RADIUS" ||
-    input.oldProfile.remoteAddress !== input.profilePPP.remoteAddress;
-  if (!mustClearOldPool) {
-    return;
-  }
-
-  const tenantId = input.oldProfile.tenantId || input.session.user.tenantId;
-  if (!tenantId) {
-    return;
-  }
-
-  await input.radiusRepository.syncIpPoolToRadius(
-    input.oldProfile.remoteAddress,
-    "",
-    tenantId,
-  );
+  await syncRadiusIpPool({
+    radiusRepository: input.radiusRepository,
+    remoteAddress: input.oldProfile.remoteAddress,
+    ipRange: "",
+    tenantId: getRadiusPoolTenantId(input.oldProfile.tenantId, input.session),
+  });
 }

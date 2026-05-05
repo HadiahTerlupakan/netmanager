@@ -1,59 +1,41 @@
 import { logger } from "@/lib/logger";
-// Xendit Payment Provider Implementation
-
-import crypto from "crypto";
 import type {
-  PaymentProvider,
-  ProviderConfig,
   CreatePaymentParams,
+  PaymentProvider,
   PaymentResult,
+  ProviderConfig,
+  TestResult,
   TransactionStatus,
   WebhookResult,
-  TestResult,
 } from "../provider-interface";
+import {
+  buildXenditWebhookResult,
+  hasXenditMatchingToken,
+  mapXenditStatus,
+  resolveXenditCallbackToken,
+  resolveXenditStoredCallbackToken,
+} from "./xendit-provider-helpers";
 
 export class XenditProvider implements PaymentProvider {
   name = "Xendit";
   private config?: ProviderConfig;
   private xendit: unknown = null;
 
+  /** Inisialisasi SDK Xendit. */
   async initialize(config: ProviderConfig): Promise<void> {
     this.config = config;
-
-    // Initialize Xendit SDK
     const { default: Xendit } = await import("xendit-node");
-    this.xendit = new Xendit({
-      secretKey: config.apiKey,
-    });
+    this.xendit = new Xendit({ secretKey: config.apiKey });
   }
 
+  /** Membuat invoice pembayaran Xendit. */
   async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
     try {
-      if (!this.xendit) {
-        throw new Error("Xendit not initialized");
-      }
-
-      const { Invoice } = this.xendit as {
-        Invoice: {
-          createInvoice: (params: unknown) => Promise<{
-            invoice_url: string;
-            id: string;
-            expiry_date: string;
-          }>;
-        };
-      };
-
-      // Calculate expiry time (default 24 hours)
-      const expiryHours = params.expiryHours || 24;
-      const expiryDate = new Date();
-      expiryDate.setHours(expiryDate.getHours() + expiryHours);
-
-      // Create invoice
-      const invoice = await Invoice.createInvoice({
+      const invoice = await this.getInvoiceApi().createInvoice({
         externalId: params.orderId,
         amount: params.amount,
         description: params.description,
-        invoiceDuration: expiryHours * 3600, // Convert to seconds
+        invoiceDuration: (params.expiryHours || 24) * 3600,
         currency: "IDR",
         payerEmail: params.customerEmail || undefined,
         customer: {
@@ -73,67 +55,30 @@ export class XenditProvider implements PaymentProvider {
       };
     } catch (error: unknown) {
       logger.error("Xendit createPayment error:", error);
-      const message =
-        error instanceof Error ? error.message : "Failed to create payment";
       return {
         success: false,
-        error: message,
+        error:
+          error instanceof Error ? error.message : "Failed to create payment",
       };
     }
   }
 
+  /** Mengecek status invoice Xendit. */
   async checkStatus(orderId: string): Promise<TransactionStatus> {
     try {
-      if (!this.xendit) {
-        throw new Error("Xendit not initialized");
-      }
-
-      const { Invoice } = this.xendit as {
-        Invoice: {
-          getInvoices: (params: unknown) => Promise<
-            Array<{
-              status: string;
-              paid_at?: string;
-              payment_method: string;
-              amount: number;
-              id: string;
-            }>
-          >;
-        };
-      };
-
-      // Get invoice by external ID
-      const invoices = await Invoice.getInvoices({
+      const invoices = await this.getInvoiceApi().getInvoices({
         externalId: orderId,
         limit: 1,
       });
-
-      if (!invoices || invoices.length === 0) {
-        throw new Error("Invoice not found");
-      }
-
       const invoice = invoices[0];
 
-      // Map Xendit status to our status
-      let status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "FAILED";
-      switch (invoice.status) {
-        case "PAID":
-        case "SETTLED":
-          status = "PAID";
-          break;
-        case "EXPIRED":
-          status = "EXPIRED";
-          break;
-        case "PENDING":
-          status = "PENDING";
-          break;
-        default:
-          status = "FAILED";
+      if (!invoice) {
+        throw new Error("Invoice not found");
       }
 
       return {
         orderId,
-        status,
+        status: mapXenditStatus(invoice.status),
         ...(invoice.paid_at ? { paidAt: new Date(invoice.paid_at) } : {}),
         paymentMethod: invoice.payment_method,
         amount: invoice.amount,
@@ -145,29 +90,17 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
+  /** Men-expire invoice Xendit aktif. */
   async cancelPayment(orderId: string): Promise<void> {
     try {
-      if (!this.xendit) {
-        throw new Error("Xendit not initialized");
-      }
-
-      const { Invoice } = this.xendit as {
-        Invoice: {
-          getInvoices: (params: unknown) => Promise<Array<{ id: string }>>;
-          expireInvoice: (params: { invoiceId: string }) => Promise<void>;
-        };
-      };
-
-      // Get invoice first
-      const invoices = await Invoice.getInvoices({
+      const invoices = await this.getInvoiceApi().getInvoices({
         externalId: orderId,
         limit: 1,
       });
+      const invoice = invoices[0];
 
-      if (invoices && invoices.length > 0) {
-        await Invoice.expireInvoice({
-          invoiceId: invoices[0].id,
-        });
+      if (invoice) {
+        await this.getInvoiceApi().expireInvoice({ invoiceId: invoice.id });
       }
     } catch (error: unknown) {
       logger.error("Xendit cancelPayment error:", error);
@@ -175,117 +108,50 @@ export class XenditProvider implements PaymentProvider {
     }
   }
 
-  verifyWebhook(payload: Record<string, unknown>, signature?: string): boolean {
+  /** Memverifikasi token callback webhook Xendit. */
+  verifyWebhook(payload: unknown, signature?: string): boolean {
     try {
-      const callbackToken = this.resolveCallbackToken(payload, signature);
-      const storedToken = this.resolveStoredCallbackToken();
+      if (!this.isRecord(payload)) {
+        return false;
+      }
+
+      const callbackToken = resolveXenditCallbackToken(payload, signature);
+      const storedToken = resolveXenditStoredCallbackToken(this.config);
 
       if (!callbackToken || !storedToken) {
         return false;
       }
 
-      return this.hasMatchingToken(callbackToken, storedToken);
+      return hasXenditMatchingToken(callbackToken, storedToken);
     } catch (error) {
       logger.error("Xendit webhook verification error:", error);
       return false;
     }
   }
 
-  /** Resolves the callback token sent by Xendit from header or payload. */
-  private resolveCallbackToken(
-    payload: Record<string, unknown>,
-    signature?: string,
-  ) {
-    if (!this.config) {
-      return undefined;
+  /** Menormalkan payload webhook Xendit. */
+  async processWebhook(payload: unknown): Promise<WebhookResult> {
+    if (!this.isRecord(payload)) {
+      throw new Error("Invalid Xendit webhook payload");
     }
 
-    return signature || (payload["x-callback-token"] as string | undefined);
-  }
-
-  /** Resolves the configured callback token used to verify webhooks. */
-  private resolveStoredCallbackToken() {
-    const storedToken =
-      (this.config?.settings?.callbackToken as string | undefined) ||
-      this.config?.apiSecret ||
-      this.config?.apiKey;
-
-    if (!storedToken) {
-      logger.warn("Xendit: No callback token configured for verification");
-      return undefined;
-    }
-
-    return storedToken;
-  }
-
-  /** Compares webhook tokens using timing-safe equality checks. */
-  private hasMatchingToken(callbackToken: string, storedToken: string) {
-    const tokenBuffer = Buffer.from(callbackToken);
-    const storedBuffer = Buffer.from(storedToken);
-
-    if (tokenBuffer.length !== storedBuffer.length) {
-      return false;
-    }
-
-    return crypto.timingSafeEqual(tokenBuffer, storedBuffer);
-  }
-
-  async processWebhook(
-    payload: Record<string, unknown>,
-  ): Promise<WebhookResult> {
     try {
-      const orderId = payload.external_id as string;
-
-      // Map Xendit status
-      let status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "FAILED";
-      switch (payload.status as string) {
-        case "PAID":
-        case "SETTLED":
-          status = "PAID";
-          break;
-        case "EXPIRED":
-          status = "EXPIRED";
-          break;
-        case "PENDING":
-          status = "PENDING";
-          break;
-        default:
-          status = "FAILED";
-      }
-
-      return {
-        orderId,
-        status,
-        ...(payload.paid_at
-          ? { paidAt: new Date(payload.paid_at as string) }
-          : {}),
-        paymentMethod: payload.payment_method as string,
-        transactionId: payload.id as string,
-        amount: payload.amount as number,
-        raw: payload,
-      };
+      return buildXenditWebhookResult(payload);
     } catch (error: unknown) {
       logger.error("Xendit processWebhook error:", error);
       throw error;
     }
   }
 
+  /** Mengetes koneksi credential Xendit. */
   async testConnection(): Promise<TestResult> {
     try {
       if (!this.config) {
-        return {
-          success: false,
-          message: "Provider not initialized",
-        };
+        return { success: false, message: "Provider not initialized" };
       }
 
-      // Initialize with test credentials
       const { default: Xendit } = await import("xendit-node");
-      const testXendit = new Xendit({
-        secretKey: this.config.apiKey,
-      });
-
-      // Try to get balance (this will validate the API key)
+      const testXendit = new Xendit({ secretKey: this.config.apiKey });
       const { Balance } = testXendit as unknown as {
         Balance: {
           getBalance: (params: {
@@ -293,9 +159,7 @@ export class XenditProvider implements PaymentProvider {
           }) => Promise<{ balance: number; currency?: string }>;
         };
       };
-      const balance = await Balance.getBalance({
-        accountType: "CASH",
-      });
+      const balance = await Balance.getBalance({ accountType: "CASH" });
 
       return {
         success: true,
@@ -306,15 +170,46 @@ export class XenditProvider implements PaymentProvider {
         },
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Koneksi gagal";
       const err = error as { error_code?: string; code?: string };
       return {
         success: false,
-        message,
-        details: {
-          error: err.error_code || err.code,
-        },
+        message: error instanceof Error ? error.message : "Koneksi gagal",
+        details: { error: err.error_code || err.code },
       };
     }
+  }
+
+  /** Mengambil API Invoice dari SDK Xendit. */
+  private getInvoiceApi() {
+    if (!this.xendit) {
+      throw new Error("Xendit not initialized");
+    }
+
+    return (
+      this.xendit as {
+        Invoice: {
+          createInvoice: (params: unknown) => Promise<{
+            invoice_url: string;
+            id: string;
+            expiry_date: string;
+          }>;
+          getInvoices: (params: unknown) => Promise<
+            Array<{
+              status: string;
+              paid_at?: string;
+              payment_method: string;
+              amount: number;
+              id: string;
+            }>
+          >;
+          expireInvoice: (params: { invoiceId: string }) => Promise<void>;
+        };
+      }
+    ).Invoice;
+  }
+
+  /** Memastikan payload webhook berbentuk object. */
+  private isRecord(payload: unknown): payload is Record<string, unknown> {
+    return typeof payload === "object" && payload !== null;
   }
 }

@@ -1,10 +1,20 @@
-import nodemailer from "nodemailer";
-
-import { encryptApiKey } from "@/lib/utils/encryption";
 import { logger } from "@/lib/logger";
+import { encryptApiKey } from "@/lib/utils/encryption";
 import type { SettingsUpsertEntity } from "../domain/entities/Settings";
+import {
+  buildEmailTestSuccess,
+  buildTestEmailHtml,
+  createEmailTransporter,
+  logEmailTestFailure,
+  mapSettingsToPayload,
+  sanitizePassword,
+  sanitizeString,
+  type EmailTestServiceSuccess,
+  type EmailTestServiceValidation,
+  type ResolvedEmailTestSettings,
+  validateEmailTestSettings,
+} from "./emailSettings.helpers";
 import { getTenantSettingsMap, upsertTenantSettings } from "./tenantSettings";
-import type { TenantSettingsMap } from "./tenantSettings";
 
 export type EmailSettingsPayload = {
   smtpHost: string;
@@ -35,20 +45,6 @@ export const EMAIL_SETTINGS_FIELDS = [
   { key: "FROM_EMAIL", defaultValue: "" },
 ] as const;
 
-type EmailTestServiceSuccess = {
-  type: "success";
-  message: string;
-  data: {
-    testEmail: string;
-    messageId: string;
-  };
-};
-
-type EmailTestServiceValidation = {
-  type: "validation_error";
-  message: string;
-};
-
 type EmailTestServiceFailure = {
   type: "failure";
   message: string;
@@ -58,59 +54,6 @@ export type EmailTestServiceResult =
   | EmailTestServiceSuccess
   | EmailTestServiceValidation
   | EmailTestServiceFailure;
-
-type ResolvedEmailTestSettings = {
-  smtpHost: string;
-  smtpPort: number;
-  smtpPortValue: string;
-  smtpUser: string;
-  smtpPass: string;
-  fromName: string;
-  fromEmail: string;
-  testEmail: string;
-};
-
-const sanitizeString = (value?: unknown): string => {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-};
-
-const sanitizePassword = (value?: string): string => {
-  if (!value) {
-    return "";
-  }
-
-  return value.trim().replace(/\s+/g, "");
-};
-
-const buildTestEmailHtml = (testEmail: string) => `
-  <div style="font-family: Arial, sans-serif; padding: 20px;">
-      <h2 style="color: #10b981;">✅ Tes Konfigurasi Email</h2>
-      <p>Ini adalah email percobaan untuk memverifikasi konfigurasi email Anda.</p>
-      <p style="margin-top: 20px; color: #10b981; font-weight: bold;">
-          Jika Anda menerima email ini, konfigurasi Anda berfungsi dengan benar!
-      </p>
-      <p style="margin-top: 16px; font-size: 13px; color: #6b7280;">
-          Dikirim ke ${testEmail}
-      </p>
-  </div>
-`;
-
-function mapSettingsToPayload(
-  settingsMap: TenantSettingsMap,
-): EmailSettingsPayload {
-  return {
-    smtpHost: settingsMap["SMTP_HOST"] || "",
-    smtpPort: settingsMap["SMTP_PORT"] || "587",
-    smtpUser: settingsMap["SMTP_USER"] || "",
-    smtpPass: settingsMap["SMTP_PASS"] || "",
-    fromName: settingsMap["FROM_NAME"] || "",
-    fromEmail: settingsMap["FROM_EMAIL"] || "",
-  };
-}
 
 export async function getEmailSettings(
   tenantId: string,
@@ -198,7 +141,10 @@ export async function testEmailSettings(options: {
     options.payload,
   );
   const validation = validateEmailTestSettings(settings);
-  if (validation) return validation;
+  if (validation) {
+    return validation;
+  }
+
   return sendTestEmail(options, settings);
 }
 
@@ -216,6 +162,7 @@ async function resolveEmailTestSettings(
     sanitizeString(payload?.smtpUser) || settingsMap["SMTP_USER"];
   const fromEmail =
     sanitizeString(payload?.fromEmail) || settingsMap["FROM_EMAIL"] || smtpUser;
+
   return {
     smtpHost: sanitizeString(payload?.smtpHost) || settingsMap["SMTP_HOST"],
     smtpPort: Number.parseInt(smtpPortValue, 10),
@@ -231,28 +178,6 @@ async function resolveEmailTestSettings(
   };
 }
 
-function validateEmailTestSettings(
-  settings: ResolvedEmailTestSettings,
-): EmailTestServiceValidation | null {
-  if (!settings.smtpHost)
-    return emailValidationError("SMTP host belum dikonfigurasi");
-  if (!settings.smtpPortValue || Number.isNaN(settings.smtpPort))
-    return emailValidationError("Port SMTP tidak valid");
-  if (!settings.smtpUser)
-    return emailValidationError("SMTP user belum dikonfigurasi");
-  if (!settings.smtpPass)
-    return emailValidationError("SMTP password belum dikonfigurasi");
-  if (!settings.fromEmail)
-    return emailValidationError("Email pengirim belum dikonfigurasi");
-  if (!settings.testEmail)
-    return emailValidationError("Alamat email percobaan belum ditentukan");
-  return null;
-}
-
-function emailValidationError(message: string): EmailTestServiceValidation {
-  return { type: "validation_error", message };
-}
-
 async function sendTestEmail(
   options: { tenantId: string; userId: string },
   settings: ResolvedEmailTestSettings,
@@ -264,43 +189,9 @@ async function sendTestEmail(
       subject: "Email Percobaan dari NetManager",
       html: buildTestEmailHtml(settings.testEmail),
     });
+
     return buildEmailTestSuccess(settings.testEmail, mailInfo.messageId);
   } catch (error) {
-    logEmailTestFailure(options, settings, error);
-    return { type: "failure", message: "Gagal mengirim email percobaan" };
+    return logEmailTestFailure(options, settings, error);
   }
-}
-
-function createEmailTransporter(settings: ResolvedEmailTestSettings) {
-  return nodemailer.createTransport({
-    host: settings.smtpHost,
-    port: settings.smtpPort,
-    secure: settings.smtpPort === 465,
-    auth: { user: settings.smtpUser, pass: settings.smtpPass },
-  });
-}
-
-function buildEmailTestSuccess(
-  testEmail: string,
-  messageId: string,
-): EmailTestServiceSuccess {
-  return {
-    type: "success",
-    message: `Email percobaan berhasil dikirim ke ${testEmail}`,
-    data: { testEmail, messageId },
-  };
-}
-
-function logEmailTestFailure(
-  options: { tenantId: string; userId: string },
-  settings: ResolvedEmailTestSettings,
-  error: unknown,
-) {
-  logger.error("Gagal mengirim email percobaan", error as Error, {
-    tenantId: options.tenantId,
-    userId: options.userId,
-    testEmail: settings.testEmail,
-    smtpHost: settings.smtpHost,
-    smtpUser: settings.smtpUser,
-  });
 }

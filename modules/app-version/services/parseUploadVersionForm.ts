@@ -63,24 +63,25 @@ function assertApkFileName(
 function parseUploadFields(formData: FormData): ParsedUploadFields {
   return {
     version: getOptionalString(formData, "version"),
-    buildNumber: parsePositiveInteger(
-      getStringValue(formData.get("buildNumber")),
-      "buildNumber",
-    ),
-    versionCode: parsePositiveInteger(
-      getStringValue(formData.get("versionCode")),
-      "versionCode",
-    ),
+    buildNumber: parseUploadNumberField(formData, "buildNumber"),
+    versionCode: parseUploadNumberField(formData, "versionCode"),
     platform: getOptionalString(formData, "platform") || DEFAULT_PLATFORM,
     releaseNotes: getOptionalString(formData, "releaseNotes"),
     minVersion: getOptionalString(formData, "minVersion"),
     uploadedKey: getOptionalString(formData, "uploadedKey"),
     uploadedFilename: getOptionalString(formData, "uploadedFilename"),
-    uploadedSize: parsePositiveInteger(
-      getStringValue(formData.get("uploadedSize")),
-      "uploadedSize",
-    ),
+    uploadedSize: parseUploadNumberField(formData, "uploadedSize"),
   };
+}
+
+function parseUploadNumberField(
+  formData: FormData,
+  fieldName: string,
+): number | undefined {
+  return parsePositiveInteger(
+    getStringValue(formData.get(fieldName)),
+    fieldName,
+  );
 }
 
 function getApkFile(formData: FormData): File | undefined {

@@ -2,19 +2,21 @@ const DEFAULT_STANDARD_WORK_MINUTES = 8 * 60;
 const MINUTES_PER_HOUR = 60;
 
 /** Hitung durasi kerja standar per hari berdasarkan konfigurasi user. */
-export function getStandardMinutesPerDay(config?: {
+type WorkingTimeConfig = {
   workingHourMode?: "FIXED" | "SHIFT" | "FLEXIBLE" | null;
   flexibleTargetHour?: number | null;
   startWorkTime?: string | null;
   endWorkTime?: string | null;
   shift?: { startTime?: string | null; endTime?: string | null } | null;
-}): number {
+};
+
+export function getStandardMinutesPerDay(config?: WorkingTimeConfig): number {
   if (!config) {
     return DEFAULT_STANDARD_WORK_MINUTES;
   }
 
   if (config.workingHourMode === "FLEXIBLE") {
-    return (config.flexibleTargetHour || 8) * MINUTES_PER_HOUR;
+    return getFlexibleWorkMinutes(config.flexibleTargetHour);
   }
 
   if (config.workingHourMode === "SHIFT") {
@@ -29,6 +31,10 @@ export function getStandardMinutesPerDay(config?: {
   }
 
   return DEFAULT_STANDARD_WORK_MINUTES;
+}
+
+function getFlexibleWorkMinutes(flexibleTargetHour?: number | null) {
+  return (flexibleTargetHour || 8) * MINUTES_PER_HOUR;
 }
 
 function calculateClockRangeMinutes(

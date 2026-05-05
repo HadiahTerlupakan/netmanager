@@ -48,6 +48,7 @@ export interface IMobileDashboardRepository {
   /** Mengambil profil dashboard mitra. */
   findMitraDashboardProfile(
     userId: string,
+    tenantId: string,
   ): Promise<MitraDashboardProfile | null>;
 
   /** Menghitung WO aktif mitra. */

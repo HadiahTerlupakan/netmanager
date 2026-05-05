@@ -4,6 +4,20 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const LAST_30_DAYS = 30;
 const END_OF_DAY = { hours: 23, minutes: 59, seconds: 59, ms: 999 };
 
+type DashboardAccessFilterOptions = {
+  role?: string;
+  isSuperAdmin?: boolean;
+  permissions?: string[];
+  departmentId?: string | null;
+  siteId?: string | null;
+};
+
+type DashboardAccessFilters = {
+  departmentId?: string;
+  siteId?: string;
+  emptyResponse: boolean;
+};
+
 export function buildDashboardDateRange(period: string): {
   dateFrom?: Date;
   dateTo?: Date;
@@ -38,33 +52,47 @@ export function buildAnalyticsDateRange(period: string): {
   return {};
 }
 
-export function buildWorkOrderDashboardAccessFilters(options: {
-  role?: string;
-  isSuperAdmin?: boolean;
-  permissions?: string[];
-  departmentId?: string | null;
-  siteId?: string | null;
-}): { departmentId?: string; siteId?: string; emptyResponse: boolean } {
-  const isSuper = isSuperAdmin({
-    role: options.role,
-    isSuperAdmin: options.isSuperAdmin,
-  });
-  const departmentId = resolveRestrictedValue({
-    isRestricted: options.permissions?.includes("workorders:department_only"),
-    isSuper,
-    value: options.departmentId,
-  });
-  const siteId = resolveRestrictedValue({
-    isRestricted: options.permissions?.includes("workorders:site_only"),
-    isSuper,
-    value: options.siteId,
-  });
+export function buildWorkOrderDashboardAccessFilters(
+  options: DashboardAccessFilterOptions,
+): DashboardAccessFilters {
+  const isSuper = isDashboardSuperAdmin(options);
+  const departmentId = resolveDashboardDepartmentFilter(options, isSuper);
+  const siteId = resolveDashboardSiteFilter(options, isSuper);
 
   return {
     ...(departmentId.value ? { departmentId: departmentId.value } : {}),
     ...(siteId.value ? { siteId: siteId.value } : {}),
     emptyResponse: departmentId.isEmpty || siteId.isEmpty,
   };
+}
+
+function isDashboardSuperAdmin(options: DashboardAccessFilterOptions) {
+  return isSuperAdmin({
+    role: options.role,
+    isSuperAdmin: options.isSuperAdmin,
+  });
+}
+
+function resolveDashboardDepartmentFilter(
+  options: DashboardAccessFilterOptions,
+  isSuper: boolean,
+) {
+  return resolveRestrictedValue({
+    isRestricted: options.permissions?.includes("workorders:department_only"),
+    isSuper,
+    value: options.departmentId,
+  });
+}
+
+function resolveDashboardSiteFilter(
+  options: DashboardAccessFilterOptions,
+  isSuper: boolean,
+) {
+  return resolveRestrictedValue({
+    isRestricted: options.permissions?.includes("workorders:site_only"),
+    isSuper,
+    value: options.siteId,
+  });
 }
 
 export function getEmptyWorkOrderDashboardData() {

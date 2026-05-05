@@ -22,6 +22,22 @@ import {
   PERCENT_PRECISION,
 } from "./radiusRepository.constants";
 
+function buildOptionalNasFields(nas: {
+  shortname: string | null;
+  type: string | null;
+  ports: number | null;
+  community: string | null;
+  description: string | null;
+}) {
+  return {
+    ...(nas.shortname ? { shortname: nas.shortname } : {}),
+    ...(nas.type ? { type: nas.type } : {}),
+    ...(nas.ports ? { ports: nas.ports } : {}),
+    ...(nas.community ? { community: nas.community } : {}),
+    ...(nas.description ? { description: nas.description } : {}),
+  };
+}
+
 /** Convert NAS record to domain entity. */
 export function toNasEntity(nas: {
   id: number;
@@ -37,11 +53,7 @@ export function toNasEntity(nas: {
     id: nas.id,
     nasname: nas.nasname,
     secret: nas.secret,
-    ...(nas.shortname ? { shortname: nas.shortname } : {}),
-    ...(nas.type ? { type: nas.type } : {}),
-    ...(nas.ports ? { ports: nas.ports } : {}),
-    ...(nas.community ? { community: nas.community } : {}),
-    ...(nas.description ? { description: nas.description } : {}),
+    ...buildOptionalNasFields(nas),
   };
 }
 

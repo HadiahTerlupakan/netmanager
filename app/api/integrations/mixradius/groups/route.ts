@@ -9,7 +9,7 @@ import {
 import { logActivitySafe } from "@/lib/logger";
 import {
   getMixRadiusGroupRouteService,
-  getMixRadiusService,
+  MixRadiusOwnerGroupFacadeService,
 } from "@/modules/integrations";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ function hasAnyPermission(
   );
 }
 
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user);
@@ -98,7 +98,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const service = getMixRadiusService();
+  const service = new MixRadiusOwnerGroupFacadeService();
   const newGroup = await service.createOwnerGroup({
     name,
     owners,

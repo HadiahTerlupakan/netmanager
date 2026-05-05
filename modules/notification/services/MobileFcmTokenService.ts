@@ -15,8 +15,7 @@ export class MobileFcmTokenError extends Error {
 
 const defaultRepository = new PushTokenRepository();
 
-/** Adds or removes an FCM token for a mobile authenticated user. */
-export async function updateMobileFcmToken(options: {
+type MobileFcmTokenOptions = {
   session: IMobileFcmSession;
   fcmToken: string;
   action?: string;
@@ -25,24 +24,33 @@ export async function updateMobileFcmToken(options: {
     add: string;
     remove: string;
   };
-}) {
+};
+
+/** Adds or removes an FCM token for a mobile authenticated user. */
+export async function updateMobileFcmToken(options: MobileFcmTokenOptions) {
+  const context = await buildMobileFcmTokenContext(options);
+  await persistTokenChange(context);
+  return {
+    message: buildSuccessMessage(context.action, options.successMessages),
+  };
+}
+
+async function buildMobileFcmTokenContext(options: MobileFcmTokenOptions) {
   const userId = requireSessionUserId(options.session);
   const repository = options.repository ?? defaultRepository;
   const owner = await findMobileTokenOwner(repository, options.session, userId);
-  const normalizedAction = options.action === "remove" ? "remove" : "add";
-
-  await persistTokenChange({
+  return {
     repository,
     session: options.session,
     userId,
     tokens: owner.fcmTokens,
     fcmToken: options.fcmToken,
-    action: normalizedAction,
-  });
-
-  return {
-    message: buildSuccessMessage(normalizedAction, options.successMessages),
+    action: normalizeTokenAction(options.action),
   };
+}
+
+function normalizeTokenAction(action?: string): "add" | "remove" {
+  return action === "remove" ? "remove" : "add";
 }
 
 function requireSessionUserId(session: IMobileFcmSession): string {

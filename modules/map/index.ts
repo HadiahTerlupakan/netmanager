@@ -5,11 +5,11 @@ export { MappingAdminService } from "./services/MappingAdminService";
 export {
   createMappingService,
   createMappingAdminService,
-} from "./factories/MapModuleFactory";
+} from "./services/createMappingService";
 export {
   getMappingService,
   getMappingAdminService,
-} from "./factories/MapServiceSingletons";
+} from "./services/getMappingService";
 
 export type {
   MapNodeListItemDTO,

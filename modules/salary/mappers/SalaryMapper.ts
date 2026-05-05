@@ -27,6 +27,7 @@ import {
   toSalaryDetailEntity,
   toSalaryEntity,
   toSalaryListItemDTO,
+  toSalaryRevisionEntity,
   toSalarySlipDTO,
   toSalaryWithDetailsEntity,
   toUserSalaryComponentEntity,
@@ -41,8 +42,8 @@ export class SalaryMapper {
     return toSalaryDetailEntity(detail);
   }
   /** Map Prisma salary revision to domain entity. */
-  static toDomainRevision(_revision: SalaryRevision) {
-    return (toSalaryEntity({} as never), undefined as never);
+  static toDomainRevision(revision: SalaryRevision) {
+    return toSalaryRevisionEntity(revision);
   }
   /** Map Prisma salary to domain entity. */
   static toDomain(entity: SalaryWithRelations): SalaryWithDetailsEntity {

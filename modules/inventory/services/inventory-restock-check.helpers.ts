@@ -25,28 +25,47 @@ export async function processRestockSetting(input: {
   const alert = buildAlertDecision(input.setting, currentStock.stok);
   if (!alert) return { created: false, notificationsSent: 0 };
 
-  const existingAlert = await input.repository.findOpenRestockAlert({
-    barangId: input.setting.barangId,
-    gudangId: input.setting.gudangId,
-    alertType: alert.alertType,
-  });
+  const existingAlert = await checkExistingAlert(input, alert.alertType);
   if (existingAlert) return { created: false, notificationsSent: 0 };
 
-  const recommendedOrder = Math.max(
-    0,
-    input.setting.maxStok - currentStock.stok,
-  );
+  return await createAndNotifyAlert(input, alert, currentStock.stok);
+}
+
+async function checkExistingAlert(
+  input: { repository: InventoryRepository; setting: RestockSetting },
+  alertType: AlertDecision["alertType"],
+) {
+  return input.repository.findOpenRestockAlert({
+    barangId: input.setting.barangId,
+    gudangId: input.setting.gudangId,
+    alertType,
+  });
+}
+
+async function createAndNotifyAlert(
+  input: {
+    repository: InventoryRepository;
+    setting: RestockSetting;
+    recipients: RestockRecipient[];
+    emailService: EmailService;
+  },
+  alert: AlertDecision,
+  currentStock: number,
+) {
+  const recommendedOrder = Math.max(0, input.setting.maxStok - currentStock);
   const alertId = crypto.randomUUID();
+
   const newAlert = await createRestockAlert(input, {
     alert,
     alertId,
-    currentStock: currentStock.stok,
+    currentStock,
     recommendedOrder,
   });
+
   const notificationsSent = await notifyRestockRecipients(input, {
     alert,
     alertId,
-    currentStock: currentStock.stok,
+    currentStock,
     recommendedOrder,
   });
 

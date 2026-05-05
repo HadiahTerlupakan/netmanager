@@ -25,14 +25,27 @@ async function publishAnnouncementRealtime(announcement: AnnouncementRecord) {
     return;
   }
   if (announcement.target === "EMPLOYEE") {
-    await publishToUserScopes(await findEmployeeIds(), payload);
+    await publishToAnnouncementUsers(findEmployeeIds, payload);
     return;
   }
   if (announcement.target === "CUSTOMER") {
-    await publishToUserScopes(await findActiveCustomerIds(), payload);
+    await publishToAnnouncementUsers(findActiveCustomerIds, payload);
     return;
   }
 
+  await publishToEveryone(payload);
+}
+
+async function publishToAnnouncementUsers(
+  getUserIds: () => Promise<string[]>,
+  payload: ReturnType<typeof buildRealtimePayload>,
+) {
+  await publishToUserScopes(await getUserIds(), payload);
+}
+
+async function publishToEveryone(
+  payload: ReturnType<typeof buildRealtimePayload>,
+) {
   const [employeeIds, customerIds] = await Promise.all([
     findEmployeeIds(),
     findActiveCustomerIds(),

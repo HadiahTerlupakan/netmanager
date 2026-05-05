@@ -6,11 +6,16 @@ export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get("authorization");
 
-    // Use a secure token via environment variable or a strong default for fallback
-    const CRON_SECRET =
-      process.env.CRON_SECRET || "netmanager-secure-cron-key-123";
+    const CRON_SECRET = process.env.CRON_SECRET;
 
-    // Basic Authorization check to prevent abuse
+    if (!CRON_SECRET) {
+      logger.error("[Cron] CRON_SECRET not configured");
+      return NextResponse.json(
+        { error: "Service unavailable" },
+        { status: 503 },
+      );
+    }
+
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
       logger.warn("[Cron] Unauthorized attempt to run overdue check");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

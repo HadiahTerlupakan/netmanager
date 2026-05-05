@@ -62,18 +62,11 @@ function buildActiveSessionFormData(search: string) {
 
 function buildActiveSessionMap(responseData: unknown) {
   const activeMap = new Map<string, { ip: string; uptime: string }>();
-  const sessions =
-    responseData &&
-    typeof responseData === "object" &&
-    Array.isArray((responseData as { data?: unknown[] }).data)
-      ? (responseData as { data: Record<string, unknown>[] }).data
-      : [];
+  const sessions = extractSessionsFromResponse(responseData);
 
   sessions.forEach((session) => {
     const username = String(session.username || session.member_id || "");
-    if (!username) {
-      return;
-    }
+    if (!username) return;
 
     activeMap.set(username, {
       ip: String(session.framedipaddress || ""),
@@ -82,4 +75,12 @@ function buildActiveSessionMap(responseData: unknown) {
   });
 
   return activeMap;
+}
+
+function extractSessionsFromResponse(responseData: unknown) {
+  return responseData &&
+    typeof responseData === "object" &&
+    Array.isArray((responseData as { data?: unknown[] }).data)
+    ? (responseData as { data: Record<string, unknown>[] }).data
+    : [];
 }

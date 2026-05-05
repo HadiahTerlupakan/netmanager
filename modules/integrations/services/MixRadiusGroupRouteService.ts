@@ -1,6 +1,8 @@
 import { SiteService } from "@/modules/roles";
-import { getMixRadiusService } from "./MixRadiusService";
-import type { MixRadiusOwnerGroup } from "./MixRadiusOwnerGroupFacadeService";
+import {
+  MixRadiusOwnerGroupFacadeService,
+  type MixRadiusOwnerGroup,
+} from "./MixRadiusOwnerGroupFacadeService";
 
 type SiteLookup = {
   id: string;
@@ -33,7 +35,8 @@ export class MixRadiusGroupRouteService {
   private readonly siteService: SiteServicePort;
 
   constructor(deps: MixRadiusGroupRouteServiceDeps = {}) {
-    this.mixRadiusService = deps.mixRadiusService ?? getMixRadiusService();
+    this.mixRadiusService =
+      deps.mixRadiusService ?? new MixRadiusOwnerGroupFacadeService();
     this.siteService = deps.siteService ?? new SiteService();
   }
 

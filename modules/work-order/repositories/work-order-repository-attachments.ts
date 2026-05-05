@@ -22,17 +22,29 @@ export function addWorkOrderAttachment(input: {
   uploadedById?: string;
 }): Promise<WorkOrderAttachments> {
   return input.activityRepository.addAttachment(
-    {
-      workOrderId: input.workOrderId,
-      fileName: input.fileName,
-      filePath: input.filePath,
-      fileSize: input.fileSize,
-      fileType: input.fileType,
-      caption: input.caption,
-      uploadedById: input.uploadedById,
-    },
+    buildAttachmentPayload(input),
     input.addUpdate,
   );
+}
+
+function buildAttachmentPayload(input: {
+  workOrderId: string;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  fileType: string;
+  caption?: string;
+  uploadedById?: string;
+}) {
+  return {
+    workOrderId: input.workOrderId,
+    fileName: input.fileName,
+    filePath: input.filePath,
+    fileSize: input.fileSize,
+    fileType: input.fileType,
+    caption: input.caption,
+    uploadedById: input.uploadedById,
+  };
 }
 
 export async function deleteWorkOrderAttachment(input: {

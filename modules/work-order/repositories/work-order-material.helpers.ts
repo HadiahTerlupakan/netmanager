@@ -18,14 +18,12 @@ export async function createMobileMaterialUsage(params: {
   actorId: string;
 }): Promise<MobileWorkOrderMaterialResult> {
   const normalizedItem = normalizeMobileMaterialItem(params.item);
-  const stockRecord = await findMaterialStock(params.tx, {
-    barangId: normalizedItem.barangId,
-    gudangId: normalizedItem.gudangId,
-    tenantId: params.workOrder.tenantId,
-  });
 
-  assertMaterialStockAvailable(stockRecord, normalizedItem);
-  await decrementMaterialStock(params.tx, stockRecord.id, normalizedItem);
+  await reserveMaterialStock(
+    params.tx,
+    params.workOrder.tenantId,
+    normalizedItem,
+  );
 
   const keluar = await createBarangKeluarForMaterial(params.tx, {
     item: normalizedItem,
@@ -33,15 +31,7 @@ export async function createMobileMaterialUsage(params: {
     actorId: params.actorId,
   });
 
-  return {
-    id: keluar.id,
-    nama: keluar.barang.nama,
-    jumlah: normalizedItem.jumlah,
-    satuan: keluar.barang.satuan,
-    kondisi: normalizedItem.kondisi,
-    barangId: normalizedItem.barangId,
-    gudangId: normalizedItem.gudangId,
-  };
+  return mapMobileMaterialUsageResult(keluar, normalizedItem);
 }
 
 export async function appendUsedMaterialsToWorkOrder(
@@ -80,6 +70,36 @@ function normalizeMobileMaterialItem(item: MobileWorkOrderMaterialInput) {
     gudangId: item.gudangId,
     jumlah,
     kondisi: item.kondisi || "BARU",
+  };
+}
+
+async function reserveMaterialStock(
+  tx: MaterialTransaction,
+  tenantId: string,
+  item: ReturnType<typeof normalizeMobileMaterialItem>,
+) {
+  const stockRecord = await findMaterialStock(tx, {
+    barangId: item.barangId,
+    gudangId: item.gudangId,
+    tenantId,
+  });
+
+  assertMaterialStockAvailable(stockRecord, item);
+  await decrementMaterialStock(tx, stockRecord.id, item);
+}
+
+function mapMobileMaterialUsageResult(
+  keluar: Awaited<ReturnType<typeof createBarangKeluarForMaterial>>,
+  item: ReturnType<typeof normalizeMobileMaterialItem>,
+): MobileWorkOrderMaterialResult {
+  return {
+    id: keluar.id,
+    nama: keluar.barang.nama,
+    jumlah: item.jumlah,
+    satuan: keluar.barang.satuan,
+    kondisi: item.kondisi,
+    barangId: item.barangId,
+    gudangId: item.gudangId,
   };
 }
 

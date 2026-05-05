@@ -1,9 +1,7 @@
 import { RabRevisionStatus } from "../types/invoice.enums";
-
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { prisma } from "@/modules/database";
-
 import {
   calculateRevisionTotals,
   normalizeRevisionSnapshotItems,
@@ -12,6 +10,15 @@ import {
 } from "../utils/rab-revisions";
 import { rejectRabRevision } from "./RabRevisionApprovalService";
 import { createRouteServiceError } from "./RouteServiceError";
+import {
+  assertDraftRevisionCanBeSubmitted,
+  assertDraftRevisionStatus,
+  assertRevisionBelongsToProject,
+  createRabRevisionDetailQuery,
+  createRabRevisionDraftQuery,
+  createRabRevisionListQuery,
+  getRabRevisionDetailInclude,
+} from "./rab-revision-route.helpers";
 
 interface RevisionAccessUser {
   id: string;
@@ -37,27 +44,9 @@ export class RabRevisionRouteService {
 
   /** Get all revisions for a RAB project. */
   async getRevisions(projectId: string) {
-    const revisions = await prisma.rabRevision.findMany({
-      where: { rabProjectId: projectId },
-      include: {
-        items: { orderBy: { sortOrder: "asc" } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: { select: { name: true } },
-              },
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        },
-      },
-      orderBy: { revisionNumber: "desc" },
-    });
-
+    const revisions = await prisma.rabRevision.findMany(
+      createRabRevisionListQuery(projectId),
+    );
     return revisions.map(serializeRabRevision);
   }
 
@@ -82,28 +71,9 @@ export class RabRevisionRouteService {
       throw createRouteServiceError("Proyek RAB", 404);
     }
 
-    const existingDraft = await prisma.rabRevision.findFirst({
-      where: {
-        rabProjectId: project.id,
-        status: RabRevisionStatus.DRAFT,
-      },
-      include: {
-        items: { orderBy: { sortOrder: "asc" } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
+    const existingDraft = await prisma.rabRevision.findFirst(
+      createRabRevisionDraftQuery(project.id),
+    );
     if (existingDraft) {
       return serializeRabRevision(existingDraft);
     }
@@ -115,6 +85,7 @@ export class RabRevisionRouteService {
       baseItems,
       project.finalApprovedRevision?.totalOpex ?? project.projectedOpex,
     );
+
     const revision = await prisma.rabRevision.create({
       data: {
         rabProjectId: project.id,
@@ -124,25 +95,9 @@ export class RabRevisionRouteService {
         createdById: userId,
         totalCapex: totals.totalCapex,
         totalOpex: totals.totalOpex,
-        items: {
-          create: baseItems,
-        },
+        items: { create: baseItems },
       },
-      include: {
-        items: { orderBy: { sortOrder: "asc" } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
+      include: getRabRevisionDetailInclude(),
     });
 
     return serializeRabRevision(revision);
@@ -150,29 +105,10 @@ export class RabRevisionRouteService {
 
   /** Get one revision detail scoped to its project. */
   async getRevision(projectId: string, revisionId: string) {
-    const revision = await prisma.rabRevision.findUnique({
-      where: { id: revisionId },
-      include: {
-        items: { orderBy: { sortOrder: "asc" } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!revision || revision.rabProjectId !== projectId) {
-      throw createRouteServiceError("Revisi RAB", 404);
-    }
-
+    const revision = await prisma.rabRevision.findUnique(
+      createRabRevisionDetailQuery(revisionId),
+    );
+    assertRevisionBelongsToProject(revision, projectId);
     return serializeRabRevision(revision);
   }
 
@@ -200,19 +136,8 @@ export class RabRevisionRouteService {
       include: { items: { orderBy: { sortOrder: "asc" } } },
     });
 
-    if (
-      !existingRevision ||
-      existingRevision.rabProjectId !== input.projectId
-    ) {
-      throw createRouteServiceError("Revisi RAB", 404);
-    }
-
-    if (existingRevision.status !== RabRevisionStatus.DRAFT) {
-      throw createRouteServiceError(
-        "Hanya revisi dengan status DRAFT yang dapat diubah",
-        400,
-      );
-    }
+    assertRevisionBelongsToProject(existingRevision, input.projectId);
+    assertDraftRevisionStatus(existingRevision.status);
 
     const snapshotItems = input.items
       ? normalizeRevisionSnapshotItems(
@@ -236,6 +161,7 @@ export class RabRevisionRouteService {
       snapshotItems,
       input.projectedOpex ?? existingRevision.totalOpex,
     );
+
     const revision = await prisma.rabRevision.update({
       where: { id: existingRevision.id },
       data: {
@@ -243,27 +169,10 @@ export class RabRevisionRouteService {
         totalCapex: totals.totalCapex,
         totalOpex: totals.totalOpex,
         items: input.items
-          ? {
-              deleteMany: {},
-              create: snapshotItems,
-            }
+          ? { deleteMany: {}, create: snapshotItems }
           : undefined,
       },
-      include: {
-        items: { orderBy: { sortOrder: "asc" } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
+      include: getRabRevisionDetailInclude(),
     });
 
     return serializeRabRevision(revision);
@@ -281,23 +190,11 @@ export class RabRevisionRouteService {
       include: { items: true, approvals: true },
     });
 
-    if (!revision || revision.rabProjectId !== input.projectId) {
-      throw createRouteServiceError("Revisi RAB", 404);
-    }
-
-    if (revision.status !== RabRevisionStatus.DRAFT) {
-      throw createRouteServiceError(
-        "Hanya revisi dengan status DRAFT yang dapat diajukan",
-        400,
-      );
-    }
-
-    if (revision.items.length === 0) {
-      throw createRouteServiceError(
-        "Revisi harus memiliki minimal satu item",
-        400,
-      );
-    }
+    assertRevisionBelongsToProject(revision, input.projectId);
+    assertDraftRevisionCanBeSubmitted({
+      status: revision.status,
+      itemsLength: revision.items.length,
+    });
 
     const submittedRevision = await prisma.rabRevision.update({
       where: { id: revision.id },
@@ -307,21 +204,7 @@ export class RabRevisionRouteService {
         submittedById: input.userId,
         submittedAt: new Date(),
       },
-      include: {
-        items: { orderBy: { sortOrder: "asc" } },
-        approvals: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
+      include: getRabRevisionDetailInclude(),
     });
 
     return serializeRabRevision(submittedRevision);

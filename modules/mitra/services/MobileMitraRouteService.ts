@@ -1,52 +1,33 @@
-import { logger } from "@/lib/logger";
-import fs from "fs";
-import path from "path";
-import { logActivitySafe } from "@/lib/logger";
-import { toStartOfDay } from "@/lib/utils/server-datetime";
+import { getMitraRepository } from "../repositories/MitraRepository";
+import { getMitraWithdrawRepository } from "../repositories/MitraWithdrawRepository";
 import type { MitraEntity } from "../domain/entities/MitraEntity";
 import type { IMitraRepository } from "../domain/ports/IMitraRepository";
 import type {
   IMitraWithdrawRepository,
   MobileWithdrawHistoryResult,
 } from "../domain/ports/IMitraWithdrawRepository";
-import { getMitraRepository } from "../repositories/MitraRepository";
-import { getMitraWithdrawRepository } from "../repositories/MitraWithdrawRepository";
 import { getMitraWalletService } from "./MitraWalletService";
 import { getMitraWithdrawService } from "./MitraWithdrawService";
-
-interface ServiceSuccess<T> {
-  success: true;
-  data: T;
-}
-
-interface ServiceFailure {
-  success: false;
-  error: string;
-  status: number;
-}
-
-type ServiceResult<T> = ServiceSuccess<T> | ServiceFailure;
-
-interface MobileMitraSession {
-  id: string;
-  userId?: string;
-  tenantId?: string | null;
-  role: string;
-}
-
-interface FaceVerificationFile {
-  arrayBuffer(): Promise<ArrayBuffer>;
-  name: string;
-}
+import {
+  buildFailureResult,
+  type FaceVerificationFile,
+  getFeePelangganStatsForMitra,
+  getVerifiedFaceMessage,
+  getWithdrawAmountError,
+  getWithdrawMethodError,
+  logMobileFaceVerification,
+  saveFaceVerificationPhoto,
+} from "./MobileMitraRouteService.helpers";
+import type {
+  MobileMitraSession,
+  MobileWithdrawRequestPayload,
+  ServiceResult,
+} from "./MobileMitraRouteService.types";
 
 const DEFAULT_PAGE = 1;
 const MOBILE_LIMIT = 20;
 const DASHBOARD_RECENT_TRANSACTION_LIMIT = 5;
 const DASHBOARD_TRANSACTION_PAGE = 1;
-const VERIFIED_MESSAGE = "Verifikasi wajah berhasil";
-const UPLOAD_ROOT_SEGMENTS = ["public", "uploads", "mitra"] as const;
-const FACE_VERIFICATION_PREFIX = "face_verification";
-const DEFAULT_FILE_EXTENSION = "jpg";
 
 export class MobileMitraRouteService {
   constructor(
@@ -59,8 +40,10 @@ export class MobileMitraRouteService {
     session: MobileMitraSession,
   ): Promise<ServiceResult<Record<string, unknown>>> {
     const mitra = await this.validateActiveMitra(session);
-    if (mitra.success === false)
-      return this.buildFailureResult(mitra.error, mitra.status);
+    if (mitra.success === false) {
+      return buildFailureResult(mitra.error, mitra.status);
+    }
+
     const tenantId = session.tenantId ?? undefined;
     const mitraData = mitra.data;
     const [
@@ -80,12 +63,8 @@ export class MobileMitraRouteService {
         DASHBOARD_TRANSACTION_PAGE,
         DASHBOARD_RECENT_TRANSACTION_LIMIT,
       ),
-      this.getCompletedJobsThisMonth(
-        mitraData.id,
-        mitraData.mitraType,
-        tenantId,
-      ),
-      this.getFeePelangganStats(mitraData),
+      this.getCompletedJobsThisMonth(mitraData.id, mitraData.mitraType),
+      getFeePelangganStatsForMitra(this.mitraRepository, mitraData),
     ]);
 
     return {
@@ -121,8 +100,10 @@ export class MobileMitraRouteService {
     page = DEFAULT_PAGE,
   ): Promise<ServiceResult<Record<string, unknown>>> {
     const mitra = await this.validateActiveMitra(session);
-    if (mitra.success === false)
-      return this.buildFailureResult(mitra.error, mitra.status);
+    if (mitra.success === false) {
+      return buildFailureResult(mitra.error, mitra.status);
+    }
+
     const tenantId = session.tenantId ?? undefined;
     const [balanceResult, txResult] = await Promise.all([
       getMitraWalletService().getBalance(mitra.data.id, tenantId),
@@ -152,56 +133,58 @@ export class MobileMitraRouteService {
     session: MobileMitraSession,
     page = DEFAULT_PAGE,
   ): Promise<ServiceResult<MobileWithdrawHistoryResult>> {
+    const mitra = await this.validateActiveMitra(session);
+    if (mitra.success === false) {
+      return buildFailureResult(mitra.error, mitra.status);
+    }
+
     const tenantId = session.tenantId ?? undefined;
     const history = await this.withdrawRepository.getMobileWithdrawHistory({
-      mitraId: session.id,
+      mitraId: mitra.data.id,
       tenantId,
       page,
       limit: MOBILE_LIMIT,
     });
-    if (!history)
-      return { success: false, error: "Mitra tidak ditemukan", status: 404 };
+
+    if (!history) {
+      return buildFailureResult("Mitra tidak ditemukan", 404);
+    }
+
     return { success: true, data: history };
   }
 
   /** Membuat permintaan penarikan baru dari mobile mitra. */
   async requestWithdraw(
     session: MobileMitraSession,
-    payload: {
-      amount: number;
-      method: "TRANSFER" | "CASH";
-      bankName?: string;
-      accountNumber?: string;
-      accountName?: string;
-      notes?: string;
-    },
+    payload: MobileWithdrawRequestPayload,
   ): Promise<ServiceResult<{ message: string }>> {
-    if (!payload.amount || payload.amount <= 0) {
-      return {
-        success: false,
-        error: "Jumlah penarikan harus lebih dari 0",
-        status: 400,
-      };
+    const mitra = await this.validateActiveMitra(session);
+    if (mitra.success === false) {
+      return buildFailureResult(mitra.error, mitra.status);
     }
-    if (!["TRANSFER", "CASH"].includes(payload.method)) {
-      return {
-        success: false,
-        error: "Metode penarikan tidak valid",
-        status: 400,
-      };
+
+    const amountError = getWithdrawAmountError(payload.amount);
+    if (amountError) {
+      return buildFailureResult(amountError, 400);
     }
+
+    const methodError = getWithdrawMethodError(payload.method);
+    if (methodError) {
+      return buildFailureResult(methodError, 400);
+    }
+
     const result = await getMitraWithdrawService().requestWithdraw(
-      session.id,
+      mitra.data.id,
       payload,
       session.tenantId ?? undefined,
     );
     if (!result.success) {
-      return {
-        success: false,
-        error: result.error || "Gagal membuat permintaan penarikan",
-        status: 400,
-      };
+      return buildFailureResult(
+        result.error || "Gagal membuat permintaan penarikan",
+        400,
+      );
     }
+
     return {
       success: true,
       data: { message: "Permintaan penarikan berhasil dibuat" },
@@ -213,22 +196,38 @@ export class MobileMitraRouteService {
     session: MobileMitraSession,
     photo: FaceVerificationFile | null,
   ): Promise<ServiceResult<Record<string, unknown>>> {
-    if (!photo)
-      return { success: false, error: "Foto tidak ditemukan", status: 400 };
-    const fileUrl = await this.savePhotoFile(session.id, photo);
-    await this.mitraRepository.saveFaceVerification({
-      mitraId: session.id,
-      photoUrl: fileUrl,
-    });
-    this.logFaceVerification(session, fileUrl);
-    return {
-      success: true,
-      data: {
-        message: VERIFIED_MESSAGE,
-        url: fileUrl,
-        verifiedAt: new Date().toISOString(),
-      },
-    };
+    const mitra = await this.validateActiveMitra(session);
+    if (mitra.success === false) {
+      return buildFailureResult(mitra.error, mitra.status);
+    }
+
+    if (!photo) {
+      return buildFailureResult("Foto tidak ditemukan", 400);
+    }
+
+    try {
+      const fileUrl = await saveFaceVerificationPhoto(mitra.data.id, photo);
+      await this.mitraRepository.saveFaceVerification({
+        mitraId: mitra.data.id,
+        photoUrl: fileUrl,
+      });
+      logMobileFaceVerification(session, fileUrl);
+
+      return {
+        success: true,
+        data: {
+          message: getVerifiedFaceMessage(),
+          url: fileUrl,
+          verifiedAt: new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        return buildFailureResult(error.message, 400);
+      }
+
+      return buildFailureResult("Gagal menyimpan foto verifikasi", 500);
+    }
   }
 
   private async validateActiveMitra(
@@ -238,23 +237,19 @@ export class MobileMitraRouteService {
       session.id,
       session.tenantId ?? undefined,
     );
-    if (!mitra) return this.buildFailureResult("Mitra tidak ditemukan", 404);
-    if (!mitra.isActive)
-      return this.buildFailureResult("Akun Mitra tidak aktif", 403);
+    if (!mitra) {
+      return buildFailureResult("Mitra tidak ditemukan", 404);
+    }
+
+    if (!mitra.isActive) {
+      return buildFailureResult("Akun Mitra tidak aktif", 403);
+    }
+
     return { success: true, data: mitra };
   }
 
-  /** Membuat hasil gagal yang konsisten untuk route service mobile. */
-  private buildFailureResult(error: string, status: number): ServiceFailure {
-    return { success: false, error, status };
-  }
-
   /** Menghitung job selesai bulan berjalan dari transaksi earning. */
-  private async getCompletedJobsThisMonth(
-    mitraId: string,
-    mitraType: string,
-    _tenantId?: string,
-  ) {
+  private async getCompletedJobsThisMonth(mitraId: string, mitraType: string) {
     const keyword = mitraType === "MITRA_TEKNISI" ? "WO" : "Canvasing";
     const monthStart = new Date(
       new Date().getFullYear(),
@@ -268,85 +263,6 @@ export class MobileMitraRouteService {
         monthStart,
       );
     return result.success ? result.data || 0 : 0;
-  }
-
-  /** Mengambil ringkasan fee pelanggan untuk dashboard mitra sales. */
-  private async getFeePelangganStats(mitra: {
-    id: string;
-    mitraType: string;
-    enableFeePelanggan: boolean;
-    mitraRateFeePelanggan: number | null;
-    mixradiusOwnerNames: string[];
-  }) {
-    if (mitra.mitraType !== "MITRA_SALES" || !mitra.enableFeePelanggan) {
-      return this.buildEmptyFeeStats();
-    }
-    try {
-      const today = this.createTodayStart();
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      return await this.mitraRepository.getFeePelangganStats({
-        mitraId: mitra.id,
-        ownerNames: mitra.mixradiusOwnerNames || [],
-        feeRate: mitra.mitraRateFeePelanggan || 0,
-        monthStart,
-        today,
-      });
-    } catch (error) {
-      logger.error(
-        "[MobileMitraRouteService] Error getting fee pelanggan stats",
-        error as Error,
-      );
-      return this.buildEmptyFeeStats();
-    }
-  }
-
-  /** Membuat nilai default saat fee pelanggan tidak aktif atau gagal dihitung. */
-  private buildEmptyFeeStats() {
-    return {
-      activeCustomers: 0,
-      totalFeePelanggan: 0,
-      remainingFeePelanggan: 0,
-      unpaidCustomersCount: 0,
-    };
-  }
-
-  /** Membuat timestamp awal hari untuk kalkulasi settlement. */
-  private createTodayStart() {
-    const today = new Date();
-    today.setTime(toStartOfDay(today).getTime());
-    return today;
-  }
-
-  /** Menyimpan file foto verifikasi ke public uploads mitra. */
-  private async savePhotoFile(mitraId: string, photo: FaceVerificationFile) {
-    const uploadDirectory = path.join(
-      /*turbopackIgnore: true*/ process.cwd(),
-      ...UPLOAD_ROOT_SEGMENTS,
-    );
-    if (!fs.existsSync(uploadDirectory))
-      fs.mkdirSync(uploadDirectory, { recursive: true });
-    const fileBuffer = Buffer.from(await photo.arrayBuffer());
-    const extension = photo.name.split(".").pop() || DEFAULT_FILE_EXTENSION;
-    const filename = `${FACE_VERIFICATION_PREFIX}_${mitraId}_${Date.now()}.${extension}`;
-    const filePath = path.join(uploadDirectory, filename);
-    fs.writeFileSync(filePath, fileBuffer);
-    return `/uploads/mitra/${filename}`;
-  }
-
-  /** Mencatat audit verifikasi wajah mobile. */
-  private logFaceVerification(session: MobileMitraSession, photoUrl: string) {
-    logActivitySafe({
-      action: "UPDATE",
-      subject: "Face Verification",
-      userId: null,
-      tenantId: session.tenantId ?? undefined,
-      details: {
-        mitraId: session.id,
-        action: "FACE_VERIFY_MOBILE",
-        photoUrl,
-        status: "SUCCESS",
-      },
-    });
   }
 }
 

@@ -1,14 +1,21 @@
-import { randomUUID } from "crypto";
-
 import { prisma } from "@/modules/database";
+
 import {
   canInvitePartnerToday,
   PARTNER_ON_LEAVE_ERROR_MESSAGE,
 } from "./partner-invite-availability";
+import {
+  createPartnerAssignment,
+  findAssignmentForRemoval,
+  findPartnerAssignment,
+  findTargetUser,
+  findWorkOrder,
+  hasPartnerAdminAccess,
+  updatePartnerInvitationResponse,
+} from "./mobile-work-order-partner.lookup";
 
 type PartnerAssignmentStatus = "PENDING" | "APPROVED" | "REJECTED";
 
-const PARTNER_ROLE = "PARTNER";
 const PENDING_ASSIGNMENT_STATUS: PartnerAssignmentStatus = "PENDING";
 const DUPLICATE_PARTNER_ASSIGNMENT_ERROR_MESSAGE =
   "User sudah ditambahkan sebagai partner di work order ini";
@@ -44,15 +51,12 @@ interface RespondPartnerInvitationInput {
 
 export class MobileWorkOrderPartnerService {
   async addPartner(input: AddPartnerInput) {
-    const workOrder = await this.findWorkOrder(
-      input.workOrderId,
-      input.tenantId,
-    );
+    const workOrder = await findWorkOrder(input.workOrderId, input.tenantId);
     if (!workOrder) {
       throw new Error("WORK_ORDER_NOT_FOUND");
     }
 
-    const targetUser = await this.findTargetUser(
+    const targetUser = await findTargetUser(
       input.partnerUserId,
       input.tenantId,
     );
@@ -66,7 +70,6 @@ export class MobileWorkOrderPartnerService {
       assignedToId: workOrder.assignedToId,
       tenantId: input.tenantId,
     });
-
     await this.ensurePartnerAssignmentAvailable(
       input.workOrderId,
       input.partnerUserId,
@@ -74,19 +77,17 @@ export class MobileWorkOrderPartnerService {
     );
     await this.ensurePartnerAvailableToday(input.partnerUserId, input.tenantId);
 
-    return this.createPartnerAssignment(input);
+    return createPartnerAssignment(input);
   }
 
   async removePartner(input: RemovePartnerInput) {
-    const assignment = await this.findAssignmentForRemoval(
+    const assignment = await findAssignmentForRemoval(
       input.assignmentId,
       input.tenantId,
     );
-
     if (!assignment) {
       throw new Error("ASSIGNMENT_NOT_FOUND");
     }
-
     if (assignment.workOrderId !== input.workOrderId) {
       throw new Error("ASSIGNMENT_WORK_ORDER_MISMATCH");
     }
@@ -105,20 +106,16 @@ export class MobileWorkOrderPartnerService {
   }
 
   async respondToInvitation(input: RespondPartnerInvitationInput) {
-    const workOrder = await this.findWorkOrder(
-      input.workOrderId,
-      input.tenantId,
-    );
+    const workOrder = await findWorkOrder(input.workOrderId, input.tenantId);
     if (!workOrder) {
       throw new Error("WORK_ORDER_NOT_FOUND");
     }
 
-    const assignment = await this.findPartnerAssignment(
+    const assignment = await findPartnerAssignment(
       input.workOrderId,
       input.actorId,
       input.tenantId,
     );
-
     if (!assignment) {
       throw new Error("PARTNER_ASSIGNMENT_NOT_FOUND");
     }
@@ -130,13 +127,18 @@ export class MobileWorkOrderPartnerService {
       };
     }
 
-    const updatedAssignment = await this.updatePartnerInvitationResponse({
+    const updatedAssignment = await updatePartnerInvitationResponse({
       assignmentId: assignment.id,
       tenantId: input.tenantId,
       response: input.response,
     });
 
-    return this.createInvitationResponse(updatedAssignment, workOrder);
+    return {
+      isAlreadyResponded: false as const,
+      currentStatus: updatedAssignment.status,
+      assignment: updatedAssignment,
+      workOrder,
+    };
   }
 
   getDuplicateAssignmentErrorMessage() {
@@ -151,56 +153,6 @@ export class MobileWorkOrderPartnerService {
     return this.getErrorCode(error) === "P2002";
   }
 
-  private createPartnerAssignment(input: AddPartnerInput) {
-    return prisma.workOrderAssignments.create({
-      data: {
-        id: randomUUID(),
-        workOrderId: input.workOrderId,
-        userId: input.partnerUserId,
-        role: PARTNER_ROLE,
-        status: PENDING_ASSIGNMENT_STATUS,
-        assignedAt: new Date(),
-        assignedById: input.actorId,
-        tenantId: input.tenantId,
-      },
-      include: this.getAssignmentUserInclude(),
-    });
-  }
-
-  private updatePartnerInvitationResponse(input: {
-    assignmentId: string;
-    tenantId: string;
-    response: PartnerAssignmentStatus;
-  }) {
-    return prisma.workOrderAssignments.update({
-      where: { id: input.assignmentId, tenantId: input.tenantId },
-      data: { status: input.response, respondedAt: new Date() },
-      include: this.getAssignmentUserInclude(),
-    });
-  }
-
-  private createInvitationResponse(
-    assignment: Awaited<
-      ReturnType<typeof this.updatePartnerInvitationResponse>
-    >,
-    workOrder: Awaited<ReturnType<typeof this.findWorkOrder>>,
-  ) {
-    return {
-      isAlreadyResponded: false as const,
-      currentStatus: assignment.status,
-      assignment,
-      workOrder,
-    };
-  }
-
-  private getAssignmentUserInclude() {
-    return {
-      user: {
-        select: { id: true, name: true, email: true, image: true },
-      },
-    };
-  }
-
   private async ensurePartnerAccess(input: {
     actorId: string;
     createdById?: string | null;
@@ -208,10 +160,7 @@ export class MobileWorkOrderPartnerService {
     assignedById?: string | null;
     tenantId: string;
   }) {
-    const isAdmin = await this.hasPartnerAdminAccess(
-      input.actorId,
-      input.tenantId,
-    );
+    const isAdmin = await hasPartnerAdminAccess(input.actorId, input.tenantId);
     const canManage = this.canManageWorkOrderPartner({
       actorId: input.actorId,
       assignedById: input.assignedById,
@@ -234,7 +183,7 @@ export class MobileWorkOrderPartnerService {
       where: {
         workOrderId,
         userId: partnerUserId,
-        role: PARTNER_ROLE,
+        role: "PARTNER",
         tenantId,
       },
     });
@@ -254,19 +203,6 @@ export class MobileWorkOrderPartnerService {
     }
   }
 
-  private async hasPartnerAdminAccess(userId: string, tenantId: string) {
-    const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: {
-        role: {
-          select: { accessAdminPanel: true, isSuperAdmin: true },
-        },
-      },
-    });
-
-    return Boolean(user?.role?.accessAdminPanel || user?.role?.isSuperAdmin);
-  }
-
   private canManageWorkOrderPartner(input: ManagePartnerAccessInput) {
     return (
       input.assignedById === input.actorId ||
@@ -274,55 +210,6 @@ export class MobileWorkOrderPartnerService {
       input.assignedToId === input.actorId ||
       input.isAdmin
     );
-  }
-
-  private async findWorkOrder(workOrderId: string, tenantId: string) {
-    return prisma.workOrders.findFirst({
-      where: { id: workOrderId, tenantId },
-      select: {
-        id: true,
-        workOrderNumber: true,
-        status: true,
-        createdById: true,
-        assignedToId: true,
-      },
-    });
-  }
-
-  private async findTargetUser(userId: string, tenantId: string) {
-    return prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: { id: true, name: true, email: true },
-    });
-  }
-
-  private async findPartnerAssignment(
-    workOrderId: string,
-    userId: string,
-    tenantId: string,
-  ) {
-    return prisma.workOrderAssignments.findFirst({
-      where: { workOrderId, userId, role: PARTNER_ROLE, tenantId },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-    });
-  }
-
-  private async findAssignmentForRemoval(
-    assignmentId: string,
-    tenantId: string,
-  ) {
-    return prisma.workOrderAssignments.findFirst({
-      where: { id: assignmentId, tenantId },
-      include: {
-        workOrders: {
-          select: { id: true, createdById: true, assignedToId: true },
-        },
-      },
-    });
   }
 
   private getErrorCode(error: unknown) {

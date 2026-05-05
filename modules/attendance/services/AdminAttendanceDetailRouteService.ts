@@ -104,10 +104,20 @@ async function resolveRecalculatedStatus(input: {
     return null;
   }
 
+  return await calculateStatusFromSettings(input, scheduledStartTime);
+}
+
+async function calculateStatusFromSettings(
+  input: {
+    payload: AttendanceUpdate;
+    settingsService: AttendanceSettingsService;
+  },
+  scheduledStartTime: string,
+) {
   const settingsMap = await getAttendanceSettingsMap(input.settingsService);
   return calculateAttendanceStatus({
     checkInTime: new Date(input.payload.checkIn as string),
-    scheduleTime: scheduledStartTime as string,
+    scheduleTime: scheduledStartTime,
     timezone: settingsMap.get("GENERAL_TIMEZONE") || "Asia/Jakarta",
     toleranceMinutes: parseToleranceMinutes(
       settingsMap.get("GENERAL_ATTENDANCE_TOLERANCE"),

@@ -182,9 +182,10 @@ describe("InventoryRepository", () => {
         ],
       });
 
-      const result = (await repository.findTransferById(
-        "transfer-1",
-      )) as Record<string, unknown>;
+      const result = await repository.findTransferById("transfer-1");
+
+      expect(result).not.toBeNull();
+      if (!result) return;
 
       expect(result.dariGudang).toEqual({
         id: "gudang-1",

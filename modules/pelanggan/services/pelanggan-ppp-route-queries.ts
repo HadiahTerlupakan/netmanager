@@ -3,7 +3,9 @@ import { prisma } from "@/modules/database";
 import {
   createDatabaseUsageAccumulator,
   mapDatabaseHistoryItem,
+  mapSuspensionSortBy,
   mapUsageSortBy,
+  buildSuspensionWhere,
   type ParsedDateRange,
   type UsageSource,
   type UsageSortBy,
@@ -33,6 +35,21 @@ export type DatabaseHistoryInput = {
   sortBy: UsageSortBy;
   sortOrder: "asc" | "desc";
   dateRange: ParsedDateRange;
+};
+
+export type SuspensionHistoryQueryInput = {
+  id: string;
+  suspensionType?: string | null;
+  status: "active" | "inactive" | "all";
+  sortBy: "suspendedAt" | "actualResumeAt" | "suspendedBy";
+  sortOrder: "asc" | "desc";
+  page: number;
+  limit: number;
+  dateRange: ParsedDateRange;
+};
+
+export type PelangganCodeLookupInput = {
+  idPelanggan: string;
 };
 
 /** Cari pelanggan untuk route usage PPP. */
@@ -78,6 +95,52 @@ export function findPelangganForLifecycle(id: string) {
     where: { id },
     include: { hargaPaket: { include: { bandwidth: true } } },
   });
+}
+
+/** Cek apakah kode pelanggan sudah terpakai. */
+export async function checkPelangganCodeExists(
+  input: PelangganCodeLookupInput,
+) {
+  const pelanggan = await prisma.pelanggan.findFirst({
+    where: { idPelanggan: input.idPelanggan },
+    select: { id: true },
+  });
+
+  return { exists: pelanggan !== null };
+}
+
+/** Ambil seluruh payload histori suspend pelanggan. */
+export async function getSuspensionHistoryData(
+  input: SuspensionHistoryQueryInput,
+) {
+  const where = buildSuspensionWhere({ ...input, ...input.dateRange });
+
+  const [pelanggan, total, suspensions, allSuspensions, activeSuspensions] =
+    await Promise.all([
+      prisma.pelanggan.findUnique({
+        where: { id: input.id },
+        select: BASIC_CUSTOMER_SELECT,
+      }),
+      prisma.serviceSuspension.count({ where }),
+      prisma.serviceSuspension.findMany({
+        where,
+        orderBy: { [mapSuspensionSortBy(input.sortBy)]: input.sortOrder },
+        skip: (input.page - 1) * input.limit,
+        take: input.limit,
+      }),
+      prisma.serviceSuspension.findMany({ where: { pelangganId: input.id } }),
+      prisma.serviceSuspension.count({
+        where: { pelangganId: input.id, is_active: true },
+      }),
+    ]);
+
+  return {
+    pelanggan,
+    total,
+    suspensions,
+    allSuspensions,
+    activeSuspensions,
+  };
 }
 
 /** Update status pelanggan melalui service utama. */

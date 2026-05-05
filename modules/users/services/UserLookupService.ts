@@ -1,21 +1,26 @@
 import { UserRepository } from "../repositories/UserRepository";
+import { UserLookupRepository } from "../repositories/UserLookupRepository";
 
+/** Menyediakan facade lookup user lintas modul tanpa memuat CRUD inti. */
 export class UserLookupService {
-  constructor(private readonly repository = new UserRepository()) {}
+  constructor(
+    private readonly userRepository = new UserRepository(),
+    private readonly lookupRepository = new UserLookupRepository(),
+  ) {}
 
   /** Find user by id for cross-module read-only lookups. */
   findById(userId: string) {
-    return this.repository.findById(userId);
+    return this.userRepository.findById(userId);
   }
 
   /** Find user with geofence site data. */
   findUserWithSites(userId: string) {
-    return this.repository.findUserWithSites(userId);
+    return this.lookupRepository.findUserWithSites(userId);
   }
 
   /** Find user geofence policy. */
   getGeofencePolicy(userId: string) {
-    return this.repository.getGeofencePolicy(userId);
+    return this.lookupRepository.getGeofencePolicy(userId);
   }
 
   /** Find active users required for attendance processing. */
@@ -24,7 +29,7 @@ export class UserLookupService {
     userId?: string,
     referenceDate?: Date,
   ) {
-    return this.repository.findActiveForAttendance(
+    return this.lookupRepository.findActiveForAttendance(
       tenantId,
       userId,
       referenceDate,
@@ -33,52 +38,55 @@ export class UserLookupService {
 
   /** Find active users with push token and schedule. */
   findActiveWithPushTokenAndSchedule() {
-    return this.repository.findActiveWithPushTokenAndSchedule();
+    return this.lookupRepository.findActiveWithPushTokenAndSchedule();
   }
 
   /** Find fixed-hour users for automatic absence marking. */
   findFixedHourUsersForAutoAlpha(referenceDate?: Date) {
-    return this.repository.findFixedHourUsersForAutoAlpha(referenceDate);
+    return this.lookupRepository.findFixedHourUsersForAutoAlpha(referenceDate);
   }
 
   /** Find work schedule by user and tenant. */
   findWorkScheduleByIdWithTenant(userId: string, tenantId: string) {
-    return this.repository.findWorkScheduleByIdWithTenant(userId, tenantId);
+    return this.lookupRepository.findWorkScheduleByIdWithTenant(
+      userId,
+      tenantId,
+    );
   }
 
   /** Find work schedule by user id. */
   findWorkScheduleById(userId: string) {
-    return this.repository.findWorkScheduleById(userId);
+    return this.lookupRepository.findWorkScheduleById(userId);
   }
 
   /** Find attendance settings by user id. */
   findAttendanceSettingsById(userId: string) {
-    return this.repository.findAttendanceSettingsById(userId);
+    return this.lookupRepository.findAttendanceSettingsById(userId);
   }
 
   /** Find multiple users with work configuration. */
   findManyWithWorkConfig(userIds: string[]) {
-    return this.repository.findManyWithWorkConfig(userIds);
+    return this.lookupRepository.findManyWithWorkConfig(userIds);
   }
 
   /** Find multiple users with basic display info. */
   findManyWithBasicInfo(userIds: string[]) {
-    return this.repository.findManyWithBasicInfo(userIds);
+    return this.lookupRepository.findManyWithBasicInfo(userIds);
   }
 
   /** Find multiple users with full attendance details. */
   findManyWithFullDetails(userIds: string[], tenantId?: string) {
-    return this.repository.findManyWithFullDetails(userIds, tenantId);
+    return this.lookupRepository.findManyWithFullDetails(userIds, tenantId);
   }
 
   /** Find user with assigned sites by id. */
   findWithSitesById(userId: string) {
-    return this.repository.findWithSitesById(userId);
+    return this.lookupRepository.findWithSitesById(userId);
   }
 
   /** Find user with basic site context by id. */
   findByIdWithSite(userId: string, tenantId?: string | null) {
-    return this.repository.findByIdWithSite(userId, tenantId);
+    return this.lookupRepository.findByIdWithSite(userId, tenantId);
   }
 
   /** Find admins for notification delivery. */
@@ -86,51 +94,56 @@ export class UserLookupService {
     tenantId: string | null | undefined,
     userSiteId: string | null | undefined,
   ) {
-    return this.repository.findAdminsForNotification(tenantId, userSiteId);
+    return this.lookupRepository.findAdminsForNotification(
+      tenantId,
+      userSiteId,
+    );
   }
 
   /** Find user with department context. */
   findByIdWithDepartment(userId: string) {
-    return this.repository.findByIdWithDepartment(userId);
+    return this.lookupRepository.findByIdWithDepartment(userId);
   }
 
   /** Find user with push tokens for direct notifications. */
   findByIdWithPushToken(userId: string) {
-    return this.repository.findByIdWithPushToken(userId);
+    return this.lookupRepository.findByIdWithPushToken(userId);
   }
 
   /** Find users with custom where clause for notification targeting. */
   findManyWithCustomWhere(
-    where: Parameters<typeof this.repository.findManyWithCustomWhere>[0],
+    where: Parameters<UserLookupRepository["findManyWithCustomWhere"]>[0],
   ) {
-    return this.repository.findManyWithCustomWhere(where);
+    return this.lookupRepository.findManyWithCustomWhere(where);
   }
 
   /** Find users with detailed relations for notification targeting. */
   findManyWithDetailedRelations(
-    where: Parameters<typeof this.repository.findManyWithDetailedRelations>[0],
+    where: Parameters<UserLookupRepository["findManyWithDetailedRelations"]>[0],
   ) {
-    return this.repository.findManyWithDetailedRelations(where);
+    return this.lookupRepository.findManyWithDetailedRelations(where);
   }
 
   /** Find users by push token values. */
   findManyWithPushToken(tokens: string[]) {
-    return this.repository.findManyWithPushToken(tokens);
+    return this.lookupRepository.findManyWithPushToken(tokens);
   }
 
   /** Remove invalid push tokens from users. */
   clearPushTokens(tokens: string[]) {
-    return this.repository.clearPushTokens(tokens);
+    return this.lookupRepository.clearPushTokens(tokens);
   }
 
   /** Find users with push token among selected ids. */
   findManyWithPushTokenAndFilter(userIds: string[]) {
-    return this.repository.findManyWithPushTokenAndFilter(userIds);
+    return this.lookupRepository.findManyWithPushTokenAndFilter(userIds);
   }
 
   /** Find users by department with push token. */
   findManyByDepartmentWithPushToken(departmentId: string) {
-    return this.repository.findManyByDepartmentWithPushToken(departmentId);
+    return this.lookupRepository.findManyByDepartmentWithPushToken(
+      departmentId,
+    );
   }
 
   /** Find active users with push tokens by site. */
@@ -139,7 +152,7 @@ export class UserLookupService {
     siteId?: string,
     excludeUserId?: string,
   ) {
-    return this.repository.findManyActiveWithPushTokenAndSite(
+    return this.lookupRepository.findManyActiveWithPushTokenAndSite(
       departmentId,
       siteId,
       excludeUserId,

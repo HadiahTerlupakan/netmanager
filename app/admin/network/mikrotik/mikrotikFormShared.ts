@@ -4,7 +4,6 @@ export type PppConnectionMode = "RADIUS" | "MIKROTIK_API";
 export type RadiusDefaults = {
   authPort: number;
   accountingPort: number;
-  radiusSecret: string;
 };
 
 export type MikrotikFormConnectionData = {
@@ -37,13 +36,11 @@ type GeneralSettingsResponse = {
 type RadiusDefaultsResponse = {
   authPort?: unknown;
   accountingPort?: unknown;
-  radiusSecret?: unknown;
 };
 
 const defaultRadiusDefaults: RadiusDefaults = {
   authPort: 1812,
   accountingPort: 1813,
-  radiusSecret: "testing123",
 };
 
 const isPppConnectionMode = (value: unknown): value is PppConnectionMode => {
@@ -52,10 +49,6 @@ const isPppConnectionMode = (value: unknown): value is PppConnectionMode => {
 
 const getNumberOrFallback = (value: unknown, fallback: number): number => {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-};
-
-const getStringOrFallback = (value: unknown, fallback: string): string => {
-  return typeof value === "string" && value.length > 0 ? value : fallback;
 };
 
 export async function fetchMikrotikFormSettings(): Promise<{
@@ -88,10 +81,6 @@ export async function fetchMikrotikFormSettings(): Promise<{
       accountingPort: getNumberOrFallback(
         radiusDefaultsData.accountingPort,
         defaultRadiusDefaults.accountingPort,
-      ),
-      radiusSecret: getStringOrFallback(
-        radiusDefaultsData.radiusSecret,
-        defaultRadiusDefaults.radiusSecret,
       ),
     };
   } catch (error) {

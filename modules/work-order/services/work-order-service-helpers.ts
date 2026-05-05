@@ -24,24 +24,64 @@ export function applyWorkOrderListRestrictions(input: {
   userRole?: string;
 }): WorkOrderFilters | null {
   const appliedFilters = { ...input.filters };
-  const userPermissions = input.userPermissions ?? [];
-  const isSuperAdmin = input.userRole === "SUPER_ADMIN";
+  const restrictionContext = buildRestrictionContext(input);
 
-  if (userPermissions.includes("workorders:department_only") && !isSuperAdmin) {
-    if (!input.userDepartmentId) {
-      return null;
-    }
-    appliedFilters.departmentId = input.userDepartmentId;
+  if (!applyDepartmentRestriction(appliedFilters, input, restrictionContext)) {
+    return null;
   }
-
-  if (userPermissions.includes("workorders:site_only") && !isSuperAdmin) {
-    if (!input.userSiteId) {
-      return null;
-    }
-    appliedFilters.siteId = input.userSiteId;
+  if (!applySiteRestriction(appliedFilters, input, restrictionContext)) {
+    return null;
   }
 
   return appliedFilters;
+}
+
+function buildRestrictionContext(input: {
+  userPermissions?: string[];
+  userRole?: string;
+}) {
+  return {
+    userPermissions: input.userPermissions ?? [],
+    isSuperAdmin: input.userRole === "SUPER_ADMIN",
+  };
+}
+
+function applyDepartmentRestriction(
+  filters: WorkOrderFilters,
+  input: { userDepartmentId?: string },
+  context: { userPermissions: string[]; isSuperAdmin: boolean },
+) {
+  if (
+    !context.userPermissions.includes("workorders:department_only") ||
+    context.isSuperAdmin
+  ) {
+    return true;
+  }
+  if (!input.userDepartmentId) {
+    return false;
+  }
+
+  filters.departmentId = input.userDepartmentId;
+  return true;
+}
+
+function applySiteRestriction(
+  filters: WorkOrderFilters,
+  input: { userSiteId?: string },
+  context: { userPermissions: string[]; isSuperAdmin: boolean },
+) {
+  if (
+    !context.userPermissions.includes("workorders:site_only") ||
+    context.isSuperAdmin
+  ) {
+    return true;
+  }
+  if (!input.userSiteId) {
+    return false;
+  }
+
+  filters.siteId = input.userSiteId;
+  return true;
 }
 
 /** Buat respons daftar work order kosong yang konsisten. */

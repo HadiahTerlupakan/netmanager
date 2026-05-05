@@ -1,44 +1,14 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import type { RabProjectUpdateInput } from "./rabProject.types";
-import {
-  getCapexTotal,
-  getInvestorFundingBase,
-} from "./shared/rabInvestmentCalculator";
 
-const DEFAULT_INVESTOR_PROFIT_SHARE_PERCENT = 50;
-
-type RabProjectTransactionClient = Parameters<
-  Parameters<PrismaClient["$transaction"]>[0]
->[0];
-
-type ProjectWithItems = NonNullable<
-  Awaited<ReturnType<RabProjectTransactionClient["rabProject"]["findUnique"]>>
-> & { items?: RabProjectUpdateInput["items"] };
-
-interface ProjectFundingChangeInput {
-  items: RabProjectUpdateInput["items"];
-  projectedOpex: RabProjectUpdateInput["projectedOpex"];
-  targetBasis: RabProjectUpdateInput["targetBasis"];
-  targetHomepass: RabProjectUpdateInput["targetHomepass"];
-  targetTakeUpRatePercent: RabProjectUpdateInput["targetTakeUpRatePercent"];
-  targetSubscribers: RabProjectUpdateInput["targetSubscribers"];
-  arpu: RabProjectUpdateInput["arpu"];
-  growthType: RabProjectUpdateInput["growthType"];
-  paymentType: RabProjectUpdateInput["paymentType"];
-  growthSettings: RabProjectUpdateInput["growthSettings"];
-  investmentDurationMonths: RabProjectUpdateInput["investmentDurationMonths"];
-  investorProfitSharePercent: RabProjectUpdateInput["investorProfitSharePercent"];
-  nplTolerancePercent: RabProjectUpdateInput["nplTolerancePercent"];
-  opexBufferFundingMode: RabProjectUpdateInput["opexBufferFundingMode"];
-  opexBufferInvestorPercent: RabProjectUpdateInput["opexBufferInvestorPercent"];
-  opexBufferInvestorFixedAmount: RabProjectUpdateInput["opexBufferInvestorFixedAmount"];
-  opexBufferSafetyPercent: RabProjectUpdateInput["opexBufferSafetyPercent"];
-}
-
-export interface RabInvestmentContext {
-  investmentBase: number;
-  profitSharePercent: number;
-}
+export {
+  buildInvestmentContext,
+  buildInvestorCreateRows,
+  buildItemCreateData,
+  createDisbursementRows,
+  getInvestmentItems,
+} from "./rabProject.update-row-helpers";
+export type { RabInvestmentContext } from "./rabProject.update-row-helpers";
 
 export function hasInvestorFundingBaseChange(input: RabProjectUpdateInput) {
   return Object.values(toFundingChangeInput(input)).some(
@@ -48,7 +18,7 @@ export function hasInvestorFundingBaseChange(input: RabProjectUpdateInput) {
 
 function toFundingChangeInput(
   input: RabProjectUpdateInput,
-): ProjectFundingChangeInput {
+): Record<string, unknown> {
   return {
     items: input.items,
     projectedOpex: input.projectedOpex,
@@ -209,115 +179,4 @@ export function buildUpdatedProjectQuery(projectId: string) {
     where: { id: projectId },
     include: { items: { include: { disbursements: true } }, wbsGroups: true },
   } satisfies Prisma.RabProjectFindUniqueArgs;
-}
-
-export function getInvestmentItems(
-  inputItems: RabProjectUpdateInput["items"],
-  projectItems: ProjectWithItems["items"],
-) {
-  return inputItems || projectItems || [];
-}
-
-export function buildInvestmentContext(
-  input: RabProjectUpdateInput,
-  project: ProjectWithItems | null,
-  items: ReturnType<typeof getInvestmentItems>,
-): RabInvestmentContext {
-  const investmentBase = project
-    ? getInvestorFundingBase(project, items)
-    : getCapexTotal(items);
-  const profitSharePercent =
-    input.investorProfitSharePercent ??
-    project?.investorProfitSharePercent ??
-    DEFAULT_INVESTOR_PROFIT_SHARE_PERCENT;
-  return { investmentBase, profitSharePercent };
-}
-
-export function buildItemCreateData(
-  projectId: string,
-  item: NonNullable<RabProjectUpdateInput["items"]>[number],
-  wbsMap: Map<string, string>,
-) {
-  assertProjectItemPayload(item);
-  return {
-    rabProjectId: projectId,
-    name: item.name,
-    description: item.description,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    category: item.category,
-    expenseType: item.expenseType,
-    expenseCategoryId: item.expenseCategoryId,
-    totalPrice: BigInt(item.quantity) * item.unitPrice,
-    wbsId: item.wbsGroupId ? wbsMap.get(item.wbsGroupId) : undefined,
-  };
-}
-
-function assertProjectItemPayload(
-  item: NonNullable<RabProjectUpdateInput["items"]>[number],
-): asserts item is NonNullable<RabProjectUpdateInput["items"]>[number] & {
-  name: string;
-  quantity: number;
-  unitPrice: bigint;
-  category: string;
-  expenseType: string;
-} {
-  if (
-    item.name &&
-    item.quantity !== undefined &&
-    item.unitPrice &&
-    item.category &&
-    item.expenseType
-  )
-    return;
-  throw new Error(
-    "Invalid RAB item payload: name, quantity, unitPrice, category, and expenseType are required",
-  );
-}
-
-export function createDisbursementRows(
-  rabItemId: string,
-  disbursements: NonNullable<
-    NonNullable<RabProjectUpdateInput["items"]>[number]["disbursements"]
-  >,
-) {
-  return disbursements.flatMap((disbursement) => {
-    if (!isCompleteDisbursement(disbursement)) return [];
-    return [
-      {
-        rabItemId,
-        name: disbursement.name,
-        percentage: disbursement.percentage,
-        amount: disbursement.amount,
-        estimatedDate: disbursement.estimatedDate,
-        isPaid: disbursement.isPaid ?? false,
-      },
-    ];
-  });
-}
-
-function isCompleteDisbursement(
-  disbursement: NonNullable<
-    NonNullable<RabProjectUpdateInput["items"]>[number]["disbursements"]
-  >[number],
-) {
-  return (
-    disbursement.name !== undefined &&
-    disbursement.percentage !== undefined &&
-    disbursement.amount !== undefined
-  );
-}
-
-export function buildInvestorCreateRows(
-  projectId: string,
-  investorIds: string[],
-  amounts: number[],
-  profitSharePercent: number,
-) {
-  return investorIds.map((investorId, index) => ({
-    rabProjectId: projectId,
-    investorId,
-    investmentAmount: BigInt(amounts[index] ?? 0),
-    profitSharePercent,
-  }));
 }

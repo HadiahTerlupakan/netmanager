@@ -5,4 +5,4 @@ export {
   deviceBackupCreateSchema,
   deviceBackupQuerySchema,
   deviceBackupUpdateSchema,
-} from "@/modules/network";
+} from "@/modules/network/validation";

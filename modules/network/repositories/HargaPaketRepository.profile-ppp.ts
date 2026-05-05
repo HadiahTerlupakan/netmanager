@@ -35,7 +35,7 @@ export interface ProfilePppListInput {
 }
 
 /** Get profile PPP records for list flow. */
-export async function findProfilePpps(input: ProfilePppListInput) {
+function buildProfilePppListWhere(input: ProfilePppListInput) {
   const where: Prisma.ProfilePPPWhereInput = {};
 
   if (input.status) {
@@ -48,8 +48,13 @@ export async function findProfilePpps(input: ProfilePppListInput) {
     where.OR = [{ siteId: input.siteId }, { siteId: null }];
   }
 
+  return where;
+}
+
+/** Get profile PPP records for list flow. */
+export async function findProfilePpps(input: ProfilePppListInput) {
   return prisma.profilePPP.findMany({
-    where,
+    where: buildProfilePppListWhere(input),
     orderBy: { createdAt: "desc" },
     include: {
       site: { select: { id: true, name: true } },

@@ -1,20 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+
+import { getRadiusDefaultPorts } from "@/modules/network";
 
 /**
  * GET /api/settings/radius-defaults
- * 
- * Mengembalikan konfigurasi default RADIUS dari environment variables.
- * Digunakan oleh form add/edit MikroTik agar port dan IP 
- * otomatis sesuai deployment (Docker/K8s).
- * 
- * Env vars:
- * - RADIUS_AUTH_PORT: External auth port (default: 1812)
- * - RADIUS_ACCT_PORT: External acct port (default: 1813)
+ *
+ * Mengembalikan konfigurasi port default RADIUS untuk form MikroTik.
  */
 export async function GET() {
-    return NextResponse.json({
-        authPort: Number(process.env.RADIUS_AUTH_PORT) || 1812,
-        accountingPort: Number(process.env.RADIUS_ACCT_PORT) || 1813,
-        radiusSecret: process.env.RADIUS_SECRET || 'testing123',
-    });
+  return NextResponse.json(getRadiusDefaultPorts());
 }

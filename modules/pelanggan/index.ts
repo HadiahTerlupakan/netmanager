@@ -59,15 +59,13 @@ export {
 export {
   createPelangganSchema,
   type CreatePelangganSchema,
-} from "./validators/pelanggan";
-export {
   supportTicketCreateSchema,
   supportTicketFilterSchema,
   supportTicketUpdateSchema,
   type SupportTicketCreate,
   type SupportTicketFilter,
   type SupportTicketUpdate,
-} from "./validators/support-ticket";
+} from "./validation";
 
 export {
   AdminSupportTicketService,

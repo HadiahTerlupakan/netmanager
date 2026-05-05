@@ -1,5 +1,4 @@
 import { logger } from "@/lib/logger";
-import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type {
   EmployeeType,
   SalaryEntity,
@@ -14,12 +13,24 @@ import { SalaryCalculationCommandService } from "./SalaryCalculationCommandServi
 import { SalaryCalculatorService } from "./SalaryCalculatorService";
 import { SalaryQueryService } from "./SalaryQueryService";
 import { SalaryWorkflowService } from "./SalaryWorkflowService";
-
-import { logActivitySafe, type ServiceResult } from "./SalaryService.helpers";
+import {
+  approveSalaryCommand,
+  auditSalaryCommand,
+  calculateBulkSalary,
+  calculateSingleSalary,
+  deleteSalaryCommand,
+  markSalaryAsPaid,
+  recalculateSalaryCommand,
+} from "./SalaryService.commands";
+import {
+  addSalaryAdjustment,
+  requestSalaryRevision,
+  updateSalaryCommand,
+} from "./SalaryService.adjustments";
+import { asError, type ServiceResult } from "./SalaryService.helpers";
 
 export class SalaryService {
   private readonly repository: ISalaryRepository;
-  private readonly calculatorService: SalaryCalculatorService;
   private readonly calculationCommandService: SalaryCalculationCommandService;
   private readonly auditService: SalaryAuditService;
   private readonly queryService: SalaryQueryService;
@@ -39,11 +50,19 @@ export class SalaryService {
     ),
   ) {
     this.repository = repository;
-    this.calculatorService = calculatorService;
     this.calculationCommandService = calculationCommandService;
     this.auditService = auditService;
     this.queryService = queryService;
     this.workflowService = workflowService;
+  }
+
+  private getCommandDependencies() {
+    return {
+      repository: this.repository,
+      calculationCommandService: this.calculationCommandService,
+      auditService: this.auditService,
+      workflowService: this.workflowService,
+    };
   }
 
   /** Get all salaries with filters and pagination. */
@@ -51,7 +70,7 @@ export class SalaryService {
     try {
       return await this.queryService.getSalaries(filters, page, limit);
     } catch (error) {
-      logger.error("SalaryService.getSalaries failed", this.asError(error));
+      logger.error("SalaryService.getSalaries failed", asError(error));
       return {
         success: false,
         error: "Gagal mengambil data gaji",
@@ -65,7 +84,7 @@ export class SalaryService {
     try {
       return await this.queryService.getSalaryById(id);
     } catch (error) {
-      logger.error("SalaryService.getSalaryById failed", this.asError(error));
+      logger.error("SalaryService.getSalaryById failed", asError(error));
       return {
         success: false,
         error: "Gagal mengambil gaji",
@@ -81,30 +100,12 @@ export class SalaryService {
     year: number,
     calculatedById: string,
   ): Promise<ServiceResult<{ salaryId: string }>> {
-    try {
-      const { salaryId } = await this.calculationCommandService.calculateSingle(
-        {
-          userId,
-          month,
-          year,
-        },
-      );
-      this.logActivity("CREATE", calculatedById, {
-        salaryId,
-        userId,
-        month,
-        year,
-        action: "calculate-single",
-      });
-      return { success: true, data: { salaryId } };
-    } catch (error) {
-      logger.error("SalaryService.calculateSingle failed", this.asError(error));
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Gagal menghitung gaji",
-        code: "CALCULATION_ERROR",
-      };
-    }
+    return calculateSingleSalary(this.getCommandDependencies(), {
+      userId,
+      month,
+      year,
+      calculatedById,
+    });
   }
 
   /** Bulk calculate salaries. */
@@ -123,32 +124,12 @@ export class SalaryService {
       failed: Array<{ userId: string; error: string }>;
     }>
   > {
-    try {
-      const result = await this.calculationCommandService.calculateBulk({
-        month,
-        year,
-        filters,
-      });
-      this.logActivity("CREATE", calculatedById, {
-        month,
-        year,
-        action: "calculate-bulk",
-        successCount: result.success,
-        failedCount: result.failed.length,
-        filters,
-      });
-      return { success: true, data: result };
-    } catch (error) {
-      logger.error("SalaryService.calculateBulk failed", this.asError(error));
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Gagal menghitung gaji massal",
-        code: "BULK_CALCULATION_ERROR",
-      };
-    }
+    return calculateBulkSalary(this.getCommandDependencies(), {
+      month,
+      year,
+      filters,
+      calculatedById,
+    });
   }
 
   /** Approve salary. */
@@ -157,28 +138,11 @@ export class SalaryService {
     approvedById: string,
     notes?: string,
   ): Promise<ServiceResult<SalaryEntity>> {
-    try {
-      const result = await this.workflowService.approveSalary({
-        id,
-        actorId: approvedById,
-        notes,
-      });
-      if (!result.success) return result;
-
-      this.logActivity("UPDATE", approvedById, {
-        id,
-        status: "APPROVED",
-        notes,
-      });
-      return result;
-    } catch (error) {
-      logger.error("SalaryService.approveSalary failed", this.asError(error));
-      return {
-        success: false,
-        error: "Gagal menyetujui gaji",
-        code: "APPROVE_ERROR",
-      };
-    }
+    return approveSalaryCommand(this.getCommandDependencies(), {
+      id,
+      approvedById,
+      notes,
+    });
   }
 
   /** Mark salary as paid. */
@@ -187,24 +151,11 @@ export class SalaryService {
     paidById: string,
     notes?: string,
   ): Promise<ServiceResult<SalaryEntity>> {
-    try {
-      const result = await this.workflowService.markAsPaid({
-        id,
-        actorId: paidById,
-        notes,
-      });
-      if (!result.success) return result;
-
-      this.logActivity("UPDATE", paidById, { id, status: "PAID", notes });
-      return result;
-    } catch (error) {
-      logger.error("SalaryService.markAsPaid failed", this.asError(error));
-      return {
-        success: false,
-        error: "Gagal menandai gaji sebagai dibayar",
-        code: "PAID_ERROR",
-      };
-    }
+    return markSalaryAsPaid(this.getCommandDependencies(), {
+      id,
+      paidById,
+      notes,
+    });
   }
 
   /** Audit salary. */
@@ -213,24 +164,11 @@ export class SalaryService {
     auditedById: string,
     notes?: string,
   ): Promise<ServiceResult<SalaryEntity>> {
-    try {
-      const result = await this.workflowService.auditSalary({
-        id,
-        actorId: auditedById,
-        notes,
-      });
-      if (!result.success) return result;
-
-      this.logActivity("UPDATE", auditedById, { id, status: "AUDITED", notes });
-      return result;
-    } catch (error) {
-      logger.error("SalaryService.auditSalary failed", this.asError(error));
-      return {
-        success: false,
-        error: "Gagal mengaudit gaji",
-        code: "AUDIT_ERROR",
-      };
-    }
+    return auditSalaryCommand(this.getCommandDependencies(), {
+      id,
+      auditedById,
+      notes,
+    });
   }
 
   /** Recalculate salary. */
@@ -238,28 +176,10 @@ export class SalaryService {
     id: string,
     recalculatedById: string,
   ): Promise<ServiceResult<{ salaryId: string }>> {
-    try {
-      const result = await this.calculationCommandService.recalculateSalary(id);
-      if (!result.success) return result;
-
-      this.logActivity("UPDATE", recalculatedById, {
-        id,
-        salaryId: result.data.salaryId,
-        action: "recalculate",
-        previousStatus: result.data.previousStatus,
-      });
-      return { success: true, data: { salaryId: result.data.salaryId } };
-    } catch (error) {
-      logger.error(
-        "SalaryService.recalculateSalary failed",
-        this.asError(error),
-      );
-      return {
-        success: false,
-        error: "Gagal menghitung ulang gaji",
-        code: "RECALCULATE_ERROR",
-      };
-    }
+    return recalculateSalaryCommand(this.getCommandDependencies(), {
+      id,
+      recalculatedById,
+    });
   }
 
   /** Delete salary. */
@@ -267,33 +187,10 @@ export class SalaryService {
     id: string,
     deletedById: string,
   ): Promise<ServiceResult<void>> {
-    try {
-      const result = await this.workflowService.deleteDraft(id);
-      if (!result.success) return this.withoutData(result);
-
-      this.logActivity("DELETE", deletedById, {
-        id,
-        userId: result.data.userId,
-        month: result.data.month,
-        year: result.data.year,
-      });
-      return { success: true };
-    } catch (error) {
-      logger.error("SalaryService.deleteSalary failed", this.asError(error));
-      if (isPrismaRecordNotFoundError(error)) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      return {
-        success: false,
-        error: "Gagal menghapus gaji",
-        code: "DELETE_ERROR",
-      };
-    }
+    return deleteSalaryCommand(this.getCommandDependencies(), {
+      id,
+      deletedById,
+    });
   }
 
   /** Update salary metadata such as audit notes. */
@@ -302,26 +199,11 @@ export class SalaryService {
     data: { auditNotes?: string },
     updatedById: string,
   ): Promise<ServiceResult<SalaryEntity>> {
-    try {
-      const result = await this.workflowService.updateCalculatedSalary({
-        id,
-        data,
-      });
-      if (!result.success) return result;
-
-      this.logActivity("UPDATE", updatedById, {
-        id,
-        updatedFields: Object.keys(data),
-      });
-      return result;
-    } catch (error) {
-      logger.error("SalaryService.updateSalary failed", this.asError(error));
-      return {
-        success: false,
-        error: "Gagal mengupdate gaji",
-        code: "UPDATE_ERROR",
-      };
-    }
+    return updateSalaryCommand(this.getCommandDependencies(), {
+      id,
+      data,
+      updatedById,
+    });
   }
 
   /** Add manual adjustment to salary. */
@@ -335,38 +217,11 @@ export class SalaryService {
     },
     adjustedById: string,
   ): Promise<ServiceResult<void>> {
-    try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      await this.auditService.addManualAdjustment(
-        id,
-        adjustment.name,
-        adjustment.type,
-        adjustment.amount,
-        adjustment.notes,
-        adjustedById,
-      );
-      this.logActivity("UPDATE", adjustedById, {
-        id,
-        action: "add-adjustment",
-        adjustment,
-      });
-      return { success: true };
-    } catch (error) {
-      logger.error("SalaryService.addAdjustment failed", this.asError(error));
-      return {
-        success: false,
-        error: "Gagal menambah penyesuaian",
-        code: "ADJUSTMENT_ERROR",
-      };
-    }
+    return addSalaryAdjustment(this.getCommandDependencies(), {
+      id,
+      adjustment,
+      adjustedById,
+    });
   }
 
   /** Request salary revision. */
@@ -375,54 +230,11 @@ export class SalaryService {
     requestedById: string,
     reason: string,
   ): Promise<ServiceResult<void>> {
-    try {
-      const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Gaji tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
-
-      await this.auditService.requestRevision(id, requestedById, reason);
-      this.logActivity("UPDATE", requestedById, {
-        id,
-        action: "request-revision",
-        reason,
-      });
-      return { success: true };
-    } catch (error) {
-      logger.error("SalaryService.requestRevision failed", this.asError(error));
-      return {
-        success: false,
-        error: "Gagal meminta revisi",
-        code: "REVISION_ERROR",
-      };
-    }
-  }
-
-  /** Log salary activity safely. */
-  private logActivity(
-    action: string,
-    userId: string,
-    details: Record<string, unknown>,
-  ): void {
-    logActivitySafe({ action, subject: "Salary", userId, details });
-  }
-
-  /** Convert failed service result to another generic payload. */
-  private withoutData<T>(result: ServiceResult<T>): ServiceResult<never> {
-    return {
-      success: false,
-      error: result.success ? "Terjadi kesalahan" : result.error,
-      code: result.success ? "UNKNOWN_ERROR" : result.code,
-    };
-  }
-
-  /** Convert unknown error into Error when possible. */
-  private asError(error: unknown): Error | undefined {
-    return error instanceof Error ? error : undefined;
+    return requestSalaryRevision(this.getCommandDependencies(), {
+      id,
+      requestedById,
+      reason,
+    });
   }
 }
 

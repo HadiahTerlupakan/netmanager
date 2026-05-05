@@ -4,10 +4,23 @@ import type {
 } from "../domain/entities";
 import type { NetworkAlertDTO, NetworkPerformanceDTO } from "../dto/NetworkDTO";
 
-/** Ubah entity alert ke DTO API. */
-export function toNetworkAlertDTO(entity: NetworkAlertEntity): NetworkAlertDTO {
-  const resolutionMetadata = mapResolutionMetadata(entity);
+function buildAlertDateFields(entity: NetworkAlertEntity) {
+  return {
+    createdAt: entity.createdAt.toISOString(),
+    updatedAt: entity.updatedAt.toISOString(),
+    autoResolveTime: entity.autoResolveTime ?? null,
+  };
+}
 
+function buildAlertMetricFields(entity: NetworkAlertEntity) {
+  return {
+    threshold: entity.threshold ?? null,
+    currentValue: entity.currentValue ?? null,
+    metricName: entity.metricName ?? null,
+  };
+}
+
+function buildAlertBaseFields(entity: NetworkAlertEntity) {
   return {
     id: entity.id,
     deviceId: entity.deviceId,
@@ -17,20 +30,20 @@ export function toNetworkAlertDTO(entity: NetworkAlertEntity): NetworkAlertDTO {
     message: entity.message,
     severity: entity.severity,
     status: entity.status,
-    threshold: entity.threshold ?? null,
-    currentValue: entity.currentValue ?? null,
-    metricName: entity.metricName ?? null,
     acknowledged: entity.acknowledged,
-    acknowledgedBy: resolutionMetadata.acknowledgedBy,
-    acknowledgedAt: resolutionMetadata.acknowledgedAt,
     resolved: entity.resolved,
-    resolvedBy: resolutionMetadata.resolvedBy,
-    resolvedAt: resolutionMetadata.resolvedAt,
     autoResolve: entity.autoResolve,
-    autoResolveTime: entity.autoResolveTime ?? null,
     isActive: entity.isActive,
-    createdAt: entity.createdAt.toISOString(),
-    updatedAt: entity.updatedAt.toISOString(),
+  };
+}
+
+/** Ubah entity alert ke DTO API. */
+export function toNetworkAlertDTO(entity: NetworkAlertEntity): NetworkAlertDTO {
+  return {
+    ...buildAlertBaseFields(entity),
+    ...buildAlertMetricFields(entity),
+    ...mapResolutionMetadata(entity),
+    ...buildAlertDateFields(entity),
   };
 }
 

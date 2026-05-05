@@ -26,28 +26,40 @@ export function normalizeAcsRootUrl(url: string) {
   return url.trim().replace(/\/devices\/?$/, "");
 }
 
+function buildTenantMismatchQuery(deviceId?: string) {
+  return {
+    ...(deviceId ? { _id: deviceId } : {}),
+    _tags: "tenant:__missing__",
+  };
+}
+
 /** Build tenant-aware ACS query. */
 export function buildDeviceQuery(
   tenantId: string | null,
   isSuperAdmin: boolean,
   deviceId?: string,
 ) {
-  const query: Record<string, string> = deviceId ? { _id: deviceId } : {};
-  if (!isSuperAdmin && tenantId) {
-    query._tags = `tenant:${tenantId}`;
+  if (isSuperAdmin) {
+    return deviceId ? { _id: deviceId } : {};
   }
 
-  return query;
+  if (!tenantId) {
+    return buildTenantMismatchQuery(deviceId);
+  }
+
+  return {
+    ...(deviceId ? { _id: deviceId } : {}),
+    _tags: `tenant:${tenantId}`,
+  };
 }
 
-/** Build WAN configuration task payload. */
-export function buildWanTaskPayload(input: {
-  deviceId: string;
+function buildWanParameterValues(input: {
   username: string;
   password?: string;
 }) {
-  const finalParamPath = "VirtualParameters.pppoeUsername2";
-  const parameterValues = [[finalParamPath, input.username, "xsd:string"]];
+  const parameterValues = [
+    ["VirtualParameters.pppoeUsername2", input.username, "xsd:string"],
+  ];
 
   if (input.password) {
     parameterValues.push([
@@ -57,10 +69,19 @@ export function buildWanTaskPayload(input: {
     ]);
   }
 
+  return parameterValues;
+}
+
+/** Build WAN configuration task payload. */
+export function buildWanTaskPayload(input: {
+  deviceId: string;
+  username: string;
+  password?: string;
+}) {
   return {
     name: "setParameterValues",
     device: input.deviceId,
-    parameterValues,
+    parameterValues: buildWanParameterValues(input),
   };
 }
 

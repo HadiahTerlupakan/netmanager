@@ -71,24 +71,39 @@ export async function findBudgetIdForExpense(options: {
     tenantId: string;
   }) => Record<string, unknown>;
 }) {
-  if (!options.data.kategori || !("budget" in options.client)) {
-    return null;
-  }
+  if (!canLookupBudget(options)) return null;
 
   try {
     const budgetLookup = await resolveBudgetLookupInput(options);
-    if (!budgetLookup) {
-      return null;
-    }
-
-    const budget = await options.client.budget.findFirst?.({
-      where: options.buildBudgetLookupWhere(budgetLookup),
-    });
-
-    return (budget as Record<string, unknown> | null)?.id as string | null;
+    if (!budgetLookup) return null;
+    return await queryBudgetId(options, budgetLookup);
   } catch {
     return null;
   }
+}
+
+function canLookupBudget(options: {
+  client: Record<string, FinanceMutationDelegate>;
+  data: PengeluaranCreateData;
+}) {
+  return options.data.kategori && "budget" in options.client;
+}
+
+async function queryBudgetId(
+  options: {
+    client: Record<string, FinanceMutationDelegate>;
+    buildBudgetLookupWhere: (input: {
+      budgetCategory: string;
+      expenseDate: Date;
+      tenantId: string;
+    }) => Record<string, unknown>;
+  },
+  budgetLookup: { budgetCategory: string; expenseDate: Date; tenantId: string },
+) {
+  const budget = await options.client.budget.findFirst?.({
+    where: options.buildBudgetLookupWhere(budgetLookup),
+  });
+  return (budget as Record<string, unknown> | null)?.id as string | null;
 }
 
 async function resolveBudgetLookupInput(options: {

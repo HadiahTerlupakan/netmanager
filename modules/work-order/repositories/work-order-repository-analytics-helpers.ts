@@ -13,6 +13,12 @@ const TYPE_LABELS: Record<string, string> = {
   UPGRADE: "Upgrade",
   OTHER: "Lainnya",
 };
+const EMPTY_PERFORMANCE_MONTH = {
+  totalHours: 0,
+  totalRating: 0,
+  ratingCount: 0,
+  count: 0,
+};
 
 type UserKPIStats = {
   name: string;
@@ -207,24 +213,8 @@ export function createIssueMonthMap(monthKeys: string[]) {
 /** Build empty performance trend month map. */
 export function createPerformanceMonthMap(monthKeys: string[]) {
   return Object.fromEntries(
-    monthKeys.map((monthKey) => [
-      monthKey,
-      {
-        totalHours: 0,
-        totalRating: 0,
-        ratingCount: 0,
-        count: 0,
-      },
-    ]),
-  ) as Record<
-    string,
-    {
-      totalHours: number;
-      totalRating: number;
-      ratingCount: number;
-      count: number;
-    }
-  >;
+    monthKeys.map((monthKey) => [monthKey, { ...EMPTY_PERFORMANCE_MONTH }]),
+  ) as Record<string, typeof EMPTY_PERFORMANCE_MONTH>;
 }
 
 /** Build empty type trend month map. */

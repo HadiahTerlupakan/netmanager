@@ -56,9 +56,15 @@ export const POST = createHandler(
       );
     }
 
-    return apiSuccess({
-      message: "Invoice berhasil dikirim",
-      sentVia: result.sentVia,
+    if (result.status === "sent") {
+      return apiSuccess({
+        message: "Invoice berhasil dikirim",
+        sentVia: result.sentVia,
+      });
+    }
+
+    return apiError("Gagal mengirim invoice", ErrorCodes.BUSINESS_LOGIC_ERROR, {
+      status: 400,
     });
   },
 );

@@ -1,3 +1,8 @@
+import type {
+  CreateTransferInput,
+  InventoryTransferRecord,
+  UpdateTransferInput,
+} from "../domain/ports/IInventoryOperationRepository";
 import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
@@ -16,23 +21,15 @@ interface InventoryTransferRepositoryPort {
     dariGudangId?: string;
     keGudangId?: string;
     siteId?: string;
-  }): Promise<{ items: Record<string, unknown>[]; total: number }>;
-  createTransfer(data: {
-    barangId: string;
-    dariGudangId: string;
-    keGudangId: string;
-    jumlah: number;
-    kondisi?: KondisiBarang;
-    keterangan?: string;
-    userId: string;
-    fotoBukti?: string[];
-    fotoMetadata?: Record<string, unknown>;
-  }): Promise<Record<string, unknown>>;
-  findTransferById(id: string): Promise<Record<string, unknown> | null>;
+  }): Promise<{ items: InventoryTransferRecord[]; total: number }>;
+  createTransfer(
+    data: Omit<CreateTransferInput, "tenantId">,
+  ): Promise<InventoryTransferRecord>;
+  findTransferById(id: string): Promise<InventoryTransferRecord | null>;
   updateTransfer(
     id: string,
-    data: { keterangan?: string },
-  ): Promise<Record<string, unknown>>;
+    data: UpdateTransferInput,
+  ): Promise<InventoryTransferRecord>;
   deleteTransfer(id: string): Promise<void>;
 }
 
@@ -103,7 +100,7 @@ export class InventoryTransferRouteService {
   /** Buat transfer setelah validasi payload. */
   async createTransfer(
     input: CreateTransferRouteInput,
-  ): Promise<InventoryTransferRouteResult<Record<string, unknown>>> {
+  ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
     const invalidBody = this.validateCreateBody(input.body);
     if (invalidBody) return invalidBody;
 
@@ -135,7 +132,7 @@ export class InventoryTransferRouteService {
   /** Perbarui keterangan transfer. */
   async updateTransfer(
     input: UpdateTransferRouteInput,
-  ): Promise<InventoryTransferRouteResult<Record<string, unknown>>> {
+  ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
     const transfer = await this.repository.updateTransfer(input.id, {
       keterangan: input.body.keterangan as string | undefined,
     });

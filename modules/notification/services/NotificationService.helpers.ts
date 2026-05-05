@@ -18,7 +18,7 @@ import {
 import type {
   CreateNotificationData,
   NotificationType,
-} from "./NotificationService";
+} from "./NotificationService.types";
 
 export type RecipientUser = { id: string };
 

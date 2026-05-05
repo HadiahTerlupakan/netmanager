@@ -1,121 +1,132 @@
 import { prisma } from "@/lib/prisma";
+import {
+  buildRouterReconfigureSelect,
+  buildTenantOrGlobalScope,
+  getDefaultRouterOrder,
+} from "./networkRepository.selectors";
+import type {
+  ActiveTenant,
+  PelangganBasic,
+  PelangganWithRouter,
+  PelangganWithRouterBasic,
+  RouterBasic,
+  RouterConnectionRecord,
+  RouterGeneratedApiUserRecord,
+  RouterReconfigureRecord,
+  RouterTenantId,
+  SettingKeyValue,
+  SettingRecord,
+  UserSiteRecord,
+} from "./networkRepository.types";
 
-export interface ActiveTenant {
-  id: string;
-}
+export type {
+  ActiveTenant,
+  PelangganBasic,
+  PelangganWithRouter,
+  PelangganWithRouterBasic,
+  RouterBasic,
+  RouterConnectionRecord,
+  RouterGeneratedApiUserRecord,
+  RouterReconfigureRecord,
+  RouterTenantId,
+  SettingKeyValue,
+  SettingRecord,
+  UserSiteRecord,
+} from "./networkRepository.types";
 
-export interface SettingRecord {
-  id: string;
-  key: string;
-  value: string;
-  tenantId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+const DEFAULT_ROUTER_ORDER = getDefaultRouterOrder();
 
-export interface SettingKeyValue {
-  key: string;
-  value: string;
-}
-
-export interface RouterTenantId {
-  tenantId: string | null;
-}
-
-export interface RouterBasic {
-  id: string;
-  ipAddress: string;
-  tenantId: string | null;
-}
-
-export interface RouterReconfigureRecord {
-  id: string;
-  name: string;
-  ipAddress: string;
-  apiPort: number;
-  pingStatus: string;
-  apiUsername: string;
-  apiPassword: string;
-  apiUsernameGenerated: string | null;
-  apiPasswordGenerated: string | null;
-  siteId: string | null;
-}
-
-export interface RouterGeneratedApiUserRecord {
-  apiUsernameGenerated: string;
-  apiPasswordGenerated: string;
-}
-
-export interface UserSiteRecord {
-  siteId: string | null;
-}
-
-export interface PelangganWithRouter {
-  id: string;
-  username: string;
-  password: string;
-  nama: string;
-  status: string;
-  tenantId: string | null;
-  hargaPaket: {
-    id: string;
-    profilePPP: {
-      id: string;
-      name: string;
-      mikroTikRouter: {
-        id: string;
-        ipAddress: string;
-        apiPort: number;
-        apiUsername: string;
-        apiPassword: string;
-        apiUsernameGenerated: string | null;
-        apiPasswordGenerated: string | null;
-      } | null;
-    } | null;
-  } | null;
-}
-
-export interface PelangganBasic {
-  id: string;
-  username: string;
-  status: string;
-  tenantId: string | null;
-}
-
-export interface PelangganWithRouterBasic {
-  id: string;
-  username: string;
-  tenantId: string | null;
-  hargaPaket: {
-    profilePPP: {
-      mikroTikRouter: {
-        id: string;
-      } | null;
-    } | null;
-  } | null;
-}
-
-const DEFAULT_ROUTER_ORDER = { createdAt: "desc" as const };
-
-function buildTenantOrGlobalScope(tenantId: string) {
-  return {
-    OR: [{ tenantId }, { tenantId: null }],
-  };
-}
-
-function buildRouterReconfigureSelect() {
+function buildRouterBasicSelect() {
   return {
     id: true,
-    name: true,
+    ipAddress: true,
+    tenantId: true,
+  } as const;
+}
+
+function buildRouterConnectionSelect() {
+  return {
+    id: true,
     ipAddress: true,
     apiPort: true,
-    pingStatus: true,
     apiUsername: true,
     apiPassword: true,
     apiUsernameGenerated: true,
     apiPasswordGenerated: true,
-    siteId: true,
   } as const;
+}
+
+function buildPelangganBasicSelect() {
+  return {
+    id: true,
+    username: true,
+    status: true,
+    tenantId: true,
+  } as const;
+}
+
+function buildPelangganRouterUsernameSelect() {
+  return {
+    id: true,
+    username: true,
+    tenantId: true,
+    hargaPaket: {
+      select: {
+        profilePPP: {
+          select: {
+            mikroTikRouter: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    },
+  } as const;
+}
+
+function buildPelangganWithRouterInclude() {
+  return {
+    hargaPaket: {
+      include: {
+        profilePPP: {
+          include: {
+            mikroTikRouter: true,
+          },
+        },
+      },
+    },
+  } as const;
+}
+
+function buildProfilePPPWithHargaPaketInclude() {
+  return {
+    hargaPaket: {
+      include: {
+        bandwidth: true,
+      },
+    },
+  } as const;
+}
+
+function buildGeneratedApiUserData(credentials: RouterGeneratedApiUserRecord) {
+  return {
+    apiUsernameGenerated: credentials.apiUsernameGenerated,
+    apiPasswordGenerated: credentials.apiPasswordGenerated,
+  };
+}
+
+function buildRouterHealthData(health: {
+  pingStatus: string;
+  userOnline: number;
+  lastStatusCheck: Date;
+}) {
+  return {
+    pingStatus: health.pingStatus,
+    userOnline: health.userOnline,
+    lastStatusCheck: health.lastStatusCheck,
+  };
 }
 
 export class NetworkRepository {
@@ -145,11 +156,7 @@ export class NetworkRepository {
         ipAddress: nasIpAddress,
         ...buildTenantOrGlobalScope(tenantId),
       },
-      select: {
-        id: true,
-        ipAddress: true,
-        tenantId: true,
-      },
+      select: buildRouterBasicSelect(),
     });
   }
 
@@ -158,11 +165,17 @@ export class NetworkRepository {
     return prisma.mikroTikRouter.findFirst({
       where: buildTenantOrGlobalScope(tenantId),
       orderBy: DEFAULT_ROUTER_ORDER,
-      select: {
-        id: true,
-        ipAddress: true,
-        tenantId: true,
-      },
+      select: buildRouterBasicSelect(),
+    });
+  }
+
+  /** Ambil router untuk koneksi langsung tanpa memaksa tenant non-null. */
+  async findRouterConnectionById(
+    routerId: string,
+  ): Promise<RouterConnectionRecord | null> {
+    return prisma.mikroTikRouter.findUnique({
+      where: { id: routerId },
+      select: buildRouterConnectionSelect(),
     });
   }
 
@@ -212,10 +225,7 @@ export class NetworkRepository {
   ): Promise<void> {
     await prisma.mikroTikRouter.update({
       where: { id },
-      data: {
-        apiUsernameGenerated: credentials.apiUsernameGenerated,
-        apiPasswordGenerated: credentials.apiPasswordGenerated,
-      },
+      data: buildGeneratedApiUserData(credentials),
     });
   }
 
@@ -226,11 +236,7 @@ export class NetworkRepository {
   ): Promise<void> {
     await prisma.mikroTikRouter.update({
       where: { id },
-      data: {
-        pingStatus: health.pingStatus,
-        userOnline: health.userOnline,
-        lastStatusCheck: health.lastStatusCheck,
-      },
+      data: buildRouterHealthData(health),
     });
   }
 
@@ -245,13 +251,7 @@ export class NetworkRepository {
   async findProfilePPPWithHargaPaket(profilePPPId: string) {
     return prisma.profilePPP.findUnique({
       where: { id: profilePPPId },
-      include: {
-        hargaPaket: {
-          include: {
-            bandwidth: true,
-          },
-        },
-      },
+      include: buildProfilePPPWithHargaPaketInclude(),
     });
   }
 
@@ -261,17 +261,7 @@ export class NetworkRepository {
   ): Promise<PelangganWithRouter | null> {
     return prisma.pelanggan.findUnique({
       where: { id: pelangganId },
-      include: {
-        hargaPaket: {
-          include: {
-            profilePPP: {
-              include: {
-                mikroTikRouter: true,
-              },
-            },
-          },
-        },
-      },
+      include: buildPelangganWithRouterInclude(),
     });
   }
 
@@ -281,12 +271,7 @@ export class NetworkRepository {
   ): Promise<PelangganBasic | null> {
     return prisma.pelanggan.findUnique({
       where: { id: pelangganId },
-      select: {
-        id: true,
-        username: true,
-        status: true,
-        tenantId: true,
-      },
+      select: buildPelangganBasicSelect(),
     });
   }
 
@@ -300,24 +285,7 @@ export class NetworkRepository {
         username,
         ...buildTenantOrGlobalScope(tenantId),
       },
-      select: {
-        id: true,
-        username: true,
-        tenantId: true,
-        hargaPaket: {
-          select: {
-            profilePPP: {
-              select: {
-                mikroTikRouter: {
-                  select: {
-                    id: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      select: buildPelangganRouterUsernameSelect(),
     });
   }
 }

@@ -1,25 +1,14 @@
-import { Prisma } from "@prisma/client";
-import type {
-  WorkOrderAssignments,
-  WorkOrderAttachments,
-  WorkOrders,
-  WorkOrderStatus,
-  WorkOrderTasks,
-  WorkOrderUpdates,
-} from "@prisma/client";
+import type { WorkOrders, WorkOrderStatus } from "@prisma/client";
 import type {
   IWorkOrderRepository,
   WorkOrderWithRelations,
   CreateWorkOrderData,
   UpdateWorkOrderData,
-  CreateTaskData,
-  UpdateTaskData,
   AddUpdateData,
   WorkOrderFilters,
   StaleReminderWorkOrder,
 } from "../domain/ports/IWorkOrderRepository";
 import { prisma as defaultPrisma } from "@/lib/prisma";
-import { getTenantIdFromContext } from "@/lib/tenant-context";
 import {
   createWorkOrderRecord,
   generateNextWorkOrderNumber,
@@ -31,10 +20,6 @@ import {
   rejectWorkOrderRequest,
 } from "./work-order-repository-request-actions";
 import {
-  addWorkOrderAttachment,
-  deleteWorkOrderAttachment,
-} from "./work-order-repository-attachments";
-import {
   findAllWorkOrders,
   findAllWorkOrdersForList,
   findStaleReminderWorkOrders,
@@ -43,40 +28,33 @@ import {
   updateWorkOrderRecord,
   updateWorkOrderStatus,
 } from "./work-order-repository-core";
-import { WorkOrderActivityRepository } from "./WorkOrderActivityRepository";
-import { WorkOrderReportingRepository } from "./WorkOrderReportingRepository";
+import { WorkOrderScopedRepository } from "./WorkOrderScopedRepository";
+
 type PrismaInstance = typeof defaultPrisma;
+
 export class WorkOrderRepository
-  extends WorkOrderReportingRepository
+  extends WorkOrderScopedRepository
   implements IWorkOrderRepository
 {
-  private readonly activityRepository: WorkOrderActivityRepository;
-
   constructor(
     protected override readonly prisma: PrismaInstance = defaultPrisma,
   ) {
     super(prisma);
-    this.activityRepository = new WorkOrderActivityRepository(this.prisma, () =>
-      this.getTenantWhere(),
-    );
   }
-  /** Ambil filter tenant isolation dari request context. */
-  private async getTenantWhere(): Promise<Prisma.WorkOrdersWhereInput> {
-    const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-    if (isSuperAdmin) return {};
-    if (!tenantId) return { tenantId: "___MISSING_TENANT_ID___" };
-    return { tenantId };
-  }
+
   async generateWorkOrderNumber(tenantId?: string): Promise<string> {
     return generateNextWorkOrderNumber(this.prisma, tenantId);
   }
+
   async create(data: CreateWorkOrderData): Promise<WorkOrders> {
     return createWorkOrderRecord(this.prisma, data) as Promise<WorkOrders>;
   }
+
   async findById(id: string): Promise<WorkOrderWithRelations | null> {
     const tenantWhere = await this.getTenantWhere();
     return findWorkOrderById({ prisma: this.prisma, id, tenantWhere });
   }
+
   async findByWorkOrderNumber(
     workOrderNumber: string,
   ): Promise<WorkOrderWithRelations | null> {
@@ -87,6 +65,7 @@ export class WorkOrderRepository
       tenantWhere,
     });
   }
+
   async findAll(
     filters?: WorkOrderFilters,
     page: number = 1,
@@ -106,6 +85,7 @@ export class WorkOrderRepository
       limit,
     });
   }
+
   async findAllForList(
     filters?: WorkOrderFilters,
     page: number = 1,
@@ -126,6 +106,7 @@ export class WorkOrderRepository
       limit,
     });
   }
+
   async findStaleReminderWorkOrders(
     now: Date,
   ): Promise<StaleReminderWorkOrder[]> {
@@ -136,6 +117,7 @@ export class WorkOrderRepository
       now,
     });
   }
+
   async update(id: string, data: UpdateWorkOrderData): Promise<WorkOrders> {
     const tenantWhere = await this.getTenantWhere();
     return updateWorkOrderRecord({
@@ -145,6 +127,7 @@ export class WorkOrderRepository
       data,
     });
   }
+
   async delete(id: string): Promise<void> {
     const tenantWhere = await this.getTenantWhere();
     const result = await this.prisma.workOrders.deleteMany({
@@ -154,6 +137,7 @@ export class WorkOrderRepository
       throw new Error("Work order not found or access denied");
     }
   }
+
   async updateStatus(
     id: string,
     status: WorkOrderStatus,
@@ -169,9 +153,10 @@ export class WorkOrderRepository
       userId,
       timestamp,
       addUpdate: (data) => this.addUpdate(data),
-      update: (workOrderId, data) => this.update(workOrderId, data),
+      update: (workOrderId, nextData) => this.update(workOrderId, nextData),
     });
   }
+
   async start(
     id: string,
     userId?: string,
@@ -179,25 +164,29 @@ export class WorkOrderRepository
   ): Promise<WorkOrders> {
     return this.updateStatus(id, "IN_PROGRESS", userId, timestamp);
   }
+
   async complete(
     id: string,
     resolutionNotes?: string,
     userId?: string,
     timestamp?: Date,
   ): Promise<WorkOrders> {
-    const updateData: Record<string, unknown> = { status: "COMPLETED" };
+    const data: Record<string, unknown> = { status: "COMPLETED" };
     if (resolutionNotes) {
-      updateData.resolutionNotes = resolutionNotes;
+      data.resolutionNotes = resolutionNotes;
     }
     await this.updateStatus(id, "COMPLETED", userId, timestamp);
-    return this.update(id, updateData);
+    return this.update(id, data);
   }
+
   async verify(id: string, userId?: string): Promise<WorkOrders> {
     return this.updateStatus(id, "VERIFIED", userId);
   }
+
   async close(id: string, userId?: string): Promise<WorkOrders> {
     return this.updateStatus(id, "CLOSED", userId);
   }
+
   async cancel(
     id: string,
     reason: string,
@@ -214,11 +203,13 @@ export class WorkOrderRepository
     await this.addUpdate(updateData);
     return this.updateStatus(id, "CANCELLED", userId);
   }
+
   async createRequest(
     data: CreateWorkOrderData & { requestedById: string },
   ): Promise<WorkOrders> {
     return createWorkOrderRequest({ prisma: this.prisma, data });
   }
+
   async approveRequest(id: string, approvedById: string): Promise<WorkOrders> {
     return approveWorkOrderRequest({
       prisma: this.prisma,
@@ -228,6 +219,7 @@ export class WorkOrderRepository
       addUpdate: (data) => this.addUpdate(data),
     });
   }
+
   async rejectRequest(
     id: string,
     rejectedById: string,
@@ -242,6 +234,7 @@ export class WorkOrderRepository
       addUpdate: (data) => this.addUpdate(data),
     });
   }
+
   async findAllRequests(
     filters?: { departmentId?: string; siteId?: string; search?: string },
     page: number = 1,
@@ -259,6 +252,7 @@ export class WorkOrderRepository
       limit,
     });
   }
+
   async assign(
     id: string,
     employeeId: string,
@@ -272,6 +266,7 @@ export class WorkOrderRepository
     await this.addAssignment(id, employeeId, role || "Lead");
     return (await this.findById(id)) as WorkOrders;
   }
+
   async unassign(id: string): Promise<WorkOrders> {
     return this.prisma.workOrders.update({
       where: { id },
@@ -280,79 +275,5 @@ export class WorkOrderRepository
         status: "PENDING",
       },
     });
-  }
-  async addAssignment(
-    workOrderId: string,
-    userId: string,
-    role?: string,
-  ): Promise<WorkOrderAssignments> {
-    return this.activityRepository.addAssignment(workOrderId, userId, role);
-  }
-  async removeAssignment(assignmentId: string): Promise<void> {
-    await this.activityRepository.removeAssignment(assignmentId);
-  }
-  async addTask(data: CreateTaskData): Promise<WorkOrderTasks> {
-    return this.activityRepository.addTask(data);
-  }
-  async updateTask(
-    taskId: string,
-    data: UpdateTaskData,
-  ): Promise<WorkOrderTasks> {
-    return this.activityRepository.updateTask(taskId, data);
-  }
-  async deleteTask(taskId: string): Promise<void> {
-    await this.activityRepository.deleteTask(taskId);
-  }
-  async completeTask(taskId: string, userId: string): Promise<WorkOrderTasks> {
-    return this.updateTask(taskId, {
-      status: "COMPLETED",
-      completedById: userId,
-    });
-  }
-  async addUpdate(data: AddUpdateData): Promise<WorkOrderUpdates> {
-    return this.activityRepository.addUpdate(data);
-  }
-  async getUpdates(workOrderId: string): Promise<WorkOrderUpdates[]> {
-    return this.activityRepository.getUpdates(workOrderId);
-  }
-  async addAttachment(
-    workOrderId: string,
-    fileName: string,
-    filePath: string,
-    fileSize: number,
-    fileType: string,
-    caption?: string,
-    uploadedById?: string,
-  ): Promise<WorkOrderAttachments> {
-    return addWorkOrderAttachment({
-      activityRepository: this.activityRepository,
-      addUpdate: (data) => this.addUpdate(data),
-      workOrderId,
-      fileName,
-      filePath,
-      fileSize,
-      fileType,
-      caption,
-      uploadedById,
-    });
-  }
-
-  async deleteAttachment(
-    attachmentId: string,
-    deletedById?: string,
-  ): Promise<void> {
-    await deleteWorkOrderAttachment({
-      activityRepository: this.activityRepository,
-      addUpdate: (data) => this.addUpdate(data),
-      attachmentId,
-      deletedById,
-    });
-  }
-  async addComment(
-    workOrderId: string,
-    message: string,
-    userId: string,
-  ): Promise<WorkOrderUpdates> {
-    return this.activityRepository.addComment(workOrderId, message, userId);
   }
 }

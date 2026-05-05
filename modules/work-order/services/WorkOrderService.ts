@@ -6,26 +6,19 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import type { WorkOrderStatus } from "../types/work-order.enums";
-import { prisma as defaultPrisma } from "@/lib/prisma";
-import { UserLookupService } from "@/modules/users";
-import { InventoryStockService } from "@/modules/inventory";
-
 import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
-import {
-  WorkOrderMaterialRepository,
-  type MobileWorkOrderMaterialInput,
-  type MobileWorkOrderMaterialResult,
+import type {
+  MobileWorkOrderMaterialInput,
+  MobileWorkOrderMaterialResult,
 } from "../repositories/WorkOrderMaterialRepository";
-import {
-  TicketRepository,
-  WorkOrderTemplateRepository,
-  WarrantyCheckRepository,
-} from "../repositories/WorkOrderSupportRepositories";
-import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { WorkOrderActivityService } from "./WorkOrderActivityService";
 import { WorkOrderMaterialService } from "./WorkOrderMaterialService";
 import { WorkOrderMutationService } from "./WorkOrderMutationService";
 import { WorkOrderReadService } from "./WorkOrderReadService";
+import {
+  buildWorkOrderServiceDependencies,
+  initializeWorkOrderTemplateRepository,
+} from "./work-order-service.factory";
 import type {
   CreateWorkOrderInput,
   MobileWorkOrderMaterialReturnInput,
@@ -48,84 +41,18 @@ export type {
 
 /** Menjadi facade tipis untuk orkestrasi work order. */
 export class WorkOrderService {
-  private readonly repository: WorkOrderRepository;
   private readonly activityService: WorkOrderActivityService;
   private readonly mutationService: WorkOrderMutationService;
   private readonly readService: WorkOrderReadService;
   private readonly materialService: WorkOrderMaterialService;
 
   constructor(prismaClient?: PrismaClient) {
-    const client = prismaClient ?? defaultPrisma;
-    const repository = this.createRepository(client);
-    const materialRepository = this.createMaterialRepository(client);
-
-    this.repository = repository;
-    this.activityService = this.createActivityService(repository);
-    this.readService = this.createReadService(repository);
-    this.materialService = this.createMaterialService(
-      client,
-      repository,
-      materialRepository,
-    );
-    this.mutationService = this.createMutationService(repository);
-    this.initializeTemplateRepository();
-  }
-
-  /** Buat repository utama work order. */
-  private createRepository(prismaClient: PrismaClient): WorkOrderRepository {
-    return new WorkOrderRepository(prismaClient);
-  }
-
-  /** Buat repository material work order. */
-  private createMaterialRepository(
-    prismaClient: PrismaClient,
-  ): WorkOrderMaterialRepository {
-    return new WorkOrderMaterialRepository(prismaClient);
-  }
-
-  /** Buat service aktivitas work order. */
-  private createActivityService(
-    repository: WorkOrderRepository,
-  ): WorkOrderActivityService {
-    return new WorkOrderActivityService(repository);
-  }
-
-  /** Buat service baca work order. */
-  private createReadService(
-    repository: WorkOrderRepository,
-  ): WorkOrderReadService {
-    return new WorkOrderReadService(repository);
-  }
-
-  /** Buat service mutasi material work order. */
-  private createMaterialService(
-    prismaClient: PrismaClient,
-    repository: WorkOrderRepository,
-    materialRepository: WorkOrderMaterialRepository,
-  ): WorkOrderMaterialService {
-    return new WorkOrderMaterialService({
-      prismaClient,
-      repository,
-      materialRepository,
-      inventoryService: new InventoryStockService(),
-    });
-  }
-
-  /** Buat service mutasi work order. */
-  private createMutationService(
-    repository: WorkOrderRepository,
-  ): WorkOrderMutationService {
-    return new WorkOrderMutationService({
-      repository,
-      userRepo: new UserLookupService(),
-      ticketRepo: new TicketRepository(),
-      warrantyRepo: new WarrantyCheckRepository(),
-    });
-  }
-
-  /** Inisialisasi repository template demi menjaga side effect existing. */
-  private initializeTemplateRepository(): void {
-    new WorkOrderTemplateRepository();
+    const dependencies = buildWorkOrderServiceDependencies(prismaClient);
+    this.activityService = dependencies.activityService;
+    this.readService = dependencies.readService;
+    this.materialService = dependencies.materialService;
+    this.mutationService = dependencies.mutationService;
+    initializeWorkOrderTemplateRepository();
   }
 
   /** Ambil daftar work order terpaginasi. */

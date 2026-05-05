@@ -4,10 +4,8 @@ import { isMainTenant } from "@/modules/mitra";
 import type { RoleDetailDTO, RoleListItemDTO } from "../dto/RoleDTO";
 import type { RoleEntity } from "../domain/entities/RoleEntity";
 import type {
-  CreateRoleRepositoryInput,
   IRoleRepository,
   RoleFilterOptions,
-  UpdateRoleRepositoryInput,
 } from "../domain/ports/IRoleRepository";
 import {
   createPermissionRepository,
@@ -16,6 +14,11 @@ import {
 import { RoleMapper } from "../mappers/RoleMapper";
 import { PermissionRepository } from "../repositories/PermissionRepository";
 import { resolvePermissionIds } from "./role-permission-helpers";
+import {
+  buildRolePayload,
+  toCreateRoleRepositoryInput,
+  toUpdateRoleRepositoryInput,
+} from "./role-service.payloads";
 import type {
   RoleMutationContext,
   RoleMutationInput,
@@ -109,7 +112,7 @@ export class RoleService {
       context?.tenantId,
     );
     this.ensureSensitivePermissionsAllowed(permissions, context?.tenantId);
-    return this.createRole(this.buildRolePayload(input, permissions));
+    return this.createRole(buildRolePayload(input, permissions));
   }
 
   /** Update role with tenant policy validation. */
@@ -125,7 +128,7 @@ export class RoleService {
       context?.tenantId,
     );
     this.ensureSensitivePermissionsAllowed(permissions, context?.tenantId);
-    return this.updateRole(id, this.buildRolePayload(input, permissions));
+    return this.updateRole(id, buildRolePayload(input, permissions));
   }
 
   /** Create role and return detail DTO. */
@@ -140,7 +143,7 @@ export class RoleService {
       data.permissions,
     );
     const role = await this.roleRepository.create(
-      this.toCreateRepositoryInput(data, permissionIds),
+      toCreateRoleRepositoryInput(data, permissionIds),
     );
     return RoleMapper.toDetailDTO(role);
   }
@@ -168,7 +171,7 @@ export class RoleService {
     );
     const updatedRole = await this.roleRepository.update(
       id,
-      this.toUpdateRepositoryInput(data, permissionIds),
+      toUpdateRoleRepositoryInput(data, permissionIds),
     );
     await invalidateRolePermissionCache(id);
     return RoleMapper.toDetailDTO(updatedRole);
@@ -236,60 +239,6 @@ export class RoleService {
     if (hasRestricted) {
       throw new RolePolicyError(SENSITIVE_PERMISSION_MESSAGE);
     }
-  }
-
-  private buildRolePayload(
-    input: RoleMutationInput,
-    permissions: string[],
-  ): RoleMutationInput {
-    return {
-      name: input.name,
-      permissions,
-      description: input.description,
-      accessAdminPanel: input.accessAdminPanel,
-      accessEmployeePanel: input.accessEmployeePanel,
-      isRestricted: input.isRestricted,
-      isTechnical: input.isTechnical,
-      isSuperAdmin: input.isSuperAdmin,
-      canApproveRab: input.canApproveRab,
-      canReceiveWhatsappApproval: input.canReceiveWhatsappApproval,
-    };
-  }
-
-  private toCreateRepositoryInput(
-    data: RoleMutationInput,
-    permissionIds: string[],
-  ): CreateRoleRepositoryInput {
-    return {
-      name: data.name,
-      description: data.description,
-      accessAdminPanel: data.accessAdminPanel,
-      accessEmployeePanel: data.accessEmployeePanel,
-      isRestricted: data.isRestricted,
-      isTechnical: data.isTechnical,
-      isSuperAdmin: data.isSuperAdmin,
-      canApproveRab: data.canApproveRab,
-      canReceiveWhatsappApproval: data.canReceiveWhatsappApproval,
-      permissionIds,
-    };
-  }
-
-  private toUpdateRepositoryInput(
-    data: RoleMutationInput,
-    permissionIds: string[],
-  ): UpdateRoleRepositoryInput {
-    return {
-      name: data.name,
-      description: data.description,
-      accessAdminPanel: data.accessAdminPanel,
-      accessEmployeePanel: data.accessEmployeePanel,
-      isRestricted: data.isRestricted,
-      isTechnical: data.isTechnical,
-      isSuperAdmin: data.isSuperAdmin,
-      canApproveRab: data.canApproveRab,
-      canReceiveWhatsappApproval: data.canReceiveWhatsappApproval,
-      permissionIds,
-    };
   }
 }
 

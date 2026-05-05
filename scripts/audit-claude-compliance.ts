@@ -59,7 +59,13 @@ const REQUIRED_FOLDERS = [
 ];
 
 const SKIPPED_MODULES = new Set(["database", "events"]);
-const ALLOWED_PUBLIC_EXPORTS = new Set(["dto", "services"]);
+const ALLOWED_PUBLIC_EXPORTS = new Set([
+  "dto",
+  "services",
+  "client",
+  "validation",
+  "contracts",
+]);
 const INTERNAL_EXPORT_FOLDERS = [
   "repositories",
   "domain",
@@ -69,6 +75,129 @@ const INTERNAL_EXPORT_FOLDERS = [
   "validators",
   "utils",
 ];
+
+interface ExportStatement {
+  folder: string;
+  line: number;
+}
+
+function collectIndexExportStatements(indexPath: string): ExportStatement[] {
+  const lines = readLines(indexPath);
+  const exports: ExportStatement[] = [];
+  let statementStart = 0;
+  let statementBuffer = "";
+
+  lines.forEach((line, index) => {
+    const lineNumber = index + 1;
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    if (!statementBuffer && !trimmed.startsWith("export")) {
+      return;
+    }
+
+    if (!statementBuffer) {
+      statementStart = lineNumber;
+    }
+
+    statementBuffer = statementBuffer ? `${statementBuffer}\n${line}` : line;
+    if (!trimmed.endsWith(";")) {
+      return;
+    }
+
+    const match = statementBuffer.match(/from\s+["']\.\/([^/"']+)/);
+    if (match?.[1]) {
+      exports.push({ folder: match[1], line: statementStart });
+    }
+
+    statementBuffer = "";
+    statementStart = 0;
+  });
+
+  return exports;
+}
+
+function getInvalidPublicExport(folder: string): string | null {
+  if (ALLOWED_PUBLIC_EXPORTS.has(folder)) return null;
+  if (!INTERNAL_EXPORT_FOLDERS.includes(folder)) return null;
+  return folder;
+}
+
+function buildPublicApiExportIssue(
+  rootDir: string,
+  indexPath: string,
+  folder: string,
+  line: number,
+): AuditIssue {
+  return createIssue({
+    severity: "error",
+    rule: "public-api-export",
+    message: `index.ts hanya boleh export DTO + services atau shim root-level aman, ditemukan export ${folder}/`,
+    filePath: toDisplayPath(rootDir, indexPath),
+    line,
+  });
+}
+
+function checkIndexPublicApiExports(
+  rootDir: string,
+  indexPath: string,
+): AuditIssue[] {
+  return collectIndexExportStatements(indexPath).flatMap(({ folder, line }) => {
+    const invalidFolder = getInvalidPublicExport(folder);
+    if (!invalidFolder) return [];
+
+    return [buildPublicApiExportIssue(rootDir, indexPath, invalidFolder, line)];
+  });
+}
+
+function checkRootShimCollisions(
+  rootDir: string,
+  moduleDir: string,
+): AuditIssue[] {
+  const collisions: AuditIssue[] = [];
+  for (const folder of INTERNAL_EXPORT_FOLDERS) {
+    const folderPath = path.join(moduleDir, folder);
+    const shimPath = path.join(moduleDir, `${folder}.ts`);
+    if (!fs.existsSync(folderPath) || !fs.existsSync(shimPath)) continue;
+
+    collisions.push(
+      createIssue({
+        severity: "warning",
+        rule: "shim-name-collision",
+        message: `Shim root-level ${folder}.ts bentrok nama dengan folder internal ${folder}/`,
+        filePath: toDisplayPath(rootDir, shimPath),
+      }),
+    );
+  }
+
+  return collisions;
+}
+
+function checkIndexTs(rootDir: string, moduleDir: string): AuditIssue[] {
+  const indexPath = path.join(moduleDir, "index.ts");
+
+  if (!fs.existsSync(indexPath)) {
+    return [
+      createIssue({
+        severity: "error",
+        rule: "missing-index",
+        message: "index.ts tidak ditemukan",
+        filePath: toDisplayPath(rootDir, indexPath),
+      }),
+    ];
+  }
+
+  return [
+    ...checkIndexPublicApiExports(rootDir, indexPath),
+    ...checkRootShimCollisions(rootDir, moduleDir),
+  ];
+}
+
+function getExportedFolder(line: string): string | null {
+  const match = line.match(/export\s+[^;]*from\s+["']\.\/?([^/"']+)/);
+  return match?.[1] ?? null;
+}
+
 const IGNORED_MAGIC_NUMBERS = new Set([
   "0",
   "1",
@@ -158,43 +287,6 @@ function checkFolderStructure(moduleDir: string): AuditIssue[] {
         severity: "error",
         rule: "required-folder",
         message: `Folder wajib tidak ada: ${folder}/`,
-      }),
-    ];
-  });
-}
-
-function getExportedFolder(line: string): string | null {
-  const match = line.match(/export\s+[^;]*from\s+["']\.\/?([^/"']+)/);
-  return match?.[1] ?? null;
-}
-
-function checkIndexTs(rootDir: string, moduleDir: string): AuditIssue[] {
-  const indexPath = path.join(moduleDir, "index.ts");
-
-  if (!fs.existsSync(indexPath)) {
-    return [
-      createIssue({
-        severity: "error",
-        rule: "missing-index",
-        message: "index.ts tidak ditemukan",
-        filePath: toDisplayPath(rootDir, indexPath),
-      }),
-    ];
-  }
-
-  return readLines(indexPath).flatMap((line, index) => {
-    const exportedFolder = getExportedFolder(line);
-    if (!exportedFolder || ALLOWED_PUBLIC_EXPORTS.has(exportedFolder))
-      return [];
-    if (!INTERNAL_EXPORT_FOLDERS.includes(exportedFolder)) return [];
-
-    return [
-      createIssue({
-        severity: "error",
-        rule: "public-api-export",
-        message: `index.ts hanya boleh export DTO + services, ditemukan export ${exportedFolder}/`,
-        filePath: toDisplayPath(rootDir, indexPath),
-        line: index + 1,
       }),
     ];
   });
@@ -567,9 +659,10 @@ function getChangedTsFiles(rootDir: string): string[] {
 
 if (isCliEntryPoint()) {
   const rootDir = process.cwd();
+  const changedFiles = getChangedTsFiles(rootDir);
   const report = auditProject({
     rootDir,
-    changedFiles: getChangedTsFiles(rootDir),
+    ...(changedFiles.length > 0 ? { changedFiles } : { includeAllFiles: true }),
   });
   printReport(report);
   process.exit(report.summary.errors > 0 ? 1 : 0);

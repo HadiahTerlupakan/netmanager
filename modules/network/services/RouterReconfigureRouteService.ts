@@ -7,9 +7,8 @@ import {
   MikroTikRouterService,
   RouterAccessDeniedError,
 } from "./MikroTikRouterService";
+import { getRouterReconfigureSettings } from "./radius-runtime.helpers";
 
-const DEFAULT_RADIUS_SECRET = "testing123";
-const SETTINGS_KEYS = ["RADIUS_SECRET", "ISOLIR_URL"] as const;
 const FORBIDDEN_ERROR = "FORBIDDEN:Akses ditolak";
 const NOT_FOUND_ERROR = "NOT_FOUND:No valid routers found among selection";
 const PROVISIONING_FAILED_MESSAGE = "Provisioning failed";
@@ -39,13 +38,6 @@ interface RouterReconfigureResult {
   success: boolean;
   logs: string[];
   error: string | null;
-}
-
-function getSettingValue(
-  settings: Array<{ key: string; value: string }>,
-  key: string,
-) {
-  return settings.find((item) => item.key === key)?.value;
 }
 
 function getRouterCredentials(router: RouterCredentialsInput) {
@@ -91,13 +83,7 @@ export class RouterReconfigureRouteService {
   }
 
   private async getSettings(): Promise<RouterSettings> {
-    const settings =
-      await this.networkRepository.findSettingsByKeys(SETTINGS_KEYS);
-    return {
-      radiusSecret:
-        getSettingValue(settings, "RADIUS_SECRET") || DEFAULT_RADIUS_SECRET,
-      isolirUrl: getSettingValue(settings, "ISOLIR_URL"),
-    };
+    return getRouterReconfigureSettings(this.networkRepository);
   }
 
   private async getAuthorizedRouters(

@@ -50,14 +50,27 @@ export function getInvoicesByIds(
     where: {
       id: { in: ids },
       pelangganId,
-      status: { in: validStatuses as InvoiceStatus[] },
+      status: { in: parseInvoiceStatuses(validStatuses) },
     },
   });
 }
 
 function buildInvoiceWhere(pelangganId: string, status?: string[]) {
   const where: PrismaBilling.InvoiceWhereInput = { pelangganId };
-  if (status && status.length > 0)
-    where.status = { in: status as InvoiceStatus[] };
+  if (status && status.length > 0) {
+    where.status = { in: parseInvoiceStatuses(status) };
+  }
   return where;
+}
+
+function parseInvoiceStatuses(statuses: string[]): InvoiceStatus[] {
+  return statuses.map(parseInvoiceStatus);
+}
+
+function parseInvoiceStatus(status: string): InvoiceStatus {
+  if (Object.values(InvoiceStatus).includes(status as InvoiceStatus)) {
+    return status as InvoiceStatus;
+  }
+
+  throw new Error(`Invalid invoice status: ${status}`);
 }

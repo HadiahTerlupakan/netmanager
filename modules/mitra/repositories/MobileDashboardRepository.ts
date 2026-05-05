@@ -18,9 +18,9 @@ const ACTIVE_WORK_ORDER_STATUSES = [
 
 export class MobileDashboardRepository implements IMobileDashboardRepository {
   /** Mengambil profil dashboard mitra. */
-  async findMitraDashboardProfile(userId: string) {
-    const mitra = await prismaMitra.mitra.findUnique({
-      where: { id: userId },
+  async findMitraDashboardProfile(userId: string, tenantId: string) {
+    const mitra = await prismaMitra.mitra.findFirst({
+      where: { id: userId, tenantId },
       select: {
         siteId: true,
         mitraType: true,

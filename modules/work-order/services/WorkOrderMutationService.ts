@@ -7,28 +7,16 @@ import {
   WarrantyCheckRepository,
 } from "../repositories/WorkOrderSupportRepositories";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
-import { validateWorkOrderAccess as validateWorkOrderAccessHelper } from "./work-order-access";
-import { prepareWorkOrderCreateData } from "./work-order-create-preparation";
 import {
   assignEmployeeToWorkOrder,
   createWorkOrderMutationErrorResult,
   handleCreateWorkOrderError,
-  persistRequestDecision,
   persistWorkOrderStatus,
   publishStatusMutationSideEffects,
   validateAssignmentEmployee,
-  validateRequestState,
 } from "./work-order-mutation.helpers";
-import {
-  createWorkOrderNotFoundResult,
-  isWorkOrderNotFoundError,
-  logWorkOrderServiceError,
-} from "./work-order-service-helpers";
-import {
-  buildWorkOrderUpdatePayload,
-  ensureRejectionReason,
-  ensureWorkOrderExists,
-} from "./work-order-service-guards";
+import { prepareWorkOrderCreateData } from "./work-order-create-preparation";
+import { ensureRejectionReason } from "./work-order-service-guards";
 import type {
   CreateWorkOrderInput,
   ServiceResult,
@@ -43,6 +31,13 @@ import {
   notifyWorkOrderCreatedSafely,
   publishWorkOrderCreatedEvent,
 } from "./work-order-side-effects";
+import {
+  findSuccessResult,
+  getAccessibleWorkOrder,
+  handleMutationError,
+  resolveWorkOrderRequest,
+} from "./work-order-mutation-access";
+import { buildWorkOrderUpdatePayload } from "./work-order-service-guards";
 
 type MutationDependencies = {
   repository: WorkOrderRepository;
@@ -75,7 +70,11 @@ export class WorkOrderMutationService {
     userContext: UserContext,
   ): Promise<WorkOrderMutationResult> {
     try {
-      const existing = await this.getAccessibleWorkOrder(id, userContext);
+      const existing = await getAccessibleWorkOrder({
+        repository: this.dependencies.repository,
+        id,
+        userContext,
+      });
       if (!existing.success) return existing;
 
       const updated = await this.dependencies.repository.update(
@@ -88,7 +87,10 @@ export class WorkOrderMutationService {
         changes: input,
       });
       await invalidateWorkOrderCaches();
-      return this.findSuccessResult(id);
+      return findSuccessResult({
+        repository: this.dependencies.repository,
+        id,
+      });
     } catch (error) {
       logger.error(
         "WorkOrderMutationService.updateWorkOrder failed",
@@ -110,7 +112,11 @@ export class WorkOrderMutationService {
     resolutionNotes?: string,
   ): Promise<WorkOrderMutationResult> {
     try {
-      const existing = await this.getAccessibleWorkOrder(id, userContext);
+      const existing = await getAccessibleWorkOrder({
+        repository: this.dependencies.repository,
+        id,
+        userContext,
+      });
       if (!existing.success) return existing;
 
       await persistWorkOrderStatus({
@@ -128,14 +134,17 @@ export class WorkOrderMutationService {
         userId: userContext.id,
       });
       await invalidateWorkOrderCaches();
-      return this.findSuccessResult(id);
+      return findSuccessResult({
+        repository: this.dependencies.repository,
+        id,
+      });
     } catch (error) {
-      return this.handleMutationError(
-        "WorkOrderMutationService.updateStatus failed",
+      return handleMutationError({
+        message: "WorkOrderMutationService.updateStatus failed",
         error,
-        "Gagal mengupdate status",
-        "STATUS_ERROR",
-      );
+        fallback: "Gagal mengupdate status",
+        code: "STATUS_ERROR",
+      });
     }
   }
 
@@ -147,7 +156,11 @@ export class WorkOrderMutationService {
     role?: string,
   ): Promise<WorkOrderMutationResult> {
     try {
-      const existing = await this.getAccessibleWorkOrder(id, userContext);
+      const existing = await getAccessibleWorkOrder({
+        repository: this.dependencies.repository,
+        id,
+        userContext,
+      });
       if (!existing.success) return existing;
 
       const employeeResult = await validateAssignmentEmployee(
@@ -170,7 +183,10 @@ export class WorkOrderMutationService {
         role,
         employee: employeeResult.data,
       });
-      return this.findSuccessResult(id);
+      return findSuccessResult({
+        repository: this.dependencies.repository,
+        id,
+      });
     } catch (error) {
       logger.error(
         "WorkOrderMutationService.assignWorkOrder failed",
@@ -189,7 +205,12 @@ export class WorkOrderMutationService {
     id: string,
     userContext: UserContext,
   ): Promise<WorkOrderMutationResult> {
-    return this.resolveRequest(id, userContext, "approve");
+    return resolveWorkOrderRequest({
+      repository: this.dependencies.repository,
+      id,
+      userContext,
+      action: "approve",
+    });
   }
 
   /** Reject work order request. */
@@ -201,7 +222,13 @@ export class WorkOrderMutationService {
     const invalidReasonResult = ensureRejectionReason(reason);
     if (invalidReasonResult) return invalidReasonResult;
 
-    return this.resolveRequest(id, userContext, "reject", reason);
+    return resolveWorkOrderRequest({
+      repository: this.dependencies.repository,
+      id,
+      userContext,
+      action: "reject",
+      reason,
+    });
   }
 
   /** Delete work order. */
@@ -210,7 +237,11 @@ export class WorkOrderMutationService {
     userContext: UserContext,
   ): Promise<ServiceResult<void>> {
     try {
-      const existing = await this.getAccessibleWorkOrder(id, userContext);
+      const existing = await getAccessibleWorkOrder({
+        repository: this.dependencies.repository,
+        id,
+        userContext,
+      });
       if (!existing.success) {
         return { success: false, error: existing.error, code: existing.code };
       }
@@ -223,18 +254,12 @@ export class WorkOrderMutationService {
       await invalidateWorkOrderCaches();
       return { success: true };
     } catch (error) {
-      logWorkOrderServiceError(
-        "WorkOrderMutationService.deleteWorkOrder failed",
+      return handleMutationError({
+        message: "WorkOrderMutationService.deleteWorkOrder failed",
         error,
-      );
-      if (isWorkOrderNotFoundError(error)) {
-        return createWorkOrderNotFoundResult() as ServiceResult<void>;
-      }
-      return createWorkOrderMutationErrorResult(
-        error,
-        "Gagal menghapus work order",
-        "DELETE_ERROR",
-      ) as ServiceResult<void>;
+        fallback: "Gagal menghapus work order",
+        code: "DELETE_ERROR",
+      }) as ServiceResult<void>;
     }
   }
 
@@ -270,94 +295,5 @@ export class WorkOrderMutationService {
     });
     await invalidateWorkOrderCaches();
     return { success: true, data: workOrder as WorkOrderWithRelations };
-  }
-
-  private async resolveRequest(
-    id: string,
-    userContext: UserContext,
-    action: "approve" | "reject",
-    reason?: string,
-  ): Promise<WorkOrderMutationResult> {
-    try {
-      const existing = await this.getAccessibleWorkOrder(id, userContext);
-      if (!existing.success) return existing;
-
-      const validationResult = validateRequestState(existing.data, action);
-      if (validationResult) return validationResult;
-
-      await persistRequestDecision({
-        repository: this.dependencies.repository,
-        id,
-        userId: userContext.id,
-        action,
-        reason,
-      });
-      logWorkOrderActivity(
-        action === "approve" ? "APPROVE" : "REJECT",
-        "Work Order",
-        userContext.id,
-        {
-          id,
-          number: existing.data.workOrderNumber,
-          ...(reason ? { reason } : {}),
-        },
-      );
-      await invalidateWorkOrderCaches();
-      return this.findSuccessResult(id);
-    } catch (error) {
-      logger.error(
-        `WorkOrderMutationService.${action}Request failed`,
-        error instanceof Error ? error : undefined,
-      );
-      return createWorkOrderMutationErrorResult(
-        error,
-        action === "approve"
-          ? "Gagal menyetujui permintaan"
-          : "Gagal menolak permintaan",
-        action === "approve" ? "APPROVE_ERROR" : "REJECT_ERROR",
-      );
-    }
-  }
-
-  private async getAccessibleWorkOrder(
-    id: string,
-    userContext: UserContext,
-  ): Promise<WorkOrderMutationResult> {
-    await this.validateWorkOrderAccess(id, userContext);
-    const existing = await this.dependencies.repository.findById(id);
-    const missingResult = ensureWorkOrderExists(existing);
-    if (missingResult) return missingResult;
-    return { success: true, data: existing };
-  }
-
-  private handleMutationError(
-    message: string,
-    error: unknown,
-    fallback: string,
-    code: string,
-  ): WorkOrderMutationResult {
-    logWorkOrderServiceError(message, error);
-    if (isWorkOrderNotFoundError(error)) {
-      return createWorkOrderNotFoundResult();
-    }
-    return createWorkOrderMutationErrorResult(error, fallback, code);
-  }
-
-  private async findSuccessResult(
-    id: string,
-  ): Promise<WorkOrderMutationResult> {
-    const result = await this.dependencies.repository.findById(id);
-    return { success: true, data: result as WorkOrderWithRelations };
-  }
-
-  private async validateWorkOrderAccess(
-    workOrderId: string,
-    userContext: UserContext,
-  ) {
-    return validateWorkOrderAccessHelper({
-      repository: this.dependencies.repository,
-      workOrderId,
-      userContext,
-    });
   }
 }

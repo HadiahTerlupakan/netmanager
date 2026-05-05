@@ -9,13 +9,8 @@ export {
 export {
   createCouponSchema,
   verifyCouponSchema,
-} from "./validators/couponSchemas";
-
-// Ports (public - needed by consumers who inject the repository)
-export type {
-  ICouponRepository,
-  VerifyCouponResult,
-} from "./domain/ports/ICouponRepository";
+} from "./services/CouponValidationService";
+export type { ICouponRepository, VerifyCouponResult } from "./contracts";
 
 // DTOs (public types for API responses and requests)
 export type {

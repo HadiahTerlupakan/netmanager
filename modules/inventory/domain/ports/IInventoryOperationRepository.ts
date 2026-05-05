@@ -1,223 +1,65 @@
 import type {
-  Barang,
-  BarangGudang,
-  BarangKeluar,
-  BarangMasuk,
   Gudang,
-  KondisiBarang,
-  JenisBarang,
-  KategoriAset,
+  Barang,
+  BarangMasuk,
+  BarangKeluar,
   Prisma,
 } from "@prisma/client";
 
-export type BarangWithStock = Barang & {
-  barangGudang: (BarangGudang & { gudang: Gudang })[];
-};
+export type {
+  BarangWithStock,
+  BarangMasukWithRelations,
+  BarangKeluarWithRelations,
+  InventoryActorInput,
+  FindInventoryBarangParams,
+  CreateInventoryBarangData,
+  CreateBarangInput,
+  UpdateBarangInput,
+  CreateBarangMasukInput,
+  CreateBarangKeluarInput,
+  BarangDetail,
+  CreateGudangInput,
+  UpdateGudangInput,
+  CreateTransferInput,
+  UpdateTransferInput,
+  InventoryTransferWarehouseSnapshot,
+  InventoryTransferBarangSnapshot,
+  InventoryTransferHistorySnapshot,
+  InventoryTransferRecord,
+  UpdateBarangMasukInput,
+  UpdateStockOpnameInput,
+  InventoryRecordSite,
+  InventoryMasukRecord,
+  InventoryOpnameRecord,
+  UpdatedStockOpnameResult,
+  MobileGudangRecord,
+  MobileActorUserRecord,
+  MobileActorMitraRecord,
+} from "./IInventoryOperationRepository.types";
 
-export type BarangMasukWithRelations = BarangMasuk & {
-  barang: Barang;
-  gudang: Gudang;
-  user?: { id: string; name: string | null } | null;
-};
-
-export type BarangKeluarWithRelations = BarangKeluar & {
-  barang: Barang;
-  gudang: Gudang;
-  user?: { id: string; name: string | null } | null;
-};
-
-export interface InventoryActorInput {
-  type: "user" | "mitra";
-  id: string;
-  userId?: string;
-}
-
-export interface FindInventoryBarangParams {
-  skip?: number;
-  take?: number;
-  search?: string;
-  gudangId?: string;
-  siteId?: string;
-  tenantId?: string;
-}
-
-export interface CreateInventoryBarangData {
-  kode: string;
-  nama: string;
-  satuan: string;
-  isWorkOrderMaterial?: boolean;
-  jenis?: string;
-  kategoriAset?: string;
-  minStokDefault?: number;
-}
-
-export interface CreateBarangInput {
-  kode: string;
-  nama: string;
-  satuan: string;
-  isWorkOrderMaterial?: boolean;
-  jenis?: JenisBarang;
-  kategoriAset?: KategoriAset;
-  minStokDefault?: number;
-  tenantId?: string;
-}
-
-export interface UpdateBarangInput {
-  kode?: string;
-  nama?: string;
-  satuan?: string;
-  isWorkOrderMaterial?: boolean;
-  jenis?: JenisBarang;
-  kategoriAset?: KategoriAset;
-  minStokDefault?: number;
-  tenantId?: string;
-}
-
-export interface CreateBarangMasukInput {
-  barangId: string;
-  gudangId: string;
-  jumlah: number;
-  hargaBeliSatuan?: number;
-  kondisi?: KondisiBarang;
-  keterangan?: string;
-  supplier?: string;
-  fotoBukti?: string[];
-  fotoMetadata?: Record<string, unknown>;
-  actor?: InventoryActorInput;
-  userId?: string;
-  tanggal?: Date;
-  tenantId?: string;
-}
-
-export interface CreateBarangKeluarInput {
-  barangId: string;
-  gudangId: string;
-  jumlah: number;
-  kondisi: KondisiBarang;
-  keterangan?: string;
-  tujuanPenggunaan?: string;
-  isHilang?: boolean;
-  actor?: InventoryActorInput;
-  userId?: string;
-  fotoBukti?: string[];
-  fotoMetadata?: Record<string, unknown>;
-  tanggal?: Date;
-  tenantId?: string;
-}
-
-export type BarangDetail = BarangWithStock & {
-  masuk: BarangMasukWithRelations[];
-  keluar: BarangKeluarWithRelations[];
-  opname: Record<string, unknown>[];
-};
-
-export interface CreateGudangInput {
-  kode: string;
-  nama: string;
-  lokasi?: string | null;
-  isActive?: boolean;
-  siteIds?: string[];
-  tenantId?: string;
-}
-
-export interface UpdateGudangInput {
-  kode?: string;
-  nama?: string;
-  lokasi?: string | null;
-  isActive?: boolean;
-  tenantId?: string;
-}
-
-export interface CreateTransferInput {
-  barangId: string;
-  dariGudangId: string;
-  keGudangId: string;
-  jumlah: number;
-  kondisi?: KondisiBarang;
-  keterangan?: string;
-  userId: string;
-  fotoBukti?: string[];
-  fotoMetadata?: Record<string, unknown>;
-  tenantId?: string;
-}
-
-export interface UpdateTransferInput {
-  keterangan?: string;
-}
-
-export interface UpdateBarangMasukInput {
-  id: string;
-  jumlah: number;
-  kondisi?: string | null;
-  keterangan?: string | null;
-}
-
-export interface UpdateStockOpnameInput {
-  id: string;
-  stokFisik: number;
-  keterangan?: string | null;
-  kondisiBaik?: number;
-  kondisiRusak?: number;
-  kondisiExpire?: number;
-  lokasiPenyimpanan?: string | null;
-  nomorRak?: string | null;
-  nomorBox?: string | null;
-  pic?: string | null;
-  suhuPenyimpanan?: string | null;
-  kelembaban?: string | null;
-  tanggalExpire?: string | null;
-  nomorBatch?: string | null;
-  catatanDetail?: string | null;
-}
-
-export interface InventoryRecordSite {
-  id: string;
-}
-
-export interface InventoryMasukRecord {
-  id: string;
-  gudang: {
-    id: string;
-    kode: string;
-    nama: string;
-    sites?: InventoryRecordSite[];
-  };
-  barang: { id: string; kode: string; nama: string; satuan: string };
-}
-
-export interface InventoryOpnameRecord {
-  id: string;
-  gudang: { id: string; kode: string; nama: string; lokasi: string | null };
-  barang: { id: string; kode: string; nama: string; satuan: string };
-}
-
-export interface UpdatedStockOpnameResult {
-  record: Record<string, unknown>;
-  stokSistem: number;
-  selisih: number;
-}
-
-export interface MobileGudangRecord {
-  id: string;
-  kode: string;
-  nama: string;
-  lokasi: string | null;
-}
-
-export interface MobileActorUserRecord {
-  id: string;
-  role?: {
-    name?: string | null;
-    permission?: Array<{ resource: string; action: string }>;
-  } | null;
-  sites?: { id: string } | null;
-  userSites?: Array<{ siteId: string }> | null;
-}
-
-export interface MobileActorMitraRecord {
-  id: string;
-  siteId?: string | null;
-}
+import type {
+  BarangWithStock,
+  BarangDetail,
+  CreateBarangInput,
+  UpdateBarangInput,
+  CreateBarangMasukInput,
+  CreateBarangKeluarInput,
+  BarangMasukWithRelations,
+  BarangKeluarWithRelations,
+  CreateGudangInput,
+  UpdateGudangInput,
+  CreateTransferInput,
+  UpdateTransferInput,
+  InventoryTransferRecord,
+  UpdateBarangMasukInput,
+  InventoryMasukRecord,
+  InventoryOpnameRecord,
+  UpdateStockOpnameInput,
+  UpdatedStockOpnameResult,
+  MobileActorUserRecord,
+  MobileActorMitraRecord,
+  MobileGudangRecord,
+} from "./IInventoryOperationRepository.types";
 
 export interface IInventoryOperationRepository {
   findAllTransfers(params?: {
@@ -227,13 +69,13 @@ export interface IInventoryOperationRepository {
     dariGudangId?: string;
     keGudangId?: string;
     siteId?: string;
-  }): Promise<{ items: Record<string, unknown>[]; total: number }>;
-  findTransferById(id: string): Promise<Record<string, unknown> | null>;
-  createTransfer(data: CreateTransferInput): Promise<Record<string, unknown>>;
+  }): Promise<{ items: InventoryTransferRecord[]; total: number }>;
+  findTransferById(id: string): Promise<InventoryTransferRecord | null>;
+  createTransfer(data: CreateTransferInput): Promise<InventoryTransferRecord>;
   updateTransfer(
     id: string,
     data: UpdateTransferInput,
-  ): Promise<Record<string, unknown>>;
+  ): Promise<InventoryTransferRecord>;
   deleteTransfer(id: string): Promise<void>;
   findGudangById(id: string): Promise<Gudang | null>;
   findGudangByKode(kode: string): Promise<Gudang | null>;

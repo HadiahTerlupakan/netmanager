@@ -1,20 +1,22 @@
-import { logger, logActivitySafe } from "@/lib/logger";
-import { sendWorkOrderReminder } from "./WorkOrderNotifications";
-import { workOrderCacheService } from "./WorkOrderCacheService";
-import { AdminWorkOrderRouteRepository } from "../repositories/AdminWorkOrderRouteRepository";
-import type { UserContext } from "./WorkOrderService";
-import { getWorkOrderService } from "./WorkOrderService";
-import { AdminWorkOrderNotificationRouteService } from "./AdminWorkOrderNotificationRouteService";
+import { logActivitySafe } from "@/lib/logger";
 
-const WORK_ORDER_REMINDER_STATUSES = [
-  "PENDING",
-  "ASSIGNED",
-  "IN_PROGRESS",
-] as const;
+import { AdminWorkOrderRouteRepository } from "../repositories/AdminWorkOrderRouteRepository";
+import { AdminWorkOrderNotificationRouteService } from "./AdminWorkOrderNotificationRouteService";
+import { workOrderCacheService } from "./WorkOrderCacheService";
+import { sendWorkOrderReminder } from "./WorkOrderNotifications";
+import { getWorkOrderService } from "./WorkOrderService";
+import type { UserContext } from "./WorkOrderService";
+import {
+  canSendWorkOrderReminder,
+  executeRequestApprovalAction,
+  logCommentCreated,
+  logTaskCreated,
+  type WorkOrderRequestAction,
+} from "./admin-work-order-action.helpers";
+
 const CANCEL_REASON_DEFAULT = "Cancelled by admin";
 
 type PermissionList = string[] | undefined;
-type WorkOrderRequestAction = "APPROVE" | "REJECT";
 
 interface WorkOrderApprovalInput {
   workOrderId: string;
@@ -50,6 +52,7 @@ export class AdminWorkOrderActionRouteService {
       input.permissions,
     );
     if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
+
     const workOrderResult = await this.workOrderService.getWorkOrderById(
       input.workOrderId,
       userContext,
@@ -61,13 +64,16 @@ export class AdminWorkOrderActionRouteService {
         error: workOrderResult.error,
       };
     }
-    const actionResult = await this.executeRequestApprovalAction({
+
+    const actionResult = await executeRequestApprovalAction({
+      workOrderService: this.workOrderService,
       action: input.action,
       workOrderId: input.workOrderId,
       userContext,
       reason: input.reason,
     });
     if (!actionResult.success) return actionResult;
+
     await this.notificationService.notifyRequesterOfApprovalResult({
       requesterId: workOrderResult.data.requestedById,
       action: input.action,
@@ -75,6 +81,7 @@ export class AdminWorkOrderActionRouteService {
       workOrderId: input.workOrderId,
       reason: input.reason,
     });
+
     return actionResult;
   }
 
@@ -90,19 +97,29 @@ export class AdminWorkOrderActionRouteService {
       input.permissions,
     );
     if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
+
     const result = await this.workOrderService.addComment(
       input.workOrderId,
       input.message,
       userContext,
     );
     if (!result.success) return result;
-    await this.logCommentCreated(input, (result.data as { id: string }).id);
+
+    await logCommentCreated({
+      workOrderId: input.workOrderId,
+      message: input.message,
+      actorId: input.actor.id,
+      truncateMessage: this.notificationService.truncateActivityMessage.bind(
+        this.notificationService,
+      ),
+    });
     await this.notificationService.notifyWorkOrderUpdate({
       workOrderId: input.workOrderId,
       message: `${input.actor.name || "Admin"}: ${this.notificationService.truncateActivityMessage(input.message)}`,
       actorName: input.actor.name || "Admin",
       actorId: input.actor.id,
     });
+
     return result;
   }
 
@@ -120,6 +137,7 @@ export class AdminWorkOrderActionRouteService {
       input.permissions,
     );
     if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
+
     const result = await this.workOrderService.addTask(
       input.workOrderId,
       {
@@ -130,16 +148,19 @@ export class AdminWorkOrderActionRouteService {
       userContext,
     );
     if (!result.success) return result;
-    await this.logTaskCreated(
-      input,
-      result.data as { id: string; title: string; order: number },
-    );
+
+    await logTaskCreated({
+      workOrderId: input.workOrderId,
+      actorId: input.actor.id,
+      task: result.data as { id: string; title: string; order: number },
+    });
     await this.notificationService.notifyWorkOrderUpdate({
       workOrderId: input.workOrderId,
       message: `Admin menambahkan tugas: "${input.title}"`,
       actorName: input.actor.name || "Admin",
       actorId: input.actor.id,
     });
+
     return result;
   }
 
@@ -158,6 +179,7 @@ export class AdminWorkOrderActionRouteService {
       input.permissions,
     );
     if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
+
     const gudangId = await this.resolveGudangId(
       input.gudangId,
       userContext.siteId,
@@ -182,9 +204,10 @@ export class AdminWorkOrderActionRouteService {
       input.workOrderId,
     );
     if (!workOrder) return { success: false as const, code: "NOT_FOUND" };
-    if (!this.canSendReminder(workOrder.status)) {
+    if (!canSendWorkOrderReminder(workOrder.status)) {
       return { success: false as const, code: "INVALID_STATUS" };
     }
+
     const sentCount = await sendWorkOrderReminder(
       {
         id: workOrder.id,
@@ -198,6 +221,7 @@ export class AdminWorkOrderActionRouteService {
       },
       input.customMessage,
     );
+
     return { success: true as const, data: { sentCount } };
   }
 
@@ -214,8 +238,11 @@ export class AdminWorkOrderActionRouteService {
       input.permissions,
     );
     if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
-    if (input.permanent)
+
+    if (input.permanent) {
       return this.deleteWorkOrderPermanently(input.workOrderId, userContext);
+    }
+
     return this.cancelWorkOrder(input, userContext);
   }
 
@@ -226,70 +253,12 @@ export class AdminWorkOrderActionRouteService {
     return this.getUserContext(user, permissions);
   }
 
-  private executeRequestApprovalAction(input: {
-    workOrderId: string;
-    action: WorkOrderRequestAction;
-    userContext: UserContext;
-    reason?: string;
-  }) {
-    if (input.action === "APPROVE") {
-      return this.workOrderService.approveRequest(
-        input.workOrderId,
-        input.userContext,
-      );
-    }
-    return this.workOrderService.rejectRequest(
-      input.workOrderId,
-      input.userContext,
-      input.reason || "",
-    );
-  }
-
-  private logCommentCreated(
-    input: { workOrderId: string; message: string; actor: { id: string } },
-    commentId: string,
-  ) {
-    return logger.logActivity({
-      action: "CREATE",
-      subject: "Work Order Comment",
-      details: {
-        workOrderId: input.workOrderId,
-        commentId,
-        message: this.notificationService.truncateActivityMessage(
-          input.message,
-        ),
-      },
-      userId: input.actor.id,
-    });
-  }
-
-  private logTaskCreated(
-    input: { workOrderId: string; actor: { id: string } },
-    task: { id: string; title: string; order: number },
-  ) {
-    return logger.logActivity({
-      action: "CREATE",
-      subject: "Work Order Task",
-      details: {
-        workOrderId: input.workOrderId,
-        taskId: task.id,
-        taskTitle: task.title,
-        order: task.order,
-      },
-      userId: input.actor.id,
-    });
-  }
-
   private async resolveGudangId(
     gudangId: string | undefined,
     siteId: string | undefined,
   ) {
     if (gudangId || !siteId) return gudangId;
     return this.repository.findFirstGudangBySite(siteId);
-  }
-
-  private canSendReminder(status: string) {
-    return (WORK_ORDER_REMINDER_STATUSES as readonly string[]).includes(status);
   }
 
   private async deleteWorkOrderPermanently(
@@ -316,6 +285,7 @@ export class AdminWorkOrderActionRouteService {
       reason,
     );
     if (!result.success) return result;
+
     logActivitySafe({
       action: "DELETE",
       subject: "Work Order",
@@ -323,6 +293,7 @@ export class AdminWorkOrderActionRouteService {
       details: { id: input.workOrderId, reason, type: "CANCEL" },
     });
     await workOrderCacheService.invalidateAllCaches();
+
     return result;
   }
 }

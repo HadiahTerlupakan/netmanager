@@ -6,7 +6,7 @@ export {
   AttendanceStatus,
   checkInSchema,
   checkOutSchema,
-} from "@/modules/attendance";
+} from "@/modules/attendance/validation";
 export type {
   AttendanceBulkDelete,
   AttendanceFilter,
@@ -15,4 +15,4 @@ export type {
   AttendanceUpdate,
   CheckInRequest,
   CheckOutRequest,
-} from "@/modules/attendance";
+} from "@/modules/attendance/validation";

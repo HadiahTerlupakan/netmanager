@@ -6,29 +6,26 @@ const EXPIRED_STATUSES = ["EXPIRED", "TIMEOUT"];
 const CANCELLED_STATUSES = ["CANCELLED", "CANCELED"];
 const FAILED_STATUSES = ["FAILED", "ERROR"];
 
+const DANA_STATUS_GROUPS: Array<{
+  statuses: readonly string[];
+  result: TransactionStatus["status"];
+}> = [
+  { statuses: SUCCESS_STATUSES, result: "PAID" },
+  { statuses: PENDING_STATUSES, result: "PENDING" },
+  { statuses: EXPIRED_STATUSES, result: "EXPIRED" },
+  { statuses: CANCELLED_STATUSES, result: "CANCELLED" },
+  { statuses: FAILED_STATUSES, result: "FAILED" },
+];
+
 /** Normalize status DANA menjadi status gateway internal. */
-export function normalizeDanaStatus(status: string | undefined) {
-  if (SUCCESS_STATUSES.includes(status ?? "")) {
-    return "PAID";
-  }
-
-  if (PENDING_STATUSES.includes(status ?? "")) {
-    return "PENDING";
-  }
-
-  if (EXPIRED_STATUSES.includes(status ?? "")) {
-    return "EXPIRED";
-  }
-
-  if (CANCELLED_STATUSES.includes(status ?? "")) {
-    return "CANCELLED";
-  }
-
-  if (FAILED_STATUSES.includes(status ?? "")) {
-    return "FAILED";
-  }
-
-  return "PENDING";
+export function normalizeDanaStatus(
+  status: string | undefined,
+): TransactionStatus["status"] {
+  const normalized = status ?? "";
+  const match = DANA_STATUS_GROUPS.find((group) =>
+    group.statuses.includes(normalized),
+  );
+  return match?.result ?? "PENDING";
 }
 
 /** Ambil nilai amount dari response DANA. */

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type {
   Status,
@@ -8,6 +7,7 @@ import type {
 } from "@prisma/client";
 
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
+import { pelangganWithPackageInclude } from "./pelanggan-repository.constants";
 import {
   findByIdentifierForAuth as findCustomerByIdentifierForAuth,
   findUpgradePackageOptions as findCustomerUpgradePackageOptions,
@@ -15,12 +15,20 @@ import {
   updateProfile as updateCustomerProfile,
   updateSyncStatus as updateCustomerSyncStatus,
 } from "./pelanggan-repository-account.helpers";
-import { PelangganMapper } from "../mappers/PelangganMapper";
-import { pelangganWithPackageInclude } from "./pelanggan-repository.constants";
 import {
-  buildCreatePelangganArgs,
-  buildPelangganWhereClause,
-} from "./pelanggan-repository.helpers";
+  checkHargaPaketExists as checkHargaPaketExistsRecord,
+  createPelanggan as createPelangganRecord,
+  deletePelanggan as deletePelangganRecord,
+  findAllPaginatedPelanggan as findAllPaginatedPelangganRecords,
+  findAllPelanggan as findAllPelangganRecords,
+  findCustomerBillingAccess as findCustomerBillingAccessRecord,
+  findPelangganById as findPelangganByIdRecord,
+  findPelangganByIdPelanggan as findPelangganByIdPelangganRecord,
+  findPelangganByIdWithHargaPaket as findPelangganByIdWithHargaPaketRecord,
+  findPelangganByIdWithPackage as findPelangganByIdWithPackageRecord,
+  findPelangganByUsername as findPelangganByUsernameRecord,
+  updatePelanggan as updatePelangganRecord,
+} from "./pelanggan-repository.prisma.helpers";
 import {
   findAdminMutationContext as findAdminPppMutationContext,
   findAdminPppDetail as findAdminPppDetailRecord,
@@ -111,27 +119,12 @@ export class PelangganRepository implements IPelangganRepository {
     pelangganId: string;
     tenantId?: string | null;
   }): Promise<{ id: string; siteId: string | null } | null> {
-    return prisma.pelanggan.findFirst({
-      where: {
-        id: input.pelangganId,
-        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
-      },
-      select: { id: true, siteId: true },
-    });
+    return findCustomerBillingAccessRecord(input);
   }
 
   /** Get all customers using optional filters. */
   async findAll(filter?: FilterOptions) {
-    const where = buildPelangganWhereClause(filter);
-    const pelanggan = await prisma.pelanggan.findMany({
-      where,
-      include: pelangganWithPackageInclude,
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return pelanggan.map((item) => PelangganMapper.toDomainWithPackage(item));
+    return findAllPelangganRecords(filter);
   }
 
   /** Get paginated customers using optional filters. */
@@ -140,60 +133,32 @@ export class PelangganRepository implements IPelangganRepository {
     page: number = 1,
     limit: number = 10,
   ) {
-    const where = buildPelangganWhereClause(filter);
-    const [data, total] = await Promise.all([
-      prisma.pelanggan.findMany({
-        where,
-        include: pelangganWithPackageInclude,
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.pelanggan.count({ where }),
-    ]);
-
-    return {
-      data: data.map((item) => PelangganMapper.toDomainWithPackage(item)),
-      total,
-    };
+    return findAllPaginatedPelangganRecords(filter, page, limit);
   }
 
   /** Get customer by internal id. */
   async findById(id: string) {
-    const pelanggan = await prisma.pelanggan.findUnique({ where: { id } });
-    return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
+    return findPelangganByIdRecord(id);
   }
 
   /** Get customer by customer code. */
   async findByIdPelanggan(idPelanggan: string) {
-    const pelanggan = await prisma.pelanggan.findFirst({
-      where: { idPelanggan },
-    });
-    return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
+    return findPelangganByIdPelangganRecord(idPelanggan);
   }
 
   /** Get customer by username. */
   async findByUsername(username: string) {
-    const pelanggan = await prisma.pelanggan.findFirst({ where: { username } });
-    return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
+    return findPelangganByUsernameRecord(username);
   }
 
   /** Create customer and return package relation when available. */
   async create(data: CreatePelangganDTO) {
-    const pelanggan = await prisma.pelanggan.create(
-      buildCreatePelangganArgs(data),
-    );
-    return PelangganMapper.toDomainWithPackage(pelanggan);
+    return createPelangganRecord(data);
   }
 
   /** Update customer by id. */
   async update(id: string, data: Partial<CreatePelangganDTO>) {
-    const pelanggan = await prisma.pelanggan.update({
-      where: { id },
-      data,
-    });
-
-    return PelangganMapper.toDomain(pelanggan);
+    return updatePelangganRecord(id, data);
   }
 
   /** Get customer data needed for admin PPP mutation flow. */
@@ -226,31 +191,17 @@ export class PelangganRepository implements IPelangganRepository {
 
   /** Delete customer by id. */
   async delete(id: string) {
-    const pelanggan = await prisma.pelanggan.delete({ where: { id } });
-    return PelangganMapper.toDomain(pelanggan);
+    return deletePelangganRecord(id);
   }
 
   /** Check package existence. */
   async checkHargaPaketExists(id: string): Promise<boolean> {
-    const hargaPaket = await prisma.hargaPaket.findUnique({ where: { id } });
-    return hargaPaket !== null;
+    return checkHargaPaketExistsRecord(id);
   }
 
   /** Get pelanggan with package details for customer portal. */
   async findByIdWithPackage(id: string) {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-      include: {
-        site: true,
-        hargaPaket: {
-          include: {
-            bandwidth: true,
-          },
-        },
-      },
-    });
-
-    return pelanggan ? PelangganMapper.toDomainWithPackage(pelanggan) : null;
+    return findPelangganByIdWithPackageRecord(id);
   }
 
   /** Update customer profile preferences. */
@@ -309,12 +260,7 @@ export class PelangganRepository implements IPelangganRepository {
 
   /** Get customer with package relation. */
   async findByIdWithHargaPaket(id: string) {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id },
-      include: { hargaPaket: true },
-    });
-
-    return pelanggan ? PelangganMapper.toDomainWithPackage(pelanggan) : null;
+    return findPelangganByIdWithHargaPaketRecord(id);
   }
 
   /** Get upgrade package options above current package price. */

@@ -1,9 +1,16 @@
 import { InventoryApiRepository } from "../repositories/InventoryApiRepository";
+import {
+  buildCalculatedOpnameResponse,
+  buildOpnameReportResponse,
+  buildRestockAlertsResponse,
+  buildRestockPredictionSummary,
+  buildStockBreakdownResponse,
+  buildUsageAnalyticsResponse,
+} from "./inventory-route.helpers";
 
 const DEFAULT_RESTOCK_PAGE = 1;
 const DEFAULT_RESTOCK_LIMIT = 20;
 const DEFAULT_USAGE_DAYS = 30;
-const STOCKOUT_WARNING_DAYS = 7;
 
 interface ResolveRestrictedSiteIdInput {
   userId: string;
@@ -51,23 +58,15 @@ export class InventoryRouteService {
       gudangId: input.gudangId,
       days,
     });
-    const totalUsage = result.usageData._sum.jumlah || 0;
-    const transactionCount = result.usageData._count.id;
 
-    return {
+    return buildUsageAnalyticsResponse({
       barangId: input.barangId,
       gudangId: input.gudangId,
       days,
-      totalUsage,
-      avgDailyUsage: totalUsage / days,
-      avgPerTransaction:
-        transactionCount > 0 ? totalUsage / transactionCount : 0,
-      transactionCount,
-      currentStock: result.currentStock?.stok || 0,
-      usageTrend: this.calculateUsageTrend(result.monthlyUsage),
+      usageData: result.usageData,
+      currentStock: result.currentStock,
       monthlyUsage: result.monthlyUsage,
-      lastCalculated: new Date().toISOString(),
-    };
+    });
   }
 
   /** Ambil daftar restock alert dengan pagination. */
@@ -88,16 +87,13 @@ export class InventoryRouteService {
       limit,
     });
 
-    return {
-      alerts: result.alerts,
-      pagination: {
-        page,
-        limit,
-        total: result.total,
-        totalPages: Math.ceil(result.total / limit),
-      },
+    return buildRestockAlertsResponse({
+      page,
+      limit,
+      total: result.total,
       unreadCount: result.unreadCount,
-    };
+      alerts: result.alerts,
+    });
   }
 
   /** Jalankan auto check alert restock. */
@@ -157,21 +153,7 @@ export class InventoryRouteService {
 
     return {
       predictions,
-      summary: {
-        totalItems: predictions.length,
-        criticalItems: predictions.filter((item) => item.urgency === "CRITICAL")
-          .length,
-        highPriorityItems: predictions.filter((item) => item.urgency === "HIGH")
-          .length,
-        mediumPriorityItems: predictions.filter(
-          (item) => item.urgency === "MEDIUM",
-        ).length,
-        lowPriorityItems: predictions.filter((item) => item.urgency === "LOW")
-          .length,
-        stockoutRiskItems: predictions.filter(
-          (item) => item.daysUntilStockout <= STOCKOUT_WARNING_DAYS,
-        ).length,
-      },
+      summary: buildRestockPredictionSummary(predictions),
       days,
     };
   }
@@ -228,33 +210,13 @@ export class InventoryRouteService {
   /** Ambil laporan opname inventory. */
   async getOpnameReport(gudangId?: string) {
     const gudangList = await this.repository.findOpnameReport(gudangId);
-    return {
-      gudangList,
-      summary: {
-        totalGudang: gudangList.length,
-        totalBarang: gudangList.reduce(
-          (sum, item) => sum + item.totalBarang,
-          0,
-        ),
-        totalStok: gudangList.reduce((sum, item) => sum + item.totalStok, 0),
-        totalHilang: gudangList.reduce(
-          (sum, item) => sum + item.totalHilang,
-          0,
-        ),
-      },
-    };
+    return buildOpnameReportResponse(gudangList);
   }
 
   /** Hitung data awal opname untuk gudang. */
   async calculateOpname(gudangId: string) {
     const items = await this.repository.calculateOpname(gudangId);
-    return {
-      items,
-      summary: {
-        totalBarang: items.length,
-        totalStok: items.reduce((sum, item) => sum + item.stokSistem, 0),
-      },
-    };
+    return buildCalculatedOpnameResponse(items);
   }
 
   /** Ambil stok barang saat ini. */
@@ -271,23 +233,12 @@ export class InventoryRouteService {
   async getStockBreakdown(barangId: string, gudangId: string) {
     const { stockSnapshot, barangInfo, gudangInfo } =
       await this.repository.findStockBreakdown(barangId, gudangId);
-    const stockPerKondisi = {
-      BARU: Math.max(stockSnapshot?.stokBaru || 0, 0),
-      BEKAS: Math.max(stockSnapshot?.stokBekas || 0, 0),
-      RUSAK: Math.max(stockSnapshot?.stokRusak || 0, 0),
-    };
-    const totalStock = Math.max(
-      stockSnapshot?.stok ||
-        Object.values(stockPerKondisi).reduce((sum, stock) => sum + stock, 0),
-      0,
-    );
 
-    return {
-      totalStock,
-      stockPerKondisi,
-      barang: barangInfo,
-      gudang: gudangInfo,
-    };
+    return buildStockBreakdownResponse({
+      stockSnapshot,
+      barangInfo,
+      gudangInfo,
+    });
   }
 
   /** Ambil record keluar dan validasi site oleh caller. */
@@ -315,18 +266,6 @@ export class InventoryRouteService {
     transactionType: string;
   }) {
     return this.repository.verifyInventoryTransaction(input);
-  }
-
-  private calculateUsageTrend(monthlyUsage: Array<{ usage: number }>) {
-    if (monthlyUsage.length < 3) return "STABLE" as const;
-    const recentAvg =
-      monthlyUsage.slice(-2).reduce((sum, item) => sum + item.usage, 0) / 2;
-    const olderAvg =
-      monthlyUsage.slice(0, 2).reduce((sum, item) => sum + item.usage, 0) / 2;
-
-    if (recentAvg > olderAvg * 1.1) return "INCREASING" as const;
-    if (recentAvg < olderAvg * 0.9) return "DECREASING" as const;
-    return "STABLE" as const;
   }
 }
 

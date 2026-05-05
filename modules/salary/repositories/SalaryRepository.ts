@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import type { EmployeeType, Prisma } from "@prisma/client";
 import { SalaryMapper } from "../mappers/SalaryMapper";
 import type {
   CreateSalaryDetailInput,
@@ -13,6 +12,11 @@ import type {
   SalaryPeriodStatsEntity,
   SalaryWithDetailsEntity,
 } from "../domain/entities/SalaryEntity";
+import {
+  buildSalaryFullInclude,
+  buildSalaryStatusUpdate,
+  buildSalaryWhere,
+} from "./SalaryRepository.helpers";
 
 const EMPTY_TOTAL = 0;
 
@@ -58,7 +62,7 @@ export class SalaryRepository implements ISalaryRepository {
   async findById(id: string): Promise<SalaryWithDetailsEntity | null> {
     const salary = await prisma.salary.findUnique({
       where: { id },
-      include: this.buildFullInclude(),
+      include: buildSalaryFullInclude(),
     });
 
     return salary ? SalaryMapper.toDomain(salary) : null;
@@ -81,12 +85,12 @@ export class SalaryRepository implements ISalaryRepository {
   async findAll(
     filters: SalaryFilters = {},
   ): Promise<{ salaries: SalaryWithDetailsEntity[]; total: number }> {
-    const where = this.buildWhere(filters);
+    const where = buildSalaryWhere(filters);
     const [salaries, total] = await Promise.all([
       prisma.salary.findMany({
         where,
         include: {
-          ...this.buildFullInclude(),
+          ...buildSalaryFullInclude(),
           revisions: false,
         },
         orderBy: { createdAt: "desc" },
@@ -121,7 +125,7 @@ export class SalaryRepository implements ISalaryRepository {
   ): Promise<SalaryEntity> {
     const salary = await prisma.salary.update({
       where: { id },
-      data: this.buildStatusUpdate(status, userId, notes),
+      data: buildSalaryStatusUpdate(status, userId, notes),
     });
 
     return SalaryMapper.toDomainSalary(salary);
@@ -237,82 +241,5 @@ export class SalaryRepository implements ISalaryRepository {
       paid: countMap.PAID ?? EMPTY_TOTAL,
       totalNetSalary: totals._sum.netSalary ?? EMPTY_TOTAL,
     };
-  }
-
-  /** Build shared include for salary relations. */
-  private buildFullInclude() {
-    return {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          employeeType: true,
-          departmentId: true,
-          siteId: true,
-          departments: { select: { name: true } },
-          sites: { select: { name: true } },
-        },
-      },
-      details: { orderBy: { type: "asc" } },
-      revisions: { orderBy: { createdAt: "desc" } },
-      auditedBy: { select: { id: true, name: true } },
-      approvedBy: { select: { id: true, name: true } },
-    } satisfies Prisma.SalaryInclude;
-  }
-
-  /** Build salary filter condition. */
-  private buildWhere(filters: SalaryFilters): Prisma.SalaryWhereInput {
-    const where: Prisma.SalaryWhereInput = {};
-
-    if (filters.month) where.month = filters.month;
-    if (filters.year) where.year = filters.year;
-    if (filters.status) where.status = filters.status;
-    if (filters.userId) where.userId = filters.userId;
-
-    if (!filters.departmentId && !filters.siteId && !filters.employeeType) {
-      return where;
-    }
-
-    where.user = {
-      ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
-      ...(filters.siteId ? { siteId: filters.siteId } : {}),
-      ...(filters.employeeType
-        ? { employeeType: filters.employeeType as EmployeeType }
-        : {}),
-    };
-
-    return where;
-  }
-
-  /** Build update payload for salary status transition. */
-  private buildStatusUpdate(
-    status: SalaryEntity["status"],
-    userId?: string,
-    notes?: string,
-  ): Prisma.SalaryUpdateInput {
-    const updateData: Prisma.SalaryUpdateInput = {
-      status,
-      updatedAt: new Date(),
-    };
-
-    if (status === "AUDITED" && userId) {
-      updateData.auditedBy = { connect: { id: userId } };
-      updateData.auditedAt = new Date();
-      updateData.auditNotes = notes ?? null;
-      return updateData;
-    }
-
-    if (status === "APPROVED" && userId) {
-      updateData.approvedBy = { connect: { id: userId } };
-      updateData.approvedAt = new Date();
-      return updateData;
-    }
-
-    if (status === "PAID") {
-      updateData.paidAt = new Date();
-    }
-
-    return updateData;
   }
 }

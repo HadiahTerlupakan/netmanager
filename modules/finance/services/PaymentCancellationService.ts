@@ -37,23 +37,25 @@ async function findPaymentWithInvoice(paymentId: string) {
     where: { id: paymentId },
     include: { invoice: true },
   });
+  assertCancellablePayment(payment);
+  return payment;
+}
 
+function assertCancellablePayment(
+  payment: { gatewayStatus: string; invoice: unknown } | null,
+) {
   if (!payment) {
     throw new PaymentCancellationError("Payment not found", 404);
   }
-
   if (payment.gatewayStatus !== "PAID") {
     throw new PaymentCancellationError(
       "Only PAID payments can be cancelled",
       400,
     );
   }
-
   if (!payment.invoice) {
     throw new PaymentCancellationError("Associated invoice not found", 404);
   }
-
-  return payment;
 }
 
 function calculatePaidAmount(paidAmount: bigint, paymentAmount: bigint) {

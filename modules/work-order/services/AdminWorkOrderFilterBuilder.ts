@@ -4,6 +4,18 @@ export class AdminWorkOrderFilterBuilder {
   /** Bangun filter list work order dari query string route admin. */
   buildListFilters(searchParams: URLSearchParams): WorkOrderListRouteFilters {
     const filters: WorkOrderListRouteFilters = {};
+
+    this.assignListFilters(filters, searchParams);
+    this.assignScalarFilters(filters, searchParams);
+    this.assignUnassignedFilter(filters, searchParams.get("unassignedOnly"));
+    this.assignWorkOrderTypeFilter(filters, searchParams.get("woType"));
+    return filters;
+  }
+
+  private assignListFilters(
+    filters: WorkOrderListRouteFilters,
+    searchParams: URLSearchParams,
+  ) {
     this.assignListFilterValue(filters, "status", searchParams.get("status"));
     this.assignListFilterValue(
       filters,
@@ -11,6 +23,12 @@ export class AdminWorkOrderFilterBuilder {
       searchParams.get("priority"),
     );
     this.assignListFilterValue(filters, "type", searchParams.get("type"));
+  }
+
+  private assignScalarFilters(
+    filters: WorkOrderListRouteFilters,
+    searchParams: URLSearchParams,
+  ) {
     this.assignScalarFilter(
       filters,
       "departmentId",
@@ -23,9 +41,6 @@ export class AdminWorkOrderFilterBuilder {
       searchParams.get("assignedToId"),
     );
     this.assignScalarFilter(filters, "search", searchParams.get("search"));
-    this.assignUnassignedFilter(filters, searchParams.get("unassignedOnly"));
-    this.assignWorkOrderTypeFilter(filters, searchParams.get("woType"));
-    return filters;
   }
 
   private assignListFilterValue(

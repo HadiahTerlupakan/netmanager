@@ -148,11 +148,22 @@ export function serializeCreatedInvoice(invoice: {
 }): SerializedCreatedInvoice {
   return {
     ...invoice,
+    ...serializeInvoiceAmounts(invoice),
+    invoiceItem: getSerializedInvoiceItems(invoice),
+  };
+}
+
+function serializeInvoiceAmounts(invoice: {
+  subtotal: bigint;
+  taxAmount: bigint;
+  discountAmount: bigint;
+  totalAmount: bigint;
+}) {
+  return {
     subtotal: invoice.subtotal.toString(),
     taxAmount: invoice.taxAmount.toString(),
     discountAmount: invoice.discountAmount.toString(),
     totalAmount: invoice.totalAmount.toString(),
-    invoiceItem: getSerializedInvoiceItems(invoice),
   };
 }
 

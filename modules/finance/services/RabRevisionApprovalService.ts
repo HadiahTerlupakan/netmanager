@@ -4,6 +4,21 @@ import {
   DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD,
   getRevisionApprovalStatus,
 } from "../utils/rab-revisions";
+import {
+  buildPromotedRevisionData,
+  buildRejectApprovalRecord,
+  buildRejectedRevisionData,
+  buildRevisionStatusUpdate,
+  getApprovalMessage,
+  hasReachedApprovalThreshold,
+} from "./rab-revision-approval.helpers";
+
+type RevisionRecord = Awaited<ReturnType<typeof findRevision>>;
+type ApprovalTx = Parameters<typeof prisma.$transaction>[0] extends (
+  arg: infer T,
+) => Promise<unknown>
+  ? T
+  : never;
 
 export class RabRevisionApprovalError extends Error {
   constructor(
@@ -27,39 +42,33 @@ export async function rejectRabRevision(options: {
   notes?: string;
 }) {
   await assertUserCanApproveRab(options.userId);
+  const revision = await findRejectableRevision(options);
+  return prisma.$transaction((tx) =>
+    rejectRevisionInTransaction(tx, revision, options),
+  );
+}
+
+async function findRejectableRevision(options: {
+  rabProjectId: string;
+  revisionId: string;
+}) {
   const revision = await findRevision(options.revisionId, options.rabProjectId);
   assertRevisionCanBeRejected(revision);
+  return revision;
+}
 
-  return prisma.$transaction(async (tx) => {
-    await tx.rabRevisionApproval.upsert({
-      where: {
-        rabRevisionId_userId: {
-          rabRevisionId: revision.id,
-          userId: options.userId,
-        },
-      },
-      create: {
-        rabRevisionId: revision.id,
-        userId: options.userId,
-        status: "REJECTED",
-        notes: options.notes,
-      },
-      update: {
-        status: "REJECTED",
-        notes: options.notes,
-      },
-    });
-
-    return tx.rabRevision.update({
-      where: { id: revision.id },
-      data: {
-        status: RabRevisionStatus.REJECTED,
-        notes: options.notes ?? revision.notes,
-        rejectedById: options.userId,
-        rejectedAt: new Date(),
-      },
-      include: { approvals: true },
-    });
+async function rejectRevisionInTransaction(
+  tx: ApprovalTx,
+  revision: RevisionRecord,
+  options: { userId: string; notes?: string },
+) {
+  await tx.rabRevisionApproval.upsert(
+    buildRejectApprovalRecord(revision.id, options),
+  );
+  return tx.rabRevision.update({
+    where: { id: revision.id },
+    data: buildRejectedRevisionData(revision, options),
+    include: { approvals: true },
   });
 }
 
@@ -70,9 +79,7 @@ export async function approveRabRevision(options: {
   userId: string;
 }): Promise<RabRevisionApprovalResult> {
   await assertUserCanApproveRab(options.userId);
-  const revision = await findRevision(options.revisionId, options.rabProjectId);
-  assertRevisionCanBeApproved(revision);
-  assertUserHasNotApprovedYet(revision.approvals, options.userId);
+  const revision = await findApprovableRevision(options);
 
   if (hasReachedApprovalThreshold(revision.approvals)) {
     return promoteApprovedRevision(revision);
@@ -80,6 +87,17 @@ export async function approveRabRevision(options: {
 
   await createApprovalRecord(revision.id, options.userId);
   return finalizeApprovalProgress(revision, options.userId);
+}
+
+async function findApprovableRevision(options: {
+  rabProjectId: string;
+  revisionId: string;
+  userId: string;
+}) {
+  const revision = await findRevision(options.revisionId, options.rabProjectId);
+  assertRevisionCanBeApproved(revision);
+  assertUserHasNotApprovedYet(revision.approvals, options.userId);
+  return revision;
 }
 
 /** Throws when the current user has already approved the revision. */
@@ -97,11 +115,6 @@ function assertUserHasNotApprovedYet(
   );
 }
 
-/** Checks whether existing approvals already satisfy the approval threshold. */
-function hasReachedApprovalThreshold(approvals: Array<{ status: string }>) {
-  return getApprovedCount(approvals) >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD;
-}
-
 /** Persists a single approval record for the given revision and user. */
 async function createApprovalRecord(revisionId: string, userId: string) {
   await prisma.rabRevisionApproval.create({
@@ -115,12 +128,10 @@ async function createApprovalRecord(revisionId: string, userId: string) {
 
 /** Completes approval progress and returns the route response payload. */
 async function finalizeApprovalProgress(
-  revision: Awaited<ReturnType<typeof findRevision>>,
+  revision: RevisionRecord,
   userId: string,
 ): Promise<RabRevisionApprovalResult> {
-  const approvalCount = await prisma.rabRevisionApproval.count({
-    where: { rabRevisionId: revision.id, status: "APPROVED" },
-  });
+  const approvalCount = await countApprovedRevisions(revision.id);
   const nextStatus = getRevisionApprovalStatus(approvalCount, revision.status);
   const updatedRevision = await updateRevisionStatus(
     revision,
@@ -135,11 +146,10 @@ async function finalizeApprovalProgress(
   };
 }
 
-/** Builds the approval result message based on current approval count. */
-function getApprovalMessage(approvalCount: number) {
-  return approvalCount >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD
-    ? "Revisi RAB berhasil disetujui seutuhnya."
-    : "Persetujuan revisi dicatat.";
+async function countApprovedRevisions(revisionId: string) {
+  return prisma.rabRevisionApproval.count({
+    where: { rabRevisionId: revisionId, status: "APPROVED" },
+  });
 }
 
 async function assertUserCanApproveRab(userId: string) {
@@ -176,18 +186,14 @@ async function findRevision(revisionId: string, rabProjectId: string) {
   return revision;
 }
 
-function assertRevisionCanBeApproved(
-  revision: Awaited<ReturnType<typeof findRevision>>,
-) {
+function assertRevisionCanBeApproved(revision: RevisionRecord) {
   assertPendingRevision(
     revision,
     "Revisi harus diajukan terlebih dahulu sebelum bisa disetujui.",
   );
 }
 
-function assertRevisionCanBeRejected(
-  revision: Awaited<ReturnType<typeof findRevision>>,
-) {
+function assertRevisionCanBeRejected(revision: RevisionRecord) {
   assertPendingRevision(
     revision,
     "Revisi harus diajukan terlebih dahulu sebelum bisa ditolak.",
@@ -195,7 +201,7 @@ function assertRevisionCanBeRejected(
 }
 
 function assertPendingRevision(
-  revision: Awaited<ReturnType<typeof findRevision>>,
+  revision: RevisionRecord,
   invalidStatusMessage: string,
 ) {
   if (revision.status === RabRevisionStatus.APPROVED) {
@@ -211,24 +217,20 @@ function assertPendingRevision(
   }
 }
 
-function getApprovedCount(approvals: Array<{ status: string }>) {
-  return approvals.filter((approval) => approval.status === "APPROVED").length;
+async function promoteApprovedRevision(revision: RevisionRecord) {
+  const syncedRevision = await syncApprovedRevision(revision);
+  return {
+    message:
+      "Revisi sudah memenuhi approval dan dipromosikan sebagai baseline final.",
+    data: syncedRevision,
+  };
 }
 
-async function promoteApprovedRevision(
-  revision: Awaited<ReturnType<typeof findRevision>>,
-) {
-  const syncedRevision = await prisma.$transaction(async (tx) => {
+async function syncApprovedRevision(revision: RevisionRecord) {
+  return prisma.$transaction(async (tx) => {
     const nextRevision = await tx.rabRevision.update({
       where: { id: revision.id },
-      data: {
-        status: RabRevisionStatus.APPROVED,
-        approvedById: revision.approvals.find(
-          (approval: { status: string; userId: string }) =>
-            approval.status === "APPROVED",
-        )?.userId,
-        approvedAt: new Date(),
-      },
+      data: buildPromotedRevisionData(revision),
       include: { approvals: true },
     });
 
@@ -239,16 +241,10 @@ async function promoteApprovedRevision(
 
     return nextRevision;
   });
-
-  return {
-    message:
-      "Revisi sudah memenuhi approval dan dipromosikan sebagai baseline final.",
-    data: syncedRevision,
-  };
 }
 
 function updateRevisionStatus(
-  revision: Awaited<ReturnType<typeof findRevision>>,
+  revision: RevisionRecord,
   nextStatus: RabRevisionStatus,
   approvalCount: number,
   userId: string,
@@ -256,17 +252,7 @@ function updateRevisionStatus(
   return prisma.$transaction(async (tx) => {
     const nextRevision = await tx.rabRevision.update({
       where: { id: revision.id },
-      data: {
-        status: nextStatus,
-        approvedById:
-          approvalCount >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD
-            ? userId
-            : undefined,
-        approvedAt:
-          approvalCount >= DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD
-            ? new Date()
-            : undefined,
-      },
+      data: buildRevisionStatusUpdate(nextStatus, approvalCount, userId),
       include: { approvals: true },
     });
 

@@ -49,7 +49,11 @@ export interface IMitraWithdrawRepository {
   findMitraById(
     userId: string,
     tenantId?: string,
-  ): Promise<{ id: string; minWithdrawal: number | null } | null>;
+  ): Promise<{
+    id: string;
+    minWithdrawal: number | null;
+    isActive: boolean;
+  } | null>;
 
   /** Mengambil wallet mitra. */
   findWalletByMitraId(

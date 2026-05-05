@@ -32,6 +32,7 @@ export interface FeePelangganStatsQuery {
   feeRate: number;
   monthStart: Date;
   today: Date;
+  tenantId?: string;
 }
 
 export interface SaveFaceVerificationRecord {

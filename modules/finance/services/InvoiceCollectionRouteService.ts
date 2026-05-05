@@ -97,26 +97,38 @@ export async function listInvoicesForRoute(options: {
   if (!where) {
     return buildEmptyInvoiceList(options.filters);
   }
+  return fetchPaginatedInvoices(options.filters, where);
+}
 
+async function fetchPaginatedInvoices(
+  filters: InvoiceListFilters,
+  where: PrismaBilling.InvoiceWhereInput,
+) {
   const result = await getInvoiceRepository().findPaginatedWithItemsAndPayments(
     {
       where,
-      page: options.filters.page,
-      limit: options.filters.limit,
+      page: filters.page,
+      limit: filters.limit,
     },
   );
-  const totalPages = Math.ceil(result.total / options.filters.limit);
-
   return {
     data: result.data,
-    pagination: {
-      page: options.filters.page,
-      limit: options.filters.limit,
-      total: result.total,
-      totalPages,
-      hasNext: options.filters.page < totalPages,
-      hasPrev: options.filters.page > 1,
-    },
+    pagination: buildPaginationMeta(filters, result.total),
+  };
+}
+
+function buildPaginationMeta(
+  filters: { page: number; limit: number },
+  total: number,
+) {
+  const totalPages = Math.ceil(total / filters.limit);
+  return {
+    page: filters.page,
+    limit: filters.limit,
+    total,
+    totalPages,
+    hasNext: filters.page < totalPages,
+    hasPrev: filters.page > 1,
   };
 }
 
@@ -138,14 +150,7 @@ export async function createInvoiceForRoute(options: {
   isRestricted: boolean;
   now?: Date;
 }): Promise<InvoiceCreateResult> {
-  const pelanggan = await getPelangganAdminQueryService().getPppMutationContext(
-    options.input.pelangganId,
-  );
-  if (!pelanggan) {
-    return { status: "not-found" };
-  }
-
-  const siteResult = await resolveCreateSiteId(options, pelanggan.siteId);
+  const siteResult = await validateCreateInvoicePrerequisites(options);
   if (siteResult.status !== "ok") {
     return { status: siteResult.status };
   }
@@ -153,6 +158,20 @@ export async function createInvoiceForRoute(options: {
   const invoice = await createInvoiceRecord(options, siteResult.siteId);
   logCreatedInvoiceActivity(invoice, options.user.id);
   return { status: "created", data: serializeCreatedInvoice(invoice) };
+}
+
+async function validateCreateInvoicePrerequisites(options: {
+  input: InvoiceCreateInput;
+  user: RouteUser;
+  isRestricted: boolean;
+}) {
+  const pelanggan = await getPelangganAdminQueryService().getPppMutationContext(
+    options.input.pelangganId,
+  );
+  if (!pelanggan) {
+    return { status: "not-found" as const };
+  }
+  return resolveCreateSiteId(options, pelanggan.siteId);
 }
 
 /** Creates the persisted invoice record with calculated totals. */

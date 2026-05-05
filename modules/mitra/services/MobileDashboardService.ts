@@ -1,27 +1,17 @@
 import { getMixRadiusService } from "@/modules/integrations";
-import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { MobileDashboardRepository } from "../repositories/MobileDashboardRepository";
 import type { IMobileDashboardRepository } from "../domain/ports/IMobileDashboardRepository";
+import {
+  createDashboardPeriods,
+  extractUserSiteIds,
+  getEmployeeCanvasingProgress,
+  getMitraFeePelangganStats,
+  type MobileDashboardMixRadiusService,
+  type MobileDashboardPeriods,
+} from "./MobileDashboardService.helpers";
 
 const DEFAULT_CANVASING_TARGET = 30;
 const DEFAULT_TARGET_SCHEMA = "MONTHLY_RESET";
-const MIXRADIUS_FETCH_LENGTH = 100000;
-
-interface MobileDashboardPeriods {
-  today: Date;
-  weekStart: Date;
-  monthStart: Date;
-}
-
-interface MobileDashboardMixRadiusService {
-  fetchIncomeByPeriod(input: {
-    startDate: string;
-    endDate: string;
-    length: number;
-  }): Promise<{
-    data?: Array<{ owner_name?: string; member_id?: string; invoice: string }>;
-  } | null>;
-}
 
 export interface MobileDashboardUserPayload {
   id: string;
@@ -33,8 +23,7 @@ export class MobileDashboardService {
   constructor(
     private readonly repository: IMobileDashboardRepository = new MobileDashboardRepository(),
     private readonly mixRadiusService?: MobileDashboardMixRadiusService,
-    private readonly createPeriods: () => MobileDashboardPeriods = () =>
-      this.createDashboardPeriods(),
+    private readonly createPeriods: () => MobileDashboardPeriods = createDashboardPeriods,
   ) {}
 
   /** Build mobile dashboard stats for mitra and regular employee users. */
@@ -48,7 +37,10 @@ export class MobileDashboardService {
 
   /** Build dashboard payload for mitra users. */
   private async getMitraDashboardStats(userId: string, tenantId: string) {
-    const mitra = await this.repository.findMitraDashboardProfile(userId);
+    const mitra = await this.repository.findMitraDashboardProfile(
+      userId,
+      tenantId,
+    );
 
     if (!mitra) {
       throw new Error("Mitra tidak ditemukan");
@@ -119,7 +111,7 @@ export class MobileDashboardService {
       throw new Error("User tidak ditemukan");
     }
 
-    const userSiteIds = this.extractUserSiteIds(user.siteId, user.userSites);
+    const userSiteIds = extractUserSiteIds(user.siteId, user.userSites);
     const periods = this.createPeriods();
     const [
       workOrdersAssigned,
@@ -164,12 +156,15 @@ export class MobileDashboardService {
     ]);
 
     const targetSchema = user.targetSchema || DEFAULT_TARGET_SCHEMA;
-    const unclaimedCanvasing = await this.getEmployeeCanvasingProgress({
-      userId,
-      tenantId,
-      targetSchema,
-      monthStart: periods.monthStart,
-    });
+    const unclaimedCanvasing = await getEmployeeCanvasingProgress(
+      this.repository,
+      {
+        userId,
+        tenantId,
+        targetSchema,
+        monthStart: periods.monthStart,
+      },
+    );
 
     return {
       workOrdersAssigned,
@@ -183,50 +178,6 @@ export class MobileDashboardService {
       canvasingTarget: user.canvasingTarget || DEFAULT_CANVASING_TARGET,
       targetSchema,
     };
-  }
-
-  /** Build date boundaries used by the mobile dashboard. */
-  private createDashboardPeriods() {
-    const now = new Date();
-    const today = new Date(now);
-    today.setTime(toStartOfDay(today).getTime());
-
-    const weekStart = new Date(now);
-    const dayOfWeek = weekStart.getDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    weekStart.setDate(weekStart.getDate() - diff);
-    weekStart.setTime(toStartOfDay(weekStart).getTime());
-
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    monthStart.setTime(toStartOfDay(monthStart).getTime());
-
-    return { today, weekStart, monthStart };
-  }
-
-  /** Extract effective site ids for an employee. */
-  private extractUserSiteIds(
-    siteId: string | null,
-    userSites: Array<{ siteId: string }>,
-  ) {
-    if (userSites.length > 0) {
-      return userSites.map((userSite) => userSite.siteId);
-    }
-
-    return siteId ? [siteId] : [];
-  }
-
-  /** Resolve employee canvasing progress based on target schema. */
-  private async getEmployeeCanvasingProgress(input: {
-    userId: string;
-    tenantId: string;
-    targetSchema: string;
-    monthStart: Date;
-  }) {
-    if (input.targetSchema === "ACCUMULATED") {
-      return this.repository.countAccumulatedCanvasing(input);
-    }
-
-    return this.repository.countMonthlyCanvasing(input);
   }
 
   /** Build extra sales metrics for mitra sales users. */
@@ -258,11 +209,12 @@ export class MobileDashboardService {
     });
 
     const feeStats = input.enableFeePelanggan
-      ? await this.getMitraFeePelangganStats({
+      ? await getMitraFeePelangganStats(this.getMixRadiusService(), {
           monthStart: input.monthStart,
           today: input.today,
           ownerNames: input.mixradiusOwnerNames,
           feeRate: input.mitraRateFeePelanggan || 0,
+          tenantId: input.tenantId,
         })
       : { activeCustomers: 0, totalFeePelanggan: 0 };
 
@@ -276,89 +228,6 @@ export class MobileDashboardService {
 
   private getMixRadiusService(): MobileDashboardMixRadiusService {
     return this.mixRadiusService ?? getMixRadiusService();
-  }
-
-  /** Calculate mitra customer fee stats from MixRadius income data. */
-  private async getMitraFeePelangganStats(input: {
-    monthStart: Date;
-    today: Date;
-    ownerNames: string[];
-    feeRate: number;
-  }) {
-    try {
-      const startDate = input.monthStart.toISOString().split("T")[0] || "";
-      const endDate = input.today.toISOString().split("T")[0] || "";
-      const incomeResult = await this.getMixRadiusService().fetchIncomeByPeriod(
-        {
-          startDate,
-          endDate,
-          length: MIXRADIUS_FETCH_LENGTH,
-        },
-      );
-
-      if (!incomeResult?.data?.length) {
-        return { activeCustomers: 0, totalFeePelanggan: 0 };
-      }
-
-      const allowedOwners = this.buildAllowedOwnerSet(input.ownerNames);
-      const filteredData = incomeResult.data.filter(
-        (item: { owner_name?: string }) =>
-          this.isAllowedOwner(item.owner_name, allowedOwners),
-      );
-      const uniqueMembers = new Set<string>();
-
-      filteredData.forEach(
-        (record: { member_id?: string; invoice: string }) => {
-          const identifier =
-            record.member_id === "0" || !record.member_id
-              ? record.invoice
-              : record.member_id;
-
-          if (identifier) {
-            uniqueMembers.add(identifier);
-          }
-        },
-      );
-
-      const activeCustomers = uniqueMembers.size;
-      return {
-        activeCustomers,
-        totalFeePelanggan: activeCustomers * input.feeRate,
-      };
-    } catch {
-      return { activeCustomers: 0, totalFeePelanggan: 0 };
-    }
-  }
-
-  /** Build normalized owner aliases for MixRadius filtering. */
-  private buildAllowedOwnerSet(ownerNames: string[]) {
-    const allowedOwners = new Set<string>();
-
-    ownerNames.forEach((ownerName) => {
-      const normalized = ownerName.toLowerCase().trim();
-      allowedOwners.add(normalized);
-      allowedOwners.add(normalized.split(/[—–-]/)[0]?.trim() || normalized);
-    });
-
-    return allowedOwners;
-  }
-
-  /** Check whether an income row belongs to the allowed owner set. */
-  private isAllowedOwner(
-    ownerName: string | undefined,
-    allowedOwners: Set<string>,
-  ) {
-    if (allowedOwners.size === 0) {
-      return true;
-    }
-
-    if (!ownerName) {
-      return false;
-    }
-
-    const normalized = ownerName.toLowerCase().trim();
-    const prefix = normalized.split(/[—–-]/)[0]?.trim() || normalized;
-    return allowedOwners.has(normalized) || allowedOwners.has(prefix);
   }
 }
 

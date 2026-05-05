@@ -31,7 +31,7 @@ export function ClientComponent() {
     autoConfigure: true,
   });
 
-  const { pppConnectionMode, radiusDefaults } = useMikrotikFormSettings();
+  const { pppConnectionMode } = useMikrotikFormSettings();
   const { isTesting, showTestModal, testResult, runTest, closeTestModal } =
     useMikrotikConnectionTest({
       formData,
@@ -132,7 +132,6 @@ export function ClientComponent() {
       <ScriptGeneratorModal
         open={showScriptModal}
         onClose={() => setShowScriptModal(false)}
-        secret={radiusDefaults.radiusSecret}
       />
     </div>
   );

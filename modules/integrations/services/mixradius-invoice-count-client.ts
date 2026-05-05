@@ -14,8 +14,6 @@ import {
   isMixRadiusConfigError,
 } from "./mixradius-customer-errors";
 
-const INVOICE_FETCH_DELAY_MIN_IN_MS = 300;
-const INVOICE_FETCH_DELAY_MAX_IN_MS = 1000;
 const INVOICE_BATCH_DELAY_MIN_IN_MS = 200;
 const INVOICE_BATCH_DELAY_MAX_IN_MS = 500;
 const INVOICE_CHUNK_SIZE = 1;
@@ -42,20 +40,34 @@ export async function fetchMixRadiusInvoiceCounts(params: {
   await ensureInvoiceCountLogin(login);
   const invoiceCounts = new Map<string, MixRadiusInvoiceCount>();
 
+  await processInvoiceCountBatches({
+    customerIds,
+    bypassCache,
+    validationData,
+    invoiceCountCache,
+    randomDelay,
+    fetchCustomerDetail,
+    invoiceCounts,
+  });
+
+  return invoiceCounts;
+}
+
+async function processInvoiceCountBatches(params: {
+  customerIds: string[];
+  bypassCache: boolean;
+  validationData: Record<string, string>;
+  invoiceCountCache: LRUCache<string, MixRadiusInvoiceCountCacheValue>;
+  randomDelay: (min?: number, max?: number) => Promise<void>;
+  fetchCustomerDetail: (customerId: string) => Promise<MixRadiusCustomerDetail>;
+  invoiceCounts: Map<string, MixRadiusInvoiceCount>;
+}) {
+  const { customerIds, randomDelay, ...rest } = params;
+
   for (let index = 0; index < customerIds.length; index += INVOICE_CHUNK_SIZE) {
     const chunk = customerIds.slice(index, index + INVOICE_CHUNK_SIZE);
     await Promise.all(
-      chunk.map((customerId) =>
-        populateInvoiceCount({
-          customerId,
-          bypassCache,
-          validationData,
-          invoiceCountCache,
-          randomDelay,
-          fetchCustomerDetail,
-          invoiceCounts,
-        }),
-      ),
+      chunk.map((customerId) => populateInvoiceCount({ customerId, ...rest })),
     );
 
     if (index + INVOICE_CHUNK_SIZE < customerIds.length) {
@@ -65,8 +77,6 @@ export async function fetchMixRadiusInvoiceCounts(params: {
       );
     }
   }
-
-  return invoiceCounts;
 }
 
 async function ensureInvoiceCountLogin(login: () => Promise<void>) {
@@ -91,49 +101,89 @@ async function populateInvoiceCount(params: {
   bypassCache: boolean;
   validationData: Record<string, string>;
   invoiceCountCache: LRUCache<string, MixRadiusInvoiceCountCacheValue>;
-  randomDelay: (min?: number, max?: number) => Promise<void>;
   fetchCustomerDetail: (customerId: string) => Promise<MixRadiusCustomerDetail>;
+  invoiceCounts: Map<string, MixRadiusInvoiceCount>;
+}) {
+  try {
+    const lastRenewedOn = params.validationData[params.customerId] || "";
+    const cachedCounts = tryGetCachedCount({
+      customerId: params.customerId,
+      lastRenewedOn,
+      bypassCache: params.bypassCache,
+      validationData: params.validationData,
+      invoiceCountCache: params.invoiceCountCache,
+    });
+
+    if (cachedCounts) {
+      params.invoiceCounts.set(params.customerId, cachedCounts);
+      return;
+    }
+
+    await fetchAndCacheInvoiceCount({
+      customerId: params.customerId,
+      lastRenewedOn,
+      fetchCustomerDetail: params.fetchCustomerDetail,
+      invoiceCountCache: params.invoiceCountCache,
+      invoiceCounts: params.invoiceCounts,
+    });
+  } catch (error) {
+    handleInvoiceCountError(params.customerId, error, params.invoiceCounts);
+  }
+}
+
+function tryGetCachedCount(params: {
+  customerId: string;
+  lastRenewedOn: string;
+  bypassCache: boolean;
+  validationData: Record<string, string>;
+  invoiceCountCache: LRUCache<string, MixRadiusInvoiceCountCacheValue>;
+}): MixRadiusInvoiceCount | null {
+  if (params.bypassCache) {
+    return null;
+  }
+  return getCachedInvoiceCount(params);
+}
+
+async function fetchAndCacheInvoiceCount(params: {
+  customerId: string;
+  lastRenewedOn: string;
+  fetchCustomerDetail: (customerId: string) => Promise<MixRadiusCustomerDetail>;
+  invoiceCountCache: LRUCache<string, MixRadiusInvoiceCountCacheValue>;
   invoiceCounts: Map<string, MixRadiusInvoiceCount>;
 }) {
   const {
     customerId,
-    bypassCache,
-    validationData,
-    invoiceCountCache,
-    randomDelay,
+    lastRenewedOn,
     fetchCustomerDetail,
+    invoiceCountCache,
     invoiceCounts,
   } = params;
+  const counts = await fetchAndBuildInvoiceCount(
+    customerId,
+    fetchCustomerDetail,
+  );
+  invoiceCounts.set(customerId, counts);
+  cacheInvoiceCount({ customerId, lastRenewedOn, counts, invoiceCountCache });
+}
 
-  try {
-    const lastRenewedOn = validationData[customerId] || "";
-    const cachedCounts = getCachedInvoiceCount({
-      customerId,
-      lastRenewedOn,
-      bypassCache,
-      validationData,
-      invoiceCountCache,
-    });
-    if (cachedCounts) {
-      invoiceCounts.set(customerId, cachedCounts);
-      return;
-    }
+function handleInvoiceCountError(
+  customerId: string,
+  error: unknown,
+  invoiceCounts: Map<string, MixRadiusInvoiceCount>,
+) {
+  console.error(
+    `[MixRadius] Failed to fetch invoice count for ${customerId}:`,
+    error,
+  );
+  invoiceCounts.set(customerId, { paidCount: 0, totalCount: 0 });
+}
 
-    await randomDelay(
-      INVOICE_FETCH_DELAY_MIN_IN_MS,
-      INVOICE_FETCH_DELAY_MAX_IN_MS,
-    );
-    const customerDetail = await fetchCustomerDetail(customerId);
-    const counts = buildInvoiceCount(customerDetail.invoices || []);
-    invoiceCounts.set(customerId, counts);
-    cacheInvoiceCount({ customerId, lastRenewedOn, counts, invoiceCountCache });
-  } catch (error) {
-    console.error(
-      `[MixRadius] Failed to fetch invoice count for ${customerId}:`,
-      error,
-    );
-    invoiceCounts.set(customerId, { paidCount: 0, totalCount: 0 });
-  }
+async function fetchAndBuildInvoiceCount(
+  customerId: string,
+  fetchCustomerDetail: (customerId: string) => Promise<MixRadiusCustomerDetail>,
+) {
+  const customerDetail = await fetchCustomerDetail(customerId);
+  return buildInvoiceCount(customerDetail.invoices || []);
 }
 
 function getCachedInvoiceCount(params: {

@@ -8,7 +8,6 @@ import {
   notifyMobileWorkOrderAction,
 } from "./mobile-work-order-notification.helpers";
 import { syncWoStatusToTicket } from "./WorkOrderSyncService";
-import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";
 import {
   buildActionContext,
   ensureNotePayload,
@@ -17,6 +16,13 @@ import {
   storeCompletionAttachments,
   storeSingleAttachment,
 } from "./work-order-mobile-action.helpers";
+import {
+  addOptionalNote,
+  addPauseNote,
+  ensureMobileWorkOrderAccess,
+  getAllowedActionStatuses,
+  getWorkOrderOrThrow,
+} from "./work-order-mobile-action.support";
 import type {
   HandleMobileActionInput,
   HandleTaskUpdateInput,
@@ -30,12 +36,6 @@ const MOBILE_ALLOWED_WORK_ORDER_STATUSES = [
   "ASSIGNED",
   "IN_PROGRESS",
   "ON_HOLD",
-];
-const MOBILE_COMPLETION_ALLOWED_WORK_ORDER_STATUSES = [
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "ON_HOLD",
-  "COMPLETED",
 ];
 const CLAIM_ALLOWED_WORK_ORDER_STATUS = "PENDING";
 const START_ALLOWED_WORK_ORDER_STATUSES = ["ASSIGNED", "ON_HOLD"];
@@ -75,7 +75,10 @@ export class MobileWorkOrderActionService {
       completedById: input.isCompleted ? input.actor.id : undefined,
     });
 
-    const updatedWorkOrder = await this.getWorkOrderOrThrow(input.workOrderId);
+    const updatedWorkOrder = await getWorkOrderOrThrow(
+      this.repository,
+      input.workOrderId,
+    );
     socketEmitter.updateWorkOrder(updatedWorkOrder);
     await notifyMobileTaskUpdate({
       updatedWorkOrder,
@@ -92,7 +95,10 @@ export class MobileWorkOrderActionService {
       select: { name: true },
     });
     const userIdForDb = actorProfile ? input.actor.id : undefined;
-    const workOrder = await this.getWorkOrderOrThrow(input.workOrderId);
+    const workOrder = await getWorkOrderOrThrow(
+      this.repository,
+      input.workOrderId,
+    );
     await this.ensureActionAccess(input, workOrder.status);
 
     const actionContext = buildActionContext({
@@ -154,11 +160,12 @@ export class MobileWorkOrderActionService {
       input.actionContext.timestamp,
     );
     await syncWoStatusToTicket(input.input.workOrderId, "IN_PROGRESS");
-    await this.addOptionalNote(
-      input.input.workOrderId,
-      input.input.payload.notes,
-      input.userIdForDb,
-    );
+    await addOptionalNote({
+      repository: this.repository,
+      workOrderId: input.input.workOrderId,
+      notes: input.input.payload.notes,
+      userIdForDb: input.userIdForDb,
+    });
   }
 
   private async claimWorkOrder(input: WorkOrderActionExecutionInput) {
@@ -207,11 +214,12 @@ export class MobileWorkOrderActionService {
       input.actionContext.timestamp,
     );
     await syncWoStatusToTicket(input.input.workOrderId, "ON_HOLD");
-    await this.addPauseNote(
-      input.input.workOrderId,
-      input.input.payload.notes,
-      input.userIdForDb,
-    );
+    await addPauseNote({
+      repository: this.repository,
+      workOrderId: input.input.workOrderId,
+      notes: input.input.payload.notes,
+      userIdForDb: input.userIdForDb,
+    });
   }
 
   private async addWorkOrderNote(input: WorkOrderActionExecutionInput) {
@@ -233,21 +241,15 @@ export class MobileWorkOrderActionService {
     input: HandleMobileActionInput,
     workOrderStatus?: string,
   ) {
-    const allowedStatuses =
-      input.payload.action === "CLAIM"
-        ? [CLAIM_ALLOWED_WORK_ORDER_STATUS]
-        : MOBILE_COMPLETION_ALLOWED_WORK_ORDER_STATUSES;
-    const invalidStatusMessage =
-      input.payload.action === "CLAIM"
-        ? "Hanya WO berstatus PENDING yang dapat diklaim"
-        : "Work order tidak dapat diubah pada status ini";
+    const accessRule = getAllowedActionStatuses(input.payload.action);
 
-    await this.ensureMobileAccess(
-      input.workOrderId,
-      input.actor,
-      allowedStatuses,
-      invalidStatusMessage,
-    );
+    await ensureMobileWorkOrderAccess({
+      repository: this.repository,
+      workOrderId: input.workOrderId,
+      actor: input.actor,
+      allowedStatuses: accessRule.statuses,
+      invalidStatusMessage: accessRule.invalidStatusMessage,
+    });
     if (!workOrderStatus) {
       throw new Error("WORK_ORDER_NOT_FOUND");
     }
@@ -259,62 +261,12 @@ export class MobileWorkOrderActionService {
     allowedStatuses: string[],
     invalidStatusMessage = "Work order harus dalam status ASSIGNED, IN_PROGRESS, atau ON_HOLD",
   ) {
-    await validateMobileAssignedWorkOrderAccess({
+    await ensureMobileWorkOrderAccess({
       repository: this.repository,
       workOrderId,
-      userContext: {
-        id: actor.id,
-        name: actor.name,
-        role: actor.role,
-        permissions: [],
-        siteId: actor.siteId,
-        tenantId: actor.tenantId,
-        isSuperAdmin: Boolean(actor.isSuperAdmin),
-      },
+      actor,
       allowedStatuses,
       invalidStatusMessage,
-    });
-  }
-
-  private async getWorkOrderOrThrow(workOrderId: string) {
-    const workOrder = await this.repository.findById(workOrderId);
-    if (!workOrder) {
-      throw new Error("WORK_ORDER_NOT_FOUND");
-    }
-    return workOrder;
-  }
-
-  private async addOptionalNote(
-    workOrderId: string,
-    notes?: string,
-    userIdForDb?: string,
-  ) {
-    if (!notes) {
-      return;
-    }
-
-    await this.repository.addUpdate({
-      workOrderId,
-      updateType: "NOTE",
-      message: notes,
-      createdById: userIdForDb,
-    });
-  }
-
-  private async addPauseNote(
-    workOrderId: string,
-    notes?: string,
-    userIdForDb?: string,
-  ) {
-    if (!notes) {
-      return;
-    }
-
-    await this.repository.addUpdate({
-      workOrderId,
-      updateType: "NOTE",
-      message: `Work Order Paused: ${notes}`,
-      createdById: userIdForDb,
     });
   }
 }

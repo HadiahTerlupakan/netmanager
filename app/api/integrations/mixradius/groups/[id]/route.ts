@@ -1,7 +1,7 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getMixRadiusService } from "@/modules/integrations";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
+import { MixRadiusOwnerGroupFacadeService } from "@/modules/integrations";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const service = getMixRadiusService();
+  const service = new MixRadiusOwnerGroupFacadeService();
   const updatedGroup = await service.updateOwnerGroup(id, {
     name,
     owners,
@@ -37,7 +37,6 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     tenantId: isSuper ? undefined : user.tenantId,
   });
 
-  // System Log
   logActivitySafe({
     action: "UPDATE",
     subject: "MixRadius Group",
@@ -52,7 +51,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
  * DELETE /api/integrations/mixradius/groups/[id]
  * Delete owner group
  */
-export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
   const permissions = await getUserPermissions(user.id);
   const isSuper = isSuperAdmin(user);
@@ -72,10 +71,9 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const service = getMixRadiusService();
+  const service = new MixRadiusOwnerGroupFacadeService();
   await service.deleteOwnerGroup(id, isSuper ? undefined : user.tenantId);
 
-  // System Log
   logActivitySafe({
     action: "DELETE",
     subject: "MixRadius Group",

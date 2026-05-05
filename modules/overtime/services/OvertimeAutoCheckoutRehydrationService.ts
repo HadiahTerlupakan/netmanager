@@ -25,32 +25,44 @@ async function rehydrateSchedule(input: {
   >[number];
   startupTime: Date;
 }): Promise<void> {
-  const jobId = createOvertimeAutoCheckoutJobId(
-    input.schedule.id,
-    input.schedule.version,
-  );
-  const candidateJobIds = collectCandidateJobIds(input.schedule.jobId, jobId);
-
-  if (await hasActiveJob(candidateJobIds)) {
+  const payload = createSchedulePayload(input.schedule, input.startupTime);
+  if (await hasActiveJob(payload.candidateJobIds)) {
     return;
   }
 
-  const delay = Math.max(
-    input.schedule.scheduledFor.getTime() - input.startupTime.getTime(),
-    INITIAL_DELAY_MS,
-  );
-
-  await addOvertimeAutoCheckoutJob(
-    {
-      overtimeId: input.schedule.overtimeId,
-      scheduleId: input.schedule.id,
-      version: input.schedule.version,
-    },
-    { jobId, delay },
-  );
+  await addOvertimeAutoCheckoutJob(payload.jobData, payload.jobOptions);
   await input.repository.attachAutoCheckoutJobId(
     input.schedule.overtimeId,
-    jobId,
+    payload.jobOptions.jobId,
+  );
+}
+
+function createSchedulePayload(
+  schedule: Awaited<
+    ReturnType<OvertimeRepository["findSchedulesForRehydration"]>
+  >[number],
+  startupTime: Date,
+) {
+  const jobId = createOvertimeAutoCheckoutJobId(schedule.id, schedule.version);
+
+  return {
+    candidateJobIds: collectCandidateJobIds(schedule.jobId, jobId),
+    jobData: {
+      overtimeId: schedule.overtimeId,
+      scheduleId: schedule.id,
+      version: schedule.version,
+    },
+    jobOptions: {
+      jobId,
+      delay: calculateScheduleDelay(schedule.scheduledFor, startupTime),
+    },
+  };
+}
+
+function calculateScheduleDelay(scheduledFor: Date, startupTime: Date) {
+  return Math.max(
+    scheduledFor.getTime() - startupTime.getTime(),
+    INITIAL_DELAY_MS,
   );
 }
 

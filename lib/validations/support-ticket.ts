@@ -5,4 +5,4 @@ export {
   type SupportTicketCreate,
   type SupportTicketFilter,
   type SupportTicketUpdate,
-} from "@/modules/pelanggan";
+} from "@/modules/pelanggan/validation";

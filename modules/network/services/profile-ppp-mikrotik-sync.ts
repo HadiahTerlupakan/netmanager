@@ -15,6 +15,32 @@ type RadiusModeResolver = () => Promise<{
   getConnectionMode(): Promise<string>;
 }>;
 
+async function isRadiusConnectionMode(
+  getRadiusSyncService: RadiusModeResolver,
+) {
+  const radiusSync = await getRadiusSyncService();
+  return (await radiusSync.getConnectionMode()) === "RADIUS";
+}
+
+async function runMikroTikProfileSync(input: {
+  getRadiusSyncService: RadiusModeResolver;
+  syncRadius: () => Promise<void>;
+  syncMikroTik: () => Promise<void>;
+  errorMessage: string;
+}) {
+  try {
+    if (await isRadiusConnectionMode(input.getRadiusSyncService)) {
+      await input.syncRadius();
+      return;
+    }
+
+    await input.syncMikroTik();
+  } catch (syncError) {
+    logger.error(input.errorMessage, syncError);
+  }
+}
+
+/** Sinkronkan profile baru ke router aktif atau broadcast RADIUS mode. */
 export async function syncMikroTikProfileOnCreate(input: {
   repository: ProfilePPPRepository;
   getRadiusSyncService: RadiusModeResolver;
@@ -22,32 +48,47 @@ export async function syncMikroTikProfileOnCreate(input: {
   data: ProfilePPPSchema;
   bandwidthId?: string | null;
 }) {
-  try {
-    const radiusSync = await input.getRadiusSyncService();
-    const isRadiusMode = (await radiusSync.getConnectionMode()) === "RADIUS";
-
-    if (isRadiusMode) {
-      await broadcastProfileCreate(
-        input.repository,
+  await runMikroTikProfileSync({
+    getRadiusSyncService: input.getRadiusSyncService,
+    syncRadius: () =>
+      broadcastProfileCreate(input.repository, input.profilePPP, input.data),
+    syncMikroTik: () =>
+      createProfileOnAssignedRouter(
         input.profilePPP,
         input.data,
-      );
-      return;
-    }
-
-    await createProfileOnAssignedRouter(
-      input.profilePPP,
-      input.data,
-      input.bandwidthId,
-    );
-  } catch (syncError) {
-    logger.error(
+        input.bandwidthId,
+      ),
+    errorMessage:
       "[API ProfilePPP] Error during MikroTik profile broadcast (POST):",
-      syncError,
-    );
-  }
+  });
 }
 
+function getProfileUpdateSyncHandlers(input: {
+  repository: ProfilePPPRepository;
+  oldProfile: ProfilePPPRecord;
+  profilePPP: ProfilePPPRecord;
+  data: ProfilePPPSchema;
+  bandwidthId?: string | null;
+}) {
+  return {
+    syncRadius: () =>
+      broadcastProfileUpdate(
+        input.repository,
+        input.oldProfile,
+        input.profilePPP,
+        input.data,
+      ),
+    syncMikroTik: () =>
+      updateProfileOnAssignedRouter(
+        input.oldProfile,
+        input.profilePPP,
+        input.data,
+        input.bandwidthId,
+      ),
+  };
+}
+
+/** Sinkronkan perubahan profile ke router aktif atau broadcast RADIUS mode. */
 export async function syncMikroTikProfileOnUpdate(input: {
   repository: ProfilePPPRepository;
   getRadiusSyncService: RadiusModeResolver;
@@ -56,32 +97,12 @@ export async function syncMikroTikProfileOnUpdate(input: {
   data: ProfilePPPSchema;
   bandwidthId?: string | null;
 }) {
-  try {
-    const radiusSync = await input.getRadiusSyncService();
-    const isRadiusMode = (await radiusSync.getConnectionMode()) === "RADIUS";
-
-    if (isRadiusMode) {
-      await broadcastProfileUpdate(
-        input.repository,
-        input.oldProfile,
-        input.profilePPP,
-        input.data,
-      );
-      return;
-    }
-
-    await updateProfileOnAssignedRouter(
-      input.oldProfile,
-      input.profilePPP,
-      input.data,
-      input.bandwidthId,
-    );
-  } catch (syncError) {
-    logger.error(
-      "[API ProfilePPP] Error during MikroTik profile broadcast:",
-      syncError,
-    );
-  }
+  const handlers = getProfileUpdateSyncHandlers(input);
+  await runMikroTikProfileSync({
+    getRadiusSyncService: input.getRadiusSyncService,
+    ...handlers,
+    errorMessage: "[API ProfilePPP] Error during MikroTik profile broadcast:",
+  });
 }
 
 async function broadcastProfileCreate(

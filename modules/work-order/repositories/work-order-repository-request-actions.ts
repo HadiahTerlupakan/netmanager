@@ -33,20 +33,18 @@ export async function approveWorkOrderRequest(input: {
   addUpdate: (data: AddUpdateData) => Promise<unknown>;
 }) {
   validateRequestStatus(input.workOrder, "approve");
-  const result = await approveRequestedWorkOrder(
-    input.prisma,
-    input.id,
-    input.approvedById,
-  );
-  await input.addUpdate({
-    workOrderId: input.id,
-    updateType: "STATUS_CHANGE",
-    message: "WO Request disetujui oleh Admin",
-    oldStatus: "REQUESTED",
-    newStatus: "PENDING",
-    createdById: input.approvedById,
+
+  return completeWorkOrderRequestAction({
+    execute: () =>
+      approveRequestedWorkOrder(input.prisma, input.id, input.approvedById),
+    addUpdate: input.addUpdate,
+    updateData: buildRequestStatusUpdate({
+      workOrderId: input.id,
+      createdById: input.approvedById,
+      message: "WO Request disetujui oleh Admin",
+      newStatus: "PENDING",
+    }),
   });
-  return result;
 }
 
 export async function rejectWorkOrderRequest(input: {
@@ -58,21 +56,75 @@ export async function rejectWorkOrderRequest(input: {
   addUpdate: (data: AddUpdateData) => Promise<unknown>;
 }) {
   validateRequestStatus(input.workOrder, "reject");
-  const result = await rejectRequestedWorkOrder(
+
+  return completeWorkOrderRequestAction(buildRejectedRequestActionInput(input));
+}
+
+function buildRejectedRequestActionInput(input: {
+  prisma: PrismaInstance;
+  id: string;
+  rejectedById: string;
+  reason: string;
+  addUpdate: (data: AddUpdateData) => Promise<unknown>;
+}) {
+  return {
+    execute: () => rejectRequestedWorkOrderByInput(input),
+    addUpdate: input.addUpdate,
+    updateData: buildRejectedRequestStatusUpdate(input),
+  };
+}
+
+function rejectRequestedWorkOrderByInput(input: {
+  prisma: PrismaInstance;
+  id: string;
+  rejectedById: string;
+  reason: string;
+}) {
+  return rejectRequestedWorkOrder(
     input.prisma,
     input.id,
     input.rejectedById,
     input.reason,
   );
-  await input.addUpdate({
+}
+
+function buildRejectedRequestStatusUpdate(input: {
+  id: string;
+  rejectedById: string;
+  reason: string;
+}) {
+  return buildRequestStatusUpdate({
     workOrderId: input.id,
-    updateType: "STATUS_CHANGE",
-    message: `WO Request ditolak: ${input.reason}`,
-    oldStatus: "REQUESTED",
-    newStatus: "CANCELLED",
     createdById: input.rejectedById,
+    message: `WO Request ditolak: ${input.reason}`,
+    newStatus: "CANCELLED",
   });
+}
+
+async function completeWorkOrderRequestAction<T>(input: {
+  execute: () => Promise<T>;
+  addUpdate: (data: AddUpdateData) => Promise<unknown>;
+  updateData: AddUpdateData;
+}) {
+  const result = await input.execute();
+  await input.addUpdate(input.updateData);
   return result;
+}
+
+function buildRequestStatusUpdate(input: {
+  workOrderId: string;
+  createdById: string;
+  message: string;
+  newStatus: "PENDING" | "CANCELLED";
+}): AddUpdateData {
+  return {
+    workOrderId: input.workOrderId,
+    updateType: "STATUS_CHANGE",
+    message: input.message,
+    oldStatus: "REQUESTED",
+    newStatus: input.newStatus,
+    createdById: input.createdById,
+  };
 }
 
 export function findAllWorkOrderRequests(input: {

@@ -33,6 +33,8 @@ vi.mock("@/lib/firebase/admin", () => ({
 
 describe("FirebaseRealtimeService", () => {
   beforeEach(() => {
+    vi.resetModules();
+    vi.useRealTimers();
     vi.clearAllMocks();
     vi.stubGlobal(
       "fetch",
@@ -69,14 +71,23 @@ describe("FirebaseRealtimeService", () => {
   it("omits undefined triggeredBy from the Firestore envelope", async () => {
     const { firebaseRealtimeService } = await import("@/lib/realtime");
 
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-09T00:00:00.000Z"));
     await firebaseRealtimeService.publish({
       type: "notification.new",
       scope: { kind: "user", id: "user-1" },
       payload: { title: "Hello" },
     });
 
-    expect(addMock).toHaveBeenCalledTimes(1);
-    expect(addMock.mock.calls[0]?.[0]).not.toHaveProperty("triggeredBy");
+    vi.setSystemTime(new Date("2026-04-09T00:00:11.000Z"));
+    await firebaseRealtimeService.publish({
+      type: "notification.new",
+      scope: { kind: "user", id: "user-1" },
+      payload: { title: "Hello" },
+    });
+
+    expect(addMock).toHaveBeenCalledTimes(2);
+    expect(addMock.mock.calls[1]?.[0]).not.toHaveProperty("triggeredBy");
   });
 
   it("routes socketEmitter notifyUser through Firebase publishing instead of HTTP fallback", async () => {

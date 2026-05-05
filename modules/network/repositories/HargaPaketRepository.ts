@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma, Status, DurasiUnit } from "@prisma/client";
+import { Prisma, Status, DurasiUnit, DiscountType } from "@prisma/client";
 import {
   createProfilePpp,
   deleteProfilePpp,
@@ -21,6 +21,13 @@ export interface HargaPaketCreateInput {
   profilePPPId: string;
   siteId?: string;
   bandwidthId?: string;
+  usePPN?: boolean;
+  ppnPercentage?: number | null;
+  useDiscount?: boolean;
+  discountType?: string | null;
+  discountValue?: number | null;
+  discountDuration?: number | null;
+  discountDurationUnit?: string | null;
   description?: string;
   featured?: boolean;
   status?: Status;
@@ -112,6 +119,17 @@ export class HargaPaketRepository {
       durasi: data.durasi,
       durasiUnit: (data.durasiUnit || "BULAN") as DurasiUnit,
       profilePPPId: data.profilePPPId,
+      usePPN: data.usePPN ?? false,
+      ppnPercentage: data.ppnPercentage ?? null,
+      useDiscount: data.useDiscount ?? false,
+      discountType: data.discountType
+        ? (data.discountType as DiscountType)
+        : null,
+      discountValue: data.discountValue ?? null,
+      discountDuration: data.discountDuration ?? null,
+      discountDurationUnit: data.discountDurationUnit
+        ? (data.discountDurationUnit as DurasiUnit)
+        : null,
       description: data.description,
       featured: data.featured ?? false,
       status: data.status || "AKTIF",

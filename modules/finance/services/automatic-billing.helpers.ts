@@ -96,8 +96,7 @@ export function mapEligibleBillingRowToCustomer(
   };
 }
 
-/** Membuat payload customer invoice dari entity pelanggan lengkap. */
-export function mapRealtimeCustomerToBillingPayload(customer: {
+type RealtimeBillingCustomer = {
   id: string;
   nama: string;
   jatuhTempo: Date;
@@ -110,14 +109,20 @@ export function mapRealtimeCustomerToBillingPayload(customer: {
     usePPN: boolean;
     ppnPercentage: number | null;
   };
-}) {
+};
+
+/** Membuat payload customer invoice dari entity pelanggan lengkap. */
+export function mapRealtimeCustomerToBillingPayload(
+  customer: RealtimeBillingCustomer,
+) {
+  const { id, nama, jatuhTempo, userId, usePPN, hargaPaket } = customer;
   return {
-    id: customer.id,
-    nama: customer.nama,
-    jatuhTempo: customer.jatuhTempo,
-    userId: customer.userId,
-    usePPN: customer.usePPN,
-    hargaPaket: { ...customer.hargaPaket },
+    id,
+    nama,
+    jatuhTempo,
+    userId,
+    usePPN,
+    hargaPaket: { ...hargaPaket },
   };
 }
 

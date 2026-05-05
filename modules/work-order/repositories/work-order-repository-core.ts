@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { WorkOrders, WorkOrderStatus } from "@prisma/client";
 
-import { buildWorkOrderListSummary } from "../utils/work-order-list-summary";
 import { validateStatusTransition } from "../utils/status-transitions";
 import type {
   AddUpdateData,
@@ -9,16 +8,30 @@ import type {
   WorkOrderFilters,
   WorkOrderWithRelations,
 } from "../domain/ports/IWorkOrderRepository";
-import { buildWorkOrderWhere } from "./work-order-query-builders";
 import {
-  WORK_ORDER_ASSIGNMENTS_INCLUDE,
-  WORK_ORDER_ASSIGNEE_SELECT,
+  buildPagedWorkOrderResult,
+  buildStaleReminderSelect,
+  buildStaleReminderWhere,
+  buildWorkOrderListInclude,
+  buildWorkOrderListResult,
+  buildWorkOrderSummarySelect,
+} from "./work-order-repository-core-list.helpers";
+import {
+  assertWorkOrderWasUpdated,
+  buildStatusUpdateData,
+  buildWorkOrderCollectionQuery,
+  buildWorkOrderStatusUpdate,
+  buildWorkOrderUpdateRecord,
+  findUpdatedWorkOrderById,
+} from "./work-order-repository-core-update.helpers";
+import {
   WORK_ORDER_CUSTOMER_SELECT,
   WORK_ORDER_DEPARTMENT_SELECT,
   WORK_ORDER_DETAIL_INCLUDE,
-  WORK_ORDER_LIST_SELECT,
-  WORK_ORDER_LIST_SUMMARY_SELECT,
+  WORK_ORDER_ASSIGNEE_SELECT,
+  WORK_ORDER_ASSIGNMENTS_INCLUDE,
   WORK_ORDER_UPDATES_INCLUDE,
+  WORK_ORDER_LIST_SELECT,
 } from "./work-order-repository-selects";
 
 const STALE_WORK_ORDER_LIMIT = 100;
@@ -63,22 +76,18 @@ export async function findAllWorkOrders(input: {
   page: number;
   limit: number;
 }) {
-  const where = buildWorkOrderWhere({
-    tenantWhere: input.tenantWhere,
-    filters: input.filters,
-  });
+  const query = buildWorkOrderCollectionQuery(input);
   const [workOrders, total] = await Promise.all([
-    input.prisma.workOrders.findMany({
-      where,
-      include: buildWorkOrderListInclude(),
-      orderBy: { createdAt: "desc" },
-      skip: (input.page - 1) * input.limit,
-      take: input.limit,
-    }),
-    input.prisma.workOrders.count({ where }),
+    findPaginatedWorkOrders(input.prisma, query.where, query.paging),
+    input.prisma.workOrders.count({ where: query.where }),
   ]);
 
-  return buildPagedWorkOrderResult(workOrders, total, input.page, input.limit);
+  return buildPagedWorkOrderResult({
+    workOrders,
+    total,
+    page: input.page,
+    limit: input.limit,
+  });
 }
 
 export async function findAllWorkOrdersForList(input: {
@@ -88,33 +97,29 @@ export async function findAllWorkOrdersForList(input: {
   page: number;
   limit: number;
 }) {
-  const where = buildWorkOrderWhere({
-    tenantWhere: input.tenantWhere,
-    filters: input.filters,
+  const query = buildWorkOrderCollectionQuery(input);
+  const result = await findWorkOrderListCollection(input.prisma, query);
+
+  return buildWorkOrderListResult({
+    workOrders: result.workOrders,
+    total: result.total,
+    page: input.page,
+    limit: input.limit,
+    summaryRows: result.summaryRows,
   });
+}
+
+async function findWorkOrderListCollection(
+  prisma: PrismaInstance,
+  query: ReturnType<typeof buildWorkOrderCollectionQuery>,
+) {
   const [workOrders, total, summaryRows] = await Promise.all([
-    input.prisma.workOrders.findMany({
-      where,
-      select: WORK_ORDER_LIST_SELECT,
-      orderBy: { createdAt: "desc" },
-      skip: (input.page - 1) * input.limit,
-      take: input.limit,
-    }),
-    input.prisma.workOrders.count({ where }),
-    input.prisma.workOrders.findMany({
-      where,
-      select: WORK_ORDER_LIST_SUMMARY_SELECT,
-    }),
+    findWorkOrderListRows(prisma, query.where, query.paging),
+    prisma.workOrders.count({ where: query.where }),
+    findWorkOrderSummaryRows(prisma, query.where),
   ]);
 
-  return {
-    workOrders:
-      workOrders as import("../domain/ports/IWorkOrderRepository").WorkOrderListItem[],
-    total,
-    page: input.page,
-    totalPages: Math.ceil(total / input.limit),
-    summary: buildWorkOrderListSummary(summaryRows),
-  };
+  return { workOrders, total, summaryRows };
 }
 
 export async function findStaleReminderWorkOrders(input: {
@@ -123,25 +128,12 @@ export async function findStaleReminderWorkOrders(input: {
   now: Date;
 }) {
   return input.prisma.workOrders.findMany({
-    where: {
-      ...input.tenantWhere,
-      status: { in: ["PENDING", "ASSIGNED", "IN_PROGRESS"] },
-      createdAt: {
-        lte: new Date(input.now.getTime() - STALE_WORK_ORDER_AGE_MS),
-      },
-    },
-    select: {
-      id: true,
-      workOrderNumber: true,
-      title: true,
-      type: true,
-      priority: true,
-      status: true,
-      departmentId: true,
-      siteId: true,
-      assignedToId: true,
-      createdAt: true,
-    },
+    where: buildStaleReminderWhere({
+      tenantWhere: input.tenantWhere,
+      now: input.now,
+      staleWorkOrderAgeMs: STALE_WORK_ORDER_AGE_MS,
+    }),
+    select: buildStaleReminderSelect(),
     orderBy: { createdAt: "asc" },
     take: STALE_WORK_ORDER_LIMIT,
   });
@@ -155,17 +147,11 @@ export async function updateWorkOrderRecord(input: {
 }) {
   const result = await input.prisma.workOrders.updateMany({
     where: { id: input.id, ...input.tenantWhere },
-    data: {
-      ...input.data,
-      updatedAt: new Date(),
-    } as Prisma.WorkOrdersUncheckedUpdateInput,
+    data: buildWorkOrderUpdateRecord(input.data),
   });
 
-  if (result.count === 0)
-    throw new Error("Work order not found or access denied");
-  return input.prisma.workOrders.findUnique({
-    where: { id: input.id },
-  }) as Promise<WorkOrders>;
+  assertWorkOrderWasUpdated(result.count);
+  return findUpdatedWorkOrderById(input.prisma, input.id);
 }
 
 export async function updateWorkOrderStatus(input: {
@@ -178,95 +164,41 @@ export async function updateWorkOrderStatus(input: {
 }) {
   validateStatusTransition(input.workOrder.status, input.status);
   await input.addUpdate(buildStatusUpdateData(input));
-  return input.update(input.workOrder.id, buildStatusWorkOrderUpdate(input));
+  return input.update(input.workOrder.id, buildWorkOrderStatusUpdate(input));
 }
 
-function buildWorkOrderListInclude() {
-  return {
-    pelanggan: {
-      select: {
-        id: true,
-        idPelanggan: true,
-        nama: true,
-        email: true,
-        noTelp: true,
-      },
-    },
-    site: { select: { id: true, name: true, code: true } },
-    department: { select: WORK_ORDER_DEPARTMENT_SELECT },
-    assignedTo: {
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: { select: { isTechnical: true } },
-      },
-    },
-    tasks: true,
-    assignments: WORK_ORDER_ASSIGNMENTS_INCLUDE,
-    updates: WORK_ORDER_UPDATES_INCLUDE,
-    attachments: true,
-  };
-}
-
-function buildPagedWorkOrderResult(
-  workOrders: WorkOrderWithRelations[],
-  total: number,
-  page: number,
-  limit: number,
+async function findPaginatedWorkOrders(
+  prisma: PrismaInstance,
+  where: Prisma.WorkOrdersWhereInput,
+  paging: { skip: number; take: number },
 ) {
-  return { workOrders, total, page, totalPages: Math.ceil(total / limit) };
+  return prisma.workOrders.findMany({
+    where,
+    include: buildWorkOrderListInclude(),
+    orderBy: { createdAt: "desc" },
+    ...paging,
+  });
 }
 
-function buildStatusUpdateData(input: {
-  workOrder: WorkOrderWithRelations;
-  status: WorkOrderStatus;
-  userId?: string;
-}): AddUpdateData {
-  return {
-    workOrderId: input.workOrder.id,
-    updateType: "STATUS_CHANGE",
-    message: `Status changed from ${input.workOrder.status} to ${input.status}`,
-    oldStatus: input.workOrder.status as WorkOrderStatus,
-    newStatus: input.status as WorkOrderStatus,
-    ...(input.userId ? { createdById: input.userId } : {}),
-  };
-}
-
-function buildStatusWorkOrderUpdate(input: {
-  workOrder: WorkOrderWithRelations;
-  status: WorkOrderStatus;
-  timestamp?: Date;
-}) {
-  const eventTime = input.timestamp || new Date();
-  const updateData: Record<string, unknown> = { status: input.status };
-  assignStatusTimestamp(updateData, input.workOrder, input.status, eventTime);
-  return updateData;
-}
-
-function assignStatusTimestamp(
-  updateData: Record<string, unknown>,
-  workOrder: WorkOrderWithRelations,
-  status: WorkOrderStatus,
-  eventTime: Date,
+async function findWorkOrderListRows(
+  prisma: PrismaInstance,
+  where: Prisma.WorkOrdersWhereInput,
+  paging: { skip: number; take: number },
 ) {
-  if (status === "IN_PROGRESS" && !workOrder.startedAt)
-    updateData.startedAt = eventTime;
-  if (status === "COMPLETED")
-    assignCompletionFields(updateData, workOrder, eventTime);
-  if (status === "VERIFIED") updateData.verifiedAt = eventTime;
-  if (status === "CLOSED") updateData.closedAt = eventTime;
+  return prisma.workOrders.findMany({
+    where,
+    select: WORK_ORDER_LIST_SELECT,
+    orderBy: { createdAt: "desc" },
+    ...paging,
+  });
 }
 
-function assignCompletionFields(
-  updateData: Record<string, unknown>,
-  workOrder: WorkOrderWithRelations,
-  eventTime: Date,
+async function findWorkOrderSummaryRows(
+  prisma: PrismaInstance,
+  where: Prisma.WorkOrdersWhereInput,
 ) {
-  updateData.completedAt = eventTime;
-  if (!workOrder.startedAt) return;
-
-  updateData.actualHours =
-    (eventTime.getTime() - new Date(workOrder.startedAt).getTime()) /
-    (1000 * 60 * 60);
+  return prisma.workOrders.findMany({
+    where,
+    select: buildWorkOrderSummarySelect(),
+  });
 }

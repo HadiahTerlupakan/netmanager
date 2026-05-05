@@ -26,7 +26,7 @@ export class MitraWithdrawRepository implements IMitraWithdrawRepository {
   async findMitraById(userId: string, tenantId?: string) {
     return prismaMitra.mitra.findFirst({
       where: { id: userId, ...(tenantId && { tenantId }) },
-      select: { id: true, minWithdrawal: true },
+      select: { id: true, minWithdrawal: true, isActive: true },
     });
   }
 

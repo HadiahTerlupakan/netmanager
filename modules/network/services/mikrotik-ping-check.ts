@@ -226,29 +226,41 @@ async function persistRouterHealth(
   );
 }
 
-async function runSingleRouterStatusCheck(id: string): Promise<boolean> {
-  const statusCheck = await getRouterForStatusCheck(id);
+async function getRouterStatusCheckResult(
+  router: Awaited<ReturnType<typeof getRouterForStatusCheck>> extends {
+    router: infer T;
+  }
+    ? T
+    : never,
+) {
+  const credentials = getRouterApiCredentials(router);
+  return testMikroTikAPI(
+    router.ipAddress,
+    router.apiPort,
+    credentials.username,
+    credentials.password,
+  );
+}
 
+async function runRouterStatusCheck(
+  statusCheck: Awaited<ReturnType<typeof getRouterForStatusCheck>>,
+) {
   if (!statusCheck) {
     return false;
   }
 
-  const credentials = getRouterApiCredentials(statusCheck.router);
-  const apiResult = await testMikroTikAPI(
-    statusCheck.router.ipAddress,
-    statusCheck.router.apiPort,
-    credentials.username,
-    credentials.password,
-  );
-
+  const apiResult = await getRouterStatusCheckResult(statusCheck.router);
   await persistRouterHealth(
     statusCheck.routerRepository,
     statusCheck.router.id,
     statusCheck.tenantId,
     apiResult,
   );
-
   return apiResult.success;
+}
+
+async function runSingleRouterStatusCheck(id: string): Promise<boolean> {
+  return runRouterStatusCheck(await getRouterForStatusCheck(id));
 }
 
 /** Perbarui status koneksi satu router MikroTik. */

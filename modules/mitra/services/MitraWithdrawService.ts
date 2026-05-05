@@ -1,11 +1,18 @@
-import { logger } from "@/lib/logger";
 import { randomUUID } from "crypto";
-import { logActivitySafe } from "@/lib/logger";
 import { AttendanceSettingsService } from "@/modules/attendance";
 import type { WithdrawRequestDTO } from "../dto/MitraDTO";
 import type { IMitraWithdrawRepository } from "../domain/ports/IMitraWithdrawRepository";
 import { getMitraWithdrawRepository } from "../repositories/MitraWithdrawRepository";
 import { validateTransferDetails } from "../validators/mitraValidation";
+import {
+  getApprovalRequestValidationError,
+  getMinimumWithdrawValidationError,
+  getPendingRequestValidationError,
+  getWalletValidationError,
+  logWithdrawActivity,
+  logWithdrawServiceError,
+  resolveMinWithdraw,
+} from "./MitraWithdrawService.helpers";
 
 interface ServiceResult<T = void> {
   success: boolean;
@@ -13,7 +20,6 @@ interface ServiceResult<T = void> {
   error?: string;
 }
 
-const DEFAULT_MIN_WITHDRAW = 50000;
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 const REQUEST_STATUS_PENDING = "PENDING";
@@ -34,24 +40,42 @@ export class MitraWithdrawService {
   ): Promise<ServiceResult<{ id: string }>> {
     try {
       const mitra = await this.withdrawRepo.findMitraById(userId, tenantId);
-      if (!mitra) return { success: false, error: "Mitra tidak ditemukan" };
-      const minimumError = await this.validateMinimumWithdraw(
-        data.amount,
-        mitra.minWithdrawal,
-      );
-      if (minimumError) return minimumError;
+      if (!mitra) {
+        return { success: false, error: "Mitra tidak ditemukan" };
+      }
+
+      if (!mitra.isActive) {
+        return { success: false, error: "Akun Mitra tidak aktif" };
+      }
+
+      const minimumError = await getMinimumWithdrawValidationError({
+        amount: data.amount,
+        minWithdrawal: mitra.minWithdrawal,
+        attendanceSettingsService: this.attendanceSettingsService,
+      });
+      if (minimumError) {
+        return { success: false, error: minimumError };
+      }
+
       const transferError = validateTransferDetails(data);
-      if (transferError) return { success: false, error: transferError };
+      if (transferError) {
+        return { success: false, error: transferError };
+      }
+
       const wallet = await this.withdrawRepo.findWalletByMitraId(
         userId,
         tenantId,
       );
-      const walletError = await this.validateWalletForWithdraw(
-        wallet?.id,
-        wallet?.balance,
-        data.amount,
-      );
-      if (walletError) return walletError;
+      const walletError = await getWalletValidationError({
+        walletId: wallet?.id,
+        balance: wallet?.balance,
+        amount: data.amount,
+        withdrawRepository: this.withdrawRepo,
+      });
+      if (walletError) {
+        return { success: false, error: walletError };
+      }
+
       const id = randomUUID();
       await this.withdrawRepo.createWithdrawRequest({
         id,
@@ -59,14 +83,12 @@ export class MitraWithdrawService {
         walletId: wallet!.id,
         payload: data,
       });
-      logger.info(
-        `[MitraWithdrawService] Withdraw requested: userId=${userId}, amount=${data.amount}, method=${data.method}`,
-      );
+
       return { success: true, data: { id } };
     } catch (error) {
-      logger.error(
+      logWithdrawServiceError(
         "[MitraWithdrawService] Error requesting withdraw:",
-        error as Error,
+        error,
       );
       return { success: false, error: "Gagal membuat request penarikan" };
     }
@@ -83,26 +105,30 @@ export class MitraWithdrawService {
         id,
         tenantId,
       );
-      const validationError = this.validateApprovalRequest(
+      const validationError = getApprovalRequestValidationError({
         request,
-        REQUEST_STATUS_PENDING,
-      );
-      if (validationError) return validationError;
+        requiredStatus: REQUEST_STATUS_PENDING,
+        pendingStatus: REQUEST_STATUS_PENDING,
+      });
+      if (validationError) {
+        return { success: false, error: validationError };
+      }
+
       await this.withdrawRepo.updateWithdrawStatus({
         id,
         status: REQUEST_STATUS_APPROVED,
         processedById: approvedById,
         processedAt: new Date(),
       });
-      this.logWithdrawActivity("APPROVE", approvedById, {
+      logWithdrawActivity("APPROVE", approvedById, {
         requestId: id,
         amount: request!.amount,
       });
       return { success: true };
     } catch (error) {
-      logger.error(
+      logWithdrawServiceError(
         "[MitraWithdrawService] Error approving withdraw:",
-        error as Error,
+        error,
       );
       return { success: false, error: "Gagal menyetujui penarikan" };
     }
@@ -120,8 +146,11 @@ export class MitraWithdrawService {
         id,
         tenantId,
       );
-      const validationError = this.validatePendingRequest(request);
-      if (validationError) return validationError;
+      const validationError = getPendingRequestValidationError(request);
+      if (validationError) {
+        return { success: false, error: validationError };
+      }
+
       await this.withdrawRepo.updateWithdrawStatus({
         id,
         status: REQUEST_STATUS_REJECTED,
@@ -129,15 +158,15 @@ export class MitraWithdrawService {
         processedAt: new Date(),
         rejectionReason: reason,
       });
-      this.logWithdrawActivity("REJECT", rejectedById, {
+      logWithdrawActivity("REJECT", rejectedById, {
         requestId: id,
         reason,
       });
       return { success: true };
     } catch (error) {
-      logger.error(
+      logWithdrawServiceError(
         "[MitraWithdrawService] Error rejecting withdraw:",
-        error as Error,
+        error,
       );
       return { success: false, error: "Gagal menolak penarikan" };
     }
@@ -154,11 +183,15 @@ export class MitraWithdrawService {
         id,
         tenantId,
       );
-      const validationError = this.validateApprovalRequest(
+      const validationError = getApprovalRequestValidationError({
         request,
-        REQUEST_STATUS_APPROVED,
-      );
-      if (validationError) return validationError;
+        requiredStatus: REQUEST_STATUS_APPROVED,
+        pendingStatus: REQUEST_STATUS_PENDING,
+      });
+      if (validationError) {
+        return { success: false, error: validationError };
+      }
+
       await this.withdrawRepo.completeWithdraw({
         walletId: request!.mitraWalletId,
         amount: request!.amount,
@@ -166,19 +199,16 @@ export class MitraWithdrawService {
         method: request!.method,
         processedById,
       });
-      this.logWithdrawActivity("COMPLETE", processedById, {
+      logWithdrawActivity("COMPLETE", processedById, {
         requestId: id,
         amount: request!.amount,
         method: request!.method,
       });
-      logger.info(
-        `[MitraWithdrawService] Withdraw completed: requestId=${id}, amount=${request!.amount}`,
-      );
       return { success: true };
     } catch (error) {
-      logger.error(
+      logWithdrawServiceError(
         "[MitraWithdrawService] Error completing withdraw:",
-        error as Error,
+        error,
       );
       return { success: false, error: "Gagal menyelesaikan penarikan" };
     }
@@ -204,9 +234,9 @@ export class MitraWithdrawService {
       });
       return { success: true, data: result };
     } catch (error) {
-      logger.error(
+      logWithdrawServiceError(
         "[MitraWithdrawService] Error getting withdraw requests:",
-        error as Error,
+        error,
       );
       return { success: false, error: "Gagal mengambil data penarikan" };
     }
@@ -216,87 +246,10 @@ export class MitraWithdrawService {
   async getMinWithdrawSetting(): Promise<
     ServiceResult<{ minWithdraw: number }>
   > {
-    const minWithdraw = await this.getMinWithdraw();
+    const minWithdraw = await resolveMinWithdraw(
+      this.attendanceSettingsService,
+    );
     return { success: true, data: { minWithdraw } };
-  }
-
-  private async getMinWithdraw() {
-    try {
-      const setting =
-        await this.attendanceSettingsService.findByKey("mitra_min_withdraw");
-      return setting?.value ? parseFloat(setting.value) : DEFAULT_MIN_WITHDRAW;
-    } catch {
-      return DEFAULT_MIN_WITHDRAW;
-    }
-  }
-
-  private async validateMinimumWithdraw(
-    amount: number,
-    minWithdrawal: number | null,
-  ) {
-    const minWithdraw = minWithdrawal ?? (await this.getMinWithdraw());
-    if (amount >= minWithdraw) return null;
-    return {
-      success: false,
-      error: `Minimum penarikan Anda adalah Rp ${minWithdraw.toLocaleString("id-ID")}`,
-    };
-  }
-
-  private async validateWalletForWithdraw(
-    walletId: string | undefined,
-    balance: number | undefined,
-    amount: number,
-  ) {
-    if (!walletId || balance === undefined)
-      return { success: false, error: "Wallet tidak ditemukan" };
-    if (balance < amount) return { success: false, error: "Saldo tidak cukup" };
-    const pendingCount =
-      await this.withdrawRepo.countPendingWithdrawals(walletId);
-    if (pendingCount > 0)
-      return {
-        success: false,
-        error: "Masih ada request penarikan yang belum selesai",
-      };
-    return null;
-  }
-
-  private validatePendingRequest(request: { status: string } | null) {
-    if (!request) return { success: false, error: "Request tidak ditemukan" };
-    if (request.status !== REQUEST_STATUS_PENDING)
-      return { success: false, error: "Request sudah diproses" };
-    return null;
-  }
-
-  private validateApprovalRequest(
-    request: {
-      status: string;
-      amount: number;
-      mitraWallet?: { balance: number };
-    } | null,
-    requiredStatus: string,
-  ) {
-    if (!request) return { success: false, error: "Request tidak ditemukan" };
-    if (request.status !== requiredStatus) {
-      return {
-        success: false,
-        error:
-          requiredStatus === REQUEST_STATUS_PENDING
-            ? "Request sudah diproses"
-            : "Request belum disetujui",
-      };
-    }
-    if ((request.mitraWallet?.balance || 0) < request.amount) {
-      return { success: false, error: "Saldo mitra tidak cukup" };
-    }
-    return null;
-  }
-
-  private logWithdrawActivity(
-    action: string,
-    userId: string,
-    details: Record<string, unknown>,
-  ) {
-    logActivitySafe({ action, subject: "WithdrawRequest", userId, details });
   }
 }
 

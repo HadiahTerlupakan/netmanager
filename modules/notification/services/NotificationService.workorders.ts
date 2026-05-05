@@ -1,59 +1,34 @@
-import { logger } from "@/lib/logger";
-/**
- * NOTE: Prisma import is intentionally kept here for type safety.
- * This service uses Prisma.UserWhereInput for dynamic user query building.
- * Removing this would require duplicating all Prisma types or losing type safety.
- * This is a valid use case and does not violate Clean Architecture principles.
- */
-import { Prisma } from "@prisma/client";
-import type { UserLookupService } from "@/modules/users";
+import type {
+  CreateNotificationData,
+  NotificationPriority,
+  WorkOrderNotificationData,
+} from "./NotificationService.types";
 import {
   resolveActionEmoji,
   resolvePriorityEmoji,
   resolveStatusEmoji,
-  type EligibleUser,
   type RecipientUser,
 } from "./NotificationService.helpers";
+
+type MobileActionNotificationData = {
+  workOrderId: string;
+  workOrderNumber: string;
+  title: string;
+  actionType: string;
+  actionMessage: string;
+  triggeredByUserId: string;
+  triggeredByName?: string;
+  departmentId?: string;
+  siteId?: string;
+};
 import {
   buildNewWorkOrderNotification,
   buildStatusChangedNotification,
   buildWorkOrderAssignmentObserverNotification,
   buildWorkOrderUpdateNotification,
 } from "./NotificationService.workorder-builders";
-import type {
-  CanvasingNotificationData,
-  CreateNotificationData,
-  NotificationPriority,
-  PointClaimNotificationData,
-  WorkOrderNotificationData,
-} from "./NotificationService";
 
-const WORK_ORDER_RESOURCE = "workorders";
-const WORK_ORDER_READ_ACTION = "read";
-const WORK_ORDER_DEPARTMENT_ONLY_ACTION = "department_only";
 const DEFAULT_TRIGGERED_BY_NAME = "Teknisi";
-const DEFAULT_SALES_NAME = "Sales";
-
-/** Find work-order recipients allowed by current site and department rules. */
-export async function findEligibleRecipients(input: {
-  userLookupService: UserLookupService;
-  departmentId?: string;
-  siteId?: string;
-  excludeUserId?: string;
-}): Promise<RecipientUser[]> {
-  if (!input.excludeUserId) {
-    logger.warn(
-      "[NotificationDebug] WARNING: findEligibleRecipients called without excludeUserId.",
-    );
-  }
-
-  const whereClause = buildEligibleRecipientWhere(input);
-  const users =
-    await input.userLookupService.findManyWithDetailedRelations(whereClause);
-  return users
-    .filter((user: EligibleUser) => isEligibleRecipient(user, input))
-    .map(mapRecipientUser);
-}
 
 /** Notify recipients about a newly created work order. */
 export async function notifyNewWorkOrderRecipients(input: {
@@ -62,9 +37,6 @@ export async function notifyNewWorkOrderRecipients(input: {
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
 }): Promise<{ count: number } | null> {
   if (input.recipients.length === 0) {
-    logger.warn(
-      `[NotificationDebug] NO RECIPIENTS FOUND for New WO ${input.data.workOrderNumber}.`,
-    );
     return null;
   }
 
@@ -129,220 +101,86 @@ export async function notifyUpdatedWorkOrderRecipients(input: {
   recipients: RecipientUser[];
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
 }): Promise<void> {
-  const filteredRecipients = input.recipients.filter(
-    (recipient) => !input.data.excludeUserIds?.includes(recipient.id),
-  );
   await Promise.all(
-    filteredRecipients.map((recipient) =>
-      input.createNotification(
-        buildWorkOrderUpdateNotification(recipient, input.data),
-      ),
+    filterWorkOrderRecipients(input.recipients, input.data.excludeUserIds).map(
+      (recipient) =>
+        input.createNotification(
+          buildWorkOrderUpdateNotification(recipient, input.data),
+        ),
     ),
+  );
+}
+
+function filterWorkOrderRecipients(
+  recipients: RecipientUser[],
+  excludeUserIds?: string[],
+) {
+  return recipients.filter(
+    (recipient) => !excludeUserIds?.includes(recipient.id),
   );
 }
 
 /** Notify admins about a work-order action coming from mobile. */
 export async function notifyMobileActionRecipients(input: {
-  data: {
-    workOrderId: string;
-    workOrderNumber: string;
-    title: string;
-    actionType: string;
-    actionMessage: string;
-    triggeredByUserId: string;
-    triggeredByName?: string;
-    departmentId?: string;
-    siteId?: string;
-  };
+  data: MobileActionNotificationData;
   recipients: RecipientUser[];
   createNotification: (data: CreateNotificationData) => Promise<unknown>;
 }): Promise<{ count: number }> {
-  const emoji = resolveActionEmoji(input.data.actionType);
-  const adminRecipients = input.recipients.filter(
-    (recipient) => recipient.id !== input.data.triggeredByUserId,
+  return createMobileActionNotifications(
+    input.data,
+    input.recipients,
+    input.createNotification,
   );
+}
+
+export async function createMobileActionNotifications(
+  data: MobileActionNotificationData,
+  recipients: RecipientUser[],
+  createNotification: (data: CreateNotificationData) => Promise<unknown>,
+): Promise<{ count: number }> {
+  const adminRecipients = filterMobileActionRecipients(
+    recipients,
+    data.triggeredByUserId,
+  );
+  const emoji = resolveActionEmoji(data.actionType);
   await Promise.all(
     adminRecipients.map((recipient) =>
-      input.createNotification({
-        type: "WORK_ORDER",
-        priority: "NORMAL",
-        title: `${emoji} ${input.data.workOrderNumber}`,
-        message: `${input.data.triggeredByName || DEFAULT_TRIGGERED_BY_NAME}: ${input.data.actionMessage}`,
-        link: `/admin/workorders/${input.data.workOrderId}`,
-        userId: recipient.id,
-        siteId: input.data.siteId,
-        sourceType: "WORK_ORDER",
-        sourceId: input.data.workOrderId,
-      }),
+      createNotification(buildMobileActionNotification(recipient, data, emoji)),
     ),
   );
   return { count: adminRecipients.length };
 }
 
-/** Notify canvasing verifiers about a new canvasing request. */
-export async function notifyNewCanvasingRecipients(input: {
-  data: CanvasingNotificationData;
-  recipients: RecipientUser[];
-  createNotification: (data: CreateNotificationData) => Promise<unknown>;
-  buildCanvasingTitle: () => string;
-}): Promise<{ count: number } | null> {
-  if (input.recipients.length === 0) {
-    logger.warn("[NotificationDebug] NO RECIPIENTS FOUND for New Canvasing.");
-    return null;
-  }
-
-  await Promise.all(
-    input.recipients.map((recipient) =>
-      input.createNotification({
-        type: "ANNOUNCEMENT",
-        priority: "NORMAL",
-        title: input.buildCanvasingTitle(),
-        message: `Request canvasing baru untuk ${input.data.customerName} dari ${input.data.salesName || DEFAULT_SALES_NAME}`,
-        link: `/admin/marketing/canvasing/${input.data.canvasingId}`,
-        userId: recipient.id,
-        siteId: input.data.siteId || undefined,
-        sourceType: "CANVASING",
-        sourceId: input.data.canvasingId,
-      }),
-    ),
-  );
-  return { count: input.recipients.length };
+function filterMobileActionRecipients(
+  recipients: RecipientUser[],
+  triggeredByUserId: string,
+) {
+  return recipients.filter((recipient) => recipient.id !== triggeredByUserId);
 }
 
-/** Notify canvasing verifiers about a new point claim. */
-export async function notifyNewPointClaimRecipients(input: {
-  data: PointClaimNotificationData;
-  recipients: RecipientUser[];
-  createNotification: (data: CreateNotificationData) => Promise<unknown>;
-  buildPointClaimTitle: () => string;
-}): Promise<{ count: number } | null> {
-  const filteredRecipients = input.recipients.filter(
-    (recipient) => recipient.id !== input.data.salesId,
-  );
-  if (filteredRecipients.length === 0) {
-    return null;
-  }
-
-  await Promise.all(
-    filteredRecipients.map((recipient) =>
-      input.createNotification({
-        type: "ANNOUNCEMENT",
-        priority: "NORMAL",
-        title: input.buildPointClaimTitle(),
-        message: `${input.data.salesName || DEFAULT_SALES_NAME} mengajukan claim +${input.data.pointValue} poin untuk canvasing ${input.data.customerName}`,
-        link: `/admin/marketing/canvasing/${input.data.canvasingId}`,
-        userId: recipient.id,
-        siteId: input.data.siteId || undefined,
-        sourceType: "POINT_CLAIM",
-        sourceId: input.data.claimId,
-      }),
-    ),
-  );
-  return { count: filteredRecipients.length };
-}
-
-/** Find canvasing verifiers for one site scope. */
-export async function findCanvasingVerifiers(input: {
-  userLookupService: UserLookupService;
-  siteId?: string | null;
-}): Promise<RecipientUser[]> {
-  return input.userLookupService.findManyWithCustomWhere({
-    isActive: true,
-    role: { permission: { some: { resource: "canvasing", action: "verify" } } },
-    ...(input.siteId
-      ? {
-          OR: [
-            { siteId: input.siteId },
-            { siteId: null },
-            { userSites: { some: { siteId: input.siteId } } },
-          ],
-        }
-      : {}),
-  });
-}
-
-function buildEligibleRecipientWhere(input: {
-  departmentId?: string;
-  siteId?: string;
-  excludeUserId?: string;
-}): Prisma.UserWhereInput {
-  const baseWhere: Prisma.UserWhereInput = {
-    isActive: true,
-    ...(input.excludeUserId ? { id: { not: input.excludeUserId } } : {}),
-    role: {
-      permission: {
-        some: { resource: WORK_ORDER_RESOURCE, action: WORK_ORDER_READ_ACTION },
-      },
-    },
-  };
-
-  const siteConditions = input.siteId
-    ? buildSiteConditions(input.siteId)
-    : undefined;
-  if (!input.departmentId) {
-    return { ...baseWhere, ...(siteConditions ? { OR: siteConditions } : {}) };
-  }
-
+function buildMobileActionNotification(
+  recipient: RecipientUser,
+  data: Pick<
+    MobileActionNotificationData,
+    | "workOrderId"
+    | "workOrderNumber"
+    | "actionMessage"
+    | "triggeredByName"
+    | "siteId"
+  >,
+  emoji: string,
+): CreateNotificationData {
   return {
-    ...baseWhere,
-    OR: buildDepartmentScopedConditions(input.departmentId, siteConditions),
+    type: "WORK_ORDER",
+    priority: "NORMAL",
+    title: `${emoji} ${data.workOrderNumber}`,
+    message: `${data.triggeredByName || DEFAULT_TRIGGERED_BY_NAME}: ${data.actionMessage}`,
+    link: `/admin/workorders/${data.workOrderId}`,
+    userId: recipient.id,
+    siteId: data.siteId,
+    sourceType: "WORK_ORDER",
+    sourceId: data.workOrderId,
   };
-}
-
-function buildSiteConditions(siteId: string): Prisma.UserWhereInput[] {
-  return [{ siteId }, { siteId: null }, { userSites: { some: { siteId } } }];
-}
-
-function buildDepartmentScopedConditions(
-  departmentId: string,
-  siteConditions?: Prisma.UserWhereInput[],
-): Prisma.UserWhereInput[] {
-  const departmentConditions = [
-    { departmentId },
-    { departmentId: null },
-    {
-      role: {
-        permission: {
-          none: {
-            resource: WORK_ORDER_RESOURCE,
-            action: WORK_ORDER_DEPARTMENT_ONLY_ACTION,
-          },
-        },
-      },
-    },
-  ];
-
-  if (!siteConditions) {
-    return departmentConditions;
-  }
-
-  return siteConditions.map((siteCondition) => ({
-    ...siteCondition,
-    OR: departmentConditions,
-  }));
-}
-
-function isEligibleRecipient(
-  user: EligibleUser,
-  input: { excludeUserId?: string; siteId?: string },
-): boolean {
-  if (input.excludeUserId && user.id === input.excludeUserId) {
-    return false;
-  }
-  if (!user.role?.permission?.length || !input.siteId) {
-    return true;
-  }
-
-  const userSiteIds = user.userSites?.map((userSite) => userSite.siteId) || [];
-  return (
-    userSiteIds.includes(input.siteId) ||
-    user.siteId === input.siteId ||
-    user.siteId === null
-  );
-}
-
-function mapRecipientUser(user: { id: string }): RecipientUser {
-  return { id: user.id };
 }
 
 async function notifyWorkOrderAssignee(

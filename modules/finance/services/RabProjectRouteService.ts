@@ -1,5 +1,3 @@
-import { RabExpenseType } from "../types/invoice.enums";
-
 import { buildRabBottleneckMetrics } from "../utils/rab-bottleneck-metrics";
 import {
   buildRabRevisionVarianceSummary,
@@ -10,7 +8,6 @@ import {
   type RabProjectUpdateInput,
 } from "../repositories/RabProjectRepository";
 import { ExpenseRepository } from "../repositories/ExpenseRepository";
-import { createRouteServiceError } from "./RouteServiceError";
 import {
   buildItemActualTotals,
   getItemActualTotal,
@@ -19,8 +16,17 @@ import {
   serializeProjectDetail,
   serializeUpdatedProject,
 } from "./rabProjectRouteSerializers";
+import {
+  assertDraftRabProjectStatus,
+  assertMutableRabProjectStatus,
+  assertRabProjectExists,
+  buildApprovedProjectApprovals,
+  buildUniqueMetricProjects,
+  calculateActualRabTotals,
+  calculateOriginalRabCapex,
+  pickRabProjectSummary,
+} from "./rab-project-route.helpers";
 
-const APPROVAL_ONLY_STATUSES = new Set(["APPROVED", "REJECTED"]);
 type ActualAchievementInput = {
   rabProjectId: string;
   month: number;
@@ -35,18 +41,6 @@ type ActualAchievementInput = {
   notes?: string;
 };
 
-type ProjectSummary = {
-  id: string;
-  name: string;
-  status: string;
-  createdAt: Date;
-};
-
-type ProjectApprovalSummary = {
-  status: string;
-  createdAt: Date;
-};
-
 export class RabProjectRouteService {
   constructor(
     private readonly rabProjectRepository = new RabProjectRepository(),
@@ -55,77 +49,53 @@ export class RabProjectRouteService {
 
   /** Get a serialized RAB project detail. */
   async getProjectDetail(id: string) {
-    const project = await this.rabProjectRepository.findDetailById(id);
-
-    if (!project) {
-      throw createRouteServiceError("Proyek RAB", 404);
-    }
+    const project = assertRabProjectExists(
+      await this.rabProjectRepository.findDetailById(id),
+      "Proyek RAB",
+    );
 
     return serializeProjectDetail(project);
   }
 
   /** Update a RAB project and return route-ready serialized data. */
   async updateProject(id: string, input: RabProjectUpdateInput) {
-    if (this.isApprovalOnlyStatus(input.status)) {
-      throw createRouteServiceError(
-        "Status approval RAB wajib diproses melalui endpoint approval.",
-        400,
-      );
-    }
+    assertMutableRabProjectStatus(input.status);
 
-    const project = await this.rabProjectRepository.updateProjectWithRelations(
-      id,
-      input,
+    const project = assertRabProjectExists(
+      await this.rabProjectRepository.updateProjectWithRelations(id, input),
+      "Proyek RAB",
     );
-
-    if (!project) {
-      throw createRouteServiceError("Proyek RAB", 404);
-    }
 
     return serializeUpdatedProject(project);
   }
 
   /** Delete a draft RAB project safely. */
   async deleteDraftProject(id: string) {
-    const project = await this.rabProjectRepository.findById(id);
+    const project = assertRabProjectExists(
+      await this.rabProjectRepository.findById(id),
+      "Proyek RAB",
+    );
 
-    if (!project) {
-      throw createRouteServiceError("Proyek RAB", 404);
-    }
-
-    if (project.status !== "DRAFT") {
-      throw createRouteServiceError(
-        "Hanya proyek RAB dengan status DRAFT yang dapat dihapus",
-        400,
-      );
-    }
-
+    assertDraftRabProjectStatus(project.status);
     await this.rabProjectRepository.deleteDraftProject(id);
   }
 
   /** Duplicate a RAB project into a new draft. */
   async duplicateProject(id: string, userId: string) {
-    const project = await this.rabProjectRepository.duplicateProject(
-      id,
-      userId,
+    const project = assertRabProjectExists(
+      await this.rabProjectRepository.duplicateProject(id, userId),
+      "RAB Proyek tidak ditemukan",
     );
-
-    if (!project) {
-      throw createRouteServiceError("RAB Proyek tidak ditemukan", 404);
-    }
 
     return serializeDuplicatedProject(project);
   }
 
   /** Upsert actual achievement for a RAB project. */
   async upsertActualAchievement(input: ActualAchievementInput) {
-    const project = await this.rabProjectRepository.findById(
-      input.rabProjectId,
+    assertRabProjectExists(
+      await this.rabProjectRepository.findById(input.rabProjectId),
+      "RAB Project",
     );
-
-    if (!project) {
-      throw createRouteServiceError("RAB Project", 404);
-    }
 
     const achievement =
       await this.rabProjectRepository.upsertActualAchievement(input);
@@ -140,32 +110,12 @@ export class RabProjectRouteService {
 
     const pendingProjects = projects
       .filter((project) => project.status === "PENDING_APPROVAL")
-      .map(this.pickProjectSummary);
-    const approvedApprovals = projects
-      .filter((project) => project.status === "APPROVED")
-      .flatMap((project) =>
-        ((project.approvals ?? []) as ProjectApprovalSummary[])
-          .filter((approval) => approval.status === "APPROVED")
-          .map((approval) => ({
-            rabProjectId: project.id,
-            createdAt: approval.createdAt,
-            rabProject: this.pickProjectSummary(project),
-          })),
-      )
-      .sort(
-        (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
-      )
-      .slice(0, 200);
-
-    const projectsMap = new Map<string, ProjectSummary>();
-    pendingProjects.forEach((project) => projectsMap.set(project.id, project));
-    approvedApprovals.forEach((approval) => {
-      projectsMap.set(approval.rabProject.id, approval.rabProject);
-    });
+      .map(pickRabProjectSummary);
+    const approvedApprovals = buildApprovedProjectApprovals(projects);
 
     return buildRabBottleneckMetrics({
       now: new Date(),
-      projects: Array.from(projectsMap.values()),
+      projects: buildUniqueMetricProjects(pendingProjects, approvedApprovals),
       approvals: approvedApprovals.map((approval) => ({
         rabProjectId: approval.rabProjectId,
         createdAt: approval.createdAt,
@@ -175,22 +125,20 @@ export class RabProjectRouteService {
 
   /** Build revision profit-loss comparison for a RAB project. */
   async getRevisionProfitLoss(id: string) {
-    const project =
-      await this.rabProjectRepository.findRevisionProfitLossProject(id);
-
-    if (!project) {
-      throw createRouteServiceError("Proyek RAB", 404);
-    }
+    const project = assertRabProjectExists(
+      await this.rabProjectRepository.findRevisionProfitLossProject(id),
+      "Proyek RAB",
+    );
 
     const expenses = await this.expenseRepository.findProjectExpenses(
       project.id,
     );
-    const originalCapex = this.calculateOriginalCapex(project.items);
+    const originalCapex = calculateOriginalRabCapex(project.items);
     const originalOpex = project.projectedOpex;
     const finalRevision = project.finalApprovedRevision;
     const finalCapex = finalRevision?.totalCapex ?? originalCapex;
     const finalOpex = finalRevision?.totalOpex ?? originalOpex;
-    const actualTotals = this.calculateActualTotals(expenses);
+    const actualTotals = calculateActualRabTotals(expenses);
     const varianceSummary = buildRabRevisionVarianceSummary({
       originalCapex,
       originalOpex,
@@ -247,71 +195,5 @@ export class RabProjectRouteService {
       }),
       unmappedRealization: actualTotals.unmappedRealization.toString(),
     };
-  }
-
-  /** Calculates original CAPEX from non-OPEX project items. */
-  private calculateOriginalCapex(
-    items: Array<{ expenseType: RabExpenseType; totalPrice: bigint }>,
-  ) {
-    return items.reduce((sum, item) => {
-      if (item.expenseType === RabExpenseType.OPEX) {
-        return sum;
-      }
-
-      return sum + item.totalPrice;
-    }, 0n);
-  }
-
-  /** Calculates actual CAPEX, OPEX, and unmapped realization totals. */
-  private calculateActualTotals(
-    expenses: Array<{
-      amount: bigint;
-      category: string;
-      rabItemId?: string | null;
-      rabItem?: { expenseType?: RabExpenseType | null } | null;
-    }>,
-  ) {
-    let actualCapex = 0n;
-    let actualOpex = 0n;
-    let unmappedRealization = 0n;
-
-    for (const expense of expenses) {
-      const expenseType = expense.rabItem?.expenseType ?? expense.category;
-
-      if (
-        expenseType === RabExpenseType.OPEX ||
-        expense.category === RabExpenseType.OPEX
-      ) {
-        actualOpex += expense.amount;
-      } else {
-        actualCapex += expense.amount;
-      }
-
-      if (!expense.rabItemId) {
-        unmappedRealization += expense.amount;
-      }
-    }
-
-    return { actualCapex, actualOpex, unmappedRealization };
-  }
-
-  /** Creates a compact project summary for dashboard metric aggregation. */
-  private pickProjectSummary(project: {
-    id: string;
-    name: string;
-    status: string;
-    createdAt: Date;
-  }) {
-    return {
-      id: project.id,
-      name: project.name,
-      status: project.status,
-      createdAt: project.createdAt,
-    };
-  }
-
-  /** Checks whether a status is reserved for approval endpoints only. */
-  private isApprovalOnlyStatus(status: string | undefined) {
-    return status !== undefined && APPROVAL_ONLY_STATUSES.has(status);
   }
 }

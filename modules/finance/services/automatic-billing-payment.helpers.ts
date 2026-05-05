@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { BillingEventDispatcher } from "@/modules/events";
@@ -13,50 +12,17 @@ import {
   mapRealtimeCustomerToBillingPayload,
 } from "./automatic-billing.helpers";
 import type { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
+import { settleImmediateInvoice } from "./automatic-billing-payment.settlement";
 
-/** Menandai invoice registrasi sebagai lunas dan membuat payment record pendukung. */
-export async function settleImmediateInvoice(options: {
-  pelangganId: string;
-  invoice: { id: string; totalAmount: bigint } | null;
-  shouldMarkPaid: boolean;
-  invoiceRepo: InvoiceRepository;
-  paymentRepo: PaymentRepository;
-}) {
-  if (!options.shouldMarkPaid || !options.invoice) {
-    return;
-  }
-
-  await options.invoiceRepo.update(options.invoice.id, {
-    status: "PAID",
-    paidAmount: options.invoice.totalAmount,
-  });
-
-  await options.paymentRepo.create({
-    id: randomUUID(),
-    pelangganId: options.pelangganId,
-    invoiceId: options.invoice.id,
-    amount: options.invoice.totalAmount,
-    paymentDate: new Date(),
-    paymentMethod: "CASH",
-    reference: "REGISTRATION_PAYMENT",
-    verifiedAt: new Date(),
-    verifiedBy: "SYSTEM",
-    notes: "Pembayaran otomatis pada saat registrasi pelanggan",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  await BillingEventDispatcher.onInvoicePaid(
-    options.invoice.id,
-    options.pelangganId,
-    Number(options.invoice.totalAmount),
-  ).catch((error) =>
-    logger.error(
-      "Failed to publish INVOICE_PAID event",
-      error instanceof Error ? error : undefined,
-    ),
-  );
-}
+type ImmediateInvoiceCustomer = NonNullable<
+  Awaited<ReturnType<PelangganBillingBridgeService["findByIdWithHargaPaket"]>>
+>;
+type PaidInvoiceCustomer = NonNullable<
+  Awaited<ReturnType<PelangganBillingBridgeService["findById"]>>
+>;
+type PaidInvoice = NonNullable<
+  Awaited<ReturnType<InvoiceRepository["findUnique"]>>
+>;
 
 /** Membuat invoice instan untuk pelanggan yang valid. */
 export async function createImmediateInvoice(options: {
@@ -67,19 +33,28 @@ export async function createImmediateInvoice(options: {
   paymentRepo: PaymentRepository;
   shouldMarkPaid?: boolean;
 }) {
-  const customer = await options.pelangganBridge.findByIdWithHargaPaket(
+  const customer = await loadImmediateInvoiceCustomer(
+    options.pelangganBridge,
     options.pelangganId,
   );
-
-  if (!customer || !customer.hargaPaket) {
+  if (!customer) {
     return null;
   }
 
-  const invoice = await options.invoiceCreationService.createInvoiceForCustomer(
-    mapRealtimeCustomerToBillingPayload(customer),
-    new Date(),
-  );
+  return finalizeImmediateInvoiceCreation(options, customer);
+}
 
+async function finalizeImmediateInvoiceCreation(
+  options: {
+    pelangganId: string;
+    invoiceCreationService: BillingInvoiceCreationService;
+    invoiceRepo: InvoiceRepository;
+    paymentRepo: PaymentRepository;
+    shouldMarkPaid?: boolean;
+  },
+  customer: ImmediateInvoiceCustomer,
+) {
+  const invoice = await createCustomerInvoice(options, customer);
   await settleImmediateInvoice({
     pelangganId: options.pelangganId,
     invoice,
@@ -87,12 +62,38 @@ export async function createImmediateInvoice(options: {
     invoiceRepo: options.invoiceRepo,
     paymentRepo: options.paymentRepo,
   });
-
-  logger.info(
-    `[Billing] Immediate invoice generated for customer ${customer.nama}, isPaid: ${Boolean(options.shouldMarkPaid)}`,
-  );
-
+  logImmediateInvoiceGeneration(customer.nama, Boolean(options.shouldMarkPaid));
   return invoice;
+}
+
+async function loadImmediateInvoiceCustomer(
+  pelangganBridge: PelangganBillingBridgeService,
+  pelangganId: string,
+) {
+  const customer = await pelangganBridge.findByIdWithHargaPaket(pelangganId);
+  if (!customer || !customer.hargaPaket) {
+    return null;
+  }
+
+  return customer as ImmediateInvoiceCustomer;
+}
+
+async function createCustomerInvoice(
+  options: {
+    invoiceCreationService: BillingInvoiceCreationService;
+  },
+  customer: ImmediateInvoiceCustomer,
+) {
+  return options.invoiceCreationService.createInvoiceForCustomer(
+    mapRealtimeCustomerToBillingPayload(customer),
+    new Date(),
+  );
+}
+
+function logImmediateInvoiceGeneration(customerName: string, isPaid: boolean) {
+  logger.info(
+    `[Billing] Immediate invoice generated for customer ${customerName}, isPaid: ${isPaid}`,
+  );
 }
 
 /** Menangani update jatuh tempo dan aktivasi pelanggan setelah invoice lunas. */
@@ -101,30 +102,91 @@ export async function handlePaidInvoiceCustomerState(options: {
   invoiceRepo: InvoiceRepository;
   pelangganBridge: PelangganBillingBridgeService;
 }) {
-  const invoice = await options.invoiceRepo.findUnique(options.invoiceId);
-  if (!invoice || invoice.status !== "PAID") {
+  const invoice = await loadPaidInvoice(options.invoiceRepo, options.invoiceId);
+  if (!isPaidInvoice(invoice)) {
     return;
   }
 
-  const customer = await options.pelangganBridge.findById(invoice.pelangganId);
+  await syncPaidInvoiceCustomerState(options, invoice);
+}
+
+async function syncPaidInvoiceCustomerState(
+  options: {
+    invoiceRepo: InvoiceRepository;
+    pelangganBridge: PelangganBillingBridgeService;
+  },
+  invoice: PaidInvoice,
+) {
+  const customer = await loadPaidInvoiceCustomer(
+    options.pelangganBridge,
+    invoice.pelangganId,
+  );
   if (!customer) {
     return;
   }
 
   const nextDueDate = calculateNextDueDate(customer, invoice.dueDate);
+  await syncPaidCustomerDueDate(
+    {
+      customer,
+      invoiceRepo: options.invoiceRepo,
+      pelangganBridge: options.pelangganBridge,
+    },
+    nextDueDate,
+  );
+  await publishPaidInvoiceEvent(invoice, customer.id);
+}
+
+async function loadPaidInvoice(
+  invoiceRepo: InvoiceRepository,
+  invoiceId: string,
+) {
+  return invoiceRepo.findUnique(invoiceId);
+}
+
+function isPaidInvoice(invoice: PaidInvoice | null): invoice is PaidInvoice {
+  return Boolean(invoice && invoice.status === "PAID");
+}
+
+async function loadPaidInvoiceCustomer(
+  pelangganBridge: PelangganBillingBridgeService,
+  pelangganId: string,
+) {
+  const customer = await pelangganBridge.findById(pelangganId);
+  if (!customer) {
+    return null;
+  }
+
+  return customer as PaidInvoiceCustomer;
+}
+
+async function syncPaidCustomerDueDate(
+  options: {
+    customer: PaidInvoiceCustomer;
+    invoiceRepo: InvoiceRepository;
+    pelangganBridge: PelangganBillingBridgeService;
+  },
+  nextDueDate: Date,
+) {
   const canActivateCustomer = await shouldActivateCustomer(
-    customer,
+    options.customer,
     options.invoiceRepo,
   );
 
-  await options.pelangganBridge.updateJatuhTempo(customer.id, nextDueDate);
-  if (canActivateCustomer) {
-    await getPelangganService().updateStatusPelanggan(customer.id, "AKTIF");
-  }
+  await options.pelangganBridge.updateJatuhTempo(
+    options.customer.id,
+    nextDueDate,
+  );
+  await activateCustomerIfNeeded(options.customer.id, canActivateCustomer);
+}
 
+async function publishPaidInvoiceEvent(
+  invoice: PaidInvoice,
+  customerId: string,
+) {
   await BillingEventDispatcher.onInvoicePaid(
-    options.invoiceId,
-    customer.id,
+    invoice.id,
+    customerId,
     Number(invoice.totalAmount),
   ).catch((error) =>
     logger.error(
@@ -132,6 +194,17 @@ export async function handlePaidInvoiceCustomerState(options: {
       error instanceof Error ? error : undefined,
     ),
   );
+}
+
+async function activateCustomerIfNeeded(
+  customerId: string,
+  shouldActivate: boolean,
+) {
+  if (!shouldActivate) {
+    return;
+  }
+
+  await getPelangganService().updateStatusPelanggan(customerId, "AKTIF");
 }
 
 function calculateNextDueDate(

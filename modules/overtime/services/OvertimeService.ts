@@ -1,17 +1,15 @@
-import { logger } from "@/lib/logger";
 import { OvertimeStatus } from "../types/overtime.enums";
 
-import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import type {
   IOvertimeRepository,
   OvertimeQueryFilters,
 } from "../domain/ports/IOvertimeRepository";
-import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
 import { OvertimeAttendanceStateService } from "./OvertimeAttendanceStateService";
 import { OvertimeAutoCheckoutSchedulerService } from "./OvertimeAutoCheckoutSchedulerService";
 import { OvertimeNotificationService } from "./OvertimeNotificationService";
 import { OvertimeQueryReportService } from "./OvertimeQueryReportService";
+import { OvertimeServiceAccess } from "./OvertimeService.access";
 import {
   assertApprovedRequest,
   assertInProgressRequest,
@@ -21,9 +19,7 @@ import {
   logFlexibleShiftShortfall,
   logMissingRegularAttendance,
 } from "./OvertimeService.helpers";
-
-const MAX_OVERTIME_DURATION_MS = 8 * 60 * 60 * 1000;
-const MIN_DURATION_MINUTES = 1;
+import { OvertimeServiceScheduler } from "./OvertimeService.scheduler";
 
 type CreateOvertimeRequestInput = {
   date: Date;
@@ -44,35 +40,36 @@ type StopOvertimeInput = {
   timestamp?: Date;
 };
 
+/** Mengelola mutation inti overtime user dan admin. */
 export class OvertimeService {
-  private repository: IOvertimeRepository;
-  private attendanceStateService: OvertimeAttendanceStateService;
-  private autoCheckoutScheduler: OvertimeAutoCheckoutSchedulerService;
-  private notificationService: OvertimeNotificationService;
-  private queryReportService: OvertimeQueryReportService;
+  private readonly accessService: OvertimeServiceAccess;
+
+  private readonly schedulerService: OvertimeServiceScheduler;
 
   constructor(
-    repository: IOvertimeRepository = new OvertimeRepository(),
+    private readonly repository: IOvertimeRepository = new OvertimeRepository(),
     scheduler?: OvertimeAutoCheckoutSchedulerService,
-    notificationService: OvertimeNotificationService = new OvertimeNotificationService(),
-    attendanceStateService: OvertimeAttendanceStateService = new OvertimeAttendanceStateService(),
-    queryReportService: OvertimeQueryReportService = new OvertimeQueryReportService(
+    private readonly notificationService: OvertimeNotificationService = new OvertimeNotificationService(),
+    private readonly attendanceStateService: OvertimeAttendanceStateService = new OvertimeAttendanceStateService(),
+    private readonly queryReportService: OvertimeQueryReportService = new OvertimeQueryReportService(
       repository,
       attendanceStateService,
     ),
   ) {
-    this.repository = repository;
-    this.attendanceStateService = attendanceStateService;
-    this.autoCheckoutScheduler =
+    const autoCheckoutScheduler =
       scheduler ?? new OvertimeAutoCheckoutSchedulerService(repository);
-    this.notificationService = notificationService;
-    this.queryReportService = queryReportService;
+
+    this.accessService = new OvertimeServiceAccess(repository);
+    this.schedulerService = new OvertimeServiceScheduler(autoCheckoutScheduler);
   }
 
   /** Create new overtime request for a day. */
   async createRequest(userId: string, data: CreateOvertimeRequestInput) {
-    const dateRange = this.createDayRange(data.date);
-    await this.ensureNoActiveRequest(userId, data.tenantId, dateRange);
+    await this.accessService.ensureNoActiveRequest(
+      userId,
+      data.tenantId,
+      data.date,
+    );
 
     const request = await this.repository.create({
       userId,
@@ -87,6 +84,7 @@ export class OvertimeService {
       request,
       tenantId: data.tenantId,
     });
+
     return request;
   }
 
@@ -96,7 +94,10 @@ export class OvertimeService {
     overtimeId: string,
     data: StartOvertimeInput,
   ) {
-    const overtime = await this.requireOwnedOvertime(overtimeId, userId);
+    const overtime = await this.accessService.requireOwnedOvertime(
+      overtimeId,
+      userId,
+    );
     assertApprovedRequest(overtime);
 
     const attendance = await this.attendanceStateService.findTodayAttendance(
@@ -130,7 +131,8 @@ export class OvertimeService {
     });
 
     ensureStartTimeExists(updatedOvertime);
-    await this.scheduleAutoCheckout(updatedOvertime);
+    await this.schedulerService.schedule(updatedOvertime);
+
     return updatedOvertime;
   }
 
@@ -140,7 +142,10 @@ export class OvertimeService {
     overtimeId: string,
     data: StopOvertimeInput,
   ) {
-    const overtime = await this.requireOwnedOvertime(overtimeId, userId);
+    const overtime = await this.accessService.requireOwnedOvertime(
+      overtimeId,
+      userId,
+    );
     assertInProgressRequest(overtime);
 
     const completion = calculateCompletion(overtime.startTime!, data.timestamp);
@@ -152,7 +157,8 @@ export class OvertimeService {
       duration: completion.duration,
     });
 
-    await this.cancelAutoCheckout(overtimeId);
+    await this.schedulerService.cancel(overtimeId);
+
     return completedOvertime;
   }
 
@@ -168,7 +174,7 @@ export class OvertimeService {
 
   /** Approve pending overtime request. */
   async approveRequest(id: string, approverId: string) {
-    const existing = await this.requireOvertime(id);
+    const existing = await this.accessService.requireOvertime(id);
     assertPendingRequest(existing, "approved");
 
     const result = await this.repository.update(id, {
@@ -182,7 +188,7 @@ export class OvertimeService {
 
   /** Reject pending overtime request. */
   async rejectRequest(id: string, reason: string) {
-    const existing = await this.requireOvertime(id);
+    const existing = await this.accessService.requireOvertime(id);
     assertPendingRequest(existing, "rejected");
 
     const result = await this.repository.update(id, {
@@ -238,116 +244,5 @@ export class OvertimeService {
       siteId,
       departmentId,
     });
-  }
-
-  /** Create start and end timestamps for one day. */
-  private createDayRange(date: Date) {
-    return {
-      startOfDay: toStartOfDay(new Date(date)),
-      endOfDay: toEndOfDay(new Date(date)),
-    };
-  }
-
-  /** Ensure user has no active request in the day. */
-  private async ensureNoActiveRequest(
-    userId: string,
-    tenantId: string | undefined,
-    dateRange: { startOfDay: Date; endOfDay: Date },
-  ): Promise<void> {
-    const existing = await this.repository.findActiveRequestByDate(
-      userId,
-      tenantId,
-      dateRange.startOfDay,
-      dateRange.endOfDay,
-    );
-
-    if (!existing) {
-      return;
-    }
-
-    throw new Error(
-      "Anda sudah memiliki pengajuan lembur aktif (Pending/Approved/Berjalan) untuk hari ini.",
-    );
-  }
-
-  /** Load overtime or throw when missing. */
-  private async requireOvertime(id: string): Promise<OvertimeEntity> {
-    const overtime = await this.repository.findById(id);
-    if (overtime) {
-      return overtime;
-    }
-
-    throw new Error("Overtime request not found");
-  }
-
-  /** Load user-owned overtime or throw when invalid. */
-  private async requireOwnedOvertime(
-    overtimeId: string,
-    userId: string,
-  ): Promise<OvertimeEntity> {
-    const overtime = await this.repository.findById(overtimeId);
-    if (!overtime) {
-      throw new Error("Data lembur tidak ditemukan");
-    }
-    if (overtime.userId !== userId) {
-      throw new Error("Akses ditolak");
-    }
-
-    return overtime;
-  }
-
-  /** Schedule overtime auto checkout with safe error handling. */
-  private async scheduleAutoCheckout(overtime: OvertimeEntity): Promise<void> {
-    try {
-      await this.autoCheckoutScheduler.schedule({
-        overtimeId: overtime.id,
-        startTime: overtime.startTime!,
-      });
-    } catch (error) {
-      this.logSchedulerError("schedule", overtime.id, error);
-    }
-  }
-
-  /** Cancel overtime auto checkout with safe error handling. */
-  private async cancelAutoCheckout(overtimeId: string): Promise<void> {
-    try {
-      await this.autoCheckoutScheduler.cancel(overtimeId);
-    } catch (error) {
-      this.logSchedulerError("cancel", overtimeId, error);
-    }
-  }
-
-  /** Log scheduler errors consistently. */
-  private logSchedulerError(
-    action: "schedule" | "cancel",
-    overtimeId: string,
-    error: unknown,
-  ): void {
-    logger.error(
-      `[Overtime] Failed to ${action} auto checkout for ${overtimeId}`,
-      error,
-    );
-  }
-
-  /** Calculate overtime completion values. */
-  private calculateCompletion(startTime: Date, requestedEndTime?: Date) {
-    const effectiveEndTime = requestedEndTime || new Date();
-    const autoCheckoutTime = new Date(
-      startTime.getTime() + MAX_OVERTIME_DURATION_MS,
-    );
-    const endTime =
-      effectiveEndTime.getTime() > autoCheckoutTime.getTime()
-        ? autoCheckoutTime
-        : effectiveEndTime;
-    const durationMs = endTime.getTime() - startTime.getTime();
-    const durationMinutes = Math.round(durationMs / (1000 * 60));
-
-    return {
-      endTime,
-      duration:
-        durationMinutes > MIN_DURATION_MINUTES
-          ? durationMinutes
-          : MIN_DURATION_MINUTES,
-    };
   }
 }

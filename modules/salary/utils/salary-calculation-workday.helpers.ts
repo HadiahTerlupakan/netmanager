@@ -53,25 +53,17 @@ export function calculateProratedBasicSalary(input: {
   basicSalary: number;
   attendanceWorkDays: number;
 }): { effectiveBasicSalary: number; isProrated: boolean } {
-  if (!input.user.joinDate) {
-    return buildFullSalaryResult(input.basicSalary);
-  }
+  const joinDate = input.user.joinDate;
+  if (!joinDate) return buildFullSalaryResult(input.basicSalary);
+  if (joinDate > input.endDate) return buildZeroSalaryResult();
 
-  if (
-    isJoinedWithinPayrollPeriod(
-      input.user.joinDate,
-      input.startDate,
-      input.endDate,
-    )
-  ) {
-    return buildProratedSalaryResult(input);
-  }
+  return isJoinedWithinPayrollPeriod(joinDate, input.startDate, input.endDate)
+    ? buildProratedSalaryResult(input)
+    : buildFullSalaryResult(input.basicSalary);
+}
 
-  if (input.user.joinDate > input.endDate) {
-    return { effectiveBasicSalary: 0, isProrated: true };
-  }
-
-  return buildFullSalaryResult(input.basicSalary);
+function buildZeroSalaryResult() {
+  return { effectiveBasicSalary: 0, isProrated: true };
 }
 
 function parseActiveDayIndexes(workDaysStr: string) {

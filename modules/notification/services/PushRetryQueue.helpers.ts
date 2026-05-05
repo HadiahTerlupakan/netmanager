@@ -96,30 +96,35 @@ export async function requeueRetryItem(item: PushRetryItem): Promise<void> {
 
 /** Retry one Expo push payload against the Expo API. */
 export async function sendRetryExpoPush(item: PushRetryItem): Promise<boolean> {
-  const response = await fetch(EXPO_PUSH_URL, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Accept-Encoding": "gzip, deflate",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify([
-      {
-        to: item.pushToken,
-        title: item.title,
-        body: item.body,
-        data: item.data || {},
-        sound: EXPO_SOUND,
-      },
-    ]),
-  });
-
+  const response = await fetch(EXPO_PUSH_URL, buildExpoRetryRequest(item));
   if (!response.ok) {
     return false;
   }
 
   const result = await response.json();
   return result.data?.[0]?.status === "ok";
+}
+
+function buildExpoRetryRequest(item: PushRetryItem): RequestInit {
+  return {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify([buildExpoRetryMessage(item)]),
+  };
+}
+
+function buildExpoRetryMessage(item: PushRetryItem) {
+  return {
+    to: item.pushToken,
+    title: item.title,
+    body: item.body,
+    data: item.data || {},
+    sound: EXPO_SOUND,
+  };
 }
 
 /** Log one dropped retry item consistently. */

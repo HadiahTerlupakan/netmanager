@@ -1,4 +1,4 @@
-import { prismaBilling, prismaBillingAuth } from "@/lib/prisma-billing";
+import { prismaBilling } from "@/lib/prisma-billing";
 import type { Prisma } from "@prisma/client-billing";
 import type {
   IInvoiceRepository,
@@ -13,56 +13,43 @@ import {
   voidInvoiceTransaction,
 } from "./invoiceRepository.write";
 import {
-  mapInvoiceEntity,
-  mapInvoiceWithItems,
-  mapInvoiceWithItemsAndPayments,
-  mapInvoiceWithPayment,
-} from "./shared/invoiceRepositoryMappers";
+  findAuthInvoiceEntity,
+  findAuthInvoiceWithPaymentEntity,
+  findInvoiceEntitiesForExactDueDate,
+  findInvoiceEntityById,
+  findInvoiceWithItemsAndPaymentsBySiteEntity,
+  findInvoiceWithItemsAndPaymentsEntity,
+  findInvoiceWithItemsEntity,
+  findInvoiceWithPaymentEntity,
+  findOverdueInvoiceEntities,
+  findPaginatedInvoicesWithItemsAndPayments,
+} from "./invoiceRepository.read";
+import { mapInvoiceEntity } from "./shared/invoiceRepositoryMappers";
 
 export class InvoiceRepository implements IInvoiceRepository {
   /** Mengambil invoice beserta pembayaran sebagai entity domain. */
   async findUnique(id: string): Promise<InvoiceWithPayment | null> {
-    const invoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-      include: { payment: true },
-    });
-    return mapInvoiceWithPayment(invoice);
+    return findInvoiceWithPaymentEntity(id);
   }
 
   /** Mengambil invoice mentah yang dipetakan ke entity domain sederhana. */
   async findRawById(id: string): Promise<InvoiceEntity | null> {
-    const invoice = await prismaBilling.invoice.findUnique({ where: { id } });
-    return mapInvoiceEntity(invoice);
+    return findInvoiceEntityById(id);
   }
 
   /** Mengambil invoice beserta pembayaran sebagai entity domain. */
   async findWithPayment(id: string): Promise<InvoiceWithPayment | null> {
-    const invoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-      include: { payment: true },
-    });
-    return mapInvoiceWithPayment(invoice);
+    return findInvoiceWithPaymentEntity(id);
   }
 
   /** Mengambil invoice beserta item dan pembayaran sebagai entity domain. */
   async findWithItemsAndPayments(id: string): Promise<InvoiceEntity | null> {
-    const invoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-      include: {
-        invoiceItem: true,
-        payment: true,
-      },
-    });
-    return mapInvoiceWithItemsAndPayments(invoice);
+    return findInvoiceWithItemsAndPaymentsEntity(id);
   }
 
   /** Mengambil invoice siap kirim sebagai entity domain. */
   async findInvoiceForSend(id: string): Promise<InvoiceEntity | null> {
-    const invoice = await prismaBilling.invoice.findUnique({
-      where: { id },
-      include: { invoiceItem: true },
-    });
-    return mapInvoiceWithItems(invoice);
+    return findInvoiceWithItemsEntity(id);
   }
 
   async findCustomerPaymentStatus(options: {
@@ -91,14 +78,7 @@ export class InvoiceRepository implements IInvoiceRepository {
     id: string,
     siteId: string,
   ): Promise<InvoiceEntity | null> {
-    const invoice = await prismaBilling.invoice.findFirst({
-      where: { id, siteId },
-      include: {
-        invoiceItem: true,
-        payment: true,
-      },
-    });
-    return mapInvoiceWithItemsAndPayments(invoice);
+    return findInvoiceWithItemsAndPaymentsBySiteEntity(id, siteId);
   }
 
   async findMany(
@@ -117,27 +97,7 @@ export class InvoiceRepository implements IInvoiceRepository {
     page: number;
     limit: number;
   }): Promise<{ data: InvoiceEntity[]; total: number }> {
-    const skip = (options.page - 1) * options.limit;
-    const [data, total] = await Promise.all([
-      prismaBilling.invoice.findMany({
-        where: options.where,
-        include: {
-          invoiceItem: true,
-          payment: true,
-        },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: options.limit,
-      }),
-      prismaBilling.invoice.count({ where: options.where }),
-    ]);
-
-    return {
-      data: data.map(
-        (invoice) => mapInvoiceWithItemsAndPayments(invoice) as InvoiceEntity,
-      ),
-      total,
-    };
+    return findPaginatedInvoicesWithItemsAndPayments(options);
   }
 
   async count(where: Prisma.InvoiceWhereInput) {
@@ -234,9 +194,11 @@ export class InvoiceRepository implements IInvoiceRepository {
     const where: Prisma.InvoiceWhereInput = {
       dueDate: { gte: dueDateStart, lte: dueDateEnd },
     };
+
     if (pelangganIds) {
       where.pelangganId = { in: pelangganIds };
     }
+
     return prismaBilling.invoice.findMany({
       where,
       select: { pelangganId: true },
@@ -249,14 +211,10 @@ export class InvoiceRepository implements IInvoiceRepository {
     dueDateStart: Date,
     dueDateEnd: Date,
   ): Promise<InvoiceEntity[]> {
-    const invoices = await prismaBilling.invoice.findMany({
-      where: {
-        pelangganId,
-        dueDate: { gte: dueDateStart, lte: dueDateEnd },
-      },
-    });
-    return invoices.map(
-      (invoice) => mapInvoiceEntity(invoice) as InvoiceEntity,
+    return findInvoiceEntitiesForExactDueDate(
+      pelangganId,
+      dueDateStart,
+      dueDateEnd,
     );
   }
 
@@ -286,15 +244,7 @@ export class InvoiceRepository implements IInvoiceRepository {
 
   /** Mengambil invoice overdue sebagai entity domain. */
   async findOverdueInvoices(beforeDate: Date): Promise<InvoiceEntity[]> {
-    const invoices = await prismaBilling.invoice.findMany({
-      where: {
-        status: "OVERDUE",
-        dueDate: { lt: beforeDate },
-      },
-    });
-    return invoices.map(
-      (invoice) => mapInvoiceEntity(invoice) as InvoiceEntity,
-    );
+    return findOverdueInvoiceEntities(beforeDate);
   }
 
   /** Menjalankan void invoice dan sinkronisasi status payment. */
@@ -319,18 +269,11 @@ export class InvoiceRepository implements IInvoiceRepository {
   async findUniqueAuthWithPayment(
     id: string,
   ): Promise<InvoiceWithPayment | null> {
-    const invoice = await prismaBillingAuth.invoice.findUnique({
-      where: { id },
-      include: { payment: true },
-    });
-    return mapInvoiceWithPayment(invoice);
+    return findAuthInvoiceWithPaymentEntity(id);
   }
 
   /** Mengambil invoice auth sederhana untuk side effect pasca bayar. */
   async findUniqueAuth(id: string): Promise<InvoiceEntity | null> {
-    const invoice = await prismaBillingAuth.invoice.findUnique({
-      where: { id },
-    });
-    return mapInvoiceEntity(invoice);
+    return findAuthInvoiceEntity(id);
   }
 }

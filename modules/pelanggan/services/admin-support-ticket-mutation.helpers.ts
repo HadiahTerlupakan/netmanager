@@ -15,47 +15,78 @@ import type { ServiceResult, UserContext } from "./AdminSupportTicketService";
 
 /** Update ticket status, priority, assignee, and side effects. */
 export async function updateAdminTicket(input: UpdateAdminTicketInput) {
-  try {
-    const existing = await input.ticketRepo.findByIdBasic(input.id);
-    if (!existing) return notFoundResult();
-    if (isForbidden(existing, input.user, input.hasSiteRestriction))
-      return forbiddenResult();
+  return runAdminTicketMutation("updateTicket", "Gagal mengupdate tiket", () =>
+    performAdminTicketUpdate(input),
+  );
+}
 
-    const updateData = buildTicketUpdateData(input.data, existing);
-    const ticket = await input.ticketRepo.updateAdmin(input.id, updateData);
-    await runClosingSideEffects(input);
-    logAdminTicketActivity("UPDATE", input.user.id, input.id, {
-      updates: updateData,
-    });
-    await publishStatusChange(input, existing, ticket as UpdatedTicketRecord);
-    return { success: true, data: ticket };
-  } catch (error) {
-    logger.error("[AdminSupportTicketService.updateTicket] Error:", error);
-    return {
-      success: false,
-      error: "Gagal mengupdate tiket",
-      code: "INTERNAL_ERROR",
-    };
+async function performAdminTicketUpdate(input: UpdateAdminTicketInput) {
+  const existing = await input.ticketRepo.findByIdBasic(input.id);
+  if (!existing) return notFoundResult();
+  if (isForbidden(existing, input.user, input.hasSiteRestriction)) {
+    return forbiddenResult();
   }
+
+  const updateData = buildTicketUpdateData(input.data, existing);
+  const ticket = (await input.ticketRepo.updateAdmin(
+    input.id,
+    updateData,
+  )) as UpdatedTicketRecord;
+  await finalizeAdminTicketUpdate({ input, existing, ticket, updateData });
+  return { success: true, data: ticket };
+}
+
+async function finalizeAdminTicketUpdate(input: {
+  input: UpdateAdminTicketInput;
+  existing: ExistingTicketRecord;
+  ticket: UpdatedTicketRecord;
+  updateData: Prisma.SupportTicketsUpdateInput;
+}) {
+  await runClosingSideEffects(input.input);
+  logAdminTicketUpdate(input.input, input.updateData);
+  await publishStatusChange(input.input, input.existing, input.ticket);
+}
+
+function logAdminTicketUpdate(
+  input: UpdateAdminTicketInput,
+  updateData: Prisma.SupportTicketsUpdateInput,
+) {
+  logAdminTicketActivity("UPDATE", input.user.id, input.id, {
+    updates: updateData,
+  });
 }
 
 /** Delete ticket and log activity. */
 export async function deleteAdminTicket(input: DeleteAdminTicketInput) {
-  try {
-    const ticket = await input.ticketRepo.findByIdBasic(input.id);
-    if (!ticket) return notFoundResult();
-    if (isForbidden(ticket, input.user, input.hasSiteRestriction))
-      return forbiddenResult();
+  return runAdminTicketMutation(
+    "deleteTicket",
+    "Gagal menghapus tiket",
+    async () => {
+      const ticket = await input.ticketRepo.findByIdBasic(input.id);
+      if (!ticket) return notFoundResult();
+      if (isForbidden(ticket, input.user, input.hasSiteRestriction))
+        return forbiddenResult();
 
-    await input.ticketRepo.delete(input.id);
-    logAdminTicketActivity("DELETE", input.user.id, input.id, {});
-    return { success: true, data: { id: input.id } };
+      await input.ticketRepo.delete(input.id);
+      logAdminTicketActivity("DELETE", input.user.id, input.id, {});
+      return { success: true, data: { id: input.id } };
+    },
+  );
+}
+
+async function runAdminTicketMutation<T>(
+  operation: string,
+  errorMessage: string,
+  run: () => Promise<T>,
+) {
+  try {
+    return await run();
   } catch (error) {
-    logger.error("[AdminSupportTicketService.deleteTicket] Error:", error);
+    logger.error(`[AdminSupportTicketService.${operation}] Error:`, error);
     if (isPrismaRecordNotFoundError(error)) return notFoundResult();
     return {
       success: false,
-      error: "Gagal menghapus tiket",
+      error: errorMessage,
       code: "INTERNAL_ERROR",
     };
   }

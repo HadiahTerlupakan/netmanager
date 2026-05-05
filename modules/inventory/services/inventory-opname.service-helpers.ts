@@ -78,25 +78,66 @@ export function buildOpnameCreateData(input: {
 }) {
   return {
     id: randomUUID(),
+    ...buildOpnameBaseFields(input),
+    ...buildOpnameConditionFields(input),
+    ...buildOpnameStorageFields(input),
+  };
+}
+
+function buildOpnameBaseFields(input: {
+  barangId: string;
+  gudangId: string;
+  stokFisik: number;
+  stokSistem: number;
+  selisih: number;
+  userName?: string | null;
+  userEmail?: string | null;
+  keterangan?: string;
+  alasanSelisih?: string;
+}) {
+  return {
     barangId: input.barangId,
     gudangId: input.gudangId,
     stokFisik: input.stokFisik,
     stokSistem: input.stokSistem,
     selisih: input.selisih,
     keterangan: input.keterangan,
+    pic: input.userName || input.userEmail || "Admin",
+    alasanSelisih: input.alasanSelisih,
+  };
+}
+
+function buildOpnameConditionFields(input: {
+  kondisiBaik?: number;
+  kondisiRusak?: number;
+  kondisiExpire?: number;
+}) {
+  return {
     kondisiBaik: input.kondisiBaik ?? 0,
     kondisiRusak: input.kondisiRusak ?? 0,
     kondisiExpire: input.kondisiExpire ?? 0,
+  };
+}
+
+function buildOpnameStorageFields(input: {
+  lokasiPenyimpanan?: string;
+  nomorRak?: string;
+  nomorBox?: string;
+  suhuPenyimpanan?: string;
+  kelembaban?: string;
+  tanggalExpire?: string;
+  nomorBatch?: string;
+  catatanDetail?: string;
+}) {
+  return {
     lokasiPenyimpanan: input.lokasiPenyimpanan,
     nomorRak: input.nomorRak,
     nomorBox: input.nomorBox,
-    pic: input.userName || input.userEmail || "Admin",
     suhuPenyimpanan: normalizeOptionalNumber(input.suhuPenyimpanan),
     kelembaban: normalizeOptionalNumber(input.kelembaban),
     tanggalExpire: input.tanggalExpire ? new Date(input.tanggalExpire) : null,
     nomorBatch: input.nomorBatch,
     catatanDetail: input.catatanDetail,
-    alasanSelisih: input.alasanSelisih,
   };
 }
 

@@ -88,10 +88,33 @@ export async function updateInvoiceForRoute(options: {
   input: InvoiceUpdateInput;
 }) {
   const existingInvoice = await findInvoiceByAccess(options);
-  if (!existingInvoice) {
-    return null;
+  if (!existingInvoice) return null;
+
+  const restrictedSiteId = await resolveUpdateSiteRestriction(options);
+  if (restrictedSiteId === "forbidden-site") {
+    return "forbidden-site" as const;
   }
 
+  return await performInvoiceUpdate(options, restrictedSiteId);
+}
+
+async function performInvoiceUpdate(
+  options: { invoiceId: string; input: InvoiceUpdateInput },
+  restrictedSiteId: string | undefined,
+) {
+  const updatedInvoice = await invoiceRepository.updateWithItemsTransaction({
+    invoiceId: options.invoiceId,
+    invoiceItem: options.input.invoiceItem,
+    updateData: buildInvoiceUpdateData(options.input, restrictedSiteId),
+  });
+  return buildInvoiceWithPelanggan(updatedInvoice);
+}
+
+async function resolveUpdateSiteRestriction(options: {
+  user: RouteUser;
+  isRestricted: boolean;
+  input: InvoiceUpdateInput;
+}) {
   const restrictedSiteId = options.isRestricted
     ? await getRestrictedSiteId(options.user.id)
     : undefined;
@@ -100,19 +123,16 @@ export async function updateInvoiceForRoute(options: {
     return "forbidden-site" as const;
   }
 
-  const updatedInvoice = await invoiceRepository.updateWithItemsTransaction({
-    invoiceId: options.invoiceId,
-    invoiceItem: options.input.invoiceItem,
-    updateData: buildInvoiceUpdateData(options.input, restrictedSiteId),
-  });
-  const pelanggan = await getPelangganLookupService().getPelanggan(
-    updatedInvoice.pelangganId,
-  );
+  return restrictedSiteId;
+}
 
-  return {
-    ...formatInvoiceResponse(updatedInvoice),
-    pelanggan,
-  };
+async function buildInvoiceWithPelanggan(
+  invoice: InvoiceResponseShape & { pelangganId: string | null },
+) {
+  const pelanggan = await getPelangganLookupService().getPelanggan(
+    invoice.pelangganId,
+  );
+  return { ...formatInvoiceResponse(invoice), pelanggan };
 }
 
 type InvoiceSendInput = {
@@ -127,37 +147,58 @@ export async function sendInvoiceForRoute(options: {
   user: RouteUser;
   input: InvoiceSendInput;
 }) {
-  const userSiteId = await getRestrictedSiteId(options.user.id);
-  const invoice = await invoiceRepository.findInvoiceForSend(options.invoiceId);
-  if (!invoice) {
-    return { status: "not-found" as const };
+  const invoice = await loadDraftInvoiceForSend(options);
+  if (!invoice || invoice.status !== "DRAFT") {
+    return { status: invoice ? "not-draft" : "not-found" } as const;
   }
 
-  if (userSiteId && invoice.siteId && invoice.siteId !== userSiteId) {
-    return { status: "not-found" as const };
-  }
-
-  if (invoice.status !== "DRAFT") {
-    return { status: "not-draft" as const };
-  }
-
-  const pelanggan = await getPelangganLookupService().getPelanggan(
-    invoice.pelangganId,
-  );
-  const email = options.input.recipientEmail || pelanggan?.email;
-  const phone = options.input.recipientPhone || pelanggan?.noTelp;
-
-  if (!email && !phone) {
+  const contact = await resolveSendContact(invoice.pelangganId, options.input);
+  if (!contact.email && !contact.phone) {
     return { status: "missing-contact" as const };
   }
 
-  const sentVia = resolveSentChannels(options.input.sendMethod, email, phone);
-  if (sentVia.status !== "ok") {
-    return sentVia;
-  }
+  return await executeSendInvoice(options, contact);
+}
+
+async function executeSendInvoice(
+  options: { invoiceId: string; input: InvoiceSendInput },
+  contact: { email: string | null; phone: string | null },
+) {
+  const sentVia = resolveSentChannels(
+    options.input.sendMethod,
+    contact.email,
+    contact.phone,
+  );
+  if (sentVia.status !== "ok") return sentVia;
 
   await invoiceRepository.markAsSent(options.invoiceId);
   return { status: "sent" as const, sentVia: sentVia.sentVia };
+}
+
+async function loadDraftInvoiceForSend(options: {
+  invoiceId: string;
+  user: RouteUser;
+}) {
+  const userSiteId = await getRestrictedSiteId(options.user.id);
+  const invoice = await invoiceRepository.findInvoiceForSend(options.invoiceId);
+  if (!invoice) {
+    return null;
+  }
+  if (userSiteId && invoice.siteId && invoice.siteId !== userSiteId) {
+    return null;
+  }
+  return invoice;
+}
+
+async function resolveSendContact(
+  pelangganId: string | null,
+  input: InvoiceSendInput,
+) {
+  const pelanggan = await getPelangganLookupService().getPelanggan(pelangganId);
+  return {
+    email: input.recipientEmail || pelanggan?.email,
+    phone: input.recipientPhone || pelanggan?.noTelp,
+  };
 }
 
 /** Deletes an invoice after applying route access checks. */
@@ -263,19 +304,33 @@ function formatInvoiceResponse(invoice: InvoiceResponseShape) {
 
   return {
     ...invoice,
+    ...formatInvoiceAmounts(invoice),
+    invoiceItem: formatInvoiceItems(items),
+    payment: formatPaymentAmounts(payments),
+  };
+}
+
+function formatInvoiceAmounts(invoice: InvoiceResponseShape) {
+  return {
     subtotal: Number(invoice.subtotal),
     taxAmount: Number(invoice.taxAmount),
     discountAmount: Number(invoice.discountAmount),
     totalAmount: Number(invoice.totalAmount),
     paidAmount: Number(invoice.paidAmount),
-    invoiceItem: items.map((item) => ({
-      ...item,
-      unitPrice: Number(item.unitPrice),
-      totalPrice: Number(item.totalPrice),
-    })),
-    payment: payments.map((payment) => ({
-      ...payment,
-      amount: Number(payment.amount),
-    })),
   };
+}
+
+function formatInvoiceItems(items: InvoiceResponseShape["invoiceItem"]) {
+  return items.map((item) => ({
+    ...item,
+    unitPrice: Number(item.unitPrice),
+    totalPrice: Number(item.totalPrice),
+  }));
+}
+
+function formatPaymentAmounts(payments: InvoiceResponseShape["payment"]) {
+  return payments.map((payment) => ({
+    ...payment,
+    amount: Number(payment.amount),
+  }));
 }

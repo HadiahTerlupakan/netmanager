@@ -4,11 +4,11 @@ export {
   lemburFilterSchema,
   lemburUpdateSchema,
   OvertimeStatus,
-} from "@/modules/overtime";
+} from "@/modules/overtime/validation";
 export type {
   LemburAction,
   LemburCreate,
   LemburFilter,
   LemburUpdate,
   OvertimeStatusType,
-} from "@/modules/overtime";
+} from "@/modules/overtime/validation";

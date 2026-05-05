@@ -44,25 +44,34 @@ export async function processRetryQueue(): Promise<RetryQueueStats> {
   }
 
   try {
-    const batchSize = await resolveRetryBatchSize();
-    for (let index = 0; index < batchSize; index++) {
-      const rawItem = await redis.rpoplpush(
-        RETRY_QUEUE_KEY,
-        RETRY_PROCESSING_KEY,
-      );
-      if (!rawItem) {
-        break;
-      }
-
-      await processRetryQueueItem(rawItem, stats);
-    }
+    await processRetryQueueBatch(stats);
   } catch (error) {
-    if (!isRedisUnavailableError(error)) {
-      logger.error("[PushRetry] Queue processing error:", error);
-    }
+    logRetryQueueError(error);
   }
 
   return stats;
+}
+
+async function processRetryQueueBatch(stats: RetryQueueStats): Promise<void> {
+  const batchSize = await resolveRetryBatchSize();
+  for (let index = 0; index < batchSize; index++) {
+    const rawItem = await popRetryQueueItem();
+    if (!rawItem) {
+      break;
+    }
+
+    await processRetryQueueItem(rawItem, stats);
+  }
+}
+
+async function popRetryQueueItem(): Promise<string | null> {
+  return redis.rpoplpush(RETRY_QUEUE_KEY, RETRY_PROCESSING_KEY);
+}
+
+function logRetryQueueError(error: unknown): void {
+  if (!isRedisUnavailableError(error)) {
+    logger.error("[PushRetry] Queue processing error:", error);
+  }
 }
 
 /**

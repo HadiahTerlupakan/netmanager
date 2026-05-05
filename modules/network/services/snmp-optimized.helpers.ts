@@ -70,26 +70,40 @@ export function formatRxOnu(rxOnuValue: string): string {
 }
 
 /** Bentuk label GPON ONU dari index komposit SNMP. */
-export function buildGponOnuLabel(index: string): string {
-  const indexParts = index.split(".");
+function getInvalidOnuLabel(index: string) {
+  return `idx-${index}`;
+}
 
+function parseCompositeOnuIndex(index: string) {
+  const indexParts = index.split(".");
   if (indexParts.length < 2) {
-    return `idx-${index}`;
+    return null;
   }
 
   const compositeIndex = parseInt(indexParts[0], 10);
-  const onuId = indexParts[1];
-
   if (Number.isNaN(compositeIndex)) {
-    return `idx-${index}`;
+    return null;
   }
 
-  const shelf = (compositeIndex >> 24) & 0xf;
-  const slot = (compositeIndex >> 16) & 0xff;
-  const port = (compositeIndex >> 8) & 0xff;
+  return { compositeIndex, onuId: indexParts[1] };
+}
+
+export function buildGponOnuLabel(index: string): string {
+  const parsedIndex = parseCompositeOnuIndex(index);
+  if (!parsedIndex) {
+    return getInvalidOnuLabel(index);
+  }
+
+  const shelf = (parsedIndex.compositeIndex >> 24) & 0xf;
+  const slot = (parsedIndex.compositeIndex >> 16) & 0xff;
+  const port = (parsedIndex.compositeIndex >> 8) & 0xff;
   const frame = shelf === 0 ? 1 : shelf;
 
-  return `${frame}/${slot}/${port}:${onuId}`;
+  return `${frame}/${slot}/${port}:${parsedIndex.onuId}`;
+}
+
+function resolveOnuName(index: string, nameData: Record<string, string>) {
+  return nameData[index] || `ONU-${index.split(".")[1]}`;
 }
 
 /** Cari nilai PPPoE dengan fallback ke suffix ONU id. */
@@ -130,12 +144,10 @@ export function buildOnuItem(params: {
   datasets: OnuDatasetCollection;
 }): OnuItem {
   const { index, oltId, datasets } = params;
-  const indexParts = index.split(".");
-  const onuName = datasets.nameData[index] || `ONU-${indexParts[1]}`;
 
   return {
     oltId,
-    name: onuName,
+    name: resolveOnuName(index, datasets.nameData),
     description: datasets.descData[index] || null,
     pppoe: resolvePppoeValue(index, datasets.pppoeData) || null,
     gponOnu: buildGponOnuLabel(index),

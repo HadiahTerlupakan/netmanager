@@ -116,12 +116,7 @@ async function findUsersOnLeave(userIds: string[]) {
     return new Set<string>();
   }
 
-  const now = new Date();
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
+  const { now, startOfToday } = buildLeaveRangeBounds();
   const usersOnLeave = await prisma.leaveRequest.findMany({
     where: {
       status: "APPROVED",
@@ -132,6 +127,14 @@ async function findUsersOnLeave(userIds: string[]) {
     select: { userId: true },
   });
   return new Set(usersOnLeave.map((user) => user.userId));
+}
+
+function buildLeaveRangeBounds() {
+  const now = new Date();
+  return {
+    now,
+    startOfToday: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+  };
 }
 
 function buildAnnouncementPreview(content: string) {

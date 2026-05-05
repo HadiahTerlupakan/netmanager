@@ -1,26 +1,13 @@
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
-import type { Redis } from "ioredis";
-
-/**
- * Iterate all keys matching a pattern using SCAN cursor to avoid blocking Redis.
- */
-async function scanKeys(client: Redis, pattern: string): Promise<string[]> {
-  const keys: string[] = [];
-  let cursor = "0";
-  do {
-    const [nextCursor, batch] = await client.scan(
-      cursor,
-      "MATCH",
-      pattern,
-      "COUNT",
-      100,
-    );
-    cursor = nextCursor;
-    keys.push(...batch);
-  } while (cursor !== "0");
-  return keys;
-}
+import {
+  getDashboardCacheKey,
+  getStatsCacheKey,
+  invalidateCacheGroup,
+  readCacheStats,
+  scanKeys,
+  type CacheStats as WorkOrderCacheStats,
+} from "./work-order-cache.helpers";
 /**
  * Work Order Cache Service
  *
@@ -43,12 +30,7 @@ const DASHBOARD_TTL = 60; // 1 minute for dashboard data
 const STATS_TTL = 120; // 2 minutes for statistics
 const LIST_TTL = 30; // 30 seconds for list data
 
-export interface WorkOrderCacheStats {
-  hits: number;
-  misses: number;
-  hitRate: number;
-  lastReset: Date;
-}
+export type { WorkOrderCacheStats };
 
 export class WorkOrderCacheService {
   /**
@@ -61,7 +43,7 @@ export class WorkOrderCacheService {
     options?: { departmentId?: string; siteId?: string },
   ): Promise<void> {
     try {
-      const key = this.getDashboardCacheKey(userId, period, options);
+      const key = getDashboardCacheKey(CACHE_PREFIX, userId, period, options);
       await redis.setex(key, DASHBOARD_TTL, JSON.stringify(data));
       // logger.info(`[CACHE] Cached dashboard data for user ${userId}, period ${period}`);
     } catch (error) {
@@ -79,7 +61,7 @@ export class WorkOrderCacheService {
     options?: { departmentId?: string; siteId?: string },
   ): Promise<unknown | null> {
     try {
-      const key = this.getDashboardCacheKey(userId, period, options);
+      const key = getDashboardCacheKey(CACHE_PREFIX, userId, period, options);
       const cached = await redis.get(key);
 
       if (cached) {
@@ -105,7 +87,7 @@ export class WorkOrderCacheService {
     stats: unknown,
   ): Promise<void> {
     try {
-      const key = this.getStatsCacheKey(filters);
+      const key = getStatsCacheKey(CACHE_PREFIX, filters);
       await redis.setex(key, STATS_TTL, JSON.stringify(stats));
     } catch (error) {
       logger.error("[CACHE] Failed to cache statistics:", error);
@@ -120,7 +102,7 @@ export class WorkOrderCacheService {
     siteId?: string;
   }): Promise<unknown | null> {
     try {
-      const key = this.getStatsCacheKey(filters);
+      const key = getStatsCacheKey(CACHE_PREFIX, filters);
       const cached = await redis.get(key);
 
       if (cached) {
@@ -192,13 +174,7 @@ export class WorkOrderCacheService {
    */
   async invalidateDashboardCaches(): Promise<void> {
     try {
-      const pattern = `${CACHE_PREFIX}dashboard:*`;
-      const keys = await scanKeys(redis, pattern);
-
-      if (keys.length > 0) {
-        await redis.del(...keys);
-        // logger.info(`[CACHE] Invalidated ${keys.length} dashboard cache keys`);
-      }
+      await invalidateCacheGroup(CACHE_PREFIX, "dashboard:*");
     } catch (error) {
       logger.error("[CACHE] Failed to invalidate dashboard caches:", error);
     }
@@ -209,13 +185,7 @@ export class WorkOrderCacheService {
    */
   async invalidateListCaches(): Promise<void> {
     try {
-      const pattern = `${CACHE_PREFIX}list:*`;
-      const keys = await scanKeys(redis, pattern);
-
-      if (keys.length > 0) {
-        await redis.del(...keys);
-        // logger.info(`[CACHE] Invalidated ${keys.length} list cache keys`);
-      }
+      await invalidateCacheGroup(CACHE_PREFIX, "list:*");
     } catch (error) {
       logger.error("[CACHE] Failed to invalidate list caches:", error);
     }
@@ -226,13 +196,7 @@ export class WorkOrderCacheService {
    */
   async invalidateStatsCaches(): Promise<void> {
     try {
-      const pattern = `${CACHE_PREFIX}stats:*`;
-      const keys = await scanKeys(redis, pattern);
-
-      if (keys.length > 0) {
-        await redis.del(...keys);
-        // logger.info(`[CACHE] Invalidated ${keys.length} stats cache keys`);
-      }
+      await invalidateCacheGroup(CACHE_PREFIX, "stats:*");
     } catch (error) {
       logger.error("[CACHE] Failed to invalidate stats caches:", error);
     }
@@ -242,64 +206,7 @@ export class WorkOrderCacheService {
    * Get cache statistics
    */
   async getCacheStats(): Promise<WorkOrderCacheStats> {
-    try {
-      const hitsKey = `${CACHE_PREFIX}metrics:hits`;
-      const missesKey = `${CACHE_PREFIX}metrics:misses`;
-      const resetKey = `${CACHE_PREFIX}metrics:reset`;
-
-      const [hits, misses, lastReset] = await Promise.all([
-        redis.get(hitsKey),
-        redis.get(missesKey),
-        redis.get(resetKey),
-      ]);
-
-      const hitsCount = parseInt(hits || "0", 10);
-      const missesCount = parseInt(misses || "0", 10);
-      const total = hitsCount + missesCount;
-      const hitRate = total > 0 ? (hitsCount / total) * 100 : 0;
-
-      return {
-        hits: hitsCount,
-        misses: missesCount,
-        hitRate: parseFloat(hitRate.toFixed(2)),
-        lastReset: lastReset ? new Date(lastReset) : new Date(),
-      };
-    } catch (error) {
-      logger.error("[CACHE] Failed to get cache stats:", error);
-      return {
-        hits: 0,
-        misses: 0,
-        hitRate: 0,
-        lastReset: new Date(),
-      };
-    }
-  }
-
-  /**
-   * Build dashboard cache key
-   */
-  private getDashboardCacheKey(
-    userId: string,
-    period: string,
-    options?: { departmentId?: string; siteId?: string },
-  ): string {
-    const parts = [CACHE_PREFIX, "dashboard", userId, period];
-    if (options?.departmentId) parts.push(`dept:${options.departmentId}`);
-    if (options?.siteId) parts.push(`site:${options.siteId}`);
-    return parts.join(":");
-  }
-
-  /**
-   * Build stats cache key
-   */
-  private getStatsCacheKey(filters: {
-    departmentId?: string;
-    siteId?: string;
-  }): string {
-    const parts = [CACHE_PREFIX, "stats"];
-    if (filters.departmentId) parts.push(`dept:${filters.departmentId}`);
-    if (filters.siteId) parts.push(`site:${filters.siteId}`);
-    return parts.join(":") || `${CACHE_PREFIX}stats:global`;
+    return readCacheStats(CACHE_PREFIX);
   }
 
   /**

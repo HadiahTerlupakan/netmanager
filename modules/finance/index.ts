@@ -53,7 +53,4 @@ export * from "./services/payment-gateway/gateway-manager";
 export * from "./services/payment-gateway/payment-method-catalog";
 export * from "./services/payment-gateway/providers/midtrans-provider";
 export * from "./services/payment-gateway/providers/moota-provider";
-export {
-  rabProjectCreateSchema,
-  rabProjectUpdateSchema,
-} from "./validators/rabProjectSchemas";
+export { rabProjectCreateSchema, rabProjectUpdateSchema } from "./validation";

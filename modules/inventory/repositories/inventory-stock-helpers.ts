@@ -2,18 +2,22 @@ import { Prisma } from "@prisma/client";
 import { DEFAULT_KONDISI, STOCK_FIELD_MAP } from "@/lib/constants/inventory";
 
 const DEFAULT_POSITIVE_STOCK_ERROR = "Jumlah harus angka bulat positif";
+
 type InventoryCondition = keyof typeof STOCK_FIELD_MAP;
+export type InventoryStockField = (typeof STOCK_FIELD_MAP)[InventoryCondition];
 
 function isInventoryCondition(kondisi: string): kondisi is InventoryCondition {
   return kondisi in STOCK_FIELD_MAP;
 }
 
 /** Ambil field stok per kondisi inventory. */
-export function getStockFieldByCondition(kondisi?: string): string {
+export function getStockFieldByCondition(
+  kondisi?: string,
+): InventoryStockField {
   const selectedCondition = kondisi || DEFAULT_KONDISI;
 
   if (!isInventoryCondition(selectedCondition)) {
-    return "stokBaru";
+    return STOCK_FIELD_MAP.BARU;
   }
 
   return STOCK_FIELD_MAP[selectedCondition];

@@ -31,7 +31,7 @@ export function ClientComponent() {
     description: "",
   });
 
-  const { pppConnectionMode, radiusDefaults } = useMikrotikFormSettings();
+  const { pppConnectionMode } = useMikrotikFormSettings();
 
   const loadRouter = useCallback(async () => {
     try {
@@ -167,7 +167,6 @@ export function ClientComponent() {
       <ScriptGeneratorModal
         open={showScriptModal}
         onClose={() => setShowScriptModal(false)}
-        secret={radiusDefaults.radiusSecret}
       />
     </div>
   );

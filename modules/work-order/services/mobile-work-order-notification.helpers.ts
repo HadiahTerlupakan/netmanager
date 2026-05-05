@@ -13,12 +13,38 @@ type WorkOrderDetail = NonNullable<
   Awaited<ReturnType<WorkOrderRepository["findById"]>>
 >;
 
-export async function notifyMobileTaskUpdate(input: {
+type NotifyMobileTaskUpdateInput = {
   updatedWorkOrder: WorkOrderDetail;
   taskTitle: string | null;
   taskInput: HandleTaskUpdateInput;
-}) {
-  await notifyAdminsAboutMobileAction({
+};
+
+type NotifyMobileWorkOrderActionInput = {
+  workOrder: WorkOrderDetail;
+  actionInput: HandleMobileActionInput;
+  actorName: string;
+};
+
+export async function notifyMobileTaskUpdate(
+  input: NotifyMobileTaskUpdateInput,
+) {
+  await notifyAdminsAboutMobileAction(
+    buildTaskUpdateNotificationPayload(input),
+  ).catch((error) => logger.error("[TaskNotify] Error:", error));
+}
+
+export async function notifyMobileWorkOrderAction(
+  input: NotifyMobileWorkOrderActionInput,
+) {
+  await notifyAdminsAboutMobileAction(
+    buildMobileActionNotificationPayload(input),
+  );
+}
+
+function buildTaskUpdateNotificationPayload(
+  input: NotifyMobileTaskUpdateInput,
+) {
+  return {
     workOrderId: input.taskInput.workOrderId,
     workOrderNumber: input.updatedWorkOrder.workOrderNumber,
     title: input.updatedWorkOrder.title,
@@ -29,33 +55,34 @@ export async function notifyMobileTaskUpdate(input: {
     ),
     triggeredByUserId: input.taskInput.actor.id,
     triggeredByName: input.taskInput.actor.name || UNKNOWN_USER_NAME,
-    ...(input.updatedWorkOrder.departmentId && {
-      departmentId: input.updatedWorkOrder.departmentId,
-    }),
-    ...(input.updatedWorkOrder.siteId && {
-      siteId: input.updatedWorkOrder.siteId,
-    }),
-  }).catch((error) => logger.error("[TaskNotify] Error:", error));
+    ...buildNotificationScope(input.updatedWorkOrder),
+  };
 }
 
-export async function notifyMobileWorkOrderAction(input: {
-  workOrder: WorkOrderDetail;
-  actionInput: HandleMobileActionInput;
-  actorName: string;
-}) {
-  await notifyAdminsAboutMobileAction({
+function buildMobileActionNotificationPayload(
+  input: NotifyMobileWorkOrderActionInput,
+) {
+  return {
     workOrderId: input.actionInput.workOrderId,
     workOrderNumber: input.workOrder.workOrderNumber,
     title: input.workOrder.title,
     actionType: input.actionInput.payload.action,
-    actionMessage: `${input.actionInput.payload.action} Work Order: ${input.actionInput.payload.notes || ""}`,
+    actionMessage: buildMobileActionMessage(input.actionInput),
     triggeredByUserId: input.actionInput.actor.id,
     triggeredByName: input.actorName,
-    ...(input.workOrder.departmentId && {
-      departmentId: input.workOrder.departmentId,
-    }),
-    ...(input.workOrder.siteId && { siteId: input.workOrder.siteId }),
-  });
+    ...buildNotificationScope(input.workOrder),
+  };
+}
+
+function buildMobileActionMessage(actionInput: HandleMobileActionInput) {
+  return `${actionInput.payload.action} Work Order: ${actionInput.payload.notes || ""}`;
+}
+
+function buildNotificationScope(workOrder: WorkOrderDetail) {
+  return {
+    ...(workOrder.departmentId && { departmentId: workOrder.departmentId }),
+    ...(workOrder.siteId && { siteId: workOrder.siteId }),
+  };
 }
 
 function buildTaskActionMessage(

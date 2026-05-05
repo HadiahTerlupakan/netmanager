@@ -1,33 +1,33 @@
 import { NotificationRepository } from "../repositories/NotificationRepository";
 import { UserLookupService } from "@/modules/users";
-import { getTenantIdFromContext } from "@/lib/tenant-context";
-import { Prisma } from "@prisma/client";
-import {
-  buildCanvasingTitle,
-  buildExcludedTypesSqlCondition,
-  buildNotificationAccessWhere,
-  buildNotificationCreateData,
-  buildNotificationMutationPayload,
-  buildPointClaimTitle,
-  buildSiteSqlCondition,
-  buildTenantSqlCondition,
-  getMissingTenantId,
-  resolveNotificationQueryOptions,
-  type NotificationAccessScope,
-  type NotificationAccessScopeInput,
-} from "./NotificationService.helpers";
 import { deliverNotification } from "./NotificationService.delivery";
+import { buildNotificationCreateData } from "./NotificationService.helpers";
 import {
-  findCanvasingVerifiers,
-  findEligibleRecipients,
-  notifyAssignedWorkOrderRecipients,
-  notifyMobileActionRecipients,
   notifyNewCanvasingRecipients,
   notifyNewPointClaimRecipients,
-  notifyNewWorkOrderRecipients,
-  notifyStatusChangedWorkOrderRecipients,
-  notifyUpdatedWorkOrderRecipients,
-} from "./NotificationService.workorders";
+} from "./NotificationService.marketing";
+import { findCanvasingVerifiers } from "./NotificationService.recipients";
+import type {
+  CanvasingNotificationData,
+  CreateNotificationData,
+  NotificationType,
+  PointClaimNotificationData,
+  WorkOrderNotificationData,
+} from "./NotificationService.types";
+import {
+  notifyAdminsAboutMobileActionEvent,
+  notifyNewWorkOrderEvent,
+  notifyWorkOrderAssignedEvent,
+  notifyWorkOrderStatusChangeEvent,
+  notifyWorkOrderUpdateEvent,
+} from "./NotificationService.work-order-events";
+import {
+  getNotificationsForUserAccess,
+  getReadableNotificationForUserAccess,
+  getUnreadCountAccess,
+  markAllAsReadAccess,
+} from "./NotificationService.access";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 
 function getNotificationRepository() {
   return new NotificationRepository();
@@ -35,57 +35,6 @@ function getNotificationRepository() {
 
 function getUserLookupService() {
   return new UserLookupService();
-}
-
-async function resolveNotificationAccessScope(
-  input: NotificationAccessScopeInput,
-): Promise<NotificationAccessScope> {
-  const user = input.departmentId
-    ? null
-    : await getUserLookupService().findByIdWithDepartment(input.userId);
-  const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-  const effectiveTenantId =
-    !isSuperAdmin && !tenantId ? getMissingTenantId() : tenantId;
-
-  return {
-    departmentId: input.departmentId || user?.departmentId || undefined,
-    tenantCondition: !isSuperAdmin ? { tenantId: effectiveTenantId } : {},
-  };
-}
-
-export type NotificationType =
-  | "WORK_ORDER"
-  | "SYSTEM"
-  | "TICKET"
-  | "ALERT"
-  | "ANNOUNCEMENT";
-export type NotificationPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
-
-export interface CreateNotificationData {
-  type: NotificationType;
-  priority?: NotificationPriority | undefined;
-  title: string;
-  message: string;
-  link?: string | undefined;
-  userId?: string | undefined;
-  departmentId?: string | undefined;
-  siteId?: string | undefined;
-  sourceType?: string | undefined;
-  sourceId?: string | undefined;
-  skipExpoPush?: boolean | undefined;
-  tenantId?: string | undefined;
-}
-
-export interface WorkOrderNotificationData {
-  workOrderId: string;
-  workOrderNumber: string;
-  title: string;
-  type: string;
-  priority: string;
-  departmentId?: string | undefined;
-  siteId?: string | undefined;
-  assignedToId?: string | undefined;
-  tenantId?: string | undefined;
 }
 
 export async function createNotification(data: CreateNotificationData) {
@@ -107,17 +56,10 @@ export async function createNotification(data: CreateNotificationData) {
 export async function notifyNewWorkOrder(
   data: WorkOrderNotificationData & { triggeredByUserId?: string },
 ) {
-  const recipients = await findEligibleRecipients({
-    userLookupService: getUserLookupService(),
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.triggeredByUserId,
-  });
-
-  return notifyNewWorkOrderRecipients({
+  return notifyNewWorkOrderEvent({
     data,
-    recipients,
     createNotification,
+    userLookupService: getUserLookupService(),
   });
 }
 
@@ -127,17 +69,10 @@ export async function notifyWorkOrderAssigned(
     triggeredByUserId?: string;
   },
 ) {
-  const observers = await findEligibleRecipients({
-    userLookupService: getUserLookupService(),
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.assignedToId,
-  });
-
-  await notifyAssignedWorkOrderRecipients({
+  await notifyWorkOrderAssignedEvent({
     data,
-    observers,
     createNotification,
+    userLookupService: getUserLookupService(),
   });
 }
 
@@ -148,17 +83,10 @@ export async function notifyWorkOrderStatusChange(
     triggeredByUserId?: string;
   },
 ) {
-  const recipients = await findEligibleRecipients({
-    userLookupService: getUserLookupService(),
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.triggeredByUserId,
-  });
-
-  await notifyStatusChangedWorkOrderRecipients({
+  await notifyWorkOrderStatusChangeEvent({
     data,
-    recipients,
     createNotification,
+    userLookupService: getUserLookupService(),
   });
 }
 
@@ -170,17 +98,10 @@ export async function notifyWorkOrderUpdate(
     excludeUserIds?: string[];
   },
 ) {
-  const recipients = await findEligibleRecipients({
-    userLookupService: getUserLookupService(),
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.triggeredByUserId,
-  });
-
-  await notifyUpdatedWorkOrderRecipients({
+  await notifyWorkOrderUpdateEvent({
     data,
-    recipients,
     createNotification,
+    userLookupService: getUserLookupService(),
   });
 }
 
@@ -195,17 +116,10 @@ export async function notifyAdminsAboutMobileAction(data: {
   departmentId?: string;
   siteId?: string;
 }) {
-  const recipients = await findEligibleRecipients({
-    userLookupService: getUserLookupService(),
-    departmentId: data.departmentId,
-    siteId: data.siteId,
-    excludeUserId: data.triggeredByUserId,
-  });
-
-  return notifyMobileActionRecipients({
+  return notifyAdminsAboutMobileActionEvent({
     data,
-    recipients,
     createNotification,
+    userLookupService: getUserLookupService(),
   });
 }
 
@@ -221,35 +135,12 @@ export async function getNotificationsForUser(
     departmentId?: string;
   },
 ) {
-  const scope = await resolveNotificationAccessScope({
+  return getNotificationsForUserAccess({
+    repository: getNotificationRepository(),
+    userLookupService: getUserLookupService(),
     userId,
-    departmentId: options?.departmentId,
-    siteId: options?.siteId,
+    options,
   });
-  const where = buildNotificationAccessWhere(
-    {
-      userId,
-      departmentId: options?.departmentId,
-      siteId: options?.siteId,
-    },
-    scope,
-  );
-
-  if (options?.unreadOnly) where.isRead = false;
-  if (options?.type) where.type = options.type;
-  if (options?.excludeTypes && options.excludeTypes.length > 0) {
-    where.type = { notIn: options.excludeTypes };
-  }
-
-  const [notifications, total] = await Promise.all([
-    getNotificationRepository().findManyForUser(
-      where,
-      resolveNotificationQueryOptions(options),
-    ),
-    getNotificationRepository().countWhere(where),
-  ]);
-
-  return { notifications, total };
 }
 
 export async function getReadableNotificationForUser(
@@ -257,22 +148,12 @@ export async function getReadableNotificationForUser(
   userId: string,
   options?: { departmentId?: string; siteId?: string },
 ) {
-  const scope = await resolveNotificationAccessScope({
+  return getReadableNotificationForUserAccess({
+    repository: getNotificationRepository(),
+    userLookupService: getUserLookupService(),
+    notificationId,
     userId,
-    departmentId: options?.departmentId,
-    siteId: options?.siteId,
-  });
-
-  return getNotificationRepository().findFirst({
-    id: notificationId,
-    ...buildNotificationAccessWhere(
-      {
-        userId,
-        departmentId: options?.departmentId,
-        siteId: options?.siteId,
-      },
-      scope,
-    ),
+    options,
   });
 }
 
@@ -281,14 +162,12 @@ export async function getUnreadCount(
   excludeTypes?: NotificationType[],
   siteId?: string,
 ): Promise<number> {
-  const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
-
-  return getNotificationRepository().getUnreadCountRaw(
+  return getUnreadCountAccess({
+    repository: getNotificationRepository(),
     userId,
-    buildExcludedTypesSqlCondition(excludeTypes),
-    buildSiteSqlCondition(siteId),
-    buildTenantSqlCondition(isSuperAdmin, tenantId),
-  );
+    excludeTypes,
+    siteId,
+  });
 }
 
 export async function markAsRead(notificationId: string) {
@@ -300,38 +179,13 @@ export async function markAllAsRead(
   type?: NotificationType,
   siteId?: string,
 ) {
-  const scope = await resolveNotificationAccessScope({ userId, siteId });
-  const where: Prisma.NotificationsWhereInput = {
-    ...buildNotificationAccessWhere({ userId, siteId }, scope),
-    isRead: false,
-  };
-
-  if (type) {
-    where.type = type;
-  }
-
-  return getNotificationRepository().updateMany(
-    where,
-    buildNotificationMutationPayload(),
-  );
-}
-
-export interface CanvasingNotificationData {
-  canvasingId: string;
-  customerName: string;
-  salesId: string;
-  salesName?: string;
-  siteId?: string | null;
-}
-
-export interface PointClaimNotificationData {
-  claimId: string;
-  canvasingId: string;
-  customerName: string;
-  salesId: string;
-  salesName?: string;
-  pointValue: number;
-  siteId?: string | null;
+  return markAllAsReadAccess({
+    repository: getNotificationRepository(),
+    userLookupService: getUserLookupService(),
+    userId,
+    type,
+    siteId,
+  });
 }
 
 export async function notifyNewCanvasing(data: CanvasingNotificationData) {
@@ -344,7 +198,6 @@ export async function notifyNewCanvasing(data: CanvasingNotificationData) {
     data,
     recipients,
     createNotification,
-    buildCanvasingTitle,
   });
 }
 
@@ -358,6 +211,14 @@ export async function notifyNewPointClaim(data: PointClaimNotificationData) {
     data,
     recipients,
     createNotification,
-    buildPointClaimTitle,
   });
 }
+
+export type {
+  CanvasingNotificationData,
+  CreateNotificationData,
+  NotificationPriority,
+  NotificationType,
+  PointClaimNotificationData,
+  WorkOrderNotificationData,
+} from "./NotificationService.types";

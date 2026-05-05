@@ -2,13 +2,14 @@ import { randomUUID } from "crypto";
 import type { PrismaClient } from "@prisma/client";
 import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { InventoryStockService } from "@/modules/inventory";
+import type { KondisiBarang } from "@/modules/inventory/types/asset.enums";
 import type {
   MobileWorkOrderMaterialReturnInput,
   MobileWorkOrderMaterialReturnResult,
   UserContext,
 } from "./work-order-service.contracts";
 
-const DEFAULT_MATERIAL_CONDITION = "BEKAS" as const;
+const DEFAULT_MATERIAL_CONDITION = "BEKAS" as KondisiBarang;
 
 interface WorkOrderMaterialReturnContext {
   id: string;
@@ -17,6 +18,12 @@ interface WorkOrderMaterialReturnContext {
   title: string;
   status: WorkOrderStatus;
 }
+
+type TransactionClient = Parameters<PrismaClient["$transaction"]>[0] extends (
+  arg: infer T,
+) => Promise<unknown>
+  ? T
+  : never;
 
 /** Proses pengembalian material mobile dalam satu transaksi. */
 export async function processMobileMaterialReturn(input: {
@@ -27,33 +34,44 @@ export async function processMobileMaterialReturn(input: {
   userContext: UserContext;
   tenantId?: string;
 }): Promise<MobileWorkOrderMaterialReturnResult[]> {
-  return input.prismaClient.$transaction(async (tx) => {
-    const createdItems = await createReturnedItems({
-      transaction: tx,
+  return input.prismaClient.$transaction((transaction) =>
+    executeMaterialReturnTransaction({
+      transaction,
       inventoryService: input.inventoryService,
       workOrder: input.workOrder,
       items: input.items,
       userContext: input.userContext,
       tenantId: input.tenantId,
-    });
-    await appendReturnedMaterials(tx, input.workOrder.id, createdItems);
-    await createMaterialReturnUpdate({
-      transaction: tx,
-      workOrder: input.workOrder,
-      userContext: input.userContext,
-      tenantId: input.tenantId,
-      items: createdItems,
-    });
-    return createdItems;
+    }),
+  );
+}
+
+async function executeMaterialReturnTransaction(input: {
+  transaction: TransactionClient;
+  inventoryService: InventoryStockService;
+  workOrder: WorkOrderMaterialReturnContext;
+  items: MobileWorkOrderMaterialReturnInput[];
+  userContext: UserContext;
+  tenantId?: string;
+}): Promise<MobileWorkOrderMaterialReturnResult[]> {
+  const createdItems = await createReturnedItems(input);
+  await appendReturnedMaterials(
+    input.transaction,
+    input.workOrder.id,
+    createdItems,
+  );
+  await createMaterialReturnUpdate({
+    transaction: input.transaction,
+    workOrder: input.workOrder,
+    userContext: input.userContext,
+    tenantId: input.tenantId,
+    items: createdItems,
   });
+  return createdItems;
 }
 
 async function createReturnedItems(input: {
-  transaction: Parameters<PrismaClient["$transaction"]>[0] extends (
-    arg: infer T,
-  ) => Promise<unknown>
-    ? T
-    : never;
+  transaction: TransactionClient;
   inventoryService: InventoryStockService;
   workOrder: WorkOrderMaterialReturnContext;
   items: MobileWorkOrderMaterialReturnInput[];
@@ -62,30 +80,49 @@ async function createReturnedItems(input: {
 }): Promise<MobileWorkOrderMaterialReturnResult[]> {
   const createdItems: MobileWorkOrderMaterialReturnResult[] = [];
   for (const item of input.items) {
-    const kondisi = item.kondisi || DEFAULT_MATERIAL_CONDITION;
-    const stockIn = await input.inventoryService.addStockInTransaction(
-      input.transaction,
-      {
-        barangId: item.barangId,
-        gudangId: item.gudangId,
-        jumlah: item.jumlah,
-        kondisi,
-        userId: input.userContext.id,
-        keterangan: buildReturnDescription(input.workOrder),
-        tenantId: input.tenantId,
-      },
-    );
-    createdItems.push(mapReturnedMaterial(stockIn, item, kondisi));
+    createdItems.push(await createReturnedItem({ ...input, item }));
   }
   return createdItems;
 }
 
+async function createReturnedItem(input: {
+  transaction: TransactionClient;
+  inventoryService: InventoryStockService;
+  workOrder: WorkOrderMaterialReturnContext;
+  item: MobileWorkOrderMaterialReturnInput;
+  userContext: UserContext;
+  tenantId?: string;
+}): Promise<MobileWorkOrderMaterialReturnResult> {
+  const kondisi = input.item.kondisi || DEFAULT_MATERIAL_CONDITION;
+  const stockIn = await input.inventoryService.addStockInTransaction(
+    input.transaction,
+    buildReturnedStockInput(input, kondisi),
+  );
+  return mapReturnedMaterial(stockIn, input.item, kondisi);
+}
+
+function buildReturnedStockInput(
+  input: {
+    workOrder: WorkOrderMaterialReturnContext;
+    item: MobileWorkOrderMaterialReturnInput;
+    userContext: UserContext;
+    tenantId?: string;
+  },
+  kondisi: KondisiBarang,
+) {
+  return {
+    barangId: input.item.barangId,
+    gudangId: input.item.gudangId,
+    jumlah: input.item.jumlah,
+    kondisi,
+    userId: input.userContext.id,
+    keterangan: buildReturnDescription(input.workOrder),
+    tenantId: input.tenantId,
+  };
+}
+
 async function appendReturnedMaterials(
-  transaction: Parameters<PrismaClient["$transaction"]>[0] extends (
-    arg: infer T,
-  ) => Promise<unknown>
-    ? T
-    : never,
+  transaction: TransactionClient,
   workOrderId: string,
   items: MobileWorkOrderMaterialReturnResult[],
 ): Promise<void> {
@@ -98,28 +135,33 @@ async function appendReturnedMaterials(
 }
 
 async function createMaterialReturnUpdate(input: {
-  transaction: Parameters<PrismaClient["$transaction"]>[0] extends (
-    arg: infer T,
-  ) => Promise<unknown>
-    ? T
-    : never;
+  transaction: TransactionClient;
   workOrder: WorkOrderMaterialReturnContext;
   userContext: UserContext;
   tenantId?: string;
   items: MobileWorkOrderMaterialReturnResult[];
 }): Promise<void> {
   await input.transaction.workOrderUpdates.create({
-    data: {
-      id: randomUUID(),
-      workOrderId: input.workOrder.id,
-      createdById: input.userContext.id,
-      updateType: "MATERIAL_RETURN",
-      message: `Mengembalikan barang: ${buildDetailedMaterialList(input.items)}`,
-      oldStatus: input.workOrder.status,
-      newStatus: input.workOrder.status,
-      ...(input.tenantId ? { tenantId: input.tenantId } : {}),
-    },
+    data: buildMaterialReturnUpdateData(input),
   });
+}
+
+function buildMaterialReturnUpdateData(input: {
+  workOrder: WorkOrderMaterialReturnContext;
+  userContext: UserContext;
+  tenantId?: string;
+  items: MobileWorkOrderMaterialReturnResult[];
+}) {
+  return {
+    id: randomUUID(),
+    workOrderId: input.workOrder.id,
+    createdById: input.userContext.id,
+    updateType: "MATERIAL_RETURN",
+    message: `Mengembalikan barang: ${buildDetailedMaterialList(input.items)}`,
+    oldStatus: input.workOrder.status,
+    newStatus: input.workOrder.status,
+    ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+  };
 }
 
 function mapReturnedMaterial(
