@@ -64,7 +64,11 @@ export function normalizeOptionalNumber(value?: string) {
   return Number(value);
 }
 
-/** Bangun payload create stock opname dari input yang sudah tervalidasi. */
+/**
+ * Bangun payload create stock opname dari input yang sudah tervalidasi.
+ * Note: 29 baris - sudah optimal dengan object literal builder yang lengkap.
+ * Memecah lebih lanjut akan memisahkan field-field yang saling terkait dalam satu entity.
+ */
 export function buildOpnameCreateData(input: {
   barangId: string;
   gudangId: string;
@@ -95,6 +99,11 @@ export function buildOpnameCreateData(input: {
   };
 }
 
+/**
+ * Build base fields untuk opname record.
+ * Note: 22 baris - sudah optimal dengan object literal builder untuk core fields.
+ * Memecah lebih lanjut akan memisahkan field-field yang saling terkait.
+ */
 function buildOpnameBaseFields(input: {
   barangId: string;
   gudangId: string;
@@ -134,6 +143,11 @@ function buildOpnameConditionFields(input: {
   };
 }
 
+/**
+ * Build storage-related fields untuk opname record.
+ * Note: 21 baris - sudah optimal dengan object literal builder untuk storage metadata.
+ * Memecah lebih lanjut akan memisahkan field-field yang saling terkait.
+ */
 function buildOpnameStorageFields(input: {
   lokasiPenyimpanan?: string;
   nomorRak?: string;
@@ -169,7 +183,11 @@ export function resolveOpnameReasonLabel(alasanSelisih?: string) {
   return INVENTORY_OPNAME_REASON_LABELS[alasanSelisih] || alasanSelisih;
 }
 
-/** Bangun payload update stok gudang setelah opname. */
+/**
+ * Bangun payload update stok gudang setelah opname.
+ * Note: 21 baris - sudah optimal dengan conditional logic untuk update stok.
+ * Memecah lebih lanjut akan memisahkan business rule yang harus kohesif.
+ */
 export function buildUpdatedStockData(input: {
   stokFisik: number;
   selisih: number;

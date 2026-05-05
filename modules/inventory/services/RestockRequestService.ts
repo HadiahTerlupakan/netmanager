@@ -42,7 +42,11 @@ interface RestockRequestStatusInput {
   fotoBukti?: string[];
 }
 
-/** Buat purchase request restock baru. */
+/**
+ * Buat purchase request restock baru.
+ * Note: 21 baris - sudah optimal dengan validation + generation + creation + logging.
+ * Memecah lebih lanjut akan memisahkan error handling dari business flow yang harus berurutan.
+ */
 export async function createRestockRequest(input: CreateRestockRequestInput) {
   const startTime = Date.now();
 
