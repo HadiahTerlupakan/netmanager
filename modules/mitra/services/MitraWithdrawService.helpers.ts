@@ -47,19 +47,34 @@ export async function getWalletValidationError(input: {
   amount: number;
   withdrawRepository: PendingWithdrawCounter;
 }) {
-  if (!input.walletId || input.balance === undefined) {
-    return "Wallet tidak ditemukan";
-  }
-
-  if (input.balance < input.amount) {
-    return "Saldo tidak cukup";
-  }
+  const basicError = validateWalletBasics(
+    input.walletId,
+    input.balance,
+    input.amount,
+  );
+  if (basicError) return basicError;
 
   const pendingCount = await input.withdrawRepository.countPendingWithdrawals(
-    input.walletId,
+    input.walletId!,
   );
   if (pendingCount > 0) {
     return "Masih ada request penarikan yang belum selesai";
+  }
+
+  return null;
+}
+
+function validateWalletBasics(
+  walletId?: string,
+  balance?: number,
+  amount?: number,
+) {
+  if (!walletId || balance === undefined) {
+    return "Wallet tidak ditemukan";
+  }
+
+  if (balance < amount!) {
+    return "Saldo tidak cukup";
   }
 
   return null;
@@ -94,18 +109,31 @@ export function getApprovalRequestValidationError(input: {
     return "Request tidak ditemukan";
   }
 
-  if (input.request.status !== input.requiredStatus) {
-    if (input.requiredStatus === input.pendingStatus) {
-      return "Request sudah diproses";
-    }
-
-    return "Request belum disetujui";
-  }
+  const statusError = validateRequestStatus(
+    input.request.status,
+    input.requiredStatus,
+    input.pendingStatus,
+  );
+  if (statusError) return statusError;
 
   if ((input.request.mitraWallet?.balance || 0) < input.request.amount) {
     return "Saldo mitra tidak cukup";
   }
 
+  return null;
+}
+
+function validateRequestStatus(
+  currentStatus: string,
+  requiredStatus: string,
+  pendingStatus: string,
+) {
+  if (currentStatus !== requiredStatus) {
+    if (requiredStatus === pendingStatus) {
+      return "Request sudah diproses";
+    }
+    return "Request belum disetujui";
+  }
   return null;
 }
 

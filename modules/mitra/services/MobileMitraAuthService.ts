@@ -43,6 +43,15 @@ export async function getMobileMitraMe(id: string) {
     return null;
   }
 
+  return buildMitraProfile(mitra);
+}
+
+function buildMitraProfile(mitra: {
+  id: string;
+  name: string;
+  email: string;
+  mitraType: string;
+}) {
   return {
     id: mitra.id,
     name: mitra.name,
@@ -63,20 +72,35 @@ export async function tryMobileMitraLogin(input: MobileLoginPayload) {
   const mitra = (await prismaMitraAuth.mitra.findFirst({
     where: { email: { equals: input.email, mode: "insensitive" } },
   })) as MitraLoginRecord | null;
+
   if (!mitra || !mitra.passwordHash) {
     return { found: false as const };
   }
 
+  const validationError = await validateMitraLogin(mitra, input.password);
+  if (validationError) return validationError;
+
+  const tokenPayload = buildMitraTokenPayload(mitra, input);
+  return buildSuccessfulLogin(mitra, tokenPayload);
+}
+
+async function validateMitraLogin(mitra: MitraLoginRecord, password: string) {
   if (!mitra.isActive) {
     return buildFailedLogin("Akun mitra tidak aktif", 403);
   }
 
-  const isValid = await compare(input.password, mitra.passwordHash);
+  const isValid = await compare(password, mitra.passwordHash!);
   if (!isValid) {
     return buildFailedLogin("Password salah");
   }
 
-  const tokenPayload = buildMitraTokenPayload(mitra, input);
+  return null;
+}
+
+async function buildSuccessfulLogin(
+  mitra: MitraLoginRecord,
+  tokenPayload: ReturnType<typeof buildMitraTokenPayload>,
+) {
   return {
     found: true as const,
     success: true as const,
