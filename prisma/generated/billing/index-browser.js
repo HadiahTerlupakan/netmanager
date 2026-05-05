@@ -219,6 +219,23 @@ exports.Prisma.UnmatchedMutationScalarFieldEnum = {
   tenantId: 'tenantId'
 };
 
+exports.Prisma.WebhookEventScalarFieldEnum = {
+  id: 'id',
+  idempotencyKey: 'idempotencyKey',
+  provider: 'provider',
+  payload: 'payload',
+  signature: 'signature',
+  rawBody: 'rawBody',
+  status: 'status',
+  orderId: 'orderId',
+  transactionId: 'transactionId',
+  processedAt: 'processedAt',
+  error: 'error',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.MixRadiusInvoiceScalarFieldEnum = {
   id: 'id',
   invoiceNumber: 'invoiceNumber',
@@ -299,6 +316,10 @@ exports.Prisma.NullableJsonNullValueInput = {
   JsonNull: Prisma.JsonNull
 };
 
+exports.Prisma.JsonNullValueInput = {
+  JsonNull: Prisma.JsonNull
+};
+
 exports.Prisma.QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
@@ -357,12 +378,19 @@ exports.UnmatchedStatus = exports.$Enums.UnmatchedStatus = {
   IGNORED: 'IGNORED'
 };
 
+exports.WebhookEventStatus = exports.$Enums.WebhookEventStatus = {
+  PENDING: 'PENDING',
+  PROCESSED: 'PROCESSED',
+  FAILED: 'FAILED'
+};
+
 exports.Prisma.ModelName = {
   Invoice: 'Invoice',
   InvoiceItem: 'InvoiceItem',
   Payment: 'Payment',
   PaymentGatewayConfig: 'PaymentGatewayConfig',
   UnmatchedMutation: 'UnmatchedMutation',
+  WebhookEvent: 'WebhookEvent',
   MixRadiusInvoice: 'MixRadiusInvoice',
   MixRadiusCustomer: 'MixRadiusCustomer',
   MixRadiusOwnerGroup: 'MixRadiusOwnerGroup',

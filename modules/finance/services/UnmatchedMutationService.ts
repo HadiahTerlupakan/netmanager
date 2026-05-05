@@ -1,4 +1,4 @@
-import type { Prisma } from "../repositories/billing-prisma-boundary";
+import type { Prisma } from "../lib/billing-prisma-boundary";
 import type { Payment, UnmatchedMutation } from "../types/invoice.enums";
 import { BillingRepository } from "../repositories/BillingRepository";
 import { UnmatchedMutationRepository } from "../repositories/UnmatchedMutationRepository";

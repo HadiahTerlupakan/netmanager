@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { parseOptionalDate } from "@/lib/utils/server-datetime";
-import type { PaymentMethod } from "../../repositories/billing-prisma-boundary";
+import type { PaymentMethod } from "../../lib/billing-prisma-boundary";
 import type { WebhookResult } from "./provider-interface";
 
 const PAYMENT_METHOD_MAP: Record<string, PaymentMethod> = {

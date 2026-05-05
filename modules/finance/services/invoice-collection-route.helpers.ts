@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { Prisma as PrismaBilling } from "../repositories/billing-prisma-boundary";
+import type { Prisma as PrismaBilling } from "../lib/billing-prisma-boundary";
 
 const CURRENCY_SCALE = 100;
 const DEFAULT_ZERO_BIGINT = 0n;

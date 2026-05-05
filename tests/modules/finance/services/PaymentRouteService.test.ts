@@ -4,7 +4,7 @@ import {
   GatewayPaymentStatus,
   PaymentMethod,
   Prisma as PrismaBilling,
-} from "@/modules/finance/repositories/billing-prisma-boundary";
+} from "@/modules/finance/lib/billing-prisma-boundary";
 
 // Mock repositories dan services
 const mockPaymentRepository = {

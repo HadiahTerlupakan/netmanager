@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { encryptApiKey } from "@/lib/utils/encryption";
-import { Prisma } from "../repositories/billing-prisma-boundary";
+import { Prisma } from "../lib/billing-prisma-boundary";
 import type { PaymentGatewayConfig } from "../types/invoice.enums";
 import { PaymentGatewayConfigRepository } from "../repositories/PaymentGatewayConfigRepository";
 

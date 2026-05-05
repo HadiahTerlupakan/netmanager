@@ -147,6 +147,36 @@ model UnmatchedMutation {
   @@index([tenantId])
 }
 
+model WebhookEvent {
+  id              String   @id @default(uuid())
+  idempotencyKey  String   @unique
+  provider        String
+  payload         Json
+  signature       String?
+  rawBody         String?
+  status          WebhookEventStatus @default(PENDING)
+  orderId         String?
+  transactionId   String?
+  processedAt     DateTime?
+  error           String?
+  tenantId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([idempotencyKey])
+  @@index([provider])
+  @@index([status])
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([tenantId])
+}
+
+enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
 enum UnmatchedStatus {
   PENDING
   RESOLVED

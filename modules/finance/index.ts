@@ -1,6 +1,5 @@
 export * from "./services/AutomaticBillingService";
 export * from "./services/budget-integration";
-export * from "./services/payment-gateway/webhook-processing-service";
 export * from "./services/VoidInvoiceService";
 
 // Services
@@ -47,10 +46,17 @@ export {
   type RabTargetBasis,
 } from "./client";
 
-// Payment Gateway
+// Repository Facade - Public API for other modules
+export { FinanceRepositoryFacade } from "./services/FinanceRepositoryFacade";
+
+// Types - Re-export from lib folder
+export type {
+  Prisma,
+  GatewayPaymentStatus,
+  PaymentMethod,
+} from "./lib/billing-prisma-boundary";
+
+// Payment Gateway - Re-export from new module
+export * from "@/modules/payment-gateway";
 export * from "./services/PaymentGatewayTestService";
-export * from "./services/payment-gateway/gateway-manager";
-export * from "./services/payment-gateway/payment-method-catalog";
-export * from "./services/payment-gateway/providers/midtrans-provider";
-export * from "./services/payment-gateway/providers/moota-provider";
 export { rabProjectCreateSchema, rabProjectUpdateSchema } from "./validation";

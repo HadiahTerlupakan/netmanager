@@ -4,7 +4,7 @@ import {
   InvoiceStatus,
   PaymentMethod,
   Prisma as PrismaBilling,
-} from "../repositories/billing-prisma-boundary";
+} from "../lib/billing-prisma-boundary";
 import { logActivitySafe } from "@/lib/logger";
 import { getPelangganService } from "@/modules/pelanggan";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";

@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import type { Prisma } from "../../repositories/billing-prisma-boundary";
+import type { Prisma } from "../../lib/billing-prisma-boundary";
 import { InvoiceStatus } from "../../types/invoice.enums";
 import { InvoiceRepository } from "../../repositories/InvoiceRepository";
 import { AutomaticBillingService } from "../AutomaticBillingService";
