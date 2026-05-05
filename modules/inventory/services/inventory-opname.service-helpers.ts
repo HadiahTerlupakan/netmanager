@@ -17,14 +17,25 @@ export function ensureTenantConsistency(input: {
   gudangTenantId?: string | null;
   currentStockTenantId?: string | null;
 }) {
-  const { barangTenantId, gudangTenantId, currentStockTenantId } = input;
+  validateBarangGudangTenant(input.barangTenantId, input.gudangTenantId);
+  validateStockGudangTenant(input.currentStockTenantId, input.gudangTenantId);
+}
 
+function validateBarangGudangTenant(
+  barangTenantId?: string | null,
+  gudangTenantId?: string | null,
+) {
   if (barangTenantId && gudangTenantId && barangTenantId !== gudangTenantId) {
     throw new Error(
       "Barang tidak berada dalam tenant yang sama dengan gudang tujuan",
     );
   }
+}
 
+function validateStockGudangTenant(
+  currentStockTenantId?: string | null,
+  gudangTenantId?: string | null,
+) {
   if (
     currentStockTenantId &&
     gudangTenantId &&
@@ -102,9 +113,13 @@ function buildOpnameBaseFields(input: {
     stokSistem: input.stokSistem,
     selisih: input.selisih,
     keterangan: input.keterangan,
-    pic: input.userName || input.userEmail || "Admin",
+    pic: resolvePicName(input.userName, input.userEmail),
     alasanSelisih: input.alasanSelisih,
   };
+}
+
+function resolvePicName(userName?: string | null, userEmail?: string | null) {
+  return userName || userEmail || "Admin";
 }
 
 function buildOpnameConditionFields(input: {
@@ -135,10 +150,14 @@ function buildOpnameStorageFields(input: {
     nomorBox: input.nomorBox,
     suhuPenyimpanan: normalizeOptionalNumber(input.suhuPenyimpanan),
     kelembaban: normalizeOptionalNumber(input.kelembaban),
-    tanggalExpire: input.tanggalExpire ? new Date(input.tanggalExpire) : null,
+    tanggalExpire: parseOptionalDate(input.tanggalExpire),
     nomorBatch: input.nomorBatch,
     catatanDetail: input.catatanDetail,
   };
+}
+
+function parseOptionalDate(dateString?: string) {
+  return dateString ? new Date(dateString) : null;
 }
 
 /** Ambil label alasan selisih opname yang ramah pengguna. */
@@ -158,25 +177,26 @@ export function buildUpdatedStockData(input: {
     stokBaru?: number | null;
   };
 }) {
-  const updateData: {
-    stok: number;
-    stokBaru?: number;
-  } = { stok: input.stokFisik };
+  const updateData: { stok: number; stokBaru?: number } = {
+    stok: input.stokFisik,
+  };
 
   if (input.selisih === 0) {
     return updateData;
   }
 
-  if (input.selisih < 0) {
-    updateData.stokBaru = Math.max(
-      0,
-      (input.currentStock.stokBaru || 0) - Math.abs(input.selisih),
-    );
-    return updateData;
-  }
-
-  updateData.stokBaru = (input.currentStock.stokBaru || 0) + input.selisih;
+  updateData.stokBaru = calculateNewStock(
+    input.currentStock.stokBaru || 0,
+    input.selisih,
+  );
   return updateData;
+}
+
+function calculateNewStock(currentStokBaru: number, selisih: number) {
+  if (selisih < 0) {
+    return Math.max(0, currentStokBaru - Math.abs(selisih));
+  }
+  return currentStokBaru + selisih;
 }
 
 /** Bangun stok awal gudang bila record stok belum tersedia. */
