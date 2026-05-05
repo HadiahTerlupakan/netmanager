@@ -102,16 +102,26 @@ function parseCustomerRow(rowHtml: string, odpId: string, odpName: string) {
     return null;
   }
 
-  const customerId = cells[0]?.match(/value="(\d+)"/)?.[1] || "";
-  const coordinates = extractCustomerCoordinates(cells[6] ?? "");
-  if (!customerId || !coordinates) {
+  const customerData = extractCustomerData(cells, odpId, odpName);
+  if (!customerData) {
     return null;
   }
 
-  if (!isIndonesianCoordinate(coordinates.lat, coordinates.lng)) {
+  if (!isIndonesianCoordinate(customerData.latitude, customerData.longitude)) {
     logger.warn(
-      `[MixRadius] Invalid coords for customer ${customerId}: lat=${coordinates.lat}, lng=${coordinates.lng}`,
+      `[MixRadius] Invalid coords for customer ${customerData.id}: lat=${customerData.latitude}, lng=${customerData.longitude}`,
     );
+    return null;
+  }
+
+  return customerData;
+}
+
+function extractCustomerData(cells: string[], odpId: string, odpName: string) {
+  const customerId = cells[0]?.match(/value="(\d+)"/)?.[1] || "";
+  const coordinates = extractCustomerCoordinates(cells[6] ?? "");
+
+  if (!customerId || !coordinates) {
     return null;
   }
 
