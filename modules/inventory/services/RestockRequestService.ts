@@ -58,43 +58,42 @@ export async function createRestockRequest(input: CreateRestockRequestInput) {
       nomorRequest,
     );
 
-    logger.apiRequest("POST", input.apiPath, 201, Date.now() - startTime, {
-      userId: input.requesterId,
-      prId: purchaseRequest.id,
-    });
-
+    logSuccessfulRequestCreation(input, purchaseRequest.id, startTime);
     return NextResponse.json(purchaseRequest, { status: 201 });
   } catch (error: unknown) {
-    const applicationError =
-      error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Error creating purchase request", applicationError, {
-      path: input.apiPath,
-      method: "POST",
-    });
-
-    return NextResponse.json(
-      { error: "Gagal membuat Purchase Request" },
-      { status: 500 },
-    );
+    return handleRequestCreationError(error, input.apiPath);
   }
+}
+
+function logSuccessfulRequestCreation(
+  input: CreateRestockRequestInput,
+  prId: string,
+  startTime: number,
+) {
+  logger.apiRequest("POST", input.apiPath, 201, Date.now() - startTime, {
+    userId: input.requesterId,
+    prId,
+  });
+}
+
+function handleRequestCreationError(error: unknown, apiPath: string) {
+  const applicationError =
+    error instanceof Error ? error : new Error("Terjadi kesalahan");
+  logger.error("Error creating purchase request", applicationError, {
+    path: apiPath,
+    method: "POST",
+  });
+
+  return NextResponse.json(
+    { error: "Gagal membuat Purchase Request" },
+    { status: 500 },
+  );
 }
 
 /** Ambil detail purchase request restock. */
 export async function getRestockRequestDetail(id: string) {
   try {
-    const purchaseRequest = await prisma.purchaseRequest.findUnique({
-      where: { id },
-      include: {
-        requester: { select: { name: true, email: true } },
-        gudang: { select: { nama: true, kode: true } },
-        items: {
-          include: {
-            barang: { select: { nama: true, kode: true, satuan: true } },
-          },
-        },
-        purchaseOrder: { select: { id: true, poNumber: true, status: true } },
-      },
-    });
+    const purchaseRequest = await fetchPurchaseRequestWithRelations(id);
 
     if (!purchaseRequest) {
       return NextResponse.json(
@@ -109,6 +108,22 @@ export async function getRestockRequestDetail(id: string) {
       error instanceof Error ? error.message : "Terjadi kesalahan server";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+}
+
+function fetchPurchaseRequestWithRelations(id: string) {
+  return prisma.purchaseRequest.findUnique({
+    where: { id },
+    include: {
+      requester: { select: { name: true, email: true } },
+      gudang: { select: { nama: true, kode: true } },
+      items: {
+        include: {
+          barang: { select: { nama: true, kode: true, satuan: true } },
+        },
+      },
+      purchaseOrder: { select: { id: true, poNumber: true, status: true } },
+    },
+  });
 }
 
 /** Ubah lifecycle approval purchase request restock. */
