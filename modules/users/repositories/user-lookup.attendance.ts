@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma, WorkingHourMode } from "@prisma/client";
 
 import { buildUserJoinDateFilter } from "./user-repository.helpers";
 
@@ -60,15 +61,7 @@ export function findActiveForAttendance(
   referenceDate?: Date,
 ) {
   return prisma.user.findMany({
-    where: {
-      tenantId,
-      isActive: true,
-      isAttendanceRequired: true,
-      ...(userId ? { id: userId } : {}),
-      ...(referenceDate ? buildUserJoinDateFilter(referenceDate) : {}),
-      role: { name: { not: DEFAULT_REFERENCE_DATE_FILTER } },
-      workingHourMode: { not: "FLEXIBLE" },
-    },
+    where: buildActiveAttendanceFilter(tenantId, userId, referenceDate),
     select: {
       id: true,
       name: true,
@@ -78,6 +71,22 @@ export function findActiveForAttendance(
       shift: true,
     },
   });
+}
+
+function buildActiveAttendanceFilter(
+  tenantId: string,
+  userId?: string,
+  referenceDate?: Date,
+) {
+  return {
+    tenantId,
+    isActive: true,
+    isAttendanceRequired: true,
+    ...(userId ? { id: userId } : {}),
+    ...(referenceDate ? buildUserJoinDateFilter(referenceDate) : {}),
+    role: { name: { not: DEFAULT_REFERENCE_DATE_FILTER } },
+    workingHourMode: { not: WorkingHourMode.FLEXIBLE },
+  };
 }
 
 /** Ambil user aktif yang punya push token dan jadwal kerja. */
@@ -102,15 +111,7 @@ export function findActiveWithPushTokenAndSchedule() {
 /** Ambil user fixed-hour untuk auto alpha. */
 export function findFixedHourUsersForAutoAlpha(referenceDate?: Date) {
   return prisma.user.findMany({
-    where: {
-      isActive: true,
-      isAttendanceRequired: true,
-      tenantId: { not: null },
-      endWorkTime: { not: null },
-      ...(referenceDate ? buildUserJoinDateFilter(referenceDate) : {}),
-      workingHourMode: "FIXED",
-      role: { name: { not: DEFAULT_REFERENCE_DATE_FILTER } },
-    },
+    where: buildFixedHourAutoAlphaFilter(referenceDate),
     select: {
       id: true,
       name: true,
@@ -122,6 +123,20 @@ export function findFixedHourUsersForAutoAlpha(referenceDate?: Date) {
       joinDate: true,
     },
   });
+}
+
+function buildFixedHourAutoAlphaFilter(
+  referenceDate?: Date,
+): Prisma.UserWhereInput {
+  return {
+    isActive: true,
+    isAttendanceRequired: true,
+    tenantId: { not: null },
+    endWorkTime: { not: null },
+    ...(referenceDate ? buildUserJoinDateFilter(referenceDate) : {}),
+    workingHourMode: WorkingHourMode.FIXED,
+    role: { name: { not: DEFAULT_REFERENCE_DATE_FILTER } },
+  };
 }
 
 /** Ambil jadwal kerja user yang dibatasi tenant. */

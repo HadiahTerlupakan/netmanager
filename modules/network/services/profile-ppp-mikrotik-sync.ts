@@ -115,19 +115,12 @@ async function broadcastProfileCreate(
     siteId: profilePPP.siteId,
   });
 
-  for (const router of activeRouters) {
-    try {
-      await createPPPProfileInMikroTik(
-        router.id,
-        buildBroadcastProfilePayload(data),
-      );
-    } catch (routerErr) {
-      logger.error(
-        `[API ProfilePPP] Failed to create profile in router ${router.name}:`,
-        routerErr,
-      );
-    }
-  }
+  await broadcastToRouters(
+    activeRouters,
+    (router) =>
+      createPPPProfileInMikroTik(router.id, buildBroadcastProfilePayload(data)),
+    "create profile",
+  );
 }
 
 async function broadcastProfileUpdate(
@@ -141,20 +134,16 @@ async function broadcastProfileUpdate(
     siteId: profilePPP.siteId,
   });
 
-  for (const router of activeRouters) {
-    try {
-      await updatePPPProfileInMikroTik(
+  await broadcastToRouters(
+    activeRouters,
+    (router) =>
+      updatePPPProfileInMikroTik(
         router.id,
         oldProfile.name,
         buildBroadcastProfilePayload(data),
-      );
-    } catch (routerErr) {
-      logger.error(
-        `[API ProfilePPP] Failed to update profile in router ${router.name}:`,
-        routerErr,
-      );
-    }
-  }
+      ),
+    "update profile",
+  );
 }
 
 async function createProfileOnAssignedRouter(
@@ -204,6 +193,23 @@ function buildBroadcastProfilePayload(data: ProfilePPPSchema) {
     skipPoolCheck: isRadiusPool,
     skipRateLimit: true,
   };
+}
+
+async function broadcastToRouters(
+  routers: Array<{ id: string; name: string }>,
+  operation: (router: { id: string; name: string }) => Promise<unknown>,
+  operationName: string,
+) {
+  for (const router of routers) {
+    try {
+      await operation(router);
+    } catch (routerErr) {
+      logger.error(
+        `[API ProfilePPP] Failed to ${operationName} in router ${router.name}:`,
+        routerErr,
+      );
+    }
+  }
 }
 
 function buildAssignedRouterProfilePayload(

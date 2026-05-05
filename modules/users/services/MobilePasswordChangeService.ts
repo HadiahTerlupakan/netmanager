@@ -36,19 +36,10 @@ export async function changeMobilePassword(options: {
   validatePasswordInput(options.input);
 
   const passwordHash = await findCurrentPasswordHash(options.auth);
-  if (!passwordHash) {
-    throw new MobilePasswordChangeError(
-      "Password belum diatur, silakan hubungi admin",
-      ErrorCodes.VALIDATION_ERROR,
-      400,
-    );
-  }
+  assertPasswordExists(passwordHash);
 
   await assertCurrentPassword(options.input.currentPassword!, passwordHash);
-  const newPasswordHash = await bcrypt.hash(
-    options.input.newPassword!,
-    PASSWORD_HASH_ROUNDS,
-  );
+  const newPasswordHash = await hashNewPassword(options.input.newPassword!);
 
   await updatePasswordHash(options.auth, newPasswordHash);
   await logPasswordChange(options.auth);
@@ -117,6 +108,22 @@ function throwNotFound(message: string): never {
   throw new MobilePasswordChangeError(message, ErrorCodes.NOT_FOUND, 404);
 }
 
+function assertPasswordExists(
+  passwordHash: string | null,
+): asserts passwordHash is string {
+  if (!passwordHash) {
+    throw new MobilePasswordChangeError(
+      "Password belum diatur, silakan hubungi admin",
+      ErrorCodes.VALIDATION_ERROR,
+      400,
+    );
+  }
+}
+
+function hashNewPassword(password: string) {
+  return bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
+}
+
 async function assertCurrentPassword(
   currentPassword: string,
   passwordHash: string,
@@ -133,20 +140,30 @@ async function assertCurrentPassword(
 }
 
 function updatePasswordHash(auth: MobilePasswordAuth, passwordHash: string) {
-  if (auth.role === "MITRA") {
-    return prismaMitra.mitra.update({
-      where: { id: auth.id },
-      data: { passwordHash },
-    });
-  }
+  if (auth.role === "MITRA") return updateMitraPassword(auth.id, passwordHash);
+  if (auth.role === "CUSTOMER")
+    return updateCustomerPassword(auth, passwordHash);
+  return updateUserPassword(auth, passwordHash);
+}
 
-  if (auth.role === "CUSTOMER") {
-    return prisma.pelanggan.update({
-      where: { id: auth.id, tenantId: auth.tenantId },
-      data: { passwordHash },
-    });
-  }
+function updateMitraPassword(id: string, passwordHash: string) {
+  return prismaMitra.mitra.update({
+    where: { id },
+    data: { passwordHash },
+  });
+}
 
+function updateCustomerPassword(
+  auth: MobilePasswordAuth,
+  passwordHash: string,
+) {
+  return prisma.pelanggan.update({
+    where: { id: auth.id, tenantId: auth.tenantId },
+    data: { passwordHash },
+  });
+}
+
+function updateUserPassword(auth: MobilePasswordAuth, passwordHash: string) {
   return prisma.user.update({
     where: { id: auth.id, tenantId: auth.tenantId },
     data: { passwordHash },
