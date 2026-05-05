@@ -1,0 +1,5 @@
+# Architecture Decision Records
+
+This folder contains all architectural decisions made for this project.
+
+Each ADR should follow the format specified in docs/README.md
