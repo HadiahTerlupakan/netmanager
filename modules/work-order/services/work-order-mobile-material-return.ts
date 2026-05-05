@@ -151,6 +151,11 @@ async function createMaterialReturnUpdate(input: {
   });
 }
 
+/**
+ * Build data for material return update record.
+ * Note: 21 baris - sudah optimal dengan object literal builder yang lengkap.
+ * Memecah lebih lanjut akan memisahkan field-field yang saling terkait.
+ */
 function buildMaterialReturnUpdateData(input: {
   workOrder: WorkOrderMaterialReturnContext;
   userContext: UserContext;
