@@ -13,21 +13,30 @@ vi.mock("@/modules/work-order/services/WorkOrderMutationService");
 vi.mock("@/lib/websocket/emitter");
 vi.mock("@/lib/logger");
 
+type MockReadService = {
+  getWorkOrderById: ReturnType<typeof vi.fn>;
+  getWorkOrders: ReturnType<typeof vi.fn>;
+};
+
+type MockMutationService = {
+  createWorkOrder: ReturnType<typeof vi.fn>;
+  deleteWorkOrder: ReturnType<typeof vi.fn>;
+  updateStatus: ReturnType<typeof vi.fn>;
+};
+
 describe("WorkOrderService", () => {
   let service: WorkOrderService;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let readServiceMock: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let mutationServiceMock: any;
+  let readServiceMock: MockReadService;
+  let mutationServiceMock: MockMutationService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    service = new WorkOrderService(prismaMock as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readServiceMock = (service as any).readService;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mutationServiceMock = (service as any).mutationService;
+    service = new WorkOrderService(prismaMock as never);
+    readServiceMock = (service as unknown as Record<string, MockReadService>)
+      .readService;
+    mutationServiceMock = (
+      service as unknown as Record<string, MockMutationService>
+    ).mutationService;
 
     // Setup default mocks
     if (readServiceMock) {
