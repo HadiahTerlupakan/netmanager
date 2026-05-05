@@ -1,10 +1,8 @@
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
-import {
-  GatewayPaymentStatus,
-  type Prisma as PrismaBilling,
-} from "@prisma/client-billing";
+import { GatewayPaymentStatus } from "@prisma/client-billing";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
+import type { PaymentWhereInput } from "../types/payment.types";
 import { AutomaticBillingService } from "./AutomaticBillingService";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PelangganBillingBridgeService } from "@/modules/pelanggan";
@@ -30,8 +28,8 @@ const REJECTED_GATEWAY_STATUSES: GatewayPaymentStatus[] = [
 
 export function buildPendingManualPaymentsWhere(
   input: PendingManualPaymentsInput,
-): PrismaBilling.PaymentWhereInput {
-  const where: PrismaBilling.PaymentWhereInput = { receiptUrl: { not: null } };
+): PaymentWhereInput {
+  const where: PaymentWhereInput = { receiptUrl: { not: null } };
 
   if (input.startDate && input.endDate) {
     const start = new Date(input.startDate);
@@ -192,7 +190,7 @@ export async function approveManualPayment(
 
 function mapGatewayStatusFilter(
   status?: string | null,
-): PrismaBilling.PaymentWhereInput["gatewayStatus"] {
+): PaymentWhereInput["gatewayStatus"] {
   if (status === "PENDING") {
     return GatewayPaymentStatus.PENDING;
   }

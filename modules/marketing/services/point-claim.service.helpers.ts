@@ -1,4 +1,3 @@
-import type { TargetSchema } from "@prisma/client";
 import { prisma } from "@/modules/database";
 import type {
   CanvasingClaimSubmissionEntity,
@@ -14,7 +13,7 @@ export const APPROVED_STATUS = "APPROVED" as const;
 export const REJECTED_STATUS = "REJECTED" as const;
 
 const CASHOUT_DEFAULT_TARGET = 30;
-const ACCUMULATED_TARGET_SCHEMA: TargetSchema = "ACCUMULATED";
+const ACCUMULATED_TARGET_SCHEMA = "ACCUMULATED" as const;
 const COMPLETED_WORK_ORDER_STATUSES = ["COMPLETED", "VERIFIED", "CLOSED"];
 
 export async function requireClaimableCanvasing(

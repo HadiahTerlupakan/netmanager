@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import { RabRevisionStatus } from "../types/invoice.enums";
 import { createRouteServiceError } from "./RouteServiceError";
 
@@ -13,7 +12,7 @@ const REVISION_USER_SELECT = {
   name: true,
   email: true,
   role: { select: { name: true } },
-} satisfies Prisma.UserSelect;
+} as const;
 
 const REVISION_DETAIL_INCLUDE = {
   items: { orderBy: { sortOrder: ASCENDING } },
@@ -21,25 +20,23 @@ const REVISION_DETAIL_INCLUDE = {
     include: { user: { select: REVISION_USER_SELECT } },
     orderBy: { createdAt: ASCENDING },
   },
-} satisfies Prisma.RabRevisionInclude;
+} as const;
 
 const REVISION_LIST_ORDER_BY = {
   revisionNumber: DESCENDING,
-} satisfies Prisma.RabRevisionOrderByWithRelationInput;
+} as const;
 
 const REVISION_DRAFT_WHERE = {
   status: RabRevisionStatus.DRAFT,
-} satisfies Prisma.RabRevisionWhereInput;
+} as const;
 
 /** Menyediakan include standar detail revisi RAB. */
-export function getRabRevisionDetailInclude(): Prisma.RabRevisionInclude {
+export function getRabRevisionDetailInclude() {
   return REVISION_DETAIL_INCLUDE;
 }
 
 /** Membangun query detail revisi berdasarkan id. */
-export function createRabRevisionDetailQuery(
-  revisionId: string,
-): Prisma.RabRevisionFindUniqueArgs {
+export function createRabRevisionDetailQuery(revisionId: string) {
   return {
     where: { id: revisionId },
     include: REVISION_DETAIL_INCLUDE,
@@ -47,9 +44,7 @@ export function createRabRevisionDetailQuery(
 }
 
 /** Membangun query daftar revisi berdasarkan project. */
-export function createRabRevisionListQuery(
-  projectId: string,
-): Prisma.RabRevisionFindManyArgs {
+export function createRabRevisionListQuery(projectId: string) {
   return {
     where: { rabProjectId: projectId },
     include: REVISION_DETAIL_INCLUDE,
@@ -58,9 +53,7 @@ export function createRabRevisionListQuery(
 }
 
 /** Membangun query draft revisi aktif per project. */
-export function createRabRevisionDraftQuery(
-  projectId: string,
-): Prisma.RabRevisionFindFirstArgs {
+export function createRabRevisionDraftQuery(projectId: string) {
   return {
     where: { rabProjectId: projectId, ...REVISION_DRAFT_WHERE },
     include: REVISION_DETAIL_INCLUDE,
