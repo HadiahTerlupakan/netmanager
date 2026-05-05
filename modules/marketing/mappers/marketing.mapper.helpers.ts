@@ -1,17 +1,19 @@
 export {
   getDefaultPointValue,
-  toCanvasingDetailDTO,
   toCanvasingDomain,
   toCanvasingDomainWithSite,
-  toCanvasingListDTO,
-  toCanvasingListItemDTO,
   toClaimSubmissionDomain,
-  toPointBalance,
-  toPointHistory,
   type PrismaCanvasingDetail,
   type PrismaCanvasingWithSite,
   type PrismaClaimSubmission,
 } from "./marketing-canvasing.mapper";
+export {
+  toCanvasingDetailDTO,
+  toCanvasingListDTO,
+  toCanvasingListItemDTO,
+  toPointBalance,
+  toPointHistory,
+} from "./marketing-canvasing.mapper.dto";
 export {
   toPointClaimDomain,
   toPointClaimDTO,
