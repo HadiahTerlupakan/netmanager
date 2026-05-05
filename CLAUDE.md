@@ -109,6 +109,17 @@ Internally verify every few steps:
 - Never end with a question unless absolutely critical
 - Match response length to task complexity
 
+### Documentation & Reports Policy
+- **NEVER** create documentation or report files in root directory
+- All documentation files MUST be placed in `docs/` folder with proper subfolder:
+  - Architecture docs → `docs/architecture/`
+  - Standards docs → `docs/standards/`
+  - Guides → `docs/guides/`
+  - Reports → `docs/reports/`
+  - API docs → `docs/api/`
+- Report files MUST include date in filename: `REPORT_NAME_YYYY-MM-DD.md`
+- Keep root directory clean - only essential config files allowed
+
 ### Worktree Policy
 - Jangan gunakan git worktree untuk project ini
 - Kerjakan perubahan langsung di repository utama saat ini

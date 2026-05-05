@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import {
   applyCustomerFilters,
   buildCustomerFetchFormData,
@@ -76,7 +77,7 @@ export async function fetchMixRadiusCustomersPPP(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";
-    console.error("[MixRadius] Fetch error:", message);
+    logger.error("[MixRadius] Fetch error:", message);
 
     if (
       error instanceof MixRadiusConfigError ||

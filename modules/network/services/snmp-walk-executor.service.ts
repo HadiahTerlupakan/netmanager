@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import * as snmp from "net-snmp";
 import { snmpGetBulkSimple } from "@/modules/network/services/snmpService";
 import {
@@ -93,7 +94,7 @@ export async function snmpWalkOptimized(
 
     return results;
   } catch (error) {
-    console.error(
+    logger.error(
       `[SNMP-Optimized] GETBULK failed for ${oid}:`,
       normalizeSnmpError(error),
     );
@@ -157,7 +158,7 @@ export async function snmpWalkWithChunking(
 
       const normalized = normalizeWalkCallback(error, varbinds);
       if (normalized.error) {
-        console.warn(
+        logger.warn(
           `[SNMP-Optimized] SNMP walk error: ${normalized.error.message}`,
         );
         if (hasSnmpResults(results)) {
@@ -197,7 +198,7 @@ export async function snmpWalkWithChunking(
       try {
         processVarbinds(null, varbinds);
       } catch (error) {
-        console.error(
+        logger.error(
           `[SNMP-Optimized] Callback error:`,
           normalizeSnmpError(error),
         );
@@ -206,7 +207,7 @@ export async function snmpWalkWithChunking(
 
     const doneCallback = (error?: Error) => {
       if (error) {
-        console.error(`[SNMP-Optimized] Subtree error:`, error.message);
+        logger.error(`[SNMP-Optimized] Subtree error:`, error.message);
         finish(error);
         return;
       }
@@ -216,7 +217,7 @@ export async function snmpWalkWithChunking(
     try {
       session.subtree(oid, SUBTREE_MAX_REPETITIONS, feedCallback, doneCallback);
     } catch (error) {
-      console.error(
+      logger.error(
         `[SNMP-Optimized] Subtree setup error:`,
         normalizeSnmpError(error),
       );

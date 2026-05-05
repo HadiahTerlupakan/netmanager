@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { MixRadiusConfigError } from "./mixradius-types";
 import type { MixRadiusCustomerClientParams } from "./mixradius-customer-client.types";
 import {
@@ -45,7 +46,7 @@ export async function fetchMixRadiusActiveSessionsPPP(
         : getCustomerConfigError(message, "fetchActiveSessionsPPP");
     }
 
-    console.error("[MixRadius] Failed to fetch active sessions:", message);
+    logger.error("[MixRadius] Failed to fetch active sessions:", message);
     return new Map();
   }
 }

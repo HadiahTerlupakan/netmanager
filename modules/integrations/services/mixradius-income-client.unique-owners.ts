@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { FetchCustomersParams } from "./mixradius-types";
 
 /** Fetch unique owner names from customer dataset. */
@@ -13,7 +14,7 @@ export async function fetchMixRadiusUniqueOwners(params: {
     });
     return extractUniqueOwners(result.data);
   } catch (error) {
-    console.error(
+    logger.error(
       "[MixRadius] Get owners error:",
       error instanceof Error ? error.message : error,
     );

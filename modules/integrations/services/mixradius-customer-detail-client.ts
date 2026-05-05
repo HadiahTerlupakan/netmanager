@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { parseMixRadiusInvoicesFromHtml } from "./mixradius-invoice-utils";
 import { parseCustomerDetailHtml } from "./mixradius-customer-helpers";
 import {
@@ -80,7 +81,7 @@ export async function fetchMixRadiusCustomerDetail(
         : getCustomerConfigError(message, "fetchCustomerDetail");
     }
 
-    console.error("[MixRadius] Fetch customer detail error:", message);
+    logger.error("[MixRadius] Fetch customer detail error:", message);
     throw new Error(`Failed to fetch customer detail: ${message}`);
   }
 }
@@ -108,7 +109,7 @@ async function resolveAlternateCustomerIdIfNeeded(
     return null;
   }
 
-  console.error(
+  logger.error(
     `[MixRadius] 404 Not Found for ID ${customerId}. URL: unresolved/rad-customers/edit/${customerId}`,
   );
   if (customerId.length <= 6 || !/^\d+$/.test(customerId)) {
@@ -145,7 +146,7 @@ async function resolveCustomerId(
     });
     return searchResult.data[0]?.id;
   } catch (resolveError) {
-    console.error("[MixRadius] ID resolution failed:", resolveError);
+    logger.error("[MixRadius] ID resolution failed:", resolveError);
     return undefined;
   }
 }
@@ -158,7 +159,7 @@ function warnIfUnexpectedCustomerStructure(html: string, customerId: string) {
     (html.includes("id_plan") && html.includes("username"));
 
   if (!hasCorrectHeader) {
-    console.warn(
+    logger.warn(
       `[MixRadius] Page structure check failed for customer ${customerId}. Marker elements not found.`,
     );
   }
@@ -173,7 +174,7 @@ function assertCustomerDetailLooksValid(
     return;
   }
 
-  console.error(
+  logger.error(
     `[MixRadius] Scraping Validation Failed for ID ${customerId}. HTML snippet: ${html.substring(0, 500)}...`,
   );
   throw new Error(

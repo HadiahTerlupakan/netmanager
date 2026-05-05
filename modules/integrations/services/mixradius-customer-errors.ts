@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { MixRadiusConfigError } from "./mixradius-types";
 
 export function isMixRadiusConfigError(message: string) {
@@ -9,8 +10,6 @@ export function isMixRadiusConfigError(message: string) {
 }
 
 export function getCustomerConfigError(message: string, context: string) {
-  console.warn(
-    `[MixRadius] Integration not available (${context}): ${message}`,
-  );
+  logger.warn(`[MixRadius] Integration not available (${context}): ${message}`);
   return new MixRadiusConfigError(message);
 }

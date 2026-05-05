@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { LRUCache } from "@/lib/utils/lru-cache";
 
 import { buildInvoiceCountCacheKey } from "./mixradius-invoice-utils";
@@ -169,7 +170,7 @@ function handleInvoiceCountError(
   error: unknown,
   invoiceCounts: Map<string, MixRadiusInvoiceCount>,
 ) {
-  console.error(
+  logger.error(
     `[MixRadius] Failed to fetch invoice count for ${customerId}:`,
     error,
   );
