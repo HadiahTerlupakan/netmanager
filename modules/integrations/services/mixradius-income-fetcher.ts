@@ -41,55 +41,58 @@ export async function fetchAllIncomePeriodData(params: {
   filters: FetchCustomersParams;
   onSessionExpired: () => void;
 }): Promise<{ records: MixRadiusIncomePeriodRecord[]; recordsTotal: number }> {
-  const { client, baseUrl, filters, onSessionExpired } = params;
-  let allRecords: MixRadiusIncomePeriodRecord[] = [];
-  let currentStart = FIRST_BATCH_START;
-  let recordsTotal = 0;
-  let recordsFiltered = 0;
+  const state = initializeFetchState();
 
-  while (
-    shouldContinueFetching(allRecords.length, recordsFiltered, currentStart)
-  ) {
+  while (shouldContinueFetching(state)) {
     const batch = await fetchIncomeBatch({
-      client,
-      baseUrl,
-      filters,
-      start: currentStart,
-      onSessionExpired,
+      client: params.client,
+      baseUrl: params.baseUrl,
+      filters: params.filters,
+      start: state.currentStart,
+      onSessionExpired: params.onSessionExpired,
     });
-    if (!batch) break;
 
-    const batchResult = processBatchResult(
-      batch,
-      currentStart,
-      recordsTotal,
-      recordsFiltered,
-    );
-    recordsTotal = batchResult.recordsTotal;
-    recordsFiltered = batchResult.recordsFiltered;
+    if (!batch || batch.data.length === 0) break;
 
-    if (batch.data.length === 0) break;
-
-    allRecords = allRecords.concat(batch.data);
-    currentStart += INCOME_BATCH_SIZE;
+    updateFetchState(state, batch);
   }
 
-  return { records: allRecords, recordsTotal };
+  return { records: state.allRecords, recordsTotal: state.recordsTotal };
 }
 
-function processBatchResult(
-  batch: { recordsTotal: number; recordsFiltered: number },
-  currentStart: number,
-  recordsTotal: number,
-  recordsFiltered: number,
+function initializeFetchState() {
+  return {
+    allRecords: [] as MixRadiusIncomePeriodRecord[],
+    currentStart: FIRST_BATCH_START,
+    recordsTotal: 0,
+    recordsFiltered: 0,
+  };
+}
+
+function shouldContinueFetching(state: {
+  allRecords: MixRadiusIncomePeriodRecord[];
+  recordsFiltered: number;
+  currentStart: number;
+}) {
+  if (state.currentStart === FIRST_BATCH_START) return true;
+  if (state.recordsFiltered === 0) return false;
+  return state.allRecords.length < state.recordsFiltered;
+}
+
+function updateFetchState(
+  state: ReturnType<typeof initializeFetchState>,
+  batch: {
+    data: MixRadiusIncomePeriodRecord[];
+    recordsTotal: number;
+    recordsFiltered: number;
+  },
 ) {
-  if (currentStart === FIRST_BATCH_START) {
-    return {
-      recordsTotal: batch.recordsTotal,
-      recordsFiltered: batch.recordsFiltered,
-    };
+  if (state.currentStart === FIRST_BATCH_START) {
+    state.recordsTotal = batch.recordsTotal;
+    state.recordsFiltered = batch.recordsFiltered;
   }
-  return { recordsTotal, recordsFiltered };
+  state.allRecords = state.allRecords.concat(batch.data);
+  state.currentStart += INCOME_BATCH_SIZE;
 }
 
 async function fetchIncomeBatch(params: {
@@ -110,20 +113,6 @@ async function fetchIncomeBatch(params: {
     throw new Error("Session expired, please refresh");
   }
   return responseData as MixRadiusIncomePeriodResponse;
-}
-
-function shouldContinueFetching(
-  fetchedCount: number,
-  recordsFiltered: number,
-  currentStart: number,
-) {
-  if (currentStart === FIRST_BATCH_START) {
-    return true;
-  }
-  if (recordsFiltered === 0) {
-    return false;
-  }
-  return fetchedCount < recordsFiltered;
 }
 
 async function postIncomeBatch(params: {
