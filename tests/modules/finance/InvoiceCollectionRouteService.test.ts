@@ -9,16 +9,15 @@ const mockFns = vi.hoisted(() => ({
   createInvoiceWithItems: vi.fn(),
 }));
 
-vi.mock("@/modules/users/repositories/UserRepository", () => ({
-  UserRepository: class MockUserRepository {
+vi.mock("@/modules/users", () => ({
+  UserLookupService: class MockUserLookupService {
     findByIdWithSite = mockFns.findByIdWithSite;
   },
 }));
 
-vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
-  PelangganRepository: class MockPelangganRepository {
-    findAdminMutationContext = mockFns.findPelangganById;
-    findById = mockFns.findPelangganById;
+vi.mock("@/modules/pelanggan", () => ({
+  PelangganAdminQueryService: class MockPelangganAdminQueryService {
+    getPppMutationContext = mockFns.findPelangganById;
   },
 }));
 

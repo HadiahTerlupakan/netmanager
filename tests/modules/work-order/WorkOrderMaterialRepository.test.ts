@@ -109,35 +109,23 @@ describe("Work order material SQL table mapping", () => {
   it("uses the mapped work_orders table when appending returned materials", async () => {
     const service = new WorkOrderService(prismaMock as unknown as PrismaClient);
 
-    (
-      service as unknown as {
-        repository: { findById: ReturnType<typeof vi.fn> };
-      }
-    ).repository.findById = vi.fn().mockResolvedValue({
-      id: "wo-1",
-      tenantId: "tenant-1",
-      workOrderNumber: "WO-001",
-      title: "Pasang ONU",
-      status: WorkOrderStatus.IN_PROGRESS,
-      assignedToId: "user-1",
-      assignments: [],
-      departmentId: null,
-      siteId: null,
-    });
+    const readService = (service as unknown as Record<string, unknown>)
+      .readService as { getWorkOrderById: ReturnType<typeof vi.fn> };
 
-    (
-      service as unknown as {
-        inventoryRepo: { addStockInTransaction: ReturnType<typeof vi.fn> };
-      }
-    ).inventoryRepo = {
-      addStockInTransaction: vi.fn().mockResolvedValue({
-        id: "masuk-1",
-        barang: {
-          nama: "Kabel Dropcore",
-          satuan: "pcs",
-        },
-      }),
-    };
+    readService.getWorkOrderById = vi.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: "wo-1",
+        tenantId: "tenant-1",
+        workOrderNumber: "WO-001",
+        title: "Pasang ONU",
+        status: WorkOrderStatus.IN_PROGRESS,
+        assignedToId: "user-1",
+        assignments: [],
+        departmentId: null,
+        siteId: null,
+      },
+    });
 
     prismaMock.$executeRaw.mockResolvedValue(1);
     prismaMock.workOrderUpdates.create.mockResolvedValue({ id: "update-1" });

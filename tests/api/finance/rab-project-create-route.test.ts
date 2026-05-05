@@ -150,7 +150,8 @@ describe("rab project create route", () => {
         targetHomepass: 500,
         targetTakeUpRatePercent: 40,
         targetSubscribers: 200,
-        projectedRevenue: 30_000_000,
+        arpu: 150_000n,
+        projectedRevenue: 30_000_000n,
       }),
       "user-1",
     );

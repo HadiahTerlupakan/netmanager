@@ -137,6 +137,12 @@ vi.mock("@/modules/integrations", () => ({
     updateOwnerGroup: mockUpdateOwnerGroup,
     deleteOwnerGroup: mockDeleteOwnerGroup,
   }),
+  MixRadiusOwnerGroupFacadeService: class MockMixRadiusOwnerGroupFacadeService {
+    getOwnerGroups = mockGetOwnerGroups;
+    createOwnerGroup = mockCreateOwnerGroup;
+    updateOwnerGroup = mockUpdateOwnerGroup;
+    deleteOwnerGroup = mockDeleteOwnerGroup;
+  },
   MixRadiusInvestorSiteService: class MockMixRadiusInvestorSiteService {
     getSites = mockFindManyInvestorSites;
     getSite = mockFindUniqueInvestorSite;

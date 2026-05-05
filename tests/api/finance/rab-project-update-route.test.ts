@@ -52,14 +52,14 @@ vi.mock("@/modules/finance", async () => {
             100
         ) {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: "custom",
             message: "Total persentase harus 100",
           });
         }
 
         if (value.status === "APPROVED") {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: "custom",
             message: "Perubahan approval harus melalui endpoint approval",
           });
         }
@@ -179,7 +179,7 @@ describe("rab project update route", () => {
         targetHomepass: 500,
         targetTakeUpRatePercent: 40,
         targetSubscribers: 200,
-        projectedRevenue: 30_000_000,
+        projectedRevenue: 30_000_000n,
       }),
     );
   });

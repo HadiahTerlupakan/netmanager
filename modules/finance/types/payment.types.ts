@@ -1,6 +1,12 @@
 /** Payment filter types for service layer - no Prisma dependency */
 
-import type { GatewayPaymentStatus } from "@prisma/client-billing";
+export type GatewayPaymentStatus =
+  | "PENDING"
+  | "PAID"
+  | "FAILED"
+  | "CANCELLED"
+  | "EXPIRED"
+  | "REFUNDED";
 
 export type PaymentWhereInput = {
   receiptUrl?: { not: null };
