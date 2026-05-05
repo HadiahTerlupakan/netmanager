@@ -87,20 +87,30 @@ async function performLogin(params: {
       credentials: params.credentials,
     });
 
-    if (!isSuccessfulLogin(loginResponse, params.credentials.username)) {
-      throw new Error("Login may have failed - unexpected response");
-    }
+    validateLoginResponse(loginResponse, params.credentials.username);
 
     return buildLoggedInSession(
       params.credentials.username,
       params.normalizedBaseUrl,
     );
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    logger.error("[MixRadius] Login error:", { message });
-    throw new Error(`MixRadius login failed: ${message}`);
+    throw handleLoginError(error);
   }
+}
+
+function validateLoginResponse(
+  responseData: Awaited<ReturnType<typeof submitLoginRequest>>,
+  username: string,
+) {
+  if (!isSuccessfulLogin(responseData, username)) {
+    throw new Error("Login may have failed - unexpected response");
+  }
+}
+
+function handleLoginError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : "Terjadi kesalahan";
+  logger.error("[MixRadius] Login error:", { message });
+  return new Error(`MixRadius login failed: ${message}`);
 }
 
 function buildValidatedCredentials(
