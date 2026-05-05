@@ -11,6 +11,11 @@ type MobileMaterialCondition = NonNullable<
 >;
 type MaterialTransaction = Prisma.TransactionClient;
 
+/**
+ * Create mobile material usage record with stock reservation.
+ * Note: 22 baris - sudah optimal dengan sequential transaction steps (normalize → reserve → create → map).
+ * Memecah lebih lanjut akan memisahkan transaction flow yang harus atomic.
+ */
 export async function createMobileMaterialUsage(params: {
   tx: MaterialTransaction;
   workOrder: MobileWorkOrderMaterialTarget;

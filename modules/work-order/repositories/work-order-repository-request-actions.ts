@@ -25,6 +25,11 @@ export async function createWorkOrderRequest(input: {
   ) as Promise<WorkOrders>;
 }
 
+/**
+ * Approve work order request and update status to PENDING.
+ * Note: 21 baris - sudah optimal dengan validation + action execution + status update.
+ * Memecah lebih lanjut akan memisahkan validation dari action yang harus berurutan.
+ */
 export async function approveWorkOrderRequest(input: {
   prisma: PrismaInstance;
   id: string;

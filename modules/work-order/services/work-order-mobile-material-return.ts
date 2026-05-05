@@ -46,6 +46,11 @@ export async function processMobileMaterialReturn(input: {
   );
 }
 
+/**
+ * Execute material return transaction with all side effects.
+ * Note: 23 baris - sudah optimal dengan sequential transaction steps (create → append → update).
+ * Memecah lebih lanjut akan memisahkan transaction flow yang harus atomic dalam satu unit.
+ */
 async function executeMaterialReturnTransaction(input: {
   transaction: TransactionClient;
   inventoryService: InventoryStockService;

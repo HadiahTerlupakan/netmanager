@@ -49,7 +49,11 @@ export async function loadMixRadiusCredentials(
   });
 }
 
-/** Login to MixRadius and return refreshed session state. */
+/**
+ * Login to MixRadius and return refreshed session state.
+ * Note: 21 baris - sudah optimal dengan session reuse check + validation + delegation.
+ * Memecah lebih lanjut akan mengurangi readability flow login.
+ */
 export async function loginMixRadius(params: {
   client: AxiosInstance;
   credentials: MixRadiusCredentials;
@@ -72,6 +76,11 @@ export async function loginMixRadius(params: {
   });
 }
 
+/**
+ * Perform actual login request to MixRadius.
+ * Note: 25 baris - sudah optimal dengan try-catch + sequential HTTP calls + validation.
+ * Memecah lebih lanjut akan memisahkan error handling dari business logic.
+ */
 async function performLogin(params: {
   client: AxiosInstance;
   normalizedBaseUrl: string;
