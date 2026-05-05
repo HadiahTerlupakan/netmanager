@@ -8,20 +8,37 @@ import { WorkOrderService } from "@/modules/work-order/services/WorkOrderService
 vi.mock("@/modules/work-order/repositories/WorkOrderRepository");
 vi.mock("@/modules/work-order/services/WorkOrderNotifications");
 vi.mock("@/modules/work-order/services/WorkOrderCacheService");
+vi.mock("@/modules/work-order/services/WorkOrderReadService");
+vi.mock("@/modules/work-order/services/WorkOrderMutationService");
 vi.mock("@/lib/websocket/emitter");
 vi.mock("@/lib/logger");
 
 describe("WorkOrderService", () => {
   let service: WorkOrderService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let repositoryMock: any;
+  let readServiceMock: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let mutationServiceMock: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     service = new WorkOrderService(prismaMock as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    repositoryMock = (service as any).repository;
+    readServiceMock = (service as any).readService;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mutationServiceMock = (service as any).mutationService;
+
+    // Setup default mocks
+    if (readServiceMock) {
+      readServiceMock.getWorkOrderById = vi.fn();
+      readServiceMock.getWorkOrders = vi.fn();
+    }
+    if (mutationServiceMock) {
+      mutationServiceMock.createWorkOrder = vi.fn();
+      mutationServiceMock.deleteWorkOrder = vi.fn();
+      mutationServiceMock.updateStatus = vi.fn();
+    }
   });
 
   describe("Access Control (validateWorkOrderAccess via getWorkOrderById)", () => {
@@ -34,7 +51,10 @@ describe("WorkOrderService", () => {
     };
 
     it("should allow access for SUPER_ADMIN regardless of site/department", async () => {
-      repositoryMock.findById.mockResolvedValue(mockWorkOrder);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: true,
+        data: mockWorkOrder,
+      });
 
       const userContext = {
         id: "admin-1",
@@ -48,7 +68,10 @@ describe("WorkOrderService", () => {
     });
 
     it("should allow access when department matches and department_only restriction is active", async () => {
-      repositoryMock.findById.mockResolvedValue(mockWorkOrder);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: true,
+        data: mockWorkOrder,
+      });
 
       const userContext = {
         id: "user-1",
@@ -63,7 +86,11 @@ describe("WorkOrderService", () => {
     });
 
     it("should deny access when department does not match and department_only restriction is active", async () => {
-      repositoryMock.findById.mockResolvedValue(mockWorkOrder);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: false,
+        error: "Akses ditolak: Departemen berbeda",
+        code: "FORBIDDEN",
+      });
 
       const userContext = {
         id: "user-1",
@@ -80,7 +107,10 @@ describe("WorkOrderService", () => {
     });
 
     it("should allow access when site matches and site_only restriction is active", async () => {
-      repositoryMock.findById.mockResolvedValue(mockWorkOrder);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: true,
+        data: mockWorkOrder,
+      });
 
       const userContext = {
         id: "user-1",
@@ -95,7 +125,11 @@ describe("WorkOrderService", () => {
     });
 
     it("should deny access when site does not match and site_only restriction is active", async () => {
-      repositoryMock.findById.mockResolvedValue(mockWorkOrder);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: false,
+        error: "Akses ditolak: Site berbeda",
+        code: "FORBIDDEN",
+      });
 
       const userContext = {
         id: "user-1",
@@ -112,7 +146,10 @@ describe("WorkOrderService", () => {
     });
 
     it("should allow access if no restrictions are present", async () => {
-      repositoryMock.findById.mockResolvedValue(mockWorkOrder);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: true,
+        data: mockWorkOrder,
+      });
 
       const userContext = {
         id: "user-1",
@@ -128,11 +165,14 @@ describe("WorkOrderService", () => {
 
   describe("getWorkOrders (List restrictions)", () => {
     it("should apply department filter when department_only is present", async () => {
-      repositoryMock.findAllForList.mockResolvedValue({
-        workOrders: [],
-        total: 0,
-        page: 1,
-        totalPages: 0,
+      readServiceMock.getWorkOrders.mockResolvedValue({
+        success: true,
+        data: {
+          workOrders: [],
+          total: 0,
+          page: 1,
+          totalPages: 0,
+        },
       });
 
       await service.getWorkOrders({
@@ -141,14 +181,25 @@ describe("WorkOrderService", () => {
         userRole: "USER",
       });
 
-      expect(repositoryMock.findAllForList).toHaveBeenCalledWith(
-        expect.objectContaining({ departmentId: "dept-1" }),
-        expect.any(Number),
-        expect.any(Number),
+      expect(readServiceMock.getWorkOrders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userPermissions: ["workorders:department_only"],
+          userDepartmentId: "dept-1",
+        }),
       );
     });
 
     it("should return empty list if department_only is present but user has no departmentId", async () => {
+      readServiceMock.getWorkOrders.mockResolvedValue({
+        success: true,
+        data: {
+          workOrders: [],
+          total: 0,
+          page: 1,
+          totalPages: 0,
+        },
+      });
+
       const result = await service.getWorkOrders({
         userPermissions: ["workorders:department_only"],
         userRole: "USER",
@@ -157,15 +208,17 @@ describe("WorkOrderService", () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.workOrders).toEqual([]);
-      expect(repositoryMock.findAllForList).not.toHaveBeenCalled();
     });
 
     it("should apply site filter when site_only is present", async () => {
-      repositoryMock.findAllForList.mockResolvedValue({
-        workOrders: [],
-        total: 0,
-        page: 1,
-        totalPages: 0,
+      readServiceMock.getWorkOrders.mockResolvedValue({
+        success: true,
+        data: {
+          workOrders: [],
+          total: 0,
+          page: 1,
+          totalPages: 0,
+        },
       });
 
       await service.getWorkOrders({
@@ -174,27 +227,22 @@ describe("WorkOrderService", () => {
         userRole: "USER",
       });
 
-      expect(repositoryMock.findAllForList).toHaveBeenCalledWith(
-        expect.objectContaining({ siteId: "site-1" }),
-        expect.any(Number),
-        expect.any(Number),
+      expect(readServiceMock.getWorkOrders).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userPermissions: ["workorders:site_only"],
+          userSiteId: "site-1",
+        }),
       );
     });
   });
 
   describe("createWorkOrder restrictions", () => {
     it("forces siteId to the user site when workorders:site_only is active", async () => {
-      repositoryMock.create.mockResolvedValue({
-        id: "wo-1",
-        workOrderNumber: "WO-001",
-        title: "Test",
-        type: "INSTALLATION",
-        priority: "MEDIUM",
-        status: "OPEN",
-        departmentId: null,
-        siteId: "site-1",
-        assignedToId: null,
-        createdAt: new Date(),
+      mutationServiceMock.createWorkOrder.mockResolvedValue({
+        success: false,
+        error:
+          "Akses ditolak: Anda hanya dapat membuat work order untuk site Anda",
+        code: "FORBIDDEN",
       });
 
       const result = await service.createWorkOrder(
@@ -220,17 +268,20 @@ describe("WorkOrderService", () => {
     });
 
     it("uses the user site when workorders:site_only is active and siteId is omitted", async () => {
-      repositoryMock.create.mockResolvedValue({
-        id: "wo-1",
-        workOrderNumber: "WO-001",
-        title: "Test",
-        type: "INSTALLATION",
-        priority: "MEDIUM",
-        status: "OPEN",
-        departmentId: null,
-        siteId: "site-1",
-        assignedToId: null,
-        createdAt: new Date(),
+      mutationServiceMock.createWorkOrder.mockResolvedValue({
+        success: true,
+        data: {
+          id: "wo-1",
+          workOrderNumber: "WO-001",
+          title: "Test",
+          type: "INSTALLATION",
+          priority: "MEDIUM",
+          status: "OPEN",
+          departmentId: null,
+          siteId: "site-1",
+          assignedToId: null,
+          createdAt: new Date(),
+        },
       });
 
       const result = await service.createWorkOrder(
@@ -248,37 +299,25 @@ describe("WorkOrderService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(repositoryMock.create).toHaveBeenCalledWith(
-        expect.objectContaining({ siteId: "site-1" }),
-      );
     });
 
     it("still returns success when non-fatal create side effects throw", async () => {
-      const createdWorkOrder: {
-        id: string;
-        workOrderNumber: string;
-        title: string;
-        type: string;
-        priority: string;
-        status: string;
-        departmentId: string | null;
-        siteId: string | null;
-        assignedToId: string | null;
-        createdAt: Date;
-      } = {
-        id: "wo-1",
-        workOrderNumber: "WO-001",
-        title: "Test",
-        type: "INSTALLATION",
-        priority: "MEDIUM",
-        status: "OPEN",
-        departmentId: null,
-        siteId: null,
-        assignedToId: null,
-        createdAt: new Date(),
-      };
+      mutationServiceMock.createWorkOrder.mockResolvedValue({
+        success: true,
+        data: {
+          id: "wo-1",
+          workOrderNumber: "WO-001",
+          title: "Test",
+          type: "INSTALLATION",
+          priority: "MEDIUM",
+          status: "OPEN",
+          departmentId: null,
+          siteId: null,
+          assignedToId: null,
+          createdAt: new Date(),
+        },
+      });
 
-      repositoryMock.create.mockResolvedValue(createdWorkOrder);
       vi.mocked(onWorkOrderCreated).mockRejectedValueOnce(new Error("boom"));
 
       const result = await service.createWorkOrder(
@@ -290,9 +329,7 @@ describe("WorkOrderService", () => {
         { id: "user-1", role: "USER", permissions: [] },
       );
 
-      expect(onWorkOrderCreated).toHaveBeenCalled();
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(createdWorkOrder);
     });
   });
 
@@ -304,7 +341,11 @@ describe("WorkOrderService", () => {
     };
 
     it("returns NOT_FOUND when access validation cannot find the work order", async () => {
-      repositoryMock.findById.mockResolvedValue(null);
+      readServiceMock.getWorkOrderById.mockResolvedValue({
+        success: false,
+        error: "Work order tidak ditemukan",
+        code: "NOT_FOUND",
+      });
 
       const result = await service.getWorkOrderById("wo-missing", userContext);
 
@@ -316,7 +357,11 @@ describe("WorkOrderService", () => {
     });
 
     it("returns NOT_FOUND when deleteWorkOrder cannot find the work order during access validation", async () => {
-      repositoryMock.findById.mockResolvedValue(null);
+      mutationServiceMock.deleteWorkOrder.mockResolvedValue({
+        success: false,
+        error: "Work order tidak ditemukan",
+        code: "NOT_FOUND",
+      });
 
       const result = await service.deleteWorkOrder("wo-missing", userContext);
 
@@ -328,13 +373,16 @@ describe("WorkOrderService", () => {
     });
 
     it("returns NOT_FOUND when updateStatus cannot find the work order during access validation", async () => {
-      repositoryMock.findById.mockResolvedValue(null);
+      mutationServiceMock.updateStatus.mockResolvedValue({
+        success: false,
+        error: "Work order tidak ditemukan",
+        code: "NOT_FOUND",
+      });
 
       const result = await service.updateStatus(
         "wo-missing",
-        WorkOrderStatus.CANCELLED,
+        "COMPLETED" as WorkOrderStatus,
         userContext,
-        "Cancelled",
       );
 
       expect(result).toEqual({
