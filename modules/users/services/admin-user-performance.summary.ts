@@ -29,20 +29,40 @@ export function buildSalesPerformanceSummary(input: {
     user: input.user,
     period: input.period,
     target,
-    canvasing: {
-      ...input.canvasing,
-      progress: Math.round((input.canvasing.approved / target) * 100),
-    },
+    canvasing: buildCanvasingSummary(input.canvasing, target),
     points: input.points,
     totalAllTime: input.totalAllTime,
     totalPointsAllTime: input.totalPointsAllTime,
-    recentActivity: input.recentActivityRaw.map((activity) => ({
-      id: activity.id,
-      pelangganName: activity.nama,
-      status: activity.status,
-      createdAt: activity.createdAt,
-      address: activity.alamat,
-      pointClaim: activity.pointClaims || null,
-    })),
+    recentActivity: mapRecentActivities(input.recentActivityRaw),
   };
+}
+
+function buildCanvasingSummary(
+  canvasing: ReturnType<typeof mapCanvasingStats>,
+  target: number,
+) {
+  return {
+    ...canvasing,
+    progress: Math.round((canvasing.approved / target) * 100),
+  };
+}
+
+function mapRecentActivities(
+  activities: Array<{
+    id: string;
+    nama: string | null;
+    status: string;
+    createdAt: Date;
+    alamat: string | null;
+    pointClaims: unknown;
+  }>,
+) {
+  return activities.map((activity) => ({
+    id: activity.id,
+    pelangganName: activity.nama,
+    status: activity.status,
+    createdAt: activity.createdAt,
+    address: activity.alamat,
+    pointClaim: activity.pointClaims || null,
+  }));
 }
