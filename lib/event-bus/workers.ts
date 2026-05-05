@@ -69,12 +69,14 @@ function createWorkerRedis(): Redis {
 
   const conn = new Redis(url, {
     maxRetriesPerRequest: null,
-    enableOfflineQueue: true, // Enable offline queue to buffer commands during reconnection
+    enableOfflineQueue: true,
     retryStrategy: (times) => {
       const delay = Math.min(times * 1000, 10000);
-      logger.warn(
-        `[Redis] Reconnection attempt ${times}, retrying in ${delay}ms`,
-      );
+      if (times <= 3) {
+        logger.warn(
+          `[Redis] Reconnection attempt ${times}, retrying in ${delay}ms`,
+        );
+      }
       if (times > 20) {
         logger.error("[Redis] Max reconnection attempts reached, giving up");
         return null;
@@ -89,14 +91,18 @@ function createWorkerRedis(): Redis {
       }
       return false;
     },
-    lazyConnect: false, // Connect immediately to detect issues early
-    keepAlive: 30000, // Keep connection alive
-    connectTimeout: 10000, // 10s connection timeout
-    commandTimeout: 5000, // 5s command timeout
+    lazyConnect: false,
+    keepAlive: 30000,
+    connectTimeout: 10000,
+    // Remove commandTimeout - BullMQ's BRPOPLPUSH needs to block indefinitely
+    // commandTimeout: 5000,
   });
 
   conn.on("error", (err) => {
-    logger.error("[Redis] Connection error:", err.message);
+    // Only log non-timeout errors to reduce noise
+    if (!err.message.includes("Command timed out")) {
+      logger.error("[Redis] Connection error:", err.message);
+    }
   });
 
   conn.on("connect", () => {
@@ -742,7 +748,7 @@ export function startWorkers(): void {
     // Event listeners for monitoring
     for (const worker of workers) {
       worker.on("completed", (job) => {
-        logger.info(`[BullMQ] ${worker.name}: Job ${job.id} completed`);
+        logger.debug(`[BullMQ] ${worker.name}: Job ${job.id} completed`);
       });
 
       worker.on("failed", (job, err) => {
@@ -753,8 +759,15 @@ export function startWorkers(): void {
       });
 
       worker.on("error", (err) => {
-        // Only log non-Redis connection errors to reduce noise
-        if (!err.message.includes("Stream isn't writeable")) {
+        // Filter out noise from Redis timeout and connection errors
+        const ignoredErrors = [
+          "Stream isn't writeable",
+          "Command timed out",
+          "Connection is closed",
+          "ETIMEDOUT",
+        ];
+
+        if (!ignoredErrors.some((msg) => err.message.includes(msg))) {
           logger.error(`[BullMQ] ${worker.name}: Worker error:`, err.message);
         }
       });
