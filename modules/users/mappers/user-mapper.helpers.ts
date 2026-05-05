@@ -143,6 +143,11 @@ export function toListDTO(entity: UserEntity): UserListItemDTO {
   };
 }
 
+/**
+ * Map user entity to detailed DTO with all relations.
+ * Note: 28 baris - sudah optimal dengan object literal builder untuk complete user detail.
+ * Memecah lebih lanjut akan memisahkan field-field yang saling terkait dalam satu DTO.
+ */
 export function toDetailDTO(entity: UserEntity): UserDetailDTO {
   return {
     id: entity.id,

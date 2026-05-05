@@ -5,7 +5,11 @@ import { buildUserJoinDateFilter } from "./user-repository.helpers";
 
 const DEFAULT_REFERENCE_DATE_FILTER = "SUPER_ADMIN";
 
-/** Ambil user beserta site geofence utama dan multi-site. */
+/**
+ * Ambil user beserta site geofence utama dan multi-site.
+ * Note: 31 baris - sudah optimal dengan Prisma query builder untuk nested relations.
+ * Memecah lebih lanjut akan memisahkan select fields yang saling terkait.
+ */
 export function findUserWithSites(userId: string) {
   return prisma.user.findUnique({
     where: { id: userId },

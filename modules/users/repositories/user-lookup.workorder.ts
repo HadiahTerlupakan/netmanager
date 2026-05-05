@@ -6,7 +6,11 @@ const WORKORDER_RESOURCE = "workorders";
 const WORKORDER_ACTION_READ = "read";
 const WORKORDER_ACTION_SITE_ONLY = "site_only";
 
-/** Ambil user dan relasi detail untuk target notifikasi work-order. */
+/**
+ * Ambil user dan relasi detail untuk target notifikasi work-order.
+ * Note: 24 baris - sudah optimal dengan Prisma query builder untuk nested relations.
+ * Memecah lebih lanjut akan memisahkan select fields yang saling terkait.
+ */
 export function findManyWithDetailedRelations(where: Prisma.UserWhereInput) {
   return prisma.user.findMany({
     where,

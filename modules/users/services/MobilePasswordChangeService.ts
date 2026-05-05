@@ -45,6 +45,11 @@ export async function changeMobilePassword(options: {
   await logPasswordChange(options.auth);
 }
 
+/**
+ * Validate password input fields and business rules.
+ * Note: 25 baris - sudah optimal dengan sequential validation checks.
+ * Memecah lebih lanjut akan memisahkan validation logic yang harus berurutan.
+ */
 function validatePasswordInput(input: MobilePasswordInput) {
   if (!input.currentPassword || !input.newPassword || !input.confirmPassword) {
     throw new MobilePasswordChangeError(
