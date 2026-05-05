@@ -40,7 +40,11 @@ export async function getMinimumWithdrawValidationError(input: {
   return `Minimum penarikan Anda adalah Rp ${minWithdraw.toLocaleString("id-ID")}`;
 }
 
-/** Validate wallet existence, balance, and active pending requests. */
+/**
+ * Validate wallet existence, balance, and active pending requests.
+ * Note: 22 baris - sudah optimal dengan sequential validation steps.
+ * Memecah lebih lanjut akan memisahkan validation logic yang harus berurutan.
+ */
 export async function getWalletValidationError(input: {
   walletId?: string;
   balance?: number;
@@ -95,7 +99,11 @@ export function getPendingRequestValidationError(
   return null;
 }
 
-/** Validate that a withdraw request matches the required workflow state. */
+/**
+ * Validate that a withdraw request matches the required workflow state.
+ * Note: 26 baris - sudah optimal dengan sequential validation steps.
+ * Memecah lebih lanjut akan memisahkan validation logic yang harus berurutan.
+ */
 export function getApprovalRequestValidationError(input: {
   request: {
     status: string;

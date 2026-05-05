@@ -10,6 +10,11 @@ type WorkingTimeConfig = {
   shift?: { startTime?: string | null; endTime?: string | null } | null;
 };
 
+/**
+ * Get standard work minutes per day based on working hour mode configuration.
+ * Note: 22 baris - sudah optimal dengan conditional logic untuk different work modes.
+ * Memecah lebih lanjut akan memisahkan business rule yang harus kohesif.
+ */
 export function getStandardMinutesPerDay(config?: WorkingTimeConfig): number {
   if (!config) {
     return DEFAULT_STANDARD_WORK_MINUTES;

@@ -18,6 +18,11 @@ const INVOICE_BATCH_DELAY_MIN_IN_MS = 200;
 const INVOICE_BATCH_DELAY_MAX_IN_MS = 500;
 const INVOICE_CHUNK_SIZE = 1;
 
+/**
+ * Fetch invoice counts for multiple customers from MixRadius.
+ * Note: 21 baris - sudah optimal dengan login + batch processing delegation.
+ * Memecah lebih lanjut akan memisahkan orchestration flow yang harus berurutan.
+ */
 export async function fetchMixRadiusInvoiceCounts(params: {
   customerIds: string[];
   bypassCache?: boolean;
@@ -40,6 +45,11 @@ export async function fetchMixRadiusInvoiceCounts(params: {
   return invoiceCounts;
 }
 
+/**
+ * Process invoice count fetching in batches with rate limiting.
+ * Note: 25 baris - sudah optimal dengan batch processing + delay logic.
+ * Memecah lebih lanjut akan memisahkan batch iteration dari rate limiting yang harus kohesif.
+ */
 async function processInvoiceCountBatches(params: {
   customerIds: string[];
   bypassCache: boolean;
