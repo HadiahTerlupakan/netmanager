@@ -28,16 +28,14 @@ export async function fetchMixRadiusODPList(params: {
   onRetry: () => Promise<MixRadiusODP[]>;
   randomDelay: (min?: number, max?: number) => Promise<void>;
 }): Promise<MixRadiusODP[]> {
-  const { client, baseUrl, login, onSessionExpired, onRetry, randomDelay } =
-    params;
-  await login();
-  await randomDelay(300, 800);
+  await params.login();
+  await params.randomDelay(300, 800);
 
-  const response = await fetchODPListResponse(client, baseUrl);
+  const response = await fetchODPListResponse(params.client, params.baseUrl);
 
   if (isSessionExpiredResponse(response.data)) {
-    onSessionExpired();
-    return onRetry();
+    params.onSessionExpired();
+    return params.onRetry();
   }
 
   return parseAndMapODPList(response.data);
@@ -78,32 +76,39 @@ export async function fetchMixRadiusODPCustomers(params: {
   onRetry: () => Promise<MixRadiusODPCustomer[]>;
   randomDelay: (min?: number, max?: number) => Promise<void>;
 }): Promise<MixRadiusODPCustomer[]> {
-  const {
-    client,
-    baseUrl,
-    odpId,
-    login,
-    onSessionExpired,
-    onRetry,
-    randomDelay,
-  } = params;
-  await login();
-  await randomDelay(200, 500);
+  await params.login();
+  await params.randomDelay(200, 500);
 
-  const response = await client.get(`${baseUrl}/rad-odp/edit/${odpId}`, {
+  const response = await fetchODPCustomersResponse(
+    params.client,
+    params.baseUrl,
+    params.odpId,
+  );
+  const html = response.data as string;
+
+  if (isLoginPage(html)) {
+    params.onSessionExpired();
+    return params.onRetry();
+  }
+
+  return parseMixRadiusOdpCustomersHtml(html, params.odpId);
+}
+
+async function fetchODPCustomersResponse(
+  client: AxiosInstance,
+  baseUrl: string,
+  odpId: string,
+) {
+  return client.get(`${baseUrl}/rad-odp/edit/${odpId}`, {
     headers: {
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       Referer: `${baseUrl}/rad-odp/list`,
     },
   });
-  const html = response.data as string;
+}
 
-  if (html.includes("LOGIN</title>") || html.includes("rad-admin/post")) {
-    onSessionExpired();
-    return onRetry();
-  }
-
-  return parseMixRadiusOdpCustomersHtml(html, odpId);
+function isLoginPage(html: string) {
+  return html.includes("LOGIN</title>") || html.includes("rad-admin/post");
 }
 
 /** Fetch topology data and update topology cache state. */
@@ -137,11 +142,19 @@ export async function fetchMixRadiusTopologyData(params: {
     randomDelay: params.randomDelay,
   });
 
+  return buildTopologyResult(result, ownerFilter, params.topologyCacheTtl);
+}
+
+function buildTopologyResult(
+  result: MixRadiusTopologyData,
+  ownerFilter: string | null,
+  topologyCacheTtl: number,
+) {
   return {
     result,
     cache: {
       data: result,
-      expiresAt: Date.now() + params.topologyCacheTtl,
+      expiresAt: Date.now() + topologyCacheTtl,
       ownerFilter,
     },
   };
@@ -169,17 +182,15 @@ async function fetchFreshTopologyData(params: {
   fetchODPCustomers: (odpId: string) => Promise<MixRadiusODPCustomer[]>;
   randomDelay: (min?: number, max?: number) => Promise<void>;
 }): Promise<MixRadiusTopologyData> {
-  const { ownerName, fetchODPList, fetchODPCustomers, randomDelay } = params;
-
-  let odps = await fetchODPList();
-  if (ownerName) {
-    odps = odps.filter((odp) => odp.ownerName === ownerName);
+  let odps = await params.fetchODPList();
+  if (params.ownerName) {
+    odps = odps.filter((odp) => odp.ownerName === params.ownerName);
   }
 
   const customers = await fetchTopologyCustomers(
     odps,
-    fetchODPCustomers,
-    randomDelay,
+    params.fetchODPCustomers,
+    params.randomDelay,
   );
 
   return { odps, customers };
@@ -198,22 +209,33 @@ async function fetchTopologyCustomers(
     index < odpsWithCustomers.length;
     index += TOPOLOGY_BATCH_SIZE
   ) {
-    const currentBatch = odpsWithCustomers.slice(
+    const batchResults = await fetchCustomerBatch(
+      odpsWithCustomers,
       index,
-      index + TOPOLOGY_BATCH_SIZE,
-    );
-    const batchResults = await Promise.all(
-      currentBatch.map((odp) =>
-        fetchCustomersSafely(odp.id, fetchODPCustomers),
-      ),
+      fetchODPCustomers,
     );
     batchResults.forEach((customers) => allCustomers.push(...customers));
+
     if (index + TOPOLOGY_BATCH_SIZE < odpsWithCustomers.length) {
       await randomDelay(500, 1500);
     }
   }
 
   return allCustomers;
+}
+
+async function fetchCustomerBatch(
+  odpsWithCustomers: MixRadiusODP[],
+  startIndex: number,
+  fetchODPCustomers: (odpId: string) => Promise<MixRadiusODPCustomer[]>,
+) {
+  const currentBatch = odpsWithCustomers.slice(
+    startIndex,
+    startIndex + TOPOLOGY_BATCH_SIZE,
+  );
+  return Promise.all(
+    currentBatch.map((odp) => fetchCustomersSafely(odp.id, fetchODPCustomers)),
+  );
 }
 
 async function fetchCustomersSafely(
