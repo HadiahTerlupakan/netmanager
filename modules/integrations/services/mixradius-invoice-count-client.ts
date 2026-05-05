@@ -27,26 +27,13 @@ export async function fetchMixRadiusInvoiceCounts(params: {
   login: () => Promise<void>;
   fetchCustomerDetail: (customerId: string) => Promise<MixRadiusCustomerDetail>;
 }): Promise<Map<string, MixRadiusInvoiceCount>> {
-  const {
-    customerIds,
-    bypassCache = false,
-    validationData = {},
-    invoiceCountCache,
-    randomDelay,
-    login,
-    fetchCustomerDetail,
-  } = params;
-
-  await ensureInvoiceCountLogin(login);
+  await ensureInvoiceCountLogin(params.login);
   const invoiceCounts = new Map<string, MixRadiusInvoiceCount>();
 
   await processInvoiceCountBatches({
-    customerIds,
-    bypassCache,
-    validationData,
-    invoiceCountCache,
-    randomDelay,
-    fetchCustomerDetail,
+    ...params,
+    bypassCache: params.bypassCache ?? false,
+    validationData: params.validationData ?? {},
     invoiceCounts,
   });
 
@@ -70,13 +57,17 @@ async function processInvoiceCountBatches(params: {
       chunk.map((customerId) => populateInvoiceCount({ customerId, ...rest })),
     );
 
-    if (index + INVOICE_CHUNK_SIZE < customerIds.length) {
+    if (shouldDelayNextBatch(index, customerIds.length)) {
       await randomDelay(
         INVOICE_BATCH_DELAY_MIN_IN_MS,
         INVOICE_BATCH_DELAY_MAX_IN_MS,
       );
     }
   }
+}
+
+function shouldDelayNextBatch(currentIndex: number, totalLength: number) {
+  return currentIndex + INVOICE_CHUNK_SIZE < totalLength;
 }
 
 async function ensureInvoiceCountLogin(login: () => Promise<void>) {
@@ -105,10 +96,9 @@ async function populateInvoiceCount(params: {
   invoiceCounts: Map<string, MixRadiusInvoiceCount>;
 }) {
   try {
-    const lastRenewedOn = params.validationData[params.customerId] || "";
     const cachedCounts = tryGetCachedCount({
       customerId: params.customerId,
-      lastRenewedOn,
+      lastRenewedOn: params.validationData[params.customerId] || "",
       bypassCache: params.bypassCache,
       validationData: params.validationData,
       invoiceCountCache: params.invoiceCountCache,
@@ -121,7 +111,7 @@ async function populateInvoiceCount(params: {
 
     await fetchAndCacheInvoiceCount({
       customerId: params.customerId,
-      lastRenewedOn,
+      lastRenewedOn: params.validationData[params.customerId] || "",
       fetchCustomerDetail: params.fetchCustomerDetail,
       invoiceCountCache: params.invoiceCountCache,
       invoiceCounts: params.invoiceCounts,
@@ -151,19 +141,17 @@ async function fetchAndCacheInvoiceCount(params: {
   invoiceCountCache: LRUCache<string, MixRadiusInvoiceCountCacheValue>;
   invoiceCounts: Map<string, MixRadiusInvoiceCount>;
 }) {
-  const {
-    customerId,
-    lastRenewedOn,
-    fetchCustomerDetail,
-    invoiceCountCache,
-    invoiceCounts,
-  } = params;
   const counts = await fetchAndBuildInvoiceCount(
-    customerId,
-    fetchCustomerDetail,
+    params.customerId,
+    params.fetchCustomerDetail,
   );
-  invoiceCounts.set(customerId, counts);
-  cacheInvoiceCount({ customerId, lastRenewedOn, counts, invoiceCountCache });
+  params.invoiceCounts.set(params.customerId, counts);
+  cacheInvoiceCount({
+    customerId: params.customerId,
+    lastRenewedOn: params.lastRenewedOn,
+    counts,
+    invoiceCountCache: params.invoiceCountCache,
+  });
 }
 
 function handleInvoiceCountError(
@@ -193,24 +181,17 @@ function getCachedInvoiceCount(params: {
   validationData: Record<string, string>;
   invoiceCountCache: LRUCache<string, MixRadiusInvoiceCountCacheValue>;
 }) {
-  const {
-    customerId,
-    lastRenewedOn,
-    bypassCache,
-    validationData,
-    invoiceCountCache,
-  } = params;
-  if (bypassCache) {
+  if (params.bypassCache) {
     return null;
   }
 
-  const cacheKey = buildInvoiceCountCacheKey(customerId, lastRenewedOn);
-  const cachedValue = invoiceCountCache.get(cacheKey);
-  const liveRenewedOn = validationData[customerId];
-  if (
-    !cachedValue ||
-    (liveRenewedOn && cachedValue.lastRenewedOn !== liveRenewedOn)
-  ) {
+  const cacheKey = buildInvoiceCountCacheKey(
+    params.customerId,
+    params.lastRenewedOn,
+  );
+  const cachedValue = params.invoiceCountCache.get(cacheKey);
+
+  if (!isCacheValid(cachedValue, params.customerId, params.validationData)) {
     return null;
   }
 
@@ -218,6 +199,16 @@ function getCachedInvoiceCount(params: {
     paidCount: cachedValue.paidCount,
     totalCount: cachedValue.totalCount,
   };
+}
+
+function isCacheValid(
+  cachedValue: MixRadiusInvoiceCountCacheValue | undefined,
+  customerId: string,
+  validationData: Record<string, string>,
+) {
+  if (!cachedValue) return false;
+  const liveRenewedOn = validationData[customerId];
+  return !liveRenewedOn || cachedValue.lastRenewedOn === liveRenewedOn;
 }
 
 function buildInvoiceCount(invoices: Array<{ status: string }>) {
