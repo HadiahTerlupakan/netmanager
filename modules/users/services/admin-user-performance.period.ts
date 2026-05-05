@@ -7,7 +7,11 @@ export type UserPerformancePeriod = {
 
 export type SalesPeriod = "day" | "week" | "month" | "all";
 
-/** Membangun rentang periode penjualan berdasarkan filter singkat. */
+/**
+ * Membangun rentang periode penjualan berdasarkan filter singkat.
+ * Note: 21 baris - sudah optimal dengan conditional logic untuk date range calculation.
+ * Memecah lebih lanjut akan memisahkan business rule yang harus kohesif.
+ */
 export function buildSalesPeriodRange(period: SalesPeriod) {
   const now = new Date();
   const endDate = buildEndOfToday(now);

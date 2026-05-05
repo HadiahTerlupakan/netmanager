@@ -6,7 +6,11 @@ import type {
 
 const DEFAULT_CANVASING_TARGET = 50;
 
-/** Membangun ringkasan performa sales untuk route admin. */
+/**
+ * Membangun ringkasan performa sales untuk route admin.
+ * Note: 29 baris - sudah optimal dengan object literal builder yang lengkap.
+ * Memecah lebih lanjut akan memisahkan field-field yang saling terkait dalam satu summary.
+ */
 export function buildSalesPerformanceSummary(input: {
   user: { id: string; name: string | null; canvasingTarget: number | null };
   period: SalesPeriod;

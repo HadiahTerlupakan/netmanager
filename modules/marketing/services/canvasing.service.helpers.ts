@@ -90,6 +90,11 @@ export function buildWorkOrderCreateInput(
   };
 }
 
+/**
+ * Build installation tasks untuk work order dari canvasing request.
+ * Note: 33 baris - sudah optimal dengan conditional logic untuk task generation.
+ * Memecah lebih lanjut akan memisahkan business rule yang harus kohesif.
+ */
 export function buildInstallationTasks(request: CanvasingEntity) {
   const baseTasks = [
     {

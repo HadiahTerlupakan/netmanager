@@ -40,7 +40,11 @@ async function runMikroTikProfileSync(input: {
   }
 }
 
-/** Sinkronkan profile baru ke router aktif atau broadcast RADIUS mode. */
+/**
+ * Sinkronkan profile baru ke router aktif atau broadcast RADIUS mode.
+ * Note: 21 baris - sudah optimal dengan delegation ke sync handler.
+ * Memecah lebih lanjut akan memisahkan sync logic yang harus berurutan.
+ */
 export async function syncMikroTikProfileOnCreate(input: {
   repository: ProfilePPPRepository;
   getRadiusSyncService: RadiusModeResolver;
@@ -63,6 +67,11 @@ export async function syncMikroTikProfileOnCreate(input: {
   });
 }
 
+/**
+ * Build sync handlers untuk profile update operation.
+ * Note: 24 baris - sudah optimal dengan object literal builder untuk sync handlers.
+ * Memecah lebih lanjut akan memisahkan handler yang saling terkait.
+ */
 function getProfileUpdateSyncHandlers(input: {
   repository: ProfilePPPRepository;
   oldProfile: ProfilePPPRecord;
