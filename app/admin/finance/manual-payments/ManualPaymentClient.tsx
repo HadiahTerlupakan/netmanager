@@ -218,7 +218,7 @@ export default function ManualPaymentClient() {
             setCurrentPage(1);
             fetchPendingPayments();
           }}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm h-[38px]"
+          className="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm h-[38px]"
         >
           Terapkan Filter
         </Button>
@@ -411,7 +411,7 @@ export default function ManualPaymentClient() {
                               size="sm"
                               className={
                                 isPending
-                                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                                  ? "bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white"
                                   : "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                               }
                               onClick={() => setSelectedPayment(payment)}

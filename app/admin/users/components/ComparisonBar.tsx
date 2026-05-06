@@ -41,7 +41,7 @@ export function ComparisonBar({
           href={`/admin/users/compare?ids=${selectedUserIds.join(",")}`}
           className={`px-6 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
             canCompare
-              ? "bg-indigo-600 hover:bg-indigo-700 text-white translate-y-0 opacity-100 shadow-indigo-200 dark:shadow-indigo-900/20"
+              ? "bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white translate-y-0 opacity-100 shadow-indigo-200 dark:shadow-indigo-900/20"
               : "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed pointer-events-none"
           }`}
         >

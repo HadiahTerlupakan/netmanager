@@ -251,7 +251,7 @@ export function ClientComponent({
   if (error && !registration) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 p-4 rounded-lg">
           {error}
         </div>
         <Link
@@ -297,7 +297,7 @@ export function ClientComponent({
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg">
+        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 p-3 rounded-lg">
           {error}
         </div>
       )}

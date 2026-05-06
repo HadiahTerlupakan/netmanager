@@ -198,7 +198,7 @@ export default function UserPerformanceStats({ userId }: { userId: string }) {
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <span className="flex items-center text-gray-600 dark:text-gray-400">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  <span className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>
                   Hadir Tepat Waktu
                 </span>
                 <span className="font-bold text-gray-900 dark:text-white">
@@ -225,7 +225,7 @@ export default function UserPerformanceStats({ userId }: { userId: string }) {
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="flex items-center text-gray-600 dark:text-gray-400">
-                  <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                  <span className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full mr-2"></span>
                   Alpha (Tidak Masuk)
                 </span>
                 <span className="font-bold text-gray-900 dark:text-white">
@@ -323,7 +323,7 @@ export default function UserPerformanceStats({ userId }: { userId: string }) {
               <HiOutlineCalendarDays className="w-5 h-5 text-orange-500" />
               Cuti & Izin (All Time)
             </h3>
-            <span className="text-xs font-medium bg-orange-100 text-orange-800 px-2 py-1 rounded-full dark:bg-orange-900/30 dark:text-orange-300">
+            <span className="text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 px-2 py-1 rounded-full dark:bg-orange-900/30 dark:text-orange-300">
               Total: {data.leaves.total}
             </span>
           </div>

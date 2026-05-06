@@ -456,7 +456,7 @@ export default function SupportContext() {
                     ticket.status !== "RESOLVED" &&
                     ticket.status !== "CLOSED" && (
                       <span
-                        className="w-2 h-2 bg-red-500 rounded-full animate-pulse"
+                        className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full animate-pulse"
                         title="Perlu balasan"
                       />
                     )}

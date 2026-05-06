@@ -159,7 +159,7 @@ export function ClientComponent() {
         <h1 className="text-2xl font-bold dark:text-white">Announcements</h1>
         <Link
           href="/admin/announcement/create"
-          className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400 font-medium"
+          className="bg-blue-600 dark:bg-blue-500 dark:bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-700 dark:hover:bg-blue-400 font-medium"
         >
           <span className="text-white">Create Announcement</span>
         </Link>

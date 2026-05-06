@@ -393,7 +393,7 @@ export default function RABView({
                   }
                 }}
                 disabled={isApproving || isSendingReminder}
-                className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                className="px-3 py-1.5 text-xs font-bold bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
               >
                 {isApproving ? (
                   "Memproses..."
@@ -445,7 +445,7 @@ export default function RABView({
             type="button"
             onClick={() => handleStatusTransition("PENJUALAN")}
             disabled={isApproving}
-            className="px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-bold bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
           >
             <HiOutlineUsers className="w-4 h-4" />
             Mulai Penjualan

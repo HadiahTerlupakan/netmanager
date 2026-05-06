@@ -80,7 +80,7 @@ export function MikrotikRouterTable({
           </button>
           <Link
             href="/admin/network/mikrotik/new"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 dark:bg-blue-400 text-white text-sm font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors shadow-sm"
           >
             <span className="text-white">+</span>
             <span className="text-white">Tambah Router</span>
