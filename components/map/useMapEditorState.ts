@@ -186,7 +186,7 @@ export function useMapEditorState({
         },
       }));
     },
-    [fiberState.mode, fiberState.sourceNode, fiberState.waypoints, showToast],
+    [fiberState.mode, fiberState.sourceNode, showToast],
   );
 
   const saveNodeToolPosition = useCallback(

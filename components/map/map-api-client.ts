@@ -3,14 +3,8 @@
  */
 
 import { MAP_API } from "./map-constants";
-import type { MappingNode, FiberFormData } from "./map-types";
+import type { MappingNode } from "./map-types";
 import type { MappingEdge, MapSettings } from "@prisma/client";
-
-type ApiResponse<T> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
 
 /**
  * Map Nodes API
