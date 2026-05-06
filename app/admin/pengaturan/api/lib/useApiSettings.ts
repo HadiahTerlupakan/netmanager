@@ -10,6 +10,7 @@ import {
   saveApiSettings,
   testR2Connection,
 } from "./apiSettingsApi";
+import { SECRET_PLACEHOLDER } from "./secretConstants";
 
 type VisibilityState = Record<string, boolean>;
 
@@ -99,12 +100,25 @@ export function useApiSettings() {
     [],
   );
 
-  const toggleVisibility = useCallback((key: string) => {
-    setVisibility((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  }, []);
+  const toggleVisibility = useCallback(
+    (key: string) => {
+      setVisibility((prev) => ({
+        ...prev,
+        [key]: !prev[key],
+      }));
+
+      // When showing R2 secret that is currently placeholder, clear it so user can input new value
+      if (key === "showR2Secret" && !visibility[key]) {
+        if (settings.r2SecretAccessKey === SECRET_PLACEHOLDER) {
+          setSettings((prev) => ({
+            ...prev,
+            r2SecretAccessKey: "",
+          }));
+        }
+      }
+    },
+    [visibility, settings.r2SecretAccessKey],
+  );
 
   const handleTestR2Connection = useCallback(async () => {
     const validation = validateR2Connection({
