@@ -56,3 +56,32 @@ export {
 } from "./services/ExpoPushService";
 export { enqueuePushRetry } from "./services/PushRetryQueue";
 export { WhatsAppService } from "./services/whatsapp/whatsapp-service";
+
+// Multi-WhatsApp Support
+export { WhatsAppAccountService } from "./services/whatsapp-account.service";
+export { WhatsAppSenderService } from "./services/whatsapp-sender.service";
+export { WhatsAppAccountRepository } from "./repositories/whatsapp-account.repository";
+export { WhatsAppMessageRepository } from "./repositories/whatsapp-message.repository";
+export type {
+  WhatsAppAccount,
+  WhatsAppAccountCreateInput,
+  WhatsAppAccountUpdateInput,
+} from "./domain/whatsapp-account.entity";
+export type {
+  WhatsAppMessage,
+  WhatsAppMessageStatus,
+} from "./domain/whatsapp-message.entity";
+export type { CreateWhatsAppAccountDTO } from "./dto/create-whatsapp-account.dto";
+export type { UpdateWhatsAppAccountDTO } from "./dto/update-whatsapp-account.dto";
+export type {
+  SendWhatsAppMessageDTO,
+  BroadcastWhatsAppMessageDTO,
+} from "./dto/send-whatsapp-message.dto";
+
+// Export schemas for validation
+export { CreateWhatsAppAccountSchema } from "./dto/create-whatsapp-account.dto";
+export { UpdateWhatsAppAccountSchema } from "./dto/update-whatsapp-account.dto";
+export {
+  SendWhatsAppMessageSchema,
+  BroadcastWhatsAppMessageSchema,
+} from "./dto/send-whatsapp-message.dto";

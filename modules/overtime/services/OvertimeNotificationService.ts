@@ -77,6 +77,7 @@ export class OvertimeNotificationService {
       title: OVERTIME_APPROVAL_TITLE,
       message,
       approvalUrl: OVERTIME_APPROVAL_LINK,
+      tenantId: input.tenantId,
     });
   }
 

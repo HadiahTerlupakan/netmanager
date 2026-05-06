@@ -67,6 +67,7 @@ export class MobileLeaveNotificationHelper {
       title: LEAVE_APPROVAL_TITLE,
       message,
       approvalUrl: LEAVE_APPROVAL_LINK,
+      tenantId: input.tenantId,
     });
   }
 }

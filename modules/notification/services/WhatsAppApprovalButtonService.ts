@@ -1,7 +1,5 @@
 import { logger } from "@/lib/logger";
-
-import { WhatsAppService } from "./whatsapp/whatsapp-service";
-import type { WhatsAppButtonItem } from "./whatsapp/whatsapp-provider-interface";
+import { WhatsAppSenderService } from "./whatsapp-sender.service";
 
 const APPROVAL_FOOTER = "NetManager Approval";
 const APPROVAL_BUTTON_TEXT = "Buka Approval";
@@ -11,37 +9,33 @@ export interface ApprovalButtonNotificationInput {
   title: string;
   message: string;
   approvalUrl: string;
+  tenantId?: string;
 }
 
 export class WhatsAppApprovalButtonService {
-  constructor(private readonly whatsAppService = new WhatsAppService()) {}
+  constructor(
+    private readonly whatsAppSenderService = new WhatsAppSenderService(),
+  ) {}
 
-  /** Mengirim pesan WhatsApp button untuk membuka halaman approval admin. */
+  /** Mengirim pesan WhatsApp untuk approval admin menggunakan account INTERNAL. */
   async sendApprovalButton(input: ApprovalButtonNotificationInput) {
     const phone = input.phone?.trim();
     if (!phone) return;
 
-    const result = await this.whatsAppService.sendButton({
+    const message = this.buildMessage(input);
+    const result = await this.whatsAppSenderService.send({
       phone,
-      message: this.buildMessage(input),
-      footer: APPROVAL_FOOTER,
-      buttons: [this.buildApprovalButton(input.approvalUrl)],
+      message,
+      accountType: "INTERNAL", // Use INTERNAL account type
+      tenantId: input.tenantId,
     });
 
     if (!result.success) {
-      logger.error("[WhatsApp Approval] Failed to send button", result.error);
+      logger.error("[WhatsApp Approval] Failed to send message", result.error);
     }
   }
 
   private buildMessage(input: ApprovalButtonNotificationInput) {
-    return `*${input.title}*\n\n${input.message}`;
-  }
-
-  private buildApprovalButton(approvalUrl: string): WhatsAppButtonItem {
-    return {
-      type: "url",
-      displayText: APPROVAL_BUTTON_TEXT,
-      url: approvalUrl,
-    };
+    return `*${input.title}*\n\n${input.message}\n\n${APPROVAL_FOOTER}\n${APPROVAL_BUTTON_TEXT}: ${input.approvalUrl}`;
   }
 }

@@ -3,133 +3,133 @@
 import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect, useCallback } from "react";
 import {
-  HiOutlineArrowPath,
-  HiOutlineCog6Tooth,
+  HiOutlinePlus,
+  HiOutlinePencil,
+  HiOutlineTrash,
   HiOutlineCheckCircle,
   HiOutlineXCircle,
+  HiOutlineCog6Tooth,
   HiOutlineDevicePhoneMobile,
+  HiOutlineArrowPath,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 
-interface WhatsAppSettings {
-  whatsappProvider: "WABLAS" | "FONNTE" | "MPWA" | "OFFICIAL";
-  whatsappApiKey: string;
-  whatsappDeviceId: string;
-  whatsappDomain: string;
+interface WhatsAppAccount {
+  id: string;
+  name: string;
+  phone: string;
+  provider: "WABLAS" | "FONNTE" | "MPWA" | "OFFICIAL";
+  accountType: "CUSTOMER" | "INTERNAL";
+  isActive: boolean;
+  isDefault: boolean;
+  priority: number;
+  dailyLimit?: number;
+  dailyCount: number;
+  createdAt: string;
 }
 
 const PROVIDERS = [
-  { id: "WABLAS", name: "Wablas", enabled: true },
-  { id: "FONNTE", name: "Fonnte", enabled: true },
-  { id: "MPWA", name: "MPWA Gateway", enabled: true },
-  { id: "OFFICIAL", name: "Official WhatsApp Business API", enabled: false },
+  { id: "WABLAS", name: "Wablas" },
+  { id: "FONNTE", name: "Fonnte" },
+  { id: "MPWA", name: "MPWA Gateway" },
+  {
+    id: "OFFICIAL",
+    name: "Official WhatsApp Business API (Coming Soon)",
+    disabled: true,
+  },
 ];
 
 export function ClientComponent() {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [settings, setSettings] = useState<WhatsAppSettings>({
-    whatsappProvider: "WABLAS",
-    whatsappApiKey: "",
-    whatsappDeviceId: "",
-    whatsappDomain: "",
-  });
-  const [success, setSuccess] = useState(false);
+  const [accounts, setAccounts] = useState<WhatsAppAccount[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<WhatsAppAccount | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
-  const [testPhone, setTestPhone] = useState("");
-  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const fetchSettings = useCallback(async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/settings/whatsapp");
+      const response = await fetch("/api/admin/whatsapp/accounts");
       if (response.ok) {
         const payload = await response.json();
-        const data = payload?.data ?? {};
-        setSettings({
-          whatsappProvider: data.whatsappProvider || "WABLAS",
-          whatsappApiKey: data.whatsappApiKey || "",
-          whatsappDeviceId: data.whatsappDeviceId || "",
-          whatsappDomain: data.whatsappDomain || "",
-        });
+        setAccounts(payload.data || []);
       }
     } catch (error) {
-      clientLogger.error("Error fetching WhatsApp settings:", error);
+      clientLogger.error("Error fetching WhatsApp accounts:", error);
+      setError("Gagal memuat akun WhatsApp");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    fetchAccounts();
+  }, [fetchAccounts]);
 
-  const handleSave = async () => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Yakin ingin menghapus akun ini?")) return;
+
     try {
-      setSaving(true);
-      setError(null);
-      setSuccess(false);
-
-      const response = await fetch("/api/admin/settings/whatsapp", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+      const response = await fetch(`/api/admin/whatsapp/accounts/${id}`, {
+        method: "DELETE",
       });
 
       if (response.ok) {
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-        fetchSettings();
+        setSuccess("Akun berhasil dihapus");
+        fetchAccounts();
+        setTimeout(() => setSuccess(null), 3000);
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Gagal menyimpan pengaturan");
+        const data = await response.json();
+        setError(data.error || "Gagal menghapus akun");
       }
-    } catch (error: unknown) {
-      clientLogger.error("Error saving settings:", error);
-      setError(
-        error instanceof Error ? error.message : "Gagal menyimpan pengaturan",
-      );
-    } finally {
-      setSaving(false);
+    } catch (error) {
+      clientLogger.error("Error deleting account:", error);
+      setError("Gagal menghapus akun");
     }
   };
 
-  const handleTest = async () => {
-    if (!testPhone.trim()) {
-      setError("Nomor WhatsApp test wajib diisi");
-      return;
-    }
-
+  const handleSetDefault = async (id: string) => {
     try {
-      setTesting(true);
-      setError(null);
-      setTestMessage(null);
-
-      const response = await fetch("/api/admin/settings/whatsapp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: testPhone }),
-      });
-      const payload = await response.json();
-
-      if (response.ok && payload?.success && payload.data?.success) {
-        setTestMessage(
-          "Pesan percobaan berhasil dikirim. Periksa WhatsApp Anda.",
-        );
-        return;
-      }
-
-      setError(
-        payload?.data?.message ||
-          payload?.error ||
-          "Gagal menjalankan tes WhatsApp",
+      const response = await fetch(
+        `/api/admin/whatsapp/accounts/${id}/set-default`,
+        {
+          method: "POST",
+        },
       );
-    } catch (error: unknown) {
-      clientLogger.error("Error testing WhatsApp:", error);
-      setError("Kesalahan saat testing WhatsApp");
-    } finally {
-      setTesting(false);
+
+      if (response.ok) {
+        setSuccess("Akun berhasil diset sebagai default");
+        fetchAccounts();
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        const data = await response.json();
+        setError(data.error || "Gagal set default");
+      }
+    } catch (error) {
+      clientLogger.error("Error setting default:", error);
+      setError("Gagal set default");
+    }
+  };
+
+  const handleTest = async (id: string) => {
+    try {
+      const response = await fetch(`/api/admin/whatsapp/accounts/${id}/test`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        setSuccess("Test koneksi berhasil! Periksa WhatsApp Anda.");
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        const data = await response.json();
+        setError(data.error || "Test koneksi gagal");
+      }
+    } catch (error) {
+      clientLogger.error("Error testing connection:", error);
+      setError("Test koneksi gagal");
     }
   };
 
@@ -140,32 +140,46 @@ export function ClientComponent() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
       {/* Header */}
-      <div className="max-w-4xl mx-auto mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <HiOutlineCog6Tooth className="w-8 h-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            WhatsApp API Configuration
-          </h1>
+      <div className="max-w-6xl mx-auto mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <HiOutlineCog6Tooth className="w-8 h-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                WhatsApp Accounts
+              </h1>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Kelola multiple akun WhatsApp untuk pengiriman pesan
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingAccount(null);
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <HiOutlinePlus className="w-5 h-5" />
+            Tambah Akun
+          </button>
         </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          Configure WhatsApp Business API for sending invoices and notifications
-        </p>
       </div>
 
       {/* Success/Error Messages */}
       {success && (
-        <div className="max-w-4xl mx-auto mb-6">
+        <div className="max-w-6xl mx-auto mb-6">
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
             <HiOutlineCheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
             <span className="text-green-800 dark:text-green-200">
-              Settings saved successfully!
+              {success}
             </span>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="max-w-4xl mx-auto mb-6">
+        <div className="max-w-6xl mx-auto mb-6">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3">
             <HiOutlineXCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
             <span className="text-red-800 dark:text-red-200">{error}</span>
@@ -173,273 +187,459 @@ export function ClientComponent() {
         </div>
       )}
 
-      {testMessage && (
-        <div className="max-w-4xl mx-auto mb-6">
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3">
-            <HiOutlineCheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-            <span className="text-green-800 dark:text-green-200">
-              {testMessage}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Configuration Card */}
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 space-y-6">
-          {/* Provider Selection */}
-          <div>
-            <label
-              htmlFor="whatsapp-provider"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              WhatsApp Provider *
-            </label>
-            <select
-              id="whatsapp-provider"
-              value={settings.whatsappProvider}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  whatsappProvider: e.target
-                    .value as WhatsAppSettings["whatsappProvider"],
-                })
-              }
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {PROVIDERS.map((provider) => (
-                <option
-                  key={provider.id}
-                  value={provider.id}
-                  disabled={!provider.enabled}
-                >
-                  {provider.name} {!provider.enabled && "(Coming Soon)"}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Choose your WhatsApp Business API provider
-            </p>
-          </div>
-
-          {/* Gateway Configuration */}
-          {(settings.whatsappProvider === "WABLAS" ||
-            settings.whatsappProvider === "MPWA") && (
-            <>
-              <div>
-                <label
-                  htmlFor="whatsapp-domain"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {settings.whatsappProvider === "MPWA"
-                    ? "Gateway Base URL"
-                    : "Wablas Domain"}{" "}
-                  *
-                </label>
-                <input
-                  id="whatsapp-domain"
-                  type="text"
-                  value={settings.whatsappDomain}
-                  onChange={(e) =>
-                    setSettings({ ...settings, whatsappDomain: e.target.value })
-                  }
-                  placeholder={
-                    settings.whatsappProvider === "MPWA"
-                      ? "https://wagateway.example.com/send-message"
-                      : "console.wablas.com or yourdomain.wablas.id"
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {settings.whatsappProvider === "MPWA"
-                    ? "Isi base URL atau endpoint kirim pesan lengkap dari dokumentasi MPWA/WAGateway"
-                    : "Your Wablas domain from dashboard (without https://)"}
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="whatsapp-device-id"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  {settings.whatsappProvider === "MPWA"
-                    ? "Sender Number"
-                    : "Device ID / Token"}
-                </label>
-                <input
-                  id="whatsapp-device-id"
-                  type="text"
-                  value={settings.whatsappDeviceId}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      whatsappDeviceId: e.target.value,
-                    })
-                  }
-                  placeholder={
-                    settings.whatsappProvider === "MPWA"
-                      ? "62888xxxx"
-                      : "Enter your device ID or token (optional)"
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {settings.whatsappProvider === "MPWA"
-                    ? "Nomor device pengirim yang terhubung ke MPWA/WAGateway"
-                    : "Found in Wablas dashboard under Device Settings"}
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* API Key (for all providers) */}
-          <div>
-            <label
-              htmlFor="whatsapp-api-key"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              API Key / Token *
-            </label>
-            <input
-              id="whatsapp-api-key"
-              type="text"
-              value={settings.whatsappApiKey}
-              onChange={(e) =>
-                setSettings({ ...settings, whatsappApiKey: e.target.value })
-              }
-              placeholder={
-                settings.whatsappProvider === "WABLAS"
-                  ? "Enter Wablas API token"
-                  : settings.whatsappProvider === "MPWA"
-                    ? "Enter MPWA/WAGateway API token"
-                    : "Enter Fonnte API token"
-              }
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {settings.whatsappProvider === "WABLAS"
-                ? "Your Wablas API token from dashboard"
-                : settings.whatsappProvider === "MPWA"
-                  ? "Token API dari dashboard MPWA/WAGateway"
-                  : "Your Fonnte API token from dashboard"}
-            </p>
-          </div>
-
-          {/* Info Box */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <h3 className="font-medium text-blue-900 dark:text-blue-400 mb-2 flex items-center gap-2">
-              <HiOutlineDevicePhoneMobile className="w-5 h-5" />{" "}
-              {settings.whatsappProvider === "WABLAS"
-                ? "Wablas"
-                : settings.whatsappProvider === "MPWA"
-                  ? "MPWA Gateway"
-                  : "Fonnte"}{" "}
-              Setup Guide:
+      {/* Accounts List */}
+      <div className="max-w-6xl mx-auto">
+        {accounts.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-12 text-center">
+            <HiOutlineDevicePhoneMobile className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Belum ada akun WhatsApp
             </h3>
-            {settings.whatsappProvider === "WABLAS" ? (
-              <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
-                <li>
-                  Register at:{" "}
-                  <a
-                    href="https://wablas.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    wablas.com
-                  </a>
-                </li>
-                <li>Connect your WhatsApp Business number</li>
-                <li>
-                  Get your Domain from dashboard (e.g., console.wablas.com)
-                </li>
-                <li>Get Device ID from Device Settings (optional)</li>
-                <li>Generate API Token from API Settings</li>
-                <li>Paste credentials above and test</li>
-              </ol>
-            ) : settings.whatsappProvider === "MPWA" ? (
-              <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
-                <li>
-                  Pastikan MPWA/WAGateway sudah aktif dan device tersambung
-                </li>
-                <li>Isi Gateway Base URL atau endpoint send-message lengkap</li>
-                <li>
-                  Isi API token dan Sender Number sesuai nomor device gateway
-                </li>
-                <li>Gunakan tombol test untuk memastikan pesan terkirim</li>
-              </ol>
-            ) : (
-              <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
-                <li>
-                  Register at:{" "}
-                  <a
-                    href="https://fonnte.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    fonnte.com
-                  </a>
-                </li>
-                <li>Connect your WhatsApp number</li>
-                <li>Get API Token from dashboard</li>
-                <li>Paste token above and test</li>
-              </ol>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-            <label
-              htmlFor="whatsapp-test-phone"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Nomor test WhatsApp
-            </label>
-            <div className="flex gap-3">
-              <input
-                id="whatsapp-test-phone"
-                type="tel"
-                value={testPhone}
-                onChange={(event) => setTestPhone(event.target.value)}
-                placeholder="628123456789"
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handleTest}
-                disabled={testing || !settings.whatsappApiKey}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                {testing ? (
-                  <>
-                    <HiOutlineArrowPath className="w-4 h-4 animate-spin" />
-                    Testing...
-                  </>
-                ) : (
-                  <>Test WhatsApp</>
-                )}
-              </button>
-            </div>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Tambahkan akun WhatsApp pertama Anda untuk mulai mengirim pesan
+            </p>
             <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || !settings.whatsappApiKey}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              onClick={() => {
+                setEditingAccount(null);
+                setShowModal(true);
+              }}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
             >
-              {saving ? (
-                <>
-                  <HiOutlineArrowPath className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <HiOutlineCheckCircle className="w-4 h-4" />
-                  Save Configuration
-                </>
-              )}
+              <HiOutlinePlus className="w-5 h-5" />
+              Tambah Akun Pertama
             </button>
           </div>
+        ) : (
+          <div className="grid gap-4">
+            {accounts.map((account) => (
+              <div
+                key={account.id}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {account.name}
+                      </h3>
+                      {account.isDefault && (
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded">
+                          Default
+                        </span>
+                      )}
+                      {account.accountType === "INTERNAL" && (
+                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs font-medium rounded">
+                          Internal
+                        </span>
+                      )}
+                      {!account.isActive && (
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 text-xs font-medium rounded">
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                      <p>
+                        <span className="font-medium">Phone:</span>{" "}
+                        {account.phone}
+                      </p>
+                      <p>
+                        <span className="font-medium">Provider:</span>{" "}
+                        {PROVIDERS.find((p) => p.id === account.provider)?.name}
+                      </p>
+                      <p>
+                        <span className="font-medium">Type:</span>{" "}
+                        {account.accountType === "CUSTOMER"
+                          ? "Customer"
+                          : "Internal"}
+                      </p>
+                      <p>
+                        <span className="font-medium">Priority:</span>{" "}
+                        {account.priority}
+                      </p>
+                      {account.dailyLimit && (
+                        <p>
+                          <span className="font-medium">Daily Usage:</span>{" "}
+                          {account.dailyCount} / {account.dailyLimit}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTest(account.id)}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Test Connection"
+                    >
+                      <HiOutlineArrowPath className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingAccount(account);
+                        setShowModal(true);
+                      }}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <HiOutlinePencil className="w-5 h-5" />
+                    </button>
+                    {!account.isDefault && (
+                      <button
+                        onClick={() => handleSetDefault(account.id)}
+                        className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      >
+                        Set Default
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(account.id)}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <HiOutlineTrash className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <AccountModal
+          account={editingAccount}
+          onClose={() => {
+            setShowModal(false);
+            setEditingAccount(null);
+          }}
+          onSuccess={() => {
+            setShowModal(false);
+            setEditingAccount(null);
+            fetchAccounts();
+            setSuccess(
+              editingAccount
+                ? "Akun berhasil diupdate"
+                : "Akun berhasil ditambahkan",
+            );
+            setTimeout(() => setSuccess(null), 3000);
+          }}
+          onError={(msg) => setError(msg)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal Component
+function AccountModal({
+  account,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  account: WhatsAppAccount | null;
+  onClose: () => void;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: account?.name || "",
+    phone: account?.phone || "",
+    provider: account?.provider || "FONNTE",
+    accountType: account?.accountType || "CUSTOMER",
+    apiKey: "",
+    domain: "",
+    deviceId: "",
+    isActive: account?.isActive ?? true,
+    priority: account?.priority || 0,
+    dailyLimit: account?.dailyLimit || undefined,
+  });
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const url = account
+        ? `/api/admin/whatsapp/accounts/${account.id}`
+        : "/api/admin/whatsapp/accounts";
+      const method = account ? "PATCH" : "POST";
+
+      const body: Record<string, unknown> = {
+        name: formData.name,
+        phone: formData.phone,
+        provider: formData.provider,
+        accountType: formData.accountType,
+        isActive: formData.isActive,
+        priority: formData.priority,
+      };
+
+      if (formData.apiKey) body.apiKey = formData.apiKey;
+      if (formData.domain) body.domain = formData.domain;
+      if (formData.deviceId) body.deviceId = formData.deviceId;
+      if (formData.dailyLimit) body.dailyLimit = formData.dailyLimit;
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        onSuccess();
+      } else {
+        const data = await response.json();
+        onError(data.error || "Gagal menyimpan akun");
+      }
+    } catch (error) {
+      clientLogger.error("Error saving account:", error);
+      onError("Gagal menyimpan akun");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            {account ? "Edit Akun WhatsApp" : "Tambah Akun WhatsApp"}
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Nama Akun *
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder="CS Team, Marketing, dll"
+                required
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Nomor WhatsApp *
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="628123456789"
+                required
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Provider *
+              </label>
+              <select
+                value={formData.provider}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    provider: e.target.value as
+                      | "WABLAS"
+                      | "FONNTE"
+                      | "MPWA"
+                      | "OFFICIAL",
+                  })
+                }
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {PROVIDERS.map((p) => (
+                  <option key={p.id} value={p.id} disabled={p.disabled}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tipe Akun *
+              </label>
+              <select
+                value={formData.accountType}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    accountType: e.target.value as "CUSTOMER" | "INTERNAL",
+                  })
+                }
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="CUSTOMER">
+                  Customer - Untuk pesan ke pelanggan
+                </option>
+                <option value="INTERNAL">
+                  Internal - Untuk notifikasi approval & reminder
+                </option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {formData.accountType === "CUSTOMER"
+                  ? "Digunakan untuk mengirim pesan ke pelanggan (invoice, reminder, broadcast)"
+                  : "Digunakan untuk notifikasi internal (approval lembur, izin, work order)"}
+              </p>
+            </div>
+
+            {(formData.provider === "WABLAS" ||
+              formData.provider === "MPWA") && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Domain / Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.domain}
+                    onChange={(e) =>
+                      setFormData({ ...formData, domain: e.target.value })
+                    }
+                    placeholder={
+                      formData.provider === "MPWA"
+                        ? "https://wagateway.example.com"
+                        : "console.wablas.com"
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Device ID / Sender Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.deviceId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, deviceId: e.target.value })
+                    }
+                    placeholder={
+                      formData.provider === "MPWA" ? "62888xxxx" : "Device ID"
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                API Key / Token {!account && "*"}
+              </label>
+              <input
+                type="text"
+                value={formData.apiKey}
+                onChange={(e) =>
+                  setFormData({ ...formData, apiKey: e.target.value })
+                }
+                placeholder={
+                  account ? "Kosongkan jika tidak ingin ubah" : "API Key"
+                }
+                required={!account}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Priority
+                </label>
+                <input
+                  type="number"
+                  value={formData.priority}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      priority: parseInt(e.target.value),
+                    })
+                  }
+                  min="0"
+                  max="100"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Semakin tinggi, semakin prioritas
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Daily Limit
+                </label>
+                <input
+                  type="number"
+                  value={formData.dailyLimit || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      dailyLimit: e.target.value
+                        ? parseInt(e.target.value)
+                        : undefined,
+                    })
+                  }
+                  min="1"
+                  placeholder="Unlimited"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Kosongkan untuk unlimited
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) =>
+                  setFormData({ ...formData, isActive: e.target.checked })
+                }
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label
+                htmlFor="isActive"
+                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Aktif
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? "Menyimpan..." : "Simpan"}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

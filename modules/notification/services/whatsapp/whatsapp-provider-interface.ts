@@ -47,6 +47,7 @@ export interface SendResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  response?: Record<string, unknown>; // Raw response from provider
 }
 
 export type WhatsAppProviderId = "WABLAS" | "FONNTE" | "MPWA" | "OFFICIAL";
