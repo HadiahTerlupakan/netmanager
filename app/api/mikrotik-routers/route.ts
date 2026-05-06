@@ -10,6 +10,7 @@ import {
 import {
   MikroTikRouterService,
   RouterAccessDeniedError,
+  RouterIpConflictError,
 } from "@/modules/network";
 import * as z from "zod";
 
@@ -74,10 +75,21 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.forbidden(error.message);
     }
 
-    return apiError(
-      "IP Address sudah terpakai atau terjadi kesalahan",
-      ErrorCodes.CONFLICT,
-      { status: 409 },
-    );
+    if (error instanceof RouterIpConflictError) {
+      return apiError(
+        `IP Address ${parsed.data.ipAddress} sudah digunakan`,
+        ErrorCodes.CONFLICT,
+        { status: 409 },
+      );
+    }
+
+    // Check if error message contains IP conflict
+    if (error instanceof Error && error.message.includes("sudah terdaftar")) {
+      return apiError(error.message, ErrorCodes.CONFLICT, { status: 409 });
+    }
+
+    return apiError("Gagal membuat router", ErrorCodes.INTERNAL_ERROR, {
+      status: 500,
+    });
   }
 });

@@ -64,3 +64,4 @@ export {
   networkPerformanceCreateSchema,
   networkPerformanceQuerySchema,
 } from "./validation";
+export * from "./domain/errors/RouterErrors";

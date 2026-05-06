@@ -101,29 +101,23 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   }
 
   async create(data: MikroTikRouterCreateData): Promise<{ id: string }> {
-    // Gunakan upsert agar jika IP sudah ada untuk tenant ini, datanya diperbarui (overwrite)
-    const router = await this.client.mikroTikRouter.upsert({
+    // Check if IP already exists for this tenant
+    const existingRouter = await this.client.mikroTikRouter.findFirst({
       where: {
-        tenantId_ipAddress: {
-          tenantId: data.tenantId || "",
-          ipAddress: data.ipAddress,
-        },
+        tenantId: data.tenantId || "",
+        ipAddress: data.ipAddress,
       },
-      update: {
-        name: data.name,
-        updatedAt: new Date(),
-        timezone: data.timezone ?? "+07:00 Asia/Jakarta",
-        apiPort: data.apiPort ?? 8728,
-        apiUsername: data.apiUsername,
-        apiPassword: data.apiPassword,
-        authPort: data.authPort ?? 7265,
-        accountingPort: data.accountingPort ?? 7266,
-        secretRadius: data.secretRadius,
-        isolirUrl: data.isolirUrl ?? null,
-        description: data.description ?? null,
-        siteId: data.siteId ?? null,
-      },
-      create: {
+      select: { id: true, ipAddress: true },
+    });
+
+    if (existingRouter) {
+      throw new Error(
+        `Router dengan IP Address ${data.ipAddress} sudah terdaftar`,
+      );
+    }
+
+    const router = await this.client.mikroTikRouter.create({
+      data: {
         id: randomUUID(),
         updatedAt: new Date(),
         name: data.name,

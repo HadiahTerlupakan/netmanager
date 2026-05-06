@@ -6,6 +6,11 @@ import { toast } from "react-hot-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
+import {
+  MIKROTIK_PAGINATION,
+  MIKROTIK_DEBOUNCE,
+  MIKROTIK_API,
+} from "../constants";
 
 export type MikrotikRouterListItem = {
   id: string;
@@ -34,8 +39,8 @@ type MikroTikUpdateData = {
 const INITIAL_DATA: PaginatedMikrotikRouters = {
   routers: [],
   total: 0,
-  page: 1,
-  limit: 10,
+  page: MIKROTIK_PAGINATION.DEFAULT_PAGE,
+  limit: MIKROTIK_PAGINATION.DEFAULT_LIMIT,
   totalPages: 0,
 };
 
@@ -43,9 +48,12 @@ export function useMikrotikRouterList() {
   const [data, setData] = useState<PaginatedMikrotikRouters>(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 500);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const debouncedSearch = useDebounce(
+    search,
+    MIKROTIK_DEBOUNCE.SEARCH_DELAY_MS,
+  );
+  const [page, setPage] = useState<number>(MIKROTIK_PAGINATION.DEFAULT_PAGE);
+  const [limit, setLimit] = useState<number>(MIKROTIK_PAGINATION.DEFAULT_LIMIT);
   const [pppConnectionMode, setPppConnectionMode] = useState<
     "RADIUS" | "MIKROTIK_API"
   >("RADIUS");
@@ -62,8 +70,8 @@ export function useMikrotikRouterList() {
       }
 
       const [res, settingsRes] = await Promise.all([
-        fetch(`/api/mikrotik-routers?${params.toString()}`),
-        fetch("/api/settings/general"),
+        fetch(`${MIKROTIK_API.BASE}?${params.toString()}`),
+        fetch(MIKROTIK_API.SETTINGS_GENERAL),
       ]);
 
       if (!res.ok) {

@@ -21,8 +21,9 @@ import {
   updateRouterMutation,
 } from "./mikrotik-router.mutations";
 import { testRouterConnection } from "./mikrotik-router.connection-test";
+import { RouterIpConflictError } from "../domain/errors/RouterErrors";
 
-export { RouterAccessDeniedError, RouterNotFoundError };
+export { RouterAccessDeniedError, RouterNotFoundError, RouterIpConflictError };
 
 function createEmptyRouterList(
   page: number,

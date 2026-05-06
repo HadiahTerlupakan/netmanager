@@ -1,15 +1,15 @@
 "use client";
-import { clientLogger } from "@/lib/client-logger";
-import { useState } from "react";
-
-import { toast } from "react-hot-toast";
 
 import ReconfigureModal from "@/components/mikrotik/ReconfigureModal";
 import TestConnectionModal from "@/components/mikrotik/TestConnectionModal";
 import { MikrotikRouterTable } from "@/app/admin/network/mikrotik/components/mikrotikRouterTable";
 import { useMikrotikRouterList } from "@/app/admin/network/mikrotik/hooks/useMikrotikRouterList";
-import type { MikrotikTestConnectionResult } from "@/app/admin/network/mikrotik/mikrotikFormShared";
+import { useMikrotikActions } from "@/app/admin/network/mikrotik/hooks/useMikrotikActions";
+import { useMikrotikModals } from "@/app/admin/network/mikrotik/hooks/useMikrotikModals";
 
+/**
+ * Main component untuk list MikroTik routers dengan pagination, search, dan actions
+ */
 export default function MikroTikRouterList() {
   const {
     data,
@@ -24,65 +24,19 @@ export default function MikroTikRouterList() {
     refresh,
   } = useMikrotikRouterList();
 
-  const [showTestModal, setShowTestModal] = useState(false);
-  const [showReconfigureModal, setShowReconfigureModal] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] =
-    useState<MikrotikTestConnectionResult | null>(null);
+  const { deleteRouter, testConnection, isTesting, testResult } =
+    useMikrotikActions();
+
+  const { testModal, reconfigureModal } = useMikrotikModals();
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus router "${name}"?`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/mikrotik-routers/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        toast.error(error.error || "Gagal menghapus router");
-        return;
-      }
-
-      toast.success("Router berhasil dihapus");
-      await refresh();
-    } catch (_error) {
-      toast.error("Gagal menghapus router");
-    }
+    await deleteRouter(id, name, refresh);
   };
 
   const handleTestConnection = async (id: string) => {
-    setIsTesting(true);
-    setShowTestModal(true);
-    setTestResult(null);
-
-    try {
-      const res = await fetch("/api/mikrotik-routers/test-connection", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ routerId: id }),
-      });
-
-      const result = await res.json();
-      setTestResult(result);
-
-      if (res.ok && result.success) {
-        await refresh();
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Terjadi kesalahan";
-      clientLogger.error("Test connection error:", error);
-      setTestResult({
-        success: false,
-        api: { success: false, message: "Error: " + errorMessage },
-        message: "Terjadi kesalahan saat test koneksi",
-      });
-    } finally {
-      setIsTesting(false);
-    }
+    testModal.open();
+    await testConnection(id);
+    await refresh();
   };
 
   return (
@@ -108,7 +62,7 @@ export default function MikroTikRouterList() {
         onNextPage={() =>
           setPage((prev) => Math.min(data.totalPages, prev + 1))
         }
-        onOpenReconfigure={() => setShowReconfigureModal(true)}
+        onOpenReconfigure={reconfigureModal.open}
         onTestConnection={(id) => {
           void handleTestConnection(id);
         }}
@@ -118,17 +72,17 @@ export default function MikroTikRouterList() {
       />
 
       <TestConnectionModal
-        open={showTestModal}
-        onClose={() => setShowTestModal(false)}
+        open={testModal.isOpen}
+        onClose={testModal.close}
         result={testResult}
         isLoading={isTesting}
       />
 
       <ReconfigureModal
-        open={showReconfigureModal}
-        onClose={() => setShowReconfigureModal(false)}
+        open={reconfigureModal.isOpen}
+        onClose={reconfigureModal.close}
         onSuccess={() => {
-          setShowReconfigureModal(false);
+          reconfigureModal.close();
           void refresh();
         }}
       />
