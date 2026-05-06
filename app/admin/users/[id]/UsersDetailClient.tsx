@@ -676,25 +676,29 @@ export function ClientComponent({
             </h3>
             {user?.userSites && user.userSites.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {user.userSites.map((us) => (
-                  <span
-                    key={us.id}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
-                      us.isPrimary
-                        ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                        : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    {us.isPrimary && <HiOutlineStar className="w-3.5 h-3.5" />}
-                    {us.site.code} - {us.site.name}
-                  </span>
-                ))}
+                {user.userSites
+                  .filter((us) => us.site)
+                  .map((us) => (
+                    <span
+                      key={us.id}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                        us.isPrimary
+                          ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                          : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {us.isPrimary && (
+                        <HiOutlineStar className="w-3.5 h-3.5" />
+                      )}
+                      {us.site.code} - {us.site.name}
+                    </span>
+                  ))}
               </div>
             ) : (
               <p className="text-xl font-medium text-gray-900 dark:text-white">
-                {user?.sites
+                {user?.sites?.code
                   ? `${user.sites.code} - ${user.sites.name}`
-                  : user?.site
+                  : user?.site?.code
                     ? `${user.site.code} - ${user.site.name}`
                     : "-"}
               </p>
