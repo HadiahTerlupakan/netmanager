@@ -1,4 +1,8 @@
 import { API_SETTINGS_ENDPOINTS, API_SETTINGS_MESSAGES } from "./constants";
+import {
+  SECRET_PLACEHOLDER,
+  KEEP_EXISTING_SECRET_TOKEN,
+} from "@/modules/settings";
 
 export interface ApiSettings {
   googleGeminiApiKey: string;
@@ -16,6 +20,19 @@ export interface R2TestPayload {
   accessKeyId: string;
   secretAccessKey: string;
   bucketName: string;
+}
+
+/**
+ * Prepare settings for save - replace placeholder with keep token.
+ */
+function prepareSettingsForSave(settings: ApiSettings): ApiSettings {
+  return {
+    ...settings,
+    r2SecretAccessKey:
+      settings.r2SecretAccessKey === SECRET_PLACEHOLDER
+        ? KEEP_EXISTING_SECRET_TOKEN
+        : settings.r2SecretAccessKey,
+  };
 }
 
 /**
@@ -48,10 +65,12 @@ export async function fetchApiSettings(): Promise<ApiSettings> {
  * Save API settings to server (update existing settings).
  */
 export async function saveApiSettings(settings: ApiSettings): Promise<void> {
+  const preparedSettings = prepareSettingsForSave(settings);
+
   const response = await fetch(API_SETTINGS_ENDPOINTS.SETTINGS, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(settings),
+    body: JSON.stringify(preparedSettings),
   });
 
   if (!response.ok) {
@@ -64,10 +83,12 @@ export async function saveApiSettings(settings: ApiSettings): Promise<void> {
  * Create new API settings on server.
  */
 export async function createApiSettings(settings: ApiSettings): Promise<void> {
+  const preparedSettings = prepareSettingsForSave(settings);
+
   const response = await fetch(API_SETTINGS_ENDPOINTS.SETTINGS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(settings),
+    body: JSON.stringify(preparedSettings),
   });
 
   if (!response.ok) {

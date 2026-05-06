@@ -1,5 +1,3 @@
-import { logger } from "@/lib/logger";
-import { decryptApiKey, encryptApiKey } from "@/lib/utils/encryption";
 import type {
   SettingsEntity,
   SettingsUpsertEntity,
@@ -10,6 +8,10 @@ import {
   testCloudflareR2Connection,
   testGoogleGeminiApiKey,
 } from "./apiSettings.connection-tests";
+import {
+  SECRET_PLACEHOLDER,
+  KEEP_EXISTING_SECRET_TOKEN,
+} from "../constants/secretConstants";
 
 export type {
   GeminiApiKeyTestResult,
@@ -30,7 +32,6 @@ export type ApiSettingsPayload = {
 export type ApiSettingsPostPayload = Partial<ApiSettingsPayload>;
 
 const defaultSettingsRepository: ISettingsRepository = SettingsRepository;
-const SECRET_PLACEHOLDER = "********";
 
 export const API_SETTINGS_KEYS: string[] = [
   "GOOGLE_GEMINI_API_KEY",
@@ -42,27 +43,6 @@ export const API_SETTINGS_KEYS: string[] = [
   "R2_PUBLIC_URL",
   "R2_ENABLED",
 ] as const;
-
-function getSettingValue(records: SettingsEntity[], key: string): string {
-  const setting = records.find((item) => item.key === key);
-  if (!setting?.value) {
-    return "";
-  }
-
-  if (setting.encrypted) {
-    try {
-      return decryptApiKey(setting.value);
-    } catch (error) {
-      logger.error(
-        `[apiSettings] Failed to decrypt setting key: ${key}`,
-        error,
-      );
-      return SECRET_PLACEHOLDER;
-    }
-  }
-
-  return setting.value;
-}
 
 /** Maps settings entities into API settings payload. */
 export function mapApiSettingsResponse(
@@ -77,7 +57,7 @@ export function mapApiSettingsResponse(
     geminiEnabled: settingsMap.get("GEMINI_ENABLED") === "true",
     r2AccountId: settingsMap.get("R2_ACCOUNT_ID") || "",
     r2AccessKeyId: settingsMap.get("R2_ACCESS_KEY_ID") || "",
-    r2SecretAccessKey: getSettingValue(records, "R2_SECRET_ACCESS_KEY"),
+    r2SecretAccessKey: settingsMap.get("R2_SECRET_ACCESS_KEY") || "",
     r2BucketName: settingsMap.get("R2_BUCKET_NAME") || "",
     r2PublicUrl: settingsMap.get("R2_PUBLIC_URL") || "",
     r2Enabled: settingsMap.get("R2_ENABLED") === "true",
@@ -124,14 +104,18 @@ export function buildApiSettingsUpserts(
 
   if (payload.r2SecretAccessKey !== undefined) {
     const secretValue = payload.r2SecretAccessKey?.trim() || "";
-    if (secretValue !== SECRET_PLACEHOLDER) {
-      upserts.push({
-        key: "R2_SECRET_ACCESS_KEY",
-        value: secretValue ? encryptApiKey(secretValue) : null,
-        description: "Cloudflare R2 Secret Access Key",
-        encrypted: true,
-      });
+
+    // Skip if token indicates to keep existing secret
+    if (secretValue === KEEP_EXISTING_SECRET_TOKEN) {
+      return upserts;
     }
+
+    upserts.push({
+      key: "R2_SECRET_ACCESS_KEY",
+      value: secretValue || null,
+      description: "Cloudflare R2 Secret Access Key",
+      encrypted: true,
+    });
   }
 
   if (payload.r2BucketName !== undefined) {

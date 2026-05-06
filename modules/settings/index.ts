@@ -85,6 +85,10 @@ export {
   testGoogleGeminiApiKey,
   mapApiSettingsResponse,
 } from "./services/apiSettings";
+export {
+  SECRET_PLACEHOLDER,
+  KEEP_EXISTING_SECRET_TOKEN,
+} from "./constants/secretConstants";
 export { getPppConnectionMode } from "./services/pppConnectionModeSettings";
 export {
   GeminiOcrService,

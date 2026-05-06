@@ -1,12 +1,14 @@
 import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma, prismaAuth } from "@/modules/database";
+import { encryptApiKey, decryptApiKey } from "@/lib/utils/encryption";
 import type {
   SettingsEntity,
   SettingsUpsertEntity,
 } from "../domain/entities/Settings";
 import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
 import { toSettingsDomain } from "../mappers/settingsMapper";
+import { SECRET_PLACEHOLDER } from "../constants/secretConstants";
 
 export type SettingsRecord = SettingsEntity;
 export type SettingsUpsertInput = SettingsUpsertEntity;
@@ -26,7 +28,21 @@ const settingsRepository: ISettingsRepository = {
       where: buildFindManyWhere(keys, tenantId),
     });
 
-    return settings.map(toSettingsDomain);
+    return settings.map((setting) => {
+      const domain = toSettingsDomain(setting);
+
+      // Decrypt encrypted values
+      if (domain.encrypted && domain.value) {
+        try {
+          domain.value = decryptApiKey(domain.value);
+        } catch (error) {
+          // Return placeholder on decryption failure
+          domain.value = SECRET_PLACEHOLDER;
+        }
+      }
+
+      return domain;
+    });
   },
 
   /** Upserts multiple settings entries in a single transaction. */
@@ -38,7 +54,7 @@ const settingsRepository: ISettingsRepository = {
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       for (const entry of entries) {
-        await upsertOne(tx, entry, now);
+        await upsertOne(tx, encryptEntryIfNeeded(entry), now);
       }
     });
   },
@@ -52,7 +68,7 @@ const settingsRepository: ISettingsRepository = {
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       for (const entry of entries) {
-        await createSetting(tx, entry, now);
+        await createSetting(tx, encryptEntryIfNeeded(entry), now);
       }
     });
   },
@@ -76,7 +92,12 @@ const settingsRepository: ISettingsRepository = {
           );
         }
 
-        await updateExistingSetting(tx, existing.id, entry, now);
+        await updateExistingSetting(
+          tx,
+          existing.id,
+          encryptEntryIfNeeded(entry),
+          now,
+        );
       }
     });
   },
@@ -97,6 +118,21 @@ const settingsRepository: ISettingsRepository = {
 };
 
 export const SettingsRepository = settingsRepository;
+
+/**
+ * Encrypt entry value if marked as encrypted.
+ */
+function encryptEntryIfNeeded(
+  entry: SettingsUpsertEntity,
+): SettingsUpsertEntity {
+  if (entry.encrypted && entry.value) {
+    return {
+      ...entry,
+      value: encryptApiKey(entry.value),
+    };
+  }
+  return entry;
+}
 
 function buildFindManyWhere(
   keys: ReadonlyArray<string>,
