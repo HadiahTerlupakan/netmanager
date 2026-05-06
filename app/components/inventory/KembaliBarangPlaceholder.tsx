@@ -1,20 +1,22 @@
-'use client'
+"use client";
 
-import { HiOutlineArrowPath, HiOutlineClock, HiOutlineInformationCircle } from 'react-icons/hi2'
-import { Button } from '@/components/ui/Button'
+import {
+  HiOutlineArrowPath,
+  HiOutlineClock,
+  HiOutlineInformationCircle,
+} from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
 
 export default function KembaliBarangPlaceholder() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-linear-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-green-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3 mb-2">
           <HiOutlineArrowPath className="w-8 h-8" />
           <h1 className="text-2xl font-bold">Kembali Barang</h1>
         </div>
-        <p className="text-green-100">
-          Form pengembalian barang ke gudang
-        </p>
+        <p className="text-green-100">Form pengembalian barang ke gudang</p>
       </div>
 
       {/* Coming Soon Card */}
@@ -31,8 +33,8 @@ export default function KembaliBarangPlaceholder() {
               Fitur dalam Pengembangan
             </h2>
             <p className="text-gray-600 dark:text-gray-300 max-w-md mx-auto">
-              Fitur pengembalian barang sedang dalam tahap pengembangan. 
-              Segera hadir untuk memudahkan proses pengembalian barang ke gudang.
+              Fitur pengembalian barang sedang dalam tahap pengembangan. Segera
+              hadir untuk memudahkan proses pengembalian barang ke gudang.
             </p>
           </div>
 
@@ -55,11 +57,7 @@ export default function KembaliBarangPlaceholder() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              disabled
-              variant="secondary"
-              size="lg"
-            >
+            <Button disabled variant="secondary" size="lg">
               Kembali Barang (Coming Soon)
             </Button>
           </div>
@@ -73,17 +71,17 @@ export default function KembaliBarangPlaceholder() {
         </h3>
         <div className="space-y-2">
           <p className="text-xs text-amber-800 dark:text-amber-200">
-            Untuk sementara, jika Anda perlu mengembalikan barang, 
-            silakan hubungi admin gudang secara langsung atau melalui sistem tiket.
+            Untuk sementara, jika Anda perlu mengembalikan barang, silakan
+            hubungi admin gudang secara langsung atau melalui sistem tiket.
           </p>
           <div className="border-t border-amber-200 dark:border-amber-700 pt-2 mt-2">
             <p className="text-xs text-amber-800 dark:text-amber-200">
-              <strong>Alternatif:</strong> Gunakan form manual di kantor gudang 
+              <strong>Alternatif:</strong> Gunakan form manual di kantor gudang
               atau hubungi ext. 123 untuk bantuan pengembalian barang.
             </p>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

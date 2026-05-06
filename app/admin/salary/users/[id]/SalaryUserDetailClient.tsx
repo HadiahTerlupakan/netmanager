@@ -162,7 +162,7 @@ export default function SalaryUserDetailClient() {
         <div className="space-y-6">
           {/* Profile Card */}
           <Card className="overflow-hidden border-0 shadow-sm ring-1 ring-gray-200 dark:ring-gray-800">
-            <div className="h-24 bg-linear-to-r from-indigo-500 to-purple-600"></div>
+            <div className="h-24 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
             <div className="px-6 pb-6 -mt-10 relative">
               <div
                 className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold border-4 border-white dark:border-gray-900 shadow-sm mb-4 bg-white ${avatarBg} ${avatarText}`}

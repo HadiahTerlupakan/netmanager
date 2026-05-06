@@ -298,7 +298,7 @@ export default function AmbilBarangForm() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-linear-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3 mb-2">
           <HiOutlineCube className="w-8 h-8" />
           <h1 className="text-2xl font-bold">Ambil Barang</h1>

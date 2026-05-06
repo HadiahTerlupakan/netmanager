@@ -264,7 +264,7 @@ export default function CustomerPaketPage() {
           </div>
 
           {/* Promo Banner (Optional) */}
-          <div className="relative overflow-hidden rounded-xl bg-linear-to-r from-teal-600 to-teal-700 p-4 text-white shadow-lg">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 p-4 text-white shadow-lg">
             <div className="absolute right-0 top-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-white/10 blur-xl"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div>

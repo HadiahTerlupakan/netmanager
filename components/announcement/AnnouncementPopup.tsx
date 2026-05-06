@@ -195,7 +195,7 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden animate-slideUp">
         {/* Header */}
-        <div className="bg-linear-to-r from-indigo-600 to-purple-600 px-6 py-4">
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg">

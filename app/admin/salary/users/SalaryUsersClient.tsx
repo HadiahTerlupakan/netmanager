@@ -1013,8 +1013,8 @@ export default function SalaryUsersClient() {
                     key={idx}
                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md border ${
                       pc.type === "EARNING"
-                        ? "bg-linear-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300"
-                        : "bg-linear-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300"
+                        ? "bg-gradient-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300"
+                        : "bg-gradient-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -1579,8 +1579,8 @@ export default function SalaryUsersClient() {
                         key={uc.id}
                         className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all duration-200 hover:shadow-md border ${
                           uc.component.type === "EARNING"
-                            ? "bg-linear-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300"
-                            : "bg-linear-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300"
+                            ? "bg-gradient-to-r from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 border-green-200/60 dark:border-green-700/40 hover:border-green-300"
+                            : "bg-gradient-to-r from-red-50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/10 border-red-200/60 dark:border-red-700/40 hover:border-red-300"
                         }`}
                       >
                         <div className="flex items-center gap-2">

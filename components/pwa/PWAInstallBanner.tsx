@@ -64,7 +64,7 @@ export function PWAInstallBanner() {
   // For iOS - show instructions banner (since beforeinstallprompt is not supported)
   if (isIOS) {
     return (
-      <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
+      <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -131,7 +131,7 @@ export function PWAInstallBanner() {
   if (!canInstall) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-linear-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
+    <div className="fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-2xl p-4 z-50 animate-slide-up">
       <Button
         variant="ghost"
         size="icon-sm"
