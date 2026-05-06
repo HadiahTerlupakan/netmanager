@@ -19,10 +19,21 @@ export interface UserListItemDTO {
   phone: string | null;
   isActive: boolean;
   isSales: boolean;
-  // Flattened relations
-  roleName: string | null;
-  departmentName: string | null;
-  siteName: string | null;
+  isAttendanceRequired: boolean;
+  lastVersionCode: number | null;
+  lastVersionName: string | null;
+  lastVersionUpdate: Date | null;
+  lastLoginAt: Date | null;
+  // Relations
+  departments: { id: string; name: string } | null;
+  sites: { id: string; code: string; name: string } | null;
+  role: { id: string; name: string } | null;
+  userSites: Array<{
+    id: string;
+    siteId: string;
+    isPrimary: boolean;
+    site: { id: string; code: string; name: string };
+  }> | null;
 }
 
 /**

@@ -137,9 +137,30 @@ export function toListDTO(entity: UserEntity): UserListItemDTO {
     phone: entity.phone,
     isActive: entity.isActive,
     isSales: entity.isSales,
-    roleName: entity.role?.name ?? null,
-    departmentName: entity.department?.name ?? null,
-    siteName: entity.site?.name ?? null,
+    isAttendanceRequired: entity.isAttendanceRequired,
+    lastVersionCode: entity.lastVersionCode,
+    lastVersionName: entity.lastVersionName,
+    lastVersionUpdate: entity.lastVersionUpdate,
+    lastLoginAt: entity.lastLoginAt,
+    departments: entity.department
+      ? { id: entity.department.id, name: entity.department.name }
+      : null,
+    sites: entity.site
+      ? { id: entity.site.id, code: entity.site.code, name: entity.site.name }
+      : null,
+    role: entity.role ? { id: entity.role.id, name: entity.role.name } : null,
+    userSites: entity.userSites
+      ? entity.userSites.map((us) => ({
+          id: us.id,
+          siteId: us.siteId,
+          isPrimary: us.isPrimary,
+          site: {
+            id: us.site.id,
+            code: us.site.code,
+            name: us.site.name,
+          },
+        }))
+      : null,
   };
 }
 
