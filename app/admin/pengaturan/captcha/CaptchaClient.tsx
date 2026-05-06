@@ -201,7 +201,7 @@ export function ClientComponent() {
             <button
               type="submit"
               disabled={saving}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+              className="bg-indigo-600 dark:bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-2"
             >
               {saving ? (
                 <HiArrowPath className="animate-spin" />

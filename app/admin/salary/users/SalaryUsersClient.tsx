@@ -479,7 +479,7 @@ export default function SalaryUsersClient() {
         </div>
         <Button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+          className="flex items-center px-4 py-2 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors"
         >
           <HiOutlinePlus className="w-4 h-4 mr-2" />
           Tambah Karyawan

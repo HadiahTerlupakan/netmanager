@@ -120,7 +120,8 @@ export default function AdminRegistrationsPage() {
         };
       case "VERIFIED":
         return {
-          color: "bg-blue-100 text-blue-800",
+          color:
+            "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400",
           icon: MdVerified,
           label: "Terverifikasi",
         };
@@ -132,7 +133,8 @@ export default function AdminRegistrationsPage() {
         };
       case "SURVEYED":
         return {
-          color: "bg-purple-100 text-purple-800",
+          color:
+            "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400",
           icon: MdConstruction,
           label: "Sudah Survei",
         };
@@ -238,7 +240,7 @@ export default function AdminRegistrationsPage() {
       render: (reg) => (
         <>
           {reg.packageName ? (
-            <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
+            <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded text-xs font-semibold">
               {reg.packageName}
             </span>
           ) : (

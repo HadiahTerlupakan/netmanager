@@ -571,10 +571,10 @@ export default function ChatPageClient() {
                   className={`w-full flex items-center gap-3 p-4 border-b-2 border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition ${
                     selectedConversation === globalChat.id
                       ? "bg-purple-100 dark:bg-purple-900/50"
-                      : "bg-purple-50/50 dark:bg-purple-900/20"
+                      : "bg-purple-50 dark:bg-purple-900/20"
                   }`}
                 >
-                  <div className="h-12 w-12 rounded-full bg-purple-500 flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-full bg-purple-500 dark:bg-purple-600 flex items-center justify-center">
                     <HiOutlineGlobeAlt className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 text-left">
@@ -627,7 +627,7 @@ export default function ChatPageClient() {
                     )}
                   </div>
                   {conv.hasUnread && (
-                    <div className="h-3 w-3 rounded-full bg-purple-500" />
+                    <div className="h-3 w-3 rounded-full bg-purple-500 dark:bg-purple-400" />
                   )}
                 </button>
               ))}
@@ -653,7 +653,7 @@ export default function ChatPageClient() {
                 <div
                   className={`h-10 w-10 rounded-full flex items-center justify-center ${
                     conversationInfo?.isGlobal
-                      ? "bg-purple-500"
+                      ? "bg-purple-500 dark:bg-purple-600"
                       : "bg-purple-100 dark:bg-purple-900"
                   }`}
                 >
@@ -691,7 +691,7 @@ export default function ChatPageClient() {
                       </div>
                     )}
                     {conversationInfo.isGlobal && (
-                      <div className="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-0.5">
+                      <div className="absolute -bottom-1 -right-1 bg-blue-500 dark:bg-blue-400 rounded-full p-0.5">
                         <HiOutlineGlobeAlt className="w-3 h-3 text-white" />
                       </div>
                     )}

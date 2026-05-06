@@ -25,8 +25,8 @@ export function AdminDashboardHero({ hero }: AdminDashboardHeroProps) {
         </div>
       </div>
 
-      <div className="absolute right-0 top-0 -mr-10 -mt-10 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute bottom-0 left-0 -mb-10 -ml-10 h-40 w-40 rounded-full bg-blue-400/20 blur-2xl" />
+      <div className="absolute right-0 top-0 -mr-10 -mt-10 h-64 w-64 rounded-full bg-white/10 dark:bg-white/5 blur-3xl" />
+      <div className="absolute bottom-0 left-0 -mb-10 -ml-10 h-40 w-40 rounded-full bg-blue-400/20 dark:bg-blue-600/10 blur-2xl" />
     </div>
   );
 }

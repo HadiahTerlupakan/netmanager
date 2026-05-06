@@ -272,7 +272,7 @@ export function ClientComponent() {
       case "IN_PROGRESS":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "WAITING_CUSTOMER":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
       case "RESOLVED":
         return "bg-green-100 text-green-700 border-green-200";
       case "CLOSED":

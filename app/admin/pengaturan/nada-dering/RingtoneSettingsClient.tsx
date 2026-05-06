@@ -464,7 +464,7 @@ export default function RingtoneSettingsClient() {
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
                 isPlaying
                   ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  : "bg-indigo-600 dark:bg-indigo-500 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
               }`}
             >
               {isPlaying ? (

@@ -217,7 +217,7 @@ export default function UnmatchedMutationsList() {
                           actionLoading[mutation.id] ||
                           !resolveInvoiceId[mutation.id]
                         }
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="px-4 py-2 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {actionLoading[mutation.id] ? "Proses..." : "Assign"}
                       </button>

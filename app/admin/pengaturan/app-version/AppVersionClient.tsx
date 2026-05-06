@@ -190,8 +190,8 @@ export function AppVersionClient() {
         <span
           className={`px-2 py-1 text-xs rounded-full ${
             item.isForceUpdate
-              ? "bg-red-100 text-red-800"
-              : "bg-blue-100 text-blue-800"
+              ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
+              : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
           }`}
         >
           {item.isForceUpdate ? "Wajib" : "Opsional"}
@@ -266,7 +266,7 @@ export function AppVersionClient() {
         <button
           type="button"
           onClick={() => handleEdit(item)}
-          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
           title="Edit"
         >
           <HiOutlinePencil className="h-4 w-4" />
@@ -301,7 +301,7 @@ export function AppVersionClient() {
           <button
             type="button"
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
           >
             <HiOutlineCloudArrowUp className="h-5 w-5" />
             Upload Versi Baru
@@ -653,7 +653,7 @@ function UploadVersionModal({
                   // Actual Progress Bar
                   <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
                     <div
-                      className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                      className="bg-indigo-600 dark:bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
@@ -854,7 +854,7 @@ function UploadVersionModal({
           type="submit"
           form="upload-form"
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
@@ -1007,7 +1007,7 @@ function EditVersionModal({
           type="submit"
           form="edit-form"
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50"
         >
           {loading ? "Menyimpan..." : "Simpan"}
         </button>

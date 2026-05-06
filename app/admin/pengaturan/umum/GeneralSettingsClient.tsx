@@ -1,13 +1,17 @@
-"use client"
+"use client";
 
-import { HiArrowPath, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi2'
-import { CompanyProfileSettings } from '@/components/admin/settings/CompanyProfileSettings'
-import { BillingSettings } from '@/components/admin/settings/BillingSettings'
-import { NotificationSettings } from '@/components/admin/settings/NotificationSettings'
-import { NetworkSettings } from '@/components/admin/settings/NetworkSettings'
-import { TimezoneSettings } from '@/components/admin/settings/TimezoneSettings'
-import { TenantSync } from '@/components/admin/settings/TenantSync'
-import { useGeneralSettings } from './useGeneralSettings'
+import {
+  HiArrowPath,
+  HiCheckCircle,
+  HiExclamationCircle,
+} from "react-icons/hi2";
+import { CompanyProfileSettings } from "@/components/admin/settings/CompanyProfileSettings";
+import { BillingSettings } from "@/components/admin/settings/BillingSettings";
+import { NotificationSettings } from "@/components/admin/settings/NotificationSettings";
+import { NetworkSettings } from "@/components/admin/settings/NetworkSettings";
+import { TimezoneSettings } from "@/components/admin/settings/TimezoneSettings";
+import { TenantSync } from "@/components/admin/settings/TenantSync";
+import { useGeneralSettings } from "./useGeneralSettings";
 
 export function ClientComponent() {
   const {
@@ -28,7 +32,7 @@ export function ClientComponent() {
     removeBankAccount,
     handleSubmit,
     handleBackfill,
-  } = useGeneralSettings()
+  } = useGeneralSettings();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
@@ -66,19 +70,13 @@ export function ClientComponent() {
             addBankAccount={addBankAccount}
             removeBankAccount={removeBankAccount}
           />
-          <BillingSettings
-            settings={settings}
-            handleChange={handleChange}
-          />
+          <BillingSettings settings={settings} handleChange={handleChange} />
           <NotificationSettings
             settings={settings}
             handleChange={handleChange}
             handleCheckboxChange={handleCheckboxChange}
           />
-          <NetworkSettings
-            settings={settings}
-            handleChange={handleChange}
-          />
+          <NetworkSettings settings={settings} handleChange={handleChange} />
 
           {isSuperAdmin && (
             <TenantSync
@@ -99,7 +97,7 @@ export function ClientComponent() {
             <button
               type="submit"
               disabled={saving || loading}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-400 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               {saving ? (
                 <>
@@ -107,12 +105,12 @@ export function ClientComponent() {
                   Menyimpan...
                 </>
               ) : (
-                'Simpan Semua Pengaturan'
+                "Simpan Semua Pengaturan"
               )}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }

@@ -371,7 +371,7 @@ export default function MyProfileClient() {
                 icon={<HiOutlineEnvelope className="w-5 h-5 text-blue-600" />}
                 label="Alamat Email"
                 value={profile?.email ?? null}
-                bgColor="bg-blue-50"
+                bgColor="bg-blue-50 dark:bg-blue-900/20"
               />
               <InfoItem
                 icon={<HiOutlinePhone className="w-5 h-5 text-green-600" />}
@@ -385,7 +385,7 @@ export default function MyProfileClient() {
                 }
                 label="Departemen"
                 value={profile?.departments?.name || "-"}
-                bgColor="bg-purple-50"
+                bgColor="bg-purple-50 dark:bg-purple-900/20"
               />
               <InfoItem
                 icon={<HiOutlineMapPin className="w-5 h-5 text-orange-600" />}

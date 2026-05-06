@@ -1436,7 +1436,7 @@ export default function MitraListClient() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 rounded-lg">
+            <div className="p-3 bg-blue-500/10 dark:bg-blue-500/20 rounded-lg">
               <HiOutlineWrenchScrewdriver className="w-7 h-7 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
@@ -1451,7 +1451,7 @@ export default function MitraListClient() {
         </div>
         <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-5">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-500/10 rounded-lg">
+            <div className="p-3 bg-purple-500/10 dark:bg-purple-500/20 rounded-lg">
               <HiOutlineMegaphone className="w-7 h-7 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
@@ -1608,7 +1608,7 @@ export default function MitraListClient() {
           <button
             onClick={handleAdd}
             disabled={saving}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors disabled:opacity-50"
           >
             {saving ? "Menyimpan..." : "Simpan"}
           </button>
@@ -1634,7 +1634,7 @@ export default function MitraListClient() {
           <button
             onClick={handleEdit}
             disabled={saving}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors disabled:opacity-50"
           >
             {saving ? "Menyimpan..." : "Simpan Perubahan"}
           </button>

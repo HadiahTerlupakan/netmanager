@@ -325,7 +325,7 @@ export function VendorConfigTab() {
                         data: { name: "", priority: 10, enabled: true },
                       })
                     }
-                    className="px-4 py-2 bg-[#a855f7] text-white rounded-md text-[13px] font-medium hover:bg-purple-700 flex items-center"
+                    className="px-4 py-2 bg-[#a855f7] dark:bg-purple-600 text-white rounded-md text-[13px] font-medium hover:bg-purple-700 dark:hover:bg-purple-700 flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1.5" /> Add Vendor
                   </button>
@@ -422,7 +422,7 @@ export function VendorConfigTab() {
                                   data: { ...vendor },
                                 })
                               }
-                              className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] text-white rounded text-[12px] font-medium hover:bg-blue-700"
+                              className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded text-[12px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700"
                             >
                               <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
                             </button>
@@ -479,7 +479,7 @@ export function VendorConfigTab() {
                         },
                       })
                     }
-                    className="px-4 py-2 bg-[#a855f7] text-white rounded-md text-[13px] font-medium hover:bg-purple-700 flex items-center"
+                    className="px-4 py-2 bg-[#a855f7] dark:bg-purple-600 text-white rounded-md text-[13px] font-medium hover:bg-purple-700 dark:hover:bg-purple-700 flex items-center"
                   >
                     <Plus className="w-4 h-4 mr-1.5" /> Add WiFi Config
                   </button>
@@ -563,7 +563,7 @@ export function VendorConfigTab() {
                                   data: { ...config },
                                 })
                               }
-                              className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] text-white rounded text-[12px] font-medium hover:bg-blue-700"
+                              className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded text-[12px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700"
                             >
                               <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
                             </button>
@@ -862,7 +862,7 @@ export function VendorConfigTab() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center px-5 py-2 bg-[#a855f7] text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors shadow-sm"
+              className="flex items-center px-5 py-2 bg-[#a855f7] dark:bg-purple-600 text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm"
             >
               {isSaving ? (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -966,7 +966,7 @@ export function VendorConfigTab() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center px-5 py-2 bg-[#a855f7] text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 disabled:opacity-50 transition-colors shadow-sm"
+              className="flex items-center px-5 py-2 bg-[#a855f7] dark:bg-purple-600 text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm"
             >
               {isSaving ? (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />

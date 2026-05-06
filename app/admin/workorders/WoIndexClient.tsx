@@ -999,7 +999,7 @@ export function ClientComponent() {
                     </div>
                     <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-blue-500 h-2 rounded-full"
+                        className="bg-blue-500 dark:bg-blue-400 h-2 rounded-full"
                         style={{ width: "70%" }}
                       ></div>
                     </div>

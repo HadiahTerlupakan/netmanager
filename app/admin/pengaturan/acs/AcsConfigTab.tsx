@@ -158,7 +158,7 @@ export function AcsConfigTab() {
                   type="button"
                   onClick={handleTestUrl}
                   disabled={testingUrl}
-                  className="px-4 py-2 border border-blue-500 text-blue-600 rounded-md text-[13px] font-medium hover:bg-blue-50 flex items-center disabled:opacity-50"
+                  className="px-4 py-2 border border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 rounded-md text-[13px] font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center disabled:opacity-50"
                 >
                   {testingUrl ? (
                     <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
@@ -171,7 +171,7 @@ export function AcsConfigTab() {
                   type="button"
                   onClick={handleSave}
                   disabled={loading || !canUpdate}
-                  className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
                 >
                   {loading ? (
                     <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
@@ -322,7 +322,7 @@ export function AcsConfigTab() {
                   type="button"
                   onClick={handleSave}
                   disabled={loading || !canUpdate}
-                  className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
                 >
                   {loading ? (
                     <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
@@ -445,7 +445,7 @@ export function AcsConfigTab() {
                   type="button"
                   onClick={handleSave}
                   disabled={loading || !canUpdate}
-                  className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
                 >
                   {loading ? (
                     <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
@@ -637,7 +637,7 @@ export function AcsConfigTab() {
                   type="button"
                   onClick={handleSave}
                   disabled={loading}
-                  className="px-4 py-2 bg-[#3b5fe5] text-white rounded-md text-[13px] font-medium hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
                 >
                   {loading ? (
                     <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
