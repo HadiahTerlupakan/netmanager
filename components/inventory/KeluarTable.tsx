@@ -219,7 +219,7 @@ export function KeluarTable({
       header: "Jumlah",
       priority: "primary",
       render: (item) => (
-        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400">
           -{item.jumlah} {item.barang.satuan}
         </span>
       ),
@@ -360,7 +360,7 @@ export function KeluarTable({
   return (
     <div>
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
           {error}
         </div>
       )}

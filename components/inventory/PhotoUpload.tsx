@@ -485,7 +485,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
                       {/* Status indicator */}
                       {photo.status === "success" && (
                         <div className="absolute top-2 left-2">
-                          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 bg-green-500 dark:bg-green-400 rounded-full flex items-center justify-center">
                             <svg
                               className="w-4 h-4 text-white"
                               fill="currentColor"
@@ -503,7 +503,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
 
                       {photo.status === "error" && (
                         <div className="absolute top-2 left-2">
-                          <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 bg-red-500 dark:bg-red-400 rounded-full flex items-center justify-center">
                             <svg
                               className="w-4 h-4 text-white"
                               fill="currentColor"
@@ -524,7 +524,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
                         <Button
                           onClick={() => removePhoto(index)}
                           disabled={isUploading}
-                          className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="absolute top-2 right-2 w-6 h-6 bg-red-500 dark:bg-red-400 hover:bg-red-600 dark:hover:bg-red-500 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <svg
                             className="w-3 h-3 text-white"

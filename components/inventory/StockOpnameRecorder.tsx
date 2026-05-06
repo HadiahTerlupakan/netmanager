@@ -248,14 +248,14 @@ export function StockOpnameRecorder({
     <div className="space-y-6">
       <form onSubmit={handleRecordOpname} className="space-y-6">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800 flex items-start">
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400 flex items-start">
             <FiAlertTriangle className="mt-0.5 mr-2 shrink-0" />
             <div>{error}</div>
           </div>
         )}
 
         {success && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-md text-green-800 flex items-center">
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-green-800 dark:text-green-400 flex items-center">
             <FiCheck className="mr-2 shrink-0" />
             <div>{success}</div>
           </div>
@@ -534,7 +534,7 @@ export function StockOpnameRecorder({
                               </span>
                             )}
                             {hasDiscrepancy && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400">
                                 <FiAlertTriangle className="mr-1 h-3 w-3" />
                                 Ada Selisih
                               </span>

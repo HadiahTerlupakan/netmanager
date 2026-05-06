@@ -99,13 +99,13 @@ export function GudangForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-800">
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
           {error}
         </div>
       )}
 
       {!initialData?.id && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
           <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
             <FiInfo className="w-4 h-4 shrink-0" /> Kode gudang akan di-generate
             otomatis

@@ -1,71 +1,71 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Image from 'next/image'
-import { HiEye, HiTrash, HiPhoto } from 'react-icons/hi2'
-import { Button } from '@/components/ui/Button'
+import { useState } from "react";
+import Image from "next/image";
+import { HiEye, HiTrash, HiPhoto } from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
 
 interface Photo {
-  id: string
-  url: string
-  name?: string
-  size?: number
-  uploadedAt?: string
+  id: string;
+  url: string;
+  name?: string;
+  size?: number;
+  uploadedAt?: string;
 }
 
 interface PhotoThumbnailProps {
-  photo: Photo
-  onDelete?: ((photoId: string) => void) | undefined
-  showDeleteButton?: boolean | undefined
-  size?: 'sm' | 'md' | 'lg' | undefined
-  className?: string | undefined
-  onClick?: ((photo: Photo) => void) | undefined
-  disabled?: boolean | undefined
+  photo: Photo;
+  onDelete?: ((photoId: string) => void) | undefined;
+  showDeleteButton?: boolean | undefined;
+  size?: "sm" | "md" | "lg" | undefined;
+  className?: string | undefined;
+  onClick?: ((photo: Photo) => void) | undefined;
+  disabled?: boolean | undefined;
 }
 
 export function PhotoThumbnail({
   photo,
   onDelete,
   showDeleteButton = true,
-  size = 'md',
-  className = '',
+  size = "md",
+  className = "",
   onClick,
-  disabled = false
+  disabled = false,
 }: PhotoThumbnailProps) {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const sizeClasses = {
-    sm: 'w-16 h-16',
-    md: 'w-24 h-24',
-    lg: 'w-32 h-32'
-  }
+    sm: "w-16 h-16",
+    md: "w-24 h-24",
+    lg: "w-32 h-32",
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation()
+    e.stopPropagation();
 
-    if (disabled || isDeleting) return
+    if (disabled || isDeleting) return;
 
     if (!showDeleteConfirm) {
-      setShowDeleteConfirm(true)
-      setTimeout(() => setShowDeleteConfirm(false), 2000)
-      return
+      setShowDeleteConfirm(true);
+      setTimeout(() => setShowDeleteConfirm(false), 2000);
+      return;
     }
 
-    setIsDeleting(true)
+    setIsDeleting(true);
     try {
-      await onDelete?.(photo.id)
+      await onDelete?.(photo.id);
     } finally {
-      setIsDeleting(false)
-      setShowDeleteConfirm(false)
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
-  }
+  };
 
   const handleClick = () => {
     if (!disabled && !isDeleting) {
-      onClick?.(photo)
+      onClick?.(photo);
     }
-  }
+  };
 
   return (
     <div className={`relative group ${className}`}>
@@ -79,8 +79,8 @@ export function PhotoThumbnail({
           cursor-pointer transition-all duration-200
           hover:border-blue-400 dark:hover:border-blue-500
           hover:shadow-lg
-          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-          ${isDeleting ? 'animate-pulse' : ''}
+          ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+          ${isDeleting ? "animate-pulse" : ""}
         `}
         onClick={handleClick}
       >
@@ -88,7 +88,7 @@ export function PhotoThumbnail({
         {photo.url ? (
           <Image
             src={photo.url}
-            alt={photo.name || 'Photo'}
+            alt={photo.name || "Photo"}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
@@ -104,18 +104,18 @@ export function PhotoThumbnail({
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2">
               {/* View Button */}
-              <Button title="Lihat foto"
-              >
+              <Button title="Lihat foto">
                 <HiEye className="w-4 h-4" />
               </Button>
 
               {/* Delete Button */}
               {showDeleteButton && onDelete && (
-                <Button variant="destructive"
+                <Button
+                  variant="destructive"
                   onClick={handleDelete}
                   disabled={isDeleting}
-                   className={`${showDeleteConfirm ? ' ' : ' ' } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title={showDeleteConfirm ? 'Konfirmasi hapus' : 'Hapus foto'}
+                  className={`${showDeleteConfirm ? " " : " "} ${isDeleting ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={showDeleteConfirm ? "Konfirmasi hapus" : "Hapus foto"}
                 >
                   <HiTrash className="w-4 h-4" />
                 </Button>
@@ -140,7 +140,7 @@ export function PhotoThumbnail({
       </div>
 
       {/* Photo Info */}
-      {size !== 'sm' && photo.name && (
+      {size !== "sm" && photo.name && (
         <div className="mt-1">
           <p className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[100px]">
             {photo.name}
@@ -153,13 +153,16 @@ export function PhotoThumbnail({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Extended PhotoThumbnail with count badge for multiple photos
-interface PhotoThumbnailWithCountProps extends Omit<PhotoThumbnailProps, 'photo'> {
-  photos: Photo[]
-  maxVisible?: number
+interface PhotoThumbnailWithCountProps extends Omit<
+  PhotoThumbnailProps,
+  "photo"
+> {
+  photos: Photo[];
+  maxVisible?: number;
 }
 
 export function PhotoThumbnailWithCount({
@@ -167,23 +170,23 @@ export function PhotoThumbnailWithCount({
   maxVisible = 1,
   ...props
 }: PhotoThumbnailWithCountProps) {
-  const visiblePhotos = photos.slice(0, maxVisible)
-  const remainingCount = Math.max(0, photos.length - maxVisible)
+  const visiblePhotos = photos.slice(0, maxVisible);
+  const remainingCount = Math.max(0, photos.length - maxVisible);
 
   if (photos.length === 0) {
     return (
-      <div className={`${props.className || ''}`}>
+      <div className={`${props.className || ""}`}>
         <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
           <HiPhoto className="w-8 h-8 text-gray-400 dark:text-gray-500" />
         </div>
       </div>
-    )
+    );
   }
 
   if (photos.length === 1) {
-    const firstPhoto = photos[0]
+    const firstPhoto = photos[0];
     if (firstPhoto) {
-      return <PhotoThumbnail photo={firstPhoto} {...props} />
+      return <PhotoThumbnail photo={firstPhoto} {...props} />;
     }
   }
 
@@ -197,7 +200,7 @@ export function PhotoThumbnailWithCount({
             className="absolute"
             style={{
               transform: `translate(${index * 4}px, ${index * 4}px)`,
-              zIndex: visiblePhotos.length - index
+              zIndex: visiblePhotos.length - index,
             }}
           >
             <PhotoThumbnail
@@ -215,12 +218,12 @@ export function PhotoThumbnailWithCount({
       {/* Count Badge */}
       {remainingCount > 0 && (
         <div
-          className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg z-20"
+          className="absolute -top-2 -right-2 bg-blue-500 dark:bg-blue-400 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg z-20"
           title={`+${remainingCount} foto lagi`}
         >
           +{remainingCount}
         </div>
       )}
     </div>
-  )
+  );
 }
