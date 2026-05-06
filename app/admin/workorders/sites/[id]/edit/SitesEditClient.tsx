@@ -14,11 +14,13 @@ interface Site {
   name: string;
   description: string | null;
   address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  attendanceRadius: number;
+  location: {
+    latitude: number | null;
+    longitude: number | null;
+    attendanceRadius: number;
+  };
   isActive: boolean;
-  gudang: { id: string }[];
+  gudangs: { id: string; name: string }[];
 }
 
 export function ClientComponent({
@@ -61,11 +63,11 @@ export function ClientComponent({
           name: site.name,
           description: site.description || "",
           address: site.address || "",
-          latitude: site.latitude?.toString() || "",
-          longitude: site.longitude?.toString() || "",
-          attendanceRadius: site.attendanceRadius?.toString() || "100",
+          latitude: site.location.latitude?.toString() || "",
+          longitude: site.location.longitude?.toString() || "",
+          attendanceRadius: site.location.attendanceRadius?.toString() || "100",
           isActive: site.isActive,
-          gudangIds: site.gudang ? site.gudang.map((g) => g.id) : [],
+          gudangIds: site.gudangs ? site.gudangs.map((g) => g.id) : [],
         });
       } catch (error: unknown) {
         clientLogger.error("Error fetching site:", error);
@@ -88,7 +90,7 @@ export function ClientComponent({
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);

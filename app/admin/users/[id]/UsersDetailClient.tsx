@@ -230,9 +230,9 @@ export function ClientComponent({
           name: usr.name || "",
           phone: usr.phone || "",
           password: "",
-          departmentId: usr.departmentId || "",
-          siteId: usr.siteId || "",
-          roleId: usr.roleId || "",
+          departmentId: usr.department?.id || "",
+          siteId: usr.site?.id || "",
+          roleId: usr.role?.id || "",
           isActive: usr.isActive ?? true,
           // Working Hours
           workingHourMode: usr.workingHourMode || "FIXED",
@@ -419,7 +419,7 @@ export function ClientComponent({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!validateForm()) {

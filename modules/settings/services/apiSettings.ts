@@ -8,10 +8,7 @@ import {
   testCloudflareR2Connection,
   testGoogleGeminiApiKey,
 } from "./apiSettings.connection-tests";
-import {
-  SECRET_PLACEHOLDER,
-  KEEP_EXISTING_SECRET_TOKEN,
-} from "../constants/secretConstants";
+import { KEEP_EXISTING_SECRET_TOKEN } from "../constants/secretConstants";
 
 export type {
   GeminiApiKeyTestResult,

@@ -4,14 +4,12 @@ import { clientLogger } from "@/lib/client-logger";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  HiOutlineMapPin,
   HiOutlinePlus,
   HiOutlinePencil,
   HiOutlineTrash,
   HiOutlineMagnifyingGlass,
   HiOutlineUserGroup,
   HiOutlineClipboardDocumentList,
-  HiOutlineSignal,
   HiOutlineEye,
 } from "react-icons/hi2";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
@@ -21,18 +19,11 @@ interface Site {
   id: string;
   code: string;
   name: string;
-  description: string | null;
+  description?: string | null;
   address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  attendanceRadius: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  _count: {
-    user: number;
-    work_orders: number;
-  };
+  userCount: number;
+  workOrderCount: number;
 }
 
 export default function SitesList() {
@@ -133,28 +124,6 @@ export default function SitesList() {
           <div className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
             {site.address || "-"}
           </div>
-          {site.latitude && site.longitude && (
-            <a
-              href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline"
-            >
-              <HiOutlineMapPin className="w-3 h-3" />
-              Lihat Peta
-            </a>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "radius",
-      header: "Radius",
-      priority: "tertiary",
-      render: (site) => (
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-medium border border-blue-100 dark:border-blue-900/30 justify-center">
-          <HiOutlineSignal className="w-3.5 h-3.5" />
-          {site.attendanceRadius ?? 100}m
         </div>
       ),
     },
@@ -170,7 +139,7 @@ export default function SitesList() {
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
               <HiOutlineUserGroup className="w-3 h-3" />
-              {site._count.user}
+              {site.userCount}
             </span>
           </div>
           <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
@@ -180,7 +149,7 @@ export default function SitesList() {
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold">
               <HiOutlineClipboardDocumentList className="w-3 h-3" />
-              {site._count.work_orders}
+              {site.workOrderCount}
             </span>
           </div>
         </div>

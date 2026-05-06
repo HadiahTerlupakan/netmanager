@@ -113,6 +113,7 @@ export class SiteMapper {
         workOrderCount: entity.counts.workOrders,
         pelangganCount: entity.counts.pelanggan,
       },
+      users: entity.users,
       gudangs: entity.gudangs,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),

@@ -35,7 +35,7 @@ const settingsRepository: ISettingsRepository = {
       if (domain.encrypted && domain.value) {
         try {
           domain.value = decryptApiKey(domain.value);
-        } catch (error) {
+        } catch (_error) {
           // Return placeholder on decryption failure
           domain.value = SECRET_PLACEHOLDER;
         }
