@@ -2,7 +2,7 @@ import { API_SETTINGS_ENDPOINTS, API_SETTINGS_MESSAGES } from "./constants";
 import {
   SECRET_PLACEHOLDER,
   KEEP_EXISTING_SECRET_TOKEN,
-} from "@/modules/settings";
+} from "./secretConstants";
 
 export interface ApiSettings {
   googleGeminiApiKey: string;
