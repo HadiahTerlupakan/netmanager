@@ -18,9 +18,13 @@ export class WhatsAppApprovalButtonService {
   ) {}
 
   /** Mengirim pesan WhatsApp untuk approval admin menggunakan account INTERNAL. */
-  async sendApprovalButton(input: ApprovalButtonNotificationInput) {
+  async sendApprovalButton(
+    input: ApprovalButtonNotificationInput,
+  ): Promise<{ success: boolean; error?: string }> {
     const phone = input.phone?.trim();
-    if (!phone) return;
+    if (!phone) {
+      return { success: false, error: "Phone number is required" };
+    }
 
     const message = this.buildMessage(input);
     const result = await this.whatsAppSenderService.send({
@@ -33,6 +37,8 @@ export class WhatsAppApprovalButtonService {
     if (!result.success) {
       logger.error("[WhatsApp Approval] Failed to send message", result.error);
     }
+
+    return result;
   }
 
   private buildMessage(input: ApprovalButtonNotificationInput) {
