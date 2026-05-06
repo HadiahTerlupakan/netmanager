@@ -1,492 +1,449 @@
-"use client"
+"use client";
 
-import { useCallback, useMemo, useState } from 'react'
-import type { LeafletMouseEvent, Marker } from 'leaflet'
+import { useCallback, useMemo, useState } from "react";
+import type { LeafletMouseEvent, Marker } from "leaflet";
 
-import { determineFiberType } from '@/components/map/map-utils'
-import type { FiberFormData, MappingNode } from '@/components/map/map-types'
+import { determineFiberType } from "./map-utils";
+import { NODE_TOOL_CONFIG, FIBER_MODE_MESSAGES } from "./map-constants";
+import type { FiberFormData, MappingNode } from "./map-types";
 
-type ToastType = 'success' | 'error' | 'info' | 'warning'
-type NodeActionMode = 'idle' | 'adding' | 'editing'
-type FiberLineMode = 'idle' | 'drawing'
-type NodeTool = 'server' | 'odc' | 'odp' | 'ont' | 'pole' | 'joinbox'
-type Position = [number, number]
-type DeleteConfirmation = { type: 'node' | 'edge'; id: string } | null
+type ToastType = "success" | "error" | "info" | "warning";
+type NodeActionMode = "idle" | "adding" | "editing";
+type FiberLineMode = "idle" | "drawing";
+type NodeTool = "server" | "odc" | "odp" | "ont" | "pole" | "joinbox";
+type Position = [number, number];
+type DeleteConfirmation = { type: "node" | "edge"; id: string } | null;
 
-const NODE_TOOL_CONFIG: Record<NodeTool, { formType: string; capacity: number; addMessage: string }> = {
-  server: { formType: 'olt', capacity: 16, addMessage: 'Click on map to place Server/OLT' },
-  odc: { formType: 'odc', capacity: 8, addMessage: 'Click on map to place ODC' },
-  odp: { formType: 'odp', capacity: 8, addMessage: 'Click on map to place ODP' },
-  ont: { formType: 'ont', capacity: 1, addMessage: 'Click on map to place ONT' },
-  pole: { formType: 'pole', capacity: 0, addMessage: 'Click on map to place Pole' },
-  joinbox: { formType: 'joinbox', capacity: 24, addMessage: 'Click on map to place Joinbox' },
+interface NodeToolState {
+  actionMode: NodeActionMode;
+  tempPosition: Position | null;
+  selectedNode: MappingNode | null;
+}
+
+interface NodeFormState {
+  show: boolean;
+  type: string;
+  data: Partial<MappingNode>;
+  editingNode: MappingNode | null;
+  isManualAdd: boolean;
+}
+
+interface FiberState {
+  mode: FiberLineMode;
+  sourceNode: MappingNode | null;
+  waypoints: Position[];
+  showForm: boolean;
+  formData: FiberFormData | null;
 }
 
 interface UseMapEditorStateParams {
-  showToast: (type: ToastType, message: string, duration?: number) => void
-  updateNodePosition: (nodeId: string, position: Position) => Promise<void>
+  showToast: (type: ToastType, message: string, duration?: number) => void;
+  updateNodePosition: (nodeId: string, position: Position) => Promise<void>;
 }
 
-export function useMapEditorState({ showToast, updateNodePosition }: UseMapEditorStateParams) {
-  const [serverActionMode, setServerActionMode] = useState<NodeActionMode>('idle')
-  const [odcActionMode, setOdcActionMode] = useState<NodeActionMode>('idle')
-  const [odpActionMode, setOdpActionMode] = useState<NodeActionMode>('idle')
-  const [ontActionMode, setOntActionMode] = useState<NodeActionMode>('idle')
-  const [poleActionMode, setPoleActionMode] = useState<NodeActionMode>('idle')
-  const [joinboxActionMode, setJoinboxActionMode] = useState<NodeActionMode>('idle')
+const INITIAL_NODE_TOOL_STATE: NodeToolState = {
+  actionMode: "idle",
+  tempPosition: null,
+  selectedNode: null,
+};
 
-  const [serverTempPosition, setServerTempPosition] = useState<Position | null>(null)
-  const [odcTempPosition, setOdcTempPosition] = useState<Position | null>(null)
-  const [odpTempPosition, setOdpTempPosition] = useState<Position | null>(null)
-  const [ontTempPosition, setOntTempPosition] = useState<Position | null>(null)
-  const [poleTempPosition, setPoleTempPosition] = useState<Position | null>(null)
-  const [joinboxTempPosition, setJoinboxTempPosition] = useState<Position | null>(null)
+const INITIAL_NODE_FORM_STATE: NodeFormState = {
+  show: false,
+  type: "odp",
+  data: {},
+  editingNode: null,
+  isManualAdd: false,
+};
 
-  const [selectedServerNode, setSelectedServerNode] = useState<MappingNode | null>(null)
-  const [selectedOdcNode, setSelectedOdcNode] = useState<MappingNode | null>(null)
-  const [selectedOdpNode, setSelectedOdpNode] = useState<MappingNode | null>(null)
-  const [selectedOntNode, setSelectedOntNode] = useState<MappingNode | null>(null)
-  const [selectedPoleNode, setSelectedPoleNode] = useState<MappingNode | null>(null)
-  const [selectedJoinboxNode, setSelectedJoinboxNode] = useState<MappingNode | null>(null)
+const INITIAL_FIBER_STATE: FiberState = {
+  mode: "idle",
+  sourceNode: null,
+  waypoints: [],
+  showForm: false,
+  formData: null,
+};
 
-  const [fiberLineMode, setFiberLineMode] = useState<FiberLineMode>('idle')
-  const [fiberSourceNode, setFiberSourceNode] = useState<MappingNode | null>(null)
-  const [fiberWaypoints, setFiberWaypoints] = useState<Position[]>([])
+/**
+ * Unified map editor state management
+ * Menggabungkan 24 state variables menjadi 3 unified states
+ */
+export function useMapEditorState({
+  showToast,
+  updateNodePosition,
+}: UseMapEditorStateParams) {
+  const [nodeToolStates, setNodeToolStates] = useState<
+    Record<NodeTool, NodeToolState>
+  >({
+    server: { ...INITIAL_NODE_TOOL_STATE },
+    odc: { ...INITIAL_NODE_TOOL_STATE },
+    odp: { ...INITIAL_NODE_TOOL_STATE },
+    ont: { ...INITIAL_NODE_TOOL_STATE },
+    pole: { ...INITIAL_NODE_TOOL_STATE },
+    joinbox: { ...INITIAL_NODE_TOOL_STATE },
+  });
 
-  const [showNodeForm, setShowNodeForm] = useState(false)
-  const [nodeFormType, setNodeFormType] = useState<string>('odp')
-  const [nodeFormData, setNodeFormData] = useState<Partial<MappingNode>>({})
-  const [editingNode, setEditingNode] = useState<MappingNode | null>(null)
+  const [nodeFormState, setNodeFormState] = useState<NodeFormState>(
+    INITIAL_NODE_FORM_STATE,
+  );
+  const [fiberState, setFiberState] = useState<FiberState>(INITIAL_FIBER_STATE);
+  const [deleteConfirmation, setDeleteConfirmation] =
+    useState<DeleteConfirmation>(null);
 
-  const [showFiberForm, setShowFiberForm] = useState(false)
-  const [fiberFormData, setFiberFormData] = useState<FiberFormData | null>(null)
+  const updateNodeToolState = useCallback(
+    (tool: NodeTool, updates: Partial<NodeToolState>) => {
+      setNodeToolStates((prev) => ({
+        ...prev,
+        [tool]: { ...prev[tool], ...updates },
+      }));
+    },
+    [],
+  );
 
-  const [isManualAdd, setIsManualAdd] = useState(false)
-  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>(null)
+  const resetNodeToolState = useCallback((tool: NodeTool) => {
+    setNodeToolStates((prev) => ({
+      ...prev,
+      [tool]: { ...INITIAL_NODE_TOOL_STATE },
+    }));
+  }, []);
+
+  const resetAllNodeToolStates = useCallback(() => {
+    setNodeToolStates({
+      server: { ...INITIAL_NODE_TOOL_STATE },
+      odc: { ...INITIAL_NODE_TOOL_STATE },
+      odp: { ...INITIAL_NODE_TOOL_STATE },
+      ont: { ...INITIAL_NODE_TOOL_STATE },
+      pole: { ...INITIAL_NODE_TOOL_STATE },
+      joinbox: { ...INITIAL_NODE_TOOL_STATE },
+    });
+  }, []);
 
   const handleFiberLineCancel = useCallback(() => {
-    setFiberLineMode('idle')
-    setFiberSourceNode(null)
-    setFiberWaypoints([])
-  }, [])
-
-  const cancelNodeTool = useCallback((tool: NodeTool) => {
-    switch (tool) {
-      case 'server':
-        setServerActionMode('idle')
-        setServerTempPosition(null)
-        setSelectedServerNode(null)
-        return
-      case 'odc':
-        setOdcActionMode('idle')
-        setOdcTempPosition(null)
-        setSelectedOdcNode(null)
-        return
-      case 'odp':
-        setOdpActionMode('idle')
-        setOdpTempPosition(null)
-        setSelectedOdpNode(null)
-        return
-      case 'ont':
-        setOntActionMode('idle')
-        setOntTempPosition(null)
-        setSelectedOntNode(null)
-        return
-      case 'pole':
-        setPoleActionMode('idle')
-        setPoleTempPosition(null)
-        setSelectedPoleNode(null)
-        return
-      case 'joinbox':
-        setJoinboxActionMode('idle')
-        setJoinboxTempPosition(null)
-        setSelectedJoinboxNode(null)
-        return
-    }
-  }, [])
-
-  const resetNodePlacementState = useCallback(() => {
-    cancelNodeTool('server')
-    cancelNodeTool('odc')
-    cancelNodeTool('odp')
-    cancelNodeTool('ont')
-    cancelNodeTool('pole')
-    cancelNodeTool('joinbox')
-  }, [cancelNodeTool])
+    setFiberState(INITIAL_FIBER_STATE);
+  }, []);
 
   const cancelActiveMode = useCallback(() => {
-    resetNodePlacementState()
-    handleFiberLineCancel()
-    setIsManualAdd(false)
-  }, [handleFiberLineCancel, resetNodePlacementState])
+    resetAllNodeToolStates();
+    handleFiberLineCancel();
+    setNodeFormState((prev) => ({ ...prev, isManualAdd: false }));
+  }, [handleFiberLineCancel, resetAllNodeToolStates]);
 
-  const handleMapClick = useCallback((e: LeafletMouseEvent) => {
-    const latlng: Position = [e.latlng.lat, e.latlng.lng]
+  const handleMapClick = useCallback(
+    (e: LeafletMouseEvent) => {
+      const latlng: Position = [e.latlng.lat, e.latlng.lng];
 
-    if (serverActionMode === 'adding') {
-      setServerTempPosition(latlng)
-      return
-    }
+      const activeTool = (Object.keys(nodeToolStates) as NodeTool[]).find(
+        (tool) => nodeToolStates[tool].actionMode === "adding",
+      );
 
-    if (odcActionMode === 'adding') {
-      setOdcTempPosition(latlng)
-      return
-    }
+      if (activeTool) {
+        updateNodeToolState(activeTool, { tempPosition: latlng });
+        return;
+      }
 
-    if (odpActionMode === 'adding') {
-      setOdpTempPosition(latlng)
-      return
-    }
+      if (fiberState.mode === "drawing" && fiberState.sourceNode) {
+        setFiberState((prev) => ({
+          ...prev,
+          waypoints: [...prev.waypoints, latlng],
+        }));
+      }
+    },
+    [
+      fiberState.mode,
+      fiberState.sourceNode,
+      nodeToolStates,
+      updateNodeToolState,
+    ],
+  );
 
-    if (ontActionMode === 'adding') {
-      setOntTempPosition(latlng)
-      return
-    }
+  const handleNodeClick = useCallback(
+    (node: MappingNode, markerRef: Marker | null) => {
+      if (fiberState.mode !== "drawing") {
+        return;
+      }
 
-    if (poleActionMode === 'adding') {
-      setPoleTempPosition(latlng)
-      return
-    }
+      if (markerRef) {
+        markerRef.closePopup();
+      }
 
-    if (joinboxActionMode === 'adding') {
-      setJoinboxTempPosition(latlng)
-      return
-    }
+      if (!fiberState.sourceNode) {
+        setFiberState((prev) => ({ ...prev, sourceNode: node }));
+        showToast("info", FIBER_MODE_MESSAGES.SOURCE_SELECTED(node.name));
+        return;
+      }
 
-    if (fiberLineMode === 'drawing' && fiberSourceNode) {
-      setFiberWaypoints((prev) => [...prev, latlng])
-    }
-  }, [fiberLineMode, fiberSourceNode, joinboxActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, serverActionMode])
+      if (fiberState.sourceNode.nodeId === node.nodeId) {
+        return;
+      }
 
-  const handleNodeClick = useCallback((node: MappingNode, markerRef: Marker | null) => {
-    if (fiberLineMode !== 'drawing') {
-      return
-    }
+      setFiberState((prev) => ({
+        ...prev,
+        showForm: true,
+        formData: {
+          source: prev.sourceNode!.nodeId,
+          target: node.nodeId,
+          fiberType: determineFiberType(prev.sourceNode!.type, node.type),
+          waypoints: prev.waypoints,
+        },
+      }));
+    },
+    [fiberState.mode, fiberState.sourceNode, fiberState.waypoints, showToast],
+  );
 
-    if (markerRef) {
-      markerRef.closePopup()
-    }
+  const saveNodeToolPosition = useCallback(
+    async (tool: NodeTool) => {
+      const state = nodeToolStates[tool];
 
-    if (!fiberSourceNode) {
-      setFiberSourceNode(node)
-      showToast('info', `Source: ${node.name}. Click on map to add waypoints, then click target node.`)
-      return
-    }
+      if (!state.tempPosition) {
+        return;
+      }
 
-    if (fiberSourceNode.nodeId === node.nodeId) {
-      return
-    }
+      if (state.actionMode === "adding") {
+        const config = NODE_TOOL_CONFIG[tool];
+        setNodeFormState({
+          show: true,
+          type: config.formType,
+          data: {
+            type: config.formType,
+            latitude: state.tempPosition[0],
+            longitude: state.tempPosition[1],
+            capacity: config.capacity,
+          },
+          editingNode: null,
+          isManualAdd: false,
+        });
+      } else if (state.actionMode === "editing" && state.selectedNode) {
+        await updateNodePosition(state.selectedNode.nodeId, state.tempPosition);
+      }
 
-    setFiberFormData({
-      source: fiberSourceNode.nodeId,
-      target: node.nodeId,
-      fiberType: determineFiberType(fiberSourceNode.type, node.type),
-      waypoints: fiberWaypoints,
-    })
-    setShowFiberForm(true)
-  }, [fiberLineMode, fiberSourceNode, fiberWaypoints, showToast])
-
-  const saveNodeToolPosition = useCallback(async (tool: NodeTool) => {
-    const actionMode =
-      tool === 'server' ? serverActionMode :
-      tool === 'odc' ? odcActionMode :
-      tool === 'odp' ? odpActionMode :
-      tool === 'ont' ? ontActionMode :
-      tool === 'pole' ? poleActionMode :
-      joinboxActionMode
-
-    const tempPosition =
-      tool === 'server' ? serverTempPosition :
-      tool === 'odc' ? odcTempPosition :
-      tool === 'odp' ? odpTempPosition :
-      tool === 'ont' ? ontTempPosition :
-      tool === 'pole' ? poleTempPosition :
-      joinboxTempPosition
-
-    const selectedNode =
-      tool === 'server' ? selectedServerNode :
-      tool === 'odc' ? selectedOdcNode :
-      tool === 'odp' ? selectedOdpNode :
-      tool === 'ont' ? selectedOntNode :
-      tool === 'pole' ? selectedPoleNode :
-      selectedJoinboxNode
-
-    if (!tempPosition) {
-      return
-    }
-
-    if (actionMode === 'adding') {
-      const config = NODE_TOOL_CONFIG[tool]
-      setNodeFormType(config.formType)
-      setNodeFormData({
-        type: config.formType,
-        latitude: tempPosition[0],
-        longitude: tempPosition[1],
-        capacity: config.capacity,
-      })
-      setShowNodeForm(true)
-    } else if (actionMode === 'editing' && selectedNode) {
-      await updateNodePosition(selectedNode.nodeId, tempPosition)
-    }
-
-    cancelNodeTool(tool)
-  }, [cancelNodeTool, joinboxActionMode, joinboxTempPosition, odcActionMode, odcTempPosition, odpActionMode, odpTempPosition, ontActionMode, ontTempPosition, poleActionMode, poleTempPosition, selectedJoinboxNode, selectedOdcNode, selectedOdpNode, selectedOntNode, selectedPoleNode, selectedServerNode, serverActionMode, serverTempPosition, updateNodePosition])
+      resetNodeToolState(tool);
+    },
+    [nodeToolStates, resetNodeToolState, updateNodePosition],
+  );
 
   const saveActiveTempPosition = useCallback(async () => {
-    if (serverActionMode !== 'idle') {
-      await saveNodeToolPosition('server')
-      return
-    }
+    const activeTool = (Object.keys(nodeToolStates) as NodeTool[]).find(
+      (tool) => nodeToolStates[tool].actionMode !== "idle",
+    );
 
-    if (odcActionMode !== 'idle') {
-      await saveNodeToolPosition('odc')
-      return
+    if (activeTool) {
+      await saveNodeToolPosition(activeTool);
     }
-
-    if (odpActionMode !== 'idle') {
-      await saveNodeToolPosition('odp')
-      return
-    }
-
-    if (ontActionMode !== 'idle') {
-      await saveNodeToolPosition('ont')
-      return
-    }
-
-    if (poleActionMode !== 'idle') {
-      await saveNodeToolPosition('pole')
-      return
-    }
-
-    if (joinboxActionMode !== 'idle') {
-      await saveNodeToolPosition('joinbox')
-    }
-  }, [joinboxActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, saveNodeToolPosition, serverActionMode])
+  }, [nodeToolStates, saveNodeToolPosition]);
 
   const closeNodeForm = useCallback(() => {
-    setShowNodeForm(false)
-    setNodeFormData({})
-    setEditingNode(null)
-    setIsManualAdd(false)
-    resetNodePlacementState()
-  }, [resetNodePlacementState])
+    setNodeFormState(INITIAL_NODE_FORM_STATE);
+    resetAllNodeToolStates();
+  }, [resetAllNodeToolStates]);
 
   const resetNodeFormAfterSave = useCallback(() => {
-    setShowNodeForm(false)
-    setNodeFormData({})
-    setEditingNode(null)
-    resetNodePlacementState()
-  }, [resetNodePlacementState])
+    setNodeFormState(INITIAL_NODE_FORM_STATE);
+    resetAllNodeToolStates();
+  }, [resetAllNodeToolStates]);
 
   const closeFiberForm = useCallback(() => {
-    setShowFiberForm(false)
-    setFiberFormData(null)
-    handleFiberLineCancel()
-  }, [handleFiberLineCancel])
+    setFiberState(INITIAL_FIBER_STATE);
+  }, []);
 
   const deleteNode = useCallback((nodeId: string) => {
-    setDeleteConfirmation({ type: 'node', id: nodeId })
-  }, [])
+    setDeleteConfirmation({ type: "node", id: nodeId });
+  }, []);
 
   const deleteEdge = useCallback((edgeId: string) => {
-    setDeleteConfirmation({ type: 'edge', id: edgeId })
-  }, [])
+    setDeleteConfirmation({ type: "edge", id: edgeId });
+  }, []);
 
-  const onEditNodeLocation = useCallback((node: MappingNode) => {
-    const position: Position = [node.latitude!, node.longitude!]
+  const getNodeToolByType = useCallback((nodeType: string): NodeTool => {
+    if (nodeType === "server" || nodeType === "olt") return "server";
+    if (nodeType === "odc") return "odc";
+    if (nodeType === "odp") return "odp";
+    if (nodeType === "ont") return "ont";
+    if (nodeType === "pole") return "pole";
+    return "joinbox";
+  }, []);
 
-    switch (node.type) {
-      case 'server':
-      case 'olt':
-        setSelectedServerNode(node)
-        setServerTempPosition(position)
-        setServerActionMode('editing')
-        return
-      case 'odc':
-        setSelectedOdcNode(node)
-        setOdcTempPosition(position)
-        setOdcActionMode('editing')
-        return
-      case 'odp':
-        setSelectedOdpNode(node)
-        setOdpTempPosition(position)
-        setOdpActionMode('editing')
-        return
-      case 'ont':
-        setSelectedOntNode(node)
-        setOntTempPosition(position)
-        setOntActionMode('editing')
-        return
-      case 'pole':
-        setSelectedPoleNode(node)
-        setPoleTempPosition(position)
-        setPoleActionMode('editing')
-        return
-      case 'joinbox':
-        setSelectedJoinboxNode(node)
-        setJoinboxTempPosition(position)
-        setJoinboxActionMode('editing')
-        return
-    }
-  }, [])
+  const onEditNodeLocation = useCallback(
+    (node: MappingNode) => {
+      const position: Position = [node.latitude!, node.longitude!];
+      const tool = getNodeToolByType(node.type);
+
+      updateNodeToolState(tool, {
+        actionMode: "editing",
+        tempPosition: position,
+        selectedNode: node,
+      });
+    },
+    [getNodeToolByType, updateNodeToolState],
+  );
 
   const onEditNode = useCallback((node: MappingNode) => {
-    setEditingNode(node)
-    setNodeFormType(node.type)
-    setNodeFormData({
+    setNodeFormState({
+      show: true,
       type: node.type,
-      name: node.name,
-      latitude: node.latitude,
-      longitude: node.longitude,
-      capacity: node.capacity,
-      splitter: node.splitter,
-      pppoe: node.pppoe,
-      serialNumber: node.serialNumber,
-      notes: node.notes,
-      attenuationIn: node.attenuationIn,
-      attenuationOut: node.attenuationOut,
-      inputCoreColor: node.inputCoreColor,
-      photo: node.photo,
-      metadata: node.metadata,
-    })
-    setShowNodeForm(true)
-  }, [])
+      data: {
+        type: node.type,
+        name: node.name,
+        latitude: node.latitude,
+        longitude: node.longitude,
+        capacity: node.capacity,
+        splitter: node.splitter,
+        pppoe: node.pppoe,
+        serialNumber: node.serialNumber,
+        notes: node.notes,
+        attenuationIn: node.attenuationIn,
+        attenuationOut: node.attenuationOut,
+        inputCoreColor: node.inputCoreColor,
+        photo: node.photo,
+        metadata: node.metadata,
+      },
+      editingNode: node,
+      isManualAdd: false,
+    });
+  }, []);
 
-  const handleToolbarClick = useCallback((tool: NodeTool | 'fiber') => {
-    cancelActiveMode()
+  const handleToolbarClick = useCallback(
+    (tool: NodeTool | "fiber") => {
+      cancelActiveMode();
 
-    if (tool === 'fiber') {
-      setFiberLineMode('drawing')
-      showToast('info', 'Click on source node to start drawing fiber line')
-      return
-    }
+      if (tool === "fiber") {
+        setFiberState((prev) => ({ ...prev, mode: "drawing" }));
+        showToast("info", FIBER_MODE_MESSAGES.START);
+        return;
+      }
 
-    switch (tool) {
-      case 'server':
-        setServerActionMode('adding')
-        break
-      case 'odc':
-        setOdcActionMode('adding')
-        break
-      case 'odp':
-        setOdpActionMode('adding')
-        break
-      case 'ont':
-        setOntActionMode('adding')
-        break
-      case 'pole':
-        setPoleActionMode('adding')
-        break
-      case 'joinbox':
-        setJoinboxActionMode('adding')
-        break
-    }
-
-    showToast('info', NODE_TOOL_CONFIG[tool].addMessage)
-  }, [cancelActiveMode, showToast])
+      updateNodeToolState(tool, { actionMode: "adding" });
+      showToast("info", NODE_TOOL_CONFIG[tool].addMessage);
+    },
+    [cancelActiveMode, showToast, updateNodeToolState],
+  );
 
   const handleManualAdd = useCallback((type: string) => {
-    setNodeFormType(type)
-    setNodeFormData({
+    const capacity = type === "ont" ? 1 : type === "olt" ? 16 : 8;
+    setNodeFormState({
+      show: true,
       type,
-      latitude: 0,
-      longitude: 0,
-      capacity: type === 'ont' ? 1 : type === 'olt' ? 16 : 8,
-    })
-    setIsManualAdd(true)
-    setShowNodeForm(true)
-  }, [])
+      data: {
+        type,
+        latitude: 0,
+        longitude: 0,
+        capacity,
+      },
+      editingNode: null,
+      isManualAdd: true,
+    });
+  }, []);
 
-  const isAnyModeActive =
-    serverActionMode !== 'idle' ||
-    odcActionMode !== 'idle' ||
-    odpActionMode !== 'idle' ||
-    ontActionMode !== 'idle' ||
-    poleActionMode !== 'idle' ||
-    joinboxActionMode !== 'idle' ||
-    fiberLineMode !== 'idle'
+  const isAnyModeActive = useMemo(() => {
+    return (
+      Object.values(nodeToolStates).some(
+        (state) => state.actionMode !== "idle",
+      ) || fiberState.mode !== "idle"
+    );
+  }, [fiberState.mode, nodeToolStates]);
 
   const activeModeMessage = useMemo(() => {
-    if (serverActionMode === 'adding') return 'Click on map to place Server/OLT, then click Save'
-    if (serverActionMode === 'editing') return 'Drag marker to new position, then click Save'
-    if (odcActionMode === 'adding') return 'Click on map to place ODC, then click Save'
-    if (odcActionMode === 'editing') return 'Drag marker to new position, then click Save'
-    if (odpActionMode === 'adding') return 'Click on map to place ODP, then click Save'
-    if (odpActionMode === 'editing') return 'Drag marker to new position, then click Save'
-    if (ontActionMode === 'adding') return 'Click on map to place ONT, then click Save'
-    if (ontActionMode === 'editing') return 'Drag marker to new position, then click Save'
-    if (poleActionMode === 'adding') return 'Click on map to place Pole, then click Save'
-    if (poleActionMode === 'editing') return 'Drag marker to new position, then click Save'
-    if (joinboxActionMode === 'adding') return 'Click on map to place Joinbox, then click Save'
-    if (joinboxActionMode === 'editing') return 'Drag marker to new position, then click Save'
-    if (fiberLineMode === 'drawing' && !fiberSourceNode) return 'Click on source node to start'
-    if (fiberLineMode === 'drawing' && fiberSourceNode) {
-      return `From: ${fiberSourceNode.name}. Click map for waypoints, click target node to finish. (${fiberWaypoints.length} waypoints)`
+    const activeTool = (Object.keys(nodeToolStates) as NodeTool[]).find(
+      (tool) => nodeToolStates[tool].actionMode !== "idle",
+    );
+
+    if (activeTool) {
+      const state = nodeToolStates[activeTool];
+      const config = NODE_TOOL_CONFIG[activeTool];
+
+      if (state.actionMode === "adding") {
+        return config.addMessage;
+      }
+      if (state.actionMode === "editing") {
+        return config.editMessage;
+      }
     }
-    return ''
-  }, [fiberLineMode, fiberSourceNode, fiberWaypoints.length, joinboxActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, serverActionMode])
 
-  const hasPendingTempPosition = !!(
-    serverTempPosition ||
-    odcTempPosition ||
-    odpTempPosition ||
-    ontTempPosition ||
-    poleTempPosition ||
-    joinboxTempPosition
-  )
+    if (fiberState.mode === "drawing") {
+      if (!fiberState.sourceNode) {
+        return FIBER_MODE_MESSAGES.START;
+      }
+      return FIBER_MODE_MESSAGES.DRAWING(
+        fiberState.sourceNode.name,
+        fiberState.waypoints.length,
+      );
+    }
 
-  const isNodeBeingEdited = useCallback((nodeId: string) => {
-    return (
-      (serverActionMode === 'editing' && selectedServerNode?.nodeId === nodeId) ||
-      (odcActionMode === 'editing' && selectedOdcNode?.nodeId === nodeId) ||
-      (odpActionMode === 'editing' && selectedOdpNode?.nodeId === nodeId) ||
-      (ontActionMode === 'editing' && selectedOntNode?.nodeId === nodeId) ||
-      (poleActionMode === 'editing' && selectedPoleNode?.nodeId === nodeId) ||
-      (joinboxActionMode === 'editing' && selectedJoinboxNode?.nodeId === nodeId)
-    )
-  }, [joinboxActionMode, odcActionMode, odpActionMode, ontActionMode, poleActionMode, selectedJoinboxNode, selectedOdcNode, selectedOdpNode, selectedOntNode, selectedPoleNode, selectedServerNode, serverActionMode])
+    return "";
+  }, [
+    fiberState.mode,
+    fiberState.sourceNode,
+    fiberState.waypoints.length,
+    nodeToolStates,
+  ]);
+
+  const hasPendingTempPosition = useMemo(() => {
+    return Object.values(nodeToolStates).some(
+      (state) => state.tempPosition !== null,
+    );
+  }, [nodeToolStates]);
+
+  const isNodeBeingEdited = useCallback(
+    (nodeId: string) => {
+      return Object.values(nodeToolStates).some(
+        (state) =>
+          state.actionMode === "editing" &&
+          state.selectedNode?.nodeId === nodeId,
+      );
+    },
+    [nodeToolStates],
+  );
+
+  const setTempPosition = useCallback(
+    (tool: NodeTool, position: Position | null) => {
+      updateNodeToolState(tool, { tempPosition: position });
+    },
+    [updateNodeToolState],
+  );
 
   return {
-    serverActionMode,
-    odcActionMode,
-    odpActionMode,
-    ontActionMode,
-    poleActionMode,
-    joinboxActionMode,
-    serverTempPosition,
-    odcTempPosition,
-    odpTempPosition,
-    ontTempPosition,
-    poleTempPosition,
-    joinboxTempPosition,
-    selectedServerNode,
-    selectedOdcNode,
-    selectedOdpNode,
-    selectedOntNode,
-    selectedPoleNode,
-    selectedJoinboxNode,
-    fiberLineMode,
-    fiberSourceNode,
-    fiberWaypoints,
-    showNodeForm,
-    nodeFormType,
-    nodeFormData,
-    editingNode,
-    showFiberForm,
-    fiberFormData,
-    isManualAdd,
+    serverActionMode: nodeToolStates.server.actionMode,
+    odcActionMode: nodeToolStates.odc.actionMode,
+    odpActionMode: nodeToolStates.odp.actionMode,
+    ontActionMode: nodeToolStates.ont.actionMode,
+    poleActionMode: nodeToolStates.pole.actionMode,
+    joinboxActionMode: nodeToolStates.joinbox.actionMode,
+    serverTempPosition: nodeToolStates.server.tempPosition,
+    odcTempPosition: nodeToolStates.odc.tempPosition,
+    odpTempPosition: nodeToolStates.odp.tempPosition,
+    ontTempPosition: nodeToolStates.ont.tempPosition,
+    poleTempPosition: nodeToolStates.pole.tempPosition,
+    joinboxTempPosition: nodeToolStates.joinbox.tempPosition,
+    selectedServerNode: nodeToolStates.server.selectedNode,
+    selectedOdcNode: nodeToolStates.odc.selectedNode,
+    selectedOdpNode: nodeToolStates.odp.selectedNode,
+    selectedOntNode: nodeToolStates.ont.selectedNode,
+    selectedPoleNode: nodeToolStates.pole.selectedNode,
+    selectedJoinboxNode: nodeToolStates.joinbox.selectedNode,
+    fiberLineMode: fiberState.mode,
+    fiberSourceNode: fiberState.sourceNode,
+    fiberWaypoints: fiberState.waypoints,
+    showNodeForm: nodeFormState.show,
+    nodeFormType: nodeFormState.type,
+    nodeFormData: nodeFormState.data,
+    editingNode: nodeFormState.editingNode,
+    showFiberForm: fiberState.showForm,
+    fiberFormData: fiberState.formData,
+    isManualAdd: nodeFormState.isManualAdd,
     deleteConfirmation,
     isAnyModeActive,
     activeModeMessage,
     hasPendingTempPosition,
-    setServerTempPosition,
-    setOdcTempPosition,
-    setOdpTempPosition,
-    setOntTempPosition,
-    setPoleTempPosition,
-    setJoinboxTempPosition,
-    setNodeFormData,
-    setFiberFormData,
+    setServerTempPosition: (pos: Position | null) =>
+      setTempPosition("server", pos),
+    setOdcTempPosition: (pos: Position | null) => setTempPosition("odc", pos),
+    setOdpTempPosition: (pos: Position | null) => setTempPosition("odp", pos),
+    setOntTempPosition: (pos: Position | null) => setTempPosition("ont", pos),
+    setPoleTempPosition: (pos: Position | null) => setTempPosition("pole", pos),
+    setJoinboxTempPosition: (pos: Position | null) =>
+      setTempPosition("joinbox", pos),
+    setNodeFormData: (data: Partial<MappingNode>) =>
+      setNodeFormState((prev) => ({ ...prev, data })),
+    setFiberFormData: (data: FiberFormData | null) =>
+      setFiberState((prev) => ({ ...prev, formData: data })),
     setDeleteConfirmation,
     handleMapClick,
     handleNodeClick,
@@ -503,5 +460,5 @@ export function useMapEditorState({ showToast, updateNodePosition }: UseMapEdito
     saveActiveTempPosition,
     cancelActiveMode,
     isNodeBeingEdited,
-  }
+  };
 }

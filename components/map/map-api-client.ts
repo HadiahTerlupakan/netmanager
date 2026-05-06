@@ -1,0 +1,163 @@
+/**
+ * Centralized API client untuk Map operations
+ */
+
+import { MAP_API } from "./map-constants";
+import type { MappingNode, FiberFormData } from "./map-types";
+import type { MappingEdge, MapSettings } from "@prisma/client";
+
+type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
+/**
+ * Map Nodes API
+ */
+export const mapNodesApi = {
+  list: async (): Promise<MappingNode[]> => {
+    const res = await fetch(MAP_API.NODES);
+    if (!res.ok) throw new Error("Failed to fetch nodes");
+    const json = await res.json();
+    return json.data || [];
+  },
+
+  create: async (data: Partial<MappingNode>): Promise<MappingNode> => {
+    const res = await fetch(MAP_API.NODES, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Failed to create node");
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
+  update: async (nodeId: string, data: Partial<MappingNode>): Promise<void> => {
+    const res = await fetch(`${MAP_API.NODES}/${nodeId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Failed to update node");
+    }
+  },
+
+  delete: async (nodeId: string): Promise<void> => {
+    const res = await fetch(`${MAP_API.NODES}/${nodeId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || "Failed to delete node");
+    }
+  },
+};
+
+/**
+ * Map Edges API
+ */
+export const mapEdgesApi = {
+  list: async (): Promise<MappingEdge[]> => {
+    const res = await fetch(MAP_API.EDGES);
+    if (!res.ok) throw new Error("Failed to fetch edges");
+    const json = await res.json();
+    return json.data || [];
+  },
+
+  create: async (data: {
+    edgeId: string;
+    source: string;
+    target: string;
+    name: string;
+    fiberType: string;
+    distance: number;
+    waypoints: string;
+    notes: string;
+  }): Promise<MappingEdge> => {
+    const res = await fetch(MAP_API.EDGES, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Failed to create edge");
+    }
+    const json = await res.json();
+    return json.data;
+  },
+
+  delete: async (edgeId: string): Promise<void> => {
+    const res = await fetch(`${MAP_API.EDGES}/${edgeId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || "Failed to delete edge");
+    }
+  },
+};
+
+/**
+ * Map Settings API
+ */
+export const mapSettingsApi = {
+  get: async (): Promise<MapSettings | null> => {
+    const res = await fetch(MAP_API.SETTINGS);
+    if (!res.ok) throw new Error("Failed to fetch settings");
+    const json = await res.json();
+    return json.data;
+  },
+
+  update: async (data: Partial<MapSettings>): Promise<void> => {
+    const res = await fetch(MAP_API.SETTINGS, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Failed to update settings");
+    }
+  },
+};
+
+/**
+ * Map Statistics API
+ */
+export const mapStatisticsApi = {
+  get: async (): Promise<{
+    totalNodes: number;
+    totalEdges: number;
+    nodesByType: Record<string, number>;
+  }> => {
+    const res = await fetch(MAP_API.STATISTICS);
+    if (!res.ok) throw new Error("Failed to fetch statistics");
+    const json = await res.json();
+    return json.data || { totalNodes: 0, totalEdges: 0, nodesByType: {} };
+  },
+};
+
+/**
+ * Map Reset API
+ */
+export const mapResetApi = {
+  reset: async (password: string): Promise<void> => {
+    const res = await fetch(MAP_API.RESET, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Failed to reset map");
+    }
+  },
+};
