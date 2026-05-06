@@ -6,6 +6,7 @@ import type {
   RadiusRecentSessionViewModel,
   RadiusRecentSessionsViewModel,
 } from "@/modules/network";
+import { RADIUS_API, RADIUS_CONSTANTS } from "../constants";
 
 const radiusDashboardStatsSchema: z.ZodType<RadiusDashboardStatsViewModel> =
   z.object({
@@ -221,7 +222,7 @@ export interface RadiusDashboardApi {
 }
 
 function buildRecentSessionsUrl(): string {
-  return "/api/admin/radius/dashboard/recent-sessions?status=active&limit=50";
+  return `${RADIUS_API.RECENT_SESSIONS}?status=active&limit=${RADIUS_CONSTANTS.RECENT_SESSIONS_LIMIT}`;
 }
 
 function buildHistoryUrl(input: {
@@ -232,14 +233,14 @@ function buildHistoryUrl(input: {
   endDate?: string;
 }): string {
   const params = new URLSearchParams({
-    page: String(input.page ?? 1),
-    limit: String(input.limit ?? 20),
+    page: String(input.page ?? RADIUS_CONSTANTS.HISTORY_PAGE_DEFAULT),
+    limit: String(input.limit ?? RADIUS_CONSTANTS.HISTORY_LIMIT_DEFAULT),
   });
 
   if (input.startDate) params.set("startDate", input.startDate);
   if (input.endDate) params.set("endDate", input.endDate);
 
-  return `/api/admin/radius/sessions/${encodeURIComponent(input.username)}/history?${params.toString()}`;
+  return `${RADIUS_API.SESSION_HISTORY(input.username)}?${params.toString()}`;
 }
 
 function buildResetRequestBody(username: string): RequestInit {
@@ -262,10 +263,7 @@ const radiusResetResultSchema = z.object({
 export function createRadiusDashboardApi(): RadiusDashboardApi {
   return {
     getStats: async () =>
-      fetchDashboardResource(
-        "/api/admin/radius/dashboard/stats",
-        radiusDashboardStatsSchema,
-      ),
+      fetchDashboardResource(RADIUS_API.STATS, radiusDashboardStatsSchema),
     getRecentSessions: async () => {
       const response = await fetchDashboardResource(
         buildRecentSessionsUrl(),
@@ -281,7 +279,7 @@ export function createRadiusDashboardApi(): RadiusDashboardApi {
       ),
     resetConnection: async (username) =>
       fetchDashboardResource(
-        "/api/admin/radius/sessions/reset",
+        RADIUS_API.RESET_CONNECTION,
         radiusResetResultSchema,
         buildResetRequestBody(username),
       ),

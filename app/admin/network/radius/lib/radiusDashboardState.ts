@@ -4,6 +4,8 @@ import type {
 } from "@/modules/network";
 
 import type { RadiusDashboardApi } from "./radiusDashboardApi";
+import { getRadiusErrorMessage } from "./radiusErrorUtils";
+import { RADIUS_MESSAGES } from "../constants";
 
 export interface RadiusDashboardState {
   stats: RadiusDashboardStatsViewModel | null;
@@ -21,14 +23,6 @@ export function createInitialRadiusDashboardState(): RadiusDashboardState {
     refreshing: false,
     dashboardError: null,
   };
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return "Gagal memuat dashboard RADIUS";
 }
 
 function setDashboardLoadingState(
@@ -49,7 +43,10 @@ function setDashboardFailureState(
     ...previousState,
     loading: false,
     refreshing: false,
-    dashboardError: getErrorMessage(error),
+    dashboardError: getRadiusErrorMessage(
+      error,
+      RADIUS_MESSAGES.ERROR.DASHBOARD,
+    ),
   };
 }
 

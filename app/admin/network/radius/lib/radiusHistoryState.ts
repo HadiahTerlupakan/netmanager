@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 
 import type { RadiusSessionHistoryData } from "./radiusDashboardApi";
+import { getRadiusErrorMessage } from "./radiusErrorUtils";
+import { RADIUS_CONSTANTS, RADIUS_MESSAGES } from "../constants";
 
 export interface RadiusHistoryState {
   historyModalOpen: boolean;
@@ -21,9 +23,6 @@ export interface RadiusHistoryDependencies {
     endDate?: string;
   }) => Promise<RadiusSessionHistoryData>;
 }
-
-const DEFAULT_HISTORY_PAGE = 1;
-const DEFAULT_HISTORY_LIMIT = 20;
 
 export function createInitialRadiusHistoryState(): RadiusHistoryState {
   return {
@@ -51,19 +50,11 @@ function buildHistoryRequest(input: {
 } {
   return {
     username: input.username,
-    page: input.page ?? DEFAULT_HISTORY_PAGE,
-    limit: DEFAULT_HISTORY_LIMIT,
+    page: input.page ?? RADIUS_CONSTANTS.HISTORY_PAGE_DEFAULT,
+    limit: RADIUS_CONSTANTS.HISTORY_LIMIT_DEFAULT,
     ...(input.startDate ? { startDate: input.startDate } : {}),
     ...(input.endDate ? { endDate: input.endDate } : {}),
   };
-}
-
-function getHistoryErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return "Gagal memuat history sesi";
 }
 
 /**
@@ -105,7 +96,10 @@ export function useRadiusHistoryState({
           ...previous,
           historyModalOpen: true,
           historyLoading: false,
-          historyError: getHistoryErrorMessage(error),
+          historyError: getRadiusErrorMessage(
+            error,
+            RADIUS_MESSAGES.ERROR.HISTORY,
+          ),
         }));
       }
     },
@@ -115,7 +109,10 @@ export function useRadiusHistoryState({
   const viewHistory = useCallback(
     async (username: string) => {
       if (!username) return;
-      await loadHistory({ username, page: DEFAULT_HISTORY_PAGE });
+      await loadHistory({
+        username,
+        page: RADIUS_CONSTANTS.HISTORY_PAGE_DEFAULT,
+      });
     },
     [loadHistory],
   );
@@ -142,7 +139,7 @@ export function useRadiusHistoryState({
     if (!state.viewingHistoryUsername) return;
     await loadHistory({
       username: state.viewingHistoryUsername,
-      page: DEFAULT_HISTORY_PAGE,
+      page: RADIUS_CONSTANTS.HISTORY_PAGE_DEFAULT,
       startDate: state.historyStartDate || undefined,
       endDate: state.historyEndDate || undefined,
     });
@@ -164,7 +161,7 @@ export function useRadiusHistoryState({
 
     await loadHistory({
       username: state.viewingHistoryUsername,
-      page: DEFAULT_HISTORY_PAGE,
+      page: RADIUS_CONSTANTS.HISTORY_PAGE_DEFAULT,
     });
   }, [loadHistory, state.viewingHistoryUsername]);
 

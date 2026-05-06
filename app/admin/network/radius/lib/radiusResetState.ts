@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 
 import type { RadiusDashboardApi } from "./radiusDashboardApi";
+import { getRadiusErrorMessage } from "./radiusErrorUtils";
+import { RADIUS_MESSAGES } from "../constants";
 
 export interface RadiusResetState {
   resettingUsername: string | null;
@@ -11,14 +13,6 @@ export interface RadiusResetState {
 export interface RadiusResetDependencies {
   resetConnection: RadiusDashboardApi["resetConnection"];
   refreshDashboard: () => Promise<void>;
-}
-
-function getResetErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return "Gagal reset koneksi";
 }
 
 /**
@@ -63,7 +57,10 @@ export function useRadiusResetState({
       } catch (error) {
         setState((previous) => ({
           ...previous,
-          actionError: getResetErrorMessage(error),
+          actionError: getRadiusErrorMessage(
+            error,
+            RADIUS_MESSAGES.ERROR.RESET,
+          ),
         }));
       } finally {
         setState((previous) => ({
