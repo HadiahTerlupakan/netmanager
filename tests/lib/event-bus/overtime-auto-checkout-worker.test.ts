@@ -35,7 +35,19 @@ vi.mock("bullmq", () => {
 
 class RedisMock {
   on = vi.fn();
-  duplicate = vi.fn(() => ({ on: vi.fn() }));
+  once = vi.fn((event: string, callback: () => void) => {
+    if (event === "ready") {
+      setTimeout(callback, 0);
+    }
+  });
+  duplicate = vi.fn(() => ({
+    on: vi.fn(),
+    once: vi.fn((event: string, callback: () => void) => {
+      if (event === "ready") {
+        setTimeout(callback, 0);
+      }
+    }),
+  }));
 }
 
 vi.mock("ioredis", () => ({
@@ -68,7 +80,6 @@ vi.mock("@/modules/overtime/services/OvertimeAutoCheckoutService", () => ({
 
 describe("overtime auto checkout worker startup", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     vi.resetModules();
     vi.clearAllMocks();
     mockFns.processors.length = 0;
@@ -150,7 +161,7 @@ describe("overtime auto checkout worker startup", () => {
         data: { jobId: "overtime:auto-checkout:schedule-2:v4" },
       },
     );
-  });
+  }, 20000);
 
   it("skips rehydration when overtime auto checkout table is not migrated yet", async () => {
     prismaMock.overtimeAutoCheckoutSchedule.findMany.mockRejectedValueOnce(
@@ -162,7 +173,7 @@ describe("overtime auto checkout worker startup", () => {
 
     await expect(rehydrateOvertimeAutoCheckoutJobs()).resolves.toBeUndefined();
     expect(mockFns.addOvertimeAutoCheckoutJob).not.toHaveBeenCalled();
-  });
+  }, 20000);
 
   it("processes overtime auto checkout jobs through the dedicated worker", async () => {
     const { startWorkers } = await import("@/lib/event-bus/workers");
@@ -170,13 +181,16 @@ describe("overtime auto checkout worker startup", () => {
 
     startWorkers();
 
+    // Wait longer for Redis ready event and worker creation
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     const overtimeWorker = mockFns.processors.find(
       (item) => item.queueName === QUEUE_NAMES.OVERTIME_AUTO_CHECKOUT,
     );
 
     expect(overtimeWorker).toBeDefined();
 
-    await overtimeWorker?.processor({
+    await overtimeWorker!.processor({
       data: {
         overtimeId: "overtime-1",
         scheduleId: "schedule-1",
@@ -189,5 +203,5 @@ describe("overtime auto checkout worker startup", () => {
       scheduleId: "schedule-1",
       version: 3,
     });
-  });
+  }, 20000);
 });

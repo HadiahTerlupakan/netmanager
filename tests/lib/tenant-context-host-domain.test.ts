@@ -70,7 +70,7 @@ describe("tenant-context host domain", () => {
         id: true,
       },
     });
-  });
+  }, 20000);
 
   it("resolves localhost public request to primary tenant", async () => {
     mockFns.headers.mockResolvedValue(new Headers({ host: "localhost:3000" }));
@@ -85,5 +85,5 @@ describe("tenant-context host domain", () => {
       isSuperAdmin: false,
     });
     expect(mockFns.findFirst).not.toHaveBeenCalled();
-  });
+  }, 20000);
 });

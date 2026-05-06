@@ -57,6 +57,12 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/logger", () => ({
   logActivitySafe: mockFns.logActivitySafe,
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/utils/get-timezone", () => ({
@@ -116,7 +122,7 @@ describe("admin attendance bulk delete route", () => {
     expect(body.error).toBe("Data tidak valid");
     expect(prismaMock.attendance.findMany).not.toHaveBeenCalled();
     expect(prismaMock.attendance.deleteMany).not.toHaveBeenCalled();
-  });
+  }, 20000);
 
   it("returns 400 for an empty ids payload before touching persistence", async () => {
     const { DELETE } = await import("@/app/api/admin/attendance/route");

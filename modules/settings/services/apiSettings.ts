@@ -103,16 +103,14 @@ export function buildApiSettingsUpserts(
     const secretValue = payload.r2SecretAccessKey?.trim() || "";
 
     // Skip if token indicates to keep existing secret
-    if (secretValue === KEEP_EXISTING_SECRET_TOKEN) {
-      return upserts;
+    if (secretValue !== KEEP_EXISTING_SECRET_TOKEN) {
+      upserts.push({
+        key: "R2_SECRET_ACCESS_KEY",
+        value: secretValue || null,
+        description: "Cloudflare R2 Secret Access Key",
+        encrypted: true,
+      });
     }
-
-    upserts.push({
-      key: "R2_SECRET_ACCESS_KEY",
-      value: secretValue || null,
-      description: "Cloudflare R2 Secret Access Key",
-      encrypted: true,
-    });
   }
 
   if (payload.r2BucketName !== undefined) {

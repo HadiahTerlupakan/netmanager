@@ -27,8 +27,8 @@ function readMultiSiteSelect(): string {
   return readSourceFile("app/admin/users/components/MultiSiteSelect.tsx");
 }
 
-function readUsersList(): string {
-  return readSourceFile("app/admin/users/UserList.tsx");
+function readUserColumns(): string {
+  return readSourceFile("app/admin/users/lib/userColumns.tsx");
 }
 
 function readAdminLayout(): string {
@@ -136,7 +136,7 @@ describe("admin users edit safety", () => {
   });
 
   it("makes list actions and multisite selector accessible", () => {
-    const listFile = readUsersList();
+    const listFile = readUserColumns();
     const multiSiteFile = readMultiSiteSelect();
 
     expect(listFile).toContain(

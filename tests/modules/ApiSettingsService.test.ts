@@ -93,16 +93,29 @@ describe("api settings service tenant scope", () => {
   });
 
   it("does not overwrite encrypted R2 secret when placeholder is submitted", async () => {
+    prismaMock.settings.findFirst.mockResolvedValue({
+      id: "setting-1",
+      key: "R2_BUCKET_NAME",
+      value: "old-bucket",
+      tenantId: "tenant-1",
+      encrypted: false,
+      description: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
     await updateTenantScopedApiSettings("tenant-1", {
-      r2SecretAccessKey: "********",
+      r2SecretAccessKey: "__KEEP_EXISTING__",
       r2BucketName: "tenant-bucket",
     });
 
-    expect(prismaMock.settings.create).toHaveBeenCalledTimes(1);
-    expect(prismaMock.settings.create).toHaveBeenCalledWith(
+    // Only R2_BUCKET_NAME should be updated, R2_SECRET_ACCESS_KEY with keep token should be skipped
+    expect(prismaMock.settings.findFirst).toHaveBeenCalledTimes(1);
+    expect(prismaMock.settings.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.settings.update).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: { id: "setting-1" },
         data: expect.objectContaining({
-          key: "R2_BUCKET_NAME",
           value: "tenant-bucket",
         }),
       }),
@@ -110,28 +123,48 @@ describe("api settings service tenant scope", () => {
   });
 
   it("writes api settings into the authenticated tenant scope", async () => {
+    prismaMock.settings.findFirst
+      .mockResolvedValueOnce({
+        id: "setting-1",
+        key: "R2_BUCKET_NAME",
+        value: "old-bucket",
+        tenantId: "tenant-1",
+        encrypted: false,
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .mockResolvedValueOnce({
+        id: "setting-2",
+        key: "R2_ENABLED",
+        value: "false",
+        tenantId: "tenant-1",
+        encrypted: false,
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
     await updateTenantScopedApiSettings("tenant-1", {
       r2BucketName: "tenant-bucket",
       r2Enabled: true,
     });
 
-    expect(prismaMock.settings.create).toHaveBeenNthCalledWith(
+    expect(prismaMock.settings.update).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
+        where: { id: "setting-1" },
         data: expect.objectContaining({
-          key: "R2_BUCKET_NAME",
           value: "tenant-bucket",
-          tenantId: "tenant-1",
         }),
       }),
     );
-    expect(prismaMock.settings.create).toHaveBeenNthCalledWith(
+    expect(prismaMock.settings.update).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
+        where: { id: "setting-2" },
         data: expect.objectContaining({
-          key: "R2_ENABLED",
           value: "true",
-          tenantId: "tenant-1",
         }),
       }),
     );

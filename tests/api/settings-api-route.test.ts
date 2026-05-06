@@ -18,6 +18,7 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/modules/settings", () => ({
   getApiSettings: (...args: unknown[]) => mockGetApiSettings(...args),
+  createApiSettings: (...args: unknown[]) => mockUpdateApiSettings(...args),
   updateApiSettings: (...args: unknown[]) => mockUpdateApiSettings(...args),
   testCloudflareR2Connection: (...args: unknown[]) =>
     mockTestCloudflareR2Connection(...args),
@@ -34,7 +35,7 @@ vi.mock("@/lib/logger", () => ({
   logActivitySafe: (...args: unknown[]) => mockLogActivitySafe(...args),
 }));
 
-import { GET, POST } from "@/app/api/settings/api/route";
+import { GET, PUT } from "@/app/api/settings/api/route";
 import { POST as TEST_GEMINI } from "@/app/api/settings/api/test/route";
 import { POST as TEST_R2 } from "@/app/api/settings/api/r2/test/route";
 
@@ -78,9 +79,9 @@ describe("api settings route tenant scope", () => {
     };
     mockUpdateApiSettings.mockResolvedValue(undefined);
 
-    const result = await POST(
+    const result = await PUT(
       new NextRequest("http://localhost/api/settings/api", {
-        method: "POST",
+        method: "PUT",
       }),
       {
         session: {
@@ -102,12 +103,15 @@ describe("api settings route tenant scope", () => {
         userId: "user-1",
       }),
     );
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({
+      success: true,
+      message: "Pengaturan API berhasil diupdate",
+    });
   });
 
   it("uses api:update permission for saving API settings", () => {
     expect(
-      (POST as unknown as { options: { permissions: string[] } }).options
+      (PUT as unknown as { options: { permissions: string[] } }).options
         .permissions,
     ).toEqual(["api:update"]);
   });

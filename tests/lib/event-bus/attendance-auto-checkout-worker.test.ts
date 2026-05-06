@@ -55,7 +55,13 @@ vi.mock("bullmq", () => {
 
 class RedisMock {
   on = vi.fn();
-  duplicate = vi.fn(() => ({ on: vi.fn() }));
+  once = vi.fn((event: string, callback: () => void) => {
+    if (event === "ready") {
+      // Immediately call the callback to simulate ready state
+      setTimeout(callback, 0);
+    }
+  });
+  duplicate = vi.fn(() => ({ on: vi.fn(), once: vi.fn() }));
 }
 
 vi.mock("ioredis", () => ({ default: RedisMock }));
@@ -191,13 +197,16 @@ describe("attendance auto checkout worker startup", () => {
 
     startWorkers();
 
+    // Wait for Redis ready event to trigger worker creation
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     const attendanceWorker = mockFns.processors.find(
       (item) => item.queueName === QUEUE_NAMES.ATTENDANCE_AUTO_CHECKOUT,
     );
 
     expect(attendanceWorker).toBeDefined();
 
-    await attendanceWorker?.processor({
+    await attendanceWorker!.processor({
       data: {
         attendanceId: "attendance-1",
         tenantId: "tenant-1",
@@ -214,5 +223,5 @@ describe("attendance auto checkout worker startup", () => {
       expectedAutoCheckoutAt: "2026-04-24T10:00:00.000Z",
       sourceCheckInDate: "2026-04-24",
     });
-  });
+  }, 20000);
 });

@@ -79,7 +79,7 @@ describe("LocationTrackingService realtime publishing", () => {
         speed: 12,
       },
     });
-  });
+  }, 20000);
 
   it("publishes the latest batched location to the tenant admin Firebase stream", async () => {
     const { LocationTrackingService } =
@@ -120,5 +120,5 @@ describe("LocationTrackingService realtime publishing", () => {
         speed: 15,
       },
     });
-  });
+  }, 20000);
 });

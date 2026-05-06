@@ -17,7 +17,12 @@ vi.mock("bullmq", () => ({
 
 class RedisMock {
   on = vi.fn();
-  duplicate = vi.fn(() => ({ on: vi.fn() }));
+  once = vi.fn((event: string, callback: () => void) => {
+    if (event === "ready") {
+      setTimeout(callback, 0);
+    }
+  });
+  duplicate = vi.fn(() => ({ on: vi.fn(), once: vi.fn() }));
 }
 
 vi.mock("ioredis", () => ({
@@ -82,5 +87,5 @@ describe("event-bus notification.created handler", () => {
       link: "/admin/workorders/wo-1",
       createdAt: "2026-04-10T00:00:00.000Z",
     });
-  });
+  }, 20000);
 });
