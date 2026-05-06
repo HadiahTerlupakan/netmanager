@@ -108,30 +108,32 @@ export function getUserColumns(options: UserColumnsOptions): Column<User>[] {
       priority: "secondary",
       render: (user) => {
         if (user.userSites && user.userSites.length > 0) {
+          const validSites = user.userSites.filter((us) => us.site);
+          const displayedSites = validSites.slice(
+            0,
+            USER_LIST_CONSTANTS.MAX_SITES_DISPLAY,
+          );
+          const remainingCount =
+            validSites.length - USER_LIST_CONSTANTS.MAX_SITES_DISPLAY;
+
           return (
             <div className="flex flex-wrap gap-1">
-              {user.userSites
-                .filter((us) => us.site)
-                .slice(0, USER_LIST_CONSTANTS.MAX_SITES_DISPLAY)
-                .map((us) => (
-                  <span
-                    key={us.id}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                      us.isPrimary
-                        ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
-                        : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                    }`}
-                  >
-                    {us.isPrimary && <HiOutlineStar className="w-3 h-3" />}
-                    {us.site.code}
-                  </span>
-                ))}
-              {user.userSites.length >
-                USER_LIST_CONSTANTS.MAX_SITES_DISPLAY && (
+              {displayedSites.map((us) => (
+                <span
+                  key={us.id}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                    us.isPrimary
+                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                  }`}
+                >
+                  {us.isPrimary && <HiOutlineStar className="w-3 h-3" />}
+                  {us.site.code}
+                </span>
+              ))}
+              {remainingCount > 0 && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                  +
-                  {user.userSites.length -
-                    USER_LIST_CONSTANTS.MAX_SITES_DISPLAY}
+                  +{remainingCount}
                 </span>
               )}
             </div>
