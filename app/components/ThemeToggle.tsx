@@ -18,7 +18,7 @@ export default function ThemeToggle() {
       <div
         className={`absolute inset-1 rounded-full transition-all duration-300 ${
           theme === "dark"
-            ? "bg-gradient-to-r from-[rgb(var(--color-primary))] to-[rgb(var(--color-primary-variant))]"
+            ? "bg-gradient-to-r from-primary to-primary/80"
             : "bg-gradient-to-r from-amber-300 to-orange-400"
         }`}
       />
@@ -32,7 +32,7 @@ export default function ThemeToggle() {
         {/* Icon */}
         <span className="text-xs">
           {theme === "dark" ? (
-            <HiOutlineMoon className="w-3 h-3 text-[rgb(var(--color-primary))]" />
+            <HiOutlineMoon className="w-3 h-3 text-primary" />
           ) : (
             <HiOutlineSun className="w-3 h-3 text-amber-500" />
           )}
