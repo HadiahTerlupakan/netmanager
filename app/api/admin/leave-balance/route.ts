@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get("userId");
 
   try {
-    if (userId) {
+    if (userId && userId !== "NEW_USER") {
       const canAccessUser = await leaveBalanceService.canAccessUser(userId, {
         requesterTenantId: session.user.tenantId,
         isSuperAdmin: session.user.isSuperAdmin,
@@ -60,6 +60,11 @@ export async function GET(req: NextRequest) {
           "Anda tidak memiliki akses ke data user ini",
         );
       }
+    }
+
+    // For NEW_USER, return empty balance (user doesn't exist yet)
+    if (userId === "NEW_USER") {
+      return apiSuccess([]);
     }
 
     const result = await leaveBalanceService.getBalances({

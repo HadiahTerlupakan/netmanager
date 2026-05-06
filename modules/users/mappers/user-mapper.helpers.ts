@@ -180,8 +180,10 @@ export function toDetailDTO(entity: UserEntity): UserDetailDTO {
     isAttendanceRequired: entity.isAttendanceRequired,
     createdAt: entity.createdAt.toISOString(),
     updatedAt: entity.updatedAt.toISOString(),
-    role: entity.role ?? null,
-    department: entity.department ?? null,
+    role: entity.role ? { id: entity.role.id, name: entity.role.name } : null,
+    department: entity.department
+      ? { id: entity.department.id, name: entity.department.name }
+      : null,
     site: entity.site ? { id: entity.site.id, name: entity.site.name } : null,
     workingHours: {
       mode: entity.workingHourMode as WorkingHourMode,
@@ -189,7 +191,9 @@ export function toDetailDTO(entity: UserEntity): UserDetailDTO {
       endWorkTime: entity.endWorkTime,
       workDays: entity.workDays,
       flexibleTargetHour: entity.flexibleTargetHour,
-      shift: entity.shift ?? null,
+      shift: entity.shift
+        ? { id: entity.shift.id, name: entity.shift.name }
+        : null,
     },
     userSites: (entity.userSites ?? []).map((userSite) => ({
       siteId: userSite.siteId,

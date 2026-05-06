@@ -291,9 +291,8 @@ export function ClientComponent({
       const res = await fetch("/api/admin/departments");
       if (res.ok) {
         const data = await res.json();
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data;
-        const depts = result.departments || result || [];
+        // API returns: { success: true, data: [...] }
+        const depts = data.data || [];
         setDepartments(Array.isArray(depts) ? depts : []);
       }
     } catch (error) {
@@ -303,12 +302,11 @@ export function ClientComponent({
 
   const fetchRoles = useCallback(async () => {
     try {
-      const res = await fetch("/api/roles");
+      const res = await fetch("/api/roles?filterRestricted=true");
       if (res.ok) {
         const data = await res.json();
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data;
-        setRoles(result.roles || result || []);
+        // API returns array directly: [...]
+        setRoles(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error("Error fetching roles:", error);
@@ -317,12 +315,11 @@ export function ClientComponent({
 
   const fetchSites = useCallback(async () => {
     try {
-      const res = await fetch("/api/sites");
+      const res = await fetch("/api/admin/sites?activeOnly=true");
       if (res.ok) {
         const data = await res.json();
-        // Handle both wrapped (apiSuccess) and unwrapped response formats
-        const result = data.data || data;
-        const availableSites = result.sites || result || [];
+        // API returns: { success: true, data: [...] }
+        const availableSites = data.data || [];
         setSites((currentSites) => mergeSites(currentSites, availableSites));
       }
     } catch (error) {
