@@ -57,11 +57,11 @@ export {
 export { enqueuePushRetry } from "./services/PushRetryQueue";
 export { WhatsAppService } from "./services/whatsapp/whatsapp-service";
 
-// Multi-WhatsApp Support
+// Multi-WhatsApp Support - Services only (no repository exports)
 export { WhatsAppAccountService } from "./services/whatsapp-account.service";
 export { WhatsAppSenderService } from "./services/whatsapp-sender.service";
-export { WhatsAppAccountRepository } from "./repositories/whatsapp-account.repository";
-export { WhatsAppMessageRepository } from "./repositories/whatsapp-message.repository";
+
+// Domain types
 export type {
   WhatsAppAccount,
   WhatsAppAccountCreateInput,
@@ -71,6 +71,8 @@ export type {
   WhatsAppMessage,
   WhatsAppMessageStatus,
 } from "./domain/whatsapp-message.entity";
+
+// DTOs
 export type { CreateWhatsAppAccountDTO } from "./dto/create-whatsapp-account.dto";
 export type { UpdateWhatsAppAccountDTO } from "./dto/update-whatsapp-account.dto";
 export type {
@@ -78,7 +80,7 @@ export type {
   BroadcastWhatsAppMessageDTO,
 } from "./dto/send-whatsapp-message.dto";
 
-// Export schemas for validation
+// Validation schemas
 export { CreateWhatsAppAccountSchema } from "./dto/create-whatsapp-account.dto";
 export { UpdateWhatsAppAccountSchema } from "./dto/update-whatsapp-account.dto";
 export {

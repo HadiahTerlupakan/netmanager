@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type {
   WhatsAppMessage,
   WhatsAppMessageCreateInput,
@@ -80,7 +81,13 @@ export class WhatsAppMessageRepository {
   ): Promise<WhatsAppMessage> {
     const result = await prisma.whatsAppMessage.update({
       where: { id },
-      data,
+      data: {
+        status: data.status,
+        error: data.error,
+        messageId: data.messageId,
+        response: data.response as Prisma.InputJsonValue,
+        sentAt: data.sentAt,
+      },
     });
     return result as WhatsAppMessage;
   }
@@ -98,7 +105,7 @@ export class WhatsAppMessageRepository {
         status,
         error,
         messageId,
-        response,
+        response: response as Prisma.InputJsonValue,
         sentAt: status === "sent" ? new Date() : undefined,
       },
     });
