@@ -111,6 +111,7 @@ export function getUserColumns(options: UserColumnsOptions): Column<User>[] {
           return (
             <div className="flex flex-wrap gap-1">
               {user.userSites
+                .filter((us) => us.site)
                 .slice(0, USER_LIST_CONSTANTS.MAX_SITES_DISPLAY)
                 .map((us) => (
                   <span
