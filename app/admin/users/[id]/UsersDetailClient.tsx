@@ -221,9 +221,8 @@ export function ClientComponent({
     try {
       const res = await fetch(`/api/admin/users/${id}`);
       const data = await res.json();
-      // Handle both wrapped (apiSuccess) and unwrapped response formats
-      const result = data.data || data;
-      const usr = result.user;
+      // API returns: { success: true, data: { user: UserDetailDTO } }
+      const usr = data.data?.user;
 
       if (usr) {
         setUser(usr);
@@ -659,7 +658,6 @@ export function ClientComponent({
             </h3>
             <p className="text-xl font-medium text-gray-900 dark:text-white">
               {departments.find((d) => d.id === formData.departmentId)?.name ||
-                user?.departments?.name ||
                 user?.department?.name ||
                 "-"}
             </p>
@@ -693,11 +691,9 @@ export function ClientComponent({
               </div>
             ) : (
               <p className="text-xl font-medium text-gray-900 dark:text-white">
-                {user?.sites?.code
-                  ? `${user.sites.code} - ${user.sites.name}`
-                  : user?.site?.code
-                    ? `${user.site.code} - ${user.site.name}`
-                    : "-"}
+                {user?.site?.code
+                  ? `${user.site.code} - ${user.site.name}`
+                  : "-"}
               </p>
             )}
           </div>
