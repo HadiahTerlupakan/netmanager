@@ -13,6 +13,8 @@ function createRepository(value: string | null): ISettingsRepository {
           : [{ key: "PPP_CONNECTION_MODE", value, encrypted: false }],
       ),
     upsertMany: vi.fn(),
+    createMany: vi.fn(),
+    updateMany: vi.fn(),
     deleteManyByKeys: vi.fn(),
   };
 }

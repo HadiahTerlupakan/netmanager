@@ -11,6 +11,10 @@ export interface ISettingsRepository {
 
   upsertMany(entries: SettingsUpsertEntity[]): Promise<void>;
 
+  createMany(entries: SettingsUpsertEntity[]): Promise<void>;
+
+  updateMany(entries: SettingsUpsertEntity[]): Promise<void>;
+
   deleteManyByKeys(
     keys: ReadonlyArray<string>,
     tenantId?: string | null,

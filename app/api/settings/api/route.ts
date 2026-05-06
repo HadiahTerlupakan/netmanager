@@ -1,9 +1,10 @@
-import { createHandler, apiSuccess } from "@/lib/api";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { clearR2SettingsCache } from "@/lib/utils/r2-client";
 import { logActivitySafe } from "@/lib/logger";
 import { apiSettingsSchema } from "@/lib/validations/settings";
 import {
   getApiSettings,
+  createApiSettings,
   updateApiSettings,
   type ApiSettingsPostPayload,
 } from "@/modules/settings";
@@ -23,9 +24,52 @@ export const GET = createHandler(
 
 /**
  * POST /api/settings/api
- * Menyimpan pengaturan API
+ * Membuat pengaturan API baru (create)
  */
 export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["api:create"],
+    schema: apiSettingsSchema,
+  },
+  async (_req, ctx) => {
+    const tenantId = ctx.session!.user.tenantId;
+    const body: ApiSettingsPostPayload = ctx.validated;
+
+    try {
+      await createApiSettings(tenantId, body);
+      clearR2SettingsCache();
+
+      // System Log
+      if (ctx.session?.user?.id) {
+        logActivitySafe({
+          action: "CREATE",
+          subject: "Settings",
+          userId: ctx.session.user.id,
+          details: { type: "API/R2 Configuration" },
+        });
+      }
+
+      return apiSuccess({
+        success: true,
+        message: "Pengaturan API berhasil dibuat",
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return ApiErrors.conflict(
+          "Pengaturan sudah ada, gunakan PUT untuk update",
+        );
+      }
+      throw error;
+    }
+  },
+);
+
+/**
+ * PUT /api/settings/api
+ * Mengupdate pengaturan API yang sudah ada (edit)
+ */
+export const PUT = createHandler(
   {
     auth: true,
     permissions: ["api:update"],
@@ -34,21 +78,32 @@ export const POST = createHandler(
   async (_req, ctx) => {
     const tenantId = ctx.session!.user.tenantId;
     const body: ApiSettingsPostPayload = ctx.validated;
-    await updateApiSettings(tenantId, body);
 
-    clearR2SettingsCache();
+    try {
+      await updateApiSettings(tenantId, body);
+      clearR2SettingsCache();
 
-    // System Log
-    // ctx.session is guaranteed to exist because auth: true
-    if (ctx.session?.user?.id) {
-      logActivitySafe({
-        action: "UPDATE",
-        subject: "Settings",
-        userId: ctx.session.user.id,
-        details: { type: "API/R2 Configuration" },
+      // System Log
+      if (ctx.session?.user?.id) {
+        logActivitySafe({
+          action: "UPDATE",
+          subject: "Settings",
+          userId: ctx.session.user.id,
+          details: { type: "API/R2 Configuration" },
+        });
+      }
+
+      return apiSuccess({
+        success: true,
+        message: "Pengaturan API berhasil diupdate",
       });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return ApiErrors.notFound(
+          "Pengaturan tidak ditemukan, gunakan POST untuk create",
+        );
+      }
+      throw error;
     }
-
-    return apiSuccess({ success: true });
   },
 );

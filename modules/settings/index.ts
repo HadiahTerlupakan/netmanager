@@ -79,6 +79,7 @@ export {
 export {
   API_SETTINGS_KEYS,
   getApiSettings,
+  createApiSettings,
   updateApiSettings,
   testCloudflareR2Connection,
   testGoogleGeminiApiKey,

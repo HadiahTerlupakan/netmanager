@@ -170,7 +170,21 @@ export async function getApiSettings(
   return mapApiSettingsResponse(records);
 }
 
-/** Updates tenant-scoped API settings. */
+/** Creates new tenant-scoped API settings. */
+export async function createApiSettings(
+  tenantId: string,
+  payload: ApiSettingsPostPayload,
+  repository: ISettingsRepository = defaultSettingsRepository,
+): Promise<void> {
+  const updates = buildApiSettingsUpserts(payload);
+  if (!updates.length) {
+    return;
+  }
+
+  await repository.createMany(updates.map((entry) => ({ ...entry, tenantId })));
+}
+
+/** Updates existing tenant-scoped API settings. */
 export async function updateApiSettings(
   tenantId: string,
   payload: ApiSettingsPostPayload,
@@ -181,7 +195,7 @@ export async function updateApiSettings(
     return;
   }
 
-  await repository.upsertMany(updates.map((entry) => ({ ...entry, tenantId })));
+  await repository.updateMany(updates.map((entry) => ({ ...entry, tenantId })));
 }
 
 export { testCloudflareR2Connection, testGoogleGeminiApiKey };

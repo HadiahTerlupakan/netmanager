@@ -43,6 +43,44 @@ const settingsRepository: ISettingsRepository = {
     });
   },
 
+  /** Creates multiple new settings entries in a single transaction. */
+  async createMany(entries: SettingsUpsertEntity[]): Promise<void> {
+    if (!entries.length) {
+      return;
+    }
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        await createSetting(tx, entry, now);
+      }
+    });
+  },
+
+  /** Updates multiple existing settings entries in a single transaction. */
+  async updateMany(entries: SettingsUpsertEntity[]): Promise<void> {
+    if (!entries.length) {
+      return;
+    }
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        const existing = await tx.settings.findFirst({
+          where: buildUpsertWhere(entry),
+        });
+
+        if (!existing) {
+          throw new Error(
+            `Setting with key "${entry.key}" not found for tenant "${entry.tenantId}"`,
+          );
+        }
+
+        await updateExistingSetting(tx, existing.id, entry, now);
+      }
+    });
+  },
+
   /** Deletes settings records by keys within tenant scope. */
   async deleteManyByKeys(
     keys: ReadonlyArray<string>,

@@ -45,9 +45,25 @@ export async function fetchApiSettings(): Promise<ApiSettings> {
 }
 
 /**
- * Save API settings to server.
+ * Save API settings to server (update existing settings).
  */
 export async function saveApiSettings(settings: ApiSettings): Promise<void> {
+  const response = await fetch(API_SETTINGS_ENDPOINTS.SETTINGS, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || API_SETTINGS_MESSAGES.ERROR.SAVE_FAILED);
+  }
+}
+
+/**
+ * Create new API settings on server.
+ */
+export async function createApiSettings(settings: ApiSettings): Promise<void> {
   const response = await fetch(API_SETTINGS_ENDPOINTS.SETTINGS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
