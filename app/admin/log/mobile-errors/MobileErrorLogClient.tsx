@@ -13,7 +13,7 @@ type SystemLogItem = {
   type: string;
   action: string;
   subject: string;
-  details: string | null;
+  details: Record<string, unknown> | string | null;
   userId?: string | null;
   user?: {
     name?: string | null;
@@ -53,17 +53,29 @@ type ApiResponse = {
   };
 };
 
-const parseDetails = (details: string | null): MobileErrorDetails => {
+const parseDetails = (
+  details: Record<string, unknown> | string | null,
+): MobileErrorDetails => {
   if (!details) {
     return {};
   }
 
-  try {
-    const parsed = JSON.parse(details) as MobileErrorDetails;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
+  // If already an object, return as-is
+  if (typeof details === "object") {
+    return details as MobileErrorDetails;
   }
+
+  // If string, try to parse JSON
+  if (typeof details === "string") {
+    try {
+      const parsed = JSON.parse(details) as MobileErrorDetails;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
 };
 
 const severityStyles: Record<string, string> = {
@@ -185,17 +197,28 @@ export default function MobileErrorLogClient() {
             key: "message",
             header: "Message",
             priority: "primary",
-            render: (item) => (
-              <div className="space-y-1">
-                <p className="font-medium">
-                  {item.parsedDetails.message || item.subject}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {item.parsedDetails.screen || "-"} •{" "}
-                  {item.parsedDetails.route || "-"}
-                </p>
-              </div>
-            ),
+            render: (item) => {
+              const screen = item.parsedDetails.screen;
+              const route = item.parsedDetails.route;
+              const hasLocation = screen || route;
+
+              return (
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    {item.parsedDetails.message || item.subject}
+                  </p>
+                  {hasLocation ? (
+                    <p className="text-xs text-muted-foreground">
+                      {screen || "-"} • {route || "-"}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">
+                      No screen/route info
+                    </p>
+                  )}
+                </div>
+              );
+            },
           },
           {
             key: "severity",
@@ -281,68 +304,114 @@ export default function MobileErrorLogClient() {
                     <div>
                       <h4 className="font-semibold">Message</h4>
                       <p className="mt-1 text-muted-foreground">
-                        {details.message || "-"}
+                        {details.message || (
+                          <span className="italic">No message</span>
+                        )}
                       </p>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <h4 className="font-semibold">Screen</h4>
                         <p className="mt-1 text-muted-foreground">
-                          {details.screen || "-"}
+                          {details.screen || (
+                            <span className="italic">Not provided</span>
+                          )}
                         </p>
                       </div>
                       <div>
                         <h4 className="font-semibold">Route</h4>
                         <p className="mt-1 text-muted-foreground">
-                          {details.route || "-"}
+                          {details.route || (
+                            <span className="italic">Not provided</span>
+                          )}
                         </p>
                       </div>
                       <div>
                         <h4 className="font-semibold">Source</h4>
                         <p className="mt-1 text-muted-foreground">
-                          {details.source || "-"}
+                          {details.source || (
+                            <span className="italic">Unknown</span>
+                          )}
                         </p>
                       </div>
                       <div>
                         <h4 className="font-semibold">Severity</h4>
-                        <p className="mt-1 text-muted-foreground">
-                          {details.severity || "-"}
+                        <p className="mt-1">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${severityStyles[details.severity || "error"] || severityStyles.error}`}
+                          >
+                            {details.severity || "error"}
+                          </span>
                         </p>
                       </div>
                       <div>
                         <h4 className="font-semibold">App Version</h4>
                         <p className="mt-1 text-muted-foreground">
-                          {details.appVersion || "-"}
+                          {details.appVersion || (
+                            <span className="italic">Unknown</span>
+                          )}
                         </p>
                       </div>
                       <div>
                         <h4 className="font-semibold">Platform</h4>
                         <p className="mt-1 text-muted-foreground">
-                          {details.platform || "-"}
+                          {details.platform || (
+                            <span className="italic">Unknown</span>
+                          )}
                         </p>
                       </div>
+                      {details.occurredAt && (
+                        <div className="md:col-span-2">
+                          <h4 className="font-semibold">Occurred At</h4>
+                          <p className="mt-1 text-muted-foreground">
+                            {new Date(details.occurredAt).toLocaleString(
+                              "id-ID",
+                              {
+                                dateStyle: "full",
+                                timeStyle: "long",
+                              },
+                            )}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    <div>
-                      <h4 className="font-semibold">Stack</h4>
-                      <pre className="mt-1 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                        {details.stack || "-"}
-                      </pre>
-                    </div>
+                    {details.stack && (
+                      <div>
+                        <h4 className="font-semibold">Stack Trace</h4>
+                        <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                          {details.stack}
+                        </pre>
+                      </div>
+                    )}
 
-                    <div>
-                      <h4 className="font-semibold">Breadcrumbs</h4>
-                      <pre className="mt-1 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                        {JSON.stringify(details.breadcrumbs || [], null, 2)}
-                      </pre>
-                    </div>
+                    {details.breadcrumbs && details.breadcrumbs.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold">Breadcrumbs</h4>
+                        <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                          {JSON.stringify(details.breadcrumbs, null, 2)}
+                        </pre>
+                      </div>
+                    )}
 
-                    <div>
-                      <h4 className="font-semibold">Context</h4>
-                      <pre className="mt-1 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                        {JSON.stringify(details.context || {}, null, 2)}
-                      </pre>
-                    </div>
+                    {details.context &&
+                      Object.keys(details.context).length > 0 && (
+                        <div>
+                          <h4 className="font-semibold">Context</h4>
+                          <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                            {JSON.stringify(details.context, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+
+                    {details.authContext && (
+                      <div>
+                        <h4 className="font-semibold">Auth Context</h4>
+                        <pre className="mt-1 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                          {JSON.stringify(details.authContext, null, 2)}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 </ModalBody>
                 <ModalFooter>

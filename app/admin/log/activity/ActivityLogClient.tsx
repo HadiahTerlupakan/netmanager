@@ -21,7 +21,7 @@ interface SystemLog {
   id: string;
   action: string;
   subject: string;
-  details: string | null;
+  details: Record<string, unknown> | string | null;
   createdAt: string;
   user: {
     name: string | null;
@@ -299,17 +299,21 @@ export function ClientComponent() {
               </p>
               <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
                 <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono">
-                  {(() => {
-                    try {
-                      return JSON.stringify(
-                        JSON.parse(selectedLog.details || "{}"),
-                        null,
-                        2,
-                      );
-                    } catch {
-                      return selectedLog.details || "Tidak ada detail tambahan";
-                    }
-                  })()}
+                  {selectedLog.details
+                    ? (() => {
+                        try {
+                          const parsed =
+                            typeof selectedLog.details === "string"
+                              ? JSON.parse(selectedLog.details)
+                              : selectedLog.details;
+                          return JSON.stringify(parsed, null, 2);
+                        } catch {
+                          return typeof selectedLog.details === "string"
+                            ? selectedLog.details
+                            : JSON.stringify(selectedLog.details, null, 2);
+                        }
+                      })()
+                    : "Tidak ada detail tambahan"}
                 </pre>
               </div>
             </div>

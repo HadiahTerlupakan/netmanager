@@ -14,10 +14,13 @@ export interface SystemLogListItemDTO {
   type: SystemLogType;
   action: string;
   subject: string;
+  details: Record<string, unknown> | null;
   createdAt: string;
-  // Flattened user info
-  userName: string | null;
-  userEmail: string | null;
+  // User info (nested for consistency with client expectations)
+  user: {
+    name: string | null;
+    email: string;
+  } | null;
 }
 
 /**

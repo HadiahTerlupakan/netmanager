@@ -74,9 +74,9 @@ export class SystemLogMapper {
       type: entity.type,
       action: entity.action,
       subject: entity.subject,
+      details: entity.details,
       createdAt: entity.createdAt.toISOString(),
-      userName: entity.user?.name ?? null,
-      userEmail: entity.user?.email ?? null,
+      user: entity.user,
     };
   }
 

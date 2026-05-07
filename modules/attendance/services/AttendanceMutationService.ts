@@ -42,6 +42,9 @@ export class AttendanceMutationService {
   ) {}
 
   async checkIn(params: CheckInParams) {
+    // Validate coordinates if provided
+    this.validateCoordinates(params.latitude, params.longitude);
+
     const context = await this.prepareCheckInContext(params);
     await this.sessionGuardService.processAutoCheckout({
       ...context,
@@ -284,5 +287,21 @@ export class AttendanceMutationService {
     >[0],
   ) {
     return this.recomputeService.recomputeAttendanceEvaluation(params);
+  }
+
+  private validateCoordinates(latitude?: number, longitude?: number): void {
+    if (latitude === undefined || longitude === undefined) return;
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      throw new Error("INVALID_COORDINATES");
+    }
+
+    if (latitude < -90 || latitude > 90) {
+      throw new Error("INVALID_LATITUDE_RANGE");
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new Error("INVALID_LONGITUDE_RANGE");
+    }
   }
 }

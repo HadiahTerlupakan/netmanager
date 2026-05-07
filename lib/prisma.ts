@@ -8,7 +8,13 @@ import "dotenv/config";
 const globalForPrismaAuth = globalThis as unknown as {
   prismaAuth: PrismaClient | undefined;
 };
-const ignoreModels = ["Account", "Session", "VerificationToken", "Tenant"];
+const ignoreModels = [
+  "Account",
+  "Session",
+  "VerificationToken",
+  "Tenant",
+  "SystemLog",
+];
 
 let prismaClient: PrismaClient | undefined;
 

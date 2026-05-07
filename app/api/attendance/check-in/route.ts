@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Use centralized attendance service
     const attendanceService = new AttendanceService();
 
-    // Parse coordinates
+    // Parse coordinates (validation handled by service layer)
     const latStr = formData.get("latitude") as string;
     const lngStr = formData.get("longitude") as string;
     let latitude: number | undefined;
@@ -54,38 +54,6 @@ export async function POST(request: NextRequest) {
     if (latStr && lngStr) {
       const lat = parseFloat(latStr);
       const lng = parseFloat(lngStr);
-
-      // Validate coordinates
-      if (isNaN(lat) || isNaN(lng)) {
-        return NextResponse.json(
-          {
-            error: "Koordinat tidak valid",
-            code: "VALIDATION_ERROR",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (lat < -90 || lat > 90) {
-        return NextResponse.json(
-          {
-            error: "Latitude harus antara -90 dan 90",
-            code: "VALIDATION_ERROR",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (lng < -180 || lng > 180) {
-        return NextResponse.json(
-          {
-            error: "Longitude harus antara -180 dan 180",
-            code: "VALIDATION_ERROR",
-          },
-          { status: 400 },
-        );
-      }
-
       latitude = lat;
       longitude = lng;
     }
@@ -142,6 +110,33 @@ export async function POST(request: NextRequest) {
         {
           error: "Anda sudah melakukan check-in hari ini",
           code: "DUPLICATE_ENTRY",
+        },
+        { status: 400 },
+      );
+    }
+    if (errorMessage === "INVALID_COORDINATES") {
+      return NextResponse.json(
+        {
+          error: "Koordinat tidak valid",
+          code: "VALIDATION_ERROR",
+        },
+        { status: 400 },
+      );
+    }
+    if (errorMessage === "INVALID_LATITUDE_RANGE") {
+      return NextResponse.json(
+        {
+          error: "Latitude harus antara -90 dan 90",
+          code: "VALIDATION_ERROR",
+        },
+        { status: 400 },
+      );
+    }
+    if (errorMessage === "INVALID_LONGITUDE_RANGE") {
+      return NextResponse.json(
+        {
+          error: "Longitude harus antara -180 dan 180",
+          code: "VALIDATION_ERROR",
         },
         { status: 400 },
       );
