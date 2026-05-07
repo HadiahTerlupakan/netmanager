@@ -19,7 +19,7 @@ import { Modal, ModalFooter } from "@/components/ui/Modal";
 interface SystemLog {
   id: string;
   action: string;
-  details: string | null;
+  details: Record<string, unknown> | string | null;
   createdAt: string;
   user: {
     name: string | null;
@@ -93,10 +93,15 @@ export function ClientComponent() {
     setShowModal(true);
   };
 
-  const parseDetails = (details: string | null): LogDetails => {
+  const parseDetails = (
+    details: Record<string, unknown> | string | null,
+  ): LogDetails => {
     if (!details) return {};
+    if (typeof details === "object") {
+      return details as LogDetails;
+    }
     try {
-      return JSON.parse(details);
+      return JSON.parse(details) as LogDetails;
     } catch {
       return {};
     }
