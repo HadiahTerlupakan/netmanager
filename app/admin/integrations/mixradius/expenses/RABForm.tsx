@@ -62,6 +62,7 @@ import {
   type LocalWbs,
 } from "./RABForm/utils/rabFormPayloadBuilder";
 import { useRABExternalData } from "./RABForm/hooks/useRABExternalData";
+import { useRABTargetRevenue } from "./RABForm/hooks/useRABTargetRevenue";
 
 interface SiteOption {
   id: string;
@@ -188,14 +189,20 @@ export default function RABForm({
   );
 
   // Target & Revenue state
-  const [targetBasis, setTargetBasis] = useState<RabTargetBasis>("HOMECONNECT");
-  const [targetHomepass, setTargetHomepass] = useState(0);
-  const [targetTakeUpRatePercent, setTargetTakeUpRatePercent] = useState(40);
-  const [targetSubscribers, setTargetSubscribers] = useState(0);
-  const [arpu, setArpu] = useState(0);
-  const [paymentType, setPaymentType] = useState<"PREPAID" | "POSTPAID">(
-    "PREPAID",
-  );
+  const {
+    targetBasis,
+    setTargetBasis,
+    targetHomepass,
+    setTargetHomepass,
+    targetTakeUpRatePercent,
+    setTargetTakeUpRatePercent,
+    targetSubscribers,
+    setTargetSubscribers,
+    arpu,
+    setArpu,
+    paymentType,
+    setPaymentType,
+  } = useRABTargetRevenue();
 
   // Growth period state
   const [growthType, setGrowthType] = useState<GrowthType>("LINEAR");
@@ -412,7 +419,8 @@ export default function RABForm({
         setExpenseTab("CAPEX");
       }
     }
-  }, [initialData, isOpen]); // Tab resets removed from dependency array to avoid jumping
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, isOpen]); // Setter functions are stable and don't need to be in deps
 
   const handleAddItem = () => {
     setItems([
