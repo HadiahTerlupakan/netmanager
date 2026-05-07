@@ -44,6 +44,17 @@ vi.mock("@/modules/pelanggan", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    logActivity: vi.fn(),
+    logActivitySafe: vi.fn(),
+    logAuth: vi.fn(),
+    apiRequest: vi.fn(),
+    dbOperation: vi.fn(),
+  },
   logActivitySafe: vi.fn(),
 }));
 

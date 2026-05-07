@@ -6,8 +6,15 @@ import type { AttendanceSettingsService } from "@/modules/attendance";
 // Mock dependencies
 vi.mock("@/lib/logger", () => ({
   logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
     error: vi.fn(),
+    debug: vi.fn(),
     logActivity: vi.fn(() => Promise.resolve()),
+    logActivitySafe: vi.fn(),
+    logAuth: vi.fn(),
+    apiRequest: vi.fn(),
+    dbOperation: vi.fn(),
   },
 }));
 

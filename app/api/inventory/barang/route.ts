@@ -5,7 +5,7 @@ import {
   type InventoryBarangRouteResult,
 } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-import { parsePaginationParams } from "@/lib/utils/pagination";
+import { parsePaginationParams } from "@/lib/constants/pagination";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
 type InventoryBarangRouteFailure<T> = Extract<

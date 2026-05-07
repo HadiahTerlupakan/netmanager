@@ -59,9 +59,13 @@ describe("SystemLogRouteService", () => {
           type: "SYSTEM",
           action: "LOGIN",
           subject: "AUTH",
+          details: null,
           createdAt: createdAt.toISOString(),
-          userName: "Budi",
-          userEmail: "budi@example.com",
+          user: {
+            id: "user-1",
+            name: "Budi",
+            email: "budi@example.com",
+          },
         },
       ],
       pagination: {

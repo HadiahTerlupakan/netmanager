@@ -1,7 +1,6 @@
-import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { requireCustomerAuth } from "@/lib/customer-auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { SupportTicketService } from "@/modules/pelanggan";
+import { NextRequest } from "next/server";
 
 const ticketService = new SupportTicketService();
 
@@ -13,33 +12,52 @@ interface RouteParams {
  * POST /api/customer/tickets/[id]/close
  * Customer closes their own ticket
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const auth = await requireCustomerAuth(request);
-  if (auth.response) return auth.response;
+export async function POST(request: NextRequest, routeContext: RouteParams) {
+  const handler = createHandler(
+    {
+      auth: true,
+      permissions: ["tickets:update"],
+    },
+    async (req, ctx) => {
+      const session = ctx.session!;
+      const { id } = await routeContext.params;
 
-  const { session } = auth;
-  const { id } = await params;
+      let body: { feedback?: string; rating?: number } = {};
+      try {
+        body = await req.json();
+      } catch {
+        // Body is optional
+      }
 
-  try {
-    const body = await request.json().catch(() => ({}));
-    const result = await ticketService.closeCustomerTicket(session.id, id, {
-      feedback: body.feedback,
-      rating: body.rating,
-    });
+      try {
+        const result = await ticketService.closeCustomerTicket(
+          session.user.id,
+          id,
+          {
+            feedback: body.feedback,
+            rating: body.rating,
+          },
+        );
 
-    return NextResponse.json({ success: true, ...result });
-  } catch (error: unknown) {
-    logger.error("[Customer Ticket Close] Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Gagal menutup tiket";
-    const status =
-      message === "Tiket tidak ditemukan"
-        ? 404
-        : message.includes("akses")
-          ? 403
-          : message.includes("sudah ditutup")
-            ? 400
-            : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+        return apiSuccess(result);
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : "Gagal menutup tiket";
+
+        if (message === "Tiket tidak ditemukan") {
+          return ApiErrors.notFound(message);
+        }
+        if (message.includes("akses")) {
+          return ApiErrors.forbidden(message);
+        }
+        if (message.includes("sudah ditutup")) {
+          return ApiErrors.badRequest(message);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  return handler(request, routeContext);
 }

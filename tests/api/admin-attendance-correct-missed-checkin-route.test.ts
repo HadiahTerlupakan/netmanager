@@ -51,6 +51,17 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    logActivity: vi.fn(),
+    logActivitySafe: mockFns.logActivitySafe,
+    logAuth: vi.fn(),
+    apiRequest: vi.fn(),
+    dbOperation: vi.fn(),
+  },
   logActivitySafe: mockFns.logActivitySafe,
 }));
 

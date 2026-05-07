@@ -49,9 +49,15 @@ vi.mock("@/modules/database", () => ({
 
 vi.mock("@/lib/logger", () => ({
   logger: {
-    dbOperation: (...args: unknown[]) => mockLoggerDbOperation(...args),
-    apiRequest: (...args: unknown[]) => mockLoggerApiRequest(...args),
+    info: vi.fn(),
+    warn: vi.fn(),
     error: (...args: unknown[]) => mockLoggerError(...args),
+    debug: vi.fn(),
+    logActivity: vi.fn(),
+    logActivitySafe: vi.fn(),
+    logAuth: vi.fn(),
+    apiRequest: (...args: unknown[]) => mockLoggerApiRequest(...args),
+    dbOperation: (...args: unknown[]) => mockLoggerDbOperation(...args),
   },
 }));
 

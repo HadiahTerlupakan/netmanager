@@ -1,3 +1,23 @@
+/**
+ * Customer Portal Authentication
+ *
+ * BOUNDARY: Customer portal auth (JWT-based, separate dari NextAuth)
+ *
+ * Responsibility:
+ * - Customer session management (JWT token)
+ * - Customer auth guards untuk API routes & pages
+ * - Cookie management untuk customer portal
+ * - Token refresh logic
+ *
+ * Use Cases:
+ * - Customer portal pages: requireCustomerPageAuth()
+ * - Customer API routes: requireCustomerAuth()
+ * - Session helpers: getCustomerSession(), getCustomerSessionFromCookies()
+ *
+ * Note: Ini adalah PRIMARY auth guard untuk customer portal.
+ * Berbeda dengan admin/employee yang menggunakan NextAuth + createHandler pattern.
+ */
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextRequest, NextResponse } from "next/server";

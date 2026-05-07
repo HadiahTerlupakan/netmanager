@@ -8,15 +8,18 @@
  * @param options - Fetch options
  * @returns Promise<Response>
  */
-export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+export async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetch(url, {
     ...options,
-    credentials: 'include',
+    credentials: "include",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
-  })
+  });
 }
 
 /**
@@ -25,11 +28,14 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
  * @param options - Fetch options tambahan
  * @returns Promise<Response>
  */
-export async function getWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+export async function getWithAuth(
+  url: string,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetchWithAuth(url, {
-    method: 'GET',
+    method: "GET",
     ...options,
-  })
+  });
 }
 
 /**
@@ -39,12 +45,16 @@ export async function getWithAuth(url: string, options: RequestInit = {}): Promi
  * @param options - Fetch options tambahan
  * @returns Promise<Response>
  */
-export async function postWithAuth(url: string, data: unknown, options: RequestInit = {}): Promise<Response> {
+export async function postWithAuth(
+  url: string,
+  data: unknown,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetchWithAuth(url, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(data),
     ...options,
-  })
+  });
 }
 
 /**
@@ -54,12 +64,16 @@ export async function postWithAuth(url: string, data: unknown, options: RequestI
  * @param options - Fetch options tambahan
  * @returns Promise<Response>
  */
-export async function putWithAuth(url: string, data: unknown, options: RequestInit = {}): Promise<Response> {
+export async function putWithAuth(
+  url: string,
+  data: unknown,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetchWithAuth(url, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(data),
     ...options,
-  })
+  });
 }
 
 /**
@@ -69,12 +83,16 @@ export async function putWithAuth(url: string, data: unknown, options: RequestIn
  * @param options - Fetch options tambahan
  * @returns Promise<Response>
  */
-export async function patchWithAuth(url: string, data: unknown, options: RequestInit = {}): Promise<Response> {
+export async function patchWithAuth(
+  url: string,
+  data: unknown,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetchWithAuth(url, {
-    method: 'PATCH',
+    method: "PATCH",
     body: JSON.stringify(data),
     ...options,
-  })
+  });
 }
 
 /**
@@ -83,9 +101,12 @@ export async function patchWithAuth(url: string, data: unknown, options: Request
  * @param options - Fetch options tambahan
  * @returns Promise<Response>
  */
-export async function deleteWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+export async function deleteWithAuth(
+  url: string,
+  options: RequestInit = {},
+): Promise<Response> {
   return fetchWithAuth(url, {
-    method: 'DELETE',
+    method: "DELETE",
     ...options,
-  })
+  });
 }

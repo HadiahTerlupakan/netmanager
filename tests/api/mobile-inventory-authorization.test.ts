@@ -185,7 +185,15 @@ vi.mock("@/modules/inventory", async (importOriginal) => {
 
 vi.mock("@/lib/logger", () => ({
   logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
     logActivity: (...args: unknown[]) => mockFns.loggerLogActivity(...args),
+    logActivitySafe: vi.fn(),
+    logAuth: vi.fn(),
+    apiRequest: vi.fn(),
+    dbOperation: vi.fn(),
   },
 }));
 

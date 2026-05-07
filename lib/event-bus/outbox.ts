@@ -1,15 +1,15 @@
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
-import type { EventName, EventCategory } from './types'
+import { prisma } from "@/lib/prisma";
+import { randomUUID } from "crypto";
+import type { EventName, EventCategory } from "./types";
 
 export interface OutboxEventInput {
-  eventName: EventName
+  eventName: EventName;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload: Record<string, any>
-  priority: number
-  category: EventCategory
-  aggregateId?: string
-  aggregateType?: string
+  payload: Record<string, any>;
+  priority: number;
+  category: EventCategory;
+  aggregateId?: string;
+  aggregateType?: string;
 }
 
 /**
@@ -31,7 +31,7 @@ export interface OutboxEventInput {
  * ```
  */
 export async function saveToOutbox(input: OutboxEventInput): Promise<string> {
-  const id = randomUUID()
+  const id = randomUUID();
 
   await prisma.$executeRaw`
     INSERT INTO "OutboxEvent" (
@@ -53,9 +53,9 @@ export async function saveToOutbox(input: OutboxEventInput): Promise<string> {
       NOW(),
       NOW()
     )
-  `
+  `;
 
-  return id
+  return id;
 }
 
 /**
@@ -65,9 +65,9 @@ export async function saveToOutbox(input: OutboxEventInput): Promise<string> {
 export async function saveToOutboxTx(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
-  input: OutboxEventInput
+  input: OutboxEventInput,
 ): Promise<string> {
-  const id = randomUUID()
+  const id = randomUUID();
 
   await tx.$executeRaw`
     INSERT INTO "OutboxEvent" (
@@ -89,9 +89,9 @@ export async function saveToOutboxTx(
       NOW(),
       NOW()
     )
-  `
+  `;
 
-  return id
+  return id;
 }
 
 /**
@@ -100,29 +100,29 @@ export async function saveToOutboxTx(
  */
 export async function fetchPendingEvents(batchSize = 50): Promise<
   Array<{
-    id: string
-    eventName: string
+    id: string;
+    eventName: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payload: Record<string, any>
-    priority: number
-    category: string
-    retryCount: number
-    maxRetries: number
-    createdAt: Date
+    payload: Record<string, any>;
+    priority: number;
+    category: string;
+    retryCount: number;
+    maxRetries: number;
+    createdAt: Date;
   }>
 > {
   // First, claim the events by setting status to PROCESSING
   const events = await prisma.$queryRaw<
     Array<{
-      id: string
-      eventName: string
+      id: string;
+      eventName: string;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payload: Record<string, any>
-      priority: number
-      category: string
-      retryCount: number
-      maxRetries: number
-      createdAt: Date
+      payload: Record<string, any>;
+      priority: number;
+      category: string;
+      retryCount: number;
+      maxRetries: number;
+      createdAt: Date;
     }>
   >`
     UPDATE "OutboxEvent"
@@ -136,9 +136,9 @@ export async function fetchPendingEvents(batchSize = 50): Promise<
       FOR UPDATE SKIP LOCKED
     )
     RETURNING id, "eventName", payload, priority, category, "retryCount", "maxRetries", "createdAt"
-  `
+  `;
 
-  return events
+  return events;
 }
 
 /**
@@ -149,7 +149,7 @@ export async function markEventProcessed(eventId: string): Promise<void> {
     UPDATE "OutboxEvent"
     SET status = 'COMPLETED', "updatedAt" = NOW(), "processedAt" = NOW()
     WHERE id = ${eventId}
-  `
+  `;
 }
 
 /**
@@ -158,7 +158,7 @@ export async function markEventProcessed(eventId: string): Promise<void> {
  */
 export async function markEventFailed(
   eventId: string,
-  error: string
+  error: string,
 ): Promise<void> {
   await prisma.$executeRaw`
     UPDATE "OutboxEvent"
@@ -176,18 +176,18 @@ export async function markEventFailed(
         ELSE NULL
       END
     WHERE id = ${eventId}
-  `
+  `;
 }
 
 /**
  * Get outbox statistics for monitoring.
  */
 export async function getOutboxStats(): Promise<{
-  pending: number
-  processing: number
-  completed: number
-  dead: number
-  total: number
+  pending: number;
+  processing: number;
+  completed: number;
+  dead: number;
+  total: number;
 }> {
   const result = await prisma.$queryRaw<
     Array<{ status: string; count: bigint }>
@@ -196,18 +196,18 @@ export async function getOutboxStats(): Promise<{
     FROM "OutboxEvent"
     WHERE "createdAt" > NOW() - INTERVAL '24 hours'
     GROUP BY status
-  `
+  `;
 
-  const stats = { pending: 0, processing: 0, completed: 0, dead: 0, total: 0 }
+  const stats = { pending: 0, processing: 0, completed: 0, dead: 0, total: 0 };
   for (const row of result) {
-    const count = Number(row.count)
-    stats.total += count
+    const count = Number(row.count);
+    stats.total += count;
     if (row.status in stats) {
-      stats[row.status as keyof typeof stats] = count
+      stats[row.status as keyof typeof stats] = count;
     }
   }
 
-  return stats
+  return stats;
 }
 
 /**
@@ -219,6 +219,6 @@ export async function cleanupOldEvents(daysToKeep = 7): Promise<number> {
     DELETE FROM "OutboxEvent"
     WHERE status = 'COMPLETED'
       AND "processedAt" < NOW() - INTERVAL '1 day' * ${daysToKeep}
-  `
-  return Number(result)
+  `;
+  return Number(result);
 }

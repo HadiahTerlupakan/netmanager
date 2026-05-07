@@ -1,10 +1,43 @@
+/**
+ * @deprecated This file is deprecated for NEW routes.
+ *
+ * MIGRATION PATH:
+ * - For NEW API routes: Use `createHandler({ auth: true })` pattern from @/lib/api
+ * - For existing routes: Keep using this file for backward compatibility
+ *
+ * REASON:
+ * This file uses manual auth guard pattern which has been replaced by
+ * the more robust `createHandler` pattern that integrates with authorization
+ * middleware and provides better error handling.
+ *
+ * KEPT FOR:
+ * - Backward compatibility with existing routes
+ * - Routes that haven't been migrated yet
+ *
+ * NEW ROUTES SHOULD USE:
+ * ```typescript
+ * import { createHandler, apiSuccess } from "@/lib/api";
+ *
+ * export const GET = createHandler(
+ *   { auth: true, permissions: ["resource:read"] },
+ *   async (req, ctx) => {
+ *     const user = ctx.session.user;
+ *     // Your logic here
+ *     return apiSuccess(data);
+ *   }
+ * );
+ * ```
+ */
+
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
 import { authConfig } from "@/lib/auth";
 
-// Log security events
+// Re-export isSuperAdminRole from new location
+export { isSuperAdminRole } from "@/lib/auth";
+
 function logSecurityEvent(
   request: NextRequest,
   event: string,
@@ -27,11 +60,6 @@ function logSecurityEvent(
   });
 }
 
-/**
- * Fungsi autentikasi terpusat untuk memeriksa session user
- * @param _request NextRequest object (unused but kept for signature)
- * @returns session object atau null jika tidak authenticated
- */
 export async function getCurrentSession(_request: NextRequest) {
   try {
     const session = (await getServerSession(authConfig)) as
@@ -43,7 +71,6 @@ export async function getCurrentSession(_request: NextRequest) {
     }
 
     if (session?.user) {
-      // Jika session ada dan user ada, tapi role tidak ada, set role sebagai ADMIN
       if (!session.user.role) {
         session.user.role = "ADMIN";
       }
@@ -56,12 +83,6 @@ export async function getCurrentSession(_request: NextRequest) {
   }
 }
 
-/**
- * Fungsi requireAuth yang terpusat
- * Memeriksa apakah user sudah login
- * @param request NextRequest object
- * @returns NextResponse error jika belum login, null jika sudah login
- */
 export async function requireAuth(request: NextRequest) {
   const session = await getCurrentSession(request);
 
@@ -76,15 +97,9 @@ export async function requireAuth(request: NextRequest) {
     );
   }
 
-  return session; // Return session for use in the handler
+  return session;
 }
 
-/**
- * Fungsi requireAdmin yang terpusat
- * Memeriksa apakah user sudah login (untuk admin routes)
- * @param request NextRequest object
- * @returns NextResponse error jika belum login, null jika sudah login
- */
 export async function requireAdmin(request: NextRequest) {
   const session = await getCurrentSession(request);
 
@@ -99,18 +114,9 @@ export async function requireAdmin(request: NextRequest) {
     );
   }
 
-  return session; // Return session for use in the handler
+  return session;
 }
 
-// Note: requireAdminOrEmployee and requireEmployeeOrAdmin functions are removed
-// since we only have ADMIN role now. Use requireAdmin instead.
-
-/**
- * Fungsi untuk self-access (user bisa akses data sendiri)
- * @param request NextRequest object
- * @param resourceId ID resource yang akan diakses
- * @returns NextResponse error jika tidak punya akses, null jika boleh akses
- */
 export async function requireSelfAccess(
   request: NextRequest,
   resourceId: string,
@@ -130,7 +136,6 @@ export async function requireSelfAccess(
 
   const userId = session.user.id;
 
-  // If trying to access someone else's data
   if (resourceId !== userId) {
     logSecurityEvent(request, "UNAUTHORIZED_SELF_ACCESS", {
       userId,
@@ -143,14 +148,9 @@ export async function requireSelfAccess(
     );
   }
 
-  return session; // Return session for use in the handler
+  return session;
 }
 
-/**
- * Helper function untuk mendapatkan user ID dari session
- * @param request NextRequest object
- * @returns user ID atau null
- */
 export async function getCurrentUserId(
   request: NextRequest,
 ): Promise<string | null> {
@@ -158,35 +158,12 @@ export async function getCurrentUserId(
   return session?.user?.id || null;
 }
 
-/**
- * Helper function untuk mendapatkan employee data dari session
- * @param request NextRequest object
- * @returns employee data atau null
- */
 export async function getCurrentEmployee(request: NextRequest) {
   const session = await getCurrentSession(request);
   return session?.user?.employee || null;
 }
 
-/**
- * Helper function untuk memeriksa apakah user adalah admin
- * @param request NextRequest object
- * @returns true jika admin, false jika tidak
- */
 export async function isAdmin(request: NextRequest): Promise<boolean> {
   const session = await getCurrentSession(request);
   return session?.user?.role === "ADMIN";
-}
-
-// Note: isEmployee function is removed since we only have ADMIN role now.
-// Use isAdmin instead.
-
-/**
- * Helper function untuk standarisasi pengecekan SUPER_ADMIN role
- * Mengatasi inkonsistensi antara 'SUPER_ADMIN' dan 'Super Admin'
- * @param roleName nama role dari session
- * @returns true jika SUPER_ADMIN, false jika tidak
- */
-export function isSuperAdminRole(roleName: string | undefined | null): boolean {
-  return roleName === "SUPER_ADMIN" || roleName === "Super Admin";
 }

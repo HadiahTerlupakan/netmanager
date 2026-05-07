@@ -1,92 +1,82 @@
-import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { requireCustomerAuth } from "@/lib/customer-auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { SupportTicketService } from "@/modules/pelanggan";
+import { parsePaginationParams } from "@/lib/constants/pagination";
+import { z } from "zod";
 
 const ticketService = new SupportTicketService();
+
+const createTicketSchema = z.object({
+  category: z.string().min(1, "Kategori wajib diisi"),
+  subject: z.string().min(1, "Subjek wajib diisi"),
+  description: z.string().min(1, "Deskripsi wajib diisi"),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
+});
 
 /**
  * GET /api/customer/tickets
  * Get customer's support tickets
- * Refactored to use SupportTicketService (thin controller pattern)
  */
-export async function GET(request: NextRequest) {
-  const auth = await requireCustomerAuth(request);
-  if (auth.response) return auth.response;
+export const GET = createHandler(
+  { auth: true, permissions: ["tickets:read"] },
+  async (req, ctx) => {
+    const session = ctx.session!;
+    const { searchParams } = req.nextUrl;
 
-  const { session } = auth;
-  const { searchParams } = new URL(request.url);
+    const { page, limit } = parsePaginationParams(searchParams);
+    const status = searchParams.get("status") || undefined;
 
-  const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "10");
-  const status = searchParams.get("status") || undefined;
-
-  try {
     const result = await ticketService.getCustomerTickets(
-      session.id,
+      session.user.id,
       page,
       limit,
       status,
     );
 
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
-  } catch (error: unknown) {
-    logger.error("[Customer Tickets GET] Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Gagal mengambil daftar tiket";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 },
-    );
-  }
-}
+    return apiSuccess(result);
+  },
+);
 
 /**
  * POST /api/customer/tickets
  * Create new support ticket
- * Refactored to use SupportTicketService (thin controller pattern)
  */
-export async function POST(request: NextRequest) {
-  const auth = await requireCustomerAuth(request);
-  if (auth.response) return auth.response;
+export const POST = createHandler(
+  {
+    auth: true,
+    permissions: ["tickets:create"],
+    schema: createTicketSchema,
+  },
+  async (_req, ctx) => {
+    const session = ctx.session!;
+    const body = ctx.validated;
 
-  const { session } = auth;
+    try {
+      const ticket = await ticketService.createTicket(session.user.id, {
+        category: body.category,
+        subject: body.subject,
+        description: body.description,
+        priority: body.priority,
+      });
 
-  try {
-    const body = await request.json();
-    const { category, subject, description, priority } = body;
+      return apiSuccess(
+        { ticket },
+        { status: 201, message: "Tiket berhasil dibuat" },
+      );
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Gagal membuat tiket";
 
-    const ticket = await ticketService.createTicket(session.id, {
-      category,
-      subject,
-      description,
-      priority,
-    });
+      // Map validation errors to 400
+      const validationErrors = [
+        "Kategori, subjek, dan deskripsi wajib diisi",
+        "Kategori tidak valid",
+      ];
 
-    return NextResponse.json({
-      success: true,
-      message: "Tiket berhasil dibuat",
-      ticket,
-    });
-  } catch (error: unknown) {
-    logger.error("[Customer Tickets POST] Error:", error);
+      if (validationErrors.includes(message)) {
+        return ApiErrors.badRequest(message);
+      }
 
-    const message =
-      error instanceof Error ? error.message : "Gagal membuat tiket";
-
-    // Map validation errors to 400
-    const validationErrors = [
-      "Kategori, subjek, dan deskripsi wajib diisi",
-      "Kategori tidak valid",
-    ];
-    const statusCode = validationErrors.includes(message) ? 400 : 500;
-
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: statusCode },
-    );
-  }
-}
+      throw error; // Let createHandler handle general errors
+    }
+  },
+);

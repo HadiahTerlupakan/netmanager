@@ -30,7 +30,17 @@ vi.mock("@/lib/realtime", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({
-  logger: { logActivity: mockFns.logActivity, error: vi.fn() },
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    logActivity: mockFns.logActivity,
+    logActivitySafe: vi.fn(),
+    logAuth: vi.fn(),
+    apiRequest: vi.fn(),
+    dbOperation: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/expo", () => ({

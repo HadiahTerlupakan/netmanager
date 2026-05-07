@@ -1,7 +1,6 @@
-import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { requireCustomerAuth } from "@/lib/customer-auth";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { SupportTicketService } from "@/modules/pelanggan";
+import { NextRequest } from "next/server";
 
 const ticketService = new SupportTicketService();
 
@@ -13,21 +12,33 @@ interface RouteParams {
  * GET /api/customer/tickets/[id]
  * Get ticket detail with replies
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  const auth = await requireCustomerAuth(request);
-  if (auth.response) return auth.response;
+export async function GET(request: NextRequest, routeContext: RouteParams) {
+  const handler = createHandler(
+    { auth: true, permissions: ["tickets:read"] },
+    async (_req, ctx) => {
+      const session = ctx.session!;
+      const { id } = await routeContext.params;
 
-  const { session } = auth;
-  const { id } = await params;
+      try {
+        const ticket = await ticketService.getCustomerTicketDetail(
+          session.user.id,
+          id,
+        );
+        return apiSuccess({ ticket });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil detail tiket";
 
-  try {
-    const ticket = await ticketService.getCustomerTicketDetail(session.id, id);
-    return NextResponse.json({ success: true, ticket });
-  } catch (error) {
-    logger.error("[Customer Tickets GET Detail] Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Gagal mengambil detail tiket";
-    const status = message === "Tiket tidak ditemukan" ? 404 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
-  }
+        if (message === "Tiket tidak ditemukan") {
+          return ApiErrors.notFound(message);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  return handler(request, routeContext);
 }
