@@ -1,4 +1,4 @@
-import React from "react";
+import type { ComboboxOption } from "@/components/ui/Combobox";
 import type { RABOpexBufferFundingMode } from "../../rabTypes";
 
 export interface InvestorOption {
@@ -53,14 +53,9 @@ export function normalizeInvestorListResponse(
 export function buildHierarchicalOptions(
   categories: Category[],
   expenseType: string,
-) {
+): ComboboxOption[] {
   const filtered = categories.filter((c) => c.type === expenseType);
-  const options: {
-    value: string;
-    label: React.ReactNode;
-    searchLabel: string;
-    disabled?: boolean;
-  }[] = [];
+  const options: ComboboxOption[] = [];
 
   const addCategoryAndChildren = (parentId: string | null, depth: number) => {
     const children = filtered.filter((c) => c.parentId === parentId);

@@ -54,16 +54,14 @@ import {
   buildHierarchicalOptions,
   DEFAULT_OPEX_BUFFER_SETTINGS,
   getDefaultOpexBufferShares,
-  normalizeInvestorListResponse,
   shouldShowOpexBufferSafety,
-  type Category,
-  type InvestorOption,
 } from "./RABForm/utils/rabFormHelpers";
 import { validateRABForm } from "./RABForm/utils/rabFormValidation";
 import {
   buildRABPayload,
   type LocalWbs,
 } from "./RABForm/utils/rabFormPayloadBuilder";
+import { useRABExternalData } from "./RABForm/hooks/useRABExternalData";
 
 interface SiteOption {
   id: string;
@@ -217,41 +215,12 @@ export default function RABForm({
 
   const [items, setItems] = useState<LocalItem[]>([]);
   const [wbsGroups, setWbsGroups] = useState<LocalWbs[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [investorsList, setInvestorsList] = useState<InvestorOption[]>([]);
+
+  // Fetch external data (categories & investors)
+  const { categories, investorsList } = useRABExternalData();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInvestorDropdownOpen, setIsInvestorDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await fetch("/api/finance/expense-categories");
-        const data = await res.json();
-        // expense-categories sudah memiliki type CAPEX/OPEX — simpan semua
-        setCategories(
-          Array.isArray(data?.data ?? data) ? (data?.data ?? data) : [],
-        );
-      } catch (error) {
-        console.error("Failed fetching categories", error);
-      }
-    };
-
-    const fetchInvestors = async () => {
-      try {
-        const res = await fetch("/api/admin/investors");
-        if (res.ok) {
-          const data = await res.json();
-          setInvestorsList(normalizeInvestorListResponse(data));
-        }
-      } catch (error) {
-        console.error("Failed fetching investors", error);
-      }
-    };
-
-    fetchCategories();
-    fetchInvestors();
-  }, []);
 
   // Get current growth settings based on type
   const currentGrowthSettings = useMemo((): GrowthSettings => {
