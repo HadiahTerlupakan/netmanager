@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { Package, Wifi, Plus, Edit, Trash2, X, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { usePermission } from "@/hooks/use-permission";
+import { Button } from "@/components/ui/Button";
 
 type VendorConfig = {
   id: string;
@@ -316,7 +317,7 @@ export function VendorConfigTab() {
               </div>
               <div className="flex space-x-2">
                 {canUpdate && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() =>
                       setVendorModal({
@@ -325,10 +326,11 @@ export function VendorConfigTab() {
                         data: { name: "", priority: 10, enabled: true },
                       })
                     }
-                    className="px-4 py-2 bg-[#a855f7] dark:bg-purple-600 text-white rounded-md text-[13px] font-medium hover:bg-purple-700 dark:hover:bg-purple-700 flex items-center"
+                    variant="default"
+                    size="sm"
                   >
-                    <Plus className="w-4 h-4 mr-1.5" /> Add Vendor
-                  </button>
+                    <Plus className="w-4 h-4" /> Add Vendor
+                  </Button>
                 )}
               </div>
             </div>
@@ -413,7 +415,7 @@ export function VendorConfigTab() {
                       <td className="px-6 py-4 text-center space-x-2">
                         {canUpdate && (
                           <>
-                            <button
+                            <Button
                               type="button"
                               onClick={() =>
                                 setVendorModal({
@@ -422,17 +424,19 @@ export function VendorConfigTab() {
                                   data: { ...vendor },
                                 })
                               }
-                              className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded text-[12px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700"
+                              variant="default"
+                              size="sm"
                             >
-                              <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
-                            </button>
-                            <button
+                              <Edit className="w-3.5 h-3.5" /> Edit
+                            </Button>
+                            <Button
                               type="button"
                               onClick={() => handleDeleteVendor(vendor.id)}
-                              className="inline-flex items-center px-3 py-1.5 bg-[#ef4444] text-white rounded text-[12px] font-medium hover:bg-red-700"
+                              variant="destructive"
+                              size="sm"
                             >
-                              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-                            </button>
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </Button>
                           </>
                         )}
                       </td>
@@ -467,7 +471,7 @@ export function VendorConfigTab() {
               </div>
               <div className="flex space-x-2">
                 {canUpdate && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() =>
                       setWifiModal({
@@ -479,10 +483,11 @@ export function VendorConfigTab() {
                         },
                       })
                     }
-                    className="px-4 py-2 bg-[#a855f7] dark:bg-purple-600 text-white rounded-md text-[13px] font-medium hover:bg-purple-700 dark:hover:bg-purple-700 flex items-center"
+                    variant="default"
+                    size="sm"
                   >
-                    <Plus className="w-4 h-4 mr-1.5" /> Add WiFi Config
-                  </button>
+                    <Plus className="w-4 h-4" /> Add WiFi Config
+                  </Button>
                 )}
               </div>
             </div>
@@ -554,7 +559,7 @@ export function VendorConfigTab() {
                       <td className="px-6 py-4 text-center space-x-2">
                         {canUpdate && (
                           <>
-                            <button
+                            <Button
                               type="button"
                               onClick={() =>
                                 setWifiModal({
@@ -563,17 +568,19 @@ export function VendorConfigTab() {
                                   data: { ...config },
                                 })
                               }
-                              className="inline-flex items-center px-3 py-1.5 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded text-[12px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700"
+                              variant="default"
+                              size="sm"
                             >
-                              <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
-                            </button>
-                            <button
+                              <Edit className="w-3.5 h-3.5" /> Edit
+                            </Button>
+                            <Button
                               type="button"
                               onClick={() => handleDeleteWifi(config.id)}
-                              className="inline-flex items-center px-3 py-1.5 bg-[#ef4444] text-white rounded text-[12px] font-medium hover:bg-red-700"
+                              variant="destructive"
+                              size="sm"
                             >
-                              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
-                            </button>
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </Button>
                           </>
                         )}
                       </td>
@@ -852,23 +859,17 @@ export function VendorConfigTab() {
             </div>
           </div>
           <div className="px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
-            <button
+            <Button
               type="button"
               onClick={() => setVendorModal((p) => ({ ...p, isOpen: false }))}
-              className="px-5 py-2 text-gray-700 font-bold text-[14px] hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-gray-300 rounded-lg transition-colors"
+              variant="outline"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex items-center px-5 py-2 bg-[#a855f7] dark:bg-purple-600 text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm"
-            >
-              {isSaving ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}{" "}
+            </Button>
+            <Button type="submit" disabled={isSaving} variant="default">
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
               {vendorModal.isEdit ? "Update Vendor" : "Create Vendor"}
-            </button>
+            </Button>
           </div>
         </form>
       </ModalOverlay>
@@ -956,23 +957,17 @@ export function VendorConfigTab() {
             </div>
           </div>
           <div className="px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
-            <button
+            <Button
               type="button"
               onClick={() => setWifiModal((p) => ({ ...p, isOpen: false }))}
-              className="px-5 py-2 text-gray-700 font-bold text-[14px] hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-gray-300 rounded-lg transition-colors"
+              variant="outline"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex items-center px-5 py-2 bg-[#a855f7] dark:bg-purple-600 text-white font-bold text-[14px] rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm"
-            >
-              {isSaving ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}{" "}
+            </Button>
+            <Button type="submit" disabled={isSaving} variant="default">
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
               {wifiModal.isEdit ? "Update Config" : "Create Config"}
-            </button>
+            </Button>
           </div>
         </form>
       </ModalOverlay>

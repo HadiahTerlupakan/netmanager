@@ -8,6 +8,7 @@ import {
   HiExclamationCircle,
   HiShieldCheck,
 } from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
 
 function unwrapApiData<T>(payload: T | { data?: T }): T {
   if (payload && typeof payload === "object" && "data" in payload) {
@@ -198,18 +199,14 @@ export function ClientComponent() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-indigo-600 dark:bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-2"
-            >
+            <Button type="submit" disabled={saving} variant="default">
               {saving ? (
                 <HiArrowPath className="animate-spin" />
               ) : (
                 <HiCheckCircle />
               )}
               Simpan Pengaturan
-            </button>
+            </Button>
           </form>
         )}
       </div>

@@ -284,7 +284,7 @@ export default function AttendanceCard() {
                   onClick={capturePhoto}
                   className="absolute bottom-4 left-1/2"
                 >
-                  <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                  <div className="w-4 h-4 bg-red-500 dark:bg-red-400 rounded-full"></div>
                 </Button>
               </div>
             )}
@@ -303,7 +303,7 @@ export default function AttendanceCard() {
                 />
                 <Button
                   onClick={() => setPhoto(null)}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full text-xs"
+                  className="absolute top-2 right-2 bg-red-500 dark:bg-red-400 text-white p-1 rounded-full text-xs"
                 >
                   Ulang
                 </Button>

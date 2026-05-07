@@ -13,6 +13,7 @@ import {
 import { usePermission } from "@/hooks/use-permission";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 
 interface AppVersion {
   id: string;
@@ -263,24 +264,27 @@ export function AppVersionClient() {
   const renderActions = (item: AppVersion) => (
     <div className="flex gap-1">
       {canUpdate && (
-        <button
+        <Button
           type="button"
           onClick={() => handleEdit(item)}
-          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+          variant="ghost"
+          size="icon-sm"
           title="Edit"
         >
           <HiOutlinePencil className="h-4 w-4" />
-        </button>
+        </Button>
       )}
       {canDelete && item.isActive && (
-        <button
+        <Button
           type="button"
           onClick={() => handleDelete(item.id)}
-          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          variant="ghost"
+          size="icon-sm"
           title="Hapus permanen"
+          className="text-red-600 hover:bg-red-50"
         >
           <HiOutlineTrash className="h-4 w-4" />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -298,14 +302,14 @@ export function AppVersionClient() {
           </p>
         </div>
         {canCreate && (
-          <button
+          <Button
             type="button"
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+            variant="default"
           >
             <HiOutlineCloudArrowUp className="h-5 w-5" />
             Upload Versi Baru
-          </button>
+          </Button>
         )}
       </div>
       {/* Stats Cards */}
@@ -391,26 +395,28 @@ export function AppVersionClient() {
             dari {pagination.total}
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
               }
               disabled={pagination.page <= 1}
-              className="px-3 py-1 border rounded-md disabled:opacity-50"
+              variant="outline"
+              size="sm"
             >
               Prev
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() =>
                 setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
               }
               disabled={pagination.page >= pagination.totalPages}
-              className="px-3 py-1 border rounded-md disabled:opacity-50"
+              variant="outline"
+              size="sm"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -842,19 +848,19 @@ function UploadVersionModal({
       </div>
 
       <ModalFooter>
-        <button
+        <Button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+          variant="outline"
           disabled={loading}
         >
           Batal
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           form="upload-form"
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50 flex items-center justify-center gap-2"
+          variant="default"
         >
           {loading ? (
             <>
@@ -864,7 +870,7 @@ function UploadVersionModal({
           ) : (
             "Upload"
           )}
-        </button>
+        </Button>
       </ModalFooter>
     </Modal>
   );
@@ -996,21 +1002,17 @@ function EditVersionModal({
       </div>
 
       <ModalFooter>
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-        >
+        <Button type="button" onClick={onClose} variant="outline">
           Batal
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           form="edit-form"
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:opacity-50"
+          variant="default"
         >
           {loading ? "Menyimpan..." : "Simpan"}
-        </button>
+        </Button>
       </ModalFooter>
     </Modal>
   );

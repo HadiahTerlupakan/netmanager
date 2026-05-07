@@ -12,6 +12,7 @@ import { NetworkSettings } from "@/components/admin/settings/NetworkSettings";
 import { TimezoneSettings } from "@/components/admin/settings/TimezoneSettings";
 import { TenantSync } from "@/components/admin/settings/TenantSync";
 import { useGeneralSettings } from "./useGeneralSettings";
+import { Button } from "@/components/ui/Button";
 
 export function ClientComponent() {
   const {
@@ -94,10 +95,11 @@ export function ClientComponent() {
           />
 
           <div className="sticky bottom-6 flex justify-end">
-            <button
+            <Button
               type="submit"
               disabled={saving || loading}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-400 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              variant="default"
+              size="lg"
             >
               {saving ? (
                 <>
@@ -107,7 +109,7 @@ export function ClientComponent() {
               ) : (
                 "Simpan Semua Pengaturan"
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

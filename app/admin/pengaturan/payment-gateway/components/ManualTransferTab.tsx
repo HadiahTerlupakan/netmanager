@@ -18,6 +18,7 @@ import type {
   CompanyBankAccount,
   ManualTransferFormValues,
 } from "../hooks/useManualTransferAccounts";
+import { Button } from "@/components/ui/Button";
 
 export default function ManualTransferTab() {
   const { accounts, loading, upsertAccount, deleteAccount, toggleAccount } =
@@ -111,13 +112,14 @@ export default function ManualTransferTab() {
     <div>
       {/* Header / Add Button */}
       <div className="flex justify-end mb-6">
-        <button
+        <Button
+          type="button"
           onClick={() => handleOpenModal()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          variant="default"
         >
           <HiOutlinePlus className="w-5 h-5" />
           Tambah Rekening
-        </button>
+        </Button>
       </div>
 
       {/* Bank Accounts List */}
@@ -128,12 +130,13 @@ export default function ManualTransferTab() {
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               Belum ada rekening bank yang ditambahkan
             </p>
-            <button
+            <Button
+              type="button"
               onClick={() => handleOpenModal()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="default"
             >
               Tambah Rekening Pertama
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -342,23 +345,27 @@ export default function ManualTransferTab() {
         </div>
 
         <ModalFooter>
-          <button
+          <Button
+            type="button"
             onClick={() => setModalOpen(false)}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            variant="outline"
+            className="flex-1"
           >
             Batal
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
             onClick={handleSave}
             disabled={
               !formData.bankName ||
               !formData.accountNumber ||
               !formData.accountName
             }
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            variant="default"
+            className="flex-1"
           >
             {editingAccount ? "Update" : "Simpan"}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
     </div>

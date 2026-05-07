@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Check, Info, RefreshCw, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/Toast"; // Adjusted import to the actual implementation
 import { usePermission } from "@/hooks/use-permission";
+import { Button } from "@/components/ui/Button";
 
 export function AcsConfigTab() {
   const { showToast } = useToast();
@@ -154,32 +155,34 @@ export function AcsConfigTab() {
                 </p>
               </div>
               <div className="flex justify-end space-x-3">
-                <button
+                <Button
                   type="button"
                   onClick={handleTestUrl}
                   disabled={testingUrl}
-                  className="px-4 py-2 border border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 rounded-md text-[13px] font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center disabled:opacity-50"
+                  variant="outline"
+                  size="sm"
                 >
                   {testingUrl ? (
-                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 mr-1.5" />
-                  )}{" "}
+                    <AlertCircle className="w-4 h-4" />
+                  )}
                   Test URL
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleSave}
                   disabled={loading || !canUpdate}
-                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  variant="default"
+                  size="sm"
                 >
                   {loading ? (
-                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Check className="w-4 h-4 mr-1.5" />
-                  )}{" "}
+                    <Check className="w-4 h-4" />
+                  )}
                   Save URL
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -318,19 +321,20 @@ export function AcsConfigTab() {
                 </div>
               </div>
               <div className="flex justify-end mt-8">
-                <button
+                <Button
                   type="button"
                   onClick={handleSave}
                   disabled={loading || !canUpdate}
-                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  variant="default"
+                  size="sm"
                 >
                   {loading ? (
-                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Check className="w-4 h-4 mr-1.5" />
-                  )}{" "}
+                    <Check className="w-4 h-4" />
+                  )}
                   Save Virtual Parameters
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -441,19 +445,20 @@ export function AcsConfigTab() {
               </div>
 
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
                   onClick={handleSave}
                   disabled={loading || !canUpdate}
-                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  variant="default"
+                  size="sm"
                 >
                   {loading ? (
-                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Check className="w-4 h-4 mr-1.5" />
-                  )}{" "}
+                    <Check className="w-4 h-4" />
+                  )}
                   Save RX Power Settings
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -633,19 +638,20 @@ export function AcsConfigTab() {
               </div>
 
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
                   onClick={handleSave}
                   disabled={loading}
-                  className="px-4 py-2 bg-[#3b5fe5] dark:bg-blue-600 text-white rounded-md text-[13px] font-medium hover:bg-blue-700 dark:hover:bg-blue-700 flex items-center shadow-sm disabled:opacity-50"
+                  variant="default"
+                  size="sm"
                 >
                   {loading ? (
-                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Check className="w-4 h-4 mr-1.5" />
-                  )}{" "}
+                    <Check className="w-4 h-4" />
+                  )}
                   Save Refresh Intervals
-                </button>
+                </Button>
               </div>
             </div>
           </div>

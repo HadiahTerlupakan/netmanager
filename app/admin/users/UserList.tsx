@@ -12,6 +12,7 @@ import UserFilters from "./components/UserFilters";
 import UserModals from "./components/UserModals";
 import { UserTable } from "./components/UserTable";
 import { ComparisonBar } from "./components/ComparisonBar";
+import { buttonVariants } from "@/components/ui/Button";
 
 /**
  * User list page - thin orchestrator component.
@@ -78,10 +79,10 @@ export default function UserList() {
                 ? `/admin/users/new?tenantId=${tenantIdFilter}`
                 : "/admin/users/new"
             }
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors shadow-sm"
+            className={buttonVariants({ variant: "default" })}
           >
-            <HiOutlinePlus className="w-5 h-5 text-white" />
-            <span className="text-white">Tambah Pengguna</span>
+            <HiOutlinePlus className="w-5 h-5" />
+            <span>Tambah Pengguna</span>
           </Link>
         )}
       </div>

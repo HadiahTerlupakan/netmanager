@@ -307,11 +307,11 @@ export default function EmployeeLocationMap({
             Keterangan
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+            <span className="w-3 h-3 rounded-full bg-blue-600 dark:bg-blue-500"></span>
             <span>Diam</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
-            <span className="w-3 h-3 rounded-full bg-green-500"></span>
+            <span className="w-3 h-3 rounded-full bg-green-500 dark:bg-green-400"></span>
             <span>Bergerak</span>
           </div>
         </div>
@@ -325,7 +325,7 @@ export default function EmployeeLocationMap({
       </div>
 
       {/* Employee count badge */}
-      <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+      <div className="absolute top-4 right-4 bg-blue-600 dark:bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
         {locations.length} Karyawan Aktif
       </div>
     </div>

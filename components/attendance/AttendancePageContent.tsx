@@ -588,7 +588,7 @@ export default function AttendancePageContent({
                 handleAttendance();
               }}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 shadow-blue-600/30 hover:bg-blue-700"
+              className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 dark:bg-blue-500 shadow-blue-600/30 hover:bg-blue-700 dark:hover:bg-blue-600"
             >
               {loading
                 ? "Menyimpan..."
@@ -668,7 +668,7 @@ export default function AttendancePageContent({
         {/* Main Content Card */}
         <div className="px-4 w-full">
           <div className="bg-white dark:bg-[#1c2936] rounded-xl p-4 shadow-sm border border-slate-200 dark:border-gray-800 relative overflow-hidden transition-colors">
-            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
             {/* Location Section */}
             <div className="relative w-full h-28 rounded-xl overflow-hidden mb-5 group shadow-sm bg-gray-100 dark:bg-gray-900">

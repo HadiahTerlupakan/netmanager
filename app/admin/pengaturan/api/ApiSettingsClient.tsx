@@ -7,6 +7,7 @@ import { GeminiSettings } from "@/components/admin/settings/GeminiSettings";
 import { StatusAlert } from "@/components/admin/logo/StatusAlert";
 import { useApiSettings } from "./lib/useApiSettings";
 import { API_SETTINGS_MESSAGES } from "./lib/constants";
+import { Button } from "@/components/ui/Button";
 
 export function ClientComponent() {
   const {
@@ -98,19 +99,20 @@ export function ClientComponent() {
               </div>
 
               <div className="flex items-center gap-3 w-full md:w-auto">
-                <button
+                <Button
                   type="button"
                   onClick={() => void loadSettings()}
                   disabled={loading || saving}
-                  className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                  variant="secondary"
                 >
                   <HiArrowPath className="w-4 h-4" />
                   Reset
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={saving}
-                  className="flex-[2] md:flex-none inline-flex items-center justify-center gap-2 px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                  variant="default"
+                  className="flex-[2] md:flex-none"
                 >
                   {saving ? (
                     <>
@@ -123,7 +125,7 @@ export function ClientComponent() {
                       Simpan Pengaturan
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

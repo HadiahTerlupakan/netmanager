@@ -5,6 +5,7 @@ import PageLoader from "@/components/ui/PageLoader";
 import { USER_LIST_CONSTANTS, USER_LIST_MESSAGES } from "../lib/constants";
 import { getUserColumns, renderUserActions } from "../lib/userColumns";
 import type { User } from "../lib/types";
+import { buttonVariants } from "@/components/ui/Button";
 
 interface UserTableProps {
   users: User[];
@@ -96,10 +97,10 @@ export function UserTable({
           {canCreate && (
             <Link
               href="/admin/users/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors"
+              className={buttonVariants({ variant: "default" })}
             >
-              <HiOutlinePlus className="w-5 h-5 text-white" />
-              <span className="text-white">Tambah Pengguna</span>
+              <HiOutlinePlus className="w-5 h-5" />
+              <span>Tambah Pengguna</span>
             </Link>
           )}
         </div>

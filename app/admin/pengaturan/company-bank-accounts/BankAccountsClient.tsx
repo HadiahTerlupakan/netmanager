@@ -12,6 +12,7 @@ import {
   HiXMark,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
+import { Button } from "@/components/ui/Button";
 
 interface CompanyBankAccount {
   id: string;
@@ -184,14 +185,14 @@ export function ClientComponent() {
               </p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
             onClick={() => handleOpenModal()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            variant="default"
           >
             <HiOutlinePlus className="w-5 h-5" />
             Tambah Rekening
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -203,13 +204,13 @@ export function ClientComponent() {
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               Belum ada rekening bank yang ditambahkan
             </p>
-            <button
+            <Button
               type="button"
               onClick={() => handleOpenModal()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="default"
             >
               Tambah Rekening Pertama
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -317,13 +318,15 @@ export function ClientComponent() {
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 {editingAccount ? "Edit Rekening" : "Tambah Rekening Baru"}
               </h3>
-              <button
+              <Button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2"
+                variant="ghost"
+                size="icon"
               >
                 <HiXMark className="w-6 h-6 text-gray-500" />
-              </button>
+              </Button>
             </div>
 
             {/* Modal Body */}
@@ -459,14 +462,15 @@ export function ClientComponent() {
 
             {/* Modal Footer */}
             <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-gray-800">
-              <button
+              <Button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                variant="outline"
+                className="flex-1"
               >
                 Batal
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleSave}
                 disabled={
@@ -474,10 +478,11 @@ export function ClientComponent() {
                   !formData.accountNumber ||
                   !formData.accountName
                 }
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                variant="default"
+                className="flex-1"
               >
                 {editingAccount ? "Update" : "Simpan"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

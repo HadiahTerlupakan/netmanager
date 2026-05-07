@@ -13,6 +13,7 @@ import {
   HiOutlineArrowPath,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
+import { Button } from "@/components/ui/Button";
 
 interface WhatsAppAccount {
   id: string;
@@ -153,16 +154,17 @@ export function ClientComponent() {
               Kelola multiple akun WhatsApp untuk pengiriman pesan
             </p>
           </div>
-          <button
+          <Button
+            type="button"
             onClick={() => {
               setEditingAccount(null);
               setShowModal(true);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            variant="default"
           >
             <HiOutlinePlus className="w-5 h-5" />
             Tambah Akun
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -198,16 +200,17 @@ export function ClientComponent() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Tambahkan akun WhatsApp pertama Anda untuk mulai mengirim pesan
             </p>
-            <button
+            <Button
+              type="button"
               onClick={() => {
                 setEditingAccount(null);
                 setShowModal(true);
               }}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+              variant="default"
             >
               <HiOutlinePlus className="w-5 h-5" />
               Tambah Akun Pertama
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="grid gap-4">
@@ -267,38 +270,47 @@ export function ClientComponent() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                      type="button"
                       onClick={() => handleTest(account.id)}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      variant="ghost"
+                      size="icon"
                       title="Test Connection"
                     >
                       <HiOutlineArrowPath className="w-5 h-5" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      type="button"
                       onClick={() => {
                         setEditingAccount(account);
                         setShowModal(true);
                       }}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      variant="ghost"
+                      size="icon"
                       title="Edit"
                     >
                       <HiOutlinePencil className="w-5 h-5" />
-                    </button>
+                    </Button>
                     {!account.isDefault && (
-                      <button
+                      <Button
+                        type="button"
                         onClick={() => handleSetDefault(account.id)}
-                        className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        variant="ghost"
+                        size="sm"
                       >
                         Set Default
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
+                      type="button"
                       onClick={() => handleDelete(account.id)}
-                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      variant="ghost"
+                      size="icon"
                       title="Delete"
+                      className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                       <HiOutlineTrash className="w-5 h-5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -624,20 +636,22 @@ function AccountModal({
             </div>
 
             <div className="flex gap-3 pt-4">
-              <button
+              <Button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                variant="outline"
+                className="flex-1"
               >
                 Batal
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                variant="default"
+                className="flex-1"
               >
                 {saving ? "Menyimpan..." : "Simpan"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

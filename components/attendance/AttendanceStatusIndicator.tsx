@@ -62,12 +62,12 @@ export function AttendanceStatusIndicator({
           Status Kehadiran
         </span>
         {isLate && !checkOutTime && (
-          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded">
+          <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold rounded">
             TERLAMBAT
           </span>
         )}
         {!isLate && checkOutTime && (
-          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">
+          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold rounded">
             TEPAT WAKTU
           </span>
         )}
@@ -92,7 +92,7 @@ export function AttendanceStatusIndicator({
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              className="bg-blue-500 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>

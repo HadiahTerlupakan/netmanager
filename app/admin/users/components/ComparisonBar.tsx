@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { HiOutlineStar } from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
+import { buttonVariants } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 interface ComparisonBarProps {
   selectedUserIds: string[];
@@ -31,19 +34,18 @@ export function ComparisonBar({
       <div className="h-8 w-px bg-gray-200 dark:bg-gray-700" />
 
       <div className="flex items-center gap-3">
-        <button
-          onClick={clearSelection}
-          className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-        >
+        <Button onClick={clearSelection} variant="ghost" size="sm">
           Batal
-        </button>
+        </Button>
         <Link
           href={`/admin/users/compare?ids=${selectedUserIds.join(",")}`}
-          className={`px-6 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-2 ${
-            canCompare
-              ? "bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white translate-y-0 opacity-100 shadow-indigo-200 dark:shadow-indigo-900/20"
-              : "bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed pointer-events-none"
-          }`}
+          className={cn(
+            buttonVariants({
+              variant: canCompare ? "default" : "secondary",
+              size: "sm",
+            }),
+            !canCompare && "pointer-events-none opacity-50",
+          )}
         >
           <HiOutlineStar className="w-4 h-4" />
           Bandingkan Kinerja
