@@ -45,10 +45,7 @@ import type {
 } from "./rabTypes";
 import { Modal } from "@/components/ui/Modal";
 import { Combobox } from "@/components/ui/Combobox";
-import ItemDisbursementModal, {
-  type LocalDisbursement,
-  type LocalItem,
-} from "./ItemDisbursementModal";
+import ItemDisbursementModal from "./ItemDisbursementModal";
 import {
   buildHierarchicalOptions,
   DEFAULT_OPEX_BUFFER_SETTINGS,
@@ -56,13 +53,11 @@ import {
   shouldShowOpexBufferSafety,
 } from "./RABForm/utils/rabFormHelpers";
 import { validateRABForm } from "./RABForm/utils/rabFormValidation";
-import {
-  buildRABPayload,
-  type LocalWbs,
-} from "./RABForm/utils/rabFormPayloadBuilder";
+import { buildRABPayload } from "./RABForm/utils/rabFormPayloadBuilder";
 import { useRABExternalData } from "./RABForm/hooks/useRABExternalData";
 import { useRABTargetRevenue } from "./RABForm/hooks/useRABTargetRevenue";
 import { useRABGrowthModel } from "./RABForm/hooks/useRABGrowthModel";
+import { useRABItems } from "./RABForm/hooks/useRABItems";
 
 interface SiteOption {
   id: string;
@@ -184,9 +179,18 @@ export default function RABForm({
     investorIds: [] as string[],
   });
 
-  const [activeTerminItemId, setActiveTerminItemId] = useState<string | null>(
-    null,
-  );
+  // Items & WBS state
+  const {
+    items,
+    setItems,
+    wbsGroups,
+    setWbsGroups,
+    activeTerminItemId,
+    setActiveTerminItemId,
+    handleAddItem,
+    handleRemoveItem,
+    updateItem,
+  } = useRABItems();
 
   // Target & Revenue state
   const {
@@ -216,9 +220,6 @@ export default function RABForm({
     setCustomMilestones,
     currentGrowthSettings,
   } = useRABGrowthModel();
-
-  const [items, setItems] = useState<LocalItem[]>([]);
-  const [wbsGroups, setWbsGroups] = useState<LocalWbs[]>([]);
 
   // Fetch external data (categories & investors)
   const { categories, investorsList } = useRABExternalData();
@@ -406,37 +407,6 @@ export default function RABForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData, isOpen]); // Setter functions are stable and don't need to be in deps
-
-  const handleAddItem = () => {
-    setItems([
-      ...items,
-      {
-        id: crypto.randomUUID(),
-        name: "",
-        category: expenseTab === "CAPEX" ? "DEVICE" : "OPERATIONAL",
-        quantity: 1,
-        unitPrice: 0,
-        expenseType: expenseTab,
-        disbursements: [],
-      },
-    ]);
-  };
-
-  const handleRemoveItem = (id: string) => {
-    setItems(items.filter((i) => i.id !== id));
-  };
-
-  const updateItem = (
-    id: string,
-    field: string,
-    value: string | number | string[] | LocalDisbursement[],
-  ) => {
-    setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item,
-      ),
-    );
-  };
 
   const handleAddMilestone = () => {
     const lastMonth =
@@ -2293,7 +2263,7 @@ export default function RABForm({
 
                     <button
                       type="button"
-                      onClick={handleAddItem}
+                      onClick={() => handleAddItem(expenseTab)}
                       className={`flex items-center justify-center gap-2 px-5 py-2 rounded-xl text-xs font-black text-white transition-all shadow-lg active:scale-95 whitespace-nowrap ${
                         expenseTab === "CAPEX"
                           ? "bg-purple-600 hover:bg-purple-700 shadow-purple-500/20"
@@ -2359,7 +2329,7 @@ export default function RABForm({
                       <Button
                         variant="link"
                         size="sm"
-                        onClick={handleAddItem}
+                        onClick={() => handleAddItem(expenseTab)}
                         className="mt-4"
                       >
                         MULAI TAMBAH ITEM SEKARANG
