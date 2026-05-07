@@ -34,7 +34,6 @@ import {
 import { buildRABTrackingDataset } from "./rabTracking";
 import type {
   CustomGrowthSettings,
-  CustomMilestone,
   GrowthSettings,
   LinearGrowthSettings,
   PercentageGrowthSettings,
@@ -63,6 +62,7 @@ import {
 } from "./RABForm/utils/rabFormPayloadBuilder";
 import { useRABExternalData } from "./RABForm/hooks/useRABExternalData";
 import { useRABTargetRevenue } from "./RABForm/hooks/useRABTargetRevenue";
+import { useRABGrowthModel } from "./RABForm/hooks/useRABGrowthModel";
 
 interface SiteOption {
   id: string;
@@ -205,20 +205,17 @@ export default function RABForm({
   } = useRABTargetRevenue();
 
   // Growth period state
-  const [growthType, setGrowthType] = useState<GrowthType>("LINEAR");
-  const [linearSettings, setLinearSettings] = useState<LinearGrowthSettings>({
-    subscribersPerMonth: 10,
-  });
-  const [percentageSettings, setPercentageSettings] =
-    useState<PercentageGrowthSettings>({
-      initialPercent: 10,
-      monthlyGrowthPercent: 15,
-    });
-  const [customMilestones, setCustomMilestones] = useState<CustomMilestone[]>([
-    { month: 3, percent: 30 },
-    { month: 6, percent: 60 },
-    { month: 12, percent: 100 },
-  ]);
+  const {
+    growthType,
+    setGrowthType,
+    linearSettings,
+    setLinearSettings,
+    percentageSettings,
+    setPercentageSettings,
+    customMilestones,
+    setCustomMilestones,
+    currentGrowthSettings,
+  } = useRABGrowthModel();
 
   const [items, setItems] = useState<LocalItem[]>([]);
   const [wbsGroups, setWbsGroups] = useState<LocalWbs[]>([]);
@@ -228,18 +225,6 @@ export default function RABForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInvestorDropdownOpen, setIsInvestorDropdownOpen] = useState(false);
-
-  // Get current growth settings based on type
-  const currentGrowthSettings = useMemo((): GrowthSettings => {
-    switch (growthType) {
-      case "LINEAR":
-        return linearSettings;
-      case "PERCENTAGE":
-        return percentageSettings;
-      case "CUSTOM":
-        return { milestones: customMilestones };
-    }
-  }, [growthType, linearSettings, percentageSettings, customMilestones]);
 
   // Initialize data if editing when modal opens
   useEffect(() => {
