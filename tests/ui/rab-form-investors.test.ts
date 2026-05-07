@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeInvestorListResponse,
   shouldShowOpexBufferSafety,
-} from "@/app/admin/integrations/mixradius/expenses/RABForm";
+} from "@/app/admin/integrations/mixradius/expenses/RABForm/utils/rabFormHelpers";
 
 describe("shouldShowOpexBufferSafety", () => {
   it("hides safety margin for full funding modes", () => {

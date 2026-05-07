@@ -50,6 +50,20 @@ import ItemDisbursementModal, {
   type LocalDisbursement,
   type LocalItem,
 } from "./ItemDisbursementModal";
+import {
+  buildHierarchicalOptions,
+  DEFAULT_OPEX_BUFFER_SETTINGS,
+  getDefaultOpexBufferShares,
+  normalizeInvestorListResponse,
+  shouldShowOpexBufferSafety,
+  type Category,
+  type InvestorOption,
+} from "./RABForm/utils/rabFormHelpers";
+import { validateRABForm } from "./RABForm/utils/rabFormValidation";
+import {
+  buildRABPayload,
+  type LocalWbs,
+} from "./RABForm/utils/rabFormPayloadBuilder";
 
 interface SiteOption {
   id: string;
@@ -132,135 +146,6 @@ type GrowthType = NonNullable<RABProject["growthType"]>;
 type FormSubmitEvent = Parameters<
   NonNullable<ComponentProps<"form">["onSubmit"]>
 >[0];
-type InvestorOption = { id: string; namaLengkap: string };
-
-const DEFAULT_OPEX_BUFFER_SETTINGS = {
-  opexBufferFundingMode: "INVESTOR" as RABOpexBufferFundingMode,
-  opexBufferInvestorPercent: 100,
-  opexBufferCompanyPercent: 0,
-  opexBufferInvestorFixedAmount: 0,
-  opexBufferSafetyPercent: 0,
-};
-
-export function shouldShowOpexBufferSafety(mode: RABOpexBufferFundingMode) {
-  return mode === "SHARED_PERCENTAGE" || mode === "FIXED";
-}
-
-function getDefaultOpexBufferShares(mode: RABOpexBufferFundingMode) {
-  if (mode === "COMPANY") {
-    return { investorPercent: 0, companyPercent: 100 };
-  }
-
-  if (mode === "SHARED_PERCENTAGE") {
-    return { investorPercent: 50, companyPercent: 50 };
-  }
-
-  return { investorPercent: 100, companyPercent: 0 };
-}
-
-function isInvestorOption(value: unknown): value is InvestorOption {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    typeof (value as InvestorOption).id === "string" &&
-    typeof (value as InvestorOption).namaLengkap === "string"
-  );
-}
-
-// Menjaga payload investor API tetap array sebelum dirender dropdown.
-export function normalizeInvestorListResponse(
-  response: unknown,
-): InvestorOption[] {
-  const payload =
-    response && typeof response === "object" && "data" in response
-      ? (response as { data: unknown }).data
-      : response;
-
-  return Array.isArray(payload) ? payload.filter(isInvestorOption) : [];
-}
-
-interface LocalWbs {
-  id: string;
-  name: string;
-  order: number;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  type: string;
-  parentId?: string | null;
-  code?: string;
-}
-
-// Buat opsi berjenjang tak terbatas: parent sebagai header (disabled), children di-indent sesuai kedalaman
-function buildHierarchicalOptions(categories: Category[], expenseType: string) {
-  const filtered = categories.filter((c) => c.type === expenseType);
-  const options: {
-    value: string;
-    label: React.ReactNode;
-    searchLabel: string;
-    disabled?: boolean;
-  }[] = [];
-
-  const addCategoryAndChildren = (parentId: string | null, depth: number) => {
-    const children = filtered.filter((c) => c.parentId === parentId);
-
-    children.forEach((child) => {
-      const hasChildren = filtered.some((c) => c.parentId === child.id);
-
-      if (hasChildren) {
-        options.push({
-          value: `__header__${child.id}`,
-          label: (
-            <span
-              className={`flex items-center gap-1.5 text-gray-500 dark:text-gray-400 ${depth === 0 ? "text-xs font-bold uppercase tracking-wider mt-1" : "text-sm font-semibold"}`}
-              style={{ paddingLeft: `${depth * 1}rem` }}
-            >
-              {depth > 0 && (
-                <span className="text-gray-300 dark:text-gray-600 text-xs">
-                  —
-                </span>
-              )}
-              📁 {child.code ? `[${child.code}] ` : ""}
-              {child.name}
-            </span>
-          ),
-          searchLabel: child.name,
-          disabled: true,
-        });
-      } else {
-        options.push({
-          value: child.id,
-          label: (
-            <span
-              className="flex items-center gap-1.5 text-gray-700 dark:text-gray-200"
-              style={{ paddingLeft: `${depth * 1}rem` }}
-            >
-              {depth > 0 && (
-                <span className="text-gray-300 dark:text-gray-600 text-xs">
-                  —
-                </span>
-              )}
-              📄 {child.code ? `[${child.code}] ` : ""}
-              {child.name}
-            </span>
-          ),
-          searchLabel: child.name,
-          disabled: false,
-        });
-      }
-
-      if (hasChildren) {
-        addCategoryAndChildren(child.id, depth + 1);
-      }
-    });
-  };
-
-  addCategoryAndChildren(null, 0);
-
-  return options;
-}
 
 export default function RABForm({
   isOpen,
@@ -768,123 +653,40 @@ export default function RABForm({
     e.preventDefault();
 
     // Comprehensive validation with clear messages
-    const validationErrors: string[] = [];
+    const validation = validateRABForm(formData, items);
 
-    if (!formData.name.trim()) {
-      validationErrors.push("Nama proyek wajib diisi");
-    }
-    if (items.length === 0) {
-      validationErrors.push("Minimal 1 item biaya harus ditambahkan");
-    }
-    const emptyItems = items.filter((i) => !i.name.trim());
-    if (emptyItems.length > 0) {
-      validationErrors.push(`${emptyItems.length} item belum diisi namanya`);
-    }
-    const zeroItems = items.filter((i) => i.unitPrice <= 0);
-    if (zeroItems.length > 0) {
-      validationErrors.push(`${zeroItems.length} item memiliki harga Rp 0`);
-    }
-
-    // Validate Item Disbursements
-    items.forEach((item, index) => {
-      if (item.disbursements && item.disbursements.length > 0) {
-        const totalPercent = item.disbursements.reduce(
-          (sum, d) => sum + d.percentage,
-          0,
-        );
-        if (Math.abs(totalPercent - 100) > 0.01) {
-          validationErrors.push(
-            `Item "${item.name || `Baris ${index + 1}`}" memiliki total persentase termin tidak 100% (saat ini ${totalPercent}%)`,
-          );
-        }
-      }
-    });
-
-    if (validationErrors.length > 0) {
+    if (!validation.isValid) {
       toast.error(
-        `Mohon perbaiki data berikut:\n${validationErrors.map((e) => `- ${e}`).join("\n")}`,
+        `Mohon perbaiki data berikut:\n${validation.errors.map((e) => `- ${e}`).join("\n")}`,
         { duration: 6000 },
       );
-      if (!formData.name.trim()) setMainTab("info");
-      else if (
-        items.length === 0 ||
-        emptyItems.length > 0 ||
-        zeroItems.length > 0
-      )
-        setMainTab("items");
+      if (validation.targetTab) {
+        setMainTab(validation.targetTab);
+      }
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      let finalSiteId = formData.siteId;
-      const selectedGroup = sites.find(
-        (s) => s.id === formData.mixRadiusGroupId,
-      );
-      if (selectedGroup && selectedGroup.siteId) {
-        finalSiteId = selectedGroup.siteId;
-      }
-
-      const payload = {
-        name: formData.name,
-        description: formData.description,
-        status: formData.status,
-        mixRadiusGroupId: formData.mixRadiusGroupId || null,
-        mixRadiusInvestorSiteId:
-          billingSource === "MIXRADIUS"
-            ? formData.mixRadiusInvestorSiteId || null
-            : null,
-        siteId:
-          billingSource === "INTERNAL"
-            ? formData.siteId || finalSiteId || null
-            : finalSiteId || null,
-        projectedRevenue: projectedRevenue,
-        projectedOpex: totalOpex,
+      const payload = buildRABPayload({
+        formData,
+        billingSource,
+        sites,
+        projectedRevenue,
+        totalOpex,
         targetBasis,
-        targetHomepass: targetBasis === "HOMEPASS" ? targetHomepass : undefined,
-        targetTakeUpRatePercent:
-          targetBasis === "HOMEPASS" ? targetTakeUpRatePercent : 100,
-        targetSubscribers: effectiveTargetSubscribers,
+        targetHomepass,
+        targetTakeUpRatePercent,
+        effectiveTargetSubscribers,
         arpu,
         paymentType,
         growthType,
-        growthSettings: currentGrowthSettings,
-        startDate: formData.startDate || undefined,
-        investmentDurationMonths: formData.investmentDurationMonths,
-        investmentRecoveryType: formData.investmentRecoveryType,
-        investmentRecoveryValue: formData.investmentRecoveryValue,
-        investorProfitSharePercent: formData.investorProfitSharePercent,
-        investorProfitShareMode: formData.investorProfitShareMode,
-        investorProfitShareBeforeBepPercent:
-          formData.investorProfitShareBeforeBepPercent,
-        investorProfitShareAfterBepPercent:
-          formData.investorProfitShareAfterBepPercent,
-        nplTolerancePercent: formData.nplTolerancePercent,
-        contingencyPercent: formData.contingencyPercent,
+        currentGrowthSettings,
         contingencyAmount,
-        opexBufferFundingMode: formData.opexBufferFundingMode,
-        opexBufferInvestorPercent: formData.opexBufferInvestorPercent,
-        opexBufferCompanyPercent: formData.opexBufferCompanyPercent,
-        opexBufferInvestorFixedAmount: formData.opexBufferInvestorFixedAmount,
-        opexBufferSafetyPercent: formData.opexBufferSafetyPercent,
-        hasDisbursementPlan: formData.hasDisbursementPlan,
-        investorIds: formData.investorIds,
-        wbsGroups: wbsGroups.map(({ id, name, order }) => ({
-          id,
-          name,
-          order,
-        })),
-        items: items.map(({ id: _id, ...rest }) => ({
-          ...rest,
-          disbursements: rest.disbursements
-            .map((d) => ({
-              ...d,
-              amount: (rest.unitPrice * rest.quantity * d.percentage) / 100,
-            }))
-            .map(({ id: _did, ...drest }) => drest),
-        })),
-      };
+        wbsGroups,
+        items,
+      });
 
       const url = initialData
         ? `/api/finance/rab-projects/${initialData.id}`
