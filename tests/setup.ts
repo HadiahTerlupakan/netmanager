@@ -7,8 +7,7 @@ process.env.TZ = "Asia/Jakarta";
 // This is a known issue with Prisma 7.x and vitest-mock-extended
 // See: https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MockFn = any;
+type MockFn = ReturnType<typeof vi.fn>;
 
 type MockModel = {
   findMany: MockFn;

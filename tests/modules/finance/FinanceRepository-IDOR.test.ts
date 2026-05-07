@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { prismaMock } from '../../setup'
-import { PemasukanRepository } from '@/modules/finance/repositories/PemasukanRepository'
-import { PengeluaranRepository } from '@/modules/finance/repositories/PengeluaranRepository'
-import { BillingAnalyticsRepository } from '@/modules/finance/repositories/BillingAnalyticsRepository'
-import { getTenantIdFromContext } from '@/lib/tenant-context'
-import type { PrismaClient } from '@prisma/client'
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { prismaMock } from "../../setup";
+import { PemasukanRepository } from "@/modules/finance/repositories/PemasukanRepository";
+import { PengeluaranRepository } from "@/modules/finance/repositories/PengeluaranRepository";
+import { BillingAnalyticsRepository } from "@/modules/finance/repositories/BillingAnalyticsRepository";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
+import type { PrismaClient } from "@prisma/client";
 
-vi.mock('@/lib/tenant-context', () => ({
-  getTenantIdFromContext: vi.fn()
-}))
+vi.mock("@/lib/tenant-context", () => ({
+  getTenantIdFromContext: vi.fn(),
+}));
 
 // Mock prisma-billing
-vi.mock('@/lib/prisma-billing', () => ({
+vi.mock("@/lib/prisma-billing", () => ({
   prismaBilling: {
     invoice: {
       findMany: vi.fn(),
@@ -19,78 +19,97 @@ vi.mock('@/lib/prisma-billing', () => ({
     payment: {
       findMany: vi.fn(),
       groupBy: vi.fn(),
-    }
-  }
-}))
+    },
+  },
+}));
 
-import { prismaBilling } from '@/lib/prisma-billing'
+import { prismaBilling } from "@/lib/prisma-billing";
 
-describe('Finance Repositories - IDOR Protection', () => {
+describe("Finance Repositories - IDOR Protection", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
-  describe('PemasukanRepository', () => {
-    it('should isolate findAll by tenantId', async () => {
-      vi.mocked(getTenantIdFromContext).mockResolvedValue({ tenantId: 'tenant-X', isSuperAdmin: false })
-      const repo = new PemasukanRepository(prismaMock as unknown as PrismaClient)
-      
-      // Inject the 'pemasukan' key to pass the check in repo
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(prismaMock as any).pemasukan = { findMany: vi.fn().mockResolvedValue([]) }
+  describe("PemasukanRepository", () => {
+    it("should isolate findAll by tenantId", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValue({
+        tenantId: "tenant-X",
+        isSuperAdmin: false,
+      });
+      const repo = new PemasukanRepository(
+        prismaMock as unknown as PrismaClient,
+      );
 
-      await repo.findAll()
+      Object.assign(prismaMock, { pemasukan: prismaMock.pemasukan });
+      prismaMock.pemasukan.findMany.mockResolvedValue([]);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((prismaMock as any).pemasukan.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { tenantId: 'tenant-X' }
-      }))
-    })
-  })
+      await repo.findAll();
 
-  describe('PengeluaranRepository', () => {
-    it('should isolate findAll by tenantId', async () => {
-      vi.mocked(getTenantIdFromContext).mockResolvedValue({ tenantId: 'tenant-Y', isSuperAdmin: false })
-      const repo = new PengeluaranRepository(prismaMock as unknown as PrismaClient)
-      
-      // Inject the 'pengeluaran' key
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(prismaMock as any).pengeluaran = { findMany: vi.fn().mockResolvedValue([]) }
+      expect(prismaMock.pemasukan.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: "tenant-X" },
+        }),
+      );
+    });
+  });
 
-      await repo.findAll()
+  describe("PengeluaranRepository", () => {
+    it("should isolate findAll by tenantId", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValue({
+        tenantId: "tenant-Y",
+        isSuperAdmin: false,
+      });
+      const repo = new PengeluaranRepository(
+        prismaMock as unknown as PrismaClient,
+      );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((prismaMock as any).pengeluaran.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { tenantId: 'tenant-Y' }
-      }))
-    })
-  })
+      Object.assign(prismaMock, { pengeluaran: prismaMock.pengeluaran });
+      prismaMock.pengeluaran.findMany.mockResolvedValue([]);
 
-  describe('BillingAnalyticsRepository', () => {
-    it('should isolate getInvoicesWithPayments by tenantId', async () => {
-      vi.mocked(getTenantIdFromContext).mockResolvedValue({ tenantId: 'tenant-Z', isSuperAdmin: false })
-      const repo = new BillingAnalyticsRepository()
+      await repo.findAll();
 
-      await repo.getInvoicesWithPayments(new Date(), new Date())
+      expect(prismaMock.pengeluaran.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: "tenant-Y" },
+        }),
+      );
+    });
+  });
 
-      expect(prismaBilling.invoice.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: expect.objectContaining({ tenantId: 'tenant-Z' })
-      }))
-    })
+  describe("BillingAnalyticsRepository", () => {
+    it("should isolate getInvoicesWithPayments by tenantId", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValue({
+        tenantId: "tenant-Z",
+        isSuperAdmin: false,
+      });
+      const repo = new BillingAnalyticsRepository();
 
-    it('should isolate groupBy top customers by tenantId', async () => {
-      vi.mocked(getTenantIdFromContext).mockResolvedValue({ tenantId: 'tenant-Z', isSuperAdmin: false })
-      const repo = new BillingAnalyticsRepository()
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(prismaBilling.payment.groupBy as any).mockResolvedValue([])
-      prismaMock.pelanggan.findMany.mockResolvedValue([])
+      await repo.getInvoicesWithPayments(new Date(), new Date());
 
-      await repo.getTopCustomersByPayment(new Date(), new Date())
+      expect(prismaBilling.invoice.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId: "tenant-Z" }),
+        }),
+      );
+    });
 
-      expect(prismaBilling.payment.groupBy).toHaveBeenCalledWith(expect.objectContaining({
-        where: expect.objectContaining({ tenantId: 'tenant-Z' })
-      }))
-    })
-  })
-})
+    it("should isolate groupBy top customers by tenantId", async () => {
+      vi.mocked(getTenantIdFromContext).mockResolvedValue({
+        tenantId: "tenant-Z",
+        isSuperAdmin: false,
+      });
+      const repo = new BillingAnalyticsRepository();
+
+      vi.mocked(prismaBilling.payment.groupBy).mockResolvedValue([]);
+      prismaMock.pelanggan.findMany.mockResolvedValue([]);
+
+      await repo.getTopCustomersByPayment(new Date(), new Date());
+
+      expect(prismaBilling.payment.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId: "tenant-Z" }),
+        }),
+      );
+    });
+  });
+});
