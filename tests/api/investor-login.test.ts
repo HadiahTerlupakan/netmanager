@@ -40,6 +40,9 @@ vi.mock("@/lib/security/login-rate-limit", () => ({
 describe("Investor Login API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(prismaMock, {
+      investor: prismaMock.investor,
+    });
     process.env = {
       ...process.env,
       NEXTAUTH_SECRET: "test-secret-at-least-32-chars-long-standard",

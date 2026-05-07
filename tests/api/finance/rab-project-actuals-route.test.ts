@@ -66,6 +66,10 @@ describe("rab project actuals route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsSuperAdmin.mockReturnValue(false);
+    Object.assign(prismaMock, {
+      rabProject: prismaMock.rabProject,
+      rabActualAchievement: prismaMock.rabActualAchievement,
+    });
     prismaMock.rabProject.findUnique.mockResolvedValue({ id: "rab-1" });
     prismaMock.rabActualAchievement.upsert.mockResolvedValue({
       id: "actual-1",

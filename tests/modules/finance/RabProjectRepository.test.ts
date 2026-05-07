@@ -3,12 +3,21 @@ import {
   RabItemCategory,
   RabOpexBufferFundingMode,
 } from "@prisma/client";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RabProjectRepository } from "@/modules/finance/repositories/RabProjectRepository";
 import { prismaMock } from "@/tests/setup";
 
 describe("RabProjectRepository", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.assign(prismaMock, {
+      rabProject: prismaMock.rabProject,
+      rabItem: prismaMock.rabItem,
+      rabInvestor: prismaMock.rabInvestor,
+    });
+  });
+
   it("membagi komitmen investor dari CAPEX dan porsi buffer OPEX investor", async () => {
     prismaMock.$transaction.mockImplementation(
       async (callback: (client: typeof prismaMock) => Promise<unknown>) =>

@@ -83,6 +83,9 @@ describe("overtime auto checkout worker startup", () => {
     vi.resetModules();
     vi.clearAllMocks();
     mockFns.processors.length = 0;
+    Object.assign(prismaMock, {
+      overtimeAutoCheckoutSchedule: prismaMock.overtimeAutoCheckoutSchedule,
+    });
   });
 
   it("rehydrates only schedules whose BullMQ job is missing and stores deterministic job ids", async () => {

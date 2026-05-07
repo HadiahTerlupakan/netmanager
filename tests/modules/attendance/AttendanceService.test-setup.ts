@@ -104,6 +104,13 @@ const startOfDay = new Date("2026-03-08T00:00:00.000Z");
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  Object.assign(prismaMock, {
+    leaveRequest: prismaMock.leaveRequest,
+    overtime: prismaMock.overtime,
+    attendance: prismaMock.attendance,
+    attendanceEvaluation: prismaMock.attendanceEvaluation,
+    user: prismaMock.user,
+  });
   vi.mocked(redisMock.get).mockReset();
   vi.mocked(redisMock.setex).mockReset();
   vi.mocked(redisMock.get).mockResolvedValue(null);

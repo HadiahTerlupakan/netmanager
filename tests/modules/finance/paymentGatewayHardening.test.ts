@@ -27,6 +27,11 @@ import { TripayProvider } from "@/modules/finance/services/payment-gateway/provi
 describe("payment gateway hardening", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(prismaMock, {
+      payment: prismaMock.payment,
+      invoice: prismaMock.invoice,
+      unmatchedMutation: prismaMock.unmatchedMutation,
+    });
     prismaMock.$transaction.mockImplementation(async (callback: unknown) => {
       if (typeof callback === "function") {
         return callback(prismaMock);
