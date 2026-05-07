@@ -10,6 +10,7 @@ export * from "./services/InventoryKeluarRouteService";
 export * from "./services/InventoryStockMovementService";
 export * from "./services/InventoryRestockCheckService";
 export * from "./services/InventoryOpnameService";
+export * from "./services/InventoryOpnameRouteService";
 export * from "./services/InventoryDashboardService";
 export * from "./services/InventoryQueryService";
 export * from "./services/InventoryRouteService";
