@@ -28,8 +28,6 @@ vi.mock("@/lib/prisma-billing", () => ({
   },
 }));
 
-import { prismaBilling } from "@/lib/prisma-billing";
-
 describe("Finance Repositories - IDOR Protection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
