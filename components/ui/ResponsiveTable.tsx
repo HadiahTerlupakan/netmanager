@@ -41,6 +41,8 @@ export interface ResponsiveTableProps<T> {
   columns: Column<T>[];
   /** Unique key field in data items */
   keyField: keyof T;
+  /** Custom key generator function (optional, overrides keyField if provided) */
+  generateKey?: (item: T, index: number) => string;
   /** Loading state */
   loading?: boolean;
   /** Message shown when no data */
@@ -243,6 +245,7 @@ export function ResponsiveTable<T>({
   data,
   columns,
   keyField,
+  generateKey,
   loading = false,
   emptyMessage = "Tidak ada data",
   loadingMessage = "Memuat data...",
@@ -264,6 +267,14 @@ export function ResponsiveTable<T>({
 }: ResponsiveTableProps<T>) {
   // Ensure data is always an array
   const safeData = Array.isArray(data) ? data : [];
+
+  // Generate unique key for each row
+  const getRowKey = (item: T, index: number): string => {
+    if (generateKey) {
+      return generateKey(item, index);
+    }
+    return `${String(item[keyField])}-${index}`;
+  };
   const totalColumns =
     columns.length + (showRowNumbers ? 1 : 0) + (renderActions ? 1 : 0);
 
@@ -454,7 +465,7 @@ export function ResponsiveTable<T>({
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             {safeData.map((item, index) => (
               <tr
-                key={String(item[keyField])}
+                key={getRowKey(item, index)}
                 className={`
                   ${onRowClick ? "cursor-pointer" : ""}
                   ${striped && index % 2 === 1 ? "bg-gray-50 dark:bg-gray-800/50" : ""}
@@ -506,7 +517,7 @@ export function ResponsiveTable<T>({
       {/* Mobile Card View */}
       <div className="md:hidden space-y-3 p-2">
         {safeData.map((item, index) => (
-          <React.Fragment key={String(item[keyField])}>
+          <React.Fragment key={getRowKey(item, index)}>
             {renderMobileCard ? (
               renderMobileCard(item, columns)
             ) : (
