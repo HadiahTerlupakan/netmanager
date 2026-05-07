@@ -114,6 +114,27 @@ describe("mixradius-auth-client credential loading", () => {
     });
   });
 
+  it("rejects global fallback when non-superadmin request has no tenant context", async () => {
+    mockGetTenantIdFromContext.mockResolvedValue({
+      tenantId: null,
+      isSuperAdmin: false,
+    });
+    mockConfigRepository.getActiveConfig.mockResolvedValue({
+      username: "global-user",
+      password: "global-pass",
+      apiUrl: "https://global.example.com/",
+    });
+
+    await expect(
+      loadMixRadiusCredentials(mockConfigRepository as never),
+    ).rejects.toMatchObject({
+      name: "MixRadiusConfigError",
+      message: "Tenant MixRadius tidak ditemukan untuk request ini.",
+    });
+
+    expect(mockConfigRepository.getActiveConfig).not.toHaveBeenCalled();
+  });
+
   it("throws a config error when env fallback URL is invalid", async () => {
     mockGetTenantIdFromContext.mockResolvedValue({
       tenantId: null,

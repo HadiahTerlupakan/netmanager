@@ -1,7 +1,10 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
-import { MixRadiusOwnerGroupFacadeService } from "@/modules/integrations";
+import {
+  getMixRadiusAccessService,
+  MixRadiusOwnerGroupFacadeService,
+} from "@/modules/integrations";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +14,20 @@ export const dynamic = "force-dynamic";
  */
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:update"],
+  });
 
-  if (!isSuper && !permissions.includes("mixradius:update")) {
+  if (!hasAccess) {
     return ApiErrors.forbidden();
   }
 
   const { id } = ctx.params;
   const body = await req.json();
   const { name, owners, siteId, isActive } = body;
+  const isSuper = isSuperAdmin(user);
 
   if (!isSuper && !user.tenantId) {
     return ApiErrors.badRequest(
@@ -53,18 +60,19 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
  */
 export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:delete"],
+  });
 
-  if (
-    !isSuper &&
-    !permissions.includes("mixradius:delete") &&
-    !permissions.includes("*")
-  ) {
+  if (!hasAccess) {
     return ApiErrors.forbidden();
   }
 
   const { id } = ctx.params;
+  const isSuper = isSuperAdmin(user);
+
   if (!isSuper && !user.tenantId) {
     return ApiErrors.badRequest(
       "Tenant MixRadius tidak ditemukan untuk user ini",

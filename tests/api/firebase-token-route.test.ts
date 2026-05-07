@@ -11,6 +11,9 @@ vi.mock("next-auth", () => ({
 
 vi.mock("@/lib/auth", () => ({
   authOptions: {},
+  isSuperAdmin: vi.fn(
+    (user: { isSuperAdmin?: boolean }) => user.isSuperAdmin ?? false,
+  ),
 }));
 
 vi.mock("@/lib/firebase/admin", () => ({

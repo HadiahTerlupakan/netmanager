@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
       tenantId,
       role: authResult.role,
       isSuperAdmin: authResult.isSuperAdmin,
+      accessAdminPanel: Boolean(authResult.accessAdminPanel),
     });
 
     return NextResponse.json(announcements);

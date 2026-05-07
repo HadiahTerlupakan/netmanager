@@ -1,4 +1,4 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   apiSuccess,
   apiError,
@@ -7,7 +7,10 @@ import {
   createHandler,
 } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { getMixRadiusConfigService } from "@/modules/integrations";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusConfigService,
+} from "@/modules/integrations";
 
 const mixRadiusConfigService = getMixRadiusConfigService();
 
@@ -15,21 +18,21 @@ export const dynamic = "force-dynamic";
 
 export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:update"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("mixradius:update") || permissions.includes("*");
-    if (!hasAccess) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk update MixRadius",
-      );
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk update MixRadius",
+    );
   }
 
   const body = await req.json();
   const { id } = ctx.params;
+  const isSuper = isSuperAdmin(user);
 
   if (!id)
     return apiError("ID akun wajib disertakan", ErrorCodes.VALIDATION_ERROR, {
@@ -73,20 +76,20 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:delete"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("mixradius:delete") || permissions.includes("*");
-    if (!hasAccess) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk delete MixRadius",
-      );
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk delete MixRadius",
+    );
   }
 
   const { id } = ctx.params;
+  const isSuper = isSuperAdmin(user);
 
   if (!id)
     return apiError("ID akun wajib disertakan", ErrorCodes.VALIDATION_ERROR, {

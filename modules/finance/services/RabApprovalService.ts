@@ -1,5 +1,6 @@
 import { Prisma } from "../repositories/prisma-boundary";
 import { prisma } from "@/modules/database";
+import { isSuperAdminRole } from "@/lib/auth";
 
 const RAB_APPROVAL_THRESHOLD = 2;
 const MAX_APPROVAL_TRANSACTION_RETRIES = 2;
@@ -18,14 +19,12 @@ export class RabApprovalService {
       include: { role: true },
     });
 
-    const isSuperAdmin =
-      user?.role?.isSuperAdmin ||
-      user?.role?.name === "SUPER_ADMIN" ||
-      user?.role?.name === "Super Admin";
+    const isUserSuperAdmin =
+      user?.role?.isSuperAdmin || isSuperAdminRole(user?.role?.name);
 
     return {
       user,
-      isAllowed: !!user && (!!user.role?.canApproveRab || isSuperAdmin),
+      isAllowed: !!user && (!!user.role?.canApproveRab || isUserSuperAdmin),
     };
   }
 

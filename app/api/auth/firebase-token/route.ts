@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-import { authOptions } from "@/lib/auth";
+import { authOptions, isSuperAdmin } from "@/lib/auth";
 import { auth as firebaseAdminAuth } from "@/lib/firebase/admin";
 
 export async function POST() {
@@ -24,21 +24,18 @@ export async function POST() {
       );
     }
 
-    const isSuperAdmin =
-      user.isSuperAdmin === true ||
-      user.role === "SUPER_ADMIN" ||
-      user.role === "Super Admin";
+    const isUserSuperAdmin = isSuperAdmin(user);
     const legacySiteId = (user as { siteId?: string | null }).siteId ?? null;
     const primarySiteId = user.primarySiteId ?? legacySiteId;
     const customToken = await firebaseAdminAuth.createCustomToken(user.id, {
-      role: isSuperAdmin ? "SUPER_ADMIN" : (user.role ?? "USER"),
+      role: isUserSuperAdmin ? "SUPER_ADMIN" : (user.role ?? "USER"),
       tenantId: user.tenantId ?? null,
       departmentId: user.departmentId ?? null,
       siteId: primarySiteId,
       primarySiteId,
       accessAdminPanel: user.accessAdminPanel ?? false,
       accessEmployeePanel: user.accessEmployeePanel ?? false,
-      isSuperAdmin,
+      isSuperAdmin: isUserSuperAdmin,
     });
 
     return NextResponse.json({ token: customToken });

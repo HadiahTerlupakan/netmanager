@@ -12,6 +12,7 @@ import {
   RouterAccessDeniedError,
   RouterNotFoundError,
 } from "@/modules/network";
+import { isSuperAdmin } from "@/lib/auth";
 import * as z from "zod";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -19,7 +20,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
+    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
 
   try {
     const router = await routerService.getRouterById({
@@ -58,7 +59,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
+    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
 
   try {
     await routerService.updateRouter({
@@ -92,7 +93,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
+    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
 
   try {
     await routerService.deleteRouter({

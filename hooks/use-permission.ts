@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import {
   hasPermissionWithAlias,
   expandPermissionsWithAliases,
@@ -14,63 +15,49 @@ interface PermissionState {
   isLoading: boolean;
 }
 
-/**
- * Client-side helper to check if user is Super Admin
- * Mirrors the server-side logic in lib/auth.ts
- */
-function checkIsSuperAdmin(
-  user: { role?: string | null; isSuperAdmin?: boolean } | null | undefined,
-): boolean {
-  if (!user) return false;
-  // Check the boolean flag first (new schema)
-  if (user.isSuperAdmin === true) return true;
-  // Fallback to legacy string check
-  if (!user.role) return false;
-  return user.role === "SUPER_ADMIN" || user.role === "Super Admin";
-}
+const EMPTY_PERMISSION_STATE: PermissionState = {
+  permissions: [],
+  isSuperAdmin: false,
+  isLoading: false,
+};
+
+const INITIAL_PERMISSION_STATE: PermissionState = {
+  ...EMPTY_PERMISSION_STATE,
+  isLoading: true,
+};
+
+const SUPER_ADMIN_PERMISSION_STATE: PermissionState = {
+  permissions: ["*"],
+  isSuperAdmin: true,
+  isLoading: false,
+};
 
 export function usePermission() {
   const { data: session, status } = useSession();
   const isAuthLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
 
-  const [permissionState, setPermissionState] = useState<PermissionState>({
-    permissions: [],
-    isSuperAdmin: false,
-    isLoading: true,
-  });
+  const [permissionState, setPermissionState] = useState<PermissionState>(
+    INITIAL_PERMISSION_STATE,
+  );
 
-  // Fetch permissions from API when session is available
   useEffect(() => {
     if (!isAuthenticated || !session?.user) {
-      // Defer state update to avoid synchronous setState in effect
       requestAnimationFrame(() => {
-        setPermissionState({
-          permissions: [],
-          isSuperAdmin: false,
-          isLoading: false,
-        });
+        setPermissionState(EMPTY_PERMISSION_STATE);
       });
       return;
     }
 
-    // Check if user is super admin from session (quick check)
     const user = session.user as { role?: string; isSuperAdmin?: boolean };
-    // Use centralized helper function
-    if (checkIsSuperAdmin(user)) {
-      // Defer state update to avoid synchronous setState in effect
+    if (isSuperAdmin(user)) {
       requestAnimationFrame(() => {
-        setPermissionState({
-          permissions: ["*"],
-          isSuperAdmin: true,
-          isLoading: false,
-        });
+        setPermissionState(SUPER_ADMIN_PERMISSION_STATE);
       });
       return;
     }
 
-    // Fetch permissions from API
-    const fetchPermissions = async () => {
+    async function fetchPermissions(): Promise<void> {
       try {
         const response = await fetch("/api/user/permissions", {
           credentials: "include",
@@ -81,11 +68,7 @@ export function usePermission() {
             "[usePermission] Failed to fetch permissions:",
             response.status,
           );
-          setPermissionState({
-            permissions: [],
-            isSuperAdmin: false,
-            isLoading: false,
-          });
+          setPermissionState(EMPTY_PERMISSION_STATE);
           return;
         }
 
@@ -100,15 +83,11 @@ export function usePermission() {
           "[usePermission] Error fetching permissions:",
           error,
         );
-        setPermissionState({
-          permissions: [],
-          isSuperAdmin: false,
-          isLoading: false,
-        });
+        setPermissionState(EMPTY_PERMISSION_STATE);
       }
-    };
+    }
 
-    fetchPermissions();
+    void fetchPermissions();
   }, [isAuthenticated, session]);
 
   const hasPermission = useCallback(

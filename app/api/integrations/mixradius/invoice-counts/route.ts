@@ -1,54 +1,60 @@
-import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { getMixRadiusService } from '@/modules/integrations'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import { isSuperAdmin } from "@/lib/auth";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusService,
+} from "@/modules/integrations";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/integrations/mixradius/invoice-counts
  * Batch fetch invoice counts for multiple customers
  */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
-  const user = ctx.session!.user
-  const isSuper = isSuperAdmin(user)
+  const user = ctx.session!.user;
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:read"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id)
-    const hasAccess = permissions.includes('mixradius:read') ||
-      permissions.includes('*')
-    if (!hasAccess) {
-      return ApiErrors.forbidden('Anda tidak memiliki akses ke data MixRadius')
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses ke data MixRadius");
   }
 
-  const body = await req.json()
-  const customerIds: string[] = body.customerIds || []
-  const validationData: Record<string, string> = body.validationData || {}
-  const bypassCache: boolean = body.bypassCache || false
+  const body = await req.json();
+  const customerIds: string[] = body.customerIds || [];
+  const validationData: Record<string, string> = body.validationData || {};
+  const bypassCache: boolean = body.bypassCache || false;
 
   if (customerIds.length === 0) {
-    return apiSuccess({})
+    return apiSuccess({});
   }
 
-  const limitedIds = customerIds.slice(0, 20)
+  const limitedIds = customerIds.slice(0, 20);
 
   try {
-    const service = getMixRadiusService()
-    const results = await service.fetchInvoiceCounts(limitedIds, bypassCache, validationData)
+    const service = getMixRadiusService();
+    const results = await service.fetchInvoiceCounts(
+      limitedIds,
+      bypassCache,
+      validationData,
+    );
 
-    const data: Record<string, { paidCount: number, totalCount: number }> = {}
+    const data: Record<string, { paidCount: number; totalCount: number }> = {};
     results.forEach((value, key) => {
-      data[key] = value
-    })
+      data[key] = value;
+    });
 
-    return apiSuccess(data)
+    return apiSuccess(data);
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'MixRadiusConfigError') {
+    if (error instanceof Error && error.name === "MixRadiusConfigError") {
       return apiSuccess({
         error: error.message,
         isConfigError: true,
-      })
+      });
     }
-    throw error
+    throw error;
   }
-})
+});

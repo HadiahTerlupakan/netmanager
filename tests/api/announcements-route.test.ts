@@ -93,7 +93,7 @@ describe("announcements route", () => {
       1,
       expect.objectContaining({
         where: expect.objectContaining({
-          role: { name: { in: ["ADMIN", "SUPER_ADMIN"] } },
+          role: { is: { accessAdminPanel: true } },
         }),
       }),
     );
@@ -114,7 +114,7 @@ describe("announcements route", () => {
       expect.objectContaining({
         where: {
           isActive: true,
-          role: { name: { in: ["ADMIN", "SUPER_ADMIN"] } },
+          role: { is: { accessAdminPanel: true } },
         },
         select: { id: true },
       }),

@@ -28,7 +28,7 @@ export class DepreciationCronService {
 
   private async findSystemUser() {
     const superAdmin = await prisma.user.findFirst({
-      where: { role: { name: "SUPER_ADMIN" } },
+      where: { role: { isSuperAdmin: true } },
       select: { id: true },
     });
 

@@ -61,7 +61,7 @@ export default function LoginForm() {
     try {
       const res = await signIn("credentials", {
         redirect: false,
-        email: values.email,
+        identifier: values.email,
         password: values.password,
         portal: isEmployeePortal ? "employee" : "admin",
         callbackUrl: callbackUrlParam, // Kirim path relatif ke NextAuth

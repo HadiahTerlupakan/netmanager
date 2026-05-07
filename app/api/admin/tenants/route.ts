@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { authOptions, isSuperAdmin } from "@/lib/auth";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { AdminTenantRouteService } from "@/modules/admin";
 
@@ -10,7 +10,7 @@ const tenantService = new AdminTenantRouteService();
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isSuperAdmin) {
+    if (!isSuperAdmin(session?.user)) {
       return apiError("Forbidden", ErrorCodes.UNAUTHORIZED, { status: 403 });
     }
 
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isSuperAdmin) {
+    if (!isSuperAdmin(session?.user)) {
       return apiError("Forbidden", ErrorCodes.UNAUTHORIZED, { status: 403 });
     }
 

@@ -3,6 +3,7 @@ import type { Session } from "next-auth";
 import { prismaAuth } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { getUserPermissions } from "./permissions";
+import { isSuperAdminRole } from "./helpers";
 
 /**
  * NextAuth callbacks untuk JWT dan Session
@@ -57,11 +58,7 @@ export async function jwtCallback({
       token.departmentName = dbUser?.departments?.name;
       token.isSales = dbUser?.isSales ?? false;
 
-      if (
-        token.isSuperAdmin ||
-        token.role === "SUPER_ADMIN" ||
-        token.role === "Super Admin"
-      ) {
+      if (token.isSuperAdmin || isSuperAdminRole(token.role)) {
         token.accessAdminPanel = true;
         token.accessEmployeePanel = true;
         token.isSuperAdmin = true;
@@ -131,11 +128,7 @@ export async function jwtCallback({
         (dbUser.role as unknown as { canApproveRab?: boolean })
           ?.canApproveRab ?? false;
 
-      if (
-        token.isSuperAdmin ||
-        token.role === "SUPER_ADMIN" ||
-        token.role === "Super Admin"
-      ) {
+      if (token.isSuperAdmin || isSuperAdminRole(token.role)) {
         token.accessAdminPanel = true;
         token.accessEmployeePanel = true;
         token.isSuperAdmin = true;
@@ -266,16 +259,14 @@ export async function sessionCallback({
       sessionUser.id = token.id;
 
       const roleName = dbUser.role?.name || "USER";
-      const isSuperAdmin =
-        dbUser.role?.isSuperAdmin ||
-        roleName === "SUPER_ADMIN" ||
-        roleName === "Super Admin";
+      const isUserSuperAdmin =
+        dbUser.role?.isSuperAdmin || isSuperAdminRole(roleName);
 
       sessionUser.role = roleName;
-      sessionUser.isSuperAdmin = isSuperAdmin;
+      sessionUser.isSuperAdmin = isUserSuperAdmin;
       sessionUser.tenantId = dbUser.tenantId || null;
 
-      if (isSuperAdmin) {
+      if (isUserSuperAdmin) {
         sessionUser.accessAdminPanel = true;
         sessionUser.accessEmployeePanel = true;
         sessionUser.canApproveRab = true;

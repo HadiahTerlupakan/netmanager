@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
-  getUserPermissions: vi.fn(),
   isSuperAdmin: vi.fn(),
+  canAccess: vi.fn(),
   fetchCustomerDetail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
-  getUserPermissions: mockFns.getUserPermissions,
   isSuperAdmin: mockFns.isSuperAdmin,
 }));
 
 vi.mock("@/modules/integrations", () => ({
+  getMixRadiusAccessService: () => ({
+    canAccess: mockFns.canAccess,
+  }),
   getMixRadiusService: () => ({
     fetchCustomerDetail: mockFns.fetchCustomerDetail,
   }),
@@ -61,7 +63,7 @@ import { GET } from "@/app/api/integrations/mixradius/customers/[id]/route";
 describe("GET /api/integrations/mixradius/customers/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.getUserPermissions.mockResolvedValue(["mixradius:read"]);
+    mockFns.canAccess.mockResolvedValue(true);
     mockFns.isSuperAdmin.mockReturnValue(false);
   });
 

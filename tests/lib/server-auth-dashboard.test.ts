@@ -17,7 +17,7 @@ vi.mock("@/lib/auth", () => ({
   authOptions: {},
   authConfig: {},
   getUserPermissions: mockGetUserPermissions,
-  isSuperAdminUser: mockIsSuperAdminUser,
+  isSuperAdmin: mockIsSuperAdminUser,
 }));
 
 describe("ensureAdminDashboardAccess", () => {

@@ -1,11 +1,31 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { prismaMock } from "@/tests/setup";
+const {
+  mockGetServerSession,
+  mockApproveRabRevision,
+  mockRejectRevision,
+  mockIsRouteServiceError,
+  MockRabRevisionApprovalError,
+} = vi.hoisted(() => {
+  class MockRabRevisionApprovalError extends Error {
+    status: number;
 
-const { mockGetServerSession } = vi.hoisted(() => ({
-  mockGetServerSession: vi.fn(),
-}));
+    constructor(message: string, status: number) {
+      super(message);
+      this.name = "RabRevisionApprovalError";
+      this.status = status;
+    }
+  }
+
+  return {
+    mockGetServerSession: vi.fn(),
+    mockApproveRabRevision: vi.fn(),
+    mockRejectRevision: vi.fn(),
+    mockIsRouteServiceError: vi.fn(),
+    MockRabRevisionApprovalError,
+  };
+});
 
 vi.mock("next-auth/next", () => ({
   getServerSession: mockGetServerSession,
@@ -15,9 +35,13 @@ vi.mock("@/lib/auth", () => ({
   authOptions: {},
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: prismaMock,
-  prismaAuth: prismaMock,
+vi.mock("@/modules/finance", () => ({
+  approveRabRevision: mockApproveRabRevision,
+  RabRevisionApprovalError: MockRabRevisionApprovalError,
+  RabRevisionRouteService: class MockRabRevisionRouteService {
+    rejectRevision = mockRejectRevision;
+  },
+  isRouteServiceError: mockIsRouteServiceError,
 }));
 
 import { POST as APPROVE } from "@/app/api/integrations/mixradius/expenses/rab/[id]/revisions/[revisionId]/approve/route";
@@ -25,33 +49,22 @@ import { POST as REJECT } from "@/app/api/integrations/mixradius/expenses/rab/[i
 
 describe("rab revision approval route", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({ user: { id: "approver-1" } });
-    prismaMock.$transaction.mockImplementation(
-      async <T>(callback: (tx: typeof prismaMock) => Promise<T>) =>
-        callback(prismaMock),
+    mockIsRouteServiceError.mockImplementation(
+      (error: unknown) =>
+        typeof error === "object" && error !== null && "status" in error,
     );
   });
 
-  it("marks the revision approved and promotes it to the final baseline on first approval", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: "approver-1",
-      role: { canApproveRab: true, name: "Finance", isSuperAdmin: false },
-    });
-
-    prismaMock.rabRevision.findUnique.mockResolvedValue({
-      id: "rev-2",
-      rabProjectId: "rab-1",
-      status: "PENDING_APPROVAL",
-      approvals: [],
-      project: { id: "rab-1" },
-    });
-    prismaMock.rabRevisionApproval.count.mockResolvedValue(1);
-
-    prismaMock.rabRevision.update.mockResolvedValue({
-      id: "rev-2",
-      rabProjectId: "rab-1",
-      status: "APPROVED",
-      approvals: [{ userId: "approver-1" }],
+  it("marks the revision approved and returns the service payload", async () => {
+    mockApproveRabRevision.mockResolvedValue({
+      message: "Revisi RAB berhasil disetujui.",
+      data: {
+        id: "rev-2",
+        rabProjectId: "rab-1",
+        status: "APPROVED",
+      },
     });
 
     const response = await APPROVE(
@@ -65,25 +78,28 @@ describe("rab revision approval route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(prismaMock.rabRevisionApproval.create).toHaveBeenCalled();
-    expect(prismaMock.rabProject.update).toHaveBeenCalledWith({
-      where: { id: "rab-1" },
-      data: { finalApprovedRevisionId: "rev-2" },
+    expect(mockApproveRabRevision).toHaveBeenCalledWith({
+      rabProjectId: "rab-1",
+      revisionId: "rev-2",
+      userId: "approver-1",
     });
-    expect(body.data.status).toBe("APPROVED");
+    expect(body).toEqual({
+      success: true,
+      message: "Revisi RAB berhasil disetujui.",
+      data: {
+        id: "rev-2",
+        rabProjectId: "rab-1",
+        status: "APPROVED",
+      },
+    });
   });
 
-  it("records rejection without changing the final baseline pointer", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: "approver-1",
-      role: { canApproveRab: true, name: "Finance", isSuperAdmin: false },
-    });
-
-    prismaMock.rabRevision.findUnique.mockResolvedValue({
+  it("records rejection without changing the route contract", async () => {
+    mockRejectRevision.mockResolvedValue({
       id: "rev-2",
       rabProjectId: "rab-1",
-      status: "PENDING_APPROVAL",
-      approvals: [],
+      status: "REJECTED",
+      rejectionNotes: "Harga tidak valid",
     });
 
     const response = await REJECT(
@@ -96,30 +112,34 @@ describe("rab revision approval route", () => {
         params: Promise.resolve({ id: "rab-1", revisionId: "rev-2" }),
       },
     );
+    const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(prismaMock.rabProject.update).not.toHaveBeenCalled();
-    expect(prismaMock.rabRevision.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "rev-2" },
-        data: expect.objectContaining({ status: "REJECTED" }),
-      }),
-    );
+    expect(mockRejectRevision).toHaveBeenCalledWith({
+      projectId: "rab-1",
+      revisionId: "rev-2",
+      userId: "approver-1",
+      notes: "Harga tidak valid",
+    });
+    expect(body).toEqual({
+      success: true,
+      message: "Revisi RAB ditolak.",
+      data: {
+        id: "rev-2",
+        rabProjectId: "rab-1",
+        status: "REJECTED",
+        rejectionNotes: "Harga tidak valid",
+      },
+    });
   });
 
   it("blocks approval while the revision is still a draft", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: "approver-1",
-      role: { canApproveRab: true, name: "Finance", isSuperAdmin: false },
-    });
-
-    prismaMock.rabRevision.findUnique.mockResolvedValue({
-      id: "rev-3",
-      rabProjectId: "rab-1",
-      status: "DRAFT",
-      approvals: [],
-      project: { id: "rab-1" },
-    });
+    mockApproveRabRevision.mockRejectedValue(
+      new MockRabRevisionApprovalError(
+        "Revisi masih draft dan harus diajukan terlebih dahulu.",
+        400,
+      ),
+    );
 
     const response = await APPROVE(
       new NextRequest("http://localhost/api/revision/approve", {
@@ -133,35 +153,19 @@ describe("rab revision approval route", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toContain("diajukan terlebih dahulu");
-    expect(prismaMock.rabRevisionApproval.create).not.toHaveBeenCalled();
   });
 
-  it("promotes a stale pending revision that already has enough approvals", async () => {
-    prismaMock.user.findUnique.mockResolvedValue({
-      id: "approver-1",
-      role: { canApproveRab: true, name: "Finance", isSuperAdmin: false },
+  it("maps reject service route errors to the provided HTTP status", async () => {
+    mockRejectRevision.mockRejectedValue({
+      status: 400,
+      message: "Anda sudah menyetujui revisi ini sebelumnya.",
     });
 
-    prismaMock.rabRevision.findUnique.mockResolvedValue({
-      id: "rev-4",
-      rabProjectId: "rab-1",
-      status: "PENDING_APPROVAL",
-      approvals: [{ userId: "approver-1", status: "APPROVED" }],
-      project: { id: "rab-1" },
-    });
-
-    prismaMock.rabRevision.update.mockResolvedValue({
-      id: "rev-4",
-      rabProjectId: "rab-1",
-      status: "APPROVED",
-      approvals: [{ userId: "approver-1", status: "APPROVED" }],
-      approvedById: "approver-1",
-      approvedAt: new Date(),
-    });
-
-    const response = await APPROVE(
-      new NextRequest("http://localhost/api/revision/approve", {
+    const response = await REJECT(
+      new NextRequest("http://localhost/api/revision/reject", {
         method: "POST",
+        body: JSON.stringify({ notes: "Tidak sesuai" }),
+        headers: { "content-type": "application/json" },
       }),
       {
         params: Promise.resolve({ id: "rab-1", revisionId: "rev-4" }),
@@ -170,8 +174,6 @@ describe("rab revision approval route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(prismaMock.rabRevisionApproval.create).not.toHaveBeenCalled();
-    expect(prismaMock.rabProject.update).not.toHaveBeenCalled();
-    expect(body.error).toContain("sudah menyetujui");
+    expect(body.error).toBe("Anda sudah menyetujui revisi ini sebelumnya.");
   });
 });

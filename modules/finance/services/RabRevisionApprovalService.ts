@@ -1,5 +1,6 @@
 import { RabRevisionStatus } from "../types/invoice.enums";
 import { prisma } from "@/modules/database";
+import { isSuperAdminRole } from "@/lib/auth";
 import {
   DEFAULT_RAB_REVISION_APPROVAL_THRESHOLD,
   getRevisionApprovalStatus,
@@ -157,12 +158,10 @@ async function assertUserCanApproveRab(userId: string) {
     where: { id: userId },
     include: { role: true },
   });
-  const isSuperAdmin =
-    user?.role?.isSuperAdmin ||
-    user?.role?.name === "SUPER_ADMIN" ||
-    user?.role?.name === "Super Admin";
+  const isUserSuperAdmin =
+    user?.role?.isSuperAdmin || isSuperAdminRole(user?.role?.name);
 
-  if (!user?.role?.canApproveRab && !isSuperAdmin) {
+  if (!user?.role?.canApproveRab && !isUserSuperAdmin) {
     throw new RabRevisionApprovalError(
       "Dilarang: Akun Anda tidak memiliki hak akses (role: canApproveRab) untuk menyetujui dokumen ini.",
       403,

@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
-  getUserPermissions: vi.fn(),
   isSuperAdmin: vi.fn(),
+  canAccessDismantle: vi.fn(),
   createDismantleRequest: vi.fn(),
   createWorkOrder: vi.fn(),
   onWorkOrderCreated: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
-  getUserPermissions: mockFns.getUserPermissions,
   isSuperAdmin: mockFns.isSuperAdmin,
 }));
 
@@ -19,6 +18,9 @@ vi.mock("@/modules/database", () => ({
 }));
 
 vi.mock("@/modules/integrations", () => ({
+  getMixRadiusAccessService: () => ({
+    canAccessDismantle: mockFns.canAccessDismantle,
+  }),
   MixRadiusConfigError: class MockMixRadiusConfigError extends Error {
     constructor(message: string) {
       super(message);
@@ -89,10 +91,7 @@ describe("POST /api/integrations/mixradius/dismantle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.isSuperAdmin.mockReturnValue(false);
-    mockFns.getUserPermissions.mockResolvedValue([
-      "mixradius:read",
-      "workorders:create",
-    ]);
+    mockFns.canAccessDismantle.mockResolvedValue(true);
   });
 
   it("returns 503 config error instead of creating bogus dismantle work order", async () => {

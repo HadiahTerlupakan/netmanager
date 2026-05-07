@@ -1,4 +1,5 @@
 "use client";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { clientLogger } from "@/lib/client-logger";
 
 import {
@@ -156,14 +157,6 @@ function isEventAllowedForScope(event: string, scope: RealtimeScope): boolean {
 
 function resolveAdminSiteId(user: SessionUser): string | null {
   return user.primarySiteId ?? user.siteIds?.[0] ?? user.siteId ?? null;
-}
-
-function isSuperAdmin(user: SessionUser): boolean {
-  return (
-    user.isSuperAdmin === true ||
-    user.role === "SUPER_ADMIN" ||
-    user.role === "Super Admin"
-  );
 }
 
 function getAdminNotificationScope(user: SessionUser): RealtimeScope | null {

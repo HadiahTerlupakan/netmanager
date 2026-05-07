@@ -7,6 +7,7 @@ import {
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { RouterReconfigureRouteService } from "@/modules/network";
+import { isSuperAdmin } from "@/lib/auth";
 
 const routerReconfigureRouteService = new RouterReconfigureRouteService();
 
@@ -27,7 +28,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   try {
     const restrictedToOwnSite =
       (await hasPermission("mikrotik:site_only")) &&
-      ctx.session?.user.role !== "SUPER_ADMIN";
+      !isSuperAdmin(ctx.session?.user);
     const result = await routerReconfigureRouteService.reconfigureRouters(
       routerIds,
       {

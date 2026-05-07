@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 import { createHandler, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   deleteInvoiceForRoute,
   getInvoiceForRoute,
@@ -107,8 +108,9 @@ export const DELETE = createHandler(
   },
 );
 
-async function canOnlyAccessOwnSite(user: { role?: string | null }) {
-  return (
-    (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN"
-  );
+async function canOnlyAccessOwnSite(user: {
+  role?: string | null;
+  isSuperAdmin?: boolean;
+}) {
+  return (await hasPermission("invoice:site_only")) && !isSuperAdmin(user);
 }

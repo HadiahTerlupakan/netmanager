@@ -12,6 +12,7 @@ import {
   RouterAccessDeniedError,
   RouterIpConflictError,
 } from "@/modules/network";
+import { isSuperAdmin } from "@/lib/auth";
 import * as z from "zod";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -27,7 +28,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
+    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
 
   const result = await routerService.listRouters({
     userId: user.id,
@@ -58,7 +59,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
+    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
 
   try {
     const router = await routerService.createRouter({

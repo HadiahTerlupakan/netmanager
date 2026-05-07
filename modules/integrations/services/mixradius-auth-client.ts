@@ -15,6 +15,8 @@ const LOGIN_DELAY_MIN_IN_MS = 800;
 const LOGIN_DELAY_MAX_IN_MS = 2000;
 const SESSION_TTL_IN_MS = 50 * 60 * 1000;
 
+type MixRadiusLoginResponse = Awaited<ReturnType<typeof submitLoginRequest>>;
+
 export type MixRadiusSessionState = {
   isLoggedIn: boolean;
   loginExpiresAt: number;
@@ -26,9 +28,21 @@ export async function loadMixRadiusCredentials(
   configRepository: IMixRadiusConfigRepository = mixRadiusConfigRepo,
 ): Promise<MixRadiusCredentials> {
   const tenantContext = await getTenantIdFromContext();
-  const activeConfig = tenantContext.tenantId
-    ? await configRepository.getActiveConfigByTenant(tenantContext.tenantId)
-    : await configRepository.getActiveConfig();
+
+  if (!tenantContext.tenantId && !tenantContext.isSuperAdmin) {
+    throw new MixRadiusConfigError(
+      "Tenant MixRadius tidak ditemukan untuk request ini.",
+    );
+  }
+
+  let activeConfig = null;
+  if (tenantContext.tenantId) {
+    activeConfig = await configRepository.getActiveConfigByTenant(
+      tenantContext.tenantId,
+    );
+  } else {
+    activeConfig = await configRepository.getActiveConfig();
+  }
 
   if (activeConfig) {
     return buildValidatedCredentials(activeConfig.apiUrl, {
@@ -49,11 +63,7 @@ export async function loadMixRadiusCredentials(
   });
 }
 
-/**
- * Login to MixRadius and return refreshed session state.
- * Note: 21 baris - sudah optimal dengan session reuse check + validation + delegation.
- * Memecah lebih lanjut akan mengurangi readability flow login.
- */
+/** Login to MixRadius and return refreshed session state. */
 export async function loginMixRadius(params: {
   client: AxiosInstance;
   credentials: MixRadiusCredentials;
@@ -76,11 +86,7 @@ export async function loginMixRadius(params: {
   });
 }
 
-/**
- * Perform actual login request to MixRadius.
- * Note: 25 baris - sudah optimal dengan try-catch + sequential HTTP calls + validation.
- * Memecah lebih lanjut akan memisahkan error handling dari business logic.
- */
+/** Perform the login request to MixRadius. */
 async function performLogin(params: {
   client: AxiosInstance;
   normalizedBaseUrl: string;
@@ -108,7 +114,7 @@ async function performLogin(params: {
 }
 
 function validateLoginResponse(
-  responseData: Awaited<ReturnType<typeof submitLoginRequest>>,
+  responseData: MixRadiusLoginResponse,
   username: string,
 ) {
   if (!isSuccessfulLogin(responseData, username)) {
@@ -142,7 +148,7 @@ function canReuseSession(
     session.isLoggedIn &&
     session.loginExpiresAt > Date.now() &&
     session.loggedInCredentials?.username === credentials.username &&
-    session.loggedInCredentials.baseUrl === credentials.baseUrl
+    session.loggedInCredentials?.baseUrl === credentials.baseUrl
   );
 }
 
@@ -200,7 +206,7 @@ function buildLoginRequestConfig(normalizedBaseUrl: string) {
 }
 
 function isSuccessfulLogin(
-  loginResponse: Awaited<ReturnType<typeof submitLoginRequest>>,
+  loginResponse: MixRadiusLoginResponse,
   username: string,
 ) {
   const responseUrl = loginResponse.request?.res?.responseUrl || "";

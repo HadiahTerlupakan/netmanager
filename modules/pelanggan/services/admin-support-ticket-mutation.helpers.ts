@@ -1,5 +1,6 @@
 import { logger, logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
+import { isSuperAdmin } from "@/lib/auth";
 import { TicketEventDispatcher } from "@/modules/events";
 import { closeWoOnTicketClose } from "@/modules/work-order";
 /**
@@ -173,7 +174,7 @@ function isForbidden(
 ) {
   return (
     hasSiteRestriction &&
-    user.role !== "SUPER_ADMIN" &&
+    !isSuperAdmin(user) &&
     (!user.siteId || ticket.pelanggan?.siteId !== user.siteId)
   );
 }

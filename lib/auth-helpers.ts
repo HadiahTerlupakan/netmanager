@@ -34,9 +34,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Session } from "next-auth";
 import { authConfig } from "@/lib/auth";
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 
-// Re-export isSuperAdminRole from new location
-export { isSuperAdminRole } from "@/lib/auth";
+export { isSuperAdminRole };
 
 function logSecurityEvent(
   request: NextRequest,
@@ -63,17 +63,19 @@ function logSecurityEvent(
 export async function getCurrentSession(_request: NextRequest) {
   try {
     const session = (await getServerSession(authConfig)) as
-      | (Session & { user: { role?: string; id: string; employee?: unknown } })
+      | (Session & {
+          user: {
+            role?: string;
+            id: string;
+            employee?: unknown;
+            accessAdminPanel?: boolean;
+            isSuperAdmin?: boolean;
+          };
+        })
       | null;
 
     if (!session) {
       return null;
-    }
-
-    if (session?.user) {
-      if (!session.user.role) {
-        session.user.role = "ADMIN";
-      }
     }
 
     return session;
@@ -112,6 +114,20 @@ export async function requireAdmin(request: NextRequest) {
       { error: "Tidak terautentikasi" },
       { status: 401 },
     );
+  }
+
+  const canAccessAdminPanel = Boolean(
+    session.user.accessAdminPanel ||
+    session.user.isSuperAdmin ||
+    isSuperAdminRole(session.user.role),
+  );
+  if (!canAccessAdminPanel) {
+    logSecurityEvent(request, "FORBIDDEN_ADMIN_ACCESS", {
+      userId: session.user.id,
+      role: session.user.role,
+    });
+
+    return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   }
 
   return session;
@@ -165,5 +181,13 @@ export async function getCurrentEmployee(request: NextRequest) {
 
 export async function isAdmin(request: NextRequest): Promise<boolean> {
   const session = await getCurrentSession(request);
-  return session?.user?.role === "ADMIN";
+  if (!session?.user) {
+    return false;
+  }
+
+  return Boolean(
+    session.user.accessAdminPanel ||
+    session.user.isSuperAdmin ||
+    isSuperAdminRole(session.user.role),
+  );
 }

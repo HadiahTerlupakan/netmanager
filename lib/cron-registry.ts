@@ -120,7 +120,7 @@ export class CronRegistry {
             const { prisma } = await import("./prisma");
             const systemUser =
               (await prisma.user.findFirst({
-                where: { role: { name: "SUPER_ADMIN" } },
+                where: { role: { isSuperAdmin: true } },
               })) || (await prisma.user.findFirst());
 
             if (systemUser) {

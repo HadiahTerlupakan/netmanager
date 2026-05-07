@@ -78,14 +78,13 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
     [fetchPendingPayments],
   );
 
-  // Only subscribe if user is admin
-  const isAdmin =
-    ["ADMIN", "SUPER_ADMIN", "OWNER", "MANAGER"].includes(
-      session?.user?.role || "",
-    ) || (session?.user as { accessAdminPanel?: boolean })?.accessAdminPanel;
+  // Only subscribe if user can access admin panel
+  const canAccessAdminPanel = Boolean(
+    (session?.user as { accessAdminPanel?: boolean })?.accessAdminPanel,
+  );
 
   useRealtimeEvent("payment.pending.new", (payload: unknown) => {
-    if (isAdmin) {
+    if (canAccessAdminPanel) {
       handlePaymentNew(payload);
     }
   });

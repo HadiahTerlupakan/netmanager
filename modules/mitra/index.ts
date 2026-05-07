@@ -39,11 +39,7 @@ export {
   getTenantAdminRoleId,
   type TenantProvisioningResult,
 } from "./services/TenantProvisioningService";
-export {
-  MAIN_TENANT_ID,
-  MAIN_TENANT_NAME,
-  isMainTenant,
-} from "./services/tenant-constants";
+export { MAIN_TENANT_ID, MAIN_TENANT_NAME, isMainTenant } from "./constants";
 
 export type {
   CreateMitraDTO,

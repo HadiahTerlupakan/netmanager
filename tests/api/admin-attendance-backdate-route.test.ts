@@ -25,6 +25,7 @@ vi.mock("@/lib/api-response", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
+  authOptions: {},
   isSuperAdmin: mockFns.isSuperAdmin,
 }));
 

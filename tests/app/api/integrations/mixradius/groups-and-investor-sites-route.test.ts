@@ -4,7 +4,7 @@ const {
   mockGetUserPermissions,
   mockIsSuperAdmin,
   mockSessionUser,
-  mockGetOwnerGroups,
+  mockGetAdminGroups,
   mockCreateOwnerGroup,
   mockUpdateOwnerGroup,
   mockDeleteOwnerGroup,
@@ -14,11 +14,12 @@ const {
   mockUpdateInvestorSite,
   mockDeleteInvestorSite,
   mockHasPermission,
+  mockCanAccess,
 } = vi.hoisted(() => ({
   mockGetUserPermissions: vi.fn(),
   mockIsSuperAdmin: vi.fn(),
   mockSessionUser: { id: "user-1", tenantId: "tenant-1" as string | undefined },
-  mockGetOwnerGroups: vi.fn(),
+  mockGetAdminGroups: vi.fn(),
   mockCreateOwnerGroup: vi.fn(),
   mockUpdateOwnerGroup: vi.fn(),
   mockDeleteOwnerGroup: vi.fn(),
@@ -28,6 +29,7 @@ const {
   mockUpdateInvestorSite: vi.fn(),
   mockDeleteInvestorSite: vi.fn(),
   mockHasPermission: vi.fn(),
+  mockCanAccess: vi.fn(),
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -131,14 +133,19 @@ vi.mock("@/modules/finance", () => ({
 }));
 
 vi.mock("@/modules/integrations", () => ({
+  getMixRadiusAccessService: () => ({
+    canAccess: mockCanAccess,
+  }),
+  getMixRadiusGroupRouteService: () => ({
+    getAdminGroups: mockGetAdminGroups,
+  }),
   getMixRadiusService: () => ({
-    getOwnerGroups: mockGetOwnerGroups,
+    getOwnerGroups: mockGetAdminGroups,
     createOwnerGroup: mockCreateOwnerGroup,
     updateOwnerGroup: mockUpdateOwnerGroup,
     deleteOwnerGroup: mockDeleteOwnerGroup,
   }),
   MixRadiusOwnerGroupFacadeService: class MockMixRadiusOwnerGroupFacadeService {
-    getOwnerGroups = mockGetOwnerGroups;
     createOwnerGroup = mockCreateOwnerGroup;
     updateOwnerGroup = mockUpdateOwnerGroup;
     deleteOwnerGroup = mockDeleteOwnerGroup;
@@ -181,7 +188,8 @@ describe("MixRadius groups and investor sites routes", () => {
       "mixradius:delete",
     ]);
     mockHasPermission.mockResolvedValue(true);
-    mockGetOwnerGroups.mockResolvedValue([]);
+    mockCanAccess.mockResolvedValue(true);
+    mockGetAdminGroups.mockResolvedValue([]);
     mockCreateOwnerGroup.mockResolvedValue({ id: "entity-1", name: "Site A" });
     mockUpdateOwnerGroup.mockResolvedValue({ id: "entity-1", name: "Site A" });
     mockDeleteOwnerGroup.mockResolvedValue(undefined);
@@ -212,7 +220,7 @@ describe("MixRadius groups and investor sites routes", () => {
 
     expect(response.success).toBe(false);
     expect(response.status).toBe(400);
-    expect(mockGetOwnerGroups).not.toHaveBeenCalled();
+    expect(mockGetAdminGroups).not.toHaveBeenCalled();
   });
 
   it("passes tenantId when creating investor site", async () => {

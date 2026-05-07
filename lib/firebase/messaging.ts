@@ -10,11 +10,7 @@ export async function getAdminTokens(): Promise<string[]> {
   try {
     const admins = await prisma.user.findMany({
       where: {
-        role: {
-          name: {
-            in: ["SUPER_ADMIN", "Super Admin", "Admin", "Admin Payment"],
-          },
-        },
+        role: { accessAdminPanel: true },
         isActive: true,
       },
     });

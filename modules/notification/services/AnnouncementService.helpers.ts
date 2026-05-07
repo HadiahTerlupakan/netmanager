@@ -75,6 +75,7 @@ export interface MobileAnnouncementActor {
   tenantId?: string | null;
   role?: string | null;
   isSuperAdmin?: boolean;
+  accessAdminPanel?: boolean;
 }
 
 /** Resolve repository method safely for hybrid migration state. */
@@ -131,12 +132,13 @@ export function buildMobileAnnouncementWhere(
 export function resolveMobilePortal(
   role?: string | null,
   isSuperAdmin?: boolean,
+  accessAdminPanel?: boolean,
 ) {
   const normalizedRole = role?.toUpperCase() ?? "";
   if (normalizedRole.includes("CUSTOMER")) {
     return "customer" as const;
   }
-  if (isSuperAdmin || normalizedRole.includes("ADMIN")) {
+  if (isSuperAdmin || accessAdminPanel) {
     return "admin" as const;
   }
   return "employee" as const;

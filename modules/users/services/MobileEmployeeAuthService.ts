@@ -1,5 +1,6 @@
 import { compare } from "bcryptjs";
 import { signMobileRefreshToken, signMobileToken } from "@/lib/mobile-auth";
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { prismaAuth } from "@/modules/database";
 import { getUserFeaturesWithCanvasing } from "@/modules/marketing";
 import type {
@@ -11,11 +12,10 @@ import {
   MobileAuthVersionService,
 } from "./MobileAuthVersionService";
 
-const SUPER_ADMIN_ROLE = "SUPER_ADMIN";
-
 type EmployeeRoleRecord = {
   name: string;
   isSuperAdmin: boolean;
+  accessAdminPanel: boolean;
   accessEmployeePanel: boolean;
 };
 
@@ -81,7 +81,9 @@ async function findEmployeeForLogin(email: string) {
 }
 
 function hasEmployeeMobileAccess(user: EmployeeRecord) {
-  return user.role?.accessEmployeePanel || user.role?.name === SUPER_ADMIN_ROLE;
+  return (
+    user.role?.accessEmployeePanel || isSuperAdminRole(user.role?.name || "")
+  );
 }
 
 async function buildSuccessfulEmployeeLogin(
@@ -123,6 +125,7 @@ function buildEmployeeTokenPayload(
     appVersionName: input.versionName || null,
     tenantId: user.tenantId,
     isSuperAdmin: user.role?.isSuperAdmin ?? false,
+    accessAdminPanel: user.role?.accessAdminPanel ?? false,
   };
 }
 

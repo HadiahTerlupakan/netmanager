@@ -1,4 +1,5 @@
 import { canAccessSite } from "@/modules/roles";
+import { isSuperAdmin } from "@/lib/auth";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 import { CustomerInvoiceRepository } from "../repositories/CustomerInvoiceRepository";
 
@@ -78,7 +79,7 @@ export class CustomerLegacyBillingService {
       throw new CustomerLegacyBillingError("Pelanggan tidak ditemukan", 404);
     }
 
-    if (input.session?.user.role && input.session.user.role !== "SUPER_ADMIN") {
+    if (input.session?.user && !isSuperAdmin(input.session.user)) {
       const hasAccess = canAccessSite(
         input.session,
         "pelanggan",

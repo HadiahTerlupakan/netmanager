@@ -1,6 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { toast } from "react-hot-toast";
@@ -65,6 +66,54 @@ const defaultSettings: GeneralSettings = {
   notifEmail: false,
 };
 
+function createDefaultBankAccount(): BankAccount {
+  return {
+    namaBank: "",
+    atasNama: "",
+    noRekening: "",
+  };
+}
+
+function mapGeneralSettingsResponse(
+  data: Partial<GeneralSettings>,
+): GeneralSettings {
+  return {
+    perusahaan: data.perusahaan || "",
+    namaAplikasi: data.namaAplikasi || "",
+    alamat: data.alamat || "",
+    nomorHp: data.nomorHp || "",
+    email: data.email || "",
+    deskripsiInvoice: data.deskripsiInvoice || "",
+    rekeningBank: data.rekeningBank || [],
+    invoiceOtomatis: data.invoiceOtomatis || "5",
+    disablePerpanjanganPaket: data.disablePerpanjanganPaket || "5",
+    timezone: data.timezone || "Asia/Jakarta",
+    attendanceTolerance: data.attendanceTolerance || "0",
+    pppConnectionMode: data.pppConnectionMode || "RADIUS",
+    autoIsolirEnabled: data.autoIsolirEnabled ?? true,
+    autoIsolirHariToleransi: data.autoIsolirHariToleransi || "1",
+    reminderOtomatis: data.reminderOtomatis || "3",
+    reminderFrequency: data.reminderFrequency || "DAILY",
+    reminderTime: data.reminderTime || "08:00",
+    notifApp: data.notifApp ?? true,
+    notifWa: data.notifWa ?? false,
+    notifEmail: data.notifEmail ?? false,
+  };
+}
+
+function getSettingsErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+): string {
+  return error instanceof Error ? error.message : fallbackMessage;
+}
+
+function getBackfillErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Kesalahan jaringan atau server";
+}
+
 export type UseGeneralSettingsResult = {
   settings: GeneralSettings;
   loading: boolean;
@@ -107,9 +156,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
   );
   const [backfillError, setBackfillError] = useState<string | null>(null);
 
-  const isSuperAdmin =
-    session?.user?.role === "SUPER_ADMIN" ||
-    session?.user?.role === "Super Admin";
+  const isUserSuperAdmin = isSuperAdmin(session?.user);
 
   useEffect(() => {
     const updateTime = () => {
@@ -143,29 +190,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
       const res = await fetch("/api/settings/general");
       if (res.ok) {
         const response = await res.json();
-        const data = response.data;
-        setSettings({
-          perusahaan: data.perusahaan || "",
-          namaAplikasi: data.namaAplikasi || "",
-          alamat: data.alamat || "",
-          nomorHp: data.nomorHp || "",
-          email: data.email || "",
-          deskripsiInvoice: data.deskripsiInvoice || "",
-          rekeningBank: data.rekeningBank || [],
-          invoiceOtomatis: data.invoiceOtomatis || "5",
-          disablePerpanjanganPaket: data.disablePerpanjanganPaket || "5",
-          timezone: data.timezone || "Asia/Jakarta",
-          attendanceTolerance: data.attendanceTolerance || "0",
-          pppConnectionMode: data.pppConnectionMode || "RADIUS",
-          autoIsolirEnabled: data.autoIsolirEnabled ?? true,
-          autoIsolirHariToleransi: data.autoIsolirHariToleransi || "1",
-          reminderOtomatis: data.reminderOtomatis || "3",
-          reminderFrequency: data.reminderFrequency || "DAILY",
-          reminderTime: data.reminderTime || "08:00",
-          notifApp: data.notifApp ?? true,
-          notifWa: data.notifWa ?? false,
-          notifEmail: data.notifEmail ?? false,
-        });
+        setSettings(mapGeneralSettingsResponse(response.data));
       } else {
         const errorData = await res.json();
         setError(errorData.error || "Gagal memuat pengaturan");
@@ -173,9 +198,10 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
     } catch (err: unknown) {
       clientLogger.error("Error loading settings:", err);
       setError(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat memuat pengaturan",
+        getSettingsErrorMessage(
+          err,
+          "Terjadi kesalahan saat memuat pengaturan",
+        ),
       );
     } finally {
       setLoading(false);
@@ -213,10 +239,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
   const addBankAccount = () => {
     setSettings((prev) => ({
       ...prev,
-      rekeningBank: [
-        ...prev.rekeningBank,
-        { namaBank: "", atasNama: "", noRekening: "" },
-      ],
+      rekeningBank: [...prev.rekeningBank, createDefaultBankAccount()],
     }));
   };
 
@@ -252,10 +275,10 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
       }
     } catch (err: unknown) {
       clientLogger.error("Error saving settings:", err);
-      const errorMsg =
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat menyimpan pengaturan";
+      const errorMsg = getSettingsErrorMessage(
+        err,
+        "Terjadi kesalahan saat menyimpan pengaturan",
+      );
       toast.error(errorMsg);
       setError(errorMsg);
     } finally {
@@ -299,8 +322,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
         setBackfillError(errorMsg);
       }
     } catch (err: unknown) {
-      const errorMsg =
-        err instanceof Error ? err.message : "Kesalahan jaringan atau server";
+      const errorMsg = getBackfillErrorMessage(err);
       toast.error(errorMsg, { id: "backfill" });
       setBackfillError(errorMsg);
     } finally {
@@ -318,7 +340,7 @@ export function useGeneralSettings(): UseGeneralSettingsResult {
     backfilling,
     backfillResult,
     backfillError,
-    isSuperAdmin,
+    isSuperAdmin: isUserSuperAdmin,
     handleChange,
     handleCheckboxChange,
     handleBankChange,

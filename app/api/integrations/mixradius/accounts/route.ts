@@ -1,4 +1,4 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   apiSuccess,
   apiError,
@@ -7,7 +7,13 @@ import {
   createHandler,
 } from "@/lib/api";
 import { logger } from "@/lib/logger";
-import { getMixRadiusConfigService } from "@/modules/integrations";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusConfigService,
+} from "@/modules/integrations";
+
+const TENANT_NOT_FOUND_MESSAGE =
+  "Tenant MixRadius tidak ditemukan untuk user ini";
 
 const mixRadiusConfigService = getMixRadiusConfigService();
 
@@ -15,26 +21,24 @@ export const dynamic = "force-dynamic";
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const userIsSuperAdmin = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: userIsSuperAdmin,
+    requiredPermissions: ["mixradius_accounts:read", "mixradius:read"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("mixradius_accounts:read") ||
-      permissions.includes("mixradius:read") ||
-      permissions.includes("*");
-    if (!hasAccess) {
-      return ApiErrors.forbidden(
-        "Akses ditolak. Anda memerlukan permission: mixradius_accounts:read",
-      );
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden(
+      "Akses ditolak. Anda memerlukan permission: mixradius_accounts:read",
+    );
+  }
 
+  if (!userIsSuperAdmin) {
     if (!user.tenantId) {
-      return apiError(
-        "Tenant MixRadius tidak ditemukan untuk user ini",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
+      return apiError(TENANT_NOT_FOUND_MESSAGE, ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
     }
 
     const tenantConfigs = await mixRadiusConfigService.getConfigs(
@@ -49,35 +53,33 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const userIsSuperAdmin = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: userIsSuperAdmin,
+    requiredPermissions: ["mixradius_accounts:create", "mixradius:create"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("mixradius_accounts:create") ||
-      permissions.includes("mixradius:create") ||
-      permissions.includes("*");
-    if (!hasAccess) {
-      return ApiErrors.forbidden(
-        "Akses ditolak. Anda memerlukan permission: mixradius_accounts:create",
-      );
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden(
+      "Akses ditolak. Anda memerlukan permission: mixradius_accounts:create",
+    );
   }
 
   const body = await req.json();
+  const targetTenantId =
+    userIsSuperAdmin && body.tenantId ? body.tenantId : user.tenantId;
 
-  if (!user.tenantId) {
-    return apiError(
-      "Tenant MixRadius tidak ditemukan untuk user ini",
-      ErrorCodes.VALIDATION_ERROR,
-      { status: 400 },
-    );
+  if (!targetTenantId) {
+    return apiError(TENANT_NOT_FOUND_MESSAGE, ErrorCodes.VALIDATION_ERROR, {
+      status: 400,
+    });
   }
 
   let newConfig;
 
   try {
-    newConfig = await mixRadiusConfigService.createConfig(user.tenantId, body);
+    newConfig = await mixRadiusConfigService.createConfig(targetTenantId, body);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Terjadi kesalahan";

@@ -1,29 +1,34 @@
-import { getMixRadiusService } from '@/modules/integrations'
-import { getUserPermissions, isSuperAdmin } from '@/lib/auth'
-import { apiSuccess, ApiErrors, createHandler } from '@/lib/api'
+import {
+  getMixRadiusAccessService,
+  getMixRadiusService,
+} from "@/modules/integrations";
+import { isSuperAdmin } from "@/lib/auth";
+import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export const POST = createHandler({ auth: true }, async (req, ctx) => {
-    const user = ctx.session!.user
-    const { id } = ctx.params
+export const POST = createHandler({ auth: true }, async (_req, ctx) => {
+  const user = ctx.session!.user;
+  const { id } = ctx.params;
 
-    const isSuper = isSuperAdmin(user)
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:delete"],
+  });
 
-    if (!isSuper) {
-      const permissions = await getUserPermissions(user.id)
-      const hasAccess = permissions.includes('mixradius:delete') || permissions.includes('*')
-      if (!hasAccess) {
-        return ApiErrors.forbidden('Anda tidak memiliki akses untuk menghapus data MixRadius')
-      }
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk menghapus data MixRadius",
+    );
+  }
 
-    const service = getMixRadiusService()
-    const success = await service.deleteIncomeRecord(id)
+  const service = getMixRadiusService();
+  const success = await service.deleteIncomeRecord(id);
 
-    if (success) {
-      return apiSuccess({ success: true })
-    } else {
-      return ApiErrors.internalError('Gagal menghapus data di server MixRadius')
-    }
-})
+  if (success) {
+    return apiSuccess({ success: true });
+  } else {
+    return ApiErrors.internalError("Gagal menghapus data di server MixRadius");
+  }
+});

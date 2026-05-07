@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isSuperAdmin } from "@/lib/auth";
 import type { Session } from "next-auth";
 import type { UserSession } from "@/lib/auth";
 
@@ -89,7 +90,7 @@ export async function validateGudangSiteAccess(
   gudangId: string,
 ): Promise<ValidatedGudangSiteAccessResult> {
   const user = session.user as UserSession;
-  if (user.role === "SUPER_ADMIN") {
+  if (isSuperAdmin(user)) {
     return { allowed: true };
   }
 

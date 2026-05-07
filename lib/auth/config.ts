@@ -11,6 +11,7 @@ import {
   LOGIN_RATE_LIMIT_UNAVAILABLE_MESSAGE,
 } from "@/lib/security/login-rate-limit";
 import { cookies } from "./cookies";
+import { isSuperAdminRole } from "./helpers";
 import { jwtCallback, sessionCallback } from "./callbacks";
 
 const NextAuth =
@@ -146,7 +147,7 @@ export const authConfig: NextAuthOptions = {
 
             const role = userWithRole?.role;
 
-            if (role?.name === "SUPER_ADMIN" || role?.name === "Super Admin") {
+            if (isSuperAdminRole(role?.name)) {
               logger.info("[AUTH] SUPER_ADMIN access granted");
             } else {
               if (portal === "admin" && !role?.accessAdminPanel) {

@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   MikroTikRouterService,
   RouterAccessDeniedError,
@@ -17,7 +18,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && user.role !== "SUPER_ADMIN";
+    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
 
   try {
     const result = await routerService.generateApiUser({

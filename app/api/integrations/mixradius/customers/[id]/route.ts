@@ -1,5 +1,8 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getMixRadiusService } from "@/modules/integrations";
+import { isSuperAdmin } from "@/lib/auth";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusService,
+} from "@/modules/integrations";
 import {
   apiSuccess,
   apiError,
@@ -10,16 +13,14 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const GET = createHandler({ auth: true }, async (req, ctx) => {
+export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
 
-  // RBAC permission check
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
-  const hasAccess =
-    isSuper ||
-    permissions.includes("mixradius:read") ||
-    permissions.includes("*");
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:read"],
+  });
 
   if (!hasAccess) {
     return ApiErrors.forbidden("Anda tidak memiliki akses ke data MixRadius");

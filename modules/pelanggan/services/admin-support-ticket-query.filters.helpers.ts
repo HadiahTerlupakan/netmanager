@@ -4,6 +4,7 @@ import {
   TicketPriority,
   TicketStatus,
 } from "@prisma/client";
+import { isSuperAdmin } from "@/lib/auth";
 
 import type {
   TicketFilterOptions,
@@ -34,7 +35,7 @@ function applySiteRestriction(
   user: UserContext,
   hasSiteRestriction: boolean,
 ): TicketAccessResult {
-  if (!hasSiteRestriction || user.role === "SUPER_ADMIN") {
+  if (!hasSiteRestriction || isSuperAdmin(user)) {
     return { success: true as const };
   }
   if (!user.siteId) {

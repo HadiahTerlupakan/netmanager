@@ -1,3 +1,4 @@
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { prisma } from "@/lib/prisma";
 
 interface HybridUserLike {
@@ -19,8 +20,6 @@ interface SiteOptionDTO {
   code: string;
   name: string;
 }
-
-const SUPER_ADMIN_NAMES = new Set(["SUPER_ADMIN", "Super Admin"]);
 
 /** Service untuk kebutuhan route akses site. */
 export class SiteAccessRouteService {
@@ -98,7 +97,7 @@ export class SiteAccessRouteService {
   }
 
   private isSuperAdmin(role: { name: string; isSuperAdmin: boolean }): boolean {
-    return role.isSuperAdmin || SUPER_ADMIN_NAMES.has(role.name);
+    return role.isSuperAdmin || isSuperAdminRole(role.name);
   }
 
   private getRestrictedSiteIds(

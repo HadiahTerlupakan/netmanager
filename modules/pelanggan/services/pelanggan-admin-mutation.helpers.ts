@@ -1,6 +1,7 @@
 import { compare, hash } from "bcryptjs";
 import { Status, TipePelanggan } from "../types/pelanggan.enums";
 import { canAccessSite } from "@/modules/roles";
+import { isSuperAdmin } from "@/lib/auth";
 import type {
   AdminMutationSession,
   UpdatePppByIdInput,
@@ -31,11 +32,9 @@ export const getTenantScopedWhereById = (
   id: string,
 ) => {
   const tenantId = session.user.tenantId ?? null;
-  const isSuperAdmin = Boolean(
-    session.user.isSuperAdmin || session.user.role === "SUPER_ADMIN",
-  );
+  const isUserSuperAdmin = isSuperAdmin(session.user);
 
-  if (!tenantId && !isSuperAdmin) {
+  if (!tenantId && !isUserSuperAdmin) {
     throw new Error("Akses ditolak: tenant tidak teridentifikasi");
   }
 
@@ -46,7 +45,7 @@ export const canAccessPelangganBySite = (
   session: AdminMutationSession,
   siteId: string | null | undefined,
 ) => {
-  if (!session.user.role || session.user.role === "SUPER_ADMIN") return true;
+  if (!session.user.role || isSuperAdmin(session.user)) return true;
   return canAccessSite(
     session as Parameters<typeof canAccessSite>[0],
     "pelanggan",

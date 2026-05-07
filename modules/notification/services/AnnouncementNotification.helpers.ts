@@ -13,7 +13,6 @@ import type { AnnouncementRecord } from "./AnnouncementService.helpers";
 
 const ANNOUNCEMENT_PREVIEW_LIMIT = 100;
 const EMPLOYEE_ROLE_NAMES = ["EMPLOYEE", "TEKNISI"];
-const ADMIN_ROLE_NAMES = ["ADMIN", "SUPER_ADMIN"];
 const ANNOUNCEMENT_LINK = "/announcement";
 
 /** Send push notifications and persistent notifications for employees/admins. */
@@ -106,7 +105,7 @@ function buildRoleFilter(target: TargetAudience): Prisma.UserWhereInput {
     return { role: { name: { in: EMPLOYEE_ROLE_NAMES } } };
   }
   if (target === "ADMIN") {
-    return { role: { name: { in: ADMIN_ROLE_NAMES } } };
+    return { role: { is: { accessAdminPanel: true } } };
   }
   return {};
 }

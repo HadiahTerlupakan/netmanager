@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   getMixRadiusAccessService,
   getMixRadiusSyncService,
@@ -13,7 +14,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const hasAccess = await getMixRadiusAccessService().canAccess({
     userId: user.id,
-    isSuperAdmin: user.role === "SUPER_ADMIN",
+    isSuperAdmin: isSuperAdmin(user),
     requiredPermissions: ["mixradius:calculate", "mixradius_income:calculate"],
   });
 

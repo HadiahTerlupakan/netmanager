@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { handleCors, addCorsHeaders } from "./lib/middleware/cors";
 import { getToken } from "next-auth/jwt";
+import { isSuperAdmin } from "./lib/auth";
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
@@ -84,7 +85,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL("/login", request.url));
       }
 
-      if (!token.accessAdminPanel && token.role !== "SUPER_ADMIN") {
+      if (!token.accessAdminPanel && !isSuperAdmin(token)) {
         const loginUrl = new URL("/login", request.url);
         loginUrl.searchParams.set("error", "AccessDenied");
         return NextResponse.redirect(loginUrl);
@@ -99,7 +100,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL("/login", request.url));
       }
 
-      if (!token.accessEmployeePanel && token.role !== "SUPER_ADMIN") {
+      if (!token.accessEmployeePanel && !isSuperAdmin(token)) {
         const loginUrl = new URL("/login", request.url);
         loginUrl.searchParams.set("error", "AccessDenied");
         return NextResponse.redirect(loginUrl);
@@ -114,7 +115,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL("/login", request.url));
       }
 
-      if (token.role !== "CUSTOMER" && token.role !== "SUPER_ADMIN") {
+      if (token.role !== "CUSTOMER" && !isSuperAdmin(token)) {
         const loginUrl = new URL("/login", request.url);
         loginUrl.searchParams.set("error", "AccessDenied");
         return NextResponse.redirect(loginUrl);
@@ -165,7 +166,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/admin")) {
       if (
         !token?.accessAdminPanel &&
-        token?.role !== "SUPER_ADMIN" &&
+        !isSuperAdmin(token) &&
         !pathname.includes("/login")
       ) {
         return NextResponse.redirect(new URL("/admin/login", request.url));
@@ -174,7 +175,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/karyawan")) {
       if (
         !token?.accessEmployeePanel &&
-        token?.role !== "SUPER_ADMIN" &&
+        !isSuperAdmin(token) &&
         !pathname.includes("/login")
       ) {
         return NextResponse.redirect(new URL("/karyawan/login", request.url));
@@ -183,7 +184,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/dashboard") || pathname.startsWith("/customer")) {
       if (
         token?.role !== "CUSTOMER" &&
-        token?.role !== "SUPER_ADMIN" &&
+        !isSuperAdmin(token) &&
         !pathname.includes("/login")
       ) {
         return NextResponse.redirect(new URL("/login", request.url));

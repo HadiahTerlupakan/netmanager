@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions, getUserPermissions, isSuperAdminUser } from "@/lib/auth";
+import { authOptions, getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export async function ensureEmployeeAccess(permission?: string) {
@@ -18,11 +18,7 @@ export async function ensureEmployeeAccess(permission?: string) {
     isSuperAdmin?: boolean;
   };
   // SUPER_ADMIN bypass
-  if (
-    user.isSuperAdmin ||
-    user.role === "SUPER_ADMIN" ||
-    user.role === "Super Admin"
-  ) {
+  if (isSuperAdmin(user)) {
     return user;
   }
 
@@ -63,7 +59,7 @@ export async function ensureAdminAccess(permission?: string) {
   };
 
   // SUPER_ADMIN bypass
-  if (isSuperAdminUser(user)) {
+  if (isSuperAdmin(user)) {
     return user;
   }
 
@@ -103,7 +99,7 @@ export interface AdminDashboardAccess {
 
 export async function ensureAdminDashboardAccess(
   permission = "dashboard:read",
-) {
+): Promise<AdminDashboardAccess> {
   const session = await getServerSession(authOptions);
 
   if (!session?.user || !session.user.tenantId) {
@@ -119,16 +115,17 @@ export async function ensureAdminDashboardAccess(
     accessAdminPanel?: boolean;
     tenantId?: string | null;
   };
+  const isUserSuperAdmin = isSuperAdmin(user);
 
-  const isSuperAdmin = isSuperAdminUser(user);
-
-  if (!isSuperAdmin && !user.accessAdminPanel) {
+  if (!isUserSuperAdmin && !user.accessAdminPanel) {
     redirect("/admin/login?error=AccessDenied");
   }
 
-  const permissions = isSuperAdmin ? ["*"] : await getUserPermissions(user.id);
+  const permissions = isUserSuperAdmin
+    ? ["*"]
+    : await getUserPermissions(user.id);
 
-  if (!isSuperAdmin && !permissions.includes(permission)) {
+  if (!isUserSuperAdmin && !permissions.includes(permission)) {
     redirect("/admin/forbidden");
   }
 
@@ -136,6 +133,6 @@ export async function ensureAdminDashboardAccess(
     user,
     tenantId: user.tenantId,
     permissions,
-    isSuperAdmin,
+    isSuperAdmin: isUserSuperAdmin,
   };
 }

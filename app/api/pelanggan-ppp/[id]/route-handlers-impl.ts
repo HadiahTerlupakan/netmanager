@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { apiSuccess, ApiErrors, createHandler, apiError } from "@/lib/api";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   PelangganAdminMutationError,
   PelangganAdminMutationService,
@@ -10,6 +11,7 @@ import { canAccessSite } from "@/modules/roles";
 const pelangganAdminQueryService = new PelangganAdminQueryService();
 const pelangganAdminMutationService = new PelangganAdminMutationService();
 const BOOLEAN_TRUE_VALUES = new Set(["true", "1", "on", "yes"]);
+const CUSTOMER_ROLE = "CUSTOMER";
 
 /** Parse boolean flag from form data with default fallback. */
 const parseBooleanFlag = (
@@ -24,18 +26,27 @@ const parseBooleanFlag = (
 
 /** Check whether current session can access pelanggan site. */
 const canAccessPelangganBySite = (
-  session: { user: { role?: string | null } },
+  session: { user: { role?: string | null; isSuperAdmin?: boolean } },
   siteId: string | null | undefined,
 ) => {
-  if (!session.user.role || session.user.role === "SUPER_ADMIN") return true;
+  if (!session.user.role || isSuperAdmin(session.user)) return true;
   return canAccessSite(session as never, "pelanggan", siteId);
+};
+
+/** Check whether current session can access requested pelanggan id. */
+const canAccessPelangganOwnership = (
+  user: { id: string; role?: string | null },
+  pelangganId: string,
+) => {
+  if (user.role !== CUSTOMER_ROLE) return true;
+  return user.id === pelangganId;
 };
 
 /** Handle pelanggan PPP detail request. */
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
   const session = ctx.session!;
-  if (session.user.role === "CUSTOMER" && session.user.id !== id) {
+  if (!canAccessPelangganOwnership(session.user, id)) {
     return ApiErrors.forbidden(
       "Anda tidak diperbolehkan melihat data pelanggan lain",
     );

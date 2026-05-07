@@ -157,7 +157,11 @@ export class AnnouncementService {
     const announcements = await prisma.announcement.findMany({
       where: buildMobileAnnouncementWhere(
         actor.tenantId ?? null,
-        resolveMobilePortal(actor.role, actor.isSuperAdmin),
+        resolveMobilePortal(
+          actor.role,
+          actor.isSuperAdmin,
+          actor.accessAdminPanel,
+        ),
         new Date(),
       ) as Prisma.AnnouncementWhereInput,
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],

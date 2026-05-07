@@ -1,4 +1,4 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   apiSuccess,
   apiError,
@@ -8,38 +8,32 @@ import {
 } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
 import {
+  getMixRadiusAccessService,
   getMixRadiusGroupRouteService,
   MixRadiusOwnerGroupFacadeService,
 } from "@/modules/integrations";
 
 export const dynamic = "force-dynamic";
 
-const READ_PERMISSIONS = [
-  "mixradius_sites:read",
-  "mixradius:read",
-  "m_mixradius:read",
-];
-const CREATE_PERMISSIONS = ["mixradius_sites:create", "mixradius:create"];
-
-function hasAnyPermission(
-  permissions: string[],
-  requiredPermissions: string[],
-) {
-  return requiredPermissions.some((permission) =>
-    permissions.includes(permission),
-  );
-}
-
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: [
+      "mixradius_sites:read",
+      "mixradius:read",
+      "m_mixradius:read",
+    ],
+  });
 
-  if (!isSuper && !hasAnyPermission(permissions, READ_PERMISSIONS)) {
+  if (!hasAccess) {
     return ApiErrors.forbidden(
       "Akses ditolak. Anda memerlukan permission: mixradius_sites:read",
     );
   }
+
+  const isSuper = isSuperAdmin(user);
 
   if (!isSuper && !user.tenantId) {
     return apiError(
@@ -69,10 +63,13 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const permissions = await getUserPermissions(user.id);
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius_sites:create", "mixradius:create"],
+  });
 
-  if (!isSuper && !hasAnyPermission(permissions, CREATE_PERMISSIONS)) {
+  if (!hasAccess) {
     return ApiErrors.forbidden(
       "Akses ditolak. Anda memerlukan permission: mixradius_sites:create",
     );
@@ -89,6 +86,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       { details: { missingFields }, status: 400 },
     );
   }
+
+  const isSuper = isSuperAdmin(user);
 
   if (!isSuper && !user.tenantId) {
     return apiError(

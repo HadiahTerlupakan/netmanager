@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { SignJWT, jwtVerify } from "jose";
 import {
   getAppVersionService,
@@ -94,6 +95,7 @@ export interface MobileTokenPayload {
   siteId?: string | null;
   tenantId?: string | null;
   isSuperAdmin?: boolean;
+  accessAdminPanel?: boolean;
   [key: string]: unknown;
 }
 
@@ -319,9 +321,7 @@ async function verifyValidatedMobileToken(
 
     const roleName = dbUser.role?.name || "USER";
     const isSuperAdmin =
-      dbUser.role?.isSuperAdmin ||
-      roleName === "SUPER_ADMIN" ||
-      roleName === "Super Admin";
+      dbUser.role?.isSuperAdmin || isSuperAdminRole(roleName);
     const permissions = isSuperAdmin
       ? ["*"]
       : dbUser.role?.permission.map(
@@ -339,6 +339,7 @@ async function verifyValidatedMobileToken(
       siteId: dbUser.siteId,
       tenantId: dbUser.tenantId,
       isSuperAdmin,
+      accessAdminPanel: Boolean(dbUser.role?.accessAdminPanel),
     } as MobileTokenPayload;
   } catch (error) {
     logger.error("[MOBILE_AUTH] Token verification failed:", error);

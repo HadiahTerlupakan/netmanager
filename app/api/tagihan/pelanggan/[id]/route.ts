@@ -1,4 +1,5 @@
 import { apiSuccess, createHandler, ApiErrors } from "@/lib/api";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   CustomerLegacyBillingError,
   CustomerLegacyBillingService,
@@ -12,15 +13,13 @@ export const GET = createHandler(
     const { id: pelangganId } = ctx.params;
     const session = ctx.session!;
     const tenantId = session.user.tenantId ?? null;
-    const isSuperAdmin = Boolean(
-      session.user.isSuperAdmin || session.user.role === "SUPER_ADMIN",
-    );
+    const isUserSuperAdmin = isSuperAdmin(session.user);
 
     try {
       const result = await service.getCustomerTagihan({
         pelangganId,
         tenantId,
-        isSuperAdmin,
+        isSuperAdmin: isUserSuperAdmin,
         session: session as Parameters<
           CustomerLegacyBillingService["getCustomerTagihan"]
         >[0]["session"],

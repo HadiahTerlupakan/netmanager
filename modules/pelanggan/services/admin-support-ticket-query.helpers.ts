@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { isSuperAdmin } from "@/lib/auth";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { Prisma, TicketStatus } from "@prisma/client";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
@@ -141,7 +142,7 @@ function isForbidden(
   };
   return (
     hasSiteRestriction &&
-    user.role !== "SUPER_ADMIN" &&
+    !isSuperAdmin(user) &&
     (!user.siteId || safeTicket.pelanggan?.siteId !== user.siteId)
   );
 }

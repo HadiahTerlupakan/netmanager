@@ -1,6 +1,7 @@
 import { redis } from "@/lib/redis";
 import { prismaAuth } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { isSuperAdminRole } from "./helpers";
 
 /**
  * Permission caching logic
@@ -40,11 +41,7 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
       },
     });
 
-    if (
-      user?.role?.isSuperAdmin ||
-      user?.role?.name === "SUPER_ADMIN" ||
-      user?.role?.name === "Super Admin"
-    ) {
+    if (user?.role?.isSuperAdmin || isSuperAdminRole(user?.role?.name)) {
       const allPermissions = ["*"];
 
       try {

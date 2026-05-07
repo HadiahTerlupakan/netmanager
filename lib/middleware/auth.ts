@@ -4,17 +4,17 @@
  * Replaces multiple auth patterns (requireAdmin, getServerSession, verifyAuth)
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyAuth } from '@/lib/auth'
-import type { UserSession } from '@/lib/auth'
-import { UnauthorizedError } from './error-handler'
+import { NextRequest, NextResponse } from "next/server";
+import { isSuperAdmin, verifyAuth } from "@/lib/auth";
+import type { UserSession } from "@/lib/auth";
+import { UnauthorizedError } from "./error-handler";
 
 /**
  * Authentication context passed to handlers
  */
 export interface AuthContext {
-  user: UserSession
-  request: NextRequest
+  user: UserSession;
+  request: NextRequest;
 }
 
 /**
@@ -22,8 +22,8 @@ export interface AuthContext {
  */
 export type AuthenticatedHandler<T = unknown> = (
   context: AuthContext,
-  routeContext?: unknown
-) => Promise<NextResponse<T>>
+  routeContext?: unknown,
+) => Promise<NextResponse<T>>;
 
 /**
  * Middleware to require authentication
@@ -37,18 +37,19 @@ export type AuthenticatedHandler<T = unknown> = (
  * })
  * ```
  */
-export function withAuth<T = unknown>(
-  handler: AuthenticatedHandler<T>
-) {
-  return async (request: NextRequest, routeContext?: unknown): Promise<NextResponse> => {
-    const user = await verifyAuth(request)
+export function withAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
+  return async (
+    request: NextRequest,
+    routeContext?: unknown,
+  ): Promise<NextResponse> => {
+    const user = await verifyAuth(request);
 
     if (!user) {
-      throw new UnauthorizedError('Autentikasi diperlukan')
+      throw new UnauthorizedError("Autentikasi diperlukan");
     }
 
-    return handler({ user, request }, routeContext)
-  }
+    return handler({ user, request }, routeContext);
+  };
 }
 
 /**
@@ -63,24 +64,25 @@ export function withAuth<T = unknown>(
  * })
  * ```
  */
-export function withAdminAuth<T = unknown>(
-  handler: AuthenticatedHandler<T>
-) {
-  return async (request: NextRequest, routeContext?: unknown): Promise<NextResponse> => {
-    const user = await verifyAuth(request)
+export function withAdminAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
+  return async (
+    request: NextRequest,
+    routeContext?: unknown,
+  ): Promise<NextResponse> => {
+    const user = await verifyAuth(request);
 
     if (!user) {
-      throw new UnauthorizedError('Autentikasi diperlukan')
+      throw new UnauthorizedError("Autentikasi diperlukan");
     }
 
     // Check admin panel access
-    const hasAdminAccess = await checkAdminAccess(user)
+    const hasAdminAccess = await checkAdminAccess(user);
     if (!hasAdminAccess) {
-      throw new UnauthorizedError('Akses admin diperlukan')
+      throw new UnauthorizedError("Akses admin diperlukan");
     }
 
-    return handler({ user, request }, routeContext)
-  }
+    return handler({ user, request }, routeContext);
+  };
 }
 
 /**
@@ -88,23 +90,26 @@ export function withAdminAuth<T = unknown>(
  * Checks that user has accessEmployeePanel permission
  */
 export function withEmployeeAuth<T = unknown>(
-  handler: AuthenticatedHandler<T>
+  handler: AuthenticatedHandler<T>,
 ) {
-  return async (request: NextRequest, routeContext?: unknown): Promise<NextResponse> => {
-    const user = await verifyAuth(request)
+  return async (
+    request: NextRequest,
+    routeContext?: unknown,
+  ): Promise<NextResponse> => {
+    const user = await verifyAuth(request);
 
     if (!user) {
-      throw new UnauthorizedError('Autentikasi diperlukan')
+      throw new UnauthorizedError("Autentikasi diperlukan");
     }
 
     // Check employee panel access
-    const hasEmployeeAccess = await checkEmployeeAccess(user)
+    const hasEmployeeAccess = await checkEmployeeAccess(user);
     if (!hasEmployeeAccess) {
-      throw new UnauthorizedError('Akses karyawan diperlukan')
+      throw new UnauthorizedError("Akses karyawan diperlukan");
     }
 
-    return handler({ user, request }, routeContext)
-  }
+    return handler({ user, request }, routeContext);
+  };
 }
 
 /**
@@ -113,24 +118,24 @@ export function withEmployeeAuth<T = unknown>(
  */
 async function checkAdminAccess(user: UserSession): Promise<boolean> {
   // SUPER_ADMIN bypass
-  if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
-    return true
+  if (isSuperAdmin(user)) {
+    return true;
   }
 
   // Load user with role to check accessAdminPanel
-  const { prisma } = await import('@/lib/prisma')
+  const { prisma } = await import("@/lib/prisma");
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
       role: {
         select: {
-          accessAdminPanel: true
-        }
-      }
-    }
-  })
+          accessAdminPanel: true,
+        },
+      },
+    },
+  });
 
-  return dbUser?.role?.accessAdminPanel ?? false
+  return dbUser?.role?.accessAdminPanel ?? false;
 }
 
 /**
@@ -139,30 +144,30 @@ async function checkAdminAccess(user: UserSession): Promise<boolean> {
  */
 async function checkEmployeeAccess(user: UserSession): Promise<boolean> {
   // SUPER_ADMIN bypass
-  if (user.isSuperAdmin || user.role === 'SUPER_ADMIN' || user.role === 'Super Admin') {
-    return true
+  if (isSuperAdmin(user)) {
+    return true;
   }
 
   // Load user with role to check accessEmployeePanel
-  const { prisma } = await import('@/lib/prisma')
+  const { prisma } = await import("@/lib/prisma");
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
       role: {
         select: {
-          accessEmployeePanel: true
-        }
-      }
-    }
-  })
+          accessEmployeePanel: true,
+        },
+      },
+    },
+  });
 
-  return dbUser?.role?.accessEmployeePanel ?? false
+  return dbUser?.role?.accessEmployeePanel ?? false;
 }
 
 /**
  * Optional auth - user may or may not be authenticated
  * Handler receives user as null if not authenticated
- * 
+ *
  * @example
  * ```ts
  * export const GET = withOptionalAuth(async ({ user, request }) => {
@@ -175,10 +180,16 @@ async function checkEmployeeAccess(user: UserSession): Promise<boolean> {
  * ```
  */
 export function withOptionalAuth<T = unknown>(
-  handler: (context: { user: UserSession | null; request: NextRequest }, routeContext?: { params: Record<string, string | string[]> }) => Promise<NextResponse<T>>
+  handler: (
+    context: { user: UserSession | null; request: NextRequest },
+    routeContext?: { params: Record<string, string | string[]> },
+  ) => Promise<NextResponse<T>>,
 ) {
-  return async (request: NextRequest, routeContext?: { params: Record<string, string | string[]> }): Promise<NextResponse> => {
-    const user = await verifyAuth(request)
-    return handler({ user, request }, routeContext)
-  }
+  return async (
+    request: NextRequest,
+    routeContext?: { params: Record<string, string | string[]> },
+  ): Promise<NextResponse> => {
+    const user = await verifyAuth(request);
+    return handler({ user, request }, routeContext);
+  };
 }

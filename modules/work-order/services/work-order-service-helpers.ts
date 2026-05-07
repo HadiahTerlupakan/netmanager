@@ -1,3 +1,4 @@
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { logger } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { ServiceResult, UserContext } from "./WorkOrderService";
@@ -42,7 +43,7 @@ function buildRestrictionContext(input: {
 }) {
   return {
     userPermissions: input.userPermissions ?? [],
-    isSuperAdmin: input.userRole === "SUPER_ADMIN",
+    isSuperAdmin: isSuperAdminRole(input.userRole || ""),
   };
 }
 

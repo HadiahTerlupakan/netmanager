@@ -1,20 +1,22 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getMixRadiusSyncService } from "@/modules/integrations";
+import { isSuperAdmin } from "@/lib/auth";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusSyncService,
+} from "@/modules/integrations";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:read"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("*") || permissions.includes("mixradius:read");
-    if (!hasAccess) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki izin untuk mengakses statistik MixRadius",
-      );
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki izin untuk mengakses statistik MixRadius",
+    );
   }
 
   const { searchParams } = req.nextUrl;

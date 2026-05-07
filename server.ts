@@ -18,6 +18,7 @@ logger.info(
 import { createServer } from "http";
 import next from "next";
 import { getToken } from "next-auth/jwt";
+import { isSuperAdminRole } from "@/lib/auth";
 import { cronRegistry } from "./lib/cron-registry";
 import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
@@ -104,7 +105,7 @@ app.prepare().then(() => {
           ) || [];
 
         const hasCreatePermission =
-          userRole.toUpperCase() === "SUPER_ADMIN" ||
+          isSuperAdminRole(userRole) ||
           userPermissions.includes("app_version:create") ||
           hasAdminPanelAccess;
 

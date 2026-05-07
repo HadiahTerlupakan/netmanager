@@ -1,5 +1,8 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { getMixRadiusSyncService } from "@/modules/integrations";
+import { isSuperAdmin } from "@/lib/auth";
+import {
+  getMixRadiusAccessService,
+  getMixRadiusSyncService,
+} from "@/modules/integrations";
 import type { MixRadiusCustomerDetail } from "@/modules/integrations";
 import {
   apiSuccess,
@@ -13,15 +16,14 @@ export const dynamic = "force-dynamic";
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccess({
+    userId: user.id,
+    isSuperAdmin: isSuperAdmin(user),
+    requiredPermissions: ["mixradius:read"],
+  });
 
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("mixradius:read") || permissions.includes("*");
-    if (!hasAccess) {
-      return ApiErrors.forbidden("Anda tidak memiliki akses ke MixRadius");
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses ke MixRadius");
   }
 
   const body = await req.json();

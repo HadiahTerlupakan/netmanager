@@ -23,10 +23,9 @@ export {
   isSuperAdmin,
   isSuperAdminUser,
   isSuperAdminRole,
-  verifyAuth,
   type CanonicalAdminUser,
-  type UserSession,
-} from "./auth/helpers";
+} from "./auth/super-admin";
+export { verifyAuth, type UserSession } from "./auth/helpers";
 export {
   getCachedSession,
   setCachedSession,

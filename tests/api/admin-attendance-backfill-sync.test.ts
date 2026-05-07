@@ -32,6 +32,7 @@ vi.mock("@/lib/rbac", () => ({
 }));
 
 vi.mock("@/lib/auth", () => ({
+  authOptions: {},
   getUserPermissions: vi.fn().mockResolvedValue([]),
   isSuperAdmin: vi.fn().mockReturnValue(true),
 }));

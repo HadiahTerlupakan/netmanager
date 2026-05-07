@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { invoiceSchema } from "@/lib/validations/invoice";
 import { hasPermission } from "@/lib/rbac";
+import { isSuperAdmin } from "@/lib/auth";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import {
   createInvoiceForRoute,
@@ -73,8 +74,9 @@ export const POST = createHandler(
   },
 );
 
-async function canOnlyAccessOwnSite(user: { role?: string | null }) {
-  return (
-    (await hasPermission("invoice:site_only")) && user.role !== "SUPER_ADMIN"
-  );
+async function canOnlyAccessOwnSite(user: {
+  role?: string | null;
+  isSuperAdmin?: boolean;
+}) {
+  return (await hasPermission("invoice:site_only")) && !isSuperAdmin(user);
 }

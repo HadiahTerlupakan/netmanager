@@ -1,5 +1,6 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
 import {
+  getMixRadiusAccessService,
   MixRadiusConfigError,
   MixRadiusDismantleService,
 } from "@/modules/integrations";
@@ -22,20 +23,13 @@ const mixRadiusDismantleService = new MixRadiusDismantleService();
  */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
+  const hasAccess = await getMixRadiusAccessService().canAccessDismantle(
+    user.id,
+    isSuperAdmin(user),
+  );
 
-  // Permission check
-  if (!isSuper) {
-    const permissions = await getUserPermissions(user.id);
-    const hasAccess =
-      permissions.includes("*") ||
-      (permissions.includes("mixradius:read") &&
-        (permissions.includes("workorders:create") ||
-          permissions.includes("list:create")));
-
-    if (!hasAccess) {
-      return ApiErrors.forbidden();
-    }
+  if (!hasAccess) {
+    return ApiErrors.forbidden();
   }
 
   const body = await req.json();

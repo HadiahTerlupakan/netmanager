@@ -10,7 +10,7 @@ const {
   mockGetAllConfigsByTenant,
   mockLogActivity,
   mockIsSuperAdmin,
-  mockGetUserPermissions,
+  mockCanAccess,
   mockSessionUser,
 } = vi.hoisted(() => ({
   mockCreateConfig: vi.fn(),
@@ -22,7 +22,7 @@ const {
   mockGetAllConfigsByTenant: vi.fn(),
   mockLogActivity: vi.fn(),
   mockIsSuperAdmin: vi.fn(),
-  mockGetUserPermissions: vi.fn(),
+  mockCanAccess: vi.fn(),
   mockSessionUser: { id: "user-1", tenantId: "tenant-1" as string | undefined },
 }));
 
@@ -73,7 +73,6 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/lib/auth", () => ({
   isSuperAdmin: mockIsSuperAdmin,
-  getUserPermissions: mockGetUserPermissions,
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -103,6 +102,9 @@ const { mockCreateMixRadiusConfig, mockValidateUrl } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/integrations", () => ({
+  getMixRadiusAccessService: () => ({
+    canAccess: mockCanAccess,
+  }),
   getMixRadiusConfigService: () => ({
     createConfig: mockCreateConfig,
     updateConfig: mockUpdateConfig,
@@ -130,7 +132,7 @@ describe("MixRadius accounts routes", () => {
     vi.clearAllMocks();
     mockSessionUser.tenantId = "tenant-1";
     mockIsSuperAdmin.mockReturnValue(true);
-    mockGetUserPermissions.mockResolvedValue([]);
+    mockCanAccess.mockResolvedValue(true);
     mockCreateConfig.mockResolvedValue({
       id: "config-1",
       apiUrl: "https://mixradius.example.com",
@@ -244,7 +246,7 @@ describe("MixRadius accounts routes", () => {
 
   it("rejects POST when non-superadmin has no tenantId", async () => {
     mockIsSuperAdmin.mockReturnValue(false);
-    mockGetUserPermissions.mockResolvedValue(["mixradius_accounts:create"]);
+    mockCanAccess.mockResolvedValue(true);
     mockSessionUser.tenantId = undefined;
 
     const request = new Request(
@@ -272,9 +274,47 @@ describe("MixRadius accounts routes", () => {
     expect(mockCreateConfig).not.toHaveBeenCalled();
   });
 
+  it("allows superadmin to POST account with explicit tenantId in body", async () => {
+    mockIsSuperAdmin.mockReturnValue(true);
+    mockCanAccess.mockResolvedValue(true);
+    mockSessionUser.tenantId = undefined;
+
+    const request = new Request(
+      "http://localhost/api/integrations/mixradius/accounts",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Server Jakarta",
+          baseUrl: "mixradius.example.com/",
+          username: "admin",
+          password: "secret",
+          tenantId: "target-tenant",
+        }),
+      },
+    );
+
+    const response = await (
+      POST as unknown as (
+        req: Request,
+      ) => Promise<{ success: boolean; data?: unknown; status?: number }>
+    )(request);
+
+    expect(response.success).toBe(true);
+    expect(response.status).toBe(201);
+    expect(mockCreateConfig).toHaveBeenCalledWith(
+      "target-tenant",
+      expect.objectContaining({
+        baseUrl: "mixradius.example.com/",
+        username: "admin",
+        password: "secret",
+      }),
+    );
+  });
+
   it("scopes PUT by tenantId for non-superadmin", async () => {
     mockIsSuperAdmin.mockReturnValue(false);
-    mockGetUserPermissions.mockResolvedValue(["mixradius:update"]);
+    mockCanAccess.mockResolvedValue(true);
 
     const request = new Request(
       "http://localhost/api/integrations/mixradius/accounts/config-1",
@@ -302,7 +342,7 @@ describe("MixRadius accounts routes", () => {
 
   it("scopes DELETE by tenantId for non-superadmin", async () => {
     mockIsSuperAdmin.mockReturnValue(false);
-    mockGetUserPermissions.mockResolvedValue(["mixradius:delete"]);
+    mockCanAccess.mockResolvedValue(true);
 
     const request = new Request(
       "http://localhost/api/integrations/mixradius/accounts/config-1",

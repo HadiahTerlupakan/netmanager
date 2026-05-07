@@ -1,8 +1,9 @@
 import { logger } from "@/lib/logger";
+import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getToken } from "next-auth/jwt";
 import { jwtVerify } from "jose";
-import { MAIN_TENANT_ID } from "@/modules/mitra";
+import { MAIN_TENANT_ID } from "@/lib/tenant-constants";
 import { prisma } from "@/modules/database";
 
 async function resolveTenantContextFromHost(
@@ -85,6 +86,15 @@ function resolvePrimaryTenantContext(): TenantContextResult {
     tenantId: MAIN_TENANT_ID,
     isSuperAdmin: false,
   };
+}
+
+function getAuthSecret(): Uint8Array {
+  const rawSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+  if (!rawSecret) {
+    throw new Error("NEXTAUTH_SECRET environment variable is required");
+  }
+
+  return new TextEncoder().encode(rawSecret);
 }
 
 /**
@@ -186,9 +196,7 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
 
         if (token) {
           const isSuperAdmin =
-            !!token.isSuperAdmin ||
-            token.role === "SUPER_ADMIN" ||
-            token.role === "Super Admin";
+            !!token.isSuperAdmin || isSuperAdminRole(token.role);
           return cacheTenantContextForRequest(requestHeaders, {
             tenantId: (token.tenantId as string) || null,
             isSuperAdmin,
@@ -198,13 +206,9 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
         // 2b. Check for Investor Auth Cookie
         const { cookies } = await import("next/headers");
         const cs = await cookies();
+        const secret = getAuthSecret();
         const investorToken = cs.get("investor_auth_token")?.value;
         if (investorToken) {
-          const rawSecret =
-            process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-          if (!rawSecret)
-            throw new Error("NEXTAUTH_SECRET environment variable is required");
-          const secret = new TextEncoder().encode(rawSecret);
           try {
             const { payload } = await jwtVerify(investorToken, secret);
             if (payload && payload.tenantId) {
@@ -224,11 +228,6 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
         // 2c. Check for Customer Auth Cookie
         const customerToken = cs.get("customer-token")?.value;
         if (customerToken) {
-          const rawSecret =
-            process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-          if (!rawSecret)
-            throw new Error("NEXTAUTH_SECRET environment variable is required");
-          const secret = new TextEncoder().encode(rawSecret);
           try {
             const { payload } = await jwtVerify(customerToken, secret);
             const tenantId = (payload as { tenantId?: string }).tenantId;

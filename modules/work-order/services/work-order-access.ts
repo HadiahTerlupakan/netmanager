@@ -134,10 +134,7 @@ export async function validateMobileWorkOrderMaterialReturnAccess(params: {
 export function isSuperAdminContext(
   userContext: Pick<UserContext, "role" | "isSuperAdmin">,
 ): boolean {
-  const { role, isSuperAdmin } = userContext;
-  return Boolean(
-    isSuperAdmin || role === "SUPER_ADMIN" || role === "Super Admin",
-  );
+  return Boolean(userContext.isSuperAdmin);
 }
 
 export async function validateWorkOrderAccess(params: {
