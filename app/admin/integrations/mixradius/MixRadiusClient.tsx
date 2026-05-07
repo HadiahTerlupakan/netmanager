@@ -16,6 +16,7 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 import toast from "react-hot-toast";
+import { Button } from "@/components/ui/Button";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import {
@@ -438,16 +439,16 @@ export default function MixRadiusClient({
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => fetchData(true)}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 dark:bg-blue-400 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          variant="default"
         >
           <HiOutlineArrowPath
             className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
           />
           {loading ? "Memuat..." : "Refresh"}
-        </button>
+        </Button>
       </div>
 
       {/* Stats Cards */}
