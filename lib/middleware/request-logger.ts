@@ -141,6 +141,37 @@ export async function logAuditActivity(
   const hasBodyData =
     body && typeof body === "object" && Object.keys(body).length > 0;
 
+  // Build detailed context for logs without body (GET requests)
+  const buildReadDetails = () => {
+    const details: Record<string, unknown> = {
+      method,
+      path: pathname,
+      status,
+    };
+
+    // Add query parameters if present
+    const searchParams = req.nextUrl.searchParams;
+    if (searchParams.toString()) {
+      const queryParams: Record<string, string | string[]> = {};
+      searchParams.forEach((value, key) => {
+        const existing = queryParams[key];
+        if (existing) {
+          queryParams[key] = Array.isArray(existing)
+            ? [...existing, value]
+            : [existing, value];
+        } else {
+          queryParams[key] = value;
+        }
+      });
+      details.queryParams = queryParams;
+    }
+
+    // Add response time
+    details.timestamp = new Date().toISOString();
+
+    return details;
+  };
+
   await logger
     .logActivity({
       action,
@@ -151,7 +182,7 @@ export async function logAuditActivity(
       userAgent,
       details: hasBodyData
         ? (redactSensitiveData(body) as Record<string, unknown>)
-        : { path: pathname, status },
+        : buildReadDetails(),
     })
     .catch((err) => logger.error("[Audit Log Error]", err));
 }
