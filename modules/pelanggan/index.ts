@@ -24,6 +24,14 @@ export {
   PelangganService,
   getPelangganService,
 } from "./services/PelangganService";
+export {
+  PelangganInputBuilderService,
+  pelangganInputBuilderService,
+} from "./services/pelanggan-input-builder.service";
+export {
+  PelangganUploadService,
+  pelangganUploadService,
+} from "./services/pelanggan-upload.service";
 
 export { SupportTicketService } from "./services/SupportTicketService";
 export { CustomerUsageService } from "./services/CustomerUsageService";

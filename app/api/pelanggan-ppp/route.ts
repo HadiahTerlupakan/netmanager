@@ -1,11 +1,10 @@
-import { logger } from "@/lib/logger";
-import {
-  convertAndSaveImage,
-  saveFile,
-  isImageFile,
-} from "@/lib/utils/image-upload";
 import path from "path";
-import { getPelangganService } from "@/modules/pelanggan";
+import { Status } from "@prisma/client";
+import {
+  getPelangganService,
+  pelangganInputBuilderService,
+  pelangganUploadService,
+} from "@/modules/pelanggan";
 import { checkSiteRestriction } from "@/modules/roles";
 import {
   apiSuccess,
@@ -15,23 +14,8 @@ import {
   apiError,
 } from "@/lib/api";
 import { createPelangganSchema } from "@/lib/validations/pelanggan";
-import { validateFileSignature } from "@/lib/utils/file-validation";
-import { parsePaginationParams } from "@/lib/constants/pagination";
+import { logger } from "@/lib/logger";
 import * as z from "zod";
-
-type CustomerStatusValue =
-  | "AKTIF"
-  | "NONAKTIF"
-  | "MAINTENANCE"
-  | "ISOLIR"
-  | "DISMANTLE";
-type SiteInFilter = { in: string[] };
-type FilterOptions = {
-  status?: CustomerStatusValue;
-  search?: string;
-  siteId?: string | SiteInFilter;
-};
-const ALLOWED_TYPES: ("jpg" | "png" | "pdf")[] = ["jpg", "png", "pdf"];
 
 /** Remove password fields from pelanggan response payload. */
 const sanitizePelangganResponse = <
@@ -56,30 +40,36 @@ export const GET = createHandler(
   async (req, ctx) => {
     const session = ctx.session!;
     const searchParams = req.nextUrl.searchParams;
-    const { isRestricted, siteIds } = checkSiteRestriction(
-      session as never,
-      "pelanggan",
-    );
-    const filter: FilterOptions = {};
-    const status = searchParams.get("status") as CustomerStatusValue | null;
-    if (status) filter.status = status;
-    if (searchParams.get("search")) filter.search = searchParams.get("search")!;
-    if (isRestricted) {
-      if (siteIds.length === 0)
-        return ApiErrors.forbidden("User tidak memiliki akses site");
-      filter.siteId = { in: siteIds };
-    } else if (searchParams.get("siteId")) {
-      filter.siteId = searchParams.get("siteId")!;
-    }
+    const restriction = checkSiteRestriction(session as never, "pelanggan");
+    const status = searchParams.get("status") as Status | null;
+    const search = searchParams.get("search");
+    const siteIdParam = searchParams.get("siteId");
 
-    const { page, limit } = parsePaginationParams(searchParams);
-    const { data: pelanggans, total } =
-      await getPelangganService().getAllPelangganPaginated(filter, page, limit);
-    return apiPaginated(pelanggans.map(sanitizePelangganResponse), {
-      page,
-      limit,
-      total,
-    });
+    try {
+      const filter = pelangganInputBuilderService.buildListFilter(restriction, {
+        status,
+        search,
+        siteIdParam,
+      });
+      const page = parseInt(searchParams.get("page") || "1");
+      const limit = parseInt(searchParams.get("limit") || "10");
+      const { data: pelanggans, total } =
+        await getPelangganService().getAllPelangganPaginated(
+          filter,
+          page,
+          limit,
+        );
+      return apiPaginated(pelanggans.map(sanitizePelangganResponse), {
+        page,
+        limit,
+        total,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("akses site")) {
+        return ApiErrors.forbidden(error.message);
+      }
+      throw error;
+    }
   },
 );
 
@@ -110,10 +100,18 @@ export const POST = createHandler(
 
     const data = validationResult.data;
     const restriction = checkSiteRestriction(session as never, "pelanggan");
-    if (restriction.isRestricted) {
-      if (!restriction.primarySiteId)
-        return ApiErrors.forbidden("User tidak memiliki akses site");
-      data.siteId = restriction.primarySiteId;
+
+    let inputWithSite: typeof data;
+    try {
+      inputWithSite = pelangganInputBuilderService.applySiteRestriction(
+        data,
+        restriction,
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("akses site")) {
+        return ApiErrors.forbidden(error.message);
+      }
+      throw error;
     }
 
     const pelangganUploadDir = path.join(
@@ -121,27 +119,28 @@ export const POST = createHandler(
       "public",
       "uploads",
       "pelanggan",
-      data.idPelanggan.trim(),
+      inputWithSite.idPelanggan.trim(),
     );
+
     try {
       const fileKTP = formData.get("fileKTP") as File | null;
       const fileRumahSekitar = formData.get("fileRumahSekitar") as File | null;
       const fileBAST = formData.get("fileBAST") as File | null;
       const pelanggan = await getPelangganService().createPelanggan({
-        ...data,
-        fileKTP: await saveOptionalFile(
+        ...inputWithSite,
+        fileKTP: await pelangganUploadService.saveOptionalFile(
           fileKTP,
           pelangganUploadDir,
           "ktp",
           "File KTP tidak valid",
         ),
-        fileRumahSekitar: await saveOptionalFile(
+        fileRumahSekitar: await pelangganUploadService.saveOptionalFile(
           fileRumahSekitar,
           pelangganUploadDir,
           "rumah",
           "File Rumah tidak valid",
         ),
-        fileBAST: await saveOptionalFile(
+        fileBAST: await pelangganUploadService.saveOptionalFile(
           fileBAST,
           pelangganUploadDir,
           "bast",
@@ -162,27 +161,8 @@ export const POST = createHandler(
       };
       return apiSuccess(sanitizePelangganResponse(pelanggan), { status: 201 });
     } catch (error) {
-      logger.error("Error saving files:", error);
+      logger.error("Error saving files:", error as Error);
       return ApiErrors.internalError("Gagal memproses upload file");
     }
   },
 );
-
-/** Save one optional pelanggan attachment after file validation. */
-async function saveOptionalFile(
-  file: File | null,
-  uploadDir: string,
-  filePrefix: string,
-  errorMessage: string,
-) {
-  if (!file || file.size <= 0) return null;
-  if (!(await validateFileSignature(file, ALLOWED_TYPES)))
-    throw new Error(errorMessage);
-  if (isImageFile(file))
-    return convertAndSaveImage(file, uploadDir, filePrefix);
-  return saveFile(
-    file,
-    uploadDir,
-    `${filePrefix}${path.extname(file.name) || ".pdf"}`,
-  );
-}
