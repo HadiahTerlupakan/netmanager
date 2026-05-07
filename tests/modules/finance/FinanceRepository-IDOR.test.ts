@@ -6,19 +6,24 @@ import { BillingAnalyticsRepository } from "@/modules/finance/repositories/Billi
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type { PrismaClient } from "@prisma/client";
 
+const billingMockFns = vi.hoisted(() => ({
+  invoiceFindMany: vi.fn(),
+  paymentFindMany: vi.fn(),
+  paymentGroupBy: vi.fn(),
+}));
+
 vi.mock("@/lib/tenant-context", () => ({
   getTenantIdFromContext: vi.fn(),
 }));
 
-// Mock prisma-billing
 vi.mock("@/lib/prisma-billing", () => ({
   prismaBilling: {
     invoice: {
-      findMany: vi.fn(),
+      findMany: billingMockFns.invoiceFindMany,
     },
     payment: {
-      findMany: vi.fn(),
-      groupBy: vi.fn(),
+      findMany: billingMockFns.paymentFindMany,
+      groupBy: billingMockFns.paymentGroupBy,
     },
   },
 }));
@@ -86,7 +91,7 @@ describe("Finance Repositories - IDOR Protection", () => {
 
       await repo.getInvoicesWithPayments(new Date(), new Date());
 
-      expect(prismaBilling.invoice.findMany).toHaveBeenCalledWith(
+      expect(billingMockFns.invoiceFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenantId: "tenant-Z" }),
         }),
@@ -100,12 +105,13 @@ describe("Finance Repositories - IDOR Protection", () => {
       });
       const repo = new BillingAnalyticsRepository();
 
-      vi.mocked(prismaBilling.payment.groupBy).mockResolvedValue([]);
+      Object.assign(prismaMock, { pelanggan: prismaMock.pelanggan });
+      billingMockFns.paymentGroupBy.mockResolvedValue([]);
       prismaMock.pelanggan.findMany.mockResolvedValue([]);
 
       await repo.getTopCustomersByPayment(new Date(), new Date());
 
-      expect(prismaBilling.payment.groupBy).toHaveBeenCalledWith(
+      expect(billingMockFns.paymentGroupBy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenantId: "tenant-Z" }),
         }),

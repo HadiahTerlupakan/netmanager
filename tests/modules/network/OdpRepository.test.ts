@@ -20,7 +20,7 @@ describe("OdpRepository", () => {
       };
 
       prismaMock.$transaction.mockImplementationOnce(
-        async (callback: (tx: PrismaClient) => Promise<Odp>) => {
+        async (callback: (tx: unknown) => Promise<Odp>) => {
           prismaMock.odp.create.mockResolvedValueOnce({
             id: "odp-1",
           } as unknown as Odp);
@@ -51,7 +51,7 @@ describe("OdpRepository", () => {
       };
 
       prismaMock.$transaction.mockImplementationOnce(
-        async (callback: (tx: PrismaClient) => Promise<Odp>) => {
+        async (callback: (tx: unknown) => Promise<Odp>) => {
           prismaMock.odp.create.mockResolvedValueOnce({
             id: "odp-2",
           } as unknown as Odp);
@@ -73,7 +73,7 @@ describe("OdpRepository", () => {
       };
 
       prismaMock.$transaction.mockImplementationOnce(
-        async (callback: (tx: PrismaClient) => Promise<Odp>) => {
+        async (callback: (tx: unknown) => Promise<Odp>) => {
           prismaMock.odp.create.mockResolvedValueOnce({
             id: "odp-3",
           } as unknown as Odp);
@@ -101,7 +101,7 @@ describe("OdpRepository", () => {
       };
 
       prismaMock.$transaction.mockImplementationOnce(
-        async (callback: (tx: PrismaClient) => Promise<Odp>) => {
+        async (callback: (tx: unknown) => Promise<Odp>) => {
           prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp);
           return callback(prismaMock);
         },
@@ -131,7 +131,7 @@ describe("OdpRepository", () => {
       };
 
       prismaMock.$transaction.mockImplementationOnce(
-        async (callback: (tx: PrismaClient) => Promise<Odp>) => {
+        async (callback: (tx: unknown) => Promise<Odp>) => {
           prismaMock.odp.update.mockResolvedValueOnce({} as unknown as Odp);
           prismaMock.odpOutput.deleteMany.mockResolvedValueOnce({ count: 2 });
           prismaMock.odpOutput.createMany.mockResolvedValueOnce({ count: 1 });

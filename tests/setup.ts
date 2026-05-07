@@ -1,4 +1,4 @@
-import { beforeEach, vi } from "vitest";
+import { beforeEach, vi, type Mock } from "vitest";
 import { mockReset } from "vitest-mock-extended";
 
 // Force the timezone to Jakarta for all tests so that CI (UTC) behaves identically to local development
@@ -7,7 +7,7 @@ process.env.TZ = "Asia/Jakarta";
 // This is a known issue with Prisma 7.x and vitest-mock-extended
 // See: https://www.prisma.io/docs/orm/prisma-client/testing/unit-testing
 
-type MockFn = ReturnType<typeof vi.fn>;
+type MockFn = Mock;
 
 type MockModel = {
   findMany: MockFn;
@@ -26,90 +26,76 @@ type MockModel = {
 };
 
 export type MockPrismaClient = {
-  // All model names as dynamic keys returning MockModel
-  user: MockModel;
-  role: MockModel;
-  permission: MockModel;
-  pelanggan: MockModel;
-  invoice: MockModel;
-  payment: MockModel;
-  paket: MockModel;
-  bandwidth: MockModel;
-  mikrotikRouter: MockModel;
-  attendance: MockModel;
-  leave: MockModel;
-  workOrders: MockModel;
-  supportTickets: MockModel;
-  ticketReplies: MockModel;
-  inventory: MockModel;
-  site: MockModel;
-  department: MockModel;
-  notifications: MockModel;
   announcement: MockModel;
-  leaveBalance: MockModel;
-  overtime: MockModel;
-  shift: MockModel;
-  holiday: MockModel;
+  announcementRead: MockModel;
+  appVersion: MockModel;
+  attendance: MockModel;
   attendanceEvaluation: MockModel;
   attendanceEvaluationAudit: MockModel;
-  salary: MockModel;
-  salaryComponent: MockModel;
-  mitra: MockModel;
-  mitraWallet: MockModel;
-  mitraTransaction: MockModel;
-  withdrawRequest: MockModel;
-  leaveRequest: MockModel;
+  barang: MockModel;
+  barangGudang: MockModel;
+  barangKeluar: MockModel;
   canvasing: MockModel;
-  pointClaim: MockModel;
-  coupon: MockModel;
-  purchaseOrder: MockModel;
-  purchaseRequest: MockModel;
-  supplier: MockModel;
-  odc: MockModel;
-  odcOutput: MockModel;
+  conversation: MockModel;
+  employeeLoan: MockModel;
+  expense: MockModel;
+  gudang: MockModel;
+  hargaPaket: MockModel;
+  holiday: MockModel;
+  investor: MockModel;
+  invoice: MockModel;
+  leaveRequest: MockModel;
+  mitra: MockModel;
+  notifications: MockModel;
   odp: MockModel;
   odpOutput: MockModel;
-  onu: MockModel;
-  onuType: MockModel;
-  barang: MockModel;
-  gudang: MockModel;
-  stokBarang: MockModel;
-  barangGudang: MockModel;
-  barangMasuk: MockModel;
-  barangKeluar: MockModel;
-  transferBarang: MockModel;
-  stockOpname: MockModel;
-  asset: MockModel;
-  speedProfile: MockModel;
-  profilePpp: MockModel;
-  hargaPaket: MockModel;
-  registration: MockModel;
-  systemLog: MockModel;
-  loginLog: MockModel;
-  appVersion: MockModel;
+  overtime: MockModel;
+  overtimeAutoCheckoutSchedule: MockModel;
+  payment: MockModel;
+  pelanggan: MockModel;
+  pemasukan: MockModel;
+  pengeluaran: MockModel;
+  permission: MockModel;
+  profilePPP: MockModel;
+  purchaseRequest: MockModel;
+  rabActualAchievement: MockModel;
+  rabInvestor: MockModel;
+  rabItem: MockModel;
+  rabProject: MockModel;
+  rabRevision: MockModel;
+  radcheck: MockModel;
+  radgroupcheck: MockModel;
+  radgroupreply: MockModel;
+  radippool: MockModel;
+  radusergroup: MockModel;
+  restockAlerts: MockModel;
+  restockSettings: MockModel;
+  role: MockModel;
+  salary: MockModel;
   settings: MockModel;
-  locationHistory: MockModel;
-  workOrderTasks: MockModel;
+  sites: MockModel;
+  stockOpname: MockModel;
+  supportTickets: MockModel;
+  systemLog: MockModel;
+  ticketReplies: MockModel;
+  unmatchedMutation: MockModel;
+  user: MockModel;
+  userSalaryComponent: MockModel;
   workOrderAssignments: MockModel;
+  workOrderAttachments: MockModel;
+  workOrderTasks: MockModel;
   workOrderUpdates: MockModel;
-  workOrderComment: MockModel;
-  workOrderAttachment: MockModel;
-  workOrderMaterial: MockModel;
-  workOrderTemplate: MockModel;
-  workOrderSla: MockModel;
-  workOrderEscalation: MockModel;
-  chatMessage: MockModel;
-  conversation: MockModel;
-  pushToken: MockModel;
-  // Prisma client methods
+  workOrders: MockModel;
   $connect: MockFn;
   $disconnect: MockFn;
   $transaction: MockFn;
   $queryRaw: MockFn;
   $queryRawUnsafe: MockFn;
   $executeRaw: MockFn;
-  // Allow any other model access
-  [key: string]: MockModel | MockFn;
+  $executeRawUnsafe: MockFn;
+  $on: MockFn;
+  $extends: MockFn;
+  _cache?: Map<string, MockModel>;
 };
 
 // Create deep mock without instantiating real PrismaClient
@@ -144,6 +130,9 @@ const createMock = (): MockPrismaClient => {
     $queryRaw: vi.fn(),
     $queryRawUnsafe: vi.fn(),
     $executeRaw: vi.fn(),
+    $executeRawUnsafe: vi.fn(),
+    $on: vi.fn(),
+    $extends: vi.fn(),
   };
 
   // Use Proxy to create models on demand
@@ -212,19 +201,15 @@ process.env.DATABASE_URL =
 
 // Reset all mocks before each test
 beforeEach(() => {
-  const pMock = prismaMock as unknown as MockPrismaClient & {
-    _cache?: Map<string, MockModel>;
-  };
-  mockReset(pMock as unknown as MockPrismaClient);
+  const pMock = prismaMock as MockPrismaClient;
+  mockReset(pMock as unknown as { [key: string]: unknown });
 
   // Reset all cached model mocks
   if (pMock._cache) {
     pMock._cache.forEach((model: MockModel) => {
       Object.values(model).forEach((mock) => {
-        if (typeof mock === "function" && "mockReset" in mock) {
-          (mock as unknown as { mockReset: () => void }).mockReset();
-        } else if (typeof mock === "function") {
-          vi.mocked(mock).mockReset();
+        if (typeof mock === "function") {
+          (mock as MockFn).mockReset();
         }
       });
     });
