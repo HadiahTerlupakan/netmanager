@@ -341,8 +341,16 @@ export default function RABCompare({
 
       autoTable(doc, {
         head: [headers],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        body: body as any,
+        body: body as Array<
+          Array<
+            | string
+            | {
+                content: string;
+                colSpan?: number;
+                styles?: Record<string, unknown>;
+              }
+          >
+        >,
         startY: 28,
         theme: "grid",
         styles: {

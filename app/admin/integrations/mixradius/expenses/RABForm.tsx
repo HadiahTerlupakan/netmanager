@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useMemo, type ComponentProps } from "react";
@@ -42,6 +41,8 @@ import type {
   RABInvestorProfitShareMode,
   RABOpexBufferFundingMode,
   RABProject,
+  RABDisbursement,
+  RABWbs,
 } from "./rabTypes";
 import { Modal } from "@/components/ui/Modal";
 import { Combobox } from "@/components/ui/Combobox";
@@ -397,10 +398,7 @@ export default function RABForm({
           name: initialData.name || "",
           description: initialData.description || "",
           mixRadiusGroupId: initialData.mixRadiusGroupId || "",
-          mixRadiusInvestorSiteId:
-            (initialData as any).mixRadiusInvestorSiteId ||
-            initialData.mixRadiusInvestorSiteId ||
-            "",
+          mixRadiusInvestorSiteId: initialData.mixRadiusInvestorSiteId || "",
           siteId: initialData.siteId || "",
           status: initialData.status || "DRAFT",
           startDate: initialData.startDate
@@ -418,7 +416,8 @@ export default function RABForm({
             initialData.investorProfitShareBeforeBepPercent ?? 80,
           investorProfitShareAfterBepPercent:
             initialData.investorProfitShareAfterBepPercent ?? 60,
-          nplTolerancePercent: (initialData as any).nplTolerancePercent || 0,
+          nplTolerancePercent:
+            (initialData.nplTolerancePercent as number | undefined) || 0,
           contingencyPercent: initialData.contingencyPercent || 0,
           opexBufferFundingMode:
             initialData.opexBufferFundingMode || "INVESTOR",
@@ -431,7 +430,9 @@ export default function RABForm({
           opexBufferSafetyPercent: initialData.opexBufferSafetyPercent ?? 0,
           hasDisbursementPlan: initialData.hasDisbursementPlan || false,
           investorIds:
-            (initialData as any).investors?.map((i: any) => i.investorId) || [],
+            initialData.investors?.map(
+              (i: { investorId: string }) => i.investorId,
+            ) || [],
         });
 
         setTargetBasis(initialData.targetBasis || "HOMECONNECT");
@@ -472,21 +473,23 @@ export default function RABForm({
               id: item.id,
               name: item.name,
               category: item.category,
-              expenseCategoryId: (item as any).expenseCategoryId || undefined,
+              expenseCategoryId: item.expenseCategoryId || undefined,
               quantity: Number(item.quantity),
               unitPrice: Number(item.unitPrice),
               expenseType: item.expenseType || "CAPEX",
-              wbsGroupId: (item as any).wbsId || item.wbsGroupId || undefined,
-              disbursements: (item.disbursements || []).map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                percentage: d.percentage,
-                amount: Number(d.amount),
-                estimatedDate: d.estimatedDate
-                  ? new Date(d.estimatedDate).toISOString().split("T")[0]
-                  : "",
-                isPaid: d.isPaid || false,
-              })),
+              wbsGroupId: item.wbsId || item.wbsGroupId || undefined,
+              disbursements: (item.disbursements || []).map(
+                (d: RABDisbursement) => ({
+                  id: d.id,
+                  name: d.name,
+                  percentage: d.percentage,
+                  amount: Number(d.amount),
+                  estimatedDate: d.estimatedDate
+                    ? new Date(d.estimatedDate).toISOString().split("T")[0]
+                    : "",
+                  isPaid: d.isPaid || false,
+                }),
+              ),
             })),
           );
         } else {
@@ -495,7 +498,7 @@ export default function RABForm({
 
         // Load WBS
         setWbsGroups(
-          (initialData.wbsGroups || []).map((w: any) => ({
+          (initialData.wbsGroups || []).map((w: RABWbs) => ({
             id: w.id,
             name: w.name,
             order: w.order,

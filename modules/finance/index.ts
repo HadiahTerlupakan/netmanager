@@ -49,6 +49,9 @@ export {
 // Repository Facade - Public API for other modules
 export { FinanceRepositoryFacade } from "./services/FinanceRepositoryFacade";
 
+// Types from domain ports
+export type { UnpaidPurchaseOrderWithTransactions } from "./domain/ports/IUnpaidBillsReadRepository";
+
 // Types - Re-export from lib folder
 export type {
   Prisma,

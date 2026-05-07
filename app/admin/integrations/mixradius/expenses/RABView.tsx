@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -20,7 +19,11 @@ import { useSession } from "next-auth/react";
 import { calculateRabUnitCosts } from "@/modules/finance/client";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
-import type { RABProject } from "./rabTypes";
+import type {
+  RABProject,
+  LinearGrowthSettings,
+  PercentageGrowthSettings,
+} from "./rabTypes";
 import RABRevisionSummaryCards from "./RABRevisionSummaryCards";
 import RABRevisionTimeline from "./RABRevisionTimeline";
 import RABTrackingSection from "./RABTrackingSection";
@@ -201,7 +204,10 @@ export default function RABView({
 
   const approvalCount = data.approvals?.length ?? 0;
   const canManage =
-    (currentUser as any)?.isSuperAdmin || (currentUser as any)?.canApproveRab;
+    (currentUser as { isSuperAdmin?: boolean; canApproveRab?: boolean })
+      ?.isSuperAdmin ||
+    (currentUser as { isSuperAdmin?: boolean; canApproveRab?: boolean })
+      ?.canApproveRab;
   const hasReachedApprovalTarget = approvalCount >= REQUIRED_APPROVALS;
 
   const capexItems = data.items.filter(
@@ -810,7 +816,11 @@ export default function RABView({
                       <span className="text-gray-500">Target Bulanan</span>
                       <span className="font-semibold text-gray-900 dark:text-gray-100 text-right">
                         +
-                        {(data.growthSettings as any)?.subscribersPerMonth || 0}{" "}
+                        {(
+                          data.growthSettings as
+                            | LinearGrowthSettings
+                            | undefined
+                        )?.subscribersPerMonth || 0}{" "}
                         <span className="text-xs font-normal text-gray-500">
                           Pelanggan/Bulan
                         </span>
@@ -823,12 +833,20 @@ export default function RABView({
                       <div className="font-semibold text-gray-900 dark:text-gray-100 flex flex-col items-end">
                         <span>
                           Awal:{" "}
-                          {(data.growthSettings as any)?.initialPercent || 0}%
+                          {(
+                            data.growthSettings as
+                              | PercentageGrowthSettings
+                              | undefined
+                          )?.initialPercent || 0}
+                          %
                         </span>
                         <span className="text-xs text-emerald-600 dark:text-emerald-400">
                           Naik{" "}
-                          {(data.growthSettings as any)?.monthlyGrowthPercent ||
-                            0}
+                          {(
+                            data.growthSettings as
+                              | PercentageGrowthSettings
+                              | undefined
+                          )?.monthlyGrowthPercent || 0}
                           % / Bulan
                         </span>
                       </div>

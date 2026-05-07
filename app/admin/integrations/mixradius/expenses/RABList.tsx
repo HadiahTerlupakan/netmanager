@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { clientLogger } from "@/lib/client-logger";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -33,7 +32,7 @@ import {
   formatRabItemCategory,
   formatRabProfitSharePdfRows,
 } from "./rab-formatters";
-import type { RABProject } from "./rabTypes";
+import type { RABProject, RABDisbursement } from "./rabTypes";
 
 interface RABListProps {
   initialData?: RABProject[];
@@ -401,7 +400,16 @@ export default function RABList({
       ];
 
       // Generate rows with WBS grouping if applicable
-      const tableData: any[] = [];
+      const tableData: Array<
+        Array<
+          | string
+          | {
+              content: string;
+              colSpan?: number;
+              styles?: Record<string, unknown>;
+            }
+        >
+      > = [];
       const hasWbs = project.wbsGroups && project.wbsGroups.length > 0;
 
       if (!hasWbs) {
@@ -420,12 +428,12 @@ export default function RABList({
           (a, b) => a.order - b.order,
         );
         const ungrouppedItems = project.items.filter(
-          (i) => !(i as any).wbsId && !i.wbsGroupId,
+          (i) => !i.wbsId && !i.wbsGroupId,
         );
 
         groups.forEach((wbs) => {
           const groupItems = project.items.filter(
-            (i) => (i as any).wbsId === wbs.id || i.wbsGroupId === wbs.id,
+            (i) => i.wbsId === wbs.id || i.wbsGroupId === wbs.id,
           );
           if (groupItems.length === 0) return;
           const groupSubtotal = groupItems.reduce(
@@ -532,7 +540,9 @@ export default function RABList({
       });
 
       // Disbursements Table
-      const allDisbursements = project.items.reduce((acc, item) => {
+      const allDisbursements = project.items.reduce<
+        Array<RABDisbursement & { itemName: string }>
+      >((acc, item) => {
         if (item.disbursements && item.disbursements.length > 0) {
           item.disbursements.forEach((d) => {
             acc.push({
@@ -542,7 +552,7 @@ export default function RABList({
           });
         }
         return acc;
-      }, [] as any[]);
+      }, []);
 
       if (allDisbursements.length > 0) {
         // Sort by date chronologically

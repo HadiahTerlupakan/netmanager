@@ -20,9 +20,21 @@ export type UnpaidBillsAccount = {
   updatedAt: Date;
 };
 
-export type UnpaidPurchaseOrderWithTransactions = Record<string, unknown> & {
+export type UnpaidPurchaseOrderWithTransactions = {
+  id: string;
   poNumber: string;
-  transactions: { amount: number }[];
+  totalAmount: number;
+  ppnAmount: number;
+  ppnRate: number;
+  grandTotal: number;
+  paymentStatus: "UNPAID" | "PARTIAL" | "PAID";
+  createdAt: string | Date;
+  supplier?: {
+    name: string;
+  } | null;
+  transactions: Array<{
+    amount: number;
+  }>;
 };
 
 /** Repository port for unpaid bills page queries. */

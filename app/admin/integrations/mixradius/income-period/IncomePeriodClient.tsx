@@ -180,8 +180,9 @@ export default function IncomePeriodClient() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState("renewed_on");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [payouts, setPayouts] = useState<any[]>([]);
+  const [payouts, setPayouts] = useState<
+    Array<{ referenceId?: string; amount: string | number }>
+  >([]);
   const [syncingMitra, setSyncingMitra] = useState<string | null>(null);
 
   // Pagination state

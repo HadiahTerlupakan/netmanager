@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/lib/utils";
-import type { Account, PurchaseOrder } from "@/types";
+import type { Account } from "@/types";
+import type { UnpaidPurchaseOrderWithTransactions } from "@/modules/finance";
 
 interface UnpaidBillsClientProps {
-  initialData: PurchaseOrder[];
+  initialData: UnpaidPurchaseOrderWithTransactions[];
   accounts: Account[];
   hideHeader?: boolean;
 }
@@ -21,7 +22,8 @@ export default function UnpaidBillsClient({
   hideHeader = false,
 }: UnpaidBillsClientProps) {
   const router = useRouter();
-  const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
+  const [selectedPo, setSelectedPo] =
+    useState<UnpaidPurchaseOrderWithTransactions | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -36,7 +38,7 @@ export default function UnpaidBillsClient({
   const [notes, setNotes] = useState("");
   const [paidFromAccountId, setPaidFromAccountId] = useState("");
 
-  const openPaymentModal = (po: PurchaseOrder) => {
+  const openPaymentModal = (po: UnpaidPurchaseOrderWithTransactions) => {
     setSelectedPo(po);
     setAmount(po.totalAmount); // Default full payment
     setPaidFromAccountId("");

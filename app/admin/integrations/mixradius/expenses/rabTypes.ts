@@ -6,11 +6,13 @@ export interface RABItem {
   id: string;
   name: string;
   category?: string;
+  expenseCategoryId?: string;
   expenseCategory?: { name: string; parent?: { name: string } };
   quantity: number;
   unitPrice: number;
   totalPrice: number;
   expenseType?: "CAPEX" | "OPEX";
+  wbsId?: string;
   wbsGroupId?: string;
   disbursements?: RABDisbursement[];
 }
@@ -129,6 +131,7 @@ export interface RABProject {
   hasDisbursementPlan?: boolean;
   wbsGroups?: RABWbs[];
   disbursements?: RABDisbursement[];
+  investors?: Array<{ investorId: string }>;
   status: string;
   items: RABItem[];
   approvals?: RABApproval[];
