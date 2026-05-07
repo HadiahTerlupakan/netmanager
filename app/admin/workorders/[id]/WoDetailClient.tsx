@@ -21,6 +21,7 @@ import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import type { WorkOrderActivityPayload } from "@/lib/websocket/types";
 import { usePermission } from "@/hooks/use-permission";
+import { Button } from "@/components/ui/Button";
 
 import type {
   WorkOrderDetail,
@@ -552,43 +553,46 @@ export function ClientComponent() {
           workOrder.status !== "CANCELLED" &&
           workOrder.status !== "CLOSED" &&
           workOrder.status !== "COMPLETED" && (
-            <button
+            <Button
               onClick={() => setShowCancelModal(true)}
               disabled={processingApproval}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+              variant="outline"
+              className="border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <HiXMark className="w-5 h-5" />
               Batalkan
-            </button>
+            </Button>
           )}
         {canDelete && (
-          <button
+          <Button
             onClick={() => setShowDeleteModal(true)}
             disabled={processingApproval}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-red-600 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+            variant="outline"
+            className="border-red-600 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
             <HiXMark className="w-5 h-5" />
             Hapus
-          </button>
+          </Button>
         )}
         {canVerify && workOrder.status === "COMPLETED" && (
           <div className="flex items-center gap-2">
-            <button
+            <Button
               onClick={() => setShowRejectModal(true)}
               disabled={processingApproval}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+              variant="outline"
+              className="border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <HiXMark className="w-5 h-5" />
               Tolak
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setShowVerifyModal(true)}
               disabled={processingApproval}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+              variant="success"
             >
               <HiCheckCircle className="w-5 h-5" />
               Verifikasi
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -617,12 +621,13 @@ export function ClientComponent() {
                       <option value="VERIFIED">Verified</option>
                       <option value="CLOSED">Closed</option>
                     </select>
-                    <button
+                    <Button
                       onClick={() => handleUpdateField("status")}
-                      className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                      variant="success"
+                      size="icon-sm"
                     >
                       <HiCheck className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1">
@@ -660,12 +665,13 @@ export function ClientComponent() {
                       <option value="URGENT">Urgent</option>
                       <option value="CRITICAL">Critical</option>
                     </select>
-                    <button
+                    <Button
                       onClick={() => handleUpdateField("priority")}
-                      className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                      variant="success"
+                      size="icon-sm"
                     >
                       <HiCheck className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1">

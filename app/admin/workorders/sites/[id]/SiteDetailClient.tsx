@@ -16,6 +16,7 @@ import {
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { usePermission } from "@/hooks/use-permission";
+import { buttonVariants } from "@/components/ui/Button";
 
 interface Site {
   id: string;
@@ -307,7 +308,7 @@ export function SiteDetailClient({ siteId }: { siteId: string }) {
                 href={`https://www.google.com/maps?q=${site.location.latitude},${site.location.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                className={buttonVariants({ variant: "default" })}
               >
                 <HiOutlineGlobeAlt className="w-4 h-4" />
                 Buka di Google Maps

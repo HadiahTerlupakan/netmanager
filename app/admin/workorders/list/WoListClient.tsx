@@ -1172,13 +1172,13 @@ export function ClientComponent() {
           >
             Batal
           </button>
-          <button
+          <Button
             onClick={handleReject}
             disabled={processingApproval || !rejectReason.trim()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            variant="destructive"
           >
             {processingApproval ? "Memproses..." : "Tolak & Kembalikan"}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -1213,13 +1213,13 @@ export function ClientComponent() {
           >
             Kembali
           </button>
-          <button
+          <Button
             onClick={handleCancel}
             disabled={processingApproval || !cancelReason.trim()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            variant="destructive"
           >
             {processingApproval ? "Memproses..." : "Batalkan WO"}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -1244,13 +1244,13 @@ export function ClientComponent() {
           >
             Batal
           </button>
-          <button
+          <Button
             onClick={handleDelete}
             disabled={processingApproval}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            variant="destructive"
           >
             {processingApproval ? "Menghapus..." : "Ya, Hapus Permanen"}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -1275,13 +1275,13 @@ export function ClientComponent() {
           >
             Batal
           </button>
-          <button
+          <Button
             onClick={handleApproveRequest}
             disabled={processingApproval}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            variant="success"
           >
             {processingApproval ? "Memproses..." : "Ya, Setujui"}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
 
@@ -1316,13 +1316,13 @@ export function ClientComponent() {
           >
             Batal
           </button>
-          <button
+          <Button
             onClick={handleRejectRequest}
             disabled={processingApproval || !rejectRequestReason.trim()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            variant="destructive"
           >
             {processingApproval ? "Memproses..." : "Tolak Request"}
-          </button>
+          </Button>
         </ModalFooter>
       </Modal>
 
