@@ -137,6 +137,10 @@ export async function logAuditActivity(
       .map((p) => p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, " "))
       .join(" ") || "API Action";
 
+  // Check if body has actual data (not just empty object)
+  const hasBodyData =
+    body && typeof body === "object" && Object.keys(body).length > 0;
+
   await logger
     .logActivity({
       action,
@@ -145,7 +149,7 @@ export async function logAuditActivity(
       tenantId,
       ipAddress: ip,
       userAgent,
-      details: body
+      details: hasBodyData
         ? (redactSensitiveData(body) as Record<string, unknown>)
         : { path: pathname, status },
     })
