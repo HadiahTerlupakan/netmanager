@@ -187,11 +187,12 @@ Jika perlu real-time, bisa tambahkan polling atau WebSocket untuk auto-refresh s
 
 ## Conclusion
 
-**Status:** ✅ Kedua halaman sudah production-ready setelah perbaikan scope leakage
+**Status:** ✅ Semua halaman sudah production-ready setelah perbaikan scope leakage
 
 **Perbaikan yang sudah dilakukan:**
 - Fix empty sales names di canvasing list (Task #29) ✅
 - Fix scope leakage di sales list dan dashboard (Task #31) ✅
+- Fix scope leakage di canvasing list endpoint (Task #31 - final) ✅
 
 **Bug Kritis yang Ditemukan dan Diperbaiki:**
 
@@ -203,22 +204,30 @@ Jika perlu real-time, bisa tambahkan polling atau WebSocket untuk auto-refresh s
 - `getSalesDashboard()` tidak filter sites dropdown dan aggregate data
 - Weekly trend dan site stats menghitung data global tanpa scope restriction
 - **Deeper issue:** Restriction bergantung pada permission `sales:site_only` yang belum tentu aktif di role existing
+- **Actual root cause:** Canvasing list page menggunakan endpoint `/api/marketing/canvasing` yang berbeda dari sales routes dan masih menggunakan logika restriction lama
 
 **Solusi yang Diterapkan:**
 
-**Commit 1 (1a51fa08):** Permission-based restriction
+**Commit 1 (1a51fa08):** Permission-based restriction di sales routes
 - Extract `allowedSiteIds` dari `checkSiteRestriction()` di route layer
 - Pass `allowedSiteIds` ke service methods
 - Filter sales users, sites dropdown, dan aggregate data
 
-**Commit 2 (17f451b5):** Session-based restriction (final fix)
+**Commit 2 (17f451b5):** Session-based restriction di sales routes
 - Ubah dari permission-based ke session-based restriction
 - Non-super-admin users dengan `siteIds` otomatis restricted
 - Tidak lagi bergantung pada `sales:site_only` permission
 - Backward compatible dengan role existing yang belum punya permission `site_only`
 - Tambahkan MARKETING permission constants ke `lib/permissions.ts`
 
-**Implementation:**
+**Commit 3 (b8a9862b):** Session-based restriction di canvasing endpoint (final fix)
+- Fix endpoint `/api/marketing/canvasing` yang digunakan halaman canvasing list
+- Replace `permissions.includes("canvasing:site_only")` dengan session-based check
+- Validate user-provided siteId filter against `session.siteIds`
+- Default to first allowed site if no filter provided
+- Konsisten dengan pattern yang sudah diterapkan di sales/sales-dashboard routes
+
+**Implementation (Sales Routes):**
 ```typescript
 // Route layer - enforce restriction berdasarkan session
 const user = ctx.session.user as {
@@ -238,9 +247,39 @@ const siteFilter =
     : {};
 ```
 
+**Implementation (Canvasing Endpoint):**
+```typescript
+// Session-based site restriction
+const user = session as {
+  id: string;
+  siteId?: string;
+  siteIds?: string[];
+  role: string;
+};
+const isSiteRestricted =
+  !isSuperAdmin && user.siteIds && user.siteIds.length > 0;
+
+// Enforce restriction
+if (isSiteRestricted) {
+  if (user.siteIds && user.siteIds.length > 0) {
+    // Validate user-provided siteId filter
+    if (filterSiteId && !user.siteIds.includes(filterSiteId)) {
+      return emptyResponse;
+    }
+    // Default to first allowed site if no filter
+    if (!filterSiteId) {
+      filterSiteId = user.siteIds[0];
+    }
+  } else {
+    return emptyResponse;
+  }
+}
+```
+
 **Files Modified:**
 - `app/api/admin/marketing/sales/route.ts`
 - `app/api/admin/marketing/sales-dashboard/route.ts`
+- `app/api/marketing/canvasing/route.ts`
 - `modules/marketing/services/AdminSalesRouteService.ts`
 - `lib/permissions.ts`
 
@@ -258,5 +297,5 @@ const siteFilter =
 ---
 
 *Generated: 2026-05-08*
-*Updated: 2026-05-08 04:07 (Session-based restriction)*
+*Updated: 2026-05-08 04:13 (Canvasing endpoint restriction)*
 *Reviewer: Claude (Autonomous)*
