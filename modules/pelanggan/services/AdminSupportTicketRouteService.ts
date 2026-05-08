@@ -99,6 +99,7 @@ export class AdminSupportTicketRouteService {
     updateStatus?: TicketStatus;
     sendWhatsApp?: boolean;
     attachments?: string[];
+    allowedSiteIds?: string[];
   }) {
     return this.ticketService.replyToTicket({
       ticketId: input.ticketId,
@@ -107,6 +108,7 @@ export class AdminSupportTicketRouteService {
       updateStatus: input.updateStatus,
       sendWhatsApp: input.sendWhatsApp,
       attachments: input.attachments,
+      allowedSiteIds: input.allowedSiteIds,
     });
   }
 

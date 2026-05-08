@@ -62,6 +62,7 @@ interface AdminTicketReplyInput {
   updateStatus?: TicketStatus;
   sendWhatsApp?: boolean;
   attachments?: string[];
+  allowedSiteIds?: string[];
 }
 
 interface AdminUnreadCountResponse {
@@ -177,6 +178,26 @@ export class AdminSupportTicketService {
       if (!ticket) return this.notFoundResult();
       if (ticket.status === TicketStatus.CLOSED)
         return this.closedTicketResult();
+
+      // Validate scope: ticket must belong to pelanggan in allowed sites
+      if (input.allowedSiteIds && input.allowedSiteIds.length > 0) {
+        const { getPelangganService } = await import("./PelangganService");
+        const pelanggan = await getPelangganService().getPelanggan(
+          ticket.pelangganId,
+        );
+        if (
+          !pelanggan ||
+          !pelanggan.siteId ||
+          !input.allowedSiteIds.includes(pelanggan.siteId)
+        ) {
+          return {
+            success: false,
+            error:
+              "Anda tidak dapat membalas tiket untuk pelanggan di luar scope Anda",
+            code: "FORBIDDEN",
+          };
+        }
+      }
 
       const reply = await this.ticketRepo.createReply({
         ticketId: input.ticketId,

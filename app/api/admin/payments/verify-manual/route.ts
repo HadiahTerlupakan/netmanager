@@ -5,12 +5,13 @@ import {
   ManualPaymentAdminRouteService,
   isRouteServiceError,
 } from "@/modules/finance";
+import { checkSiteRestriction } from "@/modules/roles";
 
 const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureAdminAccess();
+    const session = await ensureAdminAccess();
     const body = await request.json();
     const { paymentId, action, notes } = body;
     if (!paymentId || !action) {
@@ -19,10 +20,18 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      session as never,
+      "finance",
+    );
+    const allowedSiteIds = isRestricted ? siteIds : undefined;
+
     const result = await manualPaymentAdminRouteService.verifyManualPayment({
       paymentId,
       action,
       notes,
+      allowedSiteIds,
     });
     return NextResponse.json(result);
   } catch (e) {

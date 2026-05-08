@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { cancelPaidPayment, PaymentCancellationError } from "@/modules/finance";
+import { checkSiteRestriction } from "@/modules/roles";
 
 export async function POST(
   _request: NextRequest,
@@ -17,10 +18,17 @@ export async function POST(
       );
     }
 
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      session as never,
+      "finance",
+    );
+    const allowedSiteIds = isRestricted ? siteIds : undefined;
+
     const { id: paymentId } = await params;
     await cancelPaidPayment({
       paymentId,
       adminLabel: session.user.name || session.user.email || "Admin",
+      allowedSiteIds,
     });
 
     return NextResponse.json({

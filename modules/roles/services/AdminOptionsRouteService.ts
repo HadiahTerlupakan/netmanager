@@ -29,14 +29,22 @@ export class AdminOptionsRouteService {
   }
 
   /** Ambil option site dan departemen untuk kebutuhan form admin. */
-  async getOptions(): Promise<AdminOptionsResponseDTO> {
+  async getOptions(
+    allowedSiteIds?: string[],
+  ): Promise<AdminOptionsResponseDTO> {
     const [sites, departments] = await Promise.all([
       this.siteRepository.findAll({ activeOnly: true }),
       this.departmentRepository.findAll(),
     ]);
 
+    // Filter sites by scope if restricted
+    const filteredSites =
+      allowedSiteIds && allowedSiteIds.length > 0
+        ? sites.filter((site) => allowedSiteIds.includes(site.id))
+        : sites;
+
     return {
-      sites: this.toSiteOptions(sites),
+      sites: this.toSiteOptions(filteredSites),
       departments: this.toDepartmentOptions(departments),
     };
   }

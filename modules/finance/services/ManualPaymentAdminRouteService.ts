@@ -75,6 +75,7 @@ export class ManualPaymentAdminRouteService {
     paymentId: string;
     action: string;
     notes?: string | null;
+    allowedSiteIds?: string[];
   }) {
     const payment = await this.paymentRepository.findByIdWithInvoice(
       input.paymentId,
@@ -82,6 +83,23 @@ export class ManualPaymentAdminRouteService {
 
     if (!payment || payment.gatewayStatus !== "PENDING") {
       throw createRouteServiceError(PAYMENT_NOT_FOUND_MESSAGE, 404);
+    }
+
+    // Validate scope: payment must belong to pelanggan in allowed sites
+    if (input.allowedSiteIds && input.allowedSiteIds.length > 0) {
+      const pelanggan = await this.pelangganRepository.findById(
+        payment.pelangganId,
+      );
+      if (
+        !pelanggan ||
+        !pelanggan.siteId ||
+        !input.allowedSiteIds.includes(pelanggan.siteId)
+      ) {
+        throw createRouteServiceError(
+          "Anda tidak dapat memverifikasi payment untuk pelanggan di luar scope Anda",
+          403,
+        );
+      }
     }
 
     if (input.action === "REJECT") {

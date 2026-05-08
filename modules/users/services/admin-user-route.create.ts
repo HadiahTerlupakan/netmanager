@@ -24,7 +24,14 @@ export class AdminUserRouteCreateService {
     const context = await this.buildCreationContext(session, scopedPayload);
     const user = await this.createUserEntity(scopedPayload, context);
 
-    await this.syncNewUserSites(user.id, scopedPayload.userSites);
+    const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
+    const allowedSiteIds = isRestricted ? siteIds : undefined;
+
+    await this.syncNewUserSites(
+      user.id,
+      scopedPayload.userSites,
+      allowedSiteIds,
+    );
     await this.initializeLeaveQuotas(
       user.id,
       scopedPayload.leaveQuotas,
@@ -35,7 +42,11 @@ export class AdminUserRouteCreateService {
   }
 
   /** Sinkronkan assignment site untuk user baru. */
-  async syncNewUserSites(userId: string, userSites?: NewUserSiteAssignment[]) {
+  async syncNewUserSites(
+    userId: string,
+    userSites?: NewUserSiteAssignment[],
+    allowedSiteIds?: string[],
+  ) {
     const validUserSites = (userSites ?? []).filter(
       (userSite): userSite is { siteId: string; isPrimary?: boolean } =>
         Boolean(userSite.siteId),
@@ -43,6 +54,18 @@ export class AdminUserRouteCreateService {
 
     if (validUserSites.length === 0) {
       return;
+    }
+
+    // Validate each siteId against allowed scope
+    if (allowedSiteIds && allowedSiteIds.length > 0) {
+      const invalidSites = validUserSites.filter(
+        (us) => !allowedSiteIds.includes(us.siteId),
+      );
+      if (invalidSites.length > 0) {
+        throw new Error(
+          "Anda tidak dapat menambahkan user ke site di luar scope Anda",
+        );
+      }
     }
 
     await this.userRepository.syncUserSites(userId, validUserSites);

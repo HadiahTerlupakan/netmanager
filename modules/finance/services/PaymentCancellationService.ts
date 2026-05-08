@@ -16,9 +16,28 @@ export class PaymentCancellationError extends Error {
 export async function cancelPaidPayment(options: {
   paymentId: string;
   adminLabel: string;
+  allowedSiteIds?: string[];
 }) {
   const payment = await findPaymentWithInvoice(options.paymentId);
   const invoice = payment.invoice;
+
+  // Validate scope: payment must belong to pelanggan in allowed sites
+  if (options.allowedSiteIds && options.allowedSiteIds.length > 0) {
+    const pelanggan = await getPelangganService().getPelanggan(
+      invoice.pelangganId,
+    );
+    if (
+      !pelanggan ||
+      !pelanggan.siteId ||
+      !options.allowedSiteIds.includes(pelanggan.siteId)
+    ) {
+      throw new PaymentCancellationError(
+        "Anda tidak dapat membatalkan payment untuk pelanggan di luar scope Anda",
+        403,
+      );
+    }
+  }
+
   const newPaidAmount = calculatePaidAmount(invoice.paidAmount, payment.amount);
   const newStatus = calculateInvoiceStatus(
     newPaidAmount,

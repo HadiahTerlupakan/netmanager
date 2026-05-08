@@ -79,6 +79,7 @@ export class AdminUserRouteUpdateService {
     userId: string,
     data: Prisma.UserUncheckedUpdateInput,
     userSites: UpdateUserPayload["userSites"],
+    allowedSiteIds?: string[],
   ): Promise<void> {
     await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: userId }, data });
@@ -87,7 +88,7 @@ export class AdminUserRouteUpdateService {
       }
 
       await tx.userSite.deleteMany({ where: { userId } });
-      await persistUserSites(tx, userId, userSites);
+      await persistUserSites(tx, userId, userSites, allowedSiteIds);
     });
   }
 
@@ -107,10 +108,23 @@ async function persistUserSites(
   tx: Prisma.TransactionClient,
   userId: string,
   userSites: NonNullable<UpdateUserPayload["userSites"]>,
+  allowedSiteIds?: string[],
 ): Promise<void> {
   if (userSites.length === 0) {
     await tx.user.update({ where: { id: userId }, data: { siteId: null } });
     return;
+  }
+
+  // Validate each siteId against allowed scope
+  if (allowedSiteIds && allowedSiteIds.length > 0) {
+    const invalidSites = userSites.filter(
+      (us) => !allowedSiteIds.includes(us.siteId),
+    );
+    if (invalidSites.length > 0) {
+      throw new Error(
+        "Anda tidak dapat menambahkan user ke site di luar scope Anda",
+      );
+    }
   }
 
   await tx.userSite.createMany({

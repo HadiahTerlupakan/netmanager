@@ -7,6 +7,7 @@ import {
   createHandler,
 } from "@/lib/api";
 import { getAdminSupportTicketRouteService } from "@/modules/pelanggan";
+import { checkSiteRestriction } from "@/modules/roles";
 
 /**
  * POST /api/admin/support-tickets/[id]/reply
@@ -32,6 +33,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    ctx.session as never,
+    "support",
+  );
+  const allowedSiteIds = isRestricted ? siteIds : undefined;
+
   const result = await supportTicketRouteService.replyToTicket({
     ticketId: id,
     senderId: user.id,
@@ -39,10 +46,16 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     updateStatus: updateStatus || WAITING_CUSTOMER_STATUS,
     sendWhatsApp,
     attachments,
+    allowedSiteIds,
   });
 
   if (!result.success) {
     if (result.code === "NOT_FOUND") return ApiErrors.notFound("Tiket");
+    if (result.code === "FORBIDDEN") {
+      return apiError(result.error || "Akses ditolak", ErrorCodes.FORBIDDEN, {
+        status: 403,
+      });
+    }
     if (result.code === "VALIDATION_ERROR") {
       return apiError(
         result.error || "Data tidak valid",

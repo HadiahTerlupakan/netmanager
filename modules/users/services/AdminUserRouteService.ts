@@ -106,10 +106,14 @@ export class AdminUserRouteService {
     );
     if (!data.ok) return data;
 
+    const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
+    const allowedSiteIds = isRestricted ? siteIds : undefined;
+
     await this.updateService.persistUpdate(
       userId,
       data.data,
       payload.userSites,
+      allowedSiteIds,
     );
     await this.updateService.runAfterUpdate(userId, payload);
     return { ok: true, data: { ok: true } } satisfies UserRouteResult<{
