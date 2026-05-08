@@ -17,6 +17,7 @@ export interface WithdrawRequestFilter {
   page: number;
   limit: number;
   tenantId?: string;
+  allowedSiteIds?: string[];
 }
 
 export interface UpdateWithdrawStatusRecord {

@@ -21,6 +21,7 @@ function mapMitraProfile(entity: MitraEntity) {
     phone: entity.phone,
     mitraType: entity.mitraType as MitraWithDetails["mitraType"],
     isActive: entity.isActive,
+    siteId: entity.siteId,
     mixradiusOwnerNames: entity.mixradiusOwnerNames,
   };
 }

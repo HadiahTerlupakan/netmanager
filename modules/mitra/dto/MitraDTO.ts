@@ -107,6 +107,7 @@ export interface MitraWithDetails {
   phone: string | null;
   mitraType: MitraType;
   isActive: boolean;
+  siteId: string | null;
   mitraRateWoPsb: number | null;
   mitraRateWoMaintenance: number | null;
   mitraRateCanvasing?: number | null;

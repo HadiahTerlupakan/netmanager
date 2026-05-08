@@ -221,6 +221,7 @@ export class MitraWithdrawService {
     page?: number;
     limit?: number;
     tenantId?: string;
+    allowedSiteIds?: string[];
   }) {
     try {
       const page = filters.page ?? DEFAULT_PAGE;
@@ -231,6 +232,7 @@ export class MitraWithdrawService {
         page,
         limit,
         tenantId: filters.tenantId,
+        allowedSiteIds: filters.allowedSiteIds,
       });
       return { success: true, data: result };
     } catch (error) {
