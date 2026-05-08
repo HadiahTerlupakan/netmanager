@@ -25,8 +25,8 @@ export function useSettings() {
     async function fetchSettings() {
       try {
         const [generalRes, logoRes] = await Promise.all([
-          fetch("/api/settings/general"),
-          fetch("/api/settings/logo"),
+          fetch("/api/settings/general/public"),
+          fetch("/api/settings/logo/public"),
         ]);
 
         if (generalRes.ok) {
