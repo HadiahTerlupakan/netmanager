@@ -32,7 +32,7 @@ export default function CanvasingListHeader({
 
       <div className="flex w-full flex-col items-center gap-3 md:w-auto md:flex-row">
         <div className="w-full md:w-48">
-          <SiteFilter onSiteChange={onSiteChange} />
+          <SiteFilter onSiteChange={onSiteChange} resource="canvasing" />
         </div>
         {canCreate && (
           <Link
